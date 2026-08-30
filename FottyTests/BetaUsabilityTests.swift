@@ -495,6 +495,35 @@ final class HomeDiscoveryTests: XCTestCase {
         XCTAssertTrue(HomeSportsSearch.results(in: schedule, query: "   ").isEmpty)
     }
 
+    func testGlobalSearchFindsReviewedNonFootballLeaguesFromProviderIdentity() {
+        let nhl = event(
+            "edmonton-oilers-vs-vancouver-canucks-2357029",
+            sport: "hockey",
+            home: "Edmonton Oilers",
+            away: "Vancouver Canucks",
+            sources: [.init(source: "delta", id: "live_nhl_oilers-canucks-live-streaming-1234929834")]
+        )
+        let mlb = event(
+            "san-diego-padres-vs-seattle-mariners-2387150",
+            sport: "baseball",
+            home: "San Diego Padres",
+            away: "Seattle Mariners",
+            sources: [.init(source: "delta", id: "live_mlb_padres-mariners-live-streaming-1200156642")]
+        )
+        let unrelatedHockey = event(
+            "international-hockey",
+            sport: "hockey",
+            home: "Finland",
+            away: "Sweden"
+        )
+        let schedule = HomeSportsDiscovery(events: [unrelatedHockey, mlb, nhl], now: now)
+
+        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "NHL").map(\.id), [nhl.id])
+        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "National Hockey League").map(\.id), [nhl.id])
+        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "MLB").map(\.id), [mlb.id])
+        XCTAssertTrue(HomeSportsSearch.results(in: schedule, query: "NBA").isEmpty)
+    }
+
     func testHomeDeduplicationPreservesDoubleheadersDifferentSportsAndUnknownTeams() {
         let one = event("a", home: "City")
         let later = event("b", offset: 3600, home: "City")

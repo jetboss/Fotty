@@ -5,6 +5,79 @@ import SwiftUI
 /// cannot disagree with the Home lineup.
 @MainActor
 enum HomeSportsSearch {
+    private struct LeagueIdentity {
+        let markers: [String]
+        let searchTerms: String
+    }
+
+    /// Nexus normalizes most events to a sport category, so league identity is
+    /// sometimes retained only in an event/source identifier. Expose only a
+    /// reviewed category-scoped vocabulary here; never dump opaque provider
+    /// identifiers into the user-facing search haystack.
+    private static let nonFootballLeagues: [String: [LeagueIdentity]] = [
+        "basketball": [
+            .init(markers: ["nba"], searchTerms: "NBA National Basketball Association"),
+            .init(markers: ["wnba"], searchTerms: "WNBA Women's National Basketball Association"),
+            .init(markers: ["ncaab", "ncaa"], searchTerms: "NCAA NCAAB college basketball"),
+            .init(markers: ["fiba"], searchTerms: "FIBA"),
+            .init(markers: ["euroleague"], searchTerms: "EuroLeague"),
+            .init(markers: ["nbl"], searchTerms: "NBL National Basketball League")
+        ],
+        "baseball": [
+            .init(markers: ["mlb"], searchTerms: "MLB Major League Baseball"),
+            .init(markers: ["npb"], searchTerms: "NPB Nippon Professional Baseball"),
+            .init(markers: ["kbo"], searchTerms: "KBO Korea Baseball Organization")
+        ],
+        "hockey": [
+            .init(markers: ["nhl"], searchTerms: "NHL National Hockey League"),
+            .init(markers: ["khl"], searchTerms: "KHL Kontinental Hockey League"),
+            .init(markers: ["ahl"], searchTerms: "AHL American Hockey League")
+        ],
+        "american-football": [
+            .init(markers: ["nfl"], searchTerms: "NFL National Football League"),
+            .init(markers: ["ufl"], searchTerms: "UFL United Football League"),
+            .init(markers: ["cfl"], searchTerms: "CFL Canadian Football League"),
+            .init(markers: ["ncaaf", "ncaa"], searchTerms: "NCAA NCAAF college football")
+        ],
+        "nfl": [
+            .init(markers: ["nfl"], searchTerms: "NFL National Football League")
+        ],
+        "cricket": [
+            .init(markers: ["ipl"], searchTerms: "IPL Indian Premier League"),
+            .init(markers: ["cpl"], searchTerms: "CPL Caribbean Premier League"),
+            .init(markers: ["psl"], searchTerms: "PSL Pakistan Super League"),
+            .init(markers: ["bbl"], searchTerms: "BBL Big Bash League")
+        ],
+        "fight": [
+            .init(markers: ["ufc"], searchTerms: "UFC Ultimate Fighting Championship"),
+            .init(markers: ["pfl"], searchTerms: "PFL Professional Fighters League"),
+            .init(markers: ["bellator"], searchTerms: "Bellator")
+        ],
+        "tennis": [
+            .init(markers: ["atp"], searchTerms: "ATP Association of Tennis Professionals"),
+            .init(markers: ["wta"], searchTerms: "WTA Women's Tennis Association")
+        ],
+        "golf": [
+            .init(markers: ["pga"], searchTerms: "PGA Professional Golfers Association"),
+            .init(markers: ["lpga"], searchTerms: "LPGA Ladies Professional Golf Association")
+        ],
+        "motor-sports": [
+            .init(markers: ["f1"], searchTerms: "F1 Formula 1 Formula One"),
+            .init(markers: ["motogp"], searchTerms: "MotoGP"),
+            .init(markers: ["nascar"], searchTerms: "NASCAR"),
+            .init(markers: ["indycar"], searchTerms: "IndyCar")
+        ],
+        "motorsports": [
+            .init(markers: ["f1"], searchTerms: "F1 Formula 1 Formula One"),
+            .init(markers: ["motogp"], searchTerms: "MotoGP"),
+            .init(markers: ["nascar"], searchTerms: "NASCAR"),
+            .init(markers: ["indycar"], searchTerms: "IndyCar")
+        ],
+        "f1": [
+            .init(markers: ["f1"], searchTerms: "F1 Formula 1 Formula One")
+        ]
+    ]
+
     enum Result: Identifiable {
         case fixture(HomeSportsDiscovery.Item)
         case channel(AnalyticalDataEngine.EventReference)
@@ -47,6 +120,7 @@ enum HomeSportsSearch {
                 event.categoryDisplayName,
                 leagueName(event) ?? ""
             ]
+            fields.append(contentsOf: inferredLeagueTerms(for: event))
             if event.isCPLFixture { fields.append("Caribbean Premier League CPL") }
             if event.isBroadcastChannel { fields.append("channel broadcast") }
             let haystack = normalized(fields.joined(separator: " "))
@@ -64,6 +138,24 @@ enum HomeSportsSearch {
         )
         .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
         .joined(separator: " ")
+    }
+
+    private static func inferredLeagueTerms(
+        for event: AnalyticalDataEngine.EventReference
+    ) -> [String] {
+        guard let identities = nonFootballLeagues[event.normalizedCategory] else {
+            return []
+        }
+        let evidence = [event.id, event.title ?? "", event.category ?? ""]
+            + (event.sources ?? []).map(\.id)
+        let tokens = Set(
+            normalized(evidence.joined(separator: " "))
+                .split(separator: " ")
+                .map(String.init)
+        )
+        return identities.compactMap { identity in
+            identity.markers.contains(where: tokens.contains) ? identity.searchTerms : nil
+        }
     }
 }
 
