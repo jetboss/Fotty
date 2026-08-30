@@ -39,7 +39,7 @@ targets:
         SWIFT_VERSION: 5.9
         TARGETED_DEVICE_FAMILY: 1,2
         MARKETING_VERSION: 2.0.0
-        CURRENT_PROJECT_VERSION: 46
+        CURRENT_PROJECT_VERSION: 47
       configs:
         Debug:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
@@ -64,7 +64,7 @@ targets:
         APPLICATION_EXTENSION_API_ONLY: YES
         SWIFT_VERSION: 5.9
         MARKETING_VERSION: 2.0.0
-        CURRENT_PROJECT_VERSION: 46
+        CURRENT_PROJECT_VERSION: 47
   FottyTests:
     type: bundle.unit-test
     platform: iOS
