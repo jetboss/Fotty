@@ -64,7 +64,9 @@ section_file "Agent Start" "$ROOT/AGENTS.md"
 section_file "Agent Brain Ops Playbook" "$ROOT/agent/playbooks/brain-ops.md"
 section_file "Agent Playback Playbook" "$ROOT/agent/playbooks/playback.md"
 
-section_command "Git Working Tree Snapshot" git status --short
+# OUT_FILE is rewritten before this command runs, so exclude it from its own
+# snapshot. Otherwise every generated source permanently claims it was dirty.
+section_command "Git Working Tree Snapshot" git status --short -- . ':(exclude)docs/notebooklm/Fotty-NotebookLM-Source.md'
 section_command "Recent iOS Player Files" find Fotty/Features/Player -maxdepth 2 -type f -name '*.swift'
 section_command "Current Playback Worker Files" find web/workers/playback -maxdepth 3 -type f
 
