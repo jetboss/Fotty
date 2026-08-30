@@ -21,7 +21,10 @@ if [[ -n "${FOTTY_CATALYST_DEPLOYMENT_TARGET:-}" ]]; then
   # GitHub's Xcode 27 image can temporarily trail the latest macOS beta.
   # This override applies only to Catalyst unit tests; the generic iOS
   # Release build below retains the project's real deployment target.
-  CATALYST_BUILD_SETTINGS+=("IPHONEOS_DEPLOYMENT_TARGET=$FOTTY_CATALYST_DEPLOYMENT_TARGET")
+  CATALYST_BUILD_SETTINGS+=(
+    "IPHONEOS_DEPLOYMENT_TARGET=$FOTTY_CATALYST_DEPLOYMENT_TARGET"
+    "MACOSX_DEPLOYMENT_TARGET=$FOTTY_CATALYST_DEPLOYMENT_TARGET"
+  )
 fi
 
 if [[ -n "${FOTTY_CI_DERIVED_DATA:-}" ]]; then
