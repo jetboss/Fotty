@@ -16,6 +16,8 @@ struct SportsDashboardView: View {
     @State private var selectedSportTab = HomeSportsDiscovery.allSports
     @State private var showsFullLineup = false
     @State private var showsAllSports = false
+    @State private var showsSearch = false
+    @State private var pendingSearchSelection: PendingSearchSelection?
     @State private var discoveryDate = Date()
     @State private var selectedFootballLeague: AnalyticalDataEngine.FootballLeagueTab = .all
     @State private var selectedCricketFilter: CricketCatalogFilter = .all
@@ -49,6 +51,12 @@ struct SportsDashboardView: View {
     @Query(sort: \FollowedTeamItem.createdAt, order: .forward) private var followedTeams: [FollowedTeamItem]
 
     private static let footballCategoryID = "football"
+
+    private struct PendingSearchSelection {
+        enum Destination { case open, details }
+        let event: AnalyticalDataEngine.EventReference
+        let destination: Destination
+    }
 
     var body: some View {
         NavigationStack {
@@ -86,6 +94,18 @@ struct SportsDashboardView: View {
                 .environment(liveScoreService)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showsSearch, onDismiss: completePendingSearchSelection) {
+            SearchView(
+                discovery: discovery,
+                isSaved: { myMatchdayStore.contains(eventID: $0) },
+                canWatch: isPlaybackCandidate(_:),
+                onOpen: { queueSearchSelection($0, destination: .open) },
+                onDetails: { queueSearchSelection($0, destination: .details) },
+                onSave: toggleSavedMatch(_:)
+            )
+            .environment(liveScoreService)
+            .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showsAllSports) {
             NavigationStack {
@@ -467,6 +487,25 @@ struct SportsDashboardView: View {
 
             Spacer()
 
+            Button {
+                showsSearch = true
+            } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.fottyScaled(size: 15, weight: .bold))
+                    .foregroundStyle(FottyTheme.textSecondary)
+                    .frame(width: 44, height: 44)
+                    .background(FottyTheme.surface)
+                    .clipShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: FottyTheme.radiusMD, style: .continuous)
+                            .strokeBorder(FottyTheme.border, lineWidth: 0.5)
+                    }
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Search sports")
+            .accessibilityHint("Searches every sport, team, league, match, and channel in the Home lineup")
+            .accessibilityIdentifier("home-search")
+
             if canOfferMultiView {
                 Button(action: beginMultiSelectMode) {
                     Label("Watch 2", systemImage: "square.split.2x1")
@@ -562,6 +601,25 @@ struct SportsDashboardView: View {
         HapticManager.impact(.light)
         withAnimation(FottyTheme.springSnappy) {
             myMatchdayStore.toggle(event)
+        }
+    }
+
+    private func queueSearchSelection(
+        _ event: AnalyticalDataEngine.EventReference,
+        destination: PendingSearchSelection.Destination
+    ) {
+        pendingSearchSelection = PendingSearchSelection(event: event, destination: destination)
+        showsSearch = false
+    }
+
+    private func completePendingSearchSelection() {
+        guard let selection = pendingSearchSelection else { return }
+        pendingSearchSelection = nil
+        switch selection.destination {
+        case .open:
+            openEvent(selection.event)
+        case .details:
+            selectedCatalogEvent = selection.event
         }
     }
 

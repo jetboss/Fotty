@@ -1,6 +1,6 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-08-30 10:05:35 AST
+Generated: 2026-08-30 12:43:43 AST
 
 This file is generated from safe project-memory sources and redacted command output.
 Upload this one file to NotebookLM when you want a fresh project snapshot.
@@ -28,6 +28,10 @@ Fotty is an iOS-first live sports companion with optional third-party web playba
 World Cup–specific hubs, seeds, and tournament-focus modes are retired (tournament over). Home discovers fixtures and channels via StreamEx; Matchday is the personal plan built from explicitly saved broadcasts and followed teams. FPL belongs in its dedicated tab, not repeated prompts, badges or automatic squad entries elsewhere.
 
 ## Current Platform Scope
+
+- **Native PiP background-continuity correction (local Unreleased, 2026-08-30)**: A real iPad native handoff could enter PiP but paused when Fotty moved behind another app. The app had the audio background mode and PiP controller, but only set the playback audio category; it did not explicitly activate the session when playback began, and `AVPlayer` retained the system-decided `.automatic` background policy. Native players now use `.continuesIfPossible`, activate the playback session at play/PiP boundaries, preserve the active PiP attempt through backgrounding and do not arm a false foreground resume. PiP UI restoration is acknowledged by the retained player presentation. The full simulator-free Catalyst unit suite and unsigned generic iOS Release pass. Real app-switch/lock-screen continuity still requires a native physical-device stream; this fix is not installed or uploaded.
+
+- **Clean GitHub baseline and app-wide discovery search (Unreleased, 2026-08-30)**: The public repository now starts from a reviewed clean root rather than the obsolete two-commit history that still contained retired Android credentials. Both stale remote Cursor branches were removed. GitHub secret scanning, push protection, Dependabot security updates and CodeQL default setup are enabled; Actions now own bounded Web, iOS, workflow/secret and daily provider-metadata gates. `tools/ios-ci.sh` never uses a simulator, cleans its one DerivedData root and adapts only its Catalyst test host target on GitHub—the real generic iOS Release target is unchanged. Home now exposes a global search over the exact shared `HomeSportsDiscovery` projection, including teams, sports, football leagues, identified non-football leagues, CPL fixtures and broadcast channels. Search performs no independent fetch and reuses Home badges, live-score qualification, countdowns, reminders and Watch routing. Exact Premier League queries cannot collide with Caribbean Premier League; reviewed sport-scoped source markers allow NHL/MLB and related acronyms/full names without labeling unrelated fixtures or exposing opaque provider IDs. Local Catalyst tests and unsigned generic iOS Release pass; the change is not versioned, installed or uploaded to TestFlight yet.
 
 - **Football identity drift prevention (local Unreleased, 2026-08-30)**: Chelsea–Brighton exposed a provider `and` versus catalog `&` alias drift, not an incorrect Premier League schedule. One generated Swift/TypeScript club resolver now owns known aliases and deterministic match keys; current-league membership remains separate from historical team identity. Home reconciles canonical teams plus a six-hour kickoff window to the existing official schedule and uses its competition when proven. Rejected provider markers record redacted local evidence. Five shared payload vectors and a metadata-only live provider audit run before the no-simulator release gate. The audit found and resolved Deportivo wording and excluded a Bundesliga 2 multiview listing, then passed all three reachable feeds. Web/Worker 87/87, TypeScript, complete Catalyst policies and generic iOS Release pass. This is not uploaded or installed; see `docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md`.
 
@@ -190,6 +194,7 @@ Build 42 consolidated the app changes from 36–41.
 - `Fotty/Features/Onboarding/MatchdaySetupCard.swift`: optional, dismissible Home guidance for following teams and saving broadcasts. No FPL promotion or manager dependency remains on Home or Matchday. `TeamOnboardingView` uses adaptive club tiles and cancellation-safe, debounced catalog lookup with explicit loading/empty/retry states. Empty Matchday exposes following and Home discovery; the FPL tab remains independent.
 - `Fotty/Features/Settings/Views/SettingsSupportViews.swift`: offline native help, shared capability explanations, and a local feedback draft with build/device context, opt-in redacted diagnostics, preview, copy for TestFlight and system sharing. It has no submission backend and never interprets copying/sharing as delivery. Player and FPL recovery screens expose this same report sheet.
 - `Fotty/Features/Dashboard/SportsDashboardView.swift`: owns All-sports-first Home, compact activity selection, a three-event mixed-sport Now & next list, two later fixtures, and the full lineup on its own navigation stack. Home and My Matchday use `MatchListViewModel.shared`; whichever fixture tab is visible drives its bounded refresh loop. All sports reuses the existing football score poller; a local minute clock never fetches data. Playback still requires an active catalog source; source-less fixtures open details.
+- `Fotty/Features/Search/SearchView.swift`: Home's app-wide search projection, reached from the masthead. `HomeSportsSearch` filters the already-built `HomeSportsDiscovery` items/channels with case-, width- and accent-insensitive multi-token matching, explicit football-league disambiguation and a reviewed sport-scoped non-football league vocabulary inferred from event/source identity. Opaque provider IDs never enter the haystack, and category alone does not promote every hockey/baseball/basketball event into a major league. It owns no network or playback resolver. `HomeDiscoveryRow`/`LiveEventCard` render the results, and the dashboard defers Watch/details presentation until the sheet dismisses.
 - `Fotty/Features/Dashboard/Components/HomeSportsDiscovery.swift`: presentation-only exact-event deduplication, timing/official-status precedence, stable sport activity summaries and bounded diverse curation. Real source descriptors are combined without URL synthesis; fuzzy identity and schema migration are excluded. Channels never enter on-now counts. `SportsDiscoveryViews.swift` owns adaptive activity buttons and compact source-gated event/bookmark actions with explicit sport and timing provenance.
 - `Fotty/Features/Dashboard/MatchListViewModel.swift`: one shared in-memory Nexus catalog with a configure-once SwiftData cache, preventing Home/Matchday contradictions during tab changes. It merges the dated CPL snapshot into cached/fresh catalogs. Debug-only cricket and cross-sport Home UI fixtures require automated-testing plus feature-specific flags and do not enter production persistence.
 - `Fotty/Core/Models/CricketCatalog.swift`: seven CPL franchise identities, cricket filters, and the explicitly dated 39-fixture 2026 schedule. Only matching franchises and kickoff within one hour can enrich a fixture with active catalog sources; channel sources and stale cached snapshot sources never do. The snapshot expires after the season and requires manual league-change checks before releases. Home separates channels from fixtures; My Matchday separates saved channels from dated plans. Neither subscribes to FPL context.
@@ -206,7 +211,7 @@ The build-43 reliability patch makes decoded progress video-owned and bridge fai
 2. `LivePlayerViewModel` owns resolution state, source selection, timeouts, cancellation, user-facing failure state, and the single `LivePlaybackState` authority.
 3. `LiveStreamResolver` resolves bounded catalog candidates through one CoreMedia/web track. It curates real variants first and uses at most one canonical fallback only for a provider family with a known canonical URL contract and only when no variants exist; Echo/Admin are never synthesized.
 4. `StreamPluginRegistry` loads built-in manifests; `StreamPluginProviderMatching` restricts active Watch sources to StreamEx and Score808 families. The old Hybrid P2P implementation is behind the undefined `FOTTY_LEGACY_P2P` condition and is not part of production compilation.
-5. `LiveWebEmbedPlayerView` is the physical-device WebKit adapter. It preserves the provider page for playback compatibility, performs one restrained play assist, proves readiness from decoded/advancing playback, owns attempt-scoped startup/stall recovery plus popup/nuisance/navigation containment, and reports actual HLS/MP4 candidates with the ephemeral attempt's referer, origin, user agent, and cookies. Its nuisance containment recognizes the specific VPN/install/continue-watching solicitation in accessible text and JavaScript dialogs, but never removes a matching ancestor that owns video, owns an iframe, or is effectively the player/root surface; generic overlays and the provider's real unmute prompt remain provider-owned. It also carries explicit play/pause commands through reachable HTML/JW frame media and reports non-cancelling surface taps so Fotty can reveal its bounded fallback controls without swallowing provider interaction. A non-explicit child-frame error deferred through the full startup deadline becomes a typed 20-second startup timeout; explicit provider rejections retain their reason. When the app backgrounds, its injected contract suspends reachable video/audio across the provider frame tree and resumes the same attempt on return.
+5. `LiveWebEmbedPlayerView` is the physical-device WebKit adapter. It preserves the provider page for playback compatibility, performs one restrained play assist, proves readiness from decoded/advancing playback, owns attempt-scoped startup/stall recovery plus popup/nuisance/navigation containment, and reports actual HLS/MP4 candidates with the ephemeral attempt's referer, origin, user agent, and cookies. Its nuisance containment recognizes the specific VPN/install/continue-watching solicitation in accessible text and JavaScript dialogs, but never removes a matching ancestor that owns video, owns an iframe, or is effectively the player/root surface; generic overlays and the provider's real unmute prompt remain provider-owned. It also carries explicit play/pause commands through reachable HTML/JW frame media and reports non-cancelling surface taps so Fotty can reveal its bounded fallback controls without swallowing provider interaction. A non-explicit child-frame error deferred through the full startup deadline becomes a typed 20-second startup timeout; explicit provider rejections retain their reason. When the app backgrounds, its injected contract suspends reachable video/audio across the provider frame tree and resumes the same attempt on return. Native `AVPlayer` playback is different: `MediaAudioSession` activates `.playback` only at real play/PiP boundaries, and every direct or captured-candidate player opts into `.continuesIfPossible`; active PiP stays mounted and does not enter the foreground-resume path.
 6. After web playback is already visible, `LivePlayerViewModel` validates and pre-rolls a candidate in a separate muted AVPlayer through `LocalStreamProxy` when headers are needed. Adoption requires advancing native playback; failure leaves WebKit untouched, and later native failure restores that same web source before provider failover.
 7. `LiveSourceHealthStore` aggregates outcomes by provider family/host, ranks candidates, opens a bounded circuit after repeated failures, and stores recent decoded success used by MultiView gating.
 8. `LivePlayerView` owns the portrait match header and opaque loading/error UI; retry plus manual numbered broadcast override remain in-app. Web fallback Play/Pause and Sources controls sit at the video edge, auto-hide after four seconds of playing, and reappear through the WebKit surface callback; paused playback remains actionable. Source rows use generic quality descriptions and truthful `Selected`, `Select`, or `Try again` states. An explicit Watch navigation loads the selected catalog source with manual circuit-breaker override; later automatic failover still respects source health. Provider-site Safari fallback is intentionally absent.
@@ -244,6 +249,8 @@ Playback, discovery, match navigation and FPL compile into one production graph.
 - `Fotty/Resources/PrivacyInfo.xcprivacy`, `SettingsPrivacyView`, and the web `/privacy` and `/terms` pages describe the same active boundaries: local profile/follows/messages/FPL planning data, public FPL manager lookup, opt-in Cloudflare Worker/DeepSeek Coach processing, local reminders/diagnostics, and third-party player pages. PocketBase email/password collection is not declared because that account path is retired.
 
 ## 4. Verification and diagnostics
+
+- `.github/workflows/`: `quality.yml` validates workflow syntax and reachable secrets; `web.yml` runs the Node 24 unit/type/lint/Worker/build gate; `ios.yml` runs deterministic provider checks, Catalyst units and a generic unsigned iOS Release build through `tools/ios-ci.sh`; `provider-monitor.yml` keeps live metadata drift separate from pull-request correctness. Dependabot handles security/minor maintenance, while GitHub secret scanning/push protection and CodeQL are repository-side controls. The iOS script has an `rg`/`grep` fallback, uses one trap-cleaned DerivedData root and may lower only the remote Catalyst host target to match GitHub's Xcode 27 image; it never changes the app's Release deployment target.
 
 - Unreleased Coach lifecycle: `FPLAdvisorViewModel.sendCoachQuestion` owns a
   cancellable task and request/context identities; the view owns focus and
@@ -294,6 +301,19 @@ Build-43 scoring/request ownership (2026-08-28): `FPLLiveSquadSummary` has optio
 # Decisions Log
 
 # Fotty Decisions Log
+
+## 2026-08-30: Treat active native PiP as background playback, not foreground decoration
+
+- **Finding**: On a real iPad, native handoff entered the system PiP window but playback paused as soon as another app opened. Fotty declared the audio background mode and retained its PiP controller, but set only the audio-session category, left `AVPlayer.audiovisualBackgroundPlaybackPolicy` on `.automatic`, and incorrectly marked an active PiP session for foreground resume.
+- **Decision/implementation**: Activate the `.playback`/`.moviePlayback` audio session only when playback or PiP actually begins, set every direct and web-handoff native player to `.continuesIfPossible`, reassert both at the PiP/background boundary, and keep the active native state without arming foreground recovery. A stopped/failed PiP while backgrounded still pauses safely. The controller now acknowledges restoration to the still-mounted player UI.
+- **Evidence/boundaries**: Add a unit regression proving active PiP remains `.playing(.native)`, retains its background policy and does not mark itself for resume after backgrounding. The full Catalyst suite and unsigned generic iOS Release pass without a simulator. This cannot prove iOS process scheduling, a header-proxy stream or system PiP controls; repeat on the physical iPad by opening another app and locking/unlocking. No device install, TestFlight upload, stream request or version bump.
+
+## 2026-08-30: Replace the unsafe Git history and make Search a projection of Home
+
+- **Finding**: GitHub's `main` was an obsolete two-commit snapshot with no active protection or viable CI, while the real 2.0 code existed as hundreds of uncommitted paths on a stale branch. The reachable old history also contained retired Android API credentials. Separately, `SearchView` was orphaned from navigation, fetched a second catalog and could disagree with Home or reject a playable listing for lack of official football detail.
+- **Repository decision**: Publish the reviewed working tree as a new root, replace `main` with an exact force-with-lease and remove both stale remote Cursor branches rather than keeping a remote backup that would preserve exposed history. Retain recovery locally. Add Node 24 Web CI, simulator-free Xcode 27 compilation/tests, actionlint, gitleaks, weekly Dependabot and a daily metadata-only provider audit. Enable GitHub secret scanning, push protection, security updates and CodeQL. Test artifacts are bounded and removed.
+- **Product decision**: Put Search in Home's masthead and search `HomeSportsDiscovery` directly. Results cover sports, teams, multi-word fixtures, known football leagues, CPL and channels; matching is case/accent insensitive and distinguishes Premier League from Caribbean Premier League. Non-football leagues use a reviewed sport-scoped vocabulary only when league identity is present in the event/source metadata: for example, an NHL feed matches `NHL` and `National Hockey League`, while unrelated international hockey does not. Opaque provider IDs never become free-form search terms. Result rows reuse Home's badges, score/timing truth, opt-in reminders, saving and playback route. Selection is deferred until the search sheet dismisses so presentation layers cannot collide.
+- **Evidence/boundaries**: The clean root passes working-tree and one-commit gitleaks scans, 87 web/Worker units, TypeScript, lint with zero errors, Worker dry-run and production web build. The search addition passes the full Catalyst unit suite and unsigned generic iOS Release without a simulator; GitHub repeats repository/iOS gates on the pull request. No build number, device install, TestFlight upload, Worker deployment, provider video request or paid model call.
 
 ## 2026-08-30: Treat provider league placement as an identity pipeline, not a label patch
 
@@ -2114,6 +2134,24 @@ Last updated: 2026-08-30
 
 This registry turns current sharp edges into guardrails for agents.
 
+## Native PiP background continuity (Unreleased)
+
+- A visible system PiP window does not by itself prove that playback will
+  survive Fotty entering the background. Native players must retain
+  `.continuesIfPossible`, the `.playback` audio session must be active at the
+  real play/PiP boundary, and active PiP must not enter the ordinary
+  foreground-resume path.
+- Unit policy and a generic-device Release build cover Fotty's state and build
+  contract, but cannot certify iPadOS scheduling, a header-proxy stream, system
+  controls, or lock-screen continuity. Before distributing this correction,
+  use a real native handoff on the physical iPad, open another app for at least
+  60 seconds, lock/unlock once, and confirm the same source keeps advancing
+  without duplicate audio.
+- Do not activate the audio session at app launch or ordinary foreground entry;
+  that would interrupt another app's audio before the user starts playback.
+- Status: corrected locally on 2026-08-30; not installed or uploaded. The
+  physical acceptance step remains open in `docs/notebooklm/QA-Playbook.md`.
+
 ## Platform modernization boundaries (TestFlight build 45)
 
 - Build 45 proved that distribution-sensitive launch gates can expose the wrong
@@ -2713,6 +2751,7 @@ provider controls, and other interaction claims still require a person.
 - [x] One same-source startup retry occurs before automatic failover; manual source selection always remains available.
 - [x] When a verified HLS/MP4 candidate appears, native handoff has no visible jump. A later native failure returns to the same web broadcast before trying another provider.
 - [x] PiP, AirPlay, and Live Activity are offered only after native capability is proven. Closing playback ends the activity and leaves no duplicate audio or ticking sound.
+- [ ] With a real native handoff already playing in PiP, open a different app for at least 60 seconds and lock/unlock once. Video/audio must continue in the system window without a Fotty resume, source change or duplicate audio. This is a physical acceptance gate for the 2026-08-30 correction.
 - [x] Backgrounding a web embed pauses provider/ad audio; foregrounding resumes the same selected broadcast without an unsolicited source change.
 - [x] Terminal copy distinguishes device network loss, explicit provider unavailability, slow startup, unsupported media, and exhausted Fotty recovery.
 - [x] A deferred opaque provider-frame failure becomes `Startup timeout` only after the complete 20-second window; an explicit provider rejection keeps its original reason.
@@ -3271,450 +3310,12 @@ Use this when touching the homelab broker, proxy, manifest generation, warmup be
 # Git Working Tree Snapshot
 
 ```text
- M .gitignore
- M AGENTS.md
- M Fotty.xcodeproj/project.pbxproj
- M Fotty/App/FottyApp.swift
- M Fotty/App/MainTabView.swift
- D Fotty/Core/Cloud/PocketBaseClient.swift
- D Fotty/Core/Cloud/PocketBaseKeychainStore.swift
- M Fotty/Core/Cloud/SocialCloudStore.swift
- M Fotty/Core/Config.swift
- M Fotty/Core/Data/FootballDataPolicy.swift
- M Fotty/Core/Data/Models/MatchModels.swift
- M Fotty/Core/Data/Normalizers/FootballNormalizer.swift
- M Fotty/Core/Data/Providers/APIFootballProvider.swift
- M Fotty/Core/Data/Providers/FootballDataProvider.swift
- M Fotty/Core/Data/Providers/FootballProvider.swift
- M Fotty/Core/Data/Providers/TheSportsDBMatchService.swift
- M Fotty/Core/Data/Repository/FootballRepository.swift
- M Fotty/Core/Extensions/Date+LiveKickoffFormatting.swift
- D Fotty/Core/IntegrityService.swift
- M Fotty/Core/Internal/AnalyticalDataEngine.swift
- D Fotty/Core/Internal/CircularBuffer.swift
- M Fotty/Core/Internal/HybridStreamProvider.swift
- D Fotty/Core/Internal/LocalP2PProxy.swift
- M Fotty/Core/Internal/MatchListActor.swift
- M Fotty/Core/Internal/P2PDataService.swift
- D Fotty/Core/Internal/PlaybackManager.swift
- D Fotty/Core/Internal/StreamManager.swift
- M Fotty/Core/Internal/StreamNetworkProcessor.swift
- M Fotty/Core/Internal/StreamPipelineValidationService.swift
- M Fotty/Core/Internal/WebViewRenderer.swift
- M Fotty/Core/LiveActivities/FottyLiveActivityController.swift
- M Fotty/Core/LiveActivities/FottyMatchActivityAttributes.swift
- M Fotty/Core/Logging/FottyLogger.swift
- D Fotty/Core/MatchDayHub.swift
- M Fotty/Core/Models/ArenaModels.swift
- M Fotty/Core/Models/MatchCacheItem.swift
- M Fotty/Core/Models/MediaModels.swift
- D Fotty/Core/Networking/EPGDataStore.swift
- M Fotty/Core/Networking/LiveSourceHealthStore.swift
- M Fotty/Core/Networking/LiveStreamingProvider.swift
- M Fotty/Core/Networking/LocalStreamProxy.swift
- M Fotty/Core/Networking/Providers/CoreMediaProvider.swift
- M Fotty/Core/Notifications/NotificationManager.swift
- D Fotty/Core/Performance/DataFortressActor.swift
- D Fotty/Core/Plugins/Adapters/GenericManifestPluginAdapter.swift
- D Fotty/Core/Plugins/Adapters/NativeBridgePluginAdapter.swift
- M Fotty/Core/Plugins/StreamPlugin.swift
- M Fotty/Core/Plugins/StreamPluginRegistry.swift
- D Fotty/Core/Plugins/StreamProviderPlugin.swift
- M Fotty/Core/Providers/Football/FootballModels.swift
- M Fotty/Core/Providers/Football/FootballService.swift
- D Fotty/Core/ReviewSafe/ReviewSafeSubstitutions.swift
- D Fotty/Core/Social/SocialSeedCatalog.swift
- D Fotty/Core/Storage/LicenseManager.swift
- D Fotty/Core/Testing/StressTestSimulation.swift
- M Fotty/Core/UI/Shared/StreamResolutionOverlay.swift
- M Fotty/Design/Components.swift
- M Fotty/Design/TeamColors.swift
- M Fotty/Design/Theme.swift
- M Fotty/Design/UI/Animations.swift
- D Fotty/Features/Arena/ArenaView.swift
- D Fotty/Features/Arena/Components/ArenaChatCloudGate.swift
- D Fotty/Features/Arena/Components/ArenaCloudMatchChatStack.swift
- D Fotty/Features/Arena/Components/ArenaLiveStreamDiscoveryModule.swift
- D Fotty/Features/Arena/Components/ArenaPocketBaseSignInSheet.swift
- D Fotty/Features/Dashboard/Components/DashboardForYouSection.swift
- M Fotty/Features/Dashboard/Components/DashboardMatchList.swift
- M Fotty/Features/Dashboard/Components/DashboardPresentationLayers.swift
- M Fotty/Features/Dashboard/Components/DashboardTabButton.swift
- M Fotty/Features/Dashboard/Components/FixtureDateGrouper.swift
- M Fotty/Features/Dashboard/Components/FootballLeagueBar.swift
- M Fotty/Features/Dashboard/Components/FootballQuotaBanner.swift
- D Fotty/Features/Dashboard/Components/ForYouLiveCard.swift
- M Fotty/Features/Dashboard/Components/HeroMatchCarousel.swift
- M Fotty/Features/Dashboard/Components/LiveEventCard.swift
- M Fotty/Features/Dashboard/Components/LiveMatchTimelineView.swift
- M Fotty/Features/Dashboard/Components/MatchCardFormatting.swift
- M Fotty/Features/Dashboard/Components/SportsCategoryBar.swift
- M Fotty/Features/Dashboard/Components/SportsDashboardToolbar.swift
- M Fotty/Features/Dashboard/LiveViewModel.swift
- D Fotty/Features/Dashboard/MatchCenterView.swift
- M Fotty/Features/Dashboard/MatchListViewModel.swift
- M Fotty/Features/Dashboard/PlaybackWarmupView.swift
- M Fotty/Features/Dashboard/SportsDashboardView.swift
- D Fotty/Features/Dashboard/WorldCupDataLoader.swift
- D Fotty/Features/Dashboard/WorldCupTabView.swift
- D Fotty/Features/Highlights/MatchHighlightsView.swift
- M Fotty/Features/Insights/Views/InsightsHubView.swift
- M Fotty/Features/Insights/Views/MatchStatisticsView.swift
- M Fotty/Features/Insights/Views/MatchTimelineView.swift
- M Fotty/Features/Insights/Views/MomentumChartView.swift
- M Fotty/Features/Insights/Views/TacticalPitchView.swift
- M Fotty/Features/Insights/Views/YouTubeHighlightsView.swift
- D Fotty/Features/MatchHub/Components/MatchHubTabButton.swift
- M Fotty/Features/MatchHub/MatchHubView.swift
- M Fotty/Features/MatchHub/MatchHubViewModel.swift
- D Fotty/Features/MatchHub/Tabs/ArenaHubTab.swift
- D Fotty/Features/MatchHub/Tabs/HighlightsHubTab.swift
- M Fotty/Features/MatchHub/Tabs/InsightsHubTab.swift
- M Fotty/Features/MatchHub/Views/MatchHubHeader.swift
- M Fotty/Features/MatchHub/Views/ProviderDiscoveryModule.swift
- M Fotty/Features/Onboarding/TeamOnboardingView.swift
- M Fotty/Features/Player/Components/LiveStreamDebugSheet.swift
- M Fotty/Features/Player/Components/LiveStreamSelectorSheet.swift
- M Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift
- M Fotty/Features/Player/Components/LoadingStateOverlay.swift
- D Fotty/Features/Player/Components/MatchEventsOverlay.swift
- M Fotty/Features/Player/Components/PlaybackControlsOverlay.swift
- M Fotty/Features/Player/Components/PlaybackErrorOverlay.swift
- M Fotty/Features/Player/LivePlayerView.swift
- M Fotty/Features/Player/LivePlayerViewModel.swift
- M Fotty/Features/Player/MultiLivePlayerView.swift
- D Fotty/Features/Player/P2PCoordinator.swift
  M Fotty/Features/Search/SearchView.swift
- M Fotty/Features/Settings/Components/SettingsComponents.swift
- M Fotty/Features/Settings/SettingsManageFollowsView.swift
- M Fotty/Features/Settings/SettingsScreen.swift
- M Fotty/Features/Settings/SettingsView.swift
- M Fotty/Features/Settings/SettingsViewModel.swift
- D Fotty/Features/Settings/Views/SettingsAccountViews.swift
- M Fotty/Features/Settings/Views/SettingsPrivacyView.swift
- M Fotty/Features/Settings/Views/StreamPipelineValidationView.swift
- M Fotty/Features/Settings/Views/StreamPluginsSettingsView.swift
- M Fotty/Features/Social/ArenaDiscoveryView.swift
- M Fotty/Features/Social/Components/LeagueTeamPicker.swift
- M Fotty/Features/Social/Components/SocialActivityRow.swift
- M Fotty/Features/Social/Components/SocialDiscoveryRow.swift
- M Fotty/Features/Social/Models/SocialTypes.swift
- M Fotty/Features/Social/SocialHubView.swift
- M Fotty/Features/Social/UserAgreementView.swift
- M Fotty/Features/Social/Views/SocialNotificationsView.swift
- D Fotty/Info-ReviewSafe.plist
- M Fotty/Info.plist
- M Fotty/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon1024.png
- D Fotty/Resources/Manifests/p2p_manifest.json
- M Fotty/Resources/Manifests/score808_manifest.json
- M Fotty/Resources/Manifests/streamex_manifest.json
- M Fotty/Resources/PrivacyInfo.xcprivacy
- M FottyLiveActivityExtension/FottyLiveActivityWidget.swift
- M TESTFLIGHT_READINESS.md
- M agent/playbooks/p2p-server.md
- M agent/playbooks/playback.md
- D cert.json
- M config.yml
+ M FottyTests/BetaUsabilityTests.swift
  M docs/notebooklm/Architecture-Map.md
  M docs/notebooklm/Decisions-Log.md
  M docs/notebooklm/Fotty-NotebookLM-Source.md
  M docs/notebooklm/Project-Memory.md
- M docs/notebooklm/QA-Playbook.md
- M docs/notebooklm/README.md
- M docs/notebooklm/Risks.md
- M docs/notebooklm/Roadmap.md
- M project.yml
- M server/README_P2P_PROXY.md
- D server/epg/US-UK-CHANNEL-MATRIX.md
- D server/epg/US-UK-channel-matrix.csv
- D server/epg/audit_epg_sources.py
- D server/epg/epg.env.example
- D server/epg/filter_fotty_p2p_channels.py
- D server/epg/filter_sports.py
- D server/epg/fotty_p2p_channels.xml
- D server/epg/generator
- D server/epg/merge_extra_xmltv.py
- D server/epg/p2p_epg_candidates.json
- D server/epg/p2p_epg_map.json
- D server/epg/refresh_epg.sh
- D server/epg/run_scheduled_refresh.sh
- D server/epg/sports_channels.xml
- M server/homelab-docker-compose.yml
- M server/p2p-stack-updated.yml
- M server/p2p_pinned_channels.json
- M server/p2p_proxy_service.py
- D server/scripts/ensure_epg_on_compose_host.sh
- D server/scripts/install_epg_cron.sh
- M server/tests/test_p2p_proxy_service.py
- M tools/ask-brain.sh
- M tools/brain-doctor.sh
- M tools/ios-deploy-device.sh
- M tools/ios-device-qa.sh
- M tools/notebooklm-refresh.sh
- M tools/private-kb-sync.sh
- M tools/web-build-local.sh
- M web/.gitignore
- M web/DEPLOY.md
- M web/Dockerfile
- M web/README.md
- M web/e2e/home.spec.ts
- M web/e2e/match-day.spec.ts
- D web/e2e/opening-ceremony.spec.ts
- M web/e2e/prod-playback.spec.ts
- M web/package-lock.json
- M web/package.json
- M web/public/.htaccess
- M web/public/manifest.json
- M web/scripts/patch-watch-routes-static.sh
- M web/scripts/smoke-web.mjs
- M web/src/app/admin/login/AdminLoginForm.tsx
- M web/src/app/admin/login/page.tsx
- M web/src/app/api/admin/login-links/route.ts
- M web/src/app/api/admin/login/route.ts
- M web/src/app/api/admin/logout/route.ts
- M web/src/app/api/admin/status/route.ts
- M web/src/app/api/admin/users/[id]/route.ts
- M web/src/app/api/admin/users/route.ts
- M web/src/app/api/auth/qr/redeem/route.ts
- M web/src/app/api/billing/checkout-url/route.ts
- M web/src/app/api/billing/confirm/route.ts
- M web/src/app/api/billing/webhook/route.ts
- M web/src/app/api/embed/player/route.ts
- D web/src/app/api/epg/guide/route.ts
- M web/src/app/api/football/headlines/route.ts
- M web/src/app/api/football/standings/route.ts
- M web/src/app/api/live/streams/route.ts
- M web/src/app/api/matches/route.ts
- M web/src/app/api/p2p/channels/route.ts
- M web/src/app/api/pocketbase/auth/route.ts
- M web/src/app/api/pocketbase/delete-account/route.ts
- M web/src/app/api/pocketbase/entitlement/route.ts
- M web/src/app/api/pocketbase/register/route.ts
- M web/src/app/api/pocketbase/reset-password/route.ts
- M web/src/app/api/pocketbase/sync/route.ts
- M web/src/app/api/push/subscribe/route.ts
- M web/src/app/api/tmdb/catalog/route.ts
- M web/src/app/api/tmdb/detail/route.ts
- M web/src/app/api/tmdb/search/route.ts
- D web/src/app/api/world-cup/fixtures/route.ts
- D web/src/app/api/world-cup/standings/route.ts
- M web/src/app/favorites/page.tsx
- D web/src/app/guide/error.tsx
- D web/src/app/guide/loading.tsx
- D web/src/app/guide/page.tsx
- M web/src/app/layout.tsx
- M web/src/app/login/page.tsx
- D web/src/app/next/guide/page.tsx
- M web/src/app/next/search/page.tsx
- D web/src/app/next/world-cup/page.tsx
- M web/src/app/privacy/page.tsx
- M web/src/app/schedule/page.tsx
- M web/src/app/search/SearchPageClient.tsx
- M web/src/app/search/page.tsx
- M web/src/app/settings/page.tsx
- M web/src/app/sitemap.ts
- D web/src/app/swarm/error.tsx
- D web/src/app/swarm/loading.tsx
- D web/src/app/swarm/page.tsx
- M web/src/app/terms/page.tsx
- M web/src/app/watch/[id]/OldWatchPageClient.tsx
- M web/src/app/watch/[id]/WatchPageClient.tsx
- M web/src/app/watch/[id]/useEventPlaybackRecovery.ts
- M web/src/app/watch/[id]/useEventStreams.ts
- M web/src/app/welcome/page.tsx
- D web/src/app/world-cup/error.tsx
- D web/src/app/world-cup/loading.tsx
- D web/src/app/world-cup/page.tsx
- M web/src/components/AuthProvider.tsx
- M web/src/components/BottomNav.tsx
- M web/src/components/FallbackState.tsx
- M web/src/components/FottyErrorBoundary.tsx
- M web/src/components/HomeView.tsx
- M web/src/components/MatchDayDashboard.tsx
- D web/src/components/SwarmView.tsx
- D web/src/components/TVGuideView.tsx
- M web/src/components/TeamBadge.tsx
- M web/src/components/TeamsManager.tsx
- M web/src/components/TopBar.tsx
- M web/src/components/VideoPlayer.tsx
- M web/src/components/WatchAccessGate.tsx
- D web/src/components/WorldCupView.tsx
- M web/src/components/admin/AdminAccessDashboard.tsx
- M web/src/components/home/HomeFixtureList.tsx
- M web/src/components/home/MatchDayLiveHero.tsx
- M web/src/components/stream-guide/MatchStreamHub.tsx
- M web/src/components/stream-guide/MatchStreamHubV2.tsx
- D web/src/components/swarm/FeaturedPanel.tsx
- D web/src/components/swarm/MatchDayControlRoom.tsx
- D web/src/components/swarm/P2PGuideSections.tsx
- M web/src/components/v2/DiscoverViewV2.tsx
- M web/src/components/v2/EventPosterCard.tsx
- D web/src/components/v2/GuideChannelCard.tsx
- M web/src/components/v2/HeroMatch.tsx
- M web/src/components/v2/HomeViewV2.tsx
- D web/src/components/v2/LiveBoardViewV2.tsx
- D web/src/components/v2/MatchMomentumPitch.tsx
- M web/src/components/v2/PosterCard.tsx
- D web/src/components/v2/PreMatchInsights.tsx
- M web/src/components/v2/ScheduleViewV2.tsx
- M web/src/components/v2/SettingsViewV2.tsx
- M web/src/components/v2/TbdBracketCard.tsx
- M web/src/components/v2/TeamFlagSquircle.tsx
- M web/src/components/v2/V2AccountBar.tsx
- M web/src/components/v2/V2Shell.tsx
- M web/src/components/watch/EventHlsPlayer.tsx
- M web/src/components/watch/WatchFeedChips.tsx
- M web/src/components/watch/WatchPlayers.tsx
- M web/src/components/watch/WatchToolbarV2.tsx
- D web/src/data/p2p-epg-map.json
- D web/src/hooks/use-world-cup-fixtures-poll.ts
- D web/src/hooks/use-world-cup-standings-poll.ts
- M web/src/lib/api.ts
- M web/src/lib/auth.ts
- M web/src/lib/football-leagues.ts
- M web/src/lib/fotty-api-fetch.ts
- M web/src/lib/fotty-config.ts
- M web/src/lib/match-clock.ts
- M web/src/lib/match-day-labels.ts
- M web/src/lib/match-spotlight.ts
- D web/src/lib/p2p-guide.ts
- D web/src/lib/p2p-us-uk-guide.ts
- M web/src/lib/pocketbase-client-auth.ts
- D web/src/lib/related-p2p-channels.ts
- M web/src/lib/route-segment-config.test.mjs
- M web/src/lib/server/embed-player-proxy.ts
- M web/src/lib/server/match-feed.ts
- D web/src/lib/server/world-cup-standings.ts
- M web/src/lib/stream-guide/embed-url.test.mjs
- M web/src/lib/stream-guide/embed-url.ts
- M web/src/lib/stream-guide/feed-label.ts
- M web/src/lib/stream-guide/rank.ts
- M web/src/lib/team-catalog.ts
- M web/src/lib/team-name-match.ts
- M web/src/lib/v2/discover-feed.ts
- M web/src/lib/v2/fixture-display.ts
- D web/src/lib/v2/guide-display.ts
- M web/src/lib/v2/home-feed.ts
- M web/src/lib/v2/match-poster-theme.ts
- M web/src/lib/v2/match-priority.ts
- M web/src/lib/v2/nav.ts
- M web/src/lib/v2/preview.test.mjs
- M web/src/lib/v2/preview.ts
- M web/src/lib/v2/team-colors.ts
- M web/src/lib/v2/team-flags.ts
- M web/src/lib/v2/watch-related-matches.test.mjs
- M web/src/lib/v2/watch-related-matches.ts
- D web/src/lib/v2/world-cup-card.ts
- D web/src/lib/v2/world-cup-posters.ts
- M web/src/lib/watch-access.test.mjs
- M web/src/lib/watch-access.ts
- M web/src/lib/watch-event-recovery.test.mjs
- M web/src/lib/watch-event-recovery.ts
- M web/src/lib/watch-session.test.mjs
- D web/src/lib/world-cup.ts
- M web/src/proxy.ts
- M web/tsconfig.json
-?? CHANGELOG.md
-?? ExportOptions-TestFlightInternal.plist
-?? Fotty.xcodeproj/xcshareddata/
-?? Fotty/Core/Data/FootballCompetitionCatalog.generated.swift
-?? Fotty/Core/Models/CricketCatalog.swift
-?? Fotty/Core/Notifications/MatchReminderStore.swift
-?? Fotty/Core/Services/
-?? Fotty/Core/Storage/UserProfileStore.swift
-?? Fotty/Features/Dashboard/Components/HomeSportsDiscovery.swift
-?? Fotty/Features/Dashboard/Components/MatchStartControls.swift
-?? Fotty/Features/Dashboard/Components/OnNowGlanceBar.swift
-?? Fotty/Features/Dashboard/Components/SportsDiscoveryViews.swift
-?? Fotty/Features/FPL/
-?? Fotty/Features/Onboarding/MatchdaySetupCard.swift
-?? Fotty/Features/Settings/Views/SettingsSupportViews.swift
-?? Fotty/Features/Social/Components/DirectChatView.swift
-?? Fotty/Features/Social/Components/MatchChatView.swift
-?? Fotty/Features/Social/Components/SocialCelebrationViews.swift
-?? FottyLiveActivityExtension/FottyFPLDeadlineWidget.swift
-?? FottyTests/
-?? FottyUITests/
-?? IconDrafts/
-?? docs/BETA-TESTER-GUIDE.md
-?? docs/Fotty-Gemini-Brief-2026-08-28.md
-?? docs/NEXT-PHASE-PLAN.md
-?? docs/RELEASE-PROCESS.md
-?? docs/audit/Fotty-2.0-Benchmark-and-Product-Contract.md
-?? docs/audit/Fotty-2.0-Completion-Report.md
-?? docs/audit/Fotty-All-Sports-Home-2026-08-27.md
-?? docs/audit/Fotty-Appearance-and-Identity-2026-08-27.md
-?? docs/audit/Fotty-Coach-Conversation-Reliability-2026-08-28.md
-?? docs/audit/Fotty-Complexity-Audit-2026-08-28.md
-?? docs/audit/Fotty-Complexity-Fixes-2026-08-28.md
-?? docs/audit/Fotty-Countdown-and-Reminders-2026-08-27.md
-?? docs/audit/Fotty-Cricket-and-Tab-Separation-2026-08-27.md
-?? docs/audit/Fotty-Device-Compatibility-2026-08-28.md
-?? docs/audit/Fotty-FPL-Squad-Persistence-Diagnosis-2026-08-28.md
-?? docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md
-?? docs/audit/Fotty-Platform-Modernization-Audit-2026-08-29.md
-?? docs/audit/Fotty-Playback-Controls-2026-08-27.md
-?? docs/audit/Fotty-Premier-League-Membership-2026-08-29.md
-?? docs/audit/Fotty-Reference-Data-Freshness-Remediation-2026-08-29.md
-?? docs/audit/Fotty-Single-Product-Graph-2026-08-29.md
-?? docs/audit/Fotty-UI-Refinement-2026-08-27.md
-?? docs/audit/Fotty-UI-UX-Audit-2026-08-27.md
-?? docs/audit/complexity-2026-08-28/
-?? docs/beta/
-?? docs/releases/
-?? shared/
-?? stream_test_output.png
-?? tools/audit-provider-football-identity.mjs
-?? tools/audit_live_playback_matrix.mjs
-?? tools/catalyst-ui-release-gate.sh
-?? tools/generate-football-competition-catalog.mjs
-?? tools/ios-physical-launch-hold.sh
-?? tools/set-version.sh
-?? tools/stream_health_checker.py
-?? tools/test_stream_playback.mjs
-?? tools/web-deploy-ftp.sh
-?? web/.nvmrc
-?? web/public/audit_favorites.png
-?? web/public/audit_home_v2.png
-?? web/public/audit_saved_v2.png
-?? web/public/audit_schedule.png
-?? web/public/audit_search.png
-?? web/public/audit_search_v2.png
-?? web/public/audit_settings.png
-?? web/public/audit_settings_v2.png
-?? web/public/audit_tables.png
-?? web/public/audit_teams.png
-?? web/public/audit_teams_v2.png
-?? web/public/homepage_preview.png
-?? web/public/playback/
-?? web/public/watch_preview.png
-?? web/public/watch_preview_live.png
-?? web/public/watch_real_user.png
-?? web/scripts/audit_all_live_sources.mjs
-?? web/scripts/audit_site.mjs
-?? web/scripts/compare_desktop_mobile.mjs
-?? web/scripts/crawl_score808_full.mjs
-?? web/scripts/deep_stream_research.mjs
-?? web/scripts/inspect_streamed_pk.mjs
-?? web/scripts/probe_embed_detailed.mjs
-?? web/scripts/scrape_score808.mjs
-?? web/scripts/sniff_score808.mjs
-?? web/scripts/test_all_live_streams.mjs
-?? web/scripts/test_all_providers.mjs
-?? web/scripts/test_pages_live.mjs
-?? web/scripts/test_stream_playback.mjs
-?? web/src/components/v2/OnNowGlance.tsx
-?? web/src/components/v2/SportFilterPills.tsx
-?? web/src/lib/accounts.ts
-?? web/src/lib/football-competition-catalog.generated.ts
-?? web/src/lib/football-competition-catalog.test.mjs
-?? web/src/lib/match-clock.test.mjs
-?? web/src/lib/server/accounts-disabled.ts
-?? web/src/lib/v2/match-posters.ts
-?? web/src/lib/v2/sport-filter.ts
-?? web/src/lib/watch-player-source-contract.test.mjs
-?? web/stream_test_output.png
-?? web/workers/
 
 ```
 
@@ -3745,10 +3346,6 @@ server/tests/test_p2p_scraper_queries.py
 server/tests/test_p2p_proxy_service.py
 server/tests/test_p2p_pinned_channels.py
 server/Dockerfile.p2p-proxy
-server/__pycache__/p2p_proxy_service.cpython-311.pyc
-server/__pycache__/p2p_pinned_channels.cpython-311.pyc
-server/__pycache__/p2p_scraper_queries.cpython-311.pyc
-server/__pycache__/p2p_proxy_core.cpython-311.pyc
 server/p2p-stack-updated.yml
 server/p2p_pinned_channels.json
 server/brain_monitor.py

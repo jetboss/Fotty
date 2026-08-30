@@ -293,6 +293,7 @@ provider controls, and other interaction claims still require a person.
 - [x] One same-source startup retry occurs before automatic failover; manual source selection always remains available.
 - [x] When a verified HLS/MP4 candidate appears, native handoff has no visible jump. A later native failure returns to the same web broadcast before trying another provider.
 - [x] PiP, AirPlay, and Live Activity are offered only after native capability is proven. Closing playback ends the activity and leaves no duplicate audio or ticking sound.
+- [ ] With a real native handoff already playing in PiP, open a different app for at least 60 seconds and lock/unlock once. Video/audio must continue in the system window without a Fotty resume, source change or duplicate audio. This is a physical acceptance gate for the 2026-08-30 correction.
 - [x] Backgrounding a web embed pauses provider/ad audio; foregrounding resumes the same selected broadcast without an unsolicited source change.
 - [x] Terminal copy distinguishes device network loss, explicit provider unavailability, slow startup, unsupported media, and exhausted Fotty recovery.
 - [x] A deferred opaque provider-frame failure becomes `Startup timeout` only after the complete 20-second window; an explicit provider rejection keeps its original reason.

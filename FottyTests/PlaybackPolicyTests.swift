@@ -1,5 +1,6 @@
 import XCTest
 import JavaScriptCore
+import AVFoundation
 @testable import Fotty
 
 final class PlaybackPolicyTests: XCTestCase {
@@ -1385,6 +1386,25 @@ final class PlaybackPolicyTests: XCTestCase {
         XCTAssertEqual(viewModel.playbackState, .paused(.native))
         XCTAssertEqual(viewModel.connectionPhase, "Paused (Background)")
         XCTAssertTrue(viewModel.shouldResumeAfterForeground)
+    }
+
+    @MainActor
+    func testActiveNativePictureInPictureKeepsPlayerRunningWhenAppBackgrounds() throws {
+        let viewModel = try makeNativePlayerViewModel()
+        defer { viewModel.cleanup() }
+        let player = AVPlayer()
+        viewModel.player = player
+        viewModel.handlePictureInPictureAvailabilityChanged(true)
+        viewModel.transition(to: .playing(.native), phase: "Playing")
+        viewModel.handlePictureInPictureActivityChanged(true)
+
+        viewModel.handleScenePhaseChange(.background)
+
+        XCTAssertEqual(viewModel.playbackState, .playing(.native))
+        XCTAssertEqual(viewModel.connectionPhase, "PiP Active")
+        XCTAssertTrue(viewModel.keepsPlaybackAliveInBackground)
+        XCTAssertFalse(viewModel.shouldResumeAfterForeground)
+        XCTAssertEqual(player.audiovisualBackgroundPlaybackPolicy, .continuesIfPossible)
     }
 
     @MainActor

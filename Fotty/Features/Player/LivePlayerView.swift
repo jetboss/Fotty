@@ -192,6 +192,15 @@ struct AVPlayerLayerView: UIViewRepresentable {
 
         func pictureInPictureController(
             _ pictureInPictureController: AVPictureInPictureController,
+            restoreUserInterfaceForPictureInPictureStopWithCompletionHandler completionHandler: @escaping (Bool) -> Void
+        ) {
+            // The player presentation remains mounted while PiP is active, so
+            // returning to Fotty needs no replacement player or navigation.
+            completionHandler(true)
+        }
+
+        func pictureInPictureController(
+            _ pictureInPictureController: AVPictureInPictureController,
             failedToStartPictureInPictureWithError error: Error
         ) {
             onPictureInPictureActiveChanged?(false)

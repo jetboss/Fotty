@@ -81,7 +81,10 @@ form factor. Record actual duration; a shorter run remains a shorter run.
 - Exercise a short, reversible network interruption and background/foreground.
   Distinguish provider failure from Fotty replacing a still-recoverable source.
 - Test PiP only after real native handoff; lack of PiP on an incompatible embed
-  is a known capability limit, not a failed universal-PiP promise.
+  is a known capability limit, not a failed universal-PiP promise. Once PiP is
+  active, open another app for at least 60 seconds and lock/unlock once. Record
+  whether video/audio advances continuously and whether returning to Fotty keeps
+  the same source without a second audio track or an unsolicited resume.
 - Close the player: no hidden/ticking audio or orphaned activity should remain.
 - Record battery before/after, charging state and unusual heat qualitatively.
   Do not invent device-energy or crash-free metrics from a process hold.
