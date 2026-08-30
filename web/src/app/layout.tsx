@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ExperiencePreferencesSync } from "@/components/ExperiencePreferencesSync";
 import { PWARegister } from "@/components/PWARegister";
+import { ReminderNotifier } from "@/components/ReminderNotifier";
 import { FottyShell } from "@/components/FottyShell";
 import { getSiteUrl } from "@/lib/fotty-config";
 
@@ -44,6 +45,7 @@ export default function RootLayout({
       <body className="antialiased select-none touch-pan-y" suppressHydrationWarning>
         <ExperiencePreferencesSync />
         <PWARegister />
+        <ReminderNotifier />
         <FottyShell bare={false}>{children}</FottyShell>
       </body>
     </html>
