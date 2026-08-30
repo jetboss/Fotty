@@ -7,26 +7,30 @@ This is the release checklist for Fotty 2.0. It uses Mac Catalyst and physical A
 ## Default delivery and device acceptance
 
 The owner has approved the reliability-first next phase. Current local source
-and internal distribution are **2.0.0 (46)**. Apple independently shows the
-build Internal / Testing for Fotty Internal Smoke with the unchanged two testers.
+and the private Jet iPad candidate are **2.0.0 (47)**. Shared internal
+distribution remains **2.0.0 (46)**; Apple independently shows that build
+Internal / Testing for Fotty Internal Smoke with the unchanged two testers.
 Physical TestFlight use exposed build 45's retired review-safe vocabulary; do
 not treat 45 as an acceptance candidate. Use
-`docs/releases/Fotty-2.0.0-46.md` for the current Apple/install record and
+`docs/releases/Fotty-2.0.0-46.md` for the current Apple record,
+`docs/releases/Fotty-2.0.0-47.md` for the direct iPad record, and
 `docs/audit/Fotty-Single-Product-Graph-2026-08-29.md` for the correction.
 
 Build 46 has one product graph and passes the final-source Catalyst unit suite,
 vocabulary/retired-symbol gates and generic iOS Release compile. Its Catalyst
 Home UI test could not begin because the beta-Mac automation runner timed out
 twice. Build 46 was previously installed from TestFlight on the connected iPad.
-On 2026-08-30 the owner explicitly requested a direct iPad test build, so a
-signed Debug app from current `main` commit `0d1085f` replaced that exact
-TestFlight binary while retaining version 2.0.0 (46). It launched and survived
-a 60-second physical process hold; native PiP app-switch and lock/unlock testing
-is still open. The iPhone remains build 44 and was untouched. After the iPhone
-Update, read its version and physically confirm Home/Football/league vocabulary
-plus Watch, Matchday and FPL availability after a cold launch on both devices
-before the beta expands. Historical checkpoint notes below retain their
-at-the-time evidence only.
+On 2026-08-30 the owner explicitly requested a direct iPad test build. The first
+local install reused 46, so it was not accepted as evidence and was immediately
+superseded. `tools/set-version.sh` allocated private build 47; a signed Debug app
+from product/version commit `e1b7f0d` replaced the iPad's exact TestFlight
+binary. Both app and extension report 47, CoreDevice confirms 47, and the app
+survived a 60-second physical process hold. Native PiP app-switch and
+lock/unlock testing is still open. The iPhone remains build 44 and was
+untouched. After the iPhone Update, read its version and physically confirm
+Home/Football/league vocabulary plus Watch, Matchday and FPL availability after
+a cold launch on both devices before the beta expands. Historical checkpoint
+notes below retain their at-the-time evidence only.
 
 The owner now prefers phone-first validation for small scoped fixes, followed by deliberately batched shared TestFlight updates. Follow `docs/RELEASE-PROCESS.md`; verify the latest build number for either route, preserve installed data, and never upload a phone-only build or change another device implicitly. Build 44 is the approved iPhone-only FPL correction; its exact status is in `docs/releases/Fotty-2.0.0-44.md`. Shared releases use the single normal Release archive/upload and independent Apple processing/group checks.
 

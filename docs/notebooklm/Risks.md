@@ -12,7 +12,7 @@ This registry turns current sharp edges into guardrails for agents.
 - GitHub Actions are commit-SHA pinned. Dependency update PRs must preserve the reviewed action origin and full hash. Advanced CodeQL covers Actions, JavaScript/TypeScript and any surviving Python; Swift stays under the simulator-free Xcode gate until bounded extraction works.
 - Status: protected PRs #10 and #11 are merged. The post-merge `main` Actions/JavaScript/Python CodeQL scan reports zero open alerts; repository-quality and web gates pass. This does not add Swift CodeQL coverage and did not deploy the app, Worker or public web.
 
-## Native PiP background continuity (Unreleased)
+## Native PiP background continuity (private iPad build 47)
 
 - A visible system PiP window does not by itself prove that playback will
   survive Fotty entering the background. Native players must retain
@@ -27,8 +27,9 @@ This registry turns current sharp edges into guardrails for agents.
   without duplicate audio.
 - Do not activate the audio session at app launch or ordinary foreground entry;
   that would interrupt another app's audio before the user starts playback.
-- Status: corrected locally on 2026-08-30; not installed or uploaded. The
-  physical acceptance step remains open in `docs/notebooklm/QA-Playbook.md`.
+- Status: private build 47 is installed only on Jet iPad and passes a 60-second
+  foreground process hold; it is not uploaded. The native PiP app-switch plus
+  lock/unlock acceptance step remains open in `docs/notebooklm/QA-Playbook.md`.
 
 ## Platform modernization boundaries (TestFlight build 45)
 
