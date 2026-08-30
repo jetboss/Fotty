@@ -3,23 +3,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Crown, Heart, LogIn, LogOut, Search } from "lucide-react";
-import { useAuth } from "@/components/AuthProvider";
-import { useEntitlement } from "@/components/EntitlementProvider";
-import { isAccountsEnabled } from "@/lib/accounts";
-import { isAdminRoute } from "@/lib/admin-routes";
+import { Heart, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function TopBar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { session, signOut } = useAuth();
-  const entitlement = useEntitlement();
-  const accountsEnabled = isAccountsEnabled();
-  const prefetchLogin = () => router.prefetch("/login");
-  const prefetchSubscribe = () => router.prefetch("/subscribe");
-
-  if (pathname.startsWith("/watch") || isAdminRoute(pathname) || pathname.startsWith("/demo")) return null;
+  if (pathname.startsWith("/watch") || pathname.startsWith("/demo")) return null;
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/5 bg-background/95 px-md pb-2 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] backdrop-blur-xl lg:pl-[calc(104px+1rem)]">

@@ -6,17 +6,14 @@ import { usePathname, useRouter } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
   CalendarDays,
-  Crown,
   Globe2,
   Heart,
   LayoutGrid,
   MoreHorizontal,
   Settings,
   Trophy,
-  Tv,
   Users,
 } from "lucide-react";
-import { isAdminRoute } from "@/lib/admin-routes";
 import { LIVE_BOARD_LABEL, LIVE_BOARD_PATH } from "@/lib/match-day-labels";
 import { cn } from "@/lib/utils";
 
@@ -25,10 +22,8 @@ const MORE_PATHS = [
   "/settings",
   "/support",
   "/collab",
-  "/subscribe",
   "/help",
   "/feedback",
-  "/login",
   "/welcome",
   "/privacy",
   "/terms",
@@ -39,9 +34,8 @@ const MORE_PATHS = [
 
 const PRIMARY_NAV = [
   { href: "/", label: "Scores", icon: LayoutGrid, match: (path: string) => path === "/" || path === "" },
-  { href: LIVE_BOARD_PATH, label: LIVE_BOARD_LABEL, icon: Tv, match: (path: string) => path.startsWith(LIVE_BOARD_PATH) },
-  { href: "/guide", label: "Guide", icon: CalendarDays, match: (path: string) => path.startsWith("/guide") },
-  { href: "/world-cup", label: "World Cup", icon: Globe2, match: (path: string) => path.startsWith("/world-cup") },
+  { href: "/search", label: "Discover", icon: Globe2, match: (path: string) => path.startsWith("/search") },
+  { href: LIVE_BOARD_PATH, label: LIVE_BOARD_LABEL, icon: CalendarDays, match: (path: string) => path.startsWith(LIVE_BOARD_PATH) },
 ] as const;
 
 const SECONDARY_NAV = [
@@ -61,7 +55,7 @@ export function BottomNav() {
   const [moreOpen, setMoreOpen] = React.useState(false);
   const [lastPathname, setLastPathname] = React.useState(pathname);
   const moreActive = MORE_PATHS.some((path) => pathname.startsWith(path));
-  const hideNavigation = pathname.startsWith("/watch") || isAdminRoute(pathname);
+  const hideNavigation = pathname.startsWith("/watch");
 
   // Close the sheet when navigation happens (adjust state during render, no effect needed).
   if (lastPathname !== pathname) {

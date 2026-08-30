@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Crown, LogIn, LogOut, Search, Settings } from "lucide-react";
+import { Search, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { PwaInstallBanner } from "@/components/PwaInstallPrompt";
 import { V2AccountBar } from "@/components/v2/V2AccountBar";
 import { buildV2DesktopNav, buildV2MobileNav, type V2NavItem } from "@/lib/v2/nav";
 import { v2HomePath, v2SearchPath, v2SettingsPath } from "@/lib/v2/preview";
-import { useAuth } from "@/components/AuthProvider";
-import { useEntitlement } from "@/components/EntitlementProvider";
 
 function sideRailLinkClass(active: boolean) {
   return cn(
@@ -66,8 +64,6 @@ export function V2SideRail() {
   const pathname = usePathname();
   const homeHref = v2HomePath();
   const desktopNav = buildV2DesktopNav();
-  const { session, signOut } = useAuth();
-  const entitlement = useEntitlement();
   const settingsItem: V2NavItem = {
     href: v2SettingsPath(),
     label: "Settings",

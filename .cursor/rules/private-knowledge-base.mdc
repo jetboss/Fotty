@@ -19,8 +19,7 @@ When completing a significant task:
 1. **Log the Decision**: Append a summary to `docs/notebooklm/Decisions-Log.md`.
 2. **Update Memory**: If pillars or navigation changed, update the relevant `.md` files.
 3. **Refresh Source**: Run `./tools/notebooklm-refresh.sh` from the root.
-4. **Sync Embeddings**: Run `./tools/private-kb-sync.sh`.
-5. **Verify**: Run `./tools/brain-doctor.sh`.
+4. **Verify**: Run `./tools/brain-doctor.sh`.
 
 Or use the guided wrapper:
 
@@ -30,4 +29,4 @@ Or use the guided wrapper:
 
 ## 3. Privacy
 - Never commit secrets, tokens, or private stream URLs to Markdown files.
-- The Knowledge Base is stored locally in this repo and indexed on the Homelab GPU.
+- The Knowledge Base is stored locally in this repository; the retired homelab is not part of the workflow.

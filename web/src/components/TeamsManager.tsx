@@ -3,14 +3,12 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Bell, BellRing, Check, Plus, Trash2 } from "lucide-react";
-import { useAuth } from "@/components/AuthProvider";
 import { TeamNameAutocomplete, resolveTeamSelection } from "@/components/TeamNameAutocomplete";
 import { FallbackState } from "@/components/FallbackState";
 import { trackEvent } from "@/lib/analytics";
 import { FottyAPI } from "@/lib/api";
 import { syncReminderForTrackedTeam } from "@/lib/match-alerts";
 import { buildTeamCatalogFromMatches, type TeamSuggestion } from "@/lib/team-catalog";
-import { isWebPushSupported, subscribeToWebPush, syncPushSubscription } from "@/lib/push";
 import { updateUserPreferences } from "@/lib/storage";
 import { useTrackedTeams } from "@/lib/user-experience";
 import { cn } from "@/lib/utils";
@@ -28,9 +26,7 @@ export function TeamsManager({ variant = "classic", backHref, homeHref }: TeamsM
   const resolvedBackHref = backHref ?? (isV2 ? v2HomePath() : "/settings");
   const resolvedHomeHref = homeHref ?? v2HomePath();
 
-  const { session } = useAuth();
   const { trackedTeams, trackTeam, removeTeam } = useTrackedTeams();
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const [teamName, setTeamName] = useState("");
   const [matches, setMatches] = useState<Awaited<ReturnType<typeof FottyAPI.fetchMatches>>>([]);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("unsupported");
@@ -77,17 +73,10 @@ export function TeamsManager({ variant = "classic", backHref, homeHref }: TeamsM
 
     if (permission === "granted") {
       updateUserPreferences({ matchReminders: true });
-      if (isWebPushSupported()) {
-        const result = await subscribeToWebPush(vapidPublicKey);
-        if (result.ok && session?.token) {
-          await syncPushSubscription(result.subscription, session.token);
-          trackEvent("web_push_subscribe", { stored: true, source: isV2 ? "teams_page_v2" : "teams_page" });
-        }
-      }
     }
 
     return permission === "granted";
-  }, [isV2, session?.token, vapidPublicKey]);
+  }, [isV2]);
 
   const addTeam = async (selection?: TeamSuggestion) => {
     const resolved = selection || resolveTeamSelection(teamName, catalog);

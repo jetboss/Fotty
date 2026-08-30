@@ -11,10 +11,6 @@ import { FottyErrorBoundary } from "@/components/FottyErrorBoundary";
 import { TopBar } from "@/components/TopBar";
 import { V2ShellChrome } from "@/components/v2/V2Shell";
 
-function isBareAuthPath(pathname: string) {
-  return pathname === "/login" || pathname.startsWith("/login/");
-}
-
 function WatchShellInner({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const returnTo = searchParams.get("returnTo");
@@ -37,7 +33,7 @@ function WatchShellInner({ children }: { children: ReactNode }) {
 function FottyShellInner({ bare, children }: { bare: boolean; children: ReactNode }) {
   const pathname = usePathname();
 
-  if (bare || isBareAuthPath(pathname)) {
+  if (bare) {
     return <>{children}</>;
   }
 

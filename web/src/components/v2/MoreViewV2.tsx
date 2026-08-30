@@ -9,7 +9,7 @@ export function MoreViewV2() {
   const links = buildV2MoreLinks();
   return (
     <V2PageShell innerClassName="max-w-lg space-y-6">
-      <V2PageHeader title="More" subtitle="Teams, schedule, and account tools." />
+      <V2PageHeader title="More" subtitle="Teams, schedule, and match-day tools." />
 
       <ul className={cn(`${v2PanelClass} divide-y divide-white/[0.06] overflow-hidden`)}>
         {links.map((item) => {

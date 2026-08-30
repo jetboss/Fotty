@@ -20,8 +20,8 @@ Usage: $(basename "$0") [--stop | --no-build | --foreground | --status]
   - NEXT_PUBLIC_FOTTY_ALLOW_LOCAL_AUTH is stripped for the build/runtime
   - FOTTY_WATCH_STREAM_SECRET defaults to a local-only value if unset
 
-  Homelab APIs (P2P/scraper/PocketBase) are still used when configured in .env.local.
-  Only the local web container is started — live fotty.pixel-invoice.com is untouched.
+  Playback uses the configured Cloudflare Worker (or the checked-in public default).
+  Only the local web container is started; no public service is modified.
 
 Options:
   --stop        Stop the preview server on port ${PORT}
@@ -203,7 +203,7 @@ echo "  Admin:  http://${HOST}:${PORT}/admin"
 echo "  Log:    ${LOG_FILE}"
 echo "  Stop:   ./tools/web-preview-local.sh --stop"
 echo ""
-echo "Watch testing: sign in with PocketBase, or use a seeded grant (e.g. test@test.com via /admin)."
+echo "Watch testing: accounts are retired; playback uses the configured Cloudflare Worker."
 echo "Smoke:  FOTTY_WEB_BASE_URL=http://${HOST}:${PORT} npm run smoke"
 echo ""
 echo "If Safari looks unstyled: Develop → Empty Caches, then hard refresh (Cmd+Shift+R)."

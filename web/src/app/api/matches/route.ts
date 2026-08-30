@@ -10,7 +10,6 @@ export const revalidate = 45;
  * Same Nexus/StreamEx catalog the iOS app uses (StreamEx=delta, VipLeague=echo,
  * plus other web embeds). Homelab scraper / AceStream `admin` sources are retired.
  */
-const SCHEDULE_BASE = process.env.SCHEDULE_BASE;
 const STREAMED_IMAGE_BASE = "https://streamed.pk";
 const IOS_SAFARI_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
@@ -32,16 +31,6 @@ const SCHEDULE_PROVIDERS = [
     referer: "https://streamed.pk",
   },
 ];
-
-interface ChannelPayload {
-  id?: string;
-  cid?: string;
-  title?: string;
-  name?: string;
-  availability?: number;
-  categories?: string[];
-  bitrate_kbps?: number;
-}
 
 interface ScheduleSource {
   source?: string;
@@ -67,26 +56,6 @@ interface SchedulePayload {
   matches?: ScheduleMatchPayload[];
 }
 
-const REGION_NAMES: Record<string, string> = {
-  AR: "Argentina",
-  AU: "Australia",
-  BE: "Belgium",
-  BR: "Brazil",
-  CA: "Canada",
-  DE: "Germany",
-  ES: "Spain",
-  EU: "Europe",
-  FR: "France",
-  IT: "Italy",
-  NL: "Netherlands",
-  PL: "Poland",
-  PT: "Portugal",
-  RU: "Russia",
-  TR: "Turkiye",
-  UK: "United Kingdom",
-  US: "United States",
-};
-
 const CATEGORY_LABELS: Record<string, string> = {
   afl: "AFL",
   "american-football": "American Football",
@@ -97,18 +66,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   football: "Football",
   hockey: "Hockey",
   "motor-sports": "Motorsport",
-};
-
-const SPORT_MATCHERS: Record<string, RegExp> = {
-  afl: /\b(afl|aussie rules)\b/i,
-  "american-football": /\b(nfl|football|espn|fox sports|sky sports)\b/i,
-  baseball: /\b(mlb|baseball)\b/i,
-  basketball: /\b(nba|basket|euroleague)\b/i,
-  cricket: /\b(cricket|willow)\b/i,
-  fight: /\b(ufc|mma|fight|boxing|wwe|combat)\b/i,
-  football: /\b(football|soccer|sport|sports|premier|laliga|serie a|bundesliga|champions)\b/i,
-  hockey: /\b(nhl|hockey)\b/i,
-  "motor-sports": /\b(f1|formula|motogp|moto gp|racing|motorsport|rally)\b/i,
 };
 
 const KNOWN_ACRONYMS = new Set([
@@ -131,16 +88,13 @@ const KNOWN_ACRONYMS = new Set([
   "USA",
 ]);
 
-const COMMON_TEAM_TOKENS = new Set(["afc", "and", "cf", "club", "da", "de", "do", "fc", "la", "las", "los", "sc", "the", "utd"]);
 /**
  * Prefer StreamEx `admin` (PPV/exclusives), `delta`, and `golf` on web.
  */
 const SOURCE_PRIORITY = ["admin", "delta", "golf", "hotel", "echo", "india", "alpha"];
-const RETIRED_P2P_SOURCES = new Set<string>([]);
 
 function isPlayableWebSource(source?: string) {
-  const code = source?.trim().toLowerCase() || "";
-  return Boolean(code) && !RETIRED_P2P_SOURCES.has(code);
+  return Boolean(source?.trim());
 }
 
 async function fetchJSON<T>(
@@ -189,43 +143,6 @@ function splitTeams(title: string): ScrapedMatch["teams"] | undefined {
   };
 }
 
-function cleanChannelTitle(rawTitle: string) {
-  let title = rawTitle
-    .replace(/\s+/g, " ")
-    .replace(/\s*\((?:backup|alt|acestream|hd)\)\s*/gi, " ")
-    .trim();
-
-  const bracketRegion = title.match(/\[([A-Z]{2,3})\]\s*$/i)?.[1]?.toUpperCase();
-  title = title.replace(/\s*\[[^\]]+\]\s*$/g, "").trim();
-
-  const prefixRegion = title.match(/^([A-Z]{2,3}):\s*/i)?.[1]?.toUpperCase();
-  title = title.replace(/^[A-Z]{2,3}:\s*/i, "").trim();
-  title = title.replace(/\bSPORT\b/g, "Sport");
-
-  if (/^[A-Z0-9+\-\s.]+$/.test(title)) {
-    title = titleCase(title);
-  }
-
-  title = title
-    .replace(/\bBt\b/g, "BT")
-    .replace(/\bDazn\b/g, "DAZN")
-    .replace(/\bEvent\b/g, "Event")
-    .replace(/\bEVENT\b/g, "Event")
-    .replace(/\bEspn\b/g, "ESPN")
-    .replace(/\bHd\b/g, "HD")
-    .replace(/\b4k\b/gi, "4K")
-    .replace(/\bRtl\b/g, "RTL")
-    .replace(/\bTv\b/g, "TV")
-    .replace(/\bRu\b/g, "RU")
-    .trim();
-
-  const regionCode = bracketRegion || prefixRegion;
-  return {
-    title: title || rawTitle,
-    region: regionCode ? REGION_NAMES[regionCode] || regionCode : undefined,
-  };
-}
-
 function inferSport(rawTitle: string, categories: string[] = []) {
   const text = `${rawTitle} ${categories.join(" ")}`.toLowerCase();
   if (/(snooker|billiards|pool)/.test(text)) return "Snooker";
@@ -237,28 +154,6 @@ function inferSport(rawTitle: string, categories: string[] = []) {
   if (/(hockey|nhl)/.test(text)) return "Hockey";
   if (/(golf)/.test(text)) return "Golf";
   return "Live Sports";
-}
-
-function displayCategory(categories: string[] = []) {
-  if (categories.includes("regional") && categories.includes("sport")) return "Regional Sports";
-  if (categories.includes("sport")) return "Sports";
-  if (categories.includes("tv")) return "Sports TV";
-  return "Live Channel";
-}
-
-function streamQuality(bitrate?: number): ScrapedMatch["quality"] {
-  if (!bitrate) return "Unknown";
-  if (bitrate >= 850) return "HD";
-  if (bitrate >= 500) return "HQ";
-  return "SD";
-}
-
-function streamRank(match: ScrapedMatch) {
-  const availabilityScore = Math.round((match.availability || 0) * 1000);
-  const bitrateScore = Math.min(match.bitrate_kbps || 0, 1600);
-  const fixtureBoost = match.kind === "fixture" ? 2000 : 0;
-  const hdBoost = match.quality === "HD" ? 250 : match.quality === "HQ" ? 125 : 0;
-  return fixtureBoost + availabilityScore + bitrateScore + hdBoost;
 }
 
 function normalizeCategory(raw?: string) {
@@ -331,12 +226,6 @@ function normalizeText(value: string) {
     .replace(/[^a-z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-}
-
-function teamTokens(value: string) {
-  return normalizeText(value)
-    .split(" ")
-    .filter((token) => token.length >= 2 && !COMMON_TEAM_TOKENS.has(token));
 }
 
 function resolveImageURL(raw?: string) {
@@ -481,119 +370,12 @@ async function fetchSchedule() {
       8000
     ).then(normalizeSchedulePayload)
   );
-  const localRequest = SCHEDULE_BASE
-    ? fetchJSON<SchedulePayload | ScheduleMatchPayload[] | null>(
-        `${SCHEDULE_BASE}/matches`,
-        null,
-        { Accept: "application/json" },
-        2500
-      ).then(normalizeSchedulePayload)
-    : Promise.resolve([]);
-
   const lists = await Promise.all([
     ...providerRequests,
-    localRequest,
     loadLocalSchedule(),
   ]);
 
   return mergeScheduleMatches(lists);
-}
-
-function channelToMatch(channel: ChannelPayload): ScrapedMatch | null {
-  const cid = channel.cid || channel.id;
-  const rawTitle = channel.title || channel.name;
-  if (!cid || !rawTitle) return null;
-
-  const cleaned = cleanChannelTitle(rawTitle);
-  const categories = channel.categories || [];
-  const quality = streamQuality(channel.bitrate_kbps);
-  const sport = inferSport(rawTitle, categories);
-  const subtitleParts = [
-    sport,
-    cleaned.region,
-    quality !== "Unknown" ? quality : undefined,
-  ].filter(Boolean);
-
-  const match: ScrapedMatch = {
-    id: cid,
-    cid,
-    title: rawTitle,
-    displayTitle: cleaned.title,
-    subtitle: subtitleParts.join(" · "),
-    kind: "channel",
-    availability: Number(channel.availability || 0),
-    categories,
-    bitrate_kbps: channel.bitrate_kbps,
-    league: displayCategory(categories),
-    sport,
-    region: cleaned.region,
-    network: cleaned.title,
-    quality,
-    status: channel.availability && channel.availability > 0 ? "Live" : "Available",
-    coverage: "channel",
-  };
-
-  return {
-    ...match,
-    rank: streamRank(match),
-  };
-}
-
-function dedupeChannels(matches: ScrapedMatch[]) {
-  const byDisplayKey = new Map<string, ScrapedMatch & { alternateCount: number }>();
-
-  for (const match of matches) {
-    const key = [
-      match.kind,
-      (match.displayTitle || match.title).toLowerCase().replace(/[^a-z0-9]+/g, ""),
-      match.sport,
-      match.region || "",
-    ].join(":");
-
-    const existing = byDisplayKey.get(key);
-    if (!existing) {
-      byDisplayKey.set(key, { ...match, alternateCount: 1 });
-      continue;
-    }
-
-    existing.alternateCount += 1;
-    if ((match.rank || 0) > (existing.rank || 0)) {
-      byDisplayKey.set(key, { ...match, alternateCount: existing.alternateCount });
-    }
-  }
-
-  return Array.from(byDisplayKey.values()).sort((a, b) => (b.rank || 0) - (a.rank || 0));
-}
-
-function scoreChannelForEvent(channel: ScrapedMatch, event: ScheduleMatchPayload, directSourceIds: Set<string>) {
-  if (directSourceIds.has(channel.cid)) return 100_000 + (channel.rank || 0);
-
-  const category = normalizeCategory(event.category);
-  const title = normalizeText(`${channel.title} ${channel.displayTitle || ""} ${channel.league || ""} ${channel.sport || ""}`);
-  const teams = resolveTeams(event);
-  const homeTokens = teams ? teamTokens(teams.home.name) : [];
-  const awayTokens = teams ? teamTokens(teams.away.name) : [];
-  const homeHits = homeTokens.filter((token) => title.includes(token)).length;
-  const awayHits = awayTokens.filter((token) => title.includes(token)).length;
-  const bothTeamsBonus = homeHits > 0 && awayHits > 0 ? 140 : 0;
-  const sportBonus = SPORT_MATCHERS[category]?.test(title) ? 2500 : 0;
-  const sportCategoryBonus = channel.categories?.includes("sport") ? 35 : 0;
-  const genericSportPenalty = category !== "football" && sportBonus === 0 ? -900 : 0;
-  const rankScore = Math.min(channel.rank || 0, 2400);
-
-  return rankScore + sportBonus + sportCategoryBonus + bothTeamsBonus + genericSportPenalty + (homeHits + awayHits) * 35;
-}
-
-function pickCoverageChannel(event: ScheduleMatchPayload, channels: ScrapedMatch[]) {
-  if (channels.length === 0) return undefined;
-
-  const sourceIds = new Set(scheduleSources(event).map((source) => source.id));
-  return channels
-    .map((channel) => ({
-      channel,
-      score: scoreChannelForEvent(channel, event, sourceIds),
-    }))
-    .sort((a, b) => b.score - a.score)[0]?.channel;
 }
 
 function isRelevantEvent(event: ScheduleMatchPayload) {
@@ -612,7 +394,7 @@ function fixtureRank(match: ScrapedMatch, kickoffMillis?: number, popular?: bool
   return statusBoost + popularBoost + sourceBoost + coverageBoost + timeScore + (match.availability || 0) * 1000;
 }
 
-function fixtureToMatch(event: ScheduleMatchPayload, channels: ScrapedMatch[]): ScrapedMatch | null {
+function fixtureToMatch(event: ScheduleMatchPayload): ScrapedMatch | null {
   const title = event.title?.trim();
   if (!title || !isRelevantEvent(event)) return null;
 
@@ -623,9 +405,6 @@ function fixtureToMatch(event: ScheduleMatchPayload, channels: ScrapedMatch[]): 
     ? orderEventSources(sources)
     : undefined;
   const sourceIds = sources.map((source) => source.id);
-  const sourceIdSet = new Set(sourceIds);
-  const coverageChannel = pickCoverageChannel(event, channels);
-  const directCoverage = coverageChannel ? sourceIdSet.has(coverageChannel.cid) : false;
   const teams = resolveTeams(event);
   const category = normalizeCategory(event.category);
   const sport = eventSportLabel(event);
@@ -633,8 +412,8 @@ function fixtureToMatch(event: ScheduleMatchPayload, channels: ScrapedMatch[]): 
   const status = statusForKickoff(kickoffMillis, sources.length);
   const startsAt = kickoffMillis ? new Date(kickoffMillis).toISOString() : undefined;
   const kickoff = kickoffLabel(kickoffMillis);
-  const quality = coverageChannel?.quality || (sources.length > 0 ? "HD" : "Unknown");
-  const sourceCount = sources.length || coverageChannel?.alternateCount || 1;
+  const quality = sources.length > 0 ? "HD" : "Unknown";
+  const sourceCount = sources.length;
   const subtitleParts = [
     sport,
     kickoff,
@@ -643,29 +422,27 @@ function fixtureToMatch(event: ScheduleMatchPayload, channels: ScrapedMatch[]): 
 
   const match: ScrapedMatch = {
     id: event.id || scheduleKey(event),
-    cid: coverageChannel?.cid || sourceIds[0] || event.id || title,
+    cid: sourceIds[0] || event.id || title,
     title,
     displayTitle: title,
     subtitle: subtitleParts.join(" · "),
     kind: "fixture",
-    availability: coverageChannel?.availability || (sources.length > 0 ? 0.7 : 0),
+    availability: sources.length > 0 ? 0.7 : 0,
     categories: [category],
-    bitrate_kbps: coverageChannel?.bitrate_kbps,
     teams,
     poster: resolveImageURL(event.poster),
     league: sport,
     sport,
-    region: coverageChannel?.region,
-    network: playableEventSource ? `${playableEventSource.source.toUpperCase()} stream` : coverageChannel?.network,
+    network: playableEventSource ? `${playableEventSource.source.toUpperCase()} stream` : undefined,
     quality,
-    alternateCount: Math.max(sourceCount, coverageChannel?.alternateCount || 1),
+    alternateCount: Math.max(sourceCount, 1),
     startsAt,
     status,
     sourceCount,
     sourceIds,
     isPopular: event.popular === true,
-    coverage: playableEventSource ? "direct" : directCoverage ? "direct" : coverageChannel ? "fallback" : "unavailable",
-    playbackType: playableEventSource ? "event" : "p2p",
+    coverage: playableEventSource ? "direct" : "unavailable",
+    playbackType: "event",
     eventSource: playableEventSource,
     eventSources: playableEventSources && playableEventSources.length > 1 ? playableEventSources : undefined,
   };
@@ -682,7 +459,7 @@ async function getMatchFeed(): Promise<ScrapedMatch[]> {
   const schedule = await fetchSchedule();
 
   return schedule
-    .map((event) => fixtureToMatch(event, []))
+    .map(fixtureToMatch)
     .filter((match): match is ScrapedMatch => Boolean(match?.eventSource))
     .sort((a, b) => (b.rank || 0) - (a.rank || 0));
 }

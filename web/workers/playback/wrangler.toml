@@ -9,9 +9,7 @@ compatibility_flags = [ "no_nodejs_compat", "no_nodejs_compat_v2" ]
 #   NEXT_PUBLIC_FOTTY_API_BASE=https://fotty-playback.<account>.workers.dev npm run build:static
 
 [vars]
-# Comma-separated hosts allowed to iframe /api/embed/player
-FOTTY_EMBED_FRAME_ANCESTORS = "https://getfotty.com https://www.getfotty.com"
-# Set "0" to require a future auth gate; default open for companion Watch parity with iOS embeds.
+# Set "0" to require a future access policy; default open for companion source lookup.
 FOTTY_PLAYBACK_OPEN = "1"
 FPL_COACH_MODEL = "deepseek-v4-flash"
 

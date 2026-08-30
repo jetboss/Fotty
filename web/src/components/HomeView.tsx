@@ -3,15 +3,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, LogIn } from "lucide-react";
+import { Bell } from "lucide-react";
 import { FottyAPI, ScrapedMatch } from "@/lib/api";
 import { useMatchFeedPoll } from "@/hooks/use-match-feed-poll";
 import { formatKickoff, hasStreameXPlayback, isMatchLiveNow, matchKey } from "@/lib/live";
 import { matchFeedSignature, mergeFreshMatchFeed } from "@/lib/match-feed-signature";
 import { buildReminderCalendarURL } from "@/lib/storage";
 import { matchIncludesTeam, teamNamesMatch } from "@/lib/team-name-match";
-import { useAuth } from "@/components/AuthProvider";
-import { isAccountsEnabled } from "@/lib/accounts";
 import { useReminders, useTrackedTeams, useUserPreferences } from "@/lib/user-experience";
 import { ErrorState, UpdatingState } from "@/components/FallbackState";
 import { HomeArenaCard } from "./HomeArenaCard";
@@ -31,7 +29,6 @@ interface HomeViewProps {
 
 export function HomeView({ initialMatches }: HomeViewProps) {
   const router = useRouter();
-  const { session } = useAuth();
   const { preferences } = useUserPreferences();
   const { reminders } = useReminders();
   const { trackedTeams } = useTrackedTeams();
@@ -237,20 +234,6 @@ export function HomeView({ initialMatches }: HomeViewProps) {
       />
 
       <div className="space-y-xxl py-lg">
-        {isAccountsEnabled() && !session && (
-          <section className="px-md">
-            <div className="mx-auto max-w-5xl rounded-xl border border-accent/25 bg-accent/10 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-white">Sign in for full access</p>
-                <p className="text-xs font-medium leading-5 text-text-secondary">
-                  Sync reminders across devices, or use the Fotty iOS app for the native player and arena.
-                </p>
-              </div>
-              <GuestActionLinks />
-            </div>
-          </section>
-        )}
-
         {trackedTeams.length > 0 && (
           <section className="space-y-4">
             <SectionHeader
@@ -384,24 +367,4 @@ function isTrackedTeamMatch(match: ScrapedMatch, trackedTeams: Array<{ name: str
     if (!trackedName) return false;
     return fixtureTeams.some((fixtureName) => fixtureName === trackedName || fixtureName.includes(trackedName) || trackedName.includes(fixtureName));
   });
-}
-
-function GuestActionLinks() {
-  return (
-    <div className="mt-3 flex flex-wrap gap-2 sm:mt-0 sm:shrink-0">
-      <Link
-        href="/login"
-        className="inline-flex items-center justify-center gap-2 rounded-full accent-gradient px-5 py-2.5 text-xs font-bold text-white"
-      >
-        <LogIn size={14} />
-        Sign in
-      </Link>
-      <Link
-        href="/welcome"
-        className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 px-5 py-2.5 text-xs font-bold text-text-primary"
-      >
-        What is Fotty?
-      </Link>
-    </div>
-  );
 }

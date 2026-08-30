@@ -34,7 +34,7 @@ def main():
                        for p in package.namelist())
             package.extractall(temporary)
         binary = Path(temporary) / "swiftlint"
-        os.chmod(binary, 0o755)
+        os.chmod(binary, 0o700)
         command = [str(binary), "lint", "--config", str(CONFIG), "--no-cache",
                    "--quiet", "--disable-sourcekit", "--reporter", "json"]
         calibration = []

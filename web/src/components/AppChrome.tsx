@@ -4,11 +4,10 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/BottomNav";
 import { PwaInstallBanner } from "@/components/PwaInstallPrompt";
-import { isAdminRoute } from "@/lib/admin-routes";
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const hideNavigation = pathname.startsWith("/watch") || isAdminRoute(pathname) || pathname.startsWith("/demo");
+  const hideNavigation = pathname.startsWith("/watch") || pathname.startsWith("/demo");
   const showInstallBanner = !hideNavigation && ["/welcome", "/settings", "/help"].some((route) => pathname.startsWith(route));
 
   return (

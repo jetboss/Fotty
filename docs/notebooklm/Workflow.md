@@ -1,23 +1,31 @@
 # Fotty Workflow
 
-## Human-AI Loop
-1. **Identify**: User identifies a stability or data issue.
-2. **Research**: Agent uses `grep_search` and `view_file` to find the root cause.
-3. **Reason**: Agent consults `docs/notebooklm/` to ensure the fix aligns with architecture.
-4. **Deploy**: Use `tools/ios-deploy-device.sh` for physical device verification.
-5. **Log**: Record the change in `Decisions-Log.md`.
+## Human–AI loop
 
-## Testing Protocol (Ready for v1.6)
-Before push:
-- [ ] Sub-10s startup for verified web sources.
-- [ ] P2P fallback resolution below the player.
-- [ ] PiP stability during swipe-up.
-- [ ] Branding fidelity (logos present for all Big 5 + NBA/WNBA).
-- [ ] PocketBase sync reliability (no silent decoding crashes).
+1. **Identify**: Capture the user-visible problem and the acceptance behavior.
+2. **Inspect**: Read the current project memory and trace the active product graph.
+3. **Implement**: Change the smallest authoritative layer; remove obsolete alternatives instead of maintaining parallel behavior.
+4. **Verify**: Run focused tests, then the relevant full gate. Never use a simulator on this Mac.
+5. **Publish**: Use a protected pull request for shared changes. Use TestFlight for tester-facing releases.
+6. **Record**: Update durable memory and refresh the generated NotebookLM source.
 
-## Agent Hand-off
-All agents must read `agent/AGENT-START.md` before initiating changes.
-After significant changes, run:
+## Required gates
+
+Before merge:
+
+- [ ] Focused regression covers the reported failure.
+- [ ] Web changes pass unit, TypeScript, lint, Worker, and build checks.
+- [ ] iOS changes pass provider identity, Catalyst units, and generic unsigned Release.
+- [ ] Workflow changes pass actionlint and gitleaks.
+- [ ] Temporary Xcode output is removed and disk space is checked.
+- [ ] Physical-only behavior is explicitly left open until exercised on a connected device.
+
+## Agent handoff
+
+All agents read `agent/AGENT-START.md` before broad work. After significant work:
+
 ```bash
-./tools/notebooklm-refresh.sh
+./tools/agent-finish.sh "Describe what changed"
 ```
+
+This refreshes the local documentation bundle; it does not contact the retired homelab.

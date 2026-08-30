@@ -17,10 +17,8 @@
     "lint": "eslint",
     "smoke": "node ./scripts/smoke-web.mjs",
     "env:local": "node ./scripts/write-env-local.mjs",
-    "env:football-data": "node ./scripts/sync-football-data-key.mjs",
-    "pb:admin-setup": "node ./scripts/pocketbase-admin-setup.mjs",
     "worker:check": "wrangler deploy --dry-run --config workers/playback/wrangler.toml",
-    "test:unit": "node --test --test-concurrency=1 src/lib/football-competition-catalog.test.mjs src/lib/playback-controller.test.mjs src/lib/match-clock.test.mjs src/lib/watch-player-source-contract.test.mjs src/lib/stream-guide/rank.test.mjs src/lib/stream-guide/embed-url.test.mjs src/lib/watch-session.test.mjs src/lib/watch-access.test.mjs src/lib/match-feed-signature.test.mjs src/lib/watch-event-sources.test.mjs src/lib/server/embed-player-proxy.test.mjs src/lib/server/local-auth.test.mjs src/lib/server/watch-stream-secret.test.mjs src/lib/server/rate-limit.test.mjs src/lib/v2/watch-related-matches.test.mjs src/lib/v2/preview.test.mjs src/lib/route-segment-config.test.mjs src/lib/server/football-data-matches.test.mjs src/lib/watch-event-recovery.test.mjs workers/playback/src/coach-contract.test.mjs workers/playback/src/fpl-scoring.test.mjs",
+    "test:unit": "node --test --test-concurrency=1 src/lib/football-competition-catalog.test.mjs src/lib/playback-controller.test.mjs src/lib/match-clock.test.mjs src/lib/watch-player-source-contract.test.mjs src/lib/stream-guide/rank.test.mjs src/lib/stream-guide/embed-url.test.mjs src/lib/watch-session.test.mjs src/lib/match-feed-signature.test.mjs src/lib/watch-event-sources.test.mjs src/lib/v2/watch-related-matches.test.mjs src/lib/v2/preview.test.mjs src/lib/route-segment-config.test.mjs src/lib/server/football-data-matches.test.mjs src/lib/watch-event-recovery.test.mjs workers/playback/src/coach-contract.test.mjs workers/playback/src/fpl-scoring.test.mjs",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium webkit"
   },

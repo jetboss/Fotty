@@ -1,44 +1,24 @@
-import { getAuthSession, setAuthSession } from "@/lib/auth";
-import { pocketBaseRefreshAuthToken } from "@/lib/pocketbase-client-auth";
 export { buildWatchPageHref, WATCH_ROUTE_SEGMENT } from "@/lib/watch-route";
 
-/** True when an API or player message indicates the PocketBase token must be refreshed. */
-export function isWatchSessionAuthError(message?: string | null): boolean {
-  const normalized = message?.toLowerCase() || "";
-  return /(sign[- ]?in|session expired|refresh access|secure watch|invalid or expired session|sign-in needs to be refreshed)/.test(
-    normalized
-  );
+/** Retained for legacy player error classification; account-backed sessions are retired. */
+export function isWatchSessionAuthError(_message?: string | null): boolean {
+  void _message;
+  return false;
 }
 
-/** Try PocketBase auth-refresh before dropping the bearer token. */
+/** Account-backed stream sessions are retired; playback is guest-accessible. */
 export async function refreshWatchSessionIfNeeded(): Promise<boolean> {
-  const session = getAuthSession();
-  if (!session?.token) return false;
-
-  const refreshed = await pocketBaseRefreshAuthToken(session.token);
-  if (!refreshed) return false;
-
-  setAuthSession({ ...session, token: refreshed });
-  return true;
+  return false;
 }
 
-/** Drop the bearer token while keeping email and entitlement so the watch gate can prompt re-auth. */
+/** No token exists in the supported guest-access product graph. */
 export function invalidateWatchSessionToken(): boolean {
-  const session = getAuthSession();
-  if (!session?.token) return false;
-
-  const next = { ...session };
-  delete next.token;
-  delete next.userID;
-  setAuthSession(next);
-  return true;
+  return false;
 }
 
-/** Refresh the PocketBase token when possible; otherwise invalidate the watch session. */
+/** Compatibility shim for retired account-backed stream sessions. */
 export async function invalidateWatchSessionTokenAsync(): Promise<boolean> {
-  const refreshed = await refreshWatchSessionIfNeeded();
-  if (refreshed) return false;
-  return invalidateWatchSessionToken();
+  return false;
 }
 
 export function isP2PContentId(value?: string | null): value is string {

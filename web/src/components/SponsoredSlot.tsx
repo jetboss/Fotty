@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ArrowUpRight, BadgeDollarSign, ShieldCheck } from "lucide-react";
-import { useEntitlement } from "@/components/EntitlementProvider";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
@@ -24,9 +23,6 @@ export function SponsoredSlot({
   compact?: boolean;
   className?: string;
 }) {
-  const entitlement = useEntitlement();
-  if (entitlement.isPaid) return null;
-
   return (
     <Link
       href={SPONSOR_HREF}
@@ -58,4 +54,3 @@ export function SponsoredSlot({
     </Link>
   );
 }
-

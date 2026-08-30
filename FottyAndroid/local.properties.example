@@ -1,8 +1,0 @@
-# Copy to local.properties (gitignored). Do not commit real secrets.
-sdk.dir=/path/to/Android/sdk
-P2P_API_PASSWORD=
-FOOTBALL_DATA_API_KEY=
-RAPID_API_KEY=
-API_FOOTBALL_KEY=
-FOTTY_WEB_BASE_URL=https://fotty.pixel-invoice.com
-FOTTY_FOOTBALL_PROXY_ENABLED=true
