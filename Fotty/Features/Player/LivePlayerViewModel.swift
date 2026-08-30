@@ -262,7 +262,8 @@ final class LivePlayerViewModel {
             transition(to: .paused(.native), phase: "Paused")
             stopPlaybackWatchdog()
         } else {
-            MediaAudioSession.configureForPlaybackIfNeeded()
+            MediaAudioSession.activateForPlaybackIfNeeded()
+            if let player { MediaAudioSession.configureNativeBackgroundPlayback(player) }
             player?.play()
             transition(to: .playing(.native), phase: "Playing")
             if let source = activeSource { startPlaybackWatchdog(for: source) }
@@ -279,6 +280,10 @@ final class LivePlayerViewModel {
 
     func handlePictureInPictureActivityChanged(_ active: Bool, isBackgrounded: Bool = false) {
         isPictureInPictureActive = active
+        if active, let player {
+            MediaAudioSession.configureNativeBackgroundPlayback(player)
+            MediaAudioSession.activateForPlaybackIfNeeded()
+        }
         if !active {
             lastPictureInPictureRequestAt = nil
         }
@@ -312,6 +317,10 @@ final class LivePlayerViewModel {
             connectionPhase = "PiP Unavailable"
             scheduleAutoHide()
             return
+        }
+        if let player {
+            MediaAudioSession.configureNativeBackgroundPlayback(player)
+            MediaAudioSession.activateForPlaybackIfNeeded()
         }
         lastPictureInPictureRequestAt = Date()
         pictureInPictureRequestID = UUID()
@@ -372,12 +381,16 @@ final class LivePlayerViewModel {
 
     private func handleAppDidMoveToBackground() {
         foregroundResumeValidationTask?.cancel(); audioSessionKeepAliveTask?.cancel()
-        shouldResumeAfterForeground = isPlaying
 
         if shouldKeepPlaybackAliveForPictureInPicture {
+            shouldResumeAfterForeground = false
+            if let player { MediaAudioSession.configureNativeBackgroundPlayback(player) }
+            MediaAudioSession.activateForPlaybackIfNeeded()
             connectionPhase = isPictureInPictureActive ? "PiP Active" : "Starting PiP"
             return
         }
+
+        shouldResumeAfterForeground = isPlaying
 
         if isPlaying, isUsingWebEmbed {
             transition(to: .paused(.webEmbed), phase: "Paused (Background)")
@@ -409,9 +422,10 @@ final class LivePlayerViewModel {
     }
 
     private func handleAppDidBecomeActive() {
-        MediaAudioSession.configureForPlaybackIfNeeded(); startAudioSessionKeepAlive()
+        startAudioSessionKeepAlive()
         guard shouldResumeAfterForeground else { return }
         shouldResumeAfterForeground = false
+        MediaAudioSession.activateForPlaybackIfNeeded()
         if isUsingWebEmbed {
             transition(to: .playing(.webEmbed), phase: "Playing")
             scheduleAutoHide()
@@ -506,7 +520,8 @@ final class LivePlayerViewModel {
 
         let requestID = loadRequestID
         let start = player.currentTime().seconds
-        MediaAudioSession.configureForPlaybackIfNeeded()
+        MediaAudioSession.activateForPlaybackIfNeeded()
+        MediaAudioSession.configureNativeBackgroundPlayback(player)
         player.play()
         transition(to: .recovering(.native), phase: "Reconnecting...")
         startPlaybackWatchdog(for: source)
@@ -587,6 +602,7 @@ final class LivePlayerViewModel {
             do {
                 if player == nil { player = AVPlayer() } else { player?.replaceCurrentItem(with: nil) }
                 guard let player else { return }
+                MediaAudioSession.configureNativeBackgroundPlayback(player)
                 let p2p = isP2PSource(source)
                 player.automaticallyWaitsToMinimizeStalling = !p2p
                 let url = try await preparePlaybackURL(for: session, requestID: rid)
@@ -627,7 +643,8 @@ final class LivePlayerViewModel {
     }
 
     private func requestPlaybackStart(player: AVPlayer, isP2P: Bool) {
-        MediaAudioSession.configureForPlaybackIfNeeded()
+        MediaAudioSession.configureNativeBackgroundPlayback(player)
+        MediaAudioSession.activateForPlaybackIfNeeded()
         if isP2P {
             player.playImmediately(atRate: 1.0)
         } else {
@@ -1055,6 +1072,7 @@ final class LivePlayerViewModel {
             let item = AVPlayerItem(asset: asset)
             item.preferredForwardBufferDuration = 12
             let candidatePlayer = AVPlayer(playerItem: item)
+            MediaAudioSession.configureNativeBackgroundPlayback(candidatePlayer)
             candidatePlayer.automaticallyWaitsToMinimizeStalling = true
             candidatePlayer.isMuted = true
 
@@ -1069,6 +1087,7 @@ final class LivePlayerViewModel {
                 return
             }
 
+            MediaAudioSession.activateForPlaybackIfNeeded()
             candidatePlayer.play()
             let started = await waitForPlaybackStart(player: candidatePlayer, timeoutSeconds: 4)
             guard started,

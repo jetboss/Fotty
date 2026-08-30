@@ -20,6 +20,23 @@ enum MediaAudioSession {
         }
     }
 
+    /// Activate only when media is about to play. Configuring at launch is
+    /// harmless; activating at launch would unnecessarily interrupt audio from
+    /// another app before the user starts a Fotty broadcast.
+    static func activateForPlaybackIfNeeded() {
+        let session = AVAudioSession.sharedInstance()
+        configureForPlaybackIfNeeded()
+        do {
+            try session.setActive(true)
+        } catch {
+            print("[MediaAudioSession] Failed to activate playback session: \(error.localizedDescription)")
+        }
+    }
+
+    static func configureNativeBackgroundPlayback(_ player: AVPlayer) {
+        player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
+    }
+
     static func installLifecycleObserversIfNeeded() {
         if Thread.isMainThread {
             installLifecycleObserversOnMainThreadIfNeeded()

@@ -4,6 +4,24 @@ Last updated: 2026-08-30
 
 This registry turns current sharp edges into guardrails for agents.
 
+## Native PiP background continuity (Unreleased)
+
+- A visible system PiP window does not by itself prove that playback will
+  survive Fotty entering the background. Native players must retain
+  `.continuesIfPossible`, the `.playback` audio session must be active at the
+  real play/PiP boundary, and active PiP must not enter the ordinary
+  foreground-resume path.
+- Unit policy and a generic-device Release build cover Fotty's state and build
+  contract, but cannot certify iPadOS scheduling, a header-proxy stream, system
+  controls, or lock-screen continuity. Before distributing this correction,
+  use a real native handoff on the physical iPad, open another app for at least
+  60 seconds, lock/unlock once, and confirm the same source keeps advancing
+  without duplicate audio.
+- Do not activate the audio session at app launch or ordinary foreground entry;
+  that would interrupt another app's audio before the user starts playback.
+- Status: corrected locally on 2026-08-30; not installed or uploaded. The
+  physical acceptance step remains open in `docs/notebooklm/QA-Playbook.md`.
+
 ## Platform modernization boundaries (TestFlight build 45)
 
 - Build 45 proved that distribution-sensitive launch gates can expose the wrong
