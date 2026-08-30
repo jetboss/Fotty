@@ -12,7 +12,7 @@ This registry turns current sharp edges into guardrails for agents.
 - GitHub Actions are commit-SHA pinned. Dependency update PRs must preserve the reviewed action origin and full hash. Advanced CodeQL covers Actions, JavaScript/TypeScript and any surviving Python; Swift stays under the simulator-free Xcode gate until bounded extraction works.
 - Status: protected PRs #10 and #11 are merged. The post-merge `main` Actions/JavaScript/Python CodeQL scan reports zero open alerts; repository-quality and web gates pass. This does not add Swift CodeQL coverage and did not deploy the app, Worker or public web.
 
-## Native PiP background continuity (Unreleased)
+## Native PiP background continuity (private iPad build 47)
 
 - A visible system PiP window does not by itself prove that playback will
   survive Fotty entering the background. Native players must retain
@@ -27,8 +27,9 @@ This registry turns current sharp edges into guardrails for agents.
   without duplicate audio.
 - Do not activate the audio session at app launch or ordinary foreground entry;
   that would interrupt another app's audio before the user starts playback.
-- Status: corrected locally on 2026-08-30; not installed or uploaded. The
-  physical acceptance step remains open in `docs/notebooklm/QA-Playbook.md`.
+- Status: private build 47 is installed only on Jet iPad and passes a 60-second
+  foreground process hold; it is not uploaded. The native PiP app-switch plus
+  lock/unlock acceptance step remains open in `docs/notebooklm/QA-Playbook.md`.
 
 ## Platform modernization boundaries (TestFlight build 45)
 
@@ -64,7 +65,7 @@ This registry turns current sharp edges into guardrails for agents.
   not an acceptance candidate. The web source and Worker compatibility-date
   change remain undeployed.
 
-## Seasonal club membership and league inference (Unreleased)
+## Seasonal club membership and league inference (private iPad build 47)
 
 - Historical participation and one matching opponent are not current
   competition evidence. Domestic inference requires both current senior teams
@@ -92,10 +93,12 @@ This registry turns current sharp edges into guardrails for agents.
   current manifest silently into 2027/28. All Football can still show valid
   broadcasts outside these competitions.
 - Status: build 45 contains the original seasonal-membership correction. The
-  identity resolver, official reconciliation and live drift gate are later
-  local Unreleased work; see
-  `docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md`. Physical and
-  TestFlight acceptance of that later work are still outstanding.
+  later identity resolver, official reconciliation and live drift gate are
+  installed only on Jet iPad in private build 47; their automated vectors and
+  three-feed metadata precheck pass. Physical discovery/league-placement
+  acceptance and shared TestFlight distribution are still outstanding. See
+  `docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md` and
+  `docs/releases/Fotty-2.0.0-47.md`.
 
 ## Coach conversation lifetime (Unreleased)
 
