@@ -1,0 +1,49 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24 <27"
+  },
+  "packageManager": "npm@11.8.0",
+  "scripts": {
+    "dev": "next dev --webpack",
+    "build": "next build",
+    "build:static": "bash ./scripts/patch-watch-routes-static.sh && IS_STATIC_EXPORT=true next build",
+    "build:standalone": "next build && node ./scripts/prepare-standalone.mjs",
+    "preview:standalone": "node .next/standalone/server.js",
+    "prestart": "node ./scripts/prepare-standalone.mjs",
+    "start": "node .next/standalone/server.js",
+    "lint": "eslint",
+    "smoke": "node ./scripts/smoke-web.mjs",
+    "env:local": "node ./scripts/write-env-local.mjs",
+    "env:football-data": "node ./scripts/sync-football-data-key.mjs",
+    "pb:admin-setup": "node ./scripts/pocketbase-admin-setup.mjs",
+    "worker:check": "wrangler deploy --dry-run --config workers/playback/wrangler.toml",
+    "test:unit": "node --test --test-concurrency=1 src/lib/football-competition-catalog.test.mjs src/lib/playback-controller.test.mjs src/lib/match-clock.test.mjs src/lib/watch-player-source-contract.test.mjs src/lib/stream-guide/rank.test.mjs src/lib/stream-guide/embed-url.test.mjs src/lib/watch-session.test.mjs src/lib/watch-access.test.mjs src/lib/match-feed-signature.test.mjs src/lib/watch-event-sources.test.mjs src/lib/server/embed-player-proxy.test.mjs src/lib/server/local-auth.test.mjs src/lib/server/watch-stream-secret.test.mjs src/lib/server/rate-limit.test.mjs src/lib/v2/watch-related-matches.test.mjs src/lib/v2/preview.test.mjs src/lib/route-segment-config.test.mjs src/lib/server/football-data-matches.test.mjs src/lib/watch-event-recovery.test.mjs workers/playback/src/coach-contract.test.mjs workers/playback/src/fpl-scoring.test.mjs",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium webkit"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "framer-motion": "^13.1.1",
+    "hls.js": "^1.7.1",
+    "lucide-react": "^1.37.0",
+    "next": "^16.3.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.3.3",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.127.1"
+  }
+}

@@ -1,0 +1,22 @@
+RewriteEngine On
+RewriteBase /
+
+# Retired product surfaces — hard gone (not soft SPA rewrite).
+RewriteRule ^(guide|swarm|world-cup)(/.*)?$ - [G,L]
+
+# Retired PocketBase auth edge on static FTP — do not serve SPA HTML as JSON.
+RewriteRule ^api/pocketbase(/.*)?$ - [G,L]
+
+# Static export only ships /watch/index — map bare /watch and nested IDs,
+# but never rewrite the real /watch/index/* tree (that causes a 500 loop).
+RewriteRule ^watch/?$ /watch/index/index.html [L]
+RewriteCond %{REQUEST_URI} !^/watch/index(/|$)
+RewriteRule ^watch/.+$ /watch/index/index.html [L]
+
+# Serve real files and directories as-is.
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# SPA fallback for other client routes.
+RewriteRule ^ index.html [L]

@@ -1,0 +1,33 @@
+---
+description: Standards for managing project memory and utilizing the local Brain
+globs: ["**/*.md", "**/docs/notebooklm/*.md", "**/agent/*.md"]
+---
+
+# Private Knowledge Base Standards
+
+You are an agent working on **Fotty**. This project uses a modular, private project memory system.
+
+## 1. Context Requirement
+Before answering architecture questions or proposing major changes:
+- Check `docs/notebooklm/Project-Memory.md` for the current roadmap and pillars.
+- Check `docs/notebooklm/Decisions-Log.md` for recent fixes and logic changes.
+- Check `docs/notebooklm/Architecture-Map.md` to understand where components live.
+- Run `./tools/agent-start.sh "Describe the task"` before broad refactors, release decisions, and unfamiliar debugging.
+
+## 2. Maintenance Lifecycle
+When completing a significant task:
+1. **Log the Decision**: Append a summary to `docs/notebooklm/Decisions-Log.md`.
+2. **Update Memory**: If pillars or navigation changed, update the relevant `.md` files.
+3. **Refresh Source**: Run `./tools/notebooklm-refresh.sh` from the root.
+4. **Sync Embeddings**: Run `./tools/private-kb-sync.sh`.
+5. **Verify**: Run `./tools/brain-doctor.sh`.
+
+Or use the guided wrapper:
+
+```bash
+./tools/agent-finish.sh "Describe what changed"
+```
+
+## 3. Privacy
+- Never commit secrets, tokens, or private stream URLs to Markdown files.
+- The Knowledge Base is stored locally in this repo and indexed on the Homelab GPU.

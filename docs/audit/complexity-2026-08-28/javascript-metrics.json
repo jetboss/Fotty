@@ -1,0 +1,141 @@
+{
+  "tool": "ESLint 9.39.4",
+  "variant": "classic",
+  "results": [
+    {
+      "file": "web/workers/playback/src/index.js",
+      "functions": 99,
+      "over10": 10,
+      "over20": 2,
+      "max": 79,
+      "hotspots": [
+        {
+          "file": "web/workers/playback/src/index.js",
+          "line": 1221,
+          "cc": 79,
+          "function": "Async function 'handleFplCoach'"
+        },
+        {
+          "file": "web/workers/playback/src/index.js",
+          "line": 1067,
+          "cc": 47,
+          "function": "Async function 'buildOfficialFplEvidence'"
+        },
+        {
+          "file": "web/workers/playback/src/index.js",
+          "line": 978,
+          "cc": 20,
+          "function": "Function 'contextPlayerIds'"
+        },
+        {
+          "file": "web/workers/playback/src/index.js",
+          "line": 86,
+          "cc": 17,
+          "function": "Async function 'handleFootballDataMatches'"
+        },
+        {
+          "file": "web/workers/playback/src/index.js",
+          "line": 306,
+          "cc": 17,
+          "function": "Async method 'fetchLiveSnapshot'"
+        },
+        {
+          "file": "web/workers/playback/src/index.js",
+          "line": 1371,
+          "cc": 14,
+          "function": "Async method 'fetch'"
+        },
+        {
+          "file": "web/workers/playback/src/index.js",
+          "line": 718,
+          "cc": 13,
+          "function": "Async function 'fetchVariants'"
+        },
+        {
+          "file": "web/workers/playback/src/index.js",
+          "line": 873,
+          "cc": 13,
+          "function": "Async function 'handleHls'"
+        },
+        {
+          "file": "web/workers/playback/src/index.js",
+          "line": 1206,
+          "cc": 13,
+          "function": "Function 'coachResultIsComplete'"
+        },
+        {
+          "file": "web/workers/playback/src/index.js",
+          "line": 204,
+          "cc": 12,
+          "function": "Function 'apiFootballPayloadError'"
+        }
+      ]
+    },
+    {
+      "file": "web/workers/playback/src/fpl-scoring.mjs",
+      "functions": 36,
+      "over10": 2,
+      "over20": 1,
+      "max": 47,
+      "hotspots": [
+        {
+          "file": "web/workers/playback/src/fpl-scoring.mjs",
+          "line": 65,
+          "cc": 47,
+          "function": "Function 'resolveFplScoring'"
+        },
+        {
+          "file": "web/workers/playback/src/fpl-scoring.mjs",
+          "line": 224,
+          "cc": 16,
+          "function": "Function 'deterministicFplScoringResponse'"
+        }
+      ]
+    },
+    {
+      "file": "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift",
+      "functions": 57,
+      "over10": 6,
+      "over20": 0,
+      "max": 19,
+      "hotspots": [
+        {
+          "file": "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift",
+          "line": 484,
+          "cc": 19,
+          "function": "Function"
+        },
+        {
+          "file": "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift",
+          "line": 623,
+          "cc": 19,
+          "function": "Function 'inspectProgress'"
+        },
+        {
+          "file": "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift",
+          "line": 700,
+          "cc": 19,
+          "function": "Function"
+        },
+        {
+          "file": "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift",
+          "line": 323,
+          "cc": 17,
+          "function": "Function 'removeKnownNuisanceSolicitations'"
+        },
+        {
+          "file": "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift",
+          "line": 280,
+          "cc": 14,
+          "function": "Function"
+        },
+        {
+          "file": "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift",
+          "line": 744,
+          "cc": 11,
+          "function": "Function"
+        }
+      ]
+    }
+  ]
+}

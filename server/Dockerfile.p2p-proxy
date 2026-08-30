@@ -1,0 +1,17 @@
+FROM python:3.11-slim
+
+RUN pip install --no-cache-dir flask gunicorn redis requests
+
+WORKDIR /app
+COPY p2p_proxy_service.py .
+COPY p2p_config.py .
+COPY p2p_proxy_core.py .
+COPY p2p_scraper_queries.py .
+COPY p2p_pinned_channels.py .
+COPY p2p_pinned_channels.json .
+
+ENV PORT=8006
+ENV P2P_UPSTREAM_BASE_URL=http://127.0.0.1:6878
+EXPOSE 8006
+
+CMD ["sh", "-c", "gunicorn --worker-class gthread --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-16} --timeout ${GUNICORN_TIMEOUT:-300} --bind ${GUNICORN_BIND:-0.0.0.0:${PORT:-8006}} p2p_proxy_service:app"]

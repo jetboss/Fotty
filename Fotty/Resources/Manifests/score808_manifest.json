@@ -1,0 +1,11 @@
+{
+  "id": "score808-extension",
+  "name": "Score808 Streams",
+  "providerCode": "score808",
+  "version": "1.1.0",
+  "author": "Community",
+  "description": "Live match stream catalog provider for Score808 (Nexus hotel / embed.st)",
+  "iconName": "play.tv.fill",
+  "resolutionMode": "native",
+  "allowedDomains": ["embed.st", "embedsports.top", "score808live.tv", "score808"]
+}

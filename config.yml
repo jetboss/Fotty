@@ -1,0 +1,21 @@
+# Provision this credential file on the host; never commit it to the repository.
+tunnel: 84177353-fc9e-4f4a-bea6-4b089a634e2c
+credentials-file: /etc/cloudflared/cert.json
+ingress:
+  - hostname: scraper.pixel-invoice.com
+    service: http://127.0.0.1:8006
+  - hostname: p2p.pixel-invoice.com
+    service: http://127.0.0.1:8006
+  - hostname: fotty.pixel-invoice.com
+    service: http://127.0.0.1:3010
+  - hostname: otaku.pixel-invoice.com
+    service: http://127.0.0.1:8080
+  - hostname: pb.pixel-invoice.com
+    service: http://127.0.0.1:8090
+  - hostname: fotty-api.pixel-invoice.com
+    service: http://127.0.0.1:8092
+  - hostname: seanime.pixel-invoice.com
+    service: http://127.0.0.1:43211
+  - hostname: seanime-api.pixel-invoice.com
+    service: http://127.0.0.1:43211
+  - service: http_status:404

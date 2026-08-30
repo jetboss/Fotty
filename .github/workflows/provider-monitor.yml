@@ -1,0 +1,25 @@
+name: Provider Metadata Monitor
+
+on:
+  schedule:
+    - cron: "17 11 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: provider-metadata-monitor
+  cancel-in-progress: true
+
+jobs:
+  identity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - name: Validate current provider football identities
+        run: node tools/audit-provider-football-identity.mjs --live

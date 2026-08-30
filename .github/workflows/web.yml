@@ -1,0 +1,65 @@
+name: Web CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - "shared/reference-data/**"
+      - "tools/generate-football-competition-catalog.mjs"
+      - ".github/workflows/web.yml"
+  pull_request:
+    paths:
+      - "web/**"
+      - "shared/reference-data/**"
+      - "tools/generate-football-competition-catalog.mjs"
+      - ".github/workflows/web.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: web-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: web
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Lint
+        # The current baseline has known warnings but no lint errors. Keep the
+        # ceiling explicit so warning growth fails while cleanup proceeds.
+        run: npm run lint -- --max-warnings 100
+
+      - name: Worker dry run
+        run: npm run worker:check
+
+      - name: Build
+        run: npm run build
+        env:
+          FOOTBALL_DATA_API_KEY: ci-placeholder
+          P2P_API_PASSWORD: ci-test-p2p-password
+          FOTTY_WATCH_STREAM_SECRET: ci-test-watch-stream-secret

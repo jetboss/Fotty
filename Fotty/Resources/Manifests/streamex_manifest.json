@@ -1,0 +1,11 @@
+{
+  "id": "streamex-extension",
+  "name": "StreamEx Catalog",
+  "providerCode": "streamex",
+  "version": "1.0.0",
+  "author": "Community",
+  "description": "High resolution web embed catalog provider for StreamEx",
+  "iconName": "play.rectangle.fill",
+  "resolutionMode": "native",
+  "allowedDomains": ["embed.st", "embedsports.top", "streamex.net", "streamex.sh", "pooembed.eu"]
+}

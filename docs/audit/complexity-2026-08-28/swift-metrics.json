@@ -1,0 +1,491 @@
+{
+  "tool": "SwiftLint 0.65.1",
+  "scanExit": 0,
+  "stderr": "",
+  "calibration": [
+    [
+      {
+        "character": 1,
+        "file": null,
+        "line": 1,
+        "reason": "Function should have complexity 0 or less; currently complexity is 3",
+        "rule_id": "cyclomatic_complexity",
+        "severity": "Warning",
+        "type": "Cyclomatic Complexity"
+      },
+      {
+        "character": 1,
+        "file": null,
+        "line": 1,
+        "reason": "Function body should span 0 lines or less excluding comments and whitespace: currently spans 1 lines",
+        "rule_id": "function_body_length",
+        "severity": "Warning",
+        "type": "Function Body Length"
+      }
+    ],
+    [
+      {
+        "character": 1,
+        "file": null,
+        "line": 1,
+        "reason": "Function should have complexity 0 or less; currently complexity is 3",
+        "rule_id": "cyclomatic_complexity",
+        "severity": "Warning",
+        "type": "Cyclomatic Complexity"
+      },
+      {
+        "character": 1,
+        "file": null,
+        "line": 1,
+        "reason": "Function body should span 0 lines or less excluding comments and whitespace: currently spans 1 lines",
+        "rule_id": "function_body_length",
+        "severity": "Warning",
+        "type": "Function Body Length"
+      }
+    ],
+    [
+      {
+        "character": 1,
+        "file": null,
+        "line": 1,
+        "reason": "Function should have complexity 0 or less; currently complexity is 1",
+        "rule_id": "cyclomatic_complexity",
+        "severity": "Warning",
+        "type": "Cyclomatic Complexity"
+      },
+      {
+        "character": 1,
+        "file": null,
+        "line": 1,
+        "reason": "Function body should span 0 lines or less excluding comments and whitespace: currently spans 1 lines",
+        "rule_id": "function_body_length",
+        "severity": "Warning",
+        "type": "Function Body Length"
+      }
+    ]
+  ],
+  "summary": {
+    "Other app/extension": {
+      "over10": 31,
+      "over20": 1,
+      "max": 27,
+      "nonZeroComplexityBodies": 626
+    },
+    "FPL": {
+      "over10": 10,
+      "over20": 1,
+      "max": 23,
+      "nonZeroComplexityBodies": 157
+    },
+    "Player": {
+      "over10": 4,
+      "over20": 1,
+      "max": 27,
+      "nonZeroComplexityBodies": 86
+    }
+  },
+  "hotspots": [
+    {
+      "file": "Fotty/Core/Internal/PlaybackWarmupService.swift",
+      "line": 261,
+      "declaration": "private func prepareSessionInternal(",
+      "cc": 27,
+      "bodyLines": 241
+    },
+    {
+      "file": "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift",
+      "line": 850,
+      "declaration": "func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {",
+      "cc": 27,
+      "bodyLines": 130
+    },
+    {
+      "file": "Fotty/Features/FPL/Services/FPLPlannerEngine.swift",
+      "line": 216,
+      "declaration": "private static func optimize(",
+      "cc": 23,
+      "bodyLines": 130
+    },
+    {
+      "file": "Fotty/Features/Player/MultiLivePlayerView.swift",
+      "line": 793,
+      "declaration": "private func loadCurrentSource(ignoringCircuitBreaker: Bool = false) {",
+      "cc": 19,
+      "bodyLines": 129
+    },
+    {
+      "file": "Fotty/Core/Internal/AnalyticalDataEngine.swift",
+      "line": 605,
+      "declaration": "static func categoryDisplayName(for rawCategory: String) -> String {",
+      "cc": 18,
+      "bodyLines": 34
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 1405,
+      "declaration": "private func resolveP2PSessionsOnce(",
+      "cc": 18,
+      "bodyLines": 167
+    },
+    {
+      "file": "Fotty/Features/FPL/Services/FPLSquadValidator.swift",
+      "line": 4,
+      "declaration": "public static func validate(",
+      "cc": 18,
+      "bodyLines": 96
+    },
+    {
+      "file": "Fotty/Core/Data/Repository/FootballRepository.swift",
+      "line": 808,
+      "declaration": "private func calculateMomentum(from data: MatchHubData) -> [Double] {",
+      "cc": 17,
+      "bodyLines": 33
+    },
+    {
+      "file": "Fotty/Features/FPL/ViewModels/FPLAdvisorViewModel.swift",
+      "line": 356,
+      "declaration": "public func loadData(isRefresh: Bool = false) async {",
+      "cc": 17,
+      "bodyLines": 194
+    },
+    {
+      "file": "Fotty/Core/Internal/P2PDataService.swift",
+      "line": 186,
+      "declaration": "private func searchForMatch(",
+      "cc": 16,
+      "bodyLines": 86
+    },
+    {
+      "file": "Fotty/Features/FPL/Services/FPLDecisionEngine.swift",
+      "line": 410,
+      "declaration": "public static func commandCenter(",
+      "cc": 16,
+      "bodyLines": 80
+    },
+    {
+      "file": "Fotty/Core/Internal/P2PDataService.swift",
+      "line": 848,
+      "declaration": "private static func preflight(candidate: P2PCandidate) async -> P2PProbeResult {",
+      "cc": 15,
+      "bodyLines": 154
+    },
+    {
+      "file": "Fotty/Core/Networking/LocalStreamProxy.swift",
+      "line": 240,
+      "declaration": "private func forwardRequest(_ request: IncomingRequest, on connection: NWConnection) async {",
+      "cc": 14,
+      "bodyLines": 87
+    },
+    {
+      "file": "Fotty/Core/Notifications/MatchReminderStore.swift",
+      "line": 250,
+      "declaration": "private func performReconcile(fresh: [String: AnalyticalDataEngine.EventReference], statuses: [String: FootballMatch.MatchStatus]) async {",
+      "cc": 14,
+      "bodyLines": 45
+    },
+    {
+      "file": "Fotty/Features/FPL/Services/FPLAICoachService.swift",
+      "line": 46,
+      "declaration": "public static func deterministicResultIfApplicable(",
+      "cc": 14,
+      "bodyLines": 94
+    },
+    {
+      "file": "Fotty/Features/FPL/Services/FPLAdvisorEngine.swift",
+      "line": 276,
+      "declaration": "public static func getTransferRecommendations(",
+      "cc": 14,
+      "bodyLines": 54
+    },
+    {
+      "file": "Fotty/Features/Social/SocialHubView.swift",
+      "line": 1961,
+      "declaration": "private func refreshTeamFollowSuggestions(refreshBrandAssets: Bool = true) async {",
+      "cc": 14,
+      "bodyLines": 169
+    },
+    {
+      "file": "Fotty/Core/Notifications/MatchReminderStore.swift",
+      "line": 192,
+      "declaration": "private func performEnable(_ event: AnalyticalDataEngine.EventReference, revision: Int) async -> Result {",
+      "cc": 13,
+      "bodyLines": 26
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 2305,
+      "declaration": "private func resolveCatalogEvent(for request: StreamPlaybackRequest) async throws -> AnalyticalDataEngine.EventReference? {",
+      "cc": 13,
+      "bodyLines": 83
+    },
+    {
+      "file": "Fotty/Features/Player/LivePlayerViewModel.swift",
+      "line": 538,
+      "declaration": "func loadCurrentSource(ignoringCircuitBreaker: Bool = false) {",
+      "cc": 13,
+      "bodyLines": 83
+    },
+    {
+      "file": "Fotty/Core/Internal/PlaybackWarmupService.swift",
+      "line": 1092,
+      "declaration": "private func apply(snapshot: AceSessionEngine.SessionSnapshot) {",
+      "cc": 12,
+      "bodyLines": 32
+    },
+    {
+      "file": "Fotty/Core/Providers/Football/FootballService.swift",
+      "line": 510,
+      "declaration": "private func request<T: Decodable>(path: String, query: [String: String] = [:]) async throws -> T {",
+      "cc": 12,
+      "bodyLines": 48
+    },
+    {
+      "file": "Fotty/Core/Data/Repository/FootballRepository.swift",
+      "line": 744,
+      "declaration": "private func deriveInsights(from data: MatchHubData) -> [String] {",
+      "cc": 12,
+      "bodyLines": 41
+    },
+    {
+      "file": "Fotty/Features/Insights/Views/TacticalPitchView.swift",
+      "line": 419,
+      "declaration": "private static func positionalRowFallback(player: FottyPlayer, index: Int, total: Int) -> Int {",
+      "cc": 12,
+      "bodyLines": 17
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 27,
+      "declaration": "func resolvePrioritizedSources(for match: AnalyticalDataEngine.EventReference) async throws -> [StreamSource] {",
+      "cc": 12,
+      "bodyLines": 79
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 1937,
+      "declaration": "private func validateDirectSource(",
+      "cc": 12,
+      "bodyLines": 167
+    },
+    {
+      "file": "Fotty/Features/FPL/Views/Components/FPLSquadPitchView.swift",
+      "line": 928,
+      "declaration": "private func autoOptimizeStartingXI() {",
+      "cc": 12,
+      "bodyLines": 79
+    },
+    {
+      "file": "Fotty/Features/FPL/Services/FPLDecisionEngine.swift",
+      "line": 254,
+      "declaration": "private static func resolveAutosubs(",
+      "cc": 12,
+      "bodyLines": 93
+    },
+    {
+      "file": "Fotty/Features/FPL/Services/FPLAdvisorEngine.swift",
+      "line": 141,
+      "declaration": "public static func scoreAllPlayers(",
+      "cc": 12,
+      "bodyLines": 94
+    },
+    {
+      "file": "Fotty/Features/Dashboard/SportsDashboardView.swift",
+      "line": 909,
+      "declaration": "private func watchEvent(_ event: AnalyticalDataEngine.EventReference) {",
+      "cc": 12,
+      "bodyLines": 64
+    },
+    {
+      "file": "Fotty/Features/Social/SocialHubView.swift",
+      "line": 570,
+      "declaration": "private func fetchSportsDBLeagueBadgeCatalog(for leagueName: String) async -> SocialLeagueBadgeCatalog {",
+      "cc": 12,
+      "bodyLines": 61
+    },
+    {
+      "file": "Fotty/Design/Components.swift",
+      "line": 603,
+      "declaration": "static func symbol(for category: String) -> String {",
+      "cc": 11,
+      "bodyLines": 14
+    },
+    {
+      "file": "Fotty/Core/Providers/Football/FootballModels.swift",
+      "line": 359,
+      "declaration": "func refresh(force: Bool = false) async {",
+      "cc": 11,
+      "bodyLines": 85
+    },
+    {
+      "file": "Fotty/Core/Internal/StreamPipelineValidationService.swift",
+      "line": 119,
+      "declaration": "static func runFullSuite() async -> StreamPipelineValidationReport {",
+      "cc": 11,
+      "bodyLines": 143
+    },
+    {
+      "file": "Fotty/Core/Internal/AnalyticalDataEngine.swift",
+      "line": 720,
+      "declaration": "static func footballLeagueTab(for match: EventReference) -> FootballLeagueTab {",
+      "cc": 11,
+      "bodyLines": 37
+    },
+    {
+      "file": "Fotty/Core/Data/Normalizers/FootballNormalizer.swift",
+      "line": 8,
+      "declaration": "public static func normalizeStatus(_ raw: String) -> FottyMatchStatus {",
+      "cc": 11,
+      "bodyLines": 14
+    },
+    {
+      "file": "Fotty/Core/Providers/Football/FootballService.swift",
+      "line": 1175,
+      "declaration": "func parser(_ parser: XMLParser, didEndElement elementName: String, namespaceURI: String?, qualifiedName qName: String?) {",
+      "cc": 11,
+      "bodyLines": 25
+    },
+    {
+      "file": "Fotty/Core/Data/Providers/APIFootballProvider.swift",
+      "line": 119,
+      "declaration": "private func performRequest<T: Decodable>(path: String, query: [String: String] = [:]) async throws -> T {",
+      "cc": 11,
+      "bodyLines": 46
+    },
+    {
+      "file": "Fotty/Core/Internal/P2PDataService.swift",
+      "line": 297,
+      "declaration": "private func allSportChannels(category: String?) async -> [StreamSource] {",
+      "cc": 11,
+      "bodyLines": 63
+    },
+    {
+      "file": "Fotty/Features/FPL/Views/FPLMainView.swift",
+      "line": 442,
+      "declaration": "private func toolDestination(_ tool: FPLTool) -> some View {",
+      "cc": 11,
+      "bodyLines": 14
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 1206,
+      "declaration": "private func resolveCoreMediaSessionsOnce(",
+      "cc": 11,
+      "bodyLines": 171
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 1690,
+      "declaration": "private func validateWebEmbedCandidate(",
+      "cc": 11,
+      "bodyLines": 148
+    },
+    {
+      "file": "Fotty/Features/MatchHub/MatchHubViewModel.swift",
+      "line": 138,
+      "declaration": "private func watchEvent(_ event: EventReference, hubData data: MatchHubData?) {",
+      "cc": 11,
+      "bodyLines": 67
+    },
+    {
+      "file": "Fotty/Features/Dashboard/SportsDashboardView.swift",
+      "line": 243,
+      "declaration": "private func matchesContent(_ viewModel: MatchListViewModel) -> some View {",
+      "cc": 11,
+      "bodyLines": 84
+    },
+    {
+      "file": "Fotty/Features/Player/LivePlayerViewModel.swift",
+      "line": 790,
+      "declaration": "func handleSourceStartupFailure(",
+      "cc": 11,
+      "bodyLines": 95
+    }
+  ],
+  "longest": [
+    {
+      "file": "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift",
+      "line": 274,
+      "declaration": "static func playbackMonitorScript(",
+      "bodyLines": 531
+    },
+    {
+      "file": "Fotty/Core/Internal/PlaybackWarmupService.swift",
+      "line": 261,
+      "declaration": "private func prepareSessionInternal(",
+      "cc": 27,
+      "bodyLines": 241
+    },
+    {
+      "file": "Fotty/Features/FPL/ViewModels/FPLAdvisorViewModel.swift",
+      "line": 356,
+      "declaration": "public func loadData(isRefresh: Bool = false) async {",
+      "cc": 17,
+      "bodyLines": 194
+    },
+    {
+      "file": "Fotty/Features/FPL/Services/FPLSmartCoachService.swift",
+      "line": 442,
+      "declaration": "private static func makeContext(",
+      "cc": 1,
+      "bodyLines": 176
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 1206,
+      "declaration": "private func resolveCoreMediaSessionsOnce(",
+      "cc": 11,
+      "bodyLines": 171
+    },
+    {
+      "file": "Fotty/Features/Social/SocialHubView.swift",
+      "line": 1961,
+      "declaration": "private func refreshTeamFollowSuggestions(refreshBrandAssets: Bool = true) async {",
+      "cc": 14,
+      "bodyLines": 169
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 2122,
+      "declaration": "private func validateP2PSource(",
+      "cc": 8,
+      "bodyLines": 168
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 1405,
+      "declaration": "private func resolveP2PSessionsOnce(",
+      "cc": 18,
+      "bodyLines": 167
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 1937,
+      "declaration": "private func validateDirectSource(",
+      "cc": 12,
+      "bodyLines": 167
+    },
+    {
+      "file": "Fotty/Core/Internal/P2PDataService.swift",
+      "line": 848,
+      "declaration": "private static func preflight(candidate: P2PCandidate) async -> P2PProbeResult {",
+      "cc": 15,
+      "bodyLines": 154
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 843,
+      "declaration": "private func performResolution(",
+      "cc": 10,
+      "bodyLines": 148
+    },
+    {
+      "file": "Fotty/Core/Internal/HybridStreamProvider.swift",
+      "line": 1690,
+      "declaration": "private func validateWebEmbedCandidate(",
+      "cc": 11,
+      "bodyLines": 148
+    }
+  ],
+  "sourceFileCount": 161,
+  "metricNote": "SwiftLint decision-syntax score, not ESLint classic CC; zero-score bodies omitted from the complexity summary. Conditional compilation branches are not resolved."
+}

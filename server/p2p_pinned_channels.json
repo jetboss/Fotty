@@ -1,0 +1,57 @@
+{
+  "description": "Manual AceStream CIDs for networks missing from engine search. Only entries with a 40-char infohash are merged into /matches.",
+  "channels": [
+    {
+      "fottyName": "NFL Network",
+      "title": "NFL Network HD [US]",
+      "cid": "",
+      "region": "United States",
+      "notes": "Find CID via AceStream search or community lists; paste infohash here."
+    },
+    {
+      "fottyName": "MLB Network",
+      "title": "MLB Network HD [US]",
+      "cid": "",
+      "region": "United States",
+      "notes": ""
+    },
+    {
+      "fottyName": "NHL Network",
+      "title": "NHL Network HD [US]",
+      "cid": "2a685561a8c29c02e99a31e27ecf1382ace342b7",
+      "region": "United States",
+      "availability": 1,
+      "notes": "AceStream search label 'NHL'; verify playback on broker."
+    },
+    {
+      "fottyName": "CBS Sports Network",
+      "title": "CBS Sports Network HD [US]",
+      "cid": "e7e4304186cc99d21fc2bbfdd1e8707e012b911b",
+      "region": "United States",
+      "availability": 1,
+      "notes": "AceStream search label 'CBSN'; maps to CBS Sports Network USA."
+    },
+    {
+      "fottyName": "Sky Sports F1",
+      "title": "Sky Sport F1 HD [DE]",
+      "cid": "b0999d6facfbae2944b9c7bba442eeea9cd9d4b2",
+      "region": "Germany",
+      "availability": 1,
+      "notes": "No UK Virgin F1 feed in Ace index; German Sky F1 backup until UK CID found."
+    },
+    {
+      "fottyName": "Sky Sports Golf",
+      "title": "Sky Sports Golf HD [UK]",
+      "cid": "",
+      "region": "United Kingdom",
+      "notes": ""
+    },
+    {
+      "fottyName": "Racing TV",
+      "title": "Racing TV HD [UK]",
+      "cid": "",
+      "region": "United Kingdom",
+      "notes": ""
+    }
+  ]
+}

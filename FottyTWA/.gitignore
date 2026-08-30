@@ -1,0 +1,14 @@
+# Signing secrets — back these up somewhere safe, but never commit them.
+android.keystore
+keystore.properties
+
+# Build outputs
+app/build/
+build/
+.gradle/
+app-release-*.apk
+app-release-*.aab
+*.idsig
+
+# Local SDK config
+local.properties

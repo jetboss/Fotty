@@ -1,0 +1,68 @@
+{
+  "network": {
+    "actualNetworkCalls": 0,
+    "blockedOfficialCalls": 4,
+    "simulatedModelCalls": 1
+  },
+  "results": [
+    {
+      "id": "control-paused-video",
+      "expectedFailures": 0,
+      "observedFailures": 0,
+      "pass": true
+    },
+    {
+      "id": "replacement-video-progress",
+      "expected": "No stall while replacement video advances every second",
+      "observed": [
+        "Playback stalled: decoded playhead stopped advancing"
+      ],
+      "pass": false
+    },
+    {
+      "id": "unrelated-video-error",
+      "expected": "An unrelated video cannot fail the confirmed broadcast",
+      "observed": [
+        "Media error 4"
+      ],
+      "pass": false
+    },
+    {
+      "id": "missing-live-row",
+      "expected": "Unknown starter appearance must not become a confirmed absence",
+      "observed": [
+        {
+          "in_id": 12,
+          "in_name": "Kelleher",
+          "in_points": 7,
+          "out_id": 1,
+          "out_name": "Starting keeper",
+          "out_points": 0
+        }
+      ],
+      "pass": false
+    },
+    {
+      "id": "scoring-refresh-failure",
+      "expected": "No model call to calculate points without verified scoring",
+      "observed": {
+        "status": 200,
+        "simulatedModelCalls": 1,
+        "source": "DeepSeek",
+        "officialDataStatus": "client-context-only",
+        "answer": "Your current total is 99 points."
+      },
+      "pass": false
+    },
+    {
+      "id": "null-request-body",
+      "expected": "Controlled 400 response",
+      "observed": {
+        "thrown": "TypeError",
+        "message": "Cannot read properties of null (reading 'query')"
+      },
+      "pass": false
+    }
+  ],
+  "violatedExpectations": 5
+}

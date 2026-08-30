@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.pixelperfect.fotty.twa",
+      "sha256_cert_fingerprints": [
+        "FF:23:A6:5B:7E:37:78:6C:F6:7E:1C:E6:FF:FC:B1:6F:50:8A:15:6E:40:CF:99:84:85:BE:B5:1C:40:FB:B1:16"
+      ]
+    }
+  }
+]

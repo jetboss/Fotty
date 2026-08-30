@@ -1,0 +1,65 @@
+{
+  "packageId": "com.pixelperfect.fotty.twa",
+  "host": "fotty.pixel-invoice.com",
+  "name": "FOTTY Live Sports",
+  "launcherName": "FOTTY",
+  "display": "standalone",
+  "themeColor": "#0A0D14",
+  "themeColorDark": "#0A0D14",
+  "navigationColor": "#0A0D14",
+  "navigationColorDark": "#0A0D14",
+  "navigationDividerColor": "#0A0D14",
+  "navigationDividerColorDark": "#0A0D14",
+  "backgroundColor": "#0A0D14",
+  "enableNotifications": true,
+  "startUrl": "/?source=twa",
+  "iconUrl": "https://fotty.pixel-invoice.com/icon-512.png",
+  "maskableIconUrl": "https://fotty.pixel-invoice.com/icon-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "fotty"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [
+    {
+      "name": "Live Sports",
+      "shortName": "Live",
+      "url": "/swarm",
+      "chosenIconUrl": "https://fotty.pixel-invoice.com/icon-192.png"
+    },
+    {
+      "name": "Search",
+      "shortName": "Search",
+      "url": "/search",
+      "chosenIconUrl": "https://fotty.pixel-invoice.com/icon-192.png"
+    },
+    {
+      "name": "My Fotty",
+      "shortName": "Saved",
+      "url": "/favorites",
+      "chosenIconUrl": "https://fotty.pixel-invoice.com/icon-192.png"
+    }
+  ],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://fotty.pixel-invoice.com/manifest.json",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://fotty.pixel-invoice.com/",
+  "minSdkVersion": 21,
+  "orientation": "default",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "protocolHandlers": [],
+  "fileHandlers": [],
+  "launchHandlerClientMode": "",
+  "appVersion": "1.0.0"
+}

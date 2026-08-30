@@ -1,0 +1,113 @@
+name: Fotty
+options:
+  bundleIdPrefix: com.jelani
+  deploymentTarget:
+    iOS: "26.4"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+configs:
+  Debug: debug
+  Release: release
+
+targets:
+  Fotty:
+    type: application
+    platform: iOS
+    supportedDestinations: [iOS, macCatalyst]
+    deploymentTarget: "26.4"
+    sources:
+      - path: Fotty
+        excludes:
+          - "**/.DS_Store"
+          - Info.plist
+          - Resources/Manifests/**
+      - path: Fotty/Info.plist
+        buildPhase: none
+      - path: Fotty/Resources/Manifests
+        buildPhase: resources
+        type: folder
+    dependencies:
+      - target: FottyLiveActivityExtension
+        embed: true
+        destinationFilters: [iOS]
+    settings:
+      base:
+        DEVELOPMENT_TEAM: 9W3JDBQU39
+        INFOPLIST_FILE: Fotty/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_VERSION: 5.9
+        TARGETED_DEVICE_FAMILY: 1,2
+        MARKETING_VERSION: 2.0.0
+        CURRENT_PROJECT_VERSION: 46
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
+  FottyLiveActivityExtension:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "26.4"
+    sources:
+      - path: FottyLiveActivityExtension
+        excludes:
+          - Info.plist
+      - path: FottyLiveActivityExtension/Info.plist
+        buildPhase: none
+      - path: Fotty/Core/LiveActivities/FottyMatchActivityAttributes.swift
+    settings:
+      base:
+        DEVELOPMENT_TEAM: 9W3JDBQU39
+        INFOPLIST_FILE: FottyLiveActivityExtension/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.jelani.Fotty.LiveActivityExtension
+        PRODUCT_NAME: FottyLiveActivityExtension
+        SKIP_INSTALL: YES
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SWIFT_VERSION: 5.9
+        MARKETING_VERSION: 2.0.0
+        CURRENT_PROJECT_VERSION: 46
+  FottyTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "26.4"
+    sources:
+      - path: FottyTests
+    dependencies:
+      - target: Fotty
+    settings:
+      base:
+        DEVELOPMENT_TEAM: 9W3JDBQU39
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.jelani.FottyTests
+        SWIFT_VERSION: 5.9
+  FottyUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "26.4"
+    sources:
+      - path: FottyUITests
+    dependencies:
+      - target: Fotty
+    settings:
+      base:
+        DEVELOPMENT_TEAM: 9W3JDBQU39
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.jelani.FottyUITests
+        SWIFT_VERSION: 5.9
+
+schemes:
+  Fotty:
+    build:
+      targets:
+        Fotty: all
+        FottyTests: [test]
+        FottyUITests: [test]
+    test:
+      targets:
+        - FottyTests
+        - FottyUITests
+      environmentVariables:
+        FOTTY_AUTOMATED_TESTING: "1"
+    run:
+      config: Debug
+    archive:
+      config: Release

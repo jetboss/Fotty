@@ -1,0 +1,49 @@
+name: iOS CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Fotty/**"
+      - "FottyLiveActivityExtension/**"
+      - "FottyTests/**"
+      - "shared/reference-data/**"
+      - "tools/generate-football-competition-catalog.mjs"
+      - "tools/audit-provider-football-identity.mjs"
+      - "tools/ios-ci.sh"
+      - "project.yml"
+      - "Fotty.xcodeproj/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
+    paths:
+      - "Fotty/**"
+      - "FottyLiveActivityExtension/**"
+      - "FottyTests/**"
+      - "shared/reference-data/**"
+      - "tools/generate-football-competition-catalog.mjs"
+      - "tools/audit-provider-football-identity.mjs"
+      - "tools/ios-ci.sh"
+      - "project.yml"
+      - "Fotty.xcodeproj/**"
+      - ".github/workflows/ios.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    # Xcode 27 is required by Fotty's checked-in iOS 26.4 target. This runner is
+    # ephemeral, so DerivedData cannot fill the development Mac.
+    runs-on: xcode-27
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+      - name: Simulator-free iOS release gate
+        run: ./tools/ios-ci.sh
+        env:
+          FOTTY_XCODE_JOBS: "2"

@@ -1,0 +1,79 @@
+# Fotty Project Git Ignore
+
+# New organized directories
+logs/
+assets/screenshots/
+data/api.json
+data/devices.json
+
+# iOS
+.env.ios.local
+.build/
+**/.build/
+.DerivedData/
+.DerivedDataSim/
+.DerivedDataSimReview/
+.DerivedDataUnsigned/
+build/
+build_output/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+**/*.xcworkspace/xcuserdata/
+*.xcuserstate
+DerivedData/
+.deriveddata_iphone/
+**/.deriveddata_iphone/
+*.swp
+*.lock
+.DS_Store
+
+# Android
+.gradle/
+**/build/
+*.iml
+local.properties
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# Cloudflare tunnel credentials are provisioned outside the repository.
+/cert.json
+
+# General
+.DS_Store
+*.log
+*.txt
+*.bak
+
+# Local diagnostics and scratch files
+scratch/
+scratch_*.swift
+test_api*.swift
+server/matches.json
+
+# Accidental shell-fragment files
+,urllib.request.urlopen*
+init_err,*
+init_json_parse_fail)*
+init_status,*
+init_timeout);*
+
+# Backups and design system notes
+backups/
+design-system/
+test-results/
+**/test-results/
+
+# Local design/audit exports are review evidence, not application assets.
+IconDrafts/
+stream_test_output.png
+web/stream_test_output.png
+web/public/audit_*.png
+web/public/*preview*.png
+web/public/watch_real_user.png
+FottyAndroid/screenshot_fix.png

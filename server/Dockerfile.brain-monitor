@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install watchdog requests
+
+# Copy the core scripts
+COPY tools/brain/ /app/tools/brain/
+COPY server/brain_monitor.py /app/server/brain_monitor.py
+
+# Create cache directory
+RUN mkdir -p /app/tools/brain/.cache
+
+# Entry point runs the monitor
+CMD ["python3", "server/brain_monitor.py"]

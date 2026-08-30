@@ -1,0 +1,73 @@
+# EXPERIMENTAL ONLY — not the production deployment definition.
+# Production uses homelab-docker-compose.yml via tools/p2p-proxy-deploy-homelab.sh.
+# Run from `server/` (e.g. `docker compose -f p2p-stack-updated.yml up -d`).
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: p2p-redis
+    restart: unless-stopped
+    network_mode: host
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+
+  mediaflow-proxy:
+    image: mhdzumair/mediaflow-proxy:latest
+    container_name: mediaflow-proxy
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      API_PASSWORD: "${P2P_API_PASSWORD:?Set P2P_API_PASSWORD}"
+      ENABLE_ACESTREAM: "true"
+      ACESTREAM_HOST: "127.0.0.1"
+      ACESTREAM_PORT: "6878"
+      ACESTREAM_EMPTY_TIMEOUT: "180"
+      ACESTREAM_SESSION_TIMEOUT: "300"
+      ACESTREAM_KEEPALIVE_INTERVAL: "10"
+      REDIS_URL: "redis://127.0.0.1:6379/0"
+      FORWARDED_ALLOW_IPS: "*"
+      GUNICORN_TIMEOUT: "180"
+      GUNICORN_WORKERS: "8"
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
+          cpus: '2.0'
+    depends_on:
+      - redis
+
+  acestream-scraper:
+    image: acestream-cid-scraper:latest
+    container_name: acestream-scraper
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      ACE_ENGINE: "http://127.0.0.1:6878"
+      PORT: "8005"
+      REFRESH_SECONDS: "180"
+
+  fotty-p2p-proxy:
+    image: fotty-p2p-proxy:latest
+    container_name: fotty-p2p-proxy
+    restart: always
+    network_mode: host
+    environment:
+      PORT: "8006"
+      P2P_UPSTREAM_BASE_URL: "http://127.0.0.1:6878"
+      REDIS_URL: "redis://127.0.0.1:6379/0"
+      SCRAPER_URL: "http://127.0.0.1:8005"
+      P2P_API_PASSWORD: "${P2P_API_PASSWORD:?Set P2P_API_PASSWORD}"
+      P2P_SCRAPER_MAX_TEXT_QUERIES: "120"
+      GUNICORN_WORKERS: "16"
+      GUNICORN_THREADS: "16"
+      GUNICORN_TIMEOUT: "300"
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    deploy:
+      resources:
+        limits:
+          memory: 2048M
+          cpus: '2.0'
+    depends_on:
+      - redis
+      - acestream-scraper

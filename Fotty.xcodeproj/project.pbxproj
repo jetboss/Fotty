@@ -1,0 +1,1831 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		00EA5FD084EC850411B8D8B8 /* MatchHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8247272179FC24568F36C27 /* MatchHubView.swift */; };
+		06CBE23078DB9C041983C970 /* HeroMatchCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F3B8540B57E80F7EB32E022 /* HeroMatchCarousel.swift */; };
+		07534140C1E0DEE2AB0C9239 /* FPLPressConferenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9320891FB7C338B28856995 /* FPLPressConferenceService.swift */; };
+		0A21CCA5FF4C098C15FB671A /* MatchCacheItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA8A69D2FC8B2C891CCBDF67 /* MatchCacheItem.swift */; };
+		0D276123D64746CC794D52D5 /* StringObfuscator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A51F3980E896F9E40ED86044 /* StringObfuscator.swift */; };
+		126C961D2F8A9A8020452548 /* LiveEventCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DC836D15418B3B4187DC7F3 /* LiveEventCard.swift */; };
+		14CBE0E6CC63B62013EEDB6E /* OnNowGlanceBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43A3D617B8F9098302DD4D47 /* OnNowGlanceBar.swift */; };
+		170215FF20FD02FB83AFAD74 /* SettingsSupportViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36CD20AA8325AC94DD9CD831 /* SettingsSupportViews.swift */; };
+		1A8816B75DB83F7F1E2FD706 /* FootballService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B07A0F2A6F63D73DADBFE19 /* FootballService.swift */; };
+		1A9DEEB9323ADAA3E62621CD /* SportsDiscoveryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FB08DA97575B0D9B7EFB02E /* SportsDiscoveryViews.swift */; };
+		1B064902BB28D34B7D81C023 /* FottyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0549E31DBE9C3A8C7795F93B /* FottyApp.swift */; };
+		1C6077B9F97E4EF6E49C829D /* StreamPipelineValidationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49FDDA9BEFD42E5CF82DECA1 /* StreamPipelineValidationView.swift */; };
+		1D19536370E015A529D98832 /* SocialFollowingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A1101784E49CF373E3DB3BA /* SocialFollowingView.swift */; };
+		1E3E3B10ED60BDC676079E6A /* LivePlayerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FFB2EE83EBF68C0B9A54374 /* LivePlayerViewModel.swift */; };
+		1FA678FE14C6E22174058E36 /* FPLTransferRules.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93B40F140ABB6536CA644848 /* FPLTransferRules.swift */; };
+		211CDF2FBC95E7A95F11F34C /* FootballRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B7BFDFA964EAD97038A9497 /* FootballRepository.swift */; };
+		21DF06684A98BFA742D3A64C /* FottyLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = B84869BAEC2E846F04920A3E /* FottyLogger.swift */; };
+		229503C813C400BDD0A7A1BA /* FottyLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F103DF8E998830FA50963A92 /* FottyLiveActivityExtension.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		2759F9CF4B1CE10F094D28E2 /* FPLMultiGWPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41B7E1260FD2A189FE556FAE /* FPLMultiGWPlannerView.swift */; };
+		2793D19470B4376429A2D676 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93E9A24A739FF94E9D5016E2 /* MediaModels.swift */; };
+		27A747E317F4F93BCF758765 /* APIFootballModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6EC3C0EF00CD4C2E2DB820A /* APIFootballModels.swift */; };
+		280590A19D6CB74EAA2DAB10 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0358C1299510CEB2A81BF269 /* SettingsScreen.swift */; };
+		29979D47BF061F8D5DB0068E /* LiveSourceHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EB5F54537E6F1A2E2C8E657 /* LiveSourceHealthStore.swift */; };
+		2F422DF3A2639EC32220517F /* FootballLeagueBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5247CE90E73A94F9C2AC60CC /* FootballLeagueBar.swift */; };
+		2F7AB62F86898F0679B90D4B /* FPLManagerInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D394973C23A24A236F2485B3 /* FPLManagerInputView.swift */; };
+		309D9739CAD9823863EFD249 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C0829A23F2C7F0EB23EBA7D /* Theme.swift */; };
+		31D65019BD3AD7D707CAF92F /* FPLDecisionJournalStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A5C0F9D69CB6A452CEA5BC /* FPLDecisionJournalStore.swift */; };
+		32AD7591D5C3634F049EBB3D /* MatchListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51B0A4ED15414BC625DF5469 /* MatchListViewModel.swift */; };
+		346E88557D4F3DC1C2732814 /* DashboardTabButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7F3A628FC85C5450C256C42 /* DashboardTabButton.swift */; };
+		348780BB54BDCB7A6706445E /* FottyMatchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360B7DC9D29D4425882D1F97 /* FottyMatchActivityAttributes.swift */; };
+		377E751A201CDAE61AA7DE99 /* FPLTransferLabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A7EFE0E576E3325FF0ED6F0 /* FPLTransferLabView.swift */; };
+		3CAD1E86E575BF0F54166488 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02845F99FBB61EF5F13CA78F /* SettingsViewModel.swift */; };
+		3D0473C403EDD1D7471F65D3 /* FPLLiveTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 837212902BD1F23C6F3F652C /* FPLLiveTrackerView.swift */; };
+		3D687332B953D881397DC901 /* PlaybackErrorOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12ADEA600563A8324A095FD4 /* PlaybackErrorOverlay.swift */; };
+		3E83C0E197D32C264612BE9D /* LocalStreamProxy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C5A629380007246A6CB4D63 /* LocalStreamProxy.swift */; };
+		40A9B775128F8EAC04CEBBD8 /* LocalDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9835157AD52174C23356FA4 /* LocalDataStore.swift */; };
+		41EA67CF75A098B5B5519B52 /* DashboardPresentationLayers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68694E12F247D9B0EE68A79 /* DashboardPresentationLayers.swift */; };
+		42378BF8D7063F349ECD9568 /* MomentumChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B04FA40F02A55FA4F3735D5C /* MomentumChartView.swift */; };
+		443D761FF5B5308A0DAB85B4 /* FootballModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81621DF315356CD7D48CB5D9 /* FootballModels.swift */; };
+		469A3A8DA078114CDED6D734 /* FPLDecisionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EAC695619FAB9B15A8C1B9F /* FPLDecisionEngine.swift */; };
+		474AE0CE6CCD89BEEAEDE80E /* StreamPluginsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93F9973A68099485B2B9B2C5 /* StreamPluginsSettingsView.swift */; };
+		481B899DF5FD09CAEC693EFA /* SportsDashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86AA474852E2C6BD74600911 /* SportsDashboardView.swift */; };
+		48864984B7FECC1CE7F1BB55 /* ArenaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 464E156A00A6510A757C8B70 /* ArenaModels.swift */; };
+		49E5908C0D8EA492208E58F4 /* FPLWildcardGeneratorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5343BF58872D2027074462CE /* FPLWildcardGeneratorView.swift */; };
+		4A22F073065B52482F2C0AC9 /* InsightsHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92FD634B81B2257B36D44535 /* InsightsHubView.swift */; };
+		4A4A2777647BFA6971B3A24F /* LiveWebEmbedPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EDA1075CD03A85FC2DD7DA4 /* LiveWebEmbedPlayerView.swift */; };
+		4B6EC7F51204106A55425D40 /* MatchHubViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81E69D5FA0BD239E98B5BD6A /* MatchHubViewModel.swift */; };
+		4BB06B36F6F2166CBEDEEC11 /* FootballProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52DD39B9B880835B8FF9EA6E /* FootballProvider.swift */; };
+		4BE2FDBF044B9AF8B962134F /* FPLTrustTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF918142949D97A8B46AD40A /* FPLTrustTests.swift */; };
+		4C3778CD19F409601787D83D /* FottyLiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5B2953A05DAA8CB025F654 /* FottyLiveActivityController.swift */; };
+		4C66B61E560D99947FDE9D94 /* FPLSquadPitchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4097B8DBA0C47B6D87657CCB /* FPLSquadPitchView.swift */; };
+		4C9FF787A91B757F4FB56828 /* MatchTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3692CA3D52424F1CC3FDCB34 /* MatchTimelineView.swift */; };
+		4F6FBEF9F94B7A88DA77F9C4 /* stadium_football.png in Resources */ = {isa = PBXBuildFile; fileRef = 14928D255D61D76D3E3DF0D6 /* stadium_football.png */; };
+		51591A348010D6A0DEF177B6 /* FPLCaptainPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9A17F70A5CAA0C55C832D2 /* FPLCaptainPickerView.swift */; };
+		588A38C9218F6BBB61ACB1FA /* MainTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A647C65A2728682FBE9A95A /* MainTabView.swift */; };
+		59367C96C9E932D36C086AD0 /* FootballDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC3C8FDAB71DD4549F8F767A /* FootballDataProvider.swift */; };
+		59681D12D808DF65869E4B09 /* MatchReminderStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FA31186B6A6B4FAC31A171E /* MatchReminderStore.swift */; };
+		5A8C70DA639797D5AEE8913C /* FPLDecisionModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA6CC9F5A8D62264EA045EBC /* FPLDecisionModels.swift */; };
+		5A96741D11B45DFC61D7A6E0 /* PlaybackPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FEE681802D8C19D177CA470 /* PlaybackPolicyTests.swift */; };
+		5C3EC2FD172985D581001F93 /* MediaFlowModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 519EC598EA4442B3A2F50146 /* MediaFlowModels.swift */; };
+		5ECCAD625A0620979F7FC871 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D485CE4756D69F81B12DA19A /* Assets.xcassets */; };
+		5EE73832EA9E2A434D8FB220 /* URLExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 469E3918650B9F86B832FE79 /* URLExtensions.swift */; };
+		61B8FA5EFC0FC339C9B8BC10 /* FPLManagerConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 488EC0D5107F28246404F449 /* FPLManagerConnection.swift */; };
+		64A66BB99A70184423C92FF3 /* FPLSmartCoachService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4C32DDD4B225BF2B74AA125 /* FPLSmartCoachService.swift */; };
+		65A210DB65995CA1D98CBA87 /* LiveMatchTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01773C08B0866576196782A3 /* LiveMatchTimelineView.swift */; };
+		660F6979FDF0A8C7D783476F /* PlaybackWarmupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B0265C09BE513572033DA5B /* PlaybackWarmupService.swift */; };
+		68877BD1DB52C214C7773B2F /* InsightsHubTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2391BBE1A530FEF75EC3A90 /* InsightsHubTab.swift */; };
+		6A40C4FEEA58E1EE6DD0ABDD /* FPLDecisionJournalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A5B7849C308C83D32CA7A8C /* FPLDecisionJournalView.swift */; };
+		6A71F1EBB158AC293CD86C05 /* TheSportsDBMatchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758AF608D582C1F65749CFEF /* TheSportsDBMatchService.swift */; };
+		6C0A581926C238080D8253F1 /* P2PDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6E53234B5643F39B73943DB /* P2PDataService.swift */; };
+		6D4A623096C82D134D793F7C /* SocialDiscoveryRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2067FFD2A438DF341DF0FA4 /* SocialDiscoveryRow.swift */; };
+		6F6D55DB6A9A329A16630AAF /* MockMatchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F88A6F905BFBB3F5B006A03C /* MockMatchService.swift */; };
+		713924B9D1FEB527917EE202 /* TeamColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AF87FA2D16625B90E6FAC81 /* TeamColors.swift */; };
+		71AFF3A50D3A863052AF87BF /* FottyLiveActivityWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6536B55927C2A731F9E9068A /* FottyLiveActivityWidget.swift */; };
+		71E02C4AA8B9EC8C919A12BA /* FPLAdvisorEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1FDDD9C96B4AD460383AE388 /* FPLAdvisorEngine.swift */; };
+		771B4A0F63EEBE528416F543 /* SettingsManageFollowsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A15871FF195104D6FEDE03D3 /* SettingsManageFollowsView.swift */; };
+		79B8F7DFC438D230F7474775 /* FottyFPLDeadlineWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B6EEC487E21F9ED0CE9381B /* FottyFPLDeadlineWidget.swift */; };
+		7EA9E6CC6E40077C9ADEE35D /* LiveStreamingProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CEDB1DAFF8EB5EFA3DE7493 /* LiveStreamingProvider.swift */; };
+		825DD53F2C1C1EB0796A5F1F /* PlaybackControlsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD832F1175EE8658444587E /* PlaybackControlsOverlay.swift */; };
+		83A6EFA2A249AC0325634370 /* StreamPipelineValidationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE610FBF0CF63CFAE46963BF /* StreamPipelineValidationService.swift */; };
+		84122A81525B52844693CE7E /* FootballQuotaBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D505FBB21CC2D37D42E49BE /* FootballQuotaBanner.swift */; };
+		854EFBF8C3C779F9559D4152 /* SearchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0B8B157B6065A2705DBC59 /* SearchView.swift */; };
+		881EF5B0F8C4036535B0AEA6 /* MultiLivePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F99ACE289BE8964E137E99 /* MultiLivePlayerView.swift */; };
+		88FC92E7887694C93A4160CC /* NotificationBadgeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30406005DC04151021E9928 /* NotificationBadgeManager.swift */; };
+		8BB782338209B1528B853724 /* FPLTransferHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27A8BE7CF90237EDC2B4490B /* FPLTransferHubView.swift */; };
+		8CC5960CC2F27AE4EB479A00 /* FPLRivalMatrixView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F589E98594CBE805120D7158 /* FPLRivalMatrixView.swift */; };
+		8FE0EA3563C0A1F1C0EA09C8 /* TeamFollowKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4744193DAA45F40E9DA6D529 /* TeamFollowKey.swift */; };
+		911F2C993CF8AFBB042231C5 /* FPLPriceAlertsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 259CF7E2657F77A5CBF2266F /* FPLPriceAlertsView.swift */; };
+		91941CCCA7A3E5879AEDFE48 /* LiveStreamSelectorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9886304ED293797400E9173 /* LiveStreamSelectorSheet.swift */; };
+		91E37ACBA1AFFC5BBB70AB30 /* NotificationManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85C105974D3C1968551E55FF /* NotificationManager.swift */; };
+		920ACC8B4561306BA38018A5 /* StreamPluginRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5E4580C1C48319D99DB6A61 /* StreamPluginRegistry.swift */; };
+		93F646FF36D8BE6DD84732B4 /* FPLLeagueStandingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CD9EEFEEC84FD9F7F675342 /* FPLLeagueStandingsView.swift */; };
+		945113EA89522C1704083B64 /* Animations.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0ABF0D9B217C3A3BBE74EDF4 /* Animations.swift */; };
+		955C87F88EAE7624D62A1AF7 /* YouTubeHighlightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D95B86E505E210693D48617 /* YouTubeHighlightsView.swift */; };
+		95A105BFD3C86A0B8EC2DDB2 /* LeagueTeamPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C546FAECBA6830FA81CB904 /* LeagueTeamPicker.swift */; };
+		95C416308F834E90B8D1360A /* FixtureDateGrouper.swift in Sources */ = {isa = PBXBuildFile; fileRef = B23FC6E44164FC2235618C4A /* FixtureDateGrouper.swift */; };
+		96F7A5DE38C429B851586E6D /* SocialExploreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 455FE5EB582688A5A51EE653 /* SocialExploreView.swift */; };
+		97CDF20D3F322B2B5368B065 /* APIFootballProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02955FE0753F5A30EF48767C /* APIFootballProvider.swift */; };
+		980B0B07D702ACDD81F33B24 /* ProviderDiscoveryModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12ABB3FB0C037C0E7D5A279B /* ProviderDiscoveryModule.swift */; };
+		9A97F9C1ACEBB3B71A8FDAE9 /* FPLAlertScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C1CAB33F8CB2398CF7C3DCF /* FPLAlertScheduler.swift */; };
+		9BEB9F87853F53C7DA4F983E /* BetaUsabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2E1A0E86257DD9C5DB8333 /* BetaUsabilityTests.swift */; };
+		9FBEB914DCBD9BB8D09E8611 /* SocialCloudStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B02400BC34E5320E18AF42C6 /* SocialCloudStore.swift */; };
+		A2C99993AF40854FEFE2D9EE /* FootballDataPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4249C5F3D52136C551E4CA6B /* FootballDataPolicy.swift */; };
+		A3F1619D515BFABC1E28409A /* MatchChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60C1B3ED8BD63CCA24EB988B /* MatchChatView.swift */; };
+		A5328C72405E9E6FDBAE2AC1 /* MatchReminderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31E32B105446EA9F6B5F96C5 /* MatchReminderTests.swift */; };
+		A55E6A26E94FB76266FC8983 /* InsightsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEE2566EA41678FC18543458 /* InsightsViewModel.swift */; };
+		A6D740E0A87928E7A4AA5408 /* TeamOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48070512128334AFE9A5E436 /* TeamOnboardingView.swift */; };
+		A8200217854B58BDD73D655E /* DashboardMatchList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05175585BE0D61CF49DA85AA /* DashboardMatchList.swift */; };
+		A894C14DC954F51D86E9AF2B /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E553E386AFCFF192D788D1 /* Config.swift */; };
+		A93AFD71FC3306E50811966E /* WebViewRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49979063C270AB2E683D7A93 /* WebViewRenderer.swift */; };
+		A948E051CA336C8A2B744A01 /* LivePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0153BF3AE2368FA4C1937E8D /* LivePlayerView.swift */; };
+		AABCC2C3A5396DC150F03844 /* StreamNetworkProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 691B6118A31ED085A9B2A8A4 /* StreamNetworkProcessor.swift */; };
+		AB09AC1CB2EA3897F67FE8C5 /* SocialHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 602EAADEE0BC1396F7871D82 /* SocialHubView.swift */; };
+		AD9EA9E52EC3DC7C49AF77BA /* stadium_basketball.png in Resources */ = {isa = PBXBuildFile; fileRef = C867B16BFBBE072D5F5F8EF6 /* stadium_basketball.png */; };
+		AFE0805B83BBF7FDA1BE5C52 /* FPLPlannerEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1F1DB8110D47059CD0EA9AE /* FPLPlannerEngine.swift */; };
+		B0917A771A1A08332ED06858 /* FPLAdvisorViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFD00EEA3BC8C2AEDD5B9D4F /* FPLAdvisorViewModel.swift */; };
+		B221FD2E1C9BFF019AB7D0FC /* SocialNotificationsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07E8A5F9AD97E71116BF26BF /* SocialNotificationsView.swift */; };
+		B3840CDAF5B84FB73D6CF93C /* SocialModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86A6E02CAADD1715BB651703 /* SocialModels.swift */; };
+		B527D940CA52A70D8AEBA28E /* HybridStreamProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09345D5A5EB0E00A8E407CA7 /* HybridStreamProvider.swift */; };
+		B6836ABBF1D0A44C2D00C353 /* MatchListActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 350E3FB3469A10036281CC1E /* MatchListActor.swift */; };
+		B7F19752F96CED83244B9B54 /* FPLPlayerComparisonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445525A214BA5630AFE1318D /* FPLPlayerComparisonView.swift */; };
+		B823FDA6632EF6735D09CB1E /* StreamPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A278C3ACBF83EA28E0EE65B /* StreamPlugin.swift */; };
+		B86AA0E34D0E8E044ABD348E /* TacticalPitchView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70FDE8BA64F38D81E4B82537 /* TacticalPitchView.swift */; };
+		B91D655F940F7151FCE6AD89 /* MatchStartControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC0A2F19117C5D6B32147935 /* MatchStartControls.swift */; };
+		BABFF0371411DC230D3EC482 /* FottyPresentationChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29E9BC0109A3549DA5F688EC /* FottyPresentationChrome.swift */; };
+		BBFF316405540E2208048818 /* UserAgreementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F092F08379D1B025B058213 /* UserAgreementView.swift */; };
+		BC04DCFAFFE9A6D36CFFCBD1 /* SocialTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0196F708C83B1AE7A85533CB /* SocialTypes.swift */; };
+		BCE385AF43A6D334B413AEC4 /* UserProfileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D995C50C24B7F74804A99290 /* UserProfileStore.swift */; };
+		BDC989BD6CA4EC3E35566C6D /* LiveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47F43391C57B2F6D35A30583 /* LiveViewModel.swift */; };
+		BEAB7BF078E380260C43512E /* SettingsPrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B5CC2E5BDC44C516C3AF3E /* SettingsPrivacyView.swift */; };
+		BEEC43C9FC9D30FCA1125AE4 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CE3F329600D270A2563007E /* Components.swift */; };
+		C7124FF60290CC444AC3BE66 /* SocialActivityRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 351EE6835F18D0DFABF1FCDC /* SocialActivityRow.swift */; };
+		C87DFFDB9A12662CA79094E5 /* SchemaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 510221EBB537CA0DE40CC201 /* SchemaModels.swift */; };
+		C8FA201BF8701D3B9371F623 /* SportsCategoryBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB0241A7A51FB6776B12C5A5 /* SportsCategoryBar.swift */; };
+		CBC4F208E95115FAADDFCC35 /* FPLMainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EB69B60FEB6694BC656AE24 /* FPLMainView.swift */; };
+		CC4A8041CE2DE901FDC561D7 /* stadium_general.png in Resources */ = {isa = PBXBuildFile; fileRef = 0DC016AF01C49A24ACB7C7FB /* stadium_general.png */; };
+		CD56B67A6BE18802AFCF5AF6 /* MatchHubHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64011135730E6B54CD6A9727 /* MatchHubHeader.swift */; };
+		CE64B38F1DF921DFCE8ABB8C /* MatchdaySetupCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9ADFB4D5C375415FEF85C8A /* MatchdaySetupCard.swift */; };
+		D02A9363D313284F0E051003 /* FPLFixtureTrackerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FF5BFAF69F9F19D9DCCF2EC /* FPLFixtureTrackerView.swift */; };
+		D2276C3AF98BE01ED6E68A14 /* FPLSquadValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15BD3A8AFF01AE306549D1E7 /* FPLSquadValidator.swift */; };
+		D2551478057273F54923C1EF /* MatchModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F78F02379BB89CD32BE0190F /* MatchModels.swift */; };
+		D3AACA2F4520431DF39F14F6 /* HomeSportsDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B0BB5CA36A8EBD4BDF6BE07 /* HomeSportsDiscovery.swift */; };
+		D43132F81C02A0C724BBE1D8 /* FPLOfficialModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D659A538EF787F2CDC8112BC /* FPLOfficialModels.swift */; };
+		D4BCFBDA08BA3BCF76F21EEF /* StreamResolutionOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E714149FEA6D12082043CF0 /* StreamResolutionOverlay.swift */; };
+		D5013E2C49BD68DD1EC8BB7B /* FottyNavigationUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BC5700862238D7E54AE96D9 /* FottyNavigationUITests.swift */; };
+		D52A572D14EA339D154610E5 /* DirectChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02A4E23D38E7F342309E6E6B /* DirectChatView.swift */; };
+		D751D834AFA62A98478C217C /* SettingsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FBA880F56F77F8C47AC0A98 /* SettingsComponents.swift */; };
+		DB2F6D65019188925EA803F1 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 61F459485F764F267A02CF54 /* PrivacyInfo.xcprivacy */; };
+		DD48792D7802CCABCD2748A7 /* ArenaDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 796ED7948A68F6243D86827D /* ArenaDiscoveryView.swift */; };
+		DEDFE94D51A37077B004C794 /* SportsDashboardToolbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = B87FB2B289B22BECE2E100C7 /* SportsDashboardToolbar.swift */; };
+		E17B12E12BBD65C0FD92EA5E /* CoreMediaProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E16E53FE0A1651F7AABE8EF /* CoreMediaProvider.swift */; };
+		E349E3A21D479F9EC95C53D6 /* Manifests in Resources */ = {isa = PBXBuildFile; fileRef = 9AEDDD5F58237ACD0BDC8023 /* Manifests */; };
+		E36D374F53C85403132FFD71 /* FPLAICoachService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 525F46472E582A4FE2A1641A /* FPLAICoachService.swift */; };
+		E5B6C9FD75A1061F37DD2993 /* FottyMatchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360B7DC9D29D4425882D1F97 /* FottyMatchActivityAttributes.swift */; };
+		E7153996ADC919FC41B33CA2 /* AnalyticalDataEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AF1FEBE88FD2C3EA9DCDA06 /* AnalyticalDataEngine.swift */; };
+		E792F7755B3B071B700C8B32 /* FPLAICoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C53FC0FE3F28E36E910CF74 /* FPLAICoachView.swift */; };
+		E9A993D64A5A1B9B4F2C6EAE /* Date+LiveKickoffFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61868CA0B562013F3EBDF9A9 /* Date+LiveKickoffFormatting.swift */; };
+		ED065E9286F8CB0FABDE86C7 /* SettingsManageLeaguesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 562B4F342CE66359E06FCD6B /* SettingsManageLeaguesView.swift */; };
+		EF18C48F86FBE5CB8C183E6B /* MatchCardFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 358E97224A7B03EE6AD9D4B4 /* MatchCardFormatting.swift */; };
+		EF8957EC6A59F03E3ED92AF7 /* FootballCompetitionCatalog.generated.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7CC3D7F2B0836BB307AC4C3 /* FootballCompetitionCatalog.generated.swift */; };
+		EF8D0CE0A195DDE36AF3EBB0 /* LoadingStateOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = C592F403D9DB152E984E97D7 /* LoadingStateOverlay.swift */; };
+		EFF1D933C2B4833F1B5DA455 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F76EE28739F9C0EDF56E7094 /* SettingsView.swift */; };
+		F0025D2FA9D44620611E65B5 /* FPLModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E77635205ACB726F2B55109 /* FPLModels.swift */; };
+		F22C252EF4784703B5764821 /* MatchStatisticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59A4C1F6F81174BA31428DF8 /* MatchStatisticsView.swift */; };
+		F249F0BDB5DBADB85D9F71C0 /* FootballNormalizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A275E8EF88A5D7861B6C79E /* FootballNormalizer.swift */; };
+		F6282F650DBAB68D57FBC023 /* FPLService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3812CD80F2588B6C98377AF8 /* FPLService.swift */; };
+		F694C83FE6C8DB07E858F6A6 /* NowPlayingManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 292CFD20A1B6EB2C8F216D9E /* NowPlayingManager.swift */; };
+		F744BCB62578B06F46C68005 /* PlaybackWarmupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01877E8E3A750A7F888096A6 /* PlaybackWarmupView.swift */; };
+		F836CDA4A08D4C78BE1BD2C5 /* FPLCommandCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA6AC5C1CD98DA21B0714B66 /* FPLCommandCenterView.swift */; };
+		F9D71706C4306202BD8E8C5A /* LiveStreamDebugSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12D2791E552A516CAA39277F /* LiveStreamDebugSheet.swift */; };
+		FCFFC75977B9560B820D14A0 /* CricketCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39EC6136B56C5B625821699 /* CricketCatalog.swift */; };
+		FE02EC29ACB3FD2C6F96B5A6 /* SocialCelebrationViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CBC9784EA2B56504A2CE3DC /* SocialCelebrationViews.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		16D9EBD600FED90780358950 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 50B3F534E5FF8443BED96195 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E927B7E628F5658FD508F56B;
+			remoteInfo = FottyLiveActivityExtension;
+		};
+		3AB3A370A3FDCD2D80F526B3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 50B3F534E5FF8443BED96195 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02ECC7788953E66EEC0B78A0;
+			remoteInfo = Fotty;
+		};
+		E4D5254876A544EFD9BE22D4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 50B3F534E5FF8443BED96195 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 02ECC7788953E66EEC0B78A0;
+			remoteInfo = Fotty;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		604CCCCEDC1EE37A56E6A568 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				229503C813C400BDD0A7A1BA /* FottyLiveActivityExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		0153BF3AE2368FA4C1937E8D /* LivePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePlayerView.swift; sourceTree = "<group>"; };
+		01773C08B0866576196782A3 /* LiveMatchTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMatchTimelineView.swift; sourceTree = "<group>"; };
+		01877E8E3A750A7F888096A6 /* PlaybackWarmupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackWarmupView.swift; sourceTree = "<group>"; };
+		0196F708C83B1AE7A85533CB /* SocialTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialTypes.swift; sourceTree = "<group>"; };
+		02845F99FBB61EF5F13CA78F /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
+		02955FE0753F5A30EF48767C /* APIFootballProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIFootballProvider.swift; sourceTree = "<group>"; };
+		02A4E23D38E7F342309E6E6B /* DirectChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectChatView.swift; sourceTree = "<group>"; };
+		0358C1299510CEB2A81BF269 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
+		05175585BE0D61CF49DA85AA /* DashboardMatchList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardMatchList.swift; sourceTree = "<group>"; };
+		0549E31DBE9C3A8C7795F93B /* FottyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyApp.swift; sourceTree = "<group>"; };
+		07E8A5F9AD97E71116BF26BF /* SocialNotificationsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialNotificationsView.swift; sourceTree = "<group>"; };
+		09345D5A5EB0E00A8E407CA7 /* HybridStreamProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HybridStreamProvider.swift; sourceTree = "<group>"; };
+		0A647C65A2728682FBE9A95A /* MainTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabView.swift; sourceTree = "<group>"; };
+		0ABF0D9B217C3A3BBE74EDF4 /* Animations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Animations.swift; sourceTree = "<group>"; };
+		0AF1FEBE88FD2C3EA9DCDA06 /* AnalyticalDataEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticalDataEngine.swift; sourceTree = "<group>"; };
+		0B07A0F2A6F63D73DADBFE19 /* FootballService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballService.swift; sourceTree = "<group>"; };
+		0B6EEC487E21F9ED0CE9381B /* FottyFPLDeadlineWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyFPLDeadlineWidget.swift; sourceTree = "<group>"; };
+		0DC016AF01C49A24ACB7C7FB /* stadium_general.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = stadium_general.png; sourceTree = "<group>"; };
+		0EDA1075CD03A85FC2DD7DA4 /* LiveWebEmbedPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWebEmbedPlayerView.swift; sourceTree = "<group>"; };
+		0FA31186B6A6B4FAC31A171E /* MatchReminderStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchReminderStore.swift; sourceTree = "<group>"; };
+		12ABB3FB0C037C0E7D5A279B /* ProviderDiscoveryModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderDiscoveryModule.swift; sourceTree = "<group>"; };
+		12ADEA600563A8324A095FD4 /* PlaybackErrorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackErrorOverlay.swift; sourceTree = "<group>"; };
+		12D2791E552A516CAA39277F /* LiveStreamDebugSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStreamDebugSheet.swift; sourceTree = "<group>"; };
+		14928D255D61D76D3E3DF0D6 /* stadium_football.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = stadium_football.png; sourceTree = "<group>"; };
+		15BD3A8AFF01AE306549D1E7 /* FPLSquadValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLSquadValidator.swift; sourceTree = "<group>"; };
+		1A7EFE0E576E3325FF0ED6F0 /* FPLTransferLabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLTransferLabView.swift; sourceTree = "<group>"; };
+		1B7BFDFA964EAD97038A9497 /* FootballRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballRepository.swift; sourceTree = "<group>"; };
+		1C0829A23F2C7F0EB23EBA7D /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		1C1CAB33F8CB2398CF7C3DCF /* FPLAlertScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLAlertScheduler.swift; sourceTree = "<group>"; };
+		1C5B2953A05DAA8CB025F654 /* FottyLiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyLiveActivityController.swift; sourceTree = "<group>"; };
+		1CE3F329600D270A2563007E /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		1E77635205ACB726F2B55109 /* FPLModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLModels.swift; sourceTree = "<group>"; };
+		1FDDD9C96B4AD460383AE388 /* FPLAdvisorEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLAdvisorEngine.swift; sourceTree = "<group>"; };
+		259CF7E2657F77A5CBF2266F /* FPLPriceAlertsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLPriceAlertsView.swift; sourceTree = "<group>"; };
+		25E7D4344B5436BA5E121C0C /* FottyTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FottyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		27A8BE7CF90237EDC2B4490B /* FPLTransferHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLTransferHubView.swift; sourceTree = "<group>"; };
+		292779B3A9A6FC9FDA926035 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		292CFD20A1B6EB2C8F216D9E /* NowPlayingManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingManager.swift; sourceTree = "<group>"; };
+		29E9BC0109A3549DA5F688EC /* FottyPresentationChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyPresentationChrome.swift; sourceTree = "<group>"; };
+		2C546FAECBA6830FA81CB904 /* LeagueTeamPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeagueTeamPicker.swift; sourceTree = "<group>"; };
+		2D9A17F70A5CAA0C55C832D2 /* FPLCaptainPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLCaptainPickerView.swift; sourceTree = "<group>"; };
+		2DC836D15418B3B4187DC7F3 /* LiveEventCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveEventCard.swift; sourceTree = "<group>"; };
+		2EAC695619FAB9B15A8C1B9F /* FPLDecisionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLDecisionEngine.swift; sourceTree = "<group>"; };
+		2FFB2EE83EBF68C0B9A54374 /* LivePlayerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePlayerViewModel.swift; sourceTree = "<group>"; };
+		31E32B105446EA9F6B5F96C5 /* MatchReminderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchReminderTests.swift; sourceTree = "<group>"; };
+		350E3FB3469A10036281CC1E /* MatchListActor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchListActor.swift; sourceTree = "<group>"; };
+		351EE6835F18D0DFABF1FCDC /* SocialActivityRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialActivityRow.swift; sourceTree = "<group>"; };
+		358E97224A7B03EE6AD9D4B4 /* MatchCardFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchCardFormatting.swift; sourceTree = "<group>"; };
+		360B7DC9D29D4425882D1F97 /* FottyMatchActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyMatchActivityAttributes.swift; sourceTree = "<group>"; };
+		3692CA3D52424F1CC3FDCB34 /* MatchTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchTimelineView.swift; sourceTree = "<group>"; };
+		36CD20AA8325AC94DD9CD831 /* SettingsSupportViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSupportViews.swift; sourceTree = "<group>"; };
+		3812CD80F2588B6C98377AF8 /* FPLService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLService.swift; sourceTree = "<group>"; };
+		3A278C3ACBF83EA28E0EE65B /* StreamPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamPlugin.swift; sourceTree = "<group>"; };
+		3B0BB5CA36A8EBD4BDF6BE07 /* HomeSportsDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeSportsDiscovery.swift; sourceTree = "<group>"; };
+		3C53FC0FE3F28E36E910CF74 /* FPLAICoachView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLAICoachView.swift; sourceTree = "<group>"; };
+		3FBA880F56F77F8C47AC0A98 /* SettingsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsComponents.swift; sourceTree = "<group>"; };
+		4097B8DBA0C47B6D87657CCB /* FPLSquadPitchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLSquadPitchView.swift; sourceTree = "<group>"; };
+		41B7E1260FD2A189FE556FAE /* FPLMultiGWPlannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLMultiGWPlannerView.swift; sourceTree = "<group>"; };
+		4249C5F3D52136C551E4CA6B /* FootballDataPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballDataPolicy.swift; sourceTree = "<group>"; };
+		430E0FD9FF05C3837A012567 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		43A3D617B8F9098302DD4D47 /* OnNowGlanceBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnNowGlanceBar.swift; sourceTree = "<group>"; };
+		445525A214BA5630AFE1318D /* FPLPlayerComparisonView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLPlayerComparisonView.swift; sourceTree = "<group>"; };
+		455FE5EB582688A5A51EE653 /* SocialExploreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialExploreView.swift; sourceTree = "<group>"; };
+		464E156A00A6510A757C8B70 /* ArenaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArenaModels.swift; sourceTree = "<group>"; };
+		469E3918650B9F86B832FE79 /* URLExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLExtensions.swift; sourceTree = "<group>"; };
+		4744193DAA45F40E9DA6D529 /* TeamFollowKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamFollowKey.swift; sourceTree = "<group>"; };
+		47F43391C57B2F6D35A30583 /* LiveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveViewModel.swift; sourceTree = "<group>"; };
+		48070512128334AFE9A5E436 /* TeamOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamOnboardingView.swift; sourceTree = "<group>"; };
+		488EC0D5107F28246404F449 /* FPLManagerConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLManagerConnection.swift; sourceTree = "<group>"; };
+		49979063C270AB2E683D7A93 /* WebViewRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewRenderer.swift; sourceTree = "<group>"; };
+		49FDDA9BEFD42E5CF82DECA1 /* StreamPipelineValidationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamPipelineValidationView.swift; sourceTree = "<group>"; };
+		4A1101784E49CF373E3DB3BA /* SocialFollowingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialFollowingView.swift; sourceTree = "<group>"; };
+		4A275E8EF88A5D7861B6C79E /* FootballNormalizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballNormalizer.swift; sourceTree = "<group>"; };
+		4A5B7849C308C83D32CA7A8C /* FPLDecisionJournalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLDecisionJournalView.swift; sourceTree = "<group>"; };
+		4C5A629380007246A6CB4D63 /* LocalStreamProxy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalStreamProxy.swift; sourceTree = "<group>"; };
+		4CBC9784EA2B56504A2CE3DC /* SocialCelebrationViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialCelebrationViews.swift; sourceTree = "<group>"; };
+		4FF5BFAF69F9F19D9DCCF2EC /* FPLFixtureTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLFixtureTrackerView.swift; sourceTree = "<group>"; };
+		510221EBB537CA0DE40CC201 /* SchemaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SchemaModels.swift; sourceTree = "<group>"; };
+		519EC598EA4442B3A2F50146 /* MediaFlowModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaFlowModels.swift; sourceTree = "<group>"; };
+		51B0A4ED15414BC625DF5469 /* MatchListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchListViewModel.swift; sourceTree = "<group>"; };
+		5247CE90E73A94F9C2AC60CC /* FootballLeagueBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballLeagueBar.swift; sourceTree = "<group>"; };
+		525F46472E582A4FE2A1641A /* FPLAICoachService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLAICoachService.swift; sourceTree = "<group>"; };
+		52DD39B9B880835B8FF9EA6E /* FootballProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballProvider.swift; sourceTree = "<group>"; };
+		5343BF58872D2027074462CE /* FPLWildcardGeneratorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLWildcardGeneratorView.swift; sourceTree = "<group>"; };
+		562B4F342CE66359E06FCD6B /* SettingsManageLeaguesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManageLeaguesView.swift; sourceTree = "<group>"; };
+		59A4C1F6F81174BA31428DF8 /* MatchStatisticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchStatisticsView.swift; sourceTree = "<group>"; };
+		5BC5700862238D7E54AE96D9 /* FottyNavigationUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyNavigationUITests.swift; sourceTree = "<group>"; };
+		5CD9EEFEEC84FD9F7F675342 /* FPLLeagueStandingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLLeagueStandingsView.swift; sourceTree = "<group>"; };
+		5CEDB1DAFF8EB5EFA3DE7493 /* LiveStreamingProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStreamingProvider.swift; sourceTree = "<group>"; };
+		5E714149FEA6D12082043CF0 /* StreamResolutionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamResolutionOverlay.swift; sourceTree = "<group>"; };
+		5EB5F54537E6F1A2E2C8E657 /* LiveSourceHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSourceHealthStore.swift; sourceTree = "<group>"; };
+		602EAADEE0BC1396F7871D82 /* SocialHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialHubView.swift; sourceTree = "<group>"; };
+		60C1B3ED8BD63CCA24EB988B /* MatchChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchChatView.swift; sourceTree = "<group>"; };
+		61868CA0B562013F3EBDF9A9 /* Date+LiveKickoffFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Date+LiveKickoffFormatting.swift"; sourceTree = "<group>"; };
+		61C809B3672AEC7B2044DF57 /* FottyUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = FottyUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		61F459485F764F267A02CF54 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		64011135730E6B54CD6A9727 /* MatchHubHeader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchHubHeader.swift; sourceTree = "<group>"; };
+		6536B55927C2A731F9E9068A /* FottyLiveActivityWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyLiveActivityWidget.swift; sourceTree = "<group>"; };
+		691B6118A31ED085A9B2A8A4 /* StreamNetworkProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamNetworkProcessor.swift; sourceTree = "<group>"; };
+		6AF87FA2D16625B90E6FAC81 /* TeamColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamColors.swift; sourceTree = "<group>"; };
+		6D95B86E505E210693D48617 /* YouTubeHighlightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YouTubeHighlightsView.swift; sourceTree = "<group>"; };
+		6EB69B60FEB6694BC656AE24 /* FPLMainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLMainView.swift; sourceTree = "<group>"; };
+		6F3B8540B57E80F7EB32E022 /* HeroMatchCarousel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HeroMatchCarousel.swift; sourceTree = "<group>"; };
+		70FDE8BA64F38D81E4B82537 /* TacticalPitchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TacticalPitchView.swift; sourceTree = "<group>"; };
+		758AF608D582C1F65749CFEF /* TheSportsDBMatchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TheSportsDBMatchService.swift; sourceTree = "<group>"; };
+		796ED7948A68F6243D86827D /* ArenaDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArenaDiscoveryView.swift; sourceTree = "<group>"; };
+		7B0265C09BE513572033DA5B /* PlaybackWarmupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackWarmupService.swift; sourceTree = "<group>"; };
+		7D2E1A0E86257DD9C5DB8333 /* BetaUsabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BetaUsabilityTests.swift; sourceTree = "<group>"; };
+		7E16E53FE0A1651F7AABE8EF /* CoreMediaProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreMediaProvider.swift; sourceTree = "<group>"; };
+		7F092F08379D1B025B058213 /* UserAgreementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserAgreementView.swift; sourceTree = "<group>"; };
+		81621DF315356CD7D48CB5D9 /* FootballModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballModels.swift; sourceTree = "<group>"; };
+		81E69D5FA0BD239E98B5BD6A /* MatchHubViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchHubViewModel.swift; sourceTree = "<group>"; };
+		837212902BD1F23C6F3F652C /* FPLLiveTrackerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLLiveTrackerView.swift; sourceTree = "<group>"; };
+		85C105974D3C1968551E55FF /* NotificationManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationManager.swift; sourceTree = "<group>"; };
+		86A6E02CAADD1715BB651703 /* SocialModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialModels.swift; sourceTree = "<group>"; };
+		86AA474852E2C6BD74600911 /* SportsDashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsDashboardView.swift; sourceTree = "<group>"; };
+		8D505FBB21CC2D37D42E49BE /* FootballQuotaBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballQuotaBanner.swift; sourceTree = "<group>"; };
+		8FEE681802D8C19D177CA470 /* PlaybackPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPolicyTests.swift; sourceTree = "<group>"; };
+		92FD634B81B2257B36D44535 /* InsightsHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsHubView.swift; sourceTree = "<group>"; };
+		93B40F140ABB6536CA644848 /* FPLTransferRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLTransferRules.swift; sourceTree = "<group>"; };
+		93E9A24A739FF94E9D5016E2 /* MediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModels.swift; sourceTree = "<group>"; };
+		93F9973A68099485B2B9B2C5 /* StreamPluginsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamPluginsSettingsView.swift; sourceTree = "<group>"; };
+		9A0B8B157B6065A2705DBC59 /* SearchView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SearchView.swift; sourceTree = "<group>"; };
+		9AEDDD5F58237ACD0BDC8023 /* Manifests */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Manifests; path = Fotty/Resources/Manifests; sourceTree = SOURCE_ROOT; };
+		9DD832F1175EE8658444587E /* PlaybackControlsOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackControlsOverlay.swift; sourceTree = "<group>"; };
+		9FB08DA97575B0D9B7EFB02E /* SportsDiscoveryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsDiscoveryViews.swift; sourceTree = "<group>"; };
+		A15871FF195104D6FEDE03D3 /* SettingsManageFollowsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsManageFollowsView.swift; sourceTree = "<group>"; };
+		A51F3980E896F9E40ED86044 /* StringObfuscator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringObfuscator.swift; sourceTree = "<group>"; };
+		A68694E12F247D9B0EE68A79 /* DashboardPresentationLayers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentationLayers.swift; sourceTree = "<group>"; };
+		A9835157AD52174C23356FA4 /* LocalDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDataStore.swift; sourceTree = "<group>"; };
+		A9886304ED293797400E9173 /* LiveStreamSelectorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStreamSelectorSheet.swift; sourceTree = "<group>"; };
+		AA6CC9F5A8D62264EA045EBC /* FPLDecisionModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLDecisionModels.swift; sourceTree = "<group>"; };
+		B02400BC34E5320E18AF42C6 /* SocialCloudStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialCloudStore.swift; sourceTree = "<group>"; };
+		B04FA40F02A55FA4F3735D5C /* MomentumChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MomentumChartView.swift; sourceTree = "<group>"; };
+		B23FC6E44164FC2235618C4A /* FixtureDateGrouper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FixtureDateGrouper.swift; sourceTree = "<group>"; };
+		B30406005DC04151021E9928 /* NotificationBadgeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationBadgeManager.swift; sourceTree = "<group>"; };
+		B4C32DDD4B225BF2B74AA125 /* FPLSmartCoachService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLSmartCoachService.swift; sourceTree = "<group>"; };
+		B6EC3C0EF00CD4C2E2DB820A /* APIFootballModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIFootballModels.swift; sourceTree = "<group>"; };
+		B84869BAEC2E846F04920A3E /* FottyLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyLogger.swift; sourceTree = "<group>"; };
+		B87FB2B289B22BECE2E100C7 /* SportsDashboardToolbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsDashboardToolbar.swift; sourceTree = "<group>"; };
+		BA6AC5C1CD98DA21B0714B66 /* FPLCommandCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLCommandCenterView.swift; sourceTree = "<group>"; };
+		BC0A2F19117C5D6B32147935 /* MatchStartControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchStartControls.swift; sourceTree = "<group>"; };
+		BE610FBF0CF63CFAE46963BF /* StreamPipelineValidationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamPipelineValidationService.swift; sourceTree = "<group>"; };
+		C2391BBE1A530FEF75EC3A90 /* InsightsHubTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsHubTab.swift; sourceTree = "<group>"; };
+		C2F99ACE289BE8964E137E99 /* MultiLivePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MultiLivePlayerView.swift; sourceTree = "<group>"; };
+		C592F403D9DB152E984E97D7 /* LoadingStateOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingStateOverlay.swift; sourceTree = "<group>"; };
+		C5E4580C1C48319D99DB6A61 /* StreamPluginRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamPluginRegistry.swift; sourceTree = "<group>"; };
+		C6E53234B5643F39B73943DB /* P2PDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = P2PDataService.swift; sourceTree = "<group>"; };
+		C7E553E386AFCFF192D788D1 /* Config.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Config.swift; sourceTree = "<group>"; };
+		C867B16BFBBE072D5F5F8EF6 /* stadium_basketball.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = stadium_basketball.png; sourceTree = "<group>"; };
+		CF918142949D97A8B46AD40A /* FPLTrustTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLTrustTests.swift; sourceTree = "<group>"; };
+		D1A5C0F9D69CB6A452CEA5BC /* FPLDecisionJournalStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLDecisionJournalStore.swift; sourceTree = "<group>"; };
+		D394973C23A24A236F2485B3 /* FPLManagerInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLManagerInputView.swift; sourceTree = "<group>"; };
+		D39EC6136B56C5B625821699 /* CricketCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CricketCatalog.swift; sourceTree = "<group>"; };
+		D485CE4756D69F81B12DA19A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		D659A538EF787F2CDC8112BC /* FPLOfficialModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLOfficialModels.swift; sourceTree = "<group>"; };
+		D995C50C24B7F74804A99290 /* UserProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileStore.swift; sourceTree = "<group>"; };
+		DEEA68B48120B60D963D4521 /* Fotty.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Fotty.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E0B5CC2E5BDC44C516C3AF3E /* SettingsPrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPrivacyView.swift; sourceTree = "<group>"; };
+		E1F1DB8110D47059CD0EA9AE /* FPLPlannerEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLPlannerEngine.swift; sourceTree = "<group>"; };
+		E2067FFD2A438DF341DF0FA4 /* SocialDiscoveryRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SocialDiscoveryRow.swift; sourceTree = "<group>"; };
+		E7CC3D7F2B0836BB307AC4C3 /* FootballCompetitionCatalog.generated.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballCompetitionCatalog.generated.swift; sourceTree = "<group>"; };
+		E7F3A628FC85C5450C256C42 /* DashboardTabButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardTabButton.swift; sourceTree = "<group>"; };
+		E9320891FB7C338B28856995 /* FPLPressConferenceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLPressConferenceService.swift; sourceTree = "<group>"; };
+		EA8A69D2FC8B2C891CCBDF67 /* MatchCacheItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchCacheItem.swift; sourceTree = "<group>"; };
+		F103DF8E998830FA50963A92 /* FottyLiveActivityExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = FottyLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		F589E98594CBE805120D7158 /* FPLRivalMatrixView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLRivalMatrixView.swift; sourceTree = "<group>"; };
+		F76EE28739F9C0EDF56E7094 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		F78F02379BB89CD32BE0190F /* MatchModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchModels.swift; sourceTree = "<group>"; };
+		F8247272179FC24568F36C27 /* MatchHubView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchHubView.swift; sourceTree = "<group>"; };
+		F88A6F905BFBB3F5B006A03C /* MockMatchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockMatchService.swift; sourceTree = "<group>"; };
+		F9ADFB4D5C375415FEF85C8A /* MatchdaySetupCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchdaySetupCard.swift; sourceTree = "<group>"; };
+		FB0241A7A51FB6776B12C5A5 /* SportsCategoryBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsCategoryBar.swift; sourceTree = "<group>"; };
+		FC3C8FDAB71DD4549F8F767A /* FootballDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballDataProvider.swift; sourceTree = "<group>"; };
+		FEE2566EA41678FC18543458 /* InsightsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsViewModel.swift; sourceTree = "<group>"; };
+		FFD00EEA3BC8C2AEDD5B9D4F /* FPLAdvisorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLAdvisorViewModel.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		00941C8AEFF78A5B9F8AA5D7 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				02A4E23D38E7F342309E6E6B /* DirectChatView.swift */,
+				2C546FAECBA6830FA81CB904 /* LeagueTeamPicker.swift */,
+				60C1B3ED8BD63CCA24EB988B /* MatchChatView.swift */,
+				351EE6835F18D0DFABF1FCDC /* SocialActivityRow.swift */,
+				4CBC9784EA2B56504A2CE3DC /* SocialCelebrationViews.swift */,
+				E2067FFD2A438DF341DF0FA4 /* SocialDiscoveryRow.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		03B63CDD3D7DBC5CF21ABDEF /* Arena */ = {
+			isa = PBXGroup;
+			children = (
+				DC3135F046EB0E32A70A604A /* Components */,
+			);
+			path = Arena;
+			sourceTree = "<group>";
+		};
+		0672C9E8827989A41BE0256E /* Highlights */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Highlights;
+			sourceTree = "<group>";
+		};
+		0B4CE28591DCBA81C65BD710 /* Extensions */ = {
+			isa = PBXGroup;
+			children = (
+				61868CA0B562013F3EBDF9A9 /* Date+LiveKickoffFormatting.swift */,
+				469E3918650B9F86B832FE79 /* URLExtensions.swift */,
+			);
+			path = Extensions;
+			sourceTree = "<group>";
+		};
+		1957C2FB7D7316DE2F9DB790 /* FottyLiveActivityExtension */ = {
+			isa = PBXGroup;
+			children = (
+				0B6EEC487E21F9ED0CE9381B /* FottyFPLDeadlineWidget.swift */,
+				6536B55927C2A731F9E9068A /* FottyLiveActivityWidget.swift */,
+				430E0FD9FF05C3837A012567 /* Info.plist */,
+			);
+			path = FottyLiveActivityExtension;
+			sourceTree = "<group>";
+		};
+		1CF6D6EBA4CD29900796EF50 = {
+			isa = PBXGroup;
+			children = (
+				88735246136C61C879F10F6F /* Fotty */,
+				1957C2FB7D7316DE2F9DB790 /* FottyLiveActivityExtension */,
+				20C5553E25847F0038646256 /* FottyTests */,
+				DFF7DC13C173E6918F8B7FA9 /* FottyUITests */,
+				E696CC937CA8D670458F2F8F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		20C5553E25847F0038646256 /* FottyTests */ = {
+			isa = PBXGroup;
+			children = (
+				7D2E1A0E86257DD9C5DB8333 /* BetaUsabilityTests.swift */,
+				CF918142949D97A8B46AD40A /* FPLTrustTests.swift */,
+				31E32B105446EA9F6B5F96C5 /* MatchReminderTests.swift */,
+				8FEE681802D8C19D177CA470 /* PlaybackPolicyTests.swift */,
+			);
+			path = FottyTests;
+			sourceTree = "<group>";
+		};
+		212DFE660B0742C6E824E522 /* Persistence */ = {
+			isa = PBXGroup;
+			children = (
+				A9835157AD52174C23356FA4 /* LocalDataStore.swift */,
+				510221EBB537CA0DE40CC201 /* SchemaModels.swift */,
+			);
+			path = Persistence;
+			sourceTree = "<group>";
+		};
+		22599F2ECC9F28F56C9D1246 /* Storage */ = {
+			isa = PBXGroup;
+			children = (
+				D995C50C24B7F74804A99290 /* UserProfileStore.swift */,
+			);
+			path = Storage;
+			sourceTree = "<group>";
+		};
+		250EC2AE74E906900FCFBAF5 /* MatchHub */ = {
+			isa = PBXGroup;
+			children = (
+				F8247272179FC24568F36C27 /* MatchHubView.swift */,
+				81E69D5FA0BD239E98B5BD6A /* MatchHubViewModel.swift */,
+				6B96B71C3C6086FC777F6E93 /* Components */,
+				EF98CF3C5AFC1D09CB984EFA /* Tabs */,
+				F70ACB85BC42F8357B24C4A6 /* Views */,
+			);
+			path = MatchHub;
+			sourceTree = "<group>";
+		};
+		2BB7AD924659287939B9E81C /* Fallbacks */ = {
+			isa = PBXGroup;
+			children = (
+				C867B16BFBBE072D5F5F8EF6 /* stadium_basketball.png */,
+				14928D255D61D76D3E3DF0D6 /* stadium_football.png */,
+				0DC016AF01C49A24ACB7C7FB /* stadium_general.png */,
+			);
+			path = Fallbacks;
+			sourceTree = "<group>";
+		};
+		2D1C2DB6A905C3258B6965B1 /* Security */ = {
+			isa = PBXGroup;
+			children = (
+				A51F3980E896F9E40ED86044 /* StringObfuscator.swift */,
+			);
+			path = Security;
+			sourceTree = "<group>";
+		};
+		32F00519A03333FDE221BFD6 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				0ABF0D9B217C3A3BBE74EDF4 /* Animations.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		3365E85393CA6A6C7AF6927D /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				AA6CC9F5A8D62264EA045EBC /* FPLDecisionModels.swift */,
+				1E77635205ACB726F2B55109 /* FPLModels.swift */,
+				D659A538EF787F2CDC8112BC /* FPLOfficialModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		3A1EA95E9DD633BE02E49D7C /* Player */ = {
+			isa = PBXGroup;
+			children = (
+				0153BF3AE2368FA4C1937E8D /* LivePlayerView.swift */,
+				2FFB2EE83EBF68C0B9A54374 /* LivePlayerViewModel.swift */,
+				C2F99ACE289BE8964E137E99 /* MultiLivePlayerView.swift */,
+				A7A167539F21E8AD9E328845 /* Components */,
+			);
+			path = Player;
+			sourceTree = "<group>";
+		};
+		3B9730C881622A5415C6E78C /* Notifications */ = {
+			isa = PBXGroup;
+			children = (
+				0FA31186B6A6B4FAC31A171E /* MatchReminderStore.swift */,
+				85C105974D3C1968551E55FF /* NotificationManager.swift */,
+			);
+			path = Notifications;
+			sourceTree = "<group>";
+		};
+		3CE16DC635B44D9D8EA50F72 /* Testing */ = {
+			isa = PBXGroup;
+			children = (
+				F88A6F905BFBB3F5B006A03C /* MockMatchService.swift */,
+			);
+			path = Testing;
+			sourceTree = "<group>";
+		};
+		424D9C3073918B714210ECA2 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				86A6E02CAADD1715BB651703 /* SocialModels.swift */,
+				0196F708C83B1AE7A85533CB /* SocialTypes.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		462250E77FBE746E19CD50F4 /* Search */ = {
+			isa = PBXGroup;
+			children = (
+				9A0B8B157B6065A2705DBC59 /* SearchView.swift */,
+			);
+			path = Search;
+			sourceTree = "<group>";
+		};
+		4E38AC8D7F895580E280A959 /* Social */ = {
+			isa = PBXGroup;
+			children = (
+				796ED7948A68F6243D86827D /* ArenaDiscoveryView.swift */,
+				602EAADEE0BC1396F7871D82 /* SocialHubView.swift */,
+				7F092F08379D1B025B058213 /* UserAgreementView.swift */,
+				00941C8AEFF78A5B9F8AA5D7 /* Components */,
+				424D9C3073918B714210ECA2 /* Models */,
+				BBFC69E9444115424B78CAC7 /* Views */,
+			);
+			path = Social;
+			sourceTree = "<group>";
+		};
+		4F7DAE341FA74AEE7AD292ED /* App */ = {
+			isa = PBXGroup;
+			children = (
+				0549E31DBE9C3A8C7795F93B /* FottyApp.swift */,
+				0A647C65A2728682FBE9A95A /* MainTabView.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		533C1AB598BDC59C161CF641 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				3FBA880F56F77F8C47AC0A98 /* SettingsComponents.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		5608AC34015F053F3ED1C874 /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				B30406005DC04151021E9928 /* NotificationBadgeManager.swift */,
+				D86C7D32772F22E446E2B5A0 /* Shared */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		564144C7A2CE93C489E20A92 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				1FDDD9C96B4AD460383AE388 /* FPLAdvisorEngine.swift */,
+				525F46472E582A4FE2A1641A /* FPLAICoachService.swift */,
+				1C1CAB33F8CB2398CF7C3DCF /* FPLAlertScheduler.swift */,
+				2EAC695619FAB9B15A8C1B9F /* FPLDecisionEngine.swift */,
+				D1A5C0F9D69CB6A452CEA5BC /* FPLDecisionJournalStore.swift */,
+				488EC0D5107F28246404F449 /* FPLManagerConnection.swift */,
+				E1F1DB8110D47059CD0EA9AE /* FPLPlannerEngine.swift */,
+				E9320891FB7C338B28856995 /* FPLPressConferenceService.swift */,
+				3812CD80F2588B6C98377AF8 /* FPLService.swift */,
+				B4C32DDD4B225BF2B74AA125 /* FPLSmartCoachService.swift */,
+				15BD3A8AFF01AE306549D1E7 /* FPLSquadValidator.swift */,
+				93B40F140ABB6536CA644848 /* FPLTransferRules.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		57F241AA3DD4F23AF6BEE133 /* Football */ = {
+			isa = PBXGroup;
+			children = (
+				B6EC3C0EF00CD4C2E2DB820A /* APIFootballModels.swift */,
+				81621DF315356CD7D48CB5D9 /* FootballModels.swift */,
+				0B07A0F2A6F63D73DADBFE19 /* FootballService.swift */,
+			);
+			path = Football;
+			sourceTree = "<group>";
+		};
+		5AEF20626802E8E1040B6493 /* Internal */ = {
+			isa = PBXGroup;
+			children = (
+				0AF1FEBE88FD2C3EA9DCDA06 /* AnalyticalDataEngine.swift */,
+				09345D5A5EB0E00A8E407CA7 /* HybridStreamProvider.swift */,
+				350E3FB3469A10036281CC1E /* MatchListActor.swift */,
+				519EC598EA4442B3A2F50146 /* MediaFlowModels.swift */,
+				C6E53234B5643F39B73943DB /* P2PDataService.swift */,
+				7B0265C09BE513572033DA5B /* PlaybackWarmupService.swift */,
+				691B6118A31ED085A9B2A8A4 /* StreamNetworkProcessor.swift */,
+				BE610FBF0CF63CFAE46963BF /* StreamPipelineValidationService.swift */,
+				49979063C270AB2E683D7A93 /* WebViewRenderer.swift */,
+			);
+			path = Internal;
+			sourceTree = "<group>";
+		};
+		5AFD65A95BC2D56CD97D6525 /* Providers */ = {
+			isa = PBXGroup;
+			children = (
+				57F241AA3DD4F23AF6BEE133 /* Football */,
+			);
+			path = Providers;
+			sourceTree = "<group>";
+		};
+		5BD4FD78459068271BC131B9 /* Performance */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Performance;
+			sourceTree = "<group>";
+		};
+		5F172820B52F6EC2E334324B /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				562B4F342CE66359E06FCD6B /* SettingsManageLeaguesView.swift */,
+				E0B5CC2E5BDC44C516C3AF3E /* SettingsPrivacyView.swift */,
+				36CD20AA8325AC94DD9CD831 /* SettingsSupportViews.swift */,
+				49FDDA9BEFD42E5CF82DECA1 /* StreamPipelineValidationView.swift */,
+				93F9973A68099485B2B9B2C5 /* StreamPluginsSettingsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		5FFA4F19BE453C536B4D8707 /* Insights */ = {
+			isa = PBXGroup;
+			children = (
+				FEE2566EA41678FC18543458 /* InsightsViewModel.swift */,
+				6E95814F8A1F5D3BC2B69234 /* Views */,
+			);
+			path = Insights;
+			sourceTree = "<group>";
+		};
+		6B96B71C3C6086FC777F6E93 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		6E95814F8A1F5D3BC2B69234 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				92FD634B81B2257B36D44535 /* InsightsHubView.swift */,
+				59A4C1F6F81174BA31428DF8 /* MatchStatisticsView.swift */,
+				3692CA3D52424F1CC3FDCB34 /* MatchTimelineView.swift */,
+				B04FA40F02A55FA4F3735D5C /* MomentumChartView.swift */,
+				70FDE8BA64F38D81E4B82537 /* TacticalPitchView.swift */,
+				6D95B86E505E210693D48617 /* YouTubeHighlightsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		7551D9BD67B1D2459EE28CCE /* Repository */ = {
+			isa = PBXGroup;
+			children = (
+				1B7BFDFA964EAD97038A9497 /* FootballRepository.swift */,
+			);
+			path = Repository;
+			sourceTree = "<group>";
+		};
+		7A9DBE68324BE6D687E5C955 /* Adapters */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Adapters;
+			sourceTree = "<group>";
+		};
+		836C0DC2D9429373EFA231B2 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				292CFD20A1B6EB2C8F216D9E /* NowPlayingManager.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		87D97355B89F704EA9D95C8B /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				FFD00EEA3BC8C2AEDD5B9D4F /* FPLAdvisorViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		88735246136C61C879F10F6F /* Fotty */ = {
+			isa = PBXGroup;
+			children = (
+				292779B3A9A6FC9FDA926035 /* Info.plist */,
+				4F7DAE341FA74AEE7AD292ED /* App */,
+				D2FE6FBC558EE39D146272C7 /* Assets */,
+				9A7532715B647F4C2CBB732F /* Core */,
+				BD46BA0BDC133458A8FFDCFD /* Design */,
+				9687C8C953240C447B5D7D63 /* Features */,
+				BFA71ED5BC78E146B306711E /* Resources */,
+			);
+			path = Fotty;
+			sourceTree = "<group>";
+		};
+		8CC2C5515759098F4FF0EF49 /* Onboarding */ = {
+			isa = PBXGroup;
+			children = (
+				F9ADFB4D5C375415FEF85C8A /* MatchdaySetupCard.swift */,
+				48070512128334AFE9A5E436 /* TeamOnboardingView.swift */,
+			);
+			path = Onboarding;
+			sourceTree = "<group>";
+		};
+		934C7972636C8C764A6C2487 /* Dashboard */ = {
+			isa = PBXGroup;
+			children = (
+				47F43391C57B2F6D35A30583 /* LiveViewModel.swift */,
+				51B0A4ED15414BC625DF5469 /* MatchListViewModel.swift */,
+				01877E8E3A750A7F888096A6 /* PlaybackWarmupView.swift */,
+				86AA474852E2C6BD74600911 /* SportsDashboardView.swift */,
+				C63021B77318CF2B122F6863 /* Components */,
+			);
+			path = Dashboard;
+			sourceTree = "<group>";
+		};
+		9687C8C953240C447B5D7D63 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				03B63CDD3D7DBC5CF21ABDEF /* Arena */,
+				934C7972636C8C764A6C2487 /* Dashboard */,
+				A0A52A98FB0A4BB299A4DFD8 /* FPL */,
+				0672C9E8827989A41BE0256E /* Highlights */,
+				5FFA4F19BE453C536B4D8707 /* Insights */,
+				250EC2AE74E906900FCFBAF5 /* MatchHub */,
+				8CC2C5515759098F4FF0EF49 /* Onboarding */,
+				3A1EA95E9DD633BE02E49D7C /* Player */,
+				462250E77FBE746E19CD50F4 /* Search */,
+				CA752DEC450212FC4FB4100F /* Settings */,
+				4E38AC8D7F895580E280A959 /* Social */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		9A7532715B647F4C2CBB732F /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				C7E553E386AFCFF192D788D1 /* Config.swift */,
+				C42D9CE367CF27EAF369C5C9 /* Cloud */,
+				C28DDA8EAD8F0E62DED7934F /* Data */,
+				0B4CE28591DCBA81C65BD710 /* Extensions */,
+				5AEF20626802E8E1040B6493 /* Internal */,
+				ED4460A220965130938D92F4 /* LiveActivities */,
+				9D6BB0DE07F8643E4628247C /* Logging */,
+				CD720D9B92FCF1F662B84F7E /* Models */,
+				B63EE195D3A77E8C2C253C0A /* Networking */,
+				3B9730C881622A5415C6E78C /* Notifications */,
+				5BD4FD78459068271BC131B9 /* Performance */,
+				212DFE660B0742C6E824E522 /* Persistence */,
+				DF0053A5B8F7FD291B0365D5 /* Plugins */,
+				5AFD65A95BC2D56CD97D6525 /* Providers */,
+				2D1C2DB6A905C3258B6965B1 /* Security */,
+				836C0DC2D9429373EFA231B2 /* Services */,
+				E5B85CEF6835988F0A54BC0B /* Social */,
+				22599F2ECC9F28F56C9D1246 /* Storage */,
+				3CE16DC635B44D9D8EA50F72 /* Testing */,
+				5608AC34015F053F3ED1C874 /* UI */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		9CEFD2ABE98406E527E5FE5E /* Providers */ = {
+			isa = PBXGroup;
+			children = (
+				02955FE0753F5A30EF48767C /* APIFootballProvider.swift */,
+				FC3C8FDAB71DD4549F8F767A /* FootballDataProvider.swift */,
+				52DD39B9B880835B8FF9EA6E /* FootballProvider.swift */,
+				758AF608D582C1F65749CFEF /* TheSportsDBMatchService.swift */,
+			);
+			path = Providers;
+			sourceTree = "<group>";
+		};
+		9D1947429608C75E2EEEF3AB /* Normalizers */ = {
+			isa = PBXGroup;
+			children = (
+				4A275E8EF88A5D7861B6C79E /* FootballNormalizer.swift */,
+			);
+			path = Normalizers;
+			sourceTree = "<group>";
+		};
+		9D6BB0DE07F8643E4628247C /* Logging */ = {
+			isa = PBXGroup;
+			children = (
+				B84869BAEC2E846F04920A3E /* FottyLogger.swift */,
+			);
+			path = Logging;
+			sourceTree = "<group>";
+		};
+		A0A52A98FB0A4BB299A4DFD8 /* FPL */ = {
+			isa = PBXGroup;
+			children = (
+				3365E85393CA6A6C7AF6927D /* Models */,
+				564144C7A2CE93C489E20A92 /* Services */,
+				87D97355B89F704EA9D95C8B /* ViewModels */,
+				FEA3B112FC6A643122B8C34C /* Views */,
+			);
+			path = FPL;
+			sourceTree = "<group>";
+		};
+		A7A167539F21E8AD9E328845 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				12D2791E552A516CAA39277F /* LiveStreamDebugSheet.swift */,
+				A9886304ED293797400E9173 /* LiveStreamSelectorSheet.swift */,
+				0EDA1075CD03A85FC2DD7DA4 /* LiveWebEmbedPlayerView.swift */,
+				C592F403D9DB152E984E97D7 /* LoadingStateOverlay.swift */,
+				9DD832F1175EE8658444587E /* PlaybackControlsOverlay.swift */,
+				12ADEA600563A8324A095FD4 /* PlaybackErrorOverlay.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		B539E15992D78207B21B64D2 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				3C53FC0FE3F28E36E910CF74 /* FPLAICoachView.swift */,
+				2D9A17F70A5CAA0C55C832D2 /* FPLCaptainPickerView.swift */,
+				BA6AC5C1CD98DA21B0714B66 /* FPLCommandCenterView.swift */,
+				4A5B7849C308C83D32CA7A8C /* FPLDecisionJournalView.swift */,
+				4FF5BFAF69F9F19D9DCCF2EC /* FPLFixtureTrackerView.swift */,
+				5CD9EEFEEC84FD9F7F675342 /* FPLLeagueStandingsView.swift */,
+				837212902BD1F23C6F3F652C /* FPLLiveTrackerView.swift */,
+				D394973C23A24A236F2485B3 /* FPLManagerInputView.swift */,
+				41B7E1260FD2A189FE556FAE /* FPLMultiGWPlannerView.swift */,
+				445525A214BA5630AFE1318D /* FPLPlayerComparisonView.swift */,
+				259CF7E2657F77A5CBF2266F /* FPLPriceAlertsView.swift */,
+				F589E98594CBE805120D7158 /* FPLRivalMatrixView.swift */,
+				4097B8DBA0C47B6D87657CCB /* FPLSquadPitchView.swift */,
+				27A8BE7CF90237EDC2B4490B /* FPLTransferHubView.swift */,
+				1A7EFE0E576E3325FF0ED6F0 /* FPLTransferLabView.swift */,
+				5343BF58872D2027074462CE /* FPLWildcardGeneratorView.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		B63EE195D3A77E8C2C253C0A /* Networking */ = {
+			isa = PBXGroup;
+			children = (
+				5EB5F54537E6F1A2E2C8E657 /* LiveSourceHealthStore.swift */,
+				5CEDB1DAFF8EB5EFA3DE7493 /* LiveStreamingProvider.swift */,
+				4C5A629380007246A6CB4D63 /* LocalStreamProxy.swift */,
+				D5AAECC0484DD559C125C57B /* Providers */,
+			);
+			path = Networking;
+			sourceTree = "<group>";
+		};
+		BBFC69E9444115424B78CAC7 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				455FE5EB582688A5A51EE653 /* SocialExploreView.swift */,
+				4A1101784E49CF373E3DB3BA /* SocialFollowingView.swift */,
+				07E8A5F9AD97E71116BF26BF /* SocialNotificationsView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		BD46BA0BDC133458A8FFDCFD /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				1CE3F329600D270A2563007E /* Components.swift */,
+				29E9BC0109A3549DA5F688EC /* FottyPresentationChrome.swift */,
+				6AF87FA2D16625B90E6FAC81 /* TeamColors.swift */,
+				1C0829A23F2C7F0EB23EBA7D /* Theme.swift */,
+				32F00519A03333FDE221BFD6 /* UI */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		BFA71ED5BC78E146B306711E /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				D485CE4756D69F81B12DA19A /* Assets.xcassets */,
+				9AEDDD5F58237ACD0BDC8023 /* Manifests */,
+				61F459485F764F267A02CF54 /* PrivacyInfo.xcprivacy */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		C28DDA8EAD8F0E62DED7934F /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				E7CC3D7F2B0836BB307AC4C3 /* FootballCompetitionCatalog.generated.swift */,
+				4249C5F3D52136C551E4CA6B /* FootballDataPolicy.swift */,
+				D348AF1D706DCB0387F63156 /* Models */,
+				9D1947429608C75E2EEEF3AB /* Normalizers */,
+				9CEFD2ABE98406E527E5FE5E /* Providers */,
+				7551D9BD67B1D2459EE28CCE /* Repository */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		C42D9CE367CF27EAF369C5C9 /* Cloud */ = {
+			isa = PBXGroup;
+			children = (
+				B02400BC34E5320E18AF42C6 /* SocialCloudStore.swift */,
+			);
+			path = Cloud;
+			sourceTree = "<group>";
+		};
+		C63021B77318CF2B122F6863 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				05175585BE0D61CF49DA85AA /* DashboardMatchList.swift */,
+				A68694E12F247D9B0EE68A79 /* DashboardPresentationLayers.swift */,
+				E7F3A628FC85C5450C256C42 /* DashboardTabButton.swift */,
+				B23FC6E44164FC2235618C4A /* FixtureDateGrouper.swift */,
+				5247CE90E73A94F9C2AC60CC /* FootballLeagueBar.swift */,
+				8D505FBB21CC2D37D42E49BE /* FootballQuotaBanner.swift */,
+				6F3B8540B57E80F7EB32E022 /* HeroMatchCarousel.swift */,
+				3B0BB5CA36A8EBD4BDF6BE07 /* HomeSportsDiscovery.swift */,
+				2DC836D15418B3B4187DC7F3 /* LiveEventCard.swift */,
+				01773C08B0866576196782A3 /* LiveMatchTimelineView.swift */,
+				358E97224A7B03EE6AD9D4B4 /* MatchCardFormatting.swift */,
+				BC0A2F19117C5D6B32147935 /* MatchStartControls.swift */,
+				43A3D617B8F9098302DD4D47 /* OnNowGlanceBar.swift */,
+				FB0241A7A51FB6776B12C5A5 /* SportsCategoryBar.swift */,
+				B87FB2B289B22BECE2E100C7 /* SportsDashboardToolbar.swift */,
+				9FB08DA97575B0D9B7EFB02E /* SportsDiscoveryViews.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		CA752DEC450212FC4FB4100F /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				A15871FF195104D6FEDE03D3 /* SettingsManageFollowsView.swift */,
+				0358C1299510CEB2A81BF269 /* SettingsScreen.swift */,
+				F76EE28739F9C0EDF56E7094 /* SettingsView.swift */,
+				02845F99FBB61EF5F13CA78F /* SettingsViewModel.swift */,
+				533C1AB598BDC59C161CF641 /* Components */,
+				5F172820B52F6EC2E334324B /* Views */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		CD720D9B92FCF1F662B84F7E /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				464E156A00A6510A757C8B70 /* ArenaModels.swift */,
+				D39EC6136B56C5B625821699 /* CricketCatalog.swift */,
+				EA8A69D2FC8B2C891CCBDF67 /* MatchCacheItem.swift */,
+				93E9A24A739FF94E9D5016E2 /* MediaModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		D2FE6FBC558EE39D146272C7 /* Assets */ = {
+			isa = PBXGroup;
+			children = (
+				2BB7AD924659287939B9E81C /* Fallbacks */,
+			);
+			path = Assets;
+			sourceTree = "<group>";
+		};
+		D348AF1D706DCB0387F63156 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F78F02379BB89CD32BE0190F /* MatchModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		D5AAECC0484DD559C125C57B /* Providers */ = {
+			isa = PBXGroup;
+			children = (
+				7E16E53FE0A1651F7AABE8EF /* CoreMediaProvider.swift */,
+			);
+			path = Providers;
+			sourceTree = "<group>";
+		};
+		D86C7D32772F22E446E2B5A0 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				5E714149FEA6D12082043CF0 /* StreamResolutionOverlay.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		DC3135F046EB0E32A70A604A /* Components */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
+		DF0053A5B8F7FD291B0365D5 /* Plugins */ = {
+			isa = PBXGroup;
+			children = (
+				3A278C3ACBF83EA28E0EE65B /* StreamPlugin.swift */,
+				C5E4580C1C48319D99DB6A61 /* StreamPluginRegistry.swift */,
+				7A9DBE68324BE6D687E5C955 /* Adapters */,
+			);
+			path = Plugins;
+			sourceTree = "<group>";
+		};
+		DFF7DC13C173E6918F8B7FA9 /* FottyUITests */ = {
+			isa = PBXGroup;
+			children = (
+				5BC5700862238D7E54AE96D9 /* FottyNavigationUITests.swift */,
+			);
+			path = FottyUITests;
+			sourceTree = "<group>";
+		};
+		E5B85CEF6835988F0A54BC0B /* Social */ = {
+			isa = PBXGroup;
+			children = (
+				4744193DAA45F40E9DA6D529 /* TeamFollowKey.swift */,
+			);
+			path = Social;
+			sourceTree = "<group>";
+		};
+		E696CC937CA8D670458F2F8F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DEEA68B48120B60D963D4521 /* Fotty.app */,
+				F103DF8E998830FA50963A92 /* FottyLiveActivityExtension.appex */,
+				25E7D4344B5436BA5E121C0C /* FottyTests.xctest */,
+				61C809B3672AEC7B2044DF57 /* FottyUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		ED4460A220965130938D92F4 /* LiveActivities */ = {
+			isa = PBXGroup;
+			children = (
+				1C5B2953A05DAA8CB025F654 /* FottyLiveActivityController.swift */,
+				360B7DC9D29D4425882D1F97 /* FottyMatchActivityAttributes.swift */,
+			);
+			path = LiveActivities;
+			sourceTree = "<group>";
+		};
+		EF98CF3C5AFC1D09CB984EFA /* Tabs */ = {
+			isa = PBXGroup;
+			children = (
+				C2391BBE1A530FEF75EC3A90 /* InsightsHubTab.swift */,
+			);
+			path = Tabs;
+			sourceTree = "<group>";
+		};
+		F70ACB85BC42F8357B24C4A6 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				64011135730E6B54CD6A9727 /* MatchHubHeader.swift */,
+				12ABB3FB0C037C0E7D5A279B /* ProviderDiscoveryModule.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		FEA3B112FC6A643122B8C34C /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				6EB69B60FEB6694BC656AE24 /* FPLMainView.swift */,
+				B539E15992D78207B21B64D2 /* Components */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		02ECC7788953E66EEC0B78A0 /* Fotty */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 92E4A7280FEE36EA40B21E8C /* Build configuration list for PBXNativeTarget "Fotty" */;
+			buildPhases = (
+				0877FD7D4C4B4843F392E068 /* Sources */,
+				ABA705F190637873F645AAAD /* Resources */,
+				604CCCCEDC1EE37A56E6A568 /* Embed Foundation Extensions */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				D6EC6CC892E3B81E4E8F209E /* PBXTargetDependency */,
+			);
+			name = Fotty;
+			packageProductDependencies = (
+			);
+			productName = Fotty;
+			productReference = DEEA68B48120B60D963D4521 /* Fotty.app */;
+			productType = "com.apple.product-type.application";
+		};
+		160F648AB92DAF00CAA6B5D2 /* FottyUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 976C2E3FE3E1C6810C6F4211 /* Build configuration list for PBXNativeTarget "FottyUITests" */;
+			buildPhases = (
+				0BDC73972CC0ADEEDE6917FF /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				C43F344206E1FED2431E66DF /* PBXTargetDependency */,
+			);
+			name = FottyUITests;
+			packageProductDependencies = (
+			);
+			productName = FottyUITests;
+			productReference = 61C809B3672AEC7B2044DF57 /* FottyUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		82E649309A94B3D4FF8A2C7B /* FottyTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6DA2E138723638365C52F046 /* Build configuration list for PBXNativeTarget "FottyTests" */;
+			buildPhases = (
+				2D78B1C2BC499B50FED06B74 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				5B0E3A01BE8BD93B9DA09976 /* PBXTargetDependency */,
+			);
+			name = FottyTests;
+			packageProductDependencies = (
+			);
+			productName = FottyTests;
+			productReference = 25E7D4344B5436BA5E121C0C /* FottyTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		E927B7E628F5658FD508F56B /* FottyLiveActivityExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C5B59C0F34DCAC04F0DCFB65 /* Build configuration list for PBXNativeTarget "FottyLiveActivityExtension" */;
+			buildPhases = (
+				162D9DA5F9DD8F8D60CDE772 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FottyLiveActivityExtension;
+			packageProductDependencies = (
+			);
+			productName = FottyLiveActivityExtension;
+			productReference = F103DF8E998830FA50963A92 /* FottyLiveActivityExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		50B3F534E5FF8443BED96195 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					02ECC7788953E66EEC0B78A0 = {
+						DevelopmentTeam = 9W3JDBQU39;
+					};
+					160F648AB92DAF00CAA6B5D2 = {
+						DevelopmentTeam = 9W3JDBQU39;
+						TestTargetID = 02ECC7788953E66EEC0B78A0;
+					};
+					82E649309A94B3D4FF8A2C7B = {
+						DevelopmentTeam = 9W3JDBQU39;
+					};
+					E927B7E628F5658FD508F56B = {
+						DevelopmentTeam = 9W3JDBQU39;
+					};
+				};
+			};
+			buildConfigurationList = 05C059897E1EE6508C87FFD9 /* Build configuration list for PBXProject "Fotty" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 1CF6D6EBA4CD29900796EF50;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = E696CC937CA8D670458F2F8F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				02ECC7788953E66EEC0B78A0 /* Fotty */,
+				E927B7E628F5658FD508F56B /* FottyLiveActivityExtension */,
+				82E649309A94B3D4FF8A2C7B /* FottyTests */,
+				160F648AB92DAF00CAA6B5D2 /* FottyUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		ABA705F190637873F645AAAD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5ECCAD625A0620979F7FC871 /* Assets.xcassets in Resources */,
+				E349E3A21D479F9EC95C53D6 /* Manifests in Resources */,
+				DB2F6D65019188925EA803F1 /* PrivacyInfo.xcprivacy in Resources */,
+				AD9EA9E52EC3DC7C49AF77BA /* stadium_basketball.png in Resources */,
+				4F6FBEF9F94B7A88DA77F9C4 /* stadium_football.png in Resources */,
+				CC4A8041CE2DE901FDC561D7 /* stadium_general.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0877FD7D4C4B4843F392E068 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				27A747E317F4F93BCF758765 /* APIFootballModels.swift in Sources */,
+				97CDF20D3F322B2B5368B065 /* APIFootballProvider.swift in Sources */,
+				E7153996ADC919FC41B33CA2 /* AnalyticalDataEngine.swift in Sources */,
+				945113EA89522C1704083B64 /* Animations.swift in Sources */,
+				DD48792D7802CCABCD2748A7 /* ArenaDiscoveryView.swift in Sources */,
+				48864984B7FECC1CE7F1BB55 /* ArenaModels.swift in Sources */,
+				BEEC43C9FC9D30FCA1125AE4 /* Components.swift in Sources */,
+				A894C14DC954F51D86E9AF2B /* Config.swift in Sources */,
+				E17B12E12BBD65C0FD92EA5E /* CoreMediaProvider.swift in Sources */,
+				FCFFC75977B9560B820D14A0 /* CricketCatalog.swift in Sources */,
+				A8200217854B58BDD73D655E /* DashboardMatchList.swift in Sources */,
+				41EA67CF75A098B5B5519B52 /* DashboardPresentationLayers.swift in Sources */,
+				346E88557D4F3DC1C2732814 /* DashboardTabButton.swift in Sources */,
+				E9A993D64A5A1B9B4F2C6EAE /* Date+LiveKickoffFormatting.swift in Sources */,
+				D52A572D14EA339D154610E5 /* DirectChatView.swift in Sources */,
+				E36D374F53C85403132FFD71 /* FPLAICoachService.swift in Sources */,
+				E792F7755B3B071B700C8B32 /* FPLAICoachView.swift in Sources */,
+				71E02C4AA8B9EC8C919A12BA /* FPLAdvisorEngine.swift in Sources */,
+				B0917A771A1A08332ED06858 /* FPLAdvisorViewModel.swift in Sources */,
+				9A97F9C1ACEBB3B71A8FDAE9 /* FPLAlertScheduler.swift in Sources */,
+				51591A348010D6A0DEF177B6 /* FPLCaptainPickerView.swift in Sources */,
+				F836CDA4A08D4C78BE1BD2C5 /* FPLCommandCenterView.swift in Sources */,
+				469A3A8DA078114CDED6D734 /* FPLDecisionEngine.swift in Sources */,
+				31D65019BD3AD7D707CAF92F /* FPLDecisionJournalStore.swift in Sources */,
+				6A40C4FEEA58E1EE6DD0ABDD /* FPLDecisionJournalView.swift in Sources */,
+				5A8C70DA639797D5AEE8913C /* FPLDecisionModels.swift in Sources */,
+				D02A9363D313284F0E051003 /* FPLFixtureTrackerView.swift in Sources */,
+				93F646FF36D8BE6DD84732B4 /* FPLLeagueStandingsView.swift in Sources */,
+				3D0473C403EDD1D7471F65D3 /* FPLLiveTrackerView.swift in Sources */,
+				CBC4F208E95115FAADDFCC35 /* FPLMainView.swift in Sources */,
+				61B8FA5EFC0FC339C9B8BC10 /* FPLManagerConnection.swift in Sources */,
+				2F7AB62F86898F0679B90D4B /* FPLManagerInputView.swift in Sources */,
+				F0025D2FA9D44620611E65B5 /* FPLModels.swift in Sources */,
+				2759F9CF4B1CE10F094D28E2 /* FPLMultiGWPlannerView.swift in Sources */,
+				D43132F81C02A0C724BBE1D8 /* FPLOfficialModels.swift in Sources */,
+				AFE0805B83BBF7FDA1BE5C52 /* FPLPlannerEngine.swift in Sources */,
+				B7F19752F96CED83244B9B54 /* FPLPlayerComparisonView.swift in Sources */,
+				07534140C1E0DEE2AB0C9239 /* FPLPressConferenceService.swift in Sources */,
+				911F2C993CF8AFBB042231C5 /* FPLPriceAlertsView.swift in Sources */,
+				8CC5960CC2F27AE4EB479A00 /* FPLRivalMatrixView.swift in Sources */,
+				F6282F650DBAB68D57FBC023 /* FPLService.swift in Sources */,
+				64A66BB99A70184423C92FF3 /* FPLSmartCoachService.swift in Sources */,
+				4C66B61E560D99947FDE9D94 /* FPLSquadPitchView.swift in Sources */,
+				D2276C3AF98BE01ED6E68A14 /* FPLSquadValidator.swift in Sources */,
+				8BB782338209B1528B853724 /* FPLTransferHubView.swift in Sources */,
+				377E751A201CDAE61AA7DE99 /* FPLTransferLabView.swift in Sources */,
+				1FA678FE14C6E22174058E36 /* FPLTransferRules.swift in Sources */,
+				49E5908C0D8EA492208E58F4 /* FPLWildcardGeneratorView.swift in Sources */,
+				95C416308F834E90B8D1360A /* FixtureDateGrouper.swift in Sources */,
+				EF8957EC6A59F03E3ED92AF7 /* FootballCompetitionCatalog.generated.swift in Sources */,
+				A2C99993AF40854FEFE2D9EE /* FootballDataPolicy.swift in Sources */,
+				59367C96C9E932D36C086AD0 /* FootballDataProvider.swift in Sources */,
+				2F422DF3A2639EC32220517F /* FootballLeagueBar.swift in Sources */,
+				443D761FF5B5308A0DAB85B4 /* FootballModels.swift in Sources */,
+				F249F0BDB5DBADB85D9F71C0 /* FootballNormalizer.swift in Sources */,
+				4BB06B36F6F2166CBEDEEC11 /* FootballProvider.swift in Sources */,
+				84122A81525B52844693CE7E /* FootballQuotaBanner.swift in Sources */,
+				211CDF2FBC95E7A95F11F34C /* FootballRepository.swift in Sources */,
+				1A8816B75DB83F7F1E2FD706 /* FootballService.swift in Sources */,
+				1B064902BB28D34B7D81C023 /* FottyApp.swift in Sources */,
+				4C3778CD19F409601787D83D /* FottyLiveActivityController.swift in Sources */,
+				21DF06684A98BFA742D3A64C /* FottyLogger.swift in Sources */,
+				348780BB54BDCB7A6706445E /* FottyMatchActivityAttributes.swift in Sources */,
+				BABFF0371411DC230D3EC482 /* FottyPresentationChrome.swift in Sources */,
+				06CBE23078DB9C041983C970 /* HeroMatchCarousel.swift in Sources */,
+				D3AACA2F4520431DF39F14F6 /* HomeSportsDiscovery.swift in Sources */,
+				B527D940CA52A70D8AEBA28E /* HybridStreamProvider.swift in Sources */,
+				68877BD1DB52C214C7773B2F /* InsightsHubTab.swift in Sources */,
+				4A22F073065B52482F2C0AC9 /* InsightsHubView.swift in Sources */,
+				A55E6A26E94FB76266FC8983 /* InsightsViewModel.swift in Sources */,
+				95A105BFD3C86A0B8EC2DDB2 /* LeagueTeamPicker.swift in Sources */,
+				126C961D2F8A9A8020452548 /* LiveEventCard.swift in Sources */,
+				65A210DB65995CA1D98CBA87 /* LiveMatchTimelineView.swift in Sources */,
+				A948E051CA336C8A2B744A01 /* LivePlayerView.swift in Sources */,
+				1E3E3B10ED60BDC676079E6A /* LivePlayerViewModel.swift in Sources */,
+				29979D47BF061F8D5DB0068E /* LiveSourceHealthStore.swift in Sources */,
+				F9D71706C4306202BD8E8C5A /* LiveStreamDebugSheet.swift in Sources */,
+				91941CCCA7A3E5879AEDFE48 /* LiveStreamSelectorSheet.swift in Sources */,
+				7EA9E6CC6E40077C9ADEE35D /* LiveStreamingProvider.swift in Sources */,
+				BDC989BD6CA4EC3E35566C6D /* LiveViewModel.swift in Sources */,
+				4A4A2777647BFA6971B3A24F /* LiveWebEmbedPlayerView.swift in Sources */,
+				EF8D0CE0A195DDE36AF3EBB0 /* LoadingStateOverlay.swift in Sources */,
+				40A9B775128F8EAC04CEBBD8 /* LocalDataStore.swift in Sources */,
+				3E83C0E197D32C264612BE9D /* LocalStreamProxy.swift in Sources */,
+				588A38C9218F6BBB61ACB1FA /* MainTabView.swift in Sources */,
+				0A21CCA5FF4C098C15FB671A /* MatchCacheItem.swift in Sources */,
+				EF18C48F86FBE5CB8C183E6B /* MatchCardFormatting.swift in Sources */,
+				A3F1619D515BFABC1E28409A /* MatchChatView.swift in Sources */,
+				CD56B67A6BE18802AFCF5AF6 /* MatchHubHeader.swift in Sources */,
+				00EA5FD084EC850411B8D8B8 /* MatchHubView.swift in Sources */,
+				4B6EC7F51204106A55425D40 /* MatchHubViewModel.swift in Sources */,
+				B6836ABBF1D0A44C2D00C353 /* MatchListActor.swift in Sources */,
+				32AD7591D5C3634F049EBB3D /* MatchListViewModel.swift in Sources */,
+				D2551478057273F54923C1EF /* MatchModels.swift in Sources */,
+				59681D12D808DF65869E4B09 /* MatchReminderStore.swift in Sources */,
+				B91D655F940F7151FCE6AD89 /* MatchStartControls.swift in Sources */,
+				F22C252EF4784703B5764821 /* MatchStatisticsView.swift in Sources */,
+				4C9FF787A91B757F4FB56828 /* MatchTimelineView.swift in Sources */,
+				CE64B38F1DF921DFCE8ABB8C /* MatchdaySetupCard.swift in Sources */,
+				5C3EC2FD172985D581001F93 /* MediaFlowModels.swift in Sources */,
+				2793D19470B4376429A2D676 /* MediaModels.swift in Sources */,
+				6F6D55DB6A9A329A16630AAF /* MockMatchService.swift in Sources */,
+				42378BF8D7063F349ECD9568 /* MomentumChartView.swift in Sources */,
+				881EF5B0F8C4036535B0AEA6 /* MultiLivePlayerView.swift in Sources */,
+				88FC92E7887694C93A4160CC /* NotificationBadgeManager.swift in Sources */,
+				91E37ACBA1AFFC5BBB70AB30 /* NotificationManager.swift in Sources */,
+				F694C83FE6C8DB07E858F6A6 /* NowPlayingManager.swift in Sources */,
+				14CBE0E6CC63B62013EEDB6E /* OnNowGlanceBar.swift in Sources */,
+				6C0A581926C238080D8253F1 /* P2PDataService.swift in Sources */,
+				825DD53F2C1C1EB0796A5F1F /* PlaybackControlsOverlay.swift in Sources */,
+				3D687332B953D881397DC901 /* PlaybackErrorOverlay.swift in Sources */,
+				660F6979FDF0A8C7D783476F /* PlaybackWarmupService.swift in Sources */,
+				F744BCB62578B06F46C68005 /* PlaybackWarmupView.swift in Sources */,
+				980B0B07D702ACDD81F33B24 /* ProviderDiscoveryModule.swift in Sources */,
+				C87DFFDB9A12662CA79094E5 /* SchemaModels.swift in Sources */,
+				854EFBF8C3C779F9559D4152 /* SearchView.swift in Sources */,
+				D751D834AFA62A98478C217C /* SettingsComponents.swift in Sources */,
+				771B4A0F63EEBE528416F543 /* SettingsManageFollowsView.swift in Sources */,
+				ED065E9286F8CB0FABDE86C7 /* SettingsManageLeaguesView.swift in Sources */,
+				BEAB7BF078E380260C43512E /* SettingsPrivacyView.swift in Sources */,
+				280590A19D6CB74EAA2DAB10 /* SettingsScreen.swift in Sources */,
+				170215FF20FD02FB83AFAD74 /* SettingsSupportViews.swift in Sources */,
+				EFF1D933C2B4833F1B5DA455 /* SettingsView.swift in Sources */,
+				3CAD1E86E575BF0F54166488 /* SettingsViewModel.swift in Sources */,
+				C7124FF60290CC444AC3BE66 /* SocialActivityRow.swift in Sources */,
+				FE02EC29ACB3FD2C6F96B5A6 /* SocialCelebrationViews.swift in Sources */,
+				9FBEB914DCBD9BB8D09E8611 /* SocialCloudStore.swift in Sources */,
+				6D4A623096C82D134D793F7C /* SocialDiscoveryRow.swift in Sources */,
+				96F7A5DE38C429B851586E6D /* SocialExploreView.swift in Sources */,
+				1D19536370E015A529D98832 /* SocialFollowingView.swift in Sources */,
+				AB09AC1CB2EA3897F67FE8C5 /* SocialHubView.swift in Sources */,
+				B3840CDAF5B84FB73D6CF93C /* SocialModels.swift in Sources */,
+				B221FD2E1C9BFF019AB7D0FC /* SocialNotificationsView.swift in Sources */,
+				BC04DCFAFFE9A6D36CFFCBD1 /* SocialTypes.swift in Sources */,
+				C8FA201BF8701D3B9371F623 /* SportsCategoryBar.swift in Sources */,
+				DEDFE94D51A37077B004C794 /* SportsDashboardToolbar.swift in Sources */,
+				481B899DF5FD09CAEC693EFA /* SportsDashboardView.swift in Sources */,
+				1A9DEEB9323ADAA3E62621CD /* SportsDiscoveryViews.swift in Sources */,
+				AABCC2C3A5396DC150F03844 /* StreamNetworkProcessor.swift in Sources */,
+				83A6EFA2A249AC0325634370 /* StreamPipelineValidationService.swift in Sources */,
+				1C6077B9F97E4EF6E49C829D /* StreamPipelineValidationView.swift in Sources */,
+				B823FDA6632EF6735D09CB1E /* StreamPlugin.swift in Sources */,
+				920ACC8B4561306BA38018A5 /* StreamPluginRegistry.swift in Sources */,
+				474AE0CE6CCD89BEEAEDE80E /* StreamPluginsSettingsView.swift in Sources */,
+				D4BCFBDA08BA3BCF76F21EEF /* StreamResolutionOverlay.swift in Sources */,
+				0D276123D64746CC794D52D5 /* StringObfuscator.swift in Sources */,
+				B86AA0E34D0E8E044ABD348E /* TacticalPitchView.swift in Sources */,
+				713924B9D1FEB527917EE202 /* TeamColors.swift in Sources */,
+				8FE0EA3563C0A1F1C0EA09C8 /* TeamFollowKey.swift in Sources */,
+				A6D740E0A87928E7A4AA5408 /* TeamOnboardingView.swift in Sources */,
+				6A71F1EBB158AC293CD86C05 /* TheSportsDBMatchService.swift in Sources */,
+				309D9739CAD9823863EFD249 /* Theme.swift in Sources */,
+				5EE73832EA9E2A434D8FB220 /* URLExtensions.swift in Sources */,
+				BBFF316405540E2208048818 /* UserAgreementView.swift in Sources */,
+				BCE385AF43A6D334B413AEC4 /* UserProfileStore.swift in Sources */,
+				A93AFD71FC3306E50811966E /* WebViewRenderer.swift in Sources */,
+				955C87F88EAE7624D62A1AF7 /* YouTubeHighlightsView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0BDC73972CC0ADEEDE6917FF /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D5013E2C49BD68DD1EC8BB7B /* FottyNavigationUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		162D9DA5F9DD8F8D60CDE772 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				79B8F7DFC438D230F7474775 /* FottyFPLDeadlineWidget.swift in Sources */,
+				71AFF3A50D3A863052AF87BF /* FottyLiveActivityWidget.swift in Sources */,
+				E5B6C9FD75A1061F37DD2993 /* FottyMatchActivityAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		2D78B1C2BC499B50FED06B74 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9BEB9F87853F53C7DA4F983E /* BetaUsabilityTests.swift in Sources */,
+				4BE2FDBF044B9AF8B962134F /* FPLTrustTests.swift in Sources */,
+				A5328C72405E9E6FDBAE2AC1 /* MatchReminderTests.swift in Sources */,
+				5A96741D11B45DFC61D7A6E0 /* PlaybackPolicyTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		5B0E3A01BE8BD93B9DA09976 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02ECC7788953E66EEC0B78A0 /* Fotty */;
+			targetProxy = 3AB3A370A3FDCD2D80F526B3 /* PBXContainerItemProxy */;
+		};
+		C43F344206E1FED2431E66DF /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 02ECC7788953E66EEC0B78A0 /* Fotty */;
+			targetProxy = E4D5254876A544EFD9BE22D4 /* PBXContainerItemProxy */;
+		};
+		D6EC6CC892E3B81E4E8F209E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			platformFilters = (
+				ios,
+			);
+			target = E927B7E628F5658FD508F56B /* FottyLiveActivityExtension */;
+			targetProxy = 16D9EBD600FED90780358950 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		02E340336E45109E650AE0A4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 46;
+				DEVELOPMENT_TEAM = 9W3JDBQU39;
+				INFOPLIST_FILE = Fotty/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 2.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jelani.Fotty;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		68E2DC6EB4FABDE3C431F495 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CURRENT_PROJECT_VERSION = 46;
+				DEVELOPMENT_TEAM = 9W3JDBQU39;
+				INFOPLIST_FILE = Fotty/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 2.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jelani.Fotty;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		814A875DD9207B57E352AE8A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = 9W3JDBQU39;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.jelani.FottyUITests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Fotty;
+			};
+			name = Debug;
+		};
+		8AA2F92B7FE50923E741CE72 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = 9W3JDBQU39;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.jelani.FottyTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Fotty.app/Fotty";
+			};
+			name = Release;
+		};
+		9099686AF81BA40C9FB052A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = 9W3JDBQU39;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.jelani.FottyUITests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Fotty;
+			};
+			name = Release;
+		};
+		9502687943FA44571C8AD085 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				DEVELOPMENT_TEAM = 9W3JDBQU39;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.jelani.FottyTests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Fotty.app/Fotty";
+			};
+			name = Debug;
+		};
+		C331CF97DE36285A3BCCA850 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D19ACC0622865FF773DD874F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CURRENT_PROJECT_VERSION = 46;
+				DEVELOPMENT_TEAM = 9W3JDBQU39;
+				INFOPLIST_FILE = FottyLiveActivityExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jelani.Fotty.LiveActivityExtension;
+				PRODUCT_NAME = FottyLiveActivityExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		E783207BE6F3DC01206DFB85 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CURRENT_PROJECT_VERSION = 46;
+				DEVELOPMENT_TEAM = 9W3JDBQU39;
+				INFOPLIST_FILE = FottyLiveActivityExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 2.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jelani.Fotty.LiveActivityExtension;
+				PRODUCT_NAME = FottyLiveActivityExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.9;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		F835B08CE9896A847B3B8897 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.4;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		05C059897E1EE6508C87FFD9 /* Build configuration list for PBXProject "Fotty" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				C331CF97DE36285A3BCCA850 /* Debug */,
+				F835B08CE9896A847B3B8897 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6DA2E138723638365C52F046 /* Build configuration list for PBXNativeTarget "FottyTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9502687943FA44571C8AD085 /* Debug */,
+				8AA2F92B7FE50923E741CE72 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		92E4A7280FEE36EA40B21E8C /* Build configuration list for PBXNativeTarget "Fotty" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				02E340336E45109E650AE0A4 /* Debug */,
+				68E2DC6EB4FABDE3C431F495 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		976C2E3FE3E1C6810C6F4211 /* Build configuration list for PBXNativeTarget "FottyUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				814A875DD9207B57E352AE8A /* Debug */,
+				9099686AF81BA40C9FB052A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C5B59C0F34DCAC04F0DCFB65 /* Build configuration list for PBXNativeTarget "FottyLiveActivityExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D19ACC0622865FF773DD874F /* Debug */,
+				E783207BE6F3DC01206DFB85 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 50B3F534E5FF8443BED96195 /* Project object */;
+}

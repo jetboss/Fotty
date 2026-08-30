@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors - Literal iOS Theme Parity */
+  --color-background: #0a0d14;
+  --color-surface: #141a24;
+  --color-surface-elevated: #1f2633;
+  
+  --color-accent: #e01f47;
+  --color-accent-gradient: linear-gradient(135deg, #e01f47, #990d26);
+  
+  --color-live: #ffb326;
+  --color-live-gradient: linear-gradient(135deg, #ff5940, #d9261a);
+  
+  --color-success: #2ecc6f;
+  --color-error: #e64d40;
+  
+  --color-text-primary: #fcfcfc;
+  --color-text-secondary: #a6a6a6;
+  --color-text-tertiary: #737373;
+  
+  --color-glass: rgba(255, 255, 255, 0.12);
+  --color-border: rgba(255, 255, 255, 0.08);
+
+  /* Spacing - Literal iOS Parity */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  /* Radius - Literal iOS Parity */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+}
+
+:root {
+  --background: #0a0d14;
+  --foreground: #fcfcfc;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+  min-height: 100dvh;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+body[data-compact-mode="true"] .fotty-compact-card {
+  padding: 0.75rem !important;
+}
+
+body[data-compact-mode="true"] .fotty-compact-row {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+body[data-compact-mode="true"] .fotty-compact-stack {
+  gap: 0.75rem !important;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Custom Utilities - The "Premium" Secret Sauce */
+@layer utilities {
+  .glass {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .premium-glass {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+  }
+
+  .card-style {
+    background: #10141e;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.6);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .accent-gradient {
+    background: linear-gradient(135deg, #e01f47, #990d26);
+    box-shadow: 0 4px 15px rgba(224, 31, 71, 0.3);
+  }
+
+  .hero-gradient {
+    background: linear-gradient(to bottom, transparent, rgba(10, 13, 20, 0.8), #0a0d14);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /*
+   * iOS parity tokens (--spacing-md, etc.) replace Tailwind's spacing scale, which
+   * also drives max-w-* utilities. Restore readable layout widths for forms/cards.
+   */
+  .max-w-xs {
+    max-width: 20rem;
+  }
+  .max-w-sm {
+    max-width: 24rem;
+  }
+  .max-w-md {
+    max-width: 28rem;
+  }
+  .max-w-lg {
+    max-width: 32rem;
+  }
+  .max-w-xl {
+    max-width: 36rem;
+  }
+  .max-w-2xl {
+    max-width: 42rem;
+  }
+  .max-w-3xl {
+    max-width: 48rem;
+  }
+  .max-w-4xl {
+    max-width: 56rem;
+  }
+  .max-w-5xl {
+    max-width: 64rem;
+  }
+
+  .fotty-v2-primary-cta {
+    color: #09090b !important;
+  }
+}
+
+.tracking-tighter,
+.tracking-tight,
+.tracking-wide,
+.tracking-wider,
+.tracking-widest {
+  letter-spacing: 0;
+}
+
+@keyframes live-pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.4; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-live-pulse {
+  animation: live-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Premium Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}

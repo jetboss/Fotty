@@ -1,0 +1,6 @@
+self-hosted-runner:
+  # actionlint 1.7.12 predates GitHub's public-preview Xcode 27 label.
+  # GitHub owns this hosted runner; listing it here only teaches the linter the
+  # new label until its embedded runner table catches up.
+  labels:
+    - xcode-27

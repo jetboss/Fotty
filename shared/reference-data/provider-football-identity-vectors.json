@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-08-30",
+  "cases": [
+    {
+      "name": "StreamEx Chelsea Brighton Premier League payload",
+      "event": {
+        "id": "chelsea-vs-brighton-and-hove-albion-2494014",
+        "title": "Chelsea vs Brighton and Hove Albion",
+        "category": "football",
+        "teams": {
+          "home": { "name": "Chelsea" },
+          "away": { "name": "Brighton and Hove Albion" }
+        },
+        "sourceIds": [
+          "ppv-chelsea-vs-brighton-hove-albion",
+          "live_premier-league_chelsea-brighton-live-streaming-609594336"
+        ]
+      },
+      "expectedCompetition": "premierLeague",
+      "expectedIdentityConflict": false
+    },
+    {
+      "name": "Ampersand spelling resolves to the same Brighton identity",
+      "event": {
+        "id": "premier-league-chelsea-brighton",
+        "title": "Chelsea vs Brighton & Hove Albion",
+        "category": "football",
+        "teams": {
+          "home": { "name": "Chelsea FC" },
+          "away": { "name": "Brighton & Hove Albion FC" }
+        },
+        "sourceIds": []
+      },
+      "expectedCompetition": "premierLeague",
+      "expectedIdentityConflict": false
+    },
+    {
+      "name": "Provider league label cannot promote a former member",
+      "event": {
+        "id": "english-premier-league-norwich-arsenal",
+        "title": "Norwich City vs Arsenal",
+        "category": "football",
+        "teams": {
+          "home": { "name": "Norwich City" },
+          "away": { "name": "Arsenal" }
+        },
+        "sourceIds": []
+      },
+      "expectedCompetition": "other",
+      "expectedIdentityConflict": true
+    },
+    {
+      "name": "Cup marker outranks shared domestic membership",
+      "event": {
+        "id": "fa-cup-arsenal-chelsea",
+        "title": "FA Cup - Arsenal vs Chelsea",
+        "category": "football",
+        "teams": {
+          "home": { "name": "Arsenal" },
+          "away": { "name": "Chelsea" }
+        },
+        "sourceIds": []
+      },
+      "expectedCompetition": "other",
+      "expectedIdentityConflict": false
+    },
+    {
+      "name": "Explicit Champions League marker remains authoritative",
+      "event": {
+        "id": "uefa-champions-league-arsenal-chelsea",
+        "title": "Arsenal vs Chelsea",
+        "category": "football",
+        "teams": {
+          "home": { "name": "Arsenal" },
+          "away": { "name": "Chelsea" }
+        },
+        "sourceIds": []
+      },
+      "expectedCompetition": "championsLeague",
+      "expectedIdentityConflict": false
+    }
+  ]
+}
