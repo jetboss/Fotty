@@ -1,273 +1,194 @@
 import SwiftUI
 
+/// A search projection of Home's already-loaded catalog. Search never fetches
+/// a second feed, so its results, timing, reminders, badges, and Watch actions
+/// cannot disagree with the Home lineup.
+@MainActor
+enum HomeSportsSearch {
+    enum Result: Identifiable {
+        case fixture(HomeSportsDiscovery.Item)
+        case channel(AnalyticalDataEngine.EventReference)
+
+        var id: String { event.id }
+        var event: AnalyticalDataEngine.EventReference {
+            switch self {
+            case .fixture(let item): item.event
+            case .channel(let event): event
+            }
+        }
+    }
+
+    static func results(
+        in discovery: HomeSportsDiscovery,
+        query: String,
+        leagueName: (AnalyticalDataEngine.EventReference) -> String? = { _ in nil }
+    ) -> [Result] {
+        let normalizedQuery = normalized(query)
+        let tokens = normalizedQuery.split(separator: " ").map(String.init)
+        guard !tokens.isEmpty else { return [] }
+        let exactFootballLeagues = Set(
+            AnalyticalDataEngine.FootballLeagueTab.allCases
+                .filter { $0 != .all && $0 != .other }
+                .map { normalized($0.displayName) }
+        )
+
+        func matches(_ event: AnalyticalDataEngine.EventReference) -> Bool {
+            // "Premier League" must not accidentally return Caribbean Premier
+            // League fixtures simply because both contain the same two words.
+            if exactFootballLeagues.contains(normalizedQuery) {
+                return normalized(leagueName(event) ?? "") == normalizedQuery
+            }
+            var fields = [
+                event.displayTitle,
+                event.title ?? "",
+                event.homeName,
+                event.awayName,
+                event.normalizedCategory,
+                event.categoryDisplayName,
+                leagueName(event) ?? ""
+            ]
+            if event.isCPLFixture { fields.append("Caribbean Premier League CPL") }
+            if event.isBroadcastChannel { fields.append("channel broadcast") }
+            let haystack = normalized(fields.joined(separator: " "))
+            return tokens.allSatisfy(haystack.contains)
+        }
+
+        return discovery.items.filter { matches($0.event) }.map(Result.fixture)
+            + discovery.channels.filter(matches).map(Result.channel)
+    }
+
+    private static func normalized(_ value: String) -> String {
+        value.folding(
+            options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive],
+            locale: Locale(identifier: "en_US_POSIX")
+        )
+        .split(whereSeparator: { !$0.isLetter && !$0.isNumber })
+        .joined(separator: " ")
+    }
+}
+
 struct SearchView: View {
+    let discovery: HomeSportsDiscovery
+    let isSaved: (String) -> Bool
+    let canWatch: (AnalyticalDataEngine.EventReference) -> Bool
+    let onOpen: (AnalyticalDataEngine.EventReference) -> Void
+    let onDetails: (AnalyticalDataEngine.EventReference) -> Void
+    let onSave: (AnalyticalDataEngine.EventReference) -> Void
+
     @State private var query = ""
-    @State private var results: [AnalyticalDataEngine.EventReference] = []
-    @State private var isSearching = false
-    @State private var hasSearched = false
-    @State private var searchError: String?
-    @State private var selectionError: String?
-    @State private var debounceTask: Task<Void, Never>?
-    
     @Environment(LiveScoreService.self) private var liveScoreService
-    @EnvironmentObject private var socialCloudStore: SocialCloudStore
-    @State private var selectedMatch: FootballMatch?
-    
+    @Environment(\.dismiss) private var dismiss
+
+    private var results: [HomeSportsSearch.Result] {
+        HomeSportsSearch.results(in: discovery, query: query, leagueName: leagueName(for:))
+    }
+
     var body: some View {
-        ZStack {
-            FottyTheme.background.ignoresSafeArea()
-            
-            VStack(spacing: 0) {
-                // Search bar
-                searchBar
-                
-                if isSearching {
-                    Spacer()
-                    ProgressView()
-                        .tint(FottyTheme.accentText)
-                    Spacer()
-                } else if let searchError {
-                    searchErrorState(searchError)
-                } else if results.isEmpty && hasSearched {
-                    emptyState
-                } else if results.isEmpty {
+        NavigationStack {
+            Group {
+                if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     promptState
+                } else if results.isEmpty {
+                    emptyState
                 } else {
                     resultsList
                 }
             }
-        }
-        .navigationTitle("Search")
-        .navigationBarTitleDisplayMode(.large)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .sheet(item: $selectedMatch) { match in
-            NavigationStack {
-                MatchHubView(fixtureId: String(match.id), showModalDismissButton: true)
-                    .environment(liveScoreService)
-                    .environmentObject(socialCloudStore)
-            }
-            .fottyStandardSheetChrome()
-        }
-        .alert("Match Details Unavailable", isPresented: Binding(
-            get: { selectionError != nil },
-            set: { if !$0 { selectionError = nil } }
-        )) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text(selectionError ?? "This match is not in the current score feed.")
-        }
-        .onDisappear {
-            debounceTask?.cancel()
-        }
-    }
-    
-    // MARK: - Search Bar
-    
-    private var searchBar: some View {
-        HStack(spacing: FottyTheme.spacingSM) {
-            Image(systemName: "magnifyingglass")
-                .foregroundStyle(FottyTheme.textTertiary)
-            
-            TextField("Search teams, leagues, matches...", text: $query)
-                .foregroundStyle(FottyTheme.textPrimary)
-                .autocorrectionDisabled()
-                .textInputAutocapitalization(.never)
-                .onSubmit {
-                    debounceTask?.cancel()
-                    debounceTask = Task { await performSearch() }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(FottyTheme.background.ignoresSafeArea())
+            .navigationTitle("Search")
+            .navigationBarTitleDisplayMode(.inline)
+            .searchable(
+                text: $query,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Team, league, sport, or channel"
+            )
+            .searchSuggestions {
+                if query.isEmpty {
+                    ForEach(["Premier League", "CPL", "Cricket", "Basketball"], id: \.self) { suggestion in
+                        Text(suggestion).searchCompletion(suggestion)
+                    }
                 }
-            
-            if !query.isEmpty {
-                Button {
-                    query = ""
-                    results = []
-                    hasSearched = false
-                    searchError = nil
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(FottyTheme.textTertiary)
+            }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
                 }
             }
         }
-        .padding(FottyTheme.spacingMD)
-        .glassBackground()
-        .padding(.horizontal, FottyTheme.spacingMD)
-        .padding(.vertical, FottyTheme.spacingSM)
-        .onChange(of: query) { _, newValue in
-            debounceTask?.cancel()
-            
-            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            searchError = nil
-            guard !trimmed.isEmpty else {
-                isSearching = false
-                results = []
-                hasSearched = false
-                return
-            }
-            
-            debounceTask = Task {
-                try? await Task.sleep(for: .milliseconds(400))
-                guard !Task.isCancelled else { return }
-                await performSearch()
-            }
-        }
-    }
-    
-    private func performSearch() async {
-        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !trimmed.isEmpty else { return }
-        
-        isSearching = true
-        searchError = nil
-        
-        do {
-            let allEvents = try await AnalyticalDataEngine.allLiveEvents()
-            let filtered = allEvents.filter { event in
-                let title = (event.title ?? "").lowercased()
-                let home = event.homeName.lowercased()
-                let away = event.awayName.lowercased()
-                let category = event.normalizedCategory.lowercased()
-                
-                return title.contains(trimmed) || 
-                       home.contains(trimmed) || 
-                       away.contains(trimmed) || 
-                       category.contains(trimmed)
-            }
-            guard !Task.isCancelled,
-                  query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == trimmed else {
-                return
-            }
-            
-            withAnimation {
-                self.results = filtered
-                self.hasSearched = true
-                self.isSearching = false
-            }
-        } catch {
-            guard !Task.isCancelled,
-                  query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == trimmed else {
-                return
-            }
-            self.isSearching = false
-            self.searchError = "Search could not reach the match catalog. Check your connection and try again."
-        }
-    }
-    
-    // MARK: - States
-    
-    private var promptState: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: "figure.soccer")
-                .font(.system(size: 48))
-                .foregroundStyle(FottyTheme.textTertiary)
-            Text("Find Your Match")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(FottyTheme.textPrimary)
-            Text("Search for live matches, upcoming fixtures, or your favorite teams.")
-                .font(.system(size: 14))
-                .foregroundStyle(FottyTheme.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 40)
-            Spacer()
-        }
-    }
-    
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Spacer()
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 48))
-                .foregroundStyle(FottyTheme.textTertiary)
-            Text("No Results Found")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(FottyTheme.textPrimary)
-            Text("We couldn't find any matches for \"\(query)\".")
-                .font(.system(size: 14))
-                .foregroundStyle(FottyTheme.textSecondary)
-            Spacer()
-        }
+        .accessibilityIdentifier("global-sports-search")
     }
 
-    private func searchErrorState(_ message: String) -> some View {
+    private var promptState: some View {
         ContentUnavailableView {
-            Label("Search Unavailable", systemImage: "wifi.exclamationmark")
+            Label("Find what is on", systemImage: "magnifyingglass")
         } description: {
-            Text(message)
-        } actions: {
-            Button("Try Again") {
-                debounceTask?.cancel()
-                debounceTask = Task { await performSearch() }
-            }
-            .buttonStyle(.borderedProminent)
+            Text("Search every listed sport, team, league, match, or channel. Results use the same lineup and Watch availability as Home.")
         }
+        .padding(FottyTheme.spacingLG)
     }
-    
+
+    private var emptyState: some View {
+        ContentUnavailableView.search(text: query)
+    }
+
     private var resultsList: some View {
         ScrollView {
-            LazyVStack(spacing: FottyTheme.spacingMD) {
-                ForEach(results) { event in
-                    Button {
-                        if let match = liveScoreService.findMatch(home: event.homeName, away: event.awayName) {
-                            selectedMatch = match
-                        } else {
-                            selectionError = "Detailed score data for \(event.homeName) vs \(event.awayName) is not available yet."
-                        }
-                    } label: {
-                        SearchEventCard(event: event)
-                    }
+            LazyVStack(alignment: .leading, spacing: 0) {
+                Text(resultSummary)
+                    .font(FottyTheme.typeMeta)
+                    .foregroundStyle(FottyTheme.textSecondary)
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
+
+                ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
+                    if index > 0 { Divider().overlay(FottyTheme.border) }
+                    resultRow(result)
                 }
             }
-            .padding(FottyTheme.spacingMD)
+            .padding(.horizontal, 12)
+            .padding(.vertical, FottyTheme.spacingMD)
+            .frame(maxWidth: 920)
+            .frame(maxWidth: .infinity)
+        }
+        .scrollDismissesKeyboard(.interactively)
+    }
+
+    @ViewBuilder
+    private func resultRow(_ result: HomeSportsSearch.Result) -> some View {
+        switch result {
+        case .fixture(let item):
+            HomeDiscoveryRow(
+                item: item,
+                isSaved: isSaved(item.id),
+                onOpen: { onOpen(item.event) },
+                onSave: { onSave(item.event) }
+            )
+            .accessibilityIdentifier("search-result-\(item.id)")
+        case .channel(let event):
+            LiveEventCard(
+                event: event,
+                onWatchTap: canWatch(event) ? { onOpen(event) } : nil,
+                onDetailsTap: { onDetails(event) },
+                isSaved: isSaved(event.id),
+                onSaveTap: { onSave(event) }
+            )
+            .padding(.vertical, 6)
+            .accessibilityIdentifier("search-result-\(event.id)")
         }
     }
-}
 
-struct SearchEventCard: View {
-    let event: AnalyticalDataEngine.EventReference
-    
-    var body: some View {
-        HStack(spacing: FottyTheme.spacingMD) {
-            // Badges
-            HStack(spacing: -12) {
-                TeamBadgeView(badgeURL: event.homeBadgeURL, teamName: event.homeName, size: 44)
-                TeamBadgeView(badgeURL: event.awayBadgeURL, teamName: event.awayName, size: 44)
-                    .background(Circle().fill(FottyTheme.surface).padding(2))
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(event.title ?? "\(event.homeName) vs \(event.awayName)")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(FottyTheme.textPrimary)
-                    .lineLimit(1)
-                
-                HStack {
-                    Text(event.categoryDisplayName)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(FottyTheme.accentText)
-                    
-                    if let kickoff = event.kickoffDate {
-                        Text("•")
-                            .foregroundStyle(FottyTheme.textTertiary)
-                        Text(kickoff.formatted(date: .abbreviated, time: .shortened))
-                            .font(.system(size: 12))
-                            .foregroundStyle(FottyTheme.textSecondary)
-                    }
-                }
-            }
-            
-            Spacer()
-            
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(FottyTheme.textTertiary)
-        }
-        .padding(FottyTheme.spacingMD)
-        .background(FottyTheme.surface)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.05), lineWidth: 1)
+    private var resultSummary: String {
+        results.count == 1 ? "1 result" : "\(results.count) results"
+    }
+
+    private func leagueName(for event: AnalyticalDataEngine.EventReference) -> String? {
+        guard event.normalizedCategory == "football" else { return nil }
+        let official = liveScoreService.findMatch(
+            home: event.homeName,
+            away: event.awayName,
+            near: event.kickoffDate
         )
+        return AnalyticalDataEngine.footballLeagueTab(for: event, officialMatch: official).displayName
     }
 }

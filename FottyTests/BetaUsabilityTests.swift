@@ -3,6 +3,22 @@ import SwiftUI
 @testable import Fotty
 
 final class BetaUsabilityTests: XCTestCase {
+    func testGlobalSportsSearchIsReachableAndCannotCreateACompetingFeed() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let dashboard = try String(
+            contentsOf: root.appendingPathComponent("Fotty/Features/Dashboard/SportsDashboardView.swift"),
+            encoding: .utf8
+        )
+        let search = try String(
+            contentsOf: root.appendingPathComponent("Fotty/Features/Search/SearchView.swift"),
+            encoding: .utf8
+        )
+        XCTAssertTrue(dashboard.contains("SearchView("))
+        XCTAssertTrue(dashboard.contains("accessibilityIdentifier(\"home-search\")"))
+        XCTAssertTrue(search.contains("let discovery: HomeSportsDiscovery"))
+        XCTAssertFalse(search.contains("AnalyticalDataEngine.allLiveEvents"))
+    }
+
     @MainActor
     func testMajorLeagueBadgeFallbackSurvivesSparseAndInvalidCachedData() throws {
         let seed = TeamBrandService.majorLeagueBadgeURLs
@@ -454,6 +470,29 @@ final class HomeDiscoveryTests: XCTestCase {
         XCTAssertEqual(event("fixture", home: "Arsenal", away: "Chelsea").displayTitle, "Arsenal vs Chelsea")
         XCTAssertEqual(AnalyticalDataEngine.categoryDisplayName(for: "american-football"), "American football")
         XCTAssertEqual(AnalyticalDataEngine.sportIconName(for: "american-football"), "american.football.fill")
+    }
+
+    func testGlobalSearchUsesHomesCatalogAcrossSportsLeaguesFixturesAndChannels() {
+        let chelsea = event("chelsea-brighton", offset: 900, home: "Chelsea", away: "Brighton")
+        let bogota = event("bogota", sport: "basketball", offset: 1_800, home: "Internacional de Bogotá")
+        let cpl = event("cpl-2026-final", sport: "cricket", offset: 2_700,
+                        home: "Trinbago Knight Riders", away: "Barbados Royals")
+        let willow = AnalyticalDataEngine.EventReference(
+            id: "willow", title: "Willow Cricket", category: "cricket", date: nil,
+            poster: nil, popular: nil, teams: nil,
+            sources: [.init(source: "delta", id: "willow")]
+        )
+        let schedule = HomeSportsDiscovery(events: [chelsea, bogota, cpl, willow], now: now)
+        let league: (AnalyticalDataEngine.EventReference) -> String? = {
+            $0.id == chelsea.id ? "Premier League" : nil
+        }
+
+        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "chelsea brighton", leagueName: league).map(\.id), [chelsea.id])
+        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "PREMIER LEAGUE", leagueName: league).map(\.id), [chelsea.id])
+        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "Bogota").map(\.id), [bogota.id])
+        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "CPL").map(\.id), [cpl.id])
+        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "channel").map(\.id), [willow.id])
+        XCTAssertTrue(HomeSportsSearch.results(in: schedule, query: "   ").isEmpty)
     }
 
     func testHomeDeduplicationPreservesDoubleheadersDifferentSportsAndUnknownTeams() {
