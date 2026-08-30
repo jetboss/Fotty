@@ -1,6 +1,6 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-08-30 14:10:49 AST
+Generated: 2026-08-30 14:20:38 AST
 
 This file is generated from safe project-memory sources and redacted command output.
 Upload this one file to NotebookLM when you want a fresh project snapshot.
@@ -29,7 +29,7 @@ World Cup–specific hubs, seeds, and tournament-focus modes are retired (tourna
 
 ## Current Platform Scope
 
-- **Repository attack-surface retirement (in protected PR, 2026-08-30)**: Advanced CodeQL exposed 71 alerts across the newly published repository, with the critical/high findings concentrated in obsolete graphs rather than the supported iOS/Worker product. The Android prototype, Python homelab/P2P server, same-origin embed proxy, PocketBase accounts/admin/billing, old stream-token routes and movie/TV surface are removed instead of suppressed. The web product is guest-accessible sports discovery/playback with device-local preferences/reminders; the Cloudflare Worker retains only streams, football and consent-gated FPL Coach APIs. GitHub Actions are immutable-SHA pinned, browser tokens are not persisted, service-worker messages/navigation require exact trusted origins, and project memory is local-only. Web units, TypeScript, zero-error lint, Worker dry-run and production build pass locally; the protected PR and post-merge CodeQL scan still decide final closure. No iOS app, Worker or public web deployment is part of this repository correction.
+- **Repository attack-surface retirement (merged, 2026-08-30)**: Advanced CodeQL exposed 71 alerts across the newly published repository, with the critical/high findings concentrated in obsolete graphs rather than the supported iOS/Worker product. The Android prototype, Python homelab/P2P server, same-origin embed/HLS proxies, PocketBase accounts/admin/billing, old stream-token routes and movie/TV surface were removed instead of suppressed. The web product is guest-accessible sports discovery/playback with device-local preferences/reminders; the Cloudflare Worker retains only streams, football and consent-gated FPL Coach APIs. GitHub Actions are immutable-SHA pinned, browser tokens are not persisted, service-worker messages/navigation require exact trusted origins, and project memory is local-only. An automated PR review caught and corrected an unmounted local reminder notifier before merge. Protected PRs #10 and #11 passed web, workflow, secret, iOS where applicable, and Actions/JavaScript/Python CodeQL gates; the fresh `main` scan reports zero open alerts. No iOS app, Worker or public web deployment was part of this repository correction.
 
 - **Native PiP background-continuity correction (merged, not distributed, 2026-08-30)**: A real iPad native handoff could enter PiP but paused when Fotty moved behind another app. The app had the audio background mode and PiP controller, but only set the playback audio category; it did not explicitly activate the session when playback began, and `AVPlayer` retained the system-decided `.automatic` background policy. Native players now use `.continuesIfPossible`, activate the playback session at play/PiP boundaries, preserve the active PiP attempt through backgrounding and do not arm a false foreground resume. PiP UI restoration is acknowledged by the retained player presentation. The full simulator-free Catalyst unit suite and unsigned generic iOS Release pass; protected PR #8 is merged. Real app-switch/lock-screen continuity still requires a native physical-device stream; this fix is not installed or uploaded.
 
@@ -309,7 +309,7 @@ Build-43 scoring/request ownership (2026-08-28): `FPLLiveSquadSummary` has optio
 
 - **Finding**: The first advanced CodeQL pass on the clean GitHub baseline found 71 open alerts. The critical/high results were concentrated in code Fotty no longer operated: the Android prototype, Python homelab/P2P services, a same-origin embed proxy, PocketBase account/admin/billing routes, and movie/TV endpoints. Keeping those graphs made the repository's attack surface, workflow gates, documentation and maintenance burden materially larger than the supported product.
 - **Decision/implementation**: Delete the retired Android and Python server trees rather than suppress their findings. Remove the dormant Next account, admin, billing, PocketBase, P2P-server, embed-proxy and movie/TV routes plus their tests, scripts and UI entry points. The supported web graph is guest-accessible sports discovery/playback with local preferences and reminders; the Cloudflare Worker owns the limited playback/football/Coach edge APIs. Pin every GitHub Action to an immutable commit, constrain service-worker messages and notification navigation to exact trusted origins, stop persisting credentials in browser storage, and replace remote homelab project-memory tooling with local repository scripts.
-- **Boundary/evidence**: Historical decision entries remain history, not runnable architecture. Third-party player pages remain on their distinct provider origins and are not presented as first-party content. Swift CodeQL remains unavailable under the bounded Xcode 27 extraction attempt and is not claimed. Web units, TypeScript, lint, Worker dry-run, production build, workflow validation, gitleaks and the protected pull-request CodeQL run are the acceptance gates; closure counts must be read after merge rather than inferred from deletion.
+- **Boundary/evidence**: Historical decision entries remain history, not runnable architecture. Third-party player pages remain on their distinct provider origins and are not presented as first-party content. Swift CodeQL remains unavailable under the bounded Xcode 27 extraction attempt and is not claimed. Web units, TypeScript, lint, Worker dry-run, production build, workflow validation, gitleaks and protected pull-request gates passed. A fresh `main` scan after PR #10 reduced the inventory from 71 to two medium findings; PR #11 removed the network-to-file audit sink and made the test bridge origin check directly verifiable. The subsequent `main` Actions/JavaScript/Python CodeQL scan reports zero open alerts.
 
 ## 2026-08-30: Treat active native PiP as background playback, not foreground decoration
 
@@ -2149,13 +2149,13 @@ Last updated: 2026-08-30
 
 This registry turns current sharp edges into guardrails for agents.
 
-## Repository attack surface and third-party playback (Unreleased)
+## Repository attack surface and third-party playback (merged 2026-08-30)
 
-- CodeQL found 71 alerts after the clean root made several retired graphs visible to current scanning. Critical/high findings in obsolete Android, homelab/P2P, PocketBase/account, embed-proxy and movie/TV code must be removed, not dismissed as false positives or hidden from the workflow.
+- CodeQL found 71 alerts after the clean root made several retired graphs visible to current scanning. Critical/high findings in obsolete Android, homelab/P2P, PocketBase/account, embed-proxy and movie/TV code were removed, not dismissed as false positives or hidden from the workflow.
 - The supported product graph is iOS, a bounded sports companion web surface and the Cloudflare playback/football/Coach Worker. Do not restore a tunnel, Python server, PocketBase route, browser credential store, same-origin player proxy or Android build by copying historical code.
 - Third-party player pages remain a real provider-origin risk. Keep them on distinct origins, retain exact-origin message admission and navigation guards, and do not describe their UI, ads, availability or content as Fotty-controlled. A redirect or successful frame load is not decoded-playback evidence.
 - GitHub Actions are commit-SHA pinned. Dependency update PRs must preserve the reviewed action origin and full hash. Advanced CodeQL covers Actions, JavaScript/TypeScript and any surviving Python; Swift stays under the simulator-free Xcode gate until bounded extraction works.
-- Status: local web/Worker gates pass. Final alert closure and severity counts require the protected remediation PR and a post-merge `main` scan. No app, Worker or public-web deployment is implied.
+- Status: protected PRs #10 and #11 are merged. The post-merge `main` Actions/JavaScript/Python CodeQL scan reports zero open alerts; repository-quality and web gates pass. This does not add Swift CodeQL coverage and did not deploy the app, Worker or public web.
 
 ## Native PiP background continuity (Unreleased)
 
@@ -3168,10 +3168,6 @@ Use this when touching player startup, AVPlayer, WKWebView embeds, stream select
 # Git Working Tree Snapshot
 
 ```text
- M docs/notebooklm/Architecture-Map.md
- M docs/notebooklm/Fotty-NotebookLM-Source.md
- M tools/audit_live_playback_matrix.mjs
- M web/e2e/live-streamex.spec.ts
 
 ```
 
