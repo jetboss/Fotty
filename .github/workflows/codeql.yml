@@ -7,6 +7,11 @@ on:
       - ".github/workflows/**"
       - "web/**"
       - "server/**/*.py"
+      - "tools/**/*.js"
+      - "tools/**/*.cjs"
+      - "tools/**/*.mjs"
+      - "tools/**/*.ts"
+      - "tools/**/*.tsx"
       - "tools/**/*.py"
       - "test_scraper.py"
   pull_request:
@@ -14,6 +19,11 @@ on:
       - ".github/workflows/**"
       - "web/**"
       - "server/**/*.py"
+      - "tools/**/*.js"
+      - "tools/**/*.cjs"
+      - "tools/**/*.mjs"
+      - "tools/**/*.ts"
+      - "tools/**/*.tsx"
       - "tools/**/*.py"
       - "test_scraper.py"
   schedule:
