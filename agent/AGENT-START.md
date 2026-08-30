@@ -1,80 +1,39 @@
-# Agent onboarding — private vault & local brain
+# Agent onboarding — current local project memory
 
-Read this **before** writing “project memory” or answering architecture questions. This repo uses a **self-hosted Knowledge Base** powered by the Homelab GPU (**NVIDIA 3050 Ti**).
+Read this before architecture work, broad refactors, release planning, or unfamiliar debugging.
 
-All **agent + homelab onboarding** for this repo lives under **`agent/`** (next to `Fotty/`, `docs/`, etc.)—not under `docs/notebooklm/`.
+## Durable sources
 
-## 1. Where to **store** durable info (“upload”)
+| File | Purpose |
+|---|---|
+| `docs/notebooklm/Project-Memory.md` | Product direction, current state, and non-negotiable decisions. |
+| `docs/notebooklm/Architecture-Map.md` | Active module and data-flow ownership. |
+| `docs/notebooklm/Decisions-Log.md` | Newest-first technical and product decisions. |
+| `docs/notebooklm/Risks.md` | Known sharp edges and guardrails. |
+| `docs/notebooklm/QA-Playbook.md` | Regression and physical-device acceptance checks. |
+| `docs/notebooklm/Workflow.md` | Team implementation and release process. |
+| `agent/OPERATOR.md` | Current deployment and service boundaries. |
 
-There is no separate upload service. **Storage = markdown in this repo** (committed like any code).
+`docs/notebooklm/Fotty-NotebookLM-Source.md` is generated. Do not hand-edit it.
 
-| File | Put here |
-|------|-----------|
-| `docs/notebooklm/Project-Memory.md` | North star: what the app is, pillars, risks. |
-| `docs/notebooklm/Architecture-Map.md` | Where things live in the tree; navigation for agents. |
-| `docs/notebooklm/Decisions-Log.md` | Newest-first fixes/decisions (short entries). |
-| `docs/notebooklm/QA-Playbook.md` | Regression / smoke expectations. |
-| `docs/notebooklm/Workflow.md` | Human–AI loop for the team. |
-| `docs/notebooklm/Risks.md` | Known sharp edges, guardrails, and verification checks. |
-| `agent/OPERATOR.md` | Homelab: Ollama, Tailscale, Docker Compose (for operators). |
+Never put secrets, private stream URLs, signing material, or production tokens in project memory.
 
-After edits, **`docs/notebooklm/Fotty-NotebookLM-Source.md`** is **generated** — do not hand-edit; run the refresh script (below).
+## Start and finish
 
-**Never** put API keys, tokens, private stream URLs, or production secrets in these files.
-
-## 2. After you change project memory — refresh the bundle
-
-From the **repo root**:
-
-```bash
-./tools/notebooklm-refresh.sh
-```
-
-This regenerates **`docs/notebooklm/Fotty-NotebookLM-Source.md`** (redacted snapshot + git info).
-
-## 3. Refresh the **semantic index** (needs Homelab Ollama)
-
-When an agent needs **fuzzy “what did we say about X?”** via CLI, the embeddings must be current.
-
-Use the canonical sync command from the repo root:
-
-```bash
-./tools/private-kb-sync.sh
-```
-
-This refreshes the generated NotebookLM bundle, pushes safe memory docs to the Homelab, and rebuilds embeddings with `nomic-embed-text` on the **NVIDIA 3050 Ti**.
-
-Before a major task, verify the brain is available:
+From the repository root:
 
 ```bash
 ./tools/agent-start.sh "Describe the task"
 ```
 
-## 4. Query the index
-
-```bash
-./tools/ask-brain.sh "Your question"
-```
-
-For local/manual query work, the lower-level command is:
-
-```bash
-export OLLAMA_HOST=http://homelab:11434
-python3 tools/brain/query_brain.py "Your question" --synthesize
-```
-
-## 5. Repo maintenance standard
-
-Meaningful code passes: bump version as required, append **`Decisions-Log.md`**, update **`Project-Memory.md`** if pillars/risks shift, run **`./tools/private-kb-sync.sh`**, then verify with **`./tools/brain-doctor.sh`**.
-
-For guided completion, run:
+After significant work:
 
 ```bash
 ./tools/agent-finish.sh "Describe what changed"
 ```
 
-## 6. Quick links
+These commands use only the local repository. The homelab and remote embedding index are retired.
 
-- Networking / Tailscale / WebUI (human): **`agent/OPERATOR.md`**
-- Index / Antigravity entry: **`agent/AGENTS.md`**
-- Cursor always-on rule: **`.cursor/rules/private-knowledge-base.mdc`**
+## Retired paths
+
+Do not restore or rely on the Android prototype, homelab, PocketBase account sync, AceStream/P2P services, Tailscale deployment, or Cloudflare Tunnels. Historical references in the decision log are context, not instructions.

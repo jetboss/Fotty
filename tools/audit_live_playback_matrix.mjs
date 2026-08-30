@@ -6,9 +6,10 @@
 
 import { webkit } from "../web/node_modules/@playwright/test/index.mjs";
 import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 const catalogURL = process.env.FOTTY_CATALOG_URL || "https://www.streamex.net/api/live/matches/all";
-const outputPath = process.env.FOTTY_MATRIX_OUTPUT || "/tmp/fotty-playback-matrix.json";
+const outputPath = resolve(process.env.FOTTY_MATRIX_OUTPUT || "fotty-playback-matrix.json");
 const samplesPerFamily = Number(process.env.FOTTY_SAMPLES_PER_FAMILY || 3);
 const streamVariants = Number(process.env.FOTTY_STREAM_VARIANTS || 2);
 const concurrency = Number(process.env.FOTTY_MATRIX_CONCURRENCY || 4);

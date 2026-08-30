@@ -14,12 +14,7 @@ import { MatchTimeline } from '@/components/MatchTimeline';
 import { SponsoredSlot } from '@/components/SponsoredSlot';
 import { recordRecentMatch, updateUserPreferences } from '@/lib/storage';
 import { useReminderToggle } from '@/lib/user-experience';
-import { useAuth } from '@/components/AuthProvider';
-import { useEntitlement } from '@/components/EntitlementProvider';
-import { WatchAccessGate } from '@/components/WatchAccessGate';
-import { isAccountsEnabled } from '@/lib/accounts';
-import { getWatchAccess } from '@/lib/watch-access';
-import { isP2PContentId, resolveWatchRouteId, buildWatchPageHref } from '@/lib/watch-session';
+import { isP2PContentId, resolveWatchRouteId } from '@/lib/watch-session';
 import { isP2PSessionActive } from '@/lib/p2p-session';
 import { FOTTY_LIVE_LABEL } from '@/lib/watch-stream-display';
 import { MatchStreamHub } from '@/components/stream-guide/MatchStreamHub';
@@ -63,13 +58,6 @@ export default function WatchPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const routeId = resolveWatchRouteId(id, searchParams);
-  const { session, isReady: authReady } = useAuth();
-  const entitlement = useEntitlement();
-  const watchAccess = !isAccountsEnabled()
-    ? { allowed: true as const, reason: null }
-    : authReady
-      ? getWatchAccess(session, entitlement)
-      : { allowed: false, reason: null };
   const title = searchParams.get('title') || "Live Stream";
   const league = searchParams.get('league') || undefined;
   const sport = searchParams.get('sport') || league?.split(" · ")[0] || undefined;
@@ -140,8 +128,6 @@ export default function WatchPageClient() {
     searchParams.get("kind") === "channel" ||
     (isP2PContentId(cidValue) && !startsAt && !isEventPlayback);
   const blockedFixturePlayback =
-    watchAccess.allowed &&
-    authReady &&
     matchLookupDone &&
     !isEventPlayback &&
     !isP2PChannelWatch &&
@@ -160,7 +146,7 @@ export default function WatchPageClient() {
     p2pHealth,
     retryBrokerSession,
   } = useP2PBrokerSession({
-    enabled: watchAccess.allowed && useP2PPlayback && Boolean(p2pCid) && !useDirectP2PRoute,
+    enabled: useP2PPlayback && Boolean(p2pCid) && !useDirectP2PRoute,
     cid: p2pCid,
     title,
     matchId,
@@ -183,7 +169,7 @@ export default function WatchPageClient() {
     refreshEventStreams,
     selectEventStream,
   } = useEventStreams({
-    enabled: watchAccess.allowed && useEventEmbed,
+    enabled: useEventEmbed,
     eventSources,
     eventStreamKey,
     matchId,
@@ -207,24 +193,6 @@ export default function WatchPageClient() {
   }, [cidValue, currentTime, league, matchId, sport, startsAt, title]);
   const { reminded, toggleReminder } = useReminderToggle(reminderEntry);
 
-  const watchReturnTo = useMemo(() => {
-    const params = new URLSearchParams();
-    if (title) params.set("title", title);
-    if (league) params.set("league", league);
-    if (sport) params.set("sport", sport);
-    if (eventSourceCode) params.set("source", eventSourceCode);
-    if (eventSourceId) params.set("eventId", eventSourceId);
-    if (eventSourcesParam) params.set("sources", eventSourcesParam);
-    if (startsAt) params.set("startsAt", startsAt);
-    if (matchId) params.set("matchId", matchId);
-    if (rawReturnTo) params.set("returnTo", rawReturnTo);
-    if (cidValue) {
-      if (isP2PContentId(cidValue)) params.set("cid", cidValue);
-      else params.set("id", cidValue);
-    }
-    return buildWatchPageHref(params);
-  }, [cidValue, eventSourceCode, eventSourceId, eventSourcesParam, league, matchId, rawReturnTo, sport, startsAt, title]);
-
   const closePlayer = useCallback(() => {
     router.replace(homeReturnTo);
   }, [homeReturnTo, router]);
@@ -235,7 +203,6 @@ export default function WatchPageClient() {
   }, [cidValue, title, league]);
 
   useEffect(() => {
-    if (!watchAccess.allowed) return;
     let cancelled = false;
 
     FottyAPI.fetchMatchesFresh()
@@ -256,7 +223,7 @@ export default function WatchPageClient() {
     return () => {
       cancelled = true;
     };
-  }, [cidValue, isEventPlayback, matchId, returnTo, router, title, watchAccess.allowed]);
+  }, [cidValue, isEventPlayback, matchId, returnTo, router, title]);
 
   const refreshWatchBoard = useCallback(async () => {
     try {
@@ -537,7 +504,7 @@ export default function WatchPageClient() {
   }, []);
 
   useWatchKeyboard({
-    enabled: v2Watch && watchAccess.allowed,
+    enabled: v2Watch,
     feedCount: eventStreams.length,
     onSelectFeed: useEventEmbed && eventStreams.length > 1 ? handleSelectFeed : undefined,
     onBack: closePlayer,
@@ -602,20 +569,7 @@ export default function WatchPageClient() {
       data-shell={v2Watch ? "v2-watch" : undefined}
     >
       <AnimatePresence mode="wait">
-        {!authReady ? (
-          <div key="auth-loading" className="flex min-h-[100svh] items-center justify-center bg-black text-sm font-bold text-white/60">
-            Opening stream…
-          </div>
-        ) : !watchAccess.allowed ? (
-          <div key="gate" className="flex min-h-[100svh] flex-col bg-black">
-            <WatchAccessGate
-              reason={watchAccess.reason!}
-              title={title}
-              returnTo={watchReturnTo}
-              homeHref={homeReturnTo}
-            />
-          </div>
-        ) : blockedFixturePlayback ? (
+        {blockedFixturePlayback ? (
           <div key="streameX-required" className="flex min-h-[100svh] flex-col bg-black">
             <UnavailablePlayer
               title="Stream not linked yet"
@@ -899,7 +853,7 @@ export default function WatchPageClient() {
             {showDiagnostics ? (
               <StreamDiagnosticsPanel
                 mode={useEventEmbed ? "Event" : "P2P"}
-                access={watchAccess.allowed ? "Allowed" : "Blocked"}
+                access="Allowed"
                 lookup={useEventEmbed ? (isEventStreamLoading ? "Checking" : eventStreamError ? "Failed" : "Ready") : useDirectP2PRoute ? (streamURL ? "Direct" : "Idle") : brokerPlaybackState}
                 feeds={useEventEmbed ? eventStreams.length : useDirectP2PRoute ? (streamURL ? 1 : 0) : brokerSessionId ? 1 : 0}
                 selected={useEventEmbed

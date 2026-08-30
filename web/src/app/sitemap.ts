@@ -15,8 +15,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/welcome",
     "/help",
     "/support",
-    "/subscribe",
-    "/login",
     "/privacy",
     "/terms",
   ];

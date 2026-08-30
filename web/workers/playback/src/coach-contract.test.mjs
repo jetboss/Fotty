@@ -19,6 +19,14 @@ function coachRequest(body, headers = {}) {
   });
 }
 
+function isDeepSeekRequest(input) {
+  try {
+    return new URL(String(input)).origin === "https://api.deepseek.com";
+  } catch {
+    return false;
+  }
+}
+
 test("malformed Coach shapes return 400 before any upstream call", async (t) => {
   let calls = 0;
   t.mock.method(globalThis, "fetch", async () => { calls++; throw new Error("Offline test"); });
@@ -41,7 +49,7 @@ test("malformed Coach shapes return 400 before any upstream call", async (t) => 
 test("scoring cannot fall through to DeepSeek when official data is unavailable", async (t) => {
   let modelCalls = 0;
   t.mock.method(globalThis, "fetch", async (input) => {
-    if (String(input).includes("api.deepseek.com")) modelCalls++;
+    if (isDeepSeekRequest(input)) modelCalls++;
     throw new Error("Offline fixture: official feed unavailable");
   });
   for (const query of ["How many gameweek points do I have?", "What is my correct total after autosubs?", "What is my current total?", "What are my current points?", "Show my live score"]) {
@@ -58,7 +66,7 @@ test("scoring cannot fall through to DeepSeek when official data is unavailable"
 test("ordinary tactical advice still reaches DeepSeek with uncertainty on feed failure", async (t) => {
   let modelCalls = 0;
   t.mock.method(globalThis, "fetch", async (input) => {
-    if (!String(input).includes("api.deepseek.com")) throw new Error("Official feed offline");
+    if (!isDeepSeekRequest(input)) throw new Error("Official feed offline");
     modelCalls++;
     return Response.json({ model: "test-model", choices: [{ message: { content: JSON.stringify(completeResult) } }], usage: { total_tokens: 20 } });
   });
@@ -82,7 +90,7 @@ test("body limits and configured rate-limit failures are controlled responses", 
 test("stale official responses cannot authorize current scoring or a model fallback", async (t) => {
   let modelCalls = 0;
   t.mock.method(globalThis, "fetch", async (input) => {
-    if (String(input).includes("api.deepseek.com")) modelCalls++;
+    if (isDeepSeekRequest(input)) modelCalls++;
     return Response.json({}, { headers: { age: "900", date: new Date(Date.now() - 900000).toUTCString() } });
   });
   const response = await worker.fetch(coachRequest({ query: "What is my correct total?", managerId: 123 }), { DEEPSEEK_API_KEY: "test-only" });
@@ -95,7 +103,7 @@ test("a successful refresh with no live scoring still returns a deterministic un
   let modelCalls = 0;
   t.mock.method(globalThis, "fetch", async (input) => {
     const url = String(input);
-    if (url.includes("api.deepseek.com")) { modelCalls++; throw new Error("Unexpected model call"); }
+    if (isDeepSeekRequest(input)) { modelCalls++; throw new Error("Unexpected model call"); }
     if (url.endsWith("bootstrap-static/")) return Response.json({ events: [], elements: [] });
     if (url.endsWith("fixtures/")) return Response.json([]);
     return Response.json({});

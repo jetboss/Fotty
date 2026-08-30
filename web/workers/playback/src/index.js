@@ -4,11 +4,10 @@
  * Routes:
  *   GET /api/live/streams?source=&id=
  *   GET /api/embed/player?source=&id=&streamNo=
- *   GET /api/embed/hls?url=
  *   GET /health
  *
- * Mirrors web/src/lib/server/embed-player-proxy.ts + live/streams + embed/hls
- * with StreamEx Referer (same as iOS WKWebView / LocalStreamProxy).
+ * Browser playback stays on the provider origin. Fotty does not mirror or
+ * sanitize provider HTML/media into a first-party response.
  */
 
 import {
@@ -21,18 +20,10 @@ import { checkCoachLimit, readCoachRequest } from "./coach-request.mjs";
 const IOS_SAFARI_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 
-const EXPOSESTRAT_ORIGIN = "https://exposestrat.com";
 const EMBED_ST_ORIGIN = "https://embed.st";
-const EMBED_HD_ORIGIN = "https://embedhd.org";
-const STREAMEX_REFERER = "https://www.streamex.net/";
-const SCORE808_REFERER = "https://www.score808live.tv/";
 
 /** Prefer StreamEx `delta` on web (echo PPV ids often 404 in-browser). */
 const SOURCE_PRIORITY = ["delta", "hotel", "echo", "india", "golf", "alpha"];
-
-function embedRefererForSource(source) {
-  return (source || "").toLowerCase() === "hotel" ? SCORE808_REFERER : STREAMEX_REFERER;
-}
 
 const STREAM_PROVIDERS = [
   { label: "StreameX", baseURL: "https://www.streamex.net", pathPrefix: "/api/live/stream" },
@@ -40,7 +31,6 @@ const STREAM_PROVIDERS = [
   { label: "Streamed Backup", baseURL: "https://streamed.pk", pathPrefix: "/api/stream" },
 ];
 
-const DEFAULT_HLS_HOST_SUFFIXES = ["exposestrat.com", "embedhd.org", "cloudfront.net", "embed.st"];
 const FOOTBALL_DATA_ORIGIN = "https://api.football-data.org/v4";
 const API_FOOTBALL_ORIGIN = "https://v3.football.api-sports.io";
 // Keep Worker quota aligned with the iOS policy. Add "2" when Champions League
@@ -61,11 +51,6 @@ const FOOTBALL_MATCH_QUERY_KEYS = new Set([
   "competition",
   "season",
 ]);
-
-const AD_SCRIPT_PATTERN =
-  /<(script|iframe)[^>]*(llvpn\.com|aclib|adcashexp|sculshbises|histats|tag\.min\.js|ad\.html|dontfoid)[^>]*>[\s\S]*?<\/\1>/gi;
-const AD_SCRIPT_SRC_PATTERN =
-  /<script[^>]+src="[^"]*(llvpn|aclib|adcashexp|sculshbises|histats|tag\.min|ad\.html)[^"]*"[^>]*>\s*<\/script>/gi;
 
 function corsHeaders(extra = {}) {
   return {
@@ -451,249 +436,8 @@ async function handleHealth(env) {
   });
 }
 
-async function fetchText(url, referer, userAgent = IOS_SAFARI_USER_AGENT) {
-  const response = await fetch(url, {
-    headers: {
-      Accept: "text/html,application/xhtml+xml",
-      "User-Agent": userAgent,
-      ...(referer ? { Referer: referer } : {}),
-    },
-  });
-  if (!response.ok) return null;
-  return response.text();
-}
-
-function extractFirstMatch(html, pattern) {
-  const match = html.match(pattern);
-  return match?.[1]?.trim() || null;
-}
-
 function embedStPlayerUrl(source, id, streamNo) {
   return `${EMBED_ST_ORIGIN}/embed/${encodeURIComponent(source)}/${encodeURIComponent(id)}/${streamNo}`;
-}
-
-async function resolveExposestratPlayerUrl(source, id, streamNo, userAgent) {
-  const embedStUrl = embedStPlayerUrl(source, id, streamNo);
-  const embedStHtml = await fetchText(embedStUrl, embedRefererForSource(source), userAgent);
-  if (!embedStHtml) return null;
-
-  const embedHdPath = extractFirstMatch(embedStHtml, /iframe[^>]+src="([^"]+embedhd\.org[^"]+)"/i);
-  if (!embedHdPath) return null;
-
-  const embedHdUrl = embedHdPath.startsWith("http") ? embedHdPath : `https:${embedHdPath}`;
-  const embedHdHtml = await fetchText(embedHdUrl, embedStUrl, userAgent);
-  if (!embedHdHtml) return null;
-
-  const liveId = extractFirstMatch(embedHdHtml, /fid\s*=\s*["']([^"']+)["']/i);
-  if (!liveId) return null;
-
-  return `${EXPOSESTRAT_ORIGIN}/maestrohd1.php?player=desktop&live=${encodeURIComponent(liveId)}`;
-}
-
-function absolutizeEmbedAssetUrls(html, origin) {
-  return html
-    .replace(/\b(href|src)=["'](?!https?:|\/\/|data:|#)([^"']+)["']/gi, (_, attr, path) => {
-      const normalized = path.startsWith("/") ? path : `/${path}`;
-      return `${attr}="${origin}${normalized}"`;
-    })
-    .replace(/\b(href|src)=["'](\/[^"']+)["']/gi, (_, attr, path) => `${attr}="${origin}${path}"`);
-}
-
-function stripEmbedAdNoise(html) {
-  return html
-    .replace(AD_SCRIPT_PATTERN, "")
-    .replace(AD_SCRIPT_SRC_PATTERN, "")
-    .replace(/<script[^>]*src=["'][^"']*llvpn[^"']*["'][^>]*>\s*<\/script>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?llvpn\.com[\s\S]*?<\/script>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?aclib\.runPop[\s\S]*?<\/script>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?dontfoid[\s\S]*?<\/script>/gi, "")
-    .replace(/<script[^>]*>[\s\S]*?Histats[\s\S]*?<\/script>/gi, "")
-    .replace(/<noscript>[\s\S]*?histats[\s\S]*?<\/noscript>/gi, "")
-    .replace(/<div[^>]+id=["']dontfoid["'][^>]*>[\s\S]*?<\/div>/gi, "");
-}
-
-function injectIntoHtmlHead(html, injection) {
-  if (html.match(/<head[^>]*>/i)) {
-    return html.replace(/<head([^>]*)>/i, `<head$1>\n${injection}\n`);
-  }
-  return `<head>${injection}</head>\n${html}`;
-}
-
-function buildEmbedPlaybackInjection(origin) {
-  return `
-<base href="${origin}/" />
-<script>
-(function () {
-  var lastPlayingAt = 0;
-  var hadPlaying = false;
-  function purge() {
-    try {
-      document.querySelectorAll('#dontfoid, [id*="dontfoid"], [znid], iframe[id="close"], iframe[src*="ad.html"]').forEach(function (node) { node.remove(); });
-    } catch (e) {}
-  }
-  purge();
-  setInterval(purge, 400);
-  function emitPlayback(eventName) {
-    try { window.parent.postMessage({ type: "fotty:playback-" + eventName }, "*"); } catch (e) {}
-  }
-  function noteDecodedProgress(video) {
-    try {
-      var currentTime = Number(video.currentTime) || 0;
-      var previousTime = Number(video.__fottyLastCurrentTime) || 0;
-      video.__fottyLastCurrentTime = currentTime;
-      if (video.paused || video.ended || video.readyState < 2 || video.videoWidth <= 0 || currentTime <= previousTime + 0.05) return false;
-      hadPlaying = true;
-      lastPlayingAt = Date.now();
-      if (!video.__fottyDecodedStarted) { video.__fottyDecodedStarted = true; emitPlayback("started"); }
-      emitPlayback("pulse");
-      return true;
-    } catch (e) { return false; }
-  }
-  function attachVideoWatchers(video) {
-    if (!video || video.__fottyPlaybackWatched) return;
-    video.__fottyPlaybackWatched = true;
-    video.__fottyLastCurrentTime = Number(video.currentTime) || 0;
-    video.addEventListener("timeupdate", function () { noteDecodedProgress(video); });
-    video.addEventListener("error", function () { emitPlayback("error"); });
-  }
-  function scanForVideo() { document.querySelectorAll("video").forEach(attachVideoWatchers); }
-  scanForVideo();
-  setInterval(scanForVideo, 500);
-  function kickEmbedPlayback(unmute) {
-    try {
-      if (unmute && typeof window.WSUnmute === "function") window.WSUnmute();
-      document.querySelectorAll("video").forEach(function (video) {
-        video.muted = !unmute ? true : false;
-        video.playsInline = true;
-        var promise = video.play && video.play();
-        if (promise && promise.catch) promise.catch(function () {});
-      });
-      ["#pl_but", ".jw-display-icon-display", ".jw-icon-display", "[aria-label=\\"Play\\"]"].forEach(function (sel) {
-        document.querySelectorAll(sel).forEach(function (node) { node.click(); });
-      });
-    } catch (e) {}
-  }
-  window.addEventListener("message", function (event) {
-    if (!event || !event.data || !event.data.type) return;
-    if (event.data.type === "fotty:unmute") kickEmbedPlayback(true);
-    if (event.data.type === "fotty:play") kickEmbedPlayback(false);
-  });
-  kickEmbedPlayback(false);
-  setTimeout(function () { kickEmbedPlayback(false); }, 300);
-  setTimeout(function () { kickEmbedPlayback(false); }, 1200);
-  setInterval(function () {
-    try {
-      document.querySelectorAll("video").forEach(function (video) {
-        if (!video.paused && !video.ended && video.readyState >= 2) return;
-        video.muted = true;
-        var promise = video.play && video.play();
-        if (promise && promise.catch) promise.catch(function () {});
-      });
-    } catch (e) {}
-  }, 900);
-})();
-</script>`;
-}
-
-function sanitizeEmbedStHtml(html) {
-  let cleaned = stripEmbedAdNoise(html);
-  cleaned = absolutizeEmbedAssetUrls(cleaned, EMBED_ST_ORIGIN);
-  return injectIntoHtmlHead(cleaned, buildEmbedPlaybackInjection(EMBED_ST_ORIGIN));
-}
-
-function sanitizeExposestratHtml(html, watchToken) {
-  let cleaned = stripEmbedAdNoise(html);
-  cleaned = absolutizeEmbedAssetUrls(cleaned, EXPOSESTRAT_ORIGIN);
-  const tokenLiteral = watchToken ? JSON.stringify(watchToken) : "null";
-  const injection = `
-<base href="${EXPOSESTRAT_ORIGIN}/" />
-<script>
-(function () {
-  var fottyWatchToken = ${tokenLiteral} || new URLSearchParams(window.location.search).get("watchToken");
-  function proxyHlsUrl(url) {
-    try {
-      var value = String(url || "");
-      if (value.indexOf("/api/embed/hls") !== -1) return url;
-      if (value.indexOf("zohanayaan") === -1 && value.indexOf(".m3u8") === -1 && value.indexOf("/hls/") === -1 && value.indexOf(".ts") === -1 && value.indexOf("cloudfront.net") === -1 && value.indexOf("exposestrat.com") === -1) {
-        return url;
-      }
-      var absolute = value;
-      if (absolute.indexOf("http") !== 0) {
-        absolute = "${EXPOSESTRAT_ORIGIN}" + (absolute.startsWith("/") ? absolute : "/" + absolute);
-      }
-      var proxied = window.location.origin + "/api/embed/hls?url=" + encodeURIComponent(absolute);
-      if (fottyWatchToken) proxied += "&watchToken=" + encodeURIComponent(fottyWatchToken);
-      return proxied;
-    } catch (e) { return url; }
-  }
-  var originalFetch = window.fetch;
-  if (originalFetch) {
-    window.fetch = function (input, init) {
-      var url = typeof input === "string" ? input : input && input.url;
-      var proxied = proxyHlsUrl(url);
-      if (proxied !== url) return originalFetch.call(this, proxied, init);
-      return originalFetch.apply(this, arguments);
-    };
-  }
-  var openRequest = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function (method, url) {
-    var args = Array.prototype.slice.call(arguments);
-    args[1] = proxyHlsUrl(url);
-    return openRequest.apply(this, args);
-  };
-  function purge() {
-    try {
-      document.querySelectorAll('#dontfoid, [id*="dontfoid"], [znid], iframe[src*="ad.html"], iframe[id="close"]').forEach(function (node) { node.remove(); });
-    } catch (e) {}
-  }
-  purge();
-  setInterval(purge, 400);
-  function emitPlayback(eventName) {
-    try { window.parent.postMessage({ type: "fotty:playback-" + eventName }, "*"); } catch (e) {}
-  }
-  function noteDecodedProgress(video) {
-    try {
-      var currentTime = Number(video.currentTime) || 0;
-      var previousTime = Number(video.__fottyLastCurrentTime) || 0;
-      video.__fottyLastCurrentTime = currentTime;
-      if (video.paused || video.ended || video.readyState < 2 || video.videoWidth <= 0 || currentTime <= previousTime + 0.05) return;
-      if (!video.__fottyDecodedStarted) { video.__fottyDecodedStarted = true; emitPlayback("started"); }
-      emitPlayback("pulse");
-    } catch (e) {}
-  }
-  function attachVideoWatchers(video) {
-    if (!video || video.__fottyPlaybackWatched) return;
-    video.__fottyPlaybackWatched = true;
-    video.__fottyLastCurrentTime = Number(video.currentTime) || 0;
-    video.addEventListener("timeupdate", function () { noteDecodedProgress(video); });
-    video.addEventListener("error", function () { emitPlayback("error"); });
-  }
-  setInterval(function () { document.querySelectorAll("video").forEach(attachVideoWatchers); }, 500);
-  setInterval(function () {
-    try {
-      document.querySelectorAll("video").forEach(function (video) {
-        video.muted = true;
-        video.playsInline = true;
-        var promise = video.play && video.play();
-        if (promise && promise.catch) promise.catch(function () {});
-      });
-    } catch (e) {}
-  }, 900);
-})();
-</script>`;
-  return injectIntoHtmlHead(cleaned, injection);
-}
-
-async function buildProxiedEmbedPlayerHtml(source, id, streamNo, watchToken, userAgent) {
-  const embedStUrl = embedStPlayerUrl(source, id, streamNo);
-  const embedStHtml = await fetchText(embedStUrl, embedRefererForSource(source), userAgent);
-  if (embedStHtml) return sanitizeEmbedStHtml(embedStHtml);
-
-  const playerUrl = await resolveExposestratPlayerUrl(source, id, streamNo, userAgent);
-  if (!playerUrl) return null;
-  const playerHtml = await fetchText(playerUrl, EMBED_HD_ORIGIN, userAgent);
-  if (!playerHtml) return null;
-  return sanitizeExposestratHtml(playerHtml, watchToken);
 }
 
 function sourceRank(source) {
@@ -793,15 +537,7 @@ async function handleStreams(url) {
   return json(variants);
 }
 
-function frameAncestorsHeader(env) {
-  const configured = (env.FOTTY_EMBED_FRAME_ANCESTORS || "")
-    .split(/\s+/)
-    .map((value) => value.trim())
-    .filter(Boolean);
-  return ["'self'", "https://getfotty.com", "https://www.getfotty.com", ...configured].join(" ");
-}
-
-async function handlePlayer(request, url, env) {
+async function handlePlayer(url) {
   const source = url.searchParams.get("source")?.trim();
   const id = url.searchParams.get("id")?.trim();
   const streamNo = Number(url.searchParams.get("streamNo") || "1");
@@ -812,114 +548,6 @@ async function handlePlayer(request, url, env) {
   // Cloudflare edge IPs get stub HTML from embed.st (NOT FOUND / SANDBOX).
   // Redirect the browser iframe to the real provider embed instead.
   return Response.redirect(embedStPlayerUrl(source, id, streamNo), 302);
-}
-
-function hostMatchesSuffix(host, suffix) {
-  return host === suffix || host.endsWith(`.${suffix}`);
-}
-
-function isAllowedHlsTarget(targetUrl, env) {
-  if (targetUrl.protocol !== "https:" || targetUrl.username || targetUrl.password) return false;
-  const configured = (env.FOTTY_EMBED_HLS_ALLOWED_HOSTS || "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase().replace(/^\./, ""))
-    .filter(Boolean);
-  const suffixes = new Set([...DEFAULT_HLS_HOST_SUFFIXES, ...configured]);
-  const host = targetUrl.hostname.toLowerCase();
-  return Array.from(suffixes).some((suffix) => hostMatchesSuffix(host, suffix));
-}
-
-function proxyMediaPath(absoluteUrl, watchToken) {
-  const params = new URLSearchParams({ url: absoluteUrl });
-  if (watchToken) params.set("watchToken", watchToken);
-  return `/api/embed/hls?${params.toString()}`;
-}
-
-function rewriteM3u8Playlist(body, manifestUrl, watchToken, env) {
-  return body
-    .split("\n")
-    .map((line) => {
-      let rewritten = line;
-      if (line.includes('URI="')) {
-        rewritten = rewritten.replace(/URI="([^"]+)"/g, (_match, uri) => {
-          try {
-            const absolute = new URL(uri, manifestUrl).toString();
-            if (!isAllowedHlsTarget(new URL(absolute), env)) return `URI="${uri}"`;
-            return `URI="${proxyMediaPath(absolute, watchToken)}"`;
-          } catch {
-            return `URI="${uri}"`;
-          }
-        });
-      }
-      const trimmed = rewritten.trim();
-      if (!trimmed || trimmed.startsWith("#")) return rewritten;
-      let absolute = trimmed;
-      if (!/^https?:\/\//i.test(trimmed)) {
-        try {
-          absolute = new URL(trimmed, manifestUrl).toString();
-        } catch {
-          return rewritten;
-        }
-      }
-      try {
-        if (!isAllowedHlsTarget(new URL(absolute), env)) return absolute;
-      } catch {
-        return rewritten;
-      }
-      return proxyMediaPath(absolute, watchToken);
-    })
-    .join("\n");
-}
-
-async function handleHls(url, env) {
-  const target = url.searchParams.get("url")?.trim();
-  const watchToken = url.searchParams.get("watchToken");
-  if (!target) return json({ error: "Missing url" }, 400);
-
-  let targetUrl;
-  try {
-    targetUrl = new URL(target);
-  } catch {
-    return json({ error: "Invalid url" }, 400);
-  }
-  if (!isAllowedHlsTarget(targetUrl, env)) {
-    return json({ error: "HLS target not allowed" }, 400);
-  }
-
-  const upstream = await fetch(targetUrl.toString(), {
-    headers: {
-      Accept: "*/*",
-      "User-Agent": IOS_SAFARI_USER_AGENT,
-      Referer: `${EXPOSESTRAT_ORIGIN}/`,
-      Origin: EXPOSESTRAT_ORIGIN,
-    },
-  });
-  if (!upstream.ok) {
-    return json({ error: `Upstream HLS request failed (${upstream.status})` }, upstream.status);
-  }
-
-  const contentType = upstream.headers.get("content-type");
-  const isManifest =
-    targetUrl.pathname.toLowerCase().endsWith(".m3u8") ||
-    (contentType || "").toLowerCase().includes("mpegurl") ||
-    (contentType || "").toLowerCase().includes("m3u8");
-
-  if (isManifest) {
-    const body = rewriteM3u8Playlist(await upstream.text(), targetUrl, watchToken, env);
-    return new Response(body, {
-      status: 200,
-      headers: corsHeaders({
-        "Content-Type": contentType || "application/vnd.apple.mpegurl",
-      }),
-    });
-  }
-
-  return new Response(await upstream.arrayBuffer(), {
-    status: 200,
-    headers: corsHeaders({
-      "Content-Type": contentType || "application/octet-stream",
-    }),
-  });
 }
 
 const FPL_API_BASE = "https://fantasy.premierleague.com/api";
@@ -1351,7 +979,7 @@ async function handleFplCoach(request, env) {
   }
 }
 
-export default {
+const worker = {
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders() });
@@ -1372,8 +1000,9 @@ export default {
       return handleAPIFootballLive(env);
     }
     if (url.pathname === "/api/live/streams") return handleStreams(url);
-    if (url.pathname === "/api/embed/player") return handlePlayer(request, url, env);
-    if (url.pathname === "/api/embed/hls") return handleHls(url, env);
+    if (url.pathname === "/api/embed/player") return handlePlayer(url);
     return json({ error: "Not found" }, 404);
   },
 };
+
+export default worker;

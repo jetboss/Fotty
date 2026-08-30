@@ -4,6 +4,14 @@ Last updated: 2026-08-30
 
 This registry turns current sharp edges into guardrails for agents.
 
+## Repository attack surface and third-party playback (Unreleased)
+
+- CodeQL found 71 alerts after the clean root made several retired graphs visible to current scanning. Critical/high findings in obsolete Android, homelab/P2P, PocketBase/account, embed-proxy and movie/TV code must be removed, not dismissed as false positives or hidden from the workflow.
+- The supported product graph is iOS, a bounded sports companion web surface and the Cloudflare playback/football/Coach Worker. Do not restore a tunnel, Python server, PocketBase route, browser credential store, same-origin player proxy or Android build by copying historical code.
+- Third-party player pages remain a real provider-origin risk. Keep them on distinct origins, retain exact-origin message admission and navigation guards, and do not describe their UI, ads, availability or content as Fotty-controlled. A redirect or successful frame load is not decoded-playback evidence.
+- GitHub Actions are commit-SHA pinned. Dependency update PRs must preserve the reviewed action origin and full hash. Advanced CodeQL covers Actions, JavaScript/TypeScript and any surviving Python; Swift stays under the simulator-free Xcode gate until bounded extraction works.
+- Status: local web/Worker gates pass. Final alert closure and severity counts require the protected remediation PR and a post-merge `main` scan. No app, Worker or public-web deployment is implied.
+
 ## Native PiP background continuity (Unreleased)
 
 - A visible system PiP window does not by itself prove that playback will

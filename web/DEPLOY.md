@@ -6,11 +6,9 @@
 |---------|-------|--------|
 | **getfotty.com** (Apache / FTP) | `npm run build:static` → upload `web/out/` | Primary public site. No Node server. |
 | **Playback Worker** (`web/workers/playback`) | `npx wrangler deploy` | Streams catalog for Watch; not full iOS unmute/HLS parity. |
-| Homelab Docker / PocketBase | **Retired** | Accounts disabled on web (`NEXT_PUBLIC_ACCOUNTS_ENABLED` unset). Watch is open to guests. |
+| Retired homelab/account stack | **Absent** | No PocketBase, billing, admin, tunnel, or account routes ship in the supported tree. Watch is open to guests. |
 
-Do **not** set `NEXT_PUBLIC_ACCOUNTS_ENABLED=true` until a replacement auth host exists. Same-origin unmute/HLS still needs a non-blocked VPS (deferred).
-
-Static export patches watch/auth routes to `force-static` for that build only (`scripts/patch-watch-routes-static.sh`). Source of truth for any future Node deploy remains `force-dynamic` in `web/src/lib/route-segment-config.ts`.
+Static export patches remaining live-data routes to `force-static` for that build only (`scripts/patch-watch-routes-static.sh`). Source of truth for a standalone Node build remains `force-dynamic` in `web/src/lib/route-segment-config.ts`.
 
 ## iOS ↔ web Watch parity
 
@@ -38,7 +36,7 @@ In-page Watch iframes `embed.st` directly. `/playback/*.php` returns **410** (pr
 
 For future Worker deploys, set `CLOUDFLARE_API_TOKEN` (dashboard password alone is not enough for wrangler).
 
-Retired / not in scope: AceStream, P2P `admin`, EPG.
+Retired / absent from the supported tree: AceStream, P2P, PocketBase, account/billing/admin APIs, same-origin embed proxy, EPG, movies and TV.
 
 ## Deploy to getfotty.com
 
@@ -56,7 +54,7 @@ npm run build:static
 | `NEXT_PUBLIC_FOTTY_API_BASE` | **Required for Watch streams/embed** — Worker origin (no trailing slash). Does **not** replace `/api/matches` (that stays same-origin static JSON). |
 | `FOOTBALL_DATA_API_KEY` | Optional standings / match proxy at build time |
 
-Match feed is the **StreamEx / Nexus catalog** (same as the iOS app: VipLeague=`echo`, StreamEx=`delta`, other web embeds). Baked into `/api/matches` at `build:static` time — redeploy to refresh. Retired P2P `admin` sources are stripped. Source order matches iOS: `echo`, `delta`, `hotel`, `india`, `golf`, `alpha`.
+Match feed is the **StreamEx / Nexus catalog** (same provider families as iOS, including `delta`, `echo`, `hotel`, `india`, `golf`, and `alpha`). Baked into `/api/matches` at `build:static` time — redeploy to refresh. Provider code `admin` is a StreamEx event-source label, not the retired Fotty P2P admin service.
 
 ## Product posture
 

@@ -8,6 +8,7 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("message", (event) => {
+  if (event.origin !== self.location.origin) return;
   if (event.data?.type === "SKIP_WAITING") {
     self.skipWaiting();
   }
@@ -68,7 +69,13 @@ self.addEventListener("push", (event) => {
   try {
     if (event.data) {
       const parsed = event.data.json();
-      payload = { ...payload, ...parsed };
+      if (parsed && typeof parsed === "object") {
+        payload = {
+          title: typeof parsed.title === "string" ? parsed.title : payload.title,
+          body: typeof parsed.body === "string" ? parsed.body : payload.body,
+          url: typeof parsed.url === "string" ? parsed.url : payload.url,
+        };
+      }
     }
   } catch {
     // Keep defaults when payload is not JSON.
@@ -86,11 +93,19 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const target = event.notification.data?.url || "/";
+  let target = "/";
+  try {
+    const requested = new URL(event.notification.data?.url || "/", self.location.origin);
+    if (requested.origin === self.location.origin) {
+      target = `${requested.pathname}${requested.search}${requested.hash}`;
+    }
+  } catch {
+    target = "/";
+  }
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
       for (const client of clients) {
-        if ("focus" in client && client.url.includes(self.location.origin)) {
+        if ("focus" in client && new URL(client.url).origin === self.location.origin) {
           client.navigate(target);
           return client.focus();
         }

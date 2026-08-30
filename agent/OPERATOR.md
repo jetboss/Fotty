@@ -1,35 +1,24 @@
-# Homelab Operator Guide (Fotty)
+# Fotty Operator Guide
 
-This document tracks the server-side infrastructure powering the Fotty Brain.
+## Active services
 
-## 1. Hardware Specification
-- **CPU**: 8-Core high-performance CPU.
-- **RAM**: 16GB.
-- **GPU**: NVIDIA GeForce RTX 3050 Ti (Used for Ollama acceleration).
+- **iOS/iPadOS app**: distributed to internal testers through App Store Connect and TestFlight.
+- **Public web companion**: static export deployed to getfotty.com by `tools/web-deploy-ftp.sh`.
+- **Playback and Coach API**: Cloudflare Worker defined in `web/workers/playback/`.
+- **Repository controls**: protected `main`, Actions gates, secret scanning, push protection, Dependabot, and CodeQL.
 
-## 2. Core Services (Docker Compose)
-The backend stack lives in `server/homelab-docker-compose.yml`.
+## Retired infrastructure
 
-- **Ollama**: Port `11434`. Handles embeddings (`nomic-embed-text`) and reasoning (`qwen2.5:3b`).
-- **PocketBase**: Port `8090`. Main app database.
-- **P2P Proxy**: Port `8006`. Resilient stream resolution.
-- **Cloudflare Tunnel**: Manages external access via `*.pixel-invoice.com`.
+The homelab, PocketBase, AceStream/P2P services, Tailscale deployment path, and Cloudflare Tunnels are gone. Do not probe old hosts, recreate tunnels, or treat old deployment notes in the decision history as current instructions.
 
-## 3. Knowledge Base Ingestion
-The server maintains a semantic index for AI agents.
-- **Location**: `tools/brain/.cache/knowledge.jsonl` (generated).
-- **Update Frequency**: On-demand via `./tools/private-kb-sync.sh`.
-- **Health Check**: `./tools/brain-doctor.sh` verifies SSH, index content, required Ollama models, and a smoke retrieval.
-- **Query Path**: `./tools/ask-brain.sh "question"` runs retrieval plus synthesis on the Homelab.
+## Secrets
 
-## 4. Networking
-- **Local Access**: `192.168.100.253`.
-- **Tailscale Access**: `homelab` (100.116.91.102) or `100.116.91.102`.
-- **Public Entry**: `https://fotty-api.pixel-invoice.com`.
+Production credentials belong only in App Store Connect, Cloudflare Worker secrets, GitHub encrypted secrets, or the operator's local environment. Never write credentials, provider tokens, private stream URLs, or signing material into tracked files or generated project-memory documents.
 
-## 5. Maintenance
-To restart the AI stack:
-```bash
-cd server
-docker compose -f homelab-docker-compose.yml restart
-```
+## Release operations
+
+- Verify web changes locally and in GitHub Actions before deployment.
+- Verify iOS changes through the simulator-free Xcode gate.
+- Use TestFlight for tester-facing builds and preserve the build/release record in `docs/releases/`.
+- Keep direct device installation for narrow owner-only acceptance checks.
+- Remove temporary archives, DerivedData, result bundles, and screenshots after use.

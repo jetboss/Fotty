@@ -1,6 +1,6 @@
 # Playback Playbook
 
-Use this when touching player startup, AVPlayer, WKWebView embeds, VOD playback, stream selection, autoplay, or timeout behavior.
+Use this when touching player startup, AVPlayer, WKWebView embeds, stream selection, autoplay, PiP, or timeout behavior.
 
 ## Read First
 
@@ -48,7 +48,8 @@ Use this when touching player startup, AVPlayer, WKWebView embeds, VOD playback,
 - Inspect WebKit pages/frames after play: popup count should remain zero, ad frames should be absent, and video/player-control elements must remain present.
 - On a decoding physical-device stream, independently exercise the provider's play, pause, seek/fullscreen when available, and `Tap to unmute`. Confirm Fotty does not consume the tap or immediately undo the resulting state.
 - Confirm failure returns the user to broadcast sources calmly.
-- Switch between regular, web embed, and P2P sources where available.
+- Exercise both the normal provider-page path and a verified native AVPlayer handoff when available.
+- With native PiP active, open another app for at least 60 seconds, then lock/unlock and confirm the same stream keeps advancing without duplicate audio.
 - Check that pause/play does not loop by itself after WebView handoff.
 - Run the focused Catalyst policy suite without a simulator. For an intentional device or Catalyst reference-HLS check, run only `PlaybackPolicyTests/testReferenceHLSMaintainsOneAttemptDuringSoak` with `OTHER_SWIFT_FLAGS='$(inherited) -DFOTTY_PLAYBACK_SOAK'`; the diagnostic player must remain muted. Catalyst runs for 120 seconds and should show advancing playback on every sample with unchanged source/attempt/item and zero failovers.
 - DEBUG Settings → Stream pipeline checks exposes the same production-path two-minute muted soak for manual use on Mac Catalyst. It exercises required-header proxying, AVPlayer readiness, watchdog continuity, and failover accounting; it does not exercise a third-party WebKit embed.

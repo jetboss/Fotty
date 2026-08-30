@@ -1,6 +1,11 @@
 # Fotty Web
 
-Next.js companion/PWA surface for Fotty live sports testing and browser usage.
+Next.js companion/PWA surface for Fotty live-sports discovery and browser playback.
+
+The supported web product is deliberately small: static discovery pages, four
+same-origin catalog/football routes for standalone builds, and the separate
+Cloudflare playback/Coach Worker. It has no account, billing, admin, PocketBase,
+P2P, movie/TV, or same-origin embed-proxy service.
 
 ## Getting Started
 

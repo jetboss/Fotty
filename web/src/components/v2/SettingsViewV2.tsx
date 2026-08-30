@@ -2,26 +2,20 @@
 
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
-import { Bell, Crown, EyeOff, Lock, Mail, MonitorSmartphone, User } from "lucide-react";
-import { useAuth } from "@/components/AuthProvider";
-import { useEntitlement } from "@/components/EntitlementProvider";
-import { isAccountsEnabled } from "@/lib/accounts";
+import { Bell, EyeOff, Lock, Mail, MonitorSmartphone } from "lucide-react";
 import { useReminders, useTrackedTeams, useUserPreferences } from "@/lib/user-experience";
 import { v2FavoritesPath, v2TeamsPath } from "@/lib/v2/preview";
 import { cn } from "@/lib/utils";
 import { V2PageHeader, V2PageShell, v2PanelClass } from "@/components/v2/V2PageShell";
 
 export function SettingsViewV2() {
-  const { session } = useAuth();
-  const entitlement = useEntitlement();
-  const accountsEnabled = isAccountsEnabled();
   const { preferences, setPreference } = useUserPreferences();
   const { reminders } = useReminders();
   const { trackedTeams } = useTrackedTeams();
 
   return (
     <V2PageShell innerClassName="max-w-lg space-y-6">
-      <V2PageHeader title="Settings" subtitle="Account and match-day preferences." />
+      <V2PageHeader title="Settings" subtitle="Match-day preferences stored on this device." />
 
       <section className={`${v2PanelClass} p-4`}>
         <div className="flex items-center gap-4">
@@ -30,24 +24,12 @@ export function SettingsViewV2() {
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">
-              {accountsEnabled ? session?.email || "Guest" : "Guest"}
+              This device
             </p>
             <p className="truncate text-xs text-text-tertiary">
-              {accountsEnabled
-                ? session
-                  ? entitlement.accessDetail
-                  : "Sign in for full access"
-                : "Accounts paused — watching is open on the web"}
+              Preferences and saved matches stay in this browser
             </p>
           </div>
-          {accountsEnabled ? (
-            <Link
-              href={session ? "/login" : "/login?mode=signup"}
-              className="fotty-v2-auth-cta shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold accent-gradient text-white"
-            >
-              {session ? "Account" : "Sign up"}
-            </Link>
-          ) : null}
         </div>
       </section>
 

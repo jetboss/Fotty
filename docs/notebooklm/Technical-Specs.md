@@ -1,30 +1,33 @@
 # Fotty Technical Specifications
 
-## 1. Database Schema (PocketBase)
+## Product graph
 
-We use a self-hosted PocketBase instance for all sports metadata. This replaces the rate-limited TheSportsDB API.
+Fotty is an iOS/iPadOS live-sports companion with a Live Activity extension and FPL widget. The public web companion is a static Next.js export on getfotty.com. A Cloudflare Worker is the only active server-side runtime.
 
-### `leagues` Collection
-- `id`: (Standard PB ID)
-- `name`: (String) e.g., "Premier League"
-- `slug`: (String) e.g., "english-premier-league"
-- `external_id`: (String) Mapping ID for external providers.
-- `logo_url`: (URL) High-fidelity CDN link.
+The retired Android prototype, homelab, PocketBase accounts, AceStream/P2P proxy, and Cloudflare Tunnels are not product dependencies and must not be restored as fallbacks.
 
-### `teams` Collection
-- `id`: (Standard PB ID)
-- `name`: (String) e.g., "Arsenal"
-- `league`: (Relation -> leagues)
-- `external_id`: (String) Mapping ID.
-- `badge_url`: (URL) ESPN/CDN link.
-- `primary_color`: (Hex) e.g., "#EF0107"
-- `secondary_color`: (Hex)
+## Data boundaries
 
-## 2. Authentication Strategy
-**Current**: PocketBase Auth (Internal).
-**Status**: We have successfully moved away from Firebase/Supabase to maintain 100% self-hosted data sovereignty. Agents should NOT propose Firebase/Supabase integrations.
+- StreamEx and Score808 families provide the broad live catalog and provider pages.
+- Official FPL endpoints provide Premier League fixtures, manager evidence, and the first live-score source.
+- football-data supplies the schedule fallback.
+- API-Football is a quota-bounded Premier League live-score fallback through the Worker.
+- Profiles, messages, saved matches, reminders, and FPL planning are device-local.
+- Provider credentials and the DeepSeek Coach key remain Worker secrets.
 
-## 3. Playback Resolution Logic (Sub-10s)
-- **Layer 1**: Direct manifest resolution (5s timeout).
-- **Layer 2**: Web extraction (8s timeout).
-- **Pre-warming**: The server (3050 Ti) pre-calculates stream health via `p2p_proxy_service.py` to ensure the iOS app receives a "hot" URL.
+## Playback
+
+Web providers stay inside the contained WebKit path. Native HLS/MP4 candidates may hand off to AVPlayer when verified. Native playback activates the playback audio session only at play/PiP boundaries and uses the background policy that permits continued PiP playback.
+
+Provider readiness means decoded, advancing media—not a loaded page, catalog row, or viewer count. Startup and stall recovery are attempt-scoped and bounded.
+
+## Deployment and verification
+
+- No simulators on this workstation.
+- Reuse one bounded DerivedData directory and remove it after verification.
+- Small owner-only checks may install directly on a connected device.
+- Tester-facing changes use a new TestFlight build.
+- GitHub protects `main` with workflow syntax and secret-scanning checks.
+- Web CI covers unit tests, TypeScript, lint, Worker validation, and build.
+- iOS CI runs provider identity checks, Catalyst unit tests, and a generic unsigned iOS Release build.
+- CodeQL covers Actions, JavaScript/TypeScript, and Python. Swift remains under the Xcode gate until Xcode 27 extraction is reliable.

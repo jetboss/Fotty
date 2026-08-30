@@ -3,8 +3,6 @@ import "./globals.css";
 import { ExperiencePreferencesSync } from "@/components/ExperiencePreferencesSync";
 import { PWARegister } from "@/components/PWARegister";
 import { FottyShell } from "@/components/FottyShell";
-import { AuthProvider } from "@/components/AuthProvider";
-import { EntitlementProvider } from "@/components/EntitlementProvider";
 import { getSiteUrl } from "@/lib/fotty-config";
 
 export const metadata: Metadata = {
@@ -46,11 +44,7 @@ export default function RootLayout({
       <body className="antialiased select-none touch-pan-y" suppressHydrationWarning>
         <ExperiencePreferencesSync />
         <PWARegister />
-        <AuthProvider>
-          <EntitlementProvider>
-            <FottyShell bare={false}>{children}</FottyShell>
-          </EntitlementProvider>
-        </AuthProvider>
+        <FottyShell bare={false}>{children}</FottyShell>
       </body>
     </html>
   );

@@ -1,7 +1,6 @@
 "use client";
 
 import type { MediaItem, ScrapedMatch } from "./api";
-import { syncPocketBaseRecordLater } from "./pocketbase-sync";
 
 export interface FavoriteItem extends MediaItem {
   savedAt: string;
@@ -230,7 +229,6 @@ export function saveReminder(reminder: Omit<ReminderEntry, "createdAt">) {
   ];
 
   writeList(REMINDERS_KEY, sanitizeReminders(next));
-  syncPocketBaseRecordLater("matchReminder", nextReminder);
 }
 
 export function removeReminder(reminder: Pick<ReminderEntry, "id" | "startsAt">) {
@@ -259,7 +257,6 @@ export function saveTrackedTeam(team: Omit<TrackedTeamEntry, "id" | "createdAt">
   };
   const next = [nextTeam, ...getTrackedTeams().filter((entry) => entry.id !== nextTeam.id)];
   writeList(TRACKED_TEAMS_KEY, sanitizeTrackedTeams(next));
-  syncPocketBaseRecordLater("teamFollow", nextTeam);
   return nextTeam;
 }
 
@@ -281,7 +278,6 @@ export function saveCollabInquiry(inquiry: Omit<CollabInquiryEntry, "createdAt">
     createdAt: inquiry.createdAt || new Date().toISOString(),
   };
   writeList(COLLAB_INQUIRIES_KEY, [entry, ...getCollabInquiries()].slice(0, 30));
-  syncPocketBaseRecordLater("collabInquiry", entry);
   return entry;
 }
 
@@ -295,7 +291,6 @@ export function saveSupportPledge(pledge: Omit<SupportPledgeEntry, "createdAt"> 
     createdAt: pledge.createdAt || new Date().toISOString(),
   };
   writeList(SUPPORT_PLEDGES_KEY, [entry, ...getSupportPledges()].slice(0, 20));
-  syncPocketBaseRecordLater("supportPledge", entry);
   return entry;
 }
 

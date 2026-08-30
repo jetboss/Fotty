@@ -28,7 +28,7 @@ Suggested NotebookLM sources:
 
 Good prompts to ask NotebookLM:
 
-- “Summarize the current P2P playback architecture and list the highest-risk failure points.”
+- “Summarize the current third-party playback architecture and list the highest-risk failure points.”
 - “Turn the QA playbook into a 20-minute real-device test script.”
 - “Compare the latest bug report against known remaining risks.”
 - “Create a release-readiness checklist for the iOS app.”

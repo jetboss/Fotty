@@ -77,7 +77,7 @@ export default function HelpPage() {
             <div className="space-y-1">
               <h2 className="text-sm font-bold text-text-primary">Playback troubleshooting</h2>
               <p className="text-xs font-medium leading-6 text-text-secondary">
-                If a stream feels slow, return to the Live board and try another source or backup channel. P2P sessions can take a moment to warm up before telemetry looks healthy.
+                If a stream feels slow, return to the Live board and try another listed source. Fotty does not probe or promise provider availability in the background.
               </p>
             </div>
           </div>

@@ -60,15 +60,13 @@ section_file "QA Playbook" "$OUT_DIR/QA-Playbook.md"
 section_file "iOS Manual Deploy Notes" "$ROOT/IOS_MANUAL_DEPLOY.md"
 section_file "Mac Catalyst Testing Notes" "$ROOT/MAC_CATALYST_TESTING.md"
 section_file "TestFlight Readiness Notes" "$ROOT/TESTFLIGHT_READINESS.md"
-section_file "P2P Server README" "$ROOT/server/README_P2P_PROXY.md"
 section_file "Agent Start" "$ROOT/AGENTS.md"
 section_file "Agent Brain Ops Playbook" "$ROOT/agent/playbooks/brain-ops.md"
 section_file "Agent Playback Playbook" "$ROOT/agent/playbooks/playback.md"
-section_file "Agent P2P Server Playbook" "$ROOT/agent/playbooks/p2p-server.md"
 
 section_command "Git Working Tree Snapshot" git status --short
 section_command "Recent iOS Player Files" find Fotty/Features/Player -maxdepth 2 -type f -name '*.swift'
-section_command "Recent P2P Server Files" find server -maxdepth 2 -type f \( -name '*p2p*' -o -name '*proxy*' -o -name '*monitor*' \)
+section_command "Current Playback Worker Files" find web/workers/playback -maxdepth 3 -type f
 
 if command -v pbcopy >/dev/null 2>&1; then
   printf '%s' "$OUT_FILE" | pbcopy

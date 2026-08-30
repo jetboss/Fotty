@@ -3,24 +3,9 @@ import test from "node:test";
 import { buildWatchPageHref, WATCH_ROUTE_SEGMENT } from "./watch-route.ts";
 
 /** Keep in sync with watch-session.ts */
-function isWatchSessionAuthError(message) {
-  const normalized = message?.toLowerCase() || "";
-  return /(sign[- ]?in|session expired|refresh access|secure watch|invalid or expired session|sign-in needs to be refreshed)/.test(
-    normalized
-  );
-}
-
-/** Keep in sync with watch-session.ts */
 function isP2PContentId(value) {
   return Boolean(value && /^[a-f0-9]{40}$/i.test(value));
 }
-
-test("isWatchSessionAuthError detects session expiry copy", () => {
-  assert.equal(isWatchSessionAuthError("Your session expired on this device."), true);
-  assert.equal(isWatchSessionAuthError("Sign in required to watch live streams."), true);
-  assert.equal(isWatchSessionAuthError("Your sign-in needs to be refreshed before this stream can open."), true);
-  assert.equal(isWatchSessionAuthError("P2P manifest unavailable"), false);
-});
 
 /** Keep in sync with watch-session.ts */
 function resolveWatchRouteId(paramsId, searchParams) {

@@ -1,6 +1,6 @@
 const baseURL = process.env.FOTTY_WEB_BASE_URL || "http://localhost:3000";
 
-const routes = ["/", "/schedule", "/more", "/search", "/favorites", "/settings", "/support", "/subscribe", "/collab", "/mvp", "/help", "/feedback", "/teams", "/tables", "/login", "/welcome", "/privacy", "/terms"];
+const routes = ["/", "/schedule", "/more", "/search", "/favorites", "/settings", "/support", "/collab", "/help", "/feedback", "/teams", "/tables", "/welcome", "/privacy", "/terms"];
 
 async function fetchText(path) {
   const response = await fetch(new URL(path, baseURL), {
@@ -58,15 +58,6 @@ async function checkV2ShellSignals() {
   console.log("ok legacy /next redirect");
 }
 
-async function checkBillingRoutes() {
-  const confirm = await fetch(new URL("/api/billing/confirm?plan=plus&email=smoke@fotty.app", baseURL));
-  assert(confirm.status === 200, `/api/billing/confirm expected 200, got ${confirm.status}`);
-
-  const checkout = await fetch(new URL("/api/billing/checkout-url?plan=plus&email=smoke@fotty.app", baseURL));
-  assert([404, 200].includes(checkout.status), `/api/billing/checkout-url unexpected ${checkout.status}`);
-  console.log("ok billing routes");
-}
-
 async function checkRoutes() {
   for (const route of routes) {
     const { response, body } = await fetchText(route);
@@ -78,28 +69,10 @@ async function checkRoutes() {
 
 async function checkSupportFunnel() {
   const { body } = await fetchText("/support");
-  for (const text of ["Match-Day Supporter", "One-Time Boost", "Collab with Fotty"]) {
+  for (const text of ["Support Fotty", "What support funds", "Support options are being prepared"]) {
     assert(body.includes(text), `/support missing ${text}`);
   }
-  assert(body.includes("Selected path"), "/support missing selected checkout panel");
-  assert(body.includes("Save pledge"), "/support missing local pledge fallback");
-  assert(body.includes("Send details"), "/support missing feedback handoff action");
   console.log("ok support funnel");
-}
-
-async function checkSubscriptionPage() {
-  const { body } = await fetchText("/subscribe");
-  for (const text of ["Plans in TTD", "Fotty Plus", "Match-Day Pass", "Fotty Builder", "Fotty Collab", "Same Plus access on every paid plan"]) {
-    assert(body.includes(text), `/subscribe missing ${text}`);
-  }
-  assert(
-    body.includes("Pay & activate on WhatsApp") ||
-      body.includes("Get access on WhatsApp") ||
-      body.includes("WhatsApp") ||
-      body.includes("NEXT_PUBLIC_FOTTY_WHATSAPP_NUMBER"),
-    "/subscribe missing WhatsApp payment CTA"
-  );
-  console.log("ok subscription page");
 }
 
 async function checkCollabProduct() {
@@ -110,56 +83,12 @@ async function checkCollabProduct() {
   console.log("ok collab product");
 }
 
-async function checkMVPSignals() {
-  const response = await fetch(new URL("/mvp", baseURL), {
-    headers: { Accept: "text/html" },
-    redirect: "manual",
-  });
-
-  if (response.status === 307 || response.status === 308) {
-    console.log("ok mvp redirects in production");
-    return;
-  }
-
-  const body = await response.text();
-  assert(response.ok, `/mvp returned ${response.status}`);
-  for (const text of ["MVP Signals", "Tracked teams", "Collab inquiries", "Support pledges", "MVP production switches", "PocketBase Write Targets"]) {
-    assert(body.includes(text), `/mvp missing ${text}`);
-  }
-  console.log("ok mvp signals");
-}
-
-async function checkPocketBaseSyncRoutes() {
-  const auth = await fetch(new URL("/api/pocketbase/auth", baseURL), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ email: "", password: "" }),
-  });
-  assert(auth.status === 400, `/api/pocketbase/auth expected 400 for missing credentials, got ${auth.status}`);
-
-  const sync = await fetch(new URL("/api/pocketbase/sync", baseURL), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify({ type: "teamFollow", data: { name: "Arsenal" } }),
-  });
-  assert(sync.status === 401, `/api/pocketbase/sync expected 401 without PB session, got ${sync.status}`);
-  console.log("ok pocketbase sync routes");
-}
-
 async function checkTeamAlerts() {
   const { body } = await fetchText("/teams");
   const hasClassic = body.includes("Team Alerts") && body.includes("Track team");
   const hasV2 = body.includes("Your teams") || body.includes("Track clubs");
   assert(hasClassic || hasV2, "/teams missing team tracking UI");
   console.log(`ok team alerts (${hasV2 ? "v2" : "classic"})`);
-}
-
-async function checkLoginCopy() {
-  const { body } = await fetchText("/login");
-  assert(body.includes("Fotty account"), "/login missing account copy");
-  assert(!body.includes("signInWithPassword"), "/login leaked implementation detail");
-  assert(!body.includes("accepts any password"), "/login leaked stub-auth copy");
-  console.log("ok login copy");
 }
 
 async function checkFootballFirstFeed() {
@@ -172,18 +101,26 @@ async function checkFootballFirstFeed() {
   console.log(`ok football first feed ${matches.length} matches`);
 }
 
-async function checkPocketBaseBadges() {
+function isTrustedTeamBadge(value) {
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "media.api-sports.io";
+  } catch {
+    return false;
+  }
+}
+
+async function checkProviderBadges() {
   const { response, body } = await fetchText("/api/matches");
   assert(response.ok, `/api/matches returned ${response.status}`);
   const matches = JSON.parse(body);
-  const pbBadgeMatch = matches.find((match) =>
-    [match.teams?.home?.badge, match.teams?.away?.badge].some((badge) =>
-      typeof badge === "string" && badge.includes("media.api-sports.io")
-    )
+  const providerBadgeMatch = matches.find((match) =>
+    [match.teams?.home?.badge, match.teams?.away?.badge].some(isTrustedTeamBadge)
   );
 
-  assert(pbBadgeMatch, "/api/matches did not include any PocketBase team badge URLs");
-  console.log("ok pocketbase team badges");
+  assert(providerBadgeMatch, "/api/matches did not include any trusted team badge URLs");
+  console.log("ok provider team badges");
 }
 
 async function checkServerBoot() {
@@ -201,16 +138,11 @@ async function main() {
   await checkHomeSeo();
   await checkV2ShellSignals();
   await checkFootballStandings();
-  await checkBillingRoutes();
   await checkSupportFunnel();
-  await checkSubscriptionPage();
   await checkCollabProduct();
-  await checkMVPSignals();
   await checkTeamAlerts();
-  await checkLoginCopy();
   await checkFootballFirstFeed();
-  await checkPocketBaseBadges();
-  await checkPocketBaseSyncRoutes();
+  await checkProviderBadges();
 }
 
 main().catch((error) => {

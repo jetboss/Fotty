@@ -6,7 +6,7 @@ import { FOTTY_DEFAULTS } from "@/lib/fotty-config";
  * Optional remote API base for live Watch APIs (streams / embed proxy / HLS).
  * Homelab is retired — do **not** default to pixel-invoice.com.
  * Set `NEXT_PUBLIC_FOTTY_API_BASE` at static build time to a Cloudflare Worker
- * (or other public host) that runs `/api/live/streams`, `/api/embed/player`, `/api/embed/hls`.
+ * (or other public host) that runs `/api/live/streams` and `/api/embed/player`.
  *
  * Catalog JSON baked into the static export (`/api/matches`, football, etc.) stays same-origin.
  */

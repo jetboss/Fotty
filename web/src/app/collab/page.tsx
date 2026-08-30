@@ -12,7 +12,6 @@ import {
   Trophy,
   Users,
 } from "lucide-react";
-import { useAuth } from "@/components/AuthProvider";
 import { trackEvent } from "@/lib/analytics";
 import { saveCollabInquiry } from "@/lib/storage";
 import { cn } from "@/lib/utils";
@@ -62,10 +61,9 @@ const packages = [
 }>;
 
 export default function CollabPage() {
-  const { session } = useAuth();
   const [selectedId, setSelectedId] = useState<CollabPackageId>("watch-party");
   const [organization, setOrganization] = useState("");
-  const [contact, setContact] = useState(session?.email || "");
+  const [contact, setContact] = useState("");
   const [region, setRegion] = useState("");
   const [audienceSize, setAudienceSize] = useState("");
   const [useCase, setUseCase] = useState("");

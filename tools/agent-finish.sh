@@ -47,13 +47,13 @@ TEXT
 print_section "Verification Suggestions"
 "$ROOT/tools/ask-brain.sh" "For this completed Fotty work: $SUMMARY. Suggest the minimum verification checks and memory files to update. Keep it concise."
 
-print_section "Refresh Brain"
+print_section "Refresh Local Memory"
 if "$ROOT/tools/private-kb-sync.sh"; then
   "$ROOT/tools/brain-doctor.sh"
 else
-  printf 'Brain sync failed. Run ./tools/private-kb-sync.sh after fixing the issue.\n'
+  printf 'Local memory refresh failed. Run ./tools/private-kb-sync.sh after fixing the issue.\n'
   exit 1
 fi
 
 print_section "Done"
-printf 'Fotty memory and brain sync flow completed.\n'
+printf 'Fotty local memory refresh completed.\n'

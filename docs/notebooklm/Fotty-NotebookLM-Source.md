@@ -1,6 +1,6 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-08-30 13:14:34 AST
+Generated: 2026-08-30 13:56:07 AST
 
 This file is generated from safe project-memory sources and redacted command output.
 Upload this one file to NotebookLM when you want a fresh project snapshot.
@@ -29,9 +29,11 @@ World Cup–specific hubs, seeds, and tournament-focus modes are retired (tourna
 
 ## Current Platform Scope
 
-- **Native PiP background-continuity correction (local Unreleased, 2026-08-30)**: A real iPad native handoff could enter PiP but paused when Fotty moved behind another app. The app had the audio background mode and PiP controller, but only set the playback audio category; it did not explicitly activate the session when playback began, and `AVPlayer` retained the system-decided `.automatic` background policy. Native players now use `.continuesIfPossible`, activate the playback session at play/PiP boundaries, preserve the active PiP attempt through backgrounding and do not arm a false foreground resume. PiP UI restoration is acknowledged by the retained player presentation. The full simulator-free Catalyst unit suite and unsigned generic iOS Release pass. Real app-switch/lock-screen continuity still requires a native physical-device stream; this fix is not installed or uploaded.
+- **Repository attack-surface retirement (in protected PR, 2026-08-30)**: Advanced CodeQL exposed 71 alerts across the newly published repository, with the critical/high findings concentrated in obsolete graphs rather than the supported iOS/Worker product. The Android prototype, Python homelab/P2P server, same-origin embed proxy, PocketBase accounts/admin/billing, old stream-token routes and movie/TV surface are removed instead of suppressed. The web product is guest-accessible sports discovery/playback with device-local preferences/reminders; the Cloudflare Worker retains only streams, football and consent-gated FPL Coach APIs. GitHub Actions are immutable-SHA pinned, browser tokens are not persisted, service-worker messages/navigation require exact trusted origins, and project memory is local-only. Web units, TypeScript, zero-error lint, Worker dry-run and production build pass locally; the protected PR and post-merge CodeQL scan still decide final closure. No iOS app, Worker or public web deployment is part of this repository correction.
 
-- **Clean GitHub baseline and app-wide discovery search (Unreleased, 2026-08-30)**: The public repository now starts from a reviewed clean root rather than the obsolete two-commit history that still contained retired Android credentials. Both stale remote Cursor branches were removed. GitHub secret scanning, push protection and Dependabot security updates are enabled; path-scoped advanced CodeQL scans supported Actions/TypeScript/Python instead of autobuilding the retired Android prototype. Swift default and manual CodeQL extraction could not reach analysis within an acceptable Xcode 27 beta resource window, so Swift coverage is not claimed and remains under the complete simulator-free Xcode test/Release gate. Actions now own bounded Web, iOS, workflow/secret and daily provider-metadata gates. `tools/ios-ci.sh` never uses a simulator, cleans its one DerivedData root and adapts only its Catalyst test host target on GitHub—the real generic iOS Release target is unchanged. Home now exposes a global search over the exact shared `HomeSportsDiscovery` projection, including teams, sports, football leagues, identified non-football leagues, CPL fixtures and broadcast channels. Search performs no independent fetch and reuses Home badges, live-score qualification, countdowns, reminders and Watch routing. Exact Premier League queries cannot collide with Caribbean Premier League; reviewed sport-scoped source markers allow NHL/MLB and related acronyms/full names without labeling unrelated fixtures or exposing opaque provider IDs. Local Catalyst tests and unsigned generic iOS Release pass; the change is not versioned, installed or uploaded to TestFlight yet.
+- **Native PiP background-continuity correction (merged, not distributed, 2026-08-30)**: A real iPad native handoff could enter PiP but paused when Fotty moved behind another app. The app had the audio background mode and PiP controller, but only set the playback audio category; it did not explicitly activate the session when playback began, and `AVPlayer` retained the system-decided `.automatic` background policy. Native players now use `.continuesIfPossible`, activate the playback session at play/PiP boundaries, preserve the active PiP attempt through backgrounding and do not arm a false foreground resume. PiP UI restoration is acknowledged by the retained player presentation. The full simulator-free Catalyst unit suite and unsigned generic iOS Release pass; protected PR #8 is merged. Real app-switch/lock-screen continuity still requires a native physical-device stream; this fix is not installed or uploaded.
+
+- **Clean GitHub baseline and app-wide discovery search (merged, not distributed, 2026-08-30)**: The public repository now starts from a reviewed clean root rather than the obsolete two-commit history that still contained retired Android credentials. Both stale remote Cursor branches were removed. GitHub secret scanning, push protection and Dependabot security updates are enabled; path-scoped advanced CodeQL scans supported Actions/TypeScript/Python instead of autobuilding the retired Android prototype. Swift default and manual CodeQL extraction could not reach analysis within an acceptable Xcode 27 beta resource window, so Swift coverage is not claimed and remains under the complete simulator-free Xcode test/Release gate. Actions now own bounded Web, iOS, workflow/secret and daily provider-metadata gates. `tools/ios-ci.sh` never uses a simulator, cleans its one DerivedData root and adapts only its Catalyst test host target on GitHub—the real generic iOS Release target is unchanged. Home now exposes a global search over the exact shared `HomeSportsDiscovery` projection, including teams, sports, football leagues, identified non-football leagues, CPL fixtures and broadcast channels. Search performs no independent fetch and reuses Home badges, live-score qualification, countdowns, reminders and Watch routing. Exact Premier League queries cannot collide with Caribbean Premier League; reviewed sport-scoped source markers allow NHL/MLB and related acronyms/full names without labeling unrelated fixtures or exposing opaque provider IDs. Local Catalyst tests and unsigned generic iOS Release pass; protected PR #8 is merged, but the app change is not versioned, installed or uploaded to TestFlight.
 
 - **Football identity drift prevention (local Unreleased, 2026-08-30)**: Chelsea–Brighton exposed a provider `and` versus catalog `&` alias drift, not an incorrect Premier League schedule. One generated Swift/TypeScript club resolver now owns known aliases and deterministic match keys; current-league membership remains separate from historical team identity. Home reconciles canonical teams plus a six-hour kickoff window to the existing official schedule and uses its competition when proven. Rejected provider markers record redacted local evidence. Five shared payload vectors and a metadata-only live provider audit run before the no-simulator release gate. The audit found and resolved Deportivo wording and excluded a Bundesliga 2 multiview listing, then passed all three reachable feeds. Web/Worker 87/87, TypeScript, complete Catalyst policies and generic iOS Release pass. This is not uploaded or installed; see `docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md`.
 
@@ -77,13 +79,13 @@ Build 42 consolidated the app changes from 36–41.
 
 - **Beta-usability patch (uploaded in build 35)**: Settings Help/report preparation now work natively, without the retired web host. FPL manager linking checks an official team link/ID and asks for team confirmation before selecting it; failure always allows editing/retry. Home setup is optional and Matchday has direct personalization actions. Match alerts are explicitly foreground score-fetch updates, not reliable background push; locally scheduled FPL deadline reminders are a separate capability. Copy/share feedback is a handoff, not proof of delivery. See `docs/BETA-TESTER-GUIDE.md`; confirm build availability, fresh device checks and one received TestFlight report before widening the beta.
 
-- **Release baseline**: `1.7.0 (4)` was the one-time Daily Driver Beta rebaseline; the Matchday OS/FPL foundation progressed through `1.8.4 (11)`. The integrated candidate reached hardware qualification at `2.0.0 (33)`. Current source is `2.0.0 (46)`; latest internal TestFlight remains `2.0.0 (45)`, uploaded/processed and confirmed Internal / Testing for Fotty Internal Smoke with two invitations at 2026-08-29 15:21 AST. Physical installation exposed its restricted vocabulary, so build 45 is not an acceptance candidate. Build 46 retires that alternate graph but is not installed or uploaded. The installed iPad diagnostic build is still `2.0.0 (41)`. Builds 13 through 33 advanced monotonically whenever a predecessor reached hardware or an exact-source release gate exposed a further acceptance correction. Builds 23–26 close Zoomed-iPhone Squad density, provider-only cold Match Center routing, missing web transport controls plus stale same-team score leakage, and compact control placement/auto-hide. Builds 27–28 stop fabricating unsupported zero-variant Echo/Admin URLs and separate catalog timing from Watch labels; build 39 replaces the reported Open broadcast/availability confusion with guarded inline countdowns and explicit reminders. Build 29 closes the exact Catalyst Home recovery-state contrast defect, build 30 narrowly rejects the provider's fake VPN/install solicitation without removing video, frames, or the legitimate unmute prompt, build 31 makes the small FPL widget's official source visible rather than accessibility-only, build 32 adds deterministic network-free large-Type coverage for all four FPL workspaces, and build 33 extends that coverage to Matchday, Settings, Match Center, and the Player recovery surface. Every target and extension shares the same marketing version and build. Future releases must use `tools/set-version.sh`, update `CHANGELOG.md`, and increment beyond the latest uploaded/distributed build; CoreDevice installation sequence numbers are not app build numbers. The version tool also updates `project.yml` so Xcode project regeneration cannot revert the version.
+- **Release baseline**: `1.7.0 (4)` was the one-time Daily Driver Beta rebaseline; the integrated candidate reached hardware qualification at `2.0.0 (33)`. Current source and shared internal TestFlight are `2.0.0 (46)`. Apple shows build 46 Internal / Testing; installation is verified on the iPad, while the iPhone and full physical acceptance remain open. Build 45 exposed the retired restricted vocabulary and is not an acceptance candidate. Every app target and extension shares the same marketing/build version. Future releases must use `tools/set-version.sh`, update `CHANGELOG.md`, and increment beyond the latest uploaded build; CoreDevice installation sequence numbers are not app build numbers.
 - **iOS app**: Main priority.
 - **Web/PWA**: Companion on getfotty.com (static FTP + Cloudflare playback Worker). Watch is open without accounts; provider embed (no same-origin unmute until a VPS is funded).
 - **Profiles/social**: On-device only. PocketBase auth and cloud sync are retired; never describe local messages as community/cloud messages.
 - **Playback**: StreamEx + Score808 web-module families only. AceStream/P2P is not an active product path.
 - **Server**: Homelab P2P/PocketBase retired; do not assume pixel-invoice hosts are available.
-- **Android/macOS**: Secondary and testing/support surfaces.
+- **Android/macOS**: No Android product is maintained. Mac Catalyst is a simulator-free test/support surface, not a separately distributed app.
 
 ## Core Pillars & Strategy
 
@@ -110,7 +112,7 @@ Build 42 consolidated the app changes from 36–41.
 - Build 31 adds a visible `Official FPL` source label to the small deadline widget, matching the medium widget and retaining the typed `fotty://fpl` route. Its source contract, complete Swift suite, normal and Review Safe Release builds, generic-iOS static analysis, and all seven Catalyst UI checks pass. One strictly verified signed artifact is installed and independently version-reported as `2.0.0 (31)` on both authorized devices. The owner confirmed the physical small/medium widget presentation and FPL tap route work.
 - Build 32 adds an explicit Debug-only, network-free FPL accessibility fixture and direct workspace launch coverage for Plan, Squad, Coach, and Tools. The FPL Dynamic Type audit includes the quick-prompt control and a structured Coach response; a source contract proves quick prompts clear focus through the shared send path before adding the message. The complete build-32 Swift suite, normal and Review Safe Release builds, generic-iOS static analysis, seven Catalyst accessibility audits, and rapid-navigation/foreground recovery pass. The same strictly seal-verified `2.0.0 (32)` artifact is installed and independently version-reported on both authorized devices with no UI-test runner. The devices were passcode-locked, so the install was intentionally not followed by an overnight launch; all production paths changed since the launched build 31 are accessibility metadata or Debug-only test scaffolding.
 - Build 33 adds direct Debug-only, network-free Match Center and Player presentation routes plus direct Matchday and Settings launches. Matchday, Settings, catalog-only Match Center, and the truthful no-source Player recovery surface each pass the Dynamic Type audit; Home and all FPL workspaces already passed. Catalog-only Match Center resume now preserves its loaded catalog event instead of starting an unnecessary repository refresh. The complete build-33 Swift suite, normal and Review Safe Release, and generic-iOS static analysis pass. One strictly seal-verified `2.0.0 (33)` artifact is installed and independently version-reported on both authorized devices with no UI-test runner. Once unlocked on 2026-08-26, the normal app launched and its foreground process survived a bounded 60-second hold on each device. The exact aggregate Catalyst gate passed all eleven accessibility audits plus rapid navigation/foreground recovery in one guarded invocation. No simulator was used, no retry was needed, and the owned DerivedData folder was deleted on exit; the later physical holds created no build output or temporary evidence.
-- Release security acceptance is complete: the owner confirmed that the homelab is retired and authorized deletion of every Cloudflare Tunnel. The authenticated API found one down tunnel, `manga-api`; its ID matched the historical `cert.json`, it was deleted, all four accessible accounts then reported zero active tunnels, and the independent Fotty playback/Coach Worker remained HTTP 200. A disposable `git-filter-repo` 2.47.0 mirror rewrite atomically cleaned the two affected advertised branches; `origin/main` plus tags did not move. GitHub then closed Support ticket `#4701297` after clearing the retained pull-request objects. Independent authenticated API checks return `No commit found` for obsolete commits `74c8b1627d24a8b8368b903fee83f8dda94d0a61` and `82f9cc431b5d5e078dd8f4cba4285ed4dfc8e237`, both public web pages return HTTP 404, all four PR refs are absent, and a fresh heads/tags-only clone contains neither commit nor `cert.json`. A temporary clean-branch worktree successfully replayed 310 tracked changes plus 120 Git-visible untracked files with exact path/content manifests, no `cert.json`, and clean whitespace, proving a safe publication route. The current dirty local branch deliberately remains on its old commit; never push or merge it back into the cleaned history. A later publication must repeat the proven Git-aware replay onto clean ancestry.
+- Release security acceptance is complete: the owner confirmed that the homelab is retired and authorized deletion of every Cloudflare Tunnel. The authenticated API found one down tunnel, `manga-api`; its ID matched the historical `cert.json`, it was deleted, all four accessible accounts then reported zero active tunnels, and the independent Fotty playback/Coach Worker remained HTTP 200. A disposable `git-filter-repo` 2.47.0 mirror rewrite atomically cleaned the two affected advertised branches. GitHub then closed Support ticket `#4701297` after clearing the retained pull-request objects. Independent checks return no obsolete commits or PR refs, and a fresh clone contains neither commit nor `cert.json`. The reviewed source was subsequently published as the clean `main` root and is now protected; the pre-clean working tree remains only in local recovery stashes and `legacy/main-pre-clean-baseline` and must never be pushed back into the clean history.
 
 ## iOS Reliability Baseline (2026-08-22)
 
@@ -272,7 +274,7 @@ Build-43 scoring/request ownership (2026-08-28): `FPLLiveSquadSummary` has optio
 - `FottyUITests/FottyNavigationUITests.swift`: rapid tab/background lifecycle plus bounded contrast, traits, Dynamic Type, element-detection, hit-region, text-clipping, and description audits. FPL Plan, Squad, Coach, and Tools launch directly through the allowlisted Debug route and use an explicit network-free fixture; Matchday and Settings launch through their persisted tab contracts; Match Center and Player use explicit Debug-only presentation routes. The large-Type Coach audit requires both the quick-prompt control and a structured response, while the Player audit exercises its truthful no-source recovery state. Its physical-only live smoke refreshes the real catalog, selects a source-backed hero, verifies the compact source list, and holds playback muted through the initial stability window; it skips on simulators.
 - `tools/stream_health_checker.py`: catalog endpoint health; it does not prove decoded video.
 - `tools/test_stream_playback.mjs`: browser-level decoded-playback probe.
-- `tools/audit_live_playback_matrix.mjs`: broad, concurrent WebKit matrix over current near-live provider families and variants, with an optional post-decode continuity hold that records playhead advancement and the longest freeze; writes structured JSON to `/tmp/fotty-playback-matrix.json`.
+- `tools/audit_live_playback_matrix.mjs`: broad, concurrent WebKit matrix over current near-live provider families and variants, with an optional post-decode continuity hold that records playhead advancement and the longest freeze; writes structured JSON to an explicit caller path or the current working directory, not a predictable shared temporary file.
 - `tools/ios-deploy-device.sh`: signed physical-device build/install workflow; it can install an explicitly supplied `.app` and terminates only the existing normal Fotty process before launch.
 - `tools/ios-device-qa.sh`: no-simulator release gate; checks generated seasonal identity, deterministic provider vectors and live metadata drift, then compiles/runs Catalyst policies through build-for-testing/test-without-building, builds and strictly seal-verifies one signed universal Debug artifact, installs that exact normal app on every explicitly listed physical device, compiles generic Release iOS, and prints the manual iPhone/iPad playback checklist. It intentionally never runs `FottyUITests`, reuses one DerivedData root, and removes its default temporary root through a cleanup trap.
 - `tools/catalyst-ui-release-gate.sh`: lock-guarded Mac Catalyst runner for eleven release accessibility audits—six Dashboard scopes plus FPL, Matchday, Settings, Match Center, and Player Dynamic Type—and rapid-navigation check, executed individually without a simulator or physical-device UI-test runner. Its default DerivedData root is temporary and trap-cleaned; a caller-supplied shared root remains caller-owned.
@@ -283,9 +285,10 @@ Build-43 scoring/request ownership (2026-08-28): `FPLLiveSquadSummary` has optio
 
 ## 5. Web and retired infrastructure
 
-- `web/`: companion Next.js/static-export surface; it is not the source of truth for the iOS lifecycle. Its current baseline is Next 16.3.3/React 19.2.8 on Node 24 LTS with ES2022 output. Playback uses HLS.js 1.7.1. Wrangler 4.127.1 is pinned for reproducible Worker dry-runs, and the Worker compatibility date is advanced explicitly while Node compatibility remains disabled because the current Worker does not use it.
-- Homelab PocketBase and P2P/AceStream are retired product dependencies. Active analytical providers, resolver tracks, manifests, and UI exclude them; only lower-level defensive legacy session-shape types remain compiled.
-- `agent/` and `tools/brain/`: durable project memory and local semantic-index tooling.
+- `web/`: companion Next.js/static-export surface; it is not the source of truth for the iOS lifecycle. Its supported server graph is the live catalog plus football match/standings/headline routes; browser playback uses direct third-party provider frames. There are no account, billing, admin, PocketBase, movie/TV, same-origin embed-proxy, P2P-server or stream-token routes. Preferences, saved teams and reminders are browser-local. Its baseline is Next 16.3.3/React 19.2.8 on Node 24 LTS with ES2022 output. Wrangler 4.127.1 is pinned for reproducible Worker dry-runs.
+- `web/workers/playback/`: the separate Cloudflare edge boundary for stream metadata/redirects, football data and consent-gated FPL Coach requests. It does not make a third-party player same-origin or turn provider content into first-party media.
+- Homelab, PocketBase and P2P/AceStream services plus the Android prototype are absent from the supported repository graph. Historical references in the decision log do not authorize restoring them.
+- `agent/`, `docs/notebooklm/` and the bounded `tools/{agent-start,agent-finish,ask-brain,brain-doctor,notebooklm-refresh,private-kb-sync}.sh` scripts own durable local project memory; there is no remote embedding index.
 
 ## Strategic navigation
 
@@ -302,11 +305,17 @@ Build-43 scoring/request ownership (2026-08-28): `FPLLiveSquadSummary` has optio
 
 # Fotty Decisions Log
 
+## 2026-08-30: Remove retired product graphs after CodeQL exposed their residual risk
+
+- **Finding**: The first advanced CodeQL pass on the clean GitHub baseline found 71 open alerts. The critical/high results were concentrated in code Fotty no longer operated: the Android prototype, Python homelab/P2P services, a same-origin embed proxy, PocketBase account/admin/billing routes, and movie/TV endpoints. Keeping those graphs made the repository's attack surface, workflow gates, documentation and maintenance burden materially larger than the supported product.
+- **Decision/implementation**: Delete the retired Android and Python server trees rather than suppress their findings. Remove the dormant Next account, admin, billing, PocketBase, P2P-server, embed-proxy and movie/TV routes plus their tests, scripts and UI entry points. The supported web graph is guest-accessible sports discovery/playback with local preferences and reminders; the Cloudflare Worker owns the limited playback/football/Coach edge APIs. Pin every GitHub Action to an immutable commit, constrain service-worker messages and notification navigation to exact trusted origins, stop persisting credentials in browser storage, and replace remote homelab project-memory tooling with local repository scripts.
+- **Boundary/evidence**: Historical decision entries remain history, not runnable architecture. Third-party player pages remain on their distinct provider origins and are not presented as first-party content. Swift CodeQL remains unavailable under the bounded Xcode 27 extraction attempt and is not claimed. Web units, TypeScript, lint, Worker dry-run, production build, workflow validation, gitleaks and the protected pull-request CodeQL run are the acceptance gates; closure counts must be read after merge rather than inferred from deletion.
+
 ## 2026-08-30: Treat active native PiP as background playback, not foreground decoration
 
 - **Finding**: On a real iPad, native handoff entered the system PiP window but playback paused as soon as another app opened. Fotty declared the audio background mode and retained its PiP controller, but set only the audio-session category, left `AVPlayer.audiovisualBackgroundPlaybackPolicy` on `.automatic`, and incorrectly marked an active PiP session for foreground resume.
 - **Decision/implementation**: Activate the `.playback`/`.moviePlayback` audio session only when playback or PiP actually begins, set every direct and web-handoff native player to `.continuesIfPossible`, reassert both at the PiP/background boundary, and keep the active native state without arming foreground recovery. A stopped/failed PiP while backgrounded still pauses safely. The controller now acknowledges restoration to the still-mounted player UI.
-- **Evidence/boundaries**: Add a unit regression proving active PiP remains `.playing(.native)`, retains its background policy and does not mark itself for resume after backgrounding. The full Catalyst suite and unsigned generic iOS Release pass without a simulator. This cannot prove iOS process scheduling, a header-proxy stream or system PiP controls; repeat on the physical iPad by opening another app and locking/unlocking. No device install, TestFlight upload, stream request or version bump.
+- **Evidence/boundaries**: Add a unit regression proving active PiP remains `.playing(.native)`, retains its background policy and does not mark itself for resume after backgrounding. The full Catalyst suite and unsigned generic iOS Release pass without a simulator; protected PR #8 is merged to `main`. This cannot prove iOS process scheduling, a header-proxy stream or system PiP controls; repeat on the physical iPad by opening another app and locking/unlocking. No device install, TestFlight upload, stream request or version bump.
 
 ## 2026-08-30: Bound CodeQL to supported product graphs and explicit builds
 
@@ -2140,6 +2149,14 @@ Last updated: 2026-08-30
 
 This registry turns current sharp edges into guardrails for agents.
 
+## Repository attack surface and third-party playback (Unreleased)
+
+- CodeQL found 71 alerts after the clean root made several retired graphs visible to current scanning. Critical/high findings in obsolete Android, homelab/P2P, PocketBase/account, embed-proxy and movie/TV code must be removed, not dismissed as false positives or hidden from the workflow.
+- The supported product graph is iOS, a bounded sports companion web surface and the Cloudflare playback/football/Coach Worker. Do not restore a tunnel, Python server, PocketBase route, browser credential store, same-origin player proxy or Android build by copying historical code.
+- Third-party player pages remain a real provider-origin risk. Keep them on distinct origins, retain exact-origin message admission and navigation guards, and do not describe their UI, ads, availability or content as Fotty-controlled. A redirect or successful frame load is not decoded-playback evidence.
+- GitHub Actions are commit-SHA pinned. Dependency update PRs must preserve the reviewed action origin and full hash. Advanced CodeQL covers Actions, JavaScript/TypeScript and any surviving Python; Swift stays under the simulator-free Xcode gate until bounded extraction works.
+- Status: local web/Worker gates pass. Final alert closure and severity counts require the protected remediation PR and a post-merge `main` scan. No app, Worker or public-web deployment is implied.
+
 ## Native PiP background continuity (Unreleased)
 
 - A visible system PiP window does not by itself prove that playback will
@@ -2441,27 +2458,35 @@ This registry turns current sharp edges into guardrails for agents.
 
 # Fotty Workflow
 
-## Human-AI Loop
-1. **Identify**: User identifies a stability or data issue.
-2. **Research**: Agent uses `grep_search` and `view_file` to find the root cause.
-3. **Reason**: Agent consults `docs/notebooklm/` to ensure the fix aligns with architecture.
-4. **Deploy**: Use `tools/ios-deploy-device.sh` for physical device verification.
-5. **Log**: Record the change in `Decisions-Log.md`.
+## Human–AI loop
 
-## Testing Protocol (Ready for v1.6)
-Before push:
-- [ ] Sub-10s startup for verified web sources.
-- [ ] P2P fallback resolution below the player.
-- [ ] PiP stability during swipe-up.
-- [ ] Branding fidelity (logos present for all Big 5 + NBA/WNBA).
-- [ ] PocketBase sync reliability (no silent decoding crashes).
+1. **Identify**: Capture the user-visible problem and the acceptance behavior.
+2. **Inspect**: Read the current project memory and trace the active product graph.
+3. **Implement**: Change the smallest authoritative layer; remove obsolete alternatives instead of maintaining parallel behavior.
+4. **Verify**: Run focused tests, then the relevant full gate. Never use a simulator on this Mac.
+5. **Publish**: Use a protected pull request for shared changes. Use TestFlight for tester-facing releases.
+6. **Record**: Update durable memory and refresh the generated NotebookLM source.
 
-## Agent Hand-off
-All agents must read `agent/AGENT-START.md` before initiating changes.
-After significant changes, run:
+## Required gates
+
+Before merge:
+
+- [ ] Focused regression covers the reported failure.
+- [ ] Web changes pass unit, TypeScript, lint, Worker, and build checks.
+- [ ] iOS changes pass provider identity, Catalyst units, and generic unsigned Release.
+- [ ] Workflow changes pass actionlint and gitleaks.
+- [ ] Temporary Xcode output is removed and disk space is checked.
+- [ ] Physical-only behavior is explicitly left open until exercised on a connected device.
+
+## Agent handoff
+
+All agents read `agent/AGENT-START.md` before broad work. After significant work:
+
 ```bash
-./tools/notebooklm-refresh.sh
+./tools/agent-finish.sh "Describe what changed"
 ```
+
+This refreshes the local documentation bundle; it does not contact the retired homelab.
 
 
 # QA Playbook
@@ -3003,116 +3028,6 @@ Do not use the `Designed for iPad` destination as the primary Mac test path. Tha
 The full release sequence and source-publication boundary are in `docs/RELEASE-PROCESS.md`.
 
 
-# P2P Server README
-
-# P2P Proxy Reliability Service
-
-This service hardens `/proxy/acestream/stream` by:
-
-- returning deterministic `503` JSON errors for manifest failures (timeouts, upstream status issues, empty/invalid manifests),
-- validating segment URLs before exposing them to clients,
-- rewriting validated segment URLs through a local proxy route,
-- exposing health metrics for `manifest_ttfb`, `segment_2xx_rate`, and per-CID failure reasons.
-
-## Run Locally
-
-```bash
-cd server
-python3 p2p_proxy_service.py
-```
-
-## Docker
-
-```bash
-cd server
-docker build -f Dockerfile.p2p-proxy -t fotty-p2p-proxy .
-docker run --rm -p 8006:8006 fotty-p2p-proxy
-```
-
-## Environment Variables
-
-- `P2P_UPSTREAM_BASE_URL` (default: `http://127.0.0.1:6878`,/[URL_REDACTED] the local AceStream engine)
-- `P2P_API_PASSWORD` (**required** — no default in source; set in `.env` on homelab)
-- `P2P_MANIFEST_TIMEOUT_SECONDS` (default: `20`)
-- `P2P_ENGINE_SESSION_CREATE_TIMEOUT_SECONDS` (default: `20`)
-- `P2P_ENGINE_WARMUP_TIMEOUT_SECONDS` (default: `150`)
-- `P2P_SEGMENT_TIMEOUT_SECONDS` (default: `5`)
-- `P2P_BROKER_RETRY_COOLDOWN_SECONDS` (default: `12`)
-- `P2P_BROKER_MAX_RETRYABLE_PREPARE_ATTEMPTS` (default: `3`; repeated retryable warmup failures become a clean failed state)
-- `P2P_BROKER_MANIFEST_FRESH_SECONDS` (default: `12`; cached live manifests older than this are revalidated before being served)
-- `P2P_BROKER_MANIFEST_STALE_GRACE_SECONDS` (default: `15`)
-- `P2P_REDIS_URL` or `REDIS_URL` (optional; enables shared broker sessions across workers)
-- `P2P_REDIS_KEY_PREFIX` (default: `fotty:p2p:broker`)
-- `P2P_BROKER_REDIS_RECORD_TTL_SECONDS` (default: warmup budget plus 300s)
-- `P2P_BROKER_REDIS_CONNECT_TIMEOUT_SECONDS` / `P2P_BROKER_REDIS_SOCKET_TIMEOUT_SECONDS` (default: `2`; keeps Redis outages from hanging broker startup or health checks)
-- `P2P_PREWARM_ENABLED` (default: off; set to `true` to keep likely channels warming before taps)
-- `P2P_PREWARM_CHANNEL_SOURCE_URL` (production uses the embedded catalog at `http://127.0.0.1:8006/[URL_REDACTED]
-- `P2P_PREWARM_BASE_URL` (public broker base URL used in returned session links)
-- `P2P_PREWARM_INTERVAL_SECONDS` (default: `45`)
-- `P2P_PREWARM_LIMIT` (default: `6`)
-- `P2P_PREWARM_CONCURRENT_LIMIT` (default: `1`; keep this low because the AceStream engine does not warm many channels reliably in parallel)
-- `P2P_PREWARM_MIN_AVAILABILITY` (default: `0.75`; availability is weak metadata, health still decides ranking)
-- `P2P_PREWARM_EVIDENCE_MAX_AGE_SECONDS` (default: `21600`; unpinned channels need recent successful manifest/segment evidence)
-- `P2P_PREWARM_PINNED_CIDS` (optional comma-separated CIDs to keep warm even after recent failures)
-- `P2P_MIN_SEGMENT_BYTES` (default: `512`)
-- `P2P_MAX_SEGMENTS_TO_VALIDATE` (default: `8`)
-- `PORT` (default: `8006`)
-- `P2P_SCRAPER_US_UK_QUERIES` (optional comma-separated AceStream text searches; default list in `p2p_scraper_queries.py` covers NFL/MLB/NHL/CBS SN, Sky F1/Golf, Racing TV, etc.)
-- `P2P_SCRAPER_EXTRA_QUERIES` (optional; overrides core PL/UCL/NBA search terms)
-- `P2P_SCRAPER_MAX_TEXT_QUERIES` (default: `120`; US/UK network queries are prioritized first)
-- `P2P_SCRAPER_SPORT_PAGE_SIZE` / `P2P_SCRAPER_EXTRA_PAGE_SIZE` (sport category vs per-query page sizes)
-
-Homelab redeploy after changing scraper queries:
-
-```bash
-./tools/p2p-proxy-deploy-homelab.sh
-```
-
-### Pinned channels (when Ace search has no results)
-
-US league linear nets (NFL/MLB/NHL/CBS SN) and some UK feeds may not appear in the AceStream
-engine index even with text search. Add confirmed infohashes to `server/p2p_pinned_channels.json`
-(only non-empty 40-char `cid` values are merged). The homelab container mounts this file read-only
-so you can update CIDs without rebuilding the image.
-
-Probe a query on the running proxy:
-
-```bash
-curl -sS -H "Authorization: Bearer $P2P_API_PASSWORD" \
-  "https://scraper.pixel-invoice.com/[URL_REDACTED] | python3 -m json.tool
-```
-
-The Docker image runs Flask through Gunicorn using `gthread`. Production explicitly uses two
-workers × 16 threads with Redis. Keep `GUNICORN_WORKERS=1` when `P2P_REDIS_URL` is not set.
-Once Redis is enabled, multiple workers share broker sessions, per-CID dedupe, event timelines,
-and CID health history safely.
-
-Retryable validation failures surface as `retrying` instead of an endless `warming` state. The
-broker still retries them on the normal cooldown, but clients can show a clearer message while
-preferring sessions that are already `ready`.
-
-## TV guide / EPG (retired)
-
-Homelab XMLTV/EPG infrastructure has been removed. There is no `server/epg/` bundle, no `/epg/*` broker endpoints, and no `EPG_*` env vars on this service.
-
-## Endpoints
-
-- `GET /proxy/acestream/stream?id=<cid>&api_password=[REDACTED]
-- `POST /proxy/acestream/session`
-- `GET /proxy/acestream/session/<session_id>/status`
-- `GET|POST /proxy/acestream/prewarm`
-- `GET /ace/proxy?cid=<cid>&url=<encoded_segment_url>`
-- `GET /metrics` (broker authorization required)
-- `GET /health`
-- `GET /matches`, `GET /status`, and `GET /search/<query>` (broker authorization required)
-- `GET /dashboard` — private Glances-style page that polls `/health` + `/metrics` every 1.5s (disabled in production; enable with `P2P_DASHBOARD_ENABLED=1` and require either broker authorization or `P2P_DASHBOARD_KEY`)
-
-AceStream sessions request API events and stop notifications. Broker events distinguish codec
-discovery, segmenter failure, engine stop, and missing `proxyServer` entitlement. Capture a
-five-minute free/paid comparison with `server/scripts/acestream_premium_baseline.py`; the script
-reads `P2P_API_PASSWORD` from the environment and never writes it to the result.
-
-
 # Agent Start
 
 # Fotty Agent Start Here
@@ -3152,62 +3067,42 @@ as short-lived resources:
 
 # Agent Brain Ops Playbook
 
-# Brain Ops Playbook
+# Project Memory Playbook
 
-Use this when touching project memory, agent instructions, Cursor/Antigravity/Codex flow, Ollama, embeddings, or the homelab brain.
+Use this when changing project memory, agent instructions, or the generated NotebookLM source.
 
-## Read First
+## Read first
 
 - `AGENTS.md`
 - `agent/AGENT-START.md`
 - `agent/AGENTS.md`
 - `agent/OPERATOR.md`
 - `.cursor/rules/private-knowledge-base.mdc`
-- `tools/brain/README.md`
-- `tools/ask-brain.sh`
-- `tools/private-kb-sync.sh`
-- `tools/brain-doctor.sh`
-- `tools/brain/query_brain.py`
-- `tools/brain/embed_index.py`
-- `server/brain_monitor.py`
+- `tools/notebooklm-refresh.sh`
+- `tools/agent-start.sh`
+- `tools/agent-finish.sh`
 
-## Standing Decisions
+## Standing decisions
 
-- Durable memory is markdown in this repo.
-- Generated memory source is `docs/notebooklm/Fotty-NotebookLM-Source.md`.
-- The remote semantic index lives at `tools/brain/.cache/knowledge.jsonl` on the homelab.
-- Agents should consult the brain before architecture work, broad refactors, release checks, and unfamiliar debugging.
-- Brain scripts must stay safe around secrets and private stream URLs.
-
-## Common Failure Points
-
-- Docs referring to commands that do not exist.
-- The indexer looking for a different generated source filename than the generator writes.
-- Local scripts updated but not pushed to the homelab.
-- Agent rules becoming advisory prose without executable checks.
-- Empty or stale indexes silently producing weak guidance.
+- Durable memory is Markdown in this repository.
+- `docs/notebooklm/Fotty-NotebookLM-Source.md` is the generated sharing bundle.
+- Local source files are authoritative; no remote semantic index or homelab is required.
+- Current architecture files outrank historical entries when they conflict.
+- Memory generation must redact secrets and private URLs.
 
 ## Verification
 
 - Run `bash -n tools/*.sh` for touched shell scripts.
-- Run `python3 -m py_compile tools/brain/*.py server/brain_monitor.py` for touched Python.
-- Run `./tools/private-kb-sync.sh`.
+- Run `./tools/notebooklm-refresh.sh`.
 - Run `./tools/brain-doctor.sh`.
-- Ask a smoke question with `./tools/ask-brain.sh`.
-
-## Brain Prompts
-
-```bash
-./tools/ask-brain.sh "What should agents read before working on Fotty?"
-./tools/ask-brain.sh "What can make the Fotty Brain stale or misleading?"
-```
+- Run `./tools/ask-brain.sh "What is the current Fotty product graph?"`.
 
 
 # Agent Playback Playbook
 
 # Playback Playbook
 
-Use this when touching player startup, AVPlayer, WKWebView embeds, VOD playback, stream selection, autoplay, or timeout behavior.
+Use this when touching player startup, AVPlayer, WKWebView embeds, stream selection, autoplay, PiP, or timeout behavior.
 
 ## Read First
 
@@ -3255,7 +3150,8 @@ Use this when touching player startup, AVPlayer, WKWebView embeds, VOD playback,
 - Inspect WebKit pages/frames after play: popup count should remain zero, ad frames should be absent, and video/player-control elements must remain present.
 - On a decoding physical-device stream, independently exercise the provider's play, pause, seek/fullscreen when available, and `Tap to unmute`. Confirm Fotty does not consume the tap or immediately undo the resulting state.
 - Confirm failure returns the user to broadcast sources calmly.
-- Switch between regular, web embed, and P2P sources where available.
+- Exercise both the normal provider-page path and a verified native AVPlayer handoff when available.
+- With native PiP active, open another app for at least 60 seconds, then lock/unlock and confirm the same stream keeps advancing without duplicate audio.
 - Check that pause/play does not loop by itself after WebView handoff.
 - Run the focused Catalyst policy suite without a simulator. For an intentional device or Catalyst reference-HLS check, run only `PlaybackPolicyTests/testReferenceHLSMaintainsOneAttemptDuringSoak` with `OTHER_SWIFT_FLAGS='$(inherited) -DFOTTY_PLAYBACK_SOAK'`; the diagnostic player must remain muted. Catalyst runs for 120 seconds and should show advancing playback on every sample with unchanged source/attempt/item and zero failovers.
 - DEBUG Settings → Stream pipeline checks exposes the same production-path two-minute muted soak for manual use on Mac Catalyst. It exercises required-header proxying, AVPlayer readiness, watchdog continuity, and failover accounting; it does not exercise a third-party WebKit embed.
@@ -3269,63 +3165,382 @@ Use this when touching player startup, AVPlayer, WKWebView embeds, VOD playback,
 ```
 
 
-# Agent P2P Server Playbook
-
-# P2P Server Playbook
-
-Use this when touching the homelab broker, proxy, manifest generation, warmup behavior, Docker compose, or server-side stream health. (Server-side EPG/XMLTV was removed with the retired homelab guide pipeline.)
-
-## Read First
-
-- `docs/notebooklm/Project-Memory.md`
-- `docs/notebooklm/Decisions-Log.md`
-- `docs/notebooklm/Risks.md`
-- `server/README_P2P_PROXY.md`
-- `server/homelab-docker-compose.yml`
-- `server/p2p_proxy_service.py`
-- `server/p2p_proxy_core.py`
-- `server/tests/test_p2p_proxy_service.py`
-
-## Standing Decisions
-
-- P2P is a resilient fallback, not a reason to block the whole player.
-- Reuse warm sessions when available.
-- Keep server behavior observable through explicit health/progress states.
-- Keep `GUNICORN_WORKERS=1` unless the concurrency model is deliberately redesigned.
-- Do not expose secrets, raw stream URLs, or private provider internals in docs or user-visible errors.
-
-## Common Failure Points
-
-- Cold P2P startup exceeding the user’s patience window.
-- Stale manifests or segment authorization mismatches after session reuse.
-- Background work continuing after the client has moved to another source.
-- Compose changes that desync the homelab from local scripts.
-- Logs or generated memory docs accidentally containing private URLs.
-
-## Verification
-
-- Run focused Python tests for changed proxy behavior.
-- Confirm warm source reuse still works.
-- Confirm failed P2P source returns useful state instead of hanging.
-- Re-run `./tools/brain-doctor.sh` after homelab script or compose changes.
-
-## Brain Prompts
-
-```bash
-./tools/ask-brain.sh "What P2P broker decisions affect this change?"
-./tools/ask-brain.sh "What are the known P2P startup and warm-session risks?"
-```
-
-
 # Git Working Tree Snapshot
 
 ```text
- D .github/workflows/codeql-swift.yml
- M docs/notebooklm/Architecture-Map.md
- M docs/notebooklm/Decisions-Log.md
- M docs/notebooklm/Fotty-NotebookLM-Source.md
- M docs/notebooklm/Project-Memory.md
- M docs/notebooklm/Risks.md
+M  .cursor/rules/private-knowledge-base.mdc
+M  .github/workflows/codeql.yml
+M  .github/workflows/ios.yml
+M  .github/workflows/provider-monitor.yml
+M  .github/workflows/quality.yml
+M  .github/workflows/web.yml
+D  Fotty-Brain-V1.6.md
+D  FottyAndroid/.github/workflows/guardian.yml
+D  FottyAndroid/app/build.gradle.kts
+D  FottyAndroid/app/src/main/AndroidManifest.xml
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/FottyApp.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/MainActivity.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/Config.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/LicenseManager.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/MatchDayHub.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/di/CoreModule.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/di/HapticEntryPoint.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/di/NetworkModule.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/extractors/LiveSportsExtractor.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/navigation/NavGraph.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/navigation/Routes.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/api/cricket/CricketInterface.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/api/football/APIFootballInterface.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/api/football/FootballInterface.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/api/football/FootballProInterface.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/api/football/FottyFootballProxyInterface.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/api/hockey/HockeyInterface.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/api/news/NewsInterface.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/api/nexus/NexusAlphaInterface.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/api/p2p/P2PInterface.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/api/pocketbase/PocketBaseInterface.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/engine/p2p/P2PStreamEngine.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/football/APIFootballModels.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/football/FootballModels.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/music/MusicModels.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/nexus/NexusAlphaModels.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/p2p/P2PModels.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/pocketbase/ArenaModels.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/pocketbase/PocketBaseModels.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/sportmonks/SportmonksModels.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/streaming/SportEvent.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/streaming/StreamModels.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/models/streaming/StreamingProvider.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/repository/football/FootballRepository.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/repository/pocketbase/SocialRepository.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/resolver/AceStreamHandshake.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/resolver/HybridStreamProvider.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/resolver/LocalStreamProxy.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/resolver/P2PDataService.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/resolver/StreamDiagnosticsEngine.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/network/resolver/StreamResolver.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/networking/HeadlessWebExtraction.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/networking/StreamNetworkExtractor.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/networking/WebViewExtractor.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/player/MusicPlayerManager.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/storage/AuthPreferenceStore.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/storage/TeamBrandService.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/storage/UserPreferencesRepository.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/theme/Color.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/theme/ModifierExtensions.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/theme/Shape.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/theme/Theme.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/theme/Type.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/ui/FeatureShell.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/ui/MainScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/ui/MatchComponents.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/ui/components/FottyPlayer.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/ui/components/GlassMorphism.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/ui/components/MaterialLiveCard.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/util/AppSecurityManager.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/util/DateUtils.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/util/HapticManager.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/util/LeagueResolver.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/util/TeamNameNormalizer.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/core/utils/SecurityUtils.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/local/FottyDatabase.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/local/dao/MatchDao.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/local/entities/MatchEntity.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/mappers/MatchMapper.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/models/MatchModels.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/models/NewsItem.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/providers/APIFootballProvider.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/providers/IFootballProvider.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/providers/NexusAlphaProvider.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/providers/P2PProvider.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/repositories/LeagueRepository.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/repositories/MatchRepository.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/repositories/MockDataProvider.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/repositories/NewsRepository.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/repositories/StreamRepository.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/data/repositories/TeamRepository.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/analytics/ui/JusticeTableScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/arena/ui/ArenaChatScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/arena/ui/ArenaHubScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/arena/ui/MatchDetailScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/arena/ui/MatchStatsAnalytics.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/arena/ui/TacticalPitch.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/arena/viewmodel/ArenaViewModel.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/arena/viewmodel/InsightsViewModel.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/auth/ui/LoginScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/auth/viewmodel/AuthViewModel.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/clips/ui/ClipsScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/explore/ui/ExploreScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/home/ui/HomeScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/home/ui/NewsDetailScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/home/viewmodel/HomeViewModel.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/live/ui/LiveMatchesScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/live/ui/LiveScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/live/viewmodel/LiveViewModel.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/onboarding/OnboardingScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/ui/AresPlayerControls.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/ui/MatchTimelineOverlay.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/ui/Media3Player.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/ui/Media3PlayerScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/ui/MediaControls.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/ui/P2PChannelBrowserSheet.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/ui/PlaybackWarmupScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/ui/PlayerComponents.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/ui/PlayerIntelligenceOverlay.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/ui/VideoPlayerScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/viewmodel/MatchMatcher.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/viewmodel/PlayerState.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/viewmodel/PlayerViewModel.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/player/viewmodel/StreamPlayerViewModel.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/search/ui/SearchScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/search/viewmodel/SearchViewModel.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/settings/ui/ProfileScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/settings/ui/SettingsComponents.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/settings/ui/SettingsScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/settings/viewmodel/ProfileViewModel.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/settings/viewmodel/SettingsViewModel.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/features/splash/SplashScreen.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/ui/components/KineticNavDock.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/ui/components/Loaders.kt
+D  FottyAndroid/app/src/main/java/com/pixelperfect/fotty/ui/components/MediaComponents.kt
+D  FottyAndroid/app/src/main/res/drawable/ic_launcher_background.xml
+D  FottyAndroid/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+D  FottyAndroid/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+D  FottyAndroid/app/src/main/res/mipmap-hdpi/ic_launcher.png
+D  FottyAndroid/app/src/main/res/mipmap-hdpi/ic_launcher_foreground.png
+D  FottyAndroid/app/src/main/res/mipmap-hdpi/ic_launcher_round.png
+D  FottyAndroid/app/src/main/res/mipmap-hdpi/ic_launcher_round_foreground.png
+D  FottyAndroid/app/src/main/res/mipmap-mdpi/ic_launcher.png
+D  FottyAndroid/app/src/main/res/mipmap-mdpi/ic_launcher_foreground.png
+D  FottyAndroid/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
+D  FottyAndroid/app/src/main/res/mipmap-mdpi/ic_launcher_round_foreground.png
+D  FottyAndroid/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+D  FottyAndroid/app/src/main/res/mipmap-xhdpi/ic_launcher_foreground.png
+D  FottyAndroid/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png
+D  FottyAndroid/app/src/main/res/mipmap-xhdpi/ic_launcher_round_foreground.png
+D  FottyAndroid/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+D  FottyAndroid/app/src/main/res/mipmap-xxhdpi/ic_launcher_foreground.png
+D  FottyAndroid/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png
+D  FottyAndroid/app/src/main/res/mipmap-xxhdpi/ic_launcher_round_foreground.png
+D  FottyAndroid/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+D  FottyAndroid/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png
+D  FottyAndroid/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
+D  FottyAndroid/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round_foreground.png
+D  FottyAndroid/app/src/main/res/values/strings.xml
+D  FottyAndroid/app/src/main/res/values/themes.xml
+D  FottyAndroid/app_screenshot.png
+D  FottyAndroid/build.gradle.kts
+D  FottyAndroid/final_verification.png
+D  FottyAndroid/gradle.properties
+D  FottyAndroid/gradle/wrapper/gradle-wrapper.jar
+D  FottyAndroid/gradle/wrapper/gradle-wrapper.properties
+D  FottyAndroid/gradlew
+D  FottyAndroid/gradlew.bat
+D  FottyAndroid/guardian/config.json
+D  FottyAndroid/guardian/reports/latest.md
+D  FottyAndroid/guardian/rules.md
+D  FottyAndroid/guardian/run.sh
+D  FottyAndroid/guardian/scripts/analyzer.py
+D  FottyAndroid/guardian/scripts/setup_nightly_local.sh
+D  FottyAndroid/historical_verification.png
+D  FottyAndroid/live_matches.json
+D  FottyAndroid/local.properties.example
+D  FottyAndroid/settings.gradle.kts
+D  FottyAndroid/verification2.png
+M  agent/AGENT-START.md
+M  agent/AGENTS.md
+M  agent/OPERATOR.md
+M  agent/playbooks/brain-ops.md
+D  agent/playbooks/p2p-server.md
+M  agent/playbooks/playback.md
+M  docs/audit/complexity-2026-08-28/measure-swift.py
+M  docs/notebooklm/Architecture-Map.md
+M  docs/notebooklm/Decisions-Log.md
+D  docs/notebooklm/Fotty-Brain-V1.5.md
+MM docs/notebooklm/Fotty-NotebookLM-Source.md
+D  docs/notebooklm/Fotty-QA-Playbook.md
+M  docs/notebooklm/Project-Memory.md
+M  docs/notebooklm/README.md
+M  docs/notebooklm/Risks.md
+M  docs/notebooklm/Technical-Specs.md
+M  docs/notebooklm/Workflow.md
+D  server/.env.example
+D  server/Dockerfile
+D  server/Dockerfile.brain-monitor
+D  server/Dockerfile.p2p-proxy
+D  server/README_P2P_PROXY.md
+D  server/api_server.py
+D  server/brain_monitor.py
+D  server/homelab-docker-compose.yml
+D  server/monitor_manifest.py
+D  server/monitor_manifest_v2.py
+D  server/optimized_scraper.py
+D  server/p2p-stack-updated.yml
+D  server/p2p_config.py
+D  server/p2p_pinned_channels.json
+D  server/p2p_pinned_channels.py
+D  server/p2p_proxy_core.py
+D  server/p2p_proxy_service.py
+D  server/p2p_scraper_queries.py
+D  server/scraper.py
+D  server/scripts/acestream_premium_baseline.py
+D  server/tests/test_p2p_pinned_channels.py
+D  server/tests/test_p2p_proxy_service.py
+D  server/tests/test_p2p_scraper_queries.py
+D  tools/P2PMacTester/Package.swift
+D  tools/P2PMacTester/README.md
+D  tools/P2PMacTester/Sources/P2PMacTester/main.swift
+M  tools/agent-finish.sh
+M  tools/agent-start.sh
+M  tools/ask-brain.sh
+M  tools/audit_live_playback_matrix.mjs
+M  tools/brain-doctor.sh
+D  tools/brain-push.sh
+D  tools/brain/.cache/knowledge.jsonl
+D  tools/brain/README.md
+D  tools/brain/embed_index.py
+D  tools/brain/query_brain.py
+D  tools/generate_fotty_brain.py
+M  tools/notebooklm-refresh.sh
+D  tools/p2p-mac-test
+D  tools/p2p-proxy-deploy-homelab.sh
+D  tools/pb-superuser-reset.sh
+M  tools/private-kb-sync.sh
+D  tools/web-deploy-homelab.sh
+M  tools/web-preview-local.sh
+M  web/DEPLOY.md
+M  web/README.md
+D  web/e2e/admin-login.spec.ts
+M  web/e2e/live-streamex.spec.ts
+D  web/e2e/login.spec.ts
+D  web/e2e/playback.spec.ts
+D  web/e2e/prod-playback.spec.ts
+D  web/e2e/watch-auth.spec.ts
+M  web/package.json
+M  web/public/sw.js
+D  web/scripts/pocketbase-admin-setup.mjs
+M  web/scripts/smoke-web.mjs
+D  web/scripts/sync-football-data-key.mjs
+D  web/src/app/admin/layout.tsx
+D  web/src/app/admin/login/AdminLoginForm.tsx
+D  web/src/app/admin/login/page.tsx
+D  web/src/app/admin/page.tsx
+D  web/src/app/api/admin/login-links/route.ts
+D  web/src/app/api/admin/login/route.ts
+D  web/src/app/api/admin/logout/route.ts
+D  web/src/app/api/admin/status/route.ts
+D  web/src/app/api/admin/users/[id]/route.ts
+D  web/src/app/api/admin/users/route.ts
+D  web/src/app/api/auth/qr/redeem/route.ts
+D  web/src/app/api/billing/checkout-url/route.ts
+D  web/src/app/api/billing/confirm/route.ts
+D  web/src/app/api/billing/webhook/route.ts
+D  web/src/app/api/embed/hls/route.ts
+D  web/src/app/api/embed/player/route.ts
+MM web/src/app/api/matches/route.ts
+D  web/src/app/api/p2p/channels/route.ts
+D  web/src/app/api/p2p/health/route.ts
+D  web/src/app/api/pocketbase/auth/route.ts
+D  web/src/app/api/pocketbase/delete-account/route.ts
+D  web/src/app/api/pocketbase/entitlement/route.ts
+D  web/src/app/api/pocketbase/register/route.ts
+D  web/src/app/api/pocketbase/reset-password/route.ts
+D  web/src/app/api/pocketbase/sync/route.ts
+D  web/src/app/api/push/subscribe/route.ts
+D  web/src/app/api/status/route.ts
+D  web/src/app/api/stream/native/route.ts
+D  web/src/app/api/stream/route.ts
+D  web/src/app/api/stream/segment/route.ts
+D  web/src/app/api/stream/session/route.ts
+D  web/src/app/api/stream/token/route.ts
+D  web/src/app/api/tmdb/catalog/route.ts
+D  web/src/app/api/tmdb/detail/route.ts
+D  web/src/app/api/tmdb/route-helpers.ts
+D  web/src/app/api/tmdb/search/route.ts
+M  web/src/app/collab/page.tsx
+M  web/src/app/help/page.tsx
+M  web/src/app/layout.tsx
+D  web/src/app/login/page.tsx
+D  web/src/app/login/qr/page.tsx
+D  web/src/app/media/[type]/[id]/MediaPageClient.tsx
+D  web/src/app/media/[type]/[id]/page.tsx
+D  web/src/app/mvp/page.tsx
+M  web/src/app/sitemap.ts
+D  web/src/app/subscribe/page.tsx
+D  web/src/app/subscribe/success/page.tsx
+M  web/src/app/watch/[id]/WatchPageClient.tsx
+M  web/src/components/AppChrome.tsx
+D  web/src/components/AuthProvider.tsx
+M  web/src/components/BottomNav.tsx
+D  web/src/components/DeleteAccountSection.tsx
+D  web/src/components/EntitlementProvider.tsx
+M  web/src/components/FottyShell.tsx
+M  web/src/components/HomeView.tsx
+D  web/src/components/MediaCard.tsx
+M  web/src/components/SponsoredSlot.tsx
+M  web/src/components/TeamsManager.tsx
+M  web/src/components/TopBar.tsx
+D  web/src/components/TtPlanPrice.tsx
+D  web/src/components/WatchAccessGate.tsx
+D  web/src/components/WhatsAppPayButton.tsx
+D  web/src/components/admin/AdminAccessDashboard.tsx
+D  web/src/components/admin/AdminCreateUserPanel.tsx
+D  web/src/components/admin/AdminPageShell.tsx
+D  web/src/components/admin/AdminSetupBanner.tsx
+D  web/src/components/admin/admin-types.ts
+M  web/src/components/v2/MoreViewV2.tsx
+M  web/src/components/v2/SettingsViewV2.tsx
+M  web/src/components/v2/V2AccountBar.tsx
+M  web/src/components/v2/V2Shell.tsx
+ D web/src/components/watch/EventHlsPlayer.tsx
+D  web/src/lib/accounts.ts
+D  web/src/lib/auth.ts
+D  web/src/lib/billing-plans.ts
+D  web/src/lib/billing.ts
+D  web/src/lib/entitlement-access.ts
+D  web/src/lib/entitlements.ts
+ M web/src/lib/fotty-api-fetch.ts
+M  web/src/lib/fotty-config.ts
+D  web/src/lib/pocketbase-client-auth.ts
+D  web/src/lib/pocketbase-errors.ts
+D  web/src/lib/pocketbase-sync.ts
+M  web/src/lib/push.ts
+M  web/src/lib/route-segment-config.test.mjs
+M  web/src/lib/route-segment-config.ts
+D  web/src/lib/server-env.ts
+D  web/src/lib/server/accounts-disabled.ts
+D  web/src/lib/server/admin-auth.ts
+D  web/src/lib/server/admin-grants-local.ts
+D  web/src/lib/server/embed-player-proxy.test.mjs
+D  web/src/lib/server/embed-player-proxy.ts
+D  web/src/lib/server/entitlement-resolve.ts
+D  web/src/lib/server/local-auth.test.mjs
+D  web/src/lib/server/local-auth.ts
+D  web/src/lib/server/p2p-broker.ts
+D  web/src/lib/server/pocketbase-admin.ts
+D  web/src/lib/server/pocketbase-errors.ts
+D  web/src/lib/server/pocketbase-session.ts
+D  web/src/lib/server/pocketbase-user.ts
+D  web/src/lib/server/public-p2p-stream-token.ts
+D  web/src/lib/server/qr-login.ts
+D  web/src/lib/server/rate-limit.test.mjs
+D  web/src/lib/server/rate-limit.ts
+D  web/src/lib/server/watch-access.ts
+D  web/src/lib/server/watch-stream-secret.test.mjs
+D  web/src/lib/server/watch-stream-secret.ts
+D  web/src/lib/server/watch-stream-token.ts
+M  web/src/lib/storage.ts
+D  web/src/lib/tt-plans.ts
+D  web/src/lib/watch-access.test.mjs
+D  web/src/lib/watch-access.ts
+M  web/src/lib/watch-auth-headers.ts
+M  web/src/lib/watch-session.test.mjs
+MM web/src/lib/watch-session.ts
+D  web/src/proxy.ts
+ M web/workers/playback/README.md
+M  web/workers/playback/src/coach-contract.test.mjs
+MM web/workers/playback/src/index.js
+ M web/workers/playback/wrangler.toml
 
 ```
 
@@ -3346,27 +3561,15 @@ Fotty/Features/Player/MultiLivePlayerView.swift
 ```
 
 
-# Recent P2P Server Files
+# Current Playback Worker Files
 
 ```text
-server/Dockerfile.brain-monitor
-server/p2p_scraper_queries.py
-server/p2p_config.py
-server/tests/test_p2p_scraper_queries.py
-server/tests/test_p2p_proxy_service.py
-server/tests/test_p2p_pinned_channels.py
-server/Dockerfile.p2p-proxy
-server/__pycache__/p2p_proxy_service.cpython-311.pyc
-server/__pycache__/p2p_pinned_channels.cpython-311.pyc
-server/__pycache__/p2p_scraper_queries.cpython-311.pyc
-server/__pycache__/p2p_proxy_core.cpython-311.pyc
-server/p2p-stack-updated.yml
-server/p2p_pinned_channels.json
-server/brain_monitor.py
-server/p2p_proxy_core.py
-server/monitor_manifest_v2.py
-server/monitor_manifest.py
-server/p2p_pinned_channels.py
-server/p2p_proxy_service.py
+web/workers/playback/README.md
+web/workers/playback/wrangler.toml
+web/workers/playback/src/fpl-scoring.test.mjs
+web/workers/playback/src/coach-request.mjs
+web/workers/playback/src/index.js
+web/workers/playback/src/coach-contract.test.mjs
+web/workers/playback/src/fpl-scoring.mjs
 
 ```

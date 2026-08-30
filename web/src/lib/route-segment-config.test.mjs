@@ -6,22 +6,12 @@ import test from "node:test";
 
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), "../..");
 
-const WATCH_AUTH_DYNAMIC_ROUTES = [
-  "src/app/api/stream/token/route.ts",
-  "src/app/api/stream/session/route.ts",
-  "src/app/api/stream/segment/route.ts",
-  "src/app/api/stream/native/route.ts",
-  "src/app/api/stream/route.ts",
-  "src/app/api/status/route.ts",
-  "src/app/api/p2p/health/route.ts",
+const DYNAMIC_DATA_ROUTES = [
   "src/app/api/live/streams/route.ts",
-  "src/app/api/embed/hls/route.ts",
-  "src/app/api/embed/player/route.ts",
-  "src/app/api/pocketbase/entitlement/route.ts",
   "src/app/api/football/matches/route.ts",
 ];
 
-test("watch/auth API routes stay force-dynamic in source", () => {
+test("live-data API routes stay force-dynamic in source", () => {
   const configSource = readFileSync(join(webRoot, "src/lib/route-segment-config.ts"), "utf8");
   const patchScript = readFileSync(join(webRoot, "scripts/patch-watch-routes-static.sh"), "utf8");
   const dockerfile = readFileSync(join(webRoot, "Dockerfile"), "utf8");
@@ -43,14 +33,15 @@ test("watch/auth API routes stay force-dynamic in source", () => {
     "Static-export patching must convert force-dynamic routes for the temporary export build"
   );
 
-  for (const relativePath of WATCH_AUTH_DYNAMIC_ROUTES) {
-    assert.match(configSource, new RegExp(relativePath.replace(/\./g, "\\.")));
+  for (const relativePath of DYNAMIC_DATA_ROUTES) {
+    const escapedPath = relativePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    assert.match(configSource, new RegExp(escapedPath));
 
     const source = readFileSync(join(webRoot, relativePath), "utf8");
     assert.match(
       source,
       /export const dynamic = "force-dynamic"/,
-      `${relativePath} must export force-dynamic for homelab/standalone builds`
+      `${relativePath} must export force-dynamic for standalone builds`
     );
     assert.doesNotMatch(
       source,
