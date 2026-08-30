@@ -6,7 +6,9 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 XCODE_JOBS="${FOTTY_XCODE_JOBS:-2}"
 OWNS_DERIVED_DATA=0
-CATALYST_BUILD_SETTINGS=()
+# Keep this array non-empty for the Bash 3.2 shipped with macOS; under `set -u`,
+# expanding an empty array raises an unbound-variable error.
+CATALYST_BUILD_SETTINGS=("FOTTY_CI=1")
 
 if ! [[ "$XCODE_JOBS" =~ ^[1-9][0-9]*$ ]]; then
   echo "FOTTY_XCODE_JOBS must be a positive integer." >&2
@@ -47,7 +49,22 @@ cleanup() {
       ;;
   esac
 }
-trap cleanup EXIT INT TERM
+
+finish() {
+  local exit_code=$?
+  local cleanup_code=0
+  trap - EXIT INT TERM
+  set +e
+  cleanup
+  cleanup_code=$?
+  if [[ "$cleanup_code" -ne 0 ]]; then
+    [[ "$exit_code" -ne 0 ]] || exit_code="$cleanup_code"
+  fi
+  exit "$exit_code"
+}
+trap finish EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 cd "$ROOT_DIR"
 
