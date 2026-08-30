@@ -46,6 +46,10 @@ This registry turns current sharp edges into guardrails for agents.
   Node 25 installation is end-of-life and must not define release behavior.
   Keep Wrangler pinned, dry-run before deploy, and do not enable Worker Node
   compatibility without a code-level requirement and contract rerun.
+- Swift CodeQL does not currently complete an instrumented Xcode 27 app build
+  within an acceptable hosted-macOS budget; default and explicit manual setups
+  were both tried. Do not report Swift CodeQL coverage. Retain the complete
+  simulator-free iOS gate, and revisit after the Xcode/CodeQL toolchain changes.
 - Status: `docs/audit/Fotty-Platform-Modernization-Audit-2026-08-29.md` and
   `docs/releases/Fotty-2.0.0-45.md` retain the historical migration record.
   Physical installation exposed the restricted vocabulary in build 45, so it is
