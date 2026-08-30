@@ -34,13 +34,16 @@ test.describe("live StreameX HD continuity", () => {
         };
         Object.assign(window, { __fottyStreamexBridge: bridge });
         window.addEventListener("message", (message) => {
-          const allowedOrigins = new Set([
-            "https://embed.st",
-            "https://embedhd.org",
-            "https://exposestrat.com",
-          ]);
-          if (!allowedOrigins.has(message.origin)) return;
-          const type = message.data?.type;
+          if (
+            message.origin !== "https://embed.st" &&
+            message.origin !== "https://embedhd.org" &&
+            message.origin !== "https://exposestrat.com"
+          ) {
+            return;
+          }
+          if (typeof message.data !== "object" || message.data === null) return;
+
+          const type = (message.data as { type?: unknown }).type;
           if (type === "fotty:playback-started") bridge.started += 1;
           if (type === "fotty:playback-pulse") bridge.pulses += 1;
           if (type === "fotty:playback-stalled") bridge.stalled += 1;
