@@ -1,0 +1,77 @@
+name: CodeQL Swift
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Fotty/**"
+      - "FottyLiveActivityExtension/**"
+      - "FottyTests/**"
+      - "project.yml"
+      - "Fotty.xcodeproj/**"
+      - ".github/workflows/codeql-swift.yml"
+  pull_request:
+    paths:
+      - "Fotty/**"
+      - "FottyLiveActivityExtension/**"
+      - "FottyTests/**"
+      - "project.yml"
+      - "Fotty.xcodeproj/**"
+      - ".github/workflows/codeql-swift.yml"
+  schedule:
+    - cron: "41 9 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-swift-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: codeql-swift
+    runs-on: xcode-27
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: swift
+          build-mode: manual
+          queries: security-extended
+      - name: Build one simulator-free Swift target
+        shell: bash
+        run: |
+          set -euo pipefail
+          derived_data="$(mktemp -d "${RUNNER_TEMP}/FottyCodeQL.XXXXXX")"
+          cleanup() {
+            case "$derived_data" in
+              "${RUNNER_TEMP}"/FottyCodeQL.*)
+                [[ ! -e "$derived_data" ]] || find "$derived_data" -depth -delete
+                ;;
+              *)
+                echo "Refusing unexpected CodeQL cleanup target: $derived_data" >&2
+                return 1
+                ;;
+            esac
+          }
+          trap cleanup EXIT
+          xcodebuild build \
+            -quiet \
+            -project Fotty.xcodeproj \
+            -scheme Fotty \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath "$derived_data" \
+            -jobs 2 \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:swift

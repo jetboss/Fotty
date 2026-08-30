@@ -1,6 +1,6 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-08-30 12:43:43 AST
+Generated: 2026-08-30 12:54:42 AST
 
 This file is generated from safe project-memory sources and redacted command output.
 Upload this one file to NotebookLM when you want a fresh project snapshot.
@@ -31,7 +31,7 @@ World Cup–specific hubs, seeds, and tournament-focus modes are retired (tourna
 
 - **Native PiP background-continuity correction (local Unreleased, 2026-08-30)**: A real iPad native handoff could enter PiP but paused when Fotty moved behind another app. The app had the audio background mode and PiP controller, but only set the playback audio category; it did not explicitly activate the session when playback began, and `AVPlayer` retained the system-decided `.automatic` background policy. Native players now use `.continuesIfPossible`, activate the playback session at play/PiP boundaries, preserve the active PiP attempt through backgrounding and do not arm a false foreground resume. PiP UI restoration is acknowledged by the retained player presentation. The full simulator-free Catalyst unit suite and unsigned generic iOS Release pass. Real app-switch/lock-screen continuity still requires a native physical-device stream; this fix is not installed or uploaded.
 
-- **Clean GitHub baseline and app-wide discovery search (Unreleased, 2026-08-30)**: The public repository now starts from a reviewed clean root rather than the obsolete two-commit history that still contained retired Android credentials. Both stale remote Cursor branches were removed. GitHub secret scanning, push protection, Dependabot security updates and CodeQL default setup are enabled; Actions now own bounded Web, iOS, workflow/secret and daily provider-metadata gates. `tools/ios-ci.sh` never uses a simulator, cleans its one DerivedData root and adapts only its Catalyst test host target on GitHub—the real generic iOS Release target is unchanged. Home now exposes a global search over the exact shared `HomeSportsDiscovery` projection, including teams, sports, football leagues, identified non-football leagues, CPL fixtures and broadcast channels. Search performs no independent fetch and reuses Home badges, live-score qualification, countdowns, reminders and Watch routing. Exact Premier League queries cannot collide with Caribbean Premier League; reviewed sport-scoped source markers allow NHL/MLB and related acronyms/full names without labeling unrelated fixtures or exposing opaque provider IDs. Local Catalyst tests and unsigned generic iOS Release pass; the change is not versioned, installed or uploaded to TestFlight yet.
+- **Clean GitHub baseline and app-wide discovery search (Unreleased, 2026-08-30)**: The public repository now starts from a reviewed clean root rather than the obsolete two-commit history that still contained retired Android credentials. Both stale remote Cursor branches were removed. GitHub secret scanning, push protection and Dependabot security updates are enabled; path-scoped advanced CodeQL scans supported Actions/TypeScript/Python plus one explicit simulator-free Swift target instead of autobuilding the retired Android prototype. Actions now own bounded Web, iOS, workflow/secret and daily provider-metadata gates. `tools/ios-ci.sh` never uses a simulator, cleans its one DerivedData root and adapts only its Catalyst test host target on GitHub—the real generic iOS Release target is unchanged. Home now exposes a global search over the exact shared `HomeSportsDiscovery` projection, including teams, sports, football leagues, identified non-football leagues, CPL fixtures and broadcast channels. Search performs no independent fetch and reuses Home badges, live-score qualification, countdowns, reminders and Watch routing. Exact Premier League queries cannot collide with Caribbean Premier League; reviewed sport-scoped source markers allow NHL/MLB and related acronyms/full names without labeling unrelated fixtures or exposing opaque provider IDs. Local Catalyst tests and unsigned generic iOS Release pass; the change is not versioned, installed or uploaded to TestFlight yet.
 
 - **Football identity drift prevention (local Unreleased, 2026-08-30)**: Chelsea–Brighton exposed a provider `and` versus catalog `&` alias drift, not an incorrect Premier League schedule. One generated Swift/TypeScript club resolver now owns known aliases and deterministic match keys; current-league membership remains separate from historical team identity. Home reconciles canonical teams plus a six-hour kickoff window to the existing official schedule and uses its competition when proven. Rejected provider markers record redacted local evidence. Five shared payload vectors and a metadata-only live provider audit run before the no-simulator release gate. The audit found and resolved Deportivo wording and excluded a Bundesliga 2 multiview listing, then passed all three reachable feeds. Web/Worker 87/87, TypeScript, complete Catalyst policies and generic iOS Release pass. This is not uploaded or installed; see `docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md`.
 
@@ -250,7 +250,7 @@ Playback, discovery, match navigation and FPL compile into one production graph.
 
 ## 4. Verification and diagnostics
 
-- `.github/workflows/`: `quality.yml` validates workflow syntax and reachable secrets; `web.yml` runs the Node 24 unit/type/lint/Worker/build gate; `ios.yml` runs deterministic provider checks, Catalyst units and a generic unsigned iOS Release build through `tools/ios-ci.sh`; `provider-monitor.yml` keeps live metadata drift separate from pull-request correctness. Dependabot handles security/minor maintenance, while GitHub secret scanning/push protection and CodeQL are repository-side controls. The iOS script has an `rg`/`grep` fallback, uses one trap-cleaned DerivedData root and may lower only the remote Catalyst host target to match GitHub's Xcode 27 image; it never changes the app's Release deployment target.
+- `.github/workflows/`: `quality.yml` validates workflow syntax and reachable secrets; `web.yml` runs the Node 24 unit/type/lint/Worker/build gate; `ios.yml` runs deterministic provider checks, Catalyst units and a generic unsigned iOS Release build through `tools/ios-ci.sh`; `provider-monitor.yml` keeps live metadata drift separate from pull-request correctness. `codeql.yml` scans Actions, TypeScript/JavaScript and Python on Linux only when their paths change, while `codeql-swift.yml` manually compiles one unsigned generic-iOS target on Xcode 27 so Swift extraction is bounded and simulator-free. Dependabot handles security/minor maintenance, while GitHub secret scanning/push protection and CodeQL are repository-side controls. The iOS script has an `rg`/`grep` fallback, uses one trap-cleaned DerivedData root and may lower only the remote Catalyst host target to match GitHub's Xcode 27 image; it never changes the app's Release deployment target.
 
 - Unreleased Coach lifecycle: `FPLAdvisorViewModel.sendCoachQuestion` owns a
   cancellable task and request/context identities; the view owns focus and
@@ -307,6 +307,12 @@ Build-43 scoring/request ownership (2026-08-28): `FPLLiveSquadSummary` has optio
 - **Finding**: On a real iPad, native handoff entered the system PiP window but playback paused as soon as another app opened. Fotty declared the audio background mode and retained its PiP controller, but set only the audio-session category, left `AVPlayer.audiovisualBackgroundPlaybackPolicy` on `.automatic`, and incorrectly marked an active PiP session for foreground resume.
 - **Decision/implementation**: Activate the `.playback`/`.moviePlayback` audio session only when playback or PiP actually begins, set every direct and web-handoff native player to `.continuesIfPossible`, reassert both at the PiP/background boundary, and keep the active native state without arming foreground recovery. A stopped/failed PiP while backgrounded still pauses safely. The controller now acknowledges restoration to the still-mounted player UI.
 - **Evidence/boundaries**: Add a unit regression proving active PiP remains `.playing(.native)`, retains its background policy and does not mark itself for resume after backgrounding. The full Catalyst suite and unsigned generic iOS Release pass without a simulator. This cannot prove iOS process scheduling, a header-proxy stream or system PiP controls; repeat on the physical iPad by opening another app and locking/unlocking. No device install, TestFlight upload, stream request or version bump.
+
+## 2026-08-30: Bound CodeQL to supported product graphs and explicit builds
+
+- **Finding**: GitHub default setup auto-detected the retired Android prototype and attempted an invalid Java/Kotlin autobuild. Its Swift autobuilder guessed the largest Xcode target and remained active far longer than the complete verified iOS gate. Actions, TypeScript/JavaScript and Python analysis passed, but the overall default configuration was misleading and unbounded.
+- **Decision/implementation**: Disable CodeQL default setup. Use path-scoped advanced workflows: interpreted languages run on Linux, and Swift uses manual build mode with one unsigned generic-iOS `Fotty` target on the existing Xcode 27 runner. The Swift workflow never boots a simulator and removes its one guarded DerivedData directory on success, failure or cancellation. Use the extended security query suite, weekly schedules and pull-request/push triggers.
+- **Boundary**: The inactive Android prototype is intentionally excluded rather than represented as a supported release graph. Re-enable Java/Kotlin scanning only alongside a separate decision to restore and make that project buildable. CodeQL complements the deterministic unit/build and gitleaks gates; it does not replace them.
 
 ## 2026-08-30: Replace the unsafe Git history and make Search a projection of Home
 
@@ -3310,12 +3316,12 @@ Use this when touching the homelab broker, proxy, manifest generation, warmup be
 # Git Working Tree Snapshot
 
 ```text
- M Fotty/Features/Search/SearchView.swift
- M FottyTests/BetaUsabilityTests.swift
  M docs/notebooklm/Architecture-Map.md
  M docs/notebooklm/Decisions-Log.md
  M docs/notebooklm/Fotty-NotebookLM-Source.md
  M docs/notebooklm/Project-Memory.md
+?? .github/workflows/codeql-swift.yml
+?? .github/workflows/codeql.yml
 
 ```
 
@@ -3346,6 +3352,10 @@ server/tests/test_p2p_scraper_queries.py
 server/tests/test_p2p_proxy_service.py
 server/tests/test_p2p_pinned_channels.py
 server/Dockerfile.p2p-proxy
+server/__pycache__/p2p_proxy_service.cpython-311.pyc
+server/__pycache__/p2p_pinned_channels.cpython-311.pyc
+server/__pycache__/p2p_scraper_queries.cpython-311.pyc
+server/__pycache__/p2p_proxy_core.cpython-311.pyc
 server/p2p-stack-updated.yml
 server/p2p_pinned_channels.json
 server/brain_monitor.py
