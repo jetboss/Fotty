@@ -5,11 +5,8 @@
 // counted as playback success.
 
 import { webkit } from "../web/node_modules/@playwright/test/index.mjs";
-import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
 
 const catalogURL = process.env.FOTTY_CATALOG_URL || "https://www.streamex.net/api/live/matches/all";
-const outputPath = resolve(process.env.FOTTY_MATRIX_OUTPUT || "fotty-playback-matrix.json");
 const samplesPerFamily = Number(process.env.FOTTY_SAMPLES_PER_FAMILY || 3);
 const streamVariants = Number(process.env.FOTTY_STREAM_VARIANTS || 2);
 const concurrency = Number(process.env.FOTTY_MATRIX_CONCURRENCY || 4);
@@ -246,7 +243,7 @@ async function worker(browser, queue, results) {
     results.push(result);
     const marker = result.playbackVerified && result.sustainedPlaybackVerified !== false ? "PASS" : "FAIL";
     const media = result.mediaResponses.map(item => item.status).join(",") || "none";
-    console.log(`${marker.padEnd(4)} ${result.family.padEnd(6)} #${result.streamNumber} ${result.title} media=${media} final=${result.finalURL}`);
+    console.error(`${marker.padEnd(4)} ${result.family.padEnd(6)} #${result.streamNumber} ${result.title} media=${media} final=${result.finalURL}`);
   }
 }
 
@@ -280,7 +277,7 @@ async function main() {
     }
   }
 
-  console.log(`Catalog events: ${catalog.length}; near-live events: ${liveEvents.length}; candidates: ${candidates.length}`);
+  console.error(`Catalog events: ${catalog.length}; near-live events: ${liveEvents.length}; candidates: ${candidates.length}`);
   const browser = await webkit.launch({ headless: true });
   const queue = [...candidates];
   const results = [];
@@ -309,8 +306,10 @@ async function main() {
     familySummary,
     results
   };
-  await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
-  console.log(JSON.stringify({ outputPath, attempted: report.attempted, playable: report.playable, familySummary }, null, 2));
+  // Keep network-controlled audit data off the filesystem. Stdout is the
+  // structured report; callers that need an artifact can choose an explicit
+  // destination with normal shell redirection.
+  process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
   const passed = holdAfterDecodeSeconds > 0 ? report.sustainedPlayable > 0 : report.playable > 0;
   process.exitCode = passed ? 0 : 2;
 }
