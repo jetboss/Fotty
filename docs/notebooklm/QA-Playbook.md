@@ -38,7 +38,7 @@ Shared-release acceptance uses the exact TestFlight update: verify version/build
 
 ## Automated release gate
 
-### Football identity and live-provider drift (Unreleased)
+### Football identity and live-provider drift (private iPad build 47; shared release pending)
 
 - Generate Swift and TypeScript from the reviewed seasonal manifest and fail if
   generated output, declared club counts, aliases or validity dates drift.
@@ -56,7 +56,11 @@ Shared-release acceptance uses the exact TestFlight update: verify version/build
   non-domestic exclusions.
 - Exported diagnostics may show the redacted reason/source class only. They must
   not contain event/team names, fixture/source IDs, URLs or credentials.
-- Evidence: `docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md`.
+- Evidence: the automated vectors and three-feed metadata precheck pass, and
+  the pipeline is installed only on Jet iPad in private build 47. This does not
+  certify physical discovery/league placement or a shared TestFlight binary.
+  See `docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md` and
+  `docs/releases/Fotty-2.0.0-47.md`.
 
 ### Current Premier League membership (Unreleased)
 

@@ -65,7 +65,7 @@ This registry turns current sharp edges into guardrails for agents.
   not an acceptance candidate. The web source and Worker compatibility-date
   change remain undeployed.
 
-## Seasonal club membership and league inference (Unreleased)
+## Seasonal club membership and league inference (private iPad build 47)
 
 - Historical participation and one matching opponent are not current
   competition evidence. Domestic inference requires both current senior teams
@@ -93,10 +93,12 @@ This registry turns current sharp edges into guardrails for agents.
   current manifest silently into 2027/28. All Football can still show valid
   broadcasts outside these competitions.
 - Status: build 45 contains the original seasonal-membership correction. The
-  identity resolver, official reconciliation and live drift gate are later
-  local Unreleased work; see
-  `docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md`. Physical and
-  TestFlight acceptance of that later work are still outstanding.
+  later identity resolver, official reconciliation and live drift gate are
+  installed only on Jet iPad in private build 47; their automated vectors and
+  three-feed metadata precheck pass. Physical discovery/league-placement
+  acceptance and shared TestFlight distribution are still outstanding. See
+  `docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md` and
+  `docs/releases/Fotty-2.0.0-47.md`.
 
 ## Coach conversation lifetime (Unreleased)
 
