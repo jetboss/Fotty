@@ -88,6 +88,12 @@ enum Config {
     static var termsOfUseURL: URL? {
         buildLegalURL(path: termsOfUsePath)
     }
+
+    /// Reviewed schedule data from the existing edge boundary. This can update
+    /// independently from iOS; the app validates it completely before caching.
+    static var cplScheduleManifestURL: URL? {
+        footballProxyBaseURL?.appendingPathComponent("api/cricket/cpl-fixtures")
+    }
     
     private static func buildLegalURL(path: String) -> URL? {
         guard let base = URL(string: legalBaseURLString) else { return nil }

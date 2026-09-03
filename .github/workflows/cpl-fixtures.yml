@@ -49,7 +49,7 @@ jobs:
               --base main \
               --head "$branch" \
               --title "chore: review current CPL fixture changes" \
-              --body "The daily fail-closed CPL monitor found a verified change in match identity or UTC kickoff. The generated manifest passed the complete 39-match validation. Review the diff before merging; a partial or structurally changed upstream feed is rejected."
+              --body "The daily fail-closed CPL monitor found an official change independently confirmed by the current verifier. The generated 39-match manifest passed strict validation. This PR makes that live-verified change the durable Worker and offline iOS fallback; partial, structurally changed, or newly conflicting feeds are rejected."
           else
             echo "Updated existing CPL fixture PR #$existing."
           fi

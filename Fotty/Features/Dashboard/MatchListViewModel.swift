@@ -29,11 +29,15 @@ final class MatchListViewModel {
     private var modelContext: ModelContext?
     private var didLoadCache = false
     private var recordedIdentityDiagnostics: Set<String> = []
+    private var cplFixtures: [CPLSchedule.Fixture] = CPLSchedule.fixtures
 
-    private init() {}
+    private init() {
+        cplFixtures = CPLScheduleUpdater.shared.cachedSnapshot()?.fixtures ?? CPLSchedule.fixtures
+    }
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
+        cplFixtures = CPLScheduleUpdater.shared.cachedSnapshot()?.fixtures ?? CPLSchedule.fixtures
         loadFromCache()
     }
 
@@ -102,7 +106,7 @@ final class MatchListViewModel {
             // hard timeout without changing production data or layout behavior.
             self.matches = AppRuntime.isAutomatedTesting
                 ? Array(cachedMatches.prefix(40))
-                : CPLSchedule.merging(into: cachedMatches)
+                : CPLSchedule.merging(into: cachedMatches, fixtures: cplFixtures)
             print("[MatchList] Loaded \(matches.count) items from SwiftData cache.")
         } catch {
             print("[MatchList] SwiftData fetch failed: \(error.localizedDescription)")
@@ -115,8 +119,12 @@ final class MatchListViewModel {
         isLoading = matches.isEmpty
         error = nil // Clear previous errors
         
+        async let scheduleRefresh = CPLScheduleUpdater.shared.refresh()
         do {
             let freshMatches = try await fetchFreshMatches()
+            if let refreshedSchedule = await scheduleRefresh {
+                cplFixtures = refreshedSchedule.fixtures
+            }
             applyFreshMatches(freshMatches)
             await MatchReminderStore.shared.reconcile(events: matches) {
                 MatchStartPolicy.currentStatus(for: $0, scores: .shared)
@@ -127,6 +135,10 @@ final class MatchListViewModel {
             print("[MatchList] Refresh complete with \(freshMatches.count) matches.")
             
         } catch {
+            if let refreshedSchedule = await scheduleRefresh {
+                cplFixtures = refreshedSchedule.fixtures
+                matches = CPLSchedule.merging(into: matches, fixtures: cplFixtures)
+            }
             // Ignore cancellation errors — they occur naturally during navigation
             if (error as? URLError)?.code == .cancelled || error is CancellationError {
                 print("[MatchList] Refresh cancelled via navigation.")
@@ -149,7 +161,10 @@ final class MatchListViewModel {
     }
     
     private func applyFreshMatches(_ decodedMatches: [AnalyticalDataEngine.EventReference]) {
-        let nearTerm = CPLSchedule.merging(into: decodedMatches.filter { $0.passesNearTermLiveListWindow() })
+        let nearTerm = CPLSchedule.merging(
+            into: decodedMatches.filter { $0.passesNearTermLiveListWindow() },
+            fixtures: cplFixtures
+        )
         guard !nearTerm.isEmpty else { return }
 
         recordIdentityDrift(in: nearTerm)

@@ -29,6 +29,19 @@ enum CPLTeam: String, CaseIterable, Sendable {
             .components(separatedBy: CharacterSet.alphanumerics.inverted)
             .filter { !$0.isEmpty }.joined(separator: " ")
     }
+
+    init?(manifestKey: String) {
+        switch manifestKey {
+        case "antigua": self = .antigua
+        case "barbados": self = .barbados
+        case "guyana": self = .guyana
+        case "jamaica": self = .jamaica
+        case "saintLucia": self = .saintLucia
+        case "stKitts": self = .stKitts
+        case "trinbago": self = .trinbago
+        default: return nil
+        }
+    }
 }
 
 enum CricketCatalogFilter: String, CaseIterable, Identifiable {
@@ -51,16 +64,46 @@ enum CricketCatalogFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// Small, explicitly dated schedule snapshot, not a live-score or EPG service.
-/// Sources checked 27 Aug 2026:
+/// Bundled last-known-good schedule plus a strictly validated remote update path.
+/// This is not a live-score, broadcast-rights or EPG service.
+/// Published sources:
 /// https://cplt20.prezly.com/republic-bank-cpl-fixtures-confirmed-for-2026
 /// https://wp.cplt20.com/wp-json/wp/v2/news/20232 (27 July TKR opponent swap)
 /// https://cplt20.prezly.com/barbados-franchise-to-play-as-tridents
-/// Refresh this snapshot from league announcements before each beta release
-/// during the season. Never roll these dates into the next year automatically.
 enum CPLSchedule {
-    static let sourceLabel = "CPL published schedule · checked 27 Aug 2026"
-    static let sourceNote = "Times are shown in your time zone. This saved schedule may change; it is not a live score or broadcast confirmation."
+    static let sourceLabel = "CPL fixture schedule · automatically checked"
+    static let sourceNote = "Times are shown in your time zone. Fotty keeps the last verified schedule if an update is incomplete; fixtures do not confirm a broadcast."
+
+    enum ValidationError: Error, Equatable {
+        case invalidHeader
+        case invalidCheckDate
+        case invalidFixtureCount
+        case invalidFixture(Int)
+    }
+
+    struct Snapshot: Sendable {
+        let revision: String
+        let checkedAt: Date
+        let fixtures: [Fixture]
+    }
+
+    private struct Manifest: Decodable, Sendable {
+        let schemaVersion: Int
+        let competitionId: String
+        let season: Int
+        let revision: String
+        let checkedAt: String
+        let fixtures: [Record]
+    }
+
+    private struct Record: Decodable, Sendable {
+        let number: Int
+        let upstreamId: String
+        let start: String
+        let team1: String?
+        let team2: String?
+        let stage: String?
+    }
 
     struct Fixture: Sendable {
         let number: Int
@@ -137,16 +180,83 @@ enum CPLSchedule {
         .init(39, "2026-09-20T19:00:00-04:00", stage: "Final")
     ]
 
+    static func validatedSnapshot(from data: Data, now: Date = .init()) throws -> Snapshot {
+        let manifest = try JSONDecoder().decode(Manifest.self, from: data)
+        guard manifest.schemaVersion == 1,
+              manifest.competitionId == "cpl",
+              manifest.season == 2026,
+              !manifest.revision.isEmpty else {
+            throw ValidationError.invalidHeader
+        }
+        let formatter = ISO8601DateFormatter()
+        guard let checkedAt = formatter.date(from: manifest.checkedAt),
+              checkedAt <= now.addingTimeInterval(24 * 3600) else {
+            throw ValidationError.invalidCheckDate
+        }
+        guard manifest.fixtures.count == 39 else {
+            throw ValidationError.invalidFixtureCount
+        }
+
+        let expectedStages = [36: "Eliminator", 37: "Qualifier 1", 38: "Qualifier 2", 39: "Final"]
+        var seenNumbers = Set<Int>()
+        var seenUpstreamIDs = Set<String>()
+        var previousKickoff = Date.distantPast
+        var decoded: [Fixture] = []
+        for record in manifest.fixtures {
+            guard (1...39).contains(record.number),
+                  seenNumbers.insert(record.number).inserted,
+                  !record.upstreamId.isEmpty,
+                  seenUpstreamIDs.insert(record.upstreamId).inserted,
+                  let kickoff = formatter.date(from: record.start),
+                  Calendar(identifier: .gregorian).dateComponents(in: TimeZone(secondsFromGMT: 0)!, from: kickoff).year == manifest.season,
+                  kickoff >= previousKickoff else {
+                throw ValidationError.invalidFixture(record.number)
+            }
+            previousKickoff = kickoff
+
+            if record.number <= 35 {
+                guard let team1Key = record.team1,
+                      let team2Key = record.team2,
+                      let team1 = CPLTeam(manifestKey: team1Key),
+                      let team2 = CPLTeam(manifestKey: team2Key),
+                      team1 != team2,
+                      record.stage == nil else {
+                    throw ValidationError.invalidFixture(record.number)
+                }
+                decoded.append(.init(record.number, record.start, team1, team2))
+            } else {
+                guard record.team1 == nil,
+                      record.team2 == nil,
+                      record.stage == expectedStages[record.number] else {
+                    throw ValidationError.invalidFixture(record.number)
+                }
+                decoded.append(.init(record.number, record.start, stage: record.stage!))
+            }
+        }
+        guard seenNumbers == Set(1...39) else {
+            throw ValidationError.invalidFixtureCount
+        }
+        return Snapshot(revision: manifest.revision, checkedAt: checkedAt, fixtures: decoded)
+    }
+
     @MainActor
-    static func merging(into catalog: [AnalyticalDataEngine.EventReference], at now: Date = .init()) -> [AnalyticalDataEngine.EventReference] {
+    static func merging(
+        into catalog: [AnalyticalDataEngine.EventReference],
+        fixtures scheduleFixtures: [Fixture] = fixtures,
+        at now: Date = .init()
+    ) -> [AnalyticalDataEngine.EventReference] {
         // Drop our own cached rows first: only a fresh provider match may supply
         // sources. The snapshot remains useful offline but cannot promise Watch.
         var remaining = catalog.filter { !$0.id.hasPrefix("cpl-2026-") }
-        let start = fixtures[0].kickoff.addingTimeInterval(-7 * 24 * 3600)
-        let end = fixtures[fixtures.count - 1].kickoff.addingTimeInterval(36 * 3600)
+        guard let firstFixture = scheduleFixtures.first,
+              let lastFixture = scheduleFixtures.last else { return remaining }
+        let start = firstFixture.kickoff.addingTimeInterval(-7 * 24 * 3600)
+        let end = lastFixture.kickoff.addingTimeInterval(8 * 3600)
         guard now >= start, now <= end else { return remaining }
 
-        let active = fixtures.filter { $0.kickoff >= now.addingTimeInterval(-36 * 3600) }
+        // T20 rows should not linger into the following day. Eight hours covers
+        // rain delays while agreeing with the six-hour display timing policy.
+        let active = scheduleFixtures.filter { $0.kickoff >= now.addingTimeInterval(-8 * 3600) }
         var events: [AnalyticalDataEngine.EventReference] = []
         for fixture in active {
             let matching = remaining.filter { matches($0, fixture: fixture) }
@@ -169,5 +279,57 @@ enum CPLSchedule {
               let home = fixture.home, let away = fixture.away else { return false }
         return (home.matches(in: event.homeName) && away.matches(in: event.awayName))
             || (away.matches(in: event.homeName) && home.matches(in: event.awayName))
+    }
+}
+
+/// Retrieves the small reviewed manifest independently from the stream provider.
+/// Only a complete, newer, structurally valid schedule replaces the cached copy.
+@MainActor
+final class CPLScheduleUpdater {
+    static let shared = CPLScheduleUpdater()
+
+    private static let cacheKey = "Fotty.CPLSchedule.lastKnownGood.v1"
+    private let session: URLSession
+    private let defaults: UserDefaults
+    private var lastAttempt: Date?
+
+    init(session: URLSession = .shared, defaults: UserDefaults = .standard) {
+        self.session = session
+        self.defaults = defaults
+    }
+
+    func cachedSnapshot(now: Date = .init()) -> CPLSchedule.Snapshot? {
+        guard let data = defaults.data(forKey: Self.cacheKey) else { return nil }
+        return try? CPLSchedule.validatedSnapshot(from: data, now: now)
+    }
+
+    func refresh(now: Date = .init()) async -> CPLSchedule.Snapshot? {
+        if let lastAttempt, now.timeIntervalSince(lastAttempt) < 30 * 60 {
+            return cachedSnapshot(now: now)
+        }
+        lastAttempt = now
+        guard let url = Config.cplScheduleManifestURL else {
+            return cachedSnapshot(now: now)
+        }
+
+        do {
+            var request = URLRequest(url: url, cachePolicy: .reloadRevalidatingCacheData, timeoutInterval: 12)
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            let (data, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  http.statusCode == 200,
+                  data.count <= 128 * 1024 else {
+                return cachedSnapshot(now: now)
+            }
+            let candidate = try CPLSchedule.validatedSnapshot(from: data, now: now)
+            if let cached = cachedSnapshot(now: now), cached.checkedAt > candidate.checkedAt {
+                return cached
+            }
+            defaults.set(data, forKey: Self.cacheKey)
+            return candidate
+        } catch {
+            print("[CPLSchedule] Remote update rejected; keeping last-known-good schedule: \(error.localizedDescription)")
+            return cachedSnapshot(now: now)
+        }
     }
 }

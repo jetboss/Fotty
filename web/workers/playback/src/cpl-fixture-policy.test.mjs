@@ -115,3 +115,21 @@ test("Worker CPL route returns a complete official schedule without requiring ap
   assert.equal(body.fixtures.length, 39);
   assert.equal(body.fixtures[27].start, "2026-09-06T14:00:00Z");
 });
+
+test("Worker labels a two-source runtime change separately from the durable fallback", async (t) => {
+  const changed = structuredClone(cplFixtureFallback);
+  changed.fixtures[24].start = "2026-09-04T00:00:00Z";
+  t.mock.method(globalThis, "fetch", async (input) => {
+    const url = String(input);
+    if (url === cplFixtureSources.live) return new Response(verifierHTML(changed));
+    if (url === cplFixtureSources.published) return new Response(publishedHTML(changed));
+    if (url === cplFixtureSources.correction) return Response.json(correctionJSON);
+    throw new Error(`Unexpected URL ${url}`);
+  });
+  const response = await worker.fetch(new Request("https://test.invalid/api/cricket/cpl-fixtures"), {});
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.sourceStatus, "live-verified");
+  assert.equal(body.fixtures[24].start, "2026-09-04T00:00:00Z");
+  assert.match(body.warnings.at(-1), /Durable fallback review is pending/);
+});

@@ -47,7 +47,7 @@ const API_FOOTBALL_ACCESS_RETRY_MS = 4 * 60 * 60 * 1000;
 const API_FOOTBALL_QUOTA_STATE_KEY = "premier-league-live-v1";
 // Bump with every Worker source release. Health must identify deployed code;
 // availability alone is not sufficient release evidence.
-const WORKER_SOURCE_VERSION = "2026-09-03.cpl-fixtures-2";
+const WORKER_SOURCE_VERSION = "2026-09-03.cpl-fixtures-3";
 const SAFE_FOOTBALL_QUERY_VALUE = /^[A-Za-z0-9_,.-]+$/;
 const FOOTBALL_MATCH_QUERY_KEYS = new Set([
   "dateFrom",
@@ -103,10 +103,16 @@ async function handleCPLFixtures() {
       publishedHTML,
       correctionJSON,
     });
+    const liveVerifiedChanges = resolved.authoritativeChanges.map(
+      (change) => `Live-verified official change: ${change.message}. Durable fallback review is pending.`,
+    );
     return json({
       ...resolved.manifest,
-      sourceStatus: resolved.authoritativeChanges.length > 0 ? "updated" : "verified",
-      warnings: resolved.reviewedVerifierChanges.map((change) => change.message),
+      sourceStatus: liveVerifiedChanges.length > 0 ? "live-verified" : "verified",
+      warnings: [
+        ...resolved.reviewedVerifierChanges.map((change) => change.message),
+        ...liveVerifiedChanges,
+      ],
     }, 200, { "Cache-Control": "public, max-age=300" });
   } catch {
     // A partial feed, parser change or new source conflict cannot erase the
