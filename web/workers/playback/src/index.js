@@ -47,7 +47,7 @@ const API_FOOTBALL_ACCESS_RETRY_MS = 4 * 60 * 60 * 1000;
 const API_FOOTBALL_QUOTA_STATE_KEY = "premier-league-live-v1";
 // Bump with every Worker source release. Health must identify deployed code;
 // availability alone is not sufficient release evidence.
-const WORKER_SOURCE_VERSION = "2026-09-03.cpl-fixtures-1";
+const WORKER_SOURCE_VERSION = "2026-09-03.cpl-fixtures-2";
 const SAFE_FOOTBALL_QUERY_VALUE = /^[A-Za-z0-9_,.-]+$/;
 const FOOTBALL_MATCH_QUERY_KEYS = new Set([
   "dateFrom",

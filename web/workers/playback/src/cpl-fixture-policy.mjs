@@ -62,8 +62,10 @@ export function validateCPLManifest(manifest) {
 }
 
 function plainText(html) {
-  return html.replaceAll("&amp;", "&").replaceAll("&nbsp;", " ")
-    .replaceAll("&#8211;", "-").replaceAll("&#8217;", "'")
+  // Decode each supported entity once. Ampersand must be last so input such
+  // as `&amp;#8211;` cannot be recursively decoded into a different character.
+  return html.replaceAll("&#8211;", "-").replaceAll("&#8217;", "'")
+    .replaceAll("&nbsp;", " ").replaceAll("&amp;", "&")
     .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
