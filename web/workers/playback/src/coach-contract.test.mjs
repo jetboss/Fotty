@@ -27,6 +27,18 @@ function isDeepSeekRequest(input) {
   }
 }
 
+test("health identifies the exact Worker source release", async () => {
+  const quota = {
+    idFromName: () => "test-quota",
+    get: () => ({ fetch: async () => Response.json({ configured: false }) }),
+  };
+  const response = await worker.fetch(new Request("https://test.invalid/health"), {
+    FOOTBALL_SCORE_BUDGET: quota,
+  });
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).sourceVersion, "2026-09-03.cpl-fixtures-3");
+});
+
 test("malformed Coach shapes return 400 before any upstream call", async (t) => {
   let calls = 0;
   t.mock.method(globalThis, "fetch", async () => { calls++; throw new Error("Offline test"); });

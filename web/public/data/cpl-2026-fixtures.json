@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "competition": "Caribbean Premier League",
+  "competitionId": "cpl",
+  "season": 2026,
+  "revision": "2026-09-03.1",
+  "checkedAt": "2026-09-03T13:03:27Z",
+  "sources": [
+    {
+      "kind": "published",
+      "url": "https://cplt20.prezly.com/republic-bank-cpl-fixtures-confirmed-for-2026"
+    },
+    {
+      "kind": "official-correction",
+      "url": "https://wp.cplt20.com/wp-json/wp/v2/news/20232"
+    },
+    {
+      "kind": "current-verification",
+      "url": "https://www.cricbuzz.com/cricket-series/12123/caribbean-premier-league-2026/matches"
+    }
+  ],
+  "verificationExceptions": [
+    {
+      "number": 28,
+      "field": "start",
+      "expected": "2026-09-06T14:00:00Z",
+      "observed": "2026-09-06T19:00:00Z",
+      "reason": "Current verifier is five hours late; CPL's official schedule and Wisden both publish 10:00 a.m. Guyana time."
+    }
+  ],
+  "fixtures": [
+    { "number": 1, "upstreamId": "154315", "start": "2026-08-07T23:00:00Z", "team1": "jamaica", "team2": "antigua" },
+    { "number": 2, "upstreamId": "154326", "start": "2026-08-08T23:00:00Z", "team1": "stKitts", "team2": "trinbago" },
+    { "number": 3, "upstreamId": "154337", "start": "2026-08-09T23:00:00Z", "team1": "antigua", "team2": "saintLucia" },
+    { "number": 4, "upstreamId": "154348", "start": "2026-08-12T00:00:00Z", "team1": "jamaica", "team2": "barbados" },
+    { "number": 5, "upstreamId": "154359", "start": "2026-08-12T23:00:00Z", "team1": "saintLucia", "team2": "stKitts" },
+    { "number": 6, "upstreamId": "154370", "start": "2026-08-14T00:00:00Z", "team1": "jamaica", "team2": "guyana" },
+    { "number": 7, "upstreamId": "154381", "start": "2026-08-14T23:00:00Z", "team1": "saintLucia", "team2": "antigua" },
+    { "number": 8, "upstreamId": "154392", "start": "2026-08-16T00:00:00Z", "team1": "jamaica", "team2": "trinbago" },
+    { "number": 9, "upstreamId": "154399", "start": "2026-08-16T23:00:00Z", "team1": "saintLucia", "team2": "barbados" },
+    { "number": 10, "upstreamId": "154410", "start": "2026-08-19T00:00:00Z", "team1": "jamaica", "team2": "stKitts" },
+    { "number": 11, "upstreamId": "154421", "start": "2026-08-19T23:00:00Z", "team1": "saintLucia", "team2": "guyana" },
+    { "number": 12, "upstreamId": "154432", "start": "2026-08-20T23:00:00Z", "team1": "antigua", "team2": "stKitts" },
+    { "number": 13, "upstreamId": "154441", "start": "2026-08-21T23:00:00Z", "team1": "saintLucia", "team2": "jamaica" },
+    { "number": 14, "upstreamId": "154452", "start": "2026-08-22T23:00:00Z", "team1": "antigua", "team2": "trinbago" },
+    { "number": 15, "upstreamId": "154463", "start": "2026-08-23T23:00:00Z", "team1": "antigua", "team2": "guyana" },
+    { "number": 16, "upstreamId": "154474", "start": "2026-08-25T23:00:00Z", "team1": "antigua", "team2": "barbados" },
+    { "number": 17, "upstreamId": "154485", "start": "2026-08-26T23:00:00Z", "team1": "trinbago", "team2": "saintLucia" },
+    { "number": 18, "upstreamId": "154491", "start": "2026-08-27T23:00:00Z", "team1": "stKitts", "team2": "jamaica" },
+    { "number": 19, "upstreamId": "154502", "start": "2026-08-29T00:00:00Z", "team1": "trinbago", "team2": "barbados" },
+    { "number": 20, "upstreamId": "154513", "start": "2026-08-29T23:00:00Z", "team1": "trinbago", "team2": "jamaica" },
+    { "number": 21, "upstreamId": "154524", "start": "2026-08-30T23:00:00Z", "team1": "stKitts", "team2": "antigua" },
+    { "number": 22, "upstreamId": "154535", "start": "2026-08-31T21:00:00Z", "team1": "trinbago", "team2": "guyana" },
+    { "number": 23, "upstreamId": "154540", "start": "2026-09-01T23:00:00Z", "team1": "stKitts", "team2": "barbados" },
+    { "number": 24, "upstreamId": "154551", "start": "2026-09-02T23:00:00Z", "team1": "trinbago", "team2": "antigua" },
+    { "number": 25, "upstreamId": "154562", "start": "2026-09-03T23:00:00Z", "team1": "stKitts", "team2": "saintLucia" },
+    { "number": 26, "upstreamId": "154573", "start": "2026-09-04T23:00:00Z", "team1": "guyana", "team2": "jamaica" },
+    { "number": 27, "upstreamId": "154584", "start": "2026-09-06T00:00:00Z", "team1": "barbados", "team2": "trinbago" },
+    { "number": 28, "upstreamId": "154595", "start": "2026-09-06T14:00:00Z", "team1": "guyana", "team2": "stKitts" },
+    { "number": 29, "upstreamId": "154605", "start": "2026-09-06T23:00:00Z", "team1": "barbados", "team2": "saintLucia" },
+    { "number": 30, "upstreamId": "154616", "start": "2026-09-08T23:00:00Z", "team1": "guyana", "team2": "antigua" },
+    { "number": 31, "upstreamId": "154627", "start": "2026-09-09T23:00:00Z", "team1": "guyana", "team2": "saintLucia" },
+    { "number": 32, "upstreamId": "154638", "start": "2026-09-10T23:00:00Z", "team1": "barbados", "team2": "stKitts" },
+    { "number": 33, "upstreamId": "154649", "start": "2026-09-11T23:00:00Z", "team1": "guyana", "team2": "trinbago" },
+    { "number": 34, "upstreamId": "154660", "start": "2026-09-13T00:00:00Z", "team1": "barbados", "team2": "jamaica" },
+    { "number": 35, "upstreamId": "154671", "start": "2026-09-13T23:00:00Z", "team1": "barbados", "team2": "guyana" },
+    { "number": 36, "upstreamId": "154682", "start": "2026-09-16T23:00:00Z", "stage": "Eliminator" },
+    { "number": 37, "upstreamId": "154689", "start": "2026-09-18T00:00:00Z", "stage": "Qualifier 1" },
+    { "number": 38, "upstreamId": "154700", "start": "2026-09-18T23:00:00Z", "stage": "Qualifier 2" },
+    { "number": 39, "upstreamId": "154711", "start": "2026-09-20T23:00:00Z", "stage": "Final" }
+  ]
+}

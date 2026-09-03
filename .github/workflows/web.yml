@@ -7,12 +7,16 @@ on:
       - "web/**"
       - "shared/reference-data/**"
       - "tools/generate-football-competition-catalog.mjs"
+      - "tools/audit-cpl-fixtures.mjs"
+      - ".github/workflows/cpl-fixtures.yml"
       - ".github/workflows/web.yml"
   pull_request:
     paths:
       - "web/**"
       - "shared/reference-data/**"
       - "tools/generate-football-competition-catalog.mjs"
+      - "tools/audit-cpl-fixtures.mjs"
+      - ".github/workflows/cpl-fixtures.yml"
       - ".github/workflows/web.yml"
   workflow_dispatch:
 

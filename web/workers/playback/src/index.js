@@ -4,6 +4,7 @@
  * Routes:
  *   GET /api/live/streams?source=&id=
  *   GET /api/embed/player?source=&id=&streamNo=
+ *   GET /api/cricket/cpl-fixtures
  *   GET /health
  *
  * Browser playback stays on the provider origin. Fotty does not mirror or
@@ -16,6 +17,8 @@ import {
   resolveFplScoring,
 } from "./fpl-scoring.mjs";
 import { checkCoachLimit, readCoachRequest } from "./coach-request.mjs";
+import cplFixtureFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
+import { cplFixtureSources, resolveCPLManifest } from "./cpl-fixture-policy.mjs";
 
 const IOS_SAFARI_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
@@ -42,6 +45,9 @@ const API_FOOTBALL_PROVIDER_RESERVE = 20;
 const API_FOOTBALL_CACHE_TTL_MS = 240 * 1000;
 const API_FOOTBALL_ACCESS_RETRY_MS = 4 * 60 * 60 * 1000;
 const API_FOOTBALL_QUOTA_STATE_KEY = "premier-league-live-v1";
+// Bump with every Worker source release. Health must identify deployed code;
+// availability alone is not sufficient release evidence.
+const WORKER_SOURCE_VERSION = "2026-09-03.cpl-fixtures-3";
 const SAFE_FOOTBALL_QUERY_VALUE = /^[A-Za-z0-9_,.-]+$/;
 const FOOTBALL_MATCH_QUERY_KEYS = new Set([
   "dateFrom",
@@ -67,6 +73,56 @@ function json(data, status = 200, extraHeaders = {}) {
     status,
     headers: corsHeaders({ "Content-Type": "application/json", ...extraHeaders }),
   });
+}
+
+async function handleCPLFixtures() {
+  const requestOptions = {
+    headers: { "User-Agent": "Fotty fixture service/1.0" },
+    cf: { cacheEverything: true, cacheTtl: 900 },
+  };
+  try {
+    const [liveResponse, publishedResponse, correctionResponse] = await Promise.all([
+      fetch(cplFixtureSources.live, { ...requestOptions, headers: { ...requestOptions.headers, Accept: "text/html" } }),
+      fetch(cplFixtureSources.published, { ...requestOptions, headers: { ...requestOptions.headers, Accept: "text/html" } }),
+      fetch(cplFixtureSources.correction, { ...requestOptions, headers: { ...requestOptions.headers, Accept: "application/json" } }),
+    ]);
+    if (!liveResponse.ok || !publishedResponse.ok || !correctionResponse.ok) {
+      throw new Error("A CPL schedule source was unavailable.");
+    }
+    const [verifierHTML, publishedHTML, correctionJSON] = await Promise.all([
+      liveResponse.text(),
+      publishedResponse.text(),
+      correctionResponse.json(),
+    ]);
+    if (verifierHTML.length > 5_000_000 || publishedHTML.length > 1_000_000) {
+      throw new Error("A CPL schedule source exceeded its size limit.");
+    }
+    const resolved = resolveCPLManifest({
+      fallback: cplFixtureFallback,
+      verifierHTML,
+      publishedHTML,
+      correctionJSON,
+    });
+    const liveVerifiedChanges = resolved.authoritativeChanges.map(
+      (change) => `Live-verified official change: ${change.message}. Durable fallback review is pending.`,
+    );
+    return json({
+      ...resolved.manifest,
+      sourceStatus: liveVerifiedChanges.length > 0 ? "live-verified" : "verified",
+      warnings: [
+        ...resolved.reviewedVerifierChanges.map((change) => change.message),
+        ...liveVerifiedChanges,
+      ],
+    }, 200, { "Cache-Control": "public, max-age=300" });
+  } catch {
+    // A partial feed, parser change or new source conflict cannot erase the
+    // reviewed schedule. Clients receive the complete bundled fallback.
+    return json({
+      ...cplFixtureFallback,
+      sourceStatus: "last-known-good",
+      warnings: ["Current schedule verification was unavailable; using the last reviewed CPL schedule."],
+    }, 200, { "Cache-Control": "public, max-age=60" });
+  }
 }
 
 async function handleFootballDataMatches(url, env) {
@@ -428,6 +484,7 @@ async function handleHealth(env) {
   return json({
     ok: true,
     service: "fotty-playback",
+    sourceVersion: WORKER_SOURCE_VERSION,
     footballScheduleConfigured: Boolean(env.FOOTBALL_DATA_API_KEY),
     liveScoreCompetitions: ["Premier League"],
     apiFootballCredentialConfigured,
@@ -998,6 +1055,9 @@ const worker = {
     }
     if (url.pathname === "/api/football/live" || url.pathname === "/api/football/live/") {
       return handleAPIFootballLive(env);
+    }
+    if (url.pathname === "/api/cricket/cpl-fixtures" || url.pathname === "/api/cricket/cpl-fixtures/") {
+      return handleCPLFixtures();
     }
     if (url.pathname === "/api/live/streams") return handleStreams(url);
     if (url.pathname === "/api/embed/player") return handlePlayer(url);

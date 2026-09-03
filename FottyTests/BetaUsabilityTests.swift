@@ -385,6 +385,43 @@ final class BetaUsabilityTests: XCTestCase {
     }
 
     @MainActor
+    func testCPLRemoteManifestMatchesBundledFallbackAndRejectsPartialUpdates() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let manifestURL = root.appendingPathComponent("web/public/data/cpl-2026-fixtures.json")
+        let data = try Data(contentsOf: manifestURL)
+        let validationDate = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-09-04T00:00:00Z"))
+        let snapshot = try CPLSchedule.validatedSnapshot(from: data, now: validationDate)
+        XCTAssertEqual(Config.cplScheduleManifestURL?.absoluteString, "https://fotty-playback-v3.adaptive-rhubarb.workers.dev/api/cricket/cpl-fixtures")
+        XCTAssertEqual(snapshot.fixtures.count, CPLSchedule.fixtures.count)
+        for (remote, bundled) in zip(snapshot.fixtures, CPLSchedule.fixtures) {
+            XCTAssertEqual(remote.number, bundled.number)
+            XCTAssertEqual(remote.kickoff, bundled.kickoff)
+            XCTAssertEqual(Set([remote.home, remote.away].compactMap { $0 }), Set([bundled.home, bundled.away].compactMap { $0 }))
+            XCTAssertEqual(remote.stage, bundled.stage)
+        }
+
+        var partial = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var records = try XCTUnwrap(partial["fixtures"] as? [[String: Any]])
+        records.removeLast()
+        partial["fixtures"] = records
+        let partialData = try JSONSerialization.data(withJSONObject: partial)
+        XCTAssertThrowsError(try CPLSchedule.validatedSnapshot(from: partialData, now: validationDate)) { error in
+            XCTAssertEqual(error as? CPLSchedule.ValidationError, .invalidFixtureCount)
+        }
+    }
+
+    @MainActor
+    func testCPLCompletedFixtureDoesNotLingerIntoFollowingDay() {
+        let fixture = CPLSchedule.fixtures[18]
+        let duringRainDelayWindow = CPLSchedule.merging(into: [], at: fixture.kickoff.addingTimeInterval(7 * 3600))
+        XCTAssertTrue(duringRainDelayWindow.contains { $0.id == fixture.id })
+
+        let followingMorning = CPLSchedule.merging(into: [], at: fixture.kickoff.addingTimeInterval(9 * 3600))
+        XCTAssertFalse(followingMorning.contains { $0.id == fixture.id })
+        XCTAssertTrue(followingMorning.contains { $0.id == CPLSchedule.fixtures[19].id })
+    }
+
+    @MainActor
     func testCPLScheduleNeverBorrowsWillowSourcesAndExpiresAfterSeason() {
         let fixture = CPLSchedule.fixtures[18]
         let willow = cricketEvent(title: "Willow Cricket", date: nil, sources: [.init(source: "delta", id: "test-channel")])
