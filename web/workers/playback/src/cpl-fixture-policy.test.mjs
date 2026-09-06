@@ -57,15 +57,19 @@ const correctionJSON = {
 };
 
 test("reviewed CPL manifest is complete and the known verifier conflict fails closed to official time", () => {
+  const verifiedAt = new Date("2026-09-06T16:30:00Z");
   validateCPLManifest(cplFixtureFallback);
   const resolved = resolveCPLManifest({
     fallback: cplFixtureFallback,
     publishedHTML: publishedHTML(cplFixtureFallback),
     correctionJSON,
     verifierHTML: verifierHTML(cplFixtureFallback),
+    now: verifiedAt,
   });
   assert.equal(resolved.authoritativeChanges.length, 0);
   assert.equal(resolved.reviewedVerifierChanges.length, 1);
+  assert.equal(resolved.manifest.revision, cplFixtureFallback.revision);
+  assert.equal(resolved.manifest.checkedAt, "2026-09-06T16:30:00Z");
   assert.equal(resolved.manifest.fixtures[27].start, "2026-09-06T14:00:00Z");
 });
 
@@ -101,6 +105,7 @@ test("an official change confirmed by the current verifier becomes a new revisio
 });
 
 test("Worker CPL route returns a complete official schedule without requiring app secrets", async (t) => {
+  const requestedAt = Date.now();
   t.mock.method(globalThis, "fetch", async (input) => {
     const url = String(input);
     if (url === cplFixtureSources.live) return new Response(verifierHTML(cplFixtureFallback));
@@ -112,8 +117,22 @@ test("Worker CPL route returns a complete official schedule without requiring ap
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.sourceStatus, "verified");
+  assert.ok(Date.parse(body.checkedAt) >= requestedAt - 1_000, "successful verification must report a current receipt time");
   assert.equal(body.fixtures.length, 39);
   assert.equal(body.fixtures[27].start, "2026-09-06T14:00:00Z");
+});
+
+test("Worker preserves the last-known-good verification time when live sources are unavailable", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => {
+    throw new Error("offline");
+  });
+  const response = await worker.fetch(new Request("https://test.invalid/api/cricket/cpl-fixtures"), {});
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.sourceStatus, "last-known-good");
+  assert.equal(body.checkedAt, cplFixtureFallback.checkedAt);
+  assert.equal(body.fixtures.length, 39);
+  assert.match(body.warnings[0], /last reviewed CPL schedule/);
 });
 
 test("Worker labels a two-source runtime change separately from the durable fallback", async (t) => {

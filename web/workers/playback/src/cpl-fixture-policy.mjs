@@ -164,10 +164,17 @@ export function resolveCPLManifest({ fallback, publishedHTML, correctionJSON, ve
   const reviewedVerifierChanges = verifierChanges.filter((change) => isReviewedException(change, fallback));
   const unreviewedVerifierChanges = verifierChanges.filter((change) => !isReviewedException(change, fallback));
   requireValue(unreviewedVerifierChanges.length === 0, `${unreviewedVerifierChanges.length} current-verifier change(s) need human review; no schedule was overwritten.`);
-  const manifest = authoritativeChanges.length === 0 ? fallback : {
+  // `revision` describes the fixture content; `checkedAt` describes the most
+  // recent successful multi-source verification. They must not move together:
+  // an unchanged schedule can still have been verified moments ago.
+  const verifiedAt = now.toISOString().replace(/\.\d{3}Z$/, "Z");
+  const manifest = authoritativeChanges.length === 0 ? {
+    ...fallback,
+    checkedAt: verifiedAt,
+  } : {
     ...fallback,
     revision: now.toISOString(),
-    checkedAt: now.toISOString().replace(/\.\d{3}Z$/, "Z"),
+    checkedAt: verifiedAt,
     fixtures: published,
   };
   validateCPLManifest(manifest);
