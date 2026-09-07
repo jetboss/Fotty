@@ -1,0 +1,29 @@
+name: Champions League Match Window
+
+on:
+  schedule:
+    # Avoid the top of the hour, where GitHub warns scheduled runs may be delayed.
+    # Tuesday-Thursday covers matchdays; Saturday covers the final.
+    - cron: "7,37 16-23 * * 2-4,6"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: champions-league-match-window
+  cancel-in-progress: true
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Validate the readiness policy
+        run: node --test tools/audit-ucl-readiness-policy.test.mjs
+      - name: Require a usable route around every Champions League kickoff
+        run: node tools/audit-ucl-readiness.mjs --resolve --horizon-hours=0.5

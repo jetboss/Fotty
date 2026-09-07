@@ -45,3 +45,5 @@ jobs:
           node-version: "24"
       - name: Validate current provider football identities
         run: node tools/audit-provider-football-identity.mjs --live
+      - name: Report upcoming Champions League provider readiness
+        run: node tools/audit-ucl-readiness.mjs --resolve
