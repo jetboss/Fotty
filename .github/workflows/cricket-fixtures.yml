@@ -1,0 +1,42 @@
+name: Cricket Fixture Monitor
+
+on:
+  schedule:
+    # Production collection runs in the Worker; this is an independent owner audit.
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: cricket-fixture-monitor
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Validate the cricket monitoring policy
+        run: node --test tools/audit-cricket-fixtures.test.mjs
+      - name: Audit the cricket fixture service
+        id: audit
+        run: node tools/audit-cricket-fixtures.mjs --report-mode --output="${RUNNER_TEMP}/cricket-fixture-audit.json"
+      - name: Notify the owner about current or repeated failures
+        if: steps.audit.outputs.failed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/audit-cricket-fixtures-github.mjs --report="${RUNNER_TEMP}/cricket-fixture-audit.json"
+      - name: "Record an unhealthy cricket audit: ${{ steps.audit.outputs.finding_codes }}"
+        if: always() && steps.audit.outputs.failed == 'true'
+        run: exit 1
+      - name: Remove the temporary monitor receipt
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/cricket-fixture-audit.json"

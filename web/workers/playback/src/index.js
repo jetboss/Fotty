@@ -5,6 +5,7 @@
  *   GET /api/live/streams?source=&id=
  *   GET /api/embed/player?source=&id=&streamNo=
  *   GET /api/cricket/cpl-fixtures
+ *   GET /api/cricket/fixtures
  *   GET /health
  *
  * Browser playback stays on the provider origin. Fotty does not mirror or
@@ -17,8 +18,34 @@ import {
   resolveFplScoring,
 } from "./fpl-scoring.mjs";
 import { checkCoachLimit, readCoachRequest } from "./coach-request.mjs";
+import { abortable, authorizePaidCoach, boundedJSON, boundedText, coachDeadline, reservePaidCoach } from "./coach-safety.mjs";
+import { resolveCoachPlayers, coachPlayerClarification, collectCoachPlayerHistory, coachContextConflicts } from "./coach-evidence.mjs";
+import { coachTransferContext, validateCoachTransfers } from "./coach-transfers.mjs";
+import { WORKER_SOURCE_VERSION } from "./worker-version.mjs";
+export { CoachQuotaBudget } from "./coach-safety.mjs";
 import cplFixtureFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
-import { cplFixtureSources, resolveCPLManifest } from "./cpl-fixture-policy.mjs";
+import { cplFixtureSources, resolveCPLManifest, validateCPLManifest } from "./cpl-fixture-policy.mjs";
+import { CricketFixtureRegistry as BaseCricketFixtureRegistry } from "./cricket-fixture-registry.mjs";
+
+export class CricketFixtureRegistry extends BaseCricketFixtureRegistry {
+  constructor(state, env) { super(state, env, { collectCPL: () => handleCPLFixtures(env) }); }
+}
+
+function cricketRegistryStub(env) {
+  return env.CRICKET_FIXTURES.get(env.CRICKET_FIXTURES.idFromName("shared-cricket-fixtures-v1"));
+}
+
+async function handleCricketFixtures(env) {
+  if (!env.CRICKET_FIXTURES) return json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable" }, 503);
+  try {
+    const response = await cricketRegistryStub(env).fetch("https://cricket-registry.invalid/fixtures");
+    return new Response(response.body, { status: response.status, headers: corsHeaders({
+      "Content-Type": "application/json", "Cache-Control": "public, max-age=60",
+    }) });
+  } catch {
+    return json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable" }, 503);
+  }
+}
 
 const IOS_SAFARI_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
@@ -45,9 +72,9 @@ const API_FOOTBALL_PROVIDER_RESERVE = 20;
 const API_FOOTBALL_CACHE_TTL_MS = 240 * 1000;
 const API_FOOTBALL_ACCESS_RETRY_MS = 4 * 60 * 60 * 1000;
 const API_FOOTBALL_QUOTA_STATE_KEY = "premier-league-live-v1";
-// Bump with every Worker source release. Health must identify deployed code;
-// availability alone is not sufficient release evidence.
-const WORKER_SOURCE_VERSION = "2026-09-06.fixture-freshness-1";
+const STREAM_CATALOG_TIMEOUT_MS = 6_500;
+const FIXTURE_SOURCE_TIMEOUT_MS = 8_000;
+const FOOTBALL_SOURCE_TIMEOUT_MS = 8_000;
 const SAFE_FOOTBALL_QUERY_VALUE = /^[A-Za-z0-9_,.-]+$/;
 const FOOTBALL_MATCH_QUERY_KEYS = new Set([
   "dateFrom",
@@ -63,7 +90,9 @@ function corsHeaders(extra = {}) {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Accept, Authorization, Content-Type, X-Fotty-Watch-Token, X-Fotty-Install-ID",
+    "Access-Control-Expose-Headers": "Retry-After, X-Fotty-Catalog-Attempted, X-Fotty-Catalog-Coverage, X-Fotty-Catalog-Responding, X-Fotty-Fixture-Source, X-Fotty-Worker-Version",
     "Cache-Control": "no-store",
+    "X-Fotty-Worker-Version": WORKER_SOURCE_VERSION,
     ...extra,
   };
 }
@@ -75,30 +104,81 @@ function json(data, status = 200, extraHeaders = {}) {
   });
 }
 
-async function handleCPLFixtures() {
+function errorKind(error) {
+  return error instanceof Error && error.name ? error.name : "Error";
+}
+
+function logWorkerEvent(level, event, details = {}) {
+  const payload = JSON.stringify({ event, sourceVersion: WORKER_SOURCE_VERSION, ...details });
+  if (level === "error") console.error(payload);
+  else if (level === "warn") console.warn(payload);
+  else console.log(payload);
+}
+
+async function withDeadline(milliseconds, operation, parentSignal) {
+  const deadline = coachDeadline(parentSignal, milliseconds);
+  try {
+    return await abortable(() => operation(deadline.signal), deadline.signal);
+  } finally {
+    deadline.dispose();
+  }
+}
+
+async function reviewedCPLFallback(env, requestOptions) {
+  const rawURL = String(env.CPL_REVIEWED_MANIFEST_URL || "").trim();
+  if (!rawURL) return cplFixtureFallback;
+  try {
+    const url = new URL(rawURL);
+    if (url.protocol !== "https:" || url.username || url.password) return cplFixtureFallback;
+    return await withDeadline(FIXTURE_SOURCE_TIMEOUT_MS, async (signal) => {
+      const response = await fetch(url, {
+        ...requestOptions,
+        headers: { ...requestOptions.headers, Accept: "application/json" },
+        signal,
+      });
+      if (!response.ok) throw new Error(`Reviewed manifest returned ${response.status}`);
+      const manifest = await boundedJSON(response, 128 * 1024, signal);
+      validateCPLManifest(manifest);
+      return manifest;
+    });
+  } catch (error) {
+    logWorkerEvent("warn", "cpl_reviewed_manifest_fallback", { outcome: "bundled", errorKind: errorKind(error) });
+    return cplFixtureFallback;
+  }
+}
+
+async function handleCPLFixtures(env) {
   const requestOptions = {
     headers: { "User-Agent": "Fotty fixture service/1.0" },
     cf: { cacheEverything: true, cacheTtl: 900 },
   };
+  const fallback = await reviewedCPLFallback(env, requestOptions);
   try {
-    const [liveResponse, publishedResponse, correctionResponse] = await Promise.all([
-      fetch(cplFixtureSources.live, { ...requestOptions, headers: { ...requestOptions.headers, Accept: "text/html" } }),
-      fetch(cplFixtureSources.published, { ...requestOptions, headers: { ...requestOptions.headers, Accept: "text/html" } }),
-      fetch(cplFixtureSources.correction, { ...requestOptions, headers: { ...requestOptions.headers, Accept: "application/json" } }),
-    ]);
-    if (!liveResponse.ok || !publishedResponse.ok || !correctionResponse.ok) {
-      throw new Error("A CPL schedule source was unavailable.");
-    }
     const [verifierHTML, publishedHTML, correctionJSON] = await Promise.all([
-      liveResponse.text(),
-      publishedResponse.text(),
-      correctionResponse.json(),
+      withDeadline(FIXTURE_SOURCE_TIMEOUT_MS, async (signal) => {
+        const response = await fetch(cplFixtureSources.live, {
+          ...requestOptions, headers: { ...requestOptions.headers, Accept: "text/html" }, signal,
+        });
+        if (!response.ok) throw new Error(`CPL verifier returned ${response.status}`);
+        return boundedText(response, 5_000_000, signal);
+      }),
+      withDeadline(FIXTURE_SOURCE_TIMEOUT_MS, async (signal) => {
+        const response = await fetch(cplFixtureSources.published, {
+          ...requestOptions, headers: { ...requestOptions.headers, Accept: "text/html" }, signal,
+        });
+        if (!response.ok) throw new Error(`CPL schedule returned ${response.status}`);
+        return boundedText(response, 1_000_000, signal);
+      }),
+      withDeadline(FIXTURE_SOURCE_TIMEOUT_MS, async (signal) => {
+        const response = await fetch(cplFixtureSources.correction, {
+          ...requestOptions, headers: { ...requestOptions.headers, Accept: "application/json" }, signal,
+        });
+        if (!response.ok) throw new Error(`CPL correction feed returned ${response.status}`);
+        return boundedJSON(response, 256 * 1024, signal);
+      }),
     ]);
-    if (verifierHTML.length > 5_000_000 || publishedHTML.length > 1_000_000) {
-      throw new Error("A CPL schedule source exceeded its size limit.");
-    }
     const resolved = resolveCPLManifest({
-      fallback: cplFixtureFallback,
+      fallback,
       verifierHTML,
       publishedHTML,
       correctionJSON,
@@ -106,22 +186,34 @@ async function handleCPLFixtures() {
     const liveVerifiedChanges = resolved.authoritativeChanges.map(
       (change) => `Live-verified official change: ${change.message}. Durable fallback review is pending.`,
     );
+    const sourceStatus = liveVerifiedChanges.length > 0 ? "live-verified" : "verified";
     return json({
       ...resolved.manifest,
-      sourceStatus: liveVerifiedChanges.length > 0 ? "live-verified" : "verified",
+      sourceStatus,
       warnings: [
         ...resolved.reviewedVerifierChanges.map((change) => change.message),
         ...liveVerifiedChanges,
       ],
-    }, 200, { "Cache-Control": "public, max-age=300" });
-  } catch {
+    }, 200, {
+      "Cache-Control": "public, max-age=300, stale-while-revalidate=300, stale-if-error=86400",
+      "X-Fotty-Fixture-Source": sourceStatus,
+    });
+  } catch (error) {
     // A partial feed, parser change or new source conflict cannot erase the
     // reviewed schedule. Clients receive the complete bundled fallback.
+    logWorkerEvent("warn", "cpl_verification_fallback", {
+      outcome: "last-known-good",
+      errorKind: errorKind(error),
+      fallbackRevision: fallback.revision,
+    });
     return json({
-      ...cplFixtureFallback,
+      ...fallback,
       sourceStatus: "last-known-good",
       warnings: ["Current schedule verification was unavailable; using the last reviewed CPL schedule."],
-    }, 200, { "Cache-Control": "public, max-age=60" });
+    }, 200, {
+      "Cache-Control": "public, max-age=60, stale-while-revalidate=60, stale-if-error=86400",
+      "X-Fotty-Fixture-Source": "last-known-good",
+    });
   }
 }
 
@@ -153,24 +245,33 @@ async function handleFootballDataMatches(url, env) {
     .split(",")
     .some((value) => value === "IN_PLAY" || value === "PAUSED");
   try {
-    const response = await fetch(upstream, {
-      headers: {
-        Accept: "application/json",
-        "X-Auth-Token": env.FOOTBALL_DATA_API_KEY,
-      },
-      cf: { cacheEverything: true, cacheTtl: isLiveQuery ? 120 : 900 },
+    const result = await withDeadline(FOOTBALL_SOURCE_TIMEOUT_MS, async (signal) => {
+      const response = await fetch(upstream, {
+        headers: {
+          Accept: "application/json",
+          "X-Auth-Token": env.FOOTBALL_DATA_API_KEY,
+        },
+        cf: { cacheEverything: true, cacheTtl: isLiveQuery ? 120 : 900 },
+        signal,
+      });
+      if (!response.ok) return { ok: false, status: response.status };
+      return { ok: true, status: response.status, body: await boundedText(response, 8 * 1024 * 1024, signal) };
     });
-    if (!response.ok) {
-      return json({ error: "The football score provider is temporarily unavailable." }, response.status === 429 ? 429 : 502);
+    if (!result.ok) {
+      logWorkerEvent("warn", "football_schedule_upstream", { outcome: "error", status: result.status });
+      return json({ error: "The football score provider is temporarily unavailable." }, result.status === 429 ? 429 : 502);
     }
-    return new Response(await response.arrayBuffer(), {
+    return new Response(result.body, {
       status: 200,
       headers: corsHeaders({
         "Content-Type": "application/json",
-        "Cache-Control": isLiveQuery ? "public, max-age=60" : "public, max-age=300",
+        "Cache-Control": isLiveQuery
+          ? "public, max-age=60, stale-while-revalidate=60, stale-if-error=600"
+          : "public, max-age=300, stale-while-revalidate=300, stale-if-error=3600",
       }),
     });
-  } catch {
+  } catch (error) {
+    logWorkerEvent("error", "football_schedule_upstream", { outcome: "request-failed", errorKind: errorKind(error) });
     return json({ error: "The football score request failed." }, 502);
   }
 }
@@ -401,31 +502,44 @@ export class FootballQuotaBudget {
     await this.state.storage.put(API_FOOTBALL_QUOTA_STATE_KEY, state);
 
     try {
-      const response = await fetch(apiFootballLiveUpstreamURL(), {
-        headers: {
-          Accept: "application/json",
-          "x-apisports-key": this.env.API_FOOTBALL_KEY,
-        },
+      const upstream = await withDeadline(FOOTBALL_SOURCE_TIMEOUT_MS, async (signal) => {
+        const response = await fetch(apiFootballLiveUpstreamURL(), {
+          headers: {
+            Accept: "application/json",
+            "x-apisports-key": this.env.API_FOOTBALL_KEY,
+          },
+          signal,
+        });
+        return {
+          ok: response.ok,
+          status: response.status,
+          headers: new Headers(response.headers),
+          body: await boundedText(response, 4 * 1024 * 1024, signal),
+        };
       });
 
-      state.providerRemaining = integerHeader(response.headers, "x-ratelimit-requests-remaining");
-      state.providerLimit = integerHeader(response.headers, "x-ratelimit-requests-limit");
+      state.providerRemaining = integerHeader(upstream.headers, "x-ratelimit-requests-remaining");
+      state.providerLimit = integerHeader(upstream.headers, "x-ratelimit-requests-limit");
       state.providerObservedAt = now;
 
-      if (!response.ok) {
-        if (response.status === 429) state.providerRemaining = 0;
+      if (!upstream.ok) {
+        if (upstream.status === 429) state.providerRemaining = 0;
         await this.state.storage.put(API_FOOTBALL_QUOTA_STATE_KEY, state);
+        logWorkerEvent("warn", "football_live_upstream", { outcome: "error", status: upstream.status });
         return jsonSnapshot(
           { error: "The Premier League live-score provider is temporarily unavailable." },
-          response.status === 429 ? 429 : 502,
+          upstream.status === 429 ? 429 : 502,
           quotaHeaders(state, "upstream-error")
         );
       }
 
-      const upstreamBody = await response.text();
+      const upstreamBody = upstream.body;
       const providerError = apiFootballPayloadError(upstreamBody);
       if (providerError) {
-        console.warn("API-Football rejected the scoped live-score query", providerError);
+        logWorkerEvent("warn", "football_live_upstream", {
+          outcome: "provider-rejected",
+          accessRestricted: /do not have access to this season/i.test(providerError),
+        });
         state.cachedBody = null;
         state.cachedAt = null;
         if (/do not have access to this season/i.test(providerError)) {
@@ -450,8 +564,9 @@ export class FootballQuotaBudget {
         "Cache-Control": "public, max-age=120",
         ...quotaHeaders(state, "miss"),
       });
-    } catch {
+    } catch (error) {
       await this.state.storage.put(API_FOOTBALL_QUOTA_STATE_KEY, state);
+      logWorkerEvent("error", "football_live_upstream", { outcome: "request-failed", errorKind: errorKind(error) });
       return jsonSnapshot(
         { error: "The Premier League live-score request failed." },
         502,
@@ -487,6 +602,11 @@ async function handleHealth(env) {
     sourceVersion: WORKER_SOURCE_VERSION,
     footballScheduleConfigured: Boolean(env.FOOTBALL_DATA_API_KEY),
     liveScoreCompetitions: ["Premier League"],
+    catalogProviderCount: STREAM_PROVIDERS.length,
+    catalogCoverageMode: "parallel-with-direct-fallback",
+    cplFallbackRevision: cplFixtureFallback.revision,
+    cricketFixtureRegistryConfigured: Boolean(env.CRICKET_FIXTURES),
+    cricketFixtureRefreshMode: "scheduled-adaptive",
     apiFootballCredentialConfigured,
     premierLeagueLiveScoresConfigured: currentSeasonLiveScoresAvailable,
     liveScoreQuota,
@@ -517,41 +637,71 @@ function heatTierRank(value) {
   }
 }
 
-async function fetchVariants(provider, source, id) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 6500);
+const APPROVED_PLAYBACK_EMBED_DOMAINS = [
+  "embed.st", "embedhd.st", "exposestrat.com", "embedsports.top",
+  "streamex.net", "streamex.sh", "streamed.pk", "streamed.su",
+  "pooembed.eu", "score808live.tv", "strmd.st",
+];
+
+function isApprovedPlaybackEmbedURL(value) {
   try {
-    const response = await fetch(
-      `${provider.baseURL}${provider.pathPrefix}/${encodeURIComponent(source)}/${encodeURIComponent(id)}`,
-      {
-        headers: {
-          Accept: "application/json",
-          Referer: provider.baseURL,
-          "User-Agent": IOS_SAFARI_USER_AGENT,
-        },
-        signal: controller.signal,
-      }
+    const url = new URL(value);
+    if (url.protocol !== "https:" || url.username || url.password) return false;
+    if (url.port && url.port !== "443") return false;
+    const host = url.hostname.toLowerCase();
+    return APPROVED_PLAYBACK_EMBED_DOMAINS.some(
+      (domain) => host === domain || host.endsWith(`.${domain}`)
     );
-    if (!response.ok) return [];
-    const payload = await response.json();
-    const variants = Array.isArray(payload)
-      ? payload
-      : payload?.streams || payload?.variants || payload?.data || payload?.result || [];
-    return (Array.isArray(variants) ? variants : []).map((variant) => ({
-      id: variant.id || id,
-      source: variant.source || source,
-      streamNo: variant.streamNo || 1,
-      language: variant.language || "",
-      hd: variant.hd === true,
-      embedUrl: variant.embedUrl,
-      viewers: Number(variant.viewers || 0),
-      heatTier: variant.heatTier,
-      provider: provider.label,
-    }));
   } catch {
-    return [];
-  } finally {
-    clearTimeout(timeout);
+    return false;
+  }
+}
+
+async function fetchVariants(provider, source, id) {
+  const startedAt = Date.now();
+  try {
+    return await withDeadline(STREAM_CATALOG_TIMEOUT_MS, async (signal) => {
+      const response = await fetch(
+        `${provider.baseURL}${provider.pathPrefix}/${encodeURIComponent(source)}/${encodeURIComponent(id)}`,
+        {
+          headers: {
+            Accept: "application/json",
+            Referer: provider.baseURL,
+            "User-Agent": IOS_SAFARI_USER_AGENT,
+          },
+          signal,
+        }
+      );
+      if (response.status === 404) {
+        return { provider: provider.label, outcome: "empty", status: 404, elapsedMs: Date.now() - startedAt, variants: [] };
+      }
+      if (!response.ok) {
+        return { provider: provider.label, outcome: "http-error", status: response.status, elapsedMs: Date.now() - startedAt, variants: [] };
+      }
+      const payload = await boundedJSON(response, 512 * 1024, signal);
+      const rawVariants = Array.isArray(payload)
+        ? payload
+        : [payload?.streams, payload?.variants, payload?.data, payload?.result].find(Array.isArray);
+      if (!Array.isArray(rawVariants)) {
+        return { provider: provider.label, outcome: "malformed", status: response.status, elapsedMs: Date.now() - startedAt, variants: [] };
+      }
+      const variants = rawVariants.map((variant) => ({
+        id: variant.id || id,
+        source: variant.source || source,
+        streamNo: variant.streamNo || 1,
+        language: variant.language || "",
+        hd: variant.hd === true,
+        embedUrl: variant.embedUrl,
+        viewers: Number(variant.viewers || 0),
+        heatTier: variant.heatTier,
+        provider: provider.label,
+      }));
+      return { provider: provider.label, outcome: variants.length ? "ok" : "empty", status: response.status,
+        elapsedMs: Date.now() - startedAt, variants };
+    });
+  } catch (error) {
+    return { provider: provider.label, outcome: "request-failed", errorKind: errorKind(error),
+      elapsedMs: Date.now() - startedAt, variants: [] };
   }
 }
 
@@ -563,9 +713,13 @@ async function handleStreams(url) {
   const providerResults = await Promise.all(
     STREAM_PROVIDERS.map((provider) => fetchVariants(provider, source, id))
   );
+  const responding = providerResults.filter((result) => result.outcome === "ok" || result.outcome === "empty").length;
+  const coverage = responding === STREAM_PROVIDERS.length
+    ? "complete"
+    : responding > 0 ? "partial" : "fallback-only";
   const variants = providerResults
-    .flat()
-    .filter((variant) => variant.embedUrl)
+    .flatMap((result) => result.variants)
+    .filter((variant) => isApprovedPlaybackEmbedURL(variant.embedUrl))
     .filter((variant, index, all) => all.findIndex((item) => item.embedUrl === variant.embedUrl) === index)
     .sort((a, b) => {
       const sourceDelta = sourceRank(a.source) - sourceRank(b.source);
@@ -591,7 +745,22 @@ async function handleStreams(url) {
     });
   }
 
-  return json(variants);
+  if (coverage !== "complete") {
+    logWorkerEvent(responding > 0 ? "warn" : "error", "stream_catalog_coverage", {
+      coverage,
+      responding,
+      attempted: STREAM_PROVIDERS.length,
+      providers: providerResults.map(({ provider, outcome, status, elapsedMs, errorKind: providerErrorKind }) => ({
+        provider, outcome, status: status || null, elapsedMs, errorKind: providerErrorKind || null,
+      })),
+    });
+  }
+  return json(variants, 200, {
+    "Cache-Control": "public, max-age=15, stale-while-revalidate=15, stale-if-error=120",
+    "X-Fotty-Catalog-Attempted": String(STREAM_PROVIDERS.length),
+    "X-Fotty-Catalog-Coverage": coverage,
+    "X-Fotty-Catalog-Responding": String(responding),
+  });
 }
 
 async function handlePlayer(url) {
@@ -604,29 +773,32 @@ async function handlePlayer(url) {
 
   // Cloudflare edge IPs get stub HTML from embed.st (NOT FOUND / SANDBOX).
   // Redirect the browser iframe to the real provider embed instead.
-  return Response.redirect(embedStPlayerUrl(source, id, streamNo), 302);
+  return new Response(null, {
+    status: 302,
+    headers: corsHeaders({ Location: embedStPlayerUrl(source, id, streamNo) }),
+  });
 }
 
 const FPL_API_BASE = "https://fantasy.premierleague.com/api";
 
-async function fetchFplJson(path, timeoutMs = 9000) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+async function fetchFplJson(path, parentSignal, timeoutMs = 9000) {
+  const deadline = coachDeadline(parentSignal, timeoutMs);
   try {
-    const response = await fetch(`${FPL_API_BASE}/${path}`, {
+    const response = await abortable(() => fetch(`${FPL_API_BASE}/${path}`, {
       headers: { Accept: "application/json", "User-Agent": IOS_SAFARI_USER_AGENT },
-      signal: controller.signal,
+      signal: deadline.signal,
+      redirect: "error",
       cf: { cacheTtl: path === "bootstrap-static/" || path === "fixtures/" ? 120 : 30 },
-    });
+    }), deadline.signal);
     if (!response.ok) throw new Error(`FPL ${path} returned ${response.status}`);
     const cacheAge = Number(response.headers.get("age"));
     const responseDate = Date.parse(response.headers.get("date") || "");
     if (cacheAge > 300 || (Number.isFinite(responseDate) && Date.now() - responseDate > 300_000)) {
       throw new Error("Official FPL response is stale");
     }
-    return await response.json();
+    return await boundedJSON(response, 4 * 1024 * 1024, deadline.signal);
   } finally {
-    clearTimeout(timeout);
+    deadline.dispose();
   }
 }
 
@@ -640,6 +812,8 @@ function compactPlayer(player) {
   return {
     id: player.id,
     name: player.web_name,
+    full_name: `${player.first_name || ""} ${player.second_name || ""}`.trim(),
+    selectable: player.can_select !== false && player.status !== "u",
     team: player.team,
     position: player.element_type,
     cost: player.now_cost,
@@ -753,14 +927,18 @@ function compactPicks(picks) {
   };
 }
 
-async function buildOfficialFplEvidence(body) {
+// Symbol-keyed validation data stays server-side: JSON sent to the model
+// contains relevant evidence, not an unnecessary full player-catalog payload.
+const COACH_TRANSFER_CONTEXT = Symbol("coach-transfer-validation-context");
+
+export async function buildOfficialFplEvidence(body, signal) {
   const managerId = finiteInteger(body.managerId);
   const rivalId = finiteInteger(body.rivalId);
   const [bootstrap, fixtures, manager, history] = await Promise.all([
-    fetchFplJson("bootstrap-static/"),
-    fetchFplJson("fixtures/"),
-    managerId ? fetchFplJson(`entry/${managerId}/`) : Promise.resolve(null),
-    managerId ? fetchFplJson(`entry/${managerId}/history/`) : Promise.resolve(null),
+    fetchFplJson("bootstrap-static/", signal),
+    fetchFplJson("fixtures/", signal),
+    managerId ? fetchFplJson(`entry/${managerId}/`, signal) : Promise.resolve(null),
+    managerId ? fetchFplJson(`entry/${managerId}/history/`, signal) : Promise.resolve(null),
   ]);
   const currentEvent = bootstrap.events?.find((event) => event.is_current) || null;
   const nextEvent = bootstrap.events?.find((event) => event.is_next) || null;
@@ -770,21 +948,20 @@ async function buildOfficialFplEvidence(body) {
     ? Date.now() >= Date.parse(planningEvent.deadline_time)
     : false;
 
-  let picks = null;
-  let live = null;
-  let rivalPicks = null;
-  if (managerId && currentEventId) {
-    const pickEvent = afterDeadline ? currentEventId : Math.max(1, currentEventId - 1);
-    picks = await fetchFplJson(`entry/${managerId}/event/${pickEvent}/picks/`).catch(() => null);
-  }
-  if (afterDeadline && currentEventId) {
-    live = await fetchFplJson(`event/${currentEventId}/live/`).catch(() => null);
-    if (rivalId) {
-      rivalPicks = await fetchFplJson(`entry/${rivalId}/event/${currentEventId}/picks/`).catch(() => null);
-    }
-  }
+  const pickEvent = afterDeadline ? currentEventId : Math.max(1, (currentEventId || 1) - 1);
+  const optionalEvidence = (path) => fetchFplJson(path, signal).catch(() => { signal.throwIfAborted(); return null; });
+  const namedPlayers = resolveCoachPlayers({ query: body.query, history: body.history,
+    players: bootstrap.elements || [], teams: bootstrap.teams || [] });
+  const [picks, live, rivalPicks, playerHistory] = await Promise.all([
+    managerId && currentEventId ? optionalEvidence(`entry/${managerId}/event/${pickEvent}/picks/`) : null,
+    afterDeadline && currentEventId ? optionalEvidence(`event/${currentEventId}/live/`) : null,
+    afterDeadline && currentEventId && rivalId ? optionalEvidence(`entry/${rivalId}/event/${currentEventId}/picks/`) : null,
+    isFplScoringQuestion(body.query) || !namedPlayers.complete ? []
+      : collectCoachPlayerHistory(namedPlayers.playerIDs, { fetchJSON: fetchFplJson, signal }),
+  ]);
 
   const requestedIds = contextPlayerIds(body.context);
+  for (const id of namedPlayers.playerIDs) requestedIds.add(id);
   for (const pick of picks?.picks || []) requestedIds.add(pick.element);
   for (const pick of rivalPicks?.picks || []) requestedIds.add(pick.element);
   const available = (bootstrap.elements || [])
@@ -821,8 +998,16 @@ async function buildOfficialFplEvidence(body) {
     players: bootstrap.elements,
   });
 
-  return {
+  const evidence = {
     verified_at: new Date().toISOString(),
+    named_player_resolution: namedPlayers,
+    requested_player_history: playerHistory,
+    context_conflicts: coachContextConflicts(bootstrap.elements || [], body.context),
+    evidence_limits: [
+      "Official data was fetched for this answer; forecasts, model confidence, proposed transfers and every generated claim are not independently verified.",
+      "Exact bank, free transfers and selling prices require private account state. Validate the complete proposed route in Transfer Lab before treating it as legal.",
+      ...(playerHistory.some((item) => item.status !== "fetched") ? ["Some requested player histories were unavailable or beyond the four-player/four-second budget; do not infer minutes or injury certainty from missing history."] : []),
+    ],
     current_event: compactEvent(currentEvent),
     next_event: compactEvent(nextEvent),
     verified_rules: {
@@ -850,19 +1035,24 @@ async function buildOfficialFplEvidence(body) {
       .filter((item) => item.stats),
     scoring,
   };
+  evidence[COACH_TRANSFER_CONTEXT] = coachTransferContext({ bootstrap, picks, manager, context: body.context });
+  return evidence;
 }
 
 function coachSystemPrompt() {
   return `You are Fotty's senior Fantasy Premier League decision coach.
 Use OFFICIAL_EVIDENCE as the factual authority and CLIENT_ANALYSIS only for clearly labeled Fotty projections, local drafts, preferences, validation results, and conversation memory.
+NAMED_PLAYER_RESOLUTION identifies the question's players against current official bootstrap. Use resolved IDs for the question's named subjects; alternatives may use only IDs present in RELEVANT_PLAYERS. Never silently replace a missing or ambiguous subject with a popular shortlist player. Previous user questions can identify follow-up subjects, but assistant conversation text is not factual evidence. Respect CONTEXT_CONFLICTS: old client names, prices and projections never override current official identity/facts. A player present but not selectable is not a legal transfer target.
+REQUESTED_PLAYER_HISTORY is bounded and may be unavailable. State that absence, distinguish past minutes from expected minutes, and never treat news/availability flags as guaranteed future selection. Cite player ID/name, relevant gameweek/fixture and the evidence fetch time in factual evidence items. Rules, fixture facts and deterministic scores are not model forecasts. Confidence is your judgment, not measured accuracy; evidence receipt and limited rule checks do not verify every generated claim or complete transfer-route legality.
 Check the whole decision: deadline phase, squad legality, budget uncertainty, free transfers, hit cost, fixture horizon, blanks/doubles, availability, expected minutes, captaincy, chips, bench coverage, price projections, and the selected rival when relevant.
 Never invent a statistic, press quote, injury certainty, effective ownership, price guarantee, rank prediction, or applied transfer. Never claim Fotty changes the official team. If public data cannot prove an exact selling price or free-transfer count, say so.
 Interpret VERIFIED_RULES literally: max_extra_free_transfers is additional to the current free transfer, so four extra means five total. transfers_sell_on_fee is the share of price profit returned to the manager, never a fixed monetary fee.
 Price projections are directional likelihood signals only; never treat a projection percentage as a price rise, realized profit, or selling-price change. Event fields are global gameweek facts, never evidence of the manager's transfers. Zero minutes is not evidence a player was omitted unless that player's fixture has started or finished.
 SCORING is calculated by Fotty's deterministic rules engine. Never recalculate or contradict official_current_points, projected_points_after_safe_autosubs, transfer_cost, or the listed official/projected substitutions. The official current total may temporarily exclude safe pending automatic substitutions; in that case state both totals and label the projected total provisional.
 Challenge the user's premise when evidence does not support it. Prefer a reasoned hold over activity for its own sake.
-Return one JSON object with exactly these keys:
-{"answer":"Markdown answer with a clear recommendation and downside","confidence":"low|medium|high","evidence":["specific facts used"],"assumptions":["uncertainties"],"actions":["concrete next checks or local draft steps"]}`;
+Return one JSON object with these required keys and the optional proposedTransfers key:
+{"answer":"Markdown answer with a clear recommendation and downside","confidence":"low|medium|high","evidence":["specific facts used"],"assumptions":["uncertainties"],"actions":["concrete next checks or local draft steps"],"proposedTransfers":[{"out":123,"in":456}]}
+When recommending a concrete transfer route, proposedTransfers must contain its simultaneous outgoing/incoming official integer player IDs (at most 15 pairs), not names. Replace each player with the same official position; use the selected baseline (CLIENT_ANALYSIS.isLocalDraft indicates a local plan, otherwise PUBLISHED_PICKS). Omit this key or use [] for a hold or advice without one concrete route. Do not combine alternative routes in one list. Fotty will validate the whole resulting squad and available budget estimate. Never claim private budget, selling prices, transfer allowance, hit cost or route legality has been verified by the model. Prose alone is never a validated transfer plan.`;
 }
 
 function coachUsage(completion) {
@@ -908,50 +1098,91 @@ export function coachResultIsComplete(result) {
 }
 
 async function handleFplCoach(request, env) {
+  const deadline = coachDeadline(request.signal);
+  try {
+    return await abortable(() => handleFplCoachWithinDeadline(request, env, deadline.signal), deadline.signal);
+  } catch {
+    return json({ error: deadline.signal.aborted ? "The Coach request ended before completion. No automatic retry was made." : "The Coach request failed." }, 504);
+  } finally {
+    deadline.dispose();
+  }
+}
+
+async function handleFplCoachWithinDeadline(request, env, signal) {
   const installId = request.headers.get("x-fotty-install-id")?.trim() || "";
   if (!/^[A-Za-z0-9_-]{8,128}$/.test(installId)) {
     return json({ error: "Missing or invalid installation identifier." }, 400);
   }
-  const clientAddress = request.headers.get("cf-connecting-ip") || "unknown";
-  const limited = await checkCoachLimit(env.FPL_COACH_RATE_LIMITER, `fpl-coach:${clientAddress}:${installId}`);
-  if (limited) return json({ error: limited.error }, limited.status, { "Retry-After": "60" });
-  const parsed = await readCoachRequest(request);
+  const parsed = await readCoachRequest(request, signal);
+  signal.throwIfAborted();
   if (parsed.error) return json({ error: parsed.error }, parsed.status);
   const { body } = parsed;
   const { query } = body;
+  const clientAddress = request.headers.get("cf-connecting-ip") || "unknown";
+  const limited = await abortable(() => checkCoachLimit(env.FPL_COACH_RATE_LIMITER, `fpl-coach:${clientAddress}:${installId}`), signal);
+  if (limited) return json({ error: limited.error }, limited.status, { "Retry-After": "60" });
+  const scoringQuestion = isFplScoringQuestion(query);
+  if (scoringQuestion) {
+    // Deterministic scoring is free, but it still performs multiple official
+    // FPL requests. Installation IDs are client-generated, so bind this path
+    // to the connection and a global capacity key as well as the installation.
+    const scoringClientLimit = await abortable(
+      () => checkCoachLimit(env.FPL_COACH_RATE_LIMITER, `fpl-scoring:${clientAddress}`),
+      signal
+    );
+    if (scoringClientLimit) return json({ error: scoringClientLimit.error }, scoringClientLimit.status, { "Retry-After": "60" });
+    const scoringCapacity = await abortable(
+      () => checkCoachLimit(env.FPL_COACH_CAPACITY_RATE_LIMITER, "fpl-scoring-capacity"),
+      signal
+    );
+    if (scoringCapacity) return json({ error: scoringCapacity.error }, scoringCapacity.status, { "Retry-After": "60" });
+  } else {
+    const accessError = await authorizePaidCoach(request, env);
+    if (accessError) return json({ error: accessError.error }, accessError.status);
+  }
 
   let officialEvidence;
   let officialStatus = "fresh";
   try {
-    officialEvidence = await buildOfficialFplEvidence(body);
+    officialEvidence = await buildOfficialFplEvidence(body, signal);
   } catch {
+    signal.throwIfAborted();
     officialStatus = "client-context-only";
     officialEvidence = { error: "Official FPL refresh failed; use client timestamps and state uncertainty." };
   }
 
   // Factual scoring stays deterministic even when the official refresh fails.
-  if (isFplScoringQuestion(query)) {
+  if (scoringQuestion) {
     return json(deterministicFplScoringResponse(
       officialEvidence.scoring,
       officialEvidence.verified_at || new Date().toISOString()
     ));
   }
 
+  const clarification = coachPlayerClarification(officialEvidence.named_player_resolution);
+  if (clarification) return json({ error: clarification }, 422);
+  if (officialStatus === "client-context-only") {
+    const unresolved = resolveCoachPlayers({ query, history: body.history });
+    if (unresolved.mentions.length) return json({ error: "Official player evidence could not be refreshed. I cannot verify the named player from old client context; try again later with the full name and club." }, 503);
+  }
+  if (officialEvidence.requested_player_history?.some((item) => item.status !== "fetched")) officialStatus = "fresh-partial";
+
   if (!env.DEEPSEEK_API_KEY) return json({ error: "Smart coach is not configured." }, 503);
-  const capacity = await checkCoachLimit(env.FPL_COACH_CAPACITY_RATE_LIMITER, "fpl-coach-capacity");
+  const capacity = await abortable(() => checkCoachLimit(env.FPL_COACH_CAPACITY_RATE_LIMITER, "fpl-coach-capacity"), signal);
   if (capacity) return json({ error: capacity.error }, capacity.status, { "Retry-After": "60" });
+  const allowance = await reservePaidCoach(env, signal);
+  if (allowance) return json({ error: allowance.error }, allowance.status);
 
   const prompt = `QUESTION:\n${query}\n\nOFFICIAL_EVIDENCE:\n${JSON.stringify(officialEvidence)}\n\nCLIENT_ANALYSIS:\n${JSON.stringify(body.context || {})}\n\nRECENT_CONVERSATION:\n${JSON.stringify((body.history || []).slice(-8))}`;
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45000);
   try {
-    const upstream = await fetch("https://api.deepseek.com/chat/completions", {
+    const upstream = await abortable(() => fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${env.DEEPSEEK_API_KEY}`,
         "Content-Type": "application/json",
       },
-      signal: controller.signal,
+      signal,
+      redirect: "error",
       body: JSON.stringify({
         model: env.FPL_COACH_MODEL || "deepseek-v4-flash",
         messages: [
@@ -967,14 +1198,14 @@ async function handleFplCoach(request, env) {
         stream: false,
         user_id: installId,
       }),
-    });
+    }), signal);
     if (!upstream.ok) {
       return json(
         { error: "The reasoning provider is temporarily unavailable." },
         upstream.status === 429 ? 429 : 502
       );
     }
-    const completion = await upstream.json();
+    const completion = await boundedJSON(upstream, 512 * 1024, signal);
     const content = completion?.choices?.[0]?.message?.content;
     if (typeof content !== "string" || !content.trim()) {
       return json({
@@ -1013,11 +1244,18 @@ async function handleFplCoach(request, env) {
         usage: coachUsage(completion),
       }, 502);
     }
+    const transferValidation = validateCoachTransfers(result.proposedTransfers, officialEvidence[COACH_TRANSFER_CONTEXT]);
+    if (transferValidation.status === "invalid") {
+      return json({ error: `The suggested transfer route failed whole-squad validation: ${transferValidation.reasons.join(" ")} No moves were applied and no automatic paid retry was made.`,
+        transferValidation, model: completion?.model || env.FPL_COACH_MODEL || "deepseek-v4-flash",
+        usage: coachUsage(completion) }, 422);
+    }
     return json({
       answer: String(result.answer || "No recommendation was returned."),
       confidence: ["low", "medium", "high"].includes(result.confidence) ? result.confidence : "low",
       evidence: Array.isArray(result.evidence) ? result.evidence.slice(0, 8).map(String) : [],
-      assumptions: Array.isArray(result.assumptions) ? result.assumptions.slice(0, 8).map(String) : [],
+      assumptions: [...transferValidation.reasons, ...(officialEvidence.evidence_limits || ["Official refresh failed; client context is not current verified evidence."]),
+        ...(officialEvidence.context_conflicts || []), ...(Array.isArray(result.assumptions) ? result.assumptions.map(String) : [])].slice(0, 8),
       actions: Array.isArray(result.actions) ? result.actions.slice(0, 8).map(String) : [],
       source: "DeepSeek",
       model: completion.model || env.FPL_COACH_MODEL || "deepseek-v4-flash",
@@ -1025,18 +1263,23 @@ async function handleFplCoach(request, env) {
       verifiedAt: officialEvidence.verified_at || new Date().toISOString(),
       officialDataStatus: officialStatus,
       usage: coachUsage(completion),
+      proposedTransfers: Array.isArray(result.proposedTransfers) ? result.proposedTransfers.map(({ out, in: incoming }) => ({ out, in: incoming })) : undefined,
+      transferValidation,
     });
   } catch (error) {
     return json(
       { error: error?.name === "AbortError" ? "The coach timed out." : "The coach request failed." },
       504
     );
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
 const worker = {
+  async scheduled(_controller, env, ctx) {
+    if (!env.CRICKET_FIXTURES) return;
+    ctx.waitUntil(cricketRegistryStub(env).fetch(new Request("https://cricket-registry.invalid/refresh", { method: "POST" }))
+      .then((response) => { if (!response.ok) throw new Error("Cricket scheduled refresh failed"); }));
+  },
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders() });
@@ -1057,8 +1300,9 @@ const worker = {
       return handleAPIFootballLive(env);
     }
     if (url.pathname === "/api/cricket/cpl-fixtures" || url.pathname === "/api/cricket/cpl-fixtures/") {
-      return handleCPLFixtures();
+      return handleCPLFixtures(env);
     }
+    if (url.pathname === "/api/cricket/fixtures" || url.pathname === "/api/cricket/fixtures/") return handleCricketFixtures(env);
     if (url.pathname === "/api/live/streams") return handleStreams(url);
     if (url.pathname === "/api/embed/player") return handlePlayer(url);
     return json({ error: "Not found" }, 404);

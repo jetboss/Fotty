@@ -24,8 +24,8 @@ function ordinal(number) {
 function verifierHTML(manifest, changes = new Map([[28, "2026-09-06T19:00:00Z"]])) {
   return manifest.fixtures.map((fixture) => {
     const description = fixture.number <= 35 ? `${ordinal(fixture.number)} Match` : fixture.stage;
-    const team1 = fixture.number <= 35 ? teamNames[fixture.team1] : "TBC";
-    const team2 = fixture.number <= 35 ? teamNames[fixture.team2] : "TBC";
+    const team1 = fixture.team1 ? teamNames[fixture.team1] : "TBC";
+    const team2 = fixture.team2 ? teamNames[fixture.team2] : "TBC";
     const start = Date.parse(changes.get(fixture.number) ?? fixture.start);
     return JSON.stringify({
       matchId: Number(fixture.upstreamId), seriesId: 12123,
@@ -73,6 +73,58 @@ test("reviewed CPL manifest is complete and the known verifier conflict fails cl
   assert.equal(resolved.manifest.fixtures[27].start, "2026-09-06T14:00:00Z");
 });
 
+test("all three exact reviewed verifier disagreements retain the official schedule", () => {
+  const fallbackBefore = structuredClone(cplFixtureFallback);
+  const knownChanges = new Map([
+    [21, "2026-08-31T23:00:00Z"],
+    [22, "2026-09-01T21:00:00Z"],
+    [28, "2026-09-06T19:00:00Z"],
+  ]);
+  const resolved = resolveCPLManifest({
+    fallback: cplFixtureFallback,
+    publishedHTML: publishedHTML(cplFixtureFallback),
+    correctionJSON,
+    verifierHTML: verifierHTML(cplFixtureFallback, knownChanges),
+    now: new Date("2026-09-30T16:00:00Z"),
+  });
+  assert.equal(resolved.authoritativeChanges.length, 0);
+  assert.deepEqual(resolved.reviewedVerifierChanges.map((change) => change.number), [21, 22, 28]);
+  assert.deepEqual(resolved.manifest.fixtures, fallbackBefore.fixtures);
+  assert.equal(resolved.manifest.revision, fallbackBefore.revision);
+  assert.deepEqual(cplFixtureFallback, fallbackBefore, "reviewing exceptions must not mutate the durable receipt");
+
+  for (const number of [21, 22, 28]) {
+    const changed = new Map(knownChanges);
+    changed.set(number, new Date(Date.parse(changed.get(number)) + 86_400_000).toISOString().replace(".000Z", "Z"));
+    assert.throws(() => resolveCPLManifest({
+      fallback: cplFixtureFallback,
+      publishedHTML: publishedHTML(cplFixtureFallback),
+      correctionJSON,
+      verifierHTML: verifierHTML(cplFixtureFallback, changed),
+      now: new Date("2026-09-30T16:00:00Z"),
+    }), /1 current-verifier change\(s\) need human review/, `a different date for match ${number} must not inherit an exception`);
+  }
+});
+
+test("manifest validation accepts a complete future season without 2026 fixture topology", () => {
+  const future = {
+    schemaVersion: 1,
+    competitionId: "cpl",
+    season: 2027,
+    revision: "2027-reviewed",
+    checkedAt: "2027-07-01T00:00:00Z",
+    sources: [{ kind: "published", url: "https://example.test/one" }, { kind: "verification", url: "https://example.test/two" }],
+    verificationExceptions: [],
+    teamNames: { tobago: "Tobago Test XI" },
+    fixtures: [
+      { number: 1, upstreamId: "200001", start: "2027-08-01T23:00:00Z", team1: "trinbago", team2: "tobago" },
+      { number: 2, upstreamId: "200002", start: "2027-08-02T23:00:00Z", team1: "guyana", team2: "jamaica" },
+      { number: 3, upstreamId: "200003", start: "2027-09-01T23:00:00Z", stage: "Final" },
+    ],
+  };
+  assert.doesNotThrow(() => validateCPLManifest(future));
+});
+
 test("an incomplete or newly conflicting verifier cannot replace the trusted schedule", () => {
   assert.throws(() => resolveCPLManifest({
     fallback: cplFixtureFallback,
@@ -102,6 +154,26 @@ test("an official change confirmed by the current verifier becomes a new revisio
   assert.equal(resolved.authoritativeChanges.length, 1);
   assert.equal(resolved.manifest.checkedAt, "2026-09-03T14:00:00Z");
   assert.equal(resolved.manifest.fixtures[24].start, "2026-09-04T00:00:00Z");
+});
+
+test("confirmed playoff participants replace a stage-only placeholder", () => {
+  const stageOnly = structuredClone(cplFixtureFallback);
+  delete stageOnly.fixtures[38].team1;
+  delete stageOnly.fixtures[38].team2;
+  const current = structuredClone(stageOnly);
+  current.fixtures[38].team1 = "antigua";
+  current.fixtures[38].team2 = "jamaica";
+  const resolved = resolveCPLManifest({
+    fallback: stageOnly,
+    publishedHTML: publishedHTML(stageOnly),
+    correctionJSON,
+    verifierHTML: verifierHTML(current),
+    now: new Date("2026-09-20T15:00:00Z"),
+  });
+  assert.equal(resolved.manifest.fixtures[38].stage, "Final");
+  assert.equal(resolved.manifest.fixtures[38].team1, "antigua");
+  assert.equal(resolved.manifest.fixtures[38].team2, "jamaica");
+  assert.match(resolved.authoritativeChanges[0].message, /teams/);
 });
 
 test("Worker CPL route returns a complete official schedule without requiring app secrets", async (t) => {
