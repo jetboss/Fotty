@@ -28,7 +28,7 @@ function validBody(body) {
         && typeof item.content === "string" && item.content.length <= 8000));
 }
 
-export async function readCoachRequest(request) {
+export async function readCoachRequest(request, signal) {
   const tooLarge = { error: "Coach request is too large.", status: 413 };
   if (Number(request.headers.get("content-length")) > MAX_BODY_BYTES) return tooLarge;
   const reader = request.body?.getReader();
@@ -38,7 +38,7 @@ export async function readCoachRequest(request) {
   try {
     // Enforce the limit while reading, including chunked requests with no length header.
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await abortable(() => reader.read(), signal);
       if (done) break;
       size += value.byteLength;
       if (size > MAX_BODY_BYTES) {
@@ -56,12 +56,13 @@ export async function readCoachRequest(request) {
   } catch {
     return { error: "Invalid JSON body.", status: 400 };
   } finally {
+    if (signal?.aborted) void reader.cancel().catch(() => {});
     reader.releaseLock();
   }
 }
 
 export async function checkCoachLimit(binding, key) {
-  if (!binding) return null;
+  if (!binding) return { error: "The Coach safety limit is not configured.", status: 503 };
   try {
     const result = await binding.limit({ key });
     if (result?.success === true) return null;
@@ -69,3 +70,4 @@ export async function checkCoachLimit(binding, key) {
   } catch { /* A configured but failing limiter must not bypass the spending guard. */ }
   return { error: "The coach is temporarily unavailable. Try again shortly.", status: 503 };
 }
+import { abortable } from "./coach-safety.mjs";

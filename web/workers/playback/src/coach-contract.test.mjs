@@ -1,7 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import worker, { coachResultIsComplete, coachRuleContradictions } from "./index.js";
+import actualWorker, { coachResultIsComplete, coachRuleContradictions } from "./index.js";
+import { WORKER_SOURCE_VERSION } from "./worker-version.mjs";
+
+// Existing semantic tests model a configured, authorized private installation.
+// Missing/revoked guards are exercised separately against actualWorker.
+const testToken = "ab".repeat(32);
+const testDigest = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(testToken))))
+  .map((value) => value.toString(16).padStart(2, "0")).join("");
+const configuredEnv = {
+  FPL_COACH_RATE_LIMITER: { limit: async () => ({ success: true }) },
+  FPL_COACH_CAPACITY_RATE_LIMITER: { limit: async () => ({ success: true }) },
+  FPL_COACH_PAID_ENABLED: "1", FPL_COACH_DAILY_LIMIT: "5",
+  FPL_COACH_ACCESS_SHA256: JSON.stringify([testDigest]),
+  FPL_COACH_BUDGET: { idFromName: () => "global", get: () => ({ fetch: async () => Response.json({ allowed: true, remaining: 4 }) }) },
+};
+const worker = { fetch: (request, env) => actualWorker.fetch(request, { ...configuredEnv, ...env }) };
 
 const completeResult = {
   answer: "Roll the transfer unless the availability check changes.",
@@ -14,7 +29,7 @@ const completeResult = {
 function coachRequest(body, headers = {}) {
   return new Request("https://test.invalid/api/fpl/coach", {
     method: "POST",
-    headers: { "x-fotty-install-id": "test-install-1234", ...headers },
+    headers: { "x-fotty-install-id": "test-install-1234", authorization: `Bearer ${testToken}`, ...headers },
     body: JSON.stringify(body),
   });
 }
@@ -36,7 +51,7 @@ test("health identifies the exact Worker source release", async () => {
     FOOTBALL_SCORE_BUDGET: quota,
   });
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).sourceVersion, "2026-09-06.fixture-freshness-1");
+  assert.equal((await response.json()).sourceVersion, WORKER_SOURCE_VERSION);
 });
 
 test("malformed Coach shapes return 400 before any upstream call", async (t) => {

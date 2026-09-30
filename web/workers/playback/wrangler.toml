@@ -2,7 +2,26 @@ name = "fotty-playback-v3"
 account_id = "4802f4dfeccd6893faeafa09827fd9ef"
 main = "src/index.js"
 compatibility_date = "2026-08-29"
-compatibility_flags = [ "no_nodejs_compat", "no_nodejs_compat_v2" ]
+compatibility_flags = [ "no_nodejs_compat", "no_nodejs_compat_v2", "enable_request_signal" ]
+
+# One shared due-check every five minutes; quiet periods fetch at most every
+# four hours. Updates run even when every tester has closed the app.
+[triggers]
+crons = [ "*/5 * * * *" ]
+
+# Production logs make provider coverage and fallback behavior diagnosable.
+# Trace sampling is intentionally bounded for this small private beta.
+[observability]
+enabled = true
+
+  [observability.logs]
+  enabled = true
+  invocation_logs = true
+  head_sampling_rate = 1
+
+  [observability.traces]
+  enabled = true
+  head_sampling_rate = 0.05
 
 # Deploy: cd web/workers/playback && npx wrangler deploy
 # Then rebuild static site with:
@@ -12,14 +31,36 @@ compatibility_flags = [ "no_nodejs_compat", "no_nodejs_compat_v2" ]
 # Set "0" to require a future access policy; default open for companion source lookup.
 FOTTY_PLAYBACK_OPEN = "1"
 FPL_COACH_MODEL = "deepseek-v4-flash"
+# Staged safety defaults. Enable only after private codes and an owner-approved
+# group-wide paid-attempt allowance are configured. This is not a money cap.
+FPL_COACH_PAID_ENABLED = "0"
+FPL_COACH_DAILY_LIMIT = "50"
+# Secret FPL_COACH_ACCESS_SHA256: JSON array of SHA-256 digests of individual
+# random 32-byte hex invitation codes. Never place plaintext codes in this file.
+
+[[durable_objects.bindings]]
+name = "FPL_COACH_BUDGET"
+class_name = "CoachQuotaBudget"
 
 [[durable_objects.bindings]]
 name = "FOOTBALL_SCORE_BUDGET"
 class_name = "FootballQuotaBudget"
 
+[[durable_objects.bindings]]
+name = "CRICKET_FIXTURES"
+class_name = "CricketFixtureRegistry"
+
 [[migrations]]
 tag = "football-score-budget-v1"
 new_sqlite_classes = [ "FootballQuotaBudget" ]
+
+[[migrations]]
+tag = "coach-budget-v1"
+new_sqlite_classes = [ "CoachQuotaBudget" ]
+
+[[migrations]]
+tag = "cricket-fixtures-v1"
+new_sqlite_classes = [ "CricketFixtureRegistry" ]
 
 [[ratelimits]]
 name = "FPL_COACH_RATE_LIMITER"
