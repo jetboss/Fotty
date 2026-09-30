@@ -336,6 +336,38 @@ test("independent CWI parser handles nested divs, repeated links and multiple fi
   assert.equal(fixtures[1].away.name, "West Indies Women");
 });
 
+test("independent fixture names decode entities once and preserve double-encoded literals", () => {
+  const fixtures = parseIndependentCWIInternationalFixtures(cwiDate + cwiFixture({
+    home: "India &amp;nbsp;Women &amp;quot;A&amp;quot; &amp;#39;XI&amp;#39;",
+    away: "West&nbsp;Indies &amp; &quot;A&quot; &apos;XI&#39;",
+  }));
+  assert.equal(fixtures[0].home.name, "India &nbsp;Women &quot;A&quot; &#39;XI&#39;");
+  assert.equal(fixtures[0].away.name, 'West Indies & "A" \'XI\'');
+});
+
+test("adjacent fixture comments retain text separation and hide commented-out rows", () => {
+  const hidden = `<!-- ${cwiDate}${cwiFixture()} -->`;
+  const fixtures = parseIndependentCWIInternationalFixtures(hidden + cwiDate + cwiFixture({
+    home: "India<!-- first --><!-- second -->Women",
+    away: "West<!-- hidden -->Indies Women",
+  }));
+  assert.equal(fixtures.length, 1);
+  assert.equal(fixtures[0].home.name, "India Women");
+  assert.equal(fixtures[0].away.name, "West Indies Women");
+});
+
+test("masking comments cannot assemble fixture markup from separated fragments", () => {
+  const fragmentedFixture = cwiFixture().replace('class="wi-fixture"', 'class="wi-fixt<!-- separator -->ure"');
+  assert.throws(() => parseIndependentCWIInternationalFixtures(cwiDate + fragmentedFixture), /not recognized/);
+  const fragmentedHeading = cwiDate.replace("<h3>", "<h<!-- separator -->3>");
+  assert.throws(() => parseIndependentCWIInternationalFixtures(fragmentedHeading + cwiFixture()), /not recognized/);
+});
+
+test("unterminated comments fail closed even after a complete visible fixture", () => {
+  assert.throws(() => parseIndependentCWIInternationalFixtures(cwiDate + cwiFixture() + "<!-- truncated"), /comment is unterminated/);
+  assert.throws(() => parseIndependentCWIInternationalFixtures("<!-- " + cwiDate + cwiFixture()), /comment is unterminated/);
+});
+
 test("cross-midnight fixtures fail closed until the independent calendar-heading timezone is documented", () => {
   assert.throws(() => parseIndependentCWIInternationalFixtures(cwiDate + cwiFixture({ time: "21:30 AST (01:30 UTC)" })), /timezone is ambiguous/);
 });

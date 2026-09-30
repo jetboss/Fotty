@@ -2,14 +2,33 @@ const months = Object.freeze({ Jan: 1, Feb: 2, Mar: 3, Apr: 4, May: 5, Jun: 6, J
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const durationHours = Object.freeze({ T10: 4, T20: 8, ODI: 12 });
 const minute = 60_000;
+const textEntities = Object.freeze({ "&amp;": "&", "&nbsp;": " ", "&#39;": "'", "&apos;": "'", "&quot;": '"' });
 
 function requireValue(condition, message) {
   if (!condition) throw new Error(message);
 }
 
 function textContent(value) {
-  return value.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").replace(/&nbsp;/g, " ")
-    .replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, " ").trim();
+  const visible = value.replace(/<[^>]*>/g, " ");
+  // Decode once: &amp;nbsp; is literal &nbsp; text, not a second entity.
+  return visible.replace(/&(?:amp|nbsp|#39|apos|quot);/g, (entity) => textEntities[entity])
+    .replace(/\s+/g, " ").trim();
+}
+
+function maskHTMLComments(html) {
+  const parts = [];
+  let cursor = 0;
+  while (true) {
+    const start = html.indexOf("<!--", cursor);
+    if (start === -1) {
+      parts.push(html.slice(cursor));
+      return parts.join("");
+    }
+    const end = html.indexOf("-->", start + 4);
+    requireValue(end !== -1, "An independent fixture comment is unterminated.");
+    parts.push(html.slice(cursor, start), " ".repeat(end + 3 - start));
+    cursor = end + 3;
+  }
 }
 
 function contentForClass(html, className) {
@@ -42,7 +61,8 @@ function fixtureStart(date, time) {
 
 export function parseIndependentCWIInternationalFixtures(html) {
   requireValue(typeof html === "string" && Buffer.byteLength(html) <= 1024 * 1024, "Independent fixture HTML exceeded the size limit.");
-  html = html.replace(/<!--[\s\S]*?-->/g, "");
+  // Preserve separators and offsets; this is lexical comparison, not HTML output.
+  html = maskHTMLComments(html);
   if (/\btemplate-fixturesindexpage\b/.test(html) && /<div\s+class=["']row wi-fixtures["']>\s*<\/div>/.test(html)) return [];
   const tokens = [...html.matchAll(/<h3>\s*<span>\s*(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s*<\/span>\s*(\d{4})\s*<\/h3>|<div\s+class=["']wi-fixture["']\s*>/g)];
   requireValue(tokens.some((token) => token[1]) && tokens.some((token) => !token[1]), "Independent fixture page structure was not recognized.");
