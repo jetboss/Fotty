@@ -1,5 +1,7 @@
 // Official international-cricket fixtures, separate from broadcast availability.
 // A successful HTTP response is not enough: completeness and source time matter.
+import { hasReviewedICCKickoffCorrection } from "./icc-kickoff-corrections.mjs";
+
 export const CRICKET_COMPETITIONS = Object.freeze([
   { id: "cpl", name: "Caribbean Premier League" },
   { id: "west-indies", name: "West Indies internationals" },
@@ -130,7 +132,8 @@ export function normalizeICC(pages, now) {
       competitionId: westIndies ? "west-indies" : "icc", competitionName: safeLabel(row.series_name), home, away,
       source: { name: "ICC", url: `https://www.icc-cricket.com/matches/${identifier(row.match_id)}`, observedAt },
       // Internal admission evidence; stripped from the public contract below.
-      revised: row.is_revised === true });
+      revised: row.is_revised === true,
+      ...(row.series_id === undefined ? {} : { publisherSeriesId: identifier(row.series_id) }) });
   }
   return { fixtures, observedAt, pendingByCompetition };
 }
@@ -148,7 +151,10 @@ export function admitICC(candidate, previous, now) {
       continue;
     }
     if (current.home.id !== old.home.id || current.away.id !== old.away.id) throw new Error("ICC identity conflict");
-    if (current.start !== old.start && !current.revised) throw new Error("Unconfirmed ICC kickoff change");
+    if (current.start !== old.start && !current.revised
+      && !hasReviewedICCKickoffCorrection(current, old, candidate.observedAt, now)) {
+      throw new Error("Unconfirmed ICC kickoff change");
+    }
     if (["finished", "cancelled"].includes(old.status) && ["live", "scheduled"].includes(current.status)) {
       throw new Error("ICC terminal-status regression");
     }
@@ -162,6 +168,7 @@ export function admitICC(candidate, previous, now) {
   return { ...candidate, fixtures: candidate.fixtures.map((fixture) => {
     const publicFixture = { ...fixture };
     delete publicFixture.revised;
+    delete publicFixture.publisherSeriesId;
     return publicFixture;
   }) };
 }

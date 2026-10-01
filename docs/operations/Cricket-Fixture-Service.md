@@ -1,18 +1,30 @@
 # Automatic cricket fixtures
 
-Status, 1 October 2026: cloud collection and the hourly monitor are published
-through protected PR27; production source3 preserves them. Candidate source4's
-cohort-isolation/boundary repair now has owner publication/deployment approval,
-not deployed recovery. New native installs and TestFlight are not authorized.
+Status, 1 October 2026: source4's cohort-isolation/boundary repair is deployed
+through protected PR35. The Worker-only correction candidate now has owner
+publication/deployment approval; production recovery still requires a deployed
+receipt. Native edits, installs and TestFlight are outside this release.
 
-At14:10 UTC production retained67 fixtures (WI9/ICC58) with eight failures and
-the original13:00 UTC observation. Three future ICC women's tri-series kickoffs
-changed30 minutes without is_revised; no independent correction clearance was
-found. Fresh CWI agreed with five in-window WI fixtures and had no live/next24h
-omission. Scheduled run36877207360 at14:33 UTC confirmed repeated sync failure.
-Source4 independently admits WI/ICC after the unchanged complete collection
-gate, retaining failed cohort facts/receipts exactly. It does not accept those
-three unflagged corrections merely to clear the monitor.
+ICC's rendered schedule and all three canonical match-centre pages were checked
+on 1 October. They confirm the unflagged UTC corrections below for Women's T20I
+Tri-Series in Malaysia, 2026 (publisher series15827). This is authoritative
+publisher confirmation, not independent national-board corroboration.
+
+| ICC ID | Fixture | Previous UTC kickoff | Confirmed UTC kickoff |
+| --- | --- | --- | --- |
+| 275298 | Indonesia Women–Samoa Women | 4 Oct 02:30 | 4 Oct 02:00 |
+| 275299 | Malaysia Women–Indonesia Women | 6 Oct 02:00 | 6 Oct 02:30 |
+| 275300 | Malaysia Women–Samoa Women | 7 Oct 02:30 | 7 Oct 02:00 |
+
+`icc-kickoff-corrections.mjs` admits only those exact existing-row transitions,
+with unchanged team/squad identity, competition, T20 format, scheduled status,
+ICC provenance and publisher series. A complete fresh collection received after
+the verified18:38:42.869 UTC publication evidence must still pass every ordinary
+admission gate. Each authorization expires before either kickoff. It does not
+invent fixtures, synthesize revised flags, refresh retained receipts, clear other
+conflicts or permanently pin a schedule. Internal evidence fields are stripped
+from the unchanged public schema1 response. Genuine later publisher-flagged
+revisions retain the existing contract.
 
 ## Coverage and ownership
 
@@ -97,22 +109,25 @@ node tools/audit-worker-health.mjs
 cd web && npm run test:unit && npm run worker:check
 ```
 
-The current failure is an unconfirmed source correction, not expected pending
-activation. After source4 deployment, retain the deployment identity,
+The retained ICC failure is a now-confirmed source correction, not expected
+pending activation. After correction deployment, retain the deployment identity,
 confirm registry binding and cron registration, verify a fresh public snapshot,
 and run the independent monitor. GitHub scheduling is active only after the
 workflow is published on the default branch and successfully exercised.
 
-Current evidence: live local collection contains 63 named fixtures, including
-India–West Indies and South Africa–Australia marked live by ICC. CWI independently
-matches India–West Indies. Two pending Asian Games pairings are deliberately
-excluded. The reviewed CPL audit passes all 39 fixtures, with exact known
-verifier exceptions for matches 21, 22 and 28; actual fixture times did not move.
-This is time-scoped source evidence, not device decoding or universal coverage.
+Pre-deployment evidence at19:02 UTC: production and the fresh complete ICC
+collection each contain67 named fixtures (WI9/ICC58). A read-only in-memory
+rehearsal accepts exactly the three corrections and clears43 aggregate failures
+without altering the other64 starts. That rehearsal is not persisted recovery.
+Fresh CWI comparison found no supported current/next24h omission. The reviewed
+CPL audit passes all39 fixtures with the unchanged exact verifier exceptions
+for matches21,22 and28. This is time-scoped source evidence, not device decoding
+or universal coverage.
 
-Local qualification: 196 web/Worker tests (including 34 monitor tests), 18 new
-native cricket XCTest methods within the complete simulator-free Catalyst suite,
-generic unsigned iOS Release, TypeScript, zero-warning lint, Worker dry-run,
-optimized web build, workflow actionlint and targeted gitleaks scans all pass.
-Owned Xcode/web/lint temporary output was removed; the pre-existing web output
-was restored. About 52 GiB remains free. No binary was installed or distributed.
+Isolated Worker-candidate qualification: all326 clean-checkout web/Worker tests
+pass, with TypeScript, zero-warning lint on changed modules, Worker dry-run and
+targeted gitleaks. Full baseline lint has48 pre-existing warnings and no errors.
+The clean baseline package/lockfile are retained. GitHub Web CI additionally
+qualifies the optimized web build before merge. Owned dependency/dry-run
+temporary output is removed after use. No native binary is built, installed or
+distributed for this Worker-only gate.

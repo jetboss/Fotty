@@ -18,6 +18,20 @@ const withReceipt = (collection, receipt) => ({ ...collection, observedAt: recei
   fixtures: collection.fixtures.map((fixture) => ({ ...fixture, source: { ...fixture.source, observedAt: receipt.toISOString() } })) });
 const activeSeason = new Date("2026-09-20T16:00:00Z");
 const recoveredCPL = (receipt) => Response.json({ ...cplFallback, checkedAt: receipt.toISOString(), sourceStatus: "verified" });
+const reviewNow = new Date("2026-10-01T19:00:00.000Z");
+const triSeriesRows = (corrected) => [
+  { match_id: "275298", match_date_gmt: "10/4/2026", match_time_gmt: corrected ? "02:00" : "02:30",
+    teama_id: "1810", teama: "Indonesia", teamb_id: "1754", teamb: "Samoa" },
+  { match_id: "275299", match_date_gmt: "10/6/2026", match_time_gmt: corrected ? "02:30" : "02:00",
+    teama_id: "1638", teama: "Malaysia", teamb_id: "1810", teamb: "Indonesia" },
+  { match_id: "275300", match_date_gmt: "10/7/2026", match_time_gmt: corrected ? "02:00" : "02:30",
+    teama_id: "1638", teama: "Malaysia", teamb_id: "1754", teamb: "Samoa" },
+].map((fixture) => row({ ...fixture, league_id: "10", match_type: "T20I", series_id: "15827",
+  series_name: "Women's T20I Tri-Series in Malaysia, 2026", live: false, upcoming: true, is_revised: false }));
+const triSeriesCollection = (corrected) => normalizeICC([parseICCPage(payload(triSeriesRows(corrected),
+  { timestamp: { utc_time: "10/1/2026 7:00:00 PM" } }), reviewNow)], reviewNow);
+const priorTriSeries = () => admitICC(withReceipt(triSeriesCollection(false), new Date("2026-10-01T13:00:00Z")),
+  [], new Date("2026-10-01T13:00:00Z")).fixtures;
 async function nearBoundScenario() {
   const templates = cohortCollection();
   const makeRows = (id, count, identity) => Array.from({ length: count }, (_, offset) => {
@@ -109,6 +123,122 @@ test("disappearing active match, identity swap, terminal regression and unconfir
   assert.throws(() => admitICC(normalized(), [{ ...old[0], status: "finished" }], now), /regression/);
 });
 
+test("exact publisher-confirmed tri-series transitions admit without fabricating revision flags or public evidence fields", () => {
+  const candidate = triSeriesCollection(true);
+  const before = structuredClone(candidate);
+  const accepted = admitICC(candidate, priorTriSeries(), reviewNow);
+  assert.deepEqual(accepted.fixtures.map(({ id, start }) => ({ id, start })), [
+    { id: "icc:275298", start: "2026-10-04T02:00:00.000Z" },
+    { id: "icc:275299", start: "2026-10-06T02:30:00.000Z" },
+    { id: "icc:275300", start: "2026-10-07T02:00:00.000Z" },
+  ]);
+  assert.deepEqual(candidate, before, "Admission cannot manufacture a publisher revision or mutate collection evidence");
+  assert.ok(candidate.fixtures.every((fixture) => fixture.revised === false && fixture.publisherSeriesId === "15827"));
+  assert.ok(accepted.fixtures.every((fixture) => !Object.hasOwn(fixture, "revised")
+    && !Object.hasOwn(fixture, "publisherSeriesId")));
+});
+
+test("reviewed correction cannot authorize a different identity, competition, format, status, source or time tuple", () => {
+  const mutations = [
+    (current) => { current.id = "icc:999999"; },
+    (current, old) => { old.start = "2026-10-04T03:00:00.000Z"; },
+    (current) => { current.start = "2026-10-04T01:30:00.000Z"; },
+    (current) => { current.publisherSeriesId = "99999"; },
+    (current) => { delete current.publisherSeriesId; },
+    (current) => { current.home.id = "icc:1:1810"; },
+    (current) => { current.home.name = "Indonesia"; },
+    (current, old) => { old.away.name = "Another Samoa squad"; },
+    (current) => { current.competitionId = "west-indies"; },
+    (current, old) => { old.competitionName = "Another tournament"; },
+    (current) => { current.competitionName = "Another tournament"; },
+    (current) => { current.format = "ODI"; },
+    (current, old) => { old.format = "ODI"; },
+    (current) => { current.status = "live"; },
+    (current, old) => { old.status = "finished"; },
+    (current) => { current.source.name = "Another publisher"; },
+    (current) => { current.source.url = "https://another-publisher.invalid/matches/275298"; },
+    (current, old) => { old.source.url = "https://another-publisher.invalid/matches/275298"; },
+    (current) => { current.source.observedAt = "2026-10-01T18:55:00.000Z"; },
+  ];
+  for (const mutate of mutations) {
+    const candidate = triSeriesCollection(true);
+    const previous = priorTriSeries();
+    mutate(candidate.fixtures[0], previous[0]);
+    // An unrelated ID must not borrow a reviewed transition, even if it has
+    // the same old start and participant tuple.
+    if (candidate.fixtures[0].id === "icc:999999") {
+      previous[0].id = "icc:999999";
+      previous[0].source.url = "https://www.icc-cricket.com/matches/999999";
+    }
+    assert.throws(() => admitICC(candidate, previous, reviewNow), /ICC/);
+  }
+});
+
+test("reviewed corrections require post-verification fresh receipts and expire before either kickoff", () => {
+  for (const receipt of ["2026-10-01T18:38:42.868Z", "2026-10-01T19:00:01.000Z", "2026-10-01T12:59:59.000Z"]) {
+    assert.throws(() => admitICC(withReceipt(triSeriesCollection(true), new Date(receipt)), priorTriSeries(), reviewNow), /kickoff/);
+  }
+  for (let index = 0; index < 3; index++) {
+    const current = triSeriesCollection(true).fixtures[index];
+    const old = priorTriSeries()[index];
+    const boundary = Math.min(Date.parse(current.start), Date.parse(old.start));
+    const single = { ...triSeriesCollection(true), fixtures: [current] };
+    const beforeKickoff = new Date(boundary - 1);
+    assert.doesNotThrow(() => admitICC(withReceipt(single, beforeKickoff), [old], beforeKickoff));
+    const atKickoff = new Date(boundary);
+    assert.throws(() => admitICC(withReceipt(single, atKickoff), [old], atKickoff), /kickoff/);
+  }
+  const staleAt = new Date(reviewNow.getTime() + 6 * 3_600_000 + 1);
+  assert.throws(() => admitICC(triSeriesCollection(true), priorTriSeries(), staleAt), /kickoff/);
+  assert.doesNotThrow(() => admitICC(withReceipt(triSeriesCollection(true), new Date("2026-10-01T18:38:42.869Z")),
+    priorTriSeries(), reviewNow));
+});
+
+test("correction receipts never synthesize cold fixtures, reverse a transition or clear another conflict", () => {
+  const old = priorTriSeries();
+  assert.deepEqual(admitICC(triSeriesCollection(false), [], reviewNow).fixtures.map((fixture) => fixture.start),
+    old.map((fixture) => fixture.start), "A reviewed transition is not a fallback schedule or source rewrite");
+  const accepted = admitICC(triSeriesCollection(true), old, reviewNow);
+  const later = new Date(reviewNow.getTime() + 5 * 60_000);
+  assert.throws(() => admitICC(withReceipt(triSeriesCollection(false), later), accepted.fixtures, later), /kickoff/);
+  const anotherChange = withReceipt(triSeriesCollection(true), later);
+  anotherChange.fixtures[1].start = "2026-10-06T03:00:00.000Z";
+  assert.throws(() => admitICC(anotherChange, old, later), /kickoff/);
+  const explicitLaterRevision = withReceipt(triSeriesCollection(false), later);
+  explicitLaterRevision.fixtures.forEach((fixture) => { fixture.revised = true; });
+  assert.doesNotThrow(() => admitICC(explicitLaterRevision, accepted.fixtures, later),
+    "A genuine later publisher-flagged reschedule retains the existing admission contract");
+});
+
+test("reviewed recovery clears persisted ICC failure only when the complete cohort passes", async () => {
+  const earlier = new Date("2026-10-01T13:00:00.000Z");
+  const first = await refreshCricketState(null, earlier, async () => withReceipt(triSeriesCollection(false), earlier));
+  const beforeReview = new Date("2026-10-01T18:30:00.000Z");
+  const held = await refreshCricketState(first, beforeReview, async () => withReceipt(triSeriesCollection(true), beforeReview));
+  assert.equal(held.cohorts.icc.consecutiveFailures, 1);
+  assert.deepEqual(held.snapshot.fixtures, first.snapshot.fixtures);
+  const recovered = await refreshCricketState(held, reviewNow, async () => triSeriesCollection(true));
+  assert.equal(recovered.snapshot.sourceStatus, "verified");
+  assert.equal(recovered.consecutiveFailures, 0);
+  assert.equal(recovered.cohorts.icc.consecutiveFailures, 0);
+  assert.equal(recovered.cohorts.icc.failure, undefined);
+  assert.equal(recovered.lastSuccessAt, reviewNow.toISOString());
+  assert.notEqual(recovered.snapshot.revision, first.snapshot.revision);
+  assert.ok(recovered.snapshot.fixtures.every((fixture) => fixture.source.observedAt === reviewNow.toISOString()));
+  const later = new Date(reviewNow.getTime() + 5 * 60_000);
+  const repeated = await refreshCricketState(recovered, later, async () => withReceipt(triSeriesCollection(true), later));
+  assert.equal(repeated.snapshot.revision, recovered.snapshot.revision);
+  assert.equal(repeated.consecutiveFailures, 0);
+  assert.ok(repeated.snapshot.fixtures.every((fixture) => !Object.hasOwn(fixture, "revised")
+    && !Object.hasOwn(fixture, "publisherSeriesId")));
+  const otherConflict = triSeriesCollection(true);
+  otherConflict.fixtures[2].start = "2026-10-07T03:00:00.000Z";
+  const stillHeld = await refreshCricketState(held, reviewNow, async () => otherConflict);
+  assert.equal(stillHeld.cohorts.icc.consecutiveFailures, 2);
+  assert.deepEqual(stillHeld.snapshot.fixtures, held.snapshot.fixtures);
+  assert.equal(stillHeld.lastSuccessAt, held.lastSuccessAt);
+});
+
 test("successful receipt refresh leaves content revision stable; failure retains receipt/rows", async () => {
   const first = await refreshCricketState(null, now, async () => normalized());
   const later = new Date(now.getTime() + 5 * 60_000);
@@ -163,7 +293,7 @@ test("ICC-only conflict retains exact ICC rows while fresh West Indies is native
   assert.ok(audit.findings.some((finding) => finding.code === "repeated-sync-failure"));
 });
 
-test("the three unflagged future women's kickoff corrections remain held without blocking West Indies", async () => {
+test("similar future women's IDs with unreviewed teams and tournament remain held without blocking West Indies", async () => {
   const women = (match_id, match_date_gmt, match_time_gmt, teama, teamb) => row({ match_id, match_date_gmt, match_time_gmt,
     teama, teamb, teama_id: "17", teamb_id: "18", league_id: "10", match_type: "T20", live: false, upcoming: true,
     is_revised: false, series_name: "Women's international cricket" });
