@@ -249,10 +249,12 @@ export async function collectSportsEventSource(source, now, _env = {}, fetchImpl
   let requests = 0;
   const request = async (url) => {
     if (++requests > MAX_REQUESTS) throw new Error("Sports source request budget exceeded");
-    const response = await abortable(() => fetchImpl(url, { signal: deadline.signal, redirect: "error",
+    const response = await abortable(() => fetchImpl(url, { signal: deadline.signal, redirect: "manual",
       headers: { Accept: "application/json", "User-Agent": "Fotty fixture service/1.0" },
       cf: { cacheEverything: true, cacheTtl: 60 } }), deadline.signal);
-    if (!response.ok || response.redirected) throw new Error("Sports schedule upstream unavailable");
+    if (!response.ok || response.redirected || response.status >= 300 && response.status < 400) {
+      throw Object.assign(new Error("Sports schedule upstream unavailable"), { fixtureHTTPStatus: response.status });
+    }
     return boundedJSON(response, MAX_PAGE_BYTES, deadline.signal);
   };
   try {

@@ -2,6 +2,33 @@ import { admitSportsCollection, descriptorCompetitions, nextSportsRefresh, sport
 
 const STATE_KEY = "sports-source-v1";
 const RETRY_MS = 5 * 60_000;
+const FAILURE_CODES = new Map([
+  ["Sports schedule upstream unavailable", "upstream-unavailable"],
+  ["Sports schedule is not JSON", "upstream-not-json"],
+  ["Football schedule credential unavailable", "credential-unavailable"],
+  ["Football schedule incomplete", "source-incomplete"],
+  ["Football schedule window mismatch", "window-mismatch"],
+  ["Football competition filter unavailable", "scope-mismatch"],
+  ["Accepted fixture disappeared without cancellation evidence", "accepted-fixture-missing"],
+  ["Terminal fixture status regressed", "terminal-rollback"],
+  ["Collector receipt invalid", "receipt-invalid"],
+  ["Source receipt invalid", "receipt-invalid"],
+  ["Fixture competition mismatch", "scope-mismatch"],
+  ["Publisher live evidence stale", "publisher-stale"],
+]);
+const ERROR_KINDS = new Set(["Error", "TypeError", "ReferenceError", "RangeError", "SyntaxError", "AbortError", "TimeoutError"]);
+
+// Only finite, reviewed codes escape a failed collector. Never log exception
+// text, response bodies, source URLs or credentials—even for unknown errors.
+export function sportsFailureInfo(error, stage) {
+  const value = { stage: stage === "admission" ? "admission" : "collection",
+    code: FAILURE_CODES.get(error?.message) || "validation-or-runtime-failure",
+    kind: ERROR_KINDS.has(error?.name) ? error.name : "Error" };
+  if (Number.isInteger(error?.fixtureHTTPStatus) && error.fixtureHTTPStatus >= 100 && error.fixtureHTTPStatus <= 599) {
+    value.httpStatus = error.fixtureHTTPStatus;
+  }
+  return value;
+}
 
 export function sourceCoverage(descriptor, state, now = new Date()) {
   return descriptorCompetitions(descriptor).map((competition) => {
@@ -18,22 +45,26 @@ export function sourceCoverage(descriptor, state, now = new Date()) {
         ? { nextStart: fixtures.filter((fixture) => fixture.status === "scheduled").map((fixture) => fixture.start).sort()[0] } : {}),
       ...(status === "unsupported" && descriptor.reason ? { reason: descriptor.reason } : {}),
       sync: { consecutiveFailures: state?.consecutiveFailures || 0, lastAttemptAt: state?.lastAttemptAt || null,
-        lastSuccessAt: state?.accepted?.observedAt || null, conflict: Boolean(state?.conflict) } };
+        lastSuccessAt: state?.accepted?.observedAt || null, conflict: Boolean(state?.conflict),
+        ...(state?.failure ? { failure: state.failure } : {}) } };
   });
 }
 
 export async function refreshSportsSource(previous, descriptor, now, collect) {
   if (descriptor.supported === false) return previous || { consecutiveFailures: 0 };
+  let stage = "collection";
   try {
-    const result = admitSportsCollection(await collect(descriptor, now), previous?.accepted, descriptor, now, previous?.conflict);
-    if (result.conflict) return { ...previous, consecutiveFailures: (previous?.consecutiveFailures || 0) + 1, conflict: result.conflict,
+    const collection = await collect(descriptor, now);
+    stage = "admission";
+    const result = admitSportsCollection(collection, previous?.accepted, descriptor, now, previous?.conflict);
+    if (result.conflict) return { ...previous, failure: null, consecutiveFailures: (previous?.consecutiveFailures || 0) + 1, conflict: result.conflict,
       lastAttemptAt: now.toISOString(), nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
     return { accepted: result.accepted, consecutiveFailures: 0, lastAttemptAt: now.toISOString(),
       nextAttemptAt: new Date(now.getTime() + nextSportsRefresh(result.accepted.fixtures, now)).toISOString() };
-  } catch {
+  } catch (error) {
     // No exception/body/credential reaches public snapshots or operational logs.
     return { ...previous, consecutiveFailures: (previous?.consecutiveFailures || 0) + 1,
-      lastAttemptAt: now.toISOString(), nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
+      failure: sportsFailureInfo(error, stage), lastAttemptAt: now.toISOString(), nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
   }
 }
 
@@ -77,7 +108,8 @@ export class SportsFixtureRegistry {
     await this.state.storage.put(STATE_KEY, next);
     console.log(JSON.stringify({ event: "sports_fixture_refresh", sourceGroup: descriptor.id,
       outcome: next.consecutiveFailures ? "unavailable" : "covered", fixtureCount: next.accepted?.fixtures.length || 0,
-      consecutiveFailures: next.consecutiveFailures || 0, conflict: Boolean(next.conflict) }));
+      consecutiveFailures: next.consecutiveFailures || 0, conflict: Boolean(next.conflict),
+      ...(next.failure ? { failure: next.failure } : {}) }));
     return next;
   }
   async fetch(request) {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { admitSportsCollection, fixtureInstant, nextSportsRefresh, sportsRevision } from "./sports-fixture-policy.mjs";
-import { assembleSportsSnapshot, refreshSportsSource, sourceCoverage, SportsFixtureRegistry } from "./sports-fixture-registry.mjs";
+import { assembleSportsSnapshot, refreshSportsSource, sourceCoverage, SportsFixtureRegistry, sportsFailureInfo } from "./sports-fixture-registry.mjs";
 
 const now = new Date("2026-09-30T22:00:00.000Z");
 const descriptor = { id: "nba", sport: "basketball", supported: true, competitions: [{ id: "nba", name: "NBA" }] };
@@ -51,6 +51,23 @@ test("failure preserves accepted rows and receipts independently", async () => {
   assert.equal(failed.consecutiveFailures, 1);
   assert.equal(sourceCoverage(descriptor, failed)[0].status, "unavailable");
   assert.equal(JSON.stringify(failed).includes("private source details"), false);
+});
+test("failure diagnostics separate collection/admission and never disclose exception text", async () => {
+  const error = Object.assign(new Error("Sports schedule upstream unavailable"), { fixtureHTTPStatus: 403 });
+  const failed = await refreshSportsSource(null, descriptor, now, async () => { throw error; });
+  assert.deepEqual(failed.failure, { stage: "collection", code: "upstream-unavailable", kind: "Error", httpStatus: 403 });
+  const invalid = await refreshSportsSource(null, descriptor, now, async () => ({ ...collection(), observedAt: "private value" }));
+  assert.equal(invalid.failure.stage, "admission");
+  assert.equal(JSON.stringify(invalid).includes("private value"), false);
+  assert.deepEqual(sportsFailureInfo({ name: "private secret", message: "token=private secret", fixtureHTTPStatus: "private secret" }, "unexpected"),
+    { stage: "collection", code: "validation-or-runtime-failure", kind: "Error" });
+  const recovered = await refreshSportsSource(failed, descriptor, now, async () => collection());
+  assert.equal(recovered.failure, undefined);
+  const correction = await refreshSportsSource({ ...recovered, failure: failed.failure }, descriptor, now,
+    async () => collection([fixture({ start: "2026-10-01T00:00:00.000Z" })]));
+  assert.ok(correction.conflict);
+  assert.equal(correction.failure, null);
+  assert.equal(sourceCoverage(descriptor, correction, now)[0].sync.failure, undefined);
 });
 test("vanishing scheduled row and terminal rollback preserve accepted snapshot", async () => {
   const previous = await refreshSportsSource(null, descriptor, now, async () => collection());
