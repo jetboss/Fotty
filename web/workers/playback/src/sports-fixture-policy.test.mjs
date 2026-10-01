@@ -12,6 +12,21 @@ function fixture(changes = {}, at = now) {
     squad: { gender: "men", ageGroup: "senior" }, source: { name: "ESPN", url: "https://www.espn.com/nba/scoreboard", observedAt: at.toISOString() }, ...changes };
 }
 function collection(fixtures = [fixture()], at = now) { return { fixtures, pendingFixtureCount: 0, observedAt: at.toISOString() }; }
+const footballDescriptor = { id: "football-data", sport: "football", supported: true,
+  competitions: [
+    { id: "premier-league", name: "Premier League" },
+    { id: "champions-league", name: "UEFA Champions League" },
+    { id: "la-liga", name: "La Liga" },
+    { id: "serie-a", name: "Serie A" },
+    { id: "bundesliga", name: "Bundesliga" },
+    { id: "ligue-1", name: "Ligue 1" },
+  ] };
+const oldFootballDescriptor = { ...footballDescriptor, competitions: footballDescriptor.competitions.slice(0, 2) };
+function footballCollection(source, fixtures = [], at = now, pending = {}) {
+  const pendingByCompetition = Object.fromEntries(source.competitions.map(({ id }) => [id, pending[id] || 0]));
+  return { fixtures, pendingByCompetition, pendingFixtureCount: Object.values(pendingByCompetition).reduce((total, count) => total + count, 0),
+    observedAt: at.toISOString() };
+}
 
 test("valid match collection requires real identities and UTC", () => {
   assert.equal(admitSportsCollection(collection(), null, descriptor, now).accepted.fixtures.length, 1);
@@ -24,6 +39,60 @@ test("wrong competition, placeholder, squad, duplicate identity are rejected", (
     assert.throws(() => admitSportsCollection(collection([row]), null, descriptor, now));
   }
   assert.throws(() => admitSportsCollection(collection([fixture(), fixture()]), null, descriptor, now));
+});
+test("explicit pending receipts require every scoped competition and matching nonnegative counts", () => {
+  const valid = footballCollection(footballDescriptor, [], now, { "la-liga": 2, "ligue-1": 1 });
+  assert.deepEqual(admitSportsCollection(valid, null, footballDescriptor, now).accepted.pendingByCompetition, valid.pendingByCompetition);
+  for (const pendingByCompetition of [null, [], { nba: 3 }, { ...valid.pendingByCompetition, mls: 0 },
+    { ...valid.pendingByCompetition, "la-liga": -1 }, { ...valid.pendingByCompetition, "la-liga": 1.5 },
+    { ...valid.pendingByCompetition, "la-liga": 10001 }, Object.fromEntries(oldFootballDescriptor.competitions.map(({ id }) => [id, 0]))]) {
+    assert.throws(() => admitSportsCollection({ ...valid, pendingByCompetition }, null, footballDescriptor, now), /Pending competition scope/);
+  }
+  assert.throws(() => admitSportsCollection({ ...valid, pendingFixtureCount: 4 }, null, footballDescriptor, now), /Pending competition count/);
+  assert.equal(admitSportsCollection({ ...collection(), pendingFixtureCount: 2 }, null, descriptor, now).accepted.pendingFixtureCount, 2);
+});
+test("old PL/CL receipts leave added football lanes unverified until a complete six-league receipt", async () => {
+  const previous = await refreshSportsSource(null, oldFootballDescriptor, now, async () => footballCollection(oldFootballDescriptor));
+  const oldCoverage = sourceCoverage(footballDescriptor, previous, now);
+  assert.deepEqual(oldCoverage.map(({ status }) => status), ["covered", "covered", "unavailable", "unavailable", "unavailable", "unavailable"]);
+  for (const lane of oldCoverage.slice(2)) {
+    assert.equal(lane.checkedAt, null);
+    assert.equal(lane.sync.lastSuccessAt, null);
+    assert.equal(lane.fixtureCount, 0);
+    assert.equal(lane.pendingFixtureCount, 0);
+  }
+  const before = await assembleSportsSnapshot([footballDescriptor], new Map([[footballDescriptor.id, previous]]), now);
+  assert.equal(before.sourceStatus, "partial");
+  const later = new Date(now.getTime() + 60_000);
+  const refreshed = await refreshSportsSource(previous, footballDescriptor, later, async () => footballCollection(footballDescriptor, [], later));
+  const after = await assembleSportsSnapshot([footballDescriptor], new Map([[footballDescriptor.id, refreshed]]), later);
+  assert.equal(after.sourceStatus, "verified");
+  assert.equal(after.coverage.filter(({ status }) => status === "covered").length, 6);
+  assert.ok(after.coverage.every(({ checkedAt }) => checkedAt === later.toISOString()));
+  assert.notEqual(after.revision, before.revision);
+});
+test("legacy single-lane receipts retain coverage while invalid scope counts cannot establish it", () => {
+  const legacy = { accepted: { ...collection(), pendingFixtureCount: 2 }, consecutiveFailures: 0 };
+  const coverage = sourceCoverage(descriptor, legacy, now)[0];
+  assert.equal(coverage.status, "covered");
+  assert.equal(coverage.pendingFixtureCount, 2);
+  for (const pendingByCompetition of [null, [], { nba: "0" }, { nba: -1 }, { nba: 1.5 }]) {
+    const invalid = sourceCoverage(descriptor, { ...legacy, accepted: { ...legacy.accepted, pendingByCompetition } }, now)[0];
+    assert.equal(invalid.status, "unavailable");
+    assert.equal(invalid.checkedAt, null);
+    assert.equal(invalid.pendingFixtureCount, 0);
+  }
+});
+test("failed scope admission preserves the original two-league receipt", async () => {
+  const previous = await refreshSportsSource(null, oldFootballDescriptor, now, async () => footballCollection(oldFootballDescriptor, [], now,
+    { "premier-league": 1, "champions-league": 2 }));
+  const later = new Date(now.getTime() + 60_000);
+  const failed = await refreshSportsSource(previous, footballDescriptor, later, async () => footballCollection(oldFootballDescriptor, [], later));
+  assert.deepEqual(failed.accepted, previous.accepted);
+  assert.equal(failed.failure.stage, "admission");
+  assert.equal(failed.failure.code, "scope-mismatch");
+  assert.equal(failed.consecutiveFailures, 1);
+  assert.ok(sourceCoverage(footballDescriptor, failed, later).slice(2).every(({ checkedAt }) => checkedAt === null));
 });
 test("non-team tournament retains its title without invented participants", () => {
   const golf = { ...descriptor, sport: "golf", competitions: [{ id: "pga", name: "PGA" }] };
@@ -144,4 +213,36 @@ test("durable object serializes concurrent refresh, cold GET does not wait for s
   await Promise.all(waits);
   await Promise.all([registry.fetch(new Request("https://sports-registry.invalid/refresh?source=nba", { method: "POST" })), registry.fetch(new Request("https://sports-registry.invalid/refresh?source=nba", { method: "POST" }))]);
   assert.equal(calls, 1);
+});
+test("scope migration attempts immediately once and failed retries retain data with five-minute backoff", async () => {
+  const received = new Date(Date.now() - 60_000);
+  const match = fixture({ id: "sports-fixture:premier-league:1", sport: "football", competitionId: "premier-league", competitionName: "Premier League",
+    start: new Date(Date.now() + 60 * 60_000).toISOString() }, received);
+  const previous = await refreshSportsSource(null, oldFootballDescriptor, received,
+    async () => footballCollection(oldFootballDescriptor, [match], received));
+  assert.ok(Date.parse(previous.nextAttemptAt) > Date.now());
+  const data = new Map([["sports-source-v1", previous]]); const waits = []; let calls = 0;
+  const state = { storage: { async get(key) { return data.get(key); }, async put(key, value) { data.set(key, value); } },
+    waitUntil(value) { waits.push(value); } };
+  const options = { descriptors: [footballDescriptor], collect: async () => { calls++; throw new Error("unavailable"); } };
+  const registry = new SportsFixtureRegistry(state, {}, options);
+  const request = () => new Request("https://sports-registry.invalid/refresh?source=football-data", { method: "POST" });
+  const response = await registry.fetch(request());
+  assert.equal((await response.json()).ok, false);
+  assert.equal(calls, 1);
+  const failed = data.get("sports-source-v1");
+  assert.deepEqual(failed.accepted, previous.accepted);
+  assert.equal(Date.parse(failed.nextAttemptAt) - Date.parse(failed.lastAttemptAt), 300_000);
+  await Promise.all([registry.fetch(request()), registry.fetch(request())]);
+  const restarted = new SportsFixtureRegistry(state, {}, options);
+  await restarted.fetch(request());
+  const cached = await restarted.fetch(new Request("https://sports-registry.invalid/fixtures?source=football-data"));
+  assert.deepEqual((await cached.json()).accepted, previous.accepted);
+  assert.equal(calls, 1);
+  assert.equal(waits.length, 0);
+  assert.equal(data.get("sports-source-v1").lastAttemptAt, failed.lastAttemptAt);
+  data.set("sports-source-v1", { ...failed, nextAttemptAt: new Date(Date.now() - 1).toISOString() });
+  await restarted.fetch(request());
+  assert.equal(calls, 2);
+  assert.deepEqual(data.get("sports-source-v1").accepted, previous.accepted);
 });

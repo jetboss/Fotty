@@ -1,24 +1,29 @@
 # Automatic sports fixtures
 
-Status, 1 October 2026: PL/CL, MLB and NHL have accepted production receipts.
-The final cleared-source candidate explicitly defers WNBA after a verified
-Cloudflare access failure. Protected publication and exact-version checks remain
-required for this correction. Cricket retains its existing registry. Website
+Status, 1 October 2026: production source3 covers PL/CL, MLB and NHL. The owner
+approved protected publication/deployment of candidate source4: six-league
+football-data coverage, receipt migration and cricket cohort safety. Do not call
+the candidate deployed until its exact-version checks and fresh receipts pass.
+WNBA remains deferred after its verified Cloudflare access failure. Cricket
+retains its existing registry. Website
 feeds stay disabled; no TestFlight, new subscription or paid-policy change is authorized.
 This backend PR does not reconcile the older remote native app with the locally
 qualified consumer. The owner iPad gate uses a separate immutable source receipt.
 
 ## Coverage is explicit, not a promise of every event
 
-The new manifest defines 30 source groups and 31 competition scopes. Of these,
-28 groups have bounded adapters; boxing and PDC darts remain unsupported.
-Only football-data (PL/CL), MLB and NHL are cleared for cloud collection now;
-27 competition lanes remain explicitly deferred/unsupported, including WNBA.
+The source4 manifest defines 26 source groups and 31 competition scopes. Of these,
+24 groups have bounded adapters; boxing and PDC darts remain unsupported.
+It expands football-data to PL/CL, La Liga, Serie A, Bundesliga and Ligue 1 in
+one existing-account bulk request. Along with MLB/NHL, eight scopes are eligible;
+23 remain deferred/unsupported, including WNBA. An eligible scope needs its own
+fresh deployed receipt; older PL/CL-only state cannot prove new leagues empty.
+See [the per-competition source-access ledger](Sports-Fixture-Source-Gaps.md).
 Cricket retains its separate CPL / West Indies / ICC integration and monitor.
 
 | Lane | Staged competitions | Source boundary |
 | --- | --- | --- |
-| Football | PL, Champions League, La Liga, Serie A, Bundesliga, Ligue 1, MLS | Existing football-data credential for PL/CL; other leagues are gated website adapters. |
+| Football | PL, Champions League, La Liga, Serie A, Bundesliga, Ligue 1, MLS | Six-code football-data bulk adapter uses the existing credential; MLS remains gated. |
 | Baseball / hockey | MLB, NHL | League-owned structured schedule routes. |
 | Basketball | WNBA, NBA, men's/women's NCAA Division I | WNBA cloud access deferred; NBA/NCAA website adapters gated. |
 | American football | NFL, NCAA FBS/FCS | Gated website adapters; agreeing interdivision duplicates are unioned, conflicts rejected. |
@@ -66,6 +71,11 @@ time and live-to-scheduled corrections require the same observation again after
 at least four minutes. Confirmed correction receipts persist so an offline
 native client can accept them later. Failed refreshes retain the original
 accepted facts and original timestamps; partial is not a healthy empty league.
+
+Source4 migration triggers one immediate scope attempt, persisting its exact
+attempted scope so a failed expansion still respects five-minute retry across
+GET/POST/restart. Per-competition pending counts must reconcile with both the
+requested scope and total; invalid scope/count retains accepted observations.
 
 ## Native consumer
 
@@ -126,7 +136,7 @@ cross-publisher coverage remains a source-selection gap, not a completed gate.
 - Publish through a protected PR after source-access review and current gates.
   Reconcile remote native/backend state; do not assume the older remote client
   equals this working tree. The candidate `worker-version.mjs` is
-  `2026-10-01.sports-fixtures-3`; do not call it deployed until the deployed
+  `2026-10-01.sports-fixtures-4`; do not call it deployed until the deployed
   version, binding and registered cron match the protected source receipt.
 - Confirm the registered cron, deployed flags/binding, warmed per-source
   receipts and a published monitor run. Observe a scheduled run separately.
@@ -142,6 +152,15 @@ cohort correction, including 21 new native fixture tests. SwiftLint's new-file
 error is resolved; style warnings remain, not a claimed zero-warning Swift gate.
 These checks are not physical playback or production activation evidence.
 Owned Xcode/dry-run/actionlint output is removed; about 48 GiB remains free.
+
+Source4 local qualification passes 317 primary-checkout backend tests and
+TypeScript/focused ESLint/dry-run/redacted scans. Publication requalifies the
+exact clean checkout under Node24 and protected CI; its older web/native graph
+is not replaced by unrelated local changes. Native valid-empty schedule fixes,
+owner-device installation and TestFlight are outside this backend release.
+The six-code account check proves scope/window/count transport, not independent
+completeness of every league. Required attribution remains
+`Football data provided by the Football-Data.org API.`
 
 ## Production runtime correction
 

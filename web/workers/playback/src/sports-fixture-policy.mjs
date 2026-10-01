@@ -89,6 +89,16 @@ export function admitSportsCollection(collection, previous, descriptor, now, pri
   requireValue(observedAt <= now.getTime() + 5 * MINUTE && observedAt >= now.getTime() - 10 * MINUTE, "Source receipt invalid");
   requireValue(Number.isInteger(collection.pendingFixtureCount) && collection.pendingFixtureCount >= 0 && collection.pendingFixtureCount <= 10000,
     "Pending count invalid");
+  if (collection.pendingByCompetition !== undefined) {
+    const pending = collection.pendingByCompetition;
+    const competitions = descriptorCompetitions(descriptor);
+    requireValue(pending !== null && typeof pending === "object" && !Array.isArray(pending)
+      && Object.keys(pending).length === competitions.length
+      && competitions.every(({ id }) => Object.hasOwn(pending, id)
+        && Number.isInteger(pending[id]) && pending[id] >= 0 && pending[id] <= 10000), "Pending competition scope invalid");
+    requireValue(competitions.reduce((total, { id }) => total + pending[id], 0) === collection.pendingFixtureCount,
+      "Pending competition count mismatch");
+  }
   const ids = new Set();
   const fixtures = collection.fixtures.map((fixture) => {
     validateSportsFixture(fixture, now, descriptor);

@@ -51,7 +51,7 @@ const wnbaPayload = (rows = [wnbaRow()], overrides = {}) => ({ meta: { time: now
 const footballRow = (overrides = {}) => ({ id: 111, utcDate: start, status: "TIMED", lastUpdated: "2026-09-29T12:00:00Z",
   competition: { code: "PL" }, homeTeam: { id: 1, name: "Home" }, awayTeam: { id: 2, name: "Away" }, ...overrides });
 function footballFetch(rows = [footballRow()], mutate = (data) => data) {
-  return async (url) => json(mutate({ filters: { dateFrom: url.searchParams.get("dateFrom"), dateTo: url.searchParams.get("dateTo"), competitions: "PL,CL" },
+  return async (url) => json(mutate({ filters: { dateFrom: url.searchParams.get("dateFrom"), dateTo: url.searchParams.get("dateTo"), competitions: url.searchParams.get("competitions") },
     resultSet: { count: rows.length }, matches: rows }));
 }
 
@@ -127,8 +127,8 @@ test("ESPN unknown teams and TBD synthetic midnight count as pending without rem
   assert.equal(result.pendingByCompetition.nba, 2);
 });
 
-test("ESPN football descriptors retain explicit league identities without PL/CL replacement", async () => {
-  for (const id of ["la-liga", "serie-a", "bundesliga", "ligue-1", "mls"]) {
+test("remaining ESPN MLS descriptor retains explicit league identity and access gate", async () => {
+  for (const id of ["mls"]) {
     const descriptor = source(id);
     const result = await collect(id, espnFetch(id, [espnEvent("100", {}, descriptor)]));
     assert.equal(result.fixtures[0].sport, "football");
@@ -244,19 +244,32 @@ test("WNBA publisher generation is distinct from successful receipt and stale li
   await assert.rejects(() => collect("wnba", () => live({ "Last-Modified": "2026-09-30T15:55:00Z" })), /timestamp invalid/);
 });
 
-test("football reuses one credentialed PL/CL bulk request with exclusive end and source timestamp", async () => {
+test("football reuses one credentialed six-league bulk request with exclusive end and source timestamp", async () => {
   const calls = [];
   const result = await collect("football-data", async (url, init) => {
     calls.push({ url, init });
     return footballFetch()(url);
   }, { FOOTBALL_DATA_API_KEY: "test-secret" });
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].url.searchParams.get("competitions"), "PL,CL");
+  assert.equal(calls[0].url.searchParams.get("competitions"), "PL,CL,PD,SA,BL1,FL1");
   assert.equal(calls[0].url.searchParams.get("dateTo"), "2026-10-08");
   assert.equal(calls[0].init.headers["X-Auth-Token"], "test-secret");
   assert.equal(result.fixtures[0].competitionId, "premier-league");
   assert.equal(result.fixtures[0].source.updatedAt, "2026-09-29T12:00:00.000Z");
   assert.ok(!JSON.stringify(result).includes("test-secret"));
+});
+
+test("six licensed football scopes share one request and never use duplicate website adapters", async () => {
+  const descriptor = source("football-data");
+  const rows = Object.keys(descriptor.codes).map((code, index) => footballRow({ id: 200 + index, competition: { code } }));
+  let calls = 0;
+  const result = await collect("football-data", async (url) => { calls++; return footballFetch(rows)(url); }, { FOOTBALL_DATA_API_KEY: "test-secret" });
+  assert.equal(calls, 1);
+  assert.deepEqual(result.fixtures.map((fixture) => fixture.competitionId).sort(), Object.values(descriptor.codes).sort());
+  assert.deepEqual(Object.keys(result.pendingByCompetition).sort(), Object.values(descriptor.codes).sort());
+  assert.ok(["la-liga", "serie-a", "bundesliga", "ligue-1"].every((id) => !source(id)));
+  await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data,
+    filters: { ...data.filters, competitions: "PL,CL" } })), { FOOTBALL_DATA_API_KEY: "test-secret" }), /filter/);
 });
 
 test("football refuses missing credential, ignored scope, count/window mismatch and rough dates", async () => {

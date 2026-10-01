@@ -21,8 +21,10 @@ const espn = (id, name, sport, path, leagueID, extra = {}) => single(id, name, s
 export const SPORTS_SOURCES = Object.freeze([
   { id: "football-data", sport: "football", adapter: "football-data", supported: true,
     competitions: [competition("premier-league", "Premier League", "football"),
-      competition("champions-league", "UEFA Champions League", "football")],
-    codes: { PL: "premier-league", CL: "champions-league" }, gender: "men", ageGroup: "senior",
+      competition("champions-league", "UEFA Champions League", "football"),
+      competition("la-liga", "La Liga", "football"), competition("serie-a", "Serie A", "football"),
+      competition("bundesliga", "Bundesliga", "football"), competition("ligue-1", "Ligue 1", "football")],
+    codes: { PL: "premier-league", CL: "champions-league", PD: "la-liga", SA: "serie-a", BL1: "bundesliga", FL1: "ligue-1" }, gender: "men", ageGroup: "senior",
     sourceName: "football-data.org", sourceURL: "https://api.football-data.org/v4/matches" },
   single("mlb", "Major League Baseball", "baseball", "mlb", "https://statsapi.mlb.com/api/v1/schedule"),
   single("nhl", "National Hockey League", "hockey", "nhl", "https://api-web.nhle.com/v1/schedule"),
@@ -33,10 +35,6 @@ export const SPORTS_SOURCES = Object.freeze([
   espn("college-football", "NCAA Football", "american-football", "football/college-football", "23", { groups: ["80", "81"], ageGroup: "college" }),
   espn("college-basketball-men", "NCAA Division I Men's Basketball", "basketball", "basketball/mens-college-basketball", "41", { group: "50", ageGroup: "college" }),
   espn("college-basketball-women", "NCAA Division I Women's Basketball", "basketball", "basketball/womens-college-basketball", "54", { group: "50", gender: "women", ageGroup: "college" }),
-  espn("la-liga", "La Liga", "football", "soccer/esp.1", "740"),
-  espn("serie-a", "Serie A", "football", "soccer/ita.1", "730"),
-  espn("bundesliga", "Bundesliga", "football", "soccer/ger.1", "720"),
-  espn("ligue-1", "Ligue 1", "football", "soccer/fra.1", "710"),
   espn("mls", "Major League Soccer", "football", "soccer/usa.1", "770"),
 ]);
 

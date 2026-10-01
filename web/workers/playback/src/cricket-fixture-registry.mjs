@@ -6,6 +6,76 @@ import { validateCPLManifest } from "./cpl-fixture-policy.mjs";
 
 const STATE_KEY = "cricket-registry-v1";
 const MINUTE = 60_000;
+const ICC_COHORTS = Object.freeze(["west-indies", "icc"]);
+const FAILURE_CODES = new Map([
+  ["ICC upstream unavailable", "upstream-unavailable"],
+  ["Incomplete ICC page", "source-incomplete"],
+  ["ICC pagination incomplete", "source-incomplete"],
+  ["ICC pagination exceeded bound", "source-incomplete"],
+  ["ICC pagination changed", "source-incomplete"],
+  ["Truncated ICC schedule", "source-incomplete"],
+  ["Duplicate ICC fixture", "identity-conflict"],
+  ["Stale ICC receipt", "publisher-stale"],
+  ["Active ICC fixture disappeared", "accepted-fixture-missing"],
+  ["ICC identity conflict", "identity-conflict"],
+  ["ICC competition changed", "scope-conflict"],
+  ["Unconfirmed ICC kickoff change", "kickoff-unconfirmed"],
+  ["ICC terminal-status regression", "terminal-rollback"],
+  ["ICC live-status regression", "live-rollback"],
+  ["ICC receipt regressed", "receipt-regressed"],
+  ["Aggregate ICC fixture limit exceeded", "source-incomplete"],
+]);
+
+// Public receipts and logs contain finite diagnostic codes, never upstream
+// exception text, response bodies, URLs or publisher-specific identifiers.
+function failureInfo(error, stage) {
+  return { stage: stage === "admission" ? "admission" : "collection",
+    code: FAILURE_CODES.get(error?.message) || "validation-or-runtime-failure" };
+}
+
+function cohortReceipt(previous, old, id, now, failure) {
+  const prior = previous?.cohorts?.[id] || old?.sync?.cohorts?.[id];
+  const oldCoverage = old?.coverage.find((row) => row.competitionId === id);
+  const retainedSuccess = oldCoverage?.checkedAt !== "1970-01-01T00:00:00.000Z" ? oldCoverage?.checkedAt : undefined;
+  return { consecutiveFailures: failure ? (prior?.consecutiveFailures ?? previous?.consecutiveFailures ?? 0) + 1 : 0,
+    lastAttemptAt: now.toISOString(),
+    lastSuccessAt: failure ? prior?.lastSuccessAt || retainedSuccess : now.toISOString(),
+    ...(failure ? { failure } : {}) };
+}
+
+function retainedCohort(old, id, failure) {
+  return { fixtures: old?.fixtures.filter((fixture) => fixture.competitionId === id) || [],
+    coverage: { ...(old?.coverage.find((row) => row.competitionId === id)
+      || publicCoverage(id, [], "1970-01-01T00:00:00.000Z", false)), status: "unavailable" }, failure };
+}
+
+function admitCohorts(candidate, old, now) {
+  const oldByID = new Map((old?.fixtures || []).filter((fixture) => fixture.id.startsWith("icc:"))
+    .map((fixture) => [fixture.id, fixture]));
+  const blocked = new Set();
+  for (const fixture of candidate.fixtures) {
+    const previous = oldByID.get(fixture.id);
+    // Splitting first would hide the old identity from the destination cohort
+    // and could admit it alongside its retained original. Hold both scopes.
+    if (previous && previous.competitionId !== fixture.competitionId) {
+      blocked.add(previous.competitionId);
+      blocked.add(fixture.competitionId);
+    }
+  }
+  return ICC_COHORTS.map((id) => {
+    try {
+      if (blocked.has(id)) throw new Error("ICC competition changed");
+      // A complete empty/pending-only cohort still has a publisher watermark.
+      // admitICC's row comparison cannot protect that receipt when no rows exist.
+      const watermark = old?.coverage.find((row) => row.competitionId === id)?.checkedAt;
+      if (Date.parse(candidate.observedAt) < Date.parse(watermark)) throw new Error("ICC receipt regressed");
+      const accepted = admitICC({ ...candidate, fixtures: candidate.fixtures.filter((fixture) => fixture.competitionId === id) },
+        old?.fixtures.filter((fixture) => fixture.competitionId === id), now);
+      return { fixtures: accepted.fixtures,
+        coverage: publicCoverage(id, accepted.fixtures, accepted.observedAt, true, accepted.pendingByCompetition?.[id]) };
+    } catch (error) { return retainedCohort(old, id, failureInfo(error, "admission")); }
+  });
+}
 
 export async function collectICC(now, fetchImpl = fetch) {
   const deadline = coachDeadline(undefined, 12_000);
@@ -83,47 +153,88 @@ async function revisionFor(fixtures) {
     .map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function aggregateBoundFailure(previous, now) {
+  const old = previous?.snapshot;
+  const failure = failureInfo(new Error("Aggregate ICC fixture limit exceeded"), "admission");
+  const failures = (previous?.consecutiveFailures || 0) + 1;
+  const cohorts = Object.fromEntries(ICC_COHORTS.map((id) => [id, cohortReceipt(previous, old, id, now, failure)]));
+  const state = { ...previous, consecutiveFailures: failures, cohorts, failure, lastAttemptAt: now.toISOString(),
+    nextAttemptAt: new Date(now.getTime() + 5 * MINUTE).toISOString() };
+  // Restoring international rows is insufficient if newly recovered CPL rows
+  // still overflow the union. Retain the entire last valid authority envelope,
+  // including CPL's original rows/receipt, rather than truncate or throw.
+  if (old) state.snapshot = validateCricketSnapshot({ ...old, sourceStatus: "last-known-good",
+    coverage: old.coverage.map((coverage) => ({ ...coverage, status: "unavailable" })),
+    sync: { consecutiveFailures: failures, cohorts, failure, lastAttemptAt: now.toISOString(), lastSuccessAt: previous.lastSuccessAt } });
+  return state;
+}
+
 export async function refreshCricketState(previous, now, collect = collectICC, collectCPL) {
   const old = previous?.snapshot;
   // Independent authorities run under separate bounded requests. A slow CPL
   // verifier must not consume the international feed's cold-start budget.
   const cplPromise = currentCPL(now, old, collectCPL);
-  let accepted;
-  try { accepted = admitICC(await collect(now), old?.fixtures, now); }
-  catch {
+  let candidate;
+  // Transport, pagination, count, schema and normalization remain a single
+  // bounded collection gate. A failed collection proves neither cohort fresh.
+  try { candidate = await collect(now); }
+  catch (error) {
     const cpl = await cplPromise;
+    if ((old?.fixtures.filter((fixture) => fixture.competitionId !== "cpl").length || 0) + cpl.fixtures.length > 400) {
+      return aggregateBoundFailure(previous, now);
+    }
     // Retained receipts are immutable on failure. No successful-looking empty
     // catalog, refreshed live flag, or exception text is emitted to customers.
     const failures = (previous?.consecutiveFailures || 0) + 1;
+    const failure = failureInfo(error, "collection");
+    const cohorts = Object.fromEntries(ICC_COHORTS.map((id) => [id, cohortReceipt(previous, old, id, now, failure)]));
     if (!old) {
-      const state = { consecutiveFailures: failures, lastAttemptAt: now.toISOString(),
+      const state = { consecutiveFailures: failures, cohorts, failure, lastAttemptAt: now.toISOString(),
         nextAttemptAt: new Date(now.getTime() + 5 * MINUTE).toISOString() };
       if (!cpl.fixtures.length || cpl.coverage.status !== "covered") return state;
       state.snapshot = validateCricketSnapshot({ schemaVersion: 1, complete: true, checkedAt: cpl.coverage.checkedAt,
         revision: await revisionFor(cpl.fixtures), sourceStatus: "partial", fixtures: cpl.fixtures,
         coverage: [cpl.coverage, ...["west-indies", "icc"].map((id) => publicCoverage(id, [], "1970-01-01T00:00:00.000Z", false))],
-        sync: { consecutiveFailures: failures, lastAttemptAt: now.toISOString() } });
+        sync: { consecutiveFailures: failures, cohorts, failure, lastAttemptAt: now.toISOString() } });
       return state;
     }
     const coverage = old.coverage.map((c) => c.competitionId === "cpl" ? cpl.coverage : { ...c, status: "unavailable" });
     const fixtures = [...old.fixtures.filter((f) => f.competitionId !== "cpl"), ...cpl.fixtures]
       .sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
-    return { ...previous, consecutiveFailures: failures, lastAttemptAt: now.toISOString(),
+    return { ...previous, consecutiveFailures: failures, cohorts, failure, lastAttemptAt: now.toISOString(),
       nextAttemptAt: new Date(now.getTime() + 5 * MINUTE).toISOString(),
-      snapshot: { ...old, fixtures, revision: await revisionFor(fixtures), coverage,
+      snapshot: validateCricketSnapshot({ ...old, fixtures, revision: await revisionFor(fixtures), coverage,
         checkedAt: [old.checkedAt, ...fixtures.map((f) => f.source.observedAt)].sort().at(-1), sourceStatus: "last-known-good",
-        sync: { consecutiveFailures: failures, lastAttemptAt: now.toISOString(), lastSuccessAt: previous.lastSuccessAt } } };
+        sync: { consecutiveFailures: failures, cohorts, failure, lastAttemptAt: now.toISOString(), lastSuccessAt: previous.lastSuccessAt } }) };
   }
   const cpl = await cplPromise;
-  const fixtures = [...accepted.fixtures, ...cpl.fixtures].sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
-  const coverage = [cpl.coverage, ...["west-indies", "icc"].map((id) => publicCoverage(id, fixtures, accepted.observedAt, true, accepted.pendingByCompetition?.[id]))];
+  let results = admitCohorts(candidate, old, now);
+  // A retained large cohort plus a growing fresh one must still fit the
+  // existing bounded public contract. Never drop rows to make a snapshot fit.
+  if (results.reduce((count, result) => count + result.fixtures.length, cpl.fixtures.length) > 400) {
+    const failure = failureInfo(new Error("Aggregate ICC fixture limit exceeded"), "admission");
+    results = ICC_COHORTS.map((id) => retainedCohort(old, id, failure));
+    if (results.reduce((count, result) => count + result.fixtures.length, cpl.fixtures.length) > 400) {
+      return aggregateBoundFailure(previous, now);
+    }
+  }
+  const fixtures = [...results.flatMap((result) => result.fixtures), ...cpl.fixtures]
+    .sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
+  const coverage = [cpl.coverage, ...results.map((result) => result.coverage)];
+  const failed = results.some((result) => result.failure);
+  const failures = failed ? (previous?.consecutiveFailures || 0) + 1 : 0;
+  const cohorts = Object.fromEntries(results.map((result) => [result.coverage.competitionId,
+    cohortReceipt(previous, old, result.coverage.competitionId, now, result.failure)]));
+  const lastSuccessAt = failed ? previous?.lastSuccessAt : now.toISOString();
   const allCovered = coverage.every((c) => c.status !== "unavailable");
   const snapshot = validateCricketSnapshot({ schemaVersion: 1, complete: true,
-    checkedAt: [accepted.observedAt, ...fixtures.map((f) => f.source.observedAt)].sort().at(-1),
-    revision: await revisionFor(fixtures), sourceStatus: allCovered ? "verified" : "partial", fixtures, coverage,
-    sync: { consecutiveFailures: 0, lastAttemptAt: now.toISOString(), lastSuccessAt: now.toISOString() } });
-  return { snapshot, consecutiveFailures: 0, lastAttemptAt: now.toISOString(), lastSuccessAt: now.toISOString(),
-    nextAttemptAt: new Date(now.getTime() + nextCricketRefresh(fixtures, now)).toISOString() };
+    checkedAt: [old?.checkedAt, ...results.filter((result) => !result.failure).map((result) => result.coverage.checkedAt),
+      ...fixtures.map((f) => f.source.observedAt)].filter(Boolean).sort().at(-1),
+    revision: await revisionFor(fixtures), sourceStatus: allCovered ? "verified"
+      : results.some((result) => !result.failure) ? "partial" : "last-known-good", fixtures, coverage,
+    sync: { consecutiveFailures: failures, cohorts, lastAttemptAt: now.toISOString(), lastSuccessAt } });
+  return { snapshot, consecutiveFailures: failures, cohorts, lastAttemptAt: now.toISOString(), lastSuccessAt,
+    nextAttemptAt: new Date(now.getTime() + (failed ? 5 * MINUTE : nextCricketRefresh(fixtures, now))).toISOString() };
 }
 
 export class CricketFixtureRegistry {
@@ -144,7 +255,10 @@ export class CricketFixtureRegistry {
     // share this one object, so they cannot amplify upstream refresh traffic.
     await this.state.storage.put(STATE_KEY, next);
     console.log(JSON.stringify({ event: "cricket_fixture_refresh", outcome: next.snapshot?.sourceStatus || "unavailable",
-      count: next.snapshot?.fixtures.length || 0, consecutiveFailures: next.consecutiveFailures }));
+      count: next.snapshot?.fixtures.length || 0, consecutiveFailures: next.consecutiveFailures,
+      ...(next.failure ? { failure: next.failure } : {}),
+      cohortFailures: Object.fromEntries(Object.entries(next.cohorts || {}).filter(([, receipt]) => receipt.failure)
+        .map(([id, receipt]) => [id, receipt.failure])) }));
     return next;
   }
 
@@ -159,7 +273,8 @@ export class CricketFixtureRegistry {
     if (!current) current = await this.enqueue(() => this.refresh());
     else if (Date.parse(current.nextAttemptAt) <= Date.now()) this.state.waitUntil(this.enqueue(() => this.refresh()));
     if (!current?.snapshot) return Response.json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable",
-      sync: { consecutiveFailures: current?.consecutiveFailures || 0, lastAttemptAt: current?.lastAttemptAt } }, { status: 503 });
+      sync: { consecutiveFailures: current?.consecutiveFailures || 0, cohorts: current?.cohorts,
+        ...(current?.failure ? { failure: current.failure } : {}), lastAttemptAt: current?.lastAttemptAt } }, { status: 503 });
     return Response.json(current.snapshot);
   }
 }
