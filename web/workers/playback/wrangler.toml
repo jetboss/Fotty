@@ -35,6 +35,11 @@ FPL_COACH_MODEL = "deepseek-v4-flash"
 # group-wide paid-attempt allowance are configured. This is not a money cap.
 FPL_COACH_PAID_ENABLED = "0"
 FPL_COACH_DAILY_LIMIT = "50"
+# Owner-approved primary fixture activation; individual website lanes stay gated.
+FOTTY_SPORTS_FIXTURES_ENABLED = "1"
+# Publicly reachable ESPN website feeds are not a licensed API. Leave gated
+# until source access is resolved separately; general activation cannot enable it.
+FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED = "0"
 # Secret FPL_COACH_ACCESS_SHA256: JSON array of SHA-256 digests of individual
 # random 32-byte hex invitation codes. Never place plaintext codes in this file.
 
@@ -50,6 +55,10 @@ class_name = "FootballQuotaBudget"
 name = "CRICKET_FIXTURES"
 class_name = "CricketFixtureRegistry"
 
+[[durable_objects.bindings]]
+name = "SPORTS_FIXTURES"
+class_name = "SportsFixtureRegistry"
+
 [[migrations]]
 tag = "football-score-budget-v1"
 new_sqlite_classes = [ "FootballQuotaBudget" ]
@@ -61,6 +70,10 @@ new_sqlite_classes = [ "CoachQuotaBudget" ]
 [[migrations]]
 tag = "cricket-fixtures-v1"
 new_sqlite_classes = [ "CricketFixtureRegistry" ]
+
+[[migrations]]
+tag = "sports-fixtures-v1"
+new_sqlite_classes = [ "SportsFixtureRegistry" ]
 
 [[ratelimits]]
 name = "FPL_COACH_RATE_LIMITER"
