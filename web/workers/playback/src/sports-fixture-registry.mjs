@@ -9,6 +9,8 @@ const FAILURE_CODES = new Map([
   ["Football schedule incomplete", "source-incomplete"],
   ["Football schedule window mismatch", "window-mismatch"],
   ["Football competition filter unavailable", "scope-mismatch"],
+  ["Pending competition scope invalid", "scope-mismatch"],
+  ["Pending competition count mismatch", "source-incomplete"],
   ["Accepted fixture disappeared without cancellation evidence", "accepted-fixture-missing"],
   ["Terminal fixture status regressed", "terminal-rollback"],
   ["Collector receipt invalid", "receipt-invalid"],
@@ -17,6 +19,39 @@ const FAILURE_CODES = new Map([
   ["Publisher live evidence stale", "publisher-stale"],
 ]);
 const ERROR_KINDS = new Set(["Error", "TypeError", "ReferenceError", "RangeError", "SyntaxError", "AbortError", "TimeoutError"]);
+
+// Scope is evidence, not an inference from today's descriptor. In particular,
+// a stored PL/CL receipt cannot prove newly added European leagues empty.
+function hasCompetitionReceipt(descriptor, accepted, competitionId) {
+  if (!accepted) return false;
+  if (accepted.pendingByCompetition !== undefined) {
+    const pending = accepted.pendingByCompetition;
+    return pending !== null && typeof pending === "object" && !Array.isArray(pending)
+      && Object.hasOwn(pending, competitionId) && Number.isInteger(pending[competitionId])
+      && pending[competitionId] >= 0 && pending[competitionId] <= 10000;
+  }
+  // Old single-lane receipts predate pendingByCompetition. Their source ID
+  // already fixes the scope; multi-lane legacy state needs explicit evidence.
+  return descriptorCompetitions(descriptor).length === 1
+    || (accepted.fixtures || []).some((fixture) => fixture.competitionId === competitionId);
+}
+
+function requiresScopeRefresh(descriptor, state) {
+  return !descriptorCompetitions(descriptor).every((competition) =>
+    hasCompetitionReceipt(descriptor, state?.accepted, competition.id));
+}
+
+function competitionScope(descriptor) {
+  return JSON.stringify(descriptorCompetitions(descriptor).map(({ id }) => id).sort());
+}
+
+function refreshDue(descriptor, state, now) {
+  const nextAttempt = Date.parse(state?.nextAttemptAt);
+  // A newly expanded scope gets one immediate attempt. Persisting its attempted
+  // scope means failed migrations still respect the ordinary retry deadline.
+  return !state || !Number.isFinite(nextAttempt) || nextAttempt <= now.getTime()
+    || requiresScopeRefresh(descriptor, state) && state.lastAttemptScope !== competitionScope(descriptor);
+}
 
 // Only finite, reviewed codes escape a failed collector. Never log exception
 // text, response bodies, source URLs or credentials—even for unknown errors.
@@ -32,39 +67,44 @@ export function sportsFailureInfo(error, stage) {
 
 export function sourceCoverage(descriptor, state, now = new Date()) {
   return descriptorCompetitions(descriptor).map((competition) => {
+    const scoped = hasCompetitionReceipt(descriptor, state?.accepted, competition.id);
     const fixtures = (state?.accepted?.fixtures || []).filter((row) => row.competitionId === competition.id);
-    const observed = Date.parse(state?.accepted?.observedAt);
+    const receipt = scoped ? state?.accepted?.observedAt : null;
+    const observed = Date.parse(receipt);
     const interval = nextSportsRefresh(fixtures, Number.isFinite(observed) ? new Date(observed) : now);
     const allowedAge = interval <= 15 * 60_000 ? 30 * 60_000 : interval + 30 * 60_000;
     const fresh = Number.isFinite(observed) && observed <= now.getTime() + 5 * 60_000 && now.getTime() - observed <= allowedAge;
     const status = descriptor.supported === false ? "unsupported" : state?.accepted && !state.consecutiveFailures && fresh ? "covered" : "unavailable";
+    const pending = scoped ? state?.accepted?.pendingByCompetition?.[competition.id]
+      ?? (descriptorCompetitions(descriptor).length === 1 ? state?.accepted?.pendingFixtureCount : 0) : 0;
     return { sport: competition.sport || descriptor.sport, competitionId: competition.id, competitionName: competition.name,
-      status, checkedAt: state?.accepted?.observedAt || null, fixtureCount: fixtures.length,
-      pendingFixtureCount: state?.accepted?.pendingByCompetition?.[competition.id] ?? (descriptorCompetitions(descriptor).length === 1 ? state?.accepted?.pendingFixtureCount || 0 : 0),
+      status, checkedAt: receipt || null, fixtureCount: fixtures.length,
+      pendingFixtureCount: Number.isInteger(pending) && pending >= 0 && pending <= 10000 ? pending : 0,
       ...(fixtures.filter((fixture) => fixture.status === "scheduled").map((fixture) => fixture.start).sort()[0]
         ? { nextStart: fixtures.filter((fixture) => fixture.status === "scheduled").map((fixture) => fixture.start).sort()[0] } : {}),
       ...(status === "unsupported" && descriptor.reason ? { reason: descriptor.reason } : {}),
       sync: { consecutiveFailures: state?.consecutiveFailures || 0, lastAttemptAt: state?.lastAttemptAt || null,
-        lastSuccessAt: state?.accepted?.observedAt || null, conflict: Boolean(state?.conflict),
+        lastSuccessAt: receipt || null, conflict: Boolean(state?.conflict),
         ...(state?.failure ? { failure: state.failure } : {}) } };
   });
 }
 
 export async function refreshSportsSource(previous, descriptor, now, collect) {
   if (descriptor.supported === false) return previous || { consecutiveFailures: 0 };
+  const attempt = { lastAttemptAt: now.toISOString(), lastAttemptScope: competitionScope(descriptor) };
   let stage = "collection";
   try {
     const collection = await collect(descriptor, now);
     stage = "admission";
     const result = admitSportsCollection(collection, previous?.accepted, descriptor, now, previous?.conflict);
     if (result.conflict) return { ...previous, failure: null, consecutiveFailures: (previous?.consecutiveFailures || 0) + 1, conflict: result.conflict,
-      lastAttemptAt: now.toISOString(), nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
-    return { accepted: result.accepted, consecutiveFailures: 0, lastAttemptAt: now.toISOString(),
+      ...attempt, nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
+    return { accepted: result.accepted, consecutiveFailures: 0, ...attempt,
       nextAttemptAt: new Date(now.getTime() + nextSportsRefresh(result.accepted.fixtures, now)).toISOString() };
   } catch (error) {
     // No exception/body/credential reaches public snapshots or operational logs.
     return { ...previous, consecutiveFailures: (previous?.consecutiveFailures || 0) + 1,
-      failure: sportsFailureInfo(error, stage), lastAttemptAt: now.toISOString(), nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
+      failure: sportsFailureInfo(error, stage), ...attempt, nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
   }
 }
 
@@ -102,7 +142,7 @@ export class SportsFixtureRegistry {
   async refresh(descriptor) {
     const now = new Date();
     const previous = await this.state.storage.get(STATE_KEY);
-    if (previous && Date.parse(previous.nextAttemptAt) > now.getTime()) return previous;
+    if (!refreshDue(descriptor, previous, now)) return previous;
     const next = await refreshSportsSource(previous, descriptor, now,
       (source, instant) => this.options.collect(source, instant, this.env));
     await this.state.storage.put(STATE_KEY, next);
@@ -124,7 +164,7 @@ export class SportsFixtureRegistry {
     let current = await this.state.storage.get(STATE_KEY);
     // Cold API callers don't launch every source scrape in their request. The
     // registered cron/bootstrap gate initializes shared snapshots independently.
-    if (!current || Date.parse(current.nextAttemptAt) <= Date.now()) this.state.waitUntil(this.enqueue(() => this.refresh(descriptor)));
+    if (refreshDue(descriptor, current, new Date())) this.state.waitUntil(this.enqueue(() => this.refresh(descriptor)));
     return Response.json(current || { consecutiveFailures: 0 });
   }
 }

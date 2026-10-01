@@ -40,7 +40,7 @@ async function workerBundle() {
 }
 function syntheticResponse(source, url) {
   if (source === "football-data") return Response.json({ filters: { dateFrom: url.searchParams.get("dateFrom"),
-    dateTo: url.searchParams.get("dateTo"), competitions: "PL,CL" }, resultSet: { count: 0 }, matches: [] });
+    dateTo: url.searchParams.get("dateTo"), competitions: url.searchParams.get("competitions") }, resultSet: { count: 0 }, matches: [] });
   if (source === "mlb") return Response.json({ totalGames: 0, totalItems: 0, totalEvents: 0, dates: [] });
   if (source === "nhl") {
     const date = url.pathname.split("/").at(-1);
@@ -114,7 +114,8 @@ test("actual workerd admits every eligible primary source through the exported D
   assert.equal(snapshot.complete, true);
   assert.equal(snapshot.sourceStatus, "verified");
   const covered = snapshot.coverage.filter((row) => row.status === "covered");
-  assert.deepEqual(covered.map((row) => row.competitionId).sort(), ["champions-league", "mlb", "nhl", "premier-league", "wnba"]);
+  assert.deepEqual(covered.map((row) => row.competitionId).sort(),
+    ["bundesliga", "champions-league", "la-liga", "ligue-1", "mlb", "nhl", "premier-league", "serie-a", "wnba"]);
   assert.ok(covered.every((row) => row.checkedAt !== null && row.sync.consecutiveFailures === 0));
   assert.equal(snapshot.fixtures.length, 1);
   assert.equal(snapshot.fixtures[0].squad.gender, "women");
@@ -156,5 +157,6 @@ test("actual workerd does not collect the deferred WNBA lane or report it as hea
   assert.equal(lane.status, "unsupported");
   assert.equal(lane.checkedAt, null);
   assert.match(lane.reason, /verified source access/);
-  assert.equal(snapshot.coverage.filter((row) => row.status === "covered").length, 4);
+  assert.deepEqual(snapshot.coverage.filter((row) => row.status === "covered").map((row) => row.competitionId).sort(),
+    ["bundesliga", "champions-league", "la-liga", "ligue-1", "mlb", "nhl", "premier-league", "serie-a"]);
 });

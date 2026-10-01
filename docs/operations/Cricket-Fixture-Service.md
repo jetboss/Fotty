@@ -1,9 +1,18 @@
 # Automatic cricket fixtures
 
-Status, 30 September 2026: implemented and locally verified. Cloudflare
-activation, GitHub publication and a new native app installation are separate
-pending gates. Do not describe the new cloud cron or hourly workflow as live
-until their deployment/run receipts exist.
+Status, 1 October 2026: cloud collection and the hourly monitor are published
+through protected PR27; production source3 preserves them. Candidate source4's
+cohort-isolation/boundary repair now has owner publication/deployment approval,
+not deployed recovery. New native installs and TestFlight are not authorized.
+
+At14:10 UTC production retained67 fixtures (WI9/ICC58) with eight failures and
+the original13:00 UTC observation. Three future ICC women's tri-series kickoffs
+changed30 minutes without is_revised; no independent correction clearance was
+found. Fresh CWI agreed with five in-window WI fixtures and had no live/next24h
+omission. Scheduled run36877207360 at14:33 UTC confirmed repeated sync failure.
+Source4 independently admits WI/ICC after the unchanged complete collection
+gate, retaining failed cohort facts/receipts exactly. It does not accept those
+three unflagged corrections merely to clear the monitor.
 
 ## Coverage and ownership
 
@@ -21,6 +30,12 @@ until their deployment/run receipts exist.
   accepted snapshots and serializes concurrent cold callers and cron work.
   Content revisions exclude receipt times. Failed refreshes retain original
   per-source observations; a fetch must never make stale live evidence fresh.
+- Source4 keeps per-cohort finite failure diagnostics, rejects cross-cohort ID
+  movement and older empty/pending-only observations, and preserves aggregate
+  failures/five-minute retry until both cohorts recover. A fresh/retained/CPL
+  union over400 holds the entire previous valid envelope and original CPL
+  receipt; it never truncates rows or throws before persisted backoff.
+  Success/failure, concurrent calls, restart and retry-boundary regressions pass.
 - The existing CPL adapter remains its full-season authority. During its active
   season the registry collects the verified CPL response separately. The
   reviewed 2026 offseason ends at the year boundary; another season requires
@@ -35,7 +50,7 @@ times limit actual source collection to five minutes when live/imminent,
 Failures retry after five minutes. Once activated, this collection does not
 depend on a tester leaving Fotty open or on this Mac being awake.
 
-The proposed hourly GitHub workflow runs `tools/audit-cricket-fixtures.mjs`.
+The published hourly GitHub workflow runs `tools/audit-cricket-fixtures.mjs`.
 It validates the accepted snapshot and independently compares current West
 Indies matches with Cricket West Indies. Missing fixtures, stale match-window
 receipts and repeated sync failures alert the owner in one dedicated, redacted
@@ -47,7 +62,8 @@ CWI calendar-heading timezone is not documented for AST/UTC dates crossing
 midnight. Such rows fail the independent check rather than manufacturing a
 24-hour discrepancy; the ICC registry still supplies their explicit UTC facts.
 
-The active local Codex heartbeat `fotty-cricket-fixture-supervision` checks
+The existing local heartbeat `fotty-cricket-fixture-supervision`, now named
+Fotty all-sport fixture supervision, checks both bounded fixture audits
 every six hours, stays quiet on healthy/unchanged states and investigates new
 actionable failures with scoped sub-agents. It is supplemental investigation,
 not the cloud updater. It respects pending activation and needs this local host
@@ -81,9 +97,8 @@ node tools/audit-worker-health.mjs
 cd web && npm run test:unit && npm run worker:check
 ```
 
-The new cricket endpoint and exact Worker identity audit are expected to fail
-against the old deployed Worker until activation; do not treat that pending
-state as a new incident. After activation, retain the deployment identity,
+The current failure is an unconfirmed source correction, not expected pending
+activation. After source4 deployment, retain the deployment identity,
 confirm registry binding and cron registration, verify a fresh public snapshot,
 and run the independent monitor. GitHub scheduling is active only after the
 workflow is published on the default branch and successfully exercised.
