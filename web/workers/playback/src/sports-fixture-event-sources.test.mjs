@@ -25,7 +25,7 @@ test("tennis makes nine bounded daily calls, retains ongoing tournaments, and de
   const descriptor = source("tennis-atp");
   const result = await collectSportsEventSource(descriptor, now, {}, async (url, options) => {
     calls.push(new URL(url));
-    assert.equal(options.redirect, "error");
+    assert.equal(options.redirect, "manual");
     return respond(board(descriptor, [tennisEvent()]));
   });
   assert.deepEqual(calls.map((url) => url.searchParams.get("dates")), ["20260929", "20260930", "20261001", "20261002", "20261003", "20261004", "20261005", "20261006", "20261007"]);
@@ -209,7 +209,7 @@ test("rugby hydrates all referenced identities and statuses within the complete 
   assert.equal(mock.calls.length, 38);
   assert.equal(result.fixtures.length, 9);
   assert.deepEqual(result.fixtures[0].participants.map((participant) => participant.role), ["home", "away"]);
-  assert.ok(mock.calls.every(({ url, options }) => url.protocol === "https:" && options.redirect === "error"));
+  assert.ok(mock.calls.every(({ url, options }) => url.protocol === "https:" && options.redirect === "manual"));
 });
 
 test("AFL empty window still requires a verified league and complete index; it does not infer offseason", async () => {
@@ -238,6 +238,13 @@ test("unavailable, redirected, oversized, and unsupported feeds fail before retu
   const descriptor = source("golf-pga");
   await assert.rejects(collectSportsEventSource(descriptor, now, {}, async () => new Response("bad", { status: 400 })), /unavailable/);
   await assert.rejects(collectSportsEventSource(descriptor, now, {}, async () => ({ ok: true, redirected: true })), /unavailable/);
+  let calls = 0;
+  await assert.rejects(collectSportsEventSource(descriptor, now, {}, async (_url, options) => {
+    calls++;
+    assert.equal(options.redirect, "manual");
+    return new Response(null, { status: 302, headers: { Location: "https://unexpected.invalid" } });
+  }), /unavailable/);
+  assert.equal(calls, 1);
   await assert.rejects(collectSportsEventSource(descriptor, now, {}, async () => new Response("{}", { headers: { "content-length": "2000001" } })), /too large/);
   for (const id of ["fight-boxing", "darts-pdc"]) {
     let calls = 0;

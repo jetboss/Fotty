@@ -86,7 +86,7 @@ test("ESPN requests individual padded dates at explicit 500 capacity under one s
   assert.equal(calls.length, 10);
   assert.equal(calls[0].url.searchParams.get("dates"), "20260928");
   assert.equal(calls.at(-1).url.searchParams.get("dates"), "20261007");
-  assert.ok(calls.every(({ url, init }) => url.searchParams.get("limit") === "500" && init.redirect === "error"));
+  assert.ok(calls.every(({ url, init }) => url.searchParams.get("limit") === "500" && init.redirect === "manual"));
   assert.ok(calls.every(({ init }) => init.signal === calls[0].init.signal));
   assert.equal(calls[0].init.signal.aborted, true);
   assert.deepEqual(result.fixtures, []);
@@ -272,6 +272,13 @@ test("football refuses missing credential, ignored scope, count/window mismatch 
 test("transport rejects upstream errors, redirected responses, HTML and oversized streaming bodies", async () => {
   await assert.rejects(() => collect("mlb", async () => new Response("unavailable", { status: 503 })), /unavailable/);
   await assert.rejects(() => collect("mlb", async () => ({ ok: true, redirected: true })), /unavailable/);
+  let redirectCalls = 0;
+  await assert.rejects(() => collect("mlb", async (_url, init) => {
+    redirectCalls++;
+    assert.equal(init.redirect, "manual");
+    return new Response(null, { status: 302, headers: { Location: "https://unexpected.invalid/private" } });
+  }), /unavailable/);
+  assert.equal(redirectCalls, 1);
   await assert.rejects(() => collect("mlb", async () => new Response("<html>empty</html>", { headers: { "Content-Type": "text/html" } })), /not JSON/);
   await assert.rejects(() => collect("mlb", async () => new Response("{}", { headers: { "Content-Type": "application/json", "Content-Length": "2000001" } })), /too large/);
   await assert.rejects(() => collect("mlb", async () => new Response(" ".repeat(2_000_001), { headers: { "Content-Type": "application/json" } })), /too large/);

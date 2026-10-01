@@ -83,9 +83,13 @@ export function sportsFixtureWindow(now) {
 }
 
 async function requestJSON(url, deadline, fetchImpl, headers = {}, withHeaders = false) {
-  const response = await abortable(() => fetchImpl(url, { signal: deadline.signal, redirect: "error",
+  // Workers supports manual/follow, not the Node fetch "error" mode. Never
+  // follow a redirect with a credential or accept an alternate publisher.
+  const response = await abortable(() => fetchImpl(url, { signal: deadline.signal, redirect: "manual",
     headers: { Accept: "application/json", ...headers }, cf: { cacheEverything: true, cacheTtl: 60 } }), deadline.signal);
-  check(response.ok && !response.redirected, "Sports schedule upstream unavailable");
+  if (!response.ok || response.redirected || response.status >= 300 && response.status < 400) {
+    throw Object.assign(new Error("Sports schedule upstream unavailable"), { fixtureHTTPStatus: response.status });
+  }
   const contentType = response.headers.get("content-type") || "";
   // The league-owned WNBA JSON file is served as text/plain. Its exact
   // allowlisted URL and complete typed league schema remain mandatory.

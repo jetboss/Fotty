@@ -115,7 +115,7 @@ cross-publisher coverage remains a source-selection gap, not a completed gate.
 - Publish through a protected PR after source-access review and current gates.
   Reconcile remote native/backend state; do not assume the older remote client
   equals this working tree. The candidate `worker-version.mjs` is
-  `2026-10-01.sports-fixtures-1`; do not call it deployed until the deployed
+  `2026-10-01.sports-fixtures-2`; do not call it deployed until the deployed
   version, binding and registered cron match the protected source receipt.
 - Confirm the registered cron, deployed flags/binding, warmed per-source
   receipts and a published monitor run. Observe a scheduled run separately.
@@ -131,3 +131,16 @@ cohort correction, including 21 new native fixture tests. SwiftLint's new-file
 error is resolved; style warnings remain, not a claimed zero-warning Swift gate.
 These checks are not physical playback or production activation evidence.
 Owned Xcode/dry-run/actionlint output is removed; about 48 GiB remains free.
+
+## Production runtime correction
+
+Initial version `0236bf27-037f-4490-ad1b-450f57d23d6d` registered the registry
+and cron but accepted no new source snapshots. This did not qualify activation.
+An isolated actual-workerd reproduction found all four collectors rejected
+`redirect: "error"` before outbound I/O. Node mocked-fetch tests did not expose
+that runtime difference. Both collector families now use Workers-supported
+`manual` and reject 3xx/already-redirected/non-success responses without following
+`Location` or forwarding credentials. Website access gates remain off.
+The follow-up candidate adds actual edge-runtime regressions and finite redacted
+failure-stage/code/status receipts; raw exceptions/bodies/URLs are never logged.
+Post-deploy accepted snapshots and monitoring still have to pass.
