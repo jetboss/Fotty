@@ -40,6 +40,9 @@ FOTTY_SPORTS_FIXTURES_ENABLED = "1"
 # Publicly reachable ESPN website feeds are not a licensed API. Leave gated
 # until source access is resolved separately; general activation cannot enable it.
 FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED = "0"
+# Cloudflare receives HTML rather than the canonical WNBA schedule JSON.
+# Keep this source deferred until edge access is verified; do not widen admission.
+FOTTY_SPORTS_WNBA_ENABLED = "0"
 # Secret FPL_COACH_ACCESS_SHA256: JSON array of SHA-256 digests of individual
 # random 32-byte hex invitation codes. Never place plaintext codes in this file.
 

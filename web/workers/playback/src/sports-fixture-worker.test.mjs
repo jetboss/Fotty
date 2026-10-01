@@ -21,13 +21,14 @@ test("general activation does not enable unreviewed public website feeds", async
     CRICKET_FIXTURES: { idFromName(name) { return name; }, get() { return { async fetch() { return Response.json({ ok: true }); } }; } } };
   await worker.scheduled({}, env, { waitUntil(value) { waits.push(value); } });
   await Promise.all(waits);
-  assert.equal(calls.length, SPORTS_SOURCES.filter((source) => source.supported && !source.publicUndocumented).length);
+  assert.equal(calls.length, SPORTS_SOURCES.filter((source) => source.supported && !source.publicUndocumented && source.id !== "wnba").length);
+  assert.equal(calls.some((name) => name.endsWith(":wnba")), false);
   assert.equal(calls.some((name) => name.endsWith(":nba") || name.includes("tennis-atp")), false);
 });
 
 test("one failing source group does not stop later cricket/sports refresh groups", async () => {
   const calls = []; const waits = [];
-  const env = { FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "1",
+  const env = { FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "1", FOTTY_SPORTS_WNBA_ENABLED: "1",
     SPORTS_FIXTURES: { idFromName(name) { return name; }, get(name) { return { async fetch() { calls.push(name); if (name.endsWith(":football-data")) throw new Error("private error"); return Response.json({ ok: true }); } }; } } };
   await worker.scheduled({}, env, { waitUntil(value) { waits.push(value); } });
   await Promise.all(waits);
@@ -50,5 +51,6 @@ test("a hung registry GET expires while other source receipts remain available",
   assert.equal(body.coverage.find((row) => row.competitionId === "mlb").status, "covered");
   assert.equal(body.coverage.find((row) => row.competitionId === "premier-league").status, "unavailable");
   assert.equal(body.coverage.find((row) => row.competitionId === "atp").status, "unsupported");
-  assert.equal(calls.length, 4);
+  assert.equal(body.coverage.find((row) => row.competitionId === "wnba").status, "unsupported");
+  assert.equal(calls.length, 3);
 });

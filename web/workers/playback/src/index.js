@@ -34,8 +34,13 @@ import { SportsFixtureRegistry as BaseSportsFixtureRegistry, assembleSportsSnaps
 const ALL_SPORTS_SOURCES = [...SPORTS_SOURCES, ...SPORTS_EVENT_SOURCES];
 const PRIMARY_SPORTS_SOURCE_IDS = new Set(SPORTS_SOURCES.map((source) => source.id));
 function effectiveSportsSources(env) {
-  return ALL_SPORTS_SOURCES.map((source) => source.publicUndocumented && env.FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED !== "1"
-    ? { ...source, supported: false, reason: "This public website feed is awaiting separate source-access review." } : source);
+  return ALL_SPORTS_SOURCES.map((source) => {
+    if (source.id === "wnba" && env.FOTTY_SPORTS_WNBA_ENABLED !== "1") {
+      return { ...source, supported: false, reason: "The league CDN does not return structured data to the cloud fixture service; activation requires verified source access." };
+    }
+    return source.publicUndocumented && env.FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED !== "1"
+      ? { ...source, supported: false, reason: "This public website feed is awaiting separate source-access review." } : source;
+  });
 }
 export class SportsFixtureRegistry extends BaseSportsFixtureRegistry {
   constructor(state, env) {
@@ -671,6 +676,7 @@ async function handleHealth(env) {
     sportsFixtureRegistryConfigured: Boolean(env.SPORTS_FIXTURES),
     sportsFixtureServiceEnabled: sportsFixturesEnabled(env),
     sportsPublicWebFeedsEnabled: env.FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED === "1",
+    sportsWNBAEnabled: env.FOTTY_SPORTS_WNBA_ENABLED === "1",
     sportsFixtureRefreshMode: "scheduled-per-source-adaptive",
     apiFootballCredentialConfigured,
     premierLeagueLiveScoresConfigured: currentSeasonLiveScoresAvailable,

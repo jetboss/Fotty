@@ -1,9 +1,10 @@
 # Automatic sports fixtures
 
-Status, 1 October 2026: owner-approved primary-source activation candidate.
-Protected publication and exact-deployment verification must complete before
-this is called live. Cricket retains its existing registry. Website feeds stay
-disabled; no TestFlight, new subscription or paid-policy change is authorized.
+Status, 1 October 2026: PL/CL, MLB and NHL have accepted production receipts.
+The final cleared-source candidate explicitly defers WNBA after a verified
+Cloudflare access failure. Protected publication and exact-version checks remain
+required for this correction. Cricket retains its existing registry. Website
+feeds stay disabled; no TestFlight, new subscription or paid-policy change is authorized.
 This backend PR does not reconcile the older remote native app with the locally
 qualified consumer. The owner iPad gate uses a separate immutable source receipt.
 
@@ -11,13 +12,15 @@ qualified consumer. The owner iPad gate uses a separate immutable source receipt
 
 The new manifest defines 30 source groups and 31 competition scopes. Of these,
 28 groups have bounded adapters; boxing and PDC darts remain unsupported.
+Only football-data (PL/CL), MLB and NHL are cleared for cloud collection now;
+27 competition lanes remain explicitly deferred/unsupported, including WNBA.
 Cricket retains its separate CPL / West Indies / ICC integration and monitor.
 
 | Lane | Staged competitions | Source boundary |
 | --- | --- | --- |
 | Football | PL, Champions League, La Liga, Serie A, Bundesliga, Ligue 1, MLS | Existing football-data credential for PL/CL; other leagues are gated website adapters. |
 | Baseball / hockey | MLB, NHL | League-owned structured schedule routes. |
-| Basketball | WNBA, NBA, men's/women's NCAA Division I | WNBA league CDN; NBA/NCAA website adapters gated. |
+| Basketball | WNBA, NBA, men's/women's NCAA Division I | WNBA cloud access deferred; NBA/NCAA website adapters gated. |
 | American football | NFL, NCAA FBS/FCS | Gated website adapters; agreeing interdivision duplicates are unioned, conflicts rejected. |
 | Tennis | ATP, WTA | Gated per-day feeds, with explicit tour/gender checks; doubles retain two sides, not fabricated home/away teams. |
 | Golf | PGA, LPGA, DP World Tour | Gated tournament feeds; unconfirmed start times are pending, not reminders. |
@@ -105,17 +108,25 @@ cross-publisher coverage remains a source-selection gap, not a completed gate.
 - `FOTTY_SPORTS_FIXTURES_ENABLED="1"` is the owner-approved primary-source
   activation setting; `FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED="0"` remains mandatory.
   General activation cannot turn on the public website adapters.
+- `FOTTY_SPORTS_WNBA_ENABLED="0"` is separately default-off. On 1 October the
+  canonical league schedule returned valid JSON to Node, but a bounded Cloudflare
+  remote preview returned HTTP 200 `text/html`, not an admissible schedule.
+  This is an access gap, not healthy empty WNBA coverage. The adapter is retained
+  and any previous durable state is not deleted; no cron/GET collects this lane
+  until verified edge access and explicit activation. Do not widen JSON admission,
+  spoof access headers or add an unreviewed alternate publisher to evade this gate.
 - The PL/CL authenticated bulk adapter validates echoed scope and exclusive
   `dateTo`. A bounded direct credentialed check on 1 October returned HTTP 200,
   exact requested date bounds, CL/PL scope and matching count/array length of zero.
   This used the existing local credential; equality with the deployed secret
-  was not established. Require a successful deployed registry receipt as well.
+  was not established. Production version `5befcc6e-540d-41db-be0c-6171d9ccd250`
+  accepted both lanes at 09:44 UTC with matching zero rows and no failures.
   This qualifies the transport/schema, not independent fixture completeness.
   The existing proxy strips bulk competition parameters and is not proof of scope.
 - Publish through a protected PR after source-access review and current gates.
   Reconcile remote native/backend state; do not assume the older remote client
   equals this working tree. The candidate `worker-version.mjs` is
-  `2026-10-01.sports-fixtures-2`; do not call it deployed until the deployed
+  `2026-10-01.sports-fixtures-3`; do not call it deployed until the deployed
   version, binding and registered cron match the protected source receipt.
 - Confirm the registered cron, deployed flags/binding, warmed per-source
   receipts and a published monitor run. Observe a scheduled run separately.
@@ -141,6 +152,11 @@ An isolated actual-workerd reproduction found all four collectors rejected
 that runtime difference. Both collector families now use Workers-supported
 `manual` and reject 3xx/already-redirected/non-success responses without following
 `Location` or forwarding credentials. Website access gates remain off.
-The follow-up candidate adds actual edge-runtime regressions and finite redacted
+Protected PR32 deployed `5befcc6e-540d-41db-be0c-6171d9ccd250`, source version
+`2026-10-01.sports-fixtures-2`. The 09:44 UTC receipts admitted PL/CL (zero),
+13 MLB and 57 NHL fixtures. WNBA remained unavailable with fixed
+`collection/upstream-not-json` evidence; the final candidate defers that lane.
+The correction adds actual edge-runtime regressions and finite redacted
 failure-stage/code/status receipts; raw exceptions/bodies/URLs are never logged.
-Post-deploy accepted snapshots and monitoring still have to pass.
+The initial manual monitor run 36842326870 failed during cold/failed activation;
+the final cleared-source monitor and owner-device gate still have to pass.

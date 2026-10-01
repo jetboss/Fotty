@@ -56,7 +56,7 @@ function syntheticResponse(source, url) {
   { headers: { "Last-Modified": now.toUTCString() } });
 }
 
-async function runtime(t, mode) {
+async function runtime(t, mode, wnbaEnabled = "1") {
   const taskTemp = await mkdtemp(join(tmpdir(), "fotty-sports-runtime-"));
   let miniflare;
   let disposal;
@@ -74,7 +74,7 @@ async function runtime(t, mode) {
     resourcePersistencePath: join(taskTemp, "state"), isolatedResourcePersistencePath: join(taskTemp, "isolated"),
     resourceTmpPath: join(taskTemp, "runtime"), unsafeEphemeralDurableObjects: true,
     durableObjects: { SPORTS_FIXTURES: { className: "SportsFixtureRegistry", useSQLite: true } },
-    bindings: { FOOTBALL_DATA_API_KEY: SYNTHETIC_KEY, FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "0" },
+    bindings: { FOOTBALL_DATA_API_KEY: SYNTHETIC_KEY, FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "0", FOTTY_SPORTS_WNBA_ENABLED: wnbaEnabled },
     outboundService: async (request) => {
       const url = new URL(request.url);
       const source = hosts.get(url.hostname);
@@ -138,4 +138,23 @@ test("actual workerd reaches each publisher but rejects 3xx without following or
     assert.equal(state.failure.code, "upstream-unavailable");
     assert.equal(state.failure.httpStatus, [301, 302, 307, 308][sources.indexOf(source)]);
   }
+});
+
+test("actual workerd does not collect the deferred WNBA lane or report it as healthy empty coverage", { timeout: 20_000 }, async (t) => {
+  const { miniflare, requests } = await runtime(t, "valid", "0");
+  const namespace = await miniflare.getDurableObjectNamespace("SPORTS_FIXTURES");
+  const refreshed = await Promise.all(sources.filter((source) => source !== "wnba").map((source) => refresh(namespace, source)));
+  assert.ok(refreshed.every((result) => result.body.ok === true));
+  const deferred = namespace.get(namespace.idFromName("shared-sports-fixtures-v1:wnba"));
+  const deferredResponse = await deferred.fetch("https://sports-registry.invalid/refresh?source=wnba", { method: "POST" });
+  assert.equal(deferredResponse.status, 404);
+  assert.equal(requests.some((request) => request.source === "wnba"), false);
+  const response = await miniflare.dispatchFetch("https://runtime-test.invalid/api/sports/fixtures");
+  assert.equal(response.status, 200);
+  const snapshot = await response.json();
+  const lane = snapshot.coverage.find((row) => row.competitionId === "wnba");
+  assert.equal(lane.status, "unsupported");
+  assert.equal(lane.checkedAt, null);
+  assert.match(lane.reason, /verified source access/);
+  assert.equal(snapshot.coverage.filter((row) => row.status === "covered").length, 4);
 });
