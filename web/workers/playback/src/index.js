@@ -6,6 +6,7 @@
  *   GET /api/embed/player?source=&id=&streamNo=
  *   GET /api/cricket/cpl-fixtures
  *   GET /api/cricket/fixtures
+ *   GET /api/sports/fixtures
  *   GET /health
  *
  * Browser playback stays on the provider origin. Fotty does not mirror or
@@ -26,6 +27,66 @@ export { CoachQuotaBudget } from "./coach-safety.mjs";
 import cplFixtureFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
 import { cplFixtureSources, resolveCPLManifest, validateCPLManifest } from "./cpl-fixture-policy.mjs";
 import { CricketFixtureRegistry as BaseCricketFixtureRegistry } from "./cricket-fixture-registry.mjs";
+import { SPORTS_SOURCES, collectSportsSource } from "./sports-fixture-sources.mjs";
+import { SPORTS_EVENT_SOURCES, collectSportsEventSource } from "./sports-fixture-event-sources.mjs";
+import { SportsFixtureRegistry as BaseSportsFixtureRegistry, assembleSportsSnapshot } from "./sports-fixture-registry.mjs";
+
+const ALL_SPORTS_SOURCES = [...SPORTS_SOURCES, ...SPORTS_EVENT_SOURCES];
+const PRIMARY_SPORTS_SOURCE_IDS = new Set(SPORTS_SOURCES.map((source) => source.id));
+function effectiveSportsSources(env) {
+  return ALL_SPORTS_SOURCES.map((source) => source.publicUndocumented && env.FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED !== "1"
+    ? { ...source, supported: false, reason: "This public website feed is awaiting separate source-access review." } : source);
+}
+export class SportsFixtureRegistry extends BaseSportsFixtureRegistry {
+  constructor(state, env) {
+    super(state, env, { descriptors: effectiveSportsSources(env), collect: (source, now, environment) =>
+      PRIMARY_SPORTS_SOURCE_IDS.has(source.id) ? collectSportsSource(source, now, environment) : collectSportsEventSource(source, now, environment) });
+  }
+}
+
+function sportsFixturesEnabled(env) { return Boolean(env.SPORTS_FIXTURES) && env.FOTTY_SPORTS_FIXTURES_ENABLED === "1"; }
+function sportsRegistryStub(env, source) {
+  return env.SPORTS_FIXTURES.get(env.SPORTS_FIXTURES.idFromName(`shared-sports-fixtures-v1:${source.id}`));
+}
+function sportsRegistryRequest(source, refresh = false) {
+  return new Request(`https://sports-registry.invalid/${refresh ? "refresh" : "fixtures"}?source=${encodeURIComponent(source.id)}`,
+    { method: refresh ? "POST" : "GET" });
+}
+
+async function mapSportsSources(operation, sources = ALL_SPORTS_SOURCES) {
+  const results = [];
+  // Bounded fanout on the shared Mac, edge, and source publishers alike.
+  for (let index = 0; index < sources.length; index += 4) {
+    results.push(...await Promise.all(sources.slice(index, index + 4).map(operation)));
+  }
+  return results;
+}
+
+async function handleSportsFixtures(env) {
+  if (!sportsFixturesEnabled(env)) return json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable", activation: "pending" }, 503);
+  const deadline = coachDeadline(undefined, 12_000);
+  try {
+    const sources = effectiveSportsSources(env);
+    const pairs = await mapSportsSources(async (source) => {
+      if (source.supported === false) return [source.id, undefined];
+      try {
+        const state = await withDeadline(1_500, async (signal) => {
+          const response = await abortable(() => sportsRegistryStub(env, source).fetch(sportsRegistryRequest(source)), signal);
+          if (!response.ok) throw new Error("Sports registry unavailable");
+          return boundedJSON(response, 1024 * 1024, signal);
+        }, deadline.signal);
+        return [source.id, state];
+      } catch { return [source.id, { consecutiveFailures: 1 }]; }
+    }, sources);
+    const snapshot = await assembleSportsSnapshot(sources, new Map(pairs), new Date());
+    const body = JSON.stringify(snapshot);
+    if (new TextEncoder().encode(body).byteLength > 2 * 1024 * 1024) throw new Error("Sports snapshot exceeded bound");
+    if (!snapshot.coverage.some((row) => row.status === "covered")) return json({ schemaVersion: 1, complete: false,
+      sourceStatus: "unavailable", activation: "warming", coverage: snapshot.coverage }, 503);
+    return new Response(body, { headers: corsHeaders({ "Content-Type": "application/json", "Cache-Control": "public, max-age=60" }) });
+  } catch { return json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable" }, 503); }
+  finally { deadline.dispose(); }
+}
 
 export class CricketFixtureRegistry extends BaseCricketFixtureRegistry {
   constructor(state, env) { super(state, env, { collectCPL: () => handleCPLFixtures(env) }); }
@@ -607,6 +668,10 @@ async function handleHealth(env) {
     cplFallbackRevision: cplFixtureFallback.revision,
     cricketFixtureRegistryConfigured: Boolean(env.CRICKET_FIXTURES),
     cricketFixtureRefreshMode: "scheduled-adaptive",
+    sportsFixtureRegistryConfigured: Boolean(env.SPORTS_FIXTURES),
+    sportsFixtureServiceEnabled: sportsFixturesEnabled(env),
+    sportsPublicWebFeedsEnabled: env.FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED === "1",
+    sportsFixtureRefreshMode: "scheduled-per-source-adaptive",
     apiFootballCredentialConfigured,
     premierLeagueLiveScoresConfigured: currentSeasonLiveScoresAvailable,
     liveScoreQuota,
@@ -1276,9 +1341,15 @@ async function handleFplCoachWithinDeadline(request, env, signal) {
 
 const worker = {
   async scheduled(_controller, env, ctx) {
-    if (!env.CRICKET_FIXTURES) return;
-    ctx.waitUntil(cricketRegistryStub(env).fetch(new Request("https://cricket-registry.invalid/refresh", { method: "POST" }))
+    if (env.CRICKET_FIXTURES) ctx.waitUntil(cricketRegistryStub(env).fetch(new Request("https://cricket-registry.invalid/refresh", { method: "POST" }))
       .then((response) => { if (!response.ok) throw new Error("Cricket scheduled refresh failed"); }));
+    if (sportsFixturesEnabled(env)) ctx.waitUntil(mapSportsSources(async (source) => {
+      if (source.supported === false) return;
+      try {
+        const response = await sportsRegistryStub(env, source).fetch(sportsRegistryRequest(source, true));
+        if (!response.ok) throw new Error("Sports scheduled refresh failed");
+      } catch { logWorkerEvent("warn", "sports_fixture_registry_unavailable", { sourceGroup: source.id }); }
+    }, effectiveSportsSources(env)));
   },
   async fetch(request, env) {
     if (request.method === "OPTIONS") {
@@ -1303,6 +1374,7 @@ const worker = {
       return handleCPLFixtures(env);
     }
     if (url.pathname === "/api/cricket/fixtures" || url.pathname === "/api/cricket/fixtures/") return handleCricketFixtures(env);
+    if (url.pathname === "/api/sports/fixtures" || url.pathname === "/api/sports/fixtures/") return handleSportsFixtures(env);
     if (url.pathname === "/api/live/streams") return handleStreams(url);
     if (url.pathname === "/api/embed/player") return handlePlayer(url);
     return json({ error: "Not found" }, 404);
