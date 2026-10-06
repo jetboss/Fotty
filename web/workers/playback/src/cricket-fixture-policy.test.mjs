@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import worker from "./index.js";
-import { admitICC, cricketWindow, iccScheduleURL, iccSourceTime, nextCricketRefresh, normalizeICC, parseICCPage } from "./cricket-fixture-policy.mjs";
+import { admitICC, admitICCIsolated, cricketWindow, iccScheduleURL, iccSourceTime, nextCricketRefresh, normalizeICC, parseICCPage, validateCricketSnapshot } from "./cricket-fixture-policy.mjs";
 import { collectICC, CricketFixtureRegistry, refreshCricketState } from "./cricket-fixture-registry.mjs";
 import { auditCricketSnapshot } from "../../../../tools/audit-cricket-fixtures-policy.mjs";
 import cplFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
@@ -16,6 +16,7 @@ const normalized = (rows = [row()]) => normalizeICC([parseICCPage(payload(rows),
 const cohortCollection = () => normalized([row(), row({ match_id: "270272", teamb: "England", teamb_id: "1" })]);
 const withReceipt = (collection, receipt) => ({ ...collection, observedAt: receipt.toISOString(),
   fixtures: collection.fixtures.map((fixture) => ({ ...fixture, source: { ...fixture.source, observedAt: receipt.toISOString() } })) });
+const marked = (fixtures, verification) => fixtures.map((fixture) => ({ ...fixture, source: { ...fixture.source, verification } }));
 const activeSeason = new Date("2026-09-20T16:00:00Z");
 const recoveredCPL = (receipt) => Response.json({ ...cplFallback, checkedAt: receipt.toISOString(), sourceStatus: "verified" });
 const reviewNow = new Date("2026-10-01T19:00:00.000Z");
@@ -32,12 +33,39 @@ const triSeriesCollection = (corrected) => normalizeICC([parseICCPage(payload(tr
   { timestamp: { utc_time: "10/1/2026 7:00:00 PM" } }), reviewNow)], reviewNow);
 const priorTriSeries = () => admitICC(withReceipt(triSeriesCollection(false), new Date("2026-10-01T13:00:00Z")),
   [], new Date("2026-10-01T13:00:00Z")).fixtures;
+function octoberConflictScenario() {
+  const initialAt = new Date("2026-10-03T04:51:20.000Z");
+  const attemptedAt = new Date("2026-10-06T15:35:00.000Z");
+  const rows = [
+    triSeriesRows(true)[2],
+    row({ match_id: "273760", teama: "Oman", teama_id: "25", teamb: "Canada", teamb_id: "12",
+      match_date_gmt: "10/9/2026", match_time_gmt: "06:00", live: false, upcoming: true }),
+    row({ match_id: "274655", teama: "Afghanistan", teama_id: "1188", teamb: "Bangladesh", teamb_id: "2",
+      match_date_gmt: "10/9/2026", match_time_gmt: "05:30", match_type: "Test", live: false, upcoming: true }),
+    row({ match_id: "270987", league_id: "9", teama: "India U19", teama_id: "1120", teamb: "Australia U19", teamb_id: "1121",
+      match_date_gmt: "10/5/2026", match_time_gmt: "04:00", match_type: "Test", live: false, upcoming: true }),
+    row({ match_id: "274310", teama: "Pakistan", teama_id: "6", teamb: "India", teamb_id: "4",
+      match_date_gmt: "10/3/2026", match_time_gmt: "04:30", match_type: "T20" }),
+    row({ match_id: "270273", match_date_gmt: "10/6/2026", match_time_gmt: "13:30", match_type: "T20", live: false, upcoming: true }),
+  ];
+  const initial = normalizeICC([parseICCPage(payload(rows,
+    { timestamp: { utc_time: "10/3/2026 4:51:20 AM" } }), initialAt)], initialAt);
+  const candidate = withReceipt({ ...initial, fixtures: initial.fixtures.filter((fixture) => fixture.id !== "icc:275300")
+    .map((fixture) => {
+      if (fixture.id === "icc:273760") return { ...fixture, start: "2026-10-09T05:00:00.000Z", revised: false };
+      if (fixture.id === "icc:274655") return { ...fixture, start: "2026-10-09T06:00:00.000Z", revised: false };
+      if (["icc:270987", "icc:270273"].includes(fixture.id)) return { ...fixture, status: "live" };
+      if (fixture.id === "icc:274310") return { ...fixture, status: "finished" };
+      return fixture;
+    }) }, attemptedAt);
+  return { initialAt, attemptedAt, initial, candidate };
+}
 async function nearBoundScenario() {
   const templates = cohortCollection();
   const makeRows = (id, count, identity) => Array.from({ length: count }, (_, offset) => {
     const template = templates.fixtures.find((fixture) => fixture.competitionId === id);
     return { ...template, id: `icc:${identity + offset}`, status: "scheduled",
-      start: new Date(Date.parse("2026-09-22T08:30:00Z") + offset * 60_000).toISOString(),
+      start: new Date(Date.parse("2026-09-21T08:30:00Z") + offset * 60_000).toISOString(),
       source: { ...template.source, url: `https://www.icc-cricket.com/matches/${identity + offset}` } };
   });
   const initial = withReceipt({ ...templates, fixtures: makeRows("icc", 300, 300000) }, activeSeason);
@@ -46,7 +74,7 @@ async function nearBoundScenario() {
   const partialAt = new Date(activeSeason.getTime() + 5 * 60_000);
   const candidate = withReceipt({ ...templates, fixtures: [...initial.fixtures.slice(0, 210),
     ...makeRows("west-indies", 90, 400000)] }, partialAt);
-  candidate.fixtures[0].start = "2026-09-22T09:00:00.000Z";
+  candidate.fixtures[0].start = "2026-09-21T09:00:00.000Z";
   const previous = await refreshCricketState(first, partialAt, async () => candidate, noCPL);
   assert.equal(previous.snapshot.fixtures.length, 390);
   assert.equal(previous.snapshot.sourceStatus, "partial");
@@ -121,6 +149,47 @@ test("disappearing active match, identity swap, terminal regression and unconfir
   assert.throws(() => admitICC(normalized([row({ match_time_gmt: "09:30" })]), old, now), /kickoff/);
   assert.doesNotThrow(() => admitICC(normalized([row({ match_time_gmt: "09:30", is_revised: true })]), old, now));
   assert.throws(() => admitICC(normalized(), [{ ...old[0], status: "finished" }], now), /regression/);
+});
+
+test("isolated admission retains only conflicts without guessing the status of absent fixtures", () => {
+  const { initialAt, attemptedAt, initial, candidate } = octoberConflictScenario();
+  const old = admitICC(initial, [], initialAt).fixtures;
+  const beforeCandidate = structuredClone(candidate);
+  const beforeOld = structuredClone(old);
+  assert.throws(() => admitICC(candidate, old, attemptedAt), /disappeared/);
+  const admitted = admitICCIsolated(candidate, old, attemptedAt);
+  for (const id of ["icc:275300", "icc:273760", "icc:274655"]) {
+    assert.deepEqual(admitted.fixtures.find((fixture) => fixture.id === id), marked(old.filter((fixture) => fixture.id === id), "held")[0]);
+  }
+  for (const [id, status] of [["icc:270987", "live"], ["icc:274310", "finished"], ["icc:270273", "live"]]) {
+    const fixture = admitted.fixtures.find((item) => item.id === id);
+    assert.equal(fixture.status, status);
+    assert.equal(fixture.source.verification, "verified");
+    assert.equal(fixture.source.observedAt, attemptedAt.toISOString());
+  }
+  assert.equal(admitted.fixtures.length, old.length);
+  assert.deepEqual(candidate, beforeCandidate);
+  assert.deepEqual(old, beforeOld);
+  assert.ok(admitted.fixtures.every((fixture) => !Object.hasOwn(fixture, "revised") && !Object.hasOwn(fixture, "publisherSeriesId")));
+
+  const missing = old.find((fixture) => fixture.id === "icc:275300");
+  for (const previous of [
+    { ...missing, status: "finished" },
+    { ...missing, start: "2026-09-29T02:00:00.000Z" },
+    { ...missing, start: "2026-10-09T02:00:00.000Z" },
+  ]) {
+    const result = admitICCIsolated({ ...candidate, fixtures: [] }, [previous], attemptedAt);
+    assert.equal(result.fixtures.length, 0, "Absent rows are retained only when strict admission's active disappearance guard applies");
+    assert.equal(result.failure, undefined);
+  }
+});
+
+test("isolated admission refuses a regressed collection watermark before any record can advance", () => {
+  const { initialAt, attemptedAt, initial, candidate } = octoberConflictScenario();
+  const old = admitICC(initial, [], initialAt).fixtures;
+  const mixed = admitICCIsolated(candidate, old, attemptedAt);
+  const regressed = withReceipt(candidate, new Date(attemptedAt.getTime() - 1));
+  assert.throws(() => admitICCIsolated(regressed, mixed.fixtures, attemptedAt), /receipt regressed/);
 });
 
 test("exact publisher-confirmed tri-series transitions admit without fabricating revision flags or public evidence fields", () => {
@@ -216,7 +285,7 @@ test("reviewed recovery clears persisted ICC failure only when the complete coho
   const beforeReview = new Date("2026-10-01T18:30:00.000Z");
   const held = await refreshCricketState(first, beforeReview, async () => withReceipt(triSeriesCollection(true), beforeReview));
   assert.equal(held.cohorts.icc.consecutiveFailures, 1);
-  assert.deepEqual(held.snapshot.fixtures, first.snapshot.fixtures);
+  assert.deepEqual(held.snapshot.fixtures, marked(first.snapshot.fixtures, "held"));
   const recovered = await refreshCricketState(held, reviewNow, async () => triSeriesCollection(true));
   assert.equal(recovered.snapshot.sourceStatus, "verified");
   assert.equal(recovered.consecutiveFailures, 0);
@@ -235,7 +304,10 @@ test("reviewed recovery clears persisted ICC failure only when the complete coho
   otherConflict.fixtures[2].start = "2026-10-07T03:00:00.000Z";
   const stillHeld = await refreshCricketState(held, reviewNow, async () => otherConflict);
   assert.equal(stillHeld.cohorts.icc.consecutiveFailures, 2);
-  assert.deepEqual(stillHeld.snapshot.fixtures, held.snapshot.fixtures);
+  assert.deepEqual(stillHeld.snapshot.fixtures.find((fixture) => fixture.id === "icc:275300"),
+    held.snapshot.fixtures.find((fixture) => fixture.id === "icc:275300"));
+  assert.ok(stillHeld.snapshot.fixtures.filter((fixture) => fixture.id !== "icc:275300")
+    .every((fixture) => fixture.source.verification === "verified" && fixture.source.observedAt === reviewNow.toISOString()));
   assert.equal(stillHeld.lastSuccessAt, held.lastSuccessAt);
 });
 
@@ -254,14 +326,14 @@ test("successful receipt refresh leaves content revision stable; failure retains
   assert.equal(failed.snapshot.coverage.find((c) => c.competitionId === "west-indies").status, "unavailable");
 });
 
-test("ICC-only conflict retains exact ICC rows while fresh West Indies is native-compatible partial coverage", async () => {
+test("ICC-only conflict marks retained ICC facts held while fresh West Indies stays legacy-compatible", async () => {
   const first = await refreshCricketState(null, now, async () => cohortCollection());
   const later = new Date(now.getTime() + 5 * 60_000);
   const candidate = withReceipt(cohortCollection(), later);
   candidate.fixtures.find((fixture) => fixture.competitionId === "icc").start = "2026-09-30T09:00:00.000Z";
   const mixed = await refreshCricketState(first, later, async () => candidate);
   const byScope = (state, id) => state.snapshot.fixtures.filter((fixture) => fixture.competitionId === id);
-  assert.deepEqual(byScope(mixed, "icc"), byScope(first, "icc"));
+  assert.deepEqual(byScope(mixed, "icc"), marked(byScope(first, "icc"), "held"));
   assert.equal(byScope(mixed, "west-indies")[0].source.observedAt, later.toISOString());
   assert.equal(mixed.snapshot.sourceStatus, "partial");
   assert.equal(mixed.snapshot.schemaVersion, 1);
@@ -281,6 +353,7 @@ test("ICC-only conflict retains exact ICC rows while fresh West Indies is native
   assert.equal(mixed.snapshot.sync.cohorts.icc.consecutiveFailures, 1);
   assert.equal(mixed.consecutiveFailures, 1);
   assert.equal(mixed.lastSuccessAt, first.lastSuccessAt, "A partial refresh cannot claim full source recovery");
+  assert.notEqual(mixed.snapshot.revision, first.snapshot.revision, "Verification changes are content changes even when retained facts are equal");
   assert.equal(Date.parse(mixed.nextAttemptAt) - later.getTime(), 5 * 60_000);
   const retriedAt = new Date(later.getTime() + 5 * 60_000);
   const repeated = await refreshCricketState(mixed, retriedAt, async () => withReceipt(candidate, retriedAt));
@@ -291,6 +364,206 @@ test("ICC-only conflict retains exact ICC rows while fresh West Indies is native
     expectedCompetitionIds: ["cpl", "west-indies", "icc"] });
   assert.equal(audit.actionable, true);
   assert.ok(audit.findings.some((finding) => finding.code === "repeated-sync-failure"));
+});
+
+test("October 6 conflicts preserve old coverage while healthy ICC live and terminal rows advance", async () => {
+  const { initialAt, attemptedAt, initial, candidate } = octoberConflictScenario();
+  const first = await refreshCricketState(null, initialAt, async () => initial);
+  const mixed = await refreshCricketState(first, attemptedAt, async () => candidate);
+  const coverage = mixed.snapshot.coverage.find((item) => item.competitionId === "icc");
+  assert.equal(mixed.snapshot.sourceStatus, "partial");
+  assert.equal(coverage.status, "unavailable");
+  assert.equal(coverage.checkedAt, initialAt.toISOString());
+  assert.equal(coverage.fixtureCount, mixed.snapshot.fixtures.filter((fixture) => fixture.competitionId === "icc").length);
+  assert.equal(mixed.cohorts.icc.consecutiveFailures, 1);
+  assert.equal(mixed.cohorts.icc.lastSuccessAt, initialAt.toISOString());
+  assert.deepEqual(mixed.cohorts.icc.failure, { stage: "admission", code: "accepted-fixture-missing" });
+  assert.equal(mixed.lastSuccessAt, first.lastSuccessAt);
+  assert.equal(Date.parse(mixed.nextAttemptAt) - attemptedAt.getTime(), 5 * 60_000);
+  for (const [id, status] of [["icc:270987", "live"], ["icc:274310", "finished"]]) {
+    const fixture = mixed.snapshot.fixtures.find((item) => item.id === id);
+    assert.equal(fixture.status, status);
+    assert.equal(fixture.source.verification, "verified");
+    assert.equal(fixture.source.observedAt, attemptedAt.toISOString());
+  }
+  const wi = mixed.snapshot.fixtures.find((item) => item.id === "icc:270273");
+  assert.equal(wi.status, "live");
+  assert.equal(wi.source.verification, undefined, "A fully admitted cohort keeps its legacy source payload");
+  for (const id of ["icc:275300", "icc:273760", "icc:274655"]) {
+    assert.deepEqual(mixed.snapshot.fixtures.find((item) => item.id === id),
+      marked(first.snapshot.fixtures.filter((item) => item.id === id), "held")[0]);
+  }
+  assert.doesNotThrow(() => validateCricketSnapshot(mixed.snapshot));
+  const later = new Date(attemptedAt.getTime() + 5 * 60_000);
+  const repeated = await refreshCricketState(mixed, later, async () => withReceipt(candidate, later));
+  assert.equal(repeated.snapshot.revision, mixed.snapshot.revision, "Receipt renewal alone is not a content revision");
+  assert.equal(repeated.cohorts.icc.consecutiveFailures, 2);
+  assert.equal(repeated.snapshot.coverage.find((item) => item.competitionId === "icc").checkedAt, initialAt.toISOString());
+});
+
+test("record isolation supports verified live rows even when both international cohorts have conflicts", async () => {
+  const rows = [row(), row({ match_id: "270272", teamb: "England", teamb_id: "1" }),
+    row({ match_id: "270274" }), row({ match_id: "270275", teamb: "England", teamb_id: "1" })]
+    .map((item) => ({ ...item, live: false, upcoming: true }));
+  const initial = normalized(rows);
+  const first = await refreshCricketState(null, now, async () => initial);
+  const later = new Date(now.getTime() + 5 * 60_000);
+  const candidate = withReceipt({ ...initial, fixtures: initial.fixtures.map((fixture) =>
+    ["icc:270271", "icc:270272"].includes(fixture.id)
+      ? { ...fixture, start: "2026-09-30T09:00:00.000Z" }
+      : { ...fixture, status: "live" }) }, later);
+  const mixed = await refreshCricketState(first, later, async () => candidate);
+  assert.equal(mixed.snapshot.sourceStatus, "partial");
+  assert.equal(mixed.consecutiveFailures, 1);
+  assert.equal(mixed.lastSuccessAt, first.lastSuccessAt);
+  for (const scope of ["west-indies", "icc"]) {
+    const scopeRows = mixed.snapshot.fixtures.filter((fixture) => fixture.competitionId === scope);
+    const fresh = scopeRows.find((fixture) => fixture.source.verification === "verified");
+    const held = scopeRows.find((fixture) => fixture.source.verification === "held");
+    assert.equal(fresh.status, "live");
+    assert.equal(fresh.source.observedAt, later.toISOString());
+    assert.equal(held.source.observedAt, now.toISOString());
+    assert.equal(mixed.cohorts[scope].consecutiveFailures, 1);
+    assert.equal(mixed.snapshot.coverage.find((item) => item.competitionId === scope).status, "unavailable");
+    assert.equal(mixed.snapshot.coverage.find((item) => item.competitionId === scope).checkedAt, now.toISOString());
+  }
+});
+
+test("isolated state survives restart, recollection failure and reviewed recovery without renewing held receipts", async (t) => {
+  const { initialAt, attemptedAt, initial, candidate } = octoberConflictScenario();
+  const first = await refreshCricketState(null, initialAt, async () => initial);
+  first.nextAttemptAt = new Date(attemptedAt.getTime() - 1).toISOString();
+  t.mock.timers.enable({ apis: ["Date"], now: attemptedAt.getTime() });
+  const storage = new Map([["cricket-registry-v1", first]]);
+  const state = { storage: { get: async (key) => storage.get(key), put: async (key, value) => storage.set(key, structuredClone(value)) },
+    waitUntil: () => {} };
+  let calls = 0;
+  let fail = false;
+  let recover = false;
+  const options = { collectICC: async (receipt) => {
+    calls++;
+    if (fail) throw new Error("Incomplete ICC page");
+    const collection = recover ? { ...candidate, fixtures: [...candidate.fixtures.map((fixture) =>
+      ["icc:273760", "icc:274655"].includes(fixture.id) ? { ...fixture, revised: true } : fixture),
+    initial.fixtures.find((fixture) => fixture.id === "icc:275300")] } : candidate;
+    return withReceipt(collection, receipt);
+  } };
+  const registry = new CricketFixtureRegistry(state, {}, options);
+  await Promise.all(Array.from({ length: 5 }, () => registry.fetch(new Request("https://internal/refresh", { method: "POST" }))));
+  const isolated = storage.get("cricket-registry-v1");
+  assert.equal(calls, 1);
+  assert.equal(isolated.snapshot.sourceStatus, "partial");
+  const restarted = new CricketFixtureRegistry(state, {}, options);
+  const response = await restarted.fetch(new Request("https://internal/fixtures"));
+  assert.deepEqual((await response.json()).fixtures, isolated.snapshot.fixtures);
+  assert.equal(calls, 1);
+  t.mock.timers.tick(5 * 60_000);
+  fail = true;
+  await restarted.fetch(new Request("https://internal/refresh", { method: "POST" }));
+  const unavailable = storage.get("cricket-registry-v1");
+  assert.equal(unavailable.snapshot.sourceStatus, "last-known-good");
+  assert.deepEqual(unavailable.snapshot.fixtures, isolated.snapshot.fixtures, "A failed collection cannot change verification or renew any row receipt");
+  assert.equal(unavailable.snapshot.revision, isolated.snapshot.revision);
+  t.mock.timers.tick(5 * 60_000);
+  fail = false;
+  await restarted.fetch(new Request("https://internal/refresh", { method: "POST" }));
+  const retried = storage.get("cricket-registry-v1");
+  assert.equal(retried.cohorts.icc.consecutiveFailures, 3);
+  assert.equal(retried.snapshot.sourceStatus, "partial");
+  for (const fixture of isolated.snapshot.fixtures.filter((item) => item.source.verification === "held")) {
+    assert.deepEqual(retried.snapshot.fixtures.find((item) => item.id === fixture.id), fixture);
+  }
+  assert.equal(retried.snapshot.coverage.find((item) => item.competitionId === "icc").checkedAt, initialAt.toISOString());
+  t.mock.timers.tick(5 * 60_000);
+  recover = true;
+  await restarted.fetch(new Request("https://internal/refresh", { method: "POST" }));
+  const recovered = storage.get("cricket-registry-v1");
+  assert.equal(calls, 4);
+  assert.equal(recovered.snapshot.sourceStatus, "verified");
+  assert.equal(recovered.consecutiveFailures, 0);
+  assert.equal(recovered.cohorts.icc.consecutiveFailures, 0);
+  assert.ok(recovered.snapshot.fixtures.every((fixture) => fixture.source.verification === undefined));
+  assert.ok(recovered.snapshot.fixtures.every((fixture) => fixture.source.observedAt === new Date().toISOString()));
+});
+
+test("older receipts after isolation hold all rows despite the deliberately retained old coverage timestamp", async () => {
+  const { initialAt, attemptedAt, initial, candidate } = octoberConflictScenario();
+  const first = await refreshCricketState(null, initialAt, async () => initial);
+  const isolated = await refreshCricketState(first, attemptedAt, async () => candidate);
+  const later = new Date(attemptedAt.getTime() + 5 * 60_000);
+  const regressed = await refreshCricketState(isolated, later,
+    async () => withReceipt(candidate, new Date(attemptedAt.getTime() - 1)));
+  assert.equal(regressed.snapshot.sourceStatus, "last-known-good");
+  assert.deepEqual(regressed.snapshot.fixtures, marked(isolated.snapshot.fixtures, "held"));
+  for (const scope of ["west-indies", "icc"]) {
+    assert.deepEqual(regressed.cohorts[scope].failure, { stage: "admission", code: "receipt-regressed" });
+  }
+});
+
+test("a cohort watermark failure downgrades its verified rows while the other cohort refreshes in a partial response", async () => {
+  const { initialAt, attemptedAt, initial, candidate } = octoberConflictScenario();
+  const first = await refreshCricketState(null, initialAt, async () => initial);
+  const identityConflict = structuredClone(candidate);
+  identityConflict.fixtures.find((fixture) => fixture.id === "icc:270273").home = { id: "icc:1:7", name: "Australia" };
+  const isolated = await refreshCricketState(first, attemptedAt, async () => identityConflict);
+  assert.equal(isolated.snapshot.sourceStatus, "partial");
+  assert.ok(isolated.snapshot.fixtures.some((fixture) => fixture.competitionId === "icc" && fixture.source.verification === "verified"));
+  assert.equal(isolated.snapshot.fixtures.find((fixture) => fixture.id === "icc:270273").source.observedAt, initialAt.toISOString());
+  const later = new Date(attemptedAt.getTime() + 5 * 60_000);
+  const publisherReceipt = new Date(attemptedAt.getTime() - 1);
+  const mixed = await refreshCricketState(isolated, later, async () => withReceipt(candidate, publisherReceipt));
+  const byScope = (state, scope) => state.snapshot.fixtures.filter((fixture) => fixture.competitionId === scope);
+  assert.equal(mixed.snapshot.sourceStatus, "partial");
+  assert.deepEqual(byScope(mixed, "icc"), marked(byScope(isolated, "icc"), "held"),
+    "Scoped receipt failure must downgrade every previously verified row without renewing any receipt");
+  assert.deepEqual(mixed.cohorts.icc.failure, { stage: "admission", code: "receipt-regressed" });
+  assert.equal(mixed.cohorts.icc.consecutiveFailures, 2);
+  assert.equal(mixed.snapshot.coverage.find((coverage) => coverage.competitionId === "icc").checkedAt, initialAt.toISOString());
+  const wi = byScope(mixed, "west-indies")[0];
+  assert.equal(wi.status, "live");
+  assert.equal(wi.home.name, "India");
+  assert.equal(wi.source.observedAt, publisherReceipt.toISOString());
+  assert.equal(wi.source.verification, undefined);
+  assert.equal(mixed.cohorts["west-indies"].consecutiveFailures, 0);
+  assert.equal(mixed.snapshot.coverage.find((coverage) => coverage.competitionId === "west-indies").status, "covered");
+  assert.equal(mixed.lastSuccessAt, first.lastSuccessAt);
+});
+
+test("public source verification accepts only the additive verified or held enum", async () => {
+  const first = await refreshCricketState(null, now, async () => cohortCollection());
+  assert.doesNotThrow(() => validateCricketSnapshot(first.snapshot));
+  for (const verification of ["verified", "held", "unknown", null, true]) {
+    const snapshot = structuredClone(first.snapshot);
+    snapshot.fixtures[0].source.verification = verification;
+    if (verification === "held") snapshot.coverage.find((coverage) => coverage.competitionId === snapshot.fixtures[0].competitionId).status = "unavailable";
+    if (["verified", "held"].includes(verification)) assert.doesNotThrow(() => validateCricketSnapshot(snapshot));
+    else assert.throws(() => validateCricketSnapshot(snapshot), /Invalid cricket fixture/);
+  }
+});
+
+test("verification markers cannot certify CPL or another source scope and held rows require unavailable coverage", async () => {
+  const first = await refreshCricketState(null, now, async () => cohortCollection());
+  for (const verification of ["verified", "held"]) {
+    for (const scope of ["cpl", "unknown"]) {
+      const snapshot = structuredClone(first.snapshot);
+      const fixture = snapshot.fixtures[0];
+      snapshot.coverage.find((coverage) => coverage.competitionId === fixture.competitionId).fixtureCount--;
+      fixture.competitionId = scope;
+      fixture.source.verification = verification;
+      const coverage = snapshot.coverage.find((item) => item.competitionId === scope);
+      if (coverage) { coverage.fixtureCount++; coverage.status = verification === "held" ? "unavailable" : "covered"; }
+      assert.throws(() => validateCricketSnapshot(snapshot), /Invalid cricket fixture/);
+    }
+  }
+  for (const scope of ["west-indies", "icc"]) {
+    for (const status of ["covered", "offseason"]) {
+      const snapshot = structuredClone(first.snapshot);
+      const fixture = snapshot.fixtures.find((item) => item.competitionId === scope);
+      fixture.source.verification = "held";
+      snapshot.coverage.find((coverage) => coverage.competitionId === scope).status = status;
+      assert.throws(() => validateCricketSnapshot(snapshot), /Invalid cricket fixture/);
+    }
+  }
 });
 
 test("similar future women's IDs with unreviewed teams and tournament remain held without blocking West Indies", async () => {
@@ -308,7 +581,7 @@ test("similar future women's IDs with unreviewed teams and tournament remain hel
   assert.throws(() => admitICC(candidate, first.snapshot.fixtures, later), /Unconfirmed ICC kickoff/);
   const mixed = await refreshCricketState(first, later, async () => candidate);
   assert.deepEqual(mixed.snapshot.fixtures.filter((fixture) => fixture.competitionId === "icc"),
-    first.snapshot.fixtures.filter((fixture) => fixture.competitionId === "icc"));
+    marked(first.snapshot.fixtures.filter((fixture) => fixture.competitionId === "icc"), "held"));
   assert.equal(mixed.snapshot.coverage.find((coverage) => coverage.competitionId === "icc").fixtureCount, 3);
   assert.equal(mixed.snapshot.coverage.find((coverage) => coverage.competitionId === "icc").checkedAt, now.toISOString());
   assert.equal(mixed.snapshot.coverage.find((coverage) => coverage.competitionId === "west-indies").checkedAt, later.toISOString());
@@ -329,7 +602,7 @@ test("kickoff, participant, live and terminal guards isolate either internationa
       if (conflict === "live") changed.status = "scheduled";
       const mixed = await refreshCricketState(first, later, async () => candidate);
       assert.deepEqual(mixed.snapshot.fixtures.filter((fixture) => fixture.competitionId === failedID),
-        first.snapshot.fixtures.filter((fixture) => fixture.competitionId === failedID), `${failedID}/${conflict} must be held exactly`);
+        marked(first.snapshot.fixtures.filter((fixture) => fixture.competitionId === failedID), "held"), `${failedID}/${conflict} factual fields must be held exactly`);
       const healthyID = failedID === "icc" ? "west-indies" : "icc";
       assert.equal(mixed.snapshot.fixtures.find((fixture) => fixture.competitionId === healthyID).source.observedAt, later.toISOString());
       assert.equal(mixed.snapshot.coverage.find((coverage) => coverage.competitionId === failedID).status, "unavailable");
@@ -348,7 +621,7 @@ test("cross-cohort ID and participant movement holds both scopes and cannot dupl
     moved.away = { ...moved.away, id: "icc:1:7", name: "Australia" };
     moved.revised = true;
     const held = await refreshCricketState(first, later, async () => candidate);
-    assert.deepEqual(held.snapshot.fixtures, first.snapshot.fixtures);
+    assert.deepEqual(held.snapshot.fixtures, marked(first.snapshot.fixtures, "held"));
     assert.equal(new Set(held.snapshot.fixtures.map((fixture) => fixture.id)).size, first.snapshot.fixtures.length);
     assert.equal(held.snapshot.sourceStatus, "last-known-good");
     assert.equal(held.snapshot.checkedAt, first.snapshot.checkedAt);
@@ -413,7 +686,7 @@ test("empty and pending-only cohort watermarks reject older publisher receipts i
       assert.equal(oldCoverage.fixtureCount, 0);
       assert.equal(oldCoverage.pendingFixtureCount, pending ? 1 : 0);
       const held = await refreshCricketState(first, later, async () => withReceipt(initial, older));
-      assert.deepEqual(held.snapshot.fixtures, first.snapshot.fixtures);
+      assert.deepEqual(held.snapshot.fixtures, marked(first.snapshot.fixtures, "held"));
       assert.deepEqual(held.snapshot.coverage.find((coverage) => coverage.competitionId === emptyID),
         { ...oldCoverage, status: "unavailable" });
       assert.equal(held.snapshot.checkedAt, first.snapshot.checkedAt);
@@ -436,7 +709,7 @@ test("a fresh and retained cohort union cannot overflow the bounded snapshot or 
   const templates = cohortCollection();
   const makeRows = (id, count, identity, status) => Array.from({ length: count }, (_, offset) => ({
     ...templates.fixtures.find((fixture) => fixture.competitionId === id),
-    id: `icc:${identity + offset}`, start: "2026-10-02T08:30:00.000Z", status,
+    id: `icc:${identity + offset}`, start: "2026-10-01T08:30:00.000Z", status,
   }));
   const initial = { ...templates, fixtures: [...makeRows("west-indies", 10, 300000, "finished"),
     ...makeRows("icc", 290, 400000, "scheduled")] };
@@ -444,9 +717,9 @@ test("a fresh and retained cohort union cannot overflow the bounded snapshot or 
   const later = new Date(now.getTime() + 5 * 60_000);
   const candidate = withReceipt({ ...templates, fixtures: [...makeRows("west-indies", 290, 500000, "scheduled"),
     ...makeRows("icc", 10, 400000, "scheduled")] }, later);
-  candidate.fixtures.find((fixture) => fixture.competitionId === "icc").start = "2026-10-02T09:00:00.000Z";
+  candidate.fixtures.find((fixture) => fixture.competitionId === "icc").start = "2026-10-01T09:00:00.000Z";
   const held = await refreshCricketState(first, later, async () => candidate);
-  assert.deepEqual(held.snapshot.fixtures, first.snapshot.fixtures);
+  assert.deepEqual(held.snapshot.fixtures, marked(first.snapshot.fixtures, "held"));
   assert.equal(held.snapshot.fixtures.length, 300);
   assert.equal(held.snapshot.sourceStatus, "last-known-good");
   for (const id of ["west-indies", "icc"]) {
