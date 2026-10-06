@@ -13,6 +13,7 @@ import {
   cricketMonitorIssueTitle,
   failedCricketAudit,
   shouldNotifyCricketOwner,
+  validateCricketSnapshot,
 } from "./audit-cricket-fixtures-policy.mjs";
 import {
   isDedicatedCricketMonitorIssue,
@@ -69,6 +70,41 @@ test("fresh empty covered and offseason competitions do not create a missing-mat
   body.fixtures = [];
   body.coverage[1].fixtureCount = 0;
   assert.equal(auditCricketSnapshot(body, options).failed, false);
+});
+
+test("isolated row recovery remains an open coverage incident, not a whole-cohort success", () => {
+  const body = healthySnapshot();
+  body.sourceStatus = "partial";
+  body.coverage[1].status = "unavailable";
+  body.coverage[1].checkedAt = "2026-09-30T14:00:00Z";
+  body.coverage[1].fixtureCount = 2;
+  body.fixtures[0].source.verification = "verified";
+  body.fixtures.push({ ...body.fixtures[0], id: "held-match", start: "2026-09-30T15:20:00Z", status: "scheduled",
+    source: { ...body.fixtures[0].source, observedAt: "2026-09-30T14:00:00Z", verification: "held" } });
+  body.sync.consecutiveFailures = 7;
+  const report = auditCricketSnapshot(body, options);
+  assert.equal(report.verifiedFixtureCount, 1);
+  assert.equal(report.heldFixtureCount, 1);
+  assert.equal(report.freshVerifiedLiveCount, 1);
+  assert.equal(report.failed, true);
+  assert.equal(report.actionable, true);
+  assert.ok(report.findings.some((finding) => finding.code === "coverage-gap"));
+  assert.ok(report.findings.some((finding) => finding.code === "repeated-sync-failure"));
+  assert.equal(validateCricketSnapshot(body, options).fixtures[1].observedAt, Date.parse("2026-09-30T14:00:00Z"));
+  body.sourceStatus = "last-known-good";
+  assert.equal(auditCricketSnapshot(body, options).freshVerifiedLiveCount, 0);
+  body.sourceStatus = "partial";
+  body.fixtures[0].source.observedAt = "2026-09-30T14:00:00Z";
+  assert.equal(auditCricketSnapshot(body, options).freshVerifiedLiveCount, 0);
+});
+
+test("row verification rejects unknown and contradictory markers without breaking legacy payloads", () => {
+  for (const verification of ["unreviewed", null, "held"]) {
+    const body = healthySnapshot();
+    body.fixtures[0].source.verification = verification;
+    assert.throws(() => validateCricketSnapshot(body, options));
+  }
+  assert.doesNotThrow(() => validateCricketSnapshot(healthySnapshot(), options));
 });
 
 test("old finished fixtures are valid archival evidence and do not create a stale match alert", () => {

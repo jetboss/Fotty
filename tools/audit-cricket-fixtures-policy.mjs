@@ -83,8 +83,14 @@ export function validateCricketSnapshot(body, { now = Date.now(), expectedCompet
     requireValue(sourceURL.protocol === "https:" && !sourceURL.username && !sourceURL.password, "A cricket source URL is invalid.");
     const observedAt = checkedTime(row.source.observedAt, "Source observedAt", now);
     requireValue(observedAt <= checkedAt + 5 * minute, "A cricket source receipt is newer than its snapshot.");
+    const verification = row.source.verification;
+    requireValue(verification === undefined || ["verified", "held"].includes(verification), "A cricket row verification is invalid.");
+    requireValue(verification === undefined || ["west-indies", "icc"].includes(row.competitionId), "A cricket row verification is outside its source scope.");
+    requireValue(verification !== "held" || coverage.status === "unavailable", "Held cricket coverage cannot be certified complete.");
+    const verified = ["verified", "partial"].includes(body.sourceStatus)
+      && (verification === "verified" || (verification === undefined && coverage.status === "covered"));
     coverage.actualCount += 1;
-    return { status: row.status, format, startAt, observedAt, competitionId: row.competitionId };
+    return { status: row.status, format, startAt, observedAt, competitionId: row.competitionId, verified, verification };
   });
   for (const row of coverageById.values()) {
     requireValue(row.fixtureCount === row.actualCount, "A cricket coverage count disagrees with its fixture list.");
@@ -139,6 +145,10 @@ export function auditCricketSnapshot(body, { now = Date.now(), expectedCompetiti
     competitionCount: snapshot.coverage.length,
     activeWindowCount: active.length,
     staleActiveCount: staleActive.length,
+    verifiedFixtureCount: snapshot.fixtures.filter((row) => row.verified).length,
+    heldFixtureCount: snapshot.fixtures.filter((row) => row.verification === "held").length,
+    freshVerifiedLiveCount: snapshot.fixtures.filter((row) => row.verified && row.status === "live"
+      && now - row.observedAt <= 30 * minute).length,
     syncFailureCount: snapshot.sync.consecutiveFailures,
     findings: distinctFindings,
   };

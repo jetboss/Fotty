@@ -1,5 +1,5 @@
 import { abortable, boundedJSON, coachDeadline } from "./coach-safety.mjs";
-import { admitICC, CRICKET_COMPETITIONS, iccScheduleURL, nextCricketRefresh, normalizeICC,
+import { admitICCIsolated, CRICKET_COMPETITIONS, iccScheduleURL, nextCricketRefresh, normalizeICC,
   parseICCPage, validateCricketSnapshot } from "./cricket-fixture-policy.mjs";
 import cplFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
 import { validateCPLManifest } from "./cpl-fixture-policy.mjs";
@@ -44,7 +44,8 @@ function cohortReceipt(previous, old, id, now, failure) {
 }
 
 function retainedCohort(old, id, failure) {
-  return { fixtures: old?.fixtures.filter((fixture) => fixture.competitionId === id) || [],
+  return { fixtures: (old?.fixtures.filter((fixture) => fixture.competitionId === id) || [])
+    .map((fixture) => ({ ...fixture, source: { ...fixture.source, verification: "held" } })),
     coverage: { ...(old?.coverage.find((row) => row.competitionId === id)
       || publicCoverage(id, [], "1970-01-01T00:00:00.000Z", false)), status: "unavailable" }, failure };
 }
@@ -69,8 +70,14 @@ function admitCohorts(candidate, old, now) {
       // admitICC's row comparison cannot protect that receipt when no rows exist.
       const watermark = old?.coverage.find((row) => row.competitionId === id)?.checkedAt;
       if (Date.parse(candidate.observedAt) < Date.parse(watermark)) throw new Error("ICC receipt regressed");
-      const accepted = admitICC({ ...candidate, fixtures: candidate.fixtures.filter((fixture) => fixture.competitionId === id) },
+      const accepted = admitICCIsolated({ ...candidate, fixtures: candidate.fixtures.filter((fixture) => fixture.competitionId === id) },
         old?.fixtures.filter((fixture) => fixture.competitionId === id), now);
+      if (accepted.failure) {
+        const retained = retainedCohort(old, id, failureInfo(accepted.failure, "admission"));
+        return { ...retained, fixtures: accepted.fixtures,
+          coverage: { ...retained.coverage, fixtureCount: accepted.fixtures.length,
+            expectedFixtureCount: accepted.fixtures.length } };
+      }
       return { fixtures: accepted.fixtures,
         coverage: publicCoverage(id, accepted.fixtures, accepted.observedAt, true, accepted.pendingByCompetition?.[id]) };
     } catch (error) { return retainedCohort(old, id, failureInfo(error, "admission")); }
@@ -147,7 +154,8 @@ async function currentCPL(now, previous, collect) {
 }
 
 async function revisionFor(fixtures) {
-  const content = fixtures.map((f) => ({ ...f, source: { name: f.source.name, url: f.source.url } }));
+  const content = fixtures.map((f) => ({ ...f, source: { name: f.source.name, url: f.source.url,
+    ...(f.source.verification === undefined ? {} : { verification: f.source.verification }) } }));
   const bytes = new TextEncoder().encode(JSON.stringify(content));
   return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)))
     .map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -231,7 +239,8 @@ export async function refreshCricketState(previous, now, collect = collectICC, c
     checkedAt: [old?.checkedAt, ...results.filter((result) => !result.failure).map((result) => result.coverage.checkedAt),
       ...fixtures.map((f) => f.source.observedAt)].filter(Boolean).sort().at(-1),
     revision: await revisionFor(fixtures), sourceStatus: allCovered ? "verified"
-      : results.some((result) => !result.failure) ? "partial" : "last-known-good", fixtures, coverage,
+      : results.some((result) => !result.failure || result.fixtures.some((fixture) => fixture.source.verification === "verified"))
+        ? "partial" : "last-known-good", fixtures, coverage,
     sync: { consecutiveFailures: failures, cohorts, lastAttemptAt: now.toISOString(), lastSuccessAt } });
   return { snapshot, consecutiveFailures: failures, cohorts, lastAttemptAt: now.toISOString(), lastSuccessAt,
     nextAttemptAt: new Date(now.getTime() + (failed ? 5 * MINUTE : nextCricketRefresh(fixtures, now))).toISOString() };

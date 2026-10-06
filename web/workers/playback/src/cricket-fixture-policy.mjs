@@ -173,6 +173,42 @@ export function admitICC(candidate, previous, now) {
   }) };
 }
 
+const ISOLATABLE_ICC_CONFLICTS = new Set([
+  "Active ICC fixture disappeared", "ICC identity conflict", "Unconfirmed ICC kickoff change",
+  "ICC terminal-status regression", "ICC live-status regression",
+]);
+
+// Collection completeness and scope/watermark checks belong to the cohort.
+// Only a known record conflict may retain that record while unrelated facts
+// advance. The strict admission path remains the authority for every decision.
+export function admitICCIsolated(candidate, previous, now) {
+  const oldFixtures = (previous || []).filter((fixture) => fixture.id.startsWith("icc:"));
+  const watermark = oldFixtures.map((fixture) => fixture.source.observedAt).sort().at(-1);
+  if (watermark && candidate.observedAt < watermark) throw new Error("ICC receipt regressed");
+  let failure;
+  try { return admitICC(candidate, previous, now); }
+  catch (error) {
+    if (!ISOLATABLE_ICC_CONFLICTS.has(error?.message)) throw error;
+    failure = error;
+  }
+
+  const byId = new Map(candidate.fixtures.map((fixture) => [fixture.id, fixture]));
+  const held = new Map();
+  for (const old of oldFixtures) {
+    const current = byId.get(old.id);
+    try { admitICC({ ...candidate, fixtures: current ? [current] : [] }, [old], now); }
+    catch (error) {
+      if (!ISOLATABLE_ICC_CONFLICTS.has(error?.message)) throw error;
+      held.set(old.id, { ...old, source: { ...old.source, verification: "held" } });
+    }
+  }
+  const fresh = admitICC({ ...candidate, fixtures: candidate.fixtures.filter((fixture) => !held.has(fixture.id)) }, [], now);
+  return { ...fresh, failure, fixtures: [
+    ...fresh.fixtures.map((fixture) => ({ ...fixture, source: { ...fixture.source, verification: "verified" } })),
+    ...held.values(),
+  ] };
+}
+
 export function nextCricketRefresh(fixtures, now) {
   const time = now.getTime();
   if (fixtures.some((f) => f.status === "live" || (f.status === "scheduled"
@@ -187,7 +223,13 @@ export function validateCricketSnapshot(snapshot) {
   const ids = new Set();
   for (const fixture of snapshot.fixtures) {
     if (ids.has(fixture.id) || typeof fixture.id !== "string" || !FORMATS.has(fixture.format) || !STATUSES.has(fixture.status)
-      || !Number.isFinite(Date.parse(fixture.start)) || !Number.isFinite(Date.parse(fixture.source?.observedAt))) throw new Error("Invalid cricket fixture");
+      || !Number.isFinite(Date.parse(fixture.start)) || !Number.isFinite(Date.parse(fixture.source?.observedAt))
+      || (fixture.source.verification !== undefined && !["verified", "held"].includes(fixture.source.verification))) throw new Error("Invalid cricket fixture");
+    if ((fixture.source.verification !== undefined && !["west-indies", "icc"].includes(fixture.competitionId))
+      || (fixture.source.verification === "held"
+        && snapshot.coverage.find((coverage) => coverage.competitionId === fixture.competitionId)?.status !== "unavailable")) {
+      throw new Error("Invalid cricket fixture");
+    }
     ids.add(fixture.id);
   }
   for (const comp of CRICKET_COMPETITIONS) {
