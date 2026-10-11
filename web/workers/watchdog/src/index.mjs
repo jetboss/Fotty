@@ -5,6 +5,25 @@ import { probeSources } from "../../../../tools/watchdog/source-probes.mjs";
 import { collectFixtureReceipts } from "../../../../tools/watchdog/fixture-receipts.mjs";
 
 const KEY = "watchdog-observation-v1", INTERVAL = 30 * 60_000, LEASE = 4 * 60_000;
+function activationTime(env, now = Date.now()) {
+  if (env.FOTTY_WATCHDOG_ENABLED !== "1" || !Number.isSafeInteger(now) || now < 0) return null;
+  const value = env.FOTTY_WATCHDOG_ACTIVATED_AT;
+  // The flag alone is not activation authority. Require a real, non-future
+  // RFC3339 instant, not Date.parse's permissive prose/date-only spellings or
+  // a normalized impossible calendar date (for example, February30).
+  if (typeof value !== "string" || value.length > 40) return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$/.exec(value);
+  if (!match) return null;
+  const [year, month, day, hour, minute, second] = match.slice(1, 7).map(Number);
+  const calendar = new Date(0);
+  calendar.setUTCFullYear(year, month - 1, day);
+  if (calendar.getUTCFullYear() !== year || calendar.getUTCMonth() !== month - 1 || calendar.getUTCDate() !== day
+    || hour > 23 || minute > 59 || second > 59) return null;
+  const offset = match[8];
+  if (offset !== "Z" && (Number(offset.slice(1, 3)) > 23 || Number(offset.slice(4, 6)) > 59)) return null;
+  const parsed = Date.parse(value);
+  return Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= now ? parsed : null;
+}
 // Leave room for the scheduler/budget envelope and a durable overflow notice.
 const policy = createPolicy({ ...observerPolicyOptions(), limits: { ledgerBytes: 1024 * 1024 - 4096 } });
 const response = (body, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -47,7 +66,7 @@ export class WatchdogState {
     });
   }
   async run(now = Date.now()) {
-    if (this.env.FOTTY_WATCHDOG_ENABLED !== "1") return response({ activation: "pending" });
+    if (activationTime(this.env, now) === null) return response({ activation: "pending" });
     const fence = await this.transact((stored) => {
       const runtime = stored.runtime;
       if (runtime.nextAt > now || runtime.lease?.expiresAt > now) return null;
@@ -90,9 +109,10 @@ export class WatchdogState {
     if (request.method !== "GET" || url.pathname !== "/status") return response({ error: "not-found" }, 404);
     const stored = await this.state.storage.get(KEY);
     if (stored) { validateLedger(stored.ledger, policy); validateRuntime(stored.runtime); }
+    const activatedAt = activationTime(this.env);
     return response({ schema: 1, observerRevision: OBSERVER_REVISION, configurationRevision: CONFIGURATION_REVISION,
-      expectedDeploymentRevision: EXPECTED_VERSIONS.deploymentRevision, activation: this.env.FOTTY_WATCHDOG_ENABLED === "1" ? "active" : "pending",
-      activatedAt: this.env.FOTTY_WATCHDOG_ACTIVATED_AT || null,
+      expectedDeploymentRevision: EXPECTED_VERSIONS.deploymentRevision, activation: activatedAt === null ? "pending" : "active",
+      activatedAt: activatedAt === null ? null : new Date(activatedAt).toISOString(),
       intervalMs: INTERVAL, nativeEvidence: "private-device-canary-only", streamDelivery: "not-probed",
       lastAttemptedAt: stored?.runtime.lastAttemptedAt || null, lastCompletedAt: stored?.runtime.lastCompletedAt || null,
       nextAt: stored?.runtime.nextAt || null, overflow: Boolean(stored?.ledger.overflow),
@@ -104,7 +124,7 @@ export class WatchdogState {
 const stub = (env) => env.WATCHDOG_STATE.get(env.WATCHDOG_STATE.idFromName("production-observation-v1"));
 export default {
   scheduled(_controller, env, ctx) {
-    if (env.FOTTY_WATCHDOG_ENABLED === "1") ctx.waitUntil(stub(env).fetch("https://watchdog.internal/run", { method: "POST" }).then((result) => {
+    if (activationTime(env) !== null) ctx.waitUntil(stub(env).fetch("https://watchdog.internal/run", { method: "POST" }).then((result) => {
       if (!result.ok) throw new Error("Watchdog did not commit a completion receipt");
     }));
   },

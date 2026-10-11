@@ -6,8 +6,8 @@ import { createPolicy, emptyLedger, incidentKey } from "./incident-policy.mjs";
 const NOW = Date.UTC(2026, 9, 11);
 const versions = { observerRevision: "observer-1", configurationRevision: "config-1", deploymentRevision: "deployment-1" };
 const policy = createPolicy({ environment: "qualification", windowMs: 1000, maxReceiptAgeMs: 10_000,
-  admittedSources: ["cs", "streamex", "fixtures-service", "fixtures-mlb", "fixtures-icc"].map((source) => ({
-    source, stages: ["manifest", "catalog", "integrity"], activation: "active", expected: versions,
+  admittedSources: ["cs", "streamex", "worker", "fixtures-service", "fixtures-mlb", "fixtures-icc"].map((source) => ({
+    source, stages: ["manifest", "catalog", "integrity", "identity"], activation: "active", expected: versions,
   })),
 });
 const receipt = (window, changes = {}) => ({ environment: policy.environment, source: "cs", stage: "catalog",
@@ -131,6 +131,69 @@ test("an intervening wrong-revision complete check cannot preserve a mapped reco
     assert.equal(state.incidents[key].state, "recovering");
     assert.equal(state.incidents[key].successCount, 1);
   }
+});
+
+test("an omitted dependent CS catalog check interrupts recovery after manifest failure", () => {
+  const key = incidentKey(receipt(0));
+  let state = batch(confirmed(), 3, [success(3)]).state;
+  state = batch(state, 4, [receipt(4, { stage: "manifest" })]).state;
+  assert.equal(state.incidents[key].state, "confirmed");
+  assert.equal(state.incidents[key].successCount, 0);
+  assert.equal(state.incidents[key].lastOutcome, "unknown");
+  assert.equal(state.coverage["cs/catalog"].outcome, "unknown");
+  state = batch(state, 5, [success(5)]).state;
+  assert.equal(state.incidents[key].state, "recovering");
+  assert.equal(state.incidents[key].successCount, 1);
+  assert.equal(batch(state, 6, [success(6)]).state.incidents[key].state, "resolved");
+});
+
+test("an omitted fixture cohort retains its own scope and interrupts its recovery", () => {
+  const cricket = { source: "fixtures-icc", stage: "integrity", facts: { scope: "cricket" }, failureClass: "stale-current" };
+  const sports = { source: "fixtures-mlb", stage: "integrity", facts: { scope: "sports" }, failureClass: "stale-current" };
+  const cricketKey = incidentKey(receipt(0, cricket)), sportsKey = incidentKey(receipt(0, sports));
+  let state = emptyLedger(policy);
+  for (let window = 0; window < 3; window++) state = batch(state, window, [receipt(window, cricket), receipt(window, sports)]).state;
+  state = batch(state, 3, [success(3, cricket), success(3, sports)]).state;
+  // The identity adapter cannot check cohort data on a wrong deployment.
+  state = batch(state, 4, [receipt(4, { source: "worker", stage: "identity", failureClass: "version-mismatch" })]).state;
+  for (const key of [cricketKey, sportsKey]) {
+    assert.equal(state.incidents[key].successCount, 0);
+    assert.equal(state.incidents[key].lastOutcome, "unknown");
+    assert.equal(state.incidents[key].state, "confirmed");
+    assert.deepEqual(state.incidents[key].expected, versions);
+  }
+  assert.deepEqual(state.incidents[cricketKey].facts, { scope: "cricket" });
+  assert.deepEqual(state.incidents[sportsKey].facts, { scope: "sports" });
+  state = batch(state, 5, [success(5, sports)]).state;
+  assert.equal(state.incidents[sportsKey].successCount, 1);
+  assert.equal(state.incidents[cricketKey].successCount, 0);
+  assert.equal(batch(state, 6, [success(6, sports)]).state.incidents[sportsKey].state, "resolved");
+});
+
+test("a generic fixture snapshot cannot preserve an explicit checker recovery streak", () => {
+  const changes = { source: "fixtures-icc", stage: "integrity", facts: { scope: "cricket", factHash: "a".repeat(64) },
+    failureClass: "independent-current-omission" };
+  const key = incidentKey(receipt(0, changes));
+  let state = batch(confirmed(changes), 3, [success(3, changes)]).state;
+  state = batch(state, 4, [success(4, { ...changes, failureClass: "accepted-snapshot" })]).state;
+  assert.equal(state.incidents[key].successCount, 0);
+  assert.equal(state.incidents[key].lastOutcome, "unknown");
+  state = batch(state, 5, [success(5, changes)]).state;
+  assert.equal(state.incidents[key].successCount, 1);
+  assert.equal(batch(state, 6, [success(6, changes)]).state.incidents[key].state, "resolved");
+});
+
+test("empty or stale-only batches interrupt existing streaks without creating incidents", () => {
+  const key = incidentKey(receipt(0));
+  assert.deepEqual(batch(emptyLedger(policy), 0, []).state.incidents, {});
+  for (const rows of [[], [success(0)]]) {
+    const state = batch(batch(confirmed(), 3, [success(3)]).state, 20, rows).state;
+    assert.equal(state.incidents[key].successCount, 0);
+    assert.equal(state.incidents[key].lastOutcome, "unknown");
+    assert.equal(Object.keys(state.incidents).length, 1);
+  }
+  const resolved = batch(batch(confirmed(), 3, [success(3)]).state, 4, [success(4)]).state;
+  assert.deepEqual(batch(resolved, 5, []).state.incidents[key], resolved.incidents[key]);
 });
 
 test("observation batches reject oversized input and unadmitted routes", () => {

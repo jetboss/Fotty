@@ -108,6 +108,21 @@ test("Score808 rejects hidden/inert/template/foreign-context identities", () => 
   assert.equal(validateScore808Listing(`<div style="opacity:0.5">${widget}</div>`), true);
 });
 
+test("Score808 rejects entity aria-hidden and equivalent simple zero opacity spellings", () => {
+  for (const value of ["&#116;rue", "&#x74;rue", "tr&#117;e", "false&amp;other"]) {
+    assert.equal(validateScore808Listing(`<div aria-hidden="${value}">${widget}</div>`), false, value);
+  }
+  for (const value of ["00", "+0", "-0", ".0", "+00.000", "0e0", "-0.0E+2", "00e-4", "0%", "+.00e2%", "0 ! important"]) {
+    assert.equal(validateScore808Listing(`<div style="opacity:${value}">${widget}</div>`), false, value);
+  }
+  // These are nonzero numbers or invalid CSS opacity tokens, not hidden-zero
+  // evidence. This fixture does not claim a computed-style/rendering verdict.
+  for (const value of ["0.5", ".01", "1e-2", "0px", "00em", "0e", "0e+", "0.", "0e2px", "+ 0"]) {
+    assert.equal(validateScore808Listing(`<div style="opacity:${value}">${widget}</div>`), true, value);
+  }
+  assert.equal(validateScore808Listing(`<div aria-hidden="false">${widget}</div>`), true);
+});
+
 test("Score808 fails closed on CodeQL comment/script end-tag and ambiguous token cases", () => {
   for (const html of [
     `<!--${widget}`, `<!--<!-- -->${widget}`, `<!-- ignored --!>${widget} -->`,

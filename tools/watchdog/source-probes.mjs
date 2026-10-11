@@ -177,12 +177,16 @@ export function validateScore808Listing(text) {
     }
     if (stack.at(-1)?.name === "p" && closesParagraph.has(tag.name)) stack.pop();
     const attributes = tag.attributes, classes = attributes.get("class") || "", style = attributes.get("style") || "";
+    const ariaHidden = attributes.get("aria-hidden") || "";
     // Entity/escape/comment spellings can change class or inline visibility in
     // the browser. They are outside this literal reviewed listing contract.
-    if (classes.includes("&") || style.includes("\\") || style.includes("/*") || style.includes("&")) return false;
+    if (classes.includes("&") || ariaHidden.includes("&") || style.includes("\\") || style.includes("/*") || style.includes("&")) return false;
     const hidden = stack.at(-1)?.hidden || prohibited.has(tag.name) || attributes.has("hidden") || attributes.has("inert")
-      || attributes.get("aria-hidden")?.trim().toLowerCase() === "true"
-      || /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|opacity\s*:\s*0(?:\.0+)?)\s*(?:!important\s*)?(?:;|$)/i.test(style);
+      || ariaHidden.trim().toLowerCase() === "true"
+      // Recognize simple CSS zero spellings (including percentages/exponents),
+      // not calc(), variables or computed CSS. Unit-bearing/unfinished tokens
+      // are invalid opacity values and must not be mistaken for numeric zero.
+      || /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|opacity\s*:\s*[+-]?(?:0+(?:\.0+)?|\.0+)(?:e[+-]?[0-9]+)?%?)\s*(?:!\s*important\s*)?(?:;|$)/i.test(style);
     if (tag.name === "div" && !hidden) {
       for (const token of classes.split(/[\t\n\r\f ]+/)) {
         if (!token.toLowerCase().startsWith("elfsight-app-")) continue;

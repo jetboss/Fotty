@@ -5,7 +5,7 @@ import { readFile, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { WatchdogState } from "./index.mjs";
+import workerHandler, { WatchdogState } from "./index.mjs";
 import { EXPECTED_VERSIONS } from "../../../../tools/watchdog/manifest.mjs";
 
 const directory = dirname(fileURLToPath(import.meta.url));
@@ -27,7 +27,7 @@ function synthetic(request, mode = "valid") {
   if (url.hostname === "www.score808live.tv") return new Response('<div class="elfsight-app-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"></div>', { headers: { "Content-Type": "text/html" } });
   return Response.json([{ id: "synthetic", title: "Synthetic event", sources: [{ source: "alpha", id: "1" }] }]);
 }
-async function runtime(t, mode = "valid", enabled = "1") {
+async function runtime(t, mode = "valid", enabled = "1", activatedAt = new Date().toISOString()) {
   const taskTemp = await mkdtemp(join(tmpdir(), "fotty-watchdog-test-"));
   const config = await readFile(join(directory, "../wrangler.toml"), "utf8");
   const compatibilityDate = config.match(/^compatibility_date\s*=\s*"([\d-]+)"/m)[1];
@@ -37,7 +37,8 @@ async function runtime(t, mode = "valid", enabled = "1") {
   const options = { modules: true, script, compatibilityDate, compatibilityFlags, log: new Log(LogLevel.NONE), cf: false,
     resourcePersistencePath: join(taskTemp, "state"), isolatedResourcePersistencePath: join(taskTemp, "isolated"), resourceTmpPath: join(taskTemp, "runtime"),
     unsafeEphemeralDurableObjects: true, durableObjects: { WATCHDOG_STATE: { className: "WatchdogState", useSQLite: true } },
-    bindings: { FOTTY_WATCHDOG_ENABLED: enabled, FOTTY_WATCHDOG_ACTIVATED_AT: new Date().toISOString() },
+    bindings: { FOTTY_WATCHDOG_ENABLED: enabled,
+      ...(activatedAt === null ? {} : { FOTTY_WATCHDOG_ACTIVATED_AT: activatedAt }) },
     outboundService: (request) => { requests.push(new URL(request.url).hostname); return synthetic(request, mode); } };
   const miniflare = new Miniflare(typeof convertV4MiniflareOptions === "function" ? convertV4MiniflareOptions(options) : options);
   t.after(async () => { try { await miniflare.dispose(); } finally { await rm(taskTemp, { recursive: true, force: true }); } });
@@ -50,6 +51,19 @@ test("actual workerd: inactive observer and public POST make zero metadata reads
   assert.equal((await miniflare.dispatchFetch("https://test.invalid/run", { method: "POST" })).status, 404);
   assert.equal((await (await stub.fetch("https://internal.invalid/run", { method: "POST" })).json()).activation, "pending");
   assert.equal(requests.length, 0);
+});
+test("actual workerd: enabled flag without valid past activation cannot lease or read metadata", { timeout: 60000 }, async (t) => {
+  for (const [name, activatedAt] of [["missing", null], ["malformed", "not-a-date"],
+    ["impossible date", "2026-02-30T00:00:00Z"], ["future", "2099-01-01T00:00:00Z"]]) {
+    await t.test(name, async (subtest) => {
+      const { miniflare, stub, requests } = await runtime(subtest, "valid", "1", activatedAt);
+      assert.equal((await (await stub.fetch("https://internal.invalid/run", { method: "POST" })).json()).activation, "pending");
+      const status = await (await miniflare.dispatchFetch("https://test.invalid/status")).json();
+      assert.equal(status.activation, "pending"); assert.equal(status.activatedAt, null);
+      assert.equal(status.lastAttemptedAt, null); assert.equal(status.lastCompletedAt, null);
+      assert.equal(status.nextAt, null); assert.equal(requests.length, 0);
+    });
+  }
 });
 test("actual workerd: overlapping scheduler calls acquire one durable collector lease", { timeout: 20000 }, async (t) => {
   const { miniflare, stub, requests } = await runtime(t);
@@ -82,13 +96,57 @@ function fakeState() {
     stored = staged; return result;
   } } }, read: () => stored, writes: () => writes, fail: (value) => { failAt = value; } };
 }
+const activeEnv = (activatedAt = "2026-10-11T00:00:00Z") => ({ FOTTY_WATCHDOG_ENABLED: "1", FOTTY_WATCHDOG_ACTIVATED_AT: activatedAt });
+test("activation fails closed before Durable Object lease or scheduler dispatch", async () => {
+  const oldNow = Date.now, oldFetch = globalThis.fetch;
+  const clock = Date.parse("2026-10-11T12:00:00Z");
+  Date.now = () => clock;
+  globalThis.fetch = async () => { throw new Error("inactive configuration must not fetch"); };
+  try {
+    const invalid = [undefined, null, "", "not-a-date", "2026-10-11", "2026-02-30T00:00:00Z", "2026-10-11T24:00:00Z",
+      "2026-10-11T12:00:01Z", "2026-10-11T00:00:00+24:00", 1791719999000];
+    for (const activatedAt of invalid) {
+      const fake = fakeState(), env = { FOTTY_WATCHDOG_ENABLED: "1", FOTTY_WATCHDOG_ACTIVATED_AT: activatedAt };
+      const worker = new WatchdogState(fake.state, env);
+      assert.deepEqual(await (await worker.run(clock)).json(), { activation: "pending" });
+      assert.equal(fake.writes(), 0); assert.equal(fake.read(), undefined);
+      let dispatches = 0;
+      workerHandler.scheduled(null, { ...env, WATCHDOG_STATE: {
+        idFromName() { throw new Error("inactive scheduler must not access DO"); },
+      } }, { waitUntil() { dispatches++; } });
+      assert.equal(dispatches, 0);
+    }
+    for (const enabled of ["0", "true", undefined]) {
+      const fake = fakeState();
+      assert.equal((await (await new WatchdogState(fake.state, { ...activeEnv(), FOTTY_WATCHDOG_ENABLED: enabled }).run(clock)).json()).activation, "pending");
+      assert.equal(fake.writes(), 0);
+    }
+  } finally { Date.now = oldNow; globalThis.fetch = oldFetch; }
+});
+test("a valid RFC3339 activation normalizes status and permits the scheduler", async () => {
+  const oldNow = Date.now;
+  Date.now = () => Date.parse("2026-10-11T12:00:00Z");
+  try {
+    const env = activeEnv("2026-10-11T07:00:00-04:00");
+    const status = await (await new WatchdogState(fakeState().state, env).fetch(new Request("https://internal.invalid/status"))).json();
+    assert.equal(status.activation, "active"); assert.equal(status.activatedAt, "2026-10-11T11:00:00.000Z");
+    const calls = [], pending = [];
+    workerHandler.scheduled(null, { ...env, WATCHDOG_STATE: {
+      idFromName(name) { return name; }, get(name) { return { async fetch(url, options) {
+        calls.push({ name, url, method: options.method }); return new Response(null, { status: 200 });
+      } }; },
+    } }, { waitUntil(promise) { pending.push(promise); } });
+    await Promise.all(pending);
+    assert.equal(calls.length, 1); assert.equal(calls[0].method, "POST");
+  } finally { Date.now = oldNow; }
+});
 test("request reservation uses actual UTC day across midnight, not run-start day", async () => {
   const fake = fakeState(), oldFetch = globalThis.fetch, oldNow = Date.now;
   const start = Date.parse("2026-10-11T23:59:59Z");
   Date.now = () => start + 2000;
   globalThis.fetch = async (url) => synthetic(url);
   try {
-    const worker = new WatchdogState(fake.state, { FOTTY_WATCHDOG_ENABLED: "1" });
+    const worker = new WatchdogState(fake.state, activeEnv());
     assert.equal((await worker.run(start)).status, 200);
     assert.equal(fake.read().runtime.budget.day, "2026-10-12");
   } finally { globalThis.fetch = oldFetch; Date.now = oldNow; }
@@ -101,7 +159,7 @@ test("failed final storage commit never advances completion or emits an incident
   globalThis.fetch = async (url) => synthetic(url, "failure");
   console.log = (message) => logs.push(message);
   try {
-    const worker = new WatchdogState(fake.state, { FOTTY_WATCHDOG_ENABLED: "1" });
+    const worker = new WatchdogState(fake.state, activeEnv());
     for (let index = 0; index < 2; index++) { assert.equal((await worker.run()).status, 200); clock += 30 * 60000; }
     const completedBefore = fake.read().runtime.lastCompletedAt;
     // The third matching failure would confirm. Claim + five request reserves
@@ -118,7 +176,7 @@ test("durably confirmed source notification exposes only safe scalars and hashed
   let clock = Date.parse("2026-10-11T12:00:00Z");
   Date.now = () => clock; globalThis.fetch = async (url) => synthetic(url, "failure"); console.log = () => {};
   try {
-    const worker = new WatchdogState(fake.state, { FOTTY_WATCHDOG_ENABLED: "1" });
+    const worker = new WatchdogState(fake.state, activeEnv());
     for (let index = 0; index < 3; index++) { assert.equal((await worker.run()).status, 200); clock += 30 * 60000; }
     const status = await (await worker.fetch(new Request("https://internal.invalid/status"))).json();
     assert.equal(status.notifications.length, 1);
