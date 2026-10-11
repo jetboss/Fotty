@@ -61,3 +61,82 @@ test("validators reject duplicate identities and ambiguous calendar changes", ()
   assert.equal(validateStreamExCatalog({ matches: "invalid" }), false);
   assert.equal(validateScore808Listing('<script>elfsight-app-12345678-1234-1234-1234-123456789abc</script>'), false);
 });
+
+const calendarID = "e35d5dc2-ac62-48de-bb53-2946ecd35042";
+const widget = `<div class="elfsight-app-${calendarID}"></div>`;
+const otherWidget = '<div class="elfsight-app-12345678-1234-1234-1234-123456789abc"></div>';
+
+test("Score808 accepts the reviewed literal listing element and bounded document grammar", () => {
+  // This exact public widget element was reviewed on the admitted listing page
+  // on11Oct2026; this fixture is a small structural extract, not a saved page or
+  // completeness/decoded-stream certificate. The publisher omits optional </p>.
+  assert.equal(validateScore808Listing(widget), true);
+  assert.equal(validateScore808Listing(`<!doctype html><html><head><meta charset=utf-8><title>Football</title>
+    <script async src="/public-calendar.js"></script></head><body><article><div><p>Calendar
+    </div>${widget}</article></body></html>`), true);
+  assert.equal(validateScore808Listing(`<div><p>Intro${widget}</div>`), true);
+  assert.equal(validateScore808Listing(`<DIV CLASS='calendar ELFSIGHT-APP-${calendarID.toUpperCase()} other'></DIV>`), true);
+  assert.equal(validateScore808Listing(`<div class=elfsight-app-${calendarID}></div>`), true);
+  assert.equal(validateScore808Listing(widget + widget), true); // one identity, not an element-count claim
+  assert.equal(validateScore808Listing(widget + otherWidget), false);
+});
+
+test("Score808 never treats comments, strings, text or unrelated attributes as a widget", () => {
+  for (const html of [
+    `<!-- ${widget} -->`, `<script>${widget}</script>`, `<script data-note='>'>${widget}</script>`,
+    `<script>const identity = "elfsight-app-${calendarID}";</script>`,
+    `<style>${widget}</style>`, `<textarea>${widget}</textarea>`, `<title>${widget}</title>`,
+    `<iframe>${widget}</iframe>`, `<xmp>${widget}</xmp>`, `<noembed>${widget}</noembed>`, `<noframes>${widget}</noframes>`,
+    `<div data-class="elfsight-app-${calendarID}"></div>`, `<span class="elfsight-app-${calendarID}"></span>`,
+    `<div title='${widget}'></div>`, `elfsight-app-${calendarID}`, `<div>elfsight-app-${calendarID}</div>`,
+  ]) assert.equal(validateScore808Listing(html), false, html);
+  assert.equal(validateScore808Listing(`<!-- ${otherWidget} --><script>${otherWidget}</script>${widget}`), true);
+  assert.equal(validateScore808Listing(`<script>${otherWidget}</scriptfoo>${otherWidget}</script>${widget}`), true);
+});
+
+test("Score808 rejects hidden/inert/template/foreign-context identities", () => {
+  for (const html of [
+    `<div hidden>${widget}</div>`, `<div hidden class="elfsight-app-${calendarID}"></div>`,
+    `<div aria-hidden="true">${widget}</div>`, `<div inert>${widget}</div>`,
+    `<div style="display: none">${widget}</div>`, `<div style="visibility:hidden!important">${widget}</div>`,
+    `<div style="opacity:0.00">${widget}</div>`, `<template>${widget}</template>`, `<noscript>${widget}</noscript>`,
+    `<head>${widget}</head>`, `<svg><foreignObject>${widget}</foreignObject></svg>`, `<math>${widget}</math>`,
+    `<select>${widget}</select>`, `<datalist>${widget}</datalist>`, `<canvas>${widget}</canvas>`,
+    `<audio>${widget}</audio>`, `<video>${widget}</video>`, `<object>${widget}</object>`, `<frameset>${widget}</frameset>`,
+  ]) assert.equal(validateScore808Listing(html), false, html);
+  assert.equal(validateScore808Listing(`<div hidden>${otherWidget}</div>${widget}`), true);
+  assert.equal(validateScore808Listing(`<div style="opacity:0.5">${widget}</div>`), true);
+});
+
+test("Score808 fails closed on CodeQL comment/script end-tag and ambiguous token cases", () => {
+  for (const html of [
+    `<!--${widget}`, `<!--<!-- -->${widget}`, `<!-- ignored --!>${widget} -->`,
+    `<script>${widget}`, `<script>${otherWidget}</script\t\n bar>${widget}`,
+    `<script>${otherWidget}</script/>${widget}`, `<script/>${widget}`,
+    `<script><!-- <script>${otherWidget}</script>${widget}</script>`,
+    `<scr<script>ipt>${widget}</scr<script>ipt>`, `<script data-note="unterminated>${widget}`,
+    `<div class="elfsight-app-${calendarID}" CLASS="other"></div>`,
+    `<div class="elfsight-app-${calendarID}"class="other"></div>`,
+    `<div class="elfsight-app-${calendarID}&#32;other"></div>`,
+    `<div class="elfsight-app-${calendarID}-suffix"></div>`,
+    `<div style="display/**/:none">${widget}</div>`,
+    `<div>${widget}</section>`, `<plaintext>${widget}`, `<div class="elfsight-app-${calendarID}"></div>\0`,
+  ]) assert.equal(validateScore808Listing(html), false, html);
+});
+
+test("Score808 enforces direct byte, nesting and token bounds without HTML execution", () => {
+  assert.equal(validateScore808Listing(null), false);
+  assert.equal(validateScore808Listing(widget + " ".repeat(1024 * 1024)), false);
+  assert.equal(validateScore808Listing(widget + "é".repeat(600_000)), false);
+  assert.equal(validateScore808Listing("<div>".repeat(257) + widget + "</div>".repeat(257)), false);
+  assert.equal(validateScore808Listing("<br>".repeat(50_001) + widget), false);
+});
+
+test("malformed or script-only Score808 listing records a contract failure, not metadata recovery", async () => {
+  const source = PROVIDERS.find((row) => row.kind === "score808");
+  for (const html of [`<script>${widget}</script>`, `<script>${otherWidget}</script\t\n bar>${widget}`]) {
+    const rows = await probeProvider(source, { request: async () => new Response(html, { headers: { "content-type": "text/html" } }) });
+    assert.equal(rows.length, 1); assert.equal(rows[0].outcome, "failure"); assert.equal(rows[0].failureClass, "schema");
+    assert.equal(JSON.stringify(rows).includes(calendarID), false);
+  }
+});

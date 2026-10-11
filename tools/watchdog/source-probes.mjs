@@ -59,11 +59,147 @@ export function validateStreamExCatalog(body) {
     && row.sources.every((source) => source && safeID(source.source) && safeID(source.id)));
 }
 export function validateScore808Listing(text) {
-  // Same single public calendar boundary as the native consumer. A new widget
-  // layout is a contract failure, not permission to search arbitrary calendars.
-  const visible = text.replace(/<!--[\s\S]*?-->/g, "").replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, "");
-  const ids = new Set([...visible.matchAll(/\belfsight-app-([a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12})\b/gi)].map((m) => m[1].toLowerCase()));
-  return ids.size === 1;
+  // Extract a narrow metadata contract; never sanitize or render HTML. Only a
+  // literal widget class on a div outside prohibited/explicitly hidden markup
+  // is evidence. This is not proof of browser/CSS visibility or stream delivery.
+  // Unsupported, malformed or ambiguous HTML fails closed instead of being
+  // repaired like a browser document. Limits are also enforced for direct calls.
+  if (typeof text !== "string" || text.length > STAGE_LIMITS.catalog || text.includes("\0")
+    || new TextEncoder().encode(text).byteLength > STAGE_LIMITS.catalog) return false;
+  const space = (char) => char === " " || char === "\t" || char === "\n" || char === "\r" || char === "\f";
+  const letter = (char) => char !== undefined && /[a-z]/i.test(char);
+  const nameChar = (char) => char !== undefined && /[a-z0-9:-]/i.test(char);
+  const boundary = (char) => char === ">" || char === "/" || space(char);
+  const voidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
+  const rawTags = new Set(["script", "style", "title", "textarea", "xmp", "iframe", "noembed", "noframes"]);
+  const prohibited = new Set(["head", "template", "noscript", "svg", "math", "select", "datalist", "option", "optgroup",
+    "canvas", "audio", "video", "object", "frameset", ...rawTags]);
+  const closesParagraph = new Set(["address", "article", "aside", "blockquote", "details", "dialog", "div", "dl", "fieldset", "figcaption", "figure",
+    "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hgroup", "hr", "main", "menu", "nav", "ol", "p", "pre", "search", "section", "table", "ul"]);
+  const retainsParagraph = new Set(["a", "audio", "del", "ins", "map", "noscript", "video"]);
+  const stack = [], ids = new Set(); let offset = 0, tokens = 0;
+
+  function tagAt(start) {
+    let index = start + 1, closing = false;
+    if (text[index] === "/") { closing = true; index++; }
+    if (!letter(text[index])) return null;
+    const nameStart = index++;
+    while (nameChar(text[index])) index++;
+    const name = text.slice(nameStart, index).toLowerCase(), attributes = new Map();
+    if (!boundary(text[index])) return null;
+    while (index < text.length) {
+      const beforeSpace = index;
+      while (space(text[index])) index++;
+      if (text[index] === ">") return { name, closing, attributes, end: index + 1, selfClosing: false };
+      if (text[index] === "/" && text[index + 1] === ">") {
+        // HTML ignores non-void self-closing flags; treating them as closed can
+        // expose a candidate that is actually still inside script/hidden markup.
+        if (closing || !voidTags.has(name)) return null;
+        return { name, closing, attributes, end: index + 2, selfClosing: true };
+      }
+      if (closing || beforeSpace === index || attributes.size >= 128) return null;
+      const attributeStart = index;
+      while (index < text.length && !space(text[index]) && !["=", "/", ">"].includes(text[index])) {
+        if (["<", "\"", "'", "`"].includes(text[index])) return null;
+        index++;
+      }
+      if (index === attributeStart) return null;
+      const attribute = text.slice(attributeStart, index).toLowerCase();
+      if (attributes.has(attribute)) return null;
+      const attributeEnd = index;
+      while (space(text[index])) index++;
+      let value = "";
+      if (text[index] === "=") {
+        index++; while (space(text[index])) index++;
+        const quote = text[index] === "\"" || text[index] === "'" ? text[index++] : null;
+        const valueStart = index;
+        if (quote) {
+          while (index < text.length && text[index] !== quote) index++;
+          if (index === text.length) return null;
+          value = text.slice(valueStart, index++);
+          if (!space(text[index]) && text[index] !== ">" && !(text[index] === "/" && text[index + 1] === ">")) return null;
+        } else {
+          while (index < text.length && !space(text[index]) && text[index] !== ">") {
+            if (["<", "\"", "'", "`", "="].includes(text[index])) return null;
+            index++;
+          }
+          if (index === valueStart) return null;
+          value = text.slice(valueStart, index);
+        }
+      } else index = attributeEnd;
+      attributes.set(attribute, value);
+    }
+    return null;
+  }
+
+  function rawEnd(name, start) {
+    const endPrefix = `</${name}`, startPrefix = `<${name}`;
+    for (let index = text.indexOf("<", start); index !== -1; index = text.indexOf("<", index + 1)) {
+      // Script escaped/double-escaped states require browser tokenization.
+      // Reject that unsupported grammar, rather than ending raw text too soon.
+      if (name === "script" && (text.startsWith("<!--", index)
+        || text.slice(index, index + startPrefix.length).toLowerCase() === startPrefix && boundary(text[index + startPrefix.length]))) return null;
+      if (text.slice(index, index + endPrefix.length).toLowerCase() !== endPrefix || !boundary(text[index + endPrefix.length])) continue;
+      const end = tagAt(index);
+      return end?.closing && end.name === name ? end : null;
+    }
+    return null;
+  }
+
+  while (offset < text.length) {
+    const next = text.indexOf("<", offset);
+    if (next === -1) break;
+    if (++tokens > 50_000) return false;
+    if (text.startsWith("<!--", next)) {
+      const end = text.indexOf("-->", next + 4);
+      if (end === -1) return false;
+      // Nested/alternate comment delimiters are not repaired or re-scanned.
+      const comment = text.slice(next + 4, end);
+      if (comment.includes("<!--") || comment.includes("--!>")) return false;
+      offset = end + 3; continue;
+    }
+    if (text.slice(next, next + 9).toLowerCase() === "<!doctype") {
+      const end = text.indexOf(">", next + 9);
+      if (end === -1 || text.slice(next + 9, end).trim().toLowerCase() !== "html" || stack.length) return false;
+      offset = end + 1; continue;
+    }
+    const tag = tagAt(next);
+    if (!tag || tag.name === "plaintext") return false;
+    offset = tag.end;
+    if (tag.closing) {
+      // The reviewed listing omits </p> immediately before its parent closes.
+      // This limited optional-end-tag case is defined by the HTML standard;
+      // other misnesting is still unsupported, never repaired speculatively.
+      if (stack.at(-1)?.name === "p" && stack.at(-2)?.name === tag.name
+        && !retainsParagraph.has(tag.name) && !tag.name.includes("-")) stack.pop();
+      if (voidTags.has(tag.name) || stack.at(-1)?.name !== tag.name) return false;
+      stack.pop(); continue;
+    }
+    if (stack.at(-1)?.name === "p" && closesParagraph.has(tag.name)) stack.pop();
+    const attributes = tag.attributes, classes = attributes.get("class") || "", style = attributes.get("style") || "";
+    // Entity/escape/comment spellings can change class or inline visibility in
+    // the browser. They are outside this literal reviewed listing contract.
+    if (classes.includes("&") || style.includes("\\") || style.includes("/*") || style.includes("&")) return false;
+    const hidden = stack.at(-1)?.hidden || prohibited.has(tag.name) || attributes.has("hidden") || attributes.has("inert")
+      || attributes.get("aria-hidden")?.trim().toLowerCase() === "true"
+      || /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|opacity\s*:\s*0(?:\.0+)?)\s*(?:!important\s*)?(?:;|$)/i.test(style);
+    if (tag.name === "div" && !hidden) {
+      for (const token of classes.split(/[\t\n\r\f ]+/)) {
+        if (!token.toLowerCase().startsWith("elfsight-app-")) continue;
+        if (!/^elfsight-app-[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(token)) return false;
+        ids.add(token.slice("elfsight-app-".length).toLowerCase());
+      }
+    }
+    if (rawTags.has(tag.name)) {
+      const end = rawEnd(tag.name, offset);
+      if (!end) return false;
+      offset = end.end;
+    } else if (!voidTags.has(tag.name)) {
+      if (stack.length >= 256) return false;
+      stack.push({ name: tag.name, hidden });
+    }
+  }
+  return stack.length === 0 && ids.size === 1;
 }
 
 export async function probeProvider(descriptor, { request = fetch, now = Date.now(), environment = "production", reserve = async () => true } = {}) {
