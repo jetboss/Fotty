@@ -1,0 +1,30 @@
+name: Independent Watchdog Observer
+
+on:
+  schedule:
+    - cron: "13,43 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: independent-watchdog-observer-production
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: github.ref == 'refs/heads/main' && vars.FOTTY_WATCHDOG_ENABLED == '1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Check collector liveness and deliver durable changed-state owner alerts
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node tools/watchdog/github-observer.mjs
