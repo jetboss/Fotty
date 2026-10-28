@@ -55,6 +55,114 @@ function footballFetch(rows = [footballRow()], mutate = (data) => data) {
     resultSet: { count: rows.length }, matches: rows }));
 }
 
+const eflRow = (overrides = {}) => ({ type: "match", id: "g2687775", attributes: {
+  competitionID: 2, kickOffDateUTC: "2026-09-30 15:00:00", TBC: null,
+  homeTeam: { name: "Liverpool" }, awayTeam: { name: "Chelsea" }, matchPeriod: "FirstHalf", ...overrides } });
+const eflPayload = (url, rows) => ({ data: rows, meta: { count: rows.length, totalCount: rows.length }, links: { self: String(url) } });
+const eflFetch = (rows = [eflRow()], mutate = (data) => data, headers = {}) => async (url) => new Response(
+  JSON.stringify(mutate(eflPayload(url, rows))), { headers: { "Content-Type": "application/json", Date: now.toUTCString(), ...headers } });
+const eflEnv = { FOTTY_SPORTS_EFL_ENABLED: "1" };
+
+test("official EFL lane requires its dedicated activation independently of public website feeds", async () => {
+  let requests = 0;
+  for (const env of [{}, { FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "1" }, { FOTTY_SPORTS_EFL_ENABLED: "0" }]) {
+    await assert.rejects(() => collect("efl-carabao-cup", async () => { requests++; return json({}); }, env), /activation pending/);
+  }
+  assert.equal(requests, 0);
+});
+
+test("EFL uses one official Carabao request with exact UTC, calendar season and bounded pagination", async () => {
+  let calls = 0;
+  const result = await collect("efl-carabao-cup", async (url, init) => {
+    calls++;
+    assert.equal(url.origin, "https://multi-club-matches.webapi.gc.eflservices.co.uk");
+    assert.equal(url.pathname, "/v2/matches");
+    assert.equal(url.searchParams.get("competitionID"), "2");
+    assert.equal(url.searchParams.get("seasonID"), "2026");
+    assert.equal(url.searchParams.get("page.size"), "100");
+    assert.equal(url.searchParams.get("from"), "2026-09-29 00:00:00Z");
+    assert.equal(url.searchParams.get("to"), "2026-10-07 23:59:59Z");
+    assert.equal(init.redirect, "manual");
+    return eflFetch()(url);
+  }, eflEnv);
+  assert.equal(calls, 1);
+  const fixture = result.fixtures[0];
+  assert.equal(fixture.id, "sports-fixture:carabao-cup:g2687775");
+  assert.equal(fixture.competitionName, "Carabao Cup");
+  assert.equal(fixture.status, "live");
+  assert.equal(fixture.start, "2026-09-30T15:00:00.000Z");
+  assert.equal(fixture.source.name, "EFL");
+  assert.equal(fixture.source.observedAt, now.toISOString());
+  assert.equal(fixture.source.updatedAt, now.toISOString());
+  assert.deepEqual(fixture.squad, { gender: "men", ageGroup: "senior" });
+  assert.deepEqual(fixture.participants.map(({ id, name, role }) => ({ id, name, role })), [
+    { id: "efl:team:liverpool", name: "Liverpool", role: "home" },
+    { id: "efl:team:chelsea", name: "Chelsea", role: "away" },
+  ]);
+});
+
+test("EFL spring fixtures retain the prior calendar season and do not assume Premier League scope", async () => {
+  const spring = new Date("2027-01-15T16:00:00Z");
+  await collectSportsSource(source("efl-carabao-cup"), spring, eflEnv, async (url) => {
+    assert.equal(url.searchParams.get("seasonID"), "2026");
+    return new Response(JSON.stringify(eflPayload(url, [])), { headers: { "Content-Type": "application/json", Date: spring.toUTCString() } });
+  });
+  await assert.rejects(() => collect("efl-carabao-cup", eflFetch([eflRow({ competitionID: 10 })]), eflEnv), /identity/);
+});
+
+test("EFL statuses are explicit publisher periods, including a past PreMatch remaining scheduled", async () => {
+  for (const [matchPeriod, status] of [["PreMatch", "scheduled"], ["FirstHalf", "live"], ["HalfTime", "live"],
+    ["SecondHalf", "live"], ["ExtraFirstHalf", "live"], ["ExtraSecondHalf", "live"], ["ShootOut", "live"],
+    ["FullTime", "finished"], ["Postponed", "postponed"], ["Cancelled", "cancelled"], ["Abandoned", "cancelled"]]) {
+    const result = await collect("efl-carabao-cup", eflFetch([eflRow({ matchPeriod })]), eflEnv);
+    assert.equal(result.fixtures[0].status, status, matchPeriod);
+  }
+  await assert.rejects(() => collect("efl-carabao-cup", eflFetch([eflRow({ matchPeriod: "NewPeriod" })]), eflEnv), /Unknown/);
+});
+
+test("EFL exact counts, scope echoes, types and source IDs fail closed before accepted state", async () => {
+  for (const mutate of [
+    (data) => ({ ...data, meta: { count: 1, totalCount: 2 } }),
+    (data) => ({ ...data, meta: { count: 0, totalCount: 0 } }),
+    (data) => ({ ...data, links: { ...data.links, next: "https://example.invalid/next" } }),
+    (data) => ({ ...data, links: { self: data.links.self.replace("competitionID=2", "competitionID=10") } }),
+    (data) => ({ ...data, links: { self: data.links.self.replace("seasonID=2026", "seasonID=2025") } }),
+    (data) => ({ ...data, links: { self: data.links.self.replace("2026-09-29", "2026-09-28") } }),
+    (data) => ({ ...data, links: { self: data.links.self + "&teamID=liverpool" } }),
+    (data) => ({ ...data, links: { self: data.links.self.replace("multi-club-matches.webapi.gc.eflservices.co.uk", "example.invalid") } }),
+  ]) await assert.rejects(() => collect("efl-carabao-cup", eflFetch([eflRow()], mutate), eflEnv));
+  for (const row of [{ ...eflRow(), id: "invented" }, { ...eflRow(), type: "news" }]) {
+    await assert.rejects(() => collect("efl-carabao-cup", eflFetch([row]), eflEnv), /identity/);
+  }
+  await assert.rejects(() => collect("efl-carabao-cup", eflFetch([eflRow(), eflRow()]), eflEnv), /Duplicate/);
+  const full = Array.from({ length: 100 }, (_, index) => ({ ...eflRow(), id: `g${index + 1}` }));
+  await assert.rejects(() => collect("efl-carabao-cup", eflFetch(full), eflEnv), /incomplete/);
+});
+
+test("EFL UTC calendar, bounded window and provisional participants cannot invent fixtures", async () => {
+  for (const kickOffDateUTC of ["2026-09-30T15:00:00", "2026-09-30 15:00:00+01:00", "2026-09-31 15:00:00",
+    "2026-09-28 23:59:59", "2026-10-08 00:00:00"]) {
+    await assert.rejects(() => collect("efl-carabao-cup", eflFetch([eflRow({ kickOffDateUTC })]), eflEnv));
+  }
+  for (const provisional of [eflRow({ TBC: true }), eflRow({ homeTeam: { name: "TBC" } })]) {
+    const pending = await collect("efl-carabao-cup", eflFetch([provisional]), eflEnv);
+    assert.deepEqual(pending.fixtures, []);
+    assert.deepEqual(pending.pendingByCompetition, { "carabao-cup": 1 });
+    assert.equal(pending.pendingFixtureCount, 1);
+  }
+  await assert.rejects(() => collect("efl-carabao-cup", eflFetch([eflRow({ awayTeam: { name: "Liverpool" } })]), eflEnv), /duplicate participants/);
+});
+
+test("EFL stale live HTTP artifacts and redirects do not create fresh live receipts", async () => {
+  for (const headers of [{ Date: "Wed, 30 Sep 2026 15:30:00 GMT" }, { Age: "1800" }, { Age: "invalid" },
+    { Date: "Wed, 30 Sep 2026 16:10:00 GMT" }, { Date: "2026-09-30T16:00:00Z" }]) {
+    await assert.rejects(() => collect("efl-carabao-cup", eflFetch([eflRow()], undefined, headers), eflEnv));
+  }
+  await assert.rejects(() => collect("efl-carabao-cup", async () => new Response(null, {
+    status: 302, headers: { Location: "https://example.invalid/schedule" },
+  }), eflEnv), /unavailable/);
+});
+
 test("descriptor scope and collection window use UTC with one past and seven forward days", () => {
   assert.deepEqual(sportsFixtureWindow(now), { windowStart: "2026-09-29T00:00:00.000Z", windowEnd: "2026-10-08T00:00:00.000Z" });
   assert.equal(source("wnba").gender, "women");

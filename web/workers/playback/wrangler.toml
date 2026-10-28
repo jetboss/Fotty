@@ -37,6 +37,8 @@ FPL_COACH_PAID_ENABLED = "0"
 FPL_COACH_DAILY_LIMIT = "50"
 # Owner-approved primary fixture activation; individual website lanes stay gated.
 FOTTY_SPORTS_FIXTURES_ENABLED = "1"
+# Owner-approved 28 October: activate only official EFL Carabao metadata.
+FOTTY_SPORTS_EFL_ENABLED = "1"
 # Publicly reachable ESPN website feeds are not a licensed API. Leave gated
 # until source access is resolved separately; general activation cannot enable it.
 FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED = "0"

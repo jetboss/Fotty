@@ -35,6 +35,9 @@ const ALL_SPORTS_SOURCES = [...SPORTS_SOURCES, ...SPORTS_EVENT_SOURCES];
 const PRIMARY_SPORTS_SOURCE_IDS = new Set(SPORTS_SOURCES.map((source) => source.id));
 function effectiveSportsSources(env) {
   return ALL_SPORTS_SOURCES.map((source) => {
+    if (source.id === "efl-carabao-cup" && env.FOTTY_SPORTS_EFL_ENABLED !== "1") {
+      return { ...source, supported: false, reason: "Official EFL fixture metadata is awaiting its dedicated activation." };
+    }
     if (source.id === "wnba" && env.FOTTY_SPORTS_WNBA_ENABLED !== "1") {
       return { ...source, supported: false, reason: "The league CDN does not return structured data to the cloud fixture service; activation requires verified source access." };
     }
@@ -676,6 +679,7 @@ async function handleHealth(env) {
     sportsFixtureRegistryConfigured: Boolean(env.SPORTS_FIXTURES),
     sportsFixtureServiceEnabled: sportsFixturesEnabled(env),
     sportsPublicWebFeedsEnabled: env.FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED === "1",
+    sportsEFLEnabled: env.FOTTY_SPORTS_EFL_ENABLED === "1",
     sportsWNBAEnabled: env.FOTTY_SPORTS_WNBA_ENABLED === "1",
     sportsFixtureRefreshMode: "scheduled-per-source-adaptive",
     apiFootballCredentialConfigured,
