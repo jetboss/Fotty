@@ -70,6 +70,10 @@ export class WatchdogState {
     if (activationTime(this.env, now) === null) return response({ activation: "pending" });
     const fence = await this.transact((stored) => {
       const runtime = stored.runtime;
+      // An existing collector can retain the previous release's longer cadence.
+      // Bring only its due time forward; keep completion evidence, budgets,
+      // incidents/outbox and an active collector lease exactly as recorded.
+      if (runtime.lastCompletedAt != null) runtime.nextAt = Math.min(runtime.nextAt, runtime.lastCompletedAt + INTERVAL);
       if (runtime.nextAt > now || runtime.lease?.expiresAt > now) return null;
       if (runtime.fence >= Number.MAX_SAFE_INTEGER) throw new Error("Observer fence exhausted");
       runtime.fence++; runtime.lease = { fence: runtime.fence, expiresAt: now + LEASE };
