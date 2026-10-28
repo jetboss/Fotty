@@ -28,7 +28,7 @@ export function fixtureReceipts(body, { kind, now = Date.now(), environment = "p
   return receipts;
 }
 
-export async function collectFixtureReceipts({ request = fetch, now = Date.now(), environment = "production" } = {}) {
+export async function collectFixtureReceipts({ request = fetch, now = Date.now(), environment = "production", onSportsSnapshot } = {}) {
   const results = [];
   let healthBody;
   try {
@@ -51,7 +51,12 @@ export async function collectFixtureReceipts({ request = fetch, now = Date.now()
       if (read.failure) { results.push(observation("fixtures-service", "integrity", "failure", read.failure, now, environment, { scope: kind })); continue; }
       const body = JSON.parse(read.text);
       if (body.activation === "pending") { results.push(observation("fixtures-service", "integrity", "inactive", "activation-pending", now, environment, { scope: kind })); continue; }
-      results.push(...fixtureReceipts(body, { kind, now, environment }));
+      const receipts = fixtureReceipts(body, { kind, now, environment });
+      results.push(...receipts);
+      // Reuse this fixed-origin, exact-version, structurally audited response for
+      // a bounded metadata canary. Individual verified/live/fresh fixture admission
+      // remains the canary selector's job; no additional snapshot fetch is needed.
+      if (kind === "sports" && typeof onSportsSnapshot === "function") onSportsSnapshot(body);
     } catch { results.push(observation("fixtures-service", "integrity", "failure", "invalid-contract", now, environment, { scope: kind })); }
   }
   return results;

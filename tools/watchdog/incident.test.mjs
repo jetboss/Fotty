@@ -35,6 +35,59 @@ async function temporary(t) {
   return directory;
 }
 
+test('reviewed published closure confirms on first evidence without security quarantine', () => {
+  const p = policy({ admittedSources: [{ source: 'streamex', stages: ['catalog'], activation: 'active', expected: versions,
+    immediateFailureClasses: ['published-closure'] }] });
+  const out = observe(emptyLedger(p), p, 0, { source: 'streamex', stage: 'catalog', failureClass: 'published-closure', facts: {} });
+  assert.equal(out.events.length, 1); assert.equal(Object.values(out.state.incidents)[0].state, 'confirmed');
+  assert.equal(Object.values(out.state.incidents)[0].quarantined, false);
+});
+test('unreviewed source or ordinary failure cannot borrow immediate closure confirmation', () => {
+  const p = policy();
+  assert.equal(observe(emptyLedger(p), p, 0, { failureClass: 'published-closure' }).events.length, 0);
+  const q = policy({ admittedSources: [{ source: 'streamex', stages: ['catalog'], activation: 'active', expected: versions,
+    immediateFailureClasses: ['published-closure'] }] });
+  assert.equal(observe(emptyLedger(q), q, 0, { source: 'streamex', stage: 'catalog', failureClass: 'non-json', facts: {} }).events.length, 0);
+});
+test('immediate threshold cannot be expanded to transient HTTP failures', () => {
+  assert.throws(() => policy({ admittedSources: [{ source: 'streamex', stages: ['catalog'], activation: 'active', expected: versions,
+    immediateFailureClasses: ['http-503'] }] }));
+});
+test('schema1 historical three-window records load under two-window policy without erasing receipts', () => {
+  const old = policy(), next = policy({ failureWindows: 2 });
+  const legacy = confirmed(old), frozen = JSON.stringify(legacy);
+  assert.equal(Object.values(legacy.incidents)[0].failureCount, 3);
+  validateLedger(legacy, next); assert.equal(JSON.stringify(legacy), frozen);
+  assert.deepEqual(listNotifications(legacy, next), listNotifications(legacy, old));
+  const corrupt = structuredClone(legacy); Object.values(corrupt.incidents)[0].failureCount = 4;
+  assert.throws(() => validateLedger(corrupt, next));
+  const live = observe(legacy, next, 3).state;
+  assert.equal(Object.values(live.incidents)[0].failureCount, 2);
+  assert.equal(live.notificationSequence, legacy.notificationSequence);
+});
+test('historical suspect and resolved records do not announce transitions on policy read', () => {
+  const old = policy(), next = policy({ failureWindows: 2 });
+  const suspect = observe(observe(emptyLedger(old), old, 0).state, old, 1).state;
+  validateLedger(suspect, next); assert.equal(Object.values(suspect.incidents)[0].state, 'suspect');
+  assert.equal(listNotifications(suspect, next).length, 0);
+  let resolved = confirmed(old);
+  for (let n = 3; n <= 4; n++) resolved = observe(resolved, old, n, { outcome: 'success' }).state;
+  const frozen = JSON.stringify(resolved); validateLedger(resolved, next);
+  assert.equal(JSON.stringify(resolved), frozen); assert.equal(Object.values(resolved.incidents)[0].state, 'resolved');
+});
+test('configuration change resets a historical suspect and needs two fresh checks', () => {
+  const old = policy(), changed = { ...versions, configurationRevision: 'config-2' };
+  const next = policy({ failureWindows: 2, admittedSources: ['cs', 'streamex', 'observer'].map(source => ({ source,
+    stages: source === 'observer' ? ['liveness'] : ['manifest', 'catalog', 'stream'], activation: 'active', expected: changed })) });
+  const legacy = observe(observe(emptyLedger(old), old, 0).state, old, 1).state;
+  validateLedger(legacy, next); const initial = JSON.stringify(legacy);
+  assert.equal(JSON.stringify(legacy), initial); assert.equal(listNotifications(legacy, next).length, 0);
+  const first = observe(legacy, next, 2, { versions: changed });
+  assert.equal(first.events.length, 0); assert.equal(Object.values(first.state.incidents)[0].failureCount, 1);
+  const second = observe(first.state, next, 3, { versions: changed });
+  assert.equal(second.events.length, 1); assert.equal(Object.values(second.state.incidents)[0].generation, 1);
+});
+
 test('portable policy has no Node imports, network or native evidence side effects', async () => {
   const source = await fs.readFile(new URL('./incident-policy.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /(?:from\s*['"]node:|\bfetch\s*\(|\bprocess\.)/);

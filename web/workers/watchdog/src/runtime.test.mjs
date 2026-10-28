@@ -6,14 +6,15 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import workerHandler, { WatchdogState } from "./index.mjs";
-import { EXPECTED_VERSIONS } from "../../../../tools/watchdog/manifest.mjs";
+import { EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS, observerPolicyOptions } from "../../../../tools/watchdog/manifest.mjs";
+import { createPolicy, emptyLedger, applyObservation } from "../../../../tools/watchdog/incident-policy.mjs";
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const runtimeRequire = createRequire(require.resolve("wrangler/package.json", { paths: [resolve(directory, "../../..")] }));
 const { build } = runtimeRequire("esbuild");
 const { Miniflare, convertV4MiniflareOptions, Log, LogLevel } = runtimeRequire("miniflare");
-const admittedHosts = new Set(["nuviosports.xyz", "www.streamex.net", "streamex.sh", "streamed.pk", "www.score808live.tv", "fotty-playback-v3.adaptive-rhubarb.workers.dev"]);
+const admittedHosts = new Set(["nuviosports.xyz", "hd.plavio.site", "www.streamex.net", "streamex.sh", "streamed.pk", "www.score808live.tv", "fotty-playback-v3.adaptive-rhubarb.workers.dev"]);
 function synthetic(request, mode = "valid") {
   const url = new URL(request.url || request);
   assert.ok(admittedHosts.has(url.hostname), "no real network/unreviewed host");
@@ -22,17 +23,33 @@ function synthetic(request, mode = "valid") {
     sportsFixtureServiceEnabled: false, cricketFixtureRegistryConfigured: false });
   if (mode === "redirect" && url.hostname === "www.streamex.net") return new Response(null, { status: 302, headers: { Location: "https://not-reviewed.invalid/feed" } });
   if (mode === "failure" && url.hostname === "nuviosports.xyz") return new Response(null, { status: 530 });
+  if (url.hostname === "hd.plavio.site") return Response.json(url.pathname === "/manifest.json"
+    ? { id: "community.plaviohd", version: "1.9.62", types: ["tv"], resources: ["catalog", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }],
+      catalogs: [{ type: "tv", id: "plaviohd-live-sports" }, { type: "tv", id: "plaviohd-cricket" }] }
+    : { metas: [{ id: "plaviohdtv-synthetic", type: "tv", name: "Synthetic event", description: "Synthetic event", genres: ["Sports"] }] });
   if (url.pathname === "/manifest.json") return Response.json({ id: "community.nuvio.live-sports", version: "1", resources: ["catalog", "stream"], catalogs: [{ type: "tv", id: "nuvio_sports_live" }] });
   if (url.pathname === "/catalog/tv/nuvio_sports_live.json") return Response.json({ metas: [{ id: "synthetic", name: "Synthetic event", type: "tv" }] });
   if (url.hostname === "www.score808live.tv") return new Response('<div class="elfsight-app-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"></div>', { headers: { "Content-Type": "text/html" } });
   return Response.json([{ id: "synthetic", title: "Synthetic event", sources: [{ source: "alpha", id: "1" }] }]);
 }
-async function runtime(t, mode = "valid", enabled = "1", activatedAt = new Date().toISOString()) {
+async function runtime(t, mode = "valid", enabled = "1", activatedAt = new Date().toISOString(), legacySeed) {
   const taskTemp = await mkdtemp(join(tmpdir(), "fotty-watchdog-test-"));
   const config = await readFile(join(directory, "../wrangler.toml"), "utf8");
   const compatibilityDate = config.match(/^compatibility_date\s*=\s*"([\d-]+)"/m)[1];
   const compatibilityFlags = [...config.match(/^compatibility_flags\s*=\s*\[([^\]]*)\]/m)[1].matchAll(/"([a-z0-9_]+)"/g)].map((match) => match[1]);
-  const script = (await build({ entryPoints: [join(directory, "index.mjs")], bundle: true, format: "esm", platform: "neutral", write: false, logLevel: "silent" })).outputFiles[0].text;
+  // Test-only subclass seeds/reads real workerd storage. These endpoints never
+  // exist in the production bundle or deployed source.
+  const input = legacySeed ? { stdin: { resolveDir: directory, sourcefile: "legacy-storage-test.mjs", contents: `
+    import handler, {WatchdogState as Base} from './index.mjs';
+    export default handler;
+    export class WatchdogState extends Base {
+      async fetch(request) {
+        if(new URL(request.url).pathname==='/__test_seed') { await this.state.storage.put('watchdog-observation-v1', ${JSON.stringify(legacySeed)}); return new Response('seeded'); }
+        if(new URL(request.url).pathname==='/__test_read') return Response.json(await this.state.storage.get('watchdog-observation-v1'));
+        return super.fetch(request);
+      }
+    }` } } : { entryPoints: [join(directory, "index.mjs")] };
+  const script = (await build({ ...input, bundle: true, format: "esm", platform: "neutral", write: false, logLevel: "silent" })).outputFiles[0].text;
   const requests = [];
   const options = { modules: true, script, compatibilityDate, compatibilityFlags, log: new Log(LogLevel.NONE), cf: false,
     resourcePersistencePath: join(taskTemp, "state"), isolatedResourcePersistencePath: join(taskTemp, "isolated"), resourceTmpPath: join(taskTemp, "runtime"),
@@ -69,7 +86,8 @@ test("actual workerd: overlapping scheduler calls acquire one durable collector 
   const { miniflare, stub, requests } = await runtime(t);
   const runs = await Promise.all(Array.from({ length: 4 }, () => stub.fetch("https://internal.invalid/run", { method: "POST" }).then((result) => result.json())));
   assert.equal(runs.filter((result) => result.committed).length, 1);
-  assert.equal(requests.length, 7);
+  assert.equal(requests.length, 10);
+  assert.equal(requests.filter((host) => host === "hd.plavio.site").length, 3);
   const status = await (await miniflare.dispatchFetch("https://test.invalid/status")).json();
   assert.ok(status.lastAttemptedAt && status.lastCompletedAt);
   assert.equal(status.streamDelivery, "not-probed");
@@ -84,17 +102,33 @@ test("actual workerd: unreviewed redirect rejected without following and sibling
   assert.ok(requests.includes("streamed.pk"));
   assert.equal(requests.includes("not-reviewed.invalid"), false);
 });
+test("actual workerd: historical confirmed ledger remains readable without erasing incidents or notices", { timeout: 20000 }, async (t) => {
+  const options = observerPolicyOptions(), expected = { ...EXPECTED_VERSIONS,
+    configurationRevision: '2026-10-11.admitted-metadata-1', deploymentRevision: '2026-10-06.cricket-isolation-1' };
+  const oldPolicy = createPolicy({ ...options, admittedSources: options.admittedSources.map((entry) => ({ ...entry, expected })), failureWindows: 3 });
+  let ledger = emptyLedger(oldPolicy); const start = Date.now() - 15 * 60_000;
+  for (let n = 0; n < 3; n++) { const at = start + n * 5 * 60_000; ledger = applyObservation(ledger,
+    { environment: 'production', source: 'cs', stage: 'manifest', failureClass: 'http-530', facts: {}, outcome: 'failure', observedAt: at, versions: expected }, oldPolicy, at).state; }
+  assert.equal(Object.values(ledger.incidents)[0].failureCount, 3);
+  const seed = { ledger, runtime: { fence: 0, lease: null, nextAt: 0, budget: {}, lastAttemptedAt: start, lastCompletedAt: start } };
+  const { miniflare, stub } = await runtime(t, 'valid', '1', new Date(start - 60_000).toISOString(), seed);
+  await stub.fetch('https://internal.invalid/__test_seed', { method: 'POST' });
+  const status = await (await miniflare.dispatchFetch('https://test.invalid/status')).json();
+  assert.equal(status.notifications.length, 1); assert.equal(status.notifications[0].id, ledger.outbox[0].id);
+  assert.equal(status.incidents[0].generation, 1); assert.equal(status.incidents[0].state, 'confirmed');
+  assert.deepEqual(await (await stub.fetch('https://internal.invalid/__test_read')).json(), seed);
+});
 
 // Deterministic storage failure/clock tests complement the real deployment
 // runtime. No secrets, files, upstream requests or repair actions are involved.
 function fakeState() {
-  let stored, writes = 0, failAt = Infinity;
+  let stored, writes = 0, failAt = Infinity, failWhen = () => false;
   return { state: { storage: { get: async () => structuredClone(stored), transaction: async (change) => {
     let staged = structuredClone(stored);
     const result = await change({ get: async () => structuredClone(staged), put: async (_key, value) => { staged = structuredClone(value); } });
-    if (++writes === failAt) throw new Error("synthetic write failure");
+    if (++writes === failAt || failWhen(staged)) throw new Error("synthetic write failure");
     stored = staged; return result;
-  } } }, read: () => stored, writes: () => writes, fail: (value) => { failAt = value; } };
+  } } }, read: () => stored, writes: () => writes, fail: (value) => { failAt = value; }, failWhen: (predicate) => { failWhen = predicate; } };
 }
 const activeEnv = (activatedAt = "2026-10-11T00:00:00Z") => ({ FOTTY_WATCHDOG_ENABLED: "1", FOTTY_WATCHDOG_ACTIVATED_AT: activatedAt });
 test("activation fails closed before Durable Object lease or scheduler dispatch", async () => {
@@ -160,11 +194,11 @@ test("failed final storage commit never advances completion or emits an incident
   console.log = (message) => logs.push(message);
   try {
     const worker = new WatchdogState(fake.state, activeEnv());
-    for (let index = 0; index < 2; index++) { assert.equal((await worker.run()).status, 200); clock += 30 * 60000; }
+    assert.equal((await worker.run()).status, 200); clock += COLLECTION_INTERVAL_MS;
     const completedBefore = fake.read().runtime.lastCompletedAt;
-    // The third matching failure would confirm. Claim + five request reserves
-    // + final commit, not merely an initial suspect with no announcement.
-    fake.fail(fake.writes() + 7);
+    // Fail the real confirmation commit by its staged semantic change, not an
+    // implementation-specific reservation/write count.
+    fake.failWhen((staged) => staged.runtime.lastCompletedAt > completedBefore);
     assert.equal((await worker.run()).status, 503);
     assert.equal(fake.read().runtime.lastCompletedAt, completedBefore);
     assert.equal(fake.read().ledger.outbox.length, 0);
@@ -177,10 +211,12 @@ test("durably confirmed source notification exposes only safe scalars and hashed
   Date.now = () => clock; globalThis.fetch = async (url) => synthetic(url, "failure"); console.log = () => {};
   try {
     const worker = new WatchdogState(fake.state, activeEnv());
-    for (let index = 0; index < 3; index++) { assert.equal((await worker.run()).status, 200); clock += 30 * 60000; }
+    for (let index = 0; index < 2; index++) { assert.equal((await worker.run()).status, 200); clock += COLLECTION_INTERVAL_MS; }
     const status = await (await worker.fetch(new Request("https://internal.invalid/status"))).json();
-    assert.equal(status.notifications.length, 1);
-    const notice = status.notifications[0];
+    const notices = status.notifications.filter((row) => row.source === "cs" && row.failureClass === "http-530");
+    assert.equal(notices.length, 1);
+    assert.ok(status.notifications.every((row) => row.source === "cs"));
+    const notice = notices[0];
     assert.equal(notice.type, "confirmed"); assert.equal(notice.source, "cs"); assert.equal(notice.failureClass, "http-530");
     assert.match(notice.incidentId, /^[a-f0-9]{64}$/); assert.equal(notice.key, undefined);
     assert.equal(JSON.stringify(notice).includes("https://"), false);
