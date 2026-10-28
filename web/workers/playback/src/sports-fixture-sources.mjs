@@ -26,6 +26,11 @@ export const SPORTS_SOURCES = Object.freeze([
       competition("bundesliga", "Bundesliga", "football"), competition("ligue-1", "Ligue 1", "football")],
     codes: { PL: "premier-league", CL: "champions-league", PD: "la-liga", SA: "serie-a", BL1: "bundesliga", FL1: "ligue-1" }, gender: "men", ageGroup: "senior",
     sourceName: "football-data.org", sourceURL: "https://api.football-data.org/v4/matches" },
+  single("efl-carabao-cup", "Carabao Cup", "football", "efl", "https://multi-club-matches.webapi.gc.eflservices.co.uk/v2/matches", {
+    competitions: [competition("carabao-cup", "Carabao Cup", "football")],
+    sourceName: "EFL", publisherCompetitionID: "2", activationFlag: "FOTTY_SPORTS_EFL_ENABLED",
+    permissionStatus: "official-public-metadata-separate-activation",
+  }),
   single("mlb", "Major League Baseball", "baseball", "mlb", "https://statsapi.mlb.com/api/v1/schedule"),
   single("nhl", "National Hockey League", "hockey", "nhl", "https://api-web.nhle.com/v1/schedule"),
   single("wnba", "Women's National Basketball Association", "basketball", "wnba",
@@ -94,7 +99,71 @@ async function requestJSON(url, deadline, fetchImpl, headers = {}, withHeaders =
   const wnbaText = String(url) === "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json" && /^text\/plain(?:\s*;|$)/i.test(contentType);
   check(wnbaText || /(?:^|\/)json(?:\s*;|$)|\+json(?:\s*;|$)/i.test(contentType), "Sports schedule is not JSON");
   const data = await boundedJSON(response, MAX_BYTES, deadline.signal);
-  return withHeaders ? { data, lastModified: response.headers.get("last-modified"), age: response.headers.get("age") } : data;
+  return withHeaders ? { data, lastModified: response.headers.get("last-modified"), age: response.headers.get("age"),
+    date: response.headers.get("date") } : data;
+}
+
+async function efl(descriptor, context) {
+  const { now, env, observedAt, windowStart, windowEnd, getWithHeaders } = context;
+  check(env.FOTTY_SPORTS_EFL_ENABLED === "1", "EFL fixture activation pending");
+  // This is the request advertised by EFL's own Match Centre. Competition 2
+  // is Carabao Cup; football-data's ELC code is the separate Championship.
+  const season = now.getUTCFullYear() - (now.getUTCMonth() < 6 ? 1 : 0);
+  const url = new URL(descriptor.sourceURL);
+  const date = (value) => value.toISOString().slice(0, 19).replace("T", " ") + "Z";
+  url.search = new URLSearchParams({ from: date(new Date(windowStart)),
+    to: date(new Date(Date.parse(windowEnd) - 1000)), competitionID: descriptor.publisherCompetitionID,
+    seasonID: String(season), "page.size": "100" });
+  const { data, date: responseDate, age } = await getWithHeaders(url);
+  check(Array.isArray(data.data) && data.data.length < 100 && count(data.meta?.totalCount)
+    && data.meta.totalCount === data.meta.count && data.meta.count === data.data.length, "EFL schedule incomplete");
+  const self = typeof data.links?.self === "string" ? new URL(data.links.self) : null;
+  check(self && self.origin === url.origin && self.pathname === url.pathname
+    && !self.username && !self.password && !self.hash
+    && [...url.searchParams].every(([key, value]) => self.searchParams.getAll(key).length === 1
+      && self.searchParams.get(key) === value)
+    && [...self.searchParams.keys()].every((key) => url.searchParams.has(key))
+    && !data.links.next && !data.links.prev, "EFL schedule scope mismatch");
+  const generated = new Date(responseDate);
+  check(typeof responseDate === "string" && generated.toUTCString() === responseDate
+    && generated.getTime() <= now.getTime() + 300_000
+    && now.getTime() - generated.getTime() <= 6 * 3600_000, "EFL publisher receipt invalid");
+  check(age === null || /^\d+$/.test(age) && Number.isSafeInteger(Number(age)), "EFL response age invalid");
+  unique(data.data, (row) => row.id);
+  const periods = { PreMatch: "scheduled", FirstHalf: "live", HalfTime: "live", SecondHalf: "live",
+    ExtraFirstHalf: "live", ExtraHalfTime: "live", ExtraSecondHalf: "live", ShootOut: "live", Penalties: "live",
+    FullTime: "finished", Postponed: "postponed", Cancelled: "cancelled", Abandoned: "cancelled", Suspended: "unknown" };
+  return data.data.map((row) => {
+    const item = row.attributes;
+    check(row.type === "match" && /^g[1-9]\d{0,11}$/.test(row.id) && item?.competitionID === Number(descriptor.publisherCompetitionID),
+      "EFL fixture identity mismatch");
+    check(typeof item.kickOffDateUTC === "string" && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(item.kickOffDateUTC),
+      "EFL kickoff is not explicit UTC");
+    const start = utc(item.kickOffDateUTC.replace(" ", "T") + "Z");
+    check(Date.parse(start) >= Date.parse(windowStart) && Date.parse(start) < Date.parse(windowEnd), "EFL schedule window mismatch");
+    check(item.TBC === null || typeof item.TBC === "boolean", "EFL provisional state unavailable");
+    const status = sourceStatus(item.matchPeriod, periods);
+    if (status === "live") check(now.getTime() - generated.getTime() < 30 * 60_000
+      && (age === null || Number(age) < 1800), "Publisher live evidence stale");
+    const team = (value, role) => {
+      if (!name(value?.name) || /^(?:TBD|TBC|T\.B\.[CD]\.|To be (?:confirmed|determined)|Winner\b|Loser\b)/i.test(value.name.trim())) return null;
+      // The published fixture supplies a stable match ID and explicit names,
+      // not participant IDs. Namespace whole names; never use a crest as ID.
+      const key = value.name.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase()
+        .split(/[^a-z0-9]+/).filter(Boolean).join("-");
+      check(key && key.length <= 80, "EFL participant identity unavailable");
+      return { id: `efl:team:${key}`, name: value.name.trim(), role };
+    };
+    const teams = [team(item.homeTeam, "home"), team(item.awayTeam, "away")];
+    check(!teams.every(Boolean) || teams[0].id !== teams[1].id, "EFL duplicate participants");
+    const fixture = item.TBC || !teams.every(Boolean) ? null : {
+      id: `sports-fixture:carabao-cup:${row.id}`, sport: "football", competitionId: "carabao-cup", competitionName: "Carabao Cup",
+      start, status, eventKind: "match", title: `${teams[0].name} vs ${teams[1].name}`, participants: teams,
+      squad: { gender: "men", ageGroup: "senior" },
+      source: { name: "EFL", url: url.href, observedAt, updatedAt: generated.toISOString() },
+    };
+    return { start, fixture };
+  });
 }
 
 async function football(descriptor, context) {
@@ -320,7 +389,7 @@ export async function collectSportsSource(descriptor, now, env = {}, fetchImpl =
     const context = { ...window, observedAt, now, env,
       get: (url, headers) => requestJSON(url, deadline, fetchImpl, headers),
       getWithHeaders: (url) => requestJSON(url, deadline, fetchImpl, {}, true) };
-    const adapters = { "football-data": football, mlb, nhl, wnba, espn: espnDaily };
+    const adapters = { "football-data": football, efl, mlb, nhl, wnba, espn: espnDaily };
     const rows = await abortable(() => adapters[known.adapter](known, context), deadline.signal);
     const relevant = rows.filter((row) => Date.parse(row.start) >= Date.parse(window.windowStart) && Date.parse(row.start) < Date.parse(window.windowEnd));
     const fixtures = relevant.flatMap((row) => row.fixture ? [row.fixture] : []).sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
