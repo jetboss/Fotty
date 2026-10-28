@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS } from "./manifest.mjs";
 import { runGitHubObserver, createGitHubClient, collectWorkflowObservations, statusObservations,
   cloudNotifications, WORKFLOWS, CORRECTED_BASELINE, WATCHDOG_STATUS_URL, OWNER, runDeliveryCanary } from "./github-observer.mjs";
+import { createPolicy, emptyLedger, applyObservation } from "./incident-policy.mjs";
 
 const NOW = Date.parse("2026-10-11T12:00:00Z"), WINDOW = COLLECTION_INTERVAL_MS;
 const MAIN = "a".repeat(40), OLD = "b".repeat(40), BOT = { login: "github-actions[bot]", type: "Bot" };
@@ -104,6 +105,28 @@ test("real 201 issue creation, restart persistence and token isolation", async (
   assert.ok(api.calls.every((call) => call.headers.Authorization === "Bearer fixture-secret"));
   assert.ok(api.calls.every((call) => !call.url.includes("fixture-secret")));
   assert.ok(api.calls.every((call) => ["GET", "POST", "PATCH"].includes(call.method)));
+});
+test("historical three-count observer ledger delivers retained notice under the new threshold", async () => {
+  const api = fixture(); await invoke(api, NOW);
+  const expected = { ...EXPECTED_VERSIONS, configurationRevision: '2026-10-11.admitted-metadata-1' };
+  const previous = createPolicy({ environment: 'github-observer', windowMs: 30 * 60_000, failureWindows: 3,
+    maxReceiptAgeMs: 31 * 3600_000, limits: { active: 16, resolved: 16, outbox: 64, ledgerBytes: 24_000 },
+    admittedSources: [{ source: 'observer', stages: ['liveness'], activation: 'active', expected }] });
+  let old = emptyLedger(previous);
+  for (let n = 0; n < 3; n++) { const at = NOW - (3 - n) * 30 * 60_000;
+    old = applyObservation(old, { environment: 'github-observer', source: 'observer', stage: 'liveness',
+      failureClass: 'status-transport', facts: {}, outcome: 'failure', observedAt: at, versions: expected }, previous, at).state; }
+  assert.equal(Object.values(old.incidents)[0].failureCount, 3);
+  const issue = api.issues.find((row) => row.body.includes('fotty-watchdog-observer-ledger-v1'));
+  const start = issue.body.indexOf('```json\n') + '```json\n'.length, end = issue.body.indexOf('\n```', start);
+  issue.body = issue.body.slice(0, start) + JSON.stringify({ schema: 1, ledger: old, deliveredCloud: [] }) + issue.body.slice(end);
+  const result = await invoke(api, NOW);
+  assert.equal(result.pending, 0); assert.equal(result.delivered, 1);
+  const current = ledger(api).ledger;
+  assert.equal(current.outbox[0].id, old.outbox[0].id); assert.equal(current.notificationSequence, old.notificationSequence);
+  const record = Object.values(current.incidents)[0]; assert.equal(record.generation, 1); assert.notEqual(record.state, 'resolved');
+  assert.equal(record.firstFailureAt, Object.values(old.incidents)[0].firstFailureAt);
+  assert.equal(ownerComments(api).length, 1);
 });
 
 test("CLI-compatible default reads GITHUB_TOKEN, not an unrelated environment variable", async () => {

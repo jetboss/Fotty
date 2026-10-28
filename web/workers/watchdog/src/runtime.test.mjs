@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import workerHandler, { WatchdogState } from "./index.mjs";
-import { EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS } from "../../../../tools/watchdog/manifest.mjs";
+import { EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS, observerPolicyOptions } from "../../../../tools/watchdog/manifest.mjs";
+import { createPolicy, emptyLedger, applyObservation } from "../../../../tools/watchdog/incident-policy.mjs";
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -31,12 +32,24 @@ function synthetic(request, mode = "valid") {
   if (url.hostname === "www.score808live.tv") return new Response('<div class="elfsight-app-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"></div>', { headers: { "Content-Type": "text/html" } });
   return Response.json([{ id: "synthetic", title: "Synthetic event", sources: [{ source: "alpha", id: "1" }] }]);
 }
-async function runtime(t, mode = "valid", enabled = "1", activatedAt = new Date().toISOString()) {
+async function runtime(t, mode = "valid", enabled = "1", activatedAt = new Date().toISOString(), legacySeed) {
   const taskTemp = await mkdtemp(join(tmpdir(), "fotty-watchdog-test-"));
   const config = await readFile(join(directory, "../wrangler.toml"), "utf8");
   const compatibilityDate = config.match(/^compatibility_date\s*=\s*"([\d-]+)"/m)[1];
   const compatibilityFlags = [...config.match(/^compatibility_flags\s*=\s*\[([^\]]*)\]/m)[1].matchAll(/"([a-z0-9_]+)"/g)].map((match) => match[1]);
-  const script = (await build({ entryPoints: [join(directory, "index.mjs")], bundle: true, format: "esm", platform: "neutral", write: false, logLevel: "silent" })).outputFiles[0].text;
+  // Test-only subclass seeds/reads real workerd storage. These endpoints never
+  // exist in the production bundle or deployed source.
+  const input = legacySeed ? { stdin: { resolveDir: directory, sourcefile: "legacy-storage-test.mjs", contents: `
+    import handler, {WatchdogState as Base} from './index.mjs';
+    export default handler;
+    export class WatchdogState extends Base {
+      async fetch(request) {
+        if(new URL(request.url).pathname==='/__test_seed') { await this.state.storage.put('watchdog-observation-v1', ${JSON.stringify(legacySeed)}); return new Response('seeded'); }
+        if(new URL(request.url).pathname==='/__test_read') return Response.json(await this.state.storage.get('watchdog-observation-v1'));
+        return super.fetch(request);
+      }
+    }` } } : { entryPoints: [join(directory, "index.mjs")] };
+  const script = (await build({ ...input, bundle: true, format: "esm", platform: "neutral", write: false, logLevel: "silent" })).outputFiles[0].text;
   const requests = [];
   const options = { modules: true, script, compatibilityDate, compatibilityFlags, log: new Log(LogLevel.NONE), cf: false,
     resourcePersistencePath: join(taskTemp, "state"), isolatedResourcePersistencePath: join(taskTemp, "isolated"), resourceTmpPath: join(taskTemp, "runtime"),
@@ -88,6 +101,22 @@ test("actual workerd: unreviewed redirect rejected without following and sibling
   assert.ok(status.incidents.some((row) => row.source === "streamex-primary" && row.failureClass === "redirect-rejected"));
   assert.ok(requests.includes("streamed.pk"));
   assert.equal(requests.includes("not-reviewed.invalid"), false);
+});
+test("actual workerd: historical confirmed ledger remains readable without erasing incidents or notices", { timeout: 20000 }, async (t) => {
+  const options = observerPolicyOptions(), expected = { ...EXPECTED_VERSIONS,
+    configurationRevision: '2026-10-11.admitted-metadata-1', deploymentRevision: '2026-10-06.cricket-isolation-1' };
+  const oldPolicy = createPolicy({ ...options, admittedSources: options.admittedSources.map((entry) => ({ ...entry, expected })), failureWindows: 3 });
+  let ledger = emptyLedger(oldPolicy); const start = Date.now() - 15 * 60_000;
+  for (let n = 0; n < 3; n++) { const at = start + n * 5 * 60_000; ledger = applyObservation(ledger,
+    { environment: 'production', source: 'cs', stage: 'manifest', failureClass: 'http-530', facts: {}, outcome: 'failure', observedAt: at, versions: expected }, oldPolicy, at).state; }
+  assert.equal(Object.values(ledger.incidents)[0].failureCount, 3);
+  const seed = { ledger, runtime: { fence: 0, lease: null, nextAt: 0, budget: {}, lastAttemptedAt: start, lastCompletedAt: start } };
+  const { miniflare, stub } = await runtime(t, 'valid', '1', new Date(start - 60_000).toISOString(), seed);
+  await stub.fetch('https://internal.invalid/__test_seed', { method: 'POST' });
+  const status = await (await miniflare.dispatchFetch('https://test.invalid/status')).json();
+  assert.equal(status.notifications.length, 1); assert.equal(status.notifications[0].id, ledger.outbox[0].id);
+  assert.equal(status.incidents[0].generation, 1); assert.equal(status.incidents[0].state, 'confirmed');
+  assert.deepEqual(await (await stub.fetch('https://internal.invalid/__test_read')).json(), seed);
 });
 
 // Deterministic storage failure/clock tests complement the real deployment

@@ -116,7 +116,12 @@ export function validateLedger(state, policy, previous) {
     for (const field of ['failureCount', 'successCount', 'generation']) {
       if (!Number.isSafeInteger(record[field]) || record[field] < 0) throw new Error('Invalid incident counter');
     }
-    if (record.failureCount > policy.failureWindows || record.successCount > policy.recoveryWindows || record.generation < 1
+    // Schema1 was deployed with a three-window threshold. Its bounded historic
+    // counts remain valid receipts when the current threshold is lowered. Do
+    // not mutate the ledger/outbox merely to read it; fresh checks still clamp
+    // at the current threshold and revision changes reset live streaks below.
+    const persistedFailureCeiling = Math.max(3, policy.failureWindows);
+    if (record.failureCount > persistedFailureCeiling || record.successCount > policy.recoveryWindows || record.generation < 1
         || (record.lastWindow != null && (!Number.isSafeInteger(record.lastWindow) || record.lastWindow < 0))
         || (record.lastOutcome != null && !OUTCOMES.has(record.lastOutcome))) throw new Error('Invalid bounded incident state');
     for (const field of ['firstFailureAt', 'lastFailureAt', 'confirmedAt', 'lastSuccessAt', 'resolvedAt']) {
