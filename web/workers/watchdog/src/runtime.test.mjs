@@ -121,16 +121,75 @@ test("actual workerd: historical confirmed ledger remains readable without erasi
 
 // Deterministic storage failure/clock tests complement the real deployment
 // runtime. No secrets, files, upstream requests or repair actions are involved.
-function fakeState() {
-  let stored, writes = 0, failAt = Infinity, failWhen = () => false;
-  return { state: { storage: { get: async () => structuredClone(stored), transaction: async (change) => {
-    let staged = structuredClone(stored);
-    const result = await change({ get: async () => structuredClone(staged), put: async (_key, value) => { staged = structuredClone(value); } });
-    if (++writes === failAt || failWhen(staged)) throw new Error("synthetic write failure");
-    stored = staged; return result;
+function fakeState(initial) {
+  let stored = structuredClone(initial), writes = 0, failAt = Infinity, failWhen = () => false, queue = Promise.resolve();
+  return { state: { storage: { get: async () => structuredClone(stored), transaction: (change) => {
+    // Match durable transaction serialization when parallel providers reserve
+    // their existing budgets; the fake must not lose one reservation's write.
+    const pending = queue.then(async () => {
+      let staged = structuredClone(stored);
+      const result = await change({ get: async () => structuredClone(staged), put: async (_key, value) => { staged = structuredClone(value); } });
+      if (++writes === failAt || failWhen(staged)) throw new Error("synthetic write failure");
+      stored = staged; return result;
+    });
+    queue = pending.catch(() => {}); return pending;
   } } }, read: () => stored, writes: () => writes, fail: (value) => { failAt = value; }, failWhen: (predicate) => { failWhen = predicate; } };
 }
 const activeEnv = (activatedAt = "2026-10-11T00:00:00Z") => ({ FOTTY_WATCHDOG_ENABLED: "1", FOTTY_WATCHDOG_ACTIVATED_AT: activatedAt });
+test("cadence upgrade preserves durable evidence and collects once at15minutes instead of the old30", async () => {
+  const completed = Date.parse("2026-10-28T22:10:00Z"), oldFetch = globalThis.fetch, oldNow = Date.now;
+  const expected = { ...EXPECTED_VERSIONS, configurationRevision: "2026-10-11.admitted-metadata-1",
+    deploymentRevision: "2026-10-06.cricket-isolation-1" };
+  const options = observerPolicyOptions();
+  const oldPolicy = createPolicy({ ...options, failureWindows: 3,
+    admittedSources: options.admittedSources.map((entry) => ({ ...entry, expected })) });
+  let ledger = emptyLedger(oldPolicy);
+  for (let index = 0; index < 3; index++) {
+    const at = completed - (15 - index * 5) * 60_000;
+    ledger = applyObservation(ledger, { environment: "production", source: "cs", stage: "manifest",
+      failureClass: "http-530", facts: {}, outcome: "failure", observedAt: at, versions: expected }, oldPolicy, at).state;
+  }
+  assert.equal(ledger.outbox.length, 1); assert.equal(Object.values(ledger.incidents)[0].state, "confirmed");
+  const seed = { ledger, runtime: { fence: 7, lease: null, nextAt: completed + 30 * 60_000,
+    lastAttemptedAt: completed - 1000, lastCompletedAt: completed,
+    budget: { day: "2026-10-28", counts: { cs: 23, as: 17 } } } };
+  const fake = fakeState(seed), requests = []; let clock = completed + 14 * 60_000;
+  Date.now = () => clock;
+  globalThis.fetch = async (url) => { requests.push(new URL(url).pathname); return synthetic(url); };
+  try {
+    const worker = new WatchdogState(fake.state, activeEnv());
+    assert.deepEqual(await (await worker.run()).json(), { due: false });
+    assert.equal(requests.length, 0); assert.deepEqual(fake.read().ledger, seed.ledger);
+    assert.deepEqual(fake.read().runtime, { ...seed.runtime, nextAt: completed + COLLECTION_INTERVAL_MS });
+    clock = completed + COLLECTION_INTERVAL_MS;
+    assert.equal((await (await worker.run()).json()).committed, true);
+    assert.equal(requests.length, 10); assert.equal(requests.filter((path) => path === "/health").length, 1);
+    assert.equal(fake.read().runtime.lastCompletedAt, clock); assert.equal(fake.read().runtime.lastAttemptedAt, clock);
+    assert.equal(fake.read().runtime.nextAt, clock + COLLECTION_INTERVAL_MS); assert.equal(fake.read().runtime.fence, 8);
+    assert.equal(fake.read().runtime.budget.counts.cs, 25); assert.equal(fake.read().runtime.budget.counts.as, 20);
+    assert.deepEqual(fake.read().ledger.outbox, seed.ledger.outbox);
+    assert.ok(fake.read().ledger.incidents[Object.keys(seed.ledger.incidents)[0]]);
+    const afterCollection = structuredClone(fake.read());
+    assert.deepEqual(await (await worker.run()).json(), { due: false });
+    assert.equal(requests.length, 10); assert.deepEqual(fake.read(), afterCollection);
+  } finally { globalThis.fetch = oldFetch; Date.now = oldNow; }
+});
+test("cadence upgrade cannot steal an active durable collector lease", async () => {
+  const completed = Date.parse("2026-10-28T22:10:00Z"), clock = completed + COLLECTION_INTERVAL_MS;
+  const policy = createPolicy(observerPolicyOptions()), oldFetch = globalThis.fetch, oldNow = Date.now;
+  const seed = { ledger: emptyLedger(policy), runtime: { fence: 7,
+    lease: { fence: 7, expiresAt: completed + 20 * 60_000 }, nextAt: completed + 30 * 60_000,
+    lastAttemptedAt: completed + 14 * 60_000, lastCompletedAt: completed,
+    budget: { day: "2026-10-28", counts: { cs: 23 } } } };
+  const fake = fakeState(seed); Date.now = () => clock;
+  globalThis.fetch = async () => { throw new Error("active lease must prevent metadata reads"); };
+  try {
+    const worker = new WatchdogState(fake.state, activeEnv());
+    assert.deepEqual(await (await worker.run()).json(), { due: false });
+    assert.deepEqual(fake.read().ledger, seed.ledger);
+    assert.deepEqual(fake.read().runtime, { ...seed.runtime, nextAt: completed + COLLECTION_INTERVAL_MS });
+  } finally { globalThis.fetch = oldFetch; Date.now = oldNow; }
+});
 test("activation fails closed before Durable Object lease or scheduler dispatch", async () => {
   const oldNow = Date.now, oldFetch = globalThis.fetch;
   const clock = Date.parse("2026-10-11T12:00:00Z");
