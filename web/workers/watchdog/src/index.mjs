@@ -1,10 +1,10 @@
 import { createPolicy, emptyLedger, validateLedger, listNotifications } from "../../../../tools/watchdog/incident-policy.mjs";
 import { applyObservationBatch } from "../../../../tools/watchdog/observation-batch.mjs";
-import { observerPolicyOptions, PROVIDERS, OBSERVER_REVISION, CONFIGURATION_REVISION, EXPECTED_VERSIONS } from "../../../../tools/watchdog/manifest.mjs";
+import { observerPolicyOptions, PROVIDERS, OBSERVER_REVISION, CONFIGURATION_REVISION, EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS, CONFIRMATION_WINDOWS } from "../../../../tools/watchdog/manifest.mjs";
 import { probeSources } from "../../../../tools/watchdog/source-probes.mjs";
 import { collectFixtureReceipts } from "../../../../tools/watchdog/fixture-receipts.mjs";
 
-const KEY = "watchdog-observation-v1", INTERVAL = 30 * 60_000, LEASE = 4 * 60_000;
+const KEY = "watchdog-observation-v1", INTERVAL = COLLECTION_INTERVAL_MS, LEASE = 4 * 60_000;
 function activationTime(env, now = Date.now()) {
   if (env.FOTTY_WATCHDOG_ENABLED !== "1" || !Number.isSafeInteger(now) || now < 0) return null;
   const value = env.FOTTY_WATCHDOG_ACTIVATED_AT;
@@ -25,7 +25,8 @@ function activationTime(env, now = Date.now()) {
   return Number.isSafeInteger(parsed) && parsed >= 0 && parsed <= now ? parsed : null;
 }
 // Leave room for the scheduler/budget envelope and a durable overflow notice.
-const policy = createPolicy({ ...observerPolicyOptions(), limits: { ledgerBytes: 1024 * 1024 - 4096 } });
+const policy = createPolicy({ ...observerPolicyOptions(), failureWindows: CONFIRMATION_WINDOWS,
+  limits: { ledgerBytes: 1024 * 1024 - 4096 } });
 const response = (body, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 async function publicNotification(event) {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(event.key));
@@ -85,7 +86,9 @@ export class WatchdogState {
       stored.runtime.budget.counts[source] = used + 1; return true;
     });
     try {
-      const receipts = [...await probeSources({ now, reserve }), ...await collectFixtureReceipts({ now })];
+      let sportsSnapshot;
+      const fixtureReceipts = await collectFixtureReceipts({ now, onSportsSnapshot: (body) => { sportsSnapshot = body; } });
+      const receipts = [...await probeSources({ now, reserve, sportsSnapshot }), ...fixtureReceipts];
       const committed = await this.transact((stored) => {
         if (stored.runtime.lease?.fence !== fence || stored.runtime.lease.expiresAt <= Date.now()) return { committed: false, events: [] };
         const result = applyObservationBatch(stored.ledger, receipts, policy, Date.now());

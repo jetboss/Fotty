@@ -71,6 +71,27 @@ test("a sports cohort failure remains isolated while healthy reviewed siblings s
   assert.equal(rows.some((row) => row.source === "fixtures-service" && row.outcome === "success"), false);
 });
 
+test("deployed Carabao failures have their own scope and healthy leagues cannot clear them", () => {
+  const policy = createPolicy({ ...observerPolicyOptions(), windowMs: 1000, maxReceiptAgeMs: 10_000 });
+  let ledger = emptyLedger(policy), key;
+  for (let window = 0; window < 3; window++) {
+    const now = NOW + window * 1000, body = sports(now);
+    const cup = body.coverage.find((row) => row.competitionId === "carabao-cup");
+    assert.ok(cup); cup.status = "unavailable"; cup.sync.consecutiveFailures = 2;
+    const rows = fixtureReceipts(body, { kind: "sports", now });
+    const failed = rows.find((row) => row.source === "fixtures-carabao-cup" && row.outcome === "failure");
+    assert.ok(failed); key = incidentKey(failed);
+    ledger = applyObservationBatch(ledger, rows, policy, now).state;
+  }
+  assert.equal(ledger.incidents[key].state, "confirmed");
+  for (let window = 3; window < 5; window++) {
+    const now = NOW + window * 1000, body = sports(now);
+    const cup = body.coverage.find((row) => row.competitionId === "carabao-cup"); cup.status = "unsupported";
+    ledger = applyObservationBatch(ledger, fixtureReceipts(body, { kind: "sports", now }), policy, now).state;
+  }
+  assert.equal(ledger.incidents[key].state, "confirmed"); assert.equal(ledger.incidents[key].successCount, 0);
+});
+
 test("offseason and unavailable cricket do not manufacture healthy cohort recovery", () => {
   const body = cricket();
   body.coverage.find((row) => row.competitionId === "icc").status = "unavailable";
@@ -86,6 +107,18 @@ test("worker identity mismatches stop collection before fixture reads or recover
     const rows = await collectFixtureReceipts({ request: stub.request, now: NOW });
     assert.equal(stub.calls.length, 1);
     assert.deepEqual(rows.map((row) => [row.source, row.stage, row.outcome, row.failureClass]), [["worker", "identity", "failure", "version-mismatch"]]);
+  }
+});
+
+test("one audited same-version sports response supplies optional canary context without another request", async () => {
+  const body = sports(), stub = offlineRequest({ sportsBody: body }); let context;
+  const rows = await collectFixtureReceipts({ request: stub.request, now: NOW, onSportsSnapshot: (value) => { context = value; } });
+  assert.deepEqual(context, body); assert.ok(Array.isArray(rows)); assert.equal(stub.calls.length, 3);
+  for (const options of [{ healthBody: health({ sourceVersion: "other" }) }, { sportsBody: { schemaVersion: 1, coverage: [] } },
+    { healthBody: health({ sportsFixtureServiceEnabled: false }) }]) {
+    const invalid = offlineRequest(options); let called = false;
+    await collectFixtureReceipts({ request: invalid.request, now: NOW, onSportsSnapshot: () => { called = true; } });
+    assert.equal(called, false);
   }
 });
 

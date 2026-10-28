@@ -6,14 +6,14 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import workerHandler, { WatchdogState } from "./index.mjs";
-import { EXPECTED_VERSIONS } from "../../../../tools/watchdog/manifest.mjs";
+import { EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS } from "../../../../tools/watchdog/manifest.mjs";
 
 const directory = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const runtimeRequire = createRequire(require.resolve("wrangler/package.json", { paths: [resolve(directory, "../../..")] }));
 const { build } = runtimeRequire("esbuild");
 const { Miniflare, convertV4MiniflareOptions, Log, LogLevel } = runtimeRequire("miniflare");
-const admittedHosts = new Set(["nuviosports.xyz", "www.streamex.net", "streamex.sh", "streamed.pk", "www.score808live.tv", "fotty-playback-v3.adaptive-rhubarb.workers.dev"]);
+const admittedHosts = new Set(["nuviosports.xyz", "hd.plavio.site", "www.streamex.net", "streamex.sh", "streamed.pk", "www.score808live.tv", "fotty-playback-v3.adaptive-rhubarb.workers.dev"]);
 function synthetic(request, mode = "valid") {
   const url = new URL(request.url || request);
   assert.ok(admittedHosts.has(url.hostname), "no real network/unreviewed host");
@@ -22,6 +22,10 @@ function synthetic(request, mode = "valid") {
     sportsFixtureServiceEnabled: false, cricketFixtureRegistryConfigured: false });
   if (mode === "redirect" && url.hostname === "www.streamex.net") return new Response(null, { status: 302, headers: { Location: "https://not-reviewed.invalid/feed" } });
   if (mode === "failure" && url.hostname === "nuviosports.xyz") return new Response(null, { status: 530 });
+  if (url.hostname === "hd.plavio.site") return Response.json(url.pathname === "/manifest.json"
+    ? { id: "community.plaviohd", version: "1.9.62", types: ["tv"], resources: ["catalog", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }],
+      catalogs: [{ type: "tv", id: "plaviohd-live-sports" }, { type: "tv", id: "plaviohd-cricket" }] }
+    : { metas: [{ id: "plaviohdtv-synthetic", type: "tv", name: "Synthetic event", description: "Synthetic event", genres: ["Sports"] }] });
   if (url.pathname === "/manifest.json") return Response.json({ id: "community.nuvio.live-sports", version: "1", resources: ["catalog", "stream"], catalogs: [{ type: "tv", id: "nuvio_sports_live" }] });
   if (url.pathname === "/catalog/tv/nuvio_sports_live.json") return Response.json({ metas: [{ id: "synthetic", name: "Synthetic event", type: "tv" }] });
   if (url.hostname === "www.score808live.tv") return new Response('<div class="elfsight-app-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"></div>', { headers: { "Content-Type": "text/html" } });
@@ -69,7 +73,8 @@ test("actual workerd: overlapping scheduler calls acquire one durable collector 
   const { miniflare, stub, requests } = await runtime(t);
   const runs = await Promise.all(Array.from({ length: 4 }, () => stub.fetch("https://internal.invalid/run", { method: "POST" }).then((result) => result.json())));
   assert.equal(runs.filter((result) => result.committed).length, 1);
-  assert.equal(requests.length, 7);
+  assert.equal(requests.length, 10);
+  assert.equal(requests.filter((host) => host === "hd.plavio.site").length, 3);
   const status = await (await miniflare.dispatchFetch("https://test.invalid/status")).json();
   assert.ok(status.lastAttemptedAt && status.lastCompletedAt);
   assert.equal(status.streamDelivery, "not-probed");
@@ -88,13 +93,13 @@ test("actual workerd: unreviewed redirect rejected without following and sibling
 // Deterministic storage failure/clock tests complement the real deployment
 // runtime. No secrets, files, upstream requests or repair actions are involved.
 function fakeState() {
-  let stored, writes = 0, failAt = Infinity;
+  let stored, writes = 0, failAt = Infinity, failWhen = () => false;
   return { state: { storage: { get: async () => structuredClone(stored), transaction: async (change) => {
     let staged = structuredClone(stored);
     const result = await change({ get: async () => structuredClone(staged), put: async (_key, value) => { staged = structuredClone(value); } });
-    if (++writes === failAt) throw new Error("synthetic write failure");
+    if (++writes === failAt || failWhen(staged)) throw new Error("synthetic write failure");
     stored = staged; return result;
-  } } }, read: () => stored, writes: () => writes, fail: (value) => { failAt = value; } };
+  } } }, read: () => stored, writes: () => writes, fail: (value) => { failAt = value; }, failWhen: (predicate) => { failWhen = predicate; } };
 }
 const activeEnv = (activatedAt = "2026-10-11T00:00:00Z") => ({ FOTTY_WATCHDOG_ENABLED: "1", FOTTY_WATCHDOG_ACTIVATED_AT: activatedAt });
 test("activation fails closed before Durable Object lease or scheduler dispatch", async () => {
@@ -160,11 +165,11 @@ test("failed final storage commit never advances completion or emits an incident
   console.log = (message) => logs.push(message);
   try {
     const worker = new WatchdogState(fake.state, activeEnv());
-    for (let index = 0; index < 2; index++) { assert.equal((await worker.run()).status, 200); clock += 30 * 60000; }
+    assert.equal((await worker.run()).status, 200); clock += COLLECTION_INTERVAL_MS;
     const completedBefore = fake.read().runtime.lastCompletedAt;
-    // The third matching failure would confirm. Claim + five request reserves
-    // + final commit, not merely an initial suspect with no announcement.
-    fake.fail(fake.writes() + 7);
+    // Fail the real confirmation commit by its staged semantic change, not an
+    // implementation-specific reservation/write count.
+    fake.failWhen((staged) => staged.runtime.lastCompletedAt > completedBefore);
     assert.equal((await worker.run()).status, 503);
     assert.equal(fake.read().runtime.lastCompletedAt, completedBefore);
     assert.equal(fake.read().ledger.outbox.length, 0);
@@ -177,10 +182,12 @@ test("durably confirmed source notification exposes only safe scalars and hashed
   Date.now = () => clock; globalThis.fetch = async (url) => synthetic(url, "failure"); console.log = () => {};
   try {
     const worker = new WatchdogState(fake.state, activeEnv());
-    for (let index = 0; index < 3; index++) { assert.equal((await worker.run()).status, 200); clock += 30 * 60000; }
+    for (let index = 0; index < 2; index++) { assert.equal((await worker.run()).status, 200); clock += COLLECTION_INTERVAL_MS; }
     const status = await (await worker.fetch(new Request("https://internal.invalid/status"))).json();
-    assert.equal(status.notifications.length, 1);
-    const notice = status.notifications[0];
+    const notices = status.notifications.filter((row) => row.source === "cs" && row.failureClass === "http-530");
+    assert.equal(notices.length, 1);
+    assert.ok(status.notifications.every((row) => row.source === "cs"));
+    const notice = notices[0];
     assert.equal(notice.type, "confirmed"); assert.equal(notice.source, "cs"); assert.equal(notice.failureClass, "http-530");
     assert.match(notice.incidentId, /^[a-f0-9]{64}$/); assert.equal(notice.key, undefined);
     assert.equal(JSON.stringify(notice).includes("https://"), false);

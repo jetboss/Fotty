@@ -1,9 +1,17 @@
 name: Independent Watchdog Observer
+run-name: ${{ github.event_name == 'workflow_dispatch' && inputs.delivery_canary && 'Fotty watchdog delivery test — not collection' || 'Fotty watchdog observer' }}
 
 on:
   schedule:
-    - cron: "13,43 * * * *"
+    # Intended cadence; GitHub schedules may be delayed. The independent chat
+    # monitor checks actual completion age rather than treating cron as an SLA.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch:
+    inputs:
+      delivery_canary:
+        description: "Send one bot delivery test to the owner (no provider incident)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,4 +35,5 @@ jobs:
       - name: Check collector liveness and deliver durable changed-state owner alerts
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          FOTTY_WATCHDOG_DELIVERY_CANARY: ${{ github.event.inputs.delivery_canary || 'false' }}
         run: node tools/watchdog/github-observer.mjs

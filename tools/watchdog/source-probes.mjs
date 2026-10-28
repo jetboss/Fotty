@@ -1,12 +1,18 @@
 import { PROVIDERS, EXPECTED_VERSIONS } from "./manifest.mjs";
+import { probeCSDeliveryContract } from "./delivery-contract.mjs";
 
-const STAGE_LIMITS = { manifest: 128 * 1024, catalog: 1024 * 1024 };
+const STAGE_LIMITS = { manifest: 128 * 1024, catalog: 1024 * 1024, "delivery-contract": 256 * 1024 };
 // CS recovery must satisfy the native consumer's catalog body ceiling, not
 // merely the larger generic metadata probe limit used by other providers.
 const CS_CATALOG_BYTES = 700 * 1024;
+const AS_METADATA_BYTES = 512 * 1024;
 const safeID = (value) => typeof value === "string" && /^[a-zA-Z0-9._:-]{1,180}$/.test(value);
-const receipt = (source, stage, outcome, failureClass, now, environment) => ({ environment, source, stage,
-  outcome, failureClass, facts: {}, observedAt: now, versions: { ...EXPECTED_VERSIONS } });
+const optional = (row, key, valid) => row[key] == null || valid(row[key]);
+const string = (value) => typeof value === "string";
+const strings = (value) => Array.isArray(value) && value.every(string);
+const object = (value) => value && typeof value === "object" && !Array.isArray(value);
+const receipt = (source, stage, outcome, failureClass, now, environment, facts = {}) => ({ environment, source, stage,
+  outcome, failureClass, facts, observedAt: now, versions: { ...EXPECTED_VERSIONS } });
 
 // No redirects, credentials, body logging, scripts, media requests or automatic
 // domain replacement. A successful probe proves only the described metadata.
@@ -36,10 +42,40 @@ function parsedJSON(result) {
   if (!/(?:application\/(?:[a-z.+-]*\+)?json)\b/i.test(result.contentType)) return { failure: "non-json" };
   try { return { body: JSON.parse(result.text) }; } catch { return { failure: "invalid-json" }; }
 }
+export function isPublishedStreamedClosure(text) {
+  if (typeof text !== "string" || text.length > STAGE_LIMITS.catalog) return false;
+  // The admitted API can return a JSON-encoded HTML document. Decode one string,
+  // never nested objects/scripts, and require both reviewed literal markers.
+  try { const body = JSON.parse(text); if (typeof body === "string") text = body; } catch { /* literal HTML */ }
+  // Scan raw sections once instead of a repeated unclosed-script regex over an
+  // untrusted document. This recognizer does not render or repair malformed HTML.
+  const lower = text.toLowerCase(), chunks = []; let cursor = 0, offset = 0;
+  while ((offset = lower.indexOf("<", cursor)) !== -1) {
+    let end;
+    if (lower.startsWith("<!--", offset)) {
+      end = lower.indexOf("-->", offset + 4); if (end === -1) return false; end += 3;
+    } else {
+      const raw = ["script", "style"].find((name) => lower.startsWith(`<${name}`, offset)
+        && /[\s>]/.test(lower[offset + name.length + 1] || ""));
+      if (!raw) { chunks.push(text.slice(cursor, offset + 1)); cursor = offset + 1; continue; }
+      const openEnd = lower.indexOf(">", offset), close = lower.indexOf(`</${raw}`, openEnd + 1);
+      if (openEnd === -1 || close === -1) return false;
+      end = lower.indexOf(">", close); if (end === -1) return false; end++;
+    }
+    chunks.push(text.slice(cursor, offset), " "); cursor = end;
+  }
+  chunks.push(text.slice(cursor)); const markup = chunks.join("");
+  const titles = [...markup.matchAll(/<title\b[^>]*>([^<>]*)<\/title\s*>/gi)];
+  if (titles.length !== 1 || titles[0][1].trim().replace(/\s+/g, " ").toLowerCase() !== "streamed closure") return false;
+  const visible = markup.replace(/<[^<>]*>/g, " ").replace(/\s+/g, " ").trim();
+  return visible.includes("We are no longer operating Streamed.");
+}
 export function validateCSManifest(body) {
   return body && body.id === "community.nuvio.live-sports" && typeof body.version === "string" && body.version.length > 0 && body.version.length <= 80
-    && Array.isArray(body.resources) && body.resources.includes("catalog") && body.resources.includes("stream")
+    && strings(body.resources) && body.resources.includes("catalog") && body.resources.includes("stream")
     && Array.isArray(body.catalogs) && body.catalogs.length <= 600
+    && body.catalogs.every((row) => object(row) && string(row.id) && string(row.type)
+      && optional(row, "extra", (extras) => Array.isArray(extras) && extras.every((extra) => object(extra) && string(extra.name))))
     && body.catalogs.some((row) => row?.type === "tv" && row.id === "nuvio_sports_live");
 }
 export function validateCSCatalog(body) {
@@ -47,7 +83,40 @@ export function validateCSCatalog(body) {
   const seen = new Set();
   return body.metas.every((row) => row && safeID(row.id) && !seen.has(row.id) && seen.add(row.id)
     && typeof row.name === "string" && row.name.trim().length > 0 && row.name.length <= 512
-    && (row.type === undefined || row.type === "tv"));
+    && optional(row, "type", (value) => value === "tv")
+    && ["releaseInfo", "released"].every((key) => optional(row, key, string))
+    && ["genres", "cast"].every((key) => optional(row, key, strings))
+    && optional(row, "behaviorHints", (hints) => object(hints) && optional(hints, "defaultVideoId", string)));
+}
+// Match the current native AS manifest and typed row contract. This is not a
+// fixture join or a stream request; LIVE labels and missing dates prove neither.
+export function validateASManifest(body) {
+  const types = new Set(["movie", "series", "tv"]), names = new Set(["catalog", "meta", "stream", "subtitles"]);
+  if (!object(body) || body.id !== "community.plaviohd" || !string(body.version)
+    || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,23}$/.test(body.version)
+    || !strings(body.types) || !body.types.includes("tv") || !body.types.every((type) => types.has(type))
+    || !optional(body, "behaviorHints", (hints) => object(hints)
+      && optional(hints, "configurationRequired", (value) => typeof value === "boolean" && value === false))
+    || !Array.isArray(body.resources) || body.resources.length < 1 || body.resources.length > 16
+    || !Array.isArray(body.catalogs) || body.catalogs.length > 64) return false;
+  const resources = body.resources.map((row) => string(row) ? { name: row } : row);
+  if (new Set(resources.map((row) => row?.name)).size !== resources.length
+    || !resources.every((row, index) => object(row) && names.has(row.name)
+      && (string(body.resources[index]) || strings(row.types) && row.types.length > 0
+        && row.types.every((type) => types.has(type)) && new Set(row.types).size === row.types.length
+        && strings(row.idPrefixes) && row.idPrefixes.length > 0 && new Set(row.idPrefixes).size === row.idPrefixes.length
+        && row.idPrefixes.every((prefix) => /^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$/.test(prefix))))
+    || !resources.some((row) => row.name === "catalog" && (row.types == null || row.types.includes("tv")))
+    || !resources.some((row) => row.name === "stream" && row.types?.includes("tv") && row.idPrefixes?.includes("plaviohdtv-"))
+    || !body.catalogs.every((row) => object(row) && string(row.id) && string(row.type))
+    || body.catalogs.filter((row) => row.id === "plaviohd-live-sports" && row.type === "tv").length !== 1) return false;
+  return true;
+}
+export function validateASCatalog(body) {
+  return object(body) && Array.isArray(body.metas) && body.metas.length <= 600
+    && body.metas.every((row) => object(row) && string(row.id) && row.id.length > 0
+      && row.type === "tv" && string(row.name) && row.name.length > 0
+      && string(row.description) && strings(row.genres) && !Object.hasOwn(row, "behaviorHints"));
 }
 export function validateStreamExCatalog(body) {
   const rows = Array.isArray(body) ? body : body?.matches;
@@ -206,35 +275,70 @@ export function validateScore808Listing(text) {
   return stack.length === 0 && ids.size === 1;
 }
 
-export async function probeProvider(descriptor, { request = fetch, now = Date.now(), environment = "production", reserve = async () => true } = {}) {
+export async function probeProvider(descriptor, { request = fetch, now = Date.now(), environment = "production", reserve = async () => true, sportsSnapshot } = {}) {
   // Only static, reviewed descriptors can authorize network reads.
   const reviewed = PROVIDERS.find((row) => row.source === descriptor?.source);
   if (!reviewed || JSON.stringify(descriptor) !== JSON.stringify(reviewed)) throw new Error("Unreviewed metadata source");
   const observations = [];
-  const stage = descriptor.kind === "cs" ? "manifest" : "catalog";
+  const stage = ["cs", "as"].includes(descriptor.kind) ? "manifest" : "catalog";
   async function read(path, currentStage, json = true) {
+    // The injected descriptor reader may use only this origin's reviewed route
+    // shapes. Never follow a delivery URL, arbitrary advertised path or origin.
+    const allowed = currentStage === stage && path === descriptor.path
+      || currentStage === "catalog" && descriptor.kind === "cs" && path === "/catalog/tv/nuvio_sports_live.json"
+      || currentStage === "catalog" && descriptor.kind === "as"
+        && ["/catalog/tv/plaviohd-live-sports.json", "/catalog/tv/plaviohd-cricket.json"].includes(path)
+      || currentStage === "delivery-contract" && descriptor.kind === "cs"
+        && /^\/stream\/tv\/nuvio_sport_[A-Za-z0-9_.~-]+\.json$/.test(path);
+    if (!allowed) return { failure: "unreviewed-route" };
     if (!await reserve(descriptor.source)) return { failure: "budget-exhausted", unknown: true };
     try {
-      const maxBytes = descriptor.kind === "cs" && currentStage === "catalog"
-        ? CS_CATALOG_BYTES : STAGE_LIMITS[currentStage];
+      const maxBytes = descriptor.kind === "as" ? AS_METADATA_BYTES
+        : descriptor.kind === "cs" && currentStage === "catalog" ? CS_CATALOG_BYTES : STAGE_LIMITS[currentStage];
       const result = await readMetadata(new URL(path, descriptor.origin), { request, maxBytes,
         accept: json ? "application/json" : "text/html" });
+      if (!result.failure && descriptor.kind === "streamex" && isPublishedStreamedClosure(result.text)) return { failure: "published-closure" };
       return json ? parsedJSON(result) : result;
     } catch (error) { return { failure: error?.name === "TimeoutError" || error?.name === "AbortError" ? "deadline" : "transport" }; }
   }
-  function record(result, currentStage, valid) {
+  function record(result, currentStage, valid, { empty = false, facts = {} } = {}) {
     observations.push(receipt(descriptor.source, currentStage, result.unknown ? "unknown" : result.failure || !valid ? "failure" : "success",
-      result.failure || (!valid ? "schema" : "metadata-contract"), now, environment));
+      result.failure || (!valid ? "schema" : empty ? "empty-catalog" : "metadata-contract"), now, environment, facts));
+    // Empty is valid metadata but cannot establish availability or recover a
+    // closure. Overnight absence is unknown, never a manufactured outage.
+    if (!result.failure && valid && empty) observations.at(-1).outcome = "unknown";
   }
   const first = await read(descriptor.path, stage, descriptor.kind !== "score808");
   const valid = !first.failure && (descriptor.kind === "cs" ? validateCSManifest(first.body)
+    : descriptor.kind === "as" ? validateASManifest(first.body)
     : descriptor.kind === "score808" ? validateScore808Listing(first.text) : validateStreamExCatalog(first.body));
-  record(first, stage, valid);
+  const publisherRows = Array.isArray(first.body) ? first.body : first.body?.matches;
+  record(first, stage, valid, { empty: descriptor.kind === "streamex" && valid
+    && (publisherRows.length === 0 || publisherRows.every((row) => row.sources.length === 0)) });
   if (descriptor.kind === "cs" && valid) {
     const catalog = await read("/catalog/tv/nuvio_sports_live.json", "catalog");
-    record(catalog, "catalog", !catalog.failure && validateCSCatalog(catalog.body));
+    const catalogValid = !catalog.failure && validateCSCatalog(catalog.body);
+    record(catalog, "catalog", catalogValid, { empty: catalog.body?.metas?.length === 0 });
+    if (catalogValid) observations.push(...await probeCSDeliveryContract({ sportsSnapshot, catalog: catalog.body,
+      manifest: first.body, now, environment, read }));
   }
-  return observations;
+  if (descriptor.kind === "as" && valid) {
+    for (const [scope, catalogID] of [["football", "plaviohd-live-sports"], ["cricket", "plaviohd-cricket"]]) {
+      const advertised = first.body.catalogs.filter((row) => row.type === "tv" && row.id === catalogID).length;
+      if (advertised === 0) observations.push(receipt(descriptor.source, "catalog", "inactive", "catalog-unadvertised", now, environment, { scope }));
+      else if (advertised !== 1) record({}, "catalog", false, { facts: { scope } });
+      else {
+        const catalog = await read(`/catalog/tv/${catalogID}.json`, "catalog");
+        record(catalog, "catalog", !catalog.failure && validateASCatalog(catalog.body),
+          { empty: catalog.body?.metas?.length === 0, facts: { scope } });
+      }
+    }
+  }
+  // A provider can remain unusable while the error changes (503 -> HTML ->
+  // malformed JSON). Keep leaf diagnoses, plus one stable availability identity
+  // per checked metadata stage/scope; unknown/empty cannot manufacture recovery.
+  return [...observations, ...observations.filter((row) => row.stage !== "delivery-contract")
+    .map((row) => ({ ...row, failureClass: "metadata-unavailable" }))];
 }
 
 export async function probeSources(options = {}) {

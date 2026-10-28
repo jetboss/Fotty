@@ -35,6 +35,25 @@ async function temporary(t) {
   return directory;
 }
 
+test('reviewed published closure confirms on first evidence without security quarantine', () => {
+  const p = policy({ admittedSources: [{ source: 'streamex', stages: ['catalog'], activation: 'active', expected: versions,
+    immediateFailureClasses: ['published-closure'] }] });
+  const out = observe(emptyLedger(p), p, 0, { source: 'streamex', stage: 'catalog', failureClass: 'published-closure', facts: {} });
+  assert.equal(out.events.length, 1); assert.equal(Object.values(out.state.incidents)[0].state, 'confirmed');
+  assert.equal(Object.values(out.state.incidents)[0].quarantined, false);
+});
+test('unreviewed source or ordinary failure cannot borrow immediate closure confirmation', () => {
+  const p = policy();
+  assert.equal(observe(emptyLedger(p), p, 0, { failureClass: 'published-closure' }).events.length, 0);
+  const q = policy({ admittedSources: [{ source: 'streamex', stages: ['catalog'], activation: 'active', expected: versions,
+    immediateFailureClasses: ['published-closure'] }] });
+  assert.equal(observe(emptyLedger(q), q, 0, { source: 'streamex', stage: 'catalog', failureClass: 'non-json', facts: {} }).events.length, 0);
+});
+test('immediate threshold cannot be expanded to transient HTTP failures', () => {
+  assert.throws(() => policy({ admittedSources: [{ source: 'streamex', stages: ['catalog'], activation: 'active', expected: versions,
+    immediateFailureClasses: ['http-503'] }] }));
+});
+
 test('portable policy has no Node imports, network or native evidence side effects', async () => {
   const source = await fs.readFile(new URL('./incident-policy.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /(?:from\s*['"]node:|\bfetch\s*\(|\bprocess\.)/);

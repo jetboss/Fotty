@@ -73,7 +73,13 @@ export function createPolicy(options) {
     const stages = entry.stages.map(stage => identifier(stage, 'stage'));
     if (new Set(stages).size !== stages.length) throw new Error('Duplicate stage');
     if (!['active', 'inactive', 'deferred', 'off-season'].includes(entry.activation)) throw new Error('Invalid activation');
-    sources[source] = { stages, activation: entry.activation, expected: revisions(entry.expected) };
+    const immediateFailureClasses = entry.immediateFailureClasses ?? [];
+    // Only explicit, reviewed terminal publisher evidence bypasses repeated
+    // failures. Ordinary HTTP/transport/schema failures retain their threshold.
+    if (!Array.isArray(immediateFailureClasses) || immediateFailureClasses.length > 1
+      || immediateFailureClasses.some(value => value !== 'published-closure')
+      || new Set(immediateFailureClasses).size !== immediateFailureClasses.length) throw new Error('Invalid immediate failure admission');
+    sources[source] = { stages, activation: entry.activation, expected: revisions(entry.expected), immediateFailureClasses };
   }
   const policy = { environment, sources, limits, windowMs: options.windowMs ?? 300000,
     failureWindows: options.failureWindows ?? 3, recoveryWindows: options.recoveryWindows ?? 2,
@@ -318,7 +324,8 @@ export function applyObservation(input, raw, policy, now = Date.now()) {
     record.lastFailureAt = iso(observed); record.successCount = 0;
     if (!duplicate || record.lastOutcome !== 'failure') record.failureCount = Math.min(policy.failureWindows, record.failureCount + 1);
     if (record.state === 'recovering') record.state = 'confirmed';
-    if (record.state === 'suspect' && (record.failureCount >= policy.failureWindows || raw.securityViolation === true)) {
+    if (record.state === 'suspect' && (record.failureCount >= policy.failureWindows || raw.securityViolation === true
+      || admitted.immediateFailureClasses.includes(raw.failureClass))) {
       record.state = 'confirmed'; record.confirmedAt = iso(observed);
       record.quarantined = raw.securityViolation === true;
       events.push({ type: 'confirmed', key, generation: record.generation, quarantined: record.quarantined });
