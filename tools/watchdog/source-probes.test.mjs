@@ -283,7 +283,7 @@ test("CS reuses one fresh official fixture for one bounded descriptor request an
     } });
     assert.equal(calls.length, 3); assert.equal(reserved, 3);
     const observed = rows.find((row) => row.stage === "delivery-contract"); assert.equal(observed.outcome, expected);
-    assert.equal(JSON.stringify(rows).includes("cdn.example.net"), false);
+    assert.deepEqual(observed.facts, { scope: "football", dimension: "candidate-shape" });
     assert.equal(JSON.stringify(rows).includes("nuvio_sport_offline"), false);
   }
   for (const sportsSnapshot of [undefined, { ...snapshot, fixtures: [{ ...fixture, status: "scheduled" }] },
