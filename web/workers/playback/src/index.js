@@ -23,6 +23,7 @@ import { abortable, authorizePaidCoach, boundedJSON, boundedText, coachDeadline,
 import { resolveCoachPlayers, coachPlayerClarification, collectCoachPlayerHistory, coachContextConflicts } from "./coach-evidence.mjs";
 import { coachTransferContext, validateCoachTransfers } from "./coach-transfers.mjs";
 import { WORKER_SOURCE_VERSION } from "./worker-version.mjs";
+import { collectBroadcastCatalog } from "./broadcast-catalog.mjs";
 export { CoachQuotaBudget } from "./coach-safety.mjs";
 import cplFixtureFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
 import { cplFixtureSources, resolveCPLManifest, validateCPLManifest } from "./cpl-fixture-policy.mjs";
@@ -672,6 +673,8 @@ async function handleHealth(env) {
     footballScheduleConfigured: Boolean(env.FOOTBALL_DATA_API_KEY),
     liveScoreCompetitions: ["Premier League"],
     catalogProviderCount: STREAM_PROVIDERS.length,
+    broadcastCatalogSchema: 1,
+    broadcastCatalogFamilyCount: 1,
     catalogCoverageMode: "parallel-with-direct-fallback",
     cplFallbackRevision: cplFixtureFallback.revision,
     cricketFixtureRegistryConfigured: Boolean(env.CRICKET_FIXTURES),
@@ -1361,7 +1364,7 @@ const worker = {
       } catch { logWorkerEvent("warn", "sports_fixture_registry_unavailable", { sourceGroup: source.id }); }
     }, effectiveSportsSources(env)));
   },
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders() });
     }
@@ -1385,6 +1388,23 @@ const worker = {
     }
     if (url.pathname === "/api/cricket/fixtures" || url.pathname === "/api/cricket/fixtures/") return handleCricketFixtures(env);
     if (url.pathname === "/api/sports/fixtures" || url.pathname === "/api/sports/fixtures/") return handleSportsFixtures(env);
+    if (url.pathname === "/api/live/catalog") {
+      // Fixed reviewed adapters; query strings can never select an upstream.
+      if (url.search) return json({ error: "Unsupported catalog query" }, 400);
+      const key = new Request(`${url.origin}/api/live/catalog`);
+      const cache = globalThis.caches?.default;
+      const cached = cache ? await cache.match(key).catch(() => null) : null;
+      if (cached) return cached;
+      const result = json(await collectBroadcastCatalog(), 200, {
+        "Cache-Control": "public, max-age=20",
+        "X-Fotty-Broadcast-Schema": "1",
+      });
+      if (cache) {
+        const save = cache.put(key, result.clone()).catch(() => {});
+        if (ctx?.waitUntil) ctx.waitUntil(save); else await save;
+      }
+      return result;
+    }
     if (url.pathname === "/api/live/streams") return handleStreams(url);
     if (url.pathname === "/api/embed/player") return handlePlayer(url);
     return json({ error: "Not found" }, 404);

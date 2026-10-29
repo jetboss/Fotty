@@ -9,6 +9,7 @@ provider origin; the Worker supplies source metadata and redirects only.
 
 | Path | Role |
 |------|------|
+| `GET /api/live/catalog` | Versioned, bounded catalog metadata from the reviewed provider family; independent lookup remains separate |
 | `GET /api/live/streams` | Catalog stream variants (echo/delta/…) |
 | `GET /api/embed/player` | Validate the requested source identity and redirect to the provider origin |
 | `POST /api/fpl/coach` | Rate-limited official FPL evidence check and structured DeepSeek proxy |
@@ -50,3 +51,18 @@ Without `NEXT_PUBLIC_FOTTY_API_BASE`, Watch can still synthesize direct
 - The FPL coach never exposes `DEEPSEEK_API_KEY` to iOS. It limits request size, requires a per-installation identifier, applies per-installation/IP and per-location capacity limits, refreshes official public FPL evidence, and asks DeepSeek for structured evidence and assumptions. Current-points and automatic-substitution questions bypass DeepSeek: `fpl-scoring.mjs` deterministically applies completed-fixture, appearance, goalkeeper, bench-order, legal-formation, captain-fallback, and transfer-cost rules and returns zero model-token usage. Apply an account-level Cloudflare spend ceiling as the final abuse guardrail.
 - The coach uses V4 Flash non-thinking JSON mode because measured thinking runs exhausted 1,400- and 3,000-token budgets without producing an answer. The Worker rejects empty, incomplete, or known rule-contradicting output and returns token counts for operator cost measurement. On 2026-08-23, a no-manager smoke cost about $0.00134 and a compact public-manager smoke cost about $0.00209 at then-current rates. Treat those as baselines, not fixed prices.
 - Football provider keys stay in Worker secrets. `FOOTBALL_DATA_API_KEY` covers schedules available on that account. With one active score competition, `API_FOOTBALL_KEY` requests Premier League league `39` for the current season/date and the Worker retains only in-play statuses; if Champions League id `2` is later enabled, the provider's multi-league `live=39-2` form becomes valid. One SQLite Durable Object serializes the upstream feed globally, caches successful data for four minutes, caps Fotty at 80 upstream calls per UTC day, stops when API-Football reports 20 calls remaining, and remembers a current-season plan restriction for four hours. iOS loads its cached schedule first, does not call the route outside the Premier League match window, reuses live payloads in Match Hub, and visibly labels football-data fallback as delayed. The iOS binary contains neither key. A configured API-Football credential is not sufficient: the provider plan must include the current season.
+
+## Native broadcast catalog contract (schema1)
+
+`/api/live/catalog` normalizes only the three existing reviewed metadata profiles.
+All are one upstream family, not three independent supplies. It returns explicit
+per-profile available/empty/partial/unavailable receipts and advertised identities;
+no inferred fixtures/status, media fetch, arbitrary upstream query or redirect trust.
+Complements share a deadline; one failed endpoint cannot erase completed siblings.
+Native retains identity-conflict reconciliation and rejects stale/future receipts.
+A20-second per-edge response cache reduces duplicate reads; it is not a global
+durable registry or a playback guarantee. Provider adapters can be revised behind
+this contract; new origins/contracts still require review. Existing native direct
+fallback handles endpoint rollout/transport failures inside its original clock.
+A valid all-unavailable receipt does not repeat all provider requests. AS/CS and
+other opted-in exact-fixture lookups remain separate from this catalog family.

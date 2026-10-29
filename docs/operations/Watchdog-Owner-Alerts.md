@@ -4,6 +4,11 @@ This is observation and owner notification, not unattended code repair. The owne
 approved this watchdog repair on28October2026. Keep devices, FPL, multi-stream,
 source enablement and TestFlight unchanged.
 
+29October source candidate: native AS catalog selection and additional trusted
+monitor-completion triggers are staged. Publication, cloud activation and actual
+delivery verification remain separate gates; the source changes below do not
+claim an always-on delivery deadline.
+
 ## Two delivery paths
 
 1. The cloud collector commits finite metadata incidents to its existing durable
@@ -14,6 +19,8 @@ source enablement and TestFlight unchanged.
    by stable event marker. Historical issue-only receipts do not replay114 alerts.
 2. A dedicated Codex heartbeat runs the bounded `tools/watchdog/owner-alert.mjs`
    reader and reports new events or monitoring failures in the current chat.
+   It reads the cloud outbox directly, so a new cloud incident can reach this
+   channel even when no fresh GitHub observer or issue write is available.
    This is a supplemental local channel: it needs the Mac/app available. GitHub's
    cloud notification path remains independent of this Mac. Assignment/mentions
    are targeted notification submissions, not proof of human reading, email
@@ -39,6 +46,13 @@ and any accessible owner-inbox evidence are recorded separately.
   exact current verified senior-men's football fixture descriptor; it checks
   consumer delivery shapes, including native HLS paths/headers, without fetching
   any returned delivery URL. Web-only fallback cannot clear native-HLS drift.
+- AS follows the native advertised catalog selection: prefer the reviewed
+  `plaviohd-football` catalog, otherwise use legacy `plaviohd-live-sports`;
+  cricket uses `plaviohd-cricket` only when advertised. A duplicate or wrong-type
+  reviewed sibling vetoes its scope rather than guessing. A failed/empty
+  dedicated football catalog never borrows generic Live or cricket recovery.
+  The existing typed metadata bounds remain strict; schema success is not an
+  exact dated-fixture match or playback proof. No advertised ID can add a route.
 - Providers reserve at most960metadata reads/day: CS288, AS288, four singles96
   each. Health/sports/cricket add up to288/day. At most two provider reads run in
   parallel, bounded deadlines/bodies/no retries. No paid AI/media/decode jobs.
@@ -47,9 +61,40 @@ and any accessible owner-inbox evidence are recorded separately.
   normal observer completion older than35minutes, failures/pending delivery,
   overflow, unavailable reads and contract/revision drift. A successful synthetic
   canary is excluded from normal observer freshness.
+- Completion of the existing Sports Fixture, Cricket Fixture or Provider
+  Metadata monitor supplies an additional normal observer opportunity through
+  `workflow_run`. Only the same repository's `main` runs originally triggered by
+  schedule or workflow_dispatch qualify; failed audits also qualify. The job
+  checks out protected `main`, never triggering-run code/artifacts/caches, and
+  shares the existing serial observer concurrency group. It cannot trigger
+  itself. Permissions, bounded observer requests and provider collection quotas
+  remain unchanged; there is no workflow dispatch, rerun or repair side effect.
 - Compatible finite source notices still flow across playback deployment-version
   drift. Drift is its own incident; wrong observer/configuration wire contracts
   still fail closed. No drift may manufacture fixture recovery.
+
+## Delivery boundary and configuration preservation
+
+Additional GitHub triggers reduce reliance on one cron but remain on GitHub
+Actions. They are not a separate provider or a guaranteed scheduling deadline.
+On29October, an all-status normal observer check found a5h14m16gap between
+successful completions while the cloud collector continued to commit fresh
+receipts. A successful completion later does not erase that historical delay.
+
+Names-only inspection found no existing GitHub credential in the watchdog
+Worker. Its cloud cron cannot anonymously call repository_dispatch. Do not copy
+the local CLI token, create a secret, introduce an account/channel or promise
+independent always-on owner delivery as part of this repair. The existing direct
+cloud-to-Codex reader is independent of the GitHub observer's execution, but
+depends on the Mac/app. Neither path proves email, mobile push or human reading.
+
+The AS selection repair changes configuration identity to
+`2026-10-29.native-catalog-parity-1`. Keep the original activation, durable
+incidents/outbox, budgets, leases,15minute collection interval and two-check
+confirmation/recovery thresholds. Old evidence remains retained; only fresh
+checks of the correctly selected catalog may advance recovery under the new
+configuration. Deploy the existing watchdog against the same protected playback
+release identity; no initialization/reset or historical alert replay is needed.
 
 ## Reader and acknowledgement
 
@@ -105,5 +150,6 @@ activation or actual notification delivery.
 Official contracts: [GitHub mentions](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#mentioning-people-and-teams),
 [notifications](https://docs.github.com/en/subscriptions-and-notifications/concepts/about-notifications),
 [GitHub schedule limits](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule),
+[trusted workflow completion triggers](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_run),
 [Cloudflare deployment vars](https://developers.cloudflare.com/workers/wrangler/configuration/#source-of-truth),
 [Codex scheduled tasks](https://learn.chatgpt.com/docs/automations?surface=app).

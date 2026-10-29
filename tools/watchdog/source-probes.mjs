@@ -88,6 +88,17 @@ export function validateCSCatalog(body) {
     && ["genres", "cast"].every((key) => optional(row, key, strings))
     && optional(row, "behaviorHints", (hints) => object(hints) && optional(hints, "defaultVideoId", string)));
 }
+
+// Match native CatalogProfile selection, including vetoes from an unselected
+// reviewed sibling. A new advertised name never adds a request route.
+function asCatalogID(manifest, scope) {
+  const reviewed = scope === "football" ? ["plaviohd-football", "plaviohd-live-sports"] : ["plaviohd-cricket"];
+  for (const id of reviewed) {
+    const rows = manifest.catalogs.filter((row) => row.id === id);
+    if (rows.length > 1 || rows.some((row) => row.type !== "tv")) return null;
+  }
+  return reviewed.find((id) => manifest.catalogs.some((row) => row.id === id && row.type === "tv"));
+}
 // Match the current native AS manifest and typed row contract. This is not a
 // fixture join or a stream request; LIVE labels and missing dates prove neither.
 export function validateASManifest(body) {
@@ -109,7 +120,7 @@ export function validateASManifest(body) {
     || !resources.some((row) => row.name === "catalog" && (row.types == null || row.types.includes("tv")))
     || !resources.some((row) => row.name === "stream" && row.types?.includes("tv") && row.idPrefixes?.includes("plaviohdtv-"))
     || !body.catalogs.every((row) => object(row) && string(row.id) && string(row.type))
-    || body.catalogs.filter((row) => row.id === "plaviohd-live-sports" && row.type === "tv").length !== 1) return false;
+    || !asCatalogID(body, "football")) return false;
   return true;
 }
 export function validateASCatalog(body) {
@@ -287,7 +298,7 @@ export async function probeProvider(descriptor, { request = fetch, now = Date.no
     const allowed = currentStage === stage && path === descriptor.path
       || currentStage === "catalog" && descriptor.kind === "cs" && path === "/catalog/tv/nuvio_sports_live.json"
       || currentStage === "catalog" && descriptor.kind === "as"
-        && ["/catalog/tv/plaviohd-live-sports.json", "/catalog/tv/plaviohd-cricket.json"].includes(path)
+        && ["/catalog/tv/plaviohd-football.json", "/catalog/tv/plaviohd-live-sports.json", "/catalog/tv/plaviohd-cricket.json"].includes(path)
       || currentStage === "delivery-contract" && descriptor.kind === "cs"
         && /^\/stream\/tv\/nuvio_sport_[A-Za-z0-9_.~-]+\.json$/.test(path);
     if (!allowed) return { failure: "unreviewed-route" };
@@ -323,10 +334,10 @@ export async function probeProvider(descriptor, { request = fetch, now = Date.no
       manifest: first.body, now, environment, read }));
   }
   if (descriptor.kind === "as" && valid) {
-    for (const [scope, catalogID] of [["football", "plaviohd-live-sports"], ["cricket", "plaviohd-cricket"]]) {
-      const advertised = first.body.catalogs.filter((row) => row.type === "tv" && row.id === catalogID).length;
-      if (advertised === 0) observations.push(receipt(descriptor.source, "catalog", "inactive", "catalog-unadvertised", now, environment, { scope }));
-      else if (advertised !== 1) record({}, "catalog", false, { facts: { scope } });
+    for (const scope of ["football", "cricket"]) {
+      const catalogID = asCatalogID(first.body, scope);
+      if (catalogID === undefined) observations.push(receipt(descriptor.source, "catalog", "inactive", "catalog-unadvertised", now, environment, { scope }));
+      else if (catalogID === null) record({}, "catalog", false, { facts: { scope } });
       else {
         const catalog = await read(`/catalog/tv/${catalogID}.json`, "catalog");
         record(catalog, "catalog", !catalog.failure && validateASCatalog(catalog.body),

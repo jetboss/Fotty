@@ -99,6 +99,86 @@ test("AS native manifest contract rejects unsupported typed resources/configurat
   }
 });
 
+test("AS prefers the native dedicated football catalog without spending a fourth read on generic Live", async () => {
+  const advertised = { ...asManifest, version: "1.9.82",
+    catalogs: [{ id: "plaviohd-football", type: "tv" }, ...asManifest.catalogs,
+      { id: "unreviewed-sports", type: "tv" }] };
+  for (const catalogs of [advertised.catalogs, advertised.catalogs.filter((row) => row.id !== "plaviohd-live-sports")]) {
+    const calls = [], reservations = [];
+    const rows = leaves(await probeProvider(PROVIDERS.find((row) => row.kind === "as"), {
+      now: 0, reserve: async (source) => { reservations.push(source); return true; }, request: async (url) => {
+        calls.push(url.pathname);
+        return Response.json(url.pathname === "/manifest.json" ? { ...advertised, catalogs } : { metas: [asEntry] });
+      },
+    }));
+    assert.deepEqual(calls, ["/manifest.json", "/catalog/tv/plaviohd-football.json", "/catalog/tv/plaviohd-cricket.json"]);
+    assert.deepEqual(reservations, ["as", "as", "as"]);
+    assert.deepEqual(rows.map((row) => row.outcome), ["success", "success", "success"]);
+    assert.deepEqual(rows.slice(1).map((row) => row.facts.scope), ["football", "cricket"]);
+  }
+});
+
+test("AS duplicate or wrong-type reviewed football siblings veto the manifest even when another looks valid", async () => {
+  const football = { id: "plaviohd-football", type: "tv" };
+  for (const catalogs of [[...asManifest.catalogs, football, football],
+    [...asManifest.catalogs, { ...football, type: "movie" }],
+    [...asManifest.catalogs, football, asManifest.catalogs[0]],
+    [...asManifest.catalogs.filter((row) => row.id !== "plaviohd-live-sports"), football,
+      { id: "plaviohd-live-sports", type: "movie" }],
+    [{ id: "plaviohd-football-unreviewed", type: "tv" }, asManifest.catalogs[1]]]) {
+    const document = { ...asManifest, catalogs };
+    assert.equal(validateASManifest(document), false);
+    const calls = [];
+    const rows = leaves(await probeProvider(PROVIDERS.find((row) => row.kind === "as"), { request: async (url) => {
+      calls.push(url.pathname); return Response.json(document);
+    } }));
+    assert.deepEqual(calls, ["/manifest.json"]);
+    assert.equal(rows.length, 1); assert.equal(rows[0].outcome, "failure"); assert.equal(rows[0].failureClass, "schema");
+  }
+});
+
+test("AS invalid advertised cricket remains a scoped failure without hiding healthy football or fetching it", async () => {
+  for (const cricket of [[{ id: "plaviohd-cricket", type: "movie" }],
+    [asManifest.catalogs[1], asManifest.catalogs[1]]]) {
+    const document = { ...asManifest, catalogs: [{ id: "plaviohd-football", type: "tv" }, ...cricket] };
+    assert.equal(validateASManifest(document), true);
+    const calls = [];
+    const rows = leaves(await probeProvider(PROVIDERS.find((row) => row.kind === "as"), { request: async (url) => {
+      calls.push(url.pathname); return Response.json(url.pathname === "/manifest.json" ? document : { metas: [asEntry] });
+    } }));
+    assert.deepEqual(calls, ["/manifest.json", "/catalog/tv/plaviohd-football.json"]);
+    assert.equal(rows.find((row) => row.facts.scope === "football").outcome, "success");
+    const failed = rows.find((row) => row.facts.scope === "cricket");
+    assert.equal(failed.outcome, "failure"); assert.equal(failed.failureClass, "schema");
+  }
+});
+
+test("AS dedicated-football failure or empty response never borrows generic Live recovery", async () => {
+  const source = PROVIDERS.find((row) => row.kind === "as"), start = Date.UTC(2026, 9, 29);
+  const document = { ...asManifest, catalogs: [{ id: "plaviohd-football", type: "tv" }, ...asManifest.catalogs] };
+  const policy = createPolicy({ ...observerPolicyOptions(), windowMs: COLLECTION_INTERVAL_MS,
+    failureWindows: CONFIRMATION_WINDOWS }); let ledger = emptyLedger(policy);
+  for (let index = 0; index < 5; index++) {
+    const now = start + index * COLLECTION_INTERVAL_MS, calls = [];
+    const rows = await probeProvider(source, { now, request: async (url) => {
+      calls.push(url.pathname);
+      if (url.pathname === "/manifest.json") return Response.json(document);
+      if (url.pathname === "/catalog/tv/plaviohd-football.json") {
+        return Response.json(index < 2 ? "not a catalog" : { metas: index === 2 ? [] : [asEntry] });
+      }
+      return Response.json({ metas: [asEntry] });
+    } });
+    assert.equal(calls.includes("/catalog/tv/plaviohd-live-sports.json"), false);
+    assert.equal(calls.length, 3);
+    ledger = applyObservationBatch(ledger, rows, policy, now).state;
+    const incident = Object.values(ledger.incidents).find((row) => row.facts.scope === "football" && row.failureClass === "metadata-unavailable");
+    if (index === 1 || index === 2) assert.equal(incident.state, "confirmed");
+    if (index === 2) assert.equal(incident.successCount, 0);
+    if (index === 3) { assert.equal(incident.state, "recovering"); assert.equal(incident.successCount, 1); }
+    if (index === 4) assert.equal(incident.state, "resolved");
+  }
+});
+
 test("AS checks both reviewed advertised catalogs within three reads and the reviewed daily budget", async () => {
   const source = PROVIDERS.find((row) => row.kind === "as");
   assert.equal(source.maxRequestsPerDay, 288);
