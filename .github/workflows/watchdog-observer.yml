@@ -6,6 +6,12 @@ on:
     # Intended cadence; GitHub schedules may be delayed. The independent chat
     # monitor checks actual completion age rather than treating cron as an SLA.
     - cron: "7,22,37,52 * * * *"
+  workflow_run:
+    # Reuse completed trusted monitors as additional notification opportunities.
+    # This diversifies triggers; it is not an independent cloud/SLA guarantee.
+    workflows: ["Sports Fixture Monitor", "Cricket Fixture Monitor", "Provider Metadata Monitor"]
+    types: [completed]
+    branches: [main]
   workflow_dispatch:
     inputs:
       delivery_canary:
@@ -24,11 +30,21 @@ concurrency:
 
 jobs:
   observe:
-    if: github.ref == 'refs/heads/main' && vars.FOTTY_WATCHDOG_ENABLED == '1'
+    if: >-
+      github.ref == 'refs/heads/main'
+      && github.repository == 'jetboss/Fotty'
+      && vars.FOTTY_WATCHDOG_ENABLED == '1'
+      && (github.event_name != 'workflow_run'
+        || (github.event.workflow_run.head_repository.full_name == github.repository
+          && github.event.workflow_run.head_branch == 'main'
+          && contains(fromJSON('["schedule","workflow_dispatch"]'), github.event.workflow_run.event)))
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          # Never execute triggering-run code or consume its artifacts/caches.
+          ref: refs/heads/main
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: "24"

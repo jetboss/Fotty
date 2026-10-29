@@ -59,6 +59,23 @@ test("failed observer and delayed delivery are actionable even when collector is
   const out = invoke(empty(), snapshot(NOW, [], { workflow: { workflow_runs: [{ head_branch: "main", status: "completed", conclusion: "failure", updated_at: new Date(NOW).toISOString() }] } }));
   assert.deepEqual(out.result.monitorProblems, ["github-observer-failed"]);
 });
+test("fresh cloud incident reaches chat and remains pending across stale GitHub observation without issue delivery", () => {
+  const stalledWorkflow = { workflow_runs: [{ head_branch: "main", status: "completed", conclusion: "success",
+    display_title: "Fotty watchdog observer", updated_at: new Date(NOW - 4 * 3600_000).toISOString() }] };
+  const fresh = snapshot(NOW, [notice()], { workflow: stalledWorkflow, issues: [] });
+  const first = invoke(empty(), fresh);
+  assert.equal(first.result.action, "notify");
+  assert.deepEqual(first.result.monitorProblems, ["github-observer-stale"]);
+  const provider = first.result.alerts.find((row) => row.event.source === "cs");
+  assert.ok(provider); assert.equal(provider.event.type, "confirmed");
+  assert.ok(first.result.alerts.some((row) => row.event.failureClass === "github-observer-stale"));
+  const later = NOW + 900_000;
+  const retry = invoke(first.state, snapshot(later, [notice()], { workflow: stalledWorkflow, issues: [] }), later);
+  assert.deepEqual(retry.result.alerts, first.result.alerts, "No issue write or fresh observer is required to retain a cloud alert");
+  const recovered = invoke(retry.state, snapshot(later, [notice()]), later);
+  assert.ok(recovered.result.alerts.some((row) => row.receipt === provider.receipt), "Observer recovery cannot acknowledge an unseen provider notice");
+  assert.ok(recovered.result.alerts.some((row) => row.event.type === "resolved" && row.event.failureClass === "github-observer-stale"));
+});
 test("playback version drift reports its own problem without discarding valid provider notices", () => {
   const out = invoke(empty(), snapshot(NOW, [notice()], { status: status(NOW, [notice()], { expectedDeploymentRevision: "2026-10-01.old" }) }));
   assert.ok(out.result.alerts.some((x) => x.event.source === "cs"));

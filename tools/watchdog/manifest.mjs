@@ -2,7 +2,7 @@
 import { WORKER_SOURCE_VERSION } from "../../web/workers/playback/src/worker-version.mjs";
 
 export const OBSERVER_REVISION = "2026-10-11.watchdog-1";
-export const CONFIGURATION_REVISION = "2026-10-28.admitted-metadata-2";
+export const CONFIGURATION_REVISION = "2026-10-29.native-catalog-parity-1";
 export const COLLECTION_INTERVAL_MS = 15 * 60_000;
 export const CONFIRMATION_WINDOWS = 2;
 export const WORKER_ORIGIN = "https://fotty-playback-v3.adaptive-rhubarb.workers.dev";
