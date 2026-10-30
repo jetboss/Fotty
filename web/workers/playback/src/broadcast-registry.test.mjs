@@ -11,7 +11,13 @@ function harness({ providers = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.slice(0, 2),
   }, setAlarm: async (at) => { alarm = at; }, deleteAlarm: async () => { alarm = null; } };
   const fixtures = () => fixtureLoader ? fixtureLoader(now) : [{ fixtureID: "sports-fixture:premier-league:123", sport: "football", participants: ["Liverpool", "Chelsea"],
     start: new Date(now - 30 * 60_000).toISOString(), status: "live", observedAt: new Date(now).toISOString(), verified: true }];
-  const reply = (code, changes = {}) => ({ providerCode: code, observedAt: new Date(now).toISOString(), complete: true,
+  const reply = (code, changes = {}) => code === "reviewedtv" ? ({ providerCode: code, observedAt: new Date(now).toISOString(), complete: true,
+    scopes: [{ scope: "cricket", status: "available", complete: true }], broadcasts: [{
+      providerEventID: "reviewed-tv:programme:" + "a".repeat(64), streamID: "reviewed-tv:willow-main", resourceType: "tv",
+      scope: "cricket", kind: "programme", sport: "cricket", channelID: "cricket-channel:willow", title: "South Africa vs Australia",
+      participants: ["South Africa", "Australia"], start: new Date(now - 30 * 60_000).toISOString(), end: new Date(now + 60 * 60_000).toISOString(),
+      format: "Test", matchOrdinal: 3, day: 4, verification: "dated", observedAt: new Date(now).toISOString(), expiresAt: new Date(now + 10 * 60_000).toISOString(),
+    }], ...changes }) : ({ providerCode: code, observedAt: new Date(now).toISOString(), complete: true,
     scopes: [{ scope: "football", status: "available", complete: true }], cursor: 1,
     broadcasts: [{ providerEventID: code + "_one", streamID: code + "_one", resourceType: "tv", scope: "football", kind: "event", sport: "football",
       title: "Liverpool vs Chelsea", participants: ["Liverpool", "Chelsea"], start: fixtures()[0].start,
@@ -49,17 +55,62 @@ test("durable refresh serializes duplicate owners and reads never start before d
   assert.equal(read.status, 200); assert.equal(h.reads, before, "Snapshot GET never initiates provider HTTP collection");
 });
 
-test("bounded alarm continuation covers seven providers without duplicate collection or a busy loop", async () => {
+test("bounded alarm continuation covers eight providers without duplicate collection or a busy loop", async () => {
   const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS }), registry = h.create();
   await registry.refresh(); assert.equal(h.calls.length, 2); assert.equal(h.alarm, h.now + 15_000);
-  for (const count of [4, 6, 7]) {
+  for (const count of [4, 6, 8]) {
     h.now = h.alarm;
     await registry.alarm(); assert.equal(h.calls.length, count);
   }
   assert.equal(h.alarm, null);
-  await registry.alarm(); assert.equal(h.calls.length, 7);
-  assert.equal(new Set(h.calls).size, 7);
+  await registry.alarm(); assert.equal(h.calls.length, 8);
+  assert.equal(new Set(h.calls).size, 8);
   for (const budget of Object.values(h.values.get(key).budgets)) assert.equal(budget.count, 1);
+  assert.deepEqual(DEFAULT_BROADCAST_REGISTRY_PROVIDERS.map((p) => [p.providerCode, p.maxRequestsPerDay]), [
+    ["streamex", 96], ["score808", 96], ["communitysports", 288], ["plaviosports", 288], ["cncsports", 96],
+    ["flixstreams", 96], ["streamvix", 96], ["reviewedtv", 576],
+  ]);
+});
+
+test("reviewed programme collection stays on five-minute active-Test cadence with two actual reads and no sibling budget changes", async () => {
+  const provider = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.find((p) => p.providerCode === "reviewedtv");
+  const h = harness({ providers: [provider], fixtures: (now) => [{ fixtureID: "cricket-fixture:icc:123", sport: "cricket", competitionID: "icc", format: "Test",
+    participants: ["South Africa", "Australia"], start: "2026-10-27T08:30:00.000Z", end: "2026-10-31T15:30:00.000Z", matchOrdinal: 3, day: 4,
+    status: "live", observedAt: new Date(now).toISOString(), verified: true }],
+    collect: async (code, context, state) => {
+      for (let i = 0; i < 2; i++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+      return state.reply(code);
+    } });
+  h.values.set(key, { version: 1, providers: {}, cursor: 0, budgets: {
+    communitysports: { day: "2026-10-30", count: 17, lastAt: initial - 60_000 },
+  } });
+  const first = await h.create().refresh();
+  assert.equal(first.links.filter((l) => l.providerCode === "reviewedtv" && l.state === "listed").length, 1);
+  assert.equal(h.reads, 2); assert.equal(h.values.get(key).budgets.reviewedtv.count, 2);
+  assert.equal(h.values.get(key).budgets.communitysports.count, 17);
+  assert.equal(Date.parse(h.values.get(key).providers.reviewedtv.nextAttemptAt), initial + 5 * 60_000);
+  h.now += 5 * 60_000;
+  await h.create().refresh();
+  assert.equal(h.reads, 4); assert.equal(h.values.get(key).budgets.reviewedtv.count, 4);
+  assert.equal(h.values.get(key).budgets.communitysports.count, 17);
+});
+
+test("reviewed programme cap survives restart and expired programme facts cannot remain a listed delivery", async () => {
+  const provider = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.find((p) => p.providerCode === "reviewedtv");
+  const h = harness({ providers: [provider], fixtures: (now) => [{ fixtureID: "cricket-fixture:icc:123", sport: "cricket", competitionID: "icc", format: "Test",
+    participants: ["South Africa", "Australia"], start: "2026-10-27T08:30:00.000Z", end: "2026-10-31T15:30:00.000Z", matchOrdinal: 3, day: 4,
+    status: "live", observedAt: new Date(now).toISOString(), verified: true }] });
+  h.values.set(key, { version: 1, providers: {}, cursor: 0, budgets: {
+    reviewedtv: { day: "2026-10-30", count: 575, lastAt: initial - 60_000 },
+    communitysports: { day: "2026-10-30", count: 17, lastAt: initial - 60_000 },
+  } });
+  const first = await h.create().refresh(); assert.equal(first.links[0].state, "listed"); assert.equal(h.reads, 1);
+  assert.equal(h.values.get(key).budgets.reviewedtv.count, 576);
+  h.now += 5 * 60_000; await h.create().alarm(); assert.equal(h.reads, 1); assert.equal(h.alarm, null);
+  h.now += 6 * 60_000;
+  const response = await h.create().fetch(new Request("https://internal/snapshot")), stale = await response.json();
+  assert.ok(stale.links.every((l) => l.state !== "listed")); assert.equal(h.reads, 1);
+  assert.equal(h.values.get(key).budgets.reviewedtv.count, 576); assert.equal(h.values.get(key).budgets.communitysports.count, 17);
 });
 
 test("actual HTTP caps survive restart, failed collection and duplicate alarms", async () => {

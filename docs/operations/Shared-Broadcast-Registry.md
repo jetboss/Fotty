@@ -1,3 +1,37 @@
+## 30 October association repair
+
+The registry joins all reviewed source families to accepted official fixtures.
+Exact whole-Test listings use the unchanged original-start fence; day-qualified
+Test and linear programme joins require current official ordinal/day/end and a
+10-minute authority expiry. ICC now emits that bounded additive context.
+
+AS uses the original explicitly dated soccer section despite decorative emoji,
+and compares the same advertised metadata clock rather than a display channel
+count. CS decorative status prefixes do not change team identity. FS retains
+literal cricket format/ordinal/day facts. Genuine dates, squads and Test-day
+conflicts remain rejected.
+
+The eighth metadata lane, `reviewedtv`, is fixed to TV Passport's main Willow
+station `willow-cricket/15964`. A selected IANA timezone and explicit dated
+start/duration identify a current Test programme; main Willow is mapped to the
+already reviewed TV1 channel. Review, highlights, replay, hidden markup,
+ambiguous clocks and stale/overlapping intervals provide no fixture authority.
+The cloud never fetches a media playlist or retains delivery URLs. Its new
+metadata-only cap is 576 actual reads/day, with one guide read normally and at
+most two across the verified timezone/date boundary. Existing seven budgets,
+shared eight-read cycle ceiling, durable records and activation flags remain.
+
+Native clients opt into the eighth lane with the exact capability header
+`X-Fotty-Broadcast-Capabilities: reviewedtv-programme-v1`. Default schema1 reads
+retain the seven-family compatibility projection and original timestamps.
+Both profiles are cache-separated. This prevents a new lane from invalidating
+older strict native snapshots.
+
+A reachable Willow channel is independent of a current programme association.
+The 30 October guide's verified Test slots ended at 15:00 UTC; parsing those
+slots with an injected historical clock proves the contract, not current live
+playback. A current day-qualified source still needs matching official facts.
+
 # Shared broadcast registry
 
 Owner approved activation on30October2026. This source sets activation ON for

@@ -3,6 +3,7 @@ import { admitICCIsolated, CRICKET_COMPETITIONS, iccScheduleURL, nextCricketRefr
   parseICCPage, validateCricketSnapshot } from "./cricket-fixture-policy.mjs";
 import cplFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
 import { validateCPLManifest } from "./cpl-fixture-policy.mjs";
+import { boundedCricketContexts } from "./cricket-context-policy.mjs";
 
 const STATE_KEY = "cricket-registry-v1";
 const MINUTE = 60_000;
@@ -284,6 +285,8 @@ export class CricketFixtureRegistry {
     if (!current?.snapshot) return Response.json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable",
       sync: { consecutiveFailures: current?.consecutiveFailures || 0, cohorts: current?.cohorts,
         ...(current?.failure ? { failure: current.failure } : {}), lastAttemptAt: current?.lastAttemptAt } }, { status: 503 });
-    return Response.json(current.snapshot);
+    // Context is additive on schema1; an old/malformed cached context cannot
+    // erase accepted fixture facts or bypass the bounded public projection.
+    return Response.json(boundedCricketContexts(current.snapshot));
   }
 }

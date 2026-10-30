@@ -131,7 +131,33 @@ test("Test occurrence joins explicit source UTC with official same day, ordinal 
   }
   const noEnd = await joined([broadcast], [{ ...official, end: undefined }], opts);
   assert.equal(noEnd.links[0].state, "needsVerification"); assert.equal(noEnd.links[0].reason, "missing-test-authority");
+  const staleDay = await joined([broadcast], [{ ...official, observedAt: stamp(-11 * 60_000) }], opts);
+  assert.equal(staleDay.links[0].state, "needsVerification"); assert.equal(staleDay.links[0].reason, "missing-test-authority");
+  const agingDay = await joined([broadcast], [{ ...official, observedAt: stamp(-5 * 60_000) }], opts);
+  assert.equal(agingDay.links[0].expiresAt, stamp(5 * 60_000), "A listed link cannot outlive its official Test-day authority");
   assert.equal("dailyStart" in links[0].fixtureFingerprint, false);
+});
+
+test("whole-Test event uses exact original start without optional daily context, while daily occurrences retain authority checks", async () => {
+  const official = fixture({ fixtureID: "cricket-fixture:icc:whole-test", sport: "cricket", participants: ["South Africa", "Australia"],
+    competitionID: "icc", squad: undefined, format: "Test", start: "2026-10-27T08:30:00.000Z" });
+  const broadcast = row({ scope: "cricket", sport: "cricket", title: "South Africa vs Australia, Test",
+    participants: official.participants, format: "Test", start: official.start });
+  const opts = { scopes: [{ scope: "cricket", status: "available", complete: true }] };
+  const exact = (await joined([broadcast], [official], opts)).links[0];
+  assert.equal(exact.state, "listed"); assert.equal(exact.matchMethod, "exact");
+  assert.equal((await joined([{ ...broadcast, start: "2026-10-27T08:45:00.000Z" }], [official], opts)).links[0].state, "listed");
+  assert.equal((await joined([{ ...broadcast, start: "2026-10-27T08:45:01.000Z" }], [official], opts)).links[0].reason, "time-conflict");
+  const later = (await joined([{ ...broadcast, start: "2026-10-30T08:00:00.000Z" }], [official], opts)).links[0];
+  assert.equal(later.state, "conflicting"); assert.equal(later.reason, "time-conflict");
+  const daily = (await joined([{ ...broadcast, matchOrdinal: 3, day: 4 }], [official], opts)).links[0];
+  assert.equal(daily.state, "needsVerification"); assert.equal(daily.reason, "missing-test-authority");
+  const wrongOrdinal = (await joined([{ ...broadcast, matchOrdinal: 2 }], [{ ...official, matchOrdinal: 3 }], opts)).links[0];
+  assert.equal(wrongOrdinal.state, "conflicting"); assert.equal(wrongOrdinal.reason, "ordinal-conflict");
+  const current = { ...official, matchOrdinal: 3, day: 4, end: "2026-10-31T15:30:00.000Z" };
+  assert.equal((await joined([broadcast], [current], opts)).links[0].state, "listed");
+  const programme = { ...broadcast, kind: "programme", channelID: "cricket-channel:willow", end: stamp(60 * 60_000), expiresAt: stamp(10 * 60_000) };
+  assert.notEqual((await joined([programme], [official], opts)).links[0].state, "listed", "A whole-match start does not authorize a current linear programme");
 });
 
 test("generic channels never prove a fixture but an explicitly dated exact programme may link", async () => {

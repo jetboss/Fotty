@@ -1,6 +1,7 @@
 // Official international-cricket fixtures, separate from broadcast availability.
 // A successful HTTP response is not enough: completeness and source time matter.
 import { hasReviewedICCKickoffCorrection } from "./icc-kickoff-corrections.mjs";
+import { boundedCricketContexts, normalizeICCContext } from "./cricket-context-policy.mjs";
 
 export const CRICKET_COMPETITIONS = Object.freeze([
   { id: "cpl", name: "Caribbean Premier League" },
@@ -128,12 +129,15 @@ export function normalizeICC(pages, now) {
     const westIndies = /\bWest Indies\b/i.test(home.name) || /\bWest Indies\b/i.test(away.name);
     const rawFormat = String(row.match_type).replace(/^Youth\s+/i, "").toUpperCase().replace(/^T20I$/, "T20");
     const format = rawFormat === "TEST" ? "Test" : FORMATS.has(rawFormat) ? rawFormat : "unknown";
-    fixtures.push({ id, start: start.toISOString(), format, status: fixtureStatus(row),
+    const fixture = { id, start: start.toISOString(), format, status: fixtureStatus(row),
       competitionId: westIndies ? "west-indies" : "icc", competitionName: safeLabel(row.series_name), home, away,
       source: { name: "ICC", url: `https://www.icc-cricket.com/matches/${identifier(row.match_id)}`, observedAt },
       // Internal admission evidence; stripped from the public contract below.
       revised: row.is_revised === true,
-      ...(row.series_id === undefined ? {} : { publisherSeriesId: identifier(row.series_id) }) });
+      ...(row.series_id === undefined ? {} : { publisherSeriesId: identifier(row.series_id) }) };
+    const context = normalizeICCContext(row, fixture);
+    if (context !== undefined) fixture.context = context;
+    fixtures.push(fixture);
   }
   return { fixtures, observedAt, pendingByCompetition };
 }
@@ -237,5 +241,5 @@ export function validateCricketSnapshot(snapshot) {
     if (coverage.length !== 1 || !["covered", "offseason", "unavailable"].includes(coverage[0].status)
       || coverage[0].fixtureCount !== snapshot.fixtures.filter((f) => f.competitionId === comp.id).length) throw new Error("Invalid cricket coverage");
   }
-  return snapshot;
+  return boundedCricketContexts(snapshot);
 }

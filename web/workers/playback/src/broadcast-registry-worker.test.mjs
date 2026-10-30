@@ -5,13 +5,14 @@ import worker, { BroadcastRegistry, enabledBroadcastProviders, broadcastRegistry
   loadBroadcastRegistryFixtures } from "./index.js";
 import { SPORTS_SOURCES } from "./sports-fixture-sources.mjs";
 import { refreshSportsSource } from "./sports-fixture-registry.mjs";
+import { normalizeBroadcastCollection, associateBroadcasts, broadcastRegistryHash } from "./broadcast-registry-policy.mjs";
 
 const origin = "https://test.invalid", route = "/api/live/broadcasts";
-function binding(reply = { schemaVersion: 1, revision: "accepted", generatedAt: new Date().toISOString(), providers: [], broadcasts: [], links: [] }) {
+function binding(reply = { schemaVersion: 1, revision: "accepted", generatedAt: new Date().toISOString(), providers: [], broadcasts: [], links: [] }, status = 200) {
   const calls = [];
   return { calls, idFromName(name) { assert.equal(name, "shared-broadcast-registry-v1"); return name; },
     get() { return { async fetch(request) { calls.push(request instanceof Request ? { url: request.url, method: request.method }
-      : { url: String(request), method: "GET" }); return Response.json(reply); } }; } };
+      : { url: String(request), method: "GET" }); return Response.json(reply, { status }); } }; } };
 }
 const envFor = (registry, extra = {}) => ({ BROADCAST_REGISTRY: registry, FOTTY_BROADCAST_REGISTRY_ENABLED: "1",
   FOTTY_BROADCAST_REGISTRY_SOURCES: "communitysports", ...extra });
@@ -49,6 +50,57 @@ test("public registry GET is a bounded read, rejects queries/POST and preserves 
   }
   assert.equal((await worker.fetch(new Request(origin + route, { method: "POST" }), env)).status, 405);
   assert.equal(stub.calls.length, 1, "Neither query strings nor public POST can invoke refresh");
+}));
+
+test("registry defaults to the fixed seven-provider compatibility view and only the exact capability receives reviewed programmes", async () => withoutOutbound(async () => {
+  const oldCodes = ["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix"];
+  const expiry = "2026-10-30T18:10:00.000Z", observed = "2026-10-30T18:00:00.000Z";
+  const snapshot = { schemaVersion: 1, revision: "f".repeat(64), generatedAt: observed,
+    providers: [...oldCodes, "reviewedtv"].map((providerCode) => ({ providerCode, scope: "cricket", status: "available", observedAt: observed, expiresAt: expiry })),
+    broadcasts: [{ id: "br:old", providerCode: "communitysports", observedAt: observed, expiresAt: expiry },
+      { id: "br:programme", providerCode: "reviewedtv", observedAt: observed, expiresAt: expiry }],
+    links: [{ providerCode: "communitysports", fixtureID: "fixture", broadcastID: "br:old", expiresAt: expiry },
+      { providerCode: "reviewedtv", fixtureID: "fixture", broadcastID: "br:programme", expiresAt: expiry }] };
+  const stub = binding(snapshot), env = envFor(stub), header = "X-Fotty-Broadcast-Capabilities";
+  const legacyResponse = await worker.fetch(new Request(origin + route), env), legacy = await legacyResponse.json();
+  assert.equal(legacyResponse.status, 200); assert.equal(legacyResponse.headers.get("Vary"), header);
+  assert.deepEqual(legacy.providers.map((p) => p.providerCode), oldCodes, "An old strict provider enum never sees the eighth provider");
+  assert.deepEqual(legacy.broadcasts, [snapshot.broadcasts[0]]); assert.deepEqual(legacy.links, [snapshot.links[0]]);
+  assert.equal(legacy.generatedAt, snapshot.generatedAt); assert.equal(legacy.links[0].expiresAt, expiry);
+  assert.equal(legacy.broadcasts[0].observedAt, observed);
+  assert.equal(legacy.revision, await broadcastRegistryHash([snapshot.revision, "legacy-seven-provider-v1"]));
+  assert.notEqual(legacy.revision, snapshot.revision);
+  const capableResponse = await worker.fetch(new Request(origin + route, { headers: { [header]: "reviewedtv-programme-v1" } }), env);
+  assert.equal(capableResponse.headers.get("Vary"), header); assert.deepEqual(await capableResponse.json(), snapshot);
+  for (const value of ["reviewedtv-programme-v1,other", "REVIEWEDTV-PROGRAMME-V1", "communitysports"]) {
+    const response = await worker.fetch(new Request(origin + route, { headers: { [header]: value } }), env);
+    assert.deepEqual(await response.json(), legacy, "Unrecognized capability values select the same fixed legacy profile");
+  }
+  assert.equal(stub.calls.length, 5); assert.ok(stub.calls.every((call) => call.method === "GET" && new URL(call.url).pathname === "/snapshot"));
+  const before = stub.calls.length;
+  assert.equal((await worker.fetch(new Request(origin + route + "?capabilities=reviewedtv-programme-v1"), env)).status, 400);
+  assert.equal(stub.calls.length, before, "Queries never select a profile or cause DO work");
+  const preflight = await worker.fetch(new Request(origin + route, { method: "OPTIONS" }), env);
+  assert.equal(preflight.status, 204); assert.ok(preflight.headers.get("Access-Control-Allow-Headers").includes(header));
+  assert.equal(stub.calls.length, before);
+  const unrelated = await worker.fetch(new Request(origin + "/health", { method: "OPTIONS" }), env);
+  assert.ok(!unrelated.headers.get("Access-Control-Allow-Headers").includes(header), "Unrelated route CORS remains unchanged");
+}));
+
+test("registry capability projection keeps failure status/body and the four-MiB successful-body bound", async () => withoutOutbound(async () => {
+  const body = { schemaVersion: 1, activation: "unavailable" }, unavailable = binding(body, 503);
+  for (const headers of [{}, { "X-Fotty-Broadcast-Capabilities": "reviewedtv-programme-v1" }]) {
+    const response = await worker.fetch(new Request(origin + route, { headers }), envFor(unavailable));
+    assert.equal(response.status, 503); assert.deepEqual(await response.json(), body);
+  }
+  assert.equal(unavailable.calls.length, 2);
+  const oversized = binding({ schemaVersion: 1, revision: "f".repeat(64), generatedAt: "2026-10-30T18:00:00.000Z",
+    providers: [], broadcasts: [], links: [], untrustedPadding: "x".repeat(4 * 1024 * 1024) });
+  for (const headers of [{}, { "X-Fotty-Broadcast-Capabilities": "reviewedtv-programme-v1" }]) {
+    const response = await worker.fetch(new Request(origin + route, { headers }), envFor(oversized));
+    assert.equal(response.status, 503); assert.equal((await response.json()).activation, "unavailable");
+  }
+  assert.equal(oversized.calls.length, 2, "Each GET is still only one bounded metadata snapshot read");
 }));
 
 test("cloud scheduler admits only explicit reviewed registry activation and does not replace existing fixture cron", async () => withoutOutbound(async () => {
@@ -122,6 +174,15 @@ test("failed sports scope cannot erase a separately verified cricket record and 
   assert.equal(rows.length, 1); assert.equal(rows[0].fixtureID, "cricket-fixture:icc:fixture");
   assert.equal(rows[0].day, 4); assert.equal(rows[0].matchOrdinal, 3); assert.equal(rows[0].end, cricket.context.matchEndsAt);
   assert.equal(rows[0].start, cricket.start, "Never substitute a daily date for canonical Test kickoff");
+  const source = await normalizeBroadcastCollection("communitysports", { providerCode: "communitysports",
+    observedAt: now.toISOString(), complete: true, scopes: [{ scope: "cricket", status: "available", complete: true }],
+    broadcasts: [{ providerEventID: "daily-test-source", streamID: "daily-test-source", resourceType: "tv", scope: "cricket",
+      kind: "event", sport: "cricket", title: "South Africa vs Australia", participants: rows[0].participants,
+      start: new Date(+now - 5 * 60_000).toISOString(), format: "Test", matchOrdinal: 3, day: 4,
+      observedAt: now.toISOString(), expiresAt: new Date(+now + 20 * 60_000).toISOString(), verification: "dated" }] }, now);
+  const links = associateBroadcasts({ fixtures: rows, broadcasts: source.broadcasts, providers: source.scopes, now });
+  assert.equal(links[0].state, "listed"); assert.equal(links[0].matchMethod, "test-period",
+    "Actual public fixture context reaches the same association path that normal Watch consumes");
   for (const verification of ["held", null, false, "unverified"]) {
     assert.deepEqual(await loadBroadcastRegistryFixtures(fixturesEnv(corrupted, { ...cricket, source: { ...cricket.source, verification } })), []);
   }

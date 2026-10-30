@@ -45,9 +45,12 @@ FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED = "0"
 # Cloudflare receives HTML rather than the canonical WNBA schedule JSON.
 # Keep this source deferred until edge access is verified; do not widen admission.
 FOTTY_SPORTS_WNBA_ENABLED = "0"
-# Owner-approved 30 October: automatic metadata registry, reviewed seven-source scope.
+# Owner-approved 30 October: seven source families plus fixed reviewed Willow programme metadata.
+# Reviewed programme metadata reserves at most576 actual HTML reads/day, covering
+# the UTC/selected-guide-date edge with at most2 reads per5-minute active cycle.
+# Existing seven provider limits and eight-read cycle ceiling are unchanged.
 FOTTY_BROADCAST_REGISTRY_ENABLED = "1"
-FOTTY_BROADCAST_REGISTRY_SOURCES = "streamex,score808,communitysports,plaviosports,cncsports,flixstreams,streamvix"
+FOTTY_BROADCAST_REGISTRY_SOURCES = "streamex,score808,communitysports,plaviosports,cncsports,flixstreams,streamvix,reviewedtv"
 # Secret FPL_COACH_ACCESS_SHA256: JSON array of SHA-256 digests of individual
 # random 32-byte hex invitation codes. Never place plaintext codes in this file.
 
