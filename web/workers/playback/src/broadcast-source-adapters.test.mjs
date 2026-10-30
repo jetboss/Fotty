@@ -30,9 +30,54 @@ function harness(code, response, limit = 8, { allowMeta = false, manifestOverrid
     }, ...options }) };
 }
 
-test("all seven reviewed families are registered; unknown input never fetches", async () => {
-  assert.deepEqual(BROADCAST_SOURCE_CODES, ["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix"]);
+test("seven source families and the fixed reviewed programme provider are registered; unknown input never fetches", async () => {
+  assert.deepEqual(BROADCAST_SOURCE_CODES, ["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix", "reviewedtv"]);
   await assert.rejects(collect("unreviewed", { fetcher: () => assert.fail("No network") }), /invalid-collection/u);
+});
+
+const reviewedProgramme = ({ localStart = "2026-10-30 07:00:00", timeZone = "America/Port_of_Spain", episode = "South Africa vs. Australia" } = {}) =>
+  `<h1>TV Schedule for Willow Cricket</h1><select id="timezone_selector"><option value="${timeZone}" selected>Atlantic</option></select>`
+  + `<div data-callsign="Willow" data-st="${localStart}" data-duration="120" data-showname="Test Cricket" data-episodetitle="${episode}" data-description="3rd Test, Day 4." data-live="1" data-repeat=""></div>`;
+test("reviewed programme collector reads only the fixed dated main-Willow metadata page and preserves short programme expiry", async () => {
+  const h = harness("reviewedtv", async () => html(reviewedProgramme()));
+  const result = await h.run();
+  assert.equal(h.calls.length, 1); assert.equal(h.count(), 1);
+  assert.equal(h.calls[0].url, "https://www.tvpassport.com/tv-listings/stations/willow-cricket/15964/2026-10-30");
+  assert.equal(h.calls[0].init.headers.Accept, "text/html");
+  assert.deepEqual(result.scopes, [{ scope: "cricket", complete: true, status: "available" }]);
+  assert.equal(result.broadcasts.length, 1);
+  const row = result.broadcasts[0];
+  assert.equal(row.kind, "programme"); assert.equal(row.streamID, "reviewed-tv:willow-main");
+  assert.equal(row.channelID, "cricket-channel:willow"); assert.equal(row.format, "Test"); assert.equal(row.matchOrdinal, 3); assert.equal(row.day, 4);
+  assert.equal(row.start, "2026-10-30T11:00:00.000Z"); assert.equal(row.end, "2026-10-30T13:00:00.000Z");
+  assert.equal(row.expiresAt, "2026-10-30T12:10:00.000Z");
+  assert.ok(!JSON.stringify(result).includes("https://"), "No playlist/media/guide location becomes a delivery");
+  const normalized = await normalizeBroadcastCollection("reviewedtv", result, now);
+  assert.equal(normalized.broadcasts.length, 1);
+});
+test("reviewed programme UTC-date edge uses only the actual selected zone and at most one corrected fixed-date read", async () => {
+  const edge = new Date("2026-10-30T02:00:00.000Z"), markup = reviewedProgramme({ localStart: "2026-10-29 21:00:00" });
+  const h = harness("reviewedtv", async () => html(markup));
+  const result = await h.run({ now: edge });
+  assert.equal(h.calls.length, 2); assert.equal(h.count(), 2);
+  assert.deepEqual(h.calls.map((r) => r.url), ["https://www.tvpassport.com/tv-listings/stations/willow-cricket/15964/2026-10-30",
+    "https://www.tvpassport.com/tv-listings/stations/willow-cricket/15964/2026-10-29"]);
+  assert.equal(result.broadcasts.length, 1, "Identical cross-date programme facts are one observation");
+  assert.equal(result.broadcasts[0].start, "2026-10-30T01:00:00.000Z");
+  assert.equal(result.broadcasts[0].expiresAt, "2026-10-30T02:10:00.000Z");
+  const conflict = harness("reviewedtv", async (url) => html(reviewedProgramme({ localStart: "2026-10-29 21:00:00",
+    episode: url.endsWith("2026-10-29") ? "India vs. Australia" : "South Africa vs. Australia" })));
+  const refused = await conflict.run({ now: edge });
+  assert.equal(refused.broadcasts.length, 0); assert.equal(refused.scopes[0].failure, "catalog-conflict");
+});
+test("reviewed programme malformed HTML, unverified timezone and redirects fail only their cricket metadata cohort", async () => {
+  for (const reply of [() => html("<div>No verified station/timezone</div>"), () => html(reviewedProgramme({ timeZone: "Unverified/Timezone" })),
+    () => new Response(null, { status: 302, headers: { location: "https://unreviewed.invalid/" } })]) {
+    const bad = harness("reviewedtv", async () => reply());
+    const result = await bad.run();
+    assert.equal(bad.calls.length, 1); assert.equal(result.broadcasts.length, 0);
+    assert.equal(result.scopes.length, 1); assert.equal(result.scopes[0].scope, "cricket"); assert.equal(result.scopes[0].status, "failed");
+  }
 });
 
 test("CS retains unmatched events, actual Test qualifiers and standalone channels within eight actual reads", async () => {
@@ -77,6 +122,28 @@ test("CS malformed same-ID sibling is retained as conflict evidence", () => {
   assert.equal(wrong.verification, "conflicting"); assert.ok(wrong.issues.includes("identity-conflict"));
   assert.equal(parse.csRow(cs({ id: "https://private.invalid/token" }), "cricket", now), null);
 });
+test("CS pending-clock decoration preserves a corroborated pair/date while real cast and squad conflicts remain vetoes", async () => {
+  for (const prefix of ["⏱ ", "⏱️ "]) {
+    const raw = cs({ id: "nuvio_sport_vegas_nj", name: prefix + "Vegas Golden Knights vs New Jersey Devils",
+      genres: ["HOCKEY"], cast: ["New Jersey Devils", "Vegas Golden Knights"], released: "2026-10-30T22:00:00.000Z" });
+    const row = parse.csRow(raw, "hockey", now);
+    assert.equal(row.verification, "dated"); assert.deepEqual(row.issues, []);
+    assert.equal(row.start, "2026-10-30T22:00:00.000Z");
+    assert.deepEqual(row.participants, ["New Jersey Devils", "Vegas Golden Knights"]);
+    const normalized = await normalizeBroadcastCollection("communitysports", { providerCode: "communitysports",
+      observedAt: now.toISOString(), complete: false, scopes: [{ scope: "hockey", status: "partial", complete: false }], broadcasts: [row] }, now);
+    assert.equal(normalized.broadcasts[0].verification, "dated");
+    const differentTeam = parse.csRow({ ...raw, cast: ["New Jersey Devils", "Boston Bruins"] }, "hockey", now);
+    assert.equal(differentTeam.verification, "conflicting"); assert.ok(differentTeam.issues.includes("identity-conflict"));
+    const differentSquad = parse.csRow(cs({ name: prefix + "India Women vs Australia Women", genres: ["CRICKET"],
+      cast: ["India", "Australia"] }), "cricket", now);
+    assert.equal(differentSquad.verification, "conflicting"); assert.ok(differentSquad.issues.includes("identity-conflict"));
+  }
+  const competitionPrefix = parse.csRow(cs({ name: "⏱ Some League : India vs Australia", cast: ["India", "Australia"] }), "cricket", now);
+  assert.equal(competitionPrefix.verification, "conflicting", "Status decoration is not permission to erase arbitrary title authority");
+  const unsafeCast = parse.csRow(cs({ name: "⏱ India vs Australia", cast: ["India 🇷🇺", "Australia"] }), "cricket", now);
+  assert.equal(unsafeCast.verification, "conflicting", "A rejected flag/control contract in cast cannot be hidden by a valid title pair");
+});
 test("malformed scalar row fields do not discard independent accepted siblings", async () => {
   const h = harness("communitysports", async (url) => json({ metas: url.includes("_cricket.json") ? [cs(), { id: 12, name: 42 }] : [] }));
   const result = await h.run(); assert.equal(result.broadcasts.length, 1);
@@ -109,6 +176,51 @@ test("AS native-equivalent original GMT scope supplies dates; hidden/script/temp
   const row = parse.asRow({ id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"], name: "England - Premier League : Chelsea vs Tottenham Hotspur", description: "Starts 16:30 (UK time) · 6 channels" }, "football", now, original);
   assert.equal(row.verification, "dated"); assert.equal(row.start, "2026-10-30T16:30:00.000Z");
   for (const markup of [`<template>${dayHTML(eventHTML())}</template>`, `<script>${dayHTML(eventHTML())}`, `<!-- ${dayHTML(eventHTML())}`]) assert.throws(() => parse.dlhdOriginals(markup), /invalid-collection/u);
+});
+test("AS actual decorated soccer category keeps its explicit original date without admitting other programme scopes", () => {
+  for (const category of ["All Soccer Events ⚽", "  All Soccer Events  ⚽  "]) {
+    const source = dayHTML(eventHTML()).replace("All Soccer Events</span>", category + "</span>");
+    assert.equal(parse.dlhdOriginals(source)[0].start, "2026-10-30T16:30:00.000Z");
+    const hidden = source.replace('class="schedule__category"', 'class="schedule__category" hidden');
+    assert.equal(parse.dlhdOriginals(hidden).length, 0);
+  }
+  for (const category of ["Women's College Soccer ⚽", "All Soccer Events Women", "Cricket 🏏"]) {
+    const source = dayHTML(eventHTML()).replace("All Soccer Events</span>", category + "</span>");
+    assert.equal(parse.dlhdOriginals(source)[0].start, null, "A soccer icon never grants another category's date authority");
+  }
+});
+test("AS same-ID metadata compares its relevant UK clock, not changing display channel counts", () => {
+  const catalog = { id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"],
+    name: "England - Premier League : Chelsea vs Tottenham Hotspur", description: "Starts 16:30 (UK time) · 18 channels" };
+  const originals = parse.dlhdOriginals(dayHTML(eventHTML()).replace("All Soccer Events</span>", "All Soccer Events ⚽</span>"));
+  for (const description of ["Starts 16:30 (UK time)", "Starts 16:30 (UK time) · 6 channels", "Starts 16:30 (UK time) · 18 channels"]) {
+    const meta = { ...catalog, description };
+    const row = parse.asEnriched(catalog, "football", meta, now, originals);
+    assert.equal(row.verification, "dated"); assert.deepEqual(row.issues, []);
+    assert.equal(row.start, "2026-10-30T16:30:00.000Z");
+    const noOriginal = parse.asEnriched(catalog, "football", meta, now, []);
+    assert.equal(noOriginal.start, undefined); assert.equal(noOriginal.verification, "undated", "The same clock does not invent a day");
+  }
+  for (const changes of [{ description: "Starts 16:31 (UK time)" }, { description: "Starts 16:30 (UTC)" },
+    { description: "Starts 16:30 (UK time) · 0 channels" }, { description: "Starts 16:30 (UK time) · 1234 channels" },
+    { description: "Starts 16:30 (UK time)\n30 Oct 2026" }, { name: "England - Premier League : Chelsea Women vs Tottenham Hotspur Women" },
+    { released: "2026-10-30T16:30:00.000Z" }]) {
+    const row = parse.asEnriched(catalog, "football", { ...catalog, ...changes }, now, originals);
+    assert.equal(row.verification, "conflicting"); assert.ok(row.issues.includes("identity-conflict"));
+  }
+});
+test("AS same-ID catalog count changes do not suppress bounded metadata verification or supply a missing original date", async () => {
+  const catalog = { id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"],
+    name: "England - Premier League : Chelsea vs Tottenham Hotspur", description: "Starts 16:30 (UK time) · 18 channels" };
+  const h = harness("plaviosports", async (url) => url === "https://thedaddy.pk/" ? html("<div>No dated schedule available</div>")
+    : url.includes("/meta/tv/") ? json({ meta: { ...catalog, description: "Starts 16:30 (UK time)" } })
+      : json({ metas: url.includes("plaviohd-football") ? [catalog, { ...catalog, description: "Starts 16:30 (UK time) · 6 channels" }] : [] }),
+  8, { allowMeta: true, manifestOverride: asMetadataManifest });
+  const result = await h.run({ fixtures: [hintedFixture()] });
+  assert.equal(h.calls.filter((r) => r.url.includes("/meta/tv/")).length, 1);
+  assert.ok(h.calls.length <= 8);
+  assert.ok(result.broadcasts.length > 0 && result.broadcasts.every((r) => r.verification === "undated" && !r.start));
+  assert.ok(result.broadcasts.every((r) => !r.issues.includes("identity-conflict")));
 });
 test("AS original duplicate dates and London/GMT conflicts are not concealed by a matching clock", () => {
   const template = { id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"], name: "England - Premier League : Chelsea vs Tottenham Hotspur", description: "Starts 16:30 (UK time) · 6 channels" };
@@ -163,6 +275,27 @@ test("AS first-colon and competition punctuation normalization matches the nativ
   const row = parse.asRow({ id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"], name: "England Premier League:Chelsea vs Tottenham Hotspur", description: "Starts 16:30 (UK time) · 6 channels" }, "football", now, original);
   assert.equal(row.verification, "dated"); assert.equal(row.start, "2026-10-30T16:30:00.000Z");
 });
+test("AS dated original joins retain only exact reviewed canonical competition identities, not similarly named leagues", () => {
+  const labels = [["England - Premier League", "premier-league"], ["UEFA Champions League", "champions-league"],
+    ["England - League Cup", "carabao-cup"], ["Spain - La Liga", "la-liga"], ["Italy - Serie A", "serie-a"],
+    ["Germany - Bundesliga", "bundesliga"], ["France - Ligue 1", "ligue-1"]];
+  for (const [competition, canonical] of labels) {
+    const title = competition + " : Chelsea vs Tottenham Hotspur";
+    const original = parse.dlhdOriginals(dayHTML(eventHTML()).replace("England - Premier League :", "⚽ " + competition + " :")
+      .replace("All Soccer Events</span>", "All Soccer Events ⚽</span>"));
+    const row = parse.asRow({ id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"], name: title,
+      description: "Starts 16:30 (UK time) · 6 channels" }, "football", now, original);
+    assert.equal(row.competitionID, canonical); assert.equal(row.verification, "dated");
+    assert.equal(row.start, "2026-10-30T16:30:00.000Z");
+  }
+  for (const competition of ["England - Premier League 2", "Bundesliga 2", "Austria - Bundesliga", "Egypt Premier League", "UEFA Europa League"]) {
+    const title = competition + " : Chelsea vs Tottenham Hotspur";
+    const original = parse.dlhdOriginals(dayHTML(eventHTML()).replace("England - Premier League :", competition + " :"));
+    const row = parse.asRow({ id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"], name: title,
+      description: "Starts 16:30 (UK time) · 6 channels" }, "football", now, original);
+    assert.equal(row.competitionID, undefined); assert.equal(row.verification, "undated"); assert.ok(row.issues.includes("unsupported-scope"));
+  }
+});
 test("CS uses at most two advertised searches for a fresh missing fixture before spending remaining rotation reads", async () => {
   const m = structuredClone(manifests.communitysports); m.catalogs.find((c) => c.id === "nuvio_sports_football").extra = [{ name: "search" }];
   const h = harness("communitysports", async (url) => json({ metas: url.includes("/search=Chelsea.json") ? [cs({ id: "nuvio_sport_chelsea", name: "Chelsea vs Tottenham Hotspur", cast: ["Chelsea", "Tottenham Hotspur"], genres: ["FOOTBALL"], released: "2026-10-30T12:00:00.000Z", behaviorHints: { defaultVideoId: "nuvio_sport_chelsea" } })] : [] }),
@@ -200,6 +333,32 @@ test("FS retains healthy complete page cohort while a sibling genre page fails",
 test("FS rejects competing timestamp/hint/video authority while retaining the identifiable row", () => {
   const row = parse.fsRow({ ...fsRow(), videos: [{ id: "dlstreams:event:aaaaaaaaaaaa", released: "2026-10-31T16:30:00.000Z", title: "Live Stream", season: 1, episode: 1 }] }, "football", now);
   assert.equal(row.verification, "conflicting"); assert.ok(row.issues.includes("time-conflict"));
+});
+test("FS preserves its explicit Test format/ordinal/day and literal UTC date through wire normalization", async () => {
+  const raw = { ...fsRow("cricket"), name: "🏏 3rd Test day-3 : South Africa 🇿🇦 vs Australia 🇦🇺",
+    description: "Category: Cricket 🏏\nDate: 2026-10-30 (UTC)\nTime: 08:00\nChannels: 6" };
+  const row = parse.fsRow(raw, "cricket", now);
+  assert.equal(row.verification, "dated"); assert.equal(row.format, "Test");
+  assert.equal(row.matchOrdinal, 3); assert.equal(row.day, 3);
+  assert.equal(row.start, "2026-10-30T08:00:00.000Z", "The source's day label never replaces its literal date");
+  assert.deepEqual(row.participants, ["South Africa", "Australia"]);
+  const normalized = await normalizeBroadcastCollection("flixstreams", { providerCode: "flixstreams", observedAt: now.toISOString(),
+    complete: false, scopes: [{ scope: "cricket", status: "partial", complete: false }], broadcasts: [row] }, now);
+  assert.equal(normalized.broadcasts[0].format, "Test"); assert.equal(normalized.broadcasts[0].matchOrdinal, 3);
+  assert.equal(normalized.broadcasts[0].day, 3, "Keep the actual source day for the separate official-day conflict check");
+  const undated = parse.fsRow({ ...raw, description: "Category: Cricket 🏏\nTime: 08:00\nChannels: 6" }, "cricket", now);
+  assert.equal(undated.format, "Test"); assert.equal(undated.day, 3);
+  assert.equal(undated.start, undefined); assert.equal(undated.verification, "undated");
+});
+test("FS cricket labels never invent format/ordinal/day from malformed or generic programme text", () => {
+  for (const label of ["International", "3th Test day-3", "3rd Test day-7", "3rd ODI day-3", "3rd Test day-3 highlights"]) {
+    const row = parse.fsRow({ ...fsRow("cricket"), name: "🏏 " + label + " : India vs New Zealand" }, "cricket", now);
+    assert.equal(row.format, undefined); assert.equal(row.matchOrdinal, undefined); assert.equal(row.day, undefined);
+  }
+  for (const [label, format, ordinal] of [["4th T20I", "T20", 4], ["2nd ODI", "ODI", 2], ["1st T10", "T10", 1]]) {
+    const row = parse.fsRow({ ...fsRow("cricket"), name: "🏏 " + label + " : India vs New Zealand" }, "cricket", now);
+    assert.equal(row.format, format); assert.equal(row.matchOrdinal, ordinal); assert.equal(row.day, undefined);
+  }
 });
 
 const svDay = "Saturday 24th October 2026 - Schedule Time UK GMT";

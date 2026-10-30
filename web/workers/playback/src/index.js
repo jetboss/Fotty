@@ -26,6 +26,7 @@ import { WORKER_SOURCE_VERSION } from "./worker-version.mjs";
 import { collectBroadcastCatalog } from "./broadcast-catalog.mjs";
 import { BroadcastRegistry as BaseBroadcastRegistry, DEFAULT_BROADCAST_REGISTRY_PROVIDERS } from "./broadcast-registry.mjs";
 import { collectBroadcastSource } from "./broadcast-source-adapters.mjs";
+import { broadcastRegistryHash } from "./broadcast-registry-policy.mjs";
 export { CoachQuotaBudget } from "./coach-safety.mjs";
 import cplFixtureFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
 import { cplFixtureSources, resolveCPLManifest, validateCPLManifest } from "./cpl-fixture-policy.mjs";
@@ -183,15 +184,41 @@ function broadcastRegistryStub(env) {
   return env.BROADCAST_REGISTRY.get(env.BROADCAST_REGISTRY.idFromName("shared-broadcast-registry-v1"));
 }
 
-async function handleBroadcastRegistry(url, env) {
-  if (url.search) return json({ error: "Unsupported registry query" }, 400);
-  if (!broadcastRegistryEnabled(env)) return json({ schemaVersion: 1, activation: "pending" }, 503);
+const BROADCAST_CAPABILITY_HEADER = "X-Fotty-Broadcast-Capabilities";
+const REVIEWED_TV_CAPABILITY = "reviewedtv-programme-v1";
+const BROADCAST_SNAPSHOT_MAX_BYTES = 4 * 1024 * 1024;
+function broadcastRegistryHeaders(extra = {}) {
+  const headers = corsHeaders({ Vary: BROADCAST_CAPABILITY_HEADER, ...extra });
+  headers["Access-Control-Allow-Headers"] += ", " + BROADCAST_CAPABILITY_HEADER;
+  return headers;
+}
+async function handleBroadcastRegistry(request, url, env) {
+  if (url.search) return json({ error: "Unsupported registry query" }, 400, broadcastRegistryHeaders());
+  if (!broadcastRegistryEnabled(env)) return json({ schemaVersion: 1, activation: "pending" }, 503, broadcastRegistryHeaders());
   try {
     const response = await broadcastRegistryStub(env).fetch("https://broadcast-registry.invalid/snapshot");
-    return new Response(response.body, { status: response.status,
-      headers: corsHeaders({ "Content-Type": "application/json", "Cache-Control": "public, max-age=30",
-        "X-Fotty-Broadcast-Registry-Schema": "1" }) });
-  } catch { return json({ schemaVersion: 1, activation: "unavailable" }, 503); }
+    const headers = broadcastRegistryHeaders({ "Content-Type": "application/json", "Cache-Control": "public, max-age=30",
+      "X-Fotty-Broadcast-Registry-Schema": "1" });
+    if (!response.ok) return new Response(response.body, { status: response.status, headers });
+    const snapshot = await boundedJSON(response, BROADCAST_SNAPSHOT_MAX_BYTES);
+    if (snapshot?.schemaVersion !== 1 || typeof snapshot.revision !== "string"
+      || !Array.isArray(snapshot.providers) || !Array.isArray(snapshot.broadcasts) || !Array.isArray(snapshot.links)) throw new Error("Invalid registry snapshot");
+    let projected = snapshot;
+    // Legacy schema1 native clients admit exactly the original seven providers.
+    // Retain receipt/expiry facts while selecting one fixed compatibility view;
+    // a public request cannot choose arbitrary providers or trigger collection.
+    if (request.headers.get(BROADCAST_CAPABILITY_HEADER) !== REVIEWED_TV_CAPABILITY) {
+      const removed = new Set(snapshot.broadcasts.filter((row) => row.providerCode === "reviewedtv").map((row) => row.id));
+      projected = { ...snapshot,
+        revision: await broadcastRegistryHash([snapshot.revision, "legacy-seven-provider-v1"]),
+        providers: snapshot.providers.filter((row) => row.providerCode !== "reviewedtv"),
+        broadcasts: snapshot.broadcasts.filter((row) => row.providerCode !== "reviewedtv"),
+        links: snapshot.links.filter((row) => row.providerCode !== "reviewedtv" && !removed.has(row.broadcastID)) };
+    }
+    const body = JSON.stringify(projected);
+    if (new TextEncoder().encode(body).length > BROADCAST_SNAPSHOT_MAX_BYTES) throw new Error("Registry projection exceeds bound");
+    return new Response(body, { status: response.status, headers });
+  } catch { return json({ schemaVersion: 1, activation: "unavailable" }, 503, broadcastRegistryHeaders()); }
 }
 
 const IOS_SAFARI_USER_AGENT =
@@ -1448,7 +1475,8 @@ const worker = {
   },
   async fetch(request, env, ctx) {
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders() });
+      return new Response(null, { status: 204, headers: new URL(request.url).pathname === "/api/live/broadcasts"
+        ? broadcastRegistryHeaders() : corsHeaders() });
     }
     const url = new URL(request.url);
     if (url.pathname === "/api/fpl/coach") {
@@ -1487,7 +1515,7 @@ const worker = {
       }
       return result;
     }
-    if (url.pathname === "/api/live/broadcasts") return handleBroadcastRegistry(url, env);
+    if (url.pathname === "/api/live/broadcasts") return handleBroadcastRegistry(request, url, env);
     if (url.pathname === "/api/live/streams") return handleStreams(url);
     if (url.pathname === "/api/embed/player") return handlePlayer(url);
     return json({ error: "Not found" }, 404);

@@ -4,7 +4,7 @@ import { associateBroadcasts, buildBroadcastSnapshot, normalizeBroadcastCollecti
 
 const KEY = "shared-broadcast-registry-v1", minute = 60_000, day = 86_400_000;
 export const DEFAULT_BROADCAST_REGISTRY_PROVIDERS = Object.freeze(BROADCAST_PROVIDER_CODES.map((providerCode) => Object.freeze({
-  providerCode, maxRequestsPerDay: ["communitysports", "plaviosports"].includes(providerCode) ? 288 : 96,
+  providerCode, maxRequestsPerDay: providerCode === "reviewedtv" ? 576 : ["communitysports", "plaviosports"].includes(providerCode) ? 288 : 96,
 })));
 const blank = () => ({ version: 1, providers: {}, budgets: {}, cursor: 0 });
 const failure = (error) => BROADCAST_REASONS.includes(error?.message) ? error.message : "source-unavailable";
@@ -56,6 +56,7 @@ function supportedFixtures(code, fixtures) {
   if (code === "streamvix") return fixtures.filter((f) => f.sport === "football"
     && ["premier-league", "champions-league"].includes(f.competitionID));
   if (code === "plaviosports") return fixtures.filter((f) => ["football", "cricket"].includes(f.sport));
+  if (code === "reviewedtv") return fixtures.filter((f) => f.sport === "cricket");
   if (code === "flixstreams") return fixtures.filter((f) => f.sport === "cricket" || f.sport === "football"
     && ["premier-league", "champions-league", "serie-a"].includes(f.competitionID));
   return fixtures;
@@ -94,9 +95,9 @@ export class BroadcastRegistry {
   constructor(state, env, options = {}) {
     this.state = state; this.env = env; this.options = options; this.queue = Promise.resolve(); this.budgetQueue = Promise.resolve();
     this.providers = options.providers ?? DEFAULT_BROADCAST_REGISTRY_PROVIDERS;
-    if (!Array.isArray(this.providers) || this.providers.length > 7 || new Set(this.providers.map((p) => p.providerCode)).size !== this.providers.length
+    if (!Array.isArray(this.providers) || this.providers.length > BROADCAST_PROVIDER_CODES.length || new Set(this.providers.map((p) => p.providerCode)).size !== this.providers.length
       || this.providers.some((p) => !BROADCAST_PROVIDER_CODES.includes(p.providerCode) || !Number.isSafeInteger(p.maxRequestsPerDay)
-        || p.maxRequestsPerDay < 1 || p.maxRequestsPerDay > 288)) throw new Error("invalid-registry-configuration");
+        || p.maxRequestsPerDay < 1 || p.maxRequestsPerDay > (p.providerCode === "reviewedtv" ? 576 : 288))) throw new Error("invalid-registry-configuration");
   }
   now() { const n = Number(this.options.clock?.() ?? new Date()); if (!Number.isFinite(n)) throw new Error("invalid-registry-clock"); return n; }
   enabled() { return this.options.enabled?.() !== false; }

@@ -5,7 +5,7 @@ export const BROADCAST_REGISTRY_SCHEMA = 1;
 export const BROADCAST_REGISTRY_LIMITS = Object.freeze({ collectionRecords: 1500, collectionBytes: 1024 * 1024,
   records: 4000, links: 4000, snapshotBytes: 4 * 1024 * 1024, sourceLifetime: 4 * 60 * 60_000,
   programmeLifetime: 10 * 60_000, retention: 24 * 60 * 60_000 });
-export const BROADCAST_PROVIDER_CODES = Object.freeze(["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix"]);
+export const BROADCAST_PROVIDER_CODES = Object.freeze(["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix", "reviewedtv"]);
 export const BROADCAST_SCOPES = Object.freeze(["football", "cricket", "basketball", "baseball", "hockey", "american-football", "rugby", "fight", "motorsport", "golf", "tennis", "darts", "college", "other", "live", "networks"]);
 export const BROADCAST_REASONS = Object.freeze(["source-unavailable", "budget-exhausted", "invalid-collection", "incomplete-catalog", "catalog-conflict", "stale-source", "identity-conflict", "time-conflict", "squad-conflict", "competition-conflict", "format-conflict", "ordinal-conflict", "day-conflict", "missing-date", "missing-participants", "missing-programme", "unverified-fixture", "terminal-fixture", "missing-test-authority", "unsupported-scope", "capacity-exceeded"]);
 const providers = new Set(BROADCAST_PROVIDER_CODES), scopes = new Set(BROADCAST_SCOPES), reasons = new Set(BROADCAST_REASONS);
@@ -104,6 +104,9 @@ export async function normalizeBroadcastCollection(providerCode, input, at = new
       || row.resourceType !== "tv" || !kinds.has(row.kind) || !text(row.title)
       || ![...BROADCAST_SCOPES.filter((s) => !["live", "networks"].includes(s)), "unknown"].includes(row.sport)
       || !Array.isArray(row.participants) || row.participants.length > 2 || row.participants.some((p) => !text(p, 256))) throw new Error("invalid-collection");
+    if (providerCode === "reviewedtv" && (row.scope !== "cricket" || row.sport !== "cricket" || row.kind !== "programme"
+      || row.channelID !== "cricket-channel:willow" || row.streamID !== "reviewed-tv:willow-main"
+      || !/^reviewed-tv:programme:[a-f0-9]{64}$/u.test(row.providerEventID))) throw new Error("invalid-collection");
     const receipt = stamp(row.observedAt ?? input.observedAt), expiry = stamp(row.expiresAt);
     const lifetime = row.kind === "programme" ? BROADCAST_REGISTRY_LIMITS.programmeLifetime : BROADCAST_REGISTRY_LIMITS.sourceLifetime;
     if (receipt === null || expiry === null || receipt > now + 5 * minute || receipt > observed + 5 * minute
@@ -223,17 +226,25 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
         if (!broadcast.format || !fixture.format) fail("needsVerification", "format-conflict");
         else if (broadcast.format !== fixture.format) fail("conflicting", "format-conflict");
       }
-      if (fixture.format === "Test") {
-        if (!fixture.matchOrdinal || !fixture.day || !fixture.end || !broadcast.matchOrdinal || !broadcast.day) fail("needsVerification", "missing-test-authority");
-        else if (fixture.matchOrdinal !== broadcast.matchOrdinal) fail("conflicting", "ordinal-conflict");
-        else if (fixture.day !== broadcast.day) fail("conflicting", "day-conflict");
-        else if (!broadcast.start || broadcast.start < fixture.start || broadcast.start >= fixture.end
-          || broadcast.end && broadcast.end > fixture.end) fail("conflicting", "time-conflict");
-        else if (broadcast.kind !== "programme") method = "test-period";
-      } else if (broadcast.start && Math.abs(Date.parse(broadcast.start) - Date.parse(fixture.start)) > 15 * minute) fail("conflicting", "time-conflict");
+      if (fixture.format === "Test" && broadcast.format === "Test") {
+        // Whole-match listings keep the ordinary exact original-start path.
+        // A day-qualified occurrence instead needs current official Test-day
+        // authority; optional score context must not disable the exact path.
+        if (fixture.matchOrdinal && broadcast.matchOrdinal && fixture.matchOrdinal !== broadcast.matchOrdinal) fail("conflicting", "ordinal-conflict");
+        if (broadcast.day !== undefined || broadcast.kind !== "event") {
+          if (!fixture.matchOrdinal || !fixture.day || !fixture.end || !broadcast.matchOrdinal || !broadcast.day
+            || time - Date.parse(fixture.observedAt) > 10 * minute) fail("needsVerification", "missing-test-authority");
+          else if (fixture.day !== broadcast.day) fail("conflicting", "day-conflict");
+          else if (!broadcast.start || broadcast.start < fixture.start || broadcast.start >= fixture.end
+            || broadcast.end && broadcast.end > fixture.end) fail("conflicting", "time-conflict");
+          else if (broadcast.kind !== "programme") method = "test-period";
+        } else if (broadcast.start && Math.abs(Date.parse(broadcast.start) - Date.parse(fixture.start)) > 15 * minute) fail("conflicting", "time-conflict");
+      } else if (fixture.format !== "Test" && broadcast.start && Math.abs(Date.parse(broadcast.start) - Date.parse(fixture.start)) > 15 * minute) fail("conflicting", "time-conflict");
       if (broadcast.kind === "programme" && (!channels.has(broadcast.channelID) || !broadcast.end
-        || Date.parse(broadcast.end) <= time || Date.parse(broadcast.start) > time + 15 * minute)) fail("needsVerification", "missing-programme");
-      const expiry = Math.min(Date.parse(broadcast.expiresAt), Date.parse(fixture.observedAt) + (fixture.status === "scheduled" && Date.parse(fixture.start) >= time ? day : 30 * minute),
+        || Date.parse(broadcast.end) <= time || Date.parse(broadcast.start) > time)) fail("needsVerification", "missing-programme");
+      const fixtureLifetime = fixture.format === "Test" && (broadcast.day !== undefined || broadcast.kind === "programme")
+        ? 10 * minute : fixture.status === "scheduled" && Date.parse(fixture.start) >= time ? day : 30 * minute;
+      const expiry = Math.min(Date.parse(broadcast.expiresAt), Date.parse(fixture.observedAt) + fixtureLifetime,
         broadcast.kind === "programme" && broadcast.end ? Date.parse(broadcast.end) : Infinity);
       links.push({ fixtureID: fixture.fixtureID, broadcastID: broadcast.id, providerCode: broadcast.providerCode,
         state, matchMethod: method, fixtureFingerprint: fingerprint, expiresAt: iso(expiry), ...(reason ? { reason } : {}) });

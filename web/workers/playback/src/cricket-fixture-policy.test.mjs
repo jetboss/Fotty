@@ -3,6 +3,7 @@ import test from "node:test";
 import worker from "./index.js";
 import { admitICC, admitICCIsolated, cricketWindow, iccScheduleURL, iccSourceTime, nextCricketRefresh, normalizeICC, parseICCPage, validateCricketSnapshot } from "./cricket-fixture-policy.mjs";
 import { collectICC, CricketFixtureRegistry, refreshCricketState } from "./cricket-fixture-registry.mjs";
+import { boundedCricketContexts, normalizeICCContext, validCricketContext } from "./cricket-context-policy.mjs";
 import { auditCricketSnapshot } from "../../../../tools/audit-cricket-fixtures-policy.mjs";
 import cplFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
 
@@ -888,4 +889,142 @@ test("new public route preserves Worker identity/CORS and cannot expose internal
   assert.equal(response.headers.get("Access-Control-Allow-Origin"), "*");
   assert.ok(response.headers.get("X-Fotty-Worker-Version"));
   assert.equal((await worker.fetch(new Request("https://worker/api/cricket/fixtures", { method: "POST" }), env)).status, 405);
+});
+
+// Explicit public-field contract observed from the reviewed ICC schedule on
+//30October2026. Scores below are representative synthetic values; the retained
+//identity/period/phase fields follow that receipt. This replay proves neither
+//current play nor a daily kickoff; a series count is never a match ordinal.
+const testContextAt = new Date("2026-10-30T17:56:08.000Z");
+function testContextRow(changes = {}) {
+  return row({ match_id: "269792", teama: "South Africa", teama_id: "7", teamb: "Australia", teamb_id: "1",
+    match_type: "Test", match_date_gmt: "10/27/2026", match_time_gmt: "08:30",
+    end_match_date_gmt: "10/31/2026", end_match_time_gmt: "15:30", match_number: "3rd Test", match_ordinal: "3",
+    series_name: "Australia in South Africa, 3 Test Series, 2026", day: "4", session: "3",
+    match_status: "Stumps", match_display_status: "Stumps", is_match_on_break: true,
+    current_status_message: "Stumps, Day 4 - South Africa lead by 287 runs", current_innings: "3",
+    current_batting_team_id: "7", current_bowling_team_id: "1", scores: [
+      { inning_no: "1", team_id: "7", team_runs: "329", team_wickets: "10", team_overs: "82.3" },
+      { inning_no: "2", team_id: "1", team_runs: "429", team_wickets: "10", team_overs: "125.1" },
+      { inning_no: "3", team_id: "7", team_runs: "387", team_wickets: "7", team_overs: "134.4" }], ...changes });
+}
+function testContextCollection(changes = {}) {
+  return normalizeICC([parseICCPage(payload([testContextRow(changes)],
+    { timestamp: { utc_time: "10/30/2026 5:56:08 PM" } }), testContextAt)], testContextAt);
+}
+
+test("same admitted ICC Test publishes explicit Day4 ordinal and whole-match end without a daily date", () => {
+  const fixture = testContextCollection().fixtures[0];
+  assert.equal(fixture.id, "icc:269792");
+  assert.equal(fixture.start, "2026-10-27T08:30:00.000Z");
+  assert.equal(fixture.status, "live");
+  assert.equal(fixture.context.phase, "stumps");
+  assert.equal(fixture.context.day, 4);
+  assert.equal(fixture.context.session, 3);
+  assert.equal(fixture.context.matchOrdinal, 3);
+  assert.equal(fixture.context.matchEndsAt, "2026-10-31T15:30:00.000Z");
+  assert.equal(fixture.context.innings.length, 3);
+  assert.equal(fixture.context.dailyStart, undefined);
+  assert.equal(fixture.context.broadcastDate, undefined);
+  assert.equal(validCricketContext(fixture.context, fixture), true);
+  for (const [match_status, expected] of [["Lunch", "lunch"], ["Tea", "tea"], ["Play In Progress", "in-play"]]) {
+    assert.equal(testContextCollection({ match_status, match_display_status: "Live", is_match_on_break: false })
+      .fixtures[0].context.phase, expected);
+  }
+});
+
+test("ICC Test authority reaches the persisted registry GET without changing schema or accepted identities", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: testContextAt.getTime() });
+  const accepted = await refreshCricketState(null, testContextAt, async () => testContextCollection());
+  const storage = new Map([["cricket-registry-v1", accepted]]);
+  let reads = 0;
+  const registry = new CricketFixtureRegistry({ storage: { get: async (k) => storage.get(k), put: async (k, v) => storage.set(k, v) },
+    waitUntil: () => { throw new Error("Not due"); } }, {}, { collectICC: async () => { reads++; throw new Error("Not due"); } });
+  const response = await registry.fetch(new Request("https://internal/fixtures"));
+  const body = await response.json(), fixture = body.fixtures.find((f) => f.id === "icc:269792");
+  assert.equal(response.status, 200);
+  assert.equal(body.schemaVersion, 1);
+  assert.equal(fixture.context.matchOrdinal, 3);
+  assert.equal(fixture.context.day, 4);
+  assert.equal(fixture.context.matchEndsAt, "2026-10-31T15:30:00.000Z");
+  assert.deepEqual(body.fixtures, accepted.snapshot.fixtures);
+  assert.equal(reads, 0);
+});
+
+test("Test ordinal needs explicit agreement and suffix; series name never supplies missing authority", () => {
+  for (const changes of [{ match_number: undefined }, { match_ordinal: undefined },
+    { match_number: "3th Test" }, { match_ordinal: "2" }, { match_ordinal: "03" },
+    { match_number: "3 Test Series" }, { match_number: "3rd ODI" }]) {
+    const fixture = testContextCollection(changes).fixtures[0];
+    assert.equal(fixture.context.matchOrdinal, undefined);
+    assert.equal(fixture.context.day, 4);
+    assert.equal(fixture.context.phase, "stumps");
+  }
+  for (const [number, suffix] of [[1, "st"], [2, "nd"], [11, "th"], [12, "th"], [13, "th"], [21, "st"]]) {
+    assert.equal(testContextCollection({ match_number: `${number}${suffix} Test`, match_ordinal: String(number) })
+      .fixtures[0].context.matchOrdinal, number);
+  }
+});
+
+test("Test end is explicit same-record GMT, strictly valid and at most six days after original kickoff", () => {
+  for (const changes of [{ end_match_date_gmt: undefined }, { end_match_time_gmt: undefined },
+    { end_match_date_gmt: "10/32/2026" }, { end_match_time_gmt: "24:00" }, { end_match_time_gmt: "15:60" },
+    { end_match_time_gmt: "15:30+02:00" }, { end_match_date_gmt: "10/27/2026", end_match_time_gmt: "08:30" },
+    { end_match_date_gmt: "11/02/2026", end_match_time_gmt: "08:31" }]) {
+    const fixture = testContextCollection(changes).fixtures[0];
+    assert.equal(fixture.context.matchEndsAt, undefined);
+    assert.equal(fixture.context.matchOrdinal, 3);
+    assert.equal(fixture.start, "2026-10-27T08:30:00.000Z");
+  }
+  assert.equal(testContextCollection({ end_match_date_gmt: "11/02/2026", end_match_time_gmt: "08:30" })
+    .fixtures[0].context.matchEndsAt, "2026-11-02T08:30:00.000Z");
+});
+
+test("malformed or foreign optional context cannot erase the fixture or grant current Test authority", () => {
+  const original = testContextCollection().fixtures[0];
+  for (const changes of [{ scores: [] }, { scores: [{ inning_no: "1", team_id: "7", team_runs: "-1", team_wickets: "0" }] },
+    { day: "7" }, { session: "4" }, { has_super_over: true }]) {
+    const fixture = testContextCollection(changes).fixtures[0];
+    assert.equal(fixture.context, undefined);
+    for (const key of ["id", "start", "status", "format", "home", "away"]) assert.deepEqual(fixture[key], original[key]);
+  }
+  assert.equal(normalizeICCContext(testContextRow({ teama_id: "99" }), original), undefined);
+  assert.equal(normalizeICCContext(testContextRow({ scores: [{ inning_no: "1", team_id: "99", team_runs: "1", team_wickets: "0" }] }), original), undefined);
+});
+
+test("fresh missing context authority is not inherited and context changes advance the content revision", async () => {
+  const first = await refreshCricketState(null, testContextAt, async () => testContextCollection());
+  const later = new Date(testContextAt.getTime() + 5 * 60_000);
+  const next = withReceipt(testContextCollection({ match_ordinal: undefined, end_match_date_gmt: undefined,
+    match_status: "Play In Progress", match_display_status: "Live", is_match_on_break: false }), later);
+  const updated = await refreshCricketState(first, later, async () => next);
+  const fixture = updated.snapshot.fixtures.find((f) => f.id === "icc:269792");
+  assert.equal(fixture.context.matchOrdinal, undefined);
+  assert.equal(fixture.context.matchEndsAt, undefined);
+  assert.equal(fixture.context.phase, "in-play");
+  assert.notEqual(updated.snapshot.revision, first.snapshot.revision);
+  const failed = await refreshCricketState(first, later, async () => { throw new Error("ICC upstream unavailable"); });
+  const retained = failed.snapshot.fixtures.find((f) => f.id === fixture.id);
+  assert.deepEqual(retained.context, first.snapshot.fixtures.find((f) => f.id === fixture.id).context);
+  assert.equal(retained.source.observedAt, testContextAt.toISOString());
+  assert.equal(Date.parse(failed.nextAttemptAt) - later.getTime(), 5 * 60_000);
+});
+
+test("bounded public context drops malformed optional data and overflow without truncating accepted fixtures", async () => {
+  const accepted = await refreshCricketState(null, testContextAt, async () => testContextCollection());
+  const sample = accepted.snapshot.fixtures[0];
+  const fixtures = Array.from({ length: 400 }, (_, i) => ({ ...sample, id: `icc:${300000 + i}`, context: {
+    ...sample.context, message: "A".repeat(200) } }));
+  fixtures[0] = { ...fixtures[0], context: { ...fixtures[0].context, matchOrdinal: 0 } };
+  const before = { ...accepted.snapshot, fixtures }, result = boundedCricketContexts(before);
+  assert.equal(result.fixtures.length, 400);
+  assert.equal(result.fixtures[0].context, undefined);
+  assert.ok(result.fixtures.some((f) => f.context));
+  assert.ok(result.fixtures.filter((f) => f.context).length < 399);
+  const withoutContext = (fixture) => { const copy = { ...fixture }; delete copy.context; return copy; };
+  const stripped = { ...result, fixtures: result.fixtures.map(withoutContext) };
+  assert.ok(Buffer.byteLength(JSON.stringify(result)) - Buffer.byteLength(JSON.stringify(stripped)) <= 64 * 1024);
+  assert.ok(Buffer.byteLength(JSON.stringify(result)) <= 512 * 1024);
+  assert.deepEqual(result.fixtures.map(withoutContext), before.fixtures.map(withoutContext));
+  assert.equal(before.fixtures[0].context.matchOrdinal, 0, "Public projection does not mutate durable accepted state");
 });

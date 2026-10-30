@@ -1,8 +1,9 @@
 // Metadata-only producers for the fixed, already-reviewed native source lanes.
 // A retained observation is not a playable URL, current programme or LIVE fact.
 import { canonicalFootballClubId } from "../../../src/lib/football-competition-catalog.generated.ts";
+import { parseReviewedTVProgrammes, reviewedTVProgrammeURL } from "./reviewed-tv-programmes.mjs";
 export const BROADCAST_SOURCE_CODES = Object.freeze([
-  "streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix",
+  "streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix", "reviewedtv",
 ]);
 const KiB = 1024, MAX_RECORDS = 1500, MAX_BYTES = 1024 * KiB, LIFETIME = 4 * 3600_000;
 const STAGE_LIMITS = { catalog: MAX_BYTES };
@@ -73,6 +74,13 @@ function sourceTitleParts(value) {
   if (!str(value, 512)) return [];
   const parts = value.split(":"); return parts.length === 2 && parts.every((p) => p.trim()) ? parts.map((p) => p.trim()) : [];
 }
+function dlhdClock(description, requireChannelCount = false) {
+  const match = typeof description === "string" && description.match(/^Starts ((?:[01]\d|2[0-3]):[0-5]\d) \(UK time\)(?: · ([1-9]\d{0,2}) channels)?$/u);
+  return match && (!requireChannelCount || match[2]) ? match[1] : null;
+}
+const DLHD_COMPETITIONS = Object.freeze({ "england premier league": "premier-league", "uefa champions league": "champions-league",
+  "england league cup": "carabao-cup", "spain la liga": "la-liga", "italy serie a": "serie-a",
+  "germany bundesliga": "bundesliga", "france ligue 1": "ligue-1" });
 function canonicalChannel(title) {
   if (!str(title, 128)) return null;
   const name = title.toLowerCase().replace(/[^a-z0-9]/gu, "");
@@ -191,9 +199,13 @@ function csRow(row, scope, now) {
   if (isChannel && (row.type !== "tv" || row.genres.length !== 1 || row.cast != null && (!Array.isArray(row.cast) || row.cast.length > 0)
     || ["released", "date", "startTime", "kickoff", "videos"].some((k) => own(row, k)))) issues.push("identity-conflict");
   if (!isChannel) {
-    const named = pair(row.name), cast = strings(row.cast) && row.cast.length === 2 ? row.cast.map(cleanFlags) : [];
+    // The advertised pending-clock icon is presentation, not a participant.
+    // Strip only that finite status prefix before the existing pair parser;
+    // normalized team identities still retain every explicit squad qualifier.
+    const title = typeof row.name === "string" ? row.name.replace(/^⏱\uFE0F?\s*/u, "") : row.name;
+    const named = pair(title), cast = strings(row.cast) && row.cast.length === 2 ? row.cast.map(cleanFlags) : [];
     facts.participants = cast.length === 2 && cast.every(Boolean) ? cast : named;
-    if (named.length === 2 && cast.length === 2 && named.map((x) => x.toLowerCase()).sort().join("|") !== cast.map((x) => x?.toLowerCase()).sort().join("|")) issues.push("identity-conflict");
+    if (named.length === 2 && cast.length === 2 && (!cast.every(Boolean) || !samePair(named, cast, facts.sport))) issues.push("identity-conflict");
   }
   if (!isChannel && facts.sport === "cricket" && typeof row.description === "string") {
     const label = row.description.split("\n").find((line) => line.startsWith("🏆 League: "))?.slice("🏆 League: ".length);
@@ -229,11 +241,12 @@ function asRow(row, scope, now, originals = []) {
     if (!facts.start && /^plaviohdtv-dlhd-ev-[a-z0-9]{1,32}$/u.test(row.id ?? "")) {
       if (JSON.stringify(row.genres) !== '["Football"]') issues.push("identity-conflict");
       const title = sourceTitleParts(row.name);
-      const clock = typeof row.description === "string" && row.description.match(/^Starts ((?:[01]\d|2[0-3]):[0-5]\d) \(UK time\) · [1-9]\d{0,2} channels$/u)?.[1];
+      const clock = dlhdClock(row.description, true);
       if (title?.length === 2 && clock) {
         facts.participants = pair(title[1]);
         const matches = originals.filter((o) => normalizedName(o.competition) === normalizedName(title[0]) && samePair(o.participants, facts.participants));
-        facts.competitionID = ({ "england premier league": "premier-league", "uefa champions league": "champions-league", "england league cup": "carabao-cup" })[normalizedName(title[0])];
+        facts.competitionID = DLHD_COMPETITIONS[normalizedName(title[0])];
+        if (!facts.competitionID) issues.push("unsupported-scope");
         if (matches.length === 1 && matches[0].start && matches[0].clock === clock) {
           const london = wallParts(+new Date(matches[0].start), "Europe/London"), localClock = `${String(london.hour).padStart(2, "0")}:${String(london.minute).padStart(2, "0")}`;
           if (localClock === clock) facts.start = matches[0].start; else issues.push("time-conflict");
@@ -252,6 +265,9 @@ function fsRow(row, scope, now) {
   const category = scope === "football" ? "All Soccer Events ⚽" : "Cricket 🏏", prefix = scope === "football" ? "⚽ " : "🏏 ";
   const title = cleanFlags(row.name), parts = title?.startsWith(prefix) ? title.slice(prefix.length).split(" : ") : [];
   const facts = { sport: scope, participants: parts?.length === 2 ? pair(parts[1]) : [] };
+  // Cricket's competition label carries explicit format/ordinal/Test-day facts.
+  // Retain those facts separately; they never supply or replace a source date.
+  if (scope === "cricket" && parts?.length === 2) Object.assign(facts, cricketLabel(parts[0]));
   if (row.type !== "tv" || !/^dlstreams:event:[a-f0-9]{12}$/u.test(row.id ?? "") || JSON.stringify(row.genres) !== JSON.stringify(["Live TV", "Sports", category])) issues.push("identity-conflict");
   if (parts?.length === 2) facts.competitionID = ({ "England - Premier League": "premier-league", "UEFA Champions League": "champions-league", "Europe - UEFA Champions League": "champions-league", "Italy - Serie A": "serie-a" })[parts[0]];
   if (scope === "football" && !facts.competitionID) issues.push("unsupported-scope");
@@ -452,7 +468,7 @@ function dlhdOriginals(raw) {
     const parts = title?.split(":").map((v) => v.trim()), header = field("schedule__dayTitle", day, "schedule__day");
     const visible = [n, nodes[day], nodes[category]].every((v) => v.valid && v.contentEnd != null && !v.hidden);
     result.push({ competition: parts?.length === 2 ? parts[0] : "", participants: parts?.length === 2 ? pair(parts[1]) : [], clock,
-      start: visible && field("card__meta", category, "schedule__category")?.toLowerCase() === "all soccer events" ? gmtDay(header, clock, true) : null });
+      start: visible && normalizedName(field("card__meta", category, "schedule__category") ?? "") === "all soccer events" ? gmtDay(header, clock, true) : null });
   }
   return result;
 }
@@ -494,13 +510,13 @@ function safeScorePage(value) {
     && !u.port && !u.username && !u.password && !u.search && !u.hash && u.pathname !== "/"; } catch { return false; }
 }
 
-export const broadcastSourceParsers = Object.freeze({ csRow, asRow, fsRow, cncRow, svRow, svOriginals, dlhdOriginals, zonedDate });
+export const broadcastSourceParsers = Object.freeze({ csRow, asRow, asEnriched, fsRow, cncRow, svRow, svOriginals, dlhdOriginals, zonedDate });
 
 function scopeResult(scope, records, complete, failure) {
   return { scope, status: failure ? "failed" : complete ? records.length ? "available" : "empty" : "partial", complete,
     ...(failure ? { failure } : {}) };
 }
-const reason = (error) => ["budget-exhausted", "unsupported-scope", "capacity-exceeded", "invalid-collection"].includes(error?.message) ? error.message : "source-unavailable";
+const reason = (error) => ["budget-exhausted", "unsupported-scope", "capacity-exceeded", "invalid-collection", "catalog-conflict"].includes(error?.message) ? error.message : "source-unavailable";
 
 function retrievalHints(fixtures, now) {
   if (!Array.isArray(fixtures) || fixtures.length > 3000) return [];
@@ -519,8 +535,13 @@ function asEnriched(row, scope, meta, now, originals) {
   if (!object(meta) || meta.id !== row.id || meta.type !== "tv" || !str(meta.name, 512) || typeof meta.description !== "string"
     || meta.description.length > 1024 || own(meta, "genres") && JSON.stringify(meta.genres) !== JSON.stringify(row.genres)
     || ["released", "releaseInfo", "date", "startTime", "kickoff", "videos", "behaviorHints"].some((k) => own(meta, k))) return conflict();
-  if (/^plaviohdtv-dlhd-ev-/u.test(row.id) && (meta.name !== row.name || meta.description !== row.description)) return conflict();
-  const candidate = asRow({ ...row, name: meta.name, description: meta.description }, scope, now, originals);
+  const dlhd = /^plaviohdtv-dlhd-ev-/u.test(row.id);
+  if (dlhd && (meta.name !== row.name || !dlhdClock(row.description, true)
+    || dlhdClock(meta.description) !== dlhdClock(row.description, true))) return conflict();
+  // A channel count is inert display information. The exact same-ID/name and
+  // UK clock must agree, then the original catalog identity still joins the
+  // reviewed dated GMT schedule. A short meta description supplies no date.
+  const candidate = asRow({ ...row, name: meta.name, description: dlhd ? row.description : meta.description }, scope, now, originals);
   if (!candidate || !samePair(base.participants, candidate.participants, base.sport)
     || ["format", "matchOrdinal", "day"].some((k) => base[k] != null && candidate[k] != null && base[k] !== candidate[k])) return conflict();
   // The already-reviewed Sfly Live meta route can add its explicit dated
@@ -568,7 +589,32 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
     }
   };
   try {
-    if (providerCode === "streamex") {
+    if (providerCode === "reviewedtv") {
+      await cohort("cricket", async () => {
+        const first = await parseReviewedTVProgrammes(await read(reviewedTVProgrammeURL(now), MAX_BYTES, true), { now });
+        if (typeof first.guideTimeZone !== "string" || !first.guideTimeZone.length) throw new Error("invalid-collection");
+        const parts = new Intl.DateTimeFormat("en-CA", { timeZone: first.guideTimeZone,
+          year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
+        const value = (type) => parts.find((p) => p.type === type)?.value;
+        const guideDay = `${value("year")}-${value("month")}-${value("day")}`;
+        const collections = [first];
+        if (guideDay !== now.toISOString().slice(0, 10)) {
+          const second = await parseReviewedTVProgrammes(await read(reviewedTVProgrammeURL(new Date(guideDay + "T00:00:00Z")), MAX_BYTES, true), { now });
+          if (second.guideTimeZone !== first.guideTimeZone) throw new Error("catalog-conflict");
+          collections.push(second);
+        }
+        const programmes = new Map();
+        for (const row of collections.flatMap((collection) => collection.broadcasts)) {
+          const previous = programmes.get(row.providerEventID);
+          if (previous && JSON.stringify(previous) !== JSON.stringify(row)) throw new Error("catalog-conflict");
+          programmes.set(row.providerEventID, row);
+        }
+        // Two fixed-date pages must not advertise different simultaneous
+        // programmes on the one admitted station. Never choose one by order.
+        if (programmes.size > 1) throw new Error("catalog-conflict");
+        return [...programmes.values()];
+      }, (row) => row);
+    } else if (providerCode === "streamex") {
       const profiles = [["https://www.streamex.net", "/api/live/matches"], ["https://streamex.sh", "/api/live/matches"], ["https://streamed.pk", "/api/matches"]];
       for (const [origin, prefix] of profiles) {
         const ok = await cohort("live", async () => {
@@ -640,7 +686,9 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
           if (!base || base.verification !== "undated" || base.kind !== "event" || !hints.some((f) => f.sport === base.sport && samePair(f.participants, base.participants, f.sport))) continue;
           const knownID = /^plaviohdtv-(?:dlhd-ev-[a-z0-9]{1,32}|sfly-streamed:[A-Za-z0-9][A-Za-z0-9_-]*)$/u.test(row.id);
           if (!knownID || !m.resources.some((r) => object(r) && r.name === "meta" && r.types?.includes("tv") && r.idPrefixes?.some((p) => row.id.startsWith(p)))) continue;
-          const identity = (r) => JSON.stringify([r.type, r.name, r.description, r.genres, ["released", "releaseInfo", "date", "startTime", "kickoff", "videos", "behaviorHints"].filter((k) => own(r, k))]);
+          const identity = (r) => JSON.stringify([r.type, r.name,
+            /^plaviohdtv-dlhd-ev-/u.test(r.id) && dlhdClock(r.description, true) ? ["dlhd-clock", dlhdClock(r.description, true)] : ["description", r.description],
+            r.genres, ["released", "releaseInfo", "date", "startTime", "kickoff", "videos", "behaviorHints"].filter((k) => own(r, k))]);
           const siblings = rawRows.filter((s) => s.row?.id === row.id);
           if (siblings.some((s) => identity(s.row) !== identity(row))) {
             for (let i = 0; i < broadcasts.length; i++) if (broadcasts[i].providerEventID === row.id) broadcasts[i] = { ...broadcasts[i], verification: "conflicting", issues: [...new Set([...broadcasts[i].issues, "identity-conflict"])] };
