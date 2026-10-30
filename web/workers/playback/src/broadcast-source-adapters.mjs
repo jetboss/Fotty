@@ -81,6 +81,9 @@ function dlhdClock(description, requireChannelCount = false) {
 const DLHD_COMPETITIONS = Object.freeze({ "england premier league": "premier-league", "uefa champions league": "champions-league",
   "england league cup": "carabao-cup", "spain la liga": "la-liga", "italy serie a": "serie-a",
   "germany bundesliga": "bundesliga", "france ligue 1": "ligue-1" });
+const FS_COMPETITIONS = Object.freeze({ "England - Premier League": "premier-league", "UEFA Champions League": "champions-league",
+  "Europe - UEFA Champions League": "champions-league", "Italy - Serie A": "serie-a", "Spain - La Liga": "la-liga",
+  "Germany - Bundesliga": "bundesliga", "France - Ligue 1": "ligue-1" });
 function canonicalChannel(title) {
   if (!str(title, 128)) return null;
   const name = title.toLowerCase().replace(/[^a-z0-9]/gu, "");
@@ -287,7 +290,7 @@ function fsRow(row, scope, now) {
   // Retain those facts separately; they never supply or replace a source date.
   if (scope === "cricket" && parts?.length === 2) Object.assign(facts, cricketLabel(parts[0]));
   if (row.type !== "tv" || !/^dlstreams:event:[a-f0-9]{12}$/u.test(row.id ?? "") || JSON.stringify(row.genres) !== JSON.stringify(["Live TV", "Sports", category])) issues.push("identity-conflict");
-  if (parts?.length === 2) facts.competitionID = ({ "England - Premier League": "premier-league", "UEFA Champions League": "champions-league", "Europe - UEFA Champions League": "champions-league", "Italy - Serie A": "serie-a" })[parts[0]];
+  if (parts?.length === 2) facts.competitionID = FS_COMPETITIONS[parts[0]];
   if (scope === "football" && !facts.competitionID) issues.push("unsupported-scope");
   if (title && /\b(?:xtra\s*time|extra\s*time|watch\s*along|watchalong|preview|highlights?|replays?|simulcast|multicast)\b/iu.test(title)) issues.push("unverified-fixture");
   if (parts?.length === 2 && [...squadTokens(parts[0])].some((q) => !facts.participants.every((p) => squadTokens(p).has(q)))) issues.push("squad-conflict");

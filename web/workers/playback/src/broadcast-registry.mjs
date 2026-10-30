@@ -60,7 +60,7 @@ function supportedFixtures(code, fixtures) {
   if (code === "plaviosports") return fixtures.filter((f) => ["football", "cricket"].includes(f.sport));
   if (code === "reviewedtv") return fixtures.filter((f) => f.sport === "cricket");
   if (code === "flixstreams") return fixtures.filter((f) => f.sport === "cricket" || f.sport === "football"
-    && ["premier-league", "champions-league", "serie-a"].includes(f.competitionID));
+    && ["premier-league", "champions-league", "serie-a", "la-liga", "bundesliga", "ligue-1"].includes(f.competitionID));
   return fixtures;
 }
 

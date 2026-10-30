@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BROADCAST_SOURCE_CODES, collectBroadcastSource as collect, broadcastSourceParsers as parse } from "./broadcast-source-adapters.mjs";
-import { normalizeBroadcastCollection } from "./broadcast-registry-policy.mjs";
+import { normalizeBroadcastCollection, associateBroadcasts } from "./broadcast-registry-policy.mjs";
 
 const now = new Date("2026-10-30T12:00:00Z");
 const json = (v, status = 200) => new Response(JSON.stringify(v), { status, headers: { "content-type": "application/json" } });
@@ -398,6 +398,33 @@ test("FS retains healthy complete page cohort while a sibling genre page fails",
 test("FS rejects competing timestamp/hint/video authority while retaining the identifiable row", () => {
   const row = parse.fsRow({ ...fsRow(), videos: [{ id: "dlstreams:event:aaaaaaaaaaaa", released: "2026-10-31T16:30:00.000Z", title: "Live Stream", season: 1, episode: 1 }] }, "football", now);
   assert.equal(row.verification, "conflicting"); assert.ok(row.issues.includes("time-conflict"));
+});
+test("FS actual Ligue1 UTC listing joins its existing canonical fixture while timing, squad and competition conflicts remain vetoes", async () => {
+  const raw = { ...fsRow(), name: "⚽ France - Ligue 1 : Le Havre 🇫🇷 vs PSG 🇫🇷",
+    description: "Category: All Soccer Events ⚽\nDate: 2026-10-30 (UTC)\nTime: 18:00\nChannels: 18" };
+  const fixture = { fixtureID: "sports-fixture:ligue-1:559644", sport: "football", competitionID: "ligue-1",
+    participants: ["Le Havre AC", "Paris Saint-Germain FC"], start: "2026-10-30T18:00:00.000Z", status: "scheduled",
+    squad: { gender: "men", ageGroup: "senior" }, observedAt: now.toISOString(), verified: true };
+  const joined = async (row, official = fixture) => {
+    const source = await normalizeBroadcastCollection("flixstreams", { providerCode: "flixstreams", observedAt: now.toISOString(),
+      complete: false, scopes: [{ scope: "football", status: "partial", complete: false }], broadcasts: [parse.fsRow(row, "football", now)] }, now);
+    return { source, links: associateBroadcasts({ fixtures: [official], broadcasts: source.broadcasts, providers: source.scopes, now }) };
+  };
+  const accepted = await joined(raw);
+  assert.equal(accepted.source.broadcasts[0].competitionID, "ligue-1"); assert.equal(accepted.source.broadcasts[0].verification, "dated");
+  assert.equal(accepted.links[0].state, "listed"); assert.equal(accepted.links[0].fixtureID, fixture.fixtureID);
+  assert.equal(accepted.links[0].fixtureFingerprint.start, fixture.start);
+  assert.equal((await joined({ ...raw, description: raw.description.replace("18:00", "18:16") })).links[0].reason, "time-conflict");
+  assert.equal((await joined(raw, { ...fixture, competitionID: "champions-league" })).links[0].reason, "competition-conflict");
+  assert.equal((await joined({ ...raw, name: raw.name.replace("Le Havre 🇫🇷 vs PSG 🇫🇷", "Le Havre Women vs PSG Women") })).links.length, 0);
+  for (const [label, canonical] of [["Spain - La Liga", "la-liga"], ["Germany - Bundesliga", "bundesliga"]]) {
+    const row = parse.fsRow({ ...raw, name: raw.name.replace("France - Ligue 1", label) }, "football", now);
+    assert.equal(row.competitionID, canonical); assert.equal(row.verification, "dated");
+  }
+  for (const label of ["England - Premier League 2", "Bundesliga 2", "Austria - Bundesliga", "France - Ligue 2", "France - Première Ligue"]) {
+    const row = parse.fsRow({ ...raw, name: raw.name.replace("France - Ligue 1", label) }, "football", now);
+    assert.equal(row.competitionID, undefined); assert.equal(row.verification, "undated"); assert.ok(row.issues.includes("unsupported-scope"));
+  }
 });
 test("FS preserves its explicit Test format/ordinal/day and literal UTC date through wire normalization", async () => {
   const raw = { ...fsRow("cricket"), name: "🏏 3rd Test day-3 : South Africa 🇿🇦 vs Australia 🇦🇺",

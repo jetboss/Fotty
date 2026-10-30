@@ -309,6 +309,23 @@ test("a live cricket Test does not accelerate football-only, UCL-only or NHL-onl
   assert.equal(h.calls.filter((code) => code !== "plaviosports").length, 3);
 });
 
+test("FS cadence follows all reviewed official football leagues while unknown lookalikes stay quiet and actual read cost remains bounded", async () => {
+  for (const competitionID of ["ligue-1", "bundesliga", "la-liga", "premier-league-2"]) {
+    const h = harness({ providers: [{ providerCode: "flixstreams", maxRequestsPerDay: 96 }],
+      fixtures: (now) => [{ fixtureID: `sports-fixture:${competitionID}:fixture`, sport: "football", competitionID,
+        participants: ["Le Havre AC", "Paris Saint-Germain FC"], start: new Date(initial - 30 * 60_000).toISOString(),
+        status: "live", observedAt: new Date(now).toISOString(), verified: true }],
+      collect: async (code, context, state) => {
+        for (let index = 0; index < 7; index++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+        return state.reply(code);
+      } });
+    await h.create().refresh();
+    assert.equal(h.reads, 7); assert.equal(h.values.get(key).budgets.flixstreams.count, 7);
+    assert.equal(Date.parse(h.values.get(key).providers.flixstreams.nextAttemptAt),
+      initial + (competitionID === "premier-league-2" ? 4 * 60 : 105) * 60_000);
+  }
+});
+
 test("checkpoint debt survives failed collection, restart, clock rollback and disable/re-enable without refunding reads", async () => {
   const kickoff = initial + 21 * 60_000;
   let fail = false;
