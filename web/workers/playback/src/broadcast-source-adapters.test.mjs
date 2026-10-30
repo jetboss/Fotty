@@ -212,13 +212,13 @@ test("SV original GMT and actual advertised ID corroborate its unique Rome conve
   assert.equal(parse.svRow({ ...svEntry, id: "tv:unadvertised" }, "Premier League", now, originals).verification, "conflicting");
 });
 test("SV failed UCL catalog cannot erase a healthy Premier League observation", async () => {
-  const h = harness("streamvix", async (url) => url.includes("raw.githubusercontent.com") ? json(svOriginal)
+  const h = harness("streamvix", async (url) => new URL(url).hostname === "raw.githubusercontent.com" ? json(svOriginal)
     : url.includes("genre=Coppe") ? json({}, 503) : json({ metas: [svEntry] }));
   const result = await h.run(); assert.equal(result.broadcasts.length, 1); assert.equal(result.broadcasts[0].verification, "dated");
   assert.equal(result.scopes.length, 1); assert.equal(result.scopes[0].status, "partial"); assert.equal(h.calls.length, 4);
 });
 test("SV original-schedule failure retains advertised catalog rows as unverified, not an empty catalog", async () => {
-  const h = harness("streamvix", async (url) => url.includes("raw.githubusercontent.com") ? json({}, 503) : json({ metas: url.includes("genre=Coppe") ? [] : [svEntry] }));
+  const h = harness("streamvix", async (url) => new URL(url).hostname === "raw.githubusercontent.com" ? json({}, 503) : json({ metas: url.includes("genre=Coppe") ? [] : [svEntry] }));
   const result = await h.run();
   assert.equal(result.broadcasts.length, 1); assert.equal(result.broadcasts[0].verification, "undated");
   assert.ok(result.broadcasts[0].issues.includes("unverified-fixture")); assert.equal(result.scopes[0].status, "partial");
@@ -236,19 +236,19 @@ const listing = `<html><body><div class="elfsight-app-${widget}"></div></body></
 const scoreEvent = (changes = {}) => ({ id: "test-event", name: "Liverpool vs Chelsea", start: { type: "datetime", date: "2026-10-29", time: "01:00" }, end: { type: "datetime", date: "2026-10-29", time: "03:00" }, timeZone: "Asia/Karachi", repeatPeriod: "noRepeat", actions: [{ type: "link", text: "Watch Now", primary: true, link: { type: "url", value: "https://www.score808live.tv/liverpool-live/" } }], ...changes });
 const boot = (events) => ({ status: 1, data: { widgets: { [widget]: { status: 1, data: { settings: { selectedEventsProvider: "manual", events } } } } } });
 test("Score808 reads one visible widget and fixed boot, preserving literal zoned dates without article URLs", async () => {
-  const h = harness("score808", async (url) => url.includes("core.service.elfsight.com") ? json(boot([scoreEvent()])) : html(listing));
+  const h = harness("score808", async (url) => new URL(url).hostname === "core.service.elfsight.com" ? json(boot([scoreEvent()])) : html(listing));
   const result = await h.run(); assert.equal(h.calls.length, 2); const row = result.broadcasts[0];
   assert.equal(row.start, "2026-10-28T20:00:00.000Z"); assert.equal(row.end, "2026-10-28T22:00:00.000Z"); assert.equal(row.verification, "dated");
   assert.ok(!JSON.stringify(result).includes("liverpool-live")); assert.equal(result.scopes[0].complete, true);
   const normalized = await normalizeBroadcastCollection("score808", result, now); assert.equal(normalized.broadcasts[0].verification, "dated");
 });
 test("Score808 actual whitespace decoration cannot poison the whole collection", async () => {
-  const h = harness("score808", async (url) => url.includes("core.service.elfsight.com") ? json(boot([scoreEvent({ name: " Liverpool vs Chelsea " })])) : html(listing));
+  const h = harness("score808", async (url) => new URL(url).hostname === "core.service.elfsight.com" ? json(boot([scoreEvent({ name: " Liverpool vs Chelsea " })])) : html(listing));
   const normalized = await normalizeBroadcastCollection("score808", await h.run(), now);
   assert.equal(normalized.broadcasts[0].title, "Liverpool vs Chelsea");
 });
 test("Score808 repeated current article, malformed/duplicate widget and hidden scripts fail closed", async () => {
-  const h = harness("score808", async (url) => url.includes("core.service.elfsight.com") ? json(boot([scoreEvent(), scoreEvent({ id: "second", name: "Arsenal vs Everton" })])) : html(listing));
+  const h = harness("score808", async (url) => new URL(url).hostname === "core.service.elfsight.com" ? json(boot([scoreEvent(), scoreEvent({ id: "second", name: "Arsenal vs Everton" })])) : html(listing));
   const result = await h.run(); assert.ok(result.broadcasts.every((r) => r.verification === "conflicting"));
   for (const bad of [`<script>${listing}</script>`, `<div hidden>${listing}</div>`, listing.replace("</body>", '<div class="elfsight-app-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"></div></body>')]) {
     const x = harness("score808", async () => html(bad)); const denied = await x.run(); assert.equal(x.calls.length, 1); assert.equal(denied.broadcasts.length, 0);
@@ -261,7 +261,7 @@ test("local calendar conversion rejects DST gaps/duplicates and invalid civil da
 });
 
 test("StreamEx fallback profiles remain one family and retain unmatched dated catalog entries", async () => {
-  const h = harness("streamex", async (url) => url.includes("www.streamex.net") ? json({}, 503) : json([{ id: "cup-home-away", title: "Home vs Away", category: "football", date: Date.parse("2026-10-30T18:00:00Z"), sources: [{ source: "alpha", id: "opaque" }] }]));
+  const h = harness("streamex", async (url) => new URL(url).hostname === "www.streamex.net" ? json({}, 503) : json([{ id: "cup-home-away", title: "Home vs Away", category: "football", date: Date.parse("2026-10-30T18:00:00Z"), sources: [{ source: "alpha", id: "opaque" }] }]));
   const result = await h.run(); assert.equal(h.calls.length, 2); assert.equal(result.providerCode, "streamex"); assert.equal(result.broadcasts.length, 1);
   assert.equal(result.broadcasts[0].verification, "dated"); assert.equal(result.scopes[0].status, "partial");
 });
