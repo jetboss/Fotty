@@ -46,6 +46,35 @@ test("normalized registry retains bounded identity facts and strips every unrela
   await assert.rejects(normalizeBroadcastCollection("communitysports", collection([row({ providerEventID: "https://private.example/token" })]), now), /invalid-collection/);
 });
 
+test("US station market is an optional finite CS main-Willow channel fact, never a programme or arbitrary source instruction", async () => {
+  const channel = (changes = {}) => row({ kind: "channel", sport: "cricket", scope: "networks", title: "Willow Cricket",
+    participants: [], start: undefined, channelID: "cricket-channel:willow", verification: "undated", stationMarket: "US", ...changes });
+  const input = (broadcast, providerCode = "communitysports") => ({ providerCode, observedAt: stamp(), complete: false,
+    scopes: [{ scope: broadcast.scope, status: "partial", complete: false }], broadcasts: [broadcast] });
+  for (const scope of ["networks", "cricket", "live"]) {
+    const source = await normalizeBroadcastCollection("communitysports", input(channel({ scope })), now);
+    assert.equal(source.broadcasts[0].stationMarket, "US");
+    const legacy = await normalizeBroadcastCollection("communitysports", input(channel({ scope, stationMarket: undefined })), now);
+    assert.equal(legacy.broadcasts[0].stationMarket, undefined, "Missing market stays unknown, not inferred US");
+  }
+  for (const changes of [{ stationMarket: "UK" }, { stationMarket: "us" }, { stationMarket: null },
+    { stationMarket: { country: "US" } }, { channelID: "cricket-channel:fox-cricket" }, { scope: "football" },
+    { kind: "event" }, { kind: "programme", start: stamp(-60_000), end: stamp(60_000) }]) {
+    await assert.rejects(normalizeBroadcastCollection("communitysports", input(channel(changes)), now), /invalid-collection/u);
+  }
+  await assert.rejects(normalizeBroadcastCollection("plaviosports", input(channel(), "plaviosports"), now), /invalid-collection/u);
+  const malformed = await normalizeBroadcastCollection("communitysports", input(channel({ participants: ["India", "Australia"] })), now);
+  assert.equal(malformed.broadcasts[0].verification, "conflicting"); assert.equal(malformed.broadcasts[0].stationMarket, undefined);
+  const opts = { providerCode: "communitysports", observedAt: stamp(), complete: false,
+    scopes: [{ scope: "networks", status: "partial", complete: false }, { scope: "cricket", status: "partial", complete: false }] };
+  const us = channel(), unknown = channel({ scope: "cricket", stationMarket: undefined });
+  for (const broadcasts of [[us, unknown], [unknown, us]]) {
+    const conflict = await normalizeBroadcastCollection("communitysports", { ...opts, broadcasts }, now);
+    assert.equal(conflict.broadcasts.length, 1); assert.equal(conflict.broadcasts[0].verification, "conflicting");
+    assert.equal(conflict.broadcasts[0].stationMarket, undefined);
+  }
+});
+
 test("exact pairing, scope, squad and date conflicts never become listed broadcasts", async () => {
   assert.equal((await joined([row({ participants: ["Liverpool", "Arsenal"] })])).links.length, 0);
   for (const [changes, reason] of [[{ start: stamp(-46 * 60_000) }, "time-conflict"],

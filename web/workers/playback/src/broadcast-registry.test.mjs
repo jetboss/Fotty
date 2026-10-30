@@ -233,6 +233,28 @@ test("disabling collection fences a pending alarm without erasing accepted recor
   assert.equal(h.reads, 2); assert.equal(h.alarm, null); assert.deepEqual(h.values.get(key), before);
 });
 
+test("durable channel market survives restart, clears on a fresh unqualified observation and rejects corrupt executable market fields", async () => {
+  let market = "US";
+  const h = harness({ providers: [{ providerCode: "communitysports", maxRequestsPerDay: 288 }], collect: async (code, context, state) => {
+    assert.equal(await context.reserveRequest(), true); state.read();
+    return state.reply(code, { scopes: [{ scope: "cricket", status: "partial", complete: false }], broadcasts: [{
+      providerEventID: "nuvio_sport_willow_main", streamID: "nuvio_sport_willow_main", resourceType: "tv", scope: "cricket",
+      kind: "channel", sport: "cricket", title: "Willow Cricket", participants: [], channelID: "cricket-channel:willow",
+      ...(market ? { stationMarket: market } : {}), verification: "undated", observedAt: new Date(state.now()).toISOString(),
+      expiresAt: new Date(state.now() + 60 * 60_000).toISOString(),
+    }] });
+  } });
+  assert.equal((await h.create().refresh()).broadcasts[0].stationMarket, "US");
+  const restarted = await h.create().fetch(new Request("https://internal/snapshot"));
+  assert.equal(restarted.status, 200); assert.equal((await restarted.json()).broadcasts[0].stationMarket, "US");
+  market = undefined; h.now += 5 * 60_000;
+  assert.equal((await h.create().refresh()).broadcasts[0].stationMarket, undefined);
+  assert.equal(h.values.get(key).budgets.communitysports.count, 2, "Market withdrawal never resets the read ledger");
+  const poisoned = h.values.get(key); poisoned.providers.communitysports.records[0].stationMarket = "UK"; h.values.set(key, poisoned);
+  assert.equal((await h.create().fetch(new Request("https://internal/snapshot"))).status, 503);
+  assert.equal(h.reads, 2);
+});
+
 test("a late published football listing is found at the grouped pre-kickoff checkpoint by moving, not adding, the next cycle", async () => {
   const kickoff = initial + 21 * 60_000;
   const h = harness({ providers: [{ providerCode: "plaviosports", maxRequestsPerDay: 288 }],
@@ -285,6 +307,23 @@ test("a live cricket Test does not accelerate football-only, UCL-only or NHL-onl
   h.now = initial + 6 * 60_000;
   await h.create().refresh();
   assert.equal(h.calls.filter((code) => code !== "plaviosports").length, 3);
+});
+
+test("FS cadence follows all reviewed official football leagues while unknown lookalikes stay quiet and actual read cost remains bounded", async () => {
+  for (const competitionID of ["ligue-1", "bundesliga", "la-liga", "premier-league-2"]) {
+    const h = harness({ providers: [{ providerCode: "flixstreams", maxRequestsPerDay: 96 }],
+      fixtures: (now) => [{ fixtureID: `sports-fixture:${competitionID}:fixture`, sport: "football", competitionID,
+        participants: ["Le Havre AC", "Paris Saint-Germain FC"], start: new Date(initial - 30 * 60_000).toISOString(),
+        status: "live", observedAt: new Date(now).toISOString(), verified: true }],
+      collect: async (code, context, state) => {
+        for (let index = 0; index < 7; index++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+        return state.reply(code);
+      } });
+    await h.create().refresh();
+    assert.equal(h.reads, 7); assert.equal(h.values.get(key).budgets.flixstreams.count, 7);
+    assert.equal(Date.parse(h.values.get(key).providers.flixstreams.nextAttemptAt),
+      initial + (competitionID === "premier-league-2" ? 4 * 60 : 105) * 60_000);
+  }
 });
 
 test("checkpoint debt survives failed collection, restart, clock rollback and disable/re-enable without refunding reads", async () => {
