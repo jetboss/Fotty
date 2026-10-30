@@ -24,6 +24,8 @@ import { resolveCoachPlayers, coachPlayerClarification, collectCoachPlayerHistor
 import { coachTransferContext, validateCoachTransfers } from "./coach-transfers.mjs";
 import { WORKER_SOURCE_VERSION } from "./worker-version.mjs";
 import { collectBroadcastCatalog } from "./broadcast-catalog.mjs";
+import { BroadcastRegistry as BaseBroadcastRegistry, DEFAULT_BROADCAST_REGISTRY_PROVIDERS } from "./broadcast-registry.mjs";
+import { collectBroadcastSource } from "./broadcast-source-adapters.mjs";
 export { CoachQuotaBudget } from "./coach-safety.mjs";
 import cplFixtureFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
 import { cplFixtureSources, resolveCPLManifest, validateCPLManifest } from "./cpl-fixture-policy.mjs";
@@ -115,6 +117,81 @@ async function handleCricketFixtures(env) {
   } catch {
     return json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable" }, 503);
   }
+}
+
+export function enabledBroadcastProviders(env) {
+  const raw = env.FOTTY_BROADCAST_REGISTRY_SOURCES;
+  if (typeof raw !== "string" || raw.length > 256) return [];
+  const codes = raw.split(",").map((value) => value.trim()).filter(Boolean);
+  if (new Set(codes).size !== codes.length
+    || codes.some((code) => !DEFAULT_BROADCAST_REGISTRY_PROVIDERS.some((source) => source.providerCode === code))) return [];
+  return DEFAULT_BROADCAST_REGISTRY_PROVIDERS.filter((source) => codes.includes(source.providerCode));
+}
+
+export function broadcastRegistryEnabled(env) {
+  return Boolean(env.BROADCAST_REGISTRY) && env.FOTTY_BROADCAST_REGISTRY_ENABLED === "1"
+    && enabledBroadcastProviders(env).length > 0;
+}
+
+// Reuse already accepted official snapshots. Broadcast collection never makes
+// a new fixture or turns provider programme copy into official LIVE status.
+export async function loadBroadcastRegistryFixtures(env) {
+  const fixtures = [];
+  const responses = await Promise.allSettled([handleSportsFixtures(env), handleCricketFixtures(env)]);
+  for (let index = 0; index < responses.length; index++) {
+    const result = responses[index];
+    if (result.status !== "fulfilled" || !result.value.ok) continue;
+    const body = await boundedJSON(result.value, 2 * 1024 * 1024);
+    if (body.schemaVersion !== 1 || !Array.isArray(body.fixtures) || body.fixtures.length > 3000) continue;
+    for (const row of body.fixtures) {
+      const explicitVerification = Object.prototype.hasOwnProperty.call(row.source ?? {}, "verification");
+      const covered = ["verified", "partial"].includes(body.sourceStatus)
+        && body.coverage?.some((scope) => scope.competitionId === row.competitionId && scope.status === "covered");
+      if (!(explicitVerification ? row.source.verification === "verified" : covered)
+        || !["scheduled", "live"].includes(row.status)) continue;
+      if (index === 0) {
+        if (row.eventKind !== "match" || !Array.isArray(row.participants) || row.participants.length !== 2) continue;
+        fixtures.push({ fixtureID: row.id, sport: row.sport, title: row.title,
+          participants: row.participants.map((p) => p.name), start: row.start,
+          competitionID: row.competitionId, ...(row.squad ? { squad: row.squad } : {}),
+          status: row.status, observedAt: row.source.observedAt, verified: true });
+      } else {
+        fixtures.push({ fixtureID: `cricket-fixture:${row.id}`, sport: "cricket",
+          participants: [row.home?.name, row.away?.name], start: row.start,
+          competitionID: row.competitionId, format: row.format,
+          ...(row.format === "Test" && row.context ? {
+            ...(row.context.matchOrdinal ? { matchOrdinal: row.context.matchOrdinal } : {}),
+            ...(row.context.day ? { day: row.context.day } : {}),
+            ...(row.context.matchEndsAt ? { end: row.context.matchEndsAt } : {}),
+          } : {}), status: row.status, observedAt: row.source.observedAt, verified: true });
+      }
+    }
+  }
+  return fixtures;
+}
+
+export class BroadcastRegistry extends BaseBroadcastRegistry {
+  constructor(state, env) {
+    super(state, env, { providers: enabledBroadcastProviders(env),
+      enabled: () => broadcastRegistryEnabled(env),
+      collect: (providerCode, options) => collectBroadcastSource(providerCode, options),
+      loadFixtures: () => loadBroadcastRegistryFixtures(env) });
+  }
+}
+
+function broadcastRegistryStub(env) {
+  return env.BROADCAST_REGISTRY.get(env.BROADCAST_REGISTRY.idFromName("shared-broadcast-registry-v1"));
+}
+
+async function handleBroadcastRegistry(url, env) {
+  if (url.search) return json({ error: "Unsupported registry query" }, 400);
+  if (!broadcastRegistryEnabled(env)) return json({ schemaVersion: 1, activation: "pending" }, 503);
+  try {
+    const response = await broadcastRegistryStub(env).fetch("https://broadcast-registry.invalid/snapshot");
+    return new Response(response.body, { status: response.status,
+      headers: corsHeaders({ "Content-Type": "application/json", "Cache-Control": "public, max-age=30",
+        "X-Fotty-Broadcast-Registry-Schema": "1" }) });
+  } catch { return json({ schemaVersion: 1, activation: "unavailable" }, 503); }
 }
 
 const IOS_SAFARI_USER_AGENT =
@@ -675,6 +752,8 @@ async function handleHealth(env) {
     catalogProviderCount: STREAM_PROVIDERS.length,
     broadcastCatalogSchema: 1,
     broadcastCatalogFamilyCount: 1,
+    broadcastRegistrySchema: 1,
+    broadcastRegistryEnabled: broadcastRegistryEnabled(env),
     catalogCoverageMode: "parallel-with-direct-fallback",
     cplFallbackRevision: cplFixtureFallback.revision,
     cricketFixtureRegistryConfigured: Boolean(env.CRICKET_FIXTURES),
@@ -1354,6 +1433,9 @@ async function handleFplCoachWithinDeadline(request, env, signal) {
 
 const worker = {
   async scheduled(_controller, env, ctx) {
+    if (broadcastRegistryEnabled(env)) ctx.waitUntil(broadcastRegistryStub(env).fetch(
+      new Request("https://broadcast-registry.invalid/refresh", { method: "POST" }))
+      .then((response) => { if (!response.ok) throw new Error("Broadcast registry refresh failed"); }));
     if (env.CRICKET_FIXTURES) ctx.waitUntil(cricketRegistryStub(env).fetch(new Request("https://cricket-registry.invalid/refresh", { method: "POST" }))
       .then((response) => { if (!response.ok) throw new Error("Cricket scheduled refresh failed"); }));
     if (sportsFixturesEnabled(env)) ctx.waitUntil(mapSportsSources(async (source) => {
@@ -1405,6 +1487,7 @@ const worker = {
       }
       return result;
     }
+    if (url.pathname === "/api/live/broadcasts") return handleBroadcastRegistry(url, env);
     if (url.pathname === "/api/live/streams") return handleStreams(url);
     if (url.pathname === "/api/embed/player") return handlePlayer(url);
     return json({ error: "Not found" }, 404);
