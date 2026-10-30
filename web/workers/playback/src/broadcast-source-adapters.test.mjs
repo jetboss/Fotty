@@ -83,7 +83,8 @@ test("reviewed programme malformed HTML, unverified timezone and redirects fail 
 test("CS retains unmatched events, actual Test qualifiers and standalone channels within eight actual reads", async () => {
   const h = harness("communitysports", async (url) => {
     const p = new URL(url).pathname;
-    return json({ metas: p.includes("_cricket.") ? [cs()] : p.includes("_networks.") ? [cs({ id: "nuvio_sport_willow", name: "📺 Willow Cricket", genres: ["NETWORKS"], released: undefined, cast: undefined, behaviorHints: { defaultVideoId: "nuvio_sport_willow" } })]
+    return json({ metas: p.includes("_cricket.") ? [cs()] : p.includes("_networks.") ? [cs({ id: "nuvio_sport_willow", name: "📺 Willow Cricket", genres: ["NETWORKS"], released: undefined, cast: undefined,
+      description: "🏆 League: United States\n📅 Category: NETWORKS\n⏰ Status: 24/7 Live Network", behaviorHints: { defaultVideoId: "nuvio_sport_willow" } })]
       : p.includes("_football.") ? [cs({ id: "nuvio_sport_unmatched", name: "Unmatched Home vs Unmatched Away", genres: ["FOOTBALL"], cast: ["Unmatched Home", "Unmatched Away"], behaviorHints: { defaultVideoId: "nuvio_sport_unmatched" } })] : [] });
   });
   const result = await h.run();
@@ -160,6 +161,70 @@ test("a standalone NETWORKS channel never acquires fixture format, ordinal or da
   const row = parse.csRow(JSON.parse(JSON.stringify(raw)), "networks", now);
   assert.equal(row.kind, "channel"); assert.equal(row.verification, "undated");
   assert.equal(row.format, undefined); assert.equal(row.matchOrdinal, undefined); assert.equal(row.day, undefined);
+});
+
+const willowNetwork = (country = "United States", changes = {}) => JSON.parse(JSON.stringify(cs({
+  id: "nuvio_sport_willow_main", name: "📺 Willow Cricket", type: "tv", genres: ["NETWORKS"], released: undefined, cast: [],
+  behaviorHints: { defaultVideoId: "nuvio_sport_willow_main" },
+  description: `🏆 League: ${country}\n📅 Category: NETWORKS\n⏰ Status: 24/7 Live Network`, ...changes,
+})));
+test("CS executable US station facts require the exact native NETWORKS/main-Willow contract, independently of catalog cohort", async () => {
+  for (const country of ["USA", "United States", "United States of America", "uNiTeD sTaTeS"]) {
+    for (const scope of ["networks", "cricket", "live"]) {
+      const row = parse.csRow(willowNetwork(country), scope, now);
+      assert.equal(row.kind, "channel"); assert.equal(row.sport, "cricket"); assert.equal(row.scope, scope);
+      assert.equal(row.stationMarket, "US"); assert.equal(row.verification, "undated"); assert.deepEqual(row.issues, []);
+      const normalized = await normalizeBroadcastCollection("communitysports", { providerCode: "communitysports", observedAt: now.toISOString(),
+        complete: false, scopes: [{ scope, status: "partial", complete: false }], broadcasts: [row] }, now);
+      assert.equal(normalized.broadcasts[0].stationMarket, "US");
+    }
+  }
+  for (const country of ["United Kingdom", "Canada", "Unknown", "USA / Canada", "United States Replay"]) {
+    const row = parse.csRow(willowNetwork(country, { stationMarket: "US" }), "cricket", now);
+    assert.equal(row.kind, "channel"); assert.equal(row.stationMarket, undefined, "Untrusted raw additions cannot supply a market proof");
+  }
+  const inventory = parse.csRow(willowNetwork("USA", { genres: ["CRICKET"] }), "cricket", now);
+  assert.equal(inventory.kind, "channel"); assert.equal(inventory.stationMarket, undefined, "A literal channel in CRICKET remains inventory until NETWORKS is verified");
+  for (const changes of [{ name: "📺 FOX Cricket" }, { name: "📺 Willow 2 Cricket" }, { description: undefined },
+    { description: "🏆 League: USA\n📅 Category: NETWORKS\n⏰ Status: 24/7 Live Network\nextra" },
+    { description: "🏆 League: USA\n📅 Category: CRICKET\n⏰ Status: 24/7 Live Network" },
+    { released: "2026-10-30T08:00:00.000Z" }, { cast: ["South Africa", "Australia"] }, { type: "movie" }]) {
+    assert.equal(parse.csRow(willowNetwork("USA", changes), "cricket", now)?.stationMarket, undefined);
+  }
+});
+test("CS equivalent NETWORKS, cricket and Live channel observations merge without inventing an event or hiding country conflicts", async () => {
+  const scopes = ["networks", "cricket", "live"].map((scope) => ({ scope, status: "partial", complete: false }));
+  const collectRows = async (rows) => normalizeBroadcastCollection("communitysports", { providerCode: "communitysports",
+    observedAt: now.toISOString(), complete: false, scopes, broadcasts: rows }, now);
+  const equivalent = await collectRows(scopes.map(({ scope }) => parse.csRow(willowNetwork(), scope, now)));
+  assert.equal(equivalent.broadcasts.length, 1); assert.equal(equivalent.broadcasts[0].kind, "channel");
+  assert.equal(equivalent.broadcasts[0].stationMarket, "US"); assert.equal(equivalent.broadcasts[0].verification, "undated");
+  const us = parse.csRow(willowNetwork(), "networks", now), uk = parse.csRow(willowNetwork("United Kingdom"), "cricket", now);
+  for (const rows of [[us, uk], [uk, us]]) {
+    const conflict = await collectRows(rows);
+    assert.equal(conflict.broadcasts.length, 1); assert.equal(conflict.broadcasts[0].verification, "conflicting");
+    assert.equal(conflict.broadcasts[0].stationMarket, undefined); assert.ok(conflict.broadcasts[0].issues.includes("catalog-conflict"));
+  }
+});
+test("CS uses only one advertised channel search inside its existing eight-read budget when current catalog projections omit main US Willow", async () => {
+  const m = structuredClone(manifests.communitysports); m.catalogs.find((c) => c.id === "nuvio_sports_networks").extra = [{ name: "search" }];
+  const h = harness("communitysports", async (url) => json({ metas: url.endsWith("/search=Willow%20Cricket.json") ? [willowNetwork()] : [] }),
+    8, { manifestOverride: m });
+  const result = await h.run();
+  assert.equal(h.calls.filter((r) => r.url.endsWith("/search=Willow%20Cricket.json")).length, 1);
+  assert.equal(h.calls.length, 8); assert.equal(result.broadcasts[0].stationMarket, "US");
+  assert.equal(result.broadcasts[0].kind, "channel");
+  const alreadyObserved = harness("communitysports", async (url) => json({ metas: url.includes("_cricket.json") ? [willowNetwork()] : [] }),
+    8, { manifestOverride: m });
+  await alreadyObserved.run();
+  assert.equal(alreadyObserved.calls.filter((r) => r.url.includes("/search=")).length, 0, "An exact NETWORKS profile already seen in cricket requires no redundant query");
+  m.catalogs.find((c) => c.id === "nuvio_sports_football").extra = [{ name: "search" }];
+  const withFixture = harness("communitysports", async (url) => json({ metas: url.endsWith("/search=Willow%20Cricket.json") ? [willowNetwork()] : [] }),
+    8, { manifestOverride: m });
+  await withFixture.run({ fixtures: [hintedFixture()] });
+  assert.equal(withFixture.calls.length, 8);
+  assert.equal(withFixture.calls.filter((r) => r.url.includes("/search=")).length, 2, "The channel hint replaces one fixture hint");
+  assert.ok(withFixture.calls.some((r) => r.url.endsWith("nuvio_sports_basketball.json")), "The finite other-sport rotation still progresses");
 });
 
 test("AS retains clock-only cricket as undated instead of inventing today or rewriting the Test day", () => {

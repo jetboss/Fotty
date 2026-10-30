@@ -67,15 +67,18 @@ export function mergeBroadcastRecords(records, at = new Date(), coverage = []) {
   const identity = (r) => ({ providerCode: r.providerCode, providerEventID: r.providerEventID, streamID: r.streamID,
     kind: r.kind, sport: r.sport, participants: pair(r.participants, r.sport), start: r.start, end: r.end,
     competitionID: r.competitionID, squad: r.squad, format: r.format, matchOrdinal: r.matchOrdinal,
-    day: r.day, channelID: r.channelID, verification: r.verification });
+    day: r.day, channelID: r.channelID, stationMarket: r.stationMarket, verification: r.verification });
   return [...groups.values()].map((rows) => {
     const current = rows.filter((r) => Date.parse(r.expiresAt) > now), eligible = current.length ? current : rows;
     eligible.sort((a, b) => Number(["available", "partial"].includes(statuses.get(b.providerCode + ":" + b.scope)))
       - Number(["available", "partial"].includes(statuses.get(a.providerCode + ":" + a.scope)))
       || Date.parse(b.observedAt) - Date.parse(a.observedAt) || a.scope.localeCompare(b.scope));
     const first = eligible[0];
-    if (eligible.some((r) => !same(identity(r), identity(first)))) return { ...first, verification: "conflicting",
-      issues: [...new Set([...first.issues, "catalog-conflict"])].sort() };
+    if (eligible.some((r) => !same(identity(r), identity(first)))) {
+      const conflicting = { ...first, verification: "conflicting", issues: [...new Set([...first.issues, "catalog-conflict"])].sort() };
+      delete conflicting.stationMarket;
+      return conflicting;
+    }
     return first;
   });
 }
@@ -146,6 +149,11 @@ export async function normalizeBroadcastCollection(providerCode, input, at = new
       if (!channels.has(row.channelID) || row.sport !== "cricket") { verification = "conflicting"; issues.add("identity-conflict"); }
       else record.channelID = row.channelID;
     }
+    if (row.stationMarket !== undefined) {
+      if (row.stationMarket !== "US" || providerCode !== "communitysports" || row.kind !== "channel"
+        || !["networks", "cricket", "live"].includes(row.scope) || row.sport !== "cricket" || row.channelID !== "cricket-channel:willow") throw new Error("invalid-collection");
+      record.stationMarket = "US";
+    }
     if (row.kind === "channel" && (!record.channelID || row.participants.length || record.start || record.end)) {
       verification = "conflicting"; issues.add("identity-conflict");
     }
@@ -155,6 +163,7 @@ export async function normalizeBroadcastCollection(providerCode, input, at = new
       verification = "conflicting"; issues.add("missing-programme");
     }
     record.verification = verification;
+    if (verification === "conflicting") delete record.stationMarket;
     record.issues = [...issues].sort();
     records.push(record);
   }

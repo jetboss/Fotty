@@ -10,7 +10,7 @@ const blank = () => ({ version: 1, providers: {}, budgets: {}, cursor: 0 });
 const failure = (error) => BROADCAST_REASONS.includes(error?.message) ? error.message : "source-unavailable";
 const iso = (n) => new Date(n).toISOString();
 const RECORD_KEYS = new Set(["id", "providerCode", "providerEventID", "streamID", "resourceType", "scope", "kind", "sport", "title", "participants",
-  "start", "end", "competitionID", "squad", "format", "matchOrdinal", "day", "channelID", "observedAt", "expiresAt", "verification", "issues"]);
+  "start", "end", "competitionID", "squad", "format", "matchOrdinal", "day", "channelID", "stationMarket", "observedAt", "expiresAt", "verification", "issues"]);
 
 function validateState(state) {
   if (!state || state.version !== 1 || !state.providers || !state.budgets || !Number.isSafeInteger(state.cursor)
@@ -42,6 +42,8 @@ function validateState(state) {
       if (!row || Object.keys(row).some((key) => !RECORD_KEYS.has(key)) || row.providerCode !== code || !BROADCAST_SCOPES.includes(row.scope)
         || !/^br:[a-f0-9]{64}$/.test(row.id) || !Number.isFinite(Date.parse(row.observedAt)) || !Number.isFinite(Date.parse(row.expiresAt))
         || JSON.stringify(row).includes("://")) throw new Error("invalid-registry-state");
+      if (row.stationMarket !== undefined && (row.stationMarket !== "US" || code !== "communitysports" || row.kind !== "channel"
+        || !["networks", "cricket", "live"].includes(row.scope) || row.sport !== "cricket" || row.channelID !== "cricket-channel:willow")) throw new Error("invalid-registry-state");
     }
   }
   if (count > BROADCAST_REGISTRY_LIMITS.records || new TextEncoder().encode(JSON.stringify(state)).length > BROADCAST_REGISTRY_LIMITS.snapshotBytes) throw new Error("capacity-exceeded");

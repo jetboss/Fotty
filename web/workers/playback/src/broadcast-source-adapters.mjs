@@ -87,6 +87,13 @@ function canonicalChannel(title) {
   if (["willow", "willowtv", "willowcricket", "willowhd", "willowcrickethd", "willowcricket247"].includes(name)) return "cricket-channel:willow";
   return ["foxcricket", "foxcrickethd"].includes(name) ? "cricket-channel:fox-cricket" : null;
 }
+function networkDescriptionCountry(description) {
+  if (typeof description !== "string" || new TextEncoder().encode(description).length > 512) return null;
+  const lines = description.split("\n"), prefix = "🏆 League: ";
+  if (lines.length !== 3 || !lines[0].startsWith(prefix) || lines[0].includes("://") || /[\p{Cc}]/u.test(lines[0])
+    || lines[1] !== "📅 Category: NETWORKS" || lines[2] !== "⏰ Status: 24/7 Live Network") return null;
+  return lines[0].slice(prefix.length).trim() || null;
+}
 function record(providerCode, row, scope, now, facts = {}, issues = []) {
   if (!object(row) || !id(row.id)) return null;
   const title = row.name ?? row.title;
@@ -191,13 +198,19 @@ function reader(code, { fetcher, reserveRequest, signal }) {
 
 function csRow(row, scope, now) {
   if (!object(row) || typeof row.id !== "string") return null;
-  const category = row.genres?.[0], isChannel = scope === "networks" && category === "NETWORKS" && row.released == null;
+  const category = row.genres?.[0], channel = canonicalChannel(row.name), country = networkDescriptionCountry(row.description);
+  const noEventAuthority = !["released", "date", "startTime", "kickoff", "videos"].some((k) => own(row, k))
+    && (row.cast == null || Array.isArray(row.cast) && row.cast.length === 0);
+  // Actual NETWORKS records also appear in sport/Live cohorts. The advertised
+  // metadata class, not the request path, owns their channel semantics.
+  const isChannel = category === "NETWORKS" || category === "CRICKET" && channel && country && noEventAuthority;
   const facts = { kind: isChannel ? "channel" : "event", sport: sport(category), participants: [], ...(row.released ? { start: row.released } : {}) };
   if (isChannel && canonicalChannel(row.name)) { facts.channelID = canonicalChannel(row.name); facts.sport = "cricket"; }
   const issues = [];
   if (row.type != null && row.type !== "tv" || !row.id?.startsWith("nuvio_sport_")) issues.push("identity-conflict");
   if (isChannel && (row.type !== "tv" || row.genres.length !== 1 || row.cast != null && (!Array.isArray(row.cast) || row.cast.length > 0)
     || ["released", "date", "startTime", "kickoff", "videos"].some((k) => own(row, k)))) issues.push("identity-conflict");
+  if (isChannel && !country) issues.push("identity-conflict");
   if (!isChannel) {
     // The advertised pending-clock icon is presentation, not a participant.
     // Strip only that finite status prefix before the existing pair parser;
@@ -211,7 +224,12 @@ function csRow(row, scope, now) {
     const label = row.description.split("\n").find((line) => line.startsWith("🏆 League: "))?.slice("🏆 League: ".length);
     Object.assign(facts, cricketLabel(label));
   }
-  return record("communitysports", row, scope, now, facts, issues);
+  const observation = record("communitysports", row, scope, now, facts, issues);
+  if (observation?.kind === "channel" && observation.channelID === "cricket-channel:willow"
+    && category === "NETWORKS" && ["networks", "cricket", "live"].includes(scope)
+    && observation.verification !== "conflicting" && new TextEncoder().encode(observation.title).length <= 128
+    && ["usa", "united states", "united states of america"].includes(country?.toLowerCase())) observation.stationMarket = "US";
+  return observation;
 }
 function asRow(row, scope, now, originals = []) {
   if (!object(row) || typeof row.id !== "string") return null;
@@ -646,6 +664,16 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
             (row) => csRow(row, scope, now), false);
         };
         for (const scope of ["live", "networks", "football", "cricket"]) await readScope(scope);
+        let channelSearchRead = false;
+        if (!broadcasts.some((row) => row.kind === "channel" && row.channelID === "cricket-channel:willow" && row.stationMarket === "US")) {
+          const key = searchableCatalog(m, "networks");
+          if (key && read.count() < 8) {
+            channelSearchRead = true;
+            await cohort("networks", async () => safeRows(await read(ORIGINS[providerCode]
+              + "/catalog/tv/" + key + "/search=Willow%20Cricket.json", 700 * KiB), 600),
+            (row) => csRow(row, "networks", now), false);
+          }
+        }
         const uncovered = hints.filter((f) => searchableCatalog(m, f.sport) && !broadcasts.some((b) => b.kind !== "channel" && b.verification === "dated"
           && b.sport === f.sport && samePair(b.participants, f.participants, f.sport)
           && (f.format === "Test" ? b.format === "Test" && b.matchOrdinal === f.matchOrdinal && b.day === f.day && b.start >= f.start && f.end && b.start < f.end
@@ -653,7 +681,9 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
         let hintAdvanced = 0;
         if (uncovered.length) {
           const target = uncovered[(safeCursor >>> 8) % uncovered.length], key = searchableCatalog(m, target.sport);
-          for (const participant of target.participants) {
+          // A channel search borrows one of the two existing fixture hints,
+          // leaving a rotating sport slot instead of starving it indefinitely.
+          for (const participant of target.participants.slice(0, channelSearchRead ? 1 : 2)) {
             if (read.count() >= 8) break;
             const query = searchHint(participant, target.sport); if (!query) continue;
             const ok = await cohort(target.sport, async () => safeRows(await read(ORIGINS[providerCode] + "/catalog/tv/" + key + "/search=" + query + ".json", 700 * KiB), 600),

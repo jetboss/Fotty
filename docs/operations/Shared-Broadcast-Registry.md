@@ -1,3 +1,19 @@
+## Channel market and cohort identity
+
+A source response cohort does not redefine an explicitly advertised NETWORKS
+channel as a match. CS main-Willow observations preserve that channel identity
+across cricket, live and networks cohorts. The optional `stationMarket: "US"`
+field is emitted only for the exact reviewed NETWORKS/type/channel/three-line
+US country contract. Unknown, UK and conflicting market records remain useful
+for channel browsing but cannot inherit the main-US programme. Withdrawal or
+same-ID contradiction removes market proof without renewing an old receipt.
+
+The native lookup can join a current verified programme to other enabled
+channel deliveries using both original facts. Programme metadata remains
+usable independently of the TV1 playback opt-in. Fresh CS NETWORKS/meta and
+station checks still precede descriptor resolution; no generic channel alone
+grants Watch and no historical programme is extended.
+
 ## 30 October association repair
 
 The registry joins all reviewed source families to accepted official fixtures.

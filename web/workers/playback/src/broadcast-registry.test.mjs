@@ -233,6 +233,28 @@ test("disabling collection fences a pending alarm without erasing accepted recor
   assert.equal(h.reads, 2); assert.equal(h.alarm, null); assert.deepEqual(h.values.get(key), before);
 });
 
+test("durable channel market survives restart, clears on a fresh unqualified observation and rejects corrupt executable market fields", async () => {
+  let market = "US";
+  const h = harness({ providers: [{ providerCode: "communitysports", maxRequestsPerDay: 288 }], collect: async (code, context, state) => {
+    assert.equal(await context.reserveRequest(), true); state.read();
+    return state.reply(code, { scopes: [{ scope: "cricket", status: "partial", complete: false }], broadcasts: [{
+      providerEventID: "nuvio_sport_willow_main", streamID: "nuvio_sport_willow_main", resourceType: "tv", scope: "cricket",
+      kind: "channel", sport: "cricket", title: "Willow Cricket", participants: [], channelID: "cricket-channel:willow",
+      ...(market ? { stationMarket: market } : {}), verification: "undated", observedAt: new Date(state.now()).toISOString(),
+      expiresAt: new Date(state.now() + 60 * 60_000).toISOString(),
+    }] });
+  } });
+  assert.equal((await h.create().refresh()).broadcasts[0].stationMarket, "US");
+  const restarted = await h.create().fetch(new Request("https://internal/snapshot"));
+  assert.equal(restarted.status, 200); assert.equal((await restarted.json()).broadcasts[0].stationMarket, "US");
+  market = undefined; h.now += 5 * 60_000;
+  assert.equal((await h.create().refresh()).broadcasts[0].stationMarket, undefined);
+  assert.equal(h.values.get(key).budgets.communitysports.count, 2, "Market withdrawal never resets the read ledger");
+  const poisoned = h.values.get(key); poisoned.providers.communitysports.records[0].stationMarket = "UK"; h.values.set(key, poisoned);
+  assert.equal((await h.create().fetch(new Request("https://internal/snapshot"))).status, 503);
+  assert.equal(h.reads, 2);
+});
+
 test("a late published football listing is found at the grouped pre-kickoff checkpoint by moving, not adding, the next cycle", async () => {
   const kickoff = initial + 21 * 60_000;
   const h = harness({ providers: [{ providerCode: "plaviosports", maxRequestsPerDay: 288 }],
