@@ -280,3 +280,28 @@ test("an ordinary due collection in the checkpoint window consumes that group wi
   assert.equal(h.reads, 8, "First admission must not create a second pre-kickoff read");
   assert.equal(Date.parse(h.values.get(key).providers.communitysports.nextAttemptAt), initial + 40 * 60_000);
 });
+
+test("checkpoint repayment uses its actual HTTP cost when enrichment grows and ordinary cadence resumes after repayment", async () => {
+  const kickoff = initial + 21 * 60_000;
+  let officialStatus = "scheduled";
+  const h = harness({ providers: [{ providerCode: "plaviosports", maxRequestsPerDay: 288 }],
+    fixtures: (now) => [{ fixtureID: "sports-fixture:premier-league:123", sport: "football", competitionID: "premier-league",
+      participants: ["Liverpool", "Chelsea"], start: new Date(kickoff).toISOString(), status: officialStatus, observedAt: new Date(now).toISOString(), verified: true }],
+    collect: async (code, context, state) => {
+      const count = state.now() === initial ? 6 : 8;
+      if (state.now() === kickoff - 5 * 60_000) assert.equal(Date.parse(state.values.get(key).providers[code].nextAttemptAt),
+        initial + 70 * 60_000, "A restart during collection has already charged the worst-case eight-read moved slot");
+      for (let index = 0; index < count; index++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+      return state.reply(code);
+    } });
+  await h.create().refresh();
+  h.now = kickoff - 5 * 60_000; await h.create().refresh(); assert.equal(h.reads, 14);
+  assert.equal(Date.parse(h.values.get(key).providers.plaviosports.nextAttemptAt), initial + 70 * 60_000,
+    "The new eight-read cost repays from the original30-minute slot, not the old six-read interval");
+  h.now = initial + 60 * 60_000; await h.create().refresh(); assert.equal(h.reads, 14);
+  officialStatus = "live"; // A separately refreshed official status, never a registry kickoff inference.
+  h.now = initial + 70 * 60_000; await h.create().refresh(); assert.equal(h.reads, 22);
+  assert.equal(Date.parse(h.values.get(key).providers.plaviosports.nextAttemptAt), initial + 110 * 60_000,
+    "After repayment, the ordinary40-minute cadence resumes without perpetual debt");
+  assert.equal(h.values.get(key).budgets.plaviosports.count, 22);
+});

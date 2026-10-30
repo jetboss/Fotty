@@ -850,4 +850,3 @@ function score808WidgetID(text) {
   }
   return stack.length === 0 && ids.size === 1 ? [...ids][0] : null;
 }
-

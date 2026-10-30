@@ -26,10 +26,11 @@ function validateState(state) {
       || source.failures < 0 || !Number.isSafeInteger(source.cursor) || source.cursor < 0 || source.cursor > 65535) throw new Error("invalid-registry-state");
     if (source.kickoffCheckpoint !== undefined) {
       const checkpoint = source.kickoffCheckpoint;
-      if (!checkpoint || Array.isArray(checkpoint) || Object.keys(checkpoint).sort().join() !== "postponedUntil,start,takenAt"
-        || ![checkpoint.start, checkpoint.takenAt, checkpoint.postponedUntil].every((n) => Number.isSafeInteger(n) && n >= 0)
+      if (!checkpoint || Array.isArray(checkpoint) || Object.keys(checkpoint).sort().join() !== "ordinaryDue,postponedUntil,start,takenAt"
+        || ![checkpoint.start, checkpoint.takenAt, checkpoint.ordinaryDue, checkpoint.postponedUntil].every((n) => Number.isSafeInteger(n) && n >= 0)
         || checkpoint.start < checkpoint.takenAt || checkpoint.start - checkpoint.takenAt > 5 * minute
-        || checkpoint.postponedUntil < checkpoint.takenAt || checkpoint.postponedUntil - checkpoint.takenAt > 16 * day) throw new Error("invalid-registry-state");
+        || checkpoint.ordinaryDue < checkpoint.takenAt || checkpoint.postponedUntil < checkpoint.ordinaryDue
+        || checkpoint.postponedUntil - checkpoint.takenAt > 16 * day) throw new Error("invalid-registry-state");
     }
     count += source.records.length;
     for (const [id, scope] of Object.entries(source.scopes)) {
@@ -69,7 +70,7 @@ function cadence(fixtures, now, cost, cap) {
     Math.ceil(day * Math.max(1, cost) / cap));
 }
 
-function checkpointPlan(source, fixtures, now, ordinaryDue) {
+function checkpointPlan(source, fixtures, now, ordinaryDue, cap) {
   if (source?.failures || !Number.isFinite(ordinaryDue)) return null;
   const prior = source?.kickoffCheckpoint;
   // One checkpoint groups every fixture with the same literal accepted UTC
@@ -78,12 +79,15 @@ function checkpointPlan(source, fixtures, now, ordinaryDue) {
   const start = [...new Set(fixtures.map((f) => Date.parse(f.start)))].sort((a, b) => a - b)
     .find((at) => at > now && at <= now + 5 * minute && (!prior || at > prior.start));
   if (start === undefined) return null;
-  if (ordinaryDue <= now) return { start, takenAt: now, postponedUntil: now };
+  if (ordinaryDue <= now) return { start, takenAt: now, ordinaryDue: now, postponedUntil: now };
   const last = Date.parse(source.lastAttemptAt), interval = ordinaryDue - last;
   if (!Number.isFinite(last) || last > now || interval < 5 * minute || interval > 8 * day) return null;
   // Move the existing next background cycle into this pre-kickoff window, then
   // skip its old slot. This is spend-ahead debt, not another repeating cadence.
-  return { start, takenAt: now, postponedUntil: ordinaryDue + interval };
+  // A crash before settlement must conservatively charge a full eight-read
+  // slot. The completed cycle settles this using its actual durable reads.
+  return { start, takenAt: now, ordinaryDue,
+    postponedUntil: ordinaryDue + Math.max(interval, Math.ceil(day * 8 / cap)) };
 }
 
 export class BroadcastRegistry {
@@ -138,7 +142,7 @@ export class BroadcastRegistry {
     const source = stored.providers[descriptor.providerCode], budget = stored.budgets[descriptor.providerCode];
     if (budget && (now < budget.lastAt || budget.day === iso(now).slice(0, 10) && budget.count >= descriptor.maxRequestsPerDay)) return false;
     const due = Date.parse(source?.nextAttemptAt ?? "1970-01-01T00:00:00Z");
-    return due <= now || checkpointPlan(source, supportedFixtures(descriptor.providerCode, fixtures), now, due) !== null;
+    return due <= now || checkpointPlan(source, supportedFixtures(descriptor.providerCode, fixtures), now, due, descriptor.maxRequestsPerDay) !== null;
   }
   async continueIfDue(stored, now, fixtures) {
     if (this.enabled() && this.providers.some((p) => this.eligible(p, stored, now, fixtures))) {
@@ -157,7 +161,7 @@ export class BroadcastRegistry {
     for (const descriptor of selected) {
       const source = stored.providers[descriptor.providerCode];
       const checkpoint = checkpointPlan(source, supportedFixtures(descriptor.providerCode, fixtures), now,
-        Date.parse(source?.nextAttemptAt ?? "1970-01-01T00:00:00Z"));
+        Date.parse(source?.nextAttemptAt ?? "1970-01-01T00:00:00Z"), descriptor.maxRequestsPerDay);
       if (checkpoint) {
         stored.providers[descriptor.providerCode] = { ...(source ?? { scopes: {}, records: [], failures: 0, cursor: 0 }), kickoffCheckpoint: checkpoint,
           nextAttemptAt: iso(Math.max(now, checkpoint.postponedUntil)) };
@@ -210,8 +214,10 @@ export class BroadcastRegistry {
       }
       state.records = state.records.filter((r) => now - Date.parse(r.observedAt) <= BROADCAST_REGISTRY_LIMITS.retention);
       const delay = cadence(supportedFixtures(code, fixtures), now, Math.max(cycle.reads, 1), descriptor.maxRequestsPerDay);
-      state.nextAttemptAt = iso(Math.max(previous.kickoffCheckpoint?.postponedUntil ?? 0,
-        now + (state.failures ? Math.max(delay, Math.min(60 * minute, 5 * minute * 2 ** Math.min(4, state.failures - 1))) : delay)));
+      const retryDelay = state.failures ? Math.max(delay, Math.min(60 * minute, 5 * minute * 2 ** Math.min(4, state.failures - 1))) : delay;
+      if (state.kickoffCheckpoint?.takenAt === now) state.kickoffCheckpoint = { ...state.kickoffCheckpoint,
+        postponedUntil: state.kickoffCheckpoint.ordinaryDue + retryDelay };
+      state.nextAttemptAt = iso(Math.max(state.kickoffCheckpoint?.postponedUntil ?? 0, now + retryDelay));
       stored.providers[code] = state;
     }
     if (selected.length && this.providers.length) {
