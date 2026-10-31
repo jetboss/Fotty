@@ -93,7 +93,8 @@ async function handleSportsFixtures(env) {
     const snapshot = await assembleSportsSnapshot(sources, new Map(pairs), new Date());
     const body = JSON.stringify(snapshot);
     if (new TextEncoder().encode(body).byteLength > 2 * 1024 * 1024) throw new Error("Sports snapshot exceeded bound");
-    if (!snapshot.coverage.some((row) => row.status === "covered")) return json({ schemaVersion: 1, complete: false,
+    if (!snapshot.coverage.some((row) => row.status === "covered")
+      && !snapshot.fixtures.some((row) => row.source?.verification === "verified")) return json({ schemaVersion: 1, complete: false,
       sourceStatus: "unavailable", activation: "warming", coverage: snapshot.coverage }, 503);
     return new Response(body, { headers: corsHeaders({ "Content-Type": "application/json", "Cache-Control": "public, max-age=60" }) });
   } catch { return json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable" }, 503); }

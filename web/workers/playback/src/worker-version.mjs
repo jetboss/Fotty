@@ -1,3 +1,3 @@
 // Release identity shared by the Worker and its production contract monitor.
 // Bump this for every deployed source revision.
-export const WORKER_SOURCE_VERSION = "2026-10-30.match-source-association-2";
+export const WORKER_SOURCE_VERSION = "2026-10-31.fixture-continuity-1";
