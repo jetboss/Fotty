@@ -111,7 +111,7 @@
         { "name": "FC Augsburg", "aliases": ["Augsburg"] },
         { "name": "FC Bayern München", "aliases": ["Bayern", "Bayern Munich"] },
         { "name": "Borussia Dortmund", "aliases": ["Dortmund"] },
-        { "name": "Borussia Mönchengladbach", "aliases": ["Monchengladbach", "Borussia Monchengladbach", "Gladbach"] },
+        { "name": "Borussia Mönchengladbach", "aliases": ["Monchengladbach", "Borussia Monchengladbach", "Gladbach", "Borussia M'gladbach", "M'gladbach"] },
         { "name": "Eintracht Frankfurt", "aliases": ["Frankfurt"] },
         {"name": "SV Elversberg", "aliases": ["Elversberg", "SV 07 Elversberg"]},
         { "name": "SC Freiburg", "aliases": ["Freiburg"] },

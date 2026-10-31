@@ -145,7 +145,7 @@ enum FootballCompetitionCatalog {
                 FootballCompetitionClub(name: "FC Augsburg", aliases: ["Augsburg"]),
                 FootballCompetitionClub(name: "FC Bayern München", aliases: ["Bayern", "Bayern Munich"]),
                 FootballCompetitionClub(name: "Borussia Dortmund", aliases: ["Dortmund"]),
-                FootballCompetitionClub(name: "Borussia Mönchengladbach", aliases: ["Monchengladbach", "Borussia Monchengladbach", "Gladbach"]),
+                FootballCompetitionClub(name: "Borussia Mönchengladbach", aliases: ["Monchengladbach", "Borussia Monchengladbach", "Gladbach", "Borussia M'gladbach", "M'gladbach"]),
                 FootballCompetitionClub(name: "Eintracht Frankfurt", aliases: ["Frankfurt"]),
                 FootballCompetitionClub(name: "SV Elversberg", aliases: ["Elversberg", "SV 07 Elversberg"]),
                 FootballCompetitionClub(name: "SC Freiburg", aliases: ["Freiburg"]),

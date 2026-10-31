@@ -414,7 +414,9 @@ export const FOOTBALL_COMPETITIONS = {
         "aliases": [
           "Monchengladbach",
           "Borussia Monchengladbach",
-          "Gladbach"
+          "Gladbach",
+          "Borussia M'gladbach",
+          "M'gladbach"
         ]
       },
       {

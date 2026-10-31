@@ -530,3 +530,19 @@ test("cancellation stops collection rather than publishing a partial fresh recei
     fetcher: async () => { calls++; controller.abort(new DOMException("Cancelled", "AbortError")); return json(manifests.communitysports); } }), { name: "AbortError" });
   assert.equal(calls, 1);
 });
+
+
+test("CS and Flix explicit limited-overs final labels retain format without inventing an ordinal", () => {
+  for (const [label, format] of [["ODI Tri-Series 2026 Final", "ODI"], ["T20I Tri-Series Final", "T20"]]) {
+    const c = parse.csRow(cs({ description: `🏆 League: ${label}\n📅 Category: CRICKET` }), "cricket", now);
+    assert.equal(c.format, format); assert.equal(c.matchOrdinal, undefined);
+    const f = parse.fsRow({ id: "dlstreams:event:da77c1d5d002", type: "tv", name: `🏏 ${label} : Pakistan 🇵🇰 vs Sri Lanka 🇱🇰`,
+      genres: ["Live TV", "Sports", "Cricket 🏏"], description: "Category: Cricket 🏏\nDate: 2026-10-30 (UTC)\nTime: 08:00\nChannels: Willow Cricket",
+      videos: [{ id: "dlstreams:event:da77c1d5d002", released: "2026-10-30T08:00:00.000Z", title: "Live Stream", season: 1, episode: 1 }] }, "cricket", now);
+    assert.equal(f.format, format); assert.equal(f.matchOrdinal, undefined);
+  }
+  for (const label of ["Tri-Series Final", "ODI T20 Final", "Test Championship Final", "T10 Final", "2st ODI", "ODI day 2"]) {
+    const c = parse.csRow(cs({ description: `🏆 League: ${label}\n📅 Category: CRICKET` }), "cricket", now);
+    assert.equal(c.format, undefined, label);
+  }
+});
