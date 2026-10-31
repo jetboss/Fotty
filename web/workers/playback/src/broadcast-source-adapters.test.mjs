@@ -546,3 +546,14 @@ test("CS and Flix explicit limited-overs final labels retain format without inve
     assert.equal(c.format, undefined, label);
   }
 });
+
+
+test("literal Bundesliga publisher label joins only the reviewed senior league", async () => {
+  const raw = { id: "dlstreams:event:aaaaaaaaaaaa", type: "tv", name: "⚽ Bundesliga : Schalke 04 🇩🇪 vs RB Leipzig 🇩🇪",
+    genres: ["Live TV", "Sports", "All Soccer Events ⚽"], description: "Category: All Soccer Events ⚽\nDate: 2026-10-30 (UTC)\nTime: 12:00\nChannels: Sports" };
+  const row = parse.fsRow(raw, "football", now);
+  assert.equal(row.verification, "dated"); assert.equal(row.competitionID, "bundesliga");
+  for (const label of ["Bundesliga 2", "Women's Bundesliga", "Bundesliga U19"]) {
+    assert.notEqual(parse.fsRow({ ...raw, name: `⚽ ${label} : Schalke 04 vs RB Leipzig` }, "football", now).verification, "dated");
+  }
+});

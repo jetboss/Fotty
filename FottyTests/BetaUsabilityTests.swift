@@ -389,7 +389,10 @@ final class BetaUsabilityTests: XCTestCase {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let manifestURL = root.appendingPathComponent("web/public/data/cpl-2026-fixtures.json")
         let data = try Data(contentsOf: manifestURL)
-        let validationDate = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-09-04T00:00:00Z"))
+        // Validate the frozen fixture at its receipt, not a date before it was published.
+        let manifestObject = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let checkedAt = try XCTUnwrap(manifestObject["checkedAt"] as? String)
+        let validationDate = try XCTUnwrap(ISO8601DateFormatter().date(from: checkedAt))
         let snapshot = try CPLSchedule.validatedSnapshot(from: data, now: validationDate)
         XCTAssertEqual(Config.cplScheduleManifestURL?.absoluteString, "https://fotty-playback-v3.adaptive-rhubarb.workers.dev/api/cricket/cpl-fixtures")
         XCTAssertEqual(snapshot.fixtures.count, CPLSchedule.fixtures.count)

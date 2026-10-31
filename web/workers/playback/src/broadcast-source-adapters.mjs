@@ -90,7 +90,7 @@ const DLHD_COMPETITIONS = Object.freeze({ "england premier league": "premier-lea
   "germany bundesliga": "bundesliga", "france ligue 1": "ligue-1" });
 const FS_COMPETITIONS = Object.freeze({ "England - Premier League": "premier-league", "UEFA Champions League": "champions-league",
   "Europe - UEFA Champions League": "champions-league", "Italy - Serie A": "serie-a", "Spain - La Liga": "la-liga",
-  "Germany - Bundesliga": "bundesliga", "France - Ligue 1": "ligue-1" });
+  "Germany - Bundesliga": "bundesliga", "Bundesliga": "bundesliga", "France - Ligue 1": "ligue-1" });
 function canonicalChannel(title) {
   if (!str(title, 128)) return null;
   const name = title.toLowerCase().replace(/[^a-z0-9]/gu, "");
