@@ -2,6 +2,7 @@
 // A retained observation is not a playable URL, current programme or LIVE fact.
 import { canonicalFootballClubId } from "../../../src/lib/football-competition-catalog.generated.ts";
 import { parseReviewedTVProgrammes, reviewedTVProgrammeURL } from "./reviewed-tv-programmes.mjs";
+import { parseReviewedTVESPNFeed, REVIEWED_TV_ESPN_SOURCE } from "./reviewed-tv-espn.mjs";
 export const BROADCAST_SOURCE_CODES = Object.freeze([
   "streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix", "reviewedtv",
 ]);
@@ -180,11 +181,12 @@ function reader(code, { fetcher, reserveRequest, signal }) {
     const timer = setTimeout(() => controller.abort(), code === "score808" ? 6000 : 9000);
     try {
       const response = await fetcher(url, { method: "GET", redirect: "manual", signal: controller.signal,
-        headers: { Accept: html ? "text/html" : "application/json", "User-Agent": "Fotty metadata collector/1.0" } });
+        headers: { Accept: html === "xml" ? "application/rss+xml, application/xml, text/xml" : html ? "text/html" : "application/json", "User-Agent": "Fotty metadata collector/1.0" } });
       if (response.status !== 200 || response.url && response.url !== url) { await response.body?.cancel(); throw new Error("source-unavailable"); }
       const declared = Number(response.headers.get("content-length"));
       if (declared > maxBytes || !response.body) { await response.body?.cancel(); throw new Error("capacity-exceeded"); }
       const type = response.headers.get("content-type") ?? "";
+      if (html === "xml" && !/^(?:application\/(?:rss\+xml|xml)|text\/xml)\b/iu.test(type)) { await response.body.cancel(); throw new Error("invalid-collection"); }
       if (!html && !/(?:application\/(?:[a-z.+-]*\+)?json)\b/iu.test(type)) { await response.body.cancel(); throw new Error("invalid-collection"); }
       const stream = response.body.getReader(), chunks = []; let bytes = 0;
       try {
@@ -642,6 +644,15 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
         if (programmes.size > 1) throw new Error("catalog-conflict");
         return [...programmes.values()];
       }, (row) => row);
+      // One maintained official RSS read includes the complete current weekly
+      // article. Highlights are partial evidence, never an exhaustive absence.
+      // A failed football refresh cannot erase a valid independent Willow row.
+      if (fixtures.some((f) => f?.verified === true && f.sport === "football"
+        && ["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"].includes(f.competitionID))) {
+        await cohort("football", async () => (await parseReviewedTVESPNFeed(
+          await read(REVIEWED_TV_ESPN_SOURCE.feedURL, REVIEWED_TV_ESPN_SOURCE.maxBytes, "xml"), { now })).broadcasts,
+        (row) => row, false);
+      }
     } else if (providerCode === "streamex") {
       const profiles = [["https://www.streamex.net", "/api/live/matches"], ["https://streamex.sh", "/api/live/matches"], ["https://streamed.pk", "/api/matches"]];
       for (const [origin, prefix] of profiles) {

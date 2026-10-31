@@ -11,6 +11,14 @@ export const BROADCAST_REASONS = Object.freeze(["source-unavailable", "budget-ex
 const providers = new Set(BROADCAST_PROVIDER_CODES), scopes = new Set(BROADCAST_SCOPES), reasons = new Set(BROADCAST_REASONS);
 const kinds = new Set(["event", "channel", "programme"]), formats = new Set(["Test", "T20", "ODI", "T10"]);
 const channels = new Set(["cricket-channel:willow", "cricket-channel:fox-cricket"]);
+const reviewedTVFootballCompetitions = new Set(["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"]);
+export function isReviewedTVFootballAssignment(row, providerCode = row?.providerCode) {
+  const match = /^sports-channel:(espn(?:[2-7])?-latinamerica-south)$/u.exec(row?.channelID ?? "");
+  return providerCode === "reviewedtv" && row?.scope === "football" && row.sport === "football" && row.kind === "event"
+    && /^reviewed-tv:assignment:[a-f0-9]{64}$/u.test(row.providerEventID ?? "") && !!match
+    && row.streamID === "reviewed-tv:" + match[1] && row.stationMarket === "UY" && stamp(row.start) !== null && row.end === undefined
+    && reviewedTVFootballCompetitions.has(row.competitionID) && row.squad?.gender === "men" && row.squad?.ageGroup === "senior";
+}
 const minute = 60_000, day = 86_400_000;
 const object = (v) => v && typeof v === "object" && !Array.isArray(v);
 const bytes = (v) => new TextEncoder().encode(JSON.stringify(v)).length;
@@ -76,7 +84,7 @@ export function mergeBroadcastRecords(records, at = new Date(), coverage = []) {
     const first = eligible[0];
     if (eligible.some((r) => !same(identity(r), identity(first)))) {
       const conflicting = { ...first, verification: "conflicting", issues: [...new Set([...first.issues, "catalog-conflict"])].sort() };
-      delete conflicting.stationMarket;
+      if (!isReviewedTVFootballAssignment(conflicting)) delete conflicting.stationMarket;
       return conflicting;
     }
     return first;
@@ -107,11 +115,12 @@ export async function normalizeBroadcastCollection(providerCode, input, at = new
       || row.resourceType !== "tv" || !kinds.has(row.kind) || !text(row.title)
       || ![...BROADCAST_SCOPES.filter((s) => !["live", "networks"].includes(s)), "unknown"].includes(row.sport)
       || !Array.isArray(row.participants) || row.participants.length > 2 || row.participants.some((p) => !text(p, 256))) throw new Error("invalid-collection");
-    if (providerCode === "reviewedtv" && (row.scope !== "cricket" || row.sport !== "cricket" || row.kind !== "programme"
+    const reviewedAssignment = isReviewedTVFootballAssignment(row, providerCode);
+    if (providerCode === "reviewedtv" && !reviewedAssignment && (row.scope !== "cricket" || row.sport !== "cricket" || row.kind !== "programme"
       || row.channelID !== "cricket-channel:willow" || row.streamID !== "reviewed-tv:willow-main"
       || !/^reviewed-tv:programme:[a-f0-9]{64}$/u.test(row.providerEventID))) throw new Error("invalid-collection");
     const receipt = stamp(row.observedAt ?? input.observedAt), expiry = stamp(row.expiresAt);
-    const lifetime = row.kind === "programme" ? BROADCAST_REGISTRY_LIMITS.programmeLifetime : BROADCAST_REGISTRY_LIMITS.sourceLifetime;
+    const lifetime = row.kind === "programme" || reviewedAssignment ? BROADCAST_REGISTRY_LIMITS.programmeLifetime : BROADCAST_REGISTRY_LIMITS.sourceLifetime;
     if (receipt === null || expiry === null || receipt > now + 5 * minute || receipt > observed + 5 * minute
       || receipt < now - day || expiry <= receipt || expiry - receipt > lifetime) throw new Error("invalid-collection");
     const issues = new Set(Array.isArray(row.issues) ? row.issues.filter((r) => reasons.has(r)) : []);
@@ -146,13 +155,13 @@ export async function normalizeBroadcastCollection(providerCode, input, at = new
       else record[key] = row[key];
     }
     if (row.channelID !== undefined) {
-      if (!channels.has(row.channelID) || row.sport !== "cricket") { verification = "conflicting"; issues.add("identity-conflict"); }
+      if (!reviewedAssignment && (!channels.has(row.channelID) || row.sport !== "cricket")) { verification = "conflicting"; issues.add("identity-conflict"); }
       else record.channelID = row.channelID;
     }
     if (row.stationMarket !== undefined) {
-      if (row.stationMarket !== "US" || providerCode !== "communitysports" || row.kind !== "channel"
-        || !["networks", "cricket", "live"].includes(row.scope) || row.sport !== "cricket" || row.channelID !== "cricket-channel:willow") throw new Error("invalid-collection");
-      record.stationMarket = "US";
+      if (!reviewedAssignment && (row.stationMarket !== "US" || providerCode !== "communitysports" || row.kind !== "channel"
+        || !["networks", "cricket", "live"].includes(row.scope) || row.sport !== "cricket" || row.channelID !== "cricket-channel:willow")) throw new Error("invalid-collection");
+      record.stationMarket = row.stationMarket;
     }
     if (row.kind === "channel" && (!record.channelID || row.participants.length || record.start || record.end)) {
       verification = "conflicting"; issues.add("identity-conflict");
@@ -163,7 +172,7 @@ export async function normalizeBroadcastCollection(providerCode, input, at = new
       verification = "conflicting"; issues.add("missing-programme");
     }
     record.verification = verification;
-    if (verification === "conflicting") delete record.stationMarket;
+    if (verification === "conflicting" && !reviewedAssignment) delete record.stationMarket;
     record.issues = [...issues].sort();
     records.push(record);
   }
@@ -219,12 +228,19 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
     const key = earlyKey(fixture);
     earlyOwners.set(key, (earlyOwners.get(key) ?? 0) + 1);
   }
+  const assignmentKey = (row) => JSON.stringify([pair(row.participants, row.sport), row.start?.slice(0, 10), row.competitionID, row.squad]);
+  const assignmentOwners = new Map();
+  for (const fixture of admitted) if (fixture.sport === "football" && reviewedTVFootballCompetitions.has(fixture.competitionID) && fixture.squad) {
+    const key = assignmentKey(fixture); assignmentOwners.set(key, (assignmentOwners.get(key) ?? 0) + 1);
+  }
   for (const fixture of admitted) {
     const expected = pair(fixture.participants, fixture.sport);
     const fingerprint = { ...fixture }; delete fingerprint.status; delete fingerprint.observedAt; delete fingerprint.verified;
     for (const broadcast of broadcasts) {
       if (broadcast.kind === "channel" || broadcast.sport !== fixture.sport || !same(broadcastPairs.get(broadcast), expected)) continue;
-      let state = "listed", reason, startRelation, method = broadcast.kind === "programme" ? "programme" : "exact";
+      const assignment = isReviewedTVFootballAssignment(broadcast);
+      if (broadcast.providerCode === "reviewedtv" && broadcast.kind !== "programme" && !assignment) continue;
+      let state = "listed", reason, startRelation, method = assignment ? "channel-assignment" : broadcast.kind === "programme" ? "programme" : "exact";
       const fail = (next, value) => { if (state === "listed" || next === "conflicting") { state = next; reason = value; } };
       if (!providers.has(broadcast.providerCode) || stamp(broadcast.observedAt) === null || stamp(broadcast.expiresAt) === null) continue;
       if (broadcast.verification === "conflicting") fail("conflicting", broadcast.issues?.[0] ?? "catalog-conflict");
@@ -243,7 +259,15 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
         if (!broadcast.format || !fixture.format) fail("needsVerification", "format-conflict");
         else if (broadcast.format !== fixture.format) fail("conflicting", "format-conflict");
       }
-      if (fixture.format === "Test" && broadcast.format === "Test") {
+      if (assignment) {
+        const lead = Date.parse(fixture.start) - Date.parse(broadcast.start);
+        if (!fixture.competitionID || fixture.competitionID !== broadcast.competitionID) fail("conflicting", "competition-conflict");
+        if (!fixture.squad || !same(fixture.squad, broadcast.squad)) fail("conflicting", "squad-conflict");
+        if (broadcast.start?.slice(0, 10) !== fixture.start.slice(0, 10) || !Number.isFinite(lead) || lead < 0 || lead > 60 * minute) fail("conflicting", "time-conflict");
+        if (assignmentOwners.get(assignmentKey(fixture)) !== 1) fail("conflicting", "catalog-conflict");
+        if (Date.parse(broadcast.expiresAt) - Date.parse(broadcast.observedAt) > BROADCAST_REGISTRY_LIMITS.programmeLifetime) fail("needsVerification", "stale-source");
+        startRelation = "channel-coverage";
+      } else if (fixture.format === "Test" && broadcast.format === "Test") {
         // Whole-match listings keep the ordinary exact original-start path.
         // A day-qualified occurrence instead needs current official Test-day
         // authority; optional score context must not disable the exact path.

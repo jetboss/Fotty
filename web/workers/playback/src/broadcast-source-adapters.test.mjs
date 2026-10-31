@@ -80,6 +80,47 @@ test("reviewed programme malformed HTML, unverified timezone and redirects fail 
   }
 });
 
+const espnFeed = () => `<rss><channel><link>https://latinamerica.espnpressroom.com/</link><item>`
+  + `<title>PROGRAMACIÓN DESTACADA DEL 30 DE OCTUBRE AL 6 DE NOVIEMBRE</title>`
+  + `<link>https://latinamerica.espnpressroom.com/press-releases/2026/10/programacion-destacada-del-30-de-octubre-al-6-de-noviembre/</link>`
+  + `<pubDate>Thu, 29 Oct 2026 19:23:00 +0000</pubDate><content:encoded><![CDATA[`
+  + `<h2 id="URUGUAY">URUGUAY</h2><p>PROGRAMACIÓN DESTACADA DEL 30 DE OCTUBRE AL 6 DE NOVIEMBRE</p>`
+  + `<p>Domingo 1<br />13:30 ESPN y Disney+ Plan Premium / Premier League #9 – Liverpool vs. Arsenal</p>`
+  + `]]></content:encoded></item></channel></rss>`;
+const footballHint = { fixtureID: "sports-fixture:premier-league:test", sport: "football", competitionID: "premier-league", verified: true };
+test("reviewed TV adds one bounded official current-week RSS read without mixing territories or losing the independent Willow cohort", async () => {
+  const h = harness("reviewedtv", async (url) => new URL(url).hostname === "www.tvpassport.com" ? html(reviewedProgramme())
+    : new Response(espnFeed(), { headers: { "content-type": "application/rss+xml; charset=UTF-8" } }));
+  const result = await h.run({ fixtures: [footballHint] });
+  assert.equal(h.calls.length, 2); assert.equal(h.count(), 2);
+  assert.equal(h.calls[1].url, "https://latinamerica.espnpressroom.com/feed/?s=programaci%C3%B3n+destacada");
+  assert.equal(h.calls[1].init.headers.Accept, "application/rss+xml, application/xml, text/xml");
+  assert.deepEqual(result.scopes.map((s) => [s.scope, s.status]), [["cricket", "available"], ["football", "partial"]]);
+  const source = await normalizeBroadcastCollection("reviewedtv", result, now);
+  assert.equal(source.broadcasts.length, 2); assert.equal(source.broadcasts.find((r) => r.scope === "football").stationMarket, "UY");
+  for (const broken of ["willow", "espn"]) {
+    const separate = harness("reviewedtv", async (url) => {
+      const willow = new URL(url).hostname === "www.tvpassport.com";
+      return willow ? html(broken === "willow" ? "<div>Unavailable guide</div>" : reviewedProgramme())
+        : new Response(broken === "espn" ? "invalid RSS" : espnFeed(), { headers: { "content-type": "application/rss+xml" } });
+    });
+    const observed = await separate.run({ fixtures: [footballHint] });
+    assert.equal(observed.broadcasts.length, 1); assert.equal(observed.broadcasts[0].scope, broken === "willow" ? "football" : "cricket");
+    assert.equal(observed.scopes.filter((s) => s.status === "failed").length, 1);
+  }
+});
+
+test("reviewed TV football metadata cannot bypass its existing request reservation or admit unreviewed fixture hints", async () => {
+  const capped = harness("reviewedtv", async () => html(reviewedProgramme()), 1);
+  const result = await capped.run({ fixtures: [footballHint] }); assert.equal(capped.calls.length, 1);
+  assert.equal(result.scopes.find((s) => s.scope === "football").failure, "budget-exhausted");
+  for (const hint of [{ ...footballHint, verified: false }, { ...footballHint, competitionID: "youth-champions-league" },
+    { ...footballHint, sport: "other" }]) {
+    const h = harness("reviewedtv", async () => html(reviewedProgramme()));
+    assert.equal((await h.run({ fixtures: [hint] })).scopes.length, 1); assert.equal(h.calls.length, 1);
+  }
+});
+
 test("CS retains unmatched events, actual Test qualifiers and standalone channels within eight actual reads", async () => {
   const h = harness("communitysports", async (url) => {
     const p = new URL(url).pathname;

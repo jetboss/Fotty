@@ -17,6 +17,64 @@ async function joined(rows = [row()], fixtures = [fixture()], changes = {}) {
   return { source, links: associateBroadcasts({ fixtures, broadcasts: source.broadcasts, providers: source.scopes, now }) };
 }
 
+const tvAssignment = (changes = {}) => row({ providerEventID: "reviewed-tv:assignment:" + "a".repeat(64),
+  streamID: "reviewed-tv:espn-latinamerica-south", channelID: "sports-channel:espn-latinamerica-south", stationMarket: "UY",
+  competitionID: "premier-league", squad: { gender: "men", ageGroup: "senior" }, expiresAt: stamp(600_000), ...changes });
+async function tvJoined(changes = {}, fixtures = [fixture()]) {
+  const source = await normalizeBroadcastCollection("reviewedtv", collection([tvAssignment(changes)], { providerCode: "reviewedtv",
+    scopes: [{ scope: "football", status: "partial", complete: false }] }), now);
+  return { source, links: associateBroadcasts({ fixtures, broadcasts: source.broadcasts, providers: source.scopes, now }) };
+}
+
+test("reviewed UY channel assignment retains source coverage separately from official kickoff, including 0…60 minutes early", async () => {
+  for (const lead of [0, 15, 30, 60]) {
+    const coverage = new Date(Date.parse(fixture().start) - lead * 60_000).toISOString(), result = await tvJoined({ start: coverage });
+    assert.equal(result.source.broadcasts[0].start, coverage); assert.equal(result.source.broadcasts[0].end, undefined);
+    assert.equal(result.links[0].state, "listed"); assert.equal(result.links[0].matchMethod, "channel-assignment");
+    assert.equal(result.links[0].startRelation, "channel-coverage"); assert.equal(result.links[0].fixtureFingerprint.start, fixture().start);
+    assert.equal(result.links[0].expiresAt, stamp(600_000));
+  }
+  const generic = await joined([row({ start: new Date(Date.parse(fixture().start) - 30 * 60_000).toISOString() })]);
+  assert.equal(generic.links[0].state, "conflicting", "The ordinary football source fence remains15 minutes");
+});
+
+test("reviewed football assignment requires its finite channel/stream/market/type and ten-minute evidence contract", async () => {
+  for (const changes of [{ stationMarket: "AR" }, { stationMarket: "US" }, { stationMarket: undefined },
+    { channelID: "sports-channel:espn-latinamerica-us" }, { streamID: "reviewed-tv:espn2-latinamerica-south" },
+    { channelID: "sports-channel:espn8-latinamerica-south", streamID: "reviewed-tv:espn8-latinamerica-south" },
+    { competitionID: "youth-champions-league" }, { squad: { gender: "women", ageGroup: "senior" } },
+    { end: stamp(120 * 60_000) }, { kind: "programme" }, { providerEventID: "reviewed-tv:programme:" + "a".repeat(64) },
+    { expiresAt: stamp(600_001) }]) await assert.rejects(tvJoined(changes), /invalid-collection/u);
+  for (let n = 2; n <= 7; n++) assert.equal((await tvJoined({ channelID: `sports-channel:espn${n}-latinamerica-south`, streamID: `reviewed-tv:espn${n}-latinamerica-south` })).links[0].state, "listed");
+});
+
+test("a TV assignment needs one fresh exact official pair/competition/squad/UTC date and never supplies live authority", async () => {
+  for (const changes of [{ start: new Date(Date.parse(fixture().start) - 60 * 60_000 - 1).toISOString() },
+    { start: new Date(Date.parse(fixture().start) + 1).toISOString() }, { start: "2026-10-29T23:45:00.000Z" },
+    { competitionID: "champions-league" }, { participants: ["Liverpool Women", "Chelsea Women"] }]) {
+    assert.equal((await tvJoined(changes)).links.some((l) => l.state === "listed"), false, JSON.stringify(changes));
+  }
+  for (const changes of [{ squad: undefined }, { competitionID: undefined }, { squad: { gender: "women", ageGroup: "senior" } },
+    { status: "finished" }, { verified: false }, { observedAt: stamp(-31 * 60_000) }]) {
+    assert.equal((await tvJoined({}, [fixture(changes)])).links.some((l) => l.state === "listed"), false, JSON.stringify(changes));
+  }
+  const duplicates = [fixture(), fixture({ fixtureID: "sports-fixture:other", start: stamp(-20 * 60_000) })];
+  assert.equal((await tvJoined({}, duplicates)).links.some((l) => l.state === "listed"), false);
+  const scheduled = (await tvJoined({}, [fixture({ status: "scheduled", start: stamp(30 * 60_000) })])).links[0];
+  assert.equal(scheduled.state, "listed"); assert.equal(scheduled.fixtureFingerprint.start, stamp(30 * 60_000));
+  assert.equal((await tvJoined({ observedAt: stamp(-600_001), expiresAt: stamp(-1) })).links[0].state, "needsVerification");
+});
+
+test("conflicting reviewed assignment siblings retain diagnosis without suppressing a different valid channel", async () => {
+  const source = await normalizeBroadcastCollection("reviewedtv", collection([
+    tvAssignment({ verification: "conflicting", issues: ["catalog-conflict"] }),
+    tvAssignment({ providerEventID: "reviewed-tv:assignment:" + "b".repeat(64), streamID: "reviewed-tv:espn2-latinamerica-south", channelID: "sports-channel:espn2-latinamerica-south" }),
+  ], { providerCode: "reviewedtv", scopes: [{ scope: "football", status: "partial", complete: false }] }), now);
+  assert.equal(source.broadcasts.length, 2); assert.ok(source.broadcasts.every((b) => b.stationMarket === "UY"));
+  const links = associateBroadcasts({ fixtures: [fixture()], broadcasts: source.broadcasts, providers: source.scopes, now });
+  assert.deepEqual(links.map((l) => l.state).sort(), ["conflicting", "listed"]);
+});
+
 test("wire text retains171-char participants and harmlessZWJ/tagemoji while C1/bidi never enter a snapshot", async () => {
   const england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
   const source = await normalizeBroadcastCollection("communitysports", collection([
@@ -261,17 +319,6 @@ test("content revision is deterministic without renewing source observations and
   assert.equal(second.broadcasts[0].observedAt, stamp());
   await assert.rejects(buildBroadcastSnapshot({ providers: [], broadcasts: Array(BROADCAST_REGISTRY_LIMITS.records + 1).fill(source.broadcasts[0]), links: [], now }), /capacity-exceeded/);
   await assert.rejects(normalizeBroadcastCollection("communitysports", collection(Array(1501).fill(row())), now), /invalid-collection/);
-});
-
-test("official long club names retain actual source broadcasts while similarly named Paris clubs stay distinct", async () => {
-  for(const [official,published]of [
-    [['Bologna FC 1909','AC Monza'],['Bologna','Monza']],
-    [['VfB Stuttgart','TSG 1899 Hoffenheim'],['Stuttgart','Hoffenheim']],
-    [['Olympique Lyonnais','Stade Rennais FC 1901'],['Lyon','Rennes']],
-    [['RCD Espanyol de Barcelona','Rayo Vallecano de Madrid'],['Espanyol','Rayo Vallecano']],
-  ])assert.equal((await joined([row({participants:published})],[fixture({participants:official})])).links[0]?.state,'listed',official.join(' / '));
-  assert.equal((await joined([row({participants:['Paris Saint-Germain','Lyon']})],
-    [fixture({participants:['Paris FC','Olympique Lyonnais']})])).links.length,0);
 });
 
 

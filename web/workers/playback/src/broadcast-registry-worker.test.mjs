@@ -58,12 +58,13 @@ test("registry defaults to the fixed seven-provider compatibility view and only 
   const snapshot = { schemaVersion: 1, revision: "f".repeat(64), generatedAt: observed,
     providers: [...oldCodes, "reviewedtv"].map((providerCode) => ({ providerCode, scope: "cricket", status: "available", observedAt: observed, expiresAt: expiry })),
     broadcasts: [{ id: "br:old", providerCode: "communitysports", observedAt: observed, expiresAt: expiry },
-      { id: "br:programme", providerCode: "reviewedtv", observedAt: observed, expiresAt: expiry }],
+      { id: "br:programme", providerCode: "reviewedtv", scope: "cricket", sport: "cricket", kind: "programme",
+        channelID: "cricket-channel:willow", streamID: "reviewed-tv:willow-main", providerEventID: "reviewed-tv:programme:" + "a".repeat(64), observedAt: observed, expiresAt: expiry }],
     links: [{ providerCode: "communitysports", fixtureID: "fixture", broadcastID: "br:old", expiresAt: expiry },
       { providerCode: "reviewedtv", fixtureID: "fixture", broadcastID: "br:programme", expiresAt: expiry }] };
   const stub = binding(snapshot), env = envFor(stub), header = "X-Fotty-Broadcast-Capabilities";
   const legacyResponse = await worker.fetch(new Request(origin + route), env), legacy = await legacyResponse.json();
-  assert.equal(legacyResponse.status, 200); assert.equal(legacyResponse.headers.get("Vary"), header);
+  assert.equal(legacyResponse.status, 200); assert.equal(legacyResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments");
   assert.deepEqual(legacy.providers.map((p) => p.providerCode), oldCodes, "An old strict provider enum never sees the eighth provider");
   assert.deepEqual(legacy.broadcasts, [snapshot.broadcasts[0]]); assert.deepEqual(legacy.links, [snapshot.links[0]]);
   assert.equal(legacy.generatedAt, snapshot.generatedAt); assert.equal(legacy.links[0].expiresAt, expiry);
@@ -71,7 +72,7 @@ test("registry defaults to the fixed seven-provider compatibility view and only 
   assert.equal(legacy.revision, await broadcastRegistryHash([snapshot.revision, "legacy-seven-provider-v1"]));
   assert.notEqual(legacy.revision, snapshot.revision);
   const capableResponse = await worker.fetch(new Request(origin + route, { headers: { [header]: "reviewedtv-programme-v1" } }), env);
-  assert.equal(capableResponse.headers.get("Vary"), header); assert.deepEqual(await capableResponse.json(), snapshot);
+  assert.equal(capableResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments"); assert.deepEqual(await capableResponse.json(), snapshot);
   for (const value of ["reviewedtv-programme-v1,other", "REVIEWEDTV-PROGRAMME-V1", "communitysports"]) {
     const response = await worker.fetch(new Request(origin + route, { headers: { [header]: value } }), env);
     assert.deepEqual(await response.json(), legacy, "Unrecognized capability values select the same fixed legacy profile");
@@ -101,6 +102,40 @@ test("registry capability projection keeps failure status/body and the four-MiB 
     assert.equal(response.status, 503); assert.equal((await response.json()).activation, "unavailable");
   }
   assert.equal(oversized.calls.length, 2, "Each GET is still only one bounded metadata snapshot read");
+}));
+
+test("dual-header reviewed assignment negotiation preserves old Willow clients and isolates cache variants", async () => withoutOutbound(async () => {
+  const primary = "X-Fotty-Broadcast-Capabilities", secondary = "X-Fotty-Broadcast-Assignments";
+  const observed = "2026-10-31T22:00:00.000Z", expiry = "2026-10-31T22:10:00.000Z";
+  const snapshot = { schemaVersion: 1, revision: "e".repeat(64), generatedAt: observed,
+    providers: [{ providerCode: "communitysports", scope: "football" }, { providerCode: "reviewedtv", scope: "cricket" }, { providerCode: "reviewedtv", scope: "football" }],
+    broadcasts: [{ id: "br:old", providerCode: "communitysports", scope: "football" },
+      { id: "br:willow", providerCode: "reviewedtv", scope: "cricket", sport: "cricket", kind: "programme", channelID: "cricket-channel:willow",
+        streamID: "reviewed-tv:willow-main", providerEventID: "reviewed-tv:programme:" + "a".repeat(64), observedAt: observed, expiresAt: expiry },
+      { id: "br:football", providerCode: "reviewedtv", scope: "football", sport: "football", kind: "event", stationMarket: "UY", observedAt: observed, expiresAt: expiry }],
+    links: [{ providerCode: "communitysports", broadcastID: "br:old", matchMethod: "exact" },
+      { providerCode: "reviewedtv", broadcastID: "br:willow", matchMethod: "programme" },
+      { providerCode: "reviewedtv", broadcastID: "br:football", matchMethod: "channel-assignment", startRelation: "channel-coverage" }] };
+  const stub = binding(snapshot), env = envFor(stub);
+  const read = async (headers) => { const response = await worker.fetch(new Request(origin + route, { headers }), env);
+    assert.equal(response.status, 200); assert.equal(response.headers.get("Vary"), primary + ", " + secondary); return response.json(); };
+  const legacy = await read({});
+  assert.deepEqual(legacy.providers.map((p) => p.providerCode), ["communitysports"]); assert.equal(legacy.broadcasts.length, 1);
+  const v1 = await read({ [primary]: "reviewedtv-programme-v1" });
+  assert.deepEqual(v1.broadcasts.map((b) => b.id), ["br:old", "br:willow"]); assert.equal(v1.providers.length, 2);
+  assert.deepEqual(v1.links.map((l) => l.matchMethod), ["exact", "programme"]);
+  assert.equal(v1.revision, await broadcastRegistryHash([snapshot.revision, "reviewedtv-willow-programme-v1"]));
+  for (const headers of [{ [primary]: "reviewedtv-programme-v2" },
+    { [primary]: "reviewedtv-programme-v1", [secondary]: "reviewedtv-programme-v2" }]) assert.deepEqual(await read(headers), snapshot);
+  for (const value of ["reviewedtv-programme-v2,other", "REVIEWEDTV-PROGRAMME-V2", "unrecognized"]) {
+    assert.deepEqual(await read({ [primary]: "reviewedtv-programme-v1", [secondary]: value }), v1);
+  }
+  assert.deepEqual(await read({ [secondary]: "reviewedtv-programme-v2" }), legacy, "A secondary tag alone cannot opt an old client into unfamiliar provider types");
+  assert.deepEqual(await read({ [primary]: "unrecognized", [secondary]: "reviewedtv-programme-v2" }), legacy);
+  const preflight = await worker.fetch(new Request(origin + route, { method: "OPTIONS" }), env);
+  assert.ok(preflight.headers.get("Access-Control-Allow-Headers").includes(secondary));
+  assert.equal(stub.calls.length, 9, "Projection does not cause another collection/read for a given request");
+  assert.ok(stub.calls.every((r) => r.method === "GET"));
 }));
 
 test("cloud scheduler admits only explicit reviewed registry activation and does not replace existing fixture cron", async () => withoutOutbound(async () => {
@@ -191,7 +226,7 @@ test("failed sports scope cannot erase a separately verified cricket record and 
   assert.equal(missing.day, undefined); assert.equal(missing.end, undefined); assert.equal(missing.matchOrdinal, undefined);
 }));
 
-test("owner-approved deployment configuration is explicitly ON and gives the new registry its own binding/migration", async () => {
+test("approved registry configuration retains its own binding/migration and enabled scope", async () => {
   const config = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
   assert.match(config, /^FOTTY_BROADCAST_REGISTRY_ENABLED = "1"$/m);
   assert.match(config, /name = "BROADCAST_REGISTRY"\s+class_name = "BroadcastRegistry"/);
