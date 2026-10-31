@@ -199,12 +199,15 @@ export const FOOTBALL_COMPETITIONS = {
       {
         "name": "Racing de Santander",
         "aliases": [
-          "Racing Santander"
+          "Racing Santander",
+          "Real Racing Club de Santander"
         ]
       },
       {
         "name": "Rayo Vallecano",
-        "aliases": []
+        "aliases": [
+          "Rayo Vallecano de Madrid"
+        ]
       },
       {
         "name": "RC Deportivo",
@@ -218,7 +221,8 @@ export const FOOTBALL_COMPETITIONS = {
       {
         "name": "RCD Espanyol",
         "aliases": [
-          "Espanyol"
+          "Espanyol",
+          "RCD Espanyol de Barcelona"
         ]
       },
       {
@@ -233,7 +237,9 @@ export const FOOTBALL_COMPETITIONS = {
       },
       {
         "name": "Real Sociedad",
-        "aliases": []
+        "aliases": [
+          "Real Sociedad de Fútbol"
+        ]
       },
       {
         "name": "Sevilla FC",
@@ -272,15 +278,21 @@ export const FOOTBALL_COMPETITIONS = {
       },
       {
         "name": "Atalanta",
-        "aliases": []
+        "aliases": [
+          "Atalanta BC"
+        ]
       },
       {
         "name": "Bologna",
-        "aliases": []
+        "aliases": [
+          "Bologna FC 1909"
+        ]
       },
       {
         "name": "Cagliari",
-        "aliases": []
+        "aliases": [
+          "Cagliari Calcio"
+        ]
       },
       {
         "name": "Como",
@@ -288,15 +300,21 @@ export const FOOTBALL_COMPETITIONS = {
       },
       {
         "name": "Fiorentina",
-        "aliases": []
+        "aliases": [
+          "ACF Fiorentina"
+        ]
       },
       {
         "name": "Frosinone",
-        "aliases": []
+        "aliases": [
+          "Frosinone Calcio"
+        ]
       },
       {
         "name": "Genoa",
-        "aliases": []
+        "aliases": [
+          "Genoa CFC"
+        ]
       },
       {
         "name": "Inter",
@@ -311,11 +329,15 @@ export const FOOTBALL_COMPETITIONS = {
       },
       {
         "name": "Lazio",
-        "aliases": []
+        "aliases": [
+          "SS Lazio"
+        ]
       },
       {
         "name": "Lecce",
-        "aliases": []
+        "aliases": [
+          "US Lecce"
+        ]
       },
       {
         "name": "Monza",
@@ -327,7 +349,9 @@ export const FOOTBALL_COMPETITIONS = {
       },
       {
         "name": "Parma",
-        "aliases": []
+        "aliases": [
+          "Parma Calcio 1913"
+        ]
       },
       {
         "name": "Roma",
@@ -337,7 +361,9 @@ export const FOOTBALL_COMPETITIONS = {
       },
       {
         "name": "Sassuolo",
-        "aliases": []
+        "aliases": [
+          "US Sassuolo Calcio"
+        ]
       },
       {
         "name": "Torino",
@@ -345,7 +371,9 @@ export const FOOTBALL_COMPETITIONS = {
       },
       {
         "name": "Udinese",
-        "aliases": []
+        "aliases": [
+          "Udinese Calcio"
+        ]
       },
       {
         "name": "Venezia",
@@ -386,7 +414,9 @@ export const FOOTBALL_COMPETITIONS = {
         "aliases": [
           "Monchengladbach",
           "Borussia Monchengladbach",
-          "Gladbach"
+          "Gladbach",
+          "Borussia M'gladbach",
+          "M'gladbach"
         ]
       },
       {
@@ -398,7 +428,8 @@ export const FOOTBALL_COMPETITIONS = {
       {
         "name": "SV Elversberg",
         "aliases": [
-          "Elversberg"
+          "Elversberg",
+          "SV 07 Elversberg"
         ]
       },
       {
@@ -416,7 +447,8 @@ export const FOOTBALL_COMPETITIONS = {
       {
         "name": "TSG Hoffenheim",
         "aliases": [
-          "Hoffenheim"
+          "Hoffenheim",
+          "TSG 1899 Hoffenheim"
         ]
       },
       {
@@ -572,7 +604,8 @@ export const FOOTBALL_COMPETITIONS = {
       {
         "name": "Stade Rennais FC",
         "aliases": [
-          "Rennes"
+          "Rennes",
+          "Stade Rennais FC 1901"
         ]
       },
       {
@@ -590,7 +623,8 @@ export const FOOTBALL_COMPETITIONS = {
       {
         "name": "ESTAC Troyes",
         "aliases": [
-          "Troyes"
+          "Troyes",
+          "ES Troyes AC"
         ]
       }
     ]
@@ -810,9 +844,9 @@ export const FOOTBALL_COMPETITIONS = {
         ]
       },
       {
-        "name": "Stuttgart",
+        "name": "VfB Stuttgart",
         "aliases": [
-          "VfB Stuttgart"
+          "Stuttgart"
         ]
       },
       {
@@ -878,7 +912,8 @@ export const FOOTBALL_COMPETITIONS = {
         "name": "Celta",
         "aliases": [
           "Celta Vigo"
-        ]
+        ],
+        "canonicalID": "celtadevigo"
       },
       {
         "name": "Celtic",
@@ -914,7 +949,8 @@ export const FOOTBALL_COMPETITIONS = {
         "name": "Hoffenheim",
         "aliases": [
           "TSG Hoffenheim"
-        ]
+        ],
+        "canonicalID": "tsghoffenheim"
       },
       {
         "name": "Jagiellonia",
@@ -934,7 +970,8 @@ export const FOOTBALL_COMPETITIONS = {
         "name": "Bayer Leverkusen",
         "aliases": [
           "Leverkusen"
-        ]
+        ],
+        "canonicalID": "bayer04leverkusen"
       },
       {
         "name": "Levski Sofia",
@@ -950,13 +987,15 @@ export const FOOTBALL_COMPETITIONS = {
         "name": "Lyon",
         "aliases": [
           "Olympique Lyonnais"
-        ]
+        ],
+        "canonicalID": "lyonnais"
       },
       {
         "name": "Marseille",
         "aliases": [
           "Olympique Marseille"
-        ]
+        ],
+        "canonicalID": "demarseille"
       },
       {
         "name": "AC Milan",
@@ -986,13 +1025,16 @@ export const FOOTBALL_COMPETITIONS = {
       },
       {
         "name": "Real Sociedad",
-        "aliases": []
+        "aliases": [
+          "Real Sociedad de Fútbol"
+        ]
       },
       {
         "name": "Rennes",
         "aliases": [
           "Stade Rennais"
-        ]
+        ],
+        "canonicalID": "rennais"
       },
       {
         "name": "Salzburg",
@@ -1047,14 +1089,26 @@ export const ADDITIONAL_FOOTBALL_CLUB_IDENTITIES = [
     "aliases": [
       "Wolves"
     ]
+  },
+  {
+    "name": "Red Bull New York",
+    "aliases": [
+      "New York Red Bulls"
+    ]
+  },
+  {
+    "name": "D.C. United",
+    "aliases": [
+      "DC United"
+    ]
   }
 ] as const;
 
 export type CurrentFootballCompetitionId = keyof typeof FOOTBALL_COMPETITIONS;
 
-function normalizedKey(value: string) {
+function normalizedKey(value: string, preservingClubWords = false) {
   const ignored = new Set(["fc", "afc", "cf", "ac", "club", "sc", "sv", "rc", "rcd", "ud", "losc", "ogc", "estac", "stade", "olympique", "and"]);
-  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().split(/[^a-z0-9]+/).filter((token) => token && !ignored.has(token)).map((token) => token === "utd" ? "united" : token).join("");
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().split(/[^a-z0-9]+/).filter((token) => token && (preservingClubWords || !ignored.has(token))).map((token) => token === "utd" ? "united" : token).join("");
 }
 
 function isNonSeniorTeam(value: string) {
@@ -1077,17 +1131,18 @@ export function isCurrentCompetitionPair(id: CurrentFootballCompetitionId, home:
 
 export function canonicalFootballClubId(value: string) {
   if (isNonSeniorTeam(value)) return undefined;
-  const key = normalizedKey(value);
-  const matches = new Set<string>();
-  const considerClub = (club: { readonly name: string; readonly aliases: readonly string[] }) => {
-      if ([club.name, ...club.aliases].some((name) => normalizedKey(name) === key)) {
-        matches.add(normalizedKey(club.name));
-      }
+  const matching = (preservingClubWords: boolean) => {
+    const key = normalizedKey(value, preservingClubWords), matches = new Set<string>();
+    const considerClub = (club: { readonly name: string; readonly aliases: readonly string[]; readonly canonicalID?: string }) => {
+      if ([club.name, ...club.aliases].some((name) => normalizedKey(name, preservingClubWords) === key))
+        matches.add(club.canonicalID ?? normalizedKey(club.name));
+    };
+    for (const competition of Object.values(FOOTBALL_COMPETITIONS))
+      for (const club of competition.clubs) considerClub(club);
+    for (const club of ADDITIONAL_FOOTBALL_CLUB_IDENTITIES) considerClub(club);
+    return matches;
   };
-  for (const competition of Object.values(FOOTBALL_COMPETITIONS)) {
-    for (const club of competition.clubs) considerClub(club);
-  }
-  for (const club of ADDITIONAL_FOOTBALL_CLUB_IDENTITIES) considerClub(club);
+  const literal = matching(true), matches = literal.size ? literal : matching(false);
   return matches.size === 1 ? matches.values().next().value : undefined;
 }
 

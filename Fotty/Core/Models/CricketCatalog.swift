@@ -116,8 +116,8 @@ enum CPLSchedule {
             self.number = number; self.start = start; self.home = home; self.away = away; self.stage = nil
         }
 
-        init(_ number: Int, _ start: String, stage: String) {
-            self.number = number; self.start = start; self.home = nil; self.away = nil; self.stage = stage
+        init(_ number: Int, _ start: String, stage: String, home: CPLTeam? = nil, away: CPLTeam? = nil) {
+            self.number = number; self.start = start; self.home = home; self.away = away; self.stage = stage
         }
 
         var id: String { "cpl-2026-\(number)" }
@@ -225,12 +225,13 @@ enum CPLSchedule {
                 }
                 decoded.append(.init(record.number, record.start, team1, team2))
             } else {
-                guard record.team1 == nil,
-                      record.team2 == nil,
-                      record.stage == expectedStages[record.number] else {
+                guard record.stage == expectedStages[record.number] else { throw ValidationError.invalidFixture(record.number) }
+                let home = record.team1.flatMap(CPLTeam.init(manifestKey:))
+                let away = record.team2.flatMap(CPLTeam.init(manifestKey:))
+                guard record.team1 == nil && record.team2 == nil || home != nil && away != nil && home != away else {
                     throw ValidationError.invalidFixture(record.number)
                 }
-                decoded.append(.init(record.number, record.start, stage: record.stage!))
+                decoded.append(.init(record.number, record.start, stage: record.stage!, home: home, away: away))
             }
         }
         guard seenNumbers == Set(1...39) else {

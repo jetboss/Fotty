@@ -60,3 +60,22 @@ test("domestic memberships recognize current replacements rather than prior-seas
     assert.equal(isCurrentCompetitionClub(competition, oldClub), false, `${competition}: ${oldClub}`);
   }
 });
+
+test("accepted official long names and cross-competition aliases share stable senior identities", async () => {
+  const { canonicalFootballClubId: club } = await import('./football-competition-catalog.generated.ts');
+  const pairs = [['Bologna FC 1909','Bologna'],['Stade Rennais FC 1901','Rennes'],['SV 07 Elversberg','SV Elversberg'],
+    ['RCD Espanyol de Barcelona','Espanyol'],['TSG 1899 Hoffenheim','Hoffenheim'],['VfB Stuttgart','Stuttgart'],
+    ['Rayo Vallecano de Madrid','Rayo Vallecano'],['Udinese Calcio','Udinese'],['ES Troyes AC','Troyes'],
+    ['Frosinone Calcio','Frosinone'],['SS Lazio','Lazio'],['Cagliari Calcio','Cagliari'],
+    ['Real Racing Club de Santander','Racing de Santander'],['Olympique Lyonnais','Lyon'],['US Lecce','Lecce'],
+    ['Genoa CFC','Genoa'],['Real Sociedad de Fútbol','Real Sociedad'],['US Sassuolo Calcio','Sassuolo'],
+    ['ACF Fiorentina','Fiorentina'],['Atalanta BC','Atalanta'],['Parma Calcio 1913','Parma'],['Bayer 04 Leverkusen','Leverkusen']];
+  for(const [official,published] of pairs){assert.ok(club(official),official);assert.equal(club(official),club(published),official+' / '+published);}
+  assert.notEqual(club('Paris FC'),club('Paris Saint-Germain'),'Lossy removal of FC must not merge distinct Paris clubs');
+  assert.equal(club('Paris'),club('Paris Saint-Germain'),'The literal reviewed Paris alias still belongs to PSG');
+  for(const competition of Object.values(FOOTBALL_COMPETITIONS))for(const row of competition.clubs){
+    assert.ok(club(row.name),competition.displayName+':'+row.name);
+    if('canonicalID' in row)assert.equal(club(row.name),row.canonicalID);
+  }
+  for(const name of ['Bologna Women','Bologna U19','Stuttgart Reserves','Paris FC Academy'])assert.equal(club(name),undefined,name);
+});

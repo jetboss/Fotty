@@ -389,15 +389,32 @@ final class BetaUsabilityTests: XCTestCase {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let manifestURL = root.appendingPathComponent("web/public/data/cpl-2026-fixtures.json")
         let data = try Data(contentsOf: manifestURL)
-        let validationDate = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-09-04T00:00:00Z"))
+        // Validate the frozen fixture at its receipt, not a date before it was published.
+        let manifestObject = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let checkedAt = try XCTUnwrap(manifestObject["checkedAt"] as? String)
+        let validationDate = try XCTUnwrap(ISO8601DateFormatter().date(from: checkedAt))
         let snapshot = try CPLSchedule.validatedSnapshot(from: data, now: validationDate)
         XCTAssertEqual(Config.cplScheduleManifestURL?.absoluteString, "https://fotty-playback-v3.adaptive-rhubarb.workers.dev/api/cricket/cpl-fixtures")
         XCTAssertEqual(snapshot.fixtures.count, CPLSchedule.fixtures.count)
         for (remote, bundled) in zip(snapshot.fixtures, CPLSchedule.fixtures) {
             XCTAssertEqual(remote.number, bundled.number)
             XCTAssertEqual(remote.kickoff, bundled.kickoff)
-            XCTAssertEqual(Set([remote.home, remote.away].compactMap { $0 }), Set([bundled.home, bundled.away].compactMap { $0 }))
+            if bundled.stage == nil {
+                XCTAssertEqual(Set([remote.home, remote.away].compactMap { $0 }), Set([bundled.home, bundled.away].compactMap { $0 }))
+            } else {
+                XCTAssertEqual(remote.home == nil, remote.away == nil, "A knockout has both verified teams or neither")
+                if let home = remote.home { XCTAssertNotEqual(home, remote.away) }
+            }
             XCTAssertEqual(remote.stage, bundled.stage)
+        }
+
+        for teams in [["team1": "antigua"], ["team1": "antigua", "team2": "antigua"], ["team1": "unknown", "team2": "jamaica"]] {
+            var invalid = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+            var rows = try XCTUnwrap(invalid["fixtures"] as? [[String: Any]])
+            rows[38].removeValue(forKey: "team1"); rows[38].removeValue(forKey: "team2")
+            for (key, value) in teams { rows[38][key] = value }
+            invalid["fixtures"] = rows
+            XCTAssertThrowsError(try CPLSchedule.validatedSnapshot(from: JSONSerialization.data(withJSONObject: invalid), now: validationDate))
         }
 
         var partial = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])

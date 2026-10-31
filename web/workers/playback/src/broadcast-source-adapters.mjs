@@ -54,7 +54,14 @@ function englishUTC(value) {
 }
 function cricketLabel(value) {
   const m = typeof value === "string" && value.match(/^([1-9]\d?)(st|nd|rd|th) (Test|T20I|T20|ODI|T10)(?:[ -]day[ -]([1-5]))?$/iu);
-  if (!m) return {};
+  if (!m) {
+    // Finals/series labels can explicitly name limited-overs format without
+    // a match ordinal. Never derive format from teams, station or time.
+    if (typeof value !== "string" || /^\d/u.test(value) || /\bday\b/iu.test(value)) return {};
+    const formats = new Set([...value.matchAll(/\b(Test|T20I?|ODI|T10)\b/giu)]
+      .map(([token]) => token.toUpperCase().replace("T20I", "T20")));
+    return formats.size === 1 && ["ODI", "T20"].includes([...formats][0]) ? { format: [...formats][0] } : {};
+  }
   const n = +m[1], suffix = n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" })[n % 10] ?? "th";
   if (m[2].toLowerCase() !== suffix || m[4] && m[3].toLowerCase() !== "test") return {};
   return { format: /^test$/iu.test(m[3]) ? "Test" : m[3].toUpperCase().replace("T20I", "T20"), matchOrdinal: n, ...(m[4] ? { day: +m[4] } : {}) };
@@ -83,7 +90,7 @@ const DLHD_COMPETITIONS = Object.freeze({ "england premier league": "premier-lea
   "germany bundesliga": "bundesliga", "france ligue 1": "ligue-1" });
 const FS_COMPETITIONS = Object.freeze({ "England - Premier League": "premier-league", "UEFA Champions League": "champions-league",
   "Europe - UEFA Champions League": "champions-league", "Italy - Serie A": "serie-a", "Spain - La Liga": "la-liga",
-  "Germany - Bundesliga": "bundesliga", "France - Ligue 1": "ligue-1" });
+  "Germany - Bundesliga": "bundesliga", "Bundesliga": "bundesliga", "France - Ligue 1": "ligue-1" });
 function canonicalChannel(title) {
   if (!str(title, 128)) return null;
   const name = title.toLowerCase().replace(/[^a-z0-9]/gu, "");

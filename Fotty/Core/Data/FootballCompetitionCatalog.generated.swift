@@ -14,6 +14,7 @@ enum FootballCompetitionID: String, CaseIterable, Codable, Sendable {
 struct FootballCompetitionClub: Equatable, Sendable {
     let name: String
     let aliases: [String]
+    var canonicalID: String? = nil
 }
 
 struct FootballCompetitionSnapshot: Equatable, Sendable {
@@ -37,7 +38,9 @@ enum FootballCompetitionCatalog {
 
     static let additionalClubIdentities: [FootballCompetitionClub] = [
         FootballCompetitionClub(name: "West Ham United", aliases: ["West Ham"]),
-        FootballCompetitionClub(name: "Wolverhampton Wanderers", aliases: ["Wolves"])
+        FootballCompetitionClub(name: "Wolverhampton Wanderers", aliases: ["Wolves"]),
+        FootballCompetitionClub(name: "Red Bull New York", aliases: ["New York Red Bulls"]),
+        FootballCompetitionClub(name: "D.C. United", aliases: ["DC United"])
     ]
 
     static let snapshots: [FootballCompetitionID: FootballCompetitionSnapshot] = [
@@ -89,13 +92,13 @@ enum FootballCompetitionCatalog {
                 FootballCompetitionClub(name: "Getafe CF", aliases: ["Getafe"]),
                 FootballCompetitionClub(name: "Levante UD", aliases: ["Levante"]),
                 FootballCompetitionClub(name: "Málaga CF", aliases: ["Malaga"]),
-                FootballCompetitionClub(name: "Racing de Santander", aliases: ["Racing Santander"]),
-                FootballCompetitionClub(name: "Rayo Vallecano", aliases: []),
+                FootballCompetitionClub(name: "Racing de Santander", aliases: ["Racing Santander", "Real Racing Club de Santander"]),
+                FootballCompetitionClub(name: "Rayo Vallecano", aliases: ["Rayo Vallecano de Madrid"]),
                 FootballCompetitionClub(name: "RC Deportivo", aliases: ["Deportivo", "Deportivo La Coruna", "Deportivo La Coruña", "Deportivo de A Coruña"]),
-                FootballCompetitionClub(name: "RCD Espanyol", aliases: ["Espanyol"]),
+                FootballCompetitionClub(name: "RCD Espanyol", aliases: ["Espanyol", "RCD Espanyol de Barcelona"]),
                 FootballCompetitionClub(name: "Real Betis", aliases: ["Betis"]),
                 FootballCompetitionClub(name: "Real Madrid", aliases: []),
-                FootballCompetitionClub(name: "Real Sociedad", aliases: []),
+                FootballCompetitionClub(name: "Real Sociedad", aliases: ["Real Sociedad de Fútbol"]),
                 FootballCompetitionClub(name: "Sevilla FC", aliases: ["Sevilla"]),
                 FootballCompetitionClub(name: "Valencia CF", aliases: ["Valencia"]),
                 FootballCompetitionClub(name: "Villarreal CF", aliases: ["Villarreal"])
@@ -110,24 +113,24 @@ enum FootballCompetitionCatalog {
             expectedClubCount: 20,
             clubs: [
                 FootballCompetitionClub(name: "AC Milan", aliases: ["Milan"]),
-                FootballCompetitionClub(name: "Atalanta", aliases: []),
-                FootballCompetitionClub(name: "Bologna", aliases: []),
-                FootballCompetitionClub(name: "Cagliari", aliases: []),
+                FootballCompetitionClub(name: "Atalanta", aliases: ["Atalanta BC"]),
+                FootballCompetitionClub(name: "Bologna", aliases: ["Bologna FC 1909"]),
+                FootballCompetitionClub(name: "Cagliari", aliases: ["Cagliari Calcio"]),
                 FootballCompetitionClub(name: "Como", aliases: []),
-                FootballCompetitionClub(name: "Fiorentina", aliases: []),
-                FootballCompetitionClub(name: "Frosinone", aliases: []),
-                FootballCompetitionClub(name: "Genoa", aliases: []),
+                FootballCompetitionClub(name: "Fiorentina", aliases: ["ACF Fiorentina"]),
+                FootballCompetitionClub(name: "Frosinone", aliases: ["Frosinone Calcio"]),
+                FootballCompetitionClub(name: "Genoa", aliases: ["Genoa CFC"]),
                 FootballCompetitionClub(name: "Inter", aliases: ["Inter Milan", "Internazionale"]),
                 FootballCompetitionClub(name: "Juventus", aliases: []),
-                FootballCompetitionClub(name: "Lazio", aliases: []),
-                FootballCompetitionClub(name: "Lecce", aliases: []),
+                FootballCompetitionClub(name: "Lazio", aliases: ["SS Lazio"]),
+                FootballCompetitionClub(name: "Lecce", aliases: ["US Lecce"]),
                 FootballCompetitionClub(name: "Monza", aliases: []),
                 FootballCompetitionClub(name: "Napoli", aliases: []),
-                FootballCompetitionClub(name: "Parma", aliases: []),
+                FootballCompetitionClub(name: "Parma", aliases: ["Parma Calcio 1913"]),
                 FootballCompetitionClub(name: "Roma", aliases: ["AS Roma"]),
-                FootballCompetitionClub(name: "Sassuolo", aliases: []),
+                FootballCompetitionClub(name: "Sassuolo", aliases: ["US Sassuolo Calcio"]),
                 FootballCompetitionClub(name: "Torino", aliases: []),
-                FootballCompetitionClub(name: "Udinese", aliases: []),
+                FootballCompetitionClub(name: "Udinese", aliases: ["Udinese Calcio"]),
                 FootballCompetitionClub(name: "Venezia", aliases: [])
             ]
         ),
@@ -142,12 +145,12 @@ enum FootballCompetitionCatalog {
                 FootballCompetitionClub(name: "FC Augsburg", aliases: ["Augsburg"]),
                 FootballCompetitionClub(name: "FC Bayern München", aliases: ["Bayern", "Bayern Munich"]),
                 FootballCompetitionClub(name: "Borussia Dortmund", aliases: ["Dortmund"]),
-                FootballCompetitionClub(name: "Borussia Mönchengladbach", aliases: ["Monchengladbach", "Borussia Monchengladbach", "Gladbach"]),
+                FootballCompetitionClub(name: "Borussia Mönchengladbach", aliases: ["Monchengladbach", "Borussia Monchengladbach", "Gladbach", "Borussia M'gladbach", "M'gladbach"]),
                 FootballCompetitionClub(name: "Eintracht Frankfurt", aliases: ["Frankfurt"]),
-                FootballCompetitionClub(name: "SV Elversberg", aliases: ["Elversberg"]),
+                FootballCompetitionClub(name: "SV Elversberg", aliases: ["Elversberg", "SV 07 Elversberg"]),
                 FootballCompetitionClub(name: "SC Freiburg", aliases: ["Freiburg"]),
                 FootballCompetitionClub(name: "Hamburger SV", aliases: ["Hamburg"]),
-                FootballCompetitionClub(name: "TSG Hoffenheim", aliases: ["Hoffenheim"]),
+                FootballCompetitionClub(name: "TSG Hoffenheim", aliases: ["Hoffenheim", "TSG 1899 Hoffenheim"]),
                 FootballCompetitionClub(name: "1. FC Köln", aliases: ["Koln", "Cologne"]),
                 FootballCompetitionClub(name: "Bayer 04 Leverkusen", aliases: ["Bayer Leverkusen", "Leverkusen"]),
                 FootballCompetitionClub(name: "RB Leipzig", aliases: ["Leipzig"]),
@@ -181,10 +184,10 @@ enum FootballCompetitionCatalog {
                 FootballCompetitionClub(name: "OGC Nice", aliases: ["Nice"]),
                 FootballCompetitionClub(name: "Paris FC", aliases: []),
                 FootballCompetitionClub(name: "Paris Saint-Germain", aliases: ["PSG", "Paris Saint Germain"]),
-                FootballCompetitionClub(name: "Stade Rennais FC", aliases: ["Rennes"]),
+                FootballCompetitionClub(name: "Stade Rennais FC", aliases: ["Rennes", "Stade Rennais FC 1901"]),
                 FootballCompetitionClub(name: "RC Strasbourg Alsace", aliases: ["Strasbourg"]),
                 FootballCompetitionClub(name: "Toulouse FC", aliases: ["Toulouse"]),
-                FootballCompetitionClub(name: "ESTAC Troyes", aliases: ["Troyes"])
+                FootballCompetitionClub(name: "ESTAC Troyes", aliases: ["Troyes", "ES Troyes AC"])
             ]
         ),
         .championsLeague: FootballCompetitionSnapshot(
@@ -228,7 +231,7 @@ enum FootballCompetitionCatalog {
                 FootballCompetitionClub(name: "Slavia Praha", aliases: ["Slavia Prague", "SK Slavia Praha"]),
                 FootballCompetitionClub(name: "Slovan Bratislava", aliases: ["ŠK Slovan Bratislava"]),
                 FootballCompetitionClub(name: "Sporting CP", aliases: ["Sporting Lisbon", "Sporting Clube de Portugal"]),
-                FootballCompetitionClub(name: "Stuttgart", aliases: ["VfB Stuttgart"]),
+                FootballCompetitionClub(name: "VfB Stuttgart", aliases: ["Stuttgart"]),
                 FootballCompetitionClub(name: "Viking", aliases: ["Viking FK"]),
                 FootballCompetitionClub(name: "Villarreal", aliases: ["Villarreal CF"])
             ]
@@ -248,28 +251,28 @@ enum FootballCompetitionCatalog {
                 FootballCompetitionClub(name: "Beşiktaş", aliases: ["Besiktas"]),
                 FootballCompetitionClub(name: "Bournemouth", aliases: ["AFC Bournemouth"]),
                 FootballCompetitionClub(name: "Celje", aliases: ["NK Celje"]),
-                FootballCompetitionClub(name: "Celta", aliases: ["Celta Vigo"]),
+                FootballCompetitionClub(name: "Celta", aliases: ["Celta Vigo"], canonicalID: "celtadevigo"),
                 FootballCompetitionClub(name: "Celtic", aliases: []),
                 FootballCompetitionClub(name: "Crystal Palace", aliases: ["Palace"]),
                 FootballCompetitionClub(name: "Ferencváros", aliases: ["Ferencvaros"]),
                 FootballCompetitionClub(name: "GNK Dinamo", aliases: ["Dinamo Zagreb"]),
                 FootballCompetitionClub(name: "Hapoel Be'er Sheva", aliases: ["H. Beer-Sheva", "Hapoel Beer Sheva", "Hapoel Be'er"]),
-                FootballCompetitionClub(name: "Hoffenheim", aliases: ["TSG Hoffenheim"]),
+                FootballCompetitionClub(name: "Hoffenheim", aliases: ["TSG Hoffenheim"], canonicalID: "tsghoffenheim"),
                 FootballCompetitionClub(name: "Jagiellonia", aliases: []),
                 FootballCompetitionClub(name: "Juventus", aliases: []),
                 FootballCompetitionClub(name: "Lech Poznań", aliases: ["Lech Poznan"]),
-                FootballCompetitionClub(name: "Bayer Leverkusen", aliases: ["Leverkusen"]),
+                FootballCompetitionClub(name: "Bayer Leverkusen", aliases: ["Leverkusen"], canonicalID: "bayer04leverkusen"),
                 FootballCompetitionClub(name: "Levski Sofia", aliases: []),
                 FootballCompetitionClub(name: "Lillestrøm", aliases: ["Lillestrom"]),
-                FootballCompetitionClub(name: "Lyon", aliases: ["Olympique Lyonnais"]),
-                FootballCompetitionClub(name: "Marseille", aliases: ["Olympique Marseille"]),
+                FootballCompetitionClub(name: "Lyon", aliases: ["Olympique Lyonnais"], canonicalID: "lyonnais"),
+                FootballCompetitionClub(name: "Marseille", aliases: ["Olympique Marseille"], canonicalID: "demarseille"),
                 FootballCompetitionClub(name: "AC Milan", aliases: ["Milan"]),
                 FootballCompetitionClub(name: "N.E.C.", aliases: ["NEC Nijmegen"]),
                 FootballCompetitionClub(name: "OFI Crete", aliases: ["OFI"]),
                 FootballCompetitionClub(name: "Olympiacos", aliases: []),
                 FootballCompetitionClub(name: "Omonia", aliases: []),
-                FootballCompetitionClub(name: "Real Sociedad", aliases: []),
-                FootballCompetitionClub(name: "Rennes", aliases: ["Stade Rennais"]),
+                FootballCompetitionClub(name: "Real Sociedad", aliases: ["Real Sociedad de Fútbol"]),
+                FootballCompetitionClub(name: "Rennes", aliases: ["Stade Rennais"], canonicalID: "rennais"),
                 FootballCompetitionClub(name: "Salzburg", aliases: ["Red Bull Salzburg", "RB Salzburg"]),
                 FootballCompetitionClub(name: "Sparta Praha", aliases: ["Sparta Prague"]),
                 FootballCompetitionClub(name: "Sturm Graz", aliases: []),
@@ -280,6 +283,50 @@ enum FootballCompetitionCatalog {
             ]
         )
     ]
+
+    /// Immutable exact aliases retain ambiguity across competitions and the
+    /// first matching official name within each competition. Normalize the
+    /// reviewed catalog once, rather than scanning every alias per lookup.
+    struct ClubAliasLookup: Sendable {
+        private let canonicalIDs: [String: Set<String>]
+        private let literalIDs: [String: Set<String>]
+        private let officialNames: [String: String]
+
+        init(clubs: [FootballCompetitionClub]) {
+            var canonicalIDs: [String: Set<String>] = [:]
+            var literalIDs: [String: Set<String>] = [:]
+            var officialNames: [String: String] = [:]
+            for club in clubs {
+                let canonicalID = club.canonicalID ?? FootballCompetitionCatalog.normalizedKey(club.name)
+                for alias in [club.name] + club.aliases {
+                    let key = FootballCompetitionCatalog.normalizedKey(alias)
+                    canonicalIDs[key, default: []].insert(canonicalID)
+                    literalIDs[FootballCompetitionCatalog.normalizedKey(alias, preservingClubWords: true), default: []].insert(canonicalID)
+                    if officialNames[key] == nil { officialNames[key] = club.name }
+                }
+            }
+            self.canonicalIDs = canonicalIDs
+            self.literalIDs = literalIDs
+            self.officialNames = officialNames
+        }
+
+        func canonicalClubID(for rawName: String) -> String? {
+            guard !FootballCompetitionCatalog.isNonSeniorTeam(rawName),
+                  let matches = literalIDs[FootballCompetitionCatalog.normalizedKey(rawName, preservingClubWords: true)] ?? canonicalIDs[FootballCompetitionCatalog.normalizedKey(rawName)],
+                  matches.count == 1 else { return nil }
+            return matches.first
+        }
+
+        func officialName(for rawName: String) -> String? {
+            guard !FootballCompetitionCatalog.isNonSeniorTeam(rawName) else { return nil }
+            return officialNames[FootballCompetitionCatalog.normalizedKey(rawName)]
+        }
+    }
+
+    private static let canonicalAliases = ClubAliasLookup(
+        clubs: snapshots.values.flatMap(\.clubs) + additionalClubIdentities
+    )
+    private static let competitionAliases = snapshots.mapValues { ClubAliasLookup(clubs: $0.clubs) }
 
     static func snapshot(_ id: FootballCompetitionID) -> FootballCompetitionSnapshot {
         snapshots[id]!
@@ -307,15 +354,7 @@ enum FootballCompetitionCatalog {
 
     /// One provider-independent senior-club identity shared by matching, filtering and fixtures.
     static func canonicalClubID(for rawName: String) -> String? {
-        guard !isNonSeniorTeam(rawName) else { return nil }
-        let key = normalizedKey(rawName)
-        let allClubs = snapshots.values.flatMap(\.clubs) + additionalClubIdentities
-        let matches = Set(allClubs.compactMap { club in
-                ([club.name] + club.aliases).contains { normalizedKey($0) == key }
-                    ? normalizedKey(club.name)
-                    : nil
-        })
-        return matches.count == 1 ? matches.first : nil
+        canonicalAliases.canonicalClubID(for: rawName)
     }
 
     /// Known clubs collapse to their canonical identity; unknown teams retain a deterministic key.
@@ -324,11 +363,7 @@ enum FootballCompetitionCatalog {
     }
 
     static func officialName(for rawName: String, in id: FootballCompetitionID) -> String? {
-        guard !isNonSeniorTeam(rawName) else { return nil }
-        let key = normalizedKey(rawName)
-        return snapshot(id).clubs.first { club in
-            ([club.name] + club.aliases).contains { normalizedKey($0) == key }
-        }?.name
+        competitionAliases[id]?.officialName(for: rawName)
     }
 
     static func providerBootstrap() -> [String: [String]] {
@@ -346,11 +381,11 @@ enum FootballCompetitionCatalog {
         return value.lowercased().range(of: pattern, options: .regularExpression) != nil
     }
 
-    private static func normalizedKey(_ value: String) -> String {
+    private static func normalizedKey(_ value: String, preservingClubWords: Bool = false) -> String {
         let folded = value.folding(options: [.diacriticInsensitive, .caseInsensitive], locale: Locale(identifier: "en_US_POSIX"))
         let ignored: Set<String> = ["fc", "afc", "cf", "ac", "club", "sc", "sv", "rc", "rcd", "ud", "losc", "ogc", "estac", "stade", "olympique", "and"]
         return folded.components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty && !ignored.contains($0.lowercased()) }
+            .filter { !$0.isEmpty && (preservingClubWords || !ignored.contains($0.lowercased())) }
             .map { $0.lowercased() == "utd" ? "united" : $0.lowercased() }
             .joined()
     }

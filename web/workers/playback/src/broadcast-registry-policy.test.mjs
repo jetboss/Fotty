@@ -262,3 +262,40 @@ test("content revision is deterministic without renewing source observations and
   await assert.rejects(buildBroadcastSnapshot({ providers: [], broadcasts: Array(BROADCAST_REGISTRY_LIMITS.records + 1).fill(source.broadcasts[0]), links: [], now }), /capacity-exceeded/);
   await assert.rejects(normalizeBroadcastCollection("communitysports", collection(Array(1501).fill(row())), now), /invalid-collection/);
 });
+
+test("official long club names retain actual source broadcasts while similarly named Paris clubs stay distinct", async () => {
+  for(const [official,published]of [
+    [['Bologna FC 1909','AC Monza'],['Bologna','Monza']],
+    [['VfB Stuttgart','TSG 1899 Hoffenheim'],['Stuttgart','Hoffenheim']],
+    [['Olympique Lyonnais','Stade Rennais FC 1901'],['Lyon','Rennes']],
+    [['RCD Espanyol de Barcelona','Rayo Vallecano de Madrid'],['Espanyol','Rayo Vallecano']],
+  ])assert.equal((await joined([row({participants:published})],[fixture({participants:official})])).links[0]?.state,'listed',official.join(' / '));
+  assert.equal((await joined([row({participants:['Paris Saint-Germain','Lyon']})],
+    [fixture({participants:['Paris FC','Olympique Lyonnais']})])).links.length,0);
+});
+
+
+test("verified limited-overs early coverage retains both clocks and requires one exact dated fixture", async () => {
+  const official = fixture({ sport: "cricket", participants: ["Pakistan", "Sri Lanka"], competitionID: "icc", squad: undefined, format: "ODI", start: stamp(-60 * 60_000) });
+  const source = row({ sport: "cricket", scope: "cricket", participants: ["Pakistan", "Sri Lanka"], competitionID: undefined, format: "ODI", start: stamp(-90 * 60_000) });
+  const options = { scopes: [{ scope: "cricket", status: "available", complete: true }] };
+  const check = async (sourceChanges = {}, fixtureChanges = {}, extras = []) => (await joined([row({ ...source, ...sourceChanges })],
+    [{ ...official, ...fixtureChanges }, ...extras], options)).links;
+  for (const format of ["ODI", "T20"]) for (const lead of [15 * 60_000 + 1, 30 * 60_000, 60 * 60_000]) {
+    const link = (await check({ format, start: new Date(Date.parse(official.start) - lead).toISOString() }, { format }))[0];
+    assert.equal(link.state, "listed"); assert.equal(link.startRelation, "early-coverage");
+    assert.equal(link.fixtureFingerprint.start, official.start); assert.equal(link.matchMethod, "exact");
+  }
+  assert.equal((await check({ start: new Date(Date.parse(official.start) - 15 * 60_000).toISOString() }))[0].startRelation, undefined);
+  for (const changes of [
+    { start: new Date(Date.parse(official.start) - 60 * 60_000 - 1).toISOString() },
+    { start: new Date(Date.parse(official.start) + 30 * 60_000).toISOString() },
+    { format: "T20" }, { format: undefined }, { participants: ["Pakistan Women", "Sri Lanka Women"] },
+    { competitionID: "other-series" }, { verification: "undated", start: undefined },
+  ]) assert.equal((await check(changes)).some((link) => link.state === "listed"), false, JSON.stringify(changes));
+  for (const format of ["Test", "T10"]) assert.notEqual((await check({ format }, { format }))[0]?.state, "listed");
+  assert.notEqual((await check({ start: "2026-10-30T00:00:00.000Z" }, { start: "2026-10-30T00:30:00.000Z" }))[0]?.state, "conflicting");
+  assert.notEqual((await check({ start: "2026-10-29T23:45:00.000Z" }, { start: "2026-10-30T00:15:00.000Z" }))[0]?.state, "listed");
+  assert.equal((await check({}, {}, [{ ...official, fixtureID: "cricket-fixture:other", start: stamp(-40 * 60_000) }])).some((link) => link.state === "listed"), false);
+  assert.equal((await check({ observedAt: stamp(-60_000), expiresAt: stamp(-1) }))[0].state, "needsVerification");
+});
