@@ -55,7 +55,11 @@ test("matching live and next-24-hour fixtures are same-upstream reconciliation, 
 test("finished, cancelled, postponed, unknown, elapsed scheduled and exact 24-hour boundary rows do not establish expected omissions", async () => {
   const rows = [fixture("mlb", "100", { status: "finished" }), fixture("mlb", "101", { status: "cancelled" }),
     fixture("mlb", "102", { status: "postponed" }), fixture("mlb", "103", { status: "unknown" }),
-    fixture("mlb", "104", { status: "scheduled" }), fixture("mlb", "105", { status: "scheduled", start: iso(now + 24 * 60 * MINUTE) })];
+    fixture("mlb", "104", { status: "scheduled" }), fixture("mlb", "105", { status: "scheduled", start: iso(now + 24 * 60 * MINUTE) })]
+    // These are independent fixtures, not six contradictory opaque IDs for
+    // the same teams/start. Duplicate semantic records remain inadmissible.
+    .map((row, index) => ({ ...row, participants: row.participants.map((team, side) => ({
+      ...team, id: `mlb:${index * 2 + side + 1}`, name: `${team.name} ${index}` })) }));
   const report = await reconcile(snapshot(), { mlb: collection(rows, { pendingFixtureCount: 3 }) });
   assert.equal(report.lanes[0].expectedCount, 0);
   assert.equal(report.lanes[0].pendingFixtureCount, 3);
