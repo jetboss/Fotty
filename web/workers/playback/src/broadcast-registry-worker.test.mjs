@@ -199,3 +199,26 @@ test("owner-approved deployment configuration is explicitly ON and gives the new
   const providers = enabledBroadcastProviders({ FOTTY_BROADCAST_REGISTRY_SOURCES: "communitysports,plaviosports,score808" });
   assert.deepEqual(providers.map((p) => [p.providerCode, p.maxRequestsPerDay]), [["score808", 96], ["communitysports", 288], ["plaviosports", 288]]);
 });
+
+
+test("a temporary fixture timeout preserves fresh exact broadcast discovery without renewing status or clearing conflicts", async () => withoutOutbound(async () => {
+  const { accepted, now } = await admittedSportsFixture();
+  const descriptor = SPORTS_SOURCES.find((s) => s.id === "mlb");
+  for (const error of [new DOMException("deadline", "TimeoutError"), new DOMException("aborted", "AbortError"),
+    Object.assign(new Error("Sports schedule upstream unavailable"), { fixtureHTTPStatus: 503 })]) {
+    const failed = await refreshSportsSource(accepted, descriptor, new Date(+now + 60_000), async () => { throw error; });
+    const rows = await loadBroadcastRegistryFixtures(fixturesEnv(failed));
+    assert.equal(rows.length, 1, "An unrelated supplier can still resolve this accepted fixture");
+    assert.equal(rows[0].observedAt, now.toISOString(), "A failure never renews official status evidence");
+    assert.equal(rows[0].status, "live");
+    const stale = structuredClone(failed); const old = new Date(+now - 31 * 60_000).toISOString();
+    stale.accepted.observedAt = old; stale.accepted.fixtures[0].source.observedAt = old;
+    assert.deepEqual(await loadBroadcastRegistryFixtures(fixturesEnv(stale)), [], "Original status expiry still applies");
+    assert.deepEqual(await loadBroadcastRegistryFixtures(fixturesEnv({ ...failed, conflict: { content: "disputed" } })), []);
+    const held = structuredClone(failed); held.accepted.fixtures[0].source.verification = "held";
+    assert.deepEqual(await loadBroadcastRegistryFixtures(fixturesEnv(held)), [], "No upgrade of an explicit held record");
+  }
+  const invalid = await refreshSportsSource(accepted, descriptor, new Date(+now + 60_000),
+    async () => { throw new Error("Sports schedule is not JSON"); });
+  assert.deepEqual(await loadBroadcastRegistryFixtures(fixturesEnv(invalid)), [], "Malformed data remains a barrier");
+}));

@@ -114,6 +114,21 @@ export async function refreshSportsSource(previous, descriptor, now, collect) {
   }
 }
 
+// Preserve only already admitted, still-current fixture facts after a typed
+// temporary transport failure. The scope remains unavailable. Neither the
+// source receipt nor LIVE expiry advances, and a conflict/contract failure can
+// never use this continuity path. This also supports legacy stored cohorts.
+export function retainedSportsFixture(fixture, descriptor, state, now) {
+  const failure = state?.failure;
+  const temporary = failure?.stage === "collection" && (["TimeoutError", "AbortError"].includes(failure.kind)
+    || failure.code === "upstream-unavailable" && ([408, 429].includes(failure.httpStatus) || failure.httpStatus >= 500));
+  const observed = Date.parse(fixture.source?.observedAt), age = +now - observed;
+  if (!temporary || state.conflict || fixture.source.verification !== undefined
+    || !hasCompetitionReceipt(descriptor, state.accepted, fixture.competitionId)
+    || fixture.source.observedAt !== state.accepted.observedAt || age < -300_000 || age > 1_800_000) return fixture;
+  return { ...fixture, source: { ...fixture.source, verification: "verified" } };
+}
+
 export async function assembleSportsSnapshot(descriptors, states, now) {
   const fixtures = [];
   const coverage = [];
@@ -124,7 +139,7 @@ export async function assembleSportsSnapshot(descriptors, states, now) {
     for (const fixture of state?.accepted?.fixtures || []) {
       if (seen.has(fixture.id)) throw new Error("Duplicate cross-source fixture identity");
       seen.add(fixture.id);
-      fixtures.push(fixture);
+      fixtures.push(retainedSportsFixture(fixture, descriptor, state, now));
     }
   }
   fixtures.sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
