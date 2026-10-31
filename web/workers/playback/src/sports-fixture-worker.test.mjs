@@ -2,8 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import worker from "./index.js";
 import { SPORTS_SOURCES, collectSportsSource } from "./sports-fixture-sources.mjs";
-import { refreshSportsSource, assembleSportsSnapshot } from "./sports-fixture-registry.mjs";
 import { SPORTS_EVENT_SOURCES } from "./sports-fixture-event-sources.mjs";
+import { refreshSportsSource, assembleSportsSnapshot } from "./sports-fixture-registry.mjs";
 
 test("staged service returns pending and cannot collect without explicit activation", async () => {
   let calls = 0;
@@ -73,7 +73,7 @@ test("EFL uses existing durable admission and preserves accepted Cup facts after
   const failed = await refreshSportsSource(admitted, descriptor, later, async () => { throw new Error("Sports schedule upstream unavailable"); });
   const retained = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, failed]]), later);
   assert.equal(retained.coverage[0].status, "unavailable");
-  assert.notEqual(retained.fixtures[0].source.verification, "verified", "Unavailable legacy cohorts and explicit held rows cannot renew authority");
+  assert.equal(retained.fixtures[0].source.verification, "held");
   assert.equal(retained.fixtures[0].source.observedAt, now.toISOString());
   assert.equal(retained.fixtures[0].start, current.fixtures[0].start);
   assert.equal(retained.fixtures[0].competitionId, "carabao-cup");
@@ -96,4 +96,45 @@ test("a hung registry GET expires while other source receipts remain available",
   assert.equal(body.coverage.find((row) => row.competitionId === "atp").status, "unsupported");
   assert.equal(body.coverage.find((row) => row.competitionId === "wnba").status, "unsupported");
   assert.equal(calls.length, 3);
+});
+
+test("a wholly partial service exposes validated fresh rows without masking held conflicts", async () => {
+  const source = SPORTS_SOURCES.find((row) => row.id === "mlb");
+  const now = new Date(), oldAt = new Date(now.getTime() - 300_000);
+  const make = (id, at) => ({ id: `sports-fixture:mlb:${id}`, sport: "baseball", competitionId: "mlb",
+    competitionName: source.competitions[0].name, title: "Alpha vs Beta", eventKind: "match",
+    start: new Date(now.getTime() - 600_000).toISOString(), status: "live", squad: { gender: "men", ageGroup: "senior" },
+    participants: [{ id: `mlb:${id}1`, name: "Alpha", role: "home" }, { id: `mlb:${id}2`, name: "Beta", role: "away" }],
+    source: { name: source.sourceName, url: `${source.sourceURL}?sportId=1`, observedAt: at.toISOString() } });
+  const collection = (rows, at) => ({ fixtures: rows, observedAt: at.toISOString(), pendingFixtureCount: 0, pendingByCompetition: { mlb: 0 } });
+  const previous = await refreshSportsSource(null, source, oldAt, async () => collection([make(1, oldAt)], oldAt));
+  const partial = await refreshSportsSource(previous, source, now, async () => collection([make(2, now)], now));
+  const responseFor = (state) => worker.fetch(new Request("https://test.invalid/api/sports/fixtures"), {
+    FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "0",
+    SPORTS_FIXTURES: { idFromName(name) { return name; }, get(name) { return { async fetch() {
+      return Response.json(name.endsWith(":mlb") ? state : { consecutiveFailures: 1 });
+    } }; } },
+  });
+  const response = await responseFor(partial);
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.sourceStatus, "partial");
+  assert.ok(body.coverage.every((row) => row.status !== "covered"));
+  assert.equal(body.fixtures.find((row) => row.id.endsWith(":1")).source.verification, "held");
+  assert.equal(body.fixtures.find((row) => row.id.endsWith(":2")).source.verification, "verified");
+  assert.equal(body.coverage.find((row) => row.competitionId === "mlb").sync.consecutiveFailures, 1);
+  assert.equal(body.checkedAt, now.toISOString());
+  for (const corrupt of [
+    (state) => { state.accepted.fixtures[0].source.verification = null; },
+    (state) => { state.accepted.fixtures[0].participants[0].name = "TBD"; },
+    (state) => { state.accepted.fixtures[0].source.url = "https://unreviewed.example/schedule"; },
+    (state) => { state.accepted.fixtures[0].source.name = "Unreviewed publisher"; },
+    (state) => { state.accepted.fixtures.find((row) => row.source.verification === "verified").source.observedAt = oldAt.toISOString(); },
+    (state) => { delete state.cohorts; },
+  ]) {
+    const state = structuredClone(partial); corrupt(state);
+    assert.equal((await responseFor(state)).status, 503, "a marker alone cannot bypass complete admitted provenance");
+  }
+  const heldOnly = await refreshSportsSource(partial, source, now, async () => { throw new Error("publisher unavailable"); });
+  assert.equal((await responseFor(heldOnly)).status, 503);
 });
