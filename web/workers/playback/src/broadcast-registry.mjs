@@ -1,6 +1,6 @@
 import { associateBroadcasts, buildBroadcastSnapshot, normalizeBroadcastCollection,
   normalizeRegistryFixtures, mergeBroadcastRecords, BROADCAST_PROVIDER_CODES, BROADCAST_SCOPES, BROADCAST_REGISTRY_LIMITS,
-  BROADCAST_REASONS } from "./broadcast-registry-policy.mjs";
+  BROADCAST_REASONS, isReviewedTVFootballAssignment } from "./broadcast-registry-policy.mjs";
 
 const KEY = "shared-broadcast-registry-v1", minute = 60_000, day = 86_400_000;
 export const DEFAULT_BROADCAST_REGISTRY_PROVIDERS = Object.freeze(BROADCAST_PROVIDER_CODES.map((providerCode) => Object.freeze({
@@ -42,7 +42,7 @@ function validateState(state) {
       if (!row || Object.keys(row).some((key) => !RECORD_KEYS.has(key)) || row.providerCode !== code || !BROADCAST_SCOPES.includes(row.scope)
         || !/^br:[a-f0-9]{64}$/.test(row.id) || !Number.isFinite(Date.parse(row.observedAt)) || !Number.isFinite(Date.parse(row.expiresAt))
         || JSON.stringify(row).includes("://")) throw new Error("invalid-registry-state");
-      if (row.stationMarket !== undefined && (row.stationMarket !== "US" || code !== "communitysports" || row.kind !== "channel"
+      if (row.stationMarket !== undefined && !isReviewedTVFootballAssignment(row) && (row.stationMarket !== "US" || code !== "communitysports" || row.kind !== "channel"
         || !["networks", "cricket", "live"].includes(row.scope) || row.sport !== "cricket" || row.channelID !== "cricket-channel:willow")) throw new Error("invalid-registry-state");
     }
   }
@@ -58,7 +58,8 @@ function supportedFixtures(code, fixtures) {
   if (code === "streamvix") return fixtures.filter((f) => f.sport === "football"
     && ["premier-league", "champions-league"].includes(f.competitionID));
   if (code === "plaviosports") return fixtures.filter((f) => ["football", "cricket"].includes(f.sport));
-  if (code === "reviewedtv") return fixtures.filter((f) => f.sport === "cricket");
+  if (code === "reviewedtv") return fixtures.filter((f) => f.sport === "cricket" || f.sport === "football"
+    && ["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"].includes(f.competitionID));
   if (code === "flixstreams") return fixtures.filter((f) => f.sport === "cricket" || f.sport === "football"
     && ["premier-league", "champions-league", "serie-a", "la-liga", "bundesliga", "ligue-1"].includes(f.competitionID));
   return fixtures;
@@ -71,6 +72,27 @@ function cadence(fixtures, now, cost, cap) {
   // silently acquire one-request cadence or borrow the observer's allowance.
   return Math.max(active ? 5 * minute : soon ? 15 * minute : 4 * 60 * minute,
     Math.ceil(day * Math.max(1, cost) / cap));
+}
+
+function activeReviewedTV(fixtures, now) {
+  return supportedFixtures("reviewedtv", fixtures).some((f) => f.status === "live"
+    || Math.abs(Date.parse(f.start) - now) <= 30 * minute);
+}
+function healthyReviewedTVExpiry(source, now) {
+  return Math.max(0, ...(source?.records ?? []).filter((r) => r.providerCode === "reviewedtv" && r.verification === "dated"
+    && ["available", "partial"].includes(source.scopes?.[r.scope]?.status) && Date.parse(r.expiresAt) > now)
+    .map((r) => Date.parse(r.expiresAt)));
+}
+function reviewedTVDemandDue(descriptor, source, fixtures, now) {
+  const due = Date.parse(source?.nextAttemptAt ?? "1970-01-01T00:00:00Z"), last = Date.parse(source?.lastAttemptAt);
+  if (descriptor.providerCode !== "reviewedtv" || !Number.isFinite(last) || !activeReviewedTV(fixtures, now)
+    || source.failures && !healthyReviewedTVExpiry(source, now)) return due;
+  // Quiet/soon planning is not a prepaid HTTP reservation. Re-evaluate it when
+  // actual admitted demand becomes active, using the fixed collector's maximum
+  // three reads (two Willow dates plus one RSS), inside the SAME daily ledger.
+  // Existing spend-ahead debt remains binding; no old reads are refunded.
+  return Math.max(source.kickoffCheckpoint?.postponedUntil ?? 0,
+    Math.min(due, last + cadence(supportedFixtures("reviewedtv", fixtures), now, 3, descriptor.maxRequestsPerDay)));
 }
 
 function checkpointPlan(source, fixtures, now, ordinaryDue, cap) {
@@ -144,24 +166,45 @@ export class BroadcastRegistry {
   eligible(descriptor, stored, now, fixtures = []) {
     const source = stored.providers[descriptor.providerCode], budget = stored.budgets[descriptor.providerCode];
     if (budget && (now < budget.lastAt || budget.day === iso(now).slice(0, 10) && budget.count >= descriptor.maxRequestsPerDay)) return false;
-    const due = Date.parse(source?.nextAttemptAt ?? "1970-01-01T00:00:00Z");
-    return due <= now || checkpointPlan(source, supportedFixtures(descriptor.providerCode, fixtures), now, due, descriptor.maxRequestsPerDay) !== null;
+    const due = reviewedTVDemandDue(descriptor, source, fixtures, now);
+    return due <= now || descriptor.providerCode !== "reviewedtv"
+      && checkpointPlan(source, supportedFixtures(descriptor.providerCode, fixtures), now, due, descriptor.maxRequestsPerDay) !== null;
   }
   async continueIfDue(stored, now, fixtures) {
     if (this.enabled() && this.providers.some((p) => this.eligible(p, stored, now, fixtures))) {
       // One bounded continuation drains at most two more due providers. Repeated
       // cron/alarm delivery uses the same due times and persisted read ledger.
       await this.state.storage.setAlarm?.(now + 15_000);
-    } else { await this.state.storage.deleteAlarm?.(); }
+    } else {
+      const descriptor = this.providers.find((p) => p.providerCode === "reviewedtv"), source = stored.providers.reviewedtv;
+      const budget = stored.budgets.reviewedtv, due = descriptor && reviewedTVDemandDue(descriptor, source, fixtures, now);
+      // The five-minute cron rounds a7.5-minute due time up to the ten-minute
+      // expiry boundary. One DO alarm executes the ALREADY planned TV slot;
+      // it adds no reads/cadence and cannot loop on empty or failed inventories.
+      if (this.enabled() && descriptor && activeReviewedTV(fixtures, now) && due > now
+        && due < healthyReviewedTVExpiry(source, now) && !(budget && (now < budget.lastAt
+          || budget.day === iso(now).slice(0, 10) && budget.count >= descriptor.maxRequestsPerDay))) {
+        await this.state.storage.setAlarm?.(due);
+      } else await this.state.storage.deleteAlarm?.();
+    }
   }
   async refresh() {
     if (!this.enabled()) { await this.state.storage.deleteAlarm?.(); throw new Error("registry-disabled"); }
     if (typeof this.options.collect !== "function") throw new Error("collector-unavailable");
     const stored = await this.stored(), now = this.now(), fixtures = await this.fixtures();
     const ordered = this.providers.map((_, i) => this.providers[(stored.cursor + i) % this.providers.length]);
-    const selected = ordered.filter((p) => this.eligible(p, stored, now, fixtures)).slice(0, 2);
+    const reviewed = this.providers.find((p) => p.providerCode === "reviewedtv"), reviewedState = stored.providers.reviewedtv;
+    if (reviewed && reviewedState) reviewedState.nextAttemptAt = iso(reviewedTVDemandDue(reviewed, reviewedState, fixtures, now));
+    const due = ordered.filter((p) => this.eligible(p, stored, now, fixtures));
+    const urgentTV = due.find((p) => p.providerCode === "reviewedtv" && activeReviewedTV(fixtures, now) && healthyReviewedTVExpiry(reviewedState, now));
+    // Short-lived accepted TV facts must not wait behind several20-second
+    // collector batches. The second slot/other provider ledgers stay unchanged.
+    const selected = (urgentTV ? [urgentTV, ...due.filter((p) => p !== urgentTV)] : due).slice(0, 2);
     let checkpointChanged = false;
     for (const descriptor of selected) {
+      // TV's ordinary deadline already refreshes before its ten-minute expiry.
+      // A new spend-ahead checkpoint would repay by creating a longer stale gap.
+      if (descriptor.providerCode === "reviewedtv") continue;
       const source = stored.providers[descriptor.providerCode];
       const checkpoint = checkpointPlan(source, supportedFixtures(descriptor.providerCode, fixtures), now,
         Date.parse(source?.nextAttemptAt ?? "1970-01-01T00:00:00Z"), descriptor.maxRequestsPerDay);
@@ -217,7 +260,8 @@ export class BroadcastRegistry {
       }
       state.records = state.records.filter((r) => now - Date.parse(r.observedAt) <= BROADCAST_REGISTRY_LIMITS.retention);
       const delay = cadence(supportedFixtures(code, fixtures), now, Math.max(cycle.reads, 1), descriptor.maxRequestsPerDay);
-      const retryDelay = state.failures ? Math.max(delay, Math.min(60 * minute, 5 * minute * 2 ** Math.min(4, state.failures - 1))) : delay;
+      const independentTV = code === "reviewedtv" && healthyReviewedTVExpiry(state, now);
+      const retryDelay = state.failures && !independentTV ? Math.max(delay, Math.min(60 * minute, 5 * minute * 2 ** Math.min(4, state.failures - 1))) : delay;
       if (state.kickoffCheckpoint?.takenAt === now) state.kickoffCheckpoint = { ...state.kickoffCheckpoint,
         postponedUntil: state.kickoffCheckpoint.ordinaryDue + retryDelay };
       state.nextAttemptAt = iso(Math.max(state.kickoffCheckpoint?.postponedUntil ?? 0, now + retryDelay));

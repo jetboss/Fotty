@@ -113,6 +113,148 @@ test("reviewed programme cap survives restart and expired programme facts cannot
   assert.equal(h.values.get(key).budgets.reviewedtv.count, 576); assert.equal(h.values.get(key).budgets.communitysports.count, 17);
 });
 
+test("reviewed UY football assignments survive restart and share the existing daily/read-cost cadence budget", async () => {
+  const provider = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.find((p) => p.providerCode === "reviewedtv");
+  const h = harness({ providers: [provider], fixtures: (at) => [{ fixtureID: "sports-fixture:premier-league:123", sport: "football",
+    competitionID: "premier-league", squad: { gender: "men", ageGroup: "senior" }, participants: ["Liverpool", "Chelsea"],
+    start: new Date(initial - 30 * 60_000).toISOString(), status: "live", observedAt: new Date(at).toISOString(), verified: true }],
+    collect: async (code, context, state) => {
+      for (let i = 0; i < 3; i++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+      return state.reply(code, { complete: false, scopes: [{ scope: "football", status: "partial", complete: false }], broadcasts: [{
+        providerEventID: "reviewed-tv:assignment:" + "d".repeat(64), streamID: "reviewed-tv:espn-latinamerica-south", resourceType: "tv",
+        scope: "football", kind: "event", sport: "football", channelID: "sports-channel:espn-latinamerica-south", stationMarket: "UY",
+        title: "Liverpool vs Chelsea", participants: ["Liverpool", "Chelsea"], start: new Date(initial - 60 * 60_000).toISOString(),
+        competitionID: "premier-league", squad: { gender: "men", ageGroup: "senior" }, verification: "dated",
+        observedAt: new Date(state.now()).toISOString(), expiresAt: new Date(state.now() + 600_000).toISOString(),
+      }] });
+    } });
+  const first = await h.create().refresh(); assert.equal(first.links[0].state, "listed"); assert.equal(first.links[0].matchMethod, "channel-assignment");
+  assert.equal(first.broadcasts[0].stationMarket, "UY"); assert.equal(h.reads, 3);
+  assert.equal(h.values.get(key).budgets.reviewedtv.count, 3); assert.equal(provider.maxRequestsPerDay, 576);
+  assert.equal(Date.parse(h.values.get(key).providers.reviewedtv.nextAttemptAt), initial + 450_000, "Three actual reads cost7.5minutes inside576/day");
+  const restarted = h.create();
+  const snapshot = await restarted.fetch(new Request("https://internal/snapshot")); assert.equal(snapshot.status, 200);
+  assert.equal((await snapshot.json()).links[0].state, "listed"); assert.equal(h.reads, 3, "A restart and GET never trigger a provider read");
+  h.now += 450_000; await h.create().refresh(); assert.equal(h.reads, 6); assert.equal(h.values.get(key).budgets.reviewedtv.count, 6);
+});
+
+const reviewedTVProvider = () => DEFAULT_BROADCAST_REGISTRY_PROVIDERS.find((p) => p.providerCode === "reviewedtv");
+const tvOfficial = (at, start = initial - 30 * 60_000) => ({ fixtureID: "sports-fixture:premier-league:123", sport: "football",
+  competitionID: "premier-league", squad: { gender: "men", ageGroup: "senior" }, participants: ["Liverpool", "Chelsea"],
+  start: new Date(start).toISOString(), status: start > at ? "scheduled" : "live", observedAt: new Date(at).toISOString(), verified: true });
+const tvCollection = (at, start = initial - 30 * 60_000) => ({ providerCode: "reviewedtv", observedAt: new Date(at).toISOString(), complete: false,
+  scopes: [{ scope: "football", status: "partial", complete: false }], broadcasts: [{
+    providerEventID: "reviewed-tv:assignment:" + "e".repeat(64), streamID: "reviewed-tv:espn-latinamerica-south", resourceType: "tv",
+    scope: "football", kind: "event", sport: "football", channelID: "sports-channel:espn-latinamerica-south", stationMarket: "UY",
+    title: "Liverpool vs Chelsea", participants: ["Liverpool", "Chelsea"], start: new Date(start - 30 * 60_000).toISOString(),
+    competitionID: "premier-league", squad: { gender: "men", ageGroup: "senior" }, verification: "dated",
+    observedAt: new Date(at).toISOString(), expiresAt: new Date(at + 600_000).toISOString(),
+  }] });
+
+test("reviewed TV's existing7.5-minute slot runs before expiry despite five-minute cron phase and ordinary collection latency", async () => {
+  const h = harness({ providers: [reviewedTVProvider()], fixtures: (at) => at < initial + 1_800_000 ? [tvOfficial(at)] : [],
+    collect: async (_code, context, state) => {
+      const collection = tvCollection(+context.now);
+      for (let i = 0; i < 3; i++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+      h.now += 20_000; // Bounded real collector latency, not another observation.
+      return collection;
+    } });
+  let result = await h.create().refresh(); assert.equal(result.links[0].state, "listed"); assert.equal(h.alarm, initial + 450_000);
+  for (const at of [initial + 300_000, initial + 600_000]) {
+    h.now = at; const before = h.reads; await h.create().refresh(); assert.equal(h.reads, before, "Cron must not consume or delete the future planned slot");
+    const due = at === initial + 300_000 ? initial + 450_000 : initial + 900_000;
+    assert.equal(h.alarm, due);
+    const priorExpiry = Date.parse(h.values.get(key).providers.reviewedtv.records[0].expiresAt);
+    h.now = h.alarm; await h.create().alarm();
+    assert.ok(h.now < priorExpiry, "The new collection completes while the previous fact is still fresh");
+    result = await (await h.create().fetch(new Request("https://internal/snapshot"))).json();
+    assert.equal(result.links[0].state, "listed"); assert.equal(h.reads % 3, 0);
+  }
+  assert.equal(h.reads, 9); assert.equal(h.values.get(key).budgets.reviewedtv.count, 9);
+  h.now = initial + 1_800_000; await h.create().refresh(); assert.equal(h.alarm, null, "Finished official demand cannot leave a repeating TV alarm");
+});
+
+test("quiet-to-active reviewed TV demand rebases the existing plan without spend-ahead debt or increasing the daily cap", async () => {
+  const kickoff = initial + 4_800_000;
+  const h = harness({ providers: [reviewedTVProvider()], fixtures: (at) => at < initial + 3_600_000 ? [] : [tvOfficial(at, kickoff)],
+    collect: async (_code, context, state) => {
+      for (let i = 0; i < 3; i++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+      return tvCollection(+context.now, kickoff);
+    } });
+  await h.create().refresh(); assert.equal(h.alarm, null);
+  assert.equal(Date.parse(h.values.get(key).providers.reviewedtv.nextAttemptAt), initial + 4 * 60 * 60_000);
+  h.now = initial + 3_600_000; const active = await h.create().refresh();
+  assert.equal(h.reads, 6); assert.equal(active.links[0].state, "listed"); assert.equal(h.alarm, h.now + 450_000);
+  assert.equal(h.values.get(key).providers.reviewedtv.kickoffCheckpoint, undefined);
+  assert.equal(reviewedTVProvider().maxRequestsPerDay, 576);
+});
+
+test("near-kickoff TV does not borrow a slot whose repayment would create an expiry gap, while old debt remains binding", async () => {
+  const kickoff = initial + 510_000;
+  const h = harness({ providers: [reviewedTVProvider()], fixtures: (at) => [tvOfficial(at, kickoff)],
+    collect: async (_code, context, state) => {
+      for (let i = 0; i < 3; i++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+      return tvCollection(+context.now, kickoff);
+    } });
+  await h.create().refresh(); h.now = initial + 300_000; await h.create().refresh();
+  assert.equal(h.reads, 3); assert.equal(h.alarm, initial + 450_000); assert.equal(h.values.get(key).providers.reviewedtv.kickoffCheckpoint, undefined);
+  h.now = h.alarm; await h.create().alarm(); assert.equal(h.reads, 6); assert.equal(h.alarm, initial + 900_000);
+  const state = h.values.get(key), source = state.providers.reviewedtv;
+  source.kickoffCheckpoint = { start: initial + 600_000, takenAt: initial + 450_000,
+    ordinaryDue: initial + 900_000, postponedUntil: initial + 1_350_000 };
+  source.nextAttemptAt = new Date(initial + 1_350_000).toISOString(); h.values.set(key, state);
+  h.now = initial + 900_000; await h.create().refresh(); assert.equal(h.reads, 6, "A prior accepted spend-ahead debt is not erased or refunded");
+});
+
+test("an independently healthy Willow or football cohort retains its deadline despite repeated sibling failure", async () => {
+  for (const healthy of ["football", "cricket"]) {
+    const h = harness({ providers: [reviewedTVProvider()], fixtures: (at) => [tvOfficial(at), {
+      fixtureID: "cricket-fixture:icc:123", sport: "cricket", competitionID: "icc", format: "Test", matchOrdinal: 3, day: 4,
+      participants: ["South Africa", "Australia"], start: "2026-10-27T08:30:00.000Z", end: "2026-10-31T15:30:00.000Z",
+      status: "live", observedAt: new Date(at).toISOString(), verified: true,
+    }], collect: async (code, context, state) => {
+      for (let i = 0; i < 3; i++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+      const good = healthy === "football" ? tvCollection(+context.now) : state.reply(code);
+      return { ...good, complete: false, scopes: [...good.scopes, { scope: healthy === "football" ? "cricket" : "football", status: "failed", complete: false, failure: "invalid-collection" }] };
+    } });
+    for (let cycle = 0; cycle < 4; cycle++) {
+      const result = await h.create().refresh();
+      assert.ok(result.links.some((l) => l.state === "listed"));
+      assert.equal(h.values.get(key).providers.reviewedtv.failures, cycle + 1, "The failed cohort remains visible, not silently marked healthy");
+      assert.equal(h.alarm, h.now + 450_000, "A failed sibling must not impose an exponential stale gap on the successful cohort");
+      h.now = h.alarm;
+    }
+    assert.equal(h.reads, 12); assert.equal(h.values.get(key).budgets.reviewedtv.count, 12);
+  }
+});
+
+test("empty or wholly failed reviewed TV inventories never create a repeating future alarm", async () => {
+  for (const status of ["partial", "failed"]) {
+    const h = harness({ providers: [reviewedTVProvider()], fixtures: (at) => [tvOfficial(at)],
+      collect: async (_code, context, state) => {
+        for (let i = 0; i < 3; i++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+        return { providerCode: "reviewedtv", observedAt: context.now.toISOString(), complete: false, broadcasts: [],
+          scopes: [{ scope: "football", status, complete: false, ...(status === "failed" ? { failure: "source-unavailable" } : {}) }] };
+      } });
+    await h.create().refresh(); assert.equal(h.alarm, null);
+    h.now += 300_000; await h.create().refresh(); assert.equal(h.alarm, null); assert.equal(h.reads, 3);
+    h.now += 300_000; await h.create().refresh(); assert.equal(h.alarm, null); assert.equal(h.reads, 6);
+  }
+});
+
+test("an already-due short TV slot is not stranded behind the other seven provider batches", async () => {
+  const providers = [reviewedTVProvider()];
+  const h = harness({ providers, fixtures: (at) => [tvOfficial(at)], collect: async (code, context, state) => {
+    for (let i = 0; i < (code === "reviewedtv" ? 3 : 1); i++) { assert.equal(await context.reserveRequest(), true); state.read(); }
+    return code === "reviewedtv" ? tvCollection(+context.now) : state.reply(code);
+  } });
+  await h.create().refresh();
+  providers.splice(0, 1, ...DEFAULT_BROADCAST_REGISTRY_PROVIDERS); h.now = initial + 450_000;
+  await h.create().refresh(); assert.deepEqual(h.calls.slice(-2), ["reviewedtv", "streamex"]);
+  assert.equal(h.values.get(key).budgets.reviewedtv.count, 6); assert.equal(h.values.get(key).budgets.streamex.count, 1);
+  assert.equal(h.alarm, h.now + 15_000, "Other already-due sources keep their ordinary bounded continuation");
+});
+
 test("actual HTTP caps survive restart, failed collection and duplicate alarms", async () => {
   const h = harness({ providers: [{ providerCode: "communitysports", maxRequestsPerDay: 1 }],
     collect: async (_code, context, state) => {

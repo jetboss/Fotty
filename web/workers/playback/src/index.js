@@ -187,10 +187,12 @@ function broadcastRegistryStub(env) {
 
 const BROADCAST_CAPABILITY_HEADER = "X-Fotty-Broadcast-Capabilities";
 const REVIEWED_TV_CAPABILITY = "reviewedtv-programme-v1";
+const BROADCAST_ASSIGNMENT_HEADER = "X-Fotty-Broadcast-Assignments";
+const REVIEWED_TV_ASSIGNMENT_CAPABILITY = "reviewedtv-programme-v2";
 const BROADCAST_SNAPSHOT_MAX_BYTES = 4 * 1024 * 1024;
 function broadcastRegistryHeaders(extra = {}) {
-  const headers = corsHeaders({ Vary: BROADCAST_CAPABILITY_HEADER, ...extra });
-  headers["Access-Control-Allow-Headers"] += ", " + BROADCAST_CAPABILITY_HEADER;
+  const headers = corsHeaders({ Vary: BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER, ...extra });
+  headers["Access-Control-Allow-Headers"] += ", " + BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER;
   return headers;
 }
 async function handleBroadcastRegistry(request, url, env) {
@@ -208,13 +210,26 @@ async function handleBroadcastRegistry(request, url, env) {
     // Legacy schema1 native clients admit exactly the original seven providers.
     // Retain receipt/expiry facts while selecting one fixed compatibility view;
     // a public request cannot choose arbitrary providers or trigger collection.
-    if (request.headers.get(BROADCAST_CAPABILITY_HEADER) !== REVIEWED_TV_CAPABILITY) {
+    const primary = request.headers.get(BROADCAST_CAPABILITY_HEADER);
+    const assignments = primary === REVIEWED_TV_ASSIGNMENT_CAPABILITY || primary === REVIEWED_TV_CAPABILITY
+      && request.headers.get(BROADCAST_ASSIGNMENT_HEADER) === REVIEWED_TV_ASSIGNMENT_CAPABILITY;
+    if (!assignments && primary !== REVIEWED_TV_CAPABILITY) {
       const removed = new Set(snapshot.broadcasts.filter((row) => row.providerCode === "reviewedtv").map((row) => row.id));
       projected = { ...snapshot,
         revision: await broadcastRegistryHash([snapshot.revision, "legacy-seven-provider-v1"]),
         providers: snapshot.providers.filter((row) => row.providerCode !== "reviewedtv"),
         broadcasts: snapshot.broadcasts.filter((row) => row.providerCode !== "reviewedtv"),
         links: snapshot.links.filter((row) => row.providerCode !== "reviewedtv" && !removed.has(row.broadcastID)) };
+    } else if (!assignments) {
+      const willow = (row) => row.scope === "cricket" && row.sport === "cricket" && row.kind === "programme"
+        && row.channelID === "cricket-channel:willow" && row.streamID === "reviewed-tv:willow-main"
+        && /^reviewed-tv:programme:[a-f0-9]{64}$/u.test(row.providerEventID ?? "");
+      const removed = new Set(snapshot.broadcasts.filter((row) => row.providerCode === "reviewedtv" && !willow(row)).map((row) => row.id));
+      const providers = snapshot.providers.filter((row) => row.providerCode !== "reviewedtv" || row.scope === "cricket");
+      if (removed.size || providers.length !== snapshot.providers.length) projected = { ...snapshot,
+        revision: await broadcastRegistryHash([snapshot.revision, "reviewedtv-willow-programme-v1"]), providers,
+        broadcasts: snapshot.broadcasts.filter((row) => !removed.has(row.id)),
+        links: snapshot.links.filter((row) => !removed.has(row.broadcastID) && !(row.providerCode === "reviewedtv" && row.matchMethod === "channel-assignment")) };
     }
     const body = JSON.stringify(projected);
     if (new TextEncoder().encode(body).length > BROADCAST_SNAPSHOT_MAX_BYTES) throw new Error("Registry projection exceeds bound");
