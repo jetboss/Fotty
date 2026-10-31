@@ -211,12 +211,20 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
   // The reviewed alias resolver scans a finite generated catalog. Normalize
   // each broadcast once, not once for every fixture in this bounded batch.
   const broadcastPairs = new Map(broadcasts.map((row) => [row, pair(row.participants, row.sport)]));
+  // An early coverage start is not a rewritten official kickoff. Only one
+  // accepted limited-overs fixture may own this exact pair/date/format.
+  const earlyKey = (row) => JSON.stringify([pair(row.participants, row.sport), row.start?.slice(0, 10), row.format]);
+  const earlyOwners = new Map();
+  for (const fixture of admitted) if (fixture.sport === "cricket" && ["ODI", "T20"].includes(fixture.format)) {
+    const key = earlyKey(fixture);
+    earlyOwners.set(key, (earlyOwners.get(key) ?? 0) + 1);
+  }
   for (const fixture of admitted) {
     const expected = pair(fixture.participants, fixture.sport);
     const fingerprint = { ...fixture }; delete fingerprint.status; delete fingerprint.observedAt; delete fingerprint.verified;
     for (const broadcast of broadcasts) {
       if (broadcast.kind === "channel" || broadcast.sport !== fixture.sport || !same(broadcastPairs.get(broadcast), expected)) continue;
-      let state = "listed", reason, method = broadcast.kind === "programme" ? "programme" : "exact";
+      let state = "listed", reason, startRelation, method = broadcast.kind === "programme" ? "programme" : "exact";
       const fail = (next, value) => { if (state === "listed" || next === "conflicting") { state = next; reason = value; } };
       if (!providers.has(broadcast.providerCode) || stamp(broadcast.observedAt) === null || stamp(broadcast.expiresAt) === null) continue;
       if (broadcast.verification === "conflicting") fail("conflicting", broadcast.issues?.[0] ?? "catalog-conflict");
@@ -248,7 +256,14 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
             || broadcast.end && broadcast.end > fixture.end) fail("conflicting", "time-conflict");
           else if (broadcast.kind !== "programme") method = "test-period";
         } else if (broadcast.start && Math.abs(Date.parse(broadcast.start) - Date.parse(fixture.start)) > 15 * minute) fail("conflicting", "time-conflict");
-      } else if (fixture.format !== "Test" && broadcast.start && Math.abs(Date.parse(broadcast.start) - Date.parse(fixture.start)) > 15 * minute) fail("conflicting", "time-conflict");
+      } else if (fixture.format !== "Test" && broadcast.start && Math.abs(Date.parse(broadcast.start) - Date.parse(fixture.start)) > 15 * minute) {
+        const lead = Date.parse(fixture.start) - Date.parse(broadcast.start);
+        if (fixture.sport === "cricket" && broadcast.kind === "event" && ["ODI", "T20"].includes(fixture.format)
+          && broadcast.format === fixture.format && lead > 15 * minute && lead <= 60 * minute
+          && broadcast.start.slice(0, 10) === fixture.start.slice(0, 10) && earlyOwners.get(earlyKey(fixture)) === 1) {
+          startRelation = "early-coverage";
+        } else fail("conflicting", "time-conflict");
+      }
       if (broadcast.kind === "programme" && (!channels.has(broadcast.channelID) || !broadcast.end
         || Date.parse(broadcast.end) <= time || Date.parse(broadcast.start) > time)) fail("needsVerification", "missing-programme");
       const fixtureLifetime = fixture.format === "Test" && (broadcast.day !== undefined || broadcast.kind === "programme")
@@ -256,7 +271,7 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
       const expiry = Math.min(Date.parse(broadcast.expiresAt), Date.parse(fixture.observedAt) + fixtureLifetime,
         broadcast.kind === "programme" && broadcast.end ? Date.parse(broadcast.end) : Infinity);
       links.push({ fixtureID: fixture.fixtureID, broadcastID: broadcast.id, providerCode: broadcast.providerCode,
-        state, matchMethod: method, fixtureFingerprint: fingerprint, expiresAt: iso(expiry), ...(reason ? { reason } : {}) });
+        state, matchMethod: method, fixtureFingerprint: fingerprint, expiresAt: iso(expiry), ...(startRelation && state === "listed" ? { startRelation } : {}), ...(reason ? { reason } : {}) });
       if (links.length > BROADCAST_REGISTRY_LIMITS.links) throw new Error("capacity-exceeded");
     }
   }
