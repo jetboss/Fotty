@@ -249,13 +249,13 @@ test("whole-Test event uses exact original start without optional daily context,
 
 test("generic channels never prove a fixture but an explicitly dated exact programme may link", async () => {
   const official = fixture({ fixtureID: "cricket-fixture:icc:123", sport: "cricket", participants: ["India", "England"],
-    competitionID: "icc", squad: undefined, format: "T20" });
+    competitionID: "icc", squad: undefined, format: "T20", matchOrdinal: 3 });
   const channel = row({ scope: "networks", kind: "channel", sport: "cricket", title: "Willow Cricket",
     participants: [], start: undefined, verification: "undated", channelID: "cricket-channel:willow" });
   const opts = { scopes: [{ scope: "networks", status: "available", complete: true }] };
   assert.equal((await joined([channel], [official], opts)).links.length, 0);
   const programme = { ...channel, providerEventID: "programme1", streamID: "programme1", kind: "programme", title: "India vs England",
-    participants: official.participants, start: official.start, end: stamp(60 * 60_000), format: "T20", verification: "dated", expiresAt: stamp(10 * 60_000) };
+    participants: official.participants, start: official.start, end: stamp(60 * 60_000), format: "T20", matchOrdinal: 3, verification: "dated", expiresAt: stamp(10 * 60_000) };
   const admitted = (await joined([programme], [official], opts)).links[0];
   assert.equal(admitted.state, "listed"); assert.equal(admitted.matchMethod, "programme");
   for (const changed of [{ ...programme, channelID: undefined }, { ...programme, participants: [] }]) {

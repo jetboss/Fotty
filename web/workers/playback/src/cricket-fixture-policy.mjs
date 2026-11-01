@@ -1,7 +1,7 @@
 // Official international-cricket fixtures, separate from broadcast availability.
 // A successful HTTP response is not enough: completeness and source time matter.
 import { hasReviewedICCKickoffCorrection } from "./icc-kickoff-corrections.mjs";
-import { boundedCricketContexts, normalizeICCContext } from "./cricket-context-policy.mjs";
+import { boundedCricketContexts, iccLimitedOversOrdinal, normalizeICCContext } from "./cricket-context-policy.mjs";
 
 export const CRICKET_COMPETITIONS = Object.freeze([
   { id: "cpl", name: "Caribbean Premier League" },
@@ -135,6 +135,8 @@ export function normalizeICC(pages, now) {
       // Internal admission evidence; stripped from the public contract below.
       revised: row.is_revised === true,
       ...(row.series_id === undefined ? {} : { publisherSeriesId: identifier(row.series_id) }) };
+    const matchOrdinal = iccLimitedOversOrdinal(row, fixture);
+    if (matchOrdinal !== undefined) fixture.matchOrdinal = matchOrdinal;
     const context = normalizeICCContext(row, fixture);
     if (context !== undefined) fixture.context = context;
     fixtures.push(fixture);
@@ -155,6 +157,8 @@ export function admitICC(candidate, previous, now) {
       continue;
     }
     if (current.home.id !== old.home.id || current.away.id !== old.away.id) throw new Error("ICC identity conflict");
+    if (current.matchOrdinal !== undefined && old.matchOrdinal !== undefined
+      && current.matchOrdinal !== old.matchOrdinal) throw new Error("ICC ordinal conflict");
     if (current.start !== old.start && !current.revised
       && !hasReviewedICCKickoffCorrection(current, old, candidate.observedAt, now)) {
       throw new Error("Unconfirmed ICC kickoff change");
@@ -180,6 +184,7 @@ export function admitICC(candidate, previous, now) {
 const ISOLATABLE_ICC_CONFLICTS = new Set([
   "Active ICC fixture disappeared", "ICC identity conflict", "Unconfirmed ICC kickoff change",
   "ICC terminal-status regression", "ICC live-status regression",
+  "ICC ordinal conflict",
 ]);
 
 // Collection completeness and scope/watermark checks belong to the cohort.
@@ -228,6 +233,8 @@ export function validateCricketSnapshot(snapshot) {
   for (const fixture of snapshot.fixtures) {
     if (ids.has(fixture.id) || typeof fixture.id !== "string" || !FORMATS.has(fixture.format) || !STATUSES.has(fixture.status)
       || !Number.isFinite(Date.parse(fixture.start)) || !Number.isFinite(Date.parse(fixture.source?.observedAt))
+      || (fixture.matchOrdinal !== undefined && (!["ODI", "T20"].includes(fixture.format)
+        || !Number.isSafeInteger(fixture.matchOrdinal) || fixture.matchOrdinal < 1 || fixture.matchOrdinal > 99))
       || (fixture.source.verification !== undefined && !["verified", "held"].includes(fixture.source.verification))) throw new Error("Invalid cricket fixture");
     if ((fixture.source.verification !== undefined && !["west-indies", "icc"].includes(fixture.competitionId))
       || (fixture.source.verification === "held"

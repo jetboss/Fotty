@@ -163,6 +163,8 @@ export async function loadBroadcastRegistryFixtures(env) {
         fixtures.push({ fixtureID: `cricket-fixture:${row.id}`, sport: "cricket",
           participants: [row.home?.name, row.away?.name], start: row.start,
           competitionID: row.competitionId, format: row.format,
+          ...(["ODI", "T20"].includes(row.format) && Number.isSafeInteger(row.matchOrdinal)
+            && row.matchOrdinal >= 1 && row.matchOrdinal <= 99 ? { matchOrdinal: row.matchOrdinal } : {}),
           ...(row.format === "Test" && row.context ? {
             ...(row.context.matchOrdinal ? { matchOrdinal: row.context.matchOrdinal } : {}),
             ...(row.context.day ? { day: row.context.day } : {}),
@@ -191,11 +193,12 @@ const BROADCAST_CAPABILITY_HEADER = "X-Fotty-Broadcast-Capabilities";
 const REVIEWED_TV_CAPABILITY = "reviewedtv-programme-v1";
 const BROADCAST_ASSIGNMENT_HEADER = "X-Fotty-Broadcast-Assignments";
 const TV_GUIDE_HEADER = "X-Fotty-TV-Guide";
+const CRICKET_MATCHING_HEADER = "X-Fotty-Cricket-Matching";
 const REVIEWED_TV_ASSIGNMENT_CAPABILITY = "reviewedtv-programme-v2";
 const BROADCAST_SNAPSHOT_MAX_BYTES = 4 * 1024 * 1024;
 function broadcastRegistryHeaders(extra = {}) {
-  const headers = corsHeaders({ Vary: BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER + ", " + TV_GUIDE_HEADER, ...extra });
-  headers["Access-Control-Allow-Headers"] += ", " + BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER + ", " + TV_GUIDE_HEADER;
+  const headers = corsHeaders({ Vary: BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER + ", " + TV_GUIDE_HEADER + ", " + CRICKET_MATCHING_HEADER, ...extra });
+  headers["Access-Control-Allow-Headers"] += ", " + BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER + ", " + TV_GUIDE_HEADER + ", " + CRICKET_MATCHING_HEADER;
   return headers;
 }
 async function handleBroadcastRegistry(request, url, env) {
@@ -245,6 +248,15 @@ async function handleBroadcastRegistry(request, url, env) {
     if (!guideCapable) delete projected.tvGuide;
     else projected.revision = await broadcastRegistryHash([snapshot.revision, "reviewedtv-guide-v1", projected.tvGuide ?? [],
       derived?.broadcasts ?? [], derived?.links ?? []]);
+    // The new association has different clock semantics. Old clients keep
+    // their existing schema/fixtures instead of failing the entire snapshot.
+    if (request.headers.get(CRICKET_MATCHING_HEADER) !== "current-listing-v1") {
+      const removed = new Set(projected.broadcasts.filter((b) => b.startBasis !== undefined).map((b) => b.id));
+      if (removed.size) projected = { ...projected,
+        revision: await broadcastRegistryHash([projected.revision, "legacy-cricket-clock-v1"]),
+        broadcasts: projected.broadcasts.filter((b) => !removed.has(b.id)),
+        links: projected.links.filter((l) => !removed.has(l.broadcastID) && l.matchMethod !== "current-event") };
+    }
     const body = JSON.stringify(projected);
     if (new TextEncoder().encode(body).length > BROADCAST_SNAPSHOT_MAX_BYTES) throw new Error("Registry projection exceeds bound");
     return new Response(body, { status: response.status, headers });

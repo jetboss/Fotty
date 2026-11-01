@@ -16,6 +16,10 @@ const manifests = {
   streamvix: { id: "org.prisonmike.streamvix", version: "1.0.0", types: ["tv"], resources: ["catalog", "meta", "stream"], catalogs: [catalog("streamvix_eventi", [{ name: "genre", isRequired: true, options: ["Premier League", "Coppe"] }])] },
 };
 const cs = (changes = {}) => ({ id: "nuvio_sport_sa_aus", type: "tv", name: "🔴 LIVE: South Africa vs Australia", released: "2026-10-30T08:00:00.000Z", genres: ["CRICKET"], cast: ["South Africa", "Australia"], behaviorHints: { defaultVideoId: "nuvio_sport_sa_aus" }, description: "🏆 League: 3rd Test day-3\n📅 Category: CRICKET\n⏰ Status: 🔴 LIVE NOW", ...changes });
+const dynamicCSCricket = (changes = {}) => ({ id: "nuvio_sport_sktech_sktech_ev_fancode_4250335", type: "tv",
+  name: "🔴 LIVE: Ireland vs Namibia", released: "2026-11-01T10:08:39.913Z", releaseInfo: "LIVE", genres: ["CRICKET"],
+  cast: ["Ireland", "Namibia"], behaviorHints: { defaultVideoId: "nuvio_sport_sktech_sktech_ev_fancode_4250335" },
+  description: "🏆 League: Cricket\n📅 Category: CRICKET\n⏰ Status: 🔴 LIVE NOW", ...changes });
 function harness(code, response, limit = 8, { allowMeta = false, manifestOverride } = {}) {
   const calls = []; let reserved = 0;
   return { calls, count: () => reserved, run: (options = {}) => collect(code, { now,
@@ -140,6 +144,47 @@ test("CS retains unmatched events, actual Test qualifiers and standalone channel
   assert.ok(!JSON.stringify(result).includes("https://"));
   const normalized = await normalizeBroadcastCollection("communitysports", result, now);
   assert.equal(normalized.broadcasts.find((r) => r.kind === "channel").verification, "undated");
+});
+
+test("CS dynamic FanCode cricket preserves its synthetic observation clock without claiming kickoff or format", async () => {
+  const checked = new Date("2026-11-01T12:00:19.025Z");
+  const raw = dynamicCSCricket(), row = parse.csRow(raw, "cricket", checked);
+  assert.equal(row.startBasis, "current-listing"); assert.equal(row.verification, "undated");
+  assert.equal(row.start, raw.released); assert.deepEqual(row.participants, ["Ireland", "Namibia"]);
+  for (const key of ["format", "matchOrdinal", "day"]) assert.equal(row[key], undefined);
+  assert.deepEqual(row.issues, []); assert.equal(row.expiresAt, "2026-11-01T16:00:19.025Z");
+  const next = parse.csRow(dynamicCSCricket({ released: "2026-11-01T12:00:19.025Z" }), "cricket", checked);
+  assert.equal(next.startBasis, "current-listing"); assert.equal(next.start, checked.toISOString());
+  const normalized = await normalizeBroadcastCollection("communitysports", { providerCode: "communitysports", observedAt: checked.toISOString(),
+    complete: false, scopes: [{ scope: "cricket", status: "partial", complete: false }], broadcasts: [row] }, checked);
+  assert.equal(normalized.broadcasts[0].startBasis, "current-listing");
+  assert.equal(normalized.broadcasts[0].verification, "undated");
+});
+
+test("CS dynamic current-listing contract rejects stale clocks, replay labels, mixed squads and extra time authority", () => {
+  const checked = new Date("2026-11-01T12:00:19.025Z");
+  for (const changes of [{ released: "2026-11-01T08:00:19.024Z" }, { released: "2026-11-01T12:05:19.026Z" },
+    { released: "invalid" }, { releaseInfo: "REPLAY" }, { name: "🔴 LIVE: Ireland vs Namibia Highlights" },
+    { name: "🔴 LIVE: Ireland Women vs Namibia Women" }, { cast: ["Ireland", "Australia"] }, { genres: ["CRICKET", "NETWORKS"] },
+    { description: "🏆 League: 5th ODI\n📅 Category: CRICKET\n⏰ Status: 🔴 LIVE NOW" },
+    { behaviorHints: { defaultVideoId: "nuvio_sport_other" } }, { date: null }, { kickoff: null }, { startTime: "07:30" }, { videos: [] }]) {
+    const row = parse.csRow(dynamicCSCricket(changes), "cricket", checked);
+    assert.equal(row.startBasis, undefined, JSON.stringify(changes));
+    assert.equal(row.verification, "conflicting", JSON.stringify(changes));
+  }
+  for (const released of ["2026-11-01T08:00:19.025Z", "2026-11-01T12:05:19.025Z"])
+    assert.equal(parse.csRow(dynamicCSCricket({ released }), "cricket", checked).startBasis, "current-listing");
+});
+
+test("ordinary CS scheduled cricket and other provider event IDs retain existing explicit kickoff and format semantics", () => {
+  const checked = new Date("2026-11-01T12:00:19.025Z");
+  const row = parse.csRow(cs({ id: "nuvio_sport_ak47_bangladesh_vs_west_indies", name: "⏱️ Bangladesh vs West Indies",
+    cast: ["Bangladesh", "West Indies"], released: "2026-11-05T04:00:00Z", releaseInfo: "4:00 AM",
+    description: "🏆 League: 2nd Test\n📅 Category: CRICKET\n⏰ Status: ⏱️ Kickoff at 4:00 AM" }), "cricket", checked);
+  assert.equal(row.startBasis, undefined); assert.equal(row.verification, "dated");
+  assert.equal(row.start, "2026-11-05T04:00:00.000Z"); assert.equal(row.format, "Test"); assert.equal(row.matchOrdinal, 2);
+  const other = parse.csRow(dynamicCSCricket({ id: "nuvio_sport_other_4250335" }), "cricket", checked);
+  assert.equal(other.startBasis, undefined, "A title or LIVE marker does not extend this reviewed dynamic source contract");
 });
 
 test("CS rotates only the finite reviewed sports and preserves an incomplete transport cohort", async () => {

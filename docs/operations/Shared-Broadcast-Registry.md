@@ -263,3 +263,21 @@ Implementation owners: `broadcast-registry.mjs` (durability/scheduling),
 `CatalogPlaybackIdentity.swift` / `HybridStreamProvider.swift` (fresh execution).
 See [the candidate plan](../testing/fotty191-broadcast-registry/Plan.md) and
 [Willow evidence](../testing/fotty191-broadcast-registry/willow-epg-research.json).
+
+
+## Cricket matching repair — 1 November 2026
+
+The optional `X-Fotty-Cricket-Matching: current-listing-v1` profile admits the
+reviewed CS dynamic FanCode producer's `startBasis: current-listing` observations.
+Its synthetic released clock is retained for audit, never interpreted as kickoff.
+A `current-event` link needs one fresh, officially live ODI/T20 fixture with the
+exact qualified pair; native resolution rechecks fresh same-ID metadata before
+fetching a descriptor. Older clients receive their existing compatible profile.
+No source clock, format, ordinal or official live status is invented.
+
+Main-Willow programme parsing includes the publisher's exact ODI/T20 formats.
+The station-bound current programme interval is separate from official kickoff;
+its explicit match number must agree with the independently supplied ICC ordinal.
+Repeat/highlight, stale, overlapping, conflicting and ambiguous records cannot
+supply a match assignment. A working channel alone does not prove its programme.
+Collection stays in the existing cloud registry and existing request budgets.

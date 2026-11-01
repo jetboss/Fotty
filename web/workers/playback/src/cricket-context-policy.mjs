@@ -17,6 +17,22 @@ function integer(value, minimum, maximum) {
   return number;
 }
 function inningsLimit(format) { return format === "Test" ? 4 : ["T10", "T20", "ODI"].includes(format) ? 2 : 0; }
+// A limited-overs ordinal is an additive official fixture fact, independent of
+// whether this already admitted ICC row includes usable innings/score context.
+// Both published fields must agree; a series' match count supplies no ordinal.
+export function iccLimitedOversOrdinal(row, fixture) {
+  if (!["ODI", "T20"].includes(fixture.format)) return undefined;
+  const label = typeof row.match_number === "string"
+    ? row.match_number.trim().match(/^([1-9]\d?)(st|nd|rd|th) (Youth )?(ODI|T20I?)$/i) : undefined;
+  if (!label || label[4].toUpperCase().replace("T20I", "T20") !== fixture.format
+    || Boolean(label[3]) !== /^Youth\s/i.test(String(row.match_type))) return undefined;
+  try {
+    const number = integer(row.match_ordinal, 1, 99);
+    const suffix = number % 100 >= 11 && number % 100 <= 13 ? "th"
+      : ({ 1: "st", 2: "nd", 3: "rd" }[number % 10] || "th");
+    return Number(label[1]) === number && label[2].toLowerCase() === suffix ? number : undefined;
+  } catch { return undefined; }
+}
 function testMatchOrdinal(row, fixture) {
   if (fixture.format !== "Test") return undefined;
   // The series title's "3 Test Series" is a count, not this match's ordinal.

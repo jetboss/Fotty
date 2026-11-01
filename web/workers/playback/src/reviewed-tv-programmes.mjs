@@ -172,13 +172,22 @@ function interval(row, formatter) {
     || row["data-et"] && wallTime(row["data-et"], formatter) !== end) return null;
   return { start, end };
 }
-function testIdentity(row) {
+// These are the publisher's match programmes, not the similarly LIVE-marked
+// Preview/Review shows. A format is never inferred from the station or teams.
+const cricketShows = new Map([
+  ["Test Cricket", "Test"], ["T20 Cricket", "T20"], ["One-Day International Cricket", "ODI"],
+]);
+function cricketIdentity(row) {
   const disallowed = /\b(?:review|highlights?|preview|replay|repeat|rerun|recorded|delayed)\b/iu;
-  if (row["data-showname"] !== "Test Cricket" || row["data-live"] !== "1"
+  const format = cricketShows.get(row["data-showname"]);
+  if (!format || row["data-live"] !== "1"
     || row["data-repeat"] && !["0", "false"].includes(row["data-repeat"].toLowerCase())
     || [row["data-showname"], row["data-episodetitle"], row["data-description"]].some((v) => typeof v === "string" && disallowed.test(v))) return null;
   const description = row["data-description"];
-  const label = typeof description === "string" && /^([1-9]\d?)(st|nd|rd|th) Test, Day ([1-6])\.$/u.exec(description);
+  const pattern = format === "Test" ? /^([1-9]\d?)(st|nd|rd|th) Test, Day ([1-6])\.$/u
+    : format === "T20" ? /^([1-9]\d?)(st|nd|rd|th) T20I?\.$/u
+      : /^([1-9]\d?)(st|nd|rd|th) ODI\.$/u;
+  const label = typeof description === "string" && pattern.exec(description);
   if (!label) return null;
   const ordinal = +label[1], suffix = ordinal % 100 >= 11 && ordinal % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" })[ordinal % 10] ?? "th";
   if (label[2] !== suffix || !safeText(row["data-episodetitle"], 512)) return null;
@@ -186,7 +195,7 @@ function testIdentity(row) {
   if (participants.length !== 2 || participants.some((p) => !safeText(p, 256))
     || participants[0].normalize("NFKC").toLowerCase() === participants[1].normalize("NFKC").toLowerCase()
     || participants.some((p) => /^(?:tbc|tbd|unknown|home|away|teams to be confirmed)$/iu.test(p))) return null;
-  return { participants, format: "Test", matchOrdinal: ordinal, day: +label[3] };
+  return { participants, format, matchOrdinal: ordinal, ...(format === "Test" ? { day: +label[3] } : {}) };
 }
 async function hash(value) {
   return [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(value))))]
@@ -203,16 +212,16 @@ export async function parseReviewedTVProgrammes(html, { now = new Date() } = {})
       row["data-showname"], row["data-episodetitle"], row["data-description"], row["data-live"], row["data-repeat"]]);
     if (rawID) { if (seen.has(rawID) && seen.get(rawID) !== signature) return invalid(); seen.set(rawID, signature); }
     const times = interval(row, formatter);
-    if (!times) { if (row["data-showname"] === "Test Cricket") return invalid(); continue; }
+    if (!times) { if (cricketShows.has(row["data-showname"])) return invalid(); continue; }
     if (times.start <= +now && +now < times.end) current.push({ row, ...times, signature });
   }
   // Main Willow has one linear programme. Contradictory overlapping rows must
-  // not let a convenient Test row override a different current programme.
+  // not let a convenient match row override a different current programme.
   const unique = new Map(current.map((r) => [r.signature, r]));
   if (unique.size > 1) return invalid();
   const broadcasts = [];
   for (const { row, start, end } of unique.values()) {
-    const identity = testIdentity(row);
+    const identity = cricketIdentity(row);
     if (!identity) continue;
     const startISO = new Date(start).toISOString(), endISO = new Date(end).toISOString();
     const providerEventID = "reviewed-tv:programme:" + await hash([SOURCE.station, startISO, endISO, identity]);

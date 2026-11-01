@@ -13,7 +13,7 @@ const blank = () => ({ version: 1, providers: {}, budgets: {}, cursor: 0 });
 const failure = (error) => BROADCAST_REASONS.includes(error?.message) ? error.message : "source-unavailable";
 const iso = (n) => new Date(n).toISOString();
 const RECORD_KEYS = new Set(["id", "providerCode", "providerEventID", "streamID", "resourceType", "scope", "kind", "sport", "title", "participants",
-  "start", "end", "competitionID", "squad", "format", "matchOrdinal", "day", "channelID", "stationMarket", "observedAt", "expiresAt", "verification", "issues"]);
+  "start", "startBasis", "end", "competitionID", "squad", "format", "matchOrdinal", "day", "channelID", "stationMarket", "observedAt", "expiresAt", "verification", "issues"]);
 
 function validateState(state) {
   if (!state || state.version !== 1 || !state.providers || !state.budgets || !Number.isSafeInteger(state.cursor)
