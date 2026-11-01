@@ -64,7 +64,7 @@ test("registry defaults to the fixed seven-provider compatibility view and only 
       { providerCode: "reviewedtv", fixtureID: "fixture", broadcastID: "br:programme", expiresAt: expiry }] };
   const stub = binding(snapshot), env = envFor(stub), header = "X-Fotty-Broadcast-Capabilities";
   const legacyResponse = await worker.fetch(new Request(origin + route), env), legacy = await legacyResponse.json();
-  assert.equal(legacyResponse.status, 200); assert.equal(legacyResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments, X-Fotty-TV-Guide");
+  assert.equal(legacyResponse.status, 200); assert.equal(legacyResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments, X-Fotty-TV-Guide, X-Fotty-Cricket-Matching");
   assert.deepEqual(legacy.providers.map((p) => p.providerCode), oldCodes, "An old strict provider enum never sees the eighth provider");
   assert.deepEqual(legacy.broadcasts, [snapshot.broadcasts[0]]); assert.deepEqual(legacy.links, [snapshot.links[0]]);
   assert.equal(legacy.generatedAt, snapshot.generatedAt); assert.equal(legacy.links[0].expiresAt, expiry);
@@ -72,7 +72,7 @@ test("registry defaults to the fixed seven-provider compatibility view and only 
   assert.equal(legacy.revision, await broadcastRegistryHash([snapshot.revision, "legacy-seven-provider-v1"]));
   assert.notEqual(legacy.revision, snapshot.revision);
   const capableResponse = await worker.fetch(new Request(origin + route, { headers: { [header]: "reviewedtv-programme-v1" } }), env);
-  assert.equal(capableResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments, X-Fotty-TV-Guide"); assert.deepEqual(await capableResponse.json(), snapshot);
+  assert.equal(capableResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments, X-Fotty-TV-Guide, X-Fotty-Cricket-Matching"); assert.deepEqual(await capableResponse.json(), snapshot);
   for (const value of ["reviewedtv-programme-v1,other", "REVIEWEDTV-PROGRAMME-V1", "communitysports"]) {
     const response = await worker.fetch(new Request(origin + route, { headers: { [header]: value } }), env);
     assert.deepEqual(await response.json(), legacy, "Unrecognized capability values select the same fixed legacy profile");
@@ -118,7 +118,7 @@ test("dual-header reviewed assignment negotiation preserves old Willow clients a
       { providerCode: "reviewedtv", broadcastID: "br:football", matchMethod: "channel-assignment", startRelation: "channel-coverage" }] };
   const stub = binding(snapshot), env = envFor(stub);
   const read = async (headers) => { const response = await worker.fetch(new Request(origin + route, { headers }), env);
-    assert.equal(response.status, 200); assert.equal(response.headers.get("Vary"), primary + ", " + secondary + ", X-Fotty-TV-Guide"); return response.json(); };
+    assert.equal(response.status, 200); assert.equal(response.headers.get("Vary"), primary + ", " + secondary + ", X-Fotty-TV-Guide, X-Fotty-Cricket-Matching"); return response.json(); };
   const legacy = await read({});
   assert.deepEqual(legacy.providers.map((p) => p.providerCode), ["communitysports"]); assert.equal(legacy.broadcasts.length, 1);
   const v1 = await read({ [primary]: "reviewedtv-programme-v1" });
@@ -161,6 +161,52 @@ test("guide negotiation keeps added programme lanes out of older clients without
   assert.deepEqual(current.links, snapshot.tvGuideAssignments.links); assert.equal(current.providers.length, 2);
   assert.notEqual(current.revision, snapshot.revision);
   assert.equal(stub.calls.length, 5); assert.ok(stub.calls.every((request) => request.method === "GET"));
+}));
+
+test("current cricket clock capability preserves old clients while retaining independently supported programmes", async () => withoutOutbound(async () => {
+  const primary = "X-Fotty-Broadcast-Capabilities", secondary = "X-Fotty-Broadcast-Assignments", cricket = "X-Fotty-Cricket-Matching";
+  const observed = "2026-11-01T12:00:00.000Z", expires = "2026-11-01T12:10:00.000Z";
+  const snapshot = { schemaVersion: 1, revision: "c".repeat(64), generatedAt: observed,
+    providers: [{ providerCode: "communitysports", scope: "cricket", status: "partial", observedAt: observed, expiresAt: expires },
+      { providerCode: "reviewedtv", scope: "cricket", status: "available", observedAt: observed, expiresAt: expires }],
+    broadcasts: [{ id: "br:ordinary", providerCode: "communitysports", scope: "cricket", start: "2026-11-01T07:30:00.000Z" },
+      { id: "br:current", providerCode: "communitysports", scope: "cricket", sport: "cricket", kind: "event",
+        startBasis: "current-listing", start: "2026-11-01T10:08:39.913Z", observedAt: observed, expiresAt: expires },
+      { id: "br:willow", providerCode: "reviewedtv", scope: "cricket", sport: "cricket", kind: "programme",
+        channelID: "cricket-channel:willow", streamID: "reviewed-tv:willow-main",
+        providerEventID: "reviewed-tv:programme:" + "a".repeat(64), observedAt: observed, expiresAt: expires }],
+    links: [{ providerCode: "communitysports", fixtureID: "ordinary", broadcastID: "br:ordinary", matchMethod: "exact", expiresAt: expires },
+      { providerCode: "communitysports", fixtureID: "current", broadcastID: "br:current", matchMethod: "current-event", expiresAt: expires },
+      { providerCode: "reviewedtv", fixtureID: "willow", broadcastID: "br:willow", matchMethod: "programme", expiresAt: expires }] };
+  const stub = binding(snapshot), env = envFor(stub), previous = { [primary]: "reviewedtv-programme-v1", [secondary]: "reviewedtv-programme-v2" };
+  const read = async (headers) => {
+    const response = await worker.fetch(new Request(origin + route, { headers }), env);
+    assert.equal(response.status, 200, "An unfamiliar cricket association must not invalidate unrelated catalogue rows");
+    assert.equal(response.headers.get("Vary"), primary + ", " + secondary + ", X-Fotty-TV-Guide, " + cricket);
+    return response.json();
+  };
+  const old = await read(previous);
+  assert.deepEqual(old.providers, snapshot.providers);
+  assert.deepEqual(old.broadcasts, [snapshot.broadcasts[0], snapshot.broadcasts[2]]);
+  assert.deepEqual(old.links, [snapshot.links[0], snapshot.links[2]]);
+  assert.equal(old.generatedAt, observed); assert.equal(old.links[0].expiresAt, expires);
+  assert.equal(old.revision, await broadcastRegistryHash([snapshot.revision, "legacy-cricket-clock-v1"]));
+  for (const value of ["CURRENT-LISTING-V1", "current-listing-v1,other", "current-listing-v2", "unrecognized"])
+    assert.deepEqual(await read({ ...previous, [cricket]: value }), old, "Only the exact reviewed capability receives new clock semantics");
+  assert.deepEqual(await read({ ...previous, [cricket]: "current-listing-v1" }), snapshot);
+  const legacy = await read({});
+  assert.deepEqual(legacy.broadcasts, [snapshot.broadcasts[0]]); assert.deepEqual(legacy.links, [snapshot.links[0]]);
+  const cricketOnly = await read({ [cricket]: "current-listing-v1" });
+  assert.deepEqual(cricketOnly.broadcasts, snapshot.broadcasts.slice(0, 2));
+  assert.deepEqual(cricketOnly.links, snapshot.links.slice(0, 2));
+  assert.deepEqual(cricketOnly.providers, [snapshot.providers[0]], "Cricket capability cannot opt into reviewedtv provider types");
+  const before = stub.calls.length;
+  const preflight = await worker.fetch(new Request(origin + route, { method: "OPTIONS" }), env);
+  assert.equal(preflight.status, 204); assert.ok(preflight.headers.get("Access-Control-Allow-Headers").includes(cricket));
+  assert.equal(stub.calls.length, before, "Capability projection and CORS add no source collection");
+  const unrelated = await worker.fetch(new Request(origin + "/health", { method: "OPTIONS" }), env);
+  assert.ok(!unrelated.headers.get("Access-Control-Allow-Headers").includes(cricket));
+  assert.ok(stub.calls.every((call) => call.method === "GET" && new URL(call.url).pathname === "/snapshot"));
 }));
 
 test("cloud scheduler admits only explicit reviewed registry activation and does not replace existing fixture cron", async () => withoutOutbound(async () => {
@@ -207,7 +253,7 @@ function fixturesEnv(sportsState, cricketFixture) {
       return Response.json(name.endsWith(":mlb") ? sportsState : { consecutiveFailures: 1 });
     } }) },
     CRICKET_FIXTURES: { idFromName: (name) => name, get: () => ({ async fetch() { return Response.json({ schemaVersion: 1,
-      sourceStatus: "verified", fixtures: cricketFixture ? [cricketFixture] : [], coverage: [{ competitionId: "icc", status: "covered" }] }); } }) } };
+      sourceStatus: "verified", fixtures: cricketFixture ? (Array.isArray(cricketFixture) ? cricketFixture : [cricketFixture]) : [], coverage: [{ competitionId: "icc", status: "covered" }] }); } }) } };
 }
 
 test("official mapping accepts genuine legacy covered sports receipts without manufacturing verification", async () => withoutOutbound(async () => {
@@ -249,6 +295,94 @@ test("failed sports scope cannot erase a separately verified cricket record and 
   const noContext = { ...cricket }; delete noContext.context;
   const missing = (await loadBroadcastRegistryFixtures(fixturesEnv(corrupted, noContext)))[0];
   assert.equal(missing.day, undefined); assert.equal(missing.end, undefined); assert.equal(missing.matchOrdinal, undefined);
+}));
+
+test("official limited-overs ordinals reach registry fingerprints without borrowing Test context or guessing missing fields", async () => withoutOutbound(async () => {
+  const { accepted, now } = await admittedSportsFixture();
+  const cricket = { id: "icc:fixture", competitionId: "icc", format: "ODI", matchOrdinal: 5, status: "live",
+    start: new Date(+now - 4 * 3_600_000).toISOString(), home: { name: "Namibia" }, away: { name: "Ireland" },
+    source: { verification: "verified", observedAt: now.toISOString() } };
+  for (const [format, matchOrdinal] of [["ODI", 5], ["T20", 3]]) {
+    const rows = await loadBroadcastRegistryFixtures(fixturesEnv(accepted, { ...cricket, format, matchOrdinal }));
+    const mapped = rows.find((row) => row.sport === "cricket");
+    assert.equal(mapped.matchOrdinal, matchOrdinal); assert.equal(mapped.format, format);
+    assert.equal(mapped.day, undefined); assert.equal(mapped.end, undefined);
+    const source = await normalizeBroadcastCollection("reviewedtv", { providerCode: "reviewedtv", observedAt: now.toISOString(), complete: true,
+      scopes: [{ scope: "cricket", status: "available", complete: true }], broadcasts: [{
+        providerEventID: "reviewed-tv:programme:" + "a".repeat(64), streamID: "reviewed-tv:willow-main", resourceType: "tv",
+        scope: "cricket", kind: "programme", sport: "cricket", title: "Namibia vs. Ireland", participants: ["Namibia", "Ireland"],
+        channelID: "cricket-channel:willow", format, matchOrdinal, start: new Date(+now - 60_000).toISOString(),
+        end: new Date(+now + 3_600_000).toISOString(), observedAt: now.toISOString(), expiresAt: new Date(+now + 600_000).toISOString(),
+        verification: "dated", issues: [],
+      }] }, now);
+    const link = associateBroadcasts({ fixtures: rows, broadcasts: source.broadcasts, providers: source.scopes, now })[0];
+    assert.equal(link.state, "listed"); assert.equal(link.fixtureFingerprint.matchOrdinal, matchOrdinal);
+  }
+  for (const matchOrdinal of [undefined, null, "5", 0, 100]) {
+    const mapped = (await loadBroadcastRegistryFixtures(fixturesEnv(accepted, { ...cricket, matchOrdinal,
+      context: { matchOrdinal: 4, day: 2 } }))).find((row) => row.sport === "cricket");
+    assert.equal(mapped.matchOrdinal, undefined, "A limited-overs ordinal comes only from its verified typed property");
+    assert.equal(mapped.day, undefined);
+  }
+}));
+
+test("actual Worker registry snapshot retains rejected cricket siblings as ambiguity evidence without admitting or scheduling them", async () => withoutOutbound(async () => {
+  const { accepted, now } = await admittedSportsFixture(), stamp = (offset = 0) => new Date(+now + offset).toISOString();
+  const live = { id: "icc:live", competitionId: "icc", format: "ODI", matchOrdinal: 5, status: "live",
+    start: stamp(-4 * 3_600_000), home: { name: "Namibia" }, away: { name: "Ireland" },
+    source: { verification: "verified", observedAt: stamp() } };
+  const unrelated = { ...live, id: "icc:unrelated", matchOrdinal: 3, start: stamp(-30 * 60_000),
+    home: { name: "India" }, away: { name: "Australia" } };
+  const cs = await normalizeBroadcastCollection("communitysports", { providerCode: "communitysports", observedAt: stamp(), complete: true,
+    scopes: [{ scope: "cricket", status: "available", complete: true }], broadcasts: [{
+      providerEventID: "nuvio_sport_sktech_sktech_ev_fancode_4250335", streamID: "nuvio_sport_sktech_sktech_ev_fancode_4250335",
+      resourceType: "tv", scope: "cricket", kind: "event", sport: "cricket", title: "🔴 LIVE: Ireland vs Namibia", participants: ["Ireland", "Namibia"],
+      start: stamp(-2 * 60_000), startBasis: "current-listing", verification: "undated", issues: [], observedAt: stamp(), expiresAt: stamp(3_600_000),
+    }, {
+      providerEventID: "nuvio_sport_unrelated", streamID: "nuvio_sport_unrelated", resourceType: "tv", scope: "cricket", kind: "event", sport: "cricket",
+      title: "India vs Australia", participants: ["India", "Australia"], start: unrelated.start, format: "ODI", matchOrdinal: 3,
+      verification: "dated", issues: [], observedAt: stamp(), expiresAt: stamp(3_600_000),
+    }] }, now);
+  const willow = await normalizeBroadcastCollection("reviewedtv", { providerCode: "reviewedtv", observedAt: stamp(), complete: true,
+    scopes: [{ scope: "cricket", status: "available", complete: true }], broadcasts: [{
+      providerEventID: "reviewed-tv:programme:" + "a".repeat(64), streamID: "reviewed-tv:willow-main", resourceType: "tv",
+      scope: "cricket", kind: "programme", sport: "cricket", title: "Namibia vs. Ireland", participants: ["Namibia", "Ireland"],
+      channelID: "cricket-channel:willow", format: "ODI", matchOrdinal: 5, start: stamp(-60_000), end: stamp(3_600_000),
+      verification: "dated", issues: [], observedAt: stamp(), expiresAt: stamp(600_000),
+    }] }, now);
+  const stored = { version: 1, providers: Object.fromEntries([cs, willow].map((collection) => [collection.providerCode, {
+    records: collection.broadcasts, scopes: Object.fromEntries(collection.scopes.map((scope) => [scope.scope, scope])), failures: 0, cursor: 0,
+  }])), budgets: {}, cursor: 0 };
+  const key = "shared-broadcast-registry-v1";
+  const storage = { get: async (id) => id === key ? structuredClone(stored) : undefined,
+    put: async () => assert.fail("A snapshot read cannot mutate accepted state or request budgets") };
+  const read = async (sibling) => {
+    const rows = [live, ...(sibling ? [sibling] : []), unrelated];
+    const env = { ...fixturesEnv(accepted, rows), ...envFor(binding(), { FOTTY_BROADCAST_REGISTRY_SOURCES: "communitysports,reviewedtv" }) };
+    const registry = new BroadcastRegistry({ storage }, env);
+    const loaded = await registry.fixtures();
+    assert.ok(loaded.fixtures.every((fixture) => fixture.verified && ["scheduled", "live"].includes(fixture.status)));
+    if (sibling) {
+      assert.ok(!loaded.fixtures.some((fixture) => fixture.fixtureID === "cricket-fixture:" + sibling.id));
+      assert.ok(loaded.siblings.some((fixture) => fixture.fixtureID === "cricket-fixture:" + sibling.id));
+    }
+    const response = await registry.fetch(new Request("https://internal/snapshot"));
+    assert.equal(response.status, 200); return response.json();
+  };
+  const baseline = await read();
+  assert.equal(baseline.links.filter((link) => link.fixtureID === "cricket-fixture:icc:live" && link.state === "listed").length, 2);
+  for (const changes of [
+    { status: "finished" }, { status: "cancelled" }, { status: "live", source: { verification: "held", observedAt: stamp() } },
+    { status: "live", source: { verification: "unverified", observedAt: stamp() } },
+  ]) {
+    const sibling = { ...live, id: "icc:rejected-sibling", start: stamp(-6 * 3_600_000), ...changes };
+    const result = await read(sibling);
+    assert.equal(result.links.filter((link) => link.fixtureID === "cricket-fixture:icc:live" && link.state === "listed").length, 0);
+    assert.ok(!result.links.some((link) => link.fixtureID === "cricket-fixture:icc:rejected-sibling"), "Rejected sibling is a veto, never a playable target");
+    assert.equal(result.links.filter((link) => link.fixtureID === "cricket-fixture:icc:unrelated" && link.state === "listed").length, 1,
+      "A same-pair ambiguity cannot withdraw an unrelated correct match");
+    assert.deepEqual(result.broadcasts, baseline.broadcasts, "Ambiguity evidence does not erase source observations");
+  }
 }));
 
 test("approved registry configuration retains its own binding/migration and enabled scope", async () => {

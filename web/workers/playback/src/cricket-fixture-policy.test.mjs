@@ -20,6 +20,68 @@ const withReceipt = (collection, receipt) => ({ ...collection, observedAt: recei
 const marked = (fixtures, verification) => fixtures.map((fixture) => ({ ...fixture, source: { ...fixture.source, verification } }));
 const activeSeason = new Date("2026-09-20T16:00:00Z");
 const recoveredCPL = (receipt) => Response.json({ ...cplFallback, checkedAt: receipt.toISOString(), sourceStatus: "verified" });
+test("ICC limited-overs ordinal comes from agreeing explicit fields even without score context", () => {
+  for (const [match_type, match_number, match_ordinal, expected] of [
+    ["ODI", "5th ODI", "5", 5], ["T20", "3rd T20I", "3", 3], ["T20I", "1st T20I", 1, 1],
+    ["T20", "21st T20", "21", 21], ["Youth ODI", "1st Youth ODI", "1", 1],
+    ["Youth T20I", "2nd Youth T20I", "2", 2], ["ODI", "11th ODI", "11", 11],
+  ]) {
+    const fixture = normalized([row({ match_type, match_number, match_ordinal })]).fixtures[0];
+    assert.equal(fixture.matchOrdinal, expected);
+    assert.equal(fixture.context, undefined, "Missing scores do not erase an explicit fixture ordinal");
+    assert.equal(fixture.start, "2026-09-30T08:30:00.000Z");
+  }
+});
+
+test("malformed, contradictory or series-count ordinals stay absent without erasing the official fixture", () => {
+  for (const changes of [
+    {}, { match_ordinal: "5" }, { match_number: "5th ODI" }, { match_ordinal: "4", match_number: "5th ODI" },
+    { match_ordinal: "5", match_number: "5st ODI" }, { match_ordinal: "11", match_number: "11st ODI" },
+    { match_ordinal: "05", match_number: "5th ODI" }, { match_ordinal: 0, match_number: "0th ODI" },
+    { match_ordinal: 100, match_number: "100th ODI" }, { match_ordinal: 5.5, match_number: "5th ODI" },
+    { match_ordinal: null, match_number: "5th ODI" }, { match_ordinal: "5", match_number: "5 ODI Series" },
+    { match_ordinal: "5", match_number: "5th T20I" }, { match_ordinal: "5", match_number: "5th ODI<script>" },
+    { match_ordinal: "5", match_number: "5th Youth ODI" },
+    { match_type: "Youth ODI", match_ordinal: "5", match_number: "5th ODI" },
+    { match_type: "Test", match_ordinal: "5", match_number: "5th Test" },
+  ]) {
+    const result = normalized([row({ ...changes, series_name: "Ireland in Namibia, 5 ODI Series, 2026" })]);
+    assert.equal(result.fixtures.length, 1);
+    assert.equal(result.fixtures[0].matchOrdinal, undefined, JSON.stringify(changes));
+    assert.equal(result.fixtures[0].status, "live");
+  }
+});
+
+test("a changed explicit limited-overs ordinal is isolated while fresh missing ordinal never borrows old authority", () => {
+  const initial = normalized([row({ match_ordinal: "5", match_number: "5th ODI" })]);
+  const previous = admitICC(initial, [], now).fixtures;
+  const changed = normalized([row({ match_ordinal: "4", match_number: "4th ODI" }),
+    row({ match_id: "999999", teamb: "England", teamb_id: "1" })]);
+  assert.throws(() => admitICC(changed, previous, now), /ICC ordinal conflict/u);
+  const isolated = admitICCIsolated(changed, previous, now);
+  assert.equal(isolated.fixtures.find((f) => f.id === previous[0].id).matchOrdinal, 5);
+  assert.equal(isolated.fixtures.find((f) => f.id === previous[0].id).source.verification, "held");
+  assert.equal(isolated.fixtures.find((f) => f.id === "icc:999999").source.verification, "verified");
+  const missing = admitICC(normalized([row()]), previous, now).fixtures[0];
+  assert.equal(missing.matchOrdinal, undefined);
+  assert.equal(missing.id, previous[0].id);
+  assert.equal(admitICC(initial, admitICC(normalized(), [], now).fixtures, now).fixtures[0].matchOrdinal, 5,
+    "An older accepted snapshot without the additive field can acquire current explicit authority");
+});
+
+test("public cricket snapshots bound optional limited-overs ordinal without changing Test context", () => {
+  const fixture = admitICC(normalized([row({ match_ordinal: "5", match_number: "5th ODI" })]), [], now).fixtures[0];
+  const snapshot = { schemaVersion: 1, complete: true, fixtures: [fixture], coverage: [
+    { competitionId: "cpl", status: "offseason", fixtureCount: 0 },
+    { competitionId: "west-indies", status: "covered", fixtureCount: 1 },
+    { competitionId: "icc", status: "covered", fixtureCount: 0 },
+  ] };
+  assert.equal(validateCricketSnapshot(snapshot).fixtures[0].matchOrdinal, 5);
+  for (const matchOrdinal of [null, "5", 0, -1, 100, 5.5])
+    assert.throws(() => validateCricketSnapshot({ ...snapshot, fixtures: [{ ...fixture, matchOrdinal }] }), /Invalid cricket fixture/u);
+  assert.throws(() => validateCricketSnapshot({ ...snapshot, fixtures: [{ ...fixture, format: "Test" }] }), /Invalid cricket fixture/u,
+    "Existing Test ordinals remain in their explicit score context, not this limited-overs field");
+});
 const reviewNow = new Date("2026-10-01T19:00:00.000Z");
 const triSeriesRows = (corrected) => [
   { match_id: "275298", match_date_gmt: "10/4/2026", match_time_gmt: corrected ? "02:00" : "02:30",

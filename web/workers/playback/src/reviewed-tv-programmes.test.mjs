@@ -32,6 +32,52 @@ test("observed contract emits a current Test programme with station-bound hashed
   assert.equal(changedRawID.broadcasts[0].providerEventID, record.providerEventID);
 });
 
+test("observed main-Willow T20I and ODI shows retain explicit format and ordinal", async () => {
+  // Labels were observed in the publisher's 1/4 November main-Willow guide;
+  // the fixed interval here is a parser fixture, not live playback evidence.
+  for (const [show, description, format] of [
+    ["T20 Cricket", "3rd T20I.", "T20"],
+    ["T20 Cricket", "3rd T20.", "T20"],
+    ["One-Day International Cricket", "1st ODI.", "ODI"],
+  ]) {
+    const result = await parse(page(row({ "data-showname": show, "data-description": description,
+      "data-episodetitle": "Afghanistan vs. Zimbabwe" })), { now });
+    assert.equal(result.broadcasts.length, 1);
+    const record = result.broadcasts[0];
+    assert.deepEqual(record.participants, ["Afghanistan", "Zimbabwe"]);
+    assert.equal(record.format, format); assert.equal(record.matchOrdinal, format === "ODI" ? 1 : 3);
+    assert.equal(record.day, undefined);
+    assert.equal(record.kind, "programme"); assert.equal(record.channelID, "cricket-channel:willow");
+    assert.equal(record.start, "2026-10-30T13:00:00.000Z");
+    assert.equal(record.end, "2026-10-30T15:00:00.000Z");
+  }
+});
+
+test("limited-overs programme identity rejects mismatched format, invalid ordinal and Test-day claims", async () => {
+  for (const [show, description] of [
+    ["T20 Cricket", "3rd ODI."], ["One-Day International Cricket", "3rd T20I."],
+    ["T20 Cricket", "3th T20I."], ["One-Day International Cricket", "11st ODI."],
+    ["T20 Cricket", "T20I."], ["One-Day International Cricket", "ODI."],
+    ["T20 Cricket", "3rd T20I, Day 1."], ["One-Day International Cricket", "3rd ODI, Day 1."],
+    ["T20 Cricket", "3rd T20I. Replay"], ["One-Day International Cricket", "1st ODI. Highlights"],
+    ["Cricket Preview", "3rd T20I."], ["Cricket Review", "1st ODI."],
+  ]) assert.equal((await parse(page(row({ "data-showname": show, "data-description": description })), { now })).broadcasts.length, 0);
+  const women = await parse(page(row({ "data-showname": "One-Day International Cricket", "data-description": "2nd ODI.",
+    "data-episodetitle": "India Women vs. Zimbabwe Women" })), { now });
+  assert.deepEqual(women.broadcasts[0].participants, ["India Women", "Zimbabwe Women"]);
+});
+
+test("limited-overs shows keep exact station, current interval, LIVE and repeat fences", async () => {
+  const match = { "data-showname": "One-Day International Cricket", "data-description": "5th ODI.",
+    "data-episodetitle": "Namibia vs. Ireland" };
+  for (const change of [{ "data-live": "" }, { "data-repeat": "1" }, { "data-episodetitle": "Namibia vs. Ireland Review" }])
+    assert.equal((await parse(page(row({ ...match, ...change })), { now })).broadcasts.length, 0);
+  assert.equal((await parse(page(row(match)), { now: new Date("2026-10-30T15:00:00Z") })).broadcasts.length, 0);
+  await assert.rejects(parse(page(row({ ...match, "data-callsign": "WillowExtra" })), { now }), /invalid-collection/u);
+  await assert.rejects(parse(page(row({ ...match, "data-st": "2026-10-30 24:00:00" })), { now }), /invalid-collection/u);
+  await assert.rejects(parse(page(row(match) + row({ ...match, "data-listingid": "456", "data-description": "4th ODI." })), { now }), /invalid-collection/u);
+});
+
 test("only the current interval is emitted, and expiry cannot outlive the programme", async () => {
   assert.equal((await parse(page(), { now: new Date("2026-10-30T12:59:59Z") })).broadcasts.length, 0);
   assert.equal((await parse(page(), { now: new Date("2026-10-30T13:00:00Z") })).broadcasts.length, 1);

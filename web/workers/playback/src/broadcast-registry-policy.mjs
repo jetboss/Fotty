@@ -27,6 +27,19 @@ export function isReviewedTVScheduledAssignment(row, providerCode = row?.provide
     && row.streamID === "reviewed-tv:" + station[1] && row.stationMarket === "UY" && row.end === undefined
     && stamp(row.start) !== null && /^reviewed-tv:assignment:[a-f0-9]{64}$/u.test(row.providerEventID ?? "");
 }
+// This producer synthesizes released from Date.now() for dynamic FanCode
+// entries. Retain the clock for audit; it has no kickoff/date authority.
+export function isCurrentCricketListing(row, providerCode = row?.providerCode) {
+  return providerCode === "communitysports" && row?.startBasis === "current-listing"
+    && /^nuvio_sport_sktech_sktech_ev_fancode_[0-9]+$/u.test(row.providerEventID ?? "")
+    && row.streamID === row.providerEventID && row.resourceType === "tv" && row.kind === "event"
+    && row.sport === "cricket" && ["cricket", "live"].includes(row.scope)
+    && /^🔴 LIVE: /u.test(row.title ?? "")
+    && same(pair(String(row.title).slice("🔴 LIVE: ".length).split(/\s+(?:vs\.?|v\.?|versus)\s+/iu), "cricket"), pair(row.participants, "cricket"))
+    && pair(row.participants, "cricket") !== null && row.format === undefined && row.matchOrdinal === undefined
+    && row.day === undefined && row.end === undefined && row.channelID === undefined && row.competitionID === undefined
+    && row.stationMarket === undefined && row.squad === undefined && stamp(row.start) !== null;
+}
 const minute = 60_000, day = 86_400_000;
 const object = (v) => v && typeof v === "object" && !Array.isArray(v);
 const bytes = (v) => new TextEncoder().encode(JSON.stringify(v)).length;
@@ -81,7 +94,8 @@ export function mergeBroadcastRecords(records, at = new Date(), coverage = []) {
   const groups = new Map();
   for (const row of records) groups.set(row.id, [...(groups.get(row.id) ?? []), row]);
   const identity = (r) => ({ providerCode: r.providerCode, providerEventID: r.providerEventID, streamID: r.streamID,
-    kind: r.kind, sport: r.sport, participants: pair(r.participants, r.sport), start: r.start, end: r.end,
+    kind: r.kind, sport: r.sport, participants: pair(r.participants, r.sport), startBasis: r.startBasis,
+    start: isCurrentCricketListing(r) ? undefined : r.start, end: r.end,
     competitionID: r.competitionID, squad: r.squad, format: r.format, matchOrdinal: r.matchOrdinal,
     day: r.day, channelID: r.channelID, stationMarket: r.stationMarket, verification: r.verification });
   return [...groups.values()].map((rows) => {
@@ -143,6 +157,13 @@ export async function normalizeBroadcastCollection(providerCode, input, at = new
       else record[key] = iso(time);
     }
     if (record.end && record.start && record.end <= record.start) { verification = "conflicting"; issues.add("time-conflict"); }
+    if (row.startBasis !== undefined) {
+      if (!isCurrentCricketListing({ ...row, streamID: row.streamID ?? row.providerEventID }, providerCode)
+        || row.verification !== "undated" || !record.start
+        || Date.parse(record.start) > receipt + 5 * minute
+        || receipt - Date.parse(record.start) > BROADCAST_REGISTRY_LIMITS.sourceLifetime) throw new Error("invalid-collection");
+      record.startBasis = row.startBasis;
+    }
     if (row.competitionID !== undefined) {
       if (!reference(row.competitionID, 128)) throw new Error("invalid-collection");
       record.competitionID = row.competitionID;
@@ -208,7 +229,7 @@ export function normalizeRegistryFixtures(rows, at = new Date()) {
     if (row.competitionID !== undefined) { if (!reference(row.competitionID, 128)) continue; fingerprint.competitionID = row.competitionID; }
     if (row.squad !== undefined) { const value = squad(row.squad); if (!value) continue; fingerprint.squad = value; }
     if (row.format !== undefined) { if (!formats.has(row.format)) continue; fingerprint.format = row.format; }
-    if (row.matchOrdinal !== undefined) { if (row.format !== "Test" || !ordinal(row.matchOrdinal, 99)) continue; fingerprint.matchOrdinal = row.matchOrdinal; }
+    if (row.matchOrdinal !== undefined) { if (!["Test", "ODI", "T20"].includes(row.format) || !ordinal(row.matchOrdinal, 99)) continue; fingerprint.matchOrdinal = row.matchOrdinal; }
     if (row.day !== undefined) { if (row.format !== "Test" || !ordinal(row.day, 6)) continue; fingerprint.day = row.day; }
     if (row.end !== undefined) {
       const end = stamp(row.end);
@@ -221,9 +242,10 @@ export function normalizeRegistryFixtures(rows, at = new Date()) {
   return result;
 }
 
-export function associateBroadcasts({ fixtures, broadcasts, providers: coverage = [], now = new Date() }) {
+export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, broadcasts, providers: coverage = [], now = new Date() }) {
   const time = Number(now), admitted = normalizeRegistryFixtures(fixtures, now), links = [];
   if (!Array.isArray(broadcasts) || broadcasts.length > BROADCAST_REGISTRY_LIMITS.records) throw new Error("capacity-exceeded");
+  if (!Array.isArray(ambiguityFixtures) || ambiguityFixtures.length > 3000) throw new Error("invalid-fixtures");
   const scopeState = new Map(coverage.map((r) => [r.providerCode + ":" + r.scope, r]));
   // The reviewed alias resolver scans a finite generated catalog. Normalize
   // each broadcast once, not once for every fixture in this bounded batch.
@@ -236,6 +258,21 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
     const key = earlyKey(fixture);
     earlyOwners.set(key, (earlyOwners.get(key) ?? 0) + 1);
   }
+  // Unqualified current listings cannot distinguish two same-pair occurrences.
+  // Include terminal/rejected siblings in ambiguity checks; they cannot lend
+  // authority, but must not disappear and make a different match look unique.
+  const uniqueCurrentOwner = (fixture) => ambiguityFixtures.filter((f) => f?.sport === "cricket"
+    && same(pair(f.participants, "cricket"), pair(fixture.participants, "cricket"))
+    && stamp(f.start) !== null && Math.abs(Date.parse(f.start) - Date.parse(fixture.start)) < day).length === 1;
+  const limitedOversRelation = (fixture, start) => {
+    const limit = fixture.format === "ODI" ? 12 * 60 * minute : 6 * 60 * minute;
+    const delta = start - Date.parse(fixture.start);
+    return time - Date.parse(fixture.observedAt) <= 10 * minute && uniqueCurrentOwner(fixture)
+      && (fixture.status === "live" && Date.parse(fixture.start) <= time && time - Date.parse(fixture.start) <= limit
+        && delta >= -60 * minute && delta <= limit
+        || fixture.status === "scheduled" && delta >= -60 * minute && delta <= 0
+          && Date.parse(fixture.start) - time <= 60 * minute);
+  };
   const assignmentKey = (row) => JSON.stringify([pair(row.participants, row.sport), row.start?.slice(0, 10), row.competitionID, row.squad]);
   const assignmentOwners = new Map();
   for (const fixture of admitted) if (fixture.sport === "football" && reviewedTVFootballCompetitions.has(fixture.competitionID) && fixture.squad
@@ -249,10 +286,11 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
       if (broadcast.kind === "channel" || broadcast.sport !== fixture.sport || !same(broadcastPairs.get(broadcast), expected)) continue;
       const assignment = isReviewedTVScheduledAssignment(broadcast);
       if (broadcast.providerCode === "reviewedtv" && broadcast.kind !== "programme" && !assignment) continue;
-      let state = "listed", reason, startRelation, method = assignment ? "channel-assignment" : broadcast.kind === "programme" ? "programme" : "exact";
+      const currentListing = isCurrentCricketListing(broadcast);
+      let state = "listed", reason, startRelation, method = currentListing ? "current-event" : assignment ? "channel-assignment" : broadcast.kind === "programme" ? "programme" : "exact";
       const fail = (next, value) => { if (state === "listed" || next === "conflicting") { state = next; reason = value; } };
       if (!providers.has(broadcast.providerCode) || stamp(broadcast.observedAt) === null || stamp(broadcast.expiresAt) === null) continue;
-      if (broadcast.verification === "conflicting") fail("conflicting", broadcast.issues?.[0] ?? "catalog-conflict");
+      if (broadcast.verification === "conflicting" || currentListing && broadcast.issues?.length) fail("conflicting", broadcast.issues?.[0] ?? "catalog-conflict");
       const scope = scopeState.get(broadcast.providerCode + ":" + broadcast.scope);
       // A failed catalog refresh cannot revoke an unexpired accepted listing.
       // It permits only a fresh same-ID descriptor check, never old media reuse.
@@ -261,14 +299,21 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
         && Date.parse(scope.expiresAt) > time && time - Date.parse(scope.observedAt) <= BROADCAST_REGISTRY_LIMITS.sourceLifetime;
       if (!["available", "partial"].includes(scope?.status) && !retained) fail("needsVerification", "source-unavailable");
       if (Date.parse(broadcast.expiresAt) <= time || Date.parse(broadcast.observedAt) > time + 5 * minute) fail("needsVerification", "stale-source");
-      if (broadcast.verification !== "dated" || !broadcast.start) fail("needsVerification", "missing-date");
+      if ((!currentListing && broadcast.verification !== "dated") || !broadcast.start) fail("needsVerification", "missing-date");
       if (broadcast.competitionID && fixture.competitionID && broadcast.competitionID !== fixture.competitionID) fail("conflicting", "competition-conflict");
       if (broadcast.squad && fixture.squad && !same(broadcast.squad, fixture.squad)) fail("conflicting", "squad-conflict");
       if (fixture.sport === "cricket") {
-        if (!broadcast.format || !fixture.format) fail("needsVerification", "format-conflict");
-        else if (broadcast.format !== fixture.format) fail("conflicting", "format-conflict");
+        if ((!currentListing && !broadcast.format) || !fixture.format) fail("needsVerification", "format-conflict");
+        else if (!currentListing && broadcast.format !== fixture.format) fail("conflicting", "format-conflict");
       }
-      if (assignment) {
+      if (currentListing) {
+        if (fixture.status !== "live" || !["ODI", "T20"].includes(fixture.format)
+          || !limitedOversRelation(fixture, time)) fail("needsVerification", "unverified-fixture");
+      } else if (broadcast.kind === "programme" && ["ODI", "T20"].includes(fixture.format)) {
+        if (!limitedOversRelation(fixture, Date.parse(broadcast.start))) fail("conflicting", "time-conflict");
+        if (!fixture.matchOrdinal || !broadcast.matchOrdinal) fail("needsVerification", "ordinal-conflict");
+        else if (fixture.matchOrdinal !== broadcast.matchOrdinal) fail("conflicting", "ordinal-conflict");
+      } else if (assignment) {
         const lead = Date.parse(fixture.start) - Date.parse(broadcast.start);
         if (!fixture.competitionID || fixture.competitionID !== broadcast.competitionID) fail("conflicting", "competition-conflict");
         if (!fixture.squad || !same(fixture.squad, broadcast.squad)) fail("conflicting", "squad-conflict");
@@ -299,7 +344,7 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
       }
       if (broadcast.kind === "programme" && (!channels.has(broadcast.channelID) || !broadcast.end
         || Date.parse(broadcast.end) <= time || Date.parse(broadcast.start) > time)) fail("needsVerification", "missing-programme");
-      const fixtureLifetime = fixture.format === "Test" && (broadcast.day !== undefined || broadcast.kind === "programme")
+      const fixtureLifetime = currentListing || broadcast.kind === "programme" || fixture.format === "Test" && broadcast.day !== undefined
         ? 10 * minute : fixture.status === "scheduled" && Date.parse(fixture.start) >= time ? day : 30 * minute;
       const expiry = Math.min(Date.parse(broadcast.expiresAt), Date.parse(fixture.observedAt) + fixtureLifetime,
         broadcast.kind === "programme" && broadcast.end ? Date.parse(broadcast.end) : Infinity);

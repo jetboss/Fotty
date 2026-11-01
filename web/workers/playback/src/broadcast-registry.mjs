@@ -1,6 +1,6 @@
 import { associateBroadcasts, buildBroadcastSnapshot, normalizeBroadcastCollection,
   normalizeRegistryFixtures, mergeBroadcastRecords, BROADCAST_PROVIDER_CODES, BROADCAST_SCOPES, BROADCAST_REGISTRY_LIMITS,
-  BROADCAST_REASONS, isReviewedTVFootballAssignment } from "./broadcast-registry-policy.mjs";
+  BROADCAST_REASONS, isReviewedTVFootballAssignment, isCurrentCricketListing } from "./broadcast-registry-policy.mjs";
 
 import { REVIEWED_TV_GUIDE_KEY, validateReviewedTVGuide, currentReviewedTVGuide } from "./reviewed-tv-guide.mjs";
 import { reviewedTVGuideAssignments } from "./reviewed-tv-guide-assignments.mjs";
@@ -13,7 +13,7 @@ const blank = () => ({ version: 1, providers: {}, budgets: {}, cursor: 0 });
 const failure = (error) => BROADCAST_REASONS.includes(error?.message) ? error.message : "source-unavailable";
 const iso = (n) => new Date(n).toISOString();
 const RECORD_KEYS = new Set(["id", "providerCode", "providerEventID", "streamID", "resourceType", "scope", "kind", "sport", "title", "participants",
-  "start", "end", "competitionID", "squad", "format", "matchOrdinal", "day", "channelID", "stationMarket", "observedAt", "expiresAt", "verification", "issues"]);
+  "start", "startBasis", "end", "competitionID", "squad", "format", "matchOrdinal", "day", "channelID", "stationMarket", "observedAt", "expiresAt", "verification", "issues"]);
 
 function validateState(state) {
   if (!state || state.version !== 1 || !state.providers || !state.budgets || !Number.isSafeInteger(state.cursor)
@@ -51,6 +51,31 @@ function validateState(state) {
   }
   if (count > BROADCAST_REGISTRY_LIMITS.records || new TextEncoder().encode(JSON.stringify(state)).length > BROADCAST_REGISTRY_LIMITS.snapshotBytes) throw new Error("capacity-exceeded");
   return state;
+}
+
+function persistedRegistryState(state) {
+  // Schema1's deployed rollback reader rejects unknown record keys. Clock
+  // semantics are a runtime projection, not an additive durable-state field.
+  return { ...state, providers: Object.fromEntries(Object.entries(state.providers).map(([code, source]) => [code,
+    { ...source, records: source.records.map((row) => {
+      const { startBasis: _runtimeOnly, ...legacy } = row;
+      return legacy;
+    }) },
+  ])) };
+}
+
+function runtimeRegistryState(state) {
+  return { ...state, providers: Object.fromEntries(Object.entries(state.providers).map(([code, source]) => [code,
+    { ...source, records: source.records.map((row) => {
+      const { startBasis: _runtimeOnly, ...legacy } = row;
+      const candidate = { ...legacy, startBasis: "current-listing" };
+      const age = Date.parse(legacy.observedAt) - Date.parse(legacy.start);
+      return legacy.verification === "undated" && Array.isArray(legacy.issues) && legacy.issues.length === 0
+        && /^nuvio_sport_sktech_sktech_ev_fancode_[1-9]\d{0,15}$/u.test(legacy.providerEventID)
+        && age >= -5 * minute && age <= BROADCAST_REGISTRY_LIMITS.sourceLifetime
+        && isCurrentCricketListing(candidate) ? candidate : legacy;
+    }) },
+  ])) };
 }
 
 function supportedFixtures(code, fixtures) {
@@ -118,6 +143,17 @@ function checkpointPlan(source, fixtures, now, ordinaryDue, cap) {
     postponedUntil: ordinaryDue + Math.max(interval, Math.ceil(day * 8 / cap)) };
 }
 
+function ambiguityIdentities(rows) {
+  if (!Array.isArray(rows) || rows.length > 3000) throw new Error("invalid-fixtures");
+  const safe = (value, limit) => typeof value === "string" && value.length > 0 && value.length <= limit
+    && value === value.trim() && !/[\p{Cc}\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069<>]/u.test(value) && !value.includes("://");
+  return rows.filter((row) => row?.sport === "cricket" && safe(row.fixtureID, 512)
+    && Array.isArray(row.participants) && row.participants.length === 2 && row.participants.every((p) => safe(p, 256))
+    && typeof row.start === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u.test(row.start)
+    && Number.isFinite(Date.parse(row.start)) && new Date(row.start).toISOString().slice(0, 10) === row.start.slice(0, 10))
+    .map((row) => ({ fixtureID: row.fixtureID, sport: "cricket", participants: [...row.participants], start: row.start }));
+}
+
 export class BroadcastRegistry {
   constructor(state, env, options = {}) {
     this.state = state; this.env = env; this.options = options; this.queue = Promise.resolve(); this.budgetQueue = Promise.resolve();
@@ -129,7 +165,11 @@ export class BroadcastRegistry {
   now() { const n = Number(this.options.clock?.() ?? new Date()); if (!Number.isFinite(n)) throw new Error("invalid-registry-clock"); return n; }
   enabled() { return this.options.enabled?.() !== false; }
   enqueue(operation) { const result = this.queue.then(operation); this.queue = result.then(() => undefined, () => undefined); return result; }
-  async stored() { const state = await this.state.storage.get(KEY); return state ? validateState(state) : blank(); }
+  async stored() {
+    const state = await this.state.storage.get(KEY);
+    return state ? runtimeRegistryState(validateState(state)) : blank();
+  }
+  async persist(stored) { await this.state.storage.put(KEY, persistedRegistryState(stored)); }
   async reserve(stored, descriptor, cycle) {
     const operation = async () => {
       const now = this.now(), date = iso(now).slice(0, 10), prior = stored.budgets[descriptor.providerCode];
@@ -139,7 +179,7 @@ export class BroadcastRegistry {
       budget.count++; budget.lastAt = now; stored.budgets[descriptor.providerCode] = budget;
       // Persist the reservation before any HTTP request. A failed write rejects
       // the read; cancellation/restart/re-enable cannot refund spent requests.
-      await this.state.storage.put(KEY, stored);
+      await this.persist(stored);
       cycle.reads++;
       return true;
     };
@@ -147,7 +187,8 @@ export class BroadcastRegistry {
     this.budgetQueue = result.then(() => undefined, () => undefined);
     return result;
   }
-  async snapshot(stored, fixtures, now) {
+  async snapshot(stored, loaded, now) {
+    const { fixtures, siblings } = loaded;
     const providers = [], broadcasts = [];
     for (const descriptor of this.providers) {
       const state = stored.providers[descriptor.providerCode];
@@ -159,7 +200,7 @@ export class BroadcastRegistry {
       }
     }
     const merged = mergeBroadcastRecords(broadcasts, new Date(now), providers);
-    const links = associateBroadcasts({ fixtures, broadcasts: merged, providers, now: new Date(now) });
+    const links = associateBroadcasts({ fixtures, ambiguityFixtures: siblings, broadcasts: merged, providers, now: new Date(now) });
     const snapshot = await buildBroadcastSnapshot({ providers, broadcasts: merged, links, now: new Date(now) });
     // Separate storage preserves the existing accepted registry/rollback schema.
     // A malformed guide cannot withdraw working fixture associations.
@@ -174,7 +215,10 @@ export class BroadcastRegistry {
   }
   async fixtures() {
     if (typeof this.options.loadFixtures !== "function") throw new Error("official-fixtures-unavailable");
-    return normalizeRegistryFixtures(await this.options.loadFixtures(), new Date(this.now()));
+    const loaded = await this.options.loadFixtures();
+    const rows = Array.isArray(loaded) ? loaded : loaded?.fixtures;
+    const siblings = ambiguityIdentities(Array.isArray(loaded) ? loaded : loaded?.siblings);
+    return { fixtures: normalizeRegistryFixtures(rows, new Date(this.now())), siblings };
   }
   eligible(descriptor, stored, now, fixtures = []) {
     const source = stored.providers[descriptor.providerCode], budget = stored.budgets[descriptor.providerCode];
@@ -204,7 +248,7 @@ export class BroadcastRegistry {
   async refresh() {
     if (!this.enabled()) { await this.state.storage.deleteAlarm?.(); throw new Error("registry-disabled"); }
     if (typeof this.options.collect !== "function") throw new Error("collector-unavailable");
-    const stored = await this.stored(), now = this.now(), fixtures = await this.fixtures();
+    const stored = await this.stored(), now = this.now(), loaded = await this.fixtures(), fixtures = loaded.fixtures;
     const ordered = this.providers.map((_, i) => this.providers[(stored.cursor + i) % this.providers.length]);
     const reviewed = this.providers.find((p) => p.providerCode === "reviewedtv"), reviewedState = stored.providers.reviewedtv;
     if (reviewed && reviewedState) reviewedState.nextAttemptAt = iso(reviewedTVDemandDue(reviewed, reviewedState, fixtures, now));
@@ -229,7 +273,7 @@ export class BroadcastRegistry {
     }
     // Consume the grouped window/debt before any HTTP reservation. A restart or
     // failed collection cannot spend the same advanced background slot again.
-    if (checkpointChanged) await this.state.storage.put(KEY, stored);
+    if (checkpointChanged) await this.persist(stored);
     const accepted = structuredClone(stored.providers);
     const results = await Promise.all(selected.map(async (descriptor) => {
       const cycle = { reads: 0 }, previous = stored.providers[descriptor.providerCode];
@@ -297,7 +341,7 @@ export class BroadcastRegistry {
     let snapshot;
     try {
       validateState(stored);
-      snapshot = await this.snapshot(stored, fixtures, this.now());
+      snapshot = await this.snapshot(stored, loaded, this.now());
     } catch (error) {
       // A capacity/invalid candidate cannot erase accepted sibling records.
       // Keep the independently persisted request ledger and expose a finite
@@ -313,9 +357,9 @@ export class BroadcastRegistry {
           failure: error?.message === "capacity-exceeded" ? "capacity-exceeded" : "invalid-collection", lastAttemptAt: iso(now) };
         stored.providers[code] = held;
       }
-      snapshot = await this.snapshot(stored, fixtures, this.now());
+      snapshot = await this.snapshot(stored, loaded, this.now());
     }
-    await this.state.storage.put(KEY, stored);
+    await this.persist(stored);
     await this.continueIfDue(stored, this.now(), fixtures);
     return snapshot;
   }

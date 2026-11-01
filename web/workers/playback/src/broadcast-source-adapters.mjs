@@ -208,6 +208,21 @@ function reader(code, { fetcher, reserveRequest, signal }) {
   return read;
 }
 
+function currentCSCricketListing(row, now) {
+  // The reviewed dynamic-M3U FanCode branch sets kickoff to Date.now(), then
+  // projects that fetch clock as `released`. It is current listing evidence,
+  // never a kickoff/format/date claim. The native same-ID meta gate is fresher.
+  const released = utc(row.released), at = Number(now);
+  const named = pair(row.name), cast = strings(row.cast) && row.cast.length === 2 ? row.cast.map(cleanFlags) : [];
+  return row.type === "tv" && row.genres?.length === 1 && row.genres[0] === "CRICKET"
+    && row.releaseInfo === "LIVE" && row.behaviorHints?.defaultVideoId === row.id
+    && str(row.name, 512) && row.name.startsWith("🔴 LIVE: ")
+    && row.description === "🏆 League: Cricket\n📅 Category: CRICKET\n⏰ Status: 🔴 LIVE NOW"
+    && !["date", "startTime", "kickoff", "videos"].some((key) => own(row, key))
+    && released && at - Date.parse(released) >= -5 * 60_000 && at - Date.parse(released) <= LIFETIME
+    && named.length === 2 && cast.length === 2 && cast.every(Boolean) && samePair(named, cast, "cricket");
+}
+
 function csRow(row, scope, now) {
   if (!object(row) || typeof row.id !== "string") return null;
   const category = row.genres?.[0], channel = canonicalChannel(row.name), country = networkDescriptionCountry(row.description);
@@ -237,6 +252,18 @@ function csRow(row, scope, now) {
     Object.assign(facts, cricketLabel(label));
   }
   const observation = record("communitysports", row, scope, now, facts, issues);
+  if (observation?.sport === "cricket" && observation.kind === "event"
+    && /^nuvio_sport_sktech_sktech_ev_fancode_[1-9]\d{0,15}$/u.test(row.id)) {
+    if (observation.issues.length === 0 && currentCSCricketListing(row, now)) {
+      observation.startBasis = "current-listing";
+      observation.verification = "undated";
+      // No official facts are copied into the publisher observation.
+      delete observation.format; delete observation.matchOrdinal; delete observation.day;
+    } else {
+      observation.verification = "conflicting";
+      observation.issues = [...new Set([...observation.issues, "identity-conflict"])];
+    }
+  }
   if (observation?.kind === "channel" && observation.channelID === "cricket-channel:willow"
     && category === "NETWORKS" && ["networks", "cricket", "live"].includes(scope)
     && observation.verification !== "conflicting" && new TextEncoder().encode(observation.title).length <= 128
