@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { BroadcastRegistry, DEFAULT_BROADCAST_REGISTRY_PROVIDERS } from "./broadcast-registry.mjs";
 
 const initial = Date.parse("2026-10-30T11:30:00.000Z"), key = "shared-broadcast-registry-v1";
-function harness({ providers = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.slice(0, 2), collect, failWrites = false, fixtures: fixtureLoader } = {}) {
+function harness({ providers = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.slice(0, 2), collect, failWrites = false, failGuideWrites = false, fixtures: fixtureLoader } = {}) {
   let now = initial, alarm = null, reads = 0, enabled = true;
   const values = new Map(), calls = [];
   const storage = { get: async (id) => structuredClone(values.get(id)), put: async (id, value) => {
-    if (failWrites) throw new Error("write-failed"); values.set(id, structuredClone(value));
+    if (failWrites || failGuideWrites && id === "shared-broadcast-tv-guide-v1") throw new Error("write-failed"); values.set(id, structuredClone(value));
   }, setAlarm: async (at) => { alarm = at; }, deleteAlarm: async () => { alarm = null; } };
   const fixtures = () => fixtureLoader ? fixtureLoader(now) : [{ fixtureID: "sports-fixture:premier-league:123", sport: "football", participants: ["Liverpool", "Chelsea"],
     start: new Date(now - 30 * 60_000).toISOString(), status: "live", observedAt: new Date(now).toISOString(), verified: true }];
@@ -40,6 +40,41 @@ function harness({ providers = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.slice(0, 2),
   return { create, values, calls, reply, get now() { return now; }, set now(value) { now = value; },
     get alarm() { return alarm; }, get reads() { return reads; }, set enabled(value) { enabled = value; } };
 }
+
+test("guide sidecar survives restart without renewing source expiry or changing accepted registry state", async () => {
+  const guideKey = "shared-broadcast-tv-guide-v1";
+  const guide = { id: "tv-guide:" + "a".repeat(64), channelID: "sports-channel:espn2-latinamerica-south", market: "UY",
+    sport: "baseball", title: "MLB – Game #6 (if necessary)", start: new Date(initial + 3600000).toISOString(),
+    observedAt: new Date(initial).toISOString(), expiresAt: new Date(initial + 4 * 3600000).toISOString() };
+  const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS.filter((p) => p.providerCode === "reviewedtv"),
+    collect: async (code, context, state) => ({ ...state.reply(code), tvGuide: [guide] }) });
+  const initialSnapshot = await h.create().refresh(); assert.equal(initialSnapshot.tvGuide.length, 1);
+  const accepted = structuredClone(h.values.get(key));
+  h.now += 60000;
+  const resumed = await (await h.create().fetch(new Request("https://internal/snapshot"))).json();
+  assert.equal(resumed.tvGuide[0].observedAt, guide.observedAt);
+  assert.deepEqual(h.values.get(key), accepted, "A guide read must not rewrite accepted match facts or budgets");
+  h.now = initial + 4 * 3600000;
+  const expired = await (await h.create().fetch(new Request("https://internal/snapshot"))).json();
+  assert.deepEqual(expired.tvGuide, []); assert.deepEqual(h.values.get(guideKey), [guide]);
+});
+
+test("malformed guide data and guide-only storage failure cannot withdraw accepted broadcasts", async () => {
+  const provider = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.filter((p) => p.providerCode === "reviewedtv");
+  for (const failGuideWrites of [false, true]) {
+    const h = harness({ providers: provider, failGuideWrites,
+      collect: async (code, context, state) => ({ ...state.reply(code), tvGuide: failGuideWrites ? [] : "bad-guide" }) });
+    const warn = console.warn; console.warn = () => {};
+    try {
+      const snapshot = await h.create().refresh();
+      assert.equal(snapshot.broadcasts.length, 1); assert.equal(snapshot.providers[0].status, "available");
+      assert.equal(h.values.get(key).providers.reviewedtv.records.length, 1);
+      h.values.set("shared-broadcast-tv-guide-v1", [{ invalid: true }]);
+      const resumed = await (await h.create().fetch(new Request("https://internal/snapshot"))).json();
+      assert.equal(resumed.broadcasts.length, 1); assert.equal(resumed.tvGuide, undefined);
+    } finally { console.warn = warn; }
+  }
+});
 
 test("durable refresh serializes duplicate owners and reads never start before durable budget reservation", async () => {
   const h = harness(), registry = h.create();

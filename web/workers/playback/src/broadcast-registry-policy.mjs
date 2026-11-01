@@ -19,6 +19,14 @@ export function isReviewedTVFootballAssignment(row, providerCode = row?.provider
     && row.streamID === "reviewed-tv:" + match[1] && row.stationMarket === "UY" && stamp(row.start) !== null && row.end === undefined
     && reviewedTVFootballCompetitions.has(row.competitionID) && row.squad?.gender === "men" && row.squad?.ageGroup === "senior";
 }
+export function isReviewedTVScheduledAssignment(row, providerCode = row?.providerCode) {
+  if (isReviewedTVFootballAssignment(row, providerCode)) return true;
+  const station = /^sports-channel:(espn(?:[2-7])?-latinamerica-south)$/u.exec(row?.channelID ?? "");
+  return providerCode === "reviewedtv" && row?.scope === row?.sport && row.kind === "event"
+    && (row.sport === "baseball" && row.competitionID === "mlb" || row.sport === "hockey" && row.competitionID === "nhl") && row.squad?.gender === "men" && row.squad?.ageGroup === "senior" && row.format === undefined && !!station
+    && row.streamID === "reviewed-tv:" + station[1] && row.stationMarket === "UY" && row.end === undefined
+    && stamp(row.start) !== null && /^reviewed-tv:assignment:[a-f0-9]{64}$/u.test(row.providerEventID ?? "");
+}
 const minute = 60_000, day = 86_400_000;
 const object = (v) => v && typeof v === "object" && !Array.isArray(v);
 const bytes = (v) => new TextEncoder().encode(JSON.stringify(v)).length;
@@ -230,7 +238,8 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
   }
   const assignmentKey = (row) => JSON.stringify([pair(row.participants, row.sport), row.start?.slice(0, 10), row.competitionID, row.squad]);
   const assignmentOwners = new Map();
-  for (const fixture of admitted) if (fixture.sport === "football" && reviewedTVFootballCompetitions.has(fixture.competitionID) && fixture.squad) {
+  for (const fixture of admitted) if (fixture.sport === "football" && reviewedTVFootballCompetitions.has(fixture.competitionID) && fixture.squad
+    || fixture.sport === "baseball" && fixture.competitionID === "mlb" || fixture.sport === "hockey" && fixture.competitionID === "nhl") {
     const key = assignmentKey(fixture); assignmentOwners.set(key, (assignmentOwners.get(key) ?? 0) + 1);
   }
   for (const fixture of admitted) {
@@ -238,7 +247,7 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
     const fingerprint = { ...fixture }; delete fingerprint.status; delete fingerprint.observedAt; delete fingerprint.verified;
     for (const broadcast of broadcasts) {
       if (broadcast.kind === "channel" || broadcast.sport !== fixture.sport || !same(broadcastPairs.get(broadcast), expected)) continue;
-      const assignment = isReviewedTVFootballAssignment(broadcast);
+      const assignment = isReviewedTVScheduledAssignment(broadcast);
       if (broadcast.providerCode === "reviewedtv" && broadcast.kind !== "programme" && !assignment) continue;
       let state = "listed", reason, startRelation, method = assignment ? "channel-assignment" : broadcast.kind === "programme" ? "programme" : "exact";
       const fail = (next, value) => { if (state === "listed" || next === "conflicting") { state = next; reason = value; } };

@@ -130,3 +130,17 @@ test("unbounded, stale, future, malformed, nonofficial and impossible weekly aut
     await assert.rejects(parse(xml, { now }));
   }
 });
+
+test("reviewed multi-sport guide preserves exact dated linear programmes while match links stay football-only", async () => {
+  const lines=["21:00 ESPN2 y Disney+ Plan Premium / MLB – World Series – Juego #6 (si es necesario) – Milwaukee Brewers vs. Tampa Bay Rays",
+    "15:00 ESPN5 y Disney+ Plan Premium / NFL – Buffalo Bills vs. Baltimore Ravens",
+    "11:00 ESPN7 y Disney+ Plan Premium / Tenis – ATP 500 Viena – Semifinal #1",
+    "10:30 ESPN3 y Disney+ Plan Premium / Rugby – Top 14 #8 – Clermont vs. Racing 92",
+    "17:00 ESPN en Disney+ Plan Premium / NFL – Home vs. Away",programme(1)];
+  const result=await parse(feed(item(article(dayRows(lines)))),{now});
+  assert.equal(result.broadcasts.length,1);assert.equal(result.tvGuide.length,5);
+  assert.deepEqual(new Set(result.tvGuide.map(r=>r.sport)),new Set(["baseball","american-football","tennis","rugby","football"]));
+  assert.ok(result.tvGuide.every(r=>r.market==="UY" && !r.end && !r.fixtureID));
+  assert.ok(result.tvGuide.find(r=>r.sport==="baseball").title.includes("si es necesario"));
+  assert.equal(result.tvGuide.find(r=>r.sport==="tennis").start,"2026-11-03T14:00:00.000Z");
+});

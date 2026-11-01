@@ -93,8 +93,10 @@ async function handleSportsFixtures(env) {
     const snapshot = await assembleSportsSnapshot(sources, new Map(pairs), new Date());
     const body = JSON.stringify(snapshot);
     if (new TextEncoder().encode(body).byteLength > 2 * 1024 * 1024) throw new Error("Sports snapshot exceeded bound");
+    // Assembly verifies admission provenance and complete counts. A disputed
+    // record in every cohort must not hide other explicitly admitted rows.
     if (!snapshot.coverage.some((row) => row.status === "covered")
-      && !snapshot.fixtures.some((row) => row.source?.verification === "verified")) return json({ schemaVersion: 1, complete: false,
+      && !snapshot.fixtures.some((row) => row.source.verification === "verified")) return json({ schemaVersion: 1, complete: false,
       sourceStatus: "unavailable", activation: "warming", coverage: snapshot.coverage }, 503);
     return new Response(body, { headers: corsHeaders({ "Content-Type": "application/json", "Cache-Control": "public, max-age=60" }) });
   } catch { return json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable" }, 503); }
@@ -188,11 +190,12 @@ function broadcastRegistryStub(env) {
 const BROADCAST_CAPABILITY_HEADER = "X-Fotty-Broadcast-Capabilities";
 const REVIEWED_TV_CAPABILITY = "reviewedtv-programme-v1";
 const BROADCAST_ASSIGNMENT_HEADER = "X-Fotty-Broadcast-Assignments";
+const TV_GUIDE_HEADER = "X-Fotty-TV-Guide";
 const REVIEWED_TV_ASSIGNMENT_CAPABILITY = "reviewedtv-programme-v2";
 const BROADCAST_SNAPSHOT_MAX_BYTES = 4 * 1024 * 1024;
 function broadcastRegistryHeaders(extra = {}) {
-  const headers = corsHeaders({ Vary: BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER, ...extra });
-  headers["Access-Control-Allow-Headers"] += ", " + BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER;
+  const headers = corsHeaders({ Vary: BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER + ", " + TV_GUIDE_HEADER, ...extra });
+  headers["Access-Control-Allow-Headers"] += ", " + BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER + ", " + TV_GUIDE_HEADER;
   return headers;
 }
 async function handleBroadcastRegistry(request, url, env) {
@@ -231,6 +234,17 @@ async function handleBroadcastRegistry(request, url, env) {
         broadcasts: snapshot.broadcasts.filter((row) => !removed.has(row.id)),
         links: snapshot.links.filter((row) => !removed.has(row.broadcastID) && !(row.providerCode === "reviewedtv" && row.matchMethod === "channel-assignment")) };
     }
+    const guideCapable = assignments && request.headers.get(TV_GUIDE_HEADER) === "reviewedtv-guide-v1";
+    const derived = projected.tvGuideAssignments;
+    projected = { ...projected }; delete projected.tvGuideAssignments;
+    if (guideCapable && derived && Array.isArray(derived.providers) && Array.isArray(derived.broadcasts) && Array.isArray(derived.links)) {
+      projected.providers = [...projected.providers, ...derived.providers];
+      projected.broadcasts = [...projected.broadcasts, ...derived.broadcasts];
+      projected.links = [...projected.links, ...derived.links];
+    }
+    if (!guideCapable) delete projected.tvGuide;
+    else projected.revision = await broadcastRegistryHash([snapshot.revision, "reviewedtv-guide-v1", projected.tvGuide ?? [],
+      derived?.broadcasts ?? [], derived?.links ?? []]);
     const body = JSON.stringify(projected);
     if (new TextEncoder().encode(body).length > BROADCAST_SNAPSHOT_MAX_BYTES) throw new Error("Registry projection exceeds bound");
     return new Response(body, { status: response.status, headers });

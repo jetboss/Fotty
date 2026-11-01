@@ -64,7 +64,7 @@ test("registry defaults to the fixed seven-provider compatibility view and only 
       { providerCode: "reviewedtv", fixtureID: "fixture", broadcastID: "br:programme", expiresAt: expiry }] };
   const stub = binding(snapshot), env = envFor(stub), header = "X-Fotty-Broadcast-Capabilities";
   const legacyResponse = await worker.fetch(new Request(origin + route), env), legacy = await legacyResponse.json();
-  assert.equal(legacyResponse.status, 200); assert.equal(legacyResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments");
+  assert.equal(legacyResponse.status, 200); assert.equal(legacyResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments, X-Fotty-TV-Guide");
   assert.deepEqual(legacy.providers.map((p) => p.providerCode), oldCodes, "An old strict provider enum never sees the eighth provider");
   assert.deepEqual(legacy.broadcasts, [snapshot.broadcasts[0]]); assert.deepEqual(legacy.links, [snapshot.links[0]]);
   assert.equal(legacy.generatedAt, snapshot.generatedAt); assert.equal(legacy.links[0].expiresAt, expiry);
@@ -72,7 +72,7 @@ test("registry defaults to the fixed seven-provider compatibility view and only 
   assert.equal(legacy.revision, await broadcastRegistryHash([snapshot.revision, "legacy-seven-provider-v1"]));
   assert.notEqual(legacy.revision, snapshot.revision);
   const capableResponse = await worker.fetch(new Request(origin + route, { headers: { [header]: "reviewedtv-programme-v1" } }), env);
-  assert.equal(capableResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments"); assert.deepEqual(await capableResponse.json(), snapshot);
+  assert.equal(capableResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments, X-Fotty-TV-Guide"); assert.deepEqual(await capableResponse.json(), snapshot);
   for (const value of ["reviewedtv-programme-v1,other", "REVIEWEDTV-PROGRAMME-V1", "communitysports"]) {
     const response = await worker.fetch(new Request(origin + route, { headers: { [header]: value } }), env);
     assert.deepEqual(await response.json(), legacy, "Unrecognized capability values select the same fixed legacy profile");
@@ -118,7 +118,7 @@ test("dual-header reviewed assignment negotiation preserves old Willow clients a
       { providerCode: "reviewedtv", broadcastID: "br:football", matchMethod: "channel-assignment", startRelation: "channel-coverage" }] };
   const stub = binding(snapshot), env = envFor(stub);
   const read = async (headers) => { const response = await worker.fetch(new Request(origin + route, { headers }), env);
-    assert.equal(response.status, 200); assert.equal(response.headers.get("Vary"), primary + ", " + secondary); return response.json(); };
+    assert.equal(response.status, 200); assert.equal(response.headers.get("Vary"), primary + ", " + secondary + ", X-Fotty-TV-Guide"); return response.json(); };
   const legacy = await read({});
   assert.deepEqual(legacy.providers.map((p) => p.providerCode), ["communitysports"]); assert.equal(legacy.broadcasts.length, 1);
   const v1 = await read({ [primary]: "reviewedtv-programme-v1" });
@@ -136,6 +136,31 @@ test("dual-header reviewed assignment negotiation preserves old Willow clients a
   assert.ok(preflight.headers.get("Access-Control-Allow-Headers").includes(secondary));
   assert.equal(stub.calls.length, 9, "Projection does not cause another collection/read for a given request");
   assert.ok(stub.calls.every((r) => r.method === "GET"));
+}));
+
+test("guide negotiation keeps added programme lanes out of older clients without extra collection", async () => withoutOutbound(async () => {
+  const snapshot = { schemaVersion: 1, revision: "d".repeat(64), generatedAt: "2026-10-31T22:00:00.000Z",
+    providers: [{ providerCode: "communitysports", scope: "football" }], broadcasts: [], links: [],
+    tvGuide: [{ id: "guide", channelID: "reviewed-tv:espn-south", title: "MLB scheduled coverage" }],
+    tvGuideAssignments: { providers: [{ providerCode: "reviewedtv", scope: "baseball" }],
+      broadcasts: [{ id: "br:mlb", providerCode: "reviewedtv", scope: "baseball" }],
+      links: [{ broadcastID: "br:mlb", providerCode: "reviewedtv", matchMethod: "channel-assignment" }] } };
+  const stub = binding(snapshot), env = envFor(stub);
+  const headers = { "X-Fotty-Broadcast-Capabilities": "reviewedtv-programme-v1",
+    "X-Fotty-Broadcast-Assignments": "reviewedtv-programme-v2" };
+  const read = async (extra) => (await worker.fetch(new Request(origin + route, { headers: extra }), env)).json();
+  for (const variant of [{}, headers, { ...headers, "X-Fotty-TV-Guide": "REVIEWEDTV-GUIDE-V1" },
+    { "X-Fotty-TV-Guide": "reviewedtv-guide-v1" }]) {
+    const old = await read(variant);
+    assert.equal(old.tvGuide, undefined); assert.equal(old.tvGuideAssignments, undefined);
+    assert.equal(old.broadcasts.length, 0); assert.equal(old.providers.length, 1);
+  }
+  const current = await read({ ...headers, "X-Fotty-TV-Guide": "reviewedtv-guide-v1" });
+  assert.deepEqual(current.tvGuide, snapshot.tvGuide); assert.equal(current.tvGuideAssignments, undefined);
+  assert.deepEqual(current.broadcasts, snapshot.tvGuideAssignments.broadcasts);
+  assert.deepEqual(current.links, snapshot.tvGuideAssignments.links); assert.equal(current.providers.length, 2);
+  assert.notEqual(current.revision, snapshot.revision);
+  assert.equal(stub.calls.length, 5); assert.ok(stub.calls.every((request) => request.method === "GET"));
 }));
 
 test("cloud scheduler admits only explicit reviewed registry activation and does not replace existing fixture cron", async () => withoutOutbound(async () => {

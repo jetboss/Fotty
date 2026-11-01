@@ -2,6 +2,9 @@ import { associateBroadcasts, buildBroadcastSnapshot, normalizeBroadcastCollecti
   normalizeRegistryFixtures, mergeBroadcastRecords, BROADCAST_PROVIDER_CODES, BROADCAST_SCOPES, BROADCAST_REGISTRY_LIMITS,
   BROADCAST_REASONS, isReviewedTVFootballAssignment } from "./broadcast-registry-policy.mjs";
 
+import { REVIEWED_TV_GUIDE_KEY, validateReviewedTVGuide, currentReviewedTVGuide } from "./reviewed-tv-guide.mjs";
+import { reviewedTVGuideAssignments } from "./reviewed-tv-guide-assignments.mjs";
+
 const KEY = "shared-broadcast-registry-v1", minute = 60_000, day = 86_400_000;
 export const DEFAULT_BROADCAST_REGISTRY_PROVIDERS = Object.freeze(BROADCAST_PROVIDER_CODES.map((providerCode) => Object.freeze({
   providerCode, maxRequestsPerDay: providerCode === "reviewedtv" ? 576 : ["communitysports", "plaviosports"].includes(providerCode) ? 288 : 96,
@@ -58,7 +61,7 @@ function supportedFixtures(code, fixtures) {
   if (code === "streamvix") return fixtures.filter((f) => f.sport === "football"
     && ["premier-league", "champions-league"].includes(f.competitionID));
   if (code === "plaviosports") return fixtures.filter((f) => ["football", "cricket"].includes(f.sport));
-  if (code === "reviewedtv") return fixtures.filter((f) => f.sport === "cricket" || f.sport === "football"
+  if (code === "reviewedtv") return fixtures.filter((f) => f.sport === "cricket" || f.sport === "baseball" && f.competitionID === "mlb" || f.sport === "hockey" && f.competitionID === "nhl" || f.sport === "football"
     && ["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"].includes(f.competitionID));
   if (code === "flixstreams") return fixtures.filter((f) => f.sport === "cricket" || f.sport === "football"
     && ["premier-league", "champions-league", "serie-a", "la-liga", "bundesliga", "ligue-1"].includes(f.competitionID));
@@ -157,7 +160,17 @@ export class BroadcastRegistry {
     }
     const merged = mergeBroadcastRecords(broadcasts, new Date(now), providers);
     const links = associateBroadcasts({ fixtures, broadcasts: merged, providers, now: new Date(now) });
-    return buildBroadcastSnapshot({ providers, broadcasts: merged, links, now: new Date(now) });
+    const snapshot = await buildBroadcastSnapshot({ providers, broadcasts: merged, links, now: new Date(now) });
+    // Separate storage preserves the existing accepted registry/rollback schema.
+    // A malformed guide cannot withdraw working fixture associations.
+    try {
+      const guide = await this.state.storage.get(REVIEWED_TV_GUIDE_KEY);
+      if (guide !== undefined) {
+        snapshot.tvGuide = currentReviewedTVGuide(guide, new Date(now));
+        snapshot.tvGuideAssignments = await reviewedTVGuideAssignments(snapshot.tvGuide, fixtures, new Date(now));
+      }
+    } catch { /* Retain the main registry; omit unverified guide data. */ }
+    return snapshot;
   }
   async fixtures() {
     if (typeof this.options.loadFixtures !== "function") throw new Error("official-fixtures-unavailable");
@@ -227,10 +240,18 @@ export class BroadcastRegistry {
           reserveRequest: () => this.reserve(stored, descriptor, cycle) });
         if (signal.aborted) throw new Error("source-unavailable");
         const collection = await normalizeBroadcastCollection(descriptor.providerCode, raw, new Date(this.now()));
-        return { descriptor, cycle, collection };
+        let tvGuide;
+        if (descriptor.providerCode === "reviewedtv" && raw.tvGuide !== undefined) {
+          try { tvGuide = validateReviewedTVGuide(raw.tvGuide, new Date(this.now())); } catch { /* Guide isolation. */ }
+        }
+        return { descriptor, cycle, collection, tvGuide };
       } catch (error) { return { descriptor, cycle, error: failure(error) }; }
     }));
-    for (const { descriptor, cycle, collection, error } of results) {
+    for (const { descriptor, cycle, collection, error, tvGuide } of results) {
+      if (tvGuide !== undefined) {
+        try { await this.state.storage.put(REVIEWED_TV_GUIDE_KEY, tvGuide); }
+        catch { console.warn("TV guide persistence failed; accepted match registry retained"); }
+      }
       const code = descriptor.providerCode, previous = stored.providers[code] ?? { scopes: {}, records: [], failures: 0, cursor: 0 };
       const state = { ...previous, scopes: { ...previous.scopes }, records: [...previous.records], lastAttemptAt: iso(now) };
       if (collection) {
