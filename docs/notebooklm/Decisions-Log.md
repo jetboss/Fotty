@@ -1,5 +1,9 @@
 # Fotty Decisions Log
 
+## 2026-10-31 — Isolated reviewed TV guide and typed MLB/NHL assignment projection
+
+Owner approved the TV improvement plan and explicit publication/deployment with the existing watchdog compatibility rebuild. Source version2026-10-31.tv-guide-1 keeps optional programme metadata in a separate durable key and negotiates it only for guide-capable V2 clients. Fresh exact official MLB/NHL pair/date/squad coverage joins use the existing channel-assignment path; conditional/ordinal/replay rows stay guide-only. Old projections, registry rollback schema, activation and budgets remain intact.534 backend and186 watchdog checks plus both dry bundles pass. Live PL/UCL playback is pending, not inferred from station transport or metadata. Operations:Sports-TV-Guide.md.
+
 ## 2026-08-30: Remove retired product graphs after CodeQL exposed their residual risk
 
 - **Finding**: The first advanced CodeQL pass on the clean GitHub baseline found 71 open alerts. The critical/high results were concentrated in code Fotty no longer operated: the Android prototype, Python homelab/P2P services, a same-origin embed proxy, PocketBase account/admin/billing routes, and movie/TV endpoints. Keeping those graphs made the repository's attack surface, workflow gates, documentation and maintenance burden materially larger than the supported product.

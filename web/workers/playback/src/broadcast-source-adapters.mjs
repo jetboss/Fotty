@@ -605,6 +605,7 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
   if (!BROADCAST_SOURCE_CODES.includes(providerCode) || !Number.isFinite(+new Date(now))) throw new Error("invalid-collection");
   now = new Date(now);
   const read = reader(providerCode, { fetcher, reserveRequest, signal }), broadcasts = [], scopes = [], hints = retrievalHints(fixtures, now);
+  let tvGuide;
   const cohort = async (scope, load, parse, complete = true) => {
     try {
       const rows = await load(), parsed = (await Promise.all(rows.map(parse))).filter(Boolean);
@@ -647,11 +648,14 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
       // One maintained official RSS read includes the complete current weekly
       // article. Highlights are partial evidence, never an exhaustive absence.
       // A failed football refresh cannot erase a valid independent Willow row.
-      if (fixtures.some((f) => f?.verified === true && f.sport === "football"
-        && ["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"].includes(f.competitionID))) {
-        await cohort("football", async () => (await parseReviewedTVESPNFeed(
-          await read(REVIEWED_TV_ESPN_SOURCE.feedURL, REVIEWED_TV_ESPN_SOURCE.maxBytes, "xml"), { now })).broadcasts,
-        (row) => row, false);
+      if (fixtures.some((f) => f?.verified === true && (f.sport === "baseball" && f.competitionID === "mlb" || f.sport === "hockey" && f.competitionID === "nhl" || f.sport === "football"
+        && ["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"].includes(f.competitionID)))) {
+        await cohort("football", async () => {
+          const parsed = await parseReviewedTVESPNFeed(
+            await read(REVIEWED_TV_ESPN_SOURCE.feedURL, REVIEWED_TV_ESPN_SOURCE.maxBytes, "xml"), { now });
+          tvGuide = parsed.tvGuide;
+          return parsed.broadcasts;
+        }, (row) => row, false);
       }
     } else if (providerCode === "streamex") {
       const profiles = [["https://www.streamex.net", "/api/live/matches"], ["https://streamex.sh", "/api/live/matches"], ["https://streamed.pk", "/api/matches"]];
@@ -795,7 +799,7 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
     const failure = entries.find((s) => s.failure)?.failure;
     return { scope, complete, status: complete ? rows.length ? "available" : "empty" : healthy ? "partial" : "failed", ...(failure ? { failure } : {}) };
   });
-  const result = { providerCode, observedAt: now.toISOString(), complete: combinedScopes.length > 0 && combinedScopes.every((s) => s.complete), scopes: combinedScopes, broadcasts,
+  const result = { providerCode, observedAt: now.toISOString(), ...(tvGuide ? { tvGuide } : {}), complete: combinedScopes.length > 0 && combinedScopes.every((s) => s.complete), scopes: combinedScopes, broadcasts,
     ...(["communitysports", "plaviosports"].includes(providerCode) ? { cursor } : {}) };
   if (new TextEncoder().encode(JSON.stringify(result)).byteLength > MAX_BYTES) return { providerCode, observedAt: now.toISOString(), complete: false,
     scopes: scopes.map((s) => scopeResult(s.scope, [], false, "capacity-exceeded")), broadcasts: [] };

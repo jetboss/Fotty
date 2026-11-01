@@ -7,6 +7,7 @@ export const REVIEWED_TV_ESPN_SOURCE = Object.freeze({
   maxBytes: 1024 * 1024, lifetime: 10 * 60_000,
 });
 const source = REVIEWED_TV_ESPN_SOURCE, day = 86_400_000;
+const guideSports = Object.freeze({ MLB: "baseball", NBA: "basketball", NFL: "american-football", NHL: "hockey", Tenis: "tennis", Rugby: "rugby" });
 const invalid = () => { throw new Error("invalid-collection"); };
 const normal = (v) => v.normalize("NFKD").replace(/\p{M}/gu, "").replace(/\s+/gu, " ").trim();
 const months = "ENERO FEBRERO MARZO ABRIL MAYO JUNIO JULIO AGOSTO SEPTIEMBRE OCTUBRE NOVIEMBRE DICIEMBRE".split(" ");
@@ -183,7 +184,7 @@ export async function parseReviewedTVESPNFeed(xml, { now = new Date() } = {}) {
   for (let at = +article.window[0]; at <= +article.window[1]; at += day) {
     const d = new Date(at); calendar.set(`${weekdays[d.getUTCDay()]} ${d.getUTCDate()}`, d.toISOString().slice(0, 10));
   }
-  const rows = [], seenDays = new Set();
+  const rows = [], tvGuide = [], seenDays = new Set();
   for (const paragraph of section) {
     // The maintained source uses one date-headed paragraph per day. A later
     // undated block must not inherit yesterday's date if its markup changes.
@@ -193,6 +194,19 @@ export async function parseReviewedTVESPNFeed(xml, { now = new Date() } = {}) {
       if (header && weekdays.includes(header[1])) {
         dateString = calendar.get(`${header[1]} ${+header[2]}`); if (!dateString || seenDays.has(dateString)) return invalid();
         seenDays.add(dateString); continue;
+      }
+      const listing = /^([01]\d|2[0-3]):([0-5]\d) (ESPN(?:[2-7])?) y Disney\+ Plan Premium \/ (.+)$/u.exec(line);
+      if (listing) {
+        const description = listing[4], sportName = description.split(/ [–−-] /u)[0];
+        const sport = guideSports[sportName] ?? (Object.keys(competitions).some((c) => description.startsWith(c + " #")) ? "football" : null);
+        if (sport) {
+          if (!dateString || !safe(description) || description.length > 400) return invalid();
+          const station = listing[3].toLowerCase() + "-latinamerica-south";
+          tvGuide.push({ id: "tv-guide:" + await hash([article.path, "URUGUAY", dateString, listing[1], listing[2], station, description]),
+            channelID: "sports-channel:" + station, market: "UY", sport, title: description,
+            start: localUTC(dateString, listing[1], listing[2]), observedAt: now.toISOString(),
+            expiresAt: new Date(+now + 4 * 60 * 60_000).toISOString() });
+        }
       }
       // Only exact linear assignments qualify. "ESPN en Disney+" is not a TV
       // channel even when another country's row assigns the same game to ESPN.
@@ -216,5 +230,5 @@ export async function parseReviewedTVESPNFeed(xml, { now = new Date() } = {}) {
   // Preserve both conflicts and every unrelated valid sibling for diagnosis.
   const broadcasts = [...unique.values()].map((r, _, all) => all.some((b) => b !== r && b.channelID === r.channelID && b.start === r.start)
     ? { ...r, verification: "conflicting", issues: ["catalog-conflict"] } : r);
-  return { broadcasts, scopes: [{ scope: "football", status: "partial", complete: false }], complete: false };
+  return { broadcasts, tvGuide, scopes: [{ scope: "football", status: "partial", complete: false }], complete: false };
 }

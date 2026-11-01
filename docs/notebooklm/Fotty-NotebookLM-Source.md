@@ -1,6 +1,6 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-08-30 15:27:15 AST
+Generated: 2026-10-31 21:15:27 AST
 
 This file is generated from safe project-memory sources and redacted command output.
 Upload this one file to NotebookLM when you want a fresh project snapshot.
@@ -305,6 +305,10 @@ Build-43 scoring/request ownership (2026-08-28): `FPLLiveSquadSummary` has optio
 # Decisions Log
 
 # Fotty Decisions Log
+
+## 2026-10-31 — Isolated reviewed TV guide and typed MLB/NHL assignment projection
+
+Owner approved the TV improvement plan and explicit publication/deployment with the existing watchdog compatibility rebuild. Source version2026-10-31.tv-guide-1 keeps optional programme metadata in a separate durable key and negotiates it only for guide-capable V2 clients. Fresh exact official MLB/NHL pair/date/squad coverage joins use the existing channel-assignment path; conditional/ordinal/replay rows stay guide-only. Old projections, registry rollback schema, activation and budgets remain intact.534 backend and186 watchdog checks plus both dry bundles pass. Live PL/UCL playback is pending, not inferred from station transport or metadata. Operations:Sports-TV-Guide.md.
 
 ## 2026-08-30: Remove retired product graphs after CodeQL exposed their residual risk
 
@@ -3184,6 +3188,23 @@ Use this when touching player startup, AVPlayer, WKWebView embeds, stream select
 # Git Working Tree Snapshot
 
 ```text
+ M docs/notebooklm/Decisions-Log.md
+ M web/package.json
+ M web/workers/playback/src/broadcast-registry-policy.mjs
+ M web/workers/playback/src/broadcast-registry-worker.test.mjs
+ M web/workers/playback/src/broadcast-registry.mjs
+ M web/workers/playback/src/broadcast-registry.test.mjs
+ M web/workers/playback/src/broadcast-source-adapters.mjs
+ M web/workers/playback/src/index.js
+ M web/workers/playback/src/reviewed-tv-espn.mjs
+ M web/workers/playback/src/reviewed-tv-espn.test.mjs
+ M web/workers/playback/src/worker-version.mjs
+?? FottyTests/Fixtures/
+?? docs/operations/Sports-TV-Guide.md
+?? web/workers/playback/src/reviewed-tv-guide-assignments.mjs
+?? web/workers/playback/src/reviewed-tv-guide-assignments.test.mjs
+?? web/workers/playback/src/reviewed-tv-guide.mjs
+?? web/workers/playback/src/reviewed-tv-guide.test.mjs
 
 ```
 
@@ -3209,10 +3230,51 @@ Fotty/Features/Player/MultiLivePlayerView.swift
 ```text
 web/workers/playback/README.md
 web/workers/playback/wrangler.toml
+web/workers/playback/src/reviewed-tv-guide.test.mjs
+web/workers/playback/src/cpl-fixture-policy.mjs
+web/workers/playback/src/reviewed-tv-guide-assignments.test.mjs
+web/workers/playback/src/reviewed-tv-guide.mjs
+web/workers/playback/src/broadcast-registry.test.mjs
+web/workers/playback/src/icc-kickoff-corrections.mjs
+web/workers/playback/src/coach-evidence.mjs
+web/workers/playback/src/cricket-fixture-policy.test.mjs
+web/workers/playback/src/sports-fixture-event-sources.test.mjs
+web/workers/playback/src/sports-fixture-registry.mjs
+web/workers/playback/src/reviewed-tv-programmes.mjs
+web/workers/playback/src/coach-transfers.test.mjs
+web/workers/playback/src/reviewed-tv-guide-assignments.mjs
+web/workers/playback/src/reviewed-tv-programmes.test.mjs
+web/workers/playback/src/playback-catalog.test.mjs
+web/workers/playback/src/broadcast-registry-worker.test.mjs
+web/workers/playback/src/sports-fixture-policy.test.mjs
+web/workers/playback/src/worker-version.mjs
+web/workers/playback/src/sports-fixture-sources.mjs
 web/workers/playback/src/fpl-scoring.test.mjs
 web/workers/playback/src/coach-request.mjs
+web/workers/playback/src/broadcast-registry-policy.mjs
 web/workers/playback/src/index.js
+web/workers/playback/src/broadcast-registry.mjs
+web/workers/playback/src/coach-safety.test.mjs
+web/workers/playback/src/coach-safety.mjs
+web/workers/playback/src/reviewed-tv-espn.test.mjs
 web/workers/playback/src/coach-contract.test.mjs
+web/workers/playback/src/broadcast-catalog.mjs
+web/workers/playback/src/cricket-fixture-registry.mjs
+web/workers/playback/src/sports-fixture-event-sources.mjs
+web/workers/playback/src/broadcast-source-adapters.mjs
+web/workers/playback/src/sports-fixture-worker.test.mjs
+web/workers/playback/src/broadcast-registry-policy.test.mjs
+web/workers/playback/src/cpl-fixture-policy.test.mjs
+web/workers/playback/src/coach-transfers.mjs
 web/workers/playback/src/fpl-scoring.mjs
+web/workers/playback/src/sports-fixture-runtime.test.mjs
+web/workers/playback/src/sports-fixture-policy.mjs
+web/workers/playback/src/cricket-context-policy.mjs
+web/workers/playback/src/broadcast-catalog.test.mjs
+web/workers/playback/src/broadcast-source-adapters.test.mjs
+web/workers/playback/src/sports-fixture-sources.test.mjs
+web/workers/playback/src/reviewed-tv-espn.mjs
+web/workers/playback/src/coach-evidence.test.mjs
+web/workers/playback/src/cricket-fixture-policy.mjs
 
 ```
