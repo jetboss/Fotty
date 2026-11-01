@@ -253,7 +253,7 @@ function fixturesEnv(sportsState, cricketFixture) {
       return Response.json(name.endsWith(":mlb") ? sportsState : { consecutiveFailures: 1 });
     } }) },
     CRICKET_FIXTURES: { idFromName: (name) => name, get: () => ({ async fetch() { return Response.json({ schemaVersion: 1,
-      sourceStatus: "verified", fixtures: cricketFixture ? [cricketFixture] : [], coverage: [{ competitionId: "icc", status: "covered" }] }); } }) } };
+      sourceStatus: "verified", fixtures: cricketFixture ? (Array.isArray(cricketFixture) ? cricketFixture : [cricketFixture]) : [], coverage: [{ competitionId: "icc", status: "covered" }] }); } }) } };
 }
 
 test("official mapping accepts genuine legacy covered sports receipts without manufacturing verification", async () => withoutOutbound(async () => {
@@ -323,6 +323,65 @@ test("official limited-overs ordinals reach registry fingerprints without borrow
       context: { matchOrdinal: 4, day: 2 } }))).find((row) => row.sport === "cricket");
     assert.equal(mapped.matchOrdinal, undefined, "A limited-overs ordinal comes only from its verified typed property");
     assert.equal(mapped.day, undefined);
+  }
+}));
+
+test("actual Worker registry snapshot retains rejected cricket siblings as ambiguity evidence without admitting or scheduling them", async () => withoutOutbound(async () => {
+  const { accepted, now } = await admittedSportsFixture(), stamp = (offset = 0) => new Date(+now + offset).toISOString();
+  const live = { id: "icc:live", competitionId: "icc", format: "ODI", matchOrdinal: 5, status: "live",
+    start: stamp(-4 * 3_600_000), home: { name: "Namibia" }, away: { name: "Ireland" },
+    source: { verification: "verified", observedAt: stamp() } };
+  const unrelated = { ...live, id: "icc:unrelated", matchOrdinal: 3, start: stamp(-30 * 60_000),
+    home: { name: "India" }, away: { name: "Australia" } };
+  const cs = await normalizeBroadcastCollection("communitysports", { providerCode: "communitysports", observedAt: stamp(), complete: true,
+    scopes: [{ scope: "cricket", status: "available", complete: true }], broadcasts: [{
+      providerEventID: "nuvio_sport_sktech_sktech_ev_fancode_4250335", streamID: "nuvio_sport_sktech_sktech_ev_fancode_4250335",
+      resourceType: "tv", scope: "cricket", kind: "event", sport: "cricket", title: "🔴 LIVE: Ireland vs Namibia", participants: ["Ireland", "Namibia"],
+      start: stamp(-2 * 60_000), startBasis: "current-listing", verification: "undated", issues: [], observedAt: stamp(), expiresAt: stamp(3_600_000),
+    }, {
+      providerEventID: "nuvio_sport_unrelated", streamID: "nuvio_sport_unrelated", resourceType: "tv", scope: "cricket", kind: "event", sport: "cricket",
+      title: "India vs Australia", participants: ["India", "Australia"], start: unrelated.start, format: "ODI", matchOrdinal: 3,
+      verification: "dated", issues: [], observedAt: stamp(), expiresAt: stamp(3_600_000),
+    }] }, now);
+  const willow = await normalizeBroadcastCollection("reviewedtv", { providerCode: "reviewedtv", observedAt: stamp(), complete: true,
+    scopes: [{ scope: "cricket", status: "available", complete: true }], broadcasts: [{
+      providerEventID: "reviewed-tv:programme:" + "a".repeat(64), streamID: "reviewed-tv:willow-main", resourceType: "tv",
+      scope: "cricket", kind: "programme", sport: "cricket", title: "Namibia vs. Ireland", participants: ["Namibia", "Ireland"],
+      channelID: "cricket-channel:willow", format: "ODI", matchOrdinal: 5, start: stamp(-60_000), end: stamp(3_600_000),
+      verification: "dated", issues: [], observedAt: stamp(), expiresAt: stamp(600_000),
+    }] }, now);
+  const stored = { version: 1, providers: Object.fromEntries([cs, willow].map((collection) => [collection.providerCode, {
+    records: collection.broadcasts, scopes: Object.fromEntries(collection.scopes.map((scope) => [scope.scope, scope])), failures: 0, cursor: 0,
+  }])), budgets: {}, cursor: 0 };
+  const key = "shared-broadcast-registry-v1";
+  const storage = { get: async (id) => id === key ? structuredClone(stored) : undefined,
+    put: async () => assert.fail("A snapshot read cannot mutate accepted state or request budgets") };
+  const read = async (sibling) => {
+    const rows = [live, ...(sibling ? [sibling] : []), unrelated];
+    const env = { ...fixturesEnv(accepted, rows), ...envFor(binding(), { FOTTY_BROADCAST_REGISTRY_SOURCES: "communitysports,reviewedtv" }) };
+    const registry = new BroadcastRegistry({ storage }, env);
+    const loaded = await registry.fixtures();
+    assert.ok(loaded.fixtures.every((fixture) => fixture.verified && ["scheduled", "live"].includes(fixture.status)));
+    if (sibling) {
+      assert.ok(!loaded.fixtures.some((fixture) => fixture.fixtureID === "cricket-fixture:" + sibling.id));
+      assert.ok(loaded.siblings.some((fixture) => fixture.fixtureID === "cricket-fixture:" + sibling.id));
+    }
+    const response = await registry.fetch(new Request("https://internal/snapshot"));
+    assert.equal(response.status, 200); return response.json();
+  };
+  const baseline = await read();
+  assert.equal(baseline.links.filter((link) => link.fixtureID === "cricket-fixture:icc:live" && link.state === "listed").length, 2);
+  for (const changes of [
+    { status: "finished" }, { status: "cancelled" }, { status: "live", source: { verification: "held", observedAt: stamp() } },
+    { status: "live", source: { verification: "unverified", observedAt: stamp() } },
+  ]) {
+    const sibling = { ...live, id: "icc:rejected-sibling", start: stamp(-6 * 3_600_000), ...changes };
+    const result = await read(sibling);
+    assert.equal(result.links.filter((link) => link.fixtureID === "cricket-fixture:icc:live" && link.state === "listed").length, 0);
+    assert.ok(!result.links.some((link) => link.fixtureID === "cricket-fixture:icc:rejected-sibling"), "Rejected sibling is a veto, never a playable target");
+    assert.equal(result.links.filter((link) => link.fixtureID === "cricket-fixture:icc:unrelated" && link.state === "listed").length, 1,
+      "A same-pair ambiguity cannot withdraw an unrelated correct match");
+    assert.deepEqual(result.broadcasts, baseline.broadcasts, "Ambiguity evidence does not erase source observations");
   }
 }));
 

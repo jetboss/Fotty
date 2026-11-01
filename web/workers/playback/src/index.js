@@ -139,8 +139,8 @@ export function broadcastRegistryEnabled(env) {
 
 // Reuse already accepted official snapshots. Broadcast collection never makes
 // a new fixture or turns provider programme copy into official LIVE status.
-export async function loadBroadcastRegistryFixtures(env) {
-  const fixtures = [];
+export async function loadBroadcastRegistryFixtures(env, { includeAmbiguity = false } = {}) {
+  const fixtures = [], siblings = [];
   const responses = await Promise.allSettled([handleSportsFixtures(env), handleCricketFixtures(env)]);
   for (let index = 0; index < responses.length; index++) {
     const result = responses[index];
@@ -148,6 +148,13 @@ export async function loadBroadcastRegistryFixtures(env) {
     const body = await boundedJSON(result.value, 2 * 1024 * 1024);
     if (body.schemaVersion !== 1 || !Array.isArray(body.fixtures) || body.fixtures.length > 3000) continue;
     for (const row of body.fixtures) {
+      // Rejected/terminal official occurrences are not lookup targets or
+      // collection demand. Their bounded identity still prevents a generic
+      // current listing or linear programme being assigned to another match.
+      if (index === 1 && row && typeof row === "object") siblings.push({
+        fixtureID: `cricket-fixture:${row.id}`, sport: "cricket", start: row.start,
+        participants: [row.home?.name, row.away?.name],
+      });
       const explicitVerification = Object.prototype.hasOwnProperty.call(row.source ?? {}, "verification");
       const covered = ["verified", "partial"].includes(body.sourceStatus)
         && body.coverage?.some((scope) => scope.competitionId === row.competitionId && scope.status === "covered");
@@ -173,7 +180,7 @@ export async function loadBroadcastRegistryFixtures(env) {
       }
     }
   }
-  return fixtures;
+  return includeAmbiguity ? { fixtures, siblings } : fixtures;
 }
 
 export class BroadcastRegistry extends BaseBroadcastRegistry {
@@ -181,7 +188,7 @@ export class BroadcastRegistry extends BaseBroadcastRegistry {
     super(state, env, { providers: enabledBroadcastProviders(env),
       enabled: () => broadcastRegistryEnabled(env),
       collect: (providerCode, options) => collectBroadcastSource(providerCode, options),
-      loadFixtures: () => loadBroadcastRegistryFixtures(env) });
+      loadFixtures: () => loadBroadcastRegistryFixtures(env, { includeAmbiguity: true }) });
   }
 }
 

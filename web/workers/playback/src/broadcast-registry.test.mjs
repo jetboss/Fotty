@@ -3,11 +3,13 @@ import assert from "node:assert/strict";
 import { BroadcastRegistry, DEFAULT_BROADCAST_REGISTRY_PROVIDERS } from "./broadcast-registry.mjs";
 
 const initial = Date.parse("2026-10-30T11:30:00.000Z"), key = "shared-broadcast-registry-v1";
-function harness({ providers = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.slice(0, 2), collect, failWrites = false, failGuideWrites = false, fixtures: fixtureLoader } = {}) {
+function harness({ providers = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.slice(0, 2), collect, failWrites = false, failGuideWrites = false, fixtures: fixtureLoader, onRegistryWrite } = {}) {
   let now = initial, alarm = null, reads = 0, enabled = true;
   const values = new Map(), calls = [];
   const storage = { get: async (id) => structuredClone(values.get(id)), put: async (id, value) => {
-    if (failWrites || failGuideWrites && id === "shared-broadcast-tv-guide-v1") throw new Error("write-failed"); values.set(id, structuredClone(value));
+    if (failWrites || failGuideWrites && id === "shared-broadcast-tv-guide-v1") throw new Error("write-failed");
+    if (id === key) onRegistryWrite?.(value);
+    values.set(id, structuredClone(value));
   }, setAlarm: async (at) => { alarm = at; }, deleteAlarm: async () => { alarm = null; } };
   const fixtures = () => fixtureLoader ? fixtureLoader(now) : [{ fixtureID: "sports-fixture:premier-league:123", sport: "football", participants: ["Liverpool", "Chelsea"],
     start: new Date(now - 30 * 60_000).toISOString(), status: "live", observedAt: new Date(now).toISOString(), verified: true }];
@@ -88,6 +90,75 @@ test("durable refresh serializes duplicate owners and reads never start before d
   const before = h.reads;
   const read = await registry.fetch(new Request("https://internal/snapshot"));
   assert.equal(read.status, 200); assert.equal(h.reads, before, "Snapshot GET never initiates provider HTTP collection");
+});
+
+test("rejected cricket ambiguity identities never become collector hints or active scheduling demand", async () => {
+  const rows = [{ fixtureID: "cricket-fixture:icc:held", sport: "cricket", participants: ["Namibia", "Ireland"],
+    start: new Date(initial - 60_000).toISOString(), status: "live", format: "ODI", observedAt: new Date(initial).toISOString(), verified: false },
+  { fixtureID: "cricket-fixture:icc:finished", sport: "cricket", participants: ["India", "Australia"],
+    start: new Date(initial - 30 * 60_000).toISOString(), status: "finished", format: "T20", observedAt: new Date(initial).toISOString(), verified: true }];
+  const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS.filter((p) => p.providerCode === "communitysports"),
+    fixtures: () => ({ fixtures: rows, siblings: rows }),
+    collect: async (code, context, state) => {
+      assert.deepEqual(context.fixtures, [], "Only normalized accepted fixtures may request provider-specific metadata or influence cadence");
+      assert.equal(await context.reserveRequest(), true); state.read();
+      return { providerCode: code, observedAt: new Date(state.now()).toISOString(), complete: true,
+        scopes: [{ scope: "cricket", status: "empty", complete: true }], broadcasts: [] };
+    } });
+  const result = await h.create().refresh();
+  assert.deepEqual(result.links, []); assert.equal(h.reads, 1);
+  assert.equal(Date.parse(h.values.get(key).providers.communitysports.nextAttemptAt), initial + 4 * 3_600_000,
+    "A terminal/held identity cannot change quiet collection into five-minute live collection");
+  assert.equal(h.alarm, null);
+});
+
+test("current cricket clock projection survives restart without adding a key to the rollback-compatible durable record schema", async () => {
+  let writes = 0;
+  const id = "nuvio_sport_sktech_sktech_ev_fancode_4250335", datedID = "nuvio_sport_sktech_sktech_ev_fancode_1234567";
+  const diagnosticID = "nuvio_sport_sktech_sktech_ev_fancode_7654321";
+  const legacyRecordKeys = new Set(["id", "providerCode", "providerEventID", "streamID", "resourceType", "scope", "kind", "sport", "title", "participants",
+    "start", "end", "competitionID", "squad", "format", "matchOrdinal", "day", "channelID", "stationMarket", "observedAt", "expiresAt", "verification", "issues"]);
+  const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS.filter((p) => p.providerCode === "communitysports"),
+    fixtures: (at) => [{ fixtureID: "cricket-fixture:icc:current", sport: "cricket", participants: ["Namibia", "Ireland"],
+      start: new Date(initial - 4 * 3_600_000).toISOString(), format: "ODI", matchOrdinal: 5, competitionID: "icc", status: "live",
+      observedAt: new Date(at).toISOString(), verified: true }],
+    onRegistryWrite: (state) => {
+      writes++;
+      for (const source of Object.values(state.providers)) for (const record of source.records) {
+        assert.ok(Object.keys(record).every((name) => legacyRecordKeys.has(name)), "The prior deployed validator must accept every persisted record key");
+        assert.equal(record.startBasis, undefined);
+      }
+    },
+    collect: async (code, context, state) => {
+      assert.equal(await context.reserveRequest(), true); state.read();
+      const row = { providerEventID: id, streamID: id, resourceType: "tv", scope: "cricket", kind: "event", sport: "cricket",
+        title: "🔴 LIVE: Ireland vs Namibia", participants: ["Ireland", "Namibia"], start: new Date(initial - 2 * 60_000).toISOString(),
+        startBasis: "current-listing", verification: "undated", issues: [], observedAt: new Date(initial).toISOString(), expiresAt: new Date(initial + 3_600_000).toISOString() };
+      return { providerCode: code, observedAt: new Date(initial).toISOString(), complete: true,
+        scopes: [{ scope: "cricket", status: "available", complete: true }], broadcasts: [row,
+          { ...row, providerEventID: datedID, streamID: datedID, startBasis: undefined, verification: "dated", format: "ODI", matchOrdinal: 5,
+            start: context.fixtures[0].start },
+          { ...row, providerEventID: diagnosticID, streamID: diagnosticID, startBasis: undefined, issues: ["unverified-fixture"] },
+        ] };
+    } });
+  const first = await h.create().refresh();
+  assert.equal(first.links.filter((link) => link.state === "listed" && link.matchMethod === "current-event").length, 1);
+  assert.equal(first.links.filter((link) => link.state === "listed" && link.matchMethod === "exact").length, 1);
+  assert.ok(writes >= 2, "Reservations and final commit both pass through the compatibility boundary");
+  const stored = structuredClone(h.values.get(key)), persisted = stored.providers.communitysports.records.find((record) => record.providerEventID === id);
+  assert.equal(persisted.verification, "undated"); assert.equal(persisted.start, new Date(initial - 2 * 60_000).toISOString());
+  const beforeWrites = writes;
+  h.now += 60_000;
+  const response = await h.create().fetch(new Request("https://internal/snapshot"));
+  assert.equal(response.status, 200);
+  const restarted = await response.json();
+  const revived = restarted.broadcasts.find((record) => record.providerEventID === id);
+  assert.equal(revived.startBasis, "current-listing"); assert.equal(revived.observedAt, persisted.observedAt); assert.equal(revived.expiresAt, persisted.expiresAt);
+  assert.equal(revived.start, persisted.start, "Runtime interpretation never changes the original observation clock");
+  assert.equal(restarted.links.filter((link) => link.state === "listed" && link.matchMethod === "current-event").length, 1);
+  assert.equal(restarted.broadcasts.find((record) => record.providerEventID === datedID).startBasis, undefined, "A prior dated CS record is never reinterpreted");
+  assert.equal(restarted.broadcasts.find((record) => record.providerEventID === diagnosticID).startBasis, undefined, "Unverified diagnostics cannot gain current-event authority");
+  assert.equal(writes, beforeWrites); assert.deepEqual(h.values.get(key), stored); assert.equal(h.reads, 1);
 });
 
 test("bounded alarm continuation covers eight providers without duplicate collection or a busy loop", async () => {

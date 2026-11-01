@@ -242,9 +242,10 @@ export function normalizeRegistryFixtures(rows, at = new Date()) {
   return result;
 }
 
-export function associateBroadcasts({ fixtures, broadcasts, providers: coverage = [], now = new Date() }) {
+export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, broadcasts, providers: coverage = [], now = new Date() }) {
   const time = Number(now), admitted = normalizeRegistryFixtures(fixtures, now), links = [];
   if (!Array.isArray(broadcasts) || broadcasts.length > BROADCAST_REGISTRY_LIMITS.records) throw new Error("capacity-exceeded");
+  if (!Array.isArray(ambiguityFixtures) || ambiguityFixtures.length > 3000) throw new Error("invalid-fixtures");
   const scopeState = new Map(coverage.map((r) => [r.providerCode + ":" + r.scope, r]));
   // The reviewed alias resolver scans a finite generated catalog. Normalize
   // each broadcast once, not once for every fixture in this bounded batch.
@@ -260,7 +261,7 @@ export function associateBroadcasts({ fixtures, broadcasts, providers: coverage 
   // Unqualified current listings cannot distinguish two same-pair occurrences.
   // Include terminal/rejected siblings in ambiguity checks; they cannot lend
   // authority, but must not disappear and make a different match look unique.
-  const uniqueCurrentOwner = (fixture) => fixtures.filter((f) => f?.sport === "cricket"
+  const uniqueCurrentOwner = (fixture) => ambiguityFixtures.filter((f) => f?.sport === "cricket"
     && same(pair(f.participants, "cricket"), pair(fixture.participants, "cricket"))
     && stamp(f.start) !== null && Math.abs(Date.parse(f.start) - Date.parse(fixture.start)) < day).length === 1;
   const limitedOversRelation = (fixture, start) => {
