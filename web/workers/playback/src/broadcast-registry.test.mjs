@@ -442,24 +442,73 @@ test("clock rollback never resets daily allowances or schedules repeated immedia
   assert.equal(h.reads, 1); assert.deepEqual(h.values.get(key).budgets, before); assert.equal(h.alarm, null);
 });
 
-test("capacity rejection preserves accepted siblings, reports the rejected source and keeps spent reads", async () => {
-  const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS.slice(0, 3),
+test("capacity rejection preserves accepted facts and admits a healthy co-selected TV refresh without refunding reads", async () => {
+  const h = harness({ providers: [...DEFAULT_BROADCAST_REGISTRY_PROVIDERS.slice(0, 3), reviewedTVProvider()],
+    fixtures: (at) => [{ fixtureID: "cricket-fixture:icc:123", sport: "cricket", competitionID: "icc", format: "Test", matchOrdinal: 3, day: 4,
+      participants: ["South Africa", "Australia"], start: "2026-10-27T08:30:00.000Z", end: "2026-10-31T15:30:00.000Z",
+      status: "live", observedAt: new Date(at).toISOString(), verified: true }],
     collect: async (code, context, state) => {
       assert.equal(await context.reserveRequest(), true); state.read();
       const response = state.reply(code), template = response.broadcasts[0];
-      return { ...response, broadcasts: Array.from({ length: 1500 }, (_, index) => ({ ...template,
+      if (code === "reviewedtv") return response;
+      return { ...response, scopes: [{ scope: "cricket", status: "available", complete: true }],
+        broadcasts: Array.from({ length: 1500 }, (_, index) => ({ ...template, scope: "cricket", sport: "cricket", format: "Test",
+        title: "South Africa vs Australia", participants: ["South Africa", "Australia"],
         providerEventID: `${code}_${index}`, streamID: `${code}_${index}` })) };
     } });
   const first = await h.create().refresh();
   assert.equal(first.broadcasts.length, 3000);
   h.now += 15_000;
   const next = await h.create().refresh();
-  assert.equal(next.broadcasts.length, 3000);
-  assert.deepEqual(next.broadcasts, first.broadcasts);
+  assert.equal(next.broadcasts.length, 3001);
+  assert.deepEqual(next.broadcasts.filter((row) => row.providerCode !== "reviewedtv"), first.broadcasts);
   const rejected = next.providers.find((p) => p.providerCode === "communitysports");
   assert.equal(rejected.failure, "capacity-exceeded"); assert.equal(rejected.status, "failed");
   assert.equal(h.values.get(key).budgets.communitysports.count, 1);
   assert.equal(h.values.get(key).providers.communitysports.records.length, 0);
+  const healthyTV = h.values.get(key).providers.reviewedtv;
+  assert.equal(healthyTV.scopes.cricket.status, "available");
+  assert.equal(healthyTV.scopes.cricket.failure, undefined);
+  assert.equal(healthyTV.records[0].observedAt, new Date(h.now).toISOString());
+  assert.equal(next.links.find((link) => link.providerCode === "reviewedtv").state, "listed");
+  assert.equal(Date.parse(healthyTV.nextAttemptAt) - h.now, 300_000, "Healthy TV keeps its own cadence, not the offender's one-hour backoff");
+  assert.equal(h.values.get(key).budgets.reviewedtv.count, 1);
+  assert.deepEqual(h.calls.slice(-2), ["communitysports", "reviewedtv"]);
+});
+
+test("partial catalog churn cannot renew rejected old facts or block an existing TV programme's fresh observation", async () => {
+  let batch = 0;
+  const h = harness({ providers: [DEFAULT_BROADCAST_REGISTRY_PROVIDERS.find((p) => p.providerCode === "communitysports"), reviewedTVProvider()],
+    fixtures: (at) => [{ fixtureID: "cricket-fixture:icc:123", sport: "cricket", competitionID: "icc", format: "Test", matchOrdinal: 3, day: 4,
+      participants: ["South Africa", "Australia"], start: "2026-10-27T08:30:00.000Z", end: "2026-10-31T15:30:00.000Z",
+      status: "live", observedAt: new Date(at).toISOString(), verified: true }],
+    collect: async (code, context, state) => {
+      for (let i = 0; i < (code === "communitysports" ? 8 : 2); i++) {
+        assert.equal(await context.reserveRequest(), true); state.read();
+      }
+      if (code === "reviewedtv") return state.reply(code);
+      return { providerCode: code, observedAt: context.now.toISOString(), complete: false,
+        scopes: [{ scope: "cricket", status: "partial", complete: false }],
+        broadcasts: Array.from({ length: batch === 2 ? 1100 : 1500 }, (_, index) => ({
+          providerEventID: `partial_${batch}_${index}`, streamID: `partial_${batch}_${index}`, resourceType: "tv", scope: "cricket",
+          kind: "event", sport: "cricket", title: "South Africa vs Australia", participants: ["South Africa", "Australia"],
+          start: "2026-10-27T08:30:00.000Z", format: "Test", verification: "dated",
+          observedAt: context.now.toISOString(), expiresAt: new Date(+context.now + 4 * 3_600_000).toISOString(),
+        })) };
+    } });
+  await h.create().refresh();
+  batch = 1; h.now += 40 * 60_000; await h.create().refresh();
+  const before = structuredClone(h.values.get(key).providers.communitysports.records);
+  assert.equal(before.length, 3000);
+  batch = 2; h.now += 40 * 60_000;
+  const result = await h.create().refresh(), saved = h.values.get(key);
+  assert.deepEqual(saved.providers.communitysports.records, before, "Neither rejected rows nor renewed old leases are committed");
+  assert.equal(saved.providers.communitysports.scopes.cricket.failure, "capacity-exceeded");
+  assert.equal(saved.providers.reviewedtv.scopes.cricket.status, "available");
+  assert.equal(saved.providers.reviewedtv.records[0].observedAt, new Date(h.now).toISOString());
+  assert.equal(result.links.find((link) => link.providerCode === "reviewedtv").state, "listed");
+  assert.equal(saved.budgets.communitysports.count, 24);
+  assert.equal(saved.budgets.reviewedtv.count, 6);
 });
 
 test("each source cycle has an independent eight-read ceiling before its daily allowance", async () => {
