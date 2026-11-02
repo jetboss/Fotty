@@ -44,6 +44,70 @@ test("valid empty catalog is honest empty and does not fan out into complements"
   assert.equal(requests, 3);
   assert.ok(r.providers.every((p) => p.outcome === "empty" && p.matches.length === 0));
 });
+test("mixed unrelated bad rows retain good primary identities as partial without extra complements", async () => {
+  let requests = 0;
+  const result = await collectBroadcastCatalog({ fetcher: async () => {
+    requests++;
+    return Response.json([row, null, { ...row, id: "bad-source", sources: [{ source: "https://unreviewed.invalid", id: "bad" }] },
+      { ...row, id: "bad-team", teams: { home: { name: 42 } } }]);
+  } });
+  assert.equal(requests, 3, "A useful partial /all does not add live/upcoming requests");
+  for (const provider of result.providers) {
+    assert.equal(provider.outcome, "partial");
+    assert.deepEqual(provider.matches.map((match) => match.id), [row.id]);
+    assert.deepEqual(provider.matches[0].sources, row.sources);
+  }
+});
+test("a rejected same-ID observation quarantines that identity while valid duplicates remain for native reconciliation", async () => {
+  const independent = { ...row, id: "independent" };
+  const result = await collectBroadcastCatalog({ fetcher: async () => Response.json([
+    row, { ...row, date: "invalid" }, independent, { ...independent, title: "Different vs Teams" },
+  ]) });
+  for (const provider of result.providers) {
+    assert.equal(provider.outcome, "partial");
+    assert.deepEqual(provider.matches.map((match) => match.id), [independent.id, independent.id]);
+    assert.notEqual(provider.matches[0].title, provider.matches[1].title);
+  }
+});
+test("all-invalid nonempty responses stay unavailable and never become destructive empty coverage", async () => {
+  let requests = 0;
+  const result = await collectBroadcastCatalog({ fetcher: async () => { requests++; return Response.json([null, { ...row, date: "invalid" }]); } });
+  assert.equal(requests, 9);
+  assert.ok(result.providers.every((provider) => provider.outcome === "unavailable" && provider.matches.length === 0));
+});
+test("mixed complementary rows cannot acquire complete coverage or hide a rejected same-ID sibling", async () => {
+  const result = await collectBroadcastCatalog({ fetcher: async (url) => {
+    if (url.endsWith("/all")) return Response.json({ error: "unavailable" });
+    if (url.endsWith("/live")) return Response.json([row, { ...row, id: "independent" }, { ...row, id: "conflict", date: "invalid" }]);
+    return Response.json([{ ...row, id: "conflict" }]);
+  } });
+  for (const provider of result.providers) {
+    assert.equal(provider.outcome, "partial");
+    assert.deepEqual(provider.matches.map((match) => match.id), [row.id, "independent"]);
+  }
+});
+test("a wholly invalid complementary part still quarantines its ID from a useful sibling", async () => {
+  const result = await collectBroadcastCatalog({ fetcher: async (url) => {
+    if (url.endsWith("/all")) return Response.json({ error: "unavailable" });
+    if (url.endsWith("/live")) return Response.json([row, { ...row, id: "independent" }]);
+    return Response.json([{ ...row, date: "invalid" }]);
+  } });
+  for (const provider of result.providers) {
+    assert.equal(provider.outcome, "partial");
+    assert.deepEqual(provider.matches.map((match) => match.id), ["independent"]);
+  }
+});
+test("an invalid primary identity cannot turn valid complements into authoritative empty after quarantine", async () => {
+  const result = await collectBroadcastCatalog({ fetcher: async (url) => {
+    if (url.endsWith("/all")) return Response.json([{ ...row, date: "invalid" }]);
+    return Response.json(url.endsWith("/live") ? [row] : []);
+  } });
+  assert.ok(result.providers.every((provider) => provider.outcome === "partial" && provider.matches.length === 0));
+});
+test("oversized mixed arrays still fail as a whole instead of being truncated to valid rows", async () => {
+  const result = await collectBroadcastCatalog({ fetcher: async () => Response.json([row, ...Array(4000).fill(null)]) });
+  assert.ok(result.providers.every((provider) => provider.outcome === "unavailable" && provider.matches.length === 0));
+});
 test("redirects stay blocked, complementary evidence preserves partiality, duplicates are retained for native conflict checks", async () => {
   const r = await collectBroadcastCatalog({ fetcher: async (url) => {
     const u = new URL(url);

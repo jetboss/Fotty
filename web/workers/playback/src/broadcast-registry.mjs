@@ -274,7 +274,6 @@ export class BroadcastRegistry {
     // Consume the grouped window/debt before any HTTP reservation. A restart or
     // failed collection cannot spend the same advanced background slot again.
     if (checkpointChanged) await this.persist(stored);
-    const accepted = structuredClone(stored.providers);
     const results = await Promise.all(selected.map(async (descriptor) => {
       const cycle = { reads: 0 }, previous = stored.providers[descriptor.providerCode];
       const signal = AbortSignal.timeout(20_000);
@@ -331,34 +330,31 @@ export class BroadcastRegistry {
         postponedUntil: state.kickoffCheckpoint.ordinaryDue + retryDelay };
       state.nextAttemptAt = iso(Math.max(state.kickoffCheckpoint?.postponedUntil ?? 0, now + retryDelay));
       stored.providers[code] = state;
+      try {
+        // Admit one provider delta against the complete accepted registry. An
+        // oversized partial catalog must not spend another provider's valid
+        // refresh or impose its backoff on short-lived TV programme facts.
+        validateState(stored);
+        await this.snapshot(stored, loaded, this.now());
+      } catch (error) {
+        const held = { ...previous, scopes: { ...previous.scopes }, failures: previous.failures + 1,
+          lastAttemptAt: iso(now), nextAttemptAt: iso(Math.max(now + 60 * minute, previous.kickoffCheckpoint?.postponedUntil ?? 0)) };
+        if (!Object.keys(held.scopes).length) held.scopes.live = { providerCode: code, scope: "live" };
+        for (const scope of Object.keys(held.scopes)) held.scopes[scope] = { ...held.scopes[scope], status: "failed", complete: false,
+          failure: error?.message === "capacity-exceeded" ? "capacity-exceeded" : "invalid-collection", lastAttemptAt: iso(now) };
+        // Keep this provider's exact accepted rows, receipts and expiry. The
+        // durable HTTP ledger was reserved independently and is never refunded.
+        stored.providers[code] = held;
+      }
     }
     if (selected.length && this.providers.length) {
       const last = this.providers.findIndex((p) => p.providerCode === selected.at(-1).providerCode);
       stored.cursor = (last + 1) % this.providers.length;
     }
-    // Validate the entire candidate before one durable commit. A capacity or
-    // shape failure preserves accepted records while reservations stay spent.
-    let snapshot;
-    try {
-      validateState(stored);
-      snapshot = await this.snapshot(stored, loaded, this.now());
-    } catch (error) {
-      // A capacity/invalid candidate cannot erase accepted sibling records.
-      // Keep the independently persisted request ledger and expose a finite
-      // source failure instead of publishing a truncated positive inventory.
-      stored.providers = accepted;
-      for (const { descriptor } of results) {
-        const code = descriptor.providerCode;
-        const old = stored.providers[code] ?? { scopes: {}, records: [], failures: 0, cursor: 0 };
-        const held = { ...old, scopes: { ...old.scopes }, failures: old.failures + 1,
-          lastAttemptAt: iso(now), nextAttemptAt: iso(Math.max(now + 60 * minute, old.kickoffCheckpoint?.postponedUntil ?? 0)) };
-        if (!Object.keys(held.scopes).length) held.scopes.live = { providerCode: code, scope: "live" };
-        for (const scope of Object.keys(held.scopes)) held.scopes[scope] = { ...held.scopes[scope], status: "failed", complete: false,
-          failure: error?.message === "capacity-exceeded" ? "capacity-exceeded" : "invalid-collection", lastAttemptAt: iso(now) };
-        stored.providers[code] = held;
-      }
-      snapshot = await this.snapshot(stored, loaded, this.now());
-    }
+    // Recheck the reconciled union, including diagnostics, before one durable
+    // commit. No capacity path truncates old facts or publishes an invalid wire.
+    validateState(stored);
+    const snapshot = await this.snapshot(stored, loaded, this.now());
     await this.persist(stored);
     await this.continueIfDue(stored, this.now(), fixtures);
     return snapshot;
