@@ -3,6 +3,7 @@
 import { canonicalFootballClubId } from "../../../src/lib/football-competition-catalog.generated.ts";
 import { parseReviewedTVProgrammes, reviewedTVProgrammeURL } from "./reviewed-tv-programmes.mjs";
 import { parseReviewedTVESPNFeed, REVIEWED_TV_ESPN_SOURCE } from "./reviewed-tv-espn.mjs";
+import { FOX_CRICKET_GUIDE, foxCricketGuideURL, foxCricketBroadcasts } from "./fox-cricket-programmes.mjs";
 export const BROADCAST_SOURCE_CODES = Object.freeze([
   "streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix", "reviewedtv",
 ]);
@@ -268,6 +269,10 @@ function csRow(row, scope, now) {
     && category === "NETWORKS" && ["networks", "cricket", "live"].includes(scope)
     && observation.verification !== "conflicting" && new TextEncoder().encode(observation.title).length <= 128
     && ["usa", "united states", "united states of america"].includes(country?.toLowerCase())) observation.stationMarket = "US";
+  if (observation?.kind === "channel" && observation.channelID === "cricket-channel:fox-cricket"
+    && category === "NETWORKS" && ["networks", "cricket", "live"].includes(scope)
+    && observation.verification !== "conflicting" && new TextEncoder().encode(observation.title).length <= 128
+    && country?.toLowerCase() === "australia") observation.stationMarket = "AU";
   return observation;
 }
 function asRow(row, scope, now, originals = []) {
@@ -628,11 +633,11 @@ function searchHint(name, category) {
 }
 
 export async function collectBroadcastSource(providerCode, { now = new Date(), reserveRequest = async () => false,
-  fetcher = fetch, signal, cursor = 0, fixtures = [] } = {}) {
+  fetcher = fetch, signal, cursor = 0, fixtures = [], foxProgrammes = false, programmeContext: priorProgrammeContext } = {}) {
   if (!BROADCAST_SOURCE_CODES.includes(providerCode) || !Number.isFinite(+new Date(now))) throw new Error("invalid-collection");
   now = new Date(now);
   const read = reader(providerCode, { fetcher, reserveRequest, signal }), broadcasts = [], scopes = [], hints = retrievalHints(fixtures, now);
-  let tvGuide;
+  let tvGuide, programmeContext;
   const cohort = async (scope, load, parse, complete = true) => {
     try {
       const rows = await load(), parsed = (await Promise.all(rows.map(parse))).filter(Boolean);
@@ -648,15 +653,32 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
   };
   try {
     if (providerCode === "reviewedtv") {
+      const needsESPN = fixtures.some((f) => f?.verified === true && (f.sport === "baseball" && f.competitionID === "mlb"
+        || f.sport === "hockey" && f.competitionID === "nhl" || f.sport === "football"
+        && ["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"].includes(f.competitionID)));
       await cohort("cricket", async () => {
-        const first = await parseReviewedTVProgrammes(await read(reviewedTVProgrammeURL(now), MAX_BYTES, true), { now });
+        let requested = now;
+        // A prior original-page timezone only chooses the first requested date.
+        // Every response still supplies fresh station/date/zone authority. The
+        // hint never renews a programme or converts a missing guide into facts.
+        const hint = priorProgrammeContext;
+        if (foxProgrammes === true && typeof hint?.willowGuideTimeZone === "string" && hint.willowGuideTimeZone.length <= 64
+          && Number.isFinite(Date.parse(hint.observedAt)) && +now - Date.parse(hint.observedAt) >= -300_000
+          && +now - Date.parse(hint.observedAt) <= 4 * 3600_000) {
+          try {
+            const values = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: hint.willowGuideTimeZone,
+              year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now).map((p) => [p.type, p.value]));
+            requested = new Date(`${values.year}-${values.month}-${values.day}T00:00:00Z`);
+          } catch { /* An invalid hint cannot alter the normal fixed-date fetch. */ }
+        }
+        const first = await parseReviewedTVProgrammes(await read(reviewedTVProgrammeURL(requested), MAX_BYTES, true), { now });
         if (typeof first.guideTimeZone !== "string" || !first.guideTimeZone.length) throw new Error("invalid-collection");
         const parts = new Intl.DateTimeFormat("en-CA", { timeZone: first.guideTimeZone,
           year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
         const value = (type) => parts.find((p) => p.type === type)?.value;
         const guideDay = `${value("year")}-${value("month")}-${value("day")}`;
         const collections = [first];
-        if (guideDay !== now.toISOString().slice(0, 10)) {
+        if (guideDay !== requested.toISOString().slice(0, 10)) {
           const second = await parseReviewedTVProgrammes(await read(reviewedTVProgrammeURL(new Date(guideDay + "T00:00:00Z")), MAX_BYTES, true), { now });
           if (second.guideTimeZone !== first.guideTimeZone) throw new Error("catalog-conflict");
           collections.push(second);
@@ -670,13 +692,27 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
         // Two fixed-date pages must not advertise different simultaneous
         // programmes on the one admitted station. Never choose one by order.
         if (programmes.size > 1) throw new Error("catalog-conflict");
+        programmeContext = { willowGuideTimeZone: first.guideTimeZone, observedAt: now.toISOString() };
         return [...programmes.values()];
       }, (row) => row);
+      // Staged for explicit activation with the matching native consumer. This
+      // is one bounded original-guide read, not media or an additional budget.
+      // A failure shares only partial cricket coverage; healthy Willow facts
+      // survive. The combined cohort below prevents false exhaustive absence.
+      if (foxProgrammes === true) {
+        await cohort("cricket", async () => {
+          // Do not turn three reads/7.5min into four reads/10min and lose the
+          // previous programme before refresh. Cold timezone correction keeps
+          // Fox pending for this cycle; its verified hint avoids that extra read
+          // next time. Neither the existing daily cap nor legacy lanes increase.
+          if (read.count() + Number(needsESPN) >= 3) throw new Error("budget-exhausted");
+          return foxCricketBroadcasts(await read(foxCricketGuideURL(now), FOX_CRICKET_GUIDE.maxBytes, true), { now });
+        }, (row) => row);
+      }
       // One maintained official RSS read includes the complete current weekly
       // article. Highlights are partial evidence, never an exhaustive absence.
       // A failed football refresh cannot erase a valid independent Willow row.
-      if (fixtures.some((f) => f?.verified === true && (f.sport === "baseball" && f.competitionID === "mlb" || f.sport === "hockey" && f.competitionID === "nhl" || f.sport === "football"
-        && ["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"].includes(f.competitionID)))) {
+      if (needsESPN) {
         await cohort("football", async () => {
           const parsed = await parseReviewedTVESPNFeed(
             await read(REVIEWED_TV_ESPN_SOURCE.feedURL, REVIEWED_TV_ESPN_SOURCE.maxBytes, "xml"), { now });
@@ -826,7 +862,7 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
     const failure = entries.find((s) => s.failure)?.failure;
     return { scope, complete, status: complete ? rows.length ? "available" : "empty" : healthy ? "partial" : "failed", ...(failure ? { failure } : {}) };
   });
-  const result = { providerCode, observedAt: now.toISOString(), ...(tvGuide ? { tvGuide } : {}), complete: combinedScopes.length > 0 && combinedScopes.every((s) => s.complete), scopes: combinedScopes, broadcasts,
+  const result = { providerCode, observedAt: now.toISOString(), ...(tvGuide ? { tvGuide } : {}), ...(programmeContext ? { programmeContext } : {}), complete: combinedScopes.length > 0 && combinedScopes.every((s) => s.complete), scopes: combinedScopes, broadcasts,
     ...(["communitysports", "plaviosports"].includes(providerCode) ? { cursor } : {}) };
   if (new TextEncoder().encode(JSON.stringify(result)).byteLength > MAX_BYTES) return { providerCode, observedAt: now.toISOString(), complete: false,
     scopes: scopes.map((s) => scopeResult(s.scope, [], false, "capacity-exceeded")), broadcasts: [] };

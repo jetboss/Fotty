@@ -1,6 +1,7 @@
 import { associateBroadcasts, buildBroadcastSnapshot, normalizeBroadcastCollection,
   normalizeRegistryFixtures, mergeBroadcastRecords, BROADCAST_PROVIDER_CODES, BROADCAST_SCOPES, BROADCAST_REGISTRY_LIMITS,
-  BROADCAST_REASONS, isReviewedTVFootballAssignment, isCurrentCricketListing } from "./broadcast-registry-policy.mjs";
+  BROADCAST_REASONS, isReviewedTVFootballAssignment, isCurrentCricketListing, isReviewedCricketChannelMarket,
+  broadcastRegistryHash } from "./broadcast-registry-policy.mjs";
 
 import { REVIEWED_TV_GUIDE_KEY, validateReviewedTVGuide, currentReviewedTVGuide } from "./reviewed-tv-guide.mjs";
 import { reviewedTVGuideAssignments } from "./reviewed-tv-guide-assignments.mjs";
@@ -10,6 +11,13 @@ export const DEFAULT_BROADCAST_REGISTRY_PROVIDERS = Object.freeze(BROADCAST_PROV
   providerCode, maxRequestsPerDay: providerCode === "reviewedtv" ? 576 : ["communitysports", "plaviosports"].includes(providerCode) ? 288 : 96,
 })));
 const blank = () => ({ version: 1, providers: {}, budgets: {}, cursor: 0 });
+function programmeRequestContext(value, now) {
+  const observed = Date.parse(value?.observedAt), zone = value?.willowGuideTimeZone;
+  if (typeof zone !== "string" || zone.length > 64 || !/^[A-Za-z_+-]+(?:\/[A-Za-z_+-]+){1,2}$/u.test(zone)
+    || !Number.isFinite(observed) || observed > now + 300_000 || now - observed > 4 * 3600_000) return undefined;
+  try { new Intl.DateTimeFormat("en", { timeZone: zone }); } catch { return undefined; }
+  return { willowGuideTimeZone: zone, observedAt: new Date(observed).toISOString() };
+}
 const failure = (error) => BROADCAST_REASONS.includes(error?.message) ? error.message : "source-unavailable";
 const iso = (n) => new Date(n).toISOString();
 const RECORD_KEYS = new Set(["id", "providerCode", "providerEventID", "streamID", "resourceType", "scope", "kind", "sport", "title", "participants",
@@ -45,37 +53,52 @@ function validateState(state) {
       if (!row || Object.keys(row).some((key) => !RECORD_KEYS.has(key)) || row.providerCode !== code || !BROADCAST_SCOPES.includes(row.scope)
         || !/^br:[a-f0-9]{64}$/.test(row.id) || !Number.isFinite(Date.parse(row.observedAt)) || !Number.isFinite(Date.parse(row.expiresAt))
         || JSON.stringify(row).includes("://")) throw new Error("invalid-registry-state");
-      if (row.stationMarket !== undefined && !isReviewedTVFootballAssignment(row) && (row.stationMarket !== "US" || code !== "communitysports" || row.kind !== "channel"
-        || !["networks", "cricket", "live"].includes(row.scope) || row.sport !== "cricket" || row.channelID !== "cricket-channel:willow")) throw new Error("invalid-registry-state");
+      if (row.stationMarket !== undefined && !isReviewedTVFootballAssignment(row)
+        && !isReviewedCricketChannelMarket(row)) throw new Error("invalid-registry-state");
     }
   }
   if (count > BROADCAST_REGISTRY_LIMITS.records || new TextEncoder().encode(JSON.stringify(state)).length > BROADCAST_REGISTRY_LIMITS.snapshotBytes) throw new Error("capacity-exceeded");
   return state;
 }
 
-function persistedRegistryState(state) {
+const marketReceiptHash = (row) => broadcastRegistryHash(Object.entries(row).sort(([a], [b]) => a.localeCompare(b)));
+async function persistedRegistryState(state) {
   // Schema1's deployed rollback reader rejects unknown record keys. Clock
   // semantics are a runtime projection, not an additive durable-state field.
-  return { ...state, providers: Object.fromEntries(Object.entries(state.providers).map(([code, source]) => [code,
-    { ...source, records: source.records.map((row) => {
+  return { ...state, providers: Object.fromEntries(await Promise.all(Object.entries(state.providers).map(async ([code, source]) => {
+    // Older Workers accept source-level extensions but reject AU on records.
+    // Keep the original, receipt-bound proof separately; never infer it from a
+    // generic Fox name when upgrading again after a rollback refresh.
+    const { foxChannelMarkets: _oldProofs, ...base } = source, foxChannelMarkets = [];
+    const records = await Promise.all(source.records.map(async (row) => {
       const { startBasis: _runtimeOnly, ...legacy } = row;
+      if (legacy.stationMarket === "AU" && isReviewedCricketChannelMarket(legacy, code)) {
+        delete legacy.stationMarket;
+        foxChannelMarkets.push(await marketReceiptHash(legacy));
+      }
       return legacy;
-    }) },
-  ])) };
+    }));
+    return [code, { ...base, records, ...(foxChannelMarkets.length ? { foxChannelMarkets: foxChannelMarkets.sort() } : {}) }];
+  }))) };
 }
 
-function runtimeRegistryState(state) {
-  return { ...state, providers: Object.fromEntries(Object.entries(state.providers).map(([code, source]) => [code,
-    { ...source, records: source.records.map((row) => {
+async function runtimeRegistryState(state) {
+  return { ...state, providers: Object.fromEntries(await Promise.all(Object.entries(state.providers).map(async ([code, source]) => {
+    const proofs = new Set(Array.isArray(source.foxChannelMarkets) && source.foxChannelMarkets.length <= BROADCAST_REGISTRY_LIMITS.records
+      ? source.foxChannelMarkets.filter((value) => typeof value === "string" && /^[a-f0-9]{64}$/u.test(value)) : []);
+    return [code, { ...source, records: await Promise.all(source.records.map(async (row) => {
       const { startBasis: _runtimeOnly, ...legacy } = row;
+      if (legacy.stationMarket === undefined && proofs.size
+        && isReviewedCricketChannelMarket({ ...legacy, stationMarket: "AU" }, code)
+        && proofs.has(await marketReceiptHash(legacy))) legacy.stationMarket = "AU";
       const candidate = { ...legacy, startBasis: "current-listing" };
       const age = Date.parse(legacy.observedAt) - Date.parse(legacy.start);
       return legacy.verification === "undated" && Array.isArray(legacy.issues) && legacy.issues.length === 0
         && /^nuvio_sport_sktech_sktech_ev_fancode_[1-9]\d{0,15}$/u.test(legacy.providerEventID)
         && age >= -5 * minute && age <= BROADCAST_REGISTRY_LIMITS.sourceLifetime
         && isCurrentCricketListing(candidate) ? candidate : legacy;
-    }) },
-  ])) };
+    })) }];
+  }))) };
 }
 
 function supportedFixtures(code, fixtures) {
@@ -169,7 +192,7 @@ export class BroadcastRegistry {
     const state = await this.state.storage.get(KEY);
     return state ? runtimeRegistryState(validateState(state)) : blank();
   }
-  async persist(stored) { await this.state.storage.put(KEY, persistedRegistryState(stored)); }
+  async persist(stored) { await this.state.storage.put(KEY, validateState(await persistedRegistryState(stored))); }
   async reserve(stored, descriptor, cycle) {
     const operation = async () => {
       const now = this.now(), date = iso(now).slice(0, 10), prior = stored.budgets[descriptor.providerCode];
@@ -280,6 +303,7 @@ export class BroadcastRegistry {
       try {
         const raw = await this.options.collect(descriptor.providerCode, { now: new Date(now), signal,
           cursor: previous?.cursor ?? 0, fixtures: structuredClone(fixtures),
+          ...(descriptor.providerCode === "reviewedtv" ? { programmeContext: programmeRequestContext(previous?.programmeContext, now) } : {}),
           reserveRequest: () => this.reserve(stored, descriptor, cycle) });
         if (signal.aborted) throw new Error("source-unavailable");
         const collection = await normalizeBroadcastCollection(descriptor.providerCode, raw, new Date(this.now()));
@@ -287,16 +311,18 @@ export class BroadcastRegistry {
         if (descriptor.providerCode === "reviewedtv" && raw.tvGuide !== undefined) {
           try { tvGuide = validateReviewedTVGuide(raw.tvGuide, new Date(this.now())); } catch { /* Guide isolation. */ }
         }
-        return { descriptor, cycle, collection, tvGuide };
+        return { descriptor, cycle, collection, tvGuide,
+          programmeContext: descriptor.providerCode === "reviewedtv" ? programmeRequestContext(raw.programmeContext, now) : undefined };
       } catch (error) { return { descriptor, cycle, error: failure(error) }; }
     }));
-    for (const { descriptor, cycle, collection, error, tvGuide } of results) {
+    for (const { descriptor, cycle, collection, error, tvGuide, programmeContext } of results) {
       if (tvGuide !== undefined) {
         try { await this.state.storage.put(REVIEWED_TV_GUIDE_KEY, tvGuide); }
         catch { console.warn("TV guide persistence failed; accepted match registry retained"); }
       }
       const code = descriptor.providerCode, previous = stored.providers[code] ?? { scopes: {}, records: [], failures: 0, cursor: 0 };
       const state = { ...previous, scopes: { ...previous.scopes }, records: [...previous.records], lastAttemptAt: iso(now) };
+      if (programmeContext) state.programmeContext = programmeContext;
       if (collection) {
         for (const scope of collection.scopes) {
           const old = state.scopes[scope.scope];

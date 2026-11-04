@@ -161,6 +161,49 @@ test("current cricket clock projection survives restart without adding a key to 
   assert.equal(writes, beforeWrites); assert.deepEqual(h.values.get(key), stored); assert.equal(h.reads, 1);
 });
 
+test("Fox edition proof survives restart while durable records remain readable by the prior market contract", async () => {
+  const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS.filter((p) => p.providerCode === "communitysports"),
+    onRegistryWrite: (state) => {
+      for (const row of state.providers.communitysports?.records ?? []) {
+        assert.ok(row.stationMarket === undefined || row.stationMarket === "US", "Prior Worker rejects AU records");
+      }
+    }, collect: async (code, context, state) => {
+      assert.equal(await context.reserveRequest(), true); state.read();
+      const row = { providerEventID: "nuvio_sport_fox_au", streamID: "nuvio_sport_fox_au", resourceType: "tv",
+        scope: "networks", kind: "channel", sport: "cricket", title: "FOX Cricket", participants: [],
+        channelID: "cricket-channel:fox-cricket", stationMarket: "AU", verification: "undated",
+        observedAt: context.now.toISOString(), expiresAt: new Date(+context.now + 3600000).toISOString() };
+      return { providerCode: code, observedAt: context.now.toISOString(), complete: true,
+        scopes: [{ scope: "networks", status: "available", complete: true }], broadcasts: [row,
+          { ...row, providerEventID: "nuvio_sport_fox_unknown", streamID: "nuvio_sport_fox_unknown", stationMarket: undefined }] };
+    } });
+  const first = await h.create().refresh();
+  assert.equal(first.broadcasts.find((r) => r.providerEventID === "nuvio_sport_fox_au").stationMarket, "AU");
+  const accepted = structuredClone(h.values.get(key)), persisted = accepted.providers.communitysports;
+  assert.equal(persisted.foxChannelMarkets.length, 1);
+  assert.match(persisted.foxChannelMarkets[0], /^[a-f0-9]{64}$/u);
+  assert.ok(persisted.records.every((r) => r.stationMarket === undefined));
+  const restored = await (await h.create().fetch(new Request("https://internal/snapshot"))).json();
+  assert.equal(restored.broadcasts.find((r) => r.providerEventID === "nuvio_sport_fox_au").stationMarket, "AU");
+  assert.equal(restored.broadcasts.find((r) => r.providerEventID === "nuvio_sport_fox_unknown").stationMarket, undefined);
+  assert.equal(restored.foxChannelMarkets, undefined); assert.equal(h.reads, 1);
+  assert.deepEqual(h.values.get(key), accepted, "A read cannot renew or rewrite original proof");
+
+  for (const alteration of [r => { r.observedAt = new Date(initial + 60000).toISOString(); },
+    r => { r.expiresAt = new Date(initial + 7200000).toISOString(); }, r => { r.title = "Different edition"; },
+    r => { r.issues = ["identity-conflict"]; }]) {
+    const oldWriter = structuredClone(accepted);
+    alteration(oldWriter.providers.communitysports.records.find((r) => r.providerEventID === "nuvio_sport_fox_au"));
+    h.values.set(key, oldWriter);
+    const updated = await (await h.create().fetch(new Request("https://internal/snapshot"))).json();
+    assert.equal(updated.broadcasts.find((r) => r.providerEventID === "nuvio_sport_fox_au")?.stationMarket, undefined,
+      "An old-version refresh cannot lend stale AU proof to a different receipt");
+  }
+  const missing = structuredClone(accepted); delete missing.providers.communitysports.foxChannelMarkets; h.values.set(key, missing);
+  const generic = await (await h.create().fetch(new Request("https://internal/snapshot"))).json();
+  assert.equal(generic.broadcasts.length, 2); assert.ok(generic.broadcasts.every((r) => r.stationMarket === undefined));
+});
+
 test("bounded alarm continuation covers eight providers without duplicate collection or a busy loop", async () => {
   const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS }), registry = h.create();
   await registry.refresh(); assert.equal(h.calls.length, 2); assert.equal(h.alarm, h.now + 15_000);
@@ -691,4 +734,61 @@ test("checkpoint repayment uses its actual HTTP cost when enrichment grows and o
   assert.equal(Date.parse(h.values.get(key).providers.plaviosports.nextAttemptAt), initial + 110 * 60_000,
     "After repayment, the ordinary40-minute cadence resumes without perpetual debt");
   assert.equal(h.values.get(key).budgets.plaviosports.count, 22);
+});
+
+test("a fresh Fox programme survives restart and a failed Willow sibling cannot renew old Willow facts", async () => {
+  let willowFailed = false;
+  const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS.filter((p) => p.providerCode === "reviewedtv"),
+    fixtures: (at) => [{ fixtureID: "cricket-fixture:ca:40630", sport: "cricket", participants: ["Adelaide Strikers Women", "Brisbane Heat Women"],
+      start: new Date(initial - 30 * 60000).toISOString(), competitionID: "wbbl", format: "T20", matchOrdinal: 10,
+      squad: { gender: "women", ageGroup: "senior" }, status: "live", verified: true, observedAt: new Date(at).toISOString() }],
+    collect: async (code, context, state) => {
+      assert.equal(await context.reserveRequest(), true); state.read();
+      const base = state.reply(code), template = base.broadcasts[0];
+      const fox = { ...template, providerEventID: "reviewed-tv:fox-programme:" + "b".repeat(64),
+        streamID: "reviewed-tv:fox-cricket-guide", channelID: "cricket-channel:fox-cricket", title: "Live: WBBL: Strikers v Heat",
+        participants: ["Adelaide Strikers Women", "Brisbane Heat Women"], competitionID: "wbbl", format: "T20",
+        squad: { gender: "women", ageGroup: "senior" }, start: new Date(initial - 30 * 60000).toISOString() };
+      delete fox.matchOrdinal; delete fox.day;
+      return { ...base, complete: !willowFailed,
+        scopes: [{ scope: "cricket", complete: !willowFailed, status: willowFailed ? "partial" : "available",
+          ...(willowFailed ? { failure: "source-unavailable" } : {}) }], broadcasts: willowFailed ? [fox] : [template, fox] };
+    } });
+  const first = await h.create().refresh();
+  const willow = first.broadcasts.find((r) => r.channelID === "cricket-channel:willow");
+  assert.ok(willow); assert.ok(first.broadcasts.some((r) => r.channelID === "cricket-channel:fox-cricket"));
+  assert.equal(first.links[0].state, "listed");
+  assert.equal(first.links[0].access, undefined, "Persistence must not manufacture an entitlement claim");
+  willowFailed = true; h.now += 6 * 60000;
+  const partial = await h.create().refresh();
+  assert.equal(partial.broadcasts.length, 2);
+  const retained = partial.broadcasts.find((r) => r.channelID === "cricket-channel:willow");
+  assert.equal(retained.observedAt, willow.observedAt); assert.equal(retained.expiresAt, willow.expiresAt);
+  assert.equal(partial.providers[0].status, "partial");
+  const restored = await (await h.create().fetch(new Request("https://internal/snapshot"))).json();
+  assert.equal(restored.broadcasts.find((r) => r.channelID === "cricket-channel:willow").expiresAt, willow.expiresAt);
+  assert.ok(restored.broadcasts.some((r) => r.channelID === "cricket-channel:fox-cricket"));
+});
+
+test("Willow date-selection hints survive restart but never appear as public programme evidence or renew on failure", async () => {
+  let received, sendHint = true, failCollection = false;
+  const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS.filter((p) => p.providerCode === "reviewedtv"),
+    fixtures: (now) => [{ fixtureID: "sports-fixture:premier-league:123", sport: "football", competitionID: "premier-league",
+      participants: ["Liverpool", "Chelsea"], start: new Date(now - 1800000).toISOString(), status: "live",
+      observedAt: new Date(now).toISOString(), verified: true }],
+    collect: async (code, context, state) => {
+      received = context.programmeContext; assert.equal(await context.reserveRequest(), true); state.read();
+      if (failCollection) throw new Error("source-unavailable");
+      return { ...state.reply(code), ...(sendHint ? { programmeContext: { willowGuideTimeZone: "America/Port_of_Spain",
+        observedAt: context.now.toISOString(), untrusted: "discard" } } : {}) };
+    } });
+  const first = await h.create().refresh(); assert.equal(received, undefined);
+  const hint = structuredClone(h.values.get(key).providers.reviewedtv.programmeContext);
+  assert.deepEqual(hint, { willowGuideTimeZone: "America/Port_of_Spain", observedAt: new Date(initial).toISOString() });
+  assert.equal(first.programmeContext, undefined); assert.ok(!JSON.stringify(first).includes("willowGuideTimeZone"));
+  sendHint = false; h.now += 16 * 60000; await h.create().refresh();
+  assert.deepEqual(received, hint); assert.deepEqual(h.values.get(key).providers.reviewedtv.programmeContext, hint);
+  failCollection = true; h.now += 6 * 60000; await h.create().refresh();
+  assert.deepEqual(received, hint); assert.deepEqual(h.values.get(key).providers.reviewedtv.programmeContext, hint);
+  h.now += 4 * 3600000; await h.create().refresh(); assert.equal(received, undefined);
 });
