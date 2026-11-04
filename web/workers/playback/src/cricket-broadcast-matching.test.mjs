@@ -36,6 +36,27 @@ async function joined(rows = [cs()], fixtures = [fixture()], providerCode = "com
 }
 const listed = (result) => result.links.filter((link) => link.state === "listed");
 
+test("reviewed WBBL programme without a number matches only one fresh official women occurrence", async () => {
+  const teams = ["Hobart Hurricanes Women", "Melbourne Renegades Women"];
+  const f = fixture({ fixtureID: "cricket-fixture:ca:40629", participants: teams, competitionID: "wbbl", format: "T20", matchOrdinal: 9 });
+  const p = programme({ participants: teams, competitionID: "wbbl", format: "T20", matchOrdinal: undefined,
+    squad: { gender: "women", ageGroup: "senior" } });
+  assert.equal(listed(await joined([p], [f], "reviewedtv")).length, 1);
+  for (const changes of [{ competitionID: "icc" }, { fixtureID: "cricket-fixture:icc:40629" },
+    { participants: ["Hobart Hurricanes", "Melbourne Renegades"] }, { status: "finished" },
+    { observedAt: stamp(-11 * minute) }, { start: stamp(-7 * hour) }])
+    assert.equal(listed(await joined([p], [{ ...f, ...changes }], "reviewedtv")).length, 0, JSON.stringify(changes));
+  for (const changes of [{ competitionID: undefined }, { squad: { gender: "men", ageGroup: "senior" } },
+    { matchOrdinal: 8 }])
+    assert.equal(listed(await joined([{ ...p, ...changes }], [f], "reviewedtv")).length, 0, JSON.stringify(changes));
+  await assert.rejects(joined([{ ...p, channelID: "cricket-channel:fox-cricket" }], [f], "reviewedtv"), /invalid-collection/);
+  const normalized = await source([p], "reviewedtv");
+  const ambiguous = associateBroadcasts({ fixtures: [f], ambiguityFixtures: [f,
+    { ...f, fixtureID: "cricket-fixture:ca:49999", status: "finished", start: stamp(-5 * hour) }],
+    broadcasts: normalized.broadcasts, providers: normalized.scopes, now });
+  assert.equal(ambiguous.some((l) => l.state === "listed"), false);
+});
+
 test("CS synthetic current-listing time is retained separately from the one fresh live official kickoff", async () => {
   const result = await joined();
   assert.equal(result.source.broadcasts[0].startBasis, "current-listing");

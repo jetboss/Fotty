@@ -313,8 +313,18 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
           || !limitedOversRelation(fixture, time)) fail("needsVerification", "unverified-fixture");
       } else if (broadcast.kind === "programme" && ["ODI", "T20"].includes(fixture.format)) {
         if (!limitedOversRelation(fixture, Date.parse(broadcast.start))) fail("conflicting", "time-conflict");
-        if (!fixture.matchOrdinal || !broadcast.matchOrdinal) fail("needsVerification", "ordinal-conflict");
-        else if (fixture.matchOrdinal !== broadcast.matchOrdinal) fail("conflicting", "ordinal-conflict");
+        const reviewedDomestic = broadcast.providerCode === "reviewedtv" && broadcast.channelID === "cricket-channel:willow"
+          && broadcast.streamID === "reviewed-tv:willow-main" && /^reviewed-tv:programme:[a-f0-9]{64}$/u.test(broadcast.providerEventID)
+          && broadcast.competitionID === "wbbl" && fixture.competitionID === "wbbl"
+          && /^cricket-fixture:ca:\d+$/u.test(fixture.fixtureID) && fixture.format === "T20"
+          && broadcast.squad?.gender === "women" && broadcast.squad?.ageGroup === "senior"
+          && broadcast.participants.every((v) => /\bWomen$/u.test(v)) && broadcast.matchOrdinal === undefined;
+        // The unique current official occurrence above can replace only the
+        // absent ordinal in this reviewed domestic programme contract.
+        if (!reviewedDomestic) {
+          if (!fixture.matchOrdinal || !broadcast.matchOrdinal) fail("needsVerification", "ordinal-conflict");
+          else if (fixture.matchOrdinal !== broadcast.matchOrdinal) fail("conflicting", "ordinal-conflict");
+        }
       } else if (assignment) {
         const lead = Date.parse(fixture.start) - Date.parse(broadcast.start);
         if (!fixture.competitionID || fixture.competitionID !== broadcast.competitionID) fail("conflicting", "competition-conflict");

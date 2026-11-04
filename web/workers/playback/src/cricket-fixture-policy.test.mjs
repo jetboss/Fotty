@@ -1090,3 +1090,36 @@ test("bounded public context drops malformed optional data and overflow without 
   assert.deepEqual(result.fixtures.map(withoutContext), before.fixtures.map(withoutContext));
   assert.equal(before.fixtures[0].context.matchOrdinal, 0, "Public projection does not mutate durable accepted state");
 });
+
+test("optional CA cohort is isolated, opt-in only, and refreshes despite base backoff", async () => {
+  const clock = new Date(), future = new Date(+clock + 60_000).toISOString();
+  const base = await refreshCricketState(null, now, async () => normalized());
+  base.nextAttemptAt = future;
+  const storage = new Map([["cricket-registry-v1", base]]);
+  const pending = [];
+  const state = { storage: { get: async (key) => storage.get(key), put: async (key, value) => storage.set(key, value) },
+    waitUntil: (p) => pending.push(p) };
+  let caCalls = 0, iccCalls = 0;
+  const options = { collectCA: async () => { caCalls++; return { observedAt: clock.toISOString(), fixtures: [] }; },
+    collectICC: async () => { iccCalls++; throw Error("upstream"); } };
+  const disabled = new CricketFixtureRegistry(state, {}, options);
+  await disabled.fetch(new Request("https://internal/refresh", { method: "POST" }));
+  assert.equal(caCalls, 0); assert.equal(storage.size, 1);
+  const registry = new CricketFixtureRegistry(state, { CRICKET_WBBL_ENABLED: "true" }, options);
+  await registry.fetch(new Request("https://internal/refresh", { method: "POST" }));
+  assert.equal(caCalls, 1); assert.equal(iccCalls, 0); assert.equal(storage.get("cricket-registry-v1"), base);
+  const response = await (await registry.fetch(new Request("https://internal/fixtures"))).json();
+  assert.equal(response.coverage.find((c) => c.competitionId === "wbbl").status, "covered");
+  assert.deepEqual(response.fixtures, base.snapshot.fixtures);
+  await registry.fetch(new Request("https://internal/refresh", { method: "POST" }));
+  assert.equal(caCalls, 1, "Concurrent cron/read paths share the persisted backoff");
+  const oldCA = storage.get("cricket-australia-wbbl-v1"); oldCA.nextAttemptAt = "1970-01-01T00:00:00Z";
+  options.collectCA = async () => { throw Error("private upstream URL"); };
+  await registry.fetch(new Request("https://internal/refresh", { method: "POST" }));
+  const failed = await (await registry.fetch(new Request("https://internal/fixtures"))).json();
+  assert.equal(failed.coverage.find((c) => c.competitionId === "wbbl").status, "unavailable");
+  assert.deepEqual(failed.fixtures, base.snapshot.fixtures);
+  assert.equal(storage.get("cricket-registry-v1"), base);
+  const restored = await (await disabled.fetch(new Request("https://internal/fixtures"))).json();
+  assert.equal(restored.coverage.length, 3, "Flag rollback omits domestic projection without erasing either storage key");
+});
