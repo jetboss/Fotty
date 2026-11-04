@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { caCricketURL, normalizeCACricket, collectCACricket, refreshCACricket, appendCACricket } from "./cricket-australia-fixtures.mjs";
 import { loadBroadcastRegistryFixtures } from "./index.js";
 import { associateBroadcasts, normalizeBroadcastCollection } from "./broadcast-registry-policy.mjs";
+import { createRequire } from "node:module";
+import { readFile, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const now = new Date("2026-11-04T10:00:00Z");
 const headers = () => new Headers({ date: now.toUTCString(), age: "0" });
@@ -47,11 +52,53 @@ test("cached API response is not a renewed source receipt", () => {
 test("collector uses fixed HTTPS, refuses redirects, and bounds payloads", async () => {
   let calls = 0;
   const value = await collectCACricket(now, async (url, options) => {
-    calls++; assert.equal(url.origin, "https://apiv2.cricket.com.au"); assert.equal(options.redirect, "error");
+    calls++; assert.equal(url.origin, "https://apiv2.cricket.com.au"); assert.equal(options.redirect, "manual");
     assert.ok(options.signal); return Response.json({ fixtures: [row()] }, { headers: headers() });
   });
   assert.equal(calls, 1); assert.equal(value.fixtures.length, 1);
   await assert.rejects(collectCACricket(now, async () => new Response("no", { status: 503 })), /upstream-unavailable/);
+});
+
+test("deployed Worker runtime collects WBBL and rejects redirects without following them", { timeout: 20_000 }, async (t) => {
+  const directory = dirname(fileURLToPath(import.meta.url));
+  const require = createRequire(import.meta.url);
+  const deploymentRequire = createRequire(require.resolve("wrangler/package.json"));
+  const { build } = deploymentRequire("esbuild");
+  const { Miniflare, convertV4MiniflareOptions, Log, LogLevel } = deploymentRequire("miniflare");
+  const config = await readFile(join(directory, "../wrangler.toml"), "utf8");
+  const compatibilityDate = config.match(/^compatibility_date\s*=\s*"([\d-]+)"/m)?.[1];
+  const flagText = config.match(/^compatibility_flags\s*=\s*\[([^\]]*)\]/m)?.[1];
+  assert.ok(compatibilityDate); assert.notEqual(flagText, undefined);
+  const compatibilityFlags = [...flagText.matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1]);
+  const bundle = await build({ stdin: { contents: `
+    import {refreshCACricket} from './cricket-australia-fixtures.mjs';
+    export default {async fetch() {return Response.json(await refreshCACricket(null, new Date('2026-11-04T10:00:00Z')));}};
+  `, resolveDir: directory }, bundle: true, write: false, format: "esm", platform: "browser" });
+  const owned = await mkdtemp(join(tmpdir(), "fotty-ca-runtime-"));
+  let runtime, status = 200, requests = 0;
+  t.after(async () => { try { await runtime?.dispose(); } finally { await rm(owned, { recursive: true, force: true }); } });
+  const options = { modules: true, script: bundle.outputFiles[0].text, compatibilityDate, compatibilityFlags,
+    log: new Log(LogLevel.NONE), cf: false,
+    resourcePersistencePath: join(owned, "state"), isolatedResourcePersistencePath: join(owned, "isolated"), resourceTmpPath: join(owned, "runtime"),
+    outboundService: async (request) => {
+      requests++;
+      assert.equal(new URL(request.url).origin, "https://apiv2.cricket.com.au");
+      assert.equal(new URL(request.url).pathname, "/web/fixtures/yearfilter");
+      return status === 200 ? Response.json({ fixtures: [row()] }, { headers: headers() })
+        : new Response(null, { status, headers: { Location: "https://unreviewed.invalid/redirect" } });
+    } };
+  runtime = new Miniflare(typeof convertV4MiniflareOptions === "function" ? convertV4MiniflareOptions(options) : options);
+  const accepted = await (await runtime.dispatchFetch("http://localhost/")).json();
+  assert.equal(accepted.status, "covered");
+  assert.equal(accepted.fixtures[0].id, "ca:40629");
+  assert.equal(requests, 1, "Real Worker fetch must reach the reviewed origin exactly once");
+  for (const redirect of [301, 302, 303, 307, 308]) {
+    status = redirect; requests = 0;
+    const rejected = await (await runtime.dispatchFetch("http://localhost/")).json();
+    assert.equal(rejected.status, "unavailable");
+    assert.equal(rejected.failure, "upstream-unavailable");
+    assert.equal(requests, 1, "Redirect target must never be requested");
+  }
 });
 test("failed domestic refresh preserves original facts and receipt without lending live authority", async () => {
   const first = await refreshCACricket(null, now, async () => parse());
