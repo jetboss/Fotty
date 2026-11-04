@@ -7,7 +7,7 @@ import { boundedCricketContexts } from "./cricket-context-policy.mjs";
 import { appendCACricket, refreshCACricket } from "./cricket-australia-fixtures.mjs";
 
 const STATE_KEY = "cricket-registry-v1";
-const CA_STATE_KEY = "cricket-australia-wbbl-v1";
+const CA_STORAGE_ENTRY = "cricket-australia-wbbl-v1";
 const MINUTE = 60_000;
 const ICC_COHORTS = Object.freeze(["west-indies", "icc"]);
 const FAILURE_CODES = new Map([
@@ -266,9 +266,9 @@ export class CricketFixtureRegistry {
     // Separate durable state and clock: a CA failure cannot erase/renew ICC or
     // CPL, and an ICC backoff must not suppress the domestic source's refresh.
     if (this.env.CRICKET_WBBL_ENABLED === "true") {
-      const previousCA = await this.state.storage.get(CA_STATE_KEY);
+      const previousCA = await this.state.storage.get(CA_STORAGE_ENTRY);
       const nextCA = await refreshCACricket(previousCA, now, this.options.collectCA);
-      if (nextCA !== previousCA) await this.state.storage.put(CA_STATE_KEY, nextCA);
+      if (nextCA !== previousCA) await this.state.storage.put(CA_STORAGE_ENTRY, nextCA);
     }
     const previous = await this.state.storage.get(STATE_KEY);
     if (previous && Date.parse(previous.nextAttemptAt) > now.getTime()) return previous;
@@ -294,7 +294,7 @@ export class CricketFixtureRegistry {
     let current = await this.state.storage.get(STATE_KEY);
     if (!current) current = await this.enqueue(() => this.refresh());
     else if (Date.parse(current.nextAttemptAt) <= Date.now()) this.state.waitUntil(this.enqueue(() => this.refresh()));
-    const domestic = this.env.CRICKET_WBBL_ENABLED === "true" ? await this.state.storage.get(CA_STATE_KEY) : undefined;
+    const domestic = this.env.CRICKET_WBBL_ENABLED === "true" ? await this.state.storage.get(CA_STORAGE_ENTRY) : undefined;
     if (!current?.snapshot && domestic?.status !== "covered") return Response.json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable",
       sync: { consecutiveFailures: current?.consecutiveFailures || 0, cohorts: current?.cohorts,
         ...(current?.failure ? { failure: current.failure } : {}), lastAttemptAt: current?.lastAttemptAt } }, { status: 503 });
