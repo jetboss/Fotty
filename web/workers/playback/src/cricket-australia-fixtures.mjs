@@ -71,7 +71,9 @@ export function normalizeCACricket(payload, headers, now) {
 export async function collectCACricket(now, fetchImpl = fetch) {
   const url = caCricketURL(now), deadline = coachDeadline(undefined, 8000);
   try {
-    const response = await abortable(() => fetchImpl(url, { redirect: "error", signal: deadline.signal,
+    // workerd rejects redirect:"error" before any request. Manual exposes 3xx
+    // to the non-OK check below, preserving the no-redirect contract.
+    const response = await abortable(() => fetchImpl(url, { redirect: "manual", signal: deadline.signal,
       headers: { Accept: "application/json" }, cf: { cacheEverything: true, cacheTtl: 60 } }), deadline.signal);
     if (!response.ok) return fail("upstream-unavailable");
     return normalizeCACricket(await boundedJSON(response, 256 * 1024, deadline.signal), response.headers, now);
