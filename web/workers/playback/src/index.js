@@ -187,7 +187,8 @@ export class BroadcastRegistry extends BaseBroadcastRegistry {
   constructor(state, env) {
     super(state, env, { providers: enabledBroadcastProviders(env),
       enabled: () => broadcastRegistryEnabled(env),
-      collect: (providerCode, options) => collectBroadcastSource(providerCode, options),
+      collect: (providerCode, options) => collectBroadcastSource(providerCode, { ...options,
+        foxProgrammes: env.FOTTY_FOX_PROGRAMMES_ENABLED === "1" }),
       loadFixtures: () => loadBroadcastRegistryFixtures(env, { includeAmbiguity: true }) });
   }
 }
@@ -201,11 +202,12 @@ const REVIEWED_TV_CAPABILITY = "reviewedtv-programme-v1";
 const BROADCAST_ASSIGNMENT_HEADER = "X-Fotty-Broadcast-Assignments";
 const TV_GUIDE_HEADER = "X-Fotty-TV-Guide";
 const CRICKET_MATCHING_HEADER = "X-Fotty-Cricket-Matching";
+const FOX_PROGRAMMES_HEADER = "X-Fotty-Fox-Programmes";
 const REVIEWED_TV_ASSIGNMENT_CAPABILITY = "reviewedtv-programme-v2";
 const BROADCAST_SNAPSHOT_MAX_BYTES = 4 * 1024 * 1024;
 function broadcastRegistryHeaders(extra = {}) {
-  const headers = corsHeaders({ Vary: BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER + ", " + TV_GUIDE_HEADER + ", " + CRICKET_MATCHING_HEADER, ...extra });
-  headers["Access-Control-Allow-Headers"] += ", " + BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER + ", " + TV_GUIDE_HEADER + ", " + CRICKET_MATCHING_HEADER;
+  const headers = corsHeaders({ Vary: BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER + ", " + TV_GUIDE_HEADER + ", " + CRICKET_MATCHING_HEADER + ", " + FOX_PROGRAMMES_HEADER, ...extra });
+  headers["Access-Control-Allow-Headers"] += ", " + BROADCAST_CAPABILITY_HEADER + ", " + BROADCAST_ASSIGNMENT_HEADER + ", " + TV_GUIDE_HEADER + ", " + CRICKET_MATCHING_HEADER + ", " + FOX_PROGRAMMES_HEADER;
   return headers;
 }
 async function handleBroadcastRegistry(request, url, env) {
@@ -263,6 +265,20 @@ async function handleBroadcastRegistry(request, url, env) {
         revision: await broadcastRegistryHash([projected.revision, "legacy-cricket-clock-v1"]),
         broadcasts: projected.broadcasts.filter((b) => !removed.has(b.id)),
         links: projected.links.filter((l) => !removed.has(l.broadcastID) && l.matchMethod !== "current-event") };
+    }
+    // Existing clients may still tune Fox as a channel, but cannot interpret
+    // the AU market proof or guide-only programme namespace. Do not poison
+    // their complete snapshot or silently make the guide a TV delivery.
+    if (!assignments || request.headers.get(FOX_PROGRAMMES_HEADER) !== "fox-cricket-v1") {
+      const removed = new Set(projected.broadcasts.filter((row) => row.providerCode === "reviewedtv"
+        && row.channelID === "cricket-channel:fox-cricket").map((row) => row.id));
+      const hasMarket = projected.broadcasts.some((row) => row.stationMarket === "AU" && row.channelID === "cricket-channel:fox-cricket");
+      if (removed.size || hasMarket) projected = { ...projected,
+        revision: await broadcastRegistryHash([projected.revision, "legacy-fox-station-v1"]),
+        broadcasts: projected.broadcasts.filter((row) => !removed.has(row.id)).map((row) => {
+          if (row.stationMarket !== "AU" || row.channelID !== "cricket-channel:fox-cricket") return row;
+          const { stationMarket: _market, ...channel } = row; return channel;
+        }), links: projected.links.filter((row) => !removed.has(row.broadcastID)) };
     }
     const body = JSON.stringify(projected);
     if (new TextEncoder().encode(body).length > BROADCAST_SNAPSHOT_MAX_BYTES) throw new Error("Registry projection exceeds bound");

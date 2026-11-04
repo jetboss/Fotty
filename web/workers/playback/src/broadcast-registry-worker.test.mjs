@@ -8,6 +8,30 @@ import { refreshSportsSource } from "./sports-fixture-registry.mjs";
 import { normalizeBroadcastCollection, associateBroadcasts, broadcastRegistryHash } from "./broadcast-registry-policy.mjs";
 
 const origin = "https://test.invalid", route = "/api/live/broadcasts";
+
+test("Fox capable clients receive guide and AU proof while older clients retain only the unchanged channel", async () => {
+  const channel = { id: "br:fox-channel", providerCode: "communitysports", scope: "networks", kind: "channel",
+    channelID: "cricket-channel:fox-cricket", stationMarket: "AU", observedAt: "2026-11-05T04:50:00.000Z" };
+  const guide = { id: "br:fox-guide", providerCode: "reviewedtv", scope: "cricket", kind: "programme", channelID: channel.channelID };
+  const snapshot = { schemaVersion: 1, revision: "fox-test", generatedAt: channel.observedAt,
+    providers: [{ providerCode: "communitysports", scope: "networks" }, { providerCode: "reviewedtv", scope: "cricket" }],
+    broadcasts: [channel, guide], links: [{ broadcastID: guide.id, providerCode: "reviewedtv", matchMethod: "programme" }] };
+  const headers = { "X-Fotty-Broadcast-Capabilities": "reviewedtv-programme-v1", "X-Fotty-Broadcast-Assignments": "reviewedtv-programme-v2" };
+  await withoutOutbound(async () => {
+    for (const extra of [{}, { "X-Fotty-Fox-Programmes": "unknown" }]) {
+      const response = await worker.fetch(new Request(origin + route, { headers: { ...headers, ...extra } }), envFor(binding(snapshot)));
+      assert.equal(response.status, 200); const old = await response.json();
+      assert.equal(old.broadcasts.length, 1); assert.equal(old.broadcasts[0].id, channel.id);
+      assert.equal(old.broadcasts[0].observedAt, channel.observedAt); assert.equal(old.broadcasts[0].stationMarket, undefined);
+      assert.equal(old.links.length, 0); assert.notEqual(old.revision, snapshot.revision);
+    }
+    const response = await worker.fetch(new Request(origin + route, { headers: { ...headers, "X-Fotty-Fox-Programmes": "fox-cricket-v1" } }), envFor(binding(snapshot)));
+    const current = await response.json(); assert.equal(current.broadcasts.length, 2);
+    assert.equal(current.broadcasts[0].stationMarket, "AU"); assert.equal(current.links.length, 1);
+    assert.ok(response.headers.get("Vary").includes("X-Fotty-Fox-Programmes"));
+  });
+  assert.equal(snapshot.broadcasts[0].stationMarket, "AU", "A legacy response cannot mutate durable source proof");
+});
 function binding(reply = { schemaVersion: 1, revision: "accepted", generatedAt: new Date().toISOString(), providers: [], broadcasts: [], links: [] }, status = 200) {
   const calls = [];
   return { calls, idFromName(name) { assert.equal(name, "shared-broadcast-registry-v1"); return name; },
@@ -64,7 +88,7 @@ test("registry defaults to the fixed seven-provider compatibility view and only 
       { providerCode: "reviewedtv", fixtureID: "fixture", broadcastID: "br:programme", expiresAt: expiry }] };
   const stub = binding(snapshot), env = envFor(stub), header = "X-Fotty-Broadcast-Capabilities";
   const legacyResponse = await worker.fetch(new Request(origin + route), env), legacy = await legacyResponse.json();
-  assert.equal(legacyResponse.status, 200); assert.equal(legacyResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments, X-Fotty-TV-Guide, X-Fotty-Cricket-Matching");
+  assert.equal(legacyResponse.status, 200); assert.equal(legacyResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments, X-Fotty-TV-Guide, X-Fotty-Cricket-Matching, X-Fotty-Fox-Programmes");
   assert.deepEqual(legacy.providers.map((p) => p.providerCode), oldCodes, "An old strict provider enum never sees the eighth provider");
   assert.deepEqual(legacy.broadcasts, [snapshot.broadcasts[0]]); assert.deepEqual(legacy.links, [snapshot.links[0]]);
   assert.equal(legacy.generatedAt, snapshot.generatedAt); assert.equal(legacy.links[0].expiresAt, expiry);
@@ -72,7 +96,7 @@ test("registry defaults to the fixed seven-provider compatibility view and only 
   assert.equal(legacy.revision, await broadcastRegistryHash([snapshot.revision, "legacy-seven-provider-v1"]));
   assert.notEqual(legacy.revision, snapshot.revision);
   const capableResponse = await worker.fetch(new Request(origin + route, { headers: { [header]: "reviewedtv-programme-v1" } }), env);
-  assert.equal(capableResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments, X-Fotty-TV-Guide, X-Fotty-Cricket-Matching"); assert.deepEqual(await capableResponse.json(), snapshot);
+  assert.equal(capableResponse.headers.get("Vary"), header + ", X-Fotty-Broadcast-Assignments, X-Fotty-TV-Guide, X-Fotty-Cricket-Matching, X-Fotty-Fox-Programmes"); assert.deepEqual(await capableResponse.json(), snapshot);
   for (const value of ["reviewedtv-programme-v1,other", "REVIEWEDTV-PROGRAMME-V1", "communitysports"]) {
     const response = await worker.fetch(new Request(origin + route, { headers: { [header]: value } }), env);
     assert.deepEqual(await response.json(), legacy, "Unrecognized capability values select the same fixed legacy profile");
@@ -118,7 +142,7 @@ test("dual-header reviewed assignment negotiation preserves old Willow clients a
       { providerCode: "reviewedtv", broadcastID: "br:football", matchMethod: "channel-assignment", startRelation: "channel-coverage" }] };
   const stub = binding(snapshot), env = envFor(stub);
   const read = async (headers) => { const response = await worker.fetch(new Request(origin + route, { headers }), env);
-    assert.equal(response.status, 200); assert.equal(response.headers.get("Vary"), primary + ", " + secondary + ", X-Fotty-TV-Guide, X-Fotty-Cricket-Matching"); return response.json(); };
+    assert.equal(response.status, 200); assert.equal(response.headers.get("Vary"), primary + ", " + secondary + ", X-Fotty-TV-Guide, X-Fotty-Cricket-Matching, X-Fotty-Fox-Programmes"); return response.json(); };
   const legacy = await read({});
   assert.deepEqual(legacy.providers.map((p) => p.providerCode), ["communitysports"]); assert.equal(legacy.broadcasts.length, 1);
   const v1 = await read({ [primary]: "reviewedtv-programme-v1" });
@@ -182,7 +206,7 @@ test("current cricket clock capability preserves old clients while retaining ind
   const read = async (headers) => {
     const response = await worker.fetch(new Request(origin + route, { headers }), env);
     assert.equal(response.status, 200, "An unfamiliar cricket association must not invalidate unrelated catalogue rows");
-    assert.equal(response.headers.get("Vary"), primary + ", " + secondary + ", X-Fotty-TV-Guide, " + cricket);
+    assert.equal(response.headers.get("Vary"), primary + ", " + secondary + ", X-Fotty-TV-Guide, " + cricket + ", X-Fotty-Fox-Programmes");
     return response.json();
   };
   const old = await read(previous);

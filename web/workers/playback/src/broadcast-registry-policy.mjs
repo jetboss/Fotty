@@ -1,6 +1,7 @@
 // Shared, metadata-only broadcast association. This module performs no I/O,
 // selects no upstream and never carries media locations or credentials.
 import { canonicalFootballClubId } from "../../../src/lib/football-competition-catalog.generated.ts";
+import { isFoxCricketProgramme } from "./fox-cricket-programmes.mjs";
 export const BROADCAST_REGISTRY_SCHEMA = 1;
 export const BROADCAST_REGISTRY_LIMITS = Object.freeze({ collectionRecords: 1500, collectionBytes: 1024 * 1024,
   records: 4000, links: 4000, snapshotBytes: 4 * 1024 * 1024, sourceLifetime: 4 * 60 * 60_000,
@@ -12,6 +13,42 @@ const providers = new Set(BROADCAST_PROVIDER_CODES), scopes = new Set(BROADCAST_
 const kinds = new Set(["event", "channel", "programme"]), formats = new Set(["Test", "T20", "ODI", "T10"]);
 const channels = new Set(["cricket-channel:willow", "cricket-channel:fox-cricket"]);
 const reviewedTVFootballCompetitions = new Set(["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"]);
+
+// Only operator-reviewed use decisions may populate this table. Scraped
+// catalog/EPG fields, opt-ins and edition markets cannot confer rights.
+const reviewedTVEventAccess = new Map();
+export function isReviewedCricketChannelMarket(row, providerCode = row?.providerCode) {
+  return providerCode === "communitysports" && row?.kind === "channel" && row.sport === "cricket"
+    && ["networks", "cricket", "live"].includes(row.scope)
+    && (row.stationMarket === "US" && row.channelID === "cricket-channel:willow"
+      || row.stationMarket === "AU" && row.channelID === "cricket-channel:fox-cricket");
+}
+function programmeAccess(row, fixture, policies) {
+  const policy = policies.get(JSON.stringify([row.channelID, fixture.fixtureID]));
+  if (!policy) {
+    // Reviewed programme contracts establish matching metadata, not a new
+    // worldwide entitlement claim. Explicit restrictions above always win.
+    // Unreviewed editions/sports remain unknown rather than inheriting these.
+    const legacyWillow = row.kind === "programme" && row.channelID === "cricket-channel:willow" && row.sport === "cricket";
+    const legacyESPN = row.stationMarket === "UY" && /^sports-channel:espn(?:[2-7])?-latinamerica-south$/u.test(row.channelID ?? "")
+      && (row.sport === "football" && ["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"].includes(row.competitionID)
+        || row.sport === "baseball" && row.competitionID === "mlb" || row.sport === "hockey" && row.competitionID === "nhl");
+    if (legacyWillow || legacyESPN || isFoxCricketProgramme(row)) return undefined;
+  }
+  const entitlement = ["cleared", "denied", "blackout"].includes(policy?.entitlement) ? policy.entitlement : "unknown";
+  const use = ["event-playback", "station-only"].includes(policy?.use) ? policy.use : "unknown";
+  const territory = ["worldwide", "restricted"].includes(policy?.territory) ? policy.territory : "unknown";
+  const end = stamp(policy?.expiresAt);
+  return { entitlement, use, territory,
+    ...(typeof policy?.reviewID === "string" && /^[A-Za-z0-9_.:-]{1,128}$/u.test(policy.reviewID)
+      ? { reviewID: policy.reviewID } : {}), ...(end === null ? {} : { expiresAt: iso(end) }) };
+}
+
+function permitsEventUse(access, at) {
+  // The shared response has no verified viewer location or subscription.
+  return !access || access.use === "event-playback" && access.entitlement === "cleared" && access.territory === "worldwide"
+    && Boolean(access.reviewID) && Date.parse(access.expiresAt) > at;
+}
 export function isReviewedTVFootballAssignment(row, providerCode = row?.providerCode) {
   const match = /^sports-channel:(espn(?:[2-7])?-latinamerica-south)$/u.exec(row?.channelID ?? "");
   return providerCode === "reviewedtv" && row?.scope === "football" && row.sport === "football" && row.kind === "event"
@@ -138,7 +175,7 @@ export async function normalizeBroadcastCollection(providerCode, input, at = new
       || ![...BROADCAST_SCOPES.filter((s) => !["live", "networks"].includes(s)), "unknown"].includes(row.sport)
       || !Array.isArray(row.participants) || row.participants.length > 2 || row.participants.some((p) => !text(p, 256))) throw new Error("invalid-collection");
     const reviewedAssignment = isReviewedTVFootballAssignment(row, providerCode);
-    if (providerCode === "reviewedtv" && !reviewedAssignment && (row.scope !== "cricket" || row.sport !== "cricket" || row.kind !== "programme"
+    if (providerCode === "reviewedtv" && !reviewedAssignment && !isFoxCricketProgramme(row, providerCode) && (row.scope !== "cricket" || row.sport !== "cricket" || row.kind !== "programme"
       || row.channelID !== "cricket-channel:willow" || row.streamID !== "reviewed-tv:willow-main"
       || !/^reviewed-tv:programme:[a-f0-9]{64}$/u.test(row.providerEventID))) throw new Error("invalid-collection");
     const receipt = stamp(row.observedAt ?? input.observedAt), expiry = stamp(row.expiresAt);
@@ -188,8 +225,7 @@ export async function normalizeBroadcastCollection(providerCode, input, at = new
       else record.channelID = row.channelID;
     }
     if (row.stationMarket !== undefined) {
-      if (!reviewedAssignment && (row.stationMarket !== "US" || providerCode !== "communitysports" || row.kind !== "channel"
-        || !["networks", "cricket", "live"].includes(row.scope) || row.sport !== "cricket" || row.channelID !== "cricket-channel:willow")) throw new Error("invalid-collection");
+      if (!reviewedAssignment && !isReviewedCricketChannelMarket(row, providerCode)) throw new Error("invalid-collection");
       record.stationMarket = row.stationMarket;
     }
     if (row.kind === "channel" && (!record.channelID || row.participants.length || record.start || record.end)) {
@@ -242,7 +278,8 @@ export function normalizeRegistryFixtures(rows, at = new Date()) {
   return result;
 }
 
-export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, broadcasts, providers: coverage = [], now = new Date() }) {
+export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, broadcasts, providers: coverage = [],
+  programmePolicies = reviewedTVEventAccess, now = new Date() }) {
   const time = Number(now), admitted = normalizeRegistryFixtures(fixtures, now), links = [];
   if (!Array.isArray(broadcasts) || broadcasts.length > BROADCAST_REGISTRY_LIMITS.records) throw new Error("capacity-exceeded");
   if (!Array.isArray(ambiguityFixtures) || ambiguityFixtures.length > 3000) throw new Error("invalid-fixtures");
@@ -313,8 +350,9 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
           || !limitedOversRelation(fixture, time)) fail("needsVerification", "unverified-fixture");
       } else if (broadcast.kind === "programme" && ["ODI", "T20"].includes(fixture.format)) {
         if (!limitedOversRelation(fixture, Date.parse(broadcast.start))) fail("conflicting", "time-conflict");
-        const reviewedDomestic = broadcast.providerCode === "reviewedtv" && broadcast.channelID === "cricket-channel:willow"
-          && broadcast.streamID === "reviewed-tv:willow-main" && /^reviewed-tv:programme:[a-f0-9]{64}$/u.test(broadcast.providerEventID)
+        const reviewedDomestic = (isFoxCricketProgramme(broadcast)
+          || broadcast.providerCode === "reviewedtv" && broadcast.channelID === "cricket-channel:willow"
+          && broadcast.streamID === "reviewed-tv:willow-main" && /^reviewed-tv:programme:[a-f0-9]{64}$/u.test(broadcast.providerEventID))
           && broadcast.competitionID === "wbbl" && fixture.competitionID === "wbbl"
           && /^cricket-fixture:ca:\d+$/u.test(fixture.fixtureID) && fixture.format === "T20"
           && broadcast.squad?.gender === "women" && broadcast.squad?.ageGroup === "senior"
@@ -358,10 +396,17 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
         || Date.parse(broadcast.end) <= time || Date.parse(broadcast.start) > time)) fail("needsVerification", "missing-programme");
       const fixtureLifetime = currentListing || broadcast.kind === "programme" || fixture.format === "Test" && broadcast.day !== undefined
         ? 10 * minute : fixture.status === "scheduled" && Date.parse(fixture.start) >= time ? day : 30 * minute;
+      const access = broadcast.providerCode === "reviewedtv" ? programmeAccess(broadcast, fixture, programmePolicies) : undefined;
+      if (!permitsEventUse(access, time)) fail("needsVerification", "unsupported-scope");
       const expiry = Math.min(Date.parse(broadcast.expiresAt), Date.parse(fixture.observedAt) + fixtureLifetime,
-        broadcast.kind === "programme" && broadcast.end ? Date.parse(broadcast.end) : Infinity);
+        broadcast.kind === "programme" && broadcast.end ? Date.parse(broadcast.end) : Infinity,
+        state === "listed" && access?.expiresAt ? Date.parse(access.expiresAt) : Infinity);
+      // A channel assignment describes station coverage even when its receipt
+      // is stale or conflicting. Clients use state and expiry for admission.
+      const publicRelation = assignment || state === "listed" ? startRelation : undefined;
       links.push({ fixtureID: fixture.fixtureID, broadcastID: broadcast.id, providerCode: broadcast.providerCode,
-        state, matchMethod: method, fixtureFingerprint: fingerprint, expiresAt: iso(expiry), ...(startRelation && state === "listed" ? { startRelation } : {}), ...(reason ? { reason } : {}) });
+        state, matchMethod: method, fixtureFingerprint: fingerprint, expiresAt: iso(expiry),
+        ...(publicRelation ? { startRelation: publicRelation } : {}), ...(reason ? { reason } : {}), ...(access ? { access } : {}) });
       if (links.length > BROADCAST_REGISTRY_LIMITS.links) throw new Error("capacity-exceeded");
     }
   }
