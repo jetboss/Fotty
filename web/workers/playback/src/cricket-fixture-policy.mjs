@@ -45,11 +45,23 @@ export function iccSourceTime(text) {
   return utcParts(Number(parts[3]), Number(parts[1]), Number(parts[2]), hour, Number(parts[5]), Number(parts[6]));
 }
 
-function startTime(row) {
-  const parts = String(row.match_date_gmt).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  const time = String(row.match_time_gmt).match(/^(\d{2}):(\d{2})$/);
+function sourceDateTime(date, clock) {
+  const parts = String(date).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const time = String(clock).match(/^(\d{2}):(\d{2})$/);
   if (!parts || !time) throw new Error("Invalid ICC kickoff");
   return utcParts(Number(parts[3]), Number(parts[1]), Number(parts[2]), Number(time[1]), Number(time[2]));
+}
+
+function startTime(row) { return sourceDateTime(row.match_date_gmt, row.match_time_gmt); }
+
+// ICC's date filter includes multi-day Tests whose published interval overlaps
+// the requested window. Keep their original kickoff (and terminal updates),
+// rather than rejecting unrelated current fixtures or moving the Test's date.
+function overlapsRequestedWindow(row, start, window) {
+  if (start >= window.from && start < window.to) return true;
+  if (start >= window.to || !/^(?:Youth\s+)?Test$/i.test(String(row.match_type))) return false;
+  const end = sourceDateTime(row.end_match_date_gmt, row.end_match_time_gmt);
+  return end > start && end - start <= 6 * DAY && end >= window.from;
 }
 
 function safeLabel(value) {
@@ -121,7 +133,7 @@ export function normalizeICC(pages, now) {
       continue;
     }
     const start = startTime(row);
-    if (start < window.from || start >= window.to) throw new Error("ICC fixture outside requested window");
+    if (!overlapsRequestedWindow(row, start, window)) throw new Error("ICC fixture outside requested window");
     const home = normalizedTeam(row, "a");
     const away = normalizedTeam(row, "b");
     if (home.id === away.id || /^(tbc|tbd|to be confirmed|winner\b|loser\b)/i.test(home.name)

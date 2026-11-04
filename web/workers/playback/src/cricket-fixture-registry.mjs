@@ -24,6 +24,9 @@ const FAILURE_CODES = new Map([
   ["ICC terminal-status regression", "terminal-rollback"],
   ["ICC live-status regression", "live-rollback"],
   ["ICC receipt regressed", "receipt-regressed"],
+  ["ICC fixture outside requested window", "source-window-conflict"],
+  ["Invalid ICC kickoff", "source-date-invalid"],
+  ["Invalid ICC date", "source-date-invalid"],
   ["Aggregate ICC fixture limit exceeded", "source-incomplete"],
 ]);
 
