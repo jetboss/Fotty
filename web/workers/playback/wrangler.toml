@@ -45,6 +45,8 @@ FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED = "0"
 # Cloudflare receives HTML rather than the canonical WNBA schedule JSON.
 # Keep this source deferred until edge access is verified; do not widen admission.
 FOTTY_SPORTS_WNBA_ENABLED = "0"
+# Reviewed WBBL cohort; one bounded request per due window (at most every 5 minutes).
+CRICKET_WBBL_ENABLED = "true"
 # Owner-approved 30 October: seven source families plus fixed reviewed Willow programme metadata.
 # Reviewed programme metadata reserves at most576 actual HTML reads/day, covering
 # the UTC/selected-guide-date edge with at most2 reads per5-minute active cycle.

@@ -4,8 +4,10 @@ import { admitICCIsolated, CRICKET_COMPETITIONS, iccScheduleURL, nextCricketRefr
 import cplFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
 import { validateCPLManifest } from "./cpl-fixture-policy.mjs";
 import { boundedCricketContexts } from "./cricket-context-policy.mjs";
+import { appendCACricket, refreshCACricket } from "./cricket-australia-fixtures.mjs";
 
 const STATE_KEY = "cricket-registry-v1";
+const CA_STORAGE_ENTRY = "cricket-australia-wbbl-v1";
 const MINUTE = 60_000;
 const ICC_COHORTS = Object.freeze(["west-indies", "icc"]);
 const FAILURE_CODES = new Map([
@@ -261,6 +263,13 @@ export class CricketFixtureRegistry {
 
   async refresh() {
     const now = new Date();
+    // Separate durable state and clock: a CA failure cannot erase/renew ICC or
+    // CPL, and an ICC backoff must not suppress the domestic source's refresh.
+    if (this.env.CRICKET_WBBL_ENABLED === "true") {
+      const previousCA = await this.state.storage.get(CA_STORAGE_ENTRY);
+      const nextCA = await refreshCACricket(previousCA, now, this.options.collectCA);
+      if (nextCA !== previousCA) await this.state.storage.put(CA_STORAGE_ENTRY, nextCA);
+    }
     const previous = await this.state.storage.get(STATE_KEY);
     if (previous && Date.parse(previous.nextAttemptAt) > now.getTime()) return previous;
     const next = await refreshCricketState(previous, now, this.options.collectICC || collectICC, this.options.collectCPL);
@@ -285,11 +294,19 @@ export class CricketFixtureRegistry {
     let current = await this.state.storage.get(STATE_KEY);
     if (!current) current = await this.enqueue(() => this.refresh());
     else if (Date.parse(current.nextAttemptAt) <= Date.now()) this.state.waitUntil(this.enqueue(() => this.refresh()));
-    if (!current?.snapshot) return Response.json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable",
+    const domestic = this.env.CRICKET_WBBL_ENABLED === "true" ? await this.state.storage.get(CA_STORAGE_ENTRY) : undefined;
+    if (!current?.snapshot && domestic?.status !== "covered") return Response.json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable",
       sync: { consecutiveFailures: current?.consecutiveFailures || 0, cohorts: current?.cohorts,
         ...(current?.failure ? { failure: current.failure } : {}), lastAttemptAt: current?.lastAttemptAt } }, { status: 503 });
-    // Context is additive on schema1; an old/malformed cached context cannot
-    // erase accepted fixture facts or bypass the bounded public projection.
-    return Response.json(boundedCricketContexts(current.snapshot));
+    // Optional context remains additive on the schema1 route. Older clients
+    // ignore the new fixture key; the original fixture count/receipts survive.
+    if (this.env.CRICKET_WBBL_ENABLED === "true" && (!domestic || Date.parse(domestic.nextAttemptAt) <= Date.now()))
+      this.state.waitUntil(this.enqueue(() => this.refresh()));
+    const base = current.snapshot ?? { schemaVersion: 1, complete: true, sourceStatus: "unavailable",
+      checkedAt: current.lastAttemptAt, revision: "cricket-base-unavailable", fixtures: [],
+      coverage: CRICKET_COMPETITIONS.map(({ id, name }) => ({ competitionId: id, competitionName: name,
+        checkedAt: "1970-01-01T00:00:00.000Z", status: "unavailable", fixtureCount: 0, expectedFixtureCount: 0 })),
+      sync: { consecutiveFailures: current.consecutiveFailures, lastAttemptAt: current.lastAttemptAt } };
+    return Response.json(boundedCricketContexts(appendCACricket(base, domestic)));
   }
 }

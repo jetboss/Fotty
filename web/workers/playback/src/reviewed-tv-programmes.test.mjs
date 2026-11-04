@@ -11,6 +11,20 @@ const row = (changes = {}) => `<div ${attributes({ "data-callsign": "Willow", "d
 const page = (rows = row(), zone = "America/Port_of_Spain", heading = "TV Schedule for Willow Cricket") => `<h1>${heading}</h1>
   <select id="timezone_selector"><option value="America/New_York">Eastern</option><option value="${zone}" selected>Selected</option></select>${rows}`;
 
+test("explicit WBBL programme preserves women/competition identity without inventing an ordinal", async () => {
+  const changes = { "data-showname": "Women's Big Bash League Cricket", "data-episodetitle": "Hobart Hurricanes vs. Melbourne Renegades",
+    "data-description": "From Ninja Stadium in Hobart, Tasmania, Australia." };
+  const result = await parse(page(row(changes)), { now });
+  assert.equal(result.broadcasts.length, 1);
+  assert.deepEqual(result.broadcasts[0].participants, ["Hobart Hurricanes Women", "Melbourne Renegades Women"]);
+  assert.equal(result.broadcasts[0].competitionID, "wbbl"); assert.equal(result.broadcasts[0].matchOrdinal, undefined);
+  assert.equal(result.broadcasts[0].squad.gender, "women");
+  for (const bad of [{ "data-live": "0" }, { "data-repeat": "1" }, { "data-showname": "Cricket Review" },
+    { "data-description": "Highlights" }, { "data-episodetitle": "India vs. Australia" },
+    { "data-episodetitle": "Hobart Hurricanes U19 vs. Melbourne Renegades" }])
+    assert.equal((await parse(page(row({ ...changes, ...bad })), { now })).broadcasts.length, 0);
+});
+
 test("fixed URL is the reviewed main station and uses an explicit UTC calendar date", () => {
   assert.equal(reviewedTVProgrammeURL(new Date("2026-10-31T01:00:00Z")), "https://www.tvpassport.com/tv-listings/stations/willow-cricket/15964/2026-10-31");
   for (const value of ["2026-10-30", new Date("invalid"), new Date("1999-12-31T00:00:00Z")]) assert.throws(() => reviewedTVProgrammeURL(value), /invalid-collection/u);

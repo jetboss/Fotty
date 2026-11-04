@@ -176,6 +176,7 @@ function interval(row, formatter) {
 // Preview/Review shows. A format is never inferred from the station or teams.
 const cricketShows = new Map([
   ["Test Cricket", "Test"], ["T20 Cricket", "T20"], ["One-Day International Cricket", "ODI"],
+  ["Women's Big Bash League Cricket", "T20"],
 ]);
 function cricketIdentity(row) {
   const disallowed = /\b(?:review|highlights?|preview|replay|repeat|rerun|recorded|delayed)\b/iu;
@@ -184,6 +185,18 @@ function cricketIdentity(row) {
     || row["data-repeat"] && !["0", "false"].includes(row["data-repeat"].toLowerCase())
     || [row["data-showname"], row["data-episodetitle"], row["data-description"]].some((v) => typeof v === "string" && disallowed.test(v))) return null;
   const description = row["data-description"];
+  if (row["data-showname"] === "Women's Big Bash League Cricket") {
+    // The original programme names the women's competition, but does not
+    // publish an ordinal. Preserve that absence; the official WBBL fixture
+    // supplies occurrence authority. Do not borrow a number from Review shows.
+    if (!safeText(row["data-episodetitle"], 512)) return null;
+    const clubs = new Set(["Adelaide Strikers", "Brisbane Heat", "Hobart Hurricanes", "Melbourne Renegades",
+      "Melbourne Stars", "Perth Scorchers", "Sydney Sixers", "Sydney Thunder"]);
+    const teams = row["data-episodetitle"].split(/\s+(?:vs\.?|v\.?|versus)\s+/iu);
+    if (teams.length !== 2 || teams[0] === teams[1] || teams.some((v) => !clubs.has(v))) return null;
+    return { participants: teams.map((v) => v + " Women"), format, competitionID: "wbbl",
+      squad: { gender: "women", ageGroup: "senior" } };
+  }
   const pattern = format === "Test" ? /^([1-9]\d?)(st|nd|rd|th) Test, Day ([1-6])\.$/u
     : format === "T20" ? /^([1-9]\d?)(st|nd|rd|th) T20I?\.$/u
       : /^([1-9]\d?)(st|nd|rd|th) ODI\.$/u;
