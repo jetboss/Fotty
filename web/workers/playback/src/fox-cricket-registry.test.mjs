@@ -113,7 +113,7 @@ test("a verified timezone hint fits Willow, Fox and ESPN into three reads withou
     const result = await collectBroadcastSource("reviewedtv", { now: edge, foxProgrammes: true, programmeContext,
       fixtures: [{ sport: "football", competitionID: "premier-league", verified: true }],
       reserveRequest: async () => ++reservations <= 3, fetcher: async (url) => {
-        const u = new URL(url); paths.push(u.hostname + u.pathname);
+        const u = new URL(url); paths.push({ host: u.hostname, path: u.pathname });
         if (u.hostname === "www.tvpassport.com") return html(markup);
         if (u.hostname === "www.foxtel.com.au") return html(fox());
         return new Response(null, { status: 503 }); // Independent ESPN failure still spends its existing slot.
@@ -122,19 +122,19 @@ test("a verified timezone hint fits Willow, Fox and ESPN into three reads withou
   };
   const cold = await run();
   assert.equal(cold.reservations, 3); assert.equal(cold.paths.length, 3);
-  assert.ok(!cold.paths.some((p) => p.startsWith("www.foxtel.com.au")));
+  assert.ok(!cold.paths.some((p) => p.host === "www.foxtel.com.au"));
   assert.equal(cold.result.programmeContext.willowGuideTimeZone, "America/Port_of_Spain");
   assert.equal(cold.result.scopes[0].status, "partial");
   const warm = await run(cold.result.programmeContext);
   assert.equal(warm.reservations, 3); assert.equal(warm.paths.length, 3);
-  assert.equal(warm.paths.filter((p) => p.startsWith("www.tvpassport.com")).length, 1);
-  assert.ok(warm.paths[0].endsWith("2026-11-04")); assert.ok(warm.paths.some((p) => p.startsWith("www.foxtel.com.au")));
+  assert.equal(warm.paths.filter((p) => p.host === "www.tvpassport.com").length, 1);
+  assert.ok(warm.paths[0].path.endsWith("2026-11-04")); assert.ok(warm.paths.some((p) => p.host === "www.foxtel.com.au"));
   for (const context of [{ ...cold.result.programmeContext, observedAt: "2026-11-04T00:00:00Z" },
     { ...cold.result.programmeContext, willowGuideTimeZone: "Europe/London" },
     { ...cold.result.programmeContext, willowGuideTimeZone: "Invalid/Timezone" }]) {
     const checked = await run(context);
     assert.equal(checked.reservations, 3);
-    assert.equal(checked.paths.filter((p) => p.startsWith("www.tvpassport.com")).length, 2);
+    assert.equal(checked.paths.filter((p) => p.host === "www.tvpassport.com").length, 2);
     assert.equal(checked.result.programmeContext.willowGuideTimeZone, "America/Port_of_Spain", "The freshly fetched selector outranks the hint");
   }
 });
