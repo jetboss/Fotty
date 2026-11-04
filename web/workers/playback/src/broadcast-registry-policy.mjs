@@ -303,6 +303,8 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
       if (broadcast.competitionID && fixture.competitionID && broadcast.competitionID !== fixture.competitionID) fail("conflicting", "competition-conflict");
       if (broadcast.squad && fixture.squad && !same(broadcast.squad, fixture.squad)) fail("conflicting", "squad-conflict");
       if (fixture.sport === "cricket") {
+        // An explicitly identified series match must never attach to another ordinal.
+        if (fixture.matchOrdinal && broadcast.matchOrdinal && fixture.matchOrdinal !== broadcast.matchOrdinal) fail("conflicting", "ordinal-conflict");
         if ((!currentListing && !broadcast.format) || !fixture.format) fail("needsVerification", "format-conflict");
         else if (!currentListing && broadcast.format !== fixture.format) fail("conflicting", "format-conflict");
       }
