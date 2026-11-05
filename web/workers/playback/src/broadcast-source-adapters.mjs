@@ -22,7 +22,7 @@ const sport = (v) => ({ soccer: "football", football: "football", cricket: "cric
   motorsport: "motorsport", golf: "golf", tennis: "tennis", darts: "darts", college: "college", other: "other" })[String(v).toLowerCase()] ?? "unknown";
 const CS_SCOPES = Object.freeze(["football", "cricket", "basketball", "baseball", "hockey", "american-football", "rugby", "fight", "motorsport", "golf", "tennis", "darts", "college", "other"]);
 const CS_SUFFIX = (s) => s === "american-football" ? "american_football" : s === "fight" ? "mma" : s;
-const ORIGINS = Object.freeze({ communitysports: "https://nuviosports.xyz", plaviosports: "https://hd.plavio.site",
+const ORIGINS = Object.freeze({ communitysports: "https://nuviosports.xyz", plaviosports: "https://addon.plavio.site",
   cncsports: "https://cncverse.dpdns.org", flixstreams: "https://free.flixnest.app", streamvix: "https://streamvix.hayd.uk" });
 const SCORE_LISTING = "https://www.score808live.tv/score808-live-football-scores-real-time-match-updates-results/";
 const SV_ORIGINAL = "https://raw.githubusercontent.com/qwertyuiop8899/logo/main/daddyliveSchedule.json";
@@ -130,7 +130,7 @@ function safeRows(body, maximum) {
   return body.metas;
 }
 function manifest(m, code) {
-  const expected = { communitysports: "community.nuvio.live-sports", plaviosports: "community.plaviohd",
+  const expected = { communitysports: "community.nuvio.live-sports", plaviosports: "community.plaviohd.private",
     cncsports: "com.cncverse.stremiobridge", flixstreams: "org.flixstreams.free", streamvix: "org.prisonmike.streamvix" }[code];
   if (!object(m) || m.id !== expected || !version(m.version) || m.behaviorHints?.configurationRequired === true
     || !Array.isArray(m.catalogs) || m.catalogs.length > (code === "communitysports" ? 600 : 64)
@@ -286,7 +286,12 @@ function asRow(row, scope, now, originals = []) {
   const lines = typeof row.description === "string" ? row.description.split("\n") : [];
   if (scope === "cricket") {
     if (JSON.stringify(row.genres) !== '["Cricket"]') issues.push("identity-conflict");
-    if (lines.length === 2 && name.startsWith(lines[0] + " - ")) {
+    if (/^plaviohdtv-cnc-(?:sportzx|playztv|livxow)-[0-9]{1,12}$/u.test(row.id)
+        && /^Starts [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} UTC$/u.test(row.description ?? "")) {
+      facts.participants = pair(name);
+      if (facts.participants.length !== 2) issues.push("unverified-fixture");
+      facts.start = utc(row.description.slice(7, 17) + "T" + row.description.slice(18, 23) + ":00Z");
+    } else if (lines.length === 2 && name.startsWith(lines[0] + " - ")) {
       facts.participants = pair(lines[0]); Object.assign(facts, cricketLabel(row.name.slice((lines[0] + " - ").length)));
       facts.start = englishUTC(lines[1]);
       if (!facts.format || facts.format === "Test" && !facts.day) issues.push("format-conflict");

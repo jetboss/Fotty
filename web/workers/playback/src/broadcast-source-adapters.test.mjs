@@ -10,7 +10,7 @@ const catalog = (id, extra) => ({ id, type: "tv", ...(extra ? { extra } : {}) })
 const csCatalogs = ["live", "networks", "football", "cricket", "basketball", "baseball", "hockey", "american_football", "rugby", "mma", "motorsport", "golf", "tennis", "darts", "college", "other"];
 const manifests = {
   communitysports: { id: "community.nuvio.live-sports", version: "3.1.3", resources: ["catalog", "meta", "stream"], catalogs: csCatalogs.map((s) => catalog("nuvio_sports_" + s)) },
-  plaviosports: { id: "community.plaviohd", version: "1.9.110", types: ["tv"], resources: ["catalog", "meta", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }], catalogs: ["plaviohd-football", "plaviohd-cricket", "plaviohd-live-sports"].map((s) => catalog(s)) },
+  plaviosports: { id: "community.plaviohd.private", version: "1.9.110", types: ["tv"], resources: ["catalog", "meta", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }], catalogs: ["plaviohd-football", "plaviohd-cricket", "plaviohd-live-sports"].map((s) => catalog(s)) },
   cncsports: { id: "com.cncverse.stremiobridge", version: "1.0.0", types: ["tv"], resources: ["catalog", "meta", "stream"], catalogs: [catalog("cnc_LivXowLiveEvents_tv")] },
   flixstreams: { id: "org.flixstreams.free", version: "1.0.0", types: ["tv"], resources: ["catalog", "meta", "stream"], catalogs: [catalog("essential-live-events", [{ name: "skip" }, { name: "genre", options: ["soccer", "cricket"] }])] },
   streamvix: { id: "org.prisonmike.streamvix", version: "1.0.0", types: ["tv"], resources: ["catalog", "meta", "stream"], catalogs: [catalog("streamvix_eventi", [{ name: "genre", isRequired: true, options: ["Premier League", "Coppe"] }])] },
@@ -642,4 +642,28 @@ test("literal Bundesliga publisher label joins only the reviewed senior league",
   for (const label of ["Bundesliga 2", "Women's Bundesliga", "Bundesliga U19"]) {
     assert.notEqual(parse.fsRow({ ...raw, name: `⚽ ${label} : Schalke 04 vs RB Leipzig` }, "football", now).verification, "dated");
   }
+});
+
+test("PlavioLive migration uses only the new origin and accepts its typed TV resources", async () => {
+  const observed = { ...manifests.plaviosports, version: "2.1.5", resources: ["catalog", "meta", "stream"].map(name => ({ name, types: ["tv"], idPrefixes: ["plaviohdtv-"] })), behaviorHints: { configurable: true } };
+  const h = harness("plaviosports", async () => json({ metas: [] }), 8, { manifestOverride: observed });
+  await h.run();
+  assert.equal(h.calls.length, 4);
+  assert.ok(h.calls.every(call => new URL(call.url).origin === "https://addon.plavio.site"));
+  const retired = harness("plaviosports", async () => assert.fail("Retired identity must not fetch catalogs"), 8, { manifestOverride: { ...observed, id: "community.plaviohd", catalogs: [] } });
+  const rejected = await retired.run();
+  assert.equal(rejected.broadcasts.length, 0);
+  assert.ok(rejected.scopes.every(scope => !scope.complete));
+  assert.equal(retired.calls.length, 1);
+});
+
+test("PlavioLive CNC cricket retains explicit UTC and squads without inventing format or Test day", () => {
+ const row = {id:"plaviohdtv-cnc-playztv-86",type:"tv",name:"Adelaide Strikers Women vs Brisbane Heat Women",description:"Starts 2026-11-05 04:40 UTC",genres:["Cricket"]};
+ const accepted = parse.asRow(row,"cricket",now);
+ assert.equal(accepted.verification,"dated");
+ assert.equal(accepted.start,"2026-11-05T04:40:00.000Z");
+ assert.equal(accepted.format,undefined);
+ assert.equal(accepted.day,undefined);
+ assert.notEqual(parse.asRow({...row,description:"Starts 2026-02-30 04:40 UTC"},"cricket",now).verification,"dated");
+ assert.notEqual(parse.asRow({...row,name:"WBBL"},"cricket",now).verification,"dated");
 });

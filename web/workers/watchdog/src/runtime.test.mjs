@@ -14,7 +14,7 @@ const require = createRequire(import.meta.url);
 const runtimeRequire = createRequire(require.resolve("wrangler/package.json", { paths: [resolve(directory, "../../..")] }));
 const { build } = runtimeRequire("esbuild");
 const { Miniflare, convertV4MiniflareOptions, Log, LogLevel } = runtimeRequire("miniflare");
-const admittedHosts = new Set(["nuviosports.xyz", "hd.plavio.site", "www.streamex.net", "streamex.sh", "streamed.pk", "www.score808live.tv", "fotty-playback-v3.adaptive-rhubarb.workers.dev"]);
+const admittedHosts = new Set(["nuviosports.xyz", "addon.plavio.site", "www.streamex.net", "streamex.sh", "streamed.pk", "www.score808live.tv", "fotty-playback-v3.adaptive-rhubarb.workers.dev"]);
 function synthetic(request, mode = "valid") {
   const url = new URL(request.url || request);
   assert.ok(admittedHosts.has(url.hostname), "no real network/unreviewed host");
@@ -23,8 +23,8 @@ function synthetic(request, mode = "valid") {
     sportsFixtureServiceEnabled: false, cricketFixtureRegistryConfigured: false });
   if (mode === "redirect" && url.hostname === "www.streamex.net") return new Response(null, { status: 302, headers: { Location: "https://not-reviewed.invalid/feed" } });
   if (mode === "failure" && url.hostname === "nuviosports.xyz") return new Response(null, { status: 530 });
-  if (url.hostname === "hd.plavio.site") return Response.json(url.pathname === "/manifest.json"
-    ? { id: "community.plaviohd", version: "1.9.62", types: ["tv"], resources: ["catalog", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }],
+  if (url.hostname === "addon.plavio.site") return Response.json(url.pathname === "/manifest.json"
+    ? { id: "community.plaviohd.private", version: "1.9.62", types: ["tv"], resources: ["catalog", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }],
       catalogs: [{ type: "tv", id: "plaviohd-live-sports" }, { type: "tv", id: "plaviohd-cricket" }] }
     : { metas: [{ id: "plaviohdtv-synthetic", type: "tv", name: "Synthetic event", description: "Synthetic event", genres: ["Sports"] }] });
   if (url.pathname === "/manifest.json") return Response.json({ id: "community.nuvio.live-sports", version: "1", resources: ["catalog", "stream"], catalogs: [{ type: "tv", id: "nuvio_sports_live" }] });
@@ -87,7 +87,7 @@ test("actual workerd: overlapping scheduler calls acquire one durable collector 
   const runs = await Promise.all(Array.from({ length: 4 }, () => stub.fetch("https://internal.invalid/run", { method: "POST" }).then((result) => result.json())));
   assert.equal(runs.filter((result) => result.committed).length, 1);
   assert.equal(requests.length, 10);
-  assert.equal(requests.filter((host) => host === "hd.plavio.site").length, 3);
+  assert.equal(requests.filter((host) => host === "addon.plavio.site").length, 3);
   const status = await (await miniflare.dispatchFetch("https://test.invalid/status")).json();
   assert.ok(status.lastAttemptedAt && status.lastCompletedAt);
   assert.equal(status.streamDelivery, "not-probed");

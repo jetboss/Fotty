@@ -18,7 +18,7 @@ export const PROVIDERS = Object.freeze([
   // Already admitted by the native AS adapter. At the reviewed15-minute cadence,
   // one manifest plus both advertised catalogs uses at most288 reads/day. Check
   // both scopes together so missing-check fences cannot reset their streaks.
-  { source: "as", kind: "as", origin: "https://hd.plavio.site", path: "/manifest.json", maxRequestsPerDay: 288 },
+  { source: "as", kind: "as", origin: "https://addon.plavio.site", path: "/manifest.json", maxRequestsPerDay: 288 },
 ]);
 export const FIXTURE_SCOPES = Object.freeze([
   "premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1", "mlb", "nhl", "carabao-cup",
