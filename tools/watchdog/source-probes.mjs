@@ -103,7 +103,7 @@ function asCatalogID(manifest, scope) {
 // fixture join or a stream request; LIVE labels and missing dates prove neither.
 export function validateASManifest(body) {
   const types = new Set(["movie", "series", "tv"]), names = new Set(["catalog", "meta", "stream", "subtitles"]);
-  if (!object(body) || body.id !== "community.plaviohd" || !string(body.version)
+  if (!object(body) || body.id !== "community.plaviohd.private" || !string(body.version)
     || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,23}$/.test(body.version)
     || !strings(body.types) || !body.types.includes("tv") || !body.types.every((type) => types.has(type))
     || !optional(body, "behaviorHints", (hints) => object(hints)

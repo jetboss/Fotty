@@ -346,3 +346,15 @@ test("verified limited-overs early coverage retains both clocks and requires one
   assert.equal((await check({}, {}, [{ ...official, fixtureID: "cricket-fixture:other", start: stamp(-40 * 60_000) }])).some((link) => link.state === "listed"), false);
   assert.equal((await check({ observedAt: stamp(-60_000), expiresAt: stamp(-1) }))[0].state, "needsVerification");
 });
+
+test("Plavio CNC dated pair uses only a unique exact fresh official limited-overs fixture", async () => {
+ const f=fixture({fixtureID:"cricket-fixture:icc:123",sport:"cricket",participants:["Ireland","Namibia"],format:"ODI",competitionID:"icc"});
+ const b=row({providerEventID:"plaviohdtv-cnc-playztv-86",streamID:"plaviohdtv-cnc-playztv-86",scope:"cricket",sport:"cricket",participants:f.participants,title:"Ireland vs Namibia"});
+ const source=await normalizeBroadcastCollection("plaviosports",collection([b],{providerCode:"plaviosports",scopes:[{scope:"cricket",status:"available",complete:true}]}),now);
+ const run=(fs,bs=source.broadcasts)=>associateBroadcasts({fixtures:fs,broadcasts:bs,providers:source.scopes,now});
+ assert.equal(run([f])[0].state,"listed");
+ assert.equal(source.broadcasts[0].format,undefined,"No fabricated source format");
+ for (const change of [{format:"Test"},{start:stamp(-31*60000)},{observedAt:stamp(-11*60000)}]) assert.notEqual(run([{...f,...change}])[0]?.state,"listed");
+ assert.ok(run([f,{...f,fixtureID:"cricket-fixture:icc:124"}]).every(l=>l.state!=="listed"));
+ assert.notEqual(run([f],source.broadcasts.map(b=>({...b,providerEventID:"plaviohdtv-unreviewed"})))[0]?.state,"listed");
+});

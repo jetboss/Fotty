@@ -5,7 +5,7 @@ import { probeProvider, probeSources, readMetadata, validateCSManifest, validate
 import { createPolicy, emptyLedger } from "./incident-policy.mjs";
 import { applyObservationBatch } from "./observation-batch.mjs";
 const manifest = { id: "community.nuvio.live-sports", version: "1.0", resources: ["catalog", "stream"], catalogs: [{ type: "tv", id: "nuvio_sports_live" }] };
-const asManifest = { id: "community.plaviohd", version: "1.9.62", types: ["tv"],
+const asManifest = { id: "community.plaviohd.private", version: "1.9.62", types: ["tv"],
   resources: ["catalog", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }],
   catalogs: [{ type: "tv", id: "plaviohd-live-sports" }, { type: "tv", id: "plaviohd-cricket" }] };
 const asEntry = { id: "plaviohdtv-sfly-streamed:football-offline", type: "tv", name: "Team A vs Team B",
@@ -17,7 +17,7 @@ test("CS failure is independent of successful sibling; manifest530 does not requ
   const calls = []; const results = await probeSources({ request: async (url) => {
     calls.push(String(url)); if (url.host === "nuviosports.xyz") return new Response("private body", { status: 530 });
     if (url.host === "www.score808live.tv") return new Response('<div class="elfsight-app-12345678-1234-1234-1234-123456789abc"></div>');
-    if (url.host === "hd.plavio.site") return Response.json(url.pathname.endsWith("manifest.json") ? asManifest : { metas: [asEntry] });
+    if (url.host === "addon.plavio.site") return Response.json(url.pathname.endsWith("manifest.json") ? asManifest : { metas: [asEntry] });
     return Response.json([{ id: "offline", title: "A vs B", sources: [{ source: "golf", id: "offline" }] }]);
   } });
   assert.equal(calls.length, 8); assert.equal(results.find((row) => row.source === "cs").failureClass, "http-530");
@@ -186,7 +186,7 @@ test("AS checks both reviewed advertised catalogs within three reads and the rev
   assert.equal(PROVIDERS.reduce((sum, row) => sum + row.maxRequestsPerDay, 0), 960);
   for (const now of [0, COLLECTION_INTERVAL_MS]) {
     const calls = []; const results = leaves(await probeProvider(source, { now, request: async (url) => {
-      calls.push(String(url)); assert.equal(url.origin, "https://hd.plavio.site");
+      calls.push(String(url)); assert.equal(url.origin, "https://addon.plavio.site");
       assert.ok(["/manifest.json", "/catalog/tv/plaviohd-live-sports.json", "/catalog/tv/plaviohd-cricket.json"].includes(url.pathname));
       return Response.json(url.pathname.endsWith("manifest.json") ? asManifest : { metas: [asEntry] });
     } }));

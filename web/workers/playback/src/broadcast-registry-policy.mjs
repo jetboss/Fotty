@@ -324,6 +324,17 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
       const assignment = isReviewedTVScheduledAssignment(broadcast);
       if (broadcast.providerCode === "reviewedtv" && broadcast.kind !== "programme" && !assignment) continue;
       const currentListing = isCurrentCricketListing(broadcast);
+      // PlavioLive's CNC envelope supplies an exact UTC start and full pair,
+      // but no format. A unique fresh official ODI/T20 owns the format; retain
+      // the source's missing format rather than manufacturing provider facts.
+      const exactPlavioCricket = broadcast.providerCode === "plaviosports"
+        && broadcast.kind === "event" && broadcast.scope === "cricket" && broadcast.sport === "cricket"
+        && /^plaviohdtv-cnc-(?:sportzx|playztv|livxow)-[0-9]{1,12}$/u.test(broadcast.providerEventID)
+        && broadcast.streamID === broadcast.providerEventID && broadcast.format === undefined
+        && broadcast.day === undefined && broadcast.matchOrdinal === undefined
+        && !broadcast.issues?.length && broadcast.verification === "dated"
+        && ["ODI", "T20"].includes(fixture.format) && broadcast.start === fixture.start
+        && time - Date.parse(fixture.observedAt) <= 10 * minute && uniqueCurrentOwner(fixture);
       let state = "listed", reason, startRelation, method = currentListing ? "current-event" : assignment ? "channel-assignment" : broadcast.kind === "programme" ? "programme" : "exact";
       const fail = (next, value) => { if (state === "listed" || next === "conflicting") { state = next; reason = value; } };
       if (!providers.has(broadcast.providerCode) || stamp(broadcast.observedAt) === null || stamp(broadcast.expiresAt) === null) continue;
@@ -342,8 +353,8 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
       if (fixture.sport === "cricket") {
         // An explicitly identified series match must never attach to another ordinal.
         if (fixture.matchOrdinal && broadcast.matchOrdinal && fixture.matchOrdinal !== broadcast.matchOrdinal) fail("conflicting", "ordinal-conflict");
-        if ((!currentListing && !broadcast.format) || !fixture.format) fail("needsVerification", "format-conflict");
-        else if (!currentListing && broadcast.format !== fixture.format) fail("conflicting", "format-conflict");
+        if ((!currentListing && !exactPlavioCricket && !broadcast.format) || !fixture.format) fail("needsVerification", "format-conflict");
+        else if (!currentListing && !exactPlavioCricket && broadcast.format !== fixture.format) fail("conflicting", "format-conflict");
       }
       if (currentListing) {
         if (fixture.status !== "live" || !["ODI", "T20"].includes(fixture.format)
