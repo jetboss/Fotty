@@ -354,7 +354,15 @@ test("Plavio CNC dated pair uses only a unique exact fresh official limited-over
  const run=(fs,bs=source.broadcasts)=>associateBroadcasts({fixtures:fs,broadcasts:bs,providers:source.scopes,now});
  assert.equal(run([f])[0].state,"listed");
  assert.equal(source.broadcasts[0].format,undefined,"No fabricated source format");
- for (const change of [{format:"Test"},{start:stamp(-31*60000)},{observedAt:stamp(-11*60000)}]) assert.notEqual(run([{...f,...change}])[0]?.state,"listed");
+ const agedLive=run([{...f,observedAt:stamp(-11*60000)}])[0];
+ assert.equal(agedLive.state,"listed");
+ assert.equal(agedLive.expiresAt,stamp(19*60000),"Original live receipt expiry is not renewed");
+ const scheduled={...f,status:"scheduled",start:stamp(2*3600000),observedAt:stamp(-15*60000)};
+ const scheduledRows=source.broadcasts.map(r=>({...r,start:scheduled.start}));
+ assert.equal(run([scheduled],scheduledRows)[0].state,"listed","Exact upcoming cricket survives the official refresh cadence");
+ assert.equal(run([{...scheduled,observedAt:stamp(-24*3600000-1)}],scheduledRows).length,0);
+
+ for (const change of [{format:"Test"},{start:stamp(-31*60000)},{observedAt:stamp(-31*60000)}]) assert.notEqual(run([{...f,...change}])[0]?.state,"listed");
  assert.ok(run([f,{...f,fixtureID:"cricket-fixture:icc:124"}]).every(l=>l.state!=="listed"));
  assert.notEqual(run([f],source.broadcasts.map(b=>({...b,providerEventID:"plaviohdtv-unreviewed"})))[0]?.state,"listed");
 });

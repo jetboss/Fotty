@@ -334,7 +334,9 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
         && broadcast.day === undefined && broadcast.matchOrdinal === undefined
         && !broadcast.issues?.length && broadcast.verification === "dated"
         && ["ODI", "T20"].includes(fixture.format) && broadcast.start === fixture.start
-        && time - Date.parse(fixture.observedAt) <= 10 * minute && uniqueCurrentOwner(fixture);
+        // Exact dated joins use normalizeRegistryFixtures freshness and the
+        // original receipt-based expiry below, unlike synthetic current listings.
+        && uniqueCurrentOwner(fixture);
       let state = "listed", reason, startRelation, method = currentListing ? "current-event" : assignment ? "channel-assignment" : broadcast.kind === "programme" ? "programme" : "exact";
       const fail = (next, value) => { if (state === "listed" || next === "conflicting") { state = next; reason = value; } };
       if (!providers.has(broadcast.providerCode) || stamp(broadcast.observedAt) === null || stamp(broadcast.expiresAt) === null) continue;
