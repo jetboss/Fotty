@@ -2,25 +2,21 @@
 // repairs sources, reads native telemetry, or interprets fixtures as fresh.
 import { createHash } from "node:crypto";
 import { pathToFileURL } from "node:url";
-import { createPolicy, emptyLedger, validateLedger, listNotifications, missedRunObservations, normalizeFacts } from "./incident-policy.mjs";
+import { createPolicy, emptyLedger, validateLedger, missedRunObservations, normalizeFacts } from "./incident-policy.mjs";
 import { applyObservationBatch } from "./observation-batch.mjs";
 import { EXPECTED_VERSIONS, observerPolicyOptions, WATCHDOG_ORIGIN, COLLECTION_INTERVAL_MS, CONFIRMATION_WINDOWS } from "./manifest.mjs";
 import { readMetadata } from "./source-probes.mjs";
 
 export const WATCHDOG_STATUS_URL = `${WATCHDOG_ORIGIN}/status`;
 export const REPOSITORY = "jetboss/Fotty";
-// Repository owner verified through GitHub's repository API. Assignment and a
-// bot-authored mention request delivery; neither is proof that a human read it.
-export const OWNER = "jetboss";
 export const CORRECTED_BASELINE = "243f9bb662b2b1a42f187bd324071c654aa26884";
 export const WORKFLOWS = Object.freeze([
   { source: "workflow-sports", file: "sports-fixtures.yml", deadlineMs: 3 * 3600_000 },
   { source: "workflow-cricket", file: "cricket-fixtures.yml", deadlineMs: 3 * 3600_000 },
   { source: "workflow-provider", file: "provider-monitor.yml", deadlineMs: 30 * 3600_000 },
 ]);
-const WINDOW = COLLECTION_INTERVAL_MS, STALE = 35 * 60_000, MAX_API = 32, MAX_DELIVERIES = 8;
+const WINDOW = COLLECTION_INTERVAL_MS, STALE = 35 * 60_000, MAX_API = 32;
 const LEDGER_MARKER = "<!-- fotty-watchdog-observer-ledger-v1 -->";
-const CANARY_MARKER = "<!-- fotty-watchdog-delivery-canary-v1 -->";
 const PAYLOAD_START = "<!-- fotty-watchdog-data-v1:start -->\n```json\n";
 const PAYLOAD_END = "\n```\n<!-- fotty-watchdog-data-v1:end -->";
 const SUMMARY_START = "<!-- fotty-watchdog-summary-v1:start -->\n", SUMMARY_END = "\n<!-- fotty-watchdog-summary-v1:end -->";
@@ -187,15 +183,6 @@ function replacePayload(issue, prefix, payload) {
   if (Buffer.byteLength(result) > 64_000) throw new Error("Observer issue capacity");
   return result;
 }
-function alertSummary(body, event) {
-  const summary = `Fotty watchdog ${event.type}: ${event.source} / ${event.stage} / ${event.failureClass}.`;
-  const start = body.indexOf(SUMMARY_START), end = body.indexOf(SUMMARY_END);
-  if (start >= 0 && end > start && body.indexOf(SUMMARY_START, start + 1) === -1 && body.indexOf(SUMMARY_END, end + 1) === -1)
-    return body.slice(0, start) + SUMMARY_START + summary + SUMMARY_END + body.slice(end + SUMMARY_END.length);
-  if (start >= 0 || end >= 0) throw new Error("Invalid bot summary region");
-  const markerEnd = body.indexOf("-->") + 3;
-  return body.slice(0, markerEnd) + `\n${SUMMARY_START}${summary}${SUMMARY_END}` + body.slice(markerEnd);
-}
 function validateState(state) {
   if (!state || state.schema !== 1 || Object.keys(state).some((key) => !["schema", "ledger", "deliveredCloud"].includes(key))
     || !Array.isArray(state.deliveredCloud) || state.deliveredCloud.length > 513
@@ -218,113 +205,35 @@ function uniqueIssue(issues, marker) {
   return found[0];
 }
 
-function deliveryPayload(issue) {
-  const payload = issue ? parsePayload(issue) : { schema: 1, eventHashes: [] };
-  if (payload.schema !== 1 || !Array.isArray(payload.eventHashes) || payload.eventHashes.length > 513
-    || !payload.eventHashes.every(validHash) || new Set(payload.eventHashes).size !== payload.eventHashes.length
-    || (payload.pendingEventHash !== undefined && (!validHash(payload.pendingEventHash)
-      || payload.eventHashes.includes(payload.pendingEventHash)))) throw new Error("Invalid delivery ledger");
-  return payload;
-}
-function ownerAssigned(issue) { return Array.isArray(issue?.assignees)
-  && issue.assignees.some((assignee) => assignee.login === OWNER && assignee.type === "User"); }
-function ownerAssignees(issue) {
-  const logins = (issue?.assignees ?? []).map((row) => row.login);
-  if (logins.some((login) => typeof login !== "string" || !/^[A-Za-z0-9][A-Za-z0-9-]{0,38}$/.test(login))) throw new Error("Invalid issue assignees");
-  const result = [...new Set([...logins, OWNER])];
-  if (result.length > 10) throw new Error("Issue assignee capacity");
-  return result;
-}
-function ownerComment(eventHash, event, canary) {
-  const summary = canary ? "Fotty watchdog delivery test — not a provider outage."
-    : `Fotty watchdog ${event.type}: ${event.source} / ${event.stage} / ${event.failureClass}.`;
-  return `<!-- fotty-watchdog-owner-event-v1:${eventHash} -->\n@${OWNER} ${summary}\n`
-    + `Scope: ${event.scope}. Generation: ${event.generation}. Observed: ${event.time}.\n`
-    + "Bot delivery receipt only; human reading or email receipt is not confirmed. No automated repair.";
-}
-function verifiedComment(comment, body) {
-  return Number.isSafeInteger(comment?.id) && comment.id > 0 && comment.user?.type === "Bot"
-    && comment.user.login === "github-actions[bot]" && comment.body === body;
-}
-async function findOwnerComment(client, issue, marker, body) {
-  const found = [];
-  for (let page = 1; page <= 2; page++) {
-    const batch = await client.call(`/repos/${REPOSITORY}/issues/${issue.number}/comments?per_page=100&page=${page}`);
-    if (!Array.isArray(batch) || batch.length > 100) throw new Error("Invalid comment inventory");
-    found.push(...batch.filter((comment) => typeof comment.body === "string" && comment.body.includes(marker)));
-    if (batch.length < 100) {
-      if (found.length > 1 || found.some((comment) => !verifiedComment(comment, body))) throw new Error("Ambiguous owner comment");
-      return found[0];
-    }
-  }
-  throw new Error("Owner comment discovery bound; no ambiguous creation");
-}
-async function deliverOwnerEvent(client, issues, { event, eventHash, marker, canary = false }) {
-  let issue = uniqueIssue(issues, marker);
-  const payload = deliveryPayload(issue);
-  // Existing hashes are historical issue-write receipts. Do not replay the
-  // pre-upgrade backlog as mentions; the next real transition uses this path.
-  if (payload.eventHashes.includes(eventHash)) return { delivered: false, issueNumber: issue.number };
-  if (payload.pendingEventHash && payload.pendingEventHash !== eventHash) throw new Error("Prior owner delivery is pending");
-  if (payload.eventHashes.length >= 513) throw new Error("Alert issue capacity");
-  const finiteEvent = Object.fromEntries(["type", "source", "stage", "failureClass", "scope", "generation", "time"].map((key) => [key, event[key]]));
-  const prefix = canary ? `${marker}\nDelivery test only; not a provider incident or recovery.`
-    : `${marker}\nMetadata observation only; no automated repair.`;
-  const state = canary || event.type !== "resolved" ? "open" : "closed";
-  async function write(payloadValue) {
-    const body = canary ? replacePayload(issue, prefix, payloadValue)
-      : alertSummary(replacePayload(issue, prefix, payloadValue), finiteEvent);
-    const saved = await client.call(`/repos/${REPOSITORY}/issues${issue ? `/${issue.number}` : ""}`, {
-      method: issue ? "PATCH" : "POST", body: { ...(issue ? {} : { title: canary
-        ? "Fotty watchdog delivery test — not provider outage" : `Fotty watchdog: ${event.source} / ${event.stage}` }),
-      body, state, assignees: ownerAssignees(issue) },
-    });
-    if (!botOwned(saved) || saved.body !== body || saved.state !== state || !ownerAssigned(saved)) throw new Error("Owner issue write not verified");
-    const updated = { ...saved, body };
-    if (issue) issues.splice(issues.indexOf(issue), 1, updated); else issues.push(updated);
-    issue = updated;
-  }
-  const wasNew = !issue;
-  // Staging is deliberately not a delivery receipt. After an ambiguous issue or
-  // comment response, restart can find the marker before attempting a new POST.
-  if (payload.pendingEventHash !== eventHash || !ownerAssigned(issue) || issue.state !== state)
-    await write({ schema: 1, eventHashes: payload.eventHashes, pendingEventHash: eventHash, lastEvent: finiteEvent });
-  const body = ownerComment(eventHash, finiteEvent, canary);
-  const commentMarker = body.slice(0, body.indexOf("\n"));
-  const prior = wasNew ? null : await findOwnerComment(client, issue, commentMarker, body);
-  if (!prior) {
-    const comment = await client.call(`/repos/${REPOSITORY}/issues/${issue.number}/comments`, { method: "POST", body: { body } });
-    if (!verifiedComment(comment, body)) throw new Error("Owner comment write not verified");
-  }
-  // Only a verified issue assignment AND the exact bot mention allow the durable
-  // event hash to advance. This is channel submission, never human acknowledgement.
-  await write({ schema: 1, eventHashes: [...payload.eventHashes, eventHash], lastEvent: finiteEvent });
-  return { delivered: true, issueNumber: issue.number };
+// Retired notification canary: keep dispatch compatibility without posting or
+// assigning anything. Explicitly not a delivery pass.
+export async function runDeliveryCanary() {
+  return { deliveryTest: false, retired: true, delivered: 0, pending: 0,
+    reason: "GitHub owner notification delivery is disabled", apiRequests: 0 };
 }
 
-export async function runDeliveryCanary({ token = process.env.GITHUB_TOKEN, request = fetch,
-  runId = process.env.GITHUB_RUN_ID, now = Date.now() } = {}) {
-  if (!validTime(now) || typeof runId !== "string" || !/^[1-9][0-9]{0,19}$/.test(runId)) throw new Error("Invalid delivery test identity");
-  const client = createGitHubClient({ token, request }), issues = await inventory(client);
-  const eventHash = sha(`delivery-test:${runId}`), existing = uniqueIssue(issues, CANARY_MARKER);
-  const payload = deliveryPayload(existing);
-  const prior = payload.lastEvent;
-  if (payload.pendingEventHash && (prior?.type !== "delivery-test" || prior.source !== "observer" || prior.stage !== "delivery"
-    || prior.failureClass !== "canary" || prior.scope !== "owner" || prior.generation !== 1
-    || !validTime(time(prior.time)) || new Date(time(prior.time)).toISOString() !== prior.time || time(prior.time) > now + 30_000))
-    throw new Error("Invalid pending delivery test");
-  if (payload.pendingEventHash && payload.pendingEventHash !== eventHash) {
-    // A later explicit test first completes its retained predecessor. This keeps
-    // retry possible after a new dispatch without overtaking an ambiguous POST.
-    await deliverOwnerEvent(client, issues, { event: prior, eventHash: payload.pendingEventHash, marker: CANARY_MARKER, canary: true });
-  }
-  // The event's time remains stable on workflow reruns, including a response lost
-  // after comment creation. A dispatch with a new run ID is a new explicit test.
-  const event = { type: "delivery-test", source: "observer", stage: "delivery", failureClass: "canary", scope: "owner",
-    generation: 1, time: payload.pendingEventHash === eventHash && prior?.type === "delivery-test" ? prior.time : new Date(now).toISOString() };
-  const result = await deliverOwnerEvent(client, issues, { event, eventHash, marker: CANARY_MARKER, canary: true });
-  return { deliveryTest: true, issueNumber: result.issueNumber, delivered: Number(result.delivered),
-    humanAcknowledged: false, apiRequests: client.requestCount };
+function dashboard(body, notices, ledger, now) {
+  const latest = new Map();
+  for (const event of notices) latest.set(event.incidentId, event);
+  const rows = [...latest.values()].filter(e => e.type !== "resolved")
+    .map(e => `${e.source} / ${e.stage}: ${e.failureClass} (${e.scope})`);
+  for (const record of Object.values(ledger.incidents)) if (record.state !== "resolved")
+    rows.push(`${record.source} / ${record.stage}: ${record.failureClass} (${record.state})`);
+  const summary = `${SUMMARY_START}# Fotty incident status
+Updated: ${new Date(now).toISOString()}
+
+These are diagnostics, not proof of playback failure. Individual provider,
+workflow and catalog failures do not trigger owner mentions or assignments.
+Current checks remain active. Unknown coverage is not healthy playback.
+Showing at most 64 diagnostic groups; cloud status retains the source detail.
+
+${rows.length ? [...new Set(rows)].sort().slice(0, 64).map(row => `- ${row}`).join("\n") : "No retained diagnostic incidents in this snapshot."}
+${SUMMARY_END}`;
+  const a = body.indexOf(SUMMARY_START), b = body.indexOf(SUMMARY_END);
+  if (a < 0 && b < 0) return body + "\n" + summary;
+  if (a < 0 || b < a || body.indexOf(SUMMARY_START, a + 1) >= 0 || body.indexOf(SUMMARY_END, b + 1) >= 0)
+    throw new Error("Invalid dashboard summary");
+  return body.slice(0, a) + summary + body.slice(b + SUMMARY_END.length);
 }
 
 export async function runGitHubObserver({ token = process.env.GITHUB_TOKEN, request = fetch, statusRequest = fetch, now = Date.now() } = {}) {
@@ -358,44 +267,18 @@ export async function runGitHubObserver({ token = process.env.GITHUB_TOKEN, requ
   state.ledger = result.state; state.ledger.revision++;
   validateState(state);
   async function saveLedger() {
-    const body = replacePayload(ledgerIssue, `${LEDGER_MARKER}\nIndependent monitoring state; not a fixture freshness certificate.`, state);
+    const body = dashboard(replacePayload(ledgerIssue, `${LEDGER_MARKER}\nIndependent monitoring state; not a fixture freshness certificate.`, state), notices, state.ledger, now);
     const saved = await client.call(`/repos/${REPOSITORY}/issues${ledgerIssue ? `/${ledgerIssue.number}` : ""}`,
-      { method: ledgerIssue ? "PATCH" : "POST", body: { ...(ledgerIssue ? {} : { title: "Fotty watchdog independent observer state" }), body } });
+      { method: ledgerIssue ? "PATCH" : "POST", body: { title: "Fotty incident status", body } });
     if (!botOwned(saved) || saved.body !== body) throw new Error("Observer ledger write not verified");
     ledgerIssue = { ...saved, body };
   }
-  // First persist observation transitions. A crash or delivery failure then
-  // retries their retained outbox rather than losing or recreating an alert.
+  // One durable dashboard write; no per-provider issue creation, comment,
+  // assignment or notification receipt. Preserve all legacy delivery hashes.
   await saveLedger();
-  const events = [
-    ...listNotifications(state.ledger, policy).map((event) => ({ ...event, incidentId: sha(event.key), namespace: "independent", lane: "independent" })),
-    ...notices.map((event) => ({ ...event, namespace: `cloud-${EXPECTED_VERSIONS.observerRevision}`, lane: "cloud" })),
-  ];
-  let delivered = 0, pending = 0, dirty = false;
-  const blockedMarkers = new Set();
-  for (const event of events) {
-    const eventHash = sha(`${event.namespace}:${event.id}`), marker = `<!-- fotty-watchdog-incident-v1:${sha(`${event.lane}:${event.incidentId}`)} -->`;
-    if (event.namespace.startsWith("cloud-") && state.deliveredCloud.includes(eventHash)) continue;
-    // A later recovery cannot overtake a failed/ambiguous confirmation write.
-    // Otherwise retrying the older event could reopen an already-resolved issue.
-    if (blockedMarkers.has(marker)) { pending++; continue; }
-    const issue = uniqueIssue(issues, marker), payload = deliveryPayload(issue);
-    if (!payload.eventHashes.includes(eventHash)) {
-      // Reserve the final ledger write and the worst-case bounded comment scan.
-      if (delivered >= MAX_DELIVERIES || client.requestCount > MAX_API - 1 - (issue ? 5 : 3)) {
-        blockedMarkers.add(marker); pending++; continue;
-      }
-      try {
-        const delivery = await deliverOwnerEvent(client, issues, { event, eventHash, marker });
-        delivered += Number(delivery.delivered);
-      } catch { blockedMarkers.add(marker); pending++; continue; }
-    }
-    if (event.namespace.startsWith("cloud-") && !state.deliveredCloud.includes(eventHash)) {
-      state.deliveredCloud.push(eventHash); dirty = true;
-    }
-  }
-  if (dirty) { validateState(state); await saveLedger(); }
-  return { ledgerIssue: ledgerIssue.number, confirmedChanges: result.events.length, delivered, pending, apiRequests: client.requestCount };
+  return { ledgerIssue: ledgerIssue.number, confirmedChanges: result.events.length,
+    delivered: 0, pending: 0, notificationMode: "viewing-impact-only", apiRequests: client.requestCount };
+
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -403,10 +286,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const action = canary === "true" ? runDeliveryCanary : canary == null || canary === "false" ? runGitHubObserver : null;
   Promise.resolve().then(() => { if (!action) throw new Error("Invalid delivery test flag"); return action(); }).then((result) => {
     console.log(JSON.stringify(result));
-    // Pending/ambiguous notification writes are degraded delivery, not a green
-    // workflow. Their staged receipts remain intact for the next bounded retry.
+    // A dashboard persistence failure still fails the workflow. No owner
+    // notification is inferred from the workflow conclusion.
     if (result.pending > 0) process.exitCode = 1;
   }).catch(() => {
-    console.error("Fotty independent watchdog could not complete; retained alerts will retry."); process.exitCode = 1;
+    console.error("Fotty incident dashboard update failed; retained diagnostics remain intact."); process.exitCode = 1;
   });
 }
