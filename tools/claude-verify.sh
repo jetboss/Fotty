@@ -9,6 +9,10 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 mkdir -p logs
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+# Match GitHub iOS CI: Catalyst unit tests use a 26.0 deployment target so they
+# run on a Mac whose macOS trails the project's mapped target. The iOS Release
+# build in ios-ci.sh keeps the real deployment target.
+export FOTTY_CATALYST_DEPLOYMENT_TARGET="${FOTTY_CATALYST_DEPLOYMENT_TARGET:-26.0}"
 # Prefer the reviewed /Applications/Xcode.app; otherwise use xcode-select's choice.
 if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
   export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
