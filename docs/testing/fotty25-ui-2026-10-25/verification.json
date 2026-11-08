@@ -1,0 +1,109 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-25",
+  "scope": "Fotty2.5 core native UI; Jet iPad only; iPhone175 held; FPL/multi-stream unchanged; no TestFlight",
+  "sourceSHA256": "d411c01a6cf17b9cc07b950ead476eb2c6625964cf7a21841f2ed5f7f5f72a2c",
+  "focusedInputCount": 57,
+  "sourceBinding": "Operator-declared fresh build/capture chain, not independent compiler attestation",
+  "sourceTestPhases": [
+    {
+      "name": "broad-after-initial-harness-repair",
+      "result": "Passed",
+      "passed": 392,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "after-narrow-CTA-and-empty-fixes",
+      "result": "Passed",
+      "passed": 108,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "after-neutral-heading-version177",
+      "result": "Passed",
+      "passed": 11,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "phaseCountsOverlap": true,
+  "evidenceToolTests": {
+    "passed": 60,
+    "failed": 0,
+    "skipped": 0
+  },
+  "physicalJourneys": [
+    {
+      "name": "core-navigation",
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "source-sheets-and-bottom-scroll",
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "landscape-core-display",
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "standalone-catalog-details",
+      "result": "Passed",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "physicalExecution": "Four unique journeys passed in focused sequential invocations, not a single all-tests run; earlier test-assumption/capture corrections are disclosed in the audit.",
+  "physicalUITestSourceSHA256": "6452793b016c10060503e132caf043166edc341ada0907fde9321afec2d23676",
+  "normalApp": {
+    "version": "2.0.1",
+    "build": "177",
+    "configuration": "signed Release",
+    "executableSHA256": "8fe685a966274b0dd8633d1f0f289aae8fc13ebdd0229eb8bac5be11131136d1",
+    "signatureVerified": true,
+    "installationReadback": true,
+    "argumentFreeLaunch": true,
+    "testRunnerRemoved": true
+  },
+  "physicalCaptureApp": {
+    "configuration": "signed Debug177; existing physical UI test mode; real feeds, muted audio",
+    "executableSHA256": "5bb278738f5b627af786a06ab60a11216d045b656c9520bb6403a7f1232b415c",
+    "productionDylibSHA256": "0301ff9c19131c59feae8cf64b4f84e610e0c8ea34656d507a6e173c8fe4a55f"
+  },
+  "preserved": {
+    "fplSourceTestFiles": 49,
+    "multiSourceTestFiles": 3,
+    "transportInputsUnchanged": true,
+    "managerIdentityAndConfirmation": true,
+    "existingSourceChoices": 7,
+    "appearanceAndInterests": true,
+    "recentSearchHistory": true
+  },
+  "limitations": [
+    "Phone-width Catalyst is pad idiom, not native phone proof.",
+    "Native normal-size Jet UI only; real accessibility Dynamic Type/VoiceOver, full software keyboard and resize/performance stress remain open.",
+    "Player sheet captures show a Connecting web delivery, not decoded media/native fullscreen/PiP qualification.",
+    "Source campaigns remain metadata-only; no source-setting changes or new source qualification.",
+    "Some derived FPL caches refresh normally; do not claim whole-cache byte identity."
+  ],
+  "workstationCleanup": {
+    "ownedTemporaryGateRemoved": true,
+    "ownedTemporaryKiBRemoved": 1576792,
+    "ownedKeepAwakeStopped": true,
+    "freeDiskGiBApproximateBefore": 13,
+    "freeDiskGiBApproximateAfter": 12,
+    "unrelatedCachesOrArtifactsRemoved": false
+  },
+  "releaseAccepted": false
+}

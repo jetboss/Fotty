@@ -1,0 +1,27 @@
+{
+  "date": "2026-10-30",
+  "target": "LiveNetTV_Mobile_5.0.1-visit-www.livenettv.su_.apk",
+  "sha256": "810634a3757a9ab1bfc37fb7a48fa7928fe917befd9ef0619f65eeb88173ad4a",
+  "package": "com.playnet.androidtv.ads",
+  "version": "5.0.1",
+  "versionCode": 56,
+  "reaVersion": "6.4.0",
+  "androidProvider": "jadx-headless-mcp 0.7.1",
+  "heapMiB": 384,
+  "workerCount": 1,
+  "evidenceIDs": [
+    "ev_d67fe64cb6a1174ad6a0aca7c0f80a5570a0737533c66237d85fc146ee266c6e",
+    "ev_0e5cf86441854e084bb884dd70198aef5f39bd22066dac80c7e9dad3b98dfe67"
+  ],
+  "parsedClasses": 16,
+  "resources": 2490,
+  "signatureVerification": "not_performed",
+  "runtimeObserved": false,
+  "targetExecuted": false,
+  "networkRequestsToTarget": 0,
+  "conclusion": "Protected bootstrap is exposed; catalogue, cache, retry and matching algorithms remain unknown. Compiled resources support UI declarations only.",
+  "artifactEvidenceArchive": "artifact-evidence.json.gz",
+  "artifactEvidenceArchiveSHA256": "d5dc575517eed9470240a9c86c87fea3402fee1228d65990ac273c457b777283",
+  "androidPackageEvidenceSHA256": "4bd4cb7e2b4c67587ea47ca84f7e988f9f20afac7ecc0d47ffc65249f4906e24",
+  "androidPackageRetention": "Redacted target/provider/count/coverage summary only; manifest and protected-package output not retained in repository."
+}

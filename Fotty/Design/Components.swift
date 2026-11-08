@@ -1,75 +1,6 @@
 import SwiftUI
 import UIKit
-
-// MARK: - Image Caching
-
-final class FottyImageCache: @unchecked Sendable {
-    static let shared = FottyImageCache()
-    private let memoryCache = NSCache<NSURL, UIImage>()
-
-    private init() {
-        memoryCache.countLimit = 600
-        memoryCache.totalCostLimit = 60 * 1024 * 1024 // 60 MB
-    }
-
-    func image(for url: URL) -> UIImage? {
-        memoryCache.object(forKey: url as NSURL)
-    }
-
-    func insert(_ image: UIImage, for url: URL) {
-        let cost = Int(image.size.width * image.size.height * 4)
-        memoryCache.setObject(image, forKey: url as NSURL, cost: cost)
-    }
-}
-
-struct CachedAsyncImage<Content: View, Placeholder: View>: View {
-    let url: URL?
-    let content: (Image) -> Content
-    let placeholder: () -> Placeholder
-
-    @State private var uiImage: UIImage?
-
-    init(
-        url: URL?,
-        @ViewBuilder content: @escaping (Image) -> Content,
-        @ViewBuilder placeholder: @escaping () -> Placeholder
-    ) {
-        self.url = url
-        self.content = content
-        self.placeholder = placeholder
-    }
-
-    var body: some View {
-        Group {
-            if let image = uiImage ?? (url.flatMap { FottyImageCache.shared.image(for: $0) }) {
-                content(Image(uiImage: image))
-            } else {
-                placeholder()
-                    .task(id: url) {
-                        guard let url else { return }
-                        if let cached = FottyImageCache.shared.image(for: url) {
-                            self.uiImage = cached
-                            return
-                        }
-                        do {
-                            let (data, response) = try await URLSession.shared.data(from: url)
-                            guard let httpResponse = response as? HTTPURLResponse,
-                                  (200...299).contains(httpResponse.statusCode),
-                                  let decoded = UIImage(data: data) else {
-                                return
-                            }
-                            FottyImageCache.shared.insert(decoded, for: url)
-                            if !Task.isCancelled {
-                                self.uiImage = decoded
-                            }
-                        } catch {
-                            // Keep placeholder on error
-                        }
-                    }
-            }
-        }
-    }
-}
+import ImageIO
 
 // MARK: - Haptic Feedback
 
@@ -93,23 +24,33 @@ enum HapticManager {
 // MARK: - Shimmer Loading Effect
 
 struct ShimmerView: View {
-    @State private var phase: CGFloat = 0
-    
-    var body: some View {
-        LinearGradient(
-            colors: [
-                FottyTheme.surface,
-                FottyTheme.accent.opacity(0.1),
-                FottyTheme.surface
-            ],
-            startPoint: .init(x: phase - 1, y: 0.5),
-            endPoint: .init(x: phase, y: 0.5)
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var allowsMotion: Bool {
+        FottyMotionPolicy.allowsContinuousMotion(
+            reduceMotion: reduceMotion,
+            lowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
+            sceneIsActive: scenePhase == .active
         )
-        .onAppear {
-            withAnimation(.linear(duration: 1.5).repeatForever(autoreverses: false)) {
-                phase = 2
-            }
+    }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: !allowsMotion)) { timeline in
+            let phase = allowsMotion
+                ? CGFloat(timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.5) / 1.5) * 3
+                : 1
+            LinearGradient(
+                colors: [
+                    FottyTheme.surface,
+                    FottyTheme.accent.opacity(0.1),
+                    FottyTheme.surface
+                ],
+                startPoint: .init(x: phase - 1, y: 0.5),
+                endPoint: .init(x: phase, y: 0.5)
+            )
         }
+        .accessibilityHidden(true)
     }
 }
 
@@ -136,61 +77,193 @@ struct SkeletonCard: View {
     }
 }
 
-// MARK: - Team Badge with Initials Fallback
+// MARK: - Team identity
 
+/// The single badge treatment used anywhere Fotty presents a real team.
+/// Supplied artwork wins, then the shared brand cache, then a deliberate
+/// monogram. A failed or missing network image never leaves an empty hole.
+struct TeamBadgeWindow: View {
+    let teamName: String
+    var badgeURL: URL? = nil
+    /// A projection-owned brand candidate. Supplying this avoids repeating a
+    /// main-actor dictionary lookup every time a dense catalog row is rebuilt.
+    /// When omitted, the shared safety-net lookup remains available to callers
+    /// outside the catalog projection.
+    var brandURL: URL? = nil
+    /// Distinguishes a projection that found no brand from a caller that did
+    /// not precompute one. This keeps nil a truthful fallback without falling
+    /// back into repeated lookups while a catalog is being scrolled.
+    var brandLookupResolved = false
+    var size: CGFloat = 32
+    var glowEnabled: Bool = false
+    var triggerSearch: Bool = false
+    var showsFrame: Bool = true
+
+    private static let countryCodes: [String: String] = [
+        "argentina": "ar", "egypt": "eg", "switzerland": "ch", "colombia": "co",
+        "france": "fr", "morocco": "ma", "mexico": "mx", "south africa": "za",
+        "south korea": "kr", "korea": "kr", "czech republic": "cz", "czechia": "cz",
+        "canada": "ca", "bosnia and herzegovina": "ba", "usa": "us", "united states": "us",
+        "netherlands": "nl", "belgium": "be", "brazil": "br", "germany": "de",
+        "england": "gb-eng", "italy": "it", "spain": "es", "portugal": "pt",
+        "croatia": "hr", "uruguay": "uy", "japan": "jp", "australia": "au",
+        "senegal": "sn", "ghana": "gh", "cameroon": "cm", "nigeria": "ng",
+        "ivory coast": "ci", "iran": "ir", "qatar": "qa", "saudi arabia": "sa",
+        "ecuador": "ec", "poland": "pl", "denmark": "dk", "serbia": "rs",
+        "wales": "gb-wls", "costa rica": "cr", "panama": "pa", "scotland": "gb-sct",
+        "austria": "at", "sweden": "se", "norway": "no", "finland": "fi",
+        "turkey": "tr", "romania": "ro", "hungary": "hu", "slovakia": "sk",
+        "ukraine": "ua", "russia": "ru", "china": "cn", "india": "in",
+        "new zealand": "nz", "paraguay": "py", "chile": "cl", "peru": "pe",
+        "venezuela": "ve", "bolivia": "bo", "honduras": "hn"
+    ]
+
+    private var displayName: String {
+        Self.displayName(for: teamName)
+    }
+
+    private var resolvedURLs: [URL] {
+        Self.candidateURLs(
+            explicit: badgeURL,
+            country: Self.countryFlagURL(for: displayName),
+            // Intentionally read the warm snapshot without observing the whole
+            // service. A league refresh must not invalidate every visible row.
+            brand: brandLookupResolved
+                ? brandURL
+                : (brandURL ?? TeamBrandService.shared.badgeURL(for: displayName, triggerSearch: triggerSearch))
+        )
+    }
+
+    private var initials: String {
+        Self.fallbackInitials(for: displayName)
+    }
+
+    static func displayName(for teamName: String) -> String {
+        let trimmed = teamName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Team" : trimmed
+    }
+
+    static func fallbackInitials(for teamName: String) -> String {
+        let words = displayName(for: teamName).split(separator: " ")
+        if words.count >= 2 {
+            return String(words.prefix(2).compactMap(\.first)).uppercased()
+        }
+        return String(displayName(for: teamName).prefix(3)).uppercased()
+    }
+
+    static func countryFlagURL(for teamName: String) -> URL? {
+        let normalized = displayName(for: teamName)
+            .lowercased()
+            .replacingOccurrences(of: " national team", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let code = countryCodes[normalized] else { return nil }
+        return URL(string: "https://flagcdn.com/w160/\(code).png")
+    }
+
+    static func candidateURLs(explicit: URL?, country: URL?, brand: URL?) -> [URL] {
+        var seen = Set<String>()
+        return [explicit, country, brand].compactMap { candidate in
+            guard let candidate, seen.insert(candidate.absoluteString).inserted else { return nil }
+            return candidate
+        }
+    }
+
+    var body: some View {
+        let color = TeamColorResolver.resolve(teamName: displayName) ?? FottyTheme.textTertiary
+
+        ZStack {
+            if !resolvedURLs.isEmpty {
+                CachedAsyncImage(urls: resolvedURLs) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .padding(max(2, size * 0.08))
+                        // Catalyst can expose the resolved bitmap even when
+                        // the outer badge is a combined accessibility element.
+                        // Give that underlying image the same truthful name.
+                        .accessibilityLabel("\(displayName) badge")
+                } placeholder: {
+                    initialsFallback(color: color)
+                }
+            } else {
+                initialsFallback(color: color)
+            }
+        }
+        .frame(width: size, height: size)
+        .background(
+            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                .fill(FottyTheme.surfaceElevated)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
+                .stroke(color.opacity(showsFrame ? (glowEnabled ? 0.8 : 0.35) : 0), lineWidth: glowEnabled ? 2 : 1)
+        }
+        .if(glowEnabled) { view in
+            view.shadow(color: color.opacity(0.45), radius: 8)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(displayName) badge")
+    }
+
+    private func initialsFallback(color: Color) -> some View {
+        ZStack {
+            LinearGradient(
+                colors: [color.opacity(0.2), FottyTheme.surfaceElevated],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            Text(initials)
+                .font(.system(size: max(size * 0.34, 8), weight: .black, design: .rounded))
+                .foregroundStyle(FottyTheme.textPrimary)
+                .minimumScaleFactor(0.7)
+                .accessibilityIdentifier("team-badge-decorative-initials")
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+/// An atomic team-name presentation. Use this rather than a bare `Text` when
+/// the label identifies a team (as opposed to mentioning one inside prose).
+struct TeamIdentityLabel: View {
+    let teamName: String
+    var badgeURL: URL? = nil
+    var badgeSize: CGFloat = 24
+    var font: Font = FottyTheme.typeBody
+    var foregroundColor: Color = FottyTheme.textPrimary
+    var lineLimit: Int = 1
+    var triggerSearch: Bool = false
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        HStack(spacing: max(5, badgeSize * 0.25)) {
+            TeamBadgeWindow(
+                teamName: teamName,
+                badgeURL: badgeURL,
+                size: badgeSize,
+                triggerSearch: triggerSearch
+            )
+            Text(teamName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Team" : teamName)
+                .font(font)
+                .foregroundStyle(foregroundColor)
+                .lineLimit(typeSize.isAccessibilitySize ? nil : lineLimit)
+                .minimumScaleFactor(typeSize.isAccessibilitySize ? 1 : 0.8)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(teamName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Team" : teamName)
+    }
+}
+
+/// Compatibility wrapper for older call sites. The visual contract is now the
+/// same badge window used by new surfaces.
 struct TeamBadgeView: View {
     let badgeURL: URL?
     let teamName: String
     var size: CGFloat = 32
-    
-    private var initials: String {
-        let words = teamName.split(separator: " ")
-        if words.count >= 2 {
-            return String(words[0].prefix(1) + words[1].prefix(1)).uppercased()
-        }
-        return String(teamName.prefix(2)).uppercased()
-    }
-    
+
     var body: some View {
-        ZStack {
-            if let url = badgeURL {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFit()
-                    case .failure, .empty:
-                        initialsView
-                    @unknown default:
-                        initialsView
-                    }
-                }
-            } else {
-                initialsView
-            }
-        }
-        .frame(width: size, height: size)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(teamName) badge")
-    }
-    
-    private var initialsView: some View {
-        ZStack {
-            Circle()
-                .fill(FottyTheme.surfaceElevated)
-                .overlay {
-                    Circle()
-                        .strokeBorder(FottyTheme.borderStrong, lineWidth: 1)
-                }
-            
-            Text(initials)
-                // Initials are badge artwork; the whole badge scales as a unit
-                // and exposes the full team name through VoiceOver.
-                .font(.system(size: size * 0.35, weight: .bold, design: .rounded))
-                .foregroundStyle(FottyTheme.textSecondary)
-                .accessibilityHidden(true)
-        }
+        TeamBadgeWindow(teamName: teamName, badgeURL: badgeURL, size: size)
     }
 }
 
@@ -295,6 +368,111 @@ struct TrailingScrollArrow: View {
                 .foregroundStyle(.white.opacity(0.6))
                 .padding(8)
                 .background(Circle().fill(Color.black.opacity(0.4)))
+        }
+    }
+}
+
+// MARK: - Branded control feedback
+
+/// For controls that already supply their own label, surface and hit region.
+/// Keep feedback local to the button: no scaling, delayed animation, or gesture
+/// layer that could compete with scrolling or playback controls.
+struct FottyPressButtonStyle: ButtonStyle {
+    var cornerRadius: CGFloat = FottyTheme.radiusSM
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .modifier(FottyPressFeedback(isPressed: configuration.isPressed, cornerRadius: cornerRadius))
+    }
+}
+
+struct FottyPressFeedback: ViewModifier {
+    let isPressed: Bool
+    var cornerRadius: CGFloat = FottyTheme.radiusSM
+    @Environment(\.isEnabled) private var isEnabled
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if isPressed && isEnabled {
+                    RoundedRectangle(cornerRadius: cornerRadius)
+                        .fill(.primary.opacity(0.10))
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+            }
+            .opacity(isEnabled ? 1 : 0.45)
+    }
+}
+
+// MARK: - Inline action confirmation
+
+/// One local, dismissible acknowledgement. The caller owns the accepted action
+/// and one-use Undo receipt; this view never schedules or mutates anything itself.
+struct FottyInlineFeedback: View {
+    let title: String
+    let detail: String?
+    var symbol: String = "checkmark"
+    var isWorking = false
+    var onUndo: (() -> Void)? = nil
+    let onDismiss: () -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        MatchRowLayout(minimumInformationWidth: 140, forceStack: typeSize.isAccessibilitySize, spacing: 4) {
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(FottyTheme.success)
+                    .frame(width: 24)
+                    .frame(minHeight: 24)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FottyTheme.textPrimary)
+                    if let detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(FottyTheme.typeCaption)
+                            .foregroundStyle(FottyTheme.textSecondary)
+                    }
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityElement(children: .combine)
+
+            HStack(spacing: 0) {
+                if isWorking {
+                    ProgressView()
+                        .frame(minWidth: 44, minHeight: 44)
+                        .accessibilityLabel("Updating")
+                } else if let onUndo {
+                    Button("Undo", action: onUndo)
+                        .font(FottyTheme.typeAction)
+                        .foregroundStyle(FottyTheme.accentText)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .padding(.horizontal, 4)
+                        .contentShape(Rectangle())
+                        .accessibilityLabel("Undo \(title.lowercased())")
+                }
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(FottyTheme.textSecondary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Dismiss confirmation")
+            }
+            .buttonStyle(FottyPressButtonStyle())
+        }
+        .padding(8)
+        .background(FottyTheme.surfaceSubtle, in: RoundedRectangle(cornerRadius: FottyTheme.radiusMD))
+        .overlay {
+            RoundedRectangle(cornerRadius: FottyTheme.radiusMD)
+                .strokeBorder(FottyTheme.border, lineWidth: 0.5)
+                .allowsHitTesting(false)
         }
     }
 }
@@ -600,150 +778,137 @@ extension View {
 /// Shared sport identity for Home tiles, filters and competition headings.
 /// Equipment silhouettes stay recognisable without relying on colour alone.
 enum SportIdentity {
-    static func symbol(for category: String) -> String {
-        let key = category.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Full-colour Apple equipment artwork for discovery surfaces. Standard
+    /// actions continue to use SF Symbols; this artwork is the recognizable
+    /// sports identity the owner approved for Home.
+    static func artwork(for category: String) -> String? {
+        let key = normalizedKey(category)
         switch key {
-        case "all", "all-sports": return "square.grid.2x2.fill"
-        case "american-football", "nfl", "afl", "rugby": return "american.football.fill"
+        case "", "all", "all-sports": return nil
+        case "american-football", "american football", "nfl", "afl", "cfl": return "🏈"
+        case _ where key.contains("rugby"): return "🏉"
+        case _ where key.contains("football") || key.contains("soccer"): return "⚽️"
+        case _ where key.contains("basketball") || key == "nba" || key == "wnba": return "🏀"
+        case _ where key.contains("baseball") || key == "mlb": return "⚾️"
+        case _ where key.contains("cricket"): return "🏏"
+        case _ where key.contains("table tennis") || key.contains("table-tennis") || key.contains("ping pong") || key.contains("ping-pong"): return "🏓"
+        case _ where key.contains("tennis"): return "🎾"
+        case _ where key.contains("hockey") || key == "nhl": return "🏒"
+        case _ where key.contains("fight") || key.contains("mma") || key.contains("boxing"): return "🥊"
+        case _ where key.contains("f1") || key.contains("formula 1") || key.contains("formula-1") || key == "formula1" || key.contains("nascar") || key.contains("motor") || key.contains("racing"): return "🏎️"
+        case _ where key.contains("dart"): return "🎯"
+        case _ where key.contains("golf"): return "⛳️"
+        case _ where key.contains("volleyball"): return "🏐"
+        case _ where key.contains("handball"): return "🤾"
+        case _ where key.contains("lacrosse"): return "🥍"
+        case _ where key.contains("cycl") || key.contains("bicycle"): return "🚴"
+        default: return "🏟️"
+        }
+    }
+
+    static func symbol(for category: String) -> String {
+        let key = normalizedKey(category)
+        switch key {
+        case "", "all", "all-sports": return "square.grid.2x2.fill"
+        case "american-football", "american football", "nfl", "afl", "cfl": return "american.football.fill"
+        case _ where key.contains("rugby"): return "figure.rugby"
         case _ where key.contains("football") || key.contains("soccer"): return "soccerball"
         case _ where key.contains("basketball") || key == "nba" || key == "wnba": return "basketball.fill"
         case _ where key.contains("baseball") || key == "mlb": return "baseball.fill"
         case _ where key.contains("cricket"): return "cricket.ball.fill"
+        case _ where key.contains("table tennis") || key.contains("table-tennis") || key.contains("ping pong") || key.contains("ping-pong"): return "figure.table.tennis"
         case _ where key.contains("tennis"): return "tennisball.fill"
         case _ where key.contains("hockey") || key == "nhl": return "hockey.puck.fill"
         case _ where key.contains("fight") || key.contains("mma") || key.contains("boxing"): return "figure.boxing"
-        case _ where key.contains("f1") || key.contains("nascar") || key.contains("motor"): return "flag.checkered"
+        case _ where key.contains("f1") || key.contains("formula 1") || key.contains("formula-1") || key == "formula1" || key.contains("nascar") || key.contains("motor") || key.contains("racing"): return "flag.checkered"
+        case _ where key.contains("dart"): return "scope"
+        case _ where key.contains("golf"): return "figure.golf"
+        case _ where key.contains("volleyball"): return "volleyball.fill"
+        case _ where key.contains("handball"): return "figure.handball"
+        case _ where key.contains("lacrosse"): return "figure.lacrosse"
+        case _ where key.contains("cycl") || key.contains("bicycle"): return "bicycle"
+        case _ where key.contains("college"): return "graduationcap.fill"
         default: return "sportscourt.fill"
         }
     }
 
     static func ink(for category: String) -> Color {
         switch symbol(for: category) {
+        case "square.grid.2x2.fill": return FottyTheme.accentText
+        case "soccerball", "tennisball.fill", "figure.golf": return FottyTheme.success
         case "basketball.fill", "american.football.fill":
             return FottyTheme.adaptive(light: UIColor(red: 0.57, green: 0.24, blue: 0.04, alpha: 1), dark: UIColor(red: 1, green: 0.62, blue: 0.27, alpha: 1))
-        case "baseball.fill", "cricket.ball.fill": return FottyTheme.error
-        case "tennisball.fill": return FottyTheme.success
-        default: return FottyTheme.textPrimary
+        case "baseball.fill", "cricket.ball.fill", "figure.boxing": return FottyTheme.error
+        case "hockey.puck.fill", "figure.table.tennis", "volleyball.fill":
+            return FottyTheme.adaptive(light: UIColor(red: 0.07, green: 0.35, blue: 0.65, alpha: 1), dark: UIColor(red: 0.31, green: 0.68, blue: 0.98, alpha: 1))
+        case "figure.rugby", "figure.handball", "figure.lacrosse", "bicycle":
+            return FottyTheme.adaptive(light: UIColor(red: 0.02, green: 0.38, blue: 0.38, alpha: 1), dark: UIColor(red: 0.22, green: 0.82, blue: 0.78, alpha: 1))
+        case "scope":
+            return FottyTheme.adaptive(light: UIColor(red: 0.42, green: 0.24, blue: 0.64, alpha: 1), dark: UIColor(red: 0.72, green: 0.55, blue: 0.96, alpha: 1))
+        case "graduationcap.fill": return FottyTheme.textSecondary
+        case "flag.checkered": return FottyTheme.accentText
+        default: return FottyTheme.textSecondary
         }
+    }
+
+    private static func normalizedKey(_ category: String) -> String {
+        category
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "_", with: "-")
     }
 }
 
 struct SportEmblem: View {
     let category: String
     var size: CGFloat = 26
+    var isActive: Bool = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var ink: Color { SportIdentity.ink(for: category) }
 
     var body: some View {
-        Image(systemName: SportIdentity.symbol(for: category))
-            .font(.system(size: size, weight: .medium))
-            .symbolRenderingMode(.hierarchical)
-            .foregroundStyle(SportIdentity.ink(for: category))
-            .frame(width: size + 2, height: size + 2)
-            .accessibilityHidden(true)
+        Group {
+            if let artwork = SportIdentity.artwork(for: category) {
+                Text(artwork)
+                    .font(.system(size: size * 1.02))
+                    .frame(width: size + 6, height: size + 6)
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(ink.opacity(isActive ? 0.20 : 0.10))
+                    Circle()
+                        .strokeBorder(ink.opacity(isActive ? 0.65 : 0.20), lineWidth: isActive ? 1.5 : 1)
+                    Image(systemName: SportIdentity.symbol(for: category))
+                        .font(.system(size: size * 0.58, weight: .semibold))
+                        .symbolRenderingMode(.monochrome)
+                        .foregroundStyle(ink)
+                }
+                .frame(width: size + 4, height: size + 4)
+            }
+        }
+        .scaleEffect(isActive && !reduceMotion ? 1.06 : 1)
+        .animation(reduceMotion ? nil : FottyTheme.springSnappy, value: isActive)
+        .accessibilityHidden(true)
     }
 }
 
 struct FlagSquircleBadge: View {
     let name: String
     let badgeURL: URL?
+    var brandURL: URL? = nil
+    var brandLookupResolved = false
     var size: CGFloat = 64
     /// Soft neon glow — off for cinema hero / dense rows.
     var glowEnabled: Bool = true
-    @ObservedObject private var brandService = TeamBrandService.shared
-
-    // Mapping of country names to 2-letter codes for flagcdn, matching web's COUNTRY_CODES
-    private static let countryCodes: [String: String] = [
-        "argentina": "ar", "egypt": "eg", "switzerland": "ch", "colombia": "co",
-        "france": "fr", "morocco": "ma", "mexico": "mx", "south africa": "za",
-        "south korea": "kr", "korea": "kr", "czech": "cz", "czechia": "cz",
-        "canada": "ca", "bosnia": "ba", "usa": "us", "united states": "us",
-        "netherlands": "nl", "belgium": "be", "brazil": "br", "germany": "de",
-        "england": "gb-eng", "italy": "it", "spain": "es", "portugal": "pt",
-        "croatia": "hr", "uruguay": "uy", "japan": "jp", "australia": "au",
-        "senegal": "sn", "ghana": "gh", "cameroon": "cm", "nigeria": "ng",
-        "ivory coast": "ci", "iran": "ir", "qatar": "qa", "saudi arabia": "sa",
-        "ecuador": "ec", "poland": "pl", "denmark": "dk", "serbia": "rs",
-        "wales": "gb-wls", "costa rica": "cr", "panama": "pa", "scotland": "gb-sct",
-        "austria": "at", "sweden": "se", "norway": "no", "finland": "fi",
-        "turkey": "tr", "romania": "ro", "hungary": "hu", "slovakia": "sk",
-        "ukraine": "ua", "russia": "ru", "china": "cn", "india": "in",
-        "new zealand": "nz", "paraguay": "py", "chile": "cl", "peru": "pe",
-        "venezuela": "ve", "bolivia": "bo", "honduras": "hn"
-    ]
-    
-    private var resolvedURL: URL? {
-        if let badgeURL { return badgeURL }
-        
-        let lower = name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        if let key = Self.countryCodes.keys.first(where: { lower.contains($0) }),
-           let code = Self.countryCodes[key] {
-            return URL(string: "https://flagcdn.com/w160/\(code).png")
-        }
-        
-        return brandService.badgeURL(for: name, triggerSearch: false)
-    }
-    
-    private var initials: String {
-        let words = name.split(separator: " ")
-        if words.count >= 2 {
-            return String(words[0].prefix(1) + words[1].prefix(1)).uppercased()
-        }
-        return String(name.prefix(3)).uppercased()
-    }
-    
     var body: some View {
-        let color = TeamColorResolver.resolve(teamName: name) ?? Color(hex: "#3f3f46")
-        
-        return ZStack {
-            if let url = resolvedURL {
-                CachedAsyncImage(url: url) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: max(1, size - 4), height: max(1, size - 4))
-                        .frame(width: size, height: size)
-                        .accessibilityLabel("\(name) badge")
-                        .accessibilityHidden(true)
-                } placeholder: {
-                    initialsFallbackView(color: color)
-                }
-            } else {
-                initialsFallbackView(color: color)
-            }
-        }
-        .frame(width: size, height: size)
-        .clipShape(RoundedRectangle(cornerRadius: size * 0.2, style: .continuous))
-        .background(
-            RoundedRectangle(cornerRadius: size * 0.2, style: .continuous)
-                .fill(Color(hex: "#0a0a0d"))
+        TeamBadgeWindow(
+            teamName: name,
+            badgeURL: badgeURL,
+            brandURL: brandURL,
+            brandLookupResolved: brandLookupResolved,
+            size: size,
+            glowEnabled: glowEnabled
         )
-        .overlay(
-            RoundedRectangle(cornerRadius: size * 0.2, style: .continuous)
-                .stroke(color.opacity(glowEnabled ? 0.8 : 0.35), lineWidth: glowEnabled ? 2.5 : 1)
-        )
-        .if(glowEnabled) { view in
-            view
-                .shadow(color: color.opacity(0.6), radius: 10, x: 0, y: 0)
-                .shadow(color: color.opacity(0.3), radius: 3, x: 0, y: 0)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(name) badge")
-    }
-    
-    private func initialsFallbackView(color: Color) -> some View {
-        ZStack {
-            LinearGradient(
-                colors: [color.opacity(0.18), Color(hex: "#050506")],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            
-            Text(initials)
-                // Initials are badge artwork; the whole badge scales as a unit
-                // and exposes the full team name through VoiceOver.
-                .font(.system(size: max(size * 0.36, 10), weight: .black, design: .rounded))
-                .foregroundStyle(.white)
-                .accessibilityHidden(true)
-        }
-        .frame(width: size, height: size)
     }
 }

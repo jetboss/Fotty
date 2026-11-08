@@ -1,0 +1,41 @@
+{
+  "build": 224,
+  "scope": "Jet iPad Sports TV",
+  "skyMainEvent": {
+    "stationEdition": "United Kingdom",
+    "entry": "Sports TV → Watch",
+    "route": "CS1",
+    "result": "Passed. Positive rendered frames and rate, same native player/item/attempt throughout the hold.",
+    "mediaAdvanceSeconds": 91.441,
+    "programme": "Halys–Fery tennis. First-set tiebreak score advanced to first-set statistics.",
+    "correctedBuildRepeat": {
+      "route": "CS1",
+      "mediaAdvanceSeconds": 91.407,
+      "programme": "Halys–Fery tennis in the second set. Point score progressed from 15–30 to 30–40."
+    }
+  },
+  "fs1Attempts": [
+    {
+      "result": "Runner timed out awaiting Touch ID before the first test started. No outage injected in this attempt."
+    },
+    {
+      "result": "TV24 played. After the forced loss no switch occurred in 90 seconds; only TV24 appeared in the picker.",
+      "cause": "The adapter compared station names case-sensitively. The US catalog advertises FOX Sports 1 alongside FOX Sports 1 Mx, also tagged US. The first regression used Fotty’s display spelling instead of the publisher’s spelling."
+    },
+    {
+      "result": "Passed on corrected candidate. Only TV24 was selected as a drill precondition. No user input selected the replacement.",
+      "primary": "TV24",
+      "backup": "CS1",
+      "faultToFirstVerifiedAdvancingPictureSeconds": 15.35,
+      "mediaAdvanceSeconds": 91.352,
+      "programme": "Wisconsin–Iowa football. TV24 showed Iowa leading 3–0 at 9:08 in the first quarter; CS1 showed the same score at 8:38 and continued through a commercial.",
+      "scope": "Forced selected-route failure with network available. No audio measurement or match-specific assignment claimed."
+    }
+  ],
+  "focusedTests": {
+    "passed": 26,
+    "failed": 0,
+    "device": "Jet iPad"
+  },
+  "restoration": "Signed private build 224 reinstalled and relaunched normally on Jet iPad. Station favorites, commentary preference and source opt-ins matched the pretest snapshot."
+}

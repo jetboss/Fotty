@@ -1,19 +1,52 @@
 import SwiftUI
 import SwiftData
 
+/// A browsing destination may hold an older local lookup/selection owner before
+/// a scene player mounts. The scene's one preflight owner yields to it as well.
+struct FixturePreflightActivityPreferenceKey: PreferenceKey {
+    static var defaultValue: Bool { false }
+    static func reduce(value: inout Bool, nextValue: () -> Bool) { value = value || nextValue() }
+}
+
 struct MainTabView: View {
     @AppStorage("fotty.selectedTab") private var persistedTabRawValue = ""
     @State private var selectedTab: Tab = MainTabView.initialTab
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var badgeManager = NotificationBadgeManager.shared
     @Environment(LiveScoreService.self) private var liveScoreService
     @State private var matchNavigationStore = MatchNavigationStore.shared
     @StateObject private var fplSession = FPLWorkspaceSession()
+    @State private var followMigrationError: String?
+    @State private var viewingSession = ViewingSessionCoordinator()
+    @State private var sourcePreflightSchedule = FixtureStreamPreflightSchedule()
+    @State private var sourcePreflightIsLocallyBlocked = false
+
+    private var canPreflightSourceMetadata: Bool {
+        scenePhase == .active && selectedTab != .fpl && viewingSession.panes.isEmpty
+            && viewingSession.resolutionMessage == nil && viewingSession.pendingSingleEvent == nil
+            && !sourcePreflightIsLocallyBlocked
+    }
+
+    private var sourcePreflightTaskKey: String {
+        // Ordinary sports-tab changes, Search presentation and catalog revisions
+        // do not replace the owner or reset its retained90-second reservation.
+        "\(canPreflightSourceMetadata)-\(FixtureCatalogAvailabilityIndex.shared.enablementRevision)"
+    }
+
+    private var sourceCatalogTaskKey: String {
+        "\(scenePhase == .active)-\(FixtureCatalogAvailabilityIndex.shared.enablementRevision)"
+    }
+
+    private var sourceCatalogFixtureKey: String {
+        let catalog = MatchListViewModel.shared
+        return "\(catalog.contentRevision)-\(catalog.fixtureCatalogRevision)"
+    }
     
     enum Tab: String, CaseIterable {
         case home = "Home"
+        case tv = "TV"
         // Keep the persisted raw value so existing installs retain their selected tab.
         case social = "Arena"
         case fpl = "FPL"
@@ -22,6 +55,7 @@ struct MainTabView: View {
         var displayName: String {
             switch self {
             case .home: return "Home"
+            case .tv: return "TV"
             case .social: return "Matchday"
             case .fpl: return "FPL"
             case .settings: return "Settings"
@@ -31,26 +65,19 @@ struct MainTabView: View {
         var icon: String {
             switch self {
             case .home: return "house"
+            case .tv: return "tv"
             case .social: return "calendar"
             case .fpl: return "chart.line.uptrend.xyaxis"
             case .settings: return "gearshape"
             }
         }
         
-        var selectedIcon: String {
-            switch self {
-            case .home: return "house.fill"
-            case .social: return "calendar.circle.fill"
-            case .fpl: return "chart.line.uptrend.xyaxis"
-            case .settings: return "gearshape.fill"
-            }
-        }
     }
     
-    private static var enabledTabs: [Tab] { Tab.allCases }
     private static var initialTab: Tab { .home }
     
     @Query private var followedTeams: [FollowedTeamItem]
+    @Query private var followedLeagues: [FollowedLeagueItem]
     @State private var isTabBarVisible = true
 
     private var followedAlertSignature: String {
@@ -60,38 +87,28 @@ struct MainTabView: View {
             .joined(separator: "|")
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            Group {
-                switch selectedTab {
-                case .home:
-                    SportsDashboardView()
-                case .social:
-                    ArenaDiscoveryView(onBrowseHome: {
-                        withAnimation(FottyTheme.springSnappy) {
-                            selectedTab = .home
-                        }
-                    })
-                case .fpl:
-                    FPLMainView(session: fplSession)
-                case .settings:
-                    SettingsView(onOpenFPL: {
-                        fplSession.workspace = .gameweek
-                        selectedTab = .fpl
-                    })
-                }
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+    private var sportsInterestSignature: String {
+        followedTeams.map { $0.key }.sorted().joined(separator: "|") + ";" +
+            followedLeagues.map { $0.id }.sorted().joined(separator: "|")
+    }
 
-            if isTabBarVisible {
-                cinemaDockTabBar
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-            }
-        }
+    private var followMigrationErrorIsPresented: Binding<Bool> {
+        Binding(
+            get: { followMigrationError != nil },
+            set: { if !$0 { followMigrationError = nil } }
+        )
+    }
+
+    var body: some View {
+        ViewingSessionShell(viewing: viewingSession) { tabContent }
         // Let the background extend under system chrome without letting that
         // chrome change the content's safe-area proposal on iPhone or iPad.
         .background(FottyTheme.background.ignoresSafeArea())
-        .ignoresSafeArea(.keyboard, edges: .bottom)
+        // FPL has inline editors and the Coach composer. Let the system shrink
+        // their available space above a docked software keyboard; do not replace
+        // the selected view tree or add keyboard-height observers/padding.
+        .ignoresSafeArea(selectedTab == .fpl ? [] : .keyboard, edges: .bottom)
+        .fottyAdaptiveWindow()
         .fullScreenCover(isPresented: Binding(
             get: { matchNavigationStore.pendingMatchID != nil },
             set: { if !$0 { matchNavigationStore.pendingMatchID = nil } }
@@ -113,20 +130,34 @@ struct MainTabView: View {
                 persistedTabRawValue = Tab.home.rawValue
             }
             if matchNavigationStore.pendingReminderID != nil { selectedTab = .social }
+            if matchNavigationStore.pendingFPL { openPendingFPLDestination() }
         }
         .onChange(of: matchNavigationStore.pendingReminderID) { _, id in
             if id != nil { selectedTab = .social }
         }
+        .onChange(of: matchNavigationStore.pendingFPL) { _, pending in
+            if pending { openPendingFPLDestination() }
+        }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("tabBarVisibilityChanged"))) { notification in
             if let isVisible = notification.userInfo?["isVisible"] as? Bool {
-                withAnimation(FottyTheme.springSnappy) {
+                withAnimation(reduceMotion ? nil : FottyTheme.springSnappy) {
                     isTabBarVisible = isVisible
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: FottyPrivateBackupService.restoredNotification)) { _ in
+            migrateFollowedTeamKeysIfNeeded()
+            fplSession.resetNavigation()
+            let managerID = UserDefaults.standard.integer(forKey: "fotty.user.fplManagerId")
+            if managerID > 0 {
+                fplSession.viewModel.requestManagerConfirmation(managerID: managerID)
+            } else {
+                fplSession.viewModel.clearManagerId()
+            }
+        }
         .onChange(of: selectedTab) { _, newValue in
             persistedTabRawValue = newValue.rawValue
-            withAnimation(FottyTheme.springSnappy) {
+            withAnimation(reduceMotion ? nil : FottyTheme.springSnappy) {
                 isTabBarVisible = true
             }
         }
@@ -139,107 +170,194 @@ struct MainTabView: View {
             MatchAlertPreferences.synchronize(from: followedTeams)
         }
         .onOpenURL { url in
-            if FottyDeepLinkDestination.parse(url) == .fpl {
-                withAnimation(FottyTheme.springSnappy) {
-                    selectedTab = .fpl
-                }
+            if url.scheme == "fotty", url.host == "sports-plan" {
+                viewingSession.minimize()
+                selectedTab = .social
+            } else if url.scheme == "fotty", url.host == "matchday" {
+                viewingSession.minimize()
+                selectedTab = .social
+                matchNavigationStore.pendingReminderID = url.pathComponents.dropFirst().first
+            } else if FottyDeepLinkDestination.parse(url) == .fpl {
+                selectedTab = .fpl
             } else {
                 matchNavigationStore.open(url: url)
             }
         }
+        .onContinueUserActivity(SportsHandoffIdentity.activityType) { activity in
+            Task { await viewingSession.receiveHandoff(activity) }
+        }
+        .task(id: viewingSession.handoffPublisher.offeredIdentity?.expiresAt) {
+            guard let expiry = viewingSession.handoffPublisher.offeredIdentity?.expiresAt else { return }
+            do { try await Task.sleep(for: .seconds(max(0, expiry.timeIntervalSinceNow))) }
+            catch { return }
+            viewingSession.handoffPublisher.expireIfNeeded()
+        }
         .task {
+            await StreamPluginRegistry.shared.refreshDiscoveryAvailability()
+            guard !Task.isCancelled else { return }
             migrateFollowedTeamKeysIfNeeded()
+            if !AppRuntime.isAutomatedTesting, !LocalDataStore.shared.isUsingVolatileFallback {
+                SportsContinuityBridge.shared.configure(modelContext: modelContext)
+            }
+        }
+        .onChange(of: sportsInterestSignature) { _, _ in
+            if !AppRuntime.isAutomatedTesting, !LocalDataStore.shared.isUsingVolatileFallback {
+                SportsContinuityBridge.shared.publishLocalSnapshot()
+            }
+        }
+        .alert("Saved follows", isPresented: followMigrationErrorIsPresented) {
+            Button("OK", role: .cancel) { followMigrationError = nil }
+        } message: {
+            Text(followMigrationErrorMessage)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .background, !AppRuntime.isAutomatedTesting else { return }
+            SportsReminderBackgroundRefresh.shared.scheduleIfNeeded()
+        }
+        .onPreferenceChange(FixturePreflightActivityPreferenceKey.self) { isBlocked in
+            sourcePreflightIsLocallyBlocked = isBlocked
+        }
+        .onChange(of: MatchReminderStore.shared.records) { _, _ in
+            guard !AppRuntime.isAutomatedTesting else { return }
+            SportsReminderBackgroundRefresh.shared.scheduleIfNeeded()
+        }
+        .onChange(of: sourceCatalogFixtureKey) { _, _ in
+            guard !AppRuntime.isAutomatedTesting else { return }
+            // Revoke corrected/terminal identities immediately without cancelling
+            // unaffected catalog reads or spending their refresh budget again.
+            FixtureCatalogAvailabilityIndex.shared.replaceFixtures(
+                MatchListViewModel.shared.sourceCatalogRequests(at: Date()), at: Date())
+        }
+        .task(id: sourceCatalogTaskKey) {
+            guard scenePhase == .active, !AppRuntime.isAutomatedTesting else { return }
+            await StreamPluginRegistry.shared.refreshDiscoveryAvailability()
+            let catalog = MatchListViewModel.shared
+            catalog.configure(modelContext: modelContext)
+            while !Task.isCancelled {
+                let now = Date()
+                await BroadcastRegistryClient.shared.refresh(at: now)
+                guard !Task.isCancelled else { return }
+                let requests = catalog.sourceCatalogRequests(at: now)
+                let primary = catalog.primarySourceCatalogEvidence(for: requests, at: now)
+                await FixtureSourceCatalogCollector.refresh(requests: requests,
+                    lanes: FixtureSourceCatalogCollector.lanes(primaryMatches: primary.matches, primaryFailure: primary.failure,
+                        registrySnapshot: BroadcastRegistryClient.shared.cachedSnapshot(at: now), requests: requests),
+                    at: now)
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+            }
+        }
+        .task(id: sourcePreflightTaskKey) {
+            guard !AppRuntime.isAutomatedTesting, canPreflightSourceMetadata else { return }
+            while !Task.isCancelled {
+                let codes = Set(await StreamPluginRegistry.shared.enabledProviderCodes())
+                guard !Task.isCancelled, canPreflightSourceMetadata else { return }
+                let now = Date()
+                let catalog = MatchListViewModel.shared
+                let admission = catalog.playbackAdmissionCatalog
+                let eligible = catalog.sourceCatalogRequests(at: now).compactMap { request in
+                    request.preferredEvent.flatMap { event in
+                        OptionalSourceLookupPolicy.event(for: event, in: admission,
+                            enabledProviderCodes: codes, at: now, phase: .preflight)
+                    }
+                }
+                if let nextID = sourcePreflightSchedule.takeNextID(from: eligible.map(\.id), at: now),
+                   let event = eligible.first(where: { $0.id == nextID }) {
+                    await LiveStreamResolver.shared.preflightSources(for: StreamPlaybackRequest(event: event))
+                }
+                do { try await Task.sleep(for: .seconds(sourcePreflightSchedule.delay(at: Date()))) }
+                catch { return }
+            }
         }
         .task(id: scenePhase) {
             guard scenePhase == .active, !AppRuntime.isAutomatedTesting else { return }
-            // Restored SwiftData rows omit source descriptors. Only a fresh
-            // catalog response may replace a reminder's saved snapshot.
-            await MatchReminderStore.shared.reconcile(events: []) {
-                MatchStartPolicy.currentStatus(for: $0, scores: liveScoreService)
+            viewingSession.handoffPublisher.expireIfNeeded()
+            if !LocalDataStore.shared.isUsingVolatileFallback { SportsContinuityBridge.shared.refresh() }
+            let catalog = MatchListViewModel.shared
+            catalog.configure(modelContext: modelContext)
+            await catalog.refreshIfNeeded()
+            while !Task.isCancelled {
+                do {
+                    try await Task.sleep(for: .seconds(15 * 60))
+                } catch {
+                    return
+                }
+                guard !Task.isCancelled else { return }
+                await catalog.refreshIfNeeded()
             }
         }
+    }
+
+    private var followMigrationErrorMessage: String {
+        followMigrationError ?? ""
+    }
+
+    private var tabContent: some View {
+        TabView(selection: $selectedTab) {
+            SportsDashboardView(isActive: selectedTab == .home)
+                .tabItem {
+                    Label(Tab.home.displayName, systemImage: Tab.home.icon)
+                        .accessibilityIdentifier("tab-home")
+                }
+                .tag(Tab.home)
+
+            SportsTVView(isActive: selectedTab == .tv) {
+                SportsTVWatchPolicy.watch($0, using: viewingSession,
+                    currentCatalog: { MatchListViewModel.shared.playbackAdmissionCatalog })
+            }
+                .tabItem {
+                    Label(Tab.tv.displayName, systemImage: Tab.tv.icon)
+                        .accessibilityIdentifier("tab-tv")
+                }
+                .tag(Tab.tv)
+
+            ArenaDiscoveryView(isActive: selectedTab == .social) {
+                selectedTab = .home
+            }
+            .tabItem {
+                Label(Tab.social.displayName, systemImage: Tab.social.icon)
+                    .accessibilityIdentifier("tab-arena")
+            }
+            .tag(Tab.social)
+
+            FPLMainView(session: fplSession)
+                .tabItem {
+                    Label(Tab.fpl.displayName, systemImage: Tab.fpl.icon)
+                        .accessibilityIdentifier("tab-fpl")
+                }
+                .tag(Tab.fpl)
+
+            SettingsView {
+                fplSession.workspace = .gameweek
+                selectedTab = .fpl
+            }
+            .tabItem {
+                Label(Tab.settings.displayName, systemImage: Tab.settings.icon)
+                    .accessibilityIdentifier("tab-settings")
+            }
+            .tag(Tab.settings)
+        }
+        // These are real destinations, so let the system own their Liquid Glass
+        // navigation surface. A separate custom dock plus an empty TabView was
+        // what produced the duplicate blank capsule on iOS 27.
+        .toolbarVisibility(isTabBarVisible ? .visible : .hidden, for: .tabBar)
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabViewBottomAccessory(isEnabled: viewingSession.isActive && !viewingSession.expanded) {
+            ViewingMiniPlayer()
+        }
+        .tint(FottyTheme.accentText)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     @MainActor
     private func migrateFollowedTeamKeysIfNeeded() {
-        var hasChanges = false
-        for item in followedTeams {
-            if item.key.hasPrefix("team:") {
-                let name = item.key.replacingOccurrences(of: "team:", with: "")
-                let newKey = TeamFollowKey.make(name: name, category: "football")
-                item.key = newKey
-                hasChanges = true
-            }
-        }
-        
-        if hasChanges {
-            try? modelContext.save()
-        }
+        do { try SportsPersonalizationStore.migrateTeamIdentities(in: modelContext) }
+        catch { followMigrationError = "Your saved follows are still available, but their updated identities could not be saved. Try again in Manage follows." }
     }
-    
-    /// Full-bleed, restrained matchday navigation.
-    private var cinemaDockTabBar: some View {
-        VStack(spacing: 0) {
-            Rectangle()
-                .fill(FottyTheme.borderStrong)
-                .frame(height: 0.5)
-            
-            HStack {
-                Spacer(minLength: 0)
-                HStack(spacing: 0) {
-                    ForEach(Self.enabledTabs, id: \.self) { tab in
-                        let isSelected = selectedTab == tab
-                        Button {
-                            HapticManager.impact(.light)
-                            withAnimation(FottyTheme.springSnappy) {
-                                selectedTab = tab
-                            }
-                        } label: {
-                            VStack(spacing: 4) {
-                                Image(systemName: isSelected ? tab.selectedIcon : tab.icon)
-                                    .font(.fottyScaled(size: 18, weight: isSelected ? .bold : .regular))
-                                    .foregroundStyle(isSelected ? FottyTheme.accentText : FottyTheme.textTertiary)
-                                
-                                Text(tab.displayName)
-                                    .font(FottyTheme.typeCaption)
-                                    .fontWeight(isSelected ? .bold : .medium)
-                                    .foregroundStyle(isSelected ? FottyTheme.textPrimary : FottyTheme.textTertiary)
-                                    .lineLimit(1)
-                                    .multilineTextAlignment(.center)
-                                    .fixedSize(horizontal: true, vertical: true)
-                            }
-                            .frame(width: horizontalSizeClass == .regular ? 96 : nil)
-                            .frame(maxWidth: horizontalSizeClass == .regular ? nil : .infinity)
-                            .padding(.top, 9)
-                            .padding(.bottom, 7)
-                            .background(isSelected ? FottyTheme.surface : Color.clear)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel(tab.displayName)
-                        .accessibilityAddTraits(isSelected ? .isSelected : [])
-                        .accessibilityIdentifier("tab-\(tab.rawValue.lowercased())")
-                    }
-                }
-                Spacer(minLength: 0)
-            }
-            .background(FottyTheme.surfaceElevated)
-        }
-        .frame(maxWidth: .infinity)
-        .background(FottyTheme.surfaceElevated.ignoresSafeArea(edges: .bottom))
-    }
-}
 
-
-/// A wrapper that defers view instantiation until it's needed.
-struct LazyView<Content: View>: View {
-    @ViewBuilder private let build: () -> Content
-    
-    init(@ViewBuilder _ build: @escaping () -> Content) {
-        self.build = build
+    private func openPendingFPLDestination() {
+        matchNavigationStore.pendingFPL = false
+        fplSession.workspace = .gameweek
+        selectedTab = .fpl
     }
     
-    var body: Content {
-        build()
-    }
 }

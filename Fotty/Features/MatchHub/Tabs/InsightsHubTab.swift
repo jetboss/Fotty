@@ -1,15 +1,27 @@
 import SwiftUI
 
+struct MatchHubLineupAvailabilityCopy: Equatable {
+    let title: String
+    let message: String?
+
+    static func presentation(status: FottyMatchStatus, kickoff: Date, at now: Date) -> Self {
+        let isUpcoming = (status == .scheduled || status == .preMatch) && kickoff > now
+        return Self(
+            title: "Lineups unavailable",
+            message: isUpcoming ? "Confirmed teams usually appear close to kickoff." : nil
+        )
+    }
+}
+
 struct InsightsHubTab: View {
     let data: MatchHubData
     let providers: [String]
-    @State private var insights: MatchInsightsData?
-    @State private var isLoading = false
-    @State private var loadError: String?
+    let insights: MatchInsightsData?
+    let isLoading: Bool
+    let loadError: String?
 
     var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 20) {
+        LazyVStack(spacing: 20) {
                 if data.homeLineup != nil && data.awayLineup != nil {
                     lineupsSection
                 } else if shouldExplainLineupAvailability {
@@ -28,7 +40,8 @@ struct InsightsHubTab: View {
 
                 if let loadError, !isLoading, insights != nil {
                     Text("Could not refresh: \(loadError)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(FottyTheme.typeMeta)
+                        .fixedSize(horizontal: false, vertical: true)
                         .foregroundStyle(FottyTheme.error)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(12)
@@ -62,16 +75,9 @@ struct InsightsHubTab: View {
                     MatchHubTeamNewsSection(headlines: data.teamNews)
                         .padding(.horizontal)
                 }
-            }
-            .padding(.vertical, 12)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .refreshable {
-            await loadInsights(forceRefresh: true)
-        }
-        .task(id: "\(data.fixture.id)-\(data.lastUpdated.timeIntervalSince1970)") {
-            await loadInsights(forceRefresh: false)
-        }
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     private var shouldExplainLineupAvailability: Bool {
@@ -81,17 +87,24 @@ struct InsightsHubTab: View {
     }
 
     private var lineupAvailabilityCard: some View {
-        HStack(spacing: 12) {
+        let copy = MatchHubLineupAvailabilityCopy.presentation(
+            status: data.fixture.status, kickoff: data.fixture.utcDate, at: .now
+        )
+        return HStack(spacing: 12) {
             Image(systemName: "person.3")
                 .font(.fottyScaled(size: 18, weight: .semibold))
                 .foregroundStyle(FottyTheme.accentText)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Lineups not available in Fotty yet")
+                Text(copy.title)
                     .font(FottyTheme.typeModuleTitle)
                     .foregroundStyle(FottyTheme.textPrimary)
-                Text("Confirmed teams usually appear close to kickoff.")
-                    .font(FottyTheme.typeMeta)
-                    .foregroundStyle(FottyTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                if let message = copy.message {
+                    Text(message)
+                        .font(FottyTheme.typeMeta)
+                        .foregroundStyle(FottyTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             Spacer()
         }
@@ -116,24 +129,6 @@ struct InsightsHubTab: View {
         }
     }
 
-    private func loadInsights(forceRefresh: Bool) async {
-        isLoading = true
-        loadError = nil
-        do {
-            let loadedInsights = try await FootballRepository.shared.getMatchInsights(
-                fixtureId: data.fixture.id,
-                policy: forceRefresh ? .full : .automatic
-            )
-            guard !Task.isCancelled else { return }
-            insights = loadedInsights
-            loadError = nil
-        } catch {
-            guard !Task.isCancelled else { return }
-            loadError = "Match insights could not be refreshed. Check your connection and try again."
-        }
-        guard !Task.isCancelled else { return }
-        isLoading = false
-    }
 }
 
 struct MatchHubTeamNewsSection: View {
@@ -144,9 +139,9 @@ struct MatchHubTeamNewsSection: View {
             HStack {
                 Image(systemName: "newspaper.fill")
                     .foregroundStyle(FottyTheme.accentText)
-                Text("MATCH NEWS")
-                    .font(.system(size: 12, weight: .black))
-                    .tracking(1)
+                Text("Match news")
+                    .font(FottyTheme.typeModuleTitle)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
             }
 
@@ -156,6 +151,7 @@ struct MatchHubTeamNewsSection: View {
                         Link(destination: url) {
                             teamNewsRow(item)
                         }
+                        .buttonStyle(FottyPressButtonStyle())
                     } else {
                         teamNewsRow(item)
                     }
@@ -172,21 +168,28 @@ struct MatchHubTeamNewsSection: View {
     @ViewBuilder
     private func teamNewsRow(_ item: FottyTeamNewsItem) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(item.teamName.uppercased())
-                .font(.system(size: 9, weight: .bold))
-                .foregroundStyle(FottyTheme.textTertiary)
+            TeamIdentityLabel(
+                teamName: item.teamName,
+                badgeSize: 18,
+                font: FottyTheme.typeMeta.weight(.semibold),
+                foregroundColor: FottyTheme.textTertiary,
+                triggerSearch: true
+            )
             Text(item.title)
-                .font(.system(size: 13, weight: .semibold))
+                .font(FottyTheme.typeBody)
                 .foregroundStyle(FottyTheme.textPrimary)
                 .multilineTextAlignment(.leading)
+                .fixedSize(horizontal: false, vertical: true)
             if let source = item.source {
                 Text(source)
-                    .font(.system(size: 10))
+                    .font(FottyTheme.typeMeta)
                     .foregroundStyle(FottyTheme.textSecondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
+        .frame(minHeight: 44)
+        .contentShape(Rectangle())
     }
 }
 
@@ -197,16 +200,18 @@ struct DataUnavailableView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "clock.badge.exclamationmark")
-                .font(.system(size: 24))
+                .font(.title2)
                 .foregroundStyle(FottyTheme.textTertiary)
 
             Text(title)
-                .font(.system(size: 14, weight: .bold))
+                .font(FottyTheme.typeModuleTitle)
+                .foregroundStyle(FottyTheme.textPrimary)
 
             Text(message)
-                .font(.system(size: 12))
+                .font(FottyTheme.typeBody)
                 .foregroundStyle(FottyTheme.textSecondary)
                 .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity)
         .padding(24)
@@ -225,13 +230,14 @@ struct AISummaryCard: View {
             HStack {
                 Image(systemName: "text.bubble.fill")
                     .foregroundStyle(.blue)
-                Text("MATCH NOTES")
-                    .font(.system(size: 12, weight: .black))
-                    .tracking(1)
+                Text("Match notes")
+                    .font(FottyTheme.typeModuleTitle)
+                    .foregroundStyle(FottyTheme.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 if isLive {
                     Text("LIVE")
-                        .font(.system(size: 10, weight: .black))
+                        .font(FottyTheme.typeMeta.weight(.semibold))
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
                         .background(Color.blue.opacity(0.2))
@@ -246,7 +252,8 @@ struct AISummaryCard: View {
                         Text("•")
                             .foregroundStyle(.blue)
                         Text(insight)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(FottyTheme.typeBody)
+                            .fixedSize(horizontal: false, vertical: true)
                             .lineSpacing(4)
                             .foregroundStyle(FottyTheme.textPrimary)
                     }

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "timestamp": 814926581.053982,
+    "durationMilliseconds": 907,
+    "details": {
+      "stage": "preparing",
+      "source_family": "communitysports",
+      "result": "no_exact_fixture_match",
+      "failure_kind": "provider_returned_empty"
+    }
+  },
+  {
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "timestamp": 814926581.074153,
+    "durationMilliseconds": 1455,
+    "details": {
+      "stage": "preparing",
+      "source_family": "cncsports",
+      "result": "no_exact_fixture_match",
+      "failure_kind": "provider_returned_empty"
+    }
+  }
+]

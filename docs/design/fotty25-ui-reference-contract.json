@@ -1,0 +1,915 @@
+{
+  "schemaVersion": 1,
+  "contractID": "fotty25-core-ui-20261025",
+  "sourceFiles": [
+    {
+      "path": "Fotty/Features/Dashboard/SportsDashboardView.swift",
+      "sha256": "4d1b3195c77f7888d80c6a12f5889aac371c93f6ac040e2bfeefccf0b3d14301"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/Components/SportsDiscoveryViews.swift",
+      "sha256": "26a376f33d31a0ef2903fc8ec36cb6f338811df928b513a0213ba267643aabf6"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/Components/LiveEventCard.swift",
+      "sha256": "f446c8417d872c5382d4de3115ed61e5e37b7056302ca43e9e5b898dca4824ea"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/CatalogEventDetailsView.swift",
+      "sha256": "647da9ee4833659e378a63eface52064f70dce1d1920738467a6ede6890a3c5c"
+    },
+    {
+      "path": "Fotty/Features/Social/ArenaDiscoveryView.swift",
+      "sha256": "c325f5c934b595f671dbacf0e61ed2830cad56d5b478b8a3ff55fd0eb3dc4dc9"
+    },
+    {
+      "path": "Fotty/Features/Search/SearchView.swift",
+      "sha256": "2080a9cb41fe4c1670483a93b773f07124377ea46f9c783a9709ac536d89fcf0"
+    },
+    {
+      "path": "Fotty/Features/Settings/SettingsScreen.swift",
+      "sha256": "e79048e4b5c715c2ef32790534c17ae01d2236ad08d1d718e4df84aa7c83eecc"
+    },
+    {
+      "path": "Fotty/Features/Settings/Components/SettingsComponents.swift",
+      "sha256": "b0daea78788fb0c427c2bc301d498f42035058379d7f0f3412273656db7fe75d"
+    },
+    {
+      "path": "Fotty/Features/Settings/Views/StreamPluginsSettingsView.swift",
+      "sha256": "21014e2c176dbaaeb6c2f56f8d135db301fd2609b1c77b279b867e65c7b22540"
+    },
+    {
+      "path": "Fotty/Features/Settings/SettingsManageFollowsView.swift",
+      "sha256": "b03ca114379885270237ebeeed9de9cc4c5b4a8ae48bfee0e3e548fd590903ed"
+    },
+    {
+      "path": "Fotty/Features/Settings/Views/SettingsPrivacyView.swift",
+      "sha256": "0972ce22f9573da4db616951651ad0aac8989e82c559691b47c55833d031221a"
+    },
+    {
+      "path": "Fotty/Features/Settings/Views/SettingsSupportViews.swift",
+      "sha256": "34724ba5f3945a0b4e20d212c0e83bebf66fe456c3346e16345b6434c2df80c5"
+    },
+    {
+      "path": "Fotty/Features/Player/LivePlayerView.swift",
+      "sha256": "026ae238cc4a177b05f5daa29c7c993bdceb648619a2da25b60f419b8c2cefe8"
+    },
+    {
+      "path": "Fotty/Features/Player/ViewingExperienceView.swift",
+      "sha256": "77efa09564f16e7fe4dc1fee951accde30045d77774cc03f25039784b1432b3b"
+    },
+    {
+      "path": "Fotty/Features/Player/Components/LiveStreamSelectorSheet.swift",
+      "sha256": "6160052d717ecbf39cd4c47d330641b524f4c93537f7d6427ba70716e22d2d72"
+    },
+    {
+      "path": "FottyTests/Fotty25HomeDesignTests.swift",
+      "sha256": "47c1d9710e88d75e5c08af816628447d6f5e1f4d46f7d0a5394853d3506d8014"
+    },
+    {
+      "path": "FottyTests/Fotty25SecondaryDesignTests.swift",
+      "sha256": "136d59e42706c1c825888902f5747c31f41823fddcfcf9b1969ce020cdc7ce3d"
+    },
+    {
+      "path": "FottyTests/Fotty25PlayerDesignTests.swift",
+      "sha256": "a1dcc7c4989de7b399bc3c830ef8015307ab3fb92ef28bf2eee5f94b0888a3a4"
+    },
+    {
+      "path": "FottyTests/Fotty25DesignRenderTests.swift",
+      "sha256": "134a83ba59247477186171388d7afab1b6dae347a7f7165c9b3e9998747d54be"
+    },
+    {
+      "path": "FottyTests/BetaUsabilityTests.swift",
+      "sha256": "eab2d094a4fbe0848673e89e732fcfc8bb95752f6f91dd1b09766acfa5b1f8e0"
+    },
+    {
+      "path": "Fotty.xcodeproj/project.pbxproj",
+      "sha256": "4c2e29e33154d97285c5b0cab84388bb18884338d2d58a15d3c0ab3dc3d3c5c0"
+    },
+    {
+      "path": "Fotty/App/MainTabView.swift",
+      "sha256": "bf12af8a3ee20fed8442ca09a0f5058a00f041c094a015851cf6b62d03caf938"
+    },
+    {
+      "path": "Fotty/Design/Theme.swift",
+      "sha256": "669691b007e12f03e47c1a5c1c8a196adacf77cbcae223058f1ce0a4ecd70eb7"
+    },
+    {
+      "path": "Fotty/Design/Components.swift",
+      "sha256": "a316874a5b7a76da4f80e9eaf43a2849f8b0d46bafc3284d823f60830f71346a"
+    },
+    {
+      "path": "Fotty/Design/TeamColors.swift",
+      "sha256": "4ce0c35de8a89092a8dd57c53237471b9fb2fd56ab8f22276d0ba537799e3378"
+    },
+    {
+      "path": "Fotty/Design/FottyPresentationChrome.swift",
+      "sha256": "5091c22af0ef86c5df3a212d011eb6d4b59d3597073c3bf049c245906c72755d"
+    },
+    {
+      "path": "Fotty/Design/CachedAsyncImage.swift",
+      "sha256": "fe5203e5ce4706453873c7b251a5575ae3a730a0b31dd5719facbd3cddcbc746"
+    },
+    {
+      "path": "Fotty/Design/UI/Animations.swift",
+      "sha256": "3202d5557e865f75fee1db14a4aa4a91d336bf669b7463b608ab0c1a3f64f623"
+    },
+    {
+      "path": "Fotty/Core/UI/Shared/StreamResolutionOverlay.swift",
+      "sha256": "6f9794a8801dade6d962e7fc9d050b704e0dc8c6c6fd59f9b073adc6a704c942"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/Components/DashboardPresentationLayers.swift",
+      "sha256": "1ebea2d7dcf6981f3f52d5f9f73189a4a4a694fde11558d73faa60d88bd536b7"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/Components/DashboardMatchList.swift",
+      "sha256": "4d9478ba37e35d7af059cdfa125d148c5026d16323be73fd6b2a56b50b570d47"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/Components/SportsCategoryBar.swift",
+      "sha256": "157f735a5b9a5f52549a2be86a62b86bb112ff900d8b5fb7883d5433b1ec1840"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/Components/SportsDashboardToolbar.swift",
+      "sha256": "9e5e1e80842b24548aaa25ef1c034f2aa10e6497aeecd9d0c4254f63981a3146"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/Components/HomeSportsDiscovery.swift",
+      "sha256": "9eec9dfb921e62b566094768bdad7c1569855f279b7cfbe16078ff5a83b4140f"
+    },
+    {
+      "path": "Fotty/Features/Player/Components/PlaybackControlsOverlay.swift",
+      "sha256": "daf13b00accee2cebd507c2d76a5ec4dadc764fa7dcc6c827e253a7f9fd16be1"
+    },
+    {
+      "path": "Fotty/Resources/Assets.xcassets/stadium_football.imageset/Contents.json",
+      "sha256": "36f632cc68348174a944419334681b985921516553e2240f3676b367edc504c7"
+    },
+    {
+      "path": "Fotty/Resources/Assets.xcassets/stadium_football.imageset/stadium_football.png",
+      "sha256": "03a66fbf2eb659940ee45e57ba392d043a51b914e5cdfa97222bcbcb1781512d"
+    },
+    {
+      "path": "FottyTests/VisualRegressionTests.swift",
+      "sha256": "6d0937525b7f0413a450c5903248740e681212677e9ccdced8e755569cc4abe5"
+    },
+    {
+      "path": "project.yml",
+      "sha256": "cb4ba64e7e79e640cf35be6c295d9698642efc9394cd8cb58347be53a1df3e8a"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/MatchListViewModel.swift",
+      "sha256": "4d0dbb8f0b943711fe3c64a11617532dd0a1949de49f1556e1e370a0bce599ce"
+    },
+    {
+      "path": "Fotty/Core/Models/ArenaModels.swift",
+      "sha256": "9bd91710dd36ea4743ae0c1c20ea08832a9fbd2fd1f9d580097ff8785b1bd95d"
+    },
+    {
+      "path": "Fotty/Core/Providers/Football/FootballModels.swift",
+      "sha256": "d594fd00253e9a25167441edb7c599d028590907a29483dec1ff390865dbcfb1"
+    },
+    {
+      "path": "Fotty/Features/Player/ViewingSessionCoordinator.swift",
+      "sha256": "16a02ce2d888474058c3b8e2acbca6c1fd26e6e76eae60e73b8120615b197cc7"
+    },
+    {
+      "path": "Fotty/Core/Persistence/LocalDataStore.swift",
+      "sha256": "f8c521580c98647a84aa3bf7ad91358f4b2ea4273150f082ad0979b931e96269"
+    },
+    {
+      "path": "Fotty/Core/Persistence/SchemaModels.swift",
+      "sha256": "2037cb08b0328122e3b0a643519f82dfdb3284c335f3f3d32c1b86bb5b723677"
+    },
+    {
+      "path": "Fotty/Core/Internal/AnalyticalDataEngine.swift",
+      "sha256": "5eef72a11199a5fc55737288c13fc8cb83c5280a472879c74d7f608de763d867"
+    },
+    {
+      "path": "Fotty/Core/Models/MediaModels.swift",
+      "sha256": "0f0eeeaa7af0abf2c11baee51cd83ed449a5c5b9c2226d1ff791dd9e4f4491cc"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/Components/MatchStartControls.swift",
+      "sha256": "dd09278af72170ffdea99657923730ba7218269ba86038d1b741d0e99cf0993f"
+    },
+    {
+      "path": "Fotty/Core/Notifications/MatchReminderStore.swift",
+      "sha256": "d2a1c0709f794e686075d89e0e37a99b05f7a765d611015f58ff8c356bafa9da"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/Components/FixtureDateGrouper.swift",
+      "sha256": "c05d8e4a61ed6c02edf3589d51278dd5aa0fa06ac821aebd48d14f9abd1e3489"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/HomeProjectionCoordinator.swift",
+      "sha256": "aff05f3c2d4abac21aa54557a5b3a9b703073e14dfad575ec1763aa70de58271"
+    },
+    {
+      "path": "Fotty/Features/Dashboard/HomeCatalogProjectionPolicies.swift",
+      "sha256": "301de3c44fb653352c37efe40b230ff115270b021299e0b15bdb9a4ac844d71a"
+    },
+    {
+      "path": "Fotty/Core/Models/CurrentEventBroadcastPolicy.swift",
+      "sha256": "cdf55af329a7b1d0bdcb492e4f9525916a1edc78ceaf53e0be7165548a099a7e"
+    },
+    {
+      "path": "Fotty/Core/Social/SportsPersonalizationPolicy.swift",
+      "sha256": "1b1882f0e36f3d25bda29188e41986d78d7503e9074b8dab57c376432bcc517c"
+    },
+    {
+      "path": "Fotty/Core/Social/SportsTeamIdentity.swift",
+      "sha256": "9dca74eb7dcecd54cc903656a3ba4804e60c6ac5293f6abac62d00c818db76f7"
+    },
+    {
+      "path": "Fotty/Core/Notifications/NotificationManager.swift",
+      "sha256": "28484d0ef97f5b091595d1aad669380fc4c7ba82b8dd6c3ba90ae5f0684cd717"
+    },
+    {
+      "path": "Fotty/Features/Settings/SettingsViewModel.swift",
+      "sha256": "53388350959fde2fb970acd840556b355d2d71bc891fef3f3a9a4755f92f320e"
+    }
+  ],
+  "references": [
+    {
+      "id": "approved-full-experience",
+      "kind": "approved-concept",
+      "file": "fotty-full-experience.html",
+      "sha256": "3e1dd4b8e1d6b23aeddfba9fc03ed0fc910ae6c12c68eca8c61d0e1c010d0947",
+      "access": "Owner-approved local concept; current file fingerprint checked25October2026. Inline variant retained; later video-first native iPad refinement takes precedence."
+    },
+    {
+      "id": "approved-inline",
+      "kind": "approved-concept",
+      "file": "fotty-next-level-ui.html",
+      "sha256": "e450cb518e7de28c9ec1b851c5b412203ff0206754d324997d832e77b2f3cf7b",
+      "access": "Owner-approved local concept; current file fingerprint checked25October2026. Inline variant retained; later video-first native iPad refinement takes precedence."
+    },
+    {
+      "id": "native-contract",
+      "kind": "repository-contract",
+      "path": "docs/audit/Fotty-2.5-Native-Experience.md",
+      "sha256": "e1e9f7d7b77e8bc3dfd0ce7309573f7d0dd54c96e6e3936526157f08e033421a",
+      "access": "Repository screen contracts and explicit owner decisions; checked25October2026."
+    },
+    {
+      "id": "design-standard",
+      "kind": "repository-contract",
+      "path": "docs/FOTTY-UI-DESIGN-STANDARD.md",
+      "sha256": "f20b27ad3bed608c02f993ba4484b081b696f094ee77ccdfd1c5fd18bde31b94",
+      "access": "Repository screen contracts and explicit owner decisions; checked25October2026."
+    },
+    {
+      "id": "apple-kits",
+      "kind": "official-guidance",
+      "url": "https://developer.apple.com/design/resources/",
+      "access": "Official iOS/iPadOS27 Figma/Sketch listing inspected25October; design file itself not opened/downloaded."
+    },
+    {
+      "id": "apple-layout",
+      "kind": "official-guidance",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/layout",
+      "access": "Current official Markdown read25October2026; hierarchy/adaptation/safe areas."
+    },
+    {
+      "id": "apple-video",
+      "kind": "official-guidance",
+      "url": "https://developer.apple.com/design/human-interface-guidelines/playing-video",
+      "access": "Current official Markdown read25October2026; native controls/aspect/supplementary context."
+    },
+    {
+      "id": "apple-tv-journey",
+      "kind": "product-reference",
+      "url": "https://support.apple.com/en-ie/guide/tvapp/atvbb35c9fc3/1.0/web/1.0",
+      "access": "Public discovery guide directly inspected25October; documented flow, not an operated app session."
+    },
+    {
+      "id": "apple-tv-controls",
+      "kind": "product-reference",
+      "url": "https://support.apple.com/en-ie/guide/tvapp/atvb5e386e66/1.0/web/1.0",
+      "access": "Public playback/PiP guides directly inspected25October; not current native-device screenshots."
+    },
+    {
+      "id": "mobbin",
+      "kind": "product-reference",
+      "url": "https://mobbin.com/",
+      "access": "Public landing/discover pages inspected25October; no authenticated individual sports journey inspected. Lead only."
+    },
+    {
+      "id": "swiftuix",
+      "kind": "library-lead",
+      "url": "https://github.com/SwiftUIX/SwiftUIX",
+      "access": "Primary repository reviewed25October; no concrete missing control justifies adoption. No dependency added."
+    },
+    {
+      "id": "snapshot-testing",
+      "kind": "library-lead",
+      "url": "https://github.com/pointfreeco/swift-snapshot-testing",
+      "access": "Primary repository reviewed25October; existing bounded comparator retained, no duplicate dependency."
+    }
+  ],
+  "screens": [
+    {
+      "id": "home",
+      "root": "Fotty/Features/Dashboard/SportsDashboardView.swift",
+      "referenceIDs": [
+        "approved-full-experience",
+        "approved-inline",
+        "native-contract",
+        "design-standard",
+        "apple-layout",
+        "apple-tv-journey"
+      ],
+      "invariants": [
+        "Now and next scope remains visible; eligible Watch is one action; routines do not add diagnostic banners.",
+        "Ordinary320pt phone keeps three sport columns after outer insets; AX reflows rather than shrinks.",
+        "Separate matches clearly; preserve full squad identity, real/fallback badges and all sport artwork.",
+        "Use width purposefully on wide/narrow iPad and preserve reader position during background refresh."
+      ],
+      "openChecks": [
+        "Actual phone-idiom safe areas/three-column sports layout are outside this repair gate: phone177 is left untouched for this nine-fix gate. Catalyst phone-width is not phone evidence.",
+        "Physical accessibility Dynamic Type/VoiceOver and resize/refresh/return stress are separate from normal-size Jet review."
+      ],
+      "evidence": [
+        {
+          "id": "home-phone-dark",
+          "path": "docs/testing/fotty25-ui-2026-10-24/home-phone-dark.png",
+          "sha256": "652b10b0da81675d4e98ec9070e4ee0f8c4b538ff22905579b779fd2bd53f394",
+          "width": 393,
+          "height": 802,
+          "appearance": "dark",
+          "textSize": "large",
+          "scenario": "Synthetic Home component assembly;16pt outer insets; scope/Search/navigation absent.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "home-phone-narrow",
+          "path": "docs/testing/fotty25-ui-2026-10-24/home-phone-narrow.png",
+          "sha256": "0a2251a0fd7478a6647d746fd3bffa8bd7fda3be3d5c830e4932d5037783e1a5",
+          "width": 320,
+          "height": 922,
+          "appearance": "dark",
+          "textSize": "large",
+          "scenario": "Synthetic long-name Home component assembly;288pt inner width after16pt side insets.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "home-ipad-wide",
+          "path": "docs/testing/fotty25-ui-2026-10-24/home-ipad-wide.png",
+          "sha256": "82f9ca1690b24771e71f269c5d7436a9111253b221850174323a50e7a8ef27c7",
+          "width": 1180,
+          "height": 559,
+          "appearance": "light",
+          "textSize": "large",
+          "scenario": "Synthetic wide Home component assembly;1.55:1 overview, no complete navigation/interaction.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "current-root-home-phone-narrow",
+          "path": "docs/testing/fotty25-ui-2026-10-25/root-home-phone-narrow.png",
+          "sha256": "dca0cfe5e9586502d616727b3dbb270fb37c53ee2b29ce3006e8103c3d785a3c",
+          "width": 320,
+          "height": 720,
+          "appearance": "dark",
+          "textSize": "large",
+          "scenario": "Current listed broadcast and upcoming mixed sports; synthetic missing-art identities; real Home scope and Search controls; fixed Catalyst viewport, pad idiom even at phone width; static root, not physical interaction or golden baseline.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "current-root-home-ipad-wide",
+          "path": "docs/testing/fotty25-ui-2026-10-25/root-home-ipad-wide.png",
+          "sha256": "1ad669278aa0cbc1b96a86b96a343f464accbce727e8cd7ffeedf373d4186961",
+          "width": 1180,
+          "height": 820,
+          "appearance": "light",
+          "textSize": "large",
+          "scenario": "Current listed broadcast and upcoming mixed sports; synthetic missing-art identities; real Home scope and Search controls; fixed Catalyst viewport, pad idiom even at phone width; static root, not physical interaction or golden baseline.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "current-root-home-empty-phone",
+          "path": "docs/testing/fotty25-ui-2026-10-25/root-home-empty-phone.png",
+          "sha256": "b306059e232d7f17a702865af5bdcbab9267f45f79274cc805da48ce3b264692",
+          "width": 320,
+          "height": 720,
+          "appearance": "dark",
+          "textSize": "large",
+          "scenario": "Accepted genuinely empty isolated catalog; existing empty-selection recovery before Browse sports, no empty Up Next/See all heading; fixed Catalyst viewport, pad idiom even at phone width; static root, not physical interaction or golden baseline.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet177-home-native",
+          "path": "docs/testing/fotty25-ui-2026-10-25/jet177-home-portrait-dark.png",
+          "sha256": "e77510facea3c2b2b97c931ca8f926d98328ed33c4efc66a305a5fccaae984be",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Jet iPad portrait Home; normal Release177, actual accepted catalog, native tabs, real crests plus existing missing-art fallbacks; no touch or playback claim from this image.",
+          "kind": "native-screen",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet177-home-landscape-display",
+          "path": "docs/testing/fotty25-ui-2026-10-25/jet177-home-landscape-display.png",
+          "sha256": "ec042a38e68db1627543e5a6a65b8ca9b72400ec5a26795ee20afead20dbae9b",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Full landscape Home: lead/live column plus Up next and three-column sports sidebar; actual current catalog, no scene cropping. Raw PNG1640x2360 with eXIf TIFF orientation8; displayed landscape2360x1640. Whole-display capture, not cropped app.screenshot.",
+          "kind": "native-screen",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet178-home-portrait",
+          "path": "docs/testing/fotty178-nine-fixes-2026-10-25/jet178-home-portrait.png",
+          "sha256": "7646ea13638969265de2da554b3a7f5c72701ff5d939a953113cc9a2daedfe4e",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Normal Debug178 Home, actual accepted catalog, original normal text size; native tabs, team artwork, separated match rows.",
+          "kind": "native-screen",
+          "sourceBinding": "verified-capture",
+          "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+          "captureIdentity": {
+            "platform": "iPadOS",
+            "build": "2.0.1(178) signed normal Debug; Xcode27.1 27A9275",
+            "os": "iPadOS27.0.1",
+            "renderer": "Device Hub native Screenshot; manual journey, real app feeds; no XCTest execution",
+            "hostBinarySHA256": "afcbb2aeaf89168f9bba02ed3cc0f2cdb8646af50c85f691de924db1314d24a9"
+          }
+        },
+        {
+          "id": "jet178-home-final-release",
+          "path": "docs/testing/fotty178-nine-fixes-2026-10-25/jet178-home-final-release.png",
+          "sha256": "9784253b2ed8e7ad088ab76bf37ecb97208c00407d2e0a42b51e9e00238d4e94",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Normal Release178 final portrait Home after stopping test playback, restoring All sports and original orientation. No player dock/PiP remains.",
+          "kind": "native-screen",
+          "sourceBinding": "verified-capture",
+          "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+          "captureIdentity": {
+            "platform": "iPadOS",
+            "build": "2.0.1(178) signed normal Release; Xcode27.1 27A9275",
+            "os": "iPadOS27.0.1",
+            "renderer": "Device Hub native Screenshot; manual journey, real app feeds; no XCTest execution",
+            "hostBinarySHA256": "bef0bb203373625ba6357d03644c8e5281c3ff7dac1effa36a7e488461c3d3b1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "matchday",
+      "root": "Fotty/Features/Social/ArenaDiscoveryView.swift",
+      "referenceIDs": [
+        "approved-full-experience",
+        "native-contract",
+        "design-standard",
+        "apple-layout"
+      ],
+      "invariants": [
+        "Saved/followed plan remains distinct from unrestricted Home; date/status groups remain legible.",
+        "Visible More exposes Details/Remove on playable saved rows; reminder consent is unchanged.",
+        "Changed-start and no-longer-listed facts remain attached to their item; window control reflows at AX."
+      ],
+      "openChecks": [
+        "Saved-item Remove/reminder side effects require a separate data gate; no owner saved identities changed for UI review.",
+        "Narrow split-window, native light appearance and physical Dynamic Type/VoiceOver remain outside the verified normal-size portrait/landscape journey."
+      ],
+      "evidence": [
+        {
+          "id": "current-root-matchday-phone-narrow",
+          "path": "docs/testing/fotty25-ui-2026-10-25/root-matchday-phone-narrow.png",
+          "sha256": "9de76fedeafd09adb3c38f1d4bbaab277cd5033654979e19b8ae6d53a18fd519",
+          "width": 320,
+          "height": 720,
+          "appearance": "dark",
+          "textSize": "large",
+          "scenario": "Full Matchday with isolated saved current/upcoming matches and genuine date/status groups; fixed Catalyst viewport, pad idiom even at phone width; static root, not physical interaction or golden baseline.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet177-matchday",
+          "path": "docs/testing/fotty25-ui-2026-10-25/jet177-matchday.png",
+          "sha256": "ad2f449e8065734e99f375e47c3da71ff3f79fb42fbd7148eb1f051e41f77efd",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Physical normal-data personal plan with real badges/date groups; read-only tab navigation, no saved match/reminder mutation.",
+          "kind": "native-screen",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet177-matchday-landscape-display",
+          "path": "docs/testing/fotty25-ui-2026-10-25/jet177-matchday-landscape-display.png",
+          "sha256": "e623b2fb2c32a80ff2485b491abe7230fa0e2949f83e6b26d3cb4b42e5c2e0e9",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Full landscape Matchday: two-column current personal plan, badges/date/status/actions; no saved data or reminder mutation. Raw PNG1640x2360 with eXIf TIFF orientation8; displayed landscape2360x1640. Whole-display capture, not cropped app.screenshot.",
+          "kind": "native-screen",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet178-matchday-empty-release",
+          "path": "docs/testing/fotty178-nine-fixes-2026-10-25/jet178-matchday-empty-release.png",
+          "sha256": "1efd2bcc8480cd1217903ad411f7e28b944b08c8837d94a55f156dd10a7cedd2",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Normal Release178 actual empty Matchday store and Browse Home recovery. No fabricated bookmark or fixture.",
+          "kind": "native-screen",
+          "sourceBinding": "verified-capture",
+          "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+          "captureIdentity": {
+            "platform": "iPadOS",
+            "build": "2.0.1(178) signed normal Release; Xcode27.1 27A9275",
+            "os": "iPadOS27.0.1",
+            "renderer": "Device Hub native Screenshot; manual journey, real app feeds; no XCTest execution",
+            "hostBinarySHA256": "bef0bb203373625ba6357d03644c8e5281c3ff7dac1effa36a7e488461c3d3b1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "search",
+      "root": "Fotty/Features/Search/SearchView.swift",
+      "referenceIDs": [
+        "approved-full-experience",
+        "native-contract",
+        "design-standard",
+        "apple-layout",
+        "apple-tv-journey"
+      ],
+      "invariants": [
+        "Native search field and latest-query results preserve query, keyboard/focus and scroll.",
+        "Inline Details stays in the same result; Watch performs one existing handoff.",
+        "Differentiate fixtures/channels and loading/no-listing/failure without inventing availability."
+      ],
+      "openChecks": [
+        "Full software-keyboard occlusion, physical phone and actual large-text/VoiceOver remain pending; current Jet input-accessory/query/Done journey passed.",
+        "Results/latest-query ownership and empty/partial failures have local coverage, not every current provider/device/AX state."
+      ],
+      "evidence": [
+        {
+          "id": "current-root-search-prompt-phone-light",
+          "path": "docs/testing/fotty25-ui-2026-10-25/root-search-prompt-phone-light.png",
+          "sha256": "c0e47b27e06ecbca289fee67ec9192634183a41196bd461d5adff034eaf020ba",
+          "width": 393,
+          "height": 852,
+          "appearance": "light",
+          "textSize": "large",
+          "scenario": "Actual native Search prompt, suggestions and sport grid; no keyboard or typed-query interaction claimed; fixed Catalyst viewport, pad idiom even at phone width; static root, not physical interaction or golden baseline.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet177-search",
+          "path": "docs/testing/fotty25-ui-2026-10-25/jet177-search.png",
+          "sha256": "f24c99c7b62c41873f46eb8c816689930f403592a8f99e04f1b83327a4a39dbd",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Physical native Search with typed cricket results and input accessory; Done dismisses correctly. No full software keyboard was visible and no query was submitted to Recent searches.",
+          "kind": "native-screen",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet178-search-tiles",
+          "path": "docs/testing/fotty178-nine-fixes-2026-10-25/jet178-search-tiles.png",
+          "sha256": "7bc6d1357919f57cc28fe2f48cc8d6e2e4d2dbca2ee1c308d16389aed1a2a168",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Normal Debug178 actual Search grid after temporarily clearing existing query. Equal American football/adjacent sport tile surfaces; original query restored without submit.",
+          "kind": "native-screen",
+          "sourceBinding": "verified-capture",
+          "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+          "captureIdentity": {
+            "platform": "iPadOS",
+            "build": "2.0.1(178) signed normal Debug; Xcode27.1 27A9275",
+            "os": "iPadOS27.0.1",
+            "renderer": "Device Hub native Screenshot; manual journey, real app feeds; no XCTest execution",
+            "hostBinarySHA256": "afcbb2aeaf89168f9bba02ed3cc0f2cdb8646af50c85f691de924db1314d24a9"
+          }
+        },
+        {
+          "id": "178-search-tiles-343-dark",
+          "path": "docs/testing/fotty178-nine-fixes-2026-10-25/search-tiles-343-dark.png",
+          "sha256": "32ec98f5d554c53531d18c23f7f4d9c6285dddd07ece6074315e0757870c2a96",
+          "width": 343,
+          "height": 107,
+          "appearance": "dark",
+          "textSize": "Hosted test layout; see scenario",
+          "scenario": "Actual production Search tile label hosted at343pt in Catalyst; equal visible surfaces; no iPhone idiom or physical keyboard claim.",
+          "kind": "component-study",
+          "sourceBinding": "verified-capture",
+          "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+          "captureIdentity": {
+            "platform": "macCatalyst",
+            "build": "2.0.1(178) Debug; Xcode27.1 27A9275",
+            "os": "macOS27.0.1",
+            "renderer": "Production SwiftUI label hosted natively; debug dylib SHA retained in receipt",
+            "hostBinarySHA256": "034af6f7111ade6f2439f5763354704584f3d4abf3bd5ab692a873a50095e745"
+          }
+        },
+        {
+          "id": "178-search-tiles-288-accessibility-layout-light",
+          "path": "docs/testing/fotty178-nine-fixes-2026-10-25/search-tiles-288-accessibility-layout-light.png",
+          "sha256": "f676cbb96a66d9a5e4fe1dd538da6fa8e90dca4d0d68b43619832efcdc015e43",
+          "width": 288,
+          "height": 273,
+          "appearance": "light",
+          "textSize": "Hosted test layout; see scenario",
+          "scenario": "Actual production Search label at288pt with accessibility layout branch, one-column reflow; geometry/component proof, not physical Dynamic Type acceptance.",
+          "kind": "component-study",
+          "sourceBinding": "verified-capture",
+          "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+          "captureIdentity": {
+            "platform": "macCatalyst",
+            "build": "2.0.1(178) Debug; Xcode27.1 27A9275",
+            "os": "macOS27.0.1",
+            "renderer": "Production SwiftUI label hosted natively; debug dylib SHA retained in receipt",
+            "hostBinarySHA256": "034af6f7111ade6f2439f5763354704584f3d4abf3bd5ab692a873a50095e745"
+          }
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "root": "Fotty/Features/Settings/SettingsScreen.swift",
+      "referenceIDs": [
+        "native-contract",
+        "design-standard",
+        "apple-kits",
+        "apple-layout"
+      ],
+      "invariants": [
+        "Appearance, Home and Matchday, Playback and alerts, Your data, Help/About group existing destinations only.",
+        "Use real production labels; Playback sources means configurable sources, not guaranteed uptime.",
+        "Long/RTL labels and values reflow, preserving all existing keys/defaults and FPL shortcut."
+      ],
+      "openChecks": [
+        "Physical normal Preferences/Appearance navigation is recorded separately; no source/default/appearance toggle changes for this pass.",
+        "Actual phone, physical Dynamic Type and VoiceOver reading-order checks remain pending; static reflow is not native certification."
+      ],
+      "evidence": [
+        {
+          "id": "settings-phone-narrow",
+          "path": "docs/testing/fotty25-ui-2026-10-24/settings-phone-narrow.png",
+          "sha256": "04c7cfaf6405fb172878a6bc7e3db765cbf0a1ea4f8722fd150beb2971108d26",
+          "width": 320,
+          "height": 559,
+          "appearance": "dark",
+          "textSize": "large",
+          "scenario": "Illustrative Settings components, including a nonproduction Viewing window example; not SettingsScreen.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "current-root-settings-phone-accessible",
+          "path": "docs/testing/fotty25-ui-2026-10-25/root-settings-phone-accessible.png",
+          "sha256": "b2924c3083682fa0d1d67743347efed651b9447ce2f7ef676f8851b618a7d2b2",
+          "width": 393,
+          "height": 852,
+          "appearance": "light",
+          "textSize": "accessibility2",
+          "scenario": "Actual Settings destinations and isolated appearance/interests; system notification status is read-only, no actions invoked; fixed Catalyst viewport, pad idiom even at phone width; static root, not physical interaction or golden baseline.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet177-settings",
+          "path": "docs/testing/fotty25-ui-2026-10-25/jet177-settings.png",
+          "sha256": "11b6b7368dcfc09df574b00270fbb40d71a82b555f7b86f6b6680ade95c9ef1d",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Physical production Settings root, existing real values/destination chevrons and177 version; Appearance inspected without a toggle change.",
+          "kind": "native-screen",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet177-settings-landscape-display",
+          "path": "docs/testing/fotty25-ui-2026-10-25/jet177-settings-landscape-display.png",
+          "sha256": "cd3cc8b7a0e93a5a04d29b907e6beac9d7cf26d3b2f13a154539f3c9fb174b01",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Full landscape Settings: two task-grouped columns with real values and destination chevrons; no preference toggles. Raw PNG1640x2360 with eXIf TIFF orientation8; displayed landscape2360x1640. Whole-display capture, not cropped app.screenshot.",
+          "kind": "native-screen",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet178-settings-release",
+          "path": "docs/testing/fotty178-nine-fixes-2026-10-25/jet178-settings-release.png",
+          "sha256": "4c98d771be5787deeb4b1f37911878dce7102754ed5ed7aafdde6721fbe4a99b",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Normal Release178 Settings, actual2.0.1(178) version row; appearance retained.",
+          "kind": "native-screen",
+          "sourceBinding": "verified-capture",
+          "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+          "captureIdentity": {
+            "platform": "iPadOS",
+            "build": "2.0.1(178) signed normal Release; Xcode27.1 27A9275",
+            "os": "iPadOS27.0.1",
+            "renderer": "Device Hub native Screenshot; manual journey, real app feeds; no XCTest execution",
+            "hostBinarySHA256": "bef0bb203373625ba6357d03644c8e5281c3ff7dac1effa36a7e488461c3d3b1"
+          }
+        },
+        {
+          "id": "jet178-darts-local-release",
+          "path": "docs/testing/fotty178-nine-fixes-2026-10-25/jet178-darts-local-release.png",
+          "sha256": "030a43ec8139e7d40ff069bc72c216b1916cf478f42c0fba84cbcbac31c84f3b",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Normal Release178 temporary local Darts selection persisted; restored to original before final exact settings comparison; sports sync remained off.",
+          "kind": "native-screen",
+          "sourceBinding": "verified-capture",
+          "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+          "captureIdentity": {
+            "platform": "iPadOS",
+            "build": "2.0.1(178) signed normal Release; Xcode27.1 27A9275",
+            "os": "iPadOS27.0.1",
+            "renderer": "Device Hub native Screenshot; manual journey, real app feeds; no XCTest execution",
+            "hostBinarySHA256": "bef0bb203373625ba6357d03644c8e5281c3ff7dac1effa36a7e488461c3d3b1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "match-details",
+      "root": "Fotty/Features/Dashboard/CatalogEventDetailsView.swift",
+      "referenceIDs": [
+        "approved-full-experience",
+        "native-contract",
+        "design-standard",
+        "apple-layout"
+      ],
+      "invariants": [
+        "Badge-led full meaningful identity; existing Watch/countdown precedes explanatory/help content.",
+        "Truthful scheduled/listed/live/channel/conflict states; no invented EPG or duplicate reminder owner.",
+        "Readable prose width and safe native sheet behavior; source checking does not implicitly start playback."
+      ],
+      "openChecks": [
+        "Portrait/large-detent and actual Dynamic Type/VoiceOver remain distinct from the verified normal-size landscape medium sheet.",
+        "Watch/reminder/saved-data side effects intentionally unchanged and not exercised merely for screenshots."
+      ],
+      "evidence": [
+        {
+          "id": "current-root-match-details-phone-accessible",
+          "path": "docs/testing/fotty25-ui-2026-10-25/root-match-details-phone-accessible.png",
+          "sha256": "4385e8e829a216d839b53831156b0dc8bbe11bd7cad029af5537aa00b200ebc9",
+          "width": 393,
+          "height": 852,
+          "appearance": "light",
+          "textSize": "accessibility2",
+          "scenario": "Actual upcoming match details root with long identity, countdown and existing source explanation; no save/reminder/source action invoked; fixed Catalyst viewport, pad idiom even at phone width; static root, not physical interaction or golden baseline.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet177-catalog-details",
+          "path": "docs/testing/fotty25-ui-2026-10-25/jet177-catalog-details.png",
+          "sha256": "81eb55578f901053ade29f1002e34326d4d0da226336b02ce695afca34a81800",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Real standalone CatalogEventDetailsView from Home inline More details; native medium sheet, full names/badges/countdown and Close. Save/reminder/playback not invoked. Full-display PNG has TIFF orientation8, landscape2360x1640.",
+          "kind": "native-screen",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet178-match-details-release",
+          "path": "docs/testing/fotty178-nine-fixes-2026-10-25/jet178-match-details-release.png",
+          "sha256": "bcec3780f9b067e9e5f89152445ec37da07853d849d6ccbe19fea14c0d4cf350",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Normal Release178 actual accepted America-Pachuca upcoming catalog details from inline More details; Close returned normally; no reminder/bookmark changed.",
+          "kind": "native-screen",
+          "sourceBinding": "verified-capture",
+          "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+          "captureIdentity": {
+            "platform": "iPadOS",
+            "build": "2.0.1(178) signed normal Release; Xcode27.1 27A9275",
+            "os": "iPadOS27.0.1",
+            "renderer": "Device Hub native Screenshot; manual journey, real app feeds; no XCTest execution",
+            "hostBinarySHA256": "bef0bb203373625ba6357d03644c8e5281c3ff7dac1effa36a7e488461c3d3b1"
+          }
+        }
+      ]
+    },
+    {
+      "id": "single-player",
+      "root": "Fotty/Features/Player/ViewingExperienceView.swift",
+      "referenceIDs": [
+        "approved-full-experience",
+        "approved-inline",
+        "native-contract",
+        "design-standard",
+        "apple-video",
+        "apple-tv-controls"
+      ],
+      "invariants": [
+        "Video-first iPad fills useful space without a permanent empty companion sidebar; source controls are easy to find.",
+        "Keep the same native media owner through source-sheet opening, filtering, resize/fullscreen transitions.",
+        "One clear full identity and source states; no overlay swallows provider/native controls or duplicate unmute.",
+        "Keep source selection/defaults/recovery/FPL/Watch Two policies unchanged during visual work."
+      ],
+      "openChecks": [
+        "Decoded playback/native-fullscreen/PiP continuity and measured responsiveness are not established by UI-sheet assertions or connecting-state captures.",
+        "Native source filtering during decoded playback, physical phone, real Dynamic Type/VoiceOver and resized-player checks remain separate gates."
+      ],
+      "evidence": [
+        {
+          "id": "single-player-phone",
+          "path": "docs/testing/fotty25-ui-2026-10-24/single-player-phone.png",
+          "sha256": "4f8f854c5fb81693d700f6c7caa4797ca3183a6d71e9291aa57216c799ccba86",
+          "width": 393,
+          "height": 385,
+          "appearance": "dark",
+          "textSize": "large",
+          "scenario": "Synthetic paused identity and selected/ordinary/failed source rows; no video, complete chrome or native controls.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "current-root-source-sheet-short-accessible",
+          "path": "docs/testing/fotty25-ui-2026-10-25/root-source-sheet-short-accessible.png",
+          "sha256": "c4b1e0acc0ac40b57993d5ee0083f491eb8ebafe50207160f850cdc0bdbbe8e9",
+          "width": 320,
+          "height": 320,
+          "appearance": "dark",
+          "textSize": "accessibility5",
+          "scenario": "Actual single-player Sources sheet: selected AS1, failed AS2, family filter and checking-more state. No player/media owner or playback proof; fixed Catalyst viewport, pad idiom even at phone width; static root, not physical interaction or golden baseline.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "current-root-source-sheet-ipad",
+          "path": "docs/testing/fotty25-ui-2026-10-25/root-source-sheet-ipad.png",
+          "sha256": "ec7a3de25d0a89096d3686cafb57b8d717396003a6f5873e88f3c803393f6da7",
+          "width": 720,
+          "height": 650,
+          "appearance": "dark",
+          "textSize": "large",
+          "scenario": "Actual single-player Sources sheet: selected AS1, failed AS2, family filter and checking-more state. No player/media owner or playback proof; fixed Catalyst viewport, pad idiom even at phone width; static root, not physical interaction or golden baseline.",
+          "kind": "component-study",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet177-player-sources",
+          "path": "docs/testing/fotty25-ui-2026-10-25/jet177-player-sources.png",
+          "sha256": "3e39f48a262cf4c67ce50d965fa379d6fa7da299e6aa749fe3f1cd13922c7103",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Physical normal-data source sheet:14 choices, pinned Close and scroll area; opened/dismissed without selecting another source. Background current web delivery is Connecting, not decoded-playback proof.",
+          "kind": "native-screen",
+          "sourceBinding": "historical-unbound"
+        },
+        {
+          "id": "jet177-player-details",
+          "path": "docs/testing/fotty25-ui-2026-10-25/jet177-player-details.png",
+          "sha256": "d3e507f7c2444fb04535f5ffc4fbbc7e405f6fd510f9ba5131749c6ff4987c37",
+          "width": 1640,
+          "height": 2360,
+          "appearance": "dark",
+          "textSize": "Owner normal size; no text-size setting changed",
+          "scenario": "Physical player-context details sheet: full badge-led identity and Done; opened/dismissed on current web delivery. This is not the standalone CatalogEventDetailsView or native fullscreen proof.",
+          "kind": "native-screen",
+          "sourceBinding": "historical-unbound"
+        }
+      ]
+    }
+  ]
+}

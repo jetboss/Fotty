@@ -1,0 +1,129 @@
+[
+  {
+    "category": "playback",
+    "name": "attempt_started",
+    "outcome": "info",
+    "appBuild": "181",
+    "appVersion": "2.0.1",
+    "observedAtUTC": "2026-10-28T21:26:02.714342+00:00",
+    "details": {
+      "source_index": "1",
+      "route": "single",
+      "source_count": "7",
+      "source": "CS1",
+      "last_observed_stage": "preparing",
+      "mode": "native",
+      "source_family": "communitysports"
+    }
+  },
+  {
+    "category": "playback",
+    "name": "source_failure",
+    "durationMilliseconds": 1353,
+    "outcome": "failure",
+    "appBuild": "181",
+    "appVersion": "2.0.1",
+    "observedAtUTC": "2026-10-28T21:26:04.077492+00:00",
+    "details": {
+      "relay_request_http_status": "404",
+      "source_index": "1",
+      "mode": "native",
+      "source_family": "communitysports",
+      "source": "CS1",
+      "relay_failure_stage": "upstream_response",
+      "failure_kind": "startupTimeout",
+      "preparation_stage": "contract_validation",
+      "last_observed_stage": "preparing",
+      "preparation_http_status": "404",
+      "route": "single",
+      "source_count": "7"
+    }
+  },
+  {
+    "category": "playback",
+    "name": "attempt_started",
+    "outcome": "info",
+    "appBuild": "181",
+    "appVersion": "2.0.1",
+    "observedAtUTC": "2026-10-28T21:26:04.106422+00:00",
+    "details": {
+      "source_index": "1",
+      "route": "single",
+      "source_count": "7",
+      "source": "CS1",
+      "last_observed_stage": "preparing",
+      "mode": "native",
+      "source_family": "communitysports"
+    }
+  },
+  {
+    "outcome": "failure",
+    "appBuild": "181",
+    "name": "source_failure",
+    "appVersion": "2.0.1",
+    "durationMilliseconds": 1327,
+    "category": "playback",
+    "observedAtUTC": "2026-10-28T21:26:05.440492+00:00",
+    "details": {
+      "relay_request_http_status": "404",
+      "source_index": "1",
+      "mode": "native",
+      "source_family": "communitysports",
+      "source": "CS1",
+      "relay_failure_stage": "upstream_response",
+      "failure_kind": "startupTimeout",
+      "preparation_stage": "contract_validation",
+      "last_observed_stage": "preparing",
+      "preparation_http_status": "404",
+      "route": "single",
+      "source_count": "7"
+    }
+  },
+  {
+    "outcome": "info",
+    "appBuild": "181",
+    "name": "attempt_started",
+    "appVersion": "2.0.1",
+    "category": "playback",
+    "observedAtUTC": "2026-10-28T21:26:05.516497+00:00",
+    "details": {
+      "source": "CS2",
+      "source_count": "7",
+      "source_index": "2",
+      "route": "single",
+      "source_family": "communitysports",
+      "mode": "native",
+      "last_observed_stage": "preparing"
+    }
+  },
+  {
+    "outcome": "success",
+    "appBuild": "181",
+    "name": "decoded_progress",
+    "appVersion": "2.0.1",
+    "durationMilliseconds": 2718,
+    "category": "playback",
+    "observedAtUTC": "2026-10-28T21:26:08.236731+00:00",
+    "details": {
+      "source_count": "7",
+      "source": "CS2",
+      "source_index": "2",
+      "route": "single",
+      "mode": "native",
+      "source_family": "communitysports",
+      "last_observed_stage": "decoded"
+    }
+  },
+  {
+    "outcome": "info",
+    "appBuild": "181",
+    "name": "native_presentation",
+    "appVersion": "2.0.1",
+    "category": "playback",
+    "observedAtUTC": "2026-10-28T21:27:51.142053+00:00",
+    "details": {
+      "mode": "native",
+      "native_presentation_event": "presented"
+    }
+  }
+]

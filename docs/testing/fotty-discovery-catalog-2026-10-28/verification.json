@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "candidate": "source-only independent discovery and freshness",
+  "recordedAtUTC": "2026-10-28T23:58:57.875305+00:00",
+  "unitGate": {
+    "result": "Passed",
+    "totalTestCount": 580,
+    "passedTests": 578,
+    "failedTests": 0,
+    "skippedTests": 2,
+    "startTime": 1793231685.363,
+    "finishTime": 1793231767.081,
+    "platform": "freshly compiled Mac Catalyst XCTest target; simulator-free",
+    "suiteCount": 12,
+    "skippedTestsNamed": [
+      "PlavioSportsAddonTests/testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice()",
+      "PlaybackPolicyTests/testReferenceHLSMaintainsOneAttemptDuringSoak()"
+    ],
+    "network": "controlled responses/injected renewal; no real provider media qualification",
+    "sourceManifest": "unit-source-inputs.sha256",
+    "sourceManifestSHA256": "06bfca15588b7bb262ebff84892c76e02c2f76b1bd64c6da7c4b6a85e38dc11d"
+  },
+  "iOSReleaseCompile": {
+    "result": "Passed",
+    "exitCode": 0,
+    "destination": "generic/platform=iOS",
+    "codeSigningAllowed": false,
+    "jobs": 1,
+    "sourceManifest": "source-inputs.sha256",
+    "sourceManifestSHA256": "d1af8b4592e502975dd3be2ca280caa122024c6668963f5bc545e50e30b66d6c"
+  },
+  "sourceInputCount": 314,
+  "postUnitCompileChanges": [
+    "Fotty/Features/Dashboard/SportsDashboardView.swift"
+  ],
+  "postUnitChangeEvidence": "Final Home eligibility additionally fences coordinator-owned manual lookup and keys task cancellation. Read-only integration review, Swift parse and exact iOS Release compile; not a physical UI pass.",
+  "staticChecks": {
+    "swiftParse": "Passed",
+    "nativeSourceMembership": "Passed",
+    "scopedWhitespace": "Passed"
+  },
+  "preservation": {
+    "protectedFPLAndMultiFeatureHashes": 43,
+    "drift": [],
+    "iPadBuild": 181,
+    "iPhoneBuild": 177,
+    "sharedTestFlightBuild": 121,
+    "sourceSettingsChanged": false,
+    "deviceInteraction": false,
+    "gitPublication": false,
+    "cloudDeployment": false,
+    "testFlightRelease": false
+  },
+  "pending": [
+    "Approved normal-flow private iPad test",
+    "Fresh live Premier League programme and decoded progression",
+    "Fresh live UEFA Champions League programme and decoded progression",
+    "Supported live cricket programme and decoded progression",
+    "90-second native decoded hold, basic controls, failing-primary/working-secondary case"
+  ],
+  "cleanup": "Owned temporary source snapshot, build output, logs, result bundles and keep-awake processes removed after receipt retention; unrelated artifacts/caches preserved.",
+  "cleanupVerification": {
+    "ownedTemporaryDirectoryRemoved": true,
+    "ownedBuildProcessesRemaining": 0,
+    "temporaryAllocatedBytesRemoved": 1476145152,
+    "freeDiskBytesBeforeCleanup": 19835056128,
+    "freeDiskBytesAfterCleanup": 21308620800,
+    "unrelatedCachesRemoved": false
+  }
+}

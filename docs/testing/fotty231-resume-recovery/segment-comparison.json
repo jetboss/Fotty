@@ -1,0 +1,16 @@
+{
+  "sampledAtUTC": "2026-11-04T08:34:39Z",
+  "publisher": "CS DaddyLive",
+  "overlapURIChanged": true,
+  "sameHTTPSOriginAndPath": true,
+  "queryKeys": [
+    "token"
+  ],
+  "segmentBytes": [
+    2379328,
+    2379328
+  ],
+  "fullSegmentBytesEqual": true,
+  "segmentPathComponents": 8,
+  "segmentExtension": "ts"
+}

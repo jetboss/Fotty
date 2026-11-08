@@ -1,0 +1,19 @@
+{
+  "device": "Jet iPad",
+  "normalBuild": 225,
+  "restoration": "Verified installed normal signed Release 225, valid profile, successful normal launch before the device became unreachable.",
+  "officialStatus": "Both fixtures verified live with independent in-progress scoreboard at 17:56 UTC. Official status lagged ESPN near kickoff.",
+  "shakhtar": {
+    "result": "Watch opened correct native CS6 programme, Shakhtar 0\u20130 Sporting at 11:59",
+    "pickerCount": 8,
+    "ninetySecondHold": "failed twice, AV waiting after 20.86s and 14.59s",
+    "forcedOutage": "no automatic replacement observed within 100 seconds",
+    "independentBackup": "unverified"
+  },
+  "galatasaray": {
+    "result": "First test runner launch rejected by iPadOS trust; retry launched normal Watch but showed Broadcast not ready and no advancing native video.",
+    "forcedOutage": "not exercised",
+    "providerAttribution": "unresolved; live diagnostic failed to launch, Jet then unavailable"
+  },
+  "remaining": "Determine which alternatives were rejected, expired or failed preparation at the instant of loss; eight listed choices do not establish eight playable alternatives."
+}

@@ -1,0 +1,55 @@
+[
+  {
+    "title": "Adelaide Strikers Women vs Brisbane Heat Women",
+    "start": "2026-11-05T04:40:00.000Z",
+    "state": "needsVerification",
+    "reason": "format-conflict",
+    "matchMethod": "exact"
+  },
+  {
+    "title": "Sydney Thunder Women vs Perth Scorchers Women",
+    "start": "2026-11-05T08:10:00.000Z",
+    "state": "needsVerification",
+    "reason": "format-conflict",
+    "matchMethod": "exact"
+  },
+  {
+    "title": "Sydney Thunder Women vs Perth Scorchers Women",
+    "start": "2026-11-05T08:10:00.000Z",
+    "state": "conflicting",
+    "reason": "time-conflict",
+    "matchMethod": "exact"
+  },
+  {
+    "title": "New Zealand vs India",
+    "start": "2026-11-07T02:00:00.000Z",
+    "state": "listed",
+    "matchMethod": "exact"
+  },
+  {
+    "title": "New Zealand vs India",
+    "start": "2026-11-07T02:00:00.000Z",
+    "state": "conflicting",
+    "reason": "time-conflict",
+    "matchMethod": "exact"
+  },
+  {
+    "title": "Bangladesh vs West Indies",
+    "start": "2026-11-05T03:30:00.000Z",
+    "state": "needsVerification",
+    "reason": "format-conflict",
+    "matchMethod": "exact"
+  },
+  {
+    "title": "Sri Lanka Under-19 vs Malaysia Under-19",
+    "start": "2026-11-05T05:00:00.000Z",
+    "state": "listed",
+    "matchMethod": "exact"
+  },
+  {
+    "title": "Bangladesh Under-19 vs Afghanistan Under-19",
+    "start": "2026-11-05T05:00:00.000Z",
+    "state": "listed",
+    "matchMethod": "exact"
+  }
+]

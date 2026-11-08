@@ -1,0 +1,34 @@
+{
+  "build": 193,
+  "fixture": {
+    "competition": "Ligue1",
+    "teams": [
+      "Le Havre AC",
+      "Paris Saint-Germain FC"
+    ],
+    "kickoffUTC": "2026-10-30T18:00:00Z"
+  },
+  "path": "normal Home Watch and existing source picker",
+  "watchBecameAvailableAutomatically": true,
+  "visibleOptions": 6,
+  "selectedNativeOption": "CS3",
+  "earlierFailedOptions": [
+    "CS1",
+    "CS2"
+  ],
+  "correctProgrammeObserved": true,
+  "decodedAdvancingHoldSecondsAtLeast": 90,
+  "observedScoreboardClock": [
+    "53:28",
+    "55:41"
+  ],
+  "observedScore": [
+    "HAC1-PSG2",
+    "HAC1-PSG3"
+  ],
+  "fresh194PhysicalPass": false,
+  "allChoicesPassed": false,
+  "premierLeagueQualified": false,
+  "championsLeagueQualified": false,
+  "cricketFixtureQualified": false
+}

@@ -1,0 +1,64 @@
+{
+  "recordedUTC": "2026-11-01T12:09:21.060584+00:00",
+  "scope": "Main Willow programme metadata; no media, accounts, devices or deployment",
+  "evidenceKind": "Ordinary bounded HTTP and inert shipped-JavaScript inspection; not a REA Evidence result",
+  "reaAvailability": "No connected REA tools or existing CLI on inspected PATH; no tool installation/configuration changes",
+  "reviewedSource": {
+    "stationURL": "https://www.tvpassport.com/tv-listings/stations/willow-cricket/15964/2026-11-01",
+    "selectedIANATimezone": "America/Port_of_Spain",
+    "http": 200,
+    "attributeCase": "Publisher spells data-showName/data-episodeTitle; real parser lowercases attribute names. Earlier case-sensitive row-count probe was incorrect."
+  },
+  "observedContracts": [
+    {
+      "sourceDate": "2026-11-01",
+      "showName": "T20 Cricket",
+      "episodeTitle": "Afghanistan vs. Zimbabwe",
+      "description": "3rd T20I.",
+      "live": "1",
+      "wallStart": "2026-11-01 11:30:00",
+      "durationMinutes": 190
+    },
+    {
+      "sourceDate": "2026-11-04",
+      "sourceURL": "https://www.tvpassport.com/tv-listings/stations/willow-cricket/15964/2026-11-04",
+      "showName": "One-Day International Cricket",
+      "episodeTitle": "New Zealand vs. India",
+      "description": "1st ODI.",
+      "live": "1",
+      "wallStart": "2026-11-04 03:00:00",
+      "durationMinutes": 210
+    }
+  ],
+  "namibiaIreland": "No Namibia or Ireland programme text found in the reviewed current main-Willow TVPassport or official main guide. A user-visible channel picture may differ; no association is invented.",
+  "officialGuide": {
+    "entry": "https://cricket.willow.tv/",
+    "mainRoute": "https://epgadmindev.willow.tv/php/datafeedAssoc.php?method=list",
+    "homepageChunk": "7f0cb9d.js",
+    "homepageSHA256": "15ff78462c2f313069c3f89a45db713523892e9030bfb7b14d255f317b1f373b",
+    "unchangedSincePriorReview": true,
+    "currentMainGuideHTTP": 200,
+    "currentMainGuideBytes": 209435,
+    "explicitTimezoneAuthority": false,
+    "clientBehavior": "Civil BroadCastStartDate is passed directly into new Date; no explicit IANA/UTC/Eastern declaration found in this bounded source inspection. Previously changing timezone5.5 to0 yielded identical payloads.",
+    "activation": "Not implemented or activated; timezone remains unverified."
+  },
+  "implementation": {
+    "file": "web/workers/playback/src/reviewed-tv-programmes.mjs",
+    "formats": [
+      "Test",
+      "ODI",
+      "T20"
+    ],
+    "limitedOversRequire": "Exact reviewed match show, literal format and valid ordinal, two participants, live1, no replay/repeat, one current bounded programme, reviewed station and unique IANA conversion",
+    "sourceSHA256": "48095c3c9869b920ecea7821a3d596155726e6955b7b10798c80b6456001da22"
+  },
+  "localVerification": {
+    "command": "node --test web/workers/playback/src/reviewed-tv-programmes.test.mjs",
+    "tests": 18,
+    "passes": 18,
+    "failures": 0,
+    "skips": 0,
+    "notPlaybackProof": true
+  }
+}

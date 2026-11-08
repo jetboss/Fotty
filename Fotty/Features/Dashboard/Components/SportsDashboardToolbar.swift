@@ -16,12 +16,12 @@ struct SportsDashboardToolbar: ToolbarContent {
         
         ToolbarItem(placement: .topBarTrailing) {
             if isMultiSelectMode {
-                Button("Watch 2-Up", action: onWatchMulti)
+                Button("Start", action: onWatchMulti)
                     .disabled(selectedCount != 2)
                     .fontWeight(.bold)
             } else {
                 Button(action: onBeginMulti) {
-                    Label("MultiView", systemImage: "square.split.2x1")
+                    Label("Watch two", systemImage: "rectangle.split.2x1")
                 }
             }
         }

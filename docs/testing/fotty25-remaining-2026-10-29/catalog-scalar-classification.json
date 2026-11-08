@@ -1,0 +1,14 @@
+{
+  "checkedUTC": "2026-10-29T19:36:49.179Z",
+  "reason": "Classify the observed scalar without arbitrary decoding/execution or media requests",
+  "http": 200,
+  "bytes": 3455,
+  "outerType": "string",
+  "outerStringLength": 3323,
+  "looksSerializedJSON": false,
+  "looksHTML": true,
+  "innerShape": "not-JSON-data",
+  "innerRows": null,
+  "rawBodiesRetained": false,
+  "mediaFetched": false
+}

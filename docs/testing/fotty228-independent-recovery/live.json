@@ -1,0 +1,23 @@
+{
+  "dateTobago": "2026-11-03",
+  "device": "Jet iPad",
+  "privateBuild": 228,
+  "fixture": "New Jersey Devils vs Edmonton Oilers",
+  "firstCorrectPictureSeconds": 7.46,
+  "primary": "TV4",
+  "backup": "CS4",
+  "secondsToAdvancingBackupAfterFault": 4.89,
+  "primaryHoldPassed": true,
+  "backupHoldPassed": true,
+  "holdSecondsEach": 90,
+  "automaticReplacement": true,
+  "backupFirstPicture": "ESPN commercial-break slate; correct NHL game confirmed at end of hold",
+  "verifiedBackupPicture": "EDM 1\u20130 NJ, period 1, 9:13",
+  "deliverySeparation": "Different provider and public delivery origin, asserted in physical test",
+  "ultimateUpstreamIndependence": "Not established beyond the independently selected provider/delivery origins",
+  "notes": [
+    "New Jersey Devils vs Edmonton Oilers via CS4: same native player/item/attempt for 90s; media advance=91.551771055s. Review both pictures for correct programme; no audible-output claim.",
+    "New Jersey Devils vs Edmonton Oilers via TV4: same native player/item/attempt for 90s; media advance=90.85177933s. Review both pictures for correct programme; no audible-output claim.",
+    "Backup provenance after sustained playback: choices=7 exhausted=3 switches=3 phase=Playing failure=unknown provenance=different-publisher-and-origin"
+  ]
+}

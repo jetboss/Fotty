@@ -1,0 +1,284 @@
+{
+  "schema": 1,
+  "target": "Stremio published playback package",
+  "artifact": {
+    "name": "@stremio/stremio-video",
+    "version": "0.0.103",
+    "gitHead": "1b04d4bb4cc49d8b62955c152fd3449ea6a6db63",
+    "tarball": "https://registry.npmjs.org/@stremio/stremio-video/-/stremio-video-0.0.103.tgz",
+    "archiveBytes": 75620,
+    "unpackedBytes": 456809,
+    "archiveSHA256": "9e69ad8aeebaf42320906443cdffa08e8d21e9b7b81b9cb4a35d8bbf25ff8b71",
+    "registrySHA512Verified": true,
+    "retrievedAt": "2026-10-28T23:01:05.436Z",
+    "license": "MIT",
+    "fourKeyFilesByteMatchPublicCommit": true
+  },
+  "attribution": "Official published package pinned in public Stremio Web development package.json5.0.0-beta.43. web.stremio.com returned403; live site's bundle/version/runtime not inspected or claimed.",
+  "rea": {
+    "parentEvidence": "ev_330c0bc42b6fbf49960765bf3fa4f006eabad693f2fe28f5ae1ba562867be36e",
+    "summaryEvidence": "ev_49e93734a23864bd1bc845c570ad15d4db50ef3e1ebf1ca5175386446fa73e66",
+    "rootSHA256": "e6d6742f63ca69b4fc134c06d84d3cb8888abcb0a51f513f692f55371143cc86",
+    "statistics": {
+      "relevant_files": 57,
+      "nested_asar_containers": 0,
+      "text_bytes_read": 456740,
+      "invalid_utf8_files": 0,
+      "parsed_javascript_files": 56,
+      "visited_ast_nodes": 54476,
+      "findings": 216,
+      "modules": 0,
+      "parse_failures": 0
+    },
+    "coverage": {
+      "application": {
+        "status": "partial",
+        "truncated": false,
+        "omitted_count": null,
+        "limits": [
+          {
+            "name": "javascript_analysis_parent_result_budget_bytes",
+            "value": 293357060,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_semantic_result_budget_bytes",
+            "value": 0,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_semantic_result_budget_bytes",
+            "value": 124,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_worker_heap_limit_bytes",
+            "value": 427819008,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_worker_timeout_ms",
+            "value": 60000,
+            "unit": "milliseconds"
+          }
+        ]
+      },
+      "semantic": {
+        "status": "partial",
+        "truncated": true,
+        "omitted_nodes": null,
+        "omitted_relations": null,
+        "limits": [
+          {
+            "name": "javascript_analysis_parent_result_budget_bytes",
+            "value": 293357060,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_semantic_result_budget_bytes",
+            "value": 0,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_semantic_result_budget_bytes",
+            "value": 124,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_worker_heap_limit_bytes",
+            "value": 427819008,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_worker_timeout_ms",
+            "value": 60000,
+            "unit": "milliseconds"
+          }
+        ],
+        "families": [
+          {
+            "family": "boundary",
+            "status": "partial",
+            "retained_relations": 17,
+            "omitted_relations": null,
+            "unknown_count": 42
+          },
+          {
+            "family": "call-flow",
+            "status": "partial",
+            "retained_relations": 603,
+            "omitted_relations": null,
+            "unknown_count": 394
+          },
+          {
+            "family": "child-process",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 42
+          },
+          {
+            "family": "closure",
+            "status": "partial",
+            "retained_relations": 543,
+            "omitted_relations": null,
+            "unknown_count": 42
+          },
+          {
+            "family": "configuration",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 42
+          },
+          {
+            "family": "data-flow",
+            "status": "partial",
+            "retained_relations": 2145,
+            "omitted_relations": null,
+            "unknown_count": 272
+          },
+          {
+            "family": "event",
+            "status": "partial",
+            "retained_relations": 51,
+            "omitted_relations": null,
+            "unknown_count": 60
+          },
+          {
+            "family": "object-flow",
+            "status": "partial",
+            "retained_relations": 417,
+            "omitted_relations": null,
+            "unknown_count": 593
+          },
+          {
+            "family": "promise-ownership",
+            "status": "partial",
+            "retained_relations": 24,
+            "omitted_relations": null,
+            "unknown_count": 48
+          },
+          {
+            "family": "request",
+            "status": "partial",
+            "retained_relations": 2,
+            "omitted_relations": null,
+            "unknown_count": 43
+          },
+          {
+            "family": "resource-lifecycle",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 42
+          },
+          {
+            "family": "timer",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 42
+          }
+        ]
+      },
+      "application_unknowns": 79,
+      "semantic_unknowns": 1662
+    },
+    "modules": [
+      {
+        "role": "selection",
+        "evidence": "ev_f83f5b358e5b3afcbb92c3b10f6c6e78ee8a3958211c4a7984a2704e38316c1a",
+        "path": "src/StremioVideo/selectVideoImplementation.js",
+        "sha256": "898436aeb821744d5861782cb2e9d8e15f44729743b0c876a9cc9cfbbe93e431"
+      },
+      {
+        "role": "owner",
+        "evidence": "ev_c7639906c51276c0d1df3e860ffb7b54a612ec759f33ee88facb3b91b88faaeb",
+        "path": "src/StremioVideo/StremioVideo.js",
+        "sha256": "7fa685749fc16810d89da723ef227da1a3a34edd7596da76c59043cd57920a6d"
+      },
+      {
+        "role": "html",
+        "evidence": "ev_6ea477fc0acecebc72045f9bd80beec832be7c3d6d1ea7f3699e748ea8c8bc75",
+        "path": "src/HTMLVideo/HTMLVideo.js",
+        "sha256": "b4fe6c847f0c69c582ed6a0b0b9f9d6bfd81c30d76c0905547e5caeecd917998"
+      },
+      {
+        "role": "server",
+        "evidence": "ev_65377d95868e8982dc511cbfc5bf421726f4ba8c26cc87d1d44c4fcf818d9234",
+        "path": "src/withStreamingServer/withStreamingServer.js",
+        "sha256": "ce799a478d891ac03350ff73a22cdf2ad0e74587a76074d98bd9c9f6e8efda7f"
+      }
+    ],
+    "featureTrace": {
+      "evidence": "ev_cb1e203205282f9e72990883e9ffa80b42a7195ee9e3c90e97fbffe226ec9359",
+      "seed": "src/HTMLVideo/HTMLVideo.js",
+      "direction": "incoming",
+      "matchedSeeds": 2,
+      "tracedNodes": 15,
+      "tracedEdges": 26,
+      "coverage": "partial"
+    }
+  },
+  "sourceOnly": {
+    "repo": "Stremio/stremio-core",
+    "commit": "3417c2e7ed45cdbfd86b3226f69814c2dc4947ad",
+    "license": "MIT",
+    "paths": [
+      "src/models/common/resource_loadable.rs",
+      "src/models/ctx/update_streams.rs",
+      "src/models/player.rs"
+    ],
+    "caveat": "Repo evidence, not matched to deployed Web core/WASM. Stremio Web UI license GPL-2.0."
+  },
+  "mechanisms": [
+    {
+      "title": "Independent request-scoped resource state",
+      "authority": "official repository source only",
+      "location": "resource_loadable.rs:14-35,163-226,273-281",
+      "observed": "Every add-on resource retains its own request and Loading/Ready/Err; fan-out uses Concurrent effects, only matching loading request receives result; empty/unexpected/transport distinguished.",
+      "fotty": "Already has StreamDiscoveryCoordinator append-only partial choices and independent failures with18s owner deadline; retain.",
+      "next": "Keep structured per-provider result/freshness across catalogue→descriptor→native so one publisher failure never controls unrelated availability; explicit retry must refresh relevant bad resource, not silently reuse missing manifest."
+    },
+    {
+      "title": "Capability-driven implementation choice",
+      "authority": "shipped package bytes",
+      "location": "src/StremioVideo/selectVideoImplementation.js:14-78",
+      "observed": "Selects based on stream shape, transport and platform; unsupported/external stream gets no embedded implementation; returns typed critical unsupported event.",
+      "fotty": "Native/web engines and StreamSession/StreamPlaybackContract already exist.",
+      "next": "Make reviewed delivery contract the common input to engine selection and diagnostics; test direct HLS, header-required relay, web-only and unsupported routes on AVPlayer without adding a browser-first dependency."
+    },
+    {
+      "title": "Owned asynchronous load and engine lifetime",
+      "authority": "shipped package bytes",
+      "location": "StremioVideo.js:26-36; HTMLVideo.js:660,668,717; withStreamingServer.js:330,358,420-442",
+      "observed": "Command snapshot cloned/frozen; previous engine destroyed only if implementation class changes; async conversion/probe callbacks compare load identity; live level callback compares HLS instance.",
+      "fotty": "Current player already uses loadRequestID/source identity; native fullscreen reuses stream.",
+      "next": "Preserve these owners; add targeted delayed-old-source/cancel/switch regression vectors across new adapters rather than a wholesale player rewrite."
+    },
+    {
+      "title": "Typed terminal errors reach one owner",
+      "authority": "shipped package bytes",
+      "location": "HTMLVideo.js:403-434,672-686; src/error.js:33-75",
+      "observed": "Maps network, decode, unsupported and conversion failures; ignores nonfatal HLS error at this layer; fatal emits critical and unloads. This layer does not automatically repair dead publishers.",
+      "fotty": "StreamFailure and LivePlaybackRecoveryPolicy already structured.",
+      "next": "Unify adapters into existing failure policy so404/unsupported/network/stall receive appropriate bounded retry/fallback; retain distinction between user-visible recovery and telemetry, no global provider ban for one match."
+    },
+    {
+      "title": "Direct play before optional conversion",
+      "authority": "shipped package bytes",
+      "location": "withStreamingServer.js:55-103,256-329",
+      "observed": "Probe checks formats/codecs/channels and uses direct URL when playable; otherwise converts via configured streaming server and guards asynchronous result.",
+      "fotty": "Direct native/guarded relay already favored over web when qualified.",
+      "next": "Prefer device-compatible direct native HLS based on decoded-start evidence. Do not adopt a transcoding service or copy VOD retry settings by default on8GB Mac."
+    }
+  ],
+  "limits": [
+    "REA parsed code inertly; no runtime/media/device/account access.",
+    "No proof Stremio guarantees provider independence, source health, automatic alternate-provider recovery or fixture correctness.",
+    "Application/semantic graph partial due result budget; complete per-file static facts are retained. No absence claim from missing graph paths.",
+    "HLS package defaults30s manifest timeout/10manifest retries,120s fragment bound; unsuitable to copy blindly for fast live sports.",
+    "No source/code/app changes, builds, installations, publishing or TestFlight in this child."
+  ]
+}

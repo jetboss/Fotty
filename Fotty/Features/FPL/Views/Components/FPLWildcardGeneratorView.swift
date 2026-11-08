@@ -1,13 +1,15 @@
 import SwiftUI
 
 public struct FPLWildcardGeneratorView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject var viewModel: FPLAdvisorViewModel
     @State private var selectedProfile: FPLOptimizedSquad.Profile = .balanced
-    @State private var generatedSquads: [FPLOptimizedSquad] = []
+    @State private var workingResult = FPLWildcardWorkingResult()
     @State private var lockedPlayerIDs = Set<Int>()
     @State private var excludedPlayerIDs = Set<Int>()
     @State private var isShowingConstraints = false
     @State private var saveMessage: String?
+    @State private var saveSucceeded = false
 
     public init(viewModel: FPLAdvisorViewModel) {
         self.viewModel = viewModel
@@ -23,14 +25,14 @@ public struct FPLWildcardGeneratorView: View {
                 emptyCard
             }
         }
-        .onAppear {
-            generatedSquads = viewModel.optimizedSquads
+        .onChange(of: FPLWildcardResultIdentity.signature(viewModel.optimizedSquads)) { _, _ in
+            workingResult.sourceChanged(hasConstraints: hasConstraints)
         }
-        .onChange(of: viewModel.optimizedSquads.count) { _, _ in
-            if lockedPlayerIDs.isEmpty && excludedPlayerIDs.isEmpty {
-                generatedSquads = viewModel.optimizedSquads
-            }
+        .onChange(of: "\(viewModel.planningGameweek)|\(viewModel.coachProfile.planningHorizon)|\(viewModel.wildcardBudget.amount)") { _, _ in
+            workingResult.sourceChanged(hasConstraints: hasConstraints)
         }
+        .onChange(of: viewModel.managerId) { _, _ in resetConstraints() }
+        .onChange(of: viewModel.bootstrap.map { FPLSeasonIdentifier.label(from: $0.events) }) { _, _ in resetConstraints() }
         .sheet(isPresented: $isShowingConstraints) {
             FPLSquadConstraintsSheet(
                 scores: viewModel.playerScores,
@@ -54,22 +56,33 @@ public struct FPLWildcardGeneratorView: View {
                     .foregroundStyle(FottyTheme.accentText)
             }
 
-            Text("Generates safe, balanced and aggressive 15-player drafts within the official position, club and budget rules. It optimizes Fotty's \(viewModel.coachProfile.planningHorizon)-gameweek model; it is not an expected-points guarantee.")
+            Text("Builds legal 15-player drafts for a \(viewModel.coachProfile.planningHorizon)-gameweek horizon.")
                 .font(.caption)
                 .foregroundStyle(FottyTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 7) {
+            Text(viewModel.wildcardBudget.explanation)
+                .font(.caption2)
+                .foregroundStyle(FottyTheme.textSecondary)
+            if workingResult.needsRefresh {
+                Text("Planning inputs changed. Your locks and exclusions are kept; regenerate to update this draft.")
+                    .font(.caption)
+                    .foregroundStyle(FottyTheme.accentText)
+            }
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 7), count: dynamicTypeSize.isAccessibilitySize ? 1 : 3), spacing: 7) {
                 ForEach(FPLOptimizedSquad.Profile.allCases) { profile in
                     let selected = profile == selectedProfile
                     Button(profile.rawValue) { selectedProfile = profile }
                         .font(.caption.weight(.black))
                         .foregroundStyle(selected ? FottyTheme.textOnAccent : FottyTheme.textSecondary)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .multilineTextAlignment(.center)
                         .padding(.vertical, 8)
                         .background(selected ? FottyTheme.accent : FottyTheme.surfaceElevated)
                         .clipShape(RoundedRectangle(cornerRadius: 9))
-                        .buttonStyle(.plain)
+                        .buttonStyle(FottyPressButtonStyle(cornerRadius: 9))
+                        .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
 
@@ -109,7 +122,7 @@ public struct FPLWildcardGeneratorView: View {
                         .foregroundStyle(FottyTheme.textTertiary)
                 }
                 Spacer()
-                Label(squad.validation.isValid ? "LEGAL" : "INVALID", systemImage: squad.validation.isValid ? "checkmark.seal.fill" : "xmark.octagon.fill")
+                Label(squad.validation.isValid ? "MODEL VALID" : "INVALID", systemImage: squad.validation.isValid ? "checkmark.seal.fill" : "xmark.octagon.fill")
                     .font(.fottyScaled(size: 9, weight: .black))
                     .foregroundStyle(squad.validation.isValid ? FottyTheme.success : FottyTheme.error)
             }
@@ -120,6 +133,7 @@ public struct FPLWildcardGeneratorView: View {
 
             Button {
                 let saved = viewModel.updateUserSquad(picks: squad.picks)
+                saveSucceeded = saved
                 saveMessage = saved
                     ? "Saved as a manager-and-season local Fotty draft. Official FPL was not changed."
                     : (viewModel.draftErrorMessage ?? "The draft could not be saved.")
@@ -132,13 +146,13 @@ public struct FPLWildcardGeneratorView: View {
                     .background(FottyTheme.accent)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .buttonStyle(.plain)
-            .disabled(!squad.validation.isValid)
+            .buttonStyle(FottyPressButtonStyle(cornerRadius: 10))
+            .disabled(!squad.validation.isValid || workingResult.needsRefresh || planningWeeks.isEmpty)
 
             if let saveMessage {
                 Text(saveMessage)
                     .font(.caption)
-                    .foregroundStyle(squad.validation.isValid ? FottyTheme.success : FottyTheme.error)
+                    .foregroundStyle(saveSucceeded ? FottyTheme.success : FottyTheme.error)
             }
         }
         .padding(15)
@@ -181,9 +195,18 @@ public struct FPLWildcardGeneratorView: View {
                         Image(systemName: "lock.fill").font(.caption2).foregroundStyle(FottyTheme.accentText)
                     }
                 }
-                Text("\(score.team.shortName) • \(score.player.positionName) • \(score.player.formattedCost)")
-                    .font(.caption2)
-                    .foregroundStyle(FottyTheme.textTertiary)
+                HStack(spacing: 4) {
+                    TeamIdentityLabel(
+                        teamName: score.team.shortName,
+                        badgeURL: score.team.badgeURL,
+                        badgeSize: 18,
+                        font: .caption2,
+                        foregroundColor: FottyTheme.textTertiary
+                    )
+                    Text("• \(score.player.positionName) • \(score.player.formattedCost)")
+                        .font(.caption2)
+                        .foregroundStyle(FottyTheme.textTertiary)
+                }
             }
             Spacer()
             Text(score.player.officialExpectedPointsNext.map { "FPL estimate \($0.formatted(.number.precision(.fractionLength(1))))" } ?? "Modeled estimate")
@@ -200,7 +223,7 @@ public struct FPLWildcardGeneratorView: View {
             .font(.fottyScaled(size: 8, weight: .black))
             .foregroundStyle(FottyTheme.textOnAccent)
             .padding(.horizontal, 5)
-            .frame(height: 16)
+            .padding(.vertical, 2)
             .background(FottyTheme.accent)
             .clipShape(Capsule())
     }
@@ -213,7 +236,9 @@ public struct FPLWildcardGeneratorView: View {
             Text("No legal draft was found")
                 .font(.headline.weight(.black))
                 .foregroundStyle(FottyTheme.textPrimary)
-            Text("Relax one or more player locks/exclusions or refresh the official player pool.")
+            Text(planningWeeks.isEmpty
+                 ? "No upcoming gameweek is available in this season's official calendar. Refresh FPL before generating another draft."
+                 : "Relax one or more player locks/exclusions or refresh the official player pool.")
                 .font(.caption)
                 .foregroundStyle(FottyTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -225,28 +250,40 @@ public struct FPLWildcardGeneratorView: View {
     }
 
     private var selectedSquad: FPLOptimizedSquad? {
-        generatedSquads.first { $0.profile == selectedProfile }
+        guard !planningWeeks.isEmpty else { return nil }
+        return workingResult.displayedSquads(published: viewModel.optimizedSquads).first { $0.profile == selectedProfile }
+    }
+
+    private var hasConstraints: Bool { !lockedPlayerIDs.isEmpty || !excludedPlayerIDs.isEmpty }
+
+    private var planningWeeks: [Int] {
+        FPLPlanningBounds.gameweeks(start: viewModel.planningGameweek,
+            horizon: viewModel.coachProfile.planningHorizon, events: viewModel.bootstrap?.events ?? [])
+    }
+
+    private func resetConstraints() {
+        workingResult = FPLWildcardWorkingResult()
+        lockedPlayerIDs = []
+        excludedPlayerIDs = []
+        saveMessage = nil
     }
 
     private func regenerate() {
         guard let bootstrap = viewModel.bootstrap else { return }
-        let start = viewModel.gameweekPhase == .planning
-            ? (viewModel.currentGameweek?.id ?? viewModel.nextGameweek?.id ?? 1)
-            : (viewModel.nextGameweek?.id ?? ((viewModel.currentGameweek?.id ?? 0) + 1))
-        let budget = viewModel.managerSummary?.lastDeadlineValue
-            ?? bootstrap.gameSettings?.squadTotalSpend
-            ?? 1_000
-        generatedSquads = FPLSquadOptimizer.generate(
+        let start = viewModel.planningGameweek
+        let generated = FPLSquadOptimizer.generate(
             scores: viewModel.playerScores,
             fixtures: viewModel.fixtures,
             elementTypes: bootstrap.elementTypes,
             settings: bootstrap.gameSettings,
             startGameweek: start,
             horizon: viewModel.coachProfile.planningHorizon,
-            budget: budget,
+            budget: viewModel.wildcardBudget.amount,
             lockedPlayerIDs: lockedPlayerIDs,
-            excludedPlayerIDs: excludedPlayerIDs
+            excludedPlayerIDs: excludedPlayerIDs,
+            events: bootstrap.events
         )
+        workingResult.acceptGenerated(generated)
         saveMessage = nil
     }
 }
@@ -273,25 +310,40 @@ private struct FPLSquadConstraintsSheet: View {
                 HStack {
                     VStack(alignment: .leading) {
                         Text(score.player.webName).font(.subheadline.weight(.bold))
-                        Text("\(score.team.shortName) • \(score.player.positionName) • \(score.player.formattedCost)")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            TeamIdentityLabel(
+                                teamName: score.team.shortName,
+                                badgeURL: score.team.badgeURL,
+                                badgeSize: 18,
+                                font: .caption,
+                                foregroundColor: FottyTheme.textSecondary
+                            )
+                            Text("• \(score.player.positionName) • \(score.player.formattedCost)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     Spacer()
                     Button {
                         toggleLock(score.id)
                     } label: {
                         Image(systemName: lockedPlayerIDs.contains(score.id) ? "lock.fill" : "lock.open")
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.borderless)
                     .tint(FottyTheme.accentText)
+                    .accessibilityLabel("\(lockedPlayerIDs.contains(score.id) ? "Unlock" : "Lock") \(score.player.webName) in draft")
                     Button {
                         toggleExclusion(score.id)
                     } label: {
                         Image(systemName: excludedPlayerIDs.contains(score.id) ? "nosign" : "minus.circle")
+                            .frame(minWidth: 44, minHeight: 44)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(.borderless)
                     .tint(FottyTheme.error)
+                    .accessibilityLabel("\(excludedPlayerIDs.contains(score.id) ? "Allow" : "Exclude") \(score.player.webName) in draft")
                 }
             }
             .searchable(text: $searchText, prompt: "Search players")

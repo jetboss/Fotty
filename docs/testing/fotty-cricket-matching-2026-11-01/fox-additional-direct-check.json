@@ -1,0 +1,8 @@
+{
+  "checkedUTC": "2026-11-01T16:31:25.727084+00:00",
+  "source": "https://github.com/khankimagi23221/okk-1/blob/main/crichd.m3u",
+  "scope": "One original Fox metadata row and at most one literal HTTPS root request; no media/redirect/account requests",
+  "outcome": "Unavailable at bounded check",
+  "errorType": "gaierror",
+  "errorNumber": 8
+}

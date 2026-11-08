@@ -1,4 +1,4995 @@
+## 2026-11-04: Isolate CNC WBBL discovery and distinguish channel evidence from live acceptance
+
+Private Jet242 stages a new PlayZTV WBBL LS route through normal Watch with exact official and source identity, existing opt-in, original transport fences and guarded renewal. Separate catalog failures and optional-fixture eligibility protect NHL and unrelated cricket. 112 focused Catalyst checks passed; signed app/widget installed and Settings/Home verified. Correct live programme, 90-second hold, controls and any independent recovery are pending the named windows; neither a replay nor a duplicate CDN path establishes readiness. TENIES two additional channel pictures, two duplicate paths, two 503s, StremVerse overlaps and Nebula incompatible routes were distinguished. No phone, FPL, multi-stream, Git/cloud or TestFlight change. See [242 source qualification](../testing/fotty242-new-sources/README.md).
+
+## 2026-11-04: Exact AS joins use existing official fixture freshness
+
+Live post-deployment evidence showed WBBL wrongly rejected after its official receipt aged ten minutes. PR127/cd5edb9 removes that extra limit for exact dated CNC joins only, using existing normalized scheduled/live freshness and original-receipt expiry. Synthetic-clock/current-listing and Test rules unchanged.179 focused tests, both bundles and protected CI pass. No app rebuild; Jet241 unchanged. Actual AS collector recovered117 current records at02:10UTC; decoded football/cricket tests remain pending. Receipt: testing/fotty241-plaviolive/README.md.
+
+## 2026-11-04: Deploy PlavioLive repair; retain physical qualification boundaries
+
+PR126/57b4dc7 deployed from protected main with unchanged configurations and explicit original watchdog activation. Jet241 installed/visually confirmed. New CNC cricket association requires one fresh exact official ODI/T20 owner and same UTC start; no invented source format or Test-day inference. Native AS accepts only the already-reviewed exact HTTPS FanCode path/public-header contract through the guarded relay. 103 native passes/one physical skip, 148 focused checks, clean bundles/CI; runtime fixture migration caught and fixed by CI. Later cloud collector retained155 notices and flags; alerts stay dashboard-only. Upcoming/unmatched fixtures and access-gated PenguPlay/Highfly/StreamNexus remain pending, not playback passes. Receipt: testing/fotty241-plaviolive/README.md.
+
+## 2026-11-04 — Retain current football fixtures when Home loses live-status evidence
+
+## 2026-11-04: PlavioLive migration candidate, not completed playback qualification
+- New metadata origin/id replaces the retired empty PlavioHD sports catalog, preserving AS identity/settings and current media restrictions.
+- New explicitly dated CNC cricket metadata is parsed; native limited-overs matching requires verified official context and same-ID metadata. Test-day/format facts are not guessed. Its media/header contract and registry format evidence remain unresolved.
+- Release240 installed on Jet only. 102 native pass/1 physical skip, 108 adapter/watchdog and39 registry pass; Home/TV launch verified. No live AS delivery newly qualified and no backend deployment.
+- PenguPlay public manifest has no catalogs; Highfly setup requires Turnstile; StreamNexus requires token/trial. No signup, challenge bypass, payment or outbound message.
+- Owner chose dashboard-only monitoring; keep chat alerts paused.
+- Details: docs/testing/fotty240-plaviolive/README.md.
+
+
+## 2026-11-04: Replace watchdog notification fan-out with quiet incident status
+
+Owner requests one incident system, no GitHub mentions, useful checks retained,
+and alerts only for actual viewing impact. PR125 removes per-provider issue
+creation, owner assignment/comment delivery and synthetic mention canaries.
+The existing bot-owned ledger issue becomes a quiet diagnostic dashboard;
+collection, budgets, state and historical delivery receipts remain intact.
+
+The owner bridge retains legacy pending receipts without replay/false ACK and
+only queues grouped fresh confirmed app fixture-endpoint HTTP5xx discovery
+incidents. Recovery requires all retained causes to resolve. Provider/catalog,
+monitor and optional email failures remain diagnostics. No metadata-to-decoded-
+playback claim: full playback-impact detection remains uninstrumented here.
+PR125 merged as5c074725; normal observer41945708992 passed with zero deliveries.
+227 canonical checks and165 current-main candidate checks pass; no device,
+Worker deployment, FPL, multi-stream or TestFlight work. Existing chat automation
+was found PAUSED and stays paused pending the owner's resume preference.
+Publication/live verification recorded in testing/watchdog-incidents-2026-11-04/.
+
+
+The owner authorized local Home repair immediately, with Jet installation and
+physical checks deferred until Fenerbahçe–Liverpool is officially finished.
+HomeSportsDiscovery kept unconfirmed fixtures in `items` (and Search), but
+`homeSections` selected only live/listed or upcoming items; both Home layouts
+therefore omitted Liverpool after its status became unconfirmed. This is a
+confirmed presentation defect, not proof of why the upstream status went stale.
+
+The focused repair gives elapsed football fixtures a neutral Awaiting match
+update section for four hours after their listed start. This is a presentation
+retention bound, not an assertion of LIVE, a renewed status receipt or playback
+permission. Existing terminal/conflict vetoes and source eligibility remain.
+Fresh live evidence restores normal live placement without duplicates. Both
+phone and tablet compositions consume the neutral section after current matches;
+interest filters still apply. Added refresh/cold-projection, recovery, terminal
+removal and boundary regressions. The existing empty-Home source assertion was
+stale against the prior next-club conditional and has been corrected without
+changing that behavior. Local test outcome is recorded in the Liverpool239
+receipt. Consolidate with the staged audio repair after the game; phone, FPL,
+multi-stream and TestFlight remain untouched.
+
+## 2026-11-04 — Liverpool239 audio restored; single-player handoff repair staged
+
+Normal signed239 is installed on Jet. Scheduled registered-descriptor recovery
+now uses the fresh fixture identity receipt rather than an unchanged publisher
+status timestamp; live/terminal/team/squad/date guards remain. Automatic fallback
+reached CS4 and showed the correct Fenerbahçe–Liverpool programme advancing, but
+the owner reported silence and local diagnostics confirmed audio_enabled=false.
+The scene also showed its audio-transfer failure alert. A clean restart followed
+by normal Sports TV → TNT Sports1/TV12 restored the game; the owner explicitly
+confirmed commentary. TV12 had a startup retry and a stall before later decoded
+progress, so this is not an uninterrupted hold or independent-backup pass.
+
+Local, not-installed audio repair tracks actual mounted Web documents rather
+than a selected logical attempt; exact teardown retains its original model and
+WebKit surface until suspension acknowledgement. A late actual retirement can
+retry the same single audio focus claim without replacing its player/item/attempt
+or undoing Pause. Single-view failures offer Retry audio and record bounded local
+handoff outcomes; existing two-pane focus policy remains. Focused regression
+execution is recorded separately. Do not install over the owner's current game.
+
+After restart, Liverpool disappeared from Home and Search showed Start unconfirmed.
+That listing failure remains separate; a Mac metadata request returned403, which
+alone does not establish the iPad's cause. No fixture facts were invented, no
+security rules relaxed, and no phone/FPL/multi feature/TF/cloud/Git work occurred.
+Receipt:testing/fotty235-core-cricket/liverpool239-recovery-and-audio.json.
+
+## 2026-11-04 — Owner-approved Fox release238 and compatible durable state
+
+PR124/c12a800 publishes original Foxtel WBBL matching within the existing
+collection budget. Paired Workers deployed as2026-11-04.fox-programmes-1 with
+Fox enabled and all existing flags/bindings/activation plus141notices preserved.
+Normal post-deploy TV collection16:45:36UTC and watchdog16:46:09UTC completed;
+paired safety check passes with141notices retained and all other settings unchanged.
+The earlier rollback caveat is superseded: persist legacy-shaped generic Fox
+records with a source-root SHA256 proof of the exact original AU record. The
+actual prior deployed reader accepts this state; current code restores market
+only for a complete matching record, with no read-time rewriting/lease renewal.
+222 native tests,672 isolated release tests, eight test-host followup checks,
+type/lint/bundles and signed iOS238 compile pass. Jet238 installed/launched;
+Home/TV observed. Current Fox replay cannot prove live match Watch or an
+independent backup. Phone/FPL/multi-stream/TF untouched.
+Receipt:docs/testing/fotty235-core-cricket/fox-release238-evidence.json.
+
+## 2026-11-04 — Fox programme bridge and bounded collection validated locally
+
+Current native code joins reviewed Fox WBBL guide facts to a separately enabled,
+fresh exact Australian CS channel. It does not fabricate a TV delivery or a
+global entitlement; explicit programme restrictions and media guards remain.
+Older clients receive a capability-projected response without new Fox guide/AU
+fields. Willow date-selection hints are sanitized, short-lived request hints,
+not programme facts, and keep Fox/Willow/ESPN collection within3 reads and the
+existing576/day budget. Failure does not renew accepted guide or hint receipts.
+222 native,296 backend,251 watchdog tests and both bundles pass. Earlier test
+fixture/schema and helper compile failures are preserved in the dated receipt.
+New Fox publication/activation needs the separately requested owner approval;
+live Watch acceptance remains pending. Rollback must retain the compatible
+durable-state reader rather than discard accepted records. Jet237 controls
+remain physically verified; no new install/device interaction in this gate.
+Receipt: `docs/testing/fotty235-core-cricket/fox-native-integration-evidence.json`.
+
+## 2026-11-04 — Fox collector isolation staged without activation
+
+Default-off shared-source option reads the fixed original Foxtel page under the
+existing ledger/transport bounds. Explicit current WBBL programmes normalize to
+guide-only references; replay/upcoming facts cannot become current broadcasts.
+Healthy Willow/Fox siblings survive failures without renewed retained leases;
+durable restart and172focused tests pass, as does the Worker bundle. Two original
+HTTP200 guide reads at15:34UTC produced no current qualifying live programme.
+No media or device work. Native AU-Fox join, existing new-station use policy,
+legacy-consumer compatibility and four-read refresh accounting remain open before
+activation; no clearance or Watch success is claimed. See
+`testing/fotty235-core-cricket/fox-collector-evidence.json`.
+
+## 2026-11-04 — Original Fox guide coverage review staged
+
+Foxtel FOX CRICKET HD supplies explicit epoch programme times. A bounded pure
+parser preserves station/date ancestry, replay/pregame distinctions and reviewed
+women's WBBL identities. Nine focused tests pass; fresh original guide and CA
+fixtures corroborate two5November programmes, including10-minute early coverage.
+Current4November Heat–Sixers is a replay. No fixture LIVE inference, media fetch,
+deployment or native programme join. Cloud collection, event-use policy and native
+Fox programme integration remain pending; this is not a Watch qualification.
+Receipt:testing/fotty235-core-cricket/fox-guide-evidence.json.
+
+## 2026-11-04 — Additional direct CS Willow delivery237
+
+The actualCS3.1.3 main-US-Willow descriptor includes a CDNLive HTTPS HLS route
+previously excluded by native admission. Admit only its reviewed HTTPS443 origin,
+fixed secure-playlist path and literal token, with exact public Origin/Referer and
+advertised browser UA. Keep the guarded relay, public-address/TLS/redirect checks
+and all existing channel/fixture identity rules. No arbitrary-origin/HTTP exception.
+Old adapter fails the new regression;229CS/relay tests pass0skip. Signed237Jet
+normal picker exposesCS2. First attempt503 twice→TV1automatic recovery5.8s/92s hold;
+manualRetry CS2decode5.5s/93.664s hold0stalls. Correct Willow NZ–India replay observed.
+Keep both failures and success; independence/liveWatch remain unproven. Phone,
+FPL,multi,source opt-ins and TestFlight unchanged. OriginalFoxtel absolute-epoch
+programme guide now responds; source facts reviewed, no parser/activation yet.
+Receipt:testing/fotty235-core-cricket/cs237-evidence.json.
+
+## 2026-11-04 — WBBL runtime validation and single-player controls236
+
+PR122 added the approved isolated CA WBBL cohort and Willow programme matching.
+Real production failed because workerd rejects fetch redirect:error before any
+request, despite Node success. PR123 changes to manual rejection and tests the
+actual deployed workerd flags, including redirect non-following.590backend and
+186watchdog checks pass; both paired Workers deployed. Production and Jet admitted
+10WBBL rows; normal observer safety passes with141 notices and bindings preserved.
+
+Single-player watchdog counted healthy advancing video as stagnant, preventing
+control auto-hide.236 clears healthy progress and rearms after recovery or picker
+closure.94 focused tests pass; Jet shows automatic fade, paused Play retention,
+resume fade and picker-dismissal fade. Fox CS1 passed90s; Willow236 TV1manifest404
+fell back toCS1, then stalled twice including Retry. Preserve that failure beside
+235's successful Willow hold; do not call channel/replay testing live-match or
+independent-backup qualification.13 protected preferences/42 excluded source hashes
+unchanged. No phone/FPL/multi/TestFlight work. Receipt:testing/fotty235-core-cricket/.
+
+
+## 2026-11-04 — Core viewing scope: PL, Champions League, Willow/Fox cricket
+
+Owner makes Premier League, UEFA Champions League and all cricket carried by
+Willow or Fox the reliability priorities; everything else is a bonus. The cricket
+target includes domestic and women's competitions, beyond the currently deployed
+CPL/West Indies/ICC international fixture scope. Do not silently treat that
+existing subset as completion. Keep all eligible TV/CS/AS options and the neutral
+reliability/startup ranking; this does not restore the rejected TV-first policy.
+
+Work toward exact programme/fixture association, normal one-tap Watch, sustained
+correct-picture playback and genuinely independent recovery. Preserve failed
+receipts and distinguish guide coverage, actual delivery and backup independence.
+The Willow wrong-programme guide observation (233), upstream CS child403 (234)
+and Fox subscription-card result (215) remain open, not erased by this scope
+decision. Phones, FPL, multi-stream and TestFlight remain excluded. No device,
+runtime, source setting or cloud change accompanies this priority record.
+See `docs/testing/fotty-core-viewing-priorities.md`.
+
+## 2026-11-04 — CS current-listing clocks and registry readiness (234)
+
+The actual original same-ID CS response publishes a generated listing clock with a four-hour cache; native resolution used ten minutes while the reviewed registry uses four hours. Align only that generated-listing contract with the existing source lifetime, retaining fresh official LIVE <=600s, exact IDs/pair/envelope, safety and earliest-expiry binding. Independently current cloud and device official receipts must not be rejected merely because refresh timestamps differ. The regression first failed at240/300/599s device receipt age, then passed after validating each expiry independently.
+
+Device tracing also proved cold preflight ran with zero registered matches, then withdrew the one valid association loaded moments later. CS current ODI/T20 resolution now joins the existing bounded registry owner inside its parallel lane. An unassociated generated-clock catalog miss, including while the cached official receipt awaits refresh, releases its discovery ticket without claiming provider absence. It cannot authorize stale playback; scoped negative/conflict/security/HTTP handling remains intact.
+
+230 focused native tests:228 passed/2 optional production-input skips/0 failed. Signed normal Release234 installed on Jet; cold-launch Watch visible and retained after background refresh. Real UAE–Oman Home Watch resolved CS1, but native decoded playback failed at child manifest403; the original advertised child independently returned403 with advertised headers. Preserve the media failure and absence of an eligible backup, not a false playback pass. No phone/FPL/multi/source-setting/cloud/TestFlight changes. Receipts: `docs/testing/fotty234-cs-metadata/`.
+
+## 2026-11-04 — Retain every eligible provider; reliability then startup
+
+Owner superseded the unfinished TV-first direction after observing faster CS streams. Build233 removes TV promotion and extra TV-only wait. Same-match failures override previous holds; equally sustained deliveries compare recent measured startup, with no TV/CS/AS preference or candidate removal. Unknown language no longer gives TV an automatic match-selection advantage. Station language behavior and legacy multi ranking are unchanged. Startup is not measured venue latency.
+
+116 focused physical unit passes, two optional network skips. Signed Release233 installed on Jet. TV1 and CS1 both decoded Willow pictures and remained selectable in the normal source sheet. Short station checks are not exact-match qualification. UAE–Oman normal Watch failed before ranking: accepted registry CS link outlived native current-listing metadata freshness; AS empty, Flix503. Preserve that unresolved receipt and the stale Willow guide observation. No freshness/security relaxation.42 excluded hashes/16 protected preferences unchanged. Phone/FPL/multi/cloud/TestFlight untouched. Details: `docs/testing/fotty233-neutral-selection/README.md`.
+
+## 2026-11-04 — CS token identity, native resume and remaining delivery limitation
+
+Build231 exposed Apple's exact `segment_uri_changed` complaint. Fresh overlapping CS DaddyLive segment URLs differed only by token; a bounded full-byte comparison of both advertised variants matched. Release232 keeps local segment identity stable only for the reviewed HTTPS CDN MPEG-TS token shape, scoped to its originating playlist, and forwards the complete latest advertised URL. Keys, maps, other hosts/query shapes, old Worker-wrapper identity and all admission/security limits remain unchanged. Two new regressions plus the14 existing actual-policy XCTest cases passed.
+
+Jet232 normal inline/native-fullscreen long Pause/Play resumed on CS1 in1.046/0.505seconds without a new attempt. Natural CS stalls recovered to TV1 in5.1–5.3seconds after detection, then sustained90second holds passed. The forced replacement hold failed, as did later sustained CS playback; preserve those failures. Fresh publisher samples supplied20.96seconds of media in49.244seconds, while the app's later failures reported CoreMedia-12888 rather than the repaired URI complaint. This supports, but does not fully prove every upstream cause of, the remaining pacing limitation. No broad workaround or source-guard relaxation is justified. Do not claim all CS reliability finished or publisher independence.
+
+Receipts: `docs/testing/fotty231-resume-recovery/`. Prior130 playback unit passes remain distinct from16 proxy tests and manual physical acceptance. No phone, FPL/multi, publication/deployment or TestFlight change.
+
+## 2026-11-03 — Cricket overlapping Tests, registry and normal Watch
+
+PR121/864ca65 deployed both approved Workers. ICC returned terminal Tests whose explicit multi-day intervals overlapped the request window; kickoff-only filtering rejected the whole collection and stranded current ODI-to-CS links. Admit only verified bounded Test intervals, preserve dates/status, expose finite date/window errors and enforce explicit cricket ordinal conflicts. 176 focused and 186 watchdog checks plus both bundles passed. Production cron restored current NZ–India first ODI and CS coverage; activation/bindings/141 notices retained.
+
+Jet230 normal Watch showed correct CS1 picture within 10s and 91.006s continuity/zero stalls. Deliberate resume then stalled: about27s detection plus5.555s automatic TV1 recovery. TV1 correct programme/91.9s hold and native fullscreen controls observed. CS1 cause remains unisolated; do not call its resume passed or infer publisher independence. No rebuild, phone/FPL/multi/source-settings/TestFlight change. Receipt: testing/fotty-cricket-overlap-2026-11-03/README.md.
+
+## 2026-11-04: Bound single-player resume before automatic recovery
+
+- **Decision:** Inline and native-fullscreen single-player Play share one eight-second progress observer, retaining the current player/item/attempt. A proven expired live seekable window permits one catch-up; a seek jump is not playback. A buffered live wait permits one immediate-play request. General single-player stalls have six-second non-resetting validation; Playing status alone cannot clear a frozen clock. Legacy/multi behavior is preserved.
+- **Evidence:** Jet230 CS1 resumed into a stall with about 27 seconds before failure detection and about 33 seconds to TV1 recovery. Optimistic inline Playing and stacked watchdog/validation budgets were confirmed app weaknesses; the provider-side cause was not proven.
+- **Verification:** 130 distinct focused physical unit passes, ten new boundary regressions, signed Release231 installed on Jet. One pre-existing Mac-source inspection unit is incompatible with device execution; equivalent source assertions passed locally. Live CS1 test did not begin: XCTest timed out at Apple’s Touch ID prompt. Long pause, fullscreen and forced recovery remain pending. Sixteen protected preferences and42 excluded file hashes unchanged. No phone, cloud publication or TestFlight.
+- **Receipt:** `docs/testing/fotty231-resume-recovery/` retains the limitations and must be updated after live acceptance.
+
+## 2026-11-03 — Jet match recovery
+
+## 2026-11-03 — Global Search local input ownership, Jet230
+
+Use local State for active native Search editing; checkpoint the existing
+SceneStorage value at dismissal, submission and scene inactivity. Normal229 lost
+letters through captured keyboard while Sports TV preserved them. Candidate230
+retained full queries; two physical native-key/Clear/reopen tests passed after
+Device Hub disconnected its virtual keyboard. The first keyboard-precondition
+failures are preserved separately. No internal SwiftUI root-cause claim, provider
+repair or new live qualification is inferred. Phone/FPL/multi untouched, no
+publication/TestFlight. Receipt: testing/fotty30-broadcast-first/search230-acceptance.json.
+
+
+## 2026-11-03: Fotty 3.0 broadcast-first private Jet candidate
+- Owner chose featured live game, personal club context, live rows and Sports TV.
+- Added match-scoped early discovery evidence and wrong-programme automatic exclusion, single-player source presentation, Home hierarchy/reflow and TV search/filter/progress.
+- Physical checks found a recursive singleton initialization trap on both devices. Shared sports sync now publishes before framework startup; guarded re-entry and 57 sync/bridge regressions passed. No consent, FPL or cloud-contract change.
+- Final normal Release 3.0.0(229) installed on Jet. Actual TV4 NHL 90s and same-owner controls passed; final Release transport check passed separately. No fresh PL/UCL coverage claim.
+- Owner stopped phone work; no final repair/install there. Rapid Search complete-string automation remains unresolved despite separate native-key success. No TestFlight/publication/deployment.
+- Receipts: [3.0 acceptance](../testing/fotty30-broadcast-first/README.md).
+
+Build 226 keeps single-match discovery open for late alternatives until its existing deadline, rechecks expiring assignments before renewal, and gives a previously playing match one fresh lookup on exhaustion. Repeated AV stall notices share their original timer. Both UCL matches naturally recovered from CS1 to CS3. A further forced loss on Galatasaray recovered to CS4; the equivalent Shakhtar CS4 hold failed. [Qualification](../testing/fotty226-match-recovery/live.json)
+
+## 2026-11-03 — Sports TV station recovery and guide isolation on Jet
+
+Private 225 adds the corroborated UK CS Sky Sports Cricket station alongside TV10. Jet recovered the same WBBL programme after a forced loss in 6.4 seconds, then advanced 91.4 seconds. Recovery replayed roughly one ball. Isolate malformed playlist entries and guide rows while withholding ambiguous ID/slot claims. Upcoming guide-only rows can survive a missing refresh until their original expiry. Worker changes are local. [Receipt](../testing/fotty225-stations/qualification.json)
+
+## 2026-11-03 — FS1 backup and Sky Sports Main Event on Jet
+
+Private 224 admits exact CS station editions for US FS1 and UK Sky Sports Main Event. The FS1 forced-outage test exposed a capitalization mismatch between the provider and the app. Fold letter case for reviewed television names while retaining the full name, region and catalog/meta identity checks. The Mexican variant also claims US country metadata, making full-name equality essential. After correction Jet switched automatically from TV24 to CS1 and showed the same Wisconsin–Iowa game. Sky tuned from Sports TV through Watch. These are station checks. [Qualification](../testing/fotty224-channel-recovery/qualification.json)
+
+## 2026-11-02 — English Sports TV additions on private Jet
+
+Build 223 adds FIFA+, FIFA+ Women, Cricket Gold and Fox Sports 1 (US). Stations use exact reviewed UK, AU or US playlist identities and the existing guarded TV path. Station availability alone does not qualify a match. Four named physical holds passed; FS1 also stalled on its first run. [Receipts](../testing/fotty223-sports-tv/qualification.json).
+
+## 2026-11-02 — Tailored to you Home
+
+Home ranks confirmed live fixtures from the existing filtered catalog. A live followed football club leads, and the next scheduled club fixture appears once directly below. When no confirmed match is live the next club fixture may lead. Compact and wide layouts share this decision.
+
+## 2026-11-02 — Verify fixture assignments and source loss separately
+
+A stale TV diagnostic invalidates its own listing; it cannot discard a valid sibling or grant a station a match. Features use a current fixture-scoped decision, with programme/edition, permitted use and evidence expiry separate from media lease and playback outcome. Generic stations remain station-only. Playback may record observed startup, stalls and media timestamp age; neither decoding nor an HLS clock establishes the correct programme or live-event delay. A user wrong-match report applies only to the displayed delivery, fixture and attempt, including verified same-programme lease rotations. Private source selection compares and logs old/new positions locally without exposing URLs; ordinary builds keep the previous order. Jet alone uses the private trial. A same-publisher fallback cannot qualify as publisher independence. [Verification](../testing/fotty221-broadcast-integrity/README.md).
+
+## 2026-11-01 —220 Watch feedback, positive-history fallback and fresh Retry
+
+Owner approved only these three repairs and Jet tests. Watch reserves visible
+pending/Cancel feedback before current-catalog/retained-owner validation; retained
+paused playback reopens without stream restart. Initial native startup timeout may
+prefer an admitted exact/current alternative with positive decoded history before
+repeating the failed route. History ranks; it never proves current programme.
+
+Failed-player Retry owns fresh descriptor-index and CS/AS/Flix/CNC/SV metadata
+lookup instead of directly replaying a stored failed choice. Default caching,
+paths, opt-ins, budgets and identity/transport guards remain. Failed-pane progress,
+Cancel, duplicate suppression and owner/attempt/intent/background/replacement
+fences cover late success, failure-only completion and a second alert Retry.
+
+166focused tests/26new methods pass0fail/0skip. Signed app/widget220 installed and
+normal-launched Jet. Home Watch showed Finding a broadcast/Cancel promptly;
+CS1HTTP404/CS5HTTP502 automatically progressed to CS6decoded23:37:51UTC and was
+closed23:38:32. This is not90s qualification or the new startup-timeout branch.
+43protected sources+11stable preferences unchanged. Physical Willow/picker/Retry
+remains pending: shared Device Hub conflict; targeted Jet XCTest bootstrap timed
+out awaiting on-device UI Automation approval before methods ran. Owner action
+requested. No phone/FPL/multi, source opt-in, Git/cloud or TestFlight changes.
+Evidence:testing/fotty-watch-retry-2026-11-01/.
+
+## 2026-11-01 — Owner Willow/CS follow-up corrects availability assumptions
+
+Read-only Jet219 telemetry corroborates the owner's TV1 Willow decoded22:38:35,
+CS1 decoded22:39:13, then selected TV1 HTTP40422:39:19 with automatic CS fallback.
+Fresh reviewed publisher metadata still advertises the identical variant; bounded
+GET returned200/HLS22:46, with no segment fetch. This is variable current delivery
+response, not proof of stale URL, stable decoding, upstream closure or a native
+regression. Earlier failed runs remain failed; short owner plays are not90s passes.
+
+Confirmed app costs are pre-acknowledgement main-actor admission/retained-player
+checks, silent rejected taps, and retrying a startup-timeout choice before admitted
+alternatives. TV already has pending progress/double-tap suppression. Recommend
+owned immediate feedback followed by existing validation and a fresh positive
+same-event alternative before repeating a failed route; no guard or blanket timer
+change. Exact tap latency is unmeasured. No code/build/install/screen control,
+phone/FPL/multi/TF/settings/cloud changes. Receipt:
+testing/fotty-liverpool-watch-2026-11-01/219-owner-willow-cs-followup.json.
+
+## 2026-11-01 — November evidence audit,218 acceptance and219 follow-through
+
+The owner reported repeated refresh warnings and requested a current November audit/update. Fresh evidence distinguishes the old primary-directory failure flag from a real accepted-registry rejection.218 isolates regressing records/links without renewing them, retains envelope anti-rollback, and imports fresh cloud outcomes into the existing availability index with original timestamps/finite expiry and no duplicate provider HTTP. NoHTTP imports do not consume local request reservations; exact deduplication prevents cached proof renewal.53 registry and85 catalog/index checks pass(no skips; selections overlap). Signed218 is installed on Jet, accepted16:24→19:33, and the warning cleared after source checks. Phone215 remains away/unmodified.
+
+Willow218 decoded then stalled; advancing relay windows and22success/0failed requests do not prove a lease or rewrite problem. Its hold failed and remains failed.219 stages one owned post-decode exact-choice renewal using the existing budget and freshness/identity/security/cancellation fences, without asserting a starvation cause. Juventus–Napoli also exposed a scheduled-status delay: a fresh identity disappeared from Home after kickoff.219 retains Starting within the existing30minute bound, uses identity freshness only for scheduled lookup, and never invents LIVE.263 focused tests pass0skip;219 signed/native gate pending. FPL/multi, source opt-ins and phone remain unchanged.
+
+Bounded official EFL comparison proves404 exact No matches found is its empty-window contract, not route closure.45 source/durable checks and Worker bundle pass; repair is undeployed. Cricket partial/held counts are not whole-service outage counts. Elche later FINISHED receipts and Home removal are consistent with publisher/poll latency, not a proven new mapping regression.
+
+Native toolchain is current; no blind Swift/Worker compatibility-date migration. Web Next16.4.3/sharp0.35.5 and project Node24 selector pass4+46tests/types/lint/standalone build, source-only. Durable official user-local Node24 is verified; global Node25 and owner web outputs remain unchanged. Partial Homebrew library effects are explicitly retained in the maintenance receipt; owned temporary cache cleaned. No Git publication, cloud deployment or TestFlight. Evidence:testing/fotty-liverpool-watch-2026-11-01/.
+
+Final219 gate: signed Release and widget219 verified, no ATS exceptions; installed/normal-launched Jet only. Normal Home Juventus–Napoli Watch automatically recovered its initial TV4 transport error, decoded20:27:32 and recorded90second continuity20:29:02; correct ESPN3 programme observed42:03→43:39 and normal picker remained usable. Home warning cleared without dismissal. The separate TV1 Willow run failed both20second readiness deadlines before any decoded video; the new postdecode branch was not exercised. No timer/buffer/authority change or further build is justified by these receipts.45 protected FPL/multi files and15 stable preferences unchanged; only expected playback-health preference differs. One source-enablement record is unchanged. No phone/TF/cloud work. Current November baseline: docs/audit/Fotty-November-2026-Baseline.md.
+
+## 2026-11-01 —217 late alternatives, TV refresh and expiring Flix backups
+
+216 normal Watch reproduced early exhaustion: AS1/2/3 returned causal403 within one second; CS/FS arrived later and appeared in15options but were never tried. Manual CS1 played the correct match and passed its actual90second interval, then stalled17:30. Subsequent CS2 NFL footage is not programme qualification. CS5 decoded17:48 and correct Liverpool–Arsenal second-half picture advanced58:38→63:45. Preserve every run; never convert one early successful source to a permanent pass.
+
+217 retains early HTTP failures in existing connecting feedback while the same bounded original single lookup owns them, then tries genuinely new matching choices without another tap. Failed URLs are not retried; owner/identity/expiry/security and user-intent revocations remain.70focused lifecycle/late-choice tests pass. No arbitrary unknown-error relaxation or new timer.
+
+Expired TV cache also excluded the entire TV lane before a new registry check: Jet16:24 assignment expired16:30 while backend17:44 had fresh exact TV2.217 adds only a parallel foreground deferred lane, one bounded/shared20s registry read, fresh exact association before playlist/cache use, finite retry/join cancellation and fixed local failure evidence. Aggregate18s/preflight8s source budgets remain; foregroundCS/TV gets32s.50focused checks pass. Initial optional wire test skipped due an environment-prefix mistake; corrected explicit offline production wire test passes1/1, no skip. Snapshot validation is not decoded playback.
+
+Flix registered bindings expire90s; the observed17:30 unknown failures used17:20 choices and were lease refusals, not fresh media failures.217 adds FS to the existing single-only6s exact descriptor renewal path and declares lease_expired for redacted diagnostics. All identity/provider/path/origin/header/query/expiry/cancellation fences stay;8focused tests pass. Source files and Multi behavior outside this single caller remain unchanged. Signed217/native gate pending at this entry; phone215 remains unavailable, exact owner error unconfirmed. No Git/cloud/TestFlight. Receipts:testing/fotty-liverpool-watch-2026-11-01/.
+
+## 2026-11-01 — Fox qualification, phone215 install and urgent Liverpool Watch
+
+Owner approved the narrow Fox HTTP chain and later a private phone install before leaving.215 installed on Jet and Jelani’s iPhone; phone was not agent-launched and subsequently became unavailable. Scoped transport276tests passed, but real native SD and independent HD decode showed a subscription-payment card, not Fox Cricket. No account/payment/access workaround.216 removes unqualified TV20, HTTP origin profile/ATS/helper/tests; complete prototype retained unapplied. CS Fox404 and final Flix Fox369504 remain. SpecialLinks8080 is metadata-only unsupported, not a demonstrated payment gate. This supersedes the pending-approval proposal below. Actual result:testing/fotty-cricket-matching-2026-11-01/fox-215-native-observation.json.
+
+216 adds retained TV reopen, visible cancelable lookup, bounded retry/source management and channel-specific copy/fresh Now/Next Details;59focused tests pass.45protected FPL/multi source files unchanged. Signed216 build and Jet checks pending; no publication/cloud/TestFlight.
+
+UI work paused for owner’s Liverpool–Arsenal phone215 no-stream report. Official LIVE senior PL16:30UTC fixture and current CS/FS/TV links verified. Normal Jet215 Watch selectedAS1, first decode1346ms, correct live programme19:34→24:05,9picker options; cold relaunch also plays. This is not phone/mobile proof. Phone opt-ins, network and exact error remain unknown; no confirmed phone cause or recovery claim.
+
+CS exact descriptor independently took15.93s while native records show parent18s cutoff; client transport allows24s.216 gives32s only to foreground single discovery containingCS, retaining progressiveAS, aggregate18s/preflight8s and cancellation. All30coordinator tests pass, including lateCS/progressive sibling and cancellation/deadline cleanup. Native216 check pending. Receipts:testing/fotty-liverpool-watch-2026-11-01/.
+
+## 2026-11-01 — Resume Fox repair using actual original deliveries
+
+Owner rejected leaving Fox unresolved. The first two original time2shine entries are public HTTP HLS deliveries, not a demonstrated username/password account contract. Fresh bounded HTTP200 manifests and advancing media sequences establish working transport; one bounded advertised segment contains H.2641080p. No Australian programme, native decode, audio or90second playback pass is inferred from that sample. The third xown wrapper returns404; the separate Flix369 TV descriptor exists but its media returns502, so it is not a qualified replacement.
+
+A focused eight-file TV20 SD repair is saved as an unapplied patch: exact original HTTPS metadata/ID/label, finite selected-root runtime HTTP authority and two exact public segment IPv4s, fresh renewal and canonical Fox Watch. Other sources remain on their existing policy; no programme assignment is fabricated, no HD profile is enabled, no account/auth or scheme upgrade is invented. Current Apple ATS documentation supports explicit IP entries on iOS/iPadOS17 and later; the old numerical-IP exclusion is not applicable to Jet27.2.
+
+The new Fox-only HTTP exception is a material security decision currently pending owner response under AGENTS.md. Canonical app/ATS files, Jet214, settings, phone/FPL/multi/TestFlight remain unchanged. Patch application check, Swift syntax/plist parse and independent static review pass; nine regression tests are authored but unexecuted. After approval, apply the focused patch, run affected real tests, build once, and qualify correct Fox picture/audio/90second hold through the normal adapter/guarded relay on available Jet. Do not describe the proposal as installed or Fox fixed. Receipts and unapplied patch:testing/fotty-cricket-matching-2026-11-01/.
+
+## 2026-11-01 — Source-qualified cricket matching and cricket TV placement
+
+Owner approved CS/Willow matching repair, protected publication/deployment and Jet-only acceptance, then requested Fox repair and clearer TV placement. Phone/FPL/multi/TestFlight remain excluded. The dynamic CS FanCode clock is a current-listing observation, not kickoff. Its exact reviewed contract now joins only one fresh official LIVE ODI/T20 with exact participants, fresh same-ID metadata and sibling ambiguity checks. Production loader/DO tests preserve negative/terminal sibling identities before admission. Runtime clock annotations do not expand the stored schema; strict rehydration and the old-client projection retain rollback compatibility. Explicit agreeing ICC limited-overs ordinals and literal Willow ODI/T20 programmes extend matching without guessed formats, timezone shifts, generic-channel assignments or weakened date/squad/transport checks.
+
+PR116/8298f54 merged normally after all protected checks and deployed source2026-11-01.cricket-matching-1 with the existing watchdog rebuild.439backend/186watchdog tests and both bundles pass. All21+3bindings/vars, original activation and131notices compare unchanged; normal post-rollout collector completion observed. Native189matching/30validation/169TV-CS gates pass (overlap, do not sum). Signed214 app/widget installed; landscape/portrait TV grouping observed. A regression caught the new canonical Fox inventory entry being incorrectly required to have a generic TV binding; the correction retains separate canonical cricket ownership.
+
+First Willow TV1 Watch decoded, then its manifest request timed out; automatic CS fallback also stalled. Fresh original TV1 leaf metadata subsequently advanced. A later fresh TV1 Watch sustained advancing branded native picture and a recorded90second continuity sample. Both runs remain separately recorded; no unproven local renewal defect or permanent reliability claim. Normal Fox CS1 Watch/Retry returned404. Exact LiveTVCollector Bangladesh Fox entries were traced to their original playlists, which use public HTTP-only HLS/token routes (the opaque path does not establish account credentials); no compatible HTTPS replacement established. The separate generic US Fox Sports DRM entry is not Fox Cricket. A failed CS route is not a global channel outage or proof the friend's other delivery fails.
+
+Spanish mini-guides come from reviewed ESPN Uruguay coverage. Broad English guide supply is absent, not hidden by a language filter; accepted Willow current programmes can render without borrowing another market's guide. Live repaired fixture Watch remains pending an eligible exact current match. The original ICC13:36UTC receipt has no LIVE row; Afghan–Zimbabwe3rdT20I is scheduled14:30UTC, reviewed Willow programme15:30UTC. Never reuse ended Namibia–Ireland or convert future schedule/preview footage to a live pass.43protected files/eight protected preferences match. Subsequent owner navigation was not an app regression; preserve their recents.
+
+Receipts:testing/fotty-cricket-matching-2026-11-01/. No public media URLs, credentials, private IDs or raw preferences retained in those receipts.
+
+## 2026-11-01 — Discovery directory qualification and English TV17
+
+Owner approved using LiveTVCollector to discover additional English sports TV, then tracing leads to original source metadata and testing through normal Fotty Watch on Jet. Collection output is unsuitable as playback authority: inspected collectors disable their optional HTTP checks, discard channel/header details, and status-only validation does not prove native playback. No collector scripts are installed or executed.
+
+Four current HTTPS candidates were staged together in private211 and passed333 focused tests. Actual Jet Watch qualified beIN SPORTS XTRA with branded native video advancing beyond90seconds. CBS Golazo and separate Willow Sports masters/leaves respond, but their media returns403 through the guarded relay before picture. Fubo's original generated-US metadata exposed a valid audio/x-mpegurl MIME discrepancy; a source-scoped correction passed45tests, then a bounded advertised-segment check returned403. All three unqualified deliveries and the now-unneeded Fubo/MIME expansion are removed from final212; final affected44tests pass. Keep stable TV17 instead of recycling failed candidate IDs. Existing TV1–15, source choices, parser/network/expiry guards and station/fixture boundaries remain.
+
+This adds a station, not verified live PL/UCL match assignments. No arbitrary playlist import, geo/access workaround, generic-channel-to-match inference or dependency on LiveTVCollector's daily export. Owner's phone/FPL/multi/TestFlight/cloud/Git publication remain excluded. Receipts:testing/fotty-tv-discovery-2026-11-01/.
+
+## 2026-11-01 — Sky Football delivery and single-TV recovery
+
+Owner requested Sky Sports Football repair and fewer channel retries, with Jet-only acceptance; phone/FPL/multi/TestFlight excluded. Original TV11 currently exposes HEVC in MPEG-TS: Apple HLS shows audio but no video, both direct and through the actual relay. An older local H.264 segment is not proof of that later live contract. Fresh CS NETWORKS exact UK catalog/meta/stream linkage supplies a compatible alternate through existing guards, attribution and opt-in. Ordinary Sky Watch includes it; no invented programme assignment or security exception.
+
+Physical210 exposed a second defect: shared-CDN TNT success made Sky appear proven before its alternate arrived. Single-TV startup evidence now uses station/host keys while preserving legacy aggregate ranking for other contexts. On a cold tie the verified Sky alternate precedes TV11; actual positive continuity/startup evidence still wins. Reviewed-TV gets the existing once-only verified-frozen-window renewal; late fatal callbacks cannot resurrect terminal single attempts. Explicit Retry remains supported.
+
+331focused tests and signed Release pass. Final Jet210 ordinary Watch selects CS1, advances96.9s, exposes native Pause/Play and reopens correctly; earlier manual-CS hold124.9s and failed TV11 Watch remain separate. TNT2 ordinary first-start hold116.3s passed with the same recovery implementation before the last ranking correction. No natural frozen recovery, audible commentary, live PL/UCL programme or new PiP pass claimed.43protected files and device opt-ins/preferences unchanged. Receipt:testing/fotty-tv-recovery-2026-10-31/.
+
+## 2026-10-31 — Dedicated TV tab and English-first channel experience
+
+Owner requested Sports TV on the navigation bar and rejected the Spanish-heavy selection.209 adds TV immediately after Home, removes the Home sheet/link and uses an adaptive full-screen channel grid. The existing single-player owner is reused. Unset commentary preference defaults to English; explicit choices and Spanish backups remain. Local favourites/recents and positive90-second continuity inform single-stream ranking; continuity is not programme qualification. Phone/FPL/multi remain unchanged; no new TestFlight.
+
+Six finite English station contracts add Sky Sports Cricket/Football, TNT Sports1/2/3 and USA Network. Exact published IDs, paths, headers and opaque renewal query are bounded to two reviewed public playlists; existing TLS/public-IP/redirect/expiry guards remain. Five stations share one CDN; different labels or hosts are not independent-supply proof. New English stations cannot borrow Uruguay or main-Willow guide assignments. HTTP-only alternatives remain inadmissible. NBC208 passed normal native video; separate Willow Sports403 candidate is excluded, main Willow unchanged.
+
+209 passes90 focused native tests. Actual normal Watch observations include sustained TNT1/2/3 and USA video after retained initial failures. Sky Football failed to decode; Sky Cricket first stalled after positive90-second continuity; its fresh retry then sustained video beyond that earlier stall window. No unproven relay root cause or live PL/UCL pass is claimed. Channel/nav changes do not justify repeating PiP/fullscreen suites; QA-Playbook records this owner preference. Receipts:testing/fotty-tv-next-2026-10-31/.
+
+Earlier PR115/99658b6 guide/typed MLB/NHL joins deployed with matching watchdog after534backend/186watchdog checks, preserving old clients, accepted registry, expiry, all21+3bindings/activation/schedules/130notices. Normal collector01:46UTC observed. Full207native baseline2,438passes/9physical skips; affected158passes. This channel/nav batch makes no further cloud publication.
+
+## 2026-10-31: Build206 released to the existing internal TestFlight group
+
+Owner explicitly authorized TestFlight and required the notes to say only “Bug fixes”. Apple developer agreement acceptance was completed by the owner. Final simulator-free qualification passed2,425 runnable tests,9physical/live-only skips and unsigned iOS Release. No shipped Swift implementation changed during release preparation;237app/widget/project inputs match the starting receipt. Obsolete cricket lifecycle/club-identity test oracles were reconciled with already-accepted production contracts. The visual fixture's synthetic shared NSCache badge was evicted under full-suite pressure; CI now runs its unchanged mandatory assertions in a fresh host before the other units. Ten current-renderer captures were individually reviewed; original Xcode27A266a PNGs are retained unchanged, without relaxed pixel limits. Snapshot checksum proofs are restricted to exact reviewed manifests and actual copied Swift bytes;17helper tests pass, including rejection cases.
+
+Final1623-file immutable source commit51de107/source0d7cf644, pre-archive and pre-upload comparisons, signed app/widget versions, strict signatures and dSYM pairing passed. Xcode uploaded the internal-only package20:00:23Tobago; Apple confirms VALID/INTERNAL_ONLY/IN_BETA_TESTING. Only existing Fotty Internal Smoke is assigned,13testers; en-GB notes exactly “Bug fixes”, existing auto-notification true. Current crypto implementation facts and the owner's existing outside-France answer completed compliance; no crypto edit or repeated country question. Availability is not inbox receipt/installation or proof of pending live PL/UCL programme gates. Devices, FPL, multi-stream, source choices, cloud deployment and tester roles were untouched. Receipt:releases/Fotty-2.0.1-206.md; testing/fotty206-release-2026-10-31/. Owned packaging output is removed after preserving these small redacted receipts.
+
+## 2026-10-31: Football TV expansion206 and automatic regional assignments
+
+Owner approved two agents to broaden the Willow-only GitHub TV adapter, then explicitly approved focused publication/deployment and the existing watchdog compatibility rebuild. Native206 retains TV1 and finite TV2–TV8 station identities, exact channel-specific renewal, all matched stations in ordinary source resolution and dual-header V2 negotiation. Raw iptv-org country-playlist HTTPS alternatives are used through existing public-IP/TLS/443/header/redirect checks. No phone, FPL, multi-stream or TestFlight changes.
+
+One consolidated signed Jet build passed82 focused native tests. All seven additional ESPN deliveries decoded90 seconds through the actual adapter/guarded relay, with station watermarks observed. TV3 stalled after56seconds on the first run, then passed90seconds on the retained retry; relay evidence did not prove a root cause. A transport hold and station number are not regional programme/live-fixture or normal-Watch/control acceptance. Those PL/UCL gates remain pending actual current fixtures.
+
+PR114/7d74c40 passed519backend tests and all GitHub checks;186watchdog tests and both bundles pass. The fixed official ESPN weekly RSS admits explicit Uruguay linear-channel assignments, excluding Disney-only rows. Real accepted fixture/source joins covered both PL listings and17UCL listings; the remaining source spelling AEK Athenas was repaired by a literal ESPN-local alias and replayed with its original clock/expiry. Original title/event identity remain; central badge/FPL catalogs are unchanged.
+
+The registry uses already-budgeted DO deadlines to prevent a5minute cron rounding7.5minutes to the10minute expiry. Near-live demand transitions and independently healthy Willow/football siblings retain freshness; caps remain576reads/day/eight reads per cycle and ten-minute facts. One RSS read includes discovery and weekly content; no Mac/AI task maintains it. RSS remains bounded1MiB and programme coverage is partial, not every match.
+
+Playback21d7abe1/watchdog1a3d08f2 now use2026-10-31.tv-football-1. All21+3bindings, original activation/configuration revision and130notification identities were verified retained; local reader-version import aligned without resetting state. Normal22:40:22UTC cloud collection fetched40assignments/29accepted-fixture links including2PL/18UCL; V1/legacy projections exclude football. Receipts:testing/fotty-tv-expansion-2026-10-31/.
+
+## 2026-10-31: Missing Watch root repair published and deployed
+
+Owner reported Villa–Fulham Watch disappearing after CS2 had played. Fresh cloud evidence at21:23/21:28UTC showed terminal-rollback admission failure holding all six football leagues, revoking native lookup eligibility for the unrelated live fixture. Owner approved focused publication/deployment, then explicitly approved the existing watchdog compatibility rebuild. PR113/e5a273f isolates valid/held records and competitions, preserving accepted terminal facts, identity/duplicate/replay/expiry guards.496backend units and186watchdog checks pass; full GitHub gates passed. An old crosscheck test used contradictory same-event identities and was corrected to independent fixtures. No unrelated staged score patch was deployed.
+
+Playback3a0c5136/watchdog6660fa8b now use2026-10-31.fixture-isolation-1. Existing activation flags, original watchdog activation and130notification identities were verified retained. The local owner-alert version import was aligned without changing retained reader state. Jet Home visibly restored Watch for Villa–Fulham and other football at21:42UTC; the currently connecting player was only minimized/restored, not claimed as fresh playback proof. No app rebuild/installation, phone, FPL, multi-stream or TestFlight operation. Owned outputs cleaned. Redacted receipts:testing/fotty-source-connection-2026-10-31/.
+
+## 2026-10-31: Consolidated source matrix completed with one device build
+
+After the owner rejected incremental rebuilds, the completed tool safeguards/local checks were built once as205 and the actual eight enabled modules collected on Jet against fresh accepted Villa–Fulham identity and independent in-progress status. CS2 passed90seconds with878decoded frames/93.54seconds progress; a separate ordinary-picker run visibly confirmed CS2 and the correct programme. Other delivery failures, missing/empty catalogues and unsupported coverage remain explicit, not converted to passes. Four runner and44local fixture isolation tests pass; the existing180CS/SV passes remain. Source redaction's new Swift regression compiled but was not separately executed. No product source changed during this batch, new Watch routing, backend publication, phone/FPL/multi change or TestFlight. Owned build/result/raw output/keep-awake cleaned. The already-staged per-record fixture-isolation repair is locally tested, not deployed. See testing/fotty-source-connection-2026-10-31/Results.md and separate batch-2 receipts.
+
+## 2026-10-31: Isolated source connection tool; gate interrupted
+
+Owner requested an actual-code all-enabled-source PL inspector before Watch reconnection, Jet only; phone/FPL/multi/TestFlight excluded. Build205 contains a compile-only resolver inspection entry, native decoded-frame collector and bounded CLI. Web XCTest hosting aborts were not fixed by configuration/sleep changes; its experimental observer/product hook was removed and a manual ordinary-app gate made explicit. Product web source matches its pre-task hash.
+
+SV original parsing no longer rejects73 unrelated categories or the exact non-fixture Simulcast programme. A fresh verified CS stream response took16.039s versus the client's12s bound; CS-only request23/transport24 retains metadata/shared sibling budgets and all guards.180CS/SV tests pass including the controlled delayed-response regression;3Python tests and membership/syntax checks pass.
+
+Real earlyAS403/FS502–504, later manual correctFS1/FS2 footage, and normal web failure are separate dated receipts. The last205 native run was interrupted at owner process correction; no formal90second qualification, universal source availability, Watch reconnection or job completion is claimed. Owner explicitly rejects incremental patch/build/test loops: consolidate the complete remaining failure/fix batch and local checks before one device candidate. No publication/deployment/distribution. Owned temporary products/private data and keep-awake process cleaned. See testing/fotty-source-connection-2026-10-31/Results.md.
+
+## 2026-10-31: AS203 source-local football compatibility repair
+
+- **Intent**: Owner explicitly asked to solve missing AS instead of repeating diagnosis. Football/PL first; Jet only, no phone/FPL/multi/TestFlight or cloud publication.
+- **Repair**: The current Roxie civil-date contract associates only with a unique fresh accepted official senior-men fixture. Official kickoff/competition/status remain authoritative; no site-time offset is guessed and no LIVE status is manufactured. Fresh same-ID meta and latest official status are rechecked; optional catalog channel-count text is cosmetic. Source-local exact HTTPS443 HLS delivery on admin2.formaturamaxi.com.br reviewed, preserving all public-IP/TLS/header/redirect fences and the existing papacito route. Stremio typed notWebReady is not a native-HLS prohibition.
+- **Verification so far**:101focused tests,100pass/1explicit physical skip/0fail; signed app/widget203 verified and installed/launched Jet. CurrentPL descriptor2valid; existing203AS1 decoded receipt17:17 unobserved visually/short, not90second acceptance. Physicalgate blockedbyJetpasscode afterMac access recovered.52protected hashes/sourcechoices unchanged;2existingFPLruntimecache values changed, noFPL UI/source operation. Descriptor/HLS/TS-prefix evidence is not native decoded playback. AS default catalog has optional search only, no missing pagination; current Tottenham search empty. Live source/picker/90second/native-control acceptance remains pending and is recorded in testing/fotty203-as-football-2026-10-31/.
+
+## 2026-10-31: Football-first shared Watch repair and AS compatibility diagnosis
+
+- **Owner direction**: One sport at a time: Premier League first, Champions League next. Jet only; keep phone/FPL/multi/TestFlight unchanged. User explicitly permitted a focused read-only agent; it reviewed source contracts and the ordering change.
+- **Cloud**: Protected PR110/111 through required checks, mainb91812f. Typed temporary30minute identity retention, reviewed club aliases/canonical IDs and backward-compatible typed ODI/T20 early coverage (separately owner approved) deployed as source2026-10-31.broadcast-matching-1. Exact21/3bindings/originalactivation/129notices retained; actual later collector completion verified.472backend/186watchdogtests pass. Native identity receipt separated from publisher status-change timestamp; no manufactured LIVE/terminal updates.
+- **Single Watch**:199normalHome ManCity–Brighton automaticallyCS5; correct livepicture>6minutes, but101.5second startup failed.200directfirst2.53s exposed unknown web family jumping ahead.201 bounded first-choice grace (starts only with candidate) and direct-first recovery; independent review supplied diagnostic-before-choice regression. Actual201 identified positive family/host history draining failed siblings;202 restores attempt-local family turns after failures while keeping all sources and prior speed evidence for first turns.49currentfocusedtests pass; signed202installedJet; normalHomeWatch automaticallyCS2before remainingFSsiblings, correctprogramme>121s. Firstplayerattempt→decoded33.87s stillslow; no calibratedtaplatencyclaim. Earlier212ownership/retry/healthtests pass.201CS2 normalHome correctprogramme/fullscreen/pause/resume observed; PiP overHome113.056s/systemRestore passed; objectidentity uninstrumented. No full readiness claim.
+- **AS**: Fresh1.9.130 football catalog15:48UTC contains29Roxie rows, including currentPL targets. Same-ID meta supplies only “site time”, no verified timezone/original linkage; descriptor also uses a different host from the reviewed papacito.cfd contract. Configure/homepage did not establish missing authority. AS is enabled, not absent supply; current adapter is incompatible. Existing rules conflate security/identity with brittle exact-format/host assumptions; user is discussing this, no AS fence was bypassed or guessed offset adopted. Repair needs maintained timing/provenance plus narrowly reviewed delivery compatibility. Earlier1row and later29rows used the same route; do not fabricate the earlier row’s title or a precise migration time.
+- **Unresolved**:201firstlaunch temporarily retained unavailablePL cache/noWatch despite healthy public data; exact native validation/acceptance admits current payload. Fresh relaunch restoredWatch. No transport/root-cause proof yet, so no speculative patch. UCLlive and cricketphysical remain open. Evidence in testing/fotty201-football-watch-2026-10-31/.
+
+## 2026-10-30: Build195 native fullscreen handoff and actual live PiP acceptance
+
+- **Fix**: Physical194 testing exposed a requested fullscreen lease detaching inline video while source-sheet dismissal temporarily prevented presentation.195 commits inline detachment only after retained AVKit presentation, with bounded same-window/same-lease retries and exact-owner cancellation/rollback. Five regressions plus existing fullscreen/contracts/ownership/retry total143passing tests with no skips; same player/item/source/intent invariants remain guarded. Signed app/widget195 installed onJet.
+- **Actual live test**: Official fresh football-data snapshot corroborated Lille–Lens at30October20:05UTC, senior men/Ligue1/LIVE. Normal Home Watch produced12FS/CSoptions and correct decoded programme. CS1 later returnedmanifest404 after25s frozen playlist; recovery retired its fullscreen and moved toCS2. Diagnostics proved the presentation had succeeded; no speculative second presentation change was made. CS2 advanced over90s, native pause/resume worked, system PiP was visible before Home and advanced over Home for118.773s. System Restore returned without prior app activation; same presentation/attempt receipt retained. Physical object identity was not independently instrumented. Match left playing onJet.
+- **Cloud and limits**: association2/watchdog ordinary collector completed20:01:01UTC, original activation/all127notices/bindings preserved. Native194 accepted8families/21scopes/1434observations/27links(1listed); metadata is not decoded proof. FS1's502 and CS1's404 are retained failures, not all12successful sources. PL/UCL/fresh cricket/other deliveries/controlled ABR remain explicit gates. Temporary Home absence recovered automatically; no confirmed erasure defect and no speculative consumer edits.
+- **Preservation**:50protected FPL/multi source files,6private FPL values and source flags unchanged. Phone189/shared121 untouched. Receipts:testing/fotty194-shared-watch/. LiveNetTV remains static research in audit/livenettv-2026-10-30/, no new provider enabled or protected algorithm claim.
+
+## 2026-10-30: Shared fixture Watch association repairs and bounded LiveNetTV APK review
+
+- **Product**: Preserve match → Watch → existing source options across the app. Channels remain independently usable; a generic channel name never proves its current programme. Remove the unconditional channel programme diagnostic; do not manufacture match availability or add a Check streams step.
+- **Cloud**: Protected PR106/a7d030e and107/76685a7 each passed seven checks. Deployed association2 playback f0765380 and matching watchdog47d9ac22. Current US main-Willow programme lane uses the selected IANA zone and explicit dated Test context; old clients retain a seven-family projection, capable clients receive eight. CS NETWORKS identity survives fetched cohorts, while market proof requires its literal US contract. Existing bindings, budgets, flags, original activation and127 immediately preceding notices remain preserved. The new guide has its own bounded allowance; no Mac/AI scheduling dependency.
+- **Native**:194 privately joins current programme and CS channel facts, preserving original identities/expiry and rechecking source opt-in, exact official fixture/day and fresh same-ID descriptors. Whole-Test/ICC context, FS bound sessions and reviewed six-league/UCL parity, AS dated-DLHD count/category and CS decorative status fixes retain date/squad/competition fences. No region/time guesses or widened match tolerance. AS Roxie site-time remains unverified.
+- **Evidence**:466 backend units and186 watchdog tests pass; final native gate402total/399pass/0fail/3physical skips. Signed194 app/widget verify;50 protected FPL/multi files unchanged. Real193 Home LeHavre–PSG normal Watch displayed six choices and recovered from failed CS1/2 to correct CS3 decoded picture over90seconds. That is one Ligue1 delivery, not PL/UCL/cricket or all-source qualification.194 installation is blocked by Jet lock/developer-image mount;193 remains installed and194 physical checks are pending. Phone189 and shared121 are untouched.
+- **REA**: Existing REA6.4/JADX0.7.1 statically inspected the downloaded LiveNetTV5.0.1 APK with one384MiB worker. Only16 protected/bootstrap classes are exposed.232 compiled UI XMLs establish declarations for channel/event browsing, quality/link/retry/reporting, not actual algorithms or performance. Catalogue/cache/recovery logic and server data remain unknown; no APK execution, target API/media requests, credential extraction or new provider qualification. Typed picker failure results and device-local quality intention are recommendations, not implemented features.
+- **Receipts**: testing/fotty194-shared-watch/ and audit/livenettv-2026-10-30/. No phone/FPL/multi/TestFlight change; live qualification and final physical acceptance remain explicit.
+
+## 2026-10-30: Registry105 activated; native192 TV1 and bounded frozen-window recovery
+- **Authority**: Owner approved registry publication/activation plus TV-source and buffering work; clarified fixed-quality sources are valid and working additions should be enabled. Jet only; no phone/FPL/multi/TestFlight changes.
+- **Cloud**: Protected PR105/c4cb85e,7green checks; clean playback87686309 and matching watchdog945283f6 deployed. Additive BroadcastRegistry only; all prior cloud bindings/variables/namespaces,11Oct activation and125notices preserved. Actual later collector completion passes. Cloud cron/alarm owns collection without Mac/Codex. Provider-supported cadence and one groupedT−5 moved slot retain actual-read caps/debt/idempotence.
+- **Native**: Separate TV1 main-Willow fixed-provenance/ID/HTTPS native channel lane; fresh-on-tune/renewal90s binding and current opt-in, no fake programme link. TV1 enabled onJet; existing seven choices preserved. Genuine variant ladders retain Auto/Saver; fixed720p stays eligible. Finite relay progression/access-log evidence, one verified-frozen-CS/AS fresh-descriptor retry sharing existing budget, explicit Retry/reselection fresh requirement and pause/cancel/ownership fences. No global buffer inflation or quality exclusions.
+- **Verification**:399pass/0fail/1explicitphysicalskip (400total), signed normal192 installedJet. Independent review caught/fixed explicit-retry dead end and TV expired-reselection trap. Normal Willow Watch auto-selectedTV1; advancing picture >90s, native fullscreen/pause/resume, actual HomePiP >60s and system Restore pass visually. Same player/item object identity uninstrumented. Reselection completion is recorded in testing/fotty192-tv-buffering/.
+- **Limits**: First cloud drain743observations/7families but0listed associations (3conflicts/9needsVerification). Known StreamEx/Score failures isolated. Fox guide empty; Willow programmeUTC/Test-day/PL/UCL acceptance and controlled weak-network ABR proof stay open. HTTP200 never substitutes for actual programme/playback proof.
+
+## 2026-10-30: Shared registry191 built; activation/live gates open
+- **Decision**: Cloud DO/cron maintains seven reviewed families independent of Mac/Codex. Exact registered initial admission requires no old primary alias. Preserve local opt-ins, source identity and delivery guards.
+- **Implementation**: Typed observations/links/reasons, durable budgets/backoff, original expiry and independent failure retention, same-ID native resolution, competing-owner veto, per-fixture rotation, scope-correct fallback and fresh canonical renewal. Test/day/programme authority stays strict; no retained media URLs.
+- **Verification**: Jet191 signed app/widget/install;746native pass/0fail/4physical skips;63new backend/202clean activation checks pass.54protected hashes,7sourceflags,7private prefs preserved. Willow decoded but failed28/46s holds; Fox advanced>90s. See testing/fotty191-broadcast-registry/ for exact outcomes/open gates.
+- **Activation**: OFF pending separate approval. activation.patch reconstructs83b1a44 plus registry, excluding9unrelated runtime edits. No publication/deployment/TestFlight; phone/FPL/multi untouched.
+- **Research**: Auto/Saver needs real HLS variants. iptv-org/epg, IPTV-API, IPTVnator and TVheadend offer patterns; Fox guide lead unqualified. No new scraper/feed enabled.
+
+## 2026-10-30: Channel190 and the unfinished holistic catalog
+- **Decision**: Restore Willow/Fox through reviewed independent CS NETWORKS identities. Owner correctly rejected this as completion of the shared-catalog task.
+- **Implementation**: Canonical undated channels; opt-in exact metadata/guarded descriptors/bindings; appwide bounded preflight, separate readiness/URL expiry and fresh listing Watch with newer-negative veto. Test ordinal/end remains staged.
+- **Verification**:405native/60backend tests pass; signed app/widget/Jet190 install verified. Willow displayed SA–Australia/Willow Live12:21UTC. No90s/Fox/fullscreen/PiP pass.44protected files,7sourceflags,6private prefs unchanged. Phone189/shared121 untouched; no publication/deployment.
+- **Open**: Seven-source hints are not a broadcast database. Original observations/reasons and programme links are missing; Watch matches again; global cursor can starve fixtures. Proposed shared typed broadcast→event registry and Test occurrence model: testing/fotty190-cricket-channels-2026-10-30/Holistic-Catalog-Findings.md. No generic channel inference/completion claim.
+
 # Fotty Decisions Log
+
+## 2026-10-30: Install existing Watch candidate on Jet; keep fixture status separate from availability
+
+- Correct the device mismatch: Jet187 still exposed Check streams while phone189
+  held the approved Watch flow. Install identical signed189 on Jet; preserve
+  source choices and6FPL/private profile keys. Actual Home/inline/fullDetails
+  Watch and one-tap lookup verified. Same native fingerprint/124focused tests;
+  no new native edits, repeated unit gate, phone/multi/TestFlight/backend change.
+- Namibia–Ireland Watch returns Broadcast not ready; no video/PiP pass. Finished
+  NZ–India cannot be reused; current CS dates fail ordinary matching guards.
+- Read-only SA–Australia diagnosis: official Day4/Lunch, CS/AS Day3; daily source
+  timestamp differs from Test initial kickoff. A verified source-local Test-day
+  occurrence model is missing. Keep original identity and ordinary15min fences;
+  never infer daily dates. Aggregate no-exact-match is not proof all providers
+  lack streams. Fixture LIVE, actual play and Watch availability are distinct.
+- Receipt: testing/fotty189-jet-watch-2026-10-30/README.md. Further matching/status/
+  error-copy repair is identified, not implemented/deployed by this diagnosis.
+
+## 2026-10-29: Shared fixture catalog and one-tap single Watch candidate
+
+- Keep accepted official fixtures as identity/status authority; collect metadata
+  across the seven reviewed source families, enabled sources only, independent of the main
+  broadcast list. Source adapters share bounded scope reads, never eager per-match
+  streams or player pages. Missing, unverified, conflicting, unsupported and failed
+  cohorts remain distinct; one failed sport must not erase a complete sibling.
+- The process-local catalog index holds bounded metadata evidence, not playable
+  URLs, decoded-playback proof or independent-supply guarantees. Current receipt,
+  exact teams/squad/date/competition/cricket context, terminal facts, source opt-in,
+  generation and expiry fences remain mandatory. A fresh partial provider response
+  cannot renew listings retained only for browsing; CS 07:30 versus official 07:00
+  remains unverified rather than a silently corrected kickoff.
+- Owner rejected a separate Check streams step. Within existing timing/admission,
+  one Watch action starts the normal resolver, mounts the first valid source and
+  appends later choices to that same player without restart. Mounted discovery is
+  scene-owned; late callbacks still recheck the current fixture and enabled family.
+  Catalog metadata never turns a future/scheduled fixture into LIVE or a session.
+- Owner changed the private test target to Jelani's iPhone and approved CS there;
+  Jet iPad remains untouched. FPL/multi-stream are unchanged. No TestFlight, Git
+  publication or cloud deployment is authorized by this candidate.
+- Initial shared-catalog native gate: 431 passed, 4 physical-only skipped; separate
+  clock/context gate:52 passed. One-tap/admission/presentation gate:124 passed,
+  zero failures/skips. Final signed/device acceptance remains unclaimed.
+
+## 2026-10-29: Prioritize source repair over additional alert setup
+
+- Owner clarified that existing alerts are sufficient for the current task;
+  prioritize actual discovery, independent working supplies and playback.
+  Additional email/accounts, monitoring and deployment-safety candidates remain
+  on hold/unpublished. getfotty.com is unavailable and not an alert dependency.
+- Retain verified terminal facts separately from playable rows so stale open
+  Details/saved objects and late lookup results cannot start finished/cancelled
+  official fixtures. Exact date/team/squad/competition conflict checks and an
+  already mounted player's ownership remain unchanged.111 native tests pass.
+- Repair only AS's observed DLHD envelope: exact advertised AS meta plus the
+  original producer's explicitly dated GMT day/category/event section supplies
+  missing source date authority. Use actual closed ancestry and visible fields,
+  preserve malformed/duplicate vetoes, strict clock/date agreement, fixed bounded
+  public HTTPS metadata route, cancellation/generation fences and5-minute cache.
+  No media destination, player, legacy AS, cricket, FPL or multi-stream change.
+-15 new DLHD regressions and offline actual-public-page parsing pass. Scoped
+  adapter/matcher gate92pass/0fail/1physical-only skip. A finished Cup row proves
+  schema matching only. Required live PL/UCL/cricket, independent-source outage
+  drill and corrected physical PiP remain open; no install/TestFlight/publication.
+  Unsigned generic iOS Release app/extension compile passes from frozen source.
+- CS NZ–India30Oct07:30 conflict with ICC/BCCI07:00 is confirmed in its original
+  public Ak47 schedule. Do not rewrite the source date or widen15min admission.
+  Wrapper ancestry overlaps and AS cricket absence remain explicit limits.
+- Receipts: testing/fotty-resilience-2026-10-29/README.md. The existing bounded
+  live-acceptance follow-up continues actual source gates, not extra alert setup.
+
+## 2026-10-29: Publish bounded broadcast catalog and preserve truthful Jet187 acceptance
+
+- Owner approves five ordered broadcast-reliability repairs and Jet-only outage/
+  playback gates. Phone, FPL, multi-stream and TestFlight remain excluded.
+- Shared fixture-first Check streams across Home/Search/Matchday/Details uses
+  revision-fenced local opt-ins and bounded prior-found evidence. Candidate
+  freshness and actual descriptor/token expiry remain separate; expired URLs
+  never become Watch or bypass exact teams/squad/date/competition/status checks.
+- Protected PR104/main83b1a44 publishes schema1 `/api/live/catalog` for exactly
+  three reviewed profiles of ONE family. Bounded parallel complements preserve
+  valid partial data/artwork; explicit empty/failure and native envelope checks
+  retain independent official fixtures. Native fallback shares its original
+  request clock.230backend tests and all8protected CI checks pass.
+- Explicit playback/watchdog deployments preserve existing flags, original
+  watchdog activation, all121notice IDs, budgets/leases and two-check rules.
+  Native AS catalog-selection parity and trusted monitor-completion triggers
+  pass186policy/runtime tests; real normal workflow_run execution/later cron
+  verified. GitHub trigger diversity still depends on GitHub's platform.
+-207focused current-source Catalyst tests plus one integrated outage regression
+  pass with0fail/skip. Normal signed187/app+widget installed on Jet. Exact Cup
+  Check→normal source picker→CS2 video passes90s ready-layer hold,83.82s media
+  progression, same native player/item/attempt and actual fullscreen controls.
+  CS1 failure is retained.45protected source hashes and user configuration
+  remain unchanged; only six expected runtime cache slots update. Owned test
+  runner removed; normal187 retained.
+- Original187PiP gate FAILED/no system window at60sHome. Test-only correction
+  observes actual start before Home and system Restore before app activation;
+  it is compiled, not physically passed. No product PiP change is established.
+ 22:29UTC official refresh has no current supported football; finished Cup pin
+  is invalid. Required PL/UCL/cricket and two truly independent supplies remain
+  OPEN. AS1.9.98's new clock-only DLHD metadata lacks date authority; no weaker
+  matching/security or invented date is admitted.
+- Missing saved UCL follow-up replaced by bounded
+  `fotty-remaining-live-acceptance`, ACTIVE through4Nov16:15Tobago, quiet on
+  unchanged/no eligible live fixtures and free Jet only. Missing provider-alert
+  chat follow-up was independently confirmed and recreated ACTIVE at15minutes,
+  preserving prior-visible WD receipt ACK/no initialize/reset. These creation
+  receipts do not prove later execution, inbox arrival or human reading.
+- Direct cloud owner email is staged defaultOFF;214policy/runtime tests pass. Separate durable state,
+  finite retries/leases/cutover/history preservation and sanitized operations
+  notices. Owner destination verified29Oct23:06UTC; real address stays private.
+  Sender onboarding remains unproved: proposed project domains absent from the
+  connected account and sending-domain listing denied. No real alert email,
+  sender/DNS change or email activation. Final reviewed source/tests/patch and
+  remaining gates: testing/fotty187-broadcast-reliability/README.md and
+  operations/Watchdog-Direct-Email.md. A tested fake binding is not delivery proof.
+- Existing optional score-context patch remains separately staged and needs
+  rebase/review onto83b1a44. It is not activated by this source-reliability work.
+
+## 2026-10-29: Record partial Jet186 acceptance and separate broadcast failure from recovery
+
+- Owner freed Jet and completed the XCTest approval. Physical consent controls,
+  existing Matchday date jump, interest preview/browsing and complete native-key
+  Cricket Search pass. Burst XCTest typing yields partial input in two runs;
+  acceptance stays open, without proving a manual-user defect. Selector/lazy-List/key-case corrections
+  are test-only, not production fixes or evidence clearing the original failure.
+- Real exact-fixture navigation reached the normal Check streams action but no
+  player opened. Playback/fullscreen/PiP are explicitly unqualified; a skipped
+  test is not a pass. No source toggles, phone, FPL, multi-stream or TestFlight work.
+  Original361-test evidence remains scoped;45 protected hashes remain unchanged.
+- Bounded metadata shows the primary/mirror routes converge on a catalog serving
+  HTML in a JSON string. Native already follows redirects; maintain schema and
+  transport fences. Fixtures being verified cannot prove playable broadcasts.
+  Confirmed discovery gaps:60s positive availability versus90s preflight, hidden
+  Home alternative lookup, primary-only Details state and AS watchdog/native
+  catalog-selection mismatch. Current open incidents predate today's check;
+  normal delivery observer staleness and delayed owner comments are separate
+  verified operational gaps, not proof of email/push/human receipt.
+- Recommend bounded fixture-first availability, consumer/monitor contract parity
+  and independently verified alert escalation before larger architecture changes.
+  Stable availability must stay separate from expiring media descriptors; no
+  false Watch, arbitrary source admission or weaker matching/transport policy.
+  These recommendations are not implemented or deployed during discussion.
+- Backend optional score-context patch remains staged pending its specific
+  publication/deployment gate; it does not repair broadcast discovery. Quality,
+  Report, widget/sync, current context and native playback acceptance remain open.
+  See testing/fotty25-remaining-2026-10-29/physical186-summary.json and
+  Broadcast-Failure-2026-10-29.md for scoped receipts.
+
+## 2026-10-29: Stage remaining Fotty2.5 work and install private186 without launch
+
+- Owner approves the remaining agreed REA product work and Jet iPad acceptance;
+  phone, FPL, multi-stream and TestFlight remain excluded. Preserve the existing
+  single-player/source engine rather than perform another broad rewrite.
+- Reuse score facts already present in the admitted ICC fixture response:
+  exact teams, innings, runs/wickets/overs, target and explicit Stumps/break
+  context. Native data is optional, bounded and receipt/identity/format checked;
+  malformed, held or stale facts cannot become current score authority. Home
+  distinguishes explicit intervals from active play without changing underlying
+  fixture status, source admission or playback timing. Legacy/missing context
+  retains its documented existing behavior; no ball-by-ball guarantee is made.
+- The admitted football-data six-league response supplies nullable CL goals and
+  publisher timestamps. Stage only exact senior CL regular-time reported goals,
+  clearly delayed with actual reporting time. Preserve null instead of0–0 and
+  leave PL/FPL live-score fetching, quotas, cache and alerts unchanged. No new
+  provider/account/purchase or paid API access probe. Current accepted terminal
+  cricket/CL evidence joins a separate read-only matchContextCatalog, preserving
+  conflict vetoes; finished score context never restores a playable listing.
+- Add supported native single-player Auto/Data Saver without replacing/seeking
+  its item or overriding Pause; keep fixed/unknown/Web choices truthful. Reuse
+  the reviewed report/draft with concise playback issue classification and
+  explicit sharing. Stage bounded background reminder reconciliation with OS
+  scheduling limitations disclosed; repair expired-reminder rollback rather
+  than claiming reliable push. Sports-only sync/widget acceptance remains open.
+-361 selected current-source Catalyst tests pass,0failed/0skipped. Signed normal
+  Release2.0.1(186), app/widget parity, strict signing/current Jet profile and
+  existing App Group checks pass.45 protected FPL/multi inputs remain unchanged.
+  In-place background installation preserves all34 current preference slots;
+  no186 app launch or interaction occurred. Jet changed to the owner's reading
+  app during compilation;18:22UTC shows the reading chapter changed, confirming
+  background installation did not interrupt it. Access is requested once and
+  physical testing awaits that answer; no takeover occurs.
+  Phone177/shared121 and existing source choices remain untouched.
+- A focused11-file backend patch is prepared against protected main70e8b10 as
+  `2026-10-29.sports-context-1`, with215backend and181existing-watchdog tests,
+  lint and both dry-run bundles passing. Nothing is published/deployed. Owner
+  approval remains pending for protected publication, playback deployment and
+  same-release compatibility rebuild of the already-active watchdog, preserving
+  activation/leases/incidents/outbox/configuration. No monitor state reset or
+  historical alert replay. The18:12UTC clean-candidate ICC check accepts59/59rows
+  and verifies two ongoing Tests explicitly at Stumps; that is metadata evidence.
+- Physical186 UI/navigation, actual decoded programme/source selection, native
+  fullscreen/PiP/Pause/restore, quality and continuity acceptance remain OPEN.
+  Installation, unit tests and dry runs do not establish TestFlight readiness.
+  Current source/device plan: [Plan.md](../testing/fotty25-remaining-2026-10-29/Plan.md).
+  Exact backend patch/scope/activation gate:
+  [backend-plan.md](../testing/fotty25-remaining-2026-10-29/backend-plan.md).
+
+## 2026-10-29: Install private185 on Jet iPad only
+
+- Owner requests latest on iPad/iPhone, then narrows to “just install on ipad”.
+  Phone177/shared121 left untouched; no TestFlight/publication/backend authority.
+- Package tested return/discovery source as2.0.1(185), coherent app/widget and four
+  Xcode configurations. No functional edits beyond the194-test candidate. One
+  bounded signed Release build, strict signatures, current profiles containing
+  Jet and existing sports group checked; CoreDevice installation reads back185.
+- In-place install preserves all34 preference slots before any launch. No app
+  launch, unlock, XCTest, source toggles, live-source/PiP or visual test.45 FPL/
+  multi feature hashes unchanged. Local raw preferences, profiles, signed app,
+  source copy, DerivedData/logs and keep-awake cleaned. Current physical gates
+  remain open; install is not playback proof. Receipt:
+  testing/fotty185-ipad-2026-10-29/README.md.
+
+## 2026-10-29: Source-only return, broader Search and one interests editor
+
+- Owner approves the first product batch after the five-product REA study.
+  Source-only gate: devices, FPL/multi feature work, source settings, cloud/Git
+  publication and TestFlight excluded; source version184 stays unchanged.
+- Add an optional local last-live identity, defaultOFF under Privacy. A single
+  owner creates a consume-once ticket; actual decoded-stage evidence confirms
+  it. Only identity is retained, capped36h/8KiB; no source URL, credentials,
+  artwork, autoplay or Fotty history sync/explicit-backup payload. OS backups
+  are not excluded by a UserDefaults promise. Forget/opt-out/Stop/replacement
+  revoke callbacks; leaving single panes revokes synchronously. Pure eligibility
+  needs current exact catalog identity and fresh explicit LIVE. Existing Home
+  clock/Privacy tasks prune old records without cancelling a newer owner ticket.
+- Home shows one compact clearable return card only without a retained viewer.
+  It rechecks on tap and uses fresh normal discovery. Names reflow, controls stay
+ 44pt, real paired badges remain; non-match events use sport art instead of a
+  fabricated away-team badge. Native visual acceptance remains open.
+- Search adds a14day source-free projection from existing accepted snapshots,
+  retaining envelope/lane/row observation freshness and independent CPL receipt.
+  Publisher last-change time cannot hide a freshly observed unchanged future
+  fixture; stricter LIVE metadata is unchanged. Hidden conflict/terminal evidence
+  and exact dated-pair/squad score cancellation take precedence. No new fetch,
+  endpoint, feed, cache admission or Home72h change. Existing cooperative index,
+  recents, follow shortcuts and truthful schedule-only actions remain.
+- One Home interests editor previews the current vetted lineup, browses sports
+  without following them automatically, and uses additive sport/competition/team
+  choices. Settings/onboarding/Home use that editor and existing stores. Selection
+  summary is bounded; zero-interest fail-open and save/volatile errors remain.
+-194 current-source Catalyst tests pass,0fail/0skip;32 source-membership tests and
+  native membership/version checks pass. Two initial new-test failures used
+  contradictory fixture identities; repaired the fixtures, retained quarantine
+  assertions and shared production identity rules. Zero-test runner output was
+  rejected and corrected. Added freshness/cancellation/clear/expiry/rapid-context
+  regressions.45 protected FPL/multi files stay unchanged. Final native Release
+  compile/cleanup evidence: testing/product-return-discovery-2026-10-29/.
+- Physical UI, current native playback and184 fullscreen/PiP remain separate
+  owner-deferred gates; compile/unit evidence does not close them.
+
+## 2026-10-28: Repair interrupted single-native preparation; install184 only on Jet
+
+- Owner approves CNC/CS review and Jet native playback/fullscreen/PiP repair gate;
+  phone, FPL, multi-stream and TestFlight excluded. Owner later reclaims Jet for X,
+  declines takeover and requests just installation. Signed normal Release184
+  installs without launch;34/34 preferences preserved, version readback verified.
+  No184 physical playback pass. Phone177/shared121/source defaults unchanged.
+-183 live World Series CS1 decoded correct programme>90s; fullscreen Pause,
+  inline return, paused reentry and Play succeeded. PiP advanced>60s in Clock, then
+  CoreMedia-12312/segment_uri_changed failed before completed round trip. Actual
+  observation and native records corroborate it; no claim that Fotty caused the
+  HLS inconsistency. Independent relay review finds no proven relay defect.
+- Confirmed app defect: retry retired relay before descriptor await; background
+  cancellation left apparently-ready old item. Foreground resumed it under a new
+  attempt, stalling80s.184 owns a single-native preparation lease, detaches retired
+  item and defers/resumes preparation across background/foreground or explicit
+  Play, including already-backgrounded starts. Pause retains intent; cancellation,
+  replacement and cleanup revoke lease. Actual expiry, late-response ownership
+  and transport retry budgets remain enforced. Single-only fences preserve multi.
+- Seven new preparation regressions; final native75pass/0fail/0skip. One new-test
+  placeholder label corrected to admittedCS4; no production admission or assertion
+  weakening. Separate CS117pass/0fail/0skip covers explicit+24h rejection, corrected
+  same-ID refresh and squad/tolerance/conflict cases.
+- CNC's new HTTPS host returns empty25byte HLS with advertised and relay-safe
+  headers, zero variants/segments; final no-cache recheck01:28UTC still empty.
+  No unqualifiable host/header exception added. CS dates official current NHL pair
+ 24h late in catalog and same-ID metadata; official7day schedule lacks rematch.
+  Preserve exact-date rejection, no invented shift. These are bounded upstream
+  blockers, not repaired bindings or proof of permanent global outage.
+- Compiled official Shaka5.3.2 REA supports per-delivery header authority, bounded
+  abortable retries, advertised timeline and same-media presentation. Artifact
+  hashes, partial-graph limits and source correspondence retained; static web
+  evidence is not native PiP proof. No library/broad rewrite imported.
+-314 build inputs and43 protected hashes match; strict signature, Jet profile,
+  main/widget184 versions verified. Independent read-only review finds no further
+  defect. No Git/cloud/TestFlight. Redacted receipts:
+  testing/fotty184-source-native-2026-10-28/. Live184 round-trip/longer reliability
+  and PL/UCL/cricket qualification remain pending. Owned output/private data and
+  temporary keep-awake cleaned at exit.
+
+## 2026-10-28: Install discovery candidate183 on Jet; keep unavailable live gates open
+
+- Owner authorizes private Jet install, focused failure repairs and live-source/
+  single-playback checks; phone, FPL, multi-stream and TestFlight remain excluded.
+  Normal Release182 then183 installed in place with strict signature/profile and
+  version readback;34/34 existing slots match before each launch,19/19 selected
+  personal/source slots match at exit. Seven enabled providers remain unchanged.
+- AS1.9.82 advertises plaviohd-football separately from legacy generic live-sports.
+  Select the unique reviewed advertised catalog, retain old-manifest fallback,
+  key generation/cache and revalidation by that same selection. No wider scan.
+  Seven new offline regressions; compiled AS run67pass/1physical skip/0fail.
+- Official Washington Capitals–Philadelphia Flyers28Oct23:30UTC is current;
+  CNC advertises exact dated Capitals–Flyers. Add only those two corroborated
+  source-local aliases, retaining squad/date/league/conflict restrictions.
+  Four new regressions; CNC/optional-policy run46pass/0skip/0fail. A separate
+  speculative hockey-eligibility hypothesis was disproved and fully reverted.
+- Real normal Check streams on182 missed both CS/CNC. On183 CNC reaches its two
+  stream entries but rejects both: one external/donation entry and one changed
+  media host/path/header contract. No media fetch or security expansion follows.
+  CS publishes the pair24hours late and its live catalog lacks tonight's pair;
+  retain the exact-date guard rather than inventing a date. Provider availability
+  and a transport compatibility change are distinct from the repaired name join.
+- Final complete AS football5rows are future/generic at29Oct00:43UTC; cricket20
+  rows do not establish a supported current programme. ICC59/59 shows Tests at
+  STUMPS. No decoded90second/current-programme/fullscreen/Pause/PiP/source-switch/
+  failover or PL/UCL/cricket qualification is claimed for183. These gates remain
+  pending external delivery compatibility and real eligible windows. Generic
+  channels and metadata success cannot substitute. No TestFlight readiness claim.
+-314 final build inputs match snapshot/workspace;43 protected feature hashes
+  unchanged. Landscape/Home-Football/keyboard capture OFF restored; owned output,
+  private device/prefs/profiles and keep-awake cleaned at exit. Redacted install,
+  quality, official schedule and descriptor receipts live in
+  testing/fotty183-discovery-playback-2026-10-28/README.md. Source-only predecessor
+  remains dated separately; no Git, cloud or source-default change occurred.
+
+## 2026-10-28: Separate independent source discovery, fresh candidate evidence and playback
+
+- Owner requests discovery and correct stream catalogs as well as recovery after
+  the shared publisher closure. Three-agent Stremio/Nuvio/Jellyfin REA research
+  informs independently implemented mechanisms; no upstream source was imported.
+  This is a local source gate: devices181/177, source defaults, FPL/multi-stream,
+  cloud/watchdogs and shared121 remain unchanged. No release/deployment authority.
+- Reviewed typed plans keep independent providers available without master
+  catalog source entries. Complete exact MatchHub identities do not wait for
+  master lookup. Preserve Score808-only shared/direct lanes and18second bounded
+  append-only discovery; retain sport/date/squad/competition/conflict admission.
+- CS/AS force fresh resources on explicit single checks; eligible cached missing
+  capability/empty descriptors get one targeted revalidation. Ephemeral exact
+  event/stream bindings retain short freshness and cricket ordinal/Testday
+  context, excluded from persisted session JSON. Empty catalogs expire sooner.
+- Bounded foreground optional-provider checks feed a24-record candidate index,
+  not a LIVE assertion. Two lanes/call,8seconds,90second scheduling/cooldown,
+ 24/hour and96/day preflight-start caps; manual checks remain independent.
+  Retain due time/fixture rotation across contentRevision replacement. Generation
+  fencing and awaited disable invalidation prevent late/cache resurrection.
+  Coordinator-owned manual lookup/playback also revokes the foreground metadata
+  task; recheck eligibility after registry awaits to avoid duplicate resolution.
+- Single-stream bound CS/AS descriptors can renew once inside existing native
+  startup budgets. Keep selected UUID/opaque label; only fresh admitted delivery
+  fields replace transport grants. Stable upstream keys remain exact; signed
+  delivery-key rotation must retain unique choice/origin/path. Known expired
+  media cannot replay after nil renewal; metadata TTL is a different fact.
+- Typed current causal HTTP/error facts prevent401/403/decode/unsupported retry
+  loops. Strict evidence is explicit-single opt-in; multi keeps legacy defaults.
+  Injected ViewModel checks caught Pause being ignored during suspended metadata
+  negotiation. Pending intent now respects Pause; explicit Play resumes same
+  pending work or reopens only that source after a discarded paused response,
+  without resetting automatic native/failover counters.
+- Local checks, exact snapshot hashes, test outcomes/skips and the unsigned iOS
+  Release compile are retained in testing/fotty-discovery-catalog-2026-10-28/.
+  The owned temporary snapshot avoids a Documents source-read stall without
+  changing Mac permissions. One omitted shared JSON fixture was included before
+  its successful rerun; no source guard weakened to repair tests. Physical live
+  PL/UCL/cricket90second decoded/programme/control/failover gates remain pending.
+  Current candidates, unit passes and earlier181 playback are not that proof.
+
+## 2026-10-28: Repair provider watchdog detection and verified owner-targeted delivery
+
+- Owner requests provider failures reach us proactively; keep FPL/multi-stream,
+  devices and TestFlight unchanged. Publish only18watchdog source/test/workflow/
+  operation-doc paths through protected PR92/main eb1c283 and focused2-path cadence
+  PR95/main70e8b10. No administrator bypass; Web/CodeQL/secrets/workflows/watchdog
+  CI pass. New targeted bot comments use existing GitHub issues: verified owner
+  assignment, stable event marker, ambiguous-write retry and retained pending
+  state before recording submission. Failure makes Actions fail; recovery cannot
+  overtake an undelivered confirmation.114 old issue-only notices do not replay.
+- Collection15min/two matching failures/two fresh positive recoveries; exact
+  verified closure immediate. Empty/source-less catalogsUNKNOWN cannot erase
+  outages; stable aggregates catch alternating fatal causes. Add admitted AS
+  football/cricket, Carabao scope and one exact-current CS descriptor-shape sample.
+  No media/native decode, source trust/settings, telemetry, new credentials or
+  paid AI jobs. Caps960provider+288fixture/health reads/day.10s probe deadline is
+  not proof a native12s request is incompatible.
+- Preserve old schema1 counters up to historic3 under current threshold2 without
+  mutating history. New config resets streaks on fresh observations only. Real
+  workerd old-storage equality, old GitHub notice delivery, suspect resets,
+  cadence carry-over and active-lease tests pass.165offline+16runtime pass with
+  no skips; repeated gates overlap, not additional unique counts.
+- Watchdog4316bd15/config2026-10-28.admitted-metadata-2 retains wire namespace,
+  original11Oct activation, Durable Object and114original notice IDs/times. Safe
+  source default0 cannot override explicit production1/original activation under
+  keep-vars. Compatible playback-version drift now alerts separately while
+  finite notices continue; incompatible observer/config wire remains blocked.
+  Real scheduled collection: 28Oct22:30:36.405UTC attempted/22:30:38.028UTC committed, next22:45:36.405UTC;114original notices unchanged/no overflow.
+- Actual bot canary40778349200 assigns jetboss and posts one mention on clearly
+  synthetic issue93; no provider ledger mutation. Firstdelivery1/replay0/API4→1,
+  exact commentreadback then testclosed. WD-a78a583c69b1338ded7c9937 reported here,
+  read_thread verifies chat append beforeACK; restarted reader quiet. Normal
+  observers40778605662 and40778983593 pass/pending0. Chat automation
+  fotty-provider-failure-alerts ACTIVE/15min/default notifications on this chat.
+  It verifies prior WD messages beforeACK, retains pending notices and checks
+  stale collector/normal observer, failed delivery, capacity and revision drift.
+- Chat bridge needs Mac/app; GitHub targeted path is cloud independent. Intended
+  schedules are not an SLA. Email/push/human receipt is not proven; no token scope
+  or OS/account preference expanded. Metadata is not decoded playback proof.
+  All313 native181 input hashes unchanged; no device/FPL/multi/TestFlight changes.
+  See testing/watchdog-owner-alerts-2026-10-28/README.md and
+  operations/Watchdog-Owner-Alerts.md. Preserve durable alert state; remove only
+  owned temporary checkout/log/runtime/keep-awake output after qualification.
+
+## 2026-10-28: Restore Cup discovery and actual native CS2 football on Jet181
+
+- Owner requests working football and Mac keep-awake through completion;
+  separately approves EFL activation/deployment and same-code watchdog update.
+  Named Jet gate supersedes its old175 hold. Phone/FPL/multi untouched; no TestFlight.
+- Streamed's three catalog mirrors share a closed publisher. Exact closure
+  reason/start unknown. Add isolated official EFL Carabao scope, with explicit
+  UTC/period/scope/count/receipt fences and durable retention. Cup stays separate
+  from PL; explicit interest does not migrate preferences. Existing Score808 can
+  check verified source-free football. AS same-ID explicit UTC metadata no longer
+  relies on closed Streamed. Score808 absent visible defaults true, proved by
+  shipped calendar normalizer; false/null/malformed/identity guards retained.
+- CS26Oct /api/manifest.m3u8 alias was rejected by old literal validation. Accept
+  both exact paths across admission/nested/profile bindings, preserve raw query,
+  and explicitly relay headerless aliases. TLS/public-IP/redirect/header/nested
+  restrictions retained; HTTP8008/2122 blocked; no arbitrary trust expansion.
+- Protected PR91/mainc3ebfa publishes only eight backend paths. Source
+  2026-10-28.efl-cup-1/Workerb3ff08d7 verifies eight Cup fixtures. Isolated67 tests,
+  lint/dry-run/CI pass. Separate watchdogd8c5e8cf preserves activation/budgets/
+  incidents;108tests/exact-revision observer pass. GitHub issue88 did not become
+  owner triage; direct chat/push bridge remains absent. Observer pass is not
+  source health or decoded playback.
+- Normal Release181 Home/details/Check streams gives seven choices. CS1 fails404
+  twice; automatic recovery selects CS2/PPV Native FullHD. Actual Sky Sports
+  Liverpool–Chelsea1–1 clock64:50→76:20 advances >10min; independent EFL68′ status
+  corroborates programme. Sources open/close, same-attempt native fullscreen,
+  pause/resume and landscape pass; leave playing. Decoded progress2718ms. No
+  audible/PiP/all-source/PL-UCL qualification; empty AS/Score808 media403 remain.
+- Fresh units:112fixture/lookup cases covered, corrected invalid new test data/
+  21overlapping rerunpass; AS52+one skip; CS/relay/Score808185+one skip. Catalyst
+  units separate from physical normal-app proof. All313 inputs match181/15changes
+  vs178/298unchanged;42 FPL hashes and multi inputs unchanged;34prelaunch and
+ 25post-playback config slots preserved. Earlier179/180 lack of decoded proof
+  remains honest. Clean owned gate/keep-awake. Receipts:
+  testing/fotty181-playback-recovery-2026-10-28/README.md;
+  audit/Fotty-Missing-Liverpool-Carabao-2026-10-28.md.
+
+## 2026-10-25: Repair nine confirmed core defects in order and verify private Jet178
+
+- Owner approves the nine audit findings in reported order, then Jet iPad tests.
+  Keep the phone, FPL and multi-stream unchanged; no TestFlight or publication.
+  Block continuity configuration, queued application and publication against
+  volatile fallback storage, preserving accepted journals/receipts/widgets.
+  Require admitted terminal authority before fixture merges remove provider
+  listings; replace failed/retired single-stream owners while retaining healthy
+  paused/fullscreen/PiP owners. Share Home/catalog squad-aware deduplication.
+- Add only verified Real Sociedad de Fútbol/Udinese Calcio aliases. Validate
+  widget rows before bounding or badge work; unsupported local sports cannot
+  poison valid rows. Publish durable local widgets despite sync journal quota
+  errors without pruning tombstones or enabling cloud sync. Local interests
+  include Darts (13); existing sync/Handoff/planned-match/widget wire scope stays
+  at12. Filter local-only interests before sync publication and preserve them
+  through remote reviewed-sport changes. Search labels fill measured equal-height
+  cells without changing artwork, typography or grid actions.
+- Native coverage spans363 unique selected cases:362 passed on the first run;
+  one obsolete terminal-reconciliation assertion was corrected, followed by an
+  affected40/40 rerun. Do not add overlapping counts. Eleven web tests and the
+  generated catalog coherence check pass. Signed normal Release2.0.1(178) is
+  installed on Jet. Physical XCTest executes zero cases after a Touch ID
+  authorization timeout; this is not an automated device pass.
+- Separate manual Jet evidence covers Home/Search/Settings, local Darts choice
+  restored afterward, Matchday/details, landscape and the existing source sheet.
+  Native fullscreen, paused reopening, PiP background playback and restoration
+  pass. All23 protected preference slots match, including six FPL keys, source
+  enablement and syncOFF;59 protected FPL/multi hashes match. Phone177 untouched.
+  No new source90s/programme qualification, audible-output, physical AX, measured
+  performance or real cloud-retry acceptance is claimed. No Git/cloud release,
+  source activation, tester changes or TestFlight. See
+  audit/Fotty-Nine-Core-Fixes-2026-10-25.md and
+  testing/fotty178-nine-fixes-2026-10-25/README.md.
+
+## 2026-10-25: Install177 on the owner's iPhone; separate manual UI evidence from blocked XCTest
+
+- The owner lifts the phone175 hold for deployment and UI testing only. Fresh
+  identity confirms Jelani's iPhone15ProMax/27.0.1. The existing Xcode app had
+  updated to27.1 but required system device components; completing Apple's normal
+  setup resolves initial CoreDevice/Device Hub startup stalls. No simulator boot,
+  pairing reset, account/security change or other-device test.
+- Build current unchanged177 source with27.1/jobs1, strict signatures, app/widget
+  version coherence, in-place install/readback and normal launch.310 application/
+  test/project hashes match. The signed phone binary differs from earlier Jet177
+  because its compiler changed; retain exact identities in the phone receipt.
+- Focused UI test build passes, but iOS automation approval times out before any
+  requested case executes. Stop its diagnostic/password wait; do not count the
+  infrastructure failure as an app defect or a test pass. Restore normal Release.
+- Existing Device Hub manual controls verify Home/three-column grid, Matchday,
+  Settings/Appearance and Search with the full software keyboard. Preserve the
+  transient query without submission. Match-details medium sheet is observed;
+  full details/player/source/AX/performance gates remain open. Stop remote input
+  when owner use in another app becomes visible; owner explicitly says leave the
+  phone alone. Search's uneven two-line sport
+  tile height is a small documented visual follow-up, not changed in this gate.
+- All12 present protected configuration keys, including the whole plugin-state
+  dictionary and FPL connection/confirmation, match the phone's own snapshot.
+  No private values are exported or Jet preferences copied. Remove only the newly
+  owned test runner/temp output. FPL/multi-stream unchanged; no new-source
+  qualification, Git/cloud publication or TestFlight. See
+  testing/fotty25-ui-phone-2026-10-25/README.md.
+
+## 2026-10-25: Finish the core UI candidate and verify Jet177, keep iPhone175 held
+
+- Use Apple/reference-backed actual-root comparisons rather than another effects
+  dependency. Repair intrinsic Home/Matchday headings, compressed narrow Watch,
+  true-empty Home, Search/Settings/details accessories and single-player sheet
+  navigation/scrolling. Preserve native controls, art, badges and all existing
+  source/transport/default/consent/FPL/multi-stream behavior. Neutral More
+  broadcasts does not manufacture a live match claim.
+- Fresh Catalyst broad392pass followed by affected108/11 reruns; these overlap.
+  Thirty-five actual-root captures/9 retained pairs bind to57 focused inputs. Their
+  pad idiom, SceneStorage and glyph limits remain explicit; no golden rebaseline.
+- Owner lifts Jet hold for UI only. Four normal-data physical journeys pass:
+  core navigation, Sources bottom/Close and player Details, landscape composition,
+  and standalone catalog details. All six roots have real Jet captures. Correct
+  test assumptions about restored query/focus, nested native tab AX wrappers,
+  inline Details and rotated app-bounds screenshots instead of rewriting working
+  app code. Whole-display landscape captures preserve TIFF orientation8.
+- Restore signed normal177, remove only the newly owned test runner and temporary
+  gate. Manager identity/confirmation, seven source choices, dark appearance,
+  sport interests and Recent history preserved; two derived FPL caches may
+  refresh normally. Four journeys are UI proof, not decoded source qualification,
+  native fullscreen/PiP acceptance, VoiceOver/large-text or measured performance.
+- iPhone175 remains untouched; source campaigns remain metadata-only, with their
+  original expiries. No source-setting changes, dependency, Git/cloud publication
+  or TestFlight. See audit/Fotty-2.5-UI-Completion-2026-10-25.md and checked ledger.
+
+## 2026-10-25: Adopt reference-backed UI evidence without changing owner175
+
+- Owner approves Apple resources, real-product references and strict visual
+  comparison. Read current Apple Layout/Playing Video and public TV journey
+  guides; distinguish official kit listing/Mobbin landing access from inspected
+  design-file layers or operated journeys. No paid account or new UI dependency.
+- Add a checked six-screen contract: approved concept hashes,39 focused UI/shared
+  dependencies, five historical component-study hashes and specific open native
+  checks. The no-dependency read-only checker rejects stale/mislabeled evidence;
+  it never approves releases/installs or attests compiler inputs. Preserve the
+  original pixel baselines and their separate explicit-review process.
+- No newly confirmed screen defect warrants a redesign. No production/test Swift,
+  device, FPL/multi-stream, source setting or TestFlight change. Prior328tests and
+  unsigned compile are historical receipts, not rerun claims. Both175 devices
+  stay frozen; actual screen/keyboard/safe-area/AX/player acceptance remains open.
+-60 evidence-tool tests pass. Actual pack integrity passes; strict completion
+  correctly fails on six pending native-screen gates. Prior21-file source digest
+  and all10 accepted baseline PNG hashes match. No heavy build or owned output.
+
+## 2026-10-24: Finish the approved core UI source implementation; keep175 installed
+
+- Owner expands the focused2.5 UI patch to the accepted iPhone/iPad experience.
+  Home uses a bounded1.55:1 wide overview, grouped/separated lazy rows, centered
+  sport art and readable names. Narrow/AX reflow is intentional, not text scaling
+  to force desktop geometry. Correct the real206pt compact-grid regression while
+  retaining the existing190pt limit, readable type/art and44pt touch convention.
+- Matchday stays a personal plan; Search retains native input/owned results;
+  Settings gets calm native groups and width-aware/RTL accessories. Move the
+  existing details Watch/countdown before long help. Bound the follow action;
+  correct obsolete no-cloud-sync copy without changing any consent/sync behavior.
+- Single player keeps video-first iPad and retained native fullscreen/media owner;
+  quiet phone identity/controls and joined source rows are single-only opt-ins.
+  Existing native tabs, multi branch and FPL code stay unchanged;52 hashes match.
+- Fresh Catalyst328checks/0fail, unsigned iOS Release pass,21 renders; first run found
+  and repaired the grid height. These are not full iPhone/iPad screenshots or
+  physical Dynamic Type/VoiceOver/playback acceptance. Do not silently bless the
+  original10October pixel baselines. Both175 devices remain untouched for feedback.
+- Review Apple kits/Mobbin/selected GitHub references; no subscription, framework,
+  plugin or global skill install. UI receipt separates implementation from the
+  still-frozen signed/device gates. No Git/cloud/TestFlight publication.
+
+## 2026-10-24: Implement the five Fotty2.5 source workstreams; keep device175 frozen
+
+- Owner approves all five in order, not another install. Registration/defaults/
+  labels/fixture scope/dispatch now use one finite reviewed catalog. Adapter
+  admission stays source-specific; no arbitrary manifests or trust expansion.
+- Home/Matchday single Watch uses scene-owned incremental discovery under the
+  existing18s collector. Preserve sport-aware bottom feedback, exact current
+  fixture/generation fences and first mount; append later alternatives without
+  reordering/reloading the active owner, Pause, native fullscreen or PiP.
+  Existing aggregate callers keep their API; menu/filter opening is presentation.
+- Inline read-only context, visible existing More actions and task-grouped
+  Settings implement the native contracts without a new theme, EPG inference,
+  changed source defaults, duplicate reminders or lost badge/sport identity.
+- Measure before optimizing: separate catalog-owned Search preparation from
+  query results; use the same dedup accumulator in32-row Home-only cooperative
+  batches; exact-URL badge failures get2s/256-entry memory-only retry cooldown.
+  All intermediate projections remain unpublished on cancellation/staleness.
+- Reuse canonical actual Stremio2.0.7 REA evidence; native2.1 behavior/decoder
+  policy remains unknown. No GPL player dependency, copied proprietary UI,
+  installed decompiler, device interaction, publication or TestFlight.
+- Preserve both device175 installations and all51 FPL/multi-stream source/test
+  hashes. Restrict existing three source follow-ups to metadata-only until the
+  owner ends the hold, without extending their original windows. See the dated
+  implementation receipt for local tests/measurements and still-open device gates.
+
+## 2026-10-24: Prioritize Stremio/REA-inspired Fotty2.5 without disturbing175
+
+- Owner shifts full product priority to Stremio2.0/REA and a coherent Fotty2.5
+  milestone. Keep175 owner/Jet installations frozen for next-day feedback;
+  FPL/multi-stream paused, no new install/TestFlight/cloud/Git/spending gate.
+- Actually inspect official native Mac2.0.7(22) with REA6.4.0: artifact inventory,
+  extraction, plist and Mach-O records retained in1.3MB canonical evidence pack.
+  Main image links UIKit/AVKit/AVFoundation/VideoToolbox/KSPlayer. Imports do not
+  establish selected engine, source support or speed. Native2.1 announcement is
+  separate; deep native providers/runtime/code evidence remain unavailable.
+- Roadmap order: curated modular source definitions; complete bounded single
+  source journey; purposeful browsing/planning; native phone/iPad contracts;
+  measured responsiveness/full acceptance. Do not re-list162/165/171/173 work as
+  missing. Keep existing identity, relay, Pause/fullscreen/PiP and native controls.
+- KSPlayer is not adopted: current license/platform constraints and physical-iOS
+  build/support must be resolved only if a genuine AVPlayer decoder gap warrants
+  a bounded comparison. No engine swap for upstream502 or timing/token failures.
+- Apple skill/HIG governs previews before substantial UI changes. Existing audit
+  holds evidence, acceptance contracts and remaining questions. No runtime edits
+  or version bump. Secret scan passes;449MiB temporary artifacts/awake helper
+  removed,11GiB free. Keep only intentional small canonical receipts.
+
+## 2026-10-24: Extend private175 to Jelani's iPhone for owner testing
+
+- Owner asks for the same build on his iPhone and will test25October/report
+  findings. Target only fresh live Jelani's iPhone15ProMax/27.0.1, not archived
+  April identity or another phone. Normal developer pairing restores reachability;
+  no service reset/unpair/security-setting change. Existing app is125.
+- Rebuild/sign175, verify app/widget profiles, strict signatures, membership,
+  versions and frozen source, then install in place/read back/launch. One normal
+  process survives a later read. No UI/playback campaign or TestFlight claim.
+- All nine private FPL values/three saved source switches remain unchanged after
+  launch;52 protected source hashes match. AS/SV/FS stay OFF; CS stays ON. Do not
+  copy Jet settings or add a phone to scheduled Jet-only qualification.
+- Provenance and cleanup: release175. Remove371MiB owned output, preferences,
+  bundle, verification folder and awake helper.11GiB free; encrypted OS swap is
+  observed, not deleted or proven the sole free-space cause. Leave owner testing.
+
+## 2026-10-24: Install private175 on Jet without qualifying new sources
+
+- Owner requests iPad deployment for personal testing. Allocate coherent175,
+  build signed normal Release with official Xcode, compare frozen pre-build source,
+  install in place/read back/launch on Jet only. No shared publication/TestFlight.
+- Includes approved SV timing and AS cricket adapters; prior297 units/3physical
+  skips remain the focused policy receipt. No repeated unrelated playback tests.
+- Strict/deep signatures, membership/version checks and normal process readback
+  pass.52 protected hashes, four private FPL values and six existing source
+  switches remain unchanged; SV/FS OFF. No source enablement or live pass claimed.
+- Source receipt, exact install scope and remaining windows: release175/audit.
+  Stop timed-out preview; remove owned output/preferences/bundle/awake helper;
+ 15GiB free. Leave iPad to owner testing, phones/FPL/multi-stream untouched.
+
+## 2026-10-24: Stage source-local StreamViX timing reconciliation and AS cricket
+
+- Owner approves StreamViX timing repair and AS cricket/pending-source Jet live
+  qualification. No phone, FPL, multi-stream, cloud/Git publication or TestFlight.
+- Reconcile original full-date GMT with canonical UTC or uniquely verified Rome
+  conversion only; DST ambiguity fails closed. Original PL/UCL teams/competition,
+  literal advertised target, catalog/meta and collision/conflict fences remain.
+  SV1–SV6 is a separate default-OFF module, using reviewed fresh HTTPS443 HLS and
+  the existing relay. Empty/expired placeholders remain rejected.
+- AS cricket owns separate catalog/cache, exact UTC, known format and ordinal/
+  squad/day fences. Support reviewed T20I and Test Day1 only; later Test days,
+  unknown/ODI/T10 formats and football-ID fallback cannot invent cricket joins.
+- Focused fresh Catalyst297pass/0fail/3physical skips, membership/version checks
+  pass.52 protected hashes unchanged. Normal Jet174 is not replaced or interacted
+  with. This is source readiness, not a new working feed or physical acceptance.
+- Read back bounded thread follow-ups for PL/pending through26Oct, AS27–28Oct
+  and UCL3–4Nov. Each needs fresh live facts, available Jet, actual90s decoded/
+  correct-programme/normal-picker/control proof; restore unqualified switches and
+  disable at its end. See dated source audit. Clean all owned build/awake output.
+
+## 2026-10-24: Private174 adds default-OFF Flix integration without claiming playback
+
+- Owner approves Flix-Free PL/UCL/cricket qualification and Jet use, then another
+  AS-like source search. FPL, multi-stream, phones, backend and TestFlight stay alone.
+- Fixed public manifest/genre catalog uses all three reviewed pages, not ignored
+  search. Exact sport/teams/squad/UTC and conflict vetoes precede streams. FS1–FS6
+  owns the optional sixth module and finite hashed attribution; existing choices
+  remain intact. Only reviewed headerless same-origin HTTPS443 HLS uses the
+  ordinary guarded relay. No player, ranking or trust exception is added.
+- Physical lookup caught the initial parser rejecting the real TV hint/video
+  envelope. Decode it narrowly and corroborate target IDs and released UTC against
+  the description, retaining malformed/conflicting siblings. Synthetic network
+  fixtures now reproduce the actual envelope.306 units pass/3physical-only skips;
+  final flagged physical helper compiles; source/version/signature checks pass.
+- Independent ESPN status confirms current Lazio–Parma for a general-football
+  compatibility check only. Repaired FS1/FS2 return upstream manifest502 and zero
+  frames; another FS2 lookup fails before media. No source/90s/programme/picker/
+  PL/UCL/cricket pass or activation. Do not force headers/security or call this
+  permanent provider failure. StreamViX's sampled PL time conflict holds that lead.
+- Signed normal174 is installed/read back/launched on Jet.52 protected hashes,
+  four FPL values and five source switches match; FS remains OFF. Source/build/
+  device receipts and next live-window gates: release174 and dated source audit.
+  Clean owned output/awake helper; no Git/cloud/distribution changes.
+
+## 2026-10-24: Private173 ranks recent single-stream startup, not lifetime volume
+
+- Owner authorizes fast/reliable source ranking and Jet testing, plus research
+  for AS-like alternatives; FPL, multi-stream, phones and TestFlight stay alone.
+- Explicit new-single entry opt-in avoids changing shared models, which also
+  initialize as `.single` for Watch Two. Initial choice/failover use seven-day,
+  at-most12 decoded startup samples, median500ms buckets, confidence capped3,
+  actual direct-media contracts and late last-good ties. Fresh legacy average
+  counts as one weak observation. No AS hardcode, filtering, cross-fixture
+  negative bans, active/manual-owner reload or security/admission change.
+- Nine store/five integration regressions; focused Catalyst332pass/0fail/one
+  intentional soak skip. Membership/versions/identity/signature pass. Signed
+  normal173 installed/read back/launched.52 protected hashes/four FPL values/
+  five source switches unchanged. Receipt/source details: release173.
+- Normal Watch auto-selects AS1 on live Lazio–Parma:1,412ms discovery and1,933ms
+  decoded start; correct programme/picker observed. Owner's subsequent manual
+  comparisons record AS1.3–1.4s. Concurrent device use/stale-black previews mean
+  no controlled90s/fullscreen/PiP pass; no speculative presentation repair.
+- Flix-Free's public dated metadata/HTTPS-HLS descriptors are the best new lead,
+  not proof of current coverage, independent upstream or native reliability.
+  Nebula lacks public no-config descriptor evidence; StreamSports99 is currently
+  external-player/self-hosted. No new feed enabled. See dated source audit.
+- Remove owned temporary output/preferences/screenshot/source bundle/awake helper;
+  leave the iPad to owner testing. No shared publication/deployment/distribution.
+
+## 2026-10-24: Private172 restores CS discovery; live Premier League hold stays open
+
+- Owner authorizes comparing the working adapter, fixing the iPad rejection and
+  testing live Premier League on Jet; retain UCL, FPL, multi-stream, phones and
+  TestFlight boundaries. AS is the owner's fast/reliable-source benchmark, not
+  authority to change default selection in this repair.
+- Retained140 source has the same prefix/length/character policy and metadata
+  ID handling. Optimized Jet172 reports character rejection without a forbidden
+  scalar. Replace the bound-method predicate with the single explicit scalar
+  walk also used for diagnosis; do not call this a proven Apple/compiler bug.
+  Actual Jet discovery then returns exact matches and ordinary picker CS rows.
+- Bounded advertised search and reviewed legal-name hints recover fixtures
+  beyond100-row catalogs; preserve completed conflict evidence, exact squads/
+  date/sport and all transport/media fences. No new source/admission exception.
+ 161 focused Catalyst tests pass, zero failures/skips/runtime warnings, including
+  exhaustive ASCII/Unicode and real-ID ordinary/search regressions; UCL retained.
+- Six repaired-build requested-CS PL checks all skip, not pass. Actual Streamed
+  segments return403; Daddy variants show probe timeout or CoreMedia changed-
+  segment failure; PPV native failure yields only brief CS2 fallback video.
+  Last explicit CS2 run cannot list it after11.192s stream-list timeout. AS
+  succeeds in1.627s in that same discovery. No fallback qualifies the90s hold.
+  Current other-variant playlist checks do not justify blind timeout/profile
+  changes. PL sustained playback and live UCL remain OPEN; see release172.
+- Normal signed172 installed/read back/launched. Frozen1140-file comparisons
+  pass;44 source hashes/four FPL values/five existing switches unchanged (all ON).
+  Remove the owned runner/scheme/build/results/preferences/snapshots/awake helper,
+  preserving unrelated artifacts. No real Git/publication/cloud/release changes.
+- Ranking discussion is read-only: local coarse family+host success/startup/
+  recency and last-good context, then legacy-provider tie priority; not a current
+  fastest-start race. Do not infer an individual winning score from static code.
+
+## 2026-10-24: Jet171 native fullscreen acceptance passes in portrait and landscape
+
+- Leave correct production code unchanged. Extend physical coverage using an
+  observed source in the real Home picker, normal scroll and60s preparation;
+  reject fallback/Web routes. The previous25s/first-two-visible setup was too narrow.
+- CS6 Rayo–Elche reaches real native720p. Initial run passed Pause/paused Done/
+  re-entry/Play, then lost the auto-hiding Close button during redundant test AX
+  reads. Repair only the harness: ownership/rate admission first, immediate real
+  system-control tap, broad diagnostics on failure only; preserve post-action checks.
+- Fresh portrait67.199s and landscape76.181s tests each pass, no failures/skips.
+  Actual Apple Pause/stable time/paused return/re-entry/Play/Done/inline progress/
+  source controls preserve one player/item/attempt per run (20/21 receipts).
+  Correct RAY0–3ELC programme observed. No PiP/audio/soak/provider-wide claim.
+- Keep video-first layout; normal signed171 restored/installed/read back/launched,
+  original orientation restored, runner removed.46 protected hashes/four FPL values/
+  five source states unchanged; AS OFF. No phones/FPL/multi/cloud/TestFlight work.
+  See release171 follow-up receipt; remove only owned output and awake process.
+
+## 2026-10-24: Private171 makes iPad single-player video-first; native device gate stays honest
+
+- Replace only the iPad single-player companion rail with the largest two-axis
+ 16:9 stage, compact badges/title and outside-media Sources/Details dock. Native
+  details sheet and compact accessible controls; phone/two-player paths unchanged.
+- Keep the existing scene-retained media owner, source selector and same-player/
+  item AVKit fullscreen action. Sheet/rotation presentation does not load a source;
+  explicit alternate selection still connects to that delivery. No overlay steals
+  WebKit controls; no source, recovery, FPL or multi-stream refactor.
+-62 local tests pass; real Home presentation test passes on Jet in57.175s:
+  rotation, Details/Done, Sources cancel/reopen/selection and Close. Real TNT
+  programme observed; landscape AX stage1118×629 in1180×820 with dock outside.
+  Fresh physical native-controls test correctly skips after Web default and two
+  non-advancing native alternatives. AVKit device acceptance remains OPEN; no
+  source-wide failure/PiP/audio/decoder-soak claim. See release171 for harness history.
+- Normal signed171 installed/read back/launched;45 protected hashes, four private
+  FPL values and five source states unchanged. UI runner removed. AS OFF/Jet LS ON;
+  pending source campaign unchanged. No phones/cloud/Git publication/TestFlight.
+
+## 2026-10-24: Private170 AS live-schema repair passes real decoder; picker stays open
+
+- AS changed its live football row to an undated reviewed LIVE shape and public
+  ID without the old football prefix. Join only that shape by literal public ID
+  to fresh fixed-route publisher metadata with explicit sport/full UTC/teams.
+  Preserve original dated parser, shared date/squad/conflict vetoes, cancellation/
+  byte/row/time bounds and existing media TLS/public-IP/redirect/header contract.
+- Twelve focused regressions;48 Catalyst passes/one physical-only skip. Exact
+  Villa–City24Oct11:30UTC physical AS test passes878 actual720p frames/92.080s
+  progression/90s hold. Contemporaneous native programme is TNT AVL1–0MCI32:13.
+  Retained relay32completed/zero failed/four evicted; no total-request claim.
+- Normal signed Release170 restored, installed/read back and launched; frozen
+  source comparisons,45 protected hashes/four private FPL values and all prior
+  source choices pass. AS remains OFF: mirrored taps did not activate Settings,
+  even after screen-share reconnect. Decoder acceptance does not establish normal
+  picker, controls, audible output or PiP. No confirmed app-hang diagnosis.
+- Additional cricket remains pending compatible dated programme/delivery proof.
+  No invented fixture, security exception, source injection or broad failure
+  claim. FPL/multi-stream/phones/cloud/Git publication/spending/TestFlight remain
+  unchanged. Preserve release170/audit and clean only owned temporary output.
+
+## 2026-10-23: Quiet-window source availability stays pending, not permanently rejected
+
+- Owner clarified that scarce late-night football coverage is not grounds to
+  eliminate a source. Empty catalogs, upcoming fixtures and zero advertised
+  servers remain pending live-window evidence. Keep source-specific transport,
+  identity or programme limits separate from provider-wide availability claims.
+- Fresh AS/Tigre samples first decoded as two black six-second segments, then
+  one later720p segment visibly showed the correct TIG–ATU programme. This
+  establishes changing output, not the cause of the black intervals or a native
+  playback pass. A generic reachable Three channel does not corroborate carriage
+  of the24Oct second NZ–India game; reviewed cricket candidates remain pending.
+- Pin the opt-in Plavio physical helper to the independently verified
+ 24Oct00:15UTC Tigre fixture, real adapter and existing date/admission guards;
+  require90s hold/80s decoded progress/140s maximum. CNC behavior and production
+  matcher/player/security/defaults stay unchanged. No invented native fixture.
+- The Jet physical test skipped at stream resolution after1.115s:0pass/1skip/
+  0failure, no relay or frames. A fresh dated catalog entry remained, but its
+  descriptor now supplied only unavailable copy and a non-media placeholder.
+  Successful Xcode execution is not a successful playback test. AS qualification
+  and normal-picker acceptance remain open; no source was removed or promoted.
+- Normal signed Release169 restored and launched; AS OFF/all five original
+  source choices, four private FPL values and45 protected file hashes preserved.
+  FPL, multi-stream, phone, cloud, Git publication, spending and TestFlight remain
+  unchanged. Keep the dated audit receipts; remove only owned temporary output.
+
+## 2026-10-23: Private169 additional NHL source qualifies; failed deliveries stay excluded
+
+- Research actual new deliveries, not renamed CS or generic-channel fixture
+  guesses. Add a separate default-OFF LS/CNC lane to existing exact match source
+  lists, with dated metadata, exact sport/teams/squad and conflict vetoes. Current
+  admission is NHL/hockey and the reviewed HTTPS443 host7 route/public headers
+  only. No arbitrary add-on, auth, exceptional port or new relay trust grant.
+- A real partial-playlist defect forwarded Range0–1 then rewrote two bytes.
+  Require full200 playlists and suppress representation preconditions only for
+  known m3u8 requests; preserve segment ranges and reject partial MIME playlists.
+  Exact reviewed LS single sessions get an immutable30s startup budget; default
+ 20s, handoff/pair, buffer/stall/recovery/intent rules stay unchanged.
+- Reject the sampled NBA/host4 lane: early20s video decoding was followed by a
+  failed90s hold and normal-app stall. Synthetic relay capacity is12.23MiB/s,
+  which excludes only that setup's basic throughput shortage, not provider fault.
+- Fresh gate:285 pass/two intended physical-only skips, zero failures;32
+  membership tests. NHL native90s hold passes877 actual720p frames/91.966s
+  progress. Normal Release169 adds LS1 beside six sources, decodes3346ms, shows
+  correct Blackhawks–Canadiens programme and264.984s attempt without failure or
+  failover, including fullscreen/return/Pause/Resume. No PiP/audio/full-league claim.
+- Signed/source/install/readback/launch169 pass.45 protected hashes/four private
+  FPL values and existing source choices unchanged; LS privatelyON Jet/defaultOFF,
+  AS OFF. No phone/FPL/multistream/cloud/Git publication/spending/TestFlight.
+  See release169 and dated new-sources audit; remove only owned temporary output.
+
+## 2026-10-23: Private168 additional-source adapter held pending video qualification
+
+- Research actual additional deliveries, not renamed CS, an assumed installed
+  Nuvio sports add-on, BYO-playlist tools or non-media placeholders. Plavio has
+  one reviewed dated-football delivery contract; its sfly/Leaf/Highfly ancestry
+  does not establish independent upstream resilience.
+- Wire a separate default-OFF AS1–AS6 lane into existing exact match sources,
+  finite redacted attribution and the existing discovery budget. Extract pure
+  matching without changing CS schema/transport/admission. Preserve headerless
+  guarded-relay intent through model copies/persistence. No new trust exception.
+- Final local gate:238 passed, one intentional physical-only skip, zero failed;
+  32 membership tests, version/membership/signature/source/install/readback168
+  pass.45 protected FPL/multistream hashes and device FPL values remain unchanged.
+- Actual Jet video acceptance FAILS: ready/playing item and media200, but zero
+  decoded frames/black visible AVPlayerLayer after40s. Corrected test watchdog,
+  actor isolation and Apple display-clock sampling improve evidence, not proof.
+  The exact fixture then returns no admitted HLS, so no codec diagnosis is made.
+  Keep AS OFF and the new-source milestone OPEN; no source-picker/fullscreen/PiP
+  success is inherited from old playback tests. Restore normal Release168 on Jet.
+- No phone/FPL/multistream testing, shared default activation, cloud/Git
+  publication, spending or TestFlight. Clean only the owned temporary build gate.
+
+## 2026-10-23: Private167 exact HTTPS CS route; retain blocked HTTP delivery
+
+- Owner explicitly approved only the verified advertised HTTPS CS route and
+  Jet iPad testing, not TestFlight. Admit the exact reviewed manifest/sktech/
+  dai-fancode.pages.dev HTTPS443 HLS-path/public-header contract. Preserve the
+  existing guarded native relay, TLS/public-address/redirect/header constraints,
+  opaque CS labels and source opt-in. No player/proxy-policy or port expansion.
+- Reproduce and close the headerless API-wrapper hole: inspect wrapped targets
+  across case/encoded API paths and duplicate/case-insensitive URL parameters.
+  HTTP2122 remains rejected; retain only the existing bound HTTPS8443 exception.
+- 144 fresh focused tests pass, zero failed/skipped;32 membership tests and final
+  signed/source/install/readback167 pass.45 protected FPL/multistream hashes
+  unchanged. Release167 records the frozen tuple and intermediate red test.
+- Physical CS decoding remains open: Jet screen is visible but remote touch/Home
+  failed after reconnect/relaunch. Do not mislabel this as source failure or a
+  playback pass. No phone/FPL/multistream/shared release/cloud publication.
+
+## 2026-10-23: Private166 official-fixture CS checks; new delivery trust remains a gate
+
+- Owner approved independent CS checks from official fixtures and stopped
+  repeated accepted playback testing. Add a manual Details action, not fake Watch
+  availability. Require existing CS opt-in, fresh verified canonical two-team
+  metadata, current exact identity/status/timing, foreground ownership and
+  pre/post lookup revalidation. Only descriptor absence is offer-only; a refresh
+  adding a primary descriptor does not discard a valid pending CS result.
+- Merge independent title/cast squad evidence and quarantine conflicting IDs/
+  effective targets. A physical regression exposed the native competition prefix
+  in cricket request titles; use the exactly agreeing official participant pair,
+  without relaxing ambiguous remote or adversarial request-title rejection.
+- Physical R2 hits the7s stream timeout; the same endpoint returns200/3 entries
+  at8024ms on Mac. Give only CS stream lists11s request/12s transport, preserving
+  manifest/catalog7s/9s, outer18s, no retries and existing admission/security.
+- Final166r3:98 focused tests pass; signed/source/Jet install/readback/launch,
+  app+extension166 and45 protected file hashes pass. Source tuple, intermediate
+  failures, exact tests and physical receipts are in release166. Prior165 full
+  suite/PiP passes remain dated evidence, not new166 every-source qualification.
+- R3 reaches3 rows in7169ms but rejects all deliveries: donation, new HTTPS HLS
+  host dai-fancode.pages.dev and wrapped HTTP-IP:2122. Bounded HTTPS master200/
+  public DNS/no redirect/no segments is not playback. Ask owner before narrowly
+  admitting the new HTTPS route; HTTP2122 stays blocked. CS decoding remains
+  open. Do not misreport this as fixture absence or an upstream lookup outage.
+- FPL, multistream, phones, shared/cloud activation, Git publication and TestFlight
+  are unchanged. Preserve owner preferences; clean owned temporary output only.
+
+## 2026-10-23: Private165 source selection, CS, recovery and usability repairs
+
+- Follow the owner's order and Jet-only gate. Keep FPL, multistream work/testing,
+  phones, shared121, backend/source activation and TestFlight unchanged. Full
+  pre-existing unit suites are not physical FPL/Watch Two acceptance.
+- Reserve bounded discovery result slots for independent pending families; hold
+  validated siblings unpublished, release reservations on exhausted lanes, never
+  evict published choices or flush after owning cancellation/grace expiry. Keep
+  existing result/concurrency/time limits. Recheck shared-embed redirect scope and
+  destination cookies at each hop. Explicitly cancel a refused redirect body so
+  admission refusal cannot degrade into timeout. Do not expand source trust.
+- Isolate malformed CS rows within100 while retaining valid siblings; top-level
+  corruption stays fatal. Manifest generations fence stale publication. Preserve
+  advertised preferred-catalog failure when optional fallback finds nothing; do
+  not conflate it with ordinary empty discovery or suppress conflict/cancellation.
+- Capture a weak exact native PiP background observation lease, consume it once
+  on active to rearm existing watchdog observation. No Play/reload/seek/new retry.
+  Pause/replacement/non-single routes do not inherit it. Home/Matchday exact
+  retained reopen preserves source/attempt/Pause after current identity checks.
+- Search adds reviewed aliases including official FC suffixes without changing
+  stream matching; women/youth/sport/league fences remain. Adaptive loading keeps
+  phase text readable without duplicate single-player controls; assistive-tech
+  control visibility is policy-tested. Apple UI guidance preserves badges/artwork.
+- Final frozen r5 passes1611/two existing optional skips/zero failures,32+13
+  Python and54 Node tests, native membership/version/generic/signed/signature/
+  source/Jet install-readback165/launch. All42 FPL and3 multistream hashes match.
+  Source tuple and initial corrected test/redirect failures are in release165.
+- Final Jet passes actual source change, native fullscreen, Pause>1min/Play,
+  paused Home Watch reopen, >60s Springboard PiP, system Pause>1min/Play/Restore
+  and inline. Same source/attempt/presentation receipts corroborate Restore.
+  CS metadata is currently healthy, not decoded-media proof. Existing admission
+  excludes official source-free rows; preserve CS as extra sources rather than
+  fabricate primary descriptors or infer programmes from Willow/Fox. Current CS
+  decoding, audible output, lock/unlock and physical assistive-tech gates remain
+  open. Do not inherit old163/164 causes or claim full TestFlight readiness.
+
+## 2026-10-19: Private164 single-stream recovery and truthful CS evidence
+
+- Scope remains single-stream on Jet only; FPL, multistream features/testing,
+  phones, shared121, source trust and remote publication/deployment are untouched.
+- Empty CS catalogs expire in15s rather than120; populated TTL stays120. Exact
+  generations prevent a late actor response overwriting newer data; rollback
+  invalidates cache. Absent fixture, raw-empty streams and rejected delivery now
+  have distinct finite outcomes/counts. No extra polling/retry or invented source.
+- Background fatal native item events record the exact incident immediately,
+  with no background transport mutation. Foreground consumes once using existing
+  bounded recovery, respecting Pause and current ownership. Verified ready-surface
+  progress beyond the latest fatal boundary retires even a consumed paused
+  incident; an old failure cannot cut recovered video or hide the next failure.
+  Model background state also fences detached fullscreen PiP callbacks.
+- Initial native observer exit reasons and first resumed displayed progress gain
+  bounded local evidence without new timing/transport behavior or fake latency.
+  Initial startup health/latency is once per single source/attempt; repeated Web
+  owner starts still complete recovery without recounting. Native adoption is a
+  separate once-only receipt, never a still-Web preparation callback. Existing
+  multistream bookkeeping remains. Finite native presentation edges are capped
+  once per lease in the existing local store, not an uploaded/full event timeline.
+- Final r4:1569 passed/two optional skips/zero failures, tooling/generic/signed/
+  strict signature/source compare/Jet install-readback164/launch pass.42 FPL and
+  three multistream-specific hashes unchanged. Initial test compilation typo was
+  corrected before the clean gate. See release164 for immutable source tuple.
+- CS is enabled, with exact current catalog identity. Jet163/164 stream-list
+  timeouts and a separate Mac9s timeout corroborate upstream resolution slowdown,
+  not a matching defect, global outage or provider-only HLS cause. Regular Web
+  video, explicit Pause>1min/Play and source actions have current visual evidence;
+  startup failures/buffering remain. No available CS/native candidate means native
+  fullscreen/background PiP/Restore/inline/audible gates remain OPEN. Do not claim
+  full single-player completion or TestFlight readiness. Temporary gate is cleaned.
+
+## 2026-10-19: Single-player reliability first; private163 fullscreen ownership repair
+
+- Owner explicitly puts stable single-stream playback and reliable streams ahead
+  of Watch Two. Defer multistream implementation and physical checks until last;
+  running pre-existing pair regressions in the full unit suite does not qualify it.
+  FPL/phones/shared121/backend/Git publication stay unchanged; no TestFlight.
+-161–162 implement eight controlled playback-lab scenarios/27 actual selectors,
+  ephemeral declared/observed source contracts, preparation factories and the
+  same cookie-scoped delivery for single native validation/adoption. Each relay
+  keeps32 bounded memory-only request receipts with exact cancellation/deadline
+  ownership and atomic scalar summaries, never raw URLs/headers/cookies/bodies.
+  Causal correlation/old error age must not be presented as terminal-cause proof.
+  Source-health queries reuse exact-byte cached decoding on the existing queue;
+  Home child signposts support future measurements, not a claimed FPS improvement.
+-162 physical failures expose a real stale-fullscreen lease: same AVPlayer item
+  replacement can leave AVKit attached while callback guards reject its attempt.
+ 163 permanently revokes and synchronously detaches the exact borrowed controller
+  before admitted load/attempt/player replacement or cleanup. Ordinary retained-
+  PiP Done remains separate; no new Play/Pause/seek/reload/audio/trust operation.
+  Six real-controller regressions plus full1535-pass/two-skip/zero-fail gate pass.
+  Initial163 second-lease fixture readiness error is corrected before final r2;
+  production behavior/assertions are not weakened to pass. Tooling/native/signing/
+  source/install/readback163 pass; all42 FPL hashes equal the task baseline.
+-163 CS1 exact fixture/decoded recovery, Apple fullscreen and floating decoded PiP
+  have bounded visual evidence. CS1 twice fails CoreMedia-12312/segment URI changed;
+  CS2 later records stalled; CS3 preparation timeout then decoded recovery follows.
+  Later CS2 evidence supersedes an early snapshot without its failure, but does
+  not prove why its floating window vanished. >60s Home PiP/Restore/inline return
+  and current audible acceptance remain open. No speculative background patch or
+  provider-only conclusion. Source errors do not establish uninterrupted playback.
+- REA native providers are unconfigured, physical XCTest snapshot waits prevent
+  useful metric sampling and xctrace attach yields no usable comparison. No native
+  REA or physical speed proof. Additional-source shortlist remains research only.
+  See releases162/163 for provenance, exact attempts and caveats. Temporary gate
+  uses one reused directory, then owned outputs/runner/awake process are cleaned.
+
+## 2026-10-16: Private160 bounds native resume and records the unfinished conversion gate
+
+- Owner accepted a brief coordinated both-native restart for deliberate Watch Two
+  audio selection.157 prepares both captured candidates paused/disconnected,
+  awaits both exact Web teardown ACKs before either Play, and rechecks owner,
+  source/request/intent epoch/scene/generation. Preflight failure preserves current
+  viewing; post-retirement failure cannot revive only one Web pane. Pause→Play
+  invalidates stale work. Do not force Play, bypass unknown Pause or mix globally.
+-158 validates the actual prepared cookie-scoped relay without broadening trust.
+ 159 records candidate-local bounded item/error-log/relay details. On159, readiness
+  failure has URL-1102/CoreMedia-12660 and relay HTTP403 aged86ms; both original
+  Web pictures advance. Safe refusal passes, successful conversion does not.
+-160 repairs a real AVKit recovery gap: legitimate foreground Play while waiting
+  rearms the existing watchdog/eight-second resume validation and recovering state,
+  without extra Play/seek/reload. Pause cancels it; exact presentation/item/source
+  guards and background policy remain. Four regressions include deadline execution.
+  First160 test gate hung on an unrelated delay; corrected test-only r2 passes.
+- Frozen160r2 passes1489 units/two optional skips/zero failures,32 tooling,
+  generic/signed native, strict signature, source compare, Jet install/readback/
+  launch. All42 FPL hashes equal159. Receipt commit
+  d71ef5c2a6e8626264ba8f75ea37ce15756460e8, source
+  9798e87abbf332ecb350a30395d25b6857983444f6c30b8529a6c396d5ed61ad.
+- Current160 Detroit CS1 has bounded fullscreen Pause/Play, retained-Done PiP
+  Pause/Play/actual Restore, >60s Home PiP/background Play/Restore and inline return
+  visual passes. Native pair selected-audio UI/Swap/Pause preservation/Keep-right
+  pass; no audible or exact-object claim. Orlando later stalls with error-log
+  CoreMedia-12312/discontinuity change, earlier404 age101s; CS2 then URI-change
+  failure, same-source retry recovers. Tags and identical-URL routes are stable in
+  source review; no demonstrated relay cause. Do not hide consistency errors by
+  modifying tags, widening aliases or weakening source guards.
+- Positive real Web/Web→both-native conversion and reliable pair media remain
+  open. Native/native success and safe403 refusal are not substitutes. See
+  releases/Fotty-2.0.1-160.md for exact outcomes/receipts. Phones/FPL/shared121,
+  sports sync OFF, backend and Git remotes unchanged; no TestFlight.
+
+## 2026-10-16: Private156 qualifies bounded native PiP, not Watch Two audio
+
+- Continued approved Jet-only repairs/install/tests without repeat routine
+  approval. Phones, FPL, shared121 and backend unchanged; no TestFlight or remote
+  publication.156 passes1458 units/two optional skips/zero failures, tooling/
+  native/signature/source/install/readback; all42 FPL hashes unchanged. Final r2
+  receipt source51cf3fe7c45256dbd829b5f97daf9c9cc21531cac18902a48f69742aba0ce74f,
+  local recovery commit75a0b08ed5bff7620630fe67435bc8f2884c21b9;1108 inputs compare.
+- 155 replaces passive native probing with cached candidates and explicit single
+  Use Native Player; exact Web suspension precedes candidate Play, old-Web teardown
+  precedes selected native audio. Compatible-original-route context also fences
+  source/retry/fallback. Failed native-retirement Retry renews its ACK barrier.
+  PiP restore follows legitimate same-window presentation chains without reload.
+- 156 awaits exact decoded-owner/document managed-mute readback, not parent JS
+  evaluation. Startup requests preserve original deadlines. Aggregate old-attempt
+  tickets survive replacement/cleanup/re-enable; new replies cannot clear old
+  owners. Disabled return-to-single remains managed until coordinator release.
+  First156 run caught an obsolete assertion; corrected before final r2 green gate.
+- Physical156 Golf50283DCC+DartsC899F2C0 both advance, but Darts Audio pauses Golf
+ 18:30:49.006UTC despite prior Play intent and mute ACK; candidate_count0. Confirmed
+  failure, not merely untested. Independent source review finds no justified small
+  focus patch. WebKit process arbitration is possible, not confirmed Jet internals.
+  Never force Play, ignore unknown Pause, mix globally or weaken source safety.
+-156 single explicit native adoption18:45:18.542, exact Web retirement18:45:18.765
+  and activation18:45:18.857 pass causal order. Actual fullscreen Pause/Play,
+  retained-Done PiP Pause/Play/actual Restore, >60s Home PiP and paused Restore
+  pass visual checks. Later Play/Close coincides with failed_to_play_to_end,
+  CoreMedia-12312 at18:50:16.188; Web fallback recovers on retry. Cause unknown;
+  no uninterrupted inline-return or provider-only claim.155 inline pass is dated
+  historical evidence. No new crash report, exact-object or audible proof.
+- Stronger both-native Watch Two needs an atomic pair transition, not two
+  single transfers: validate both paused/disconnected candidates, retire both Web
+  owners with exact ACKs, then start native pair preserving intent/focus. Brief
+  restart and native-candidate coverage gaps are material behavior decisions;
+  not implemented/qualified. Current playback gate remains incomplete.
+- Stopped media/PiP, restored All sports/empty test query/history/Light/landscape;
+  interests unchanged, sports sync false. Removed only owned reused1.1GB gate;
+ 18GiB free. Keyboard capture off, Device Hub closed, owned awake process absent.
+  Source recovery receipts/installed156 retained. See release156 for evidence.
+
+## 2026-10-16: Private154 isolates native audio but mixed playback remains blocked
+
+- Jet-only playback continuation; phones/FPL/shared121 and backend untouched.
+  Frozen154 passes1392 units/two optional skips/zero failures, tooling/native/
+  signature/source/install/readback; all42 FPL hashes unchanged. Receipt source
+  071dd5344dd58dd2489b8457920d02b0b423e84283cf62996a3b2a5565444b83,
+  commit bf7f91a9675bcd0516d2652e0de7b8becf52f7a6;1107 inputs compare.
+- 149 adds bounded local causal ordering;150 separates native dismissal from
+  retained-PiP control admission with locked epoch tickets.150's actual watchdog
+  report confirms a quality-lock/Defaults/main-observer deadlock, not a tool-only
+  freeze.152 drains Defaults outside diagnostic locks with revisioned overlays;
+  six reentrancy/lock regressions pass. No new telemetry uploader.
+- 151 defers adopted audio until exact Web retirement.153 serializes public iOS27
+  per-player disconnection ACKs;154 removes even candidate configuration. Preserve
+  source/request/item/intent/focus/scene fences and unsupported-runtime Web fallback.
+  Apple audio disconnection is not a promise of concurrent Web/native video.
+- 154 Golf native/Tennis Web still fails: sibling Pause accompanies silent native
+  adoption and later actual native activation. App remains responsive. Explicit
+  Tennis Play restores two advancing panes. Do not ignore unknown Pause, force
+  replay or add global mixing. Explicit transfer/compatible-pair policy or a
+  coordinated both-native transition is a material next product decision.
+- Current154 Golf native fullscreen/Pause/Play, >2min advancing Home PiP, actual
+  system Restore preserving Pause, subsequent Play and inline-after-Close advance
+  pass visual checks. Retained-Done PiP Pause/Restore remains unqualified after a
+  separate repeat. No exact-item, audible or all-native-pair claim. Fresh crash
+  listing contains150 and10Oct only. See release154 for causal times and limits.
+- Source review also finds failed native-retirement Retry reawaits the same failed
+  barrier. Focused renewal/regression remains open; not the observed mixed cause.
+  No speculative restore hierarchy changes without delegate/presenter evidence.
+- Stopped test playback/PiP, restored All sports/empty test query/history and
+  original Light/landscape; sync OFF/interests unchanged.154 normal relaunch and
+  readback pass. Removed the owned1.1GB reused gate;18GiB free. Keyboard capture
+  OFF, Device Hub closed, owned awake process/assertions absent. Valid source
+  recovery receipts remain; permanent sleep/security and unrelated data untouched.
+
+## 2026-10-16: Core experience in private Jet 148 with mixed playback gate open
+
+- Four approved DAZN/ESPN/Apple-inspired core batches are implemented: truthful
+  playback/recovery, whole-sport interests and explicit Home/Matchday scope,
+  per-pane Watch Two/source actions, and Search/details/save. FPL and phones are
+  unchanged; no TestFlight, remote publication or backend deployment.
+- Native inspection caught and repaired source availability pushing imminent
+  followed cricket below tomorrow's football, and Until midnight truncation in
+  the iPad Time window sidebar. Regressions preserve live/source prominence,
+  broad Home ordering and anchored window semantics. Native 148 confirms both.
+- Frozen-source Catalyst 1346 pass/two optional skips/zero failures, 32 tooling
+  tests and generic native Release gate pass. Signed 2.0.1(148) installs/readbacks
+  on Jet Air4/27.0.1. All42 FPL hashes equal the starting state. Receipt source
+  1480346810f33003203ae2a8abbef2b0fd007d2de704f546c9a30be22fc25ced,
+  local recovery commit6eb220d74fe15bc0051ae4eab1c464413aa6d764; all1106 inputs
+  compare before build/install and acceptance notes. Production stays frozen.
+- Actual Home/interests, Matchday window/recovery, Search/recent clear,
+  Details/Save/Remove, source selection, per-pane controls and right-pane Keep
+  pass bounded normal-touch checks. Real ONE native AVKit fullscreen/Apple Play
+  advances video. Native component goldens were visually reviewed, not treated
+  as a device journey or marketing preview.
+- Mixed Web Darts/native ONE fails: adding/resuming one pauses its sibling.
+  Platform media arbitration is supported by WebKit source, not proven exact
+  causation. No global mixing, forced resume, source weakening or unknown-pause
+  bypass was applied. Need bounded handoff/audio/pause evidence and focused
+  repair. Current native extraction already exists. All-native pair and actual
+  PiP Restore/fullscreen Close/inline journey remain open; 146 is historical.
+- Physical XCTest executed no methods because Touch ID UI automation approval
+  was unavailable. Cancelled normally; no authentication bypass. Device Hub
+  manual evidence is not exact-item, audible or continuous-frame proof. See
+  release148 for limitations, settings restoration and owned-output cleanup.
+
+## 2026-10-13: Native fullscreen restored in signed146; Jet-only qualification
+
+- Owner approved native fullscreen without stream restart, preserving the new
+  retained experience, Jet testing only, phones/FPL alone and no TestFlight.
+  Custom Focus was not the expected native media experience. Actual AVKit
+  fullscreen is now separate from Focus/Companion, not a broad design rollback.
+- NativeFullscreenSession borrows exact player/item/source/attempt. The actual
+  AVPlayerViewController is presented from the retained marker's own scene;
+  entry/Close adds no URL/load/seek/autoplay. Inline rendering and PiP detach,
+  not the scene-owned pane. Current-owner/deferred-update guards preserve the
+  new lease and explicit paused intent; model-owned rate changes are excluded
+  from system user commands. Failed PiP restore does not clear closing state.
+- Shared test measurement identity survives temporary inline nil/detachment.
+  This repairs an actual harness token reset, not proof that the stream restarted.
+  Eighteen added regressions; complete Catalyst1300 pass/two optional skips,
+  zero failures. Native compile/signature/source/install/readback pass.
+- Jet real CS6 fullscreen controls test passes: two presentations/Close returns,
+  Apple Pause/Play, deliberate paused re-entry, repeated transport, advancing
+  inline and Stop. Same player/item/attempt throughout. Actual landscape Apple
+  controls and companion return inspected; no new phone/portrait/audio proof.
+- Earlier8s Resume check captured rate1/waiting. Bounded30s progress passes with
+  the existing12s buffer target unchanged; no proven app pause or provider-only
+  cause. CS6 PiP stalls before request, with buffering already present inline;
+  do not claim a request/pass or causation by fullscreen.
+- CS1 PiP survives60s visible Home with same owner and65.597s media advance.
+  Overall Restore tests remain failed/unqualified: actual OS button is not
+  exposed to XCTest. Both Restore success paths now require PiP disappearance;
+  an already-present fullscreen marker is not proof. No app-layer substitute.
+  Later strict CS1 fixture repeat and separate available-broadcast native setup
+  skip; finished fixtures and WebKit are not native/CS acceptance substitutes.
+- Immutable pre-build146 receipt: backups/release-source/2.0.1-146-native-fullscreen,
+  source69f7c82c1525f97a334528b80872e2acf7217752de638a18b87955154980f523,
+  commit08a9000c045bd29844ee094411ee51c346bd2b92. All1105 inputs compared before
+  install. Final review: only UI harness changed after capture; production still
+  matches. All42 FPL source hashes unchanged. Shared121/phones125 stay unchanged.
+- See release146 for exact acceptance limits. Sync/widget/Watch Two gates remain
+  separate. Owned build/results/screenshots/UI runner and keepawake are cleaned;
+  installed Fotty/source-recovery receipts are retained. No release/publication.
+
+## 2026-10-13: Signed143 on Jet; incomplete sync/playback/widget acceptance
+
+- Approved scope remains Jet iPad only, sports sync and playback/widget checks;
+  leave phones/FPL alone, no TestFlight, backend or Git publication. Owner's
+  fullscreen objection pauses further player presentation changes. The retained
+  custom Focus view is not Apple's system fullscreen. Restoring true fullscreen
+  with the same native player is a proposal, not an implemented fix. Do not
+  claim an AVPlayerViewController was removed: current and inspected older
+  renderers use AVPlayerLayer/custom controls; provider fullscreen is distinct.
+- Sync preserves v1 records/journals/receipts and reads legacy cloud slots;
+  v2 writes are disjoint per installation-origin and intent. A device-only,
+  non-synchronizable Keychain identity plus local marker detects restored/copied
+  installations. Account guards, consent and quota preflight remain intact.
+  Synchronize attaches/queues; neither notification nor queue proves delivery.
+- Confirmed stale projection echo is repaired: passive applied-snapshot writes
+  compare their expected receipt after cloud reconciliation and request reapply
+  rather than overwrite a newly arrived record. Intentional user edits retain
+  their separate rebasing behavior.26 sync/14 bridge tests cover late data,
+  account/off behavior, restore, quotas, and save/remove races.
+- Immutable installed source: backups/release-source/2.0.1-143-jet-sync-playback,
+  commit b1cb1e75c37f5ae8eaecfc9d0c354b692e983bba,
+  sourceSHA256 c651a698db523346cca85f76545121259e19ee90b083e9b1eb8533aea2c4b0d8.
+ 1102 source files compared before install; strict app/extension signature,
+  approved App Group/KVS entitlements and actual2.0.1(143) readback pass. All42
+  FPL source hashes unchanged. Sequential Catalyst qualification:1282 passed,
+  two optional skips, zero failures; native Release build-for-testing passed.
+- Actual Jet sync-OFF check passes; real temporary first opt-in fails safely
+  after30.610s, returning OFF without a queued state. No synthetic notification,
+  account reset or false cross-device claim. Writer exists; account marker absent.
+  Later source-only failure-stage diagnostics distinguish writer/account/cloud/
+  account-change failures and expose failed opt-in status; syntax parsed only.
+  These diagnostics are NOT in installed143 and require rebuild/qualification.
+- Exact real Arsenal FC vs Lille OSC CS5 decodes. Earlier short-name setup skips
+  are not passes. Correct-name physical PiP and rotation tests fail: before PiP
+  interaction, the source attempt/item is replaced and becomes unready, so the
+  PiP button no longer exists; no PiP request occurred. Requalify actual source/
+  item/attempt and investigate retry before testing. Do not tap old coordinates.
+  Rotation's first window is0x0 auxiliary AVKit; the actual820x1180 main window
+  has an accessible44x44 exit. Correct this confirmed harness defect first;
+  do not label it a proven production rotation failure. Neither harness fix is
+  implemented yet. CS6 same-item PiP pause and strict two-native-picture gates
+  remain open; no new Watch Two pass.
+- Widget Home inspection passes, no widget or saved match was added. Population,
+  native tap, real1801s expiry and ownership cleanup remain unqualified. Latest
+  source-only harness tightens row-specific assertions, snapshot epoch, removal
+  ownership and bounded one-read-per-icon geometry; syntax parsed, not compiled.
+  Keep actual medium/large sports-only widget/new-empty-page safety, no FPL,
+  reminders, clock changes or substituted deep links to manufacture acceptance.
+- Temporary Xcode/results/screenshots (1.3GB) and owned UI runner were removed;
+  the actual Fotty app remains installed. Bounded keepawake stopped. Do not treat143 as
+  TestFlight-ready or discard the installed receipt because working source has
+  subsequent unbuilt diagnostics/harness edits.
+
+## 2026-10-13: Signed142 on Jet; bounded native acceptance and honest open gates
+
+- Owner signed into Xcode; refreshed profiles activate the approved sports KVS
+  and App Group. Strict signed app/extension and exact Jet2.0.1(142) readback
+  pass. Shared storage has only the sports saved-plan snapshot; actual sync
+  remains off. Owner phones125/shared121, FPL and backend remain unchanged.
+- Focused device fixes preserve the permanently retained pane tree: explicit
+  accessibility containment, modal foreground/lookup Cancel, disabled covered
+  background, and warm sports-plan/Matchday minimization before destination.
+  Small widgets use one URL; larger families keep Links; FPL route/widget unchanged.
+- Corrected harness semantics, not production Search: whole committed queries,
+  normal refocus after Clear; raw XCTest existence is not VoiceOver focus proof.
+  Real touch isolation passes; assistive traversal is still a separate gate.
+- Final seven physical tests: five pass, widget test timeout fails before native
+  gallery, Watch Two skips with exact source-retry/fallback evidence. Earlier
+  corrected source/control runs remain dated evidence, not two decoded/audible
+  panels. Final retained Web pause/Focus/warm-link/Stop passes, no native identity.
+  No unsupported idle controls or inflated timeout were used to force green.
+-142 native PiP setup lacks a ready hook;141 CS6 PiP pause remains unresolved.
+  Cross-device cloud/Handoff, phone visuals, real VoiceOver, populated widget
+  timeline/link/expiry and two decoded/audible pictures are not qualified.
+- Final source recovery: `2.0.1-142-jet-complete`, commit62a2ce5/source4e733424;
+  1101 files compared before install.32 inventory regressions and all42 baseline
+  FPL source hashes still pass. Exact gates/provenance: release142. No Git
+  publication/backend/TestFlight; owned test products/runner are cleaned.
+
+## 2026-10-12: Approved retained viewing experience and sports-only continuity
+
+- Owner approved the full iPhone/iPad concept, private Jet testing, unchanged
+  FPL and no TestFlight. Sports-only iCloud/widget capabilities are explicitly
+  approved; sync remains off until opt-in. No backend, Git or shared release.
+- One scene coordinator owns persistent media panes and prepares destinations.
+  Compact/full/Focus/Watch Two change presentation, not item/source/attempt.
+  Scene-specific teardown, per-owner remote fencing, exclusive audio and actual
+  PiP claim reconciliation preserve paused intent and avoid orphaned transport.
+  Typed terminal/conflict facts are rechecked before new viewing admission.
+- Matchday now offers an anchored personal Tonight window without duplicating
+  the catalog or collector. Home's quiet football backdrop reuses bundled art.
+  Real badges/sports equipment and native tab-accessory navigation remain.
+  Cricket companion has schedule/status only; no invented scores/overs/stats.
+- Explicit Handoff carries only an expiring match identity and fresh receiving
+  confirmation. KVS uses bounded sports intents, canonical wire values, durable
+  verified applied receipts and pending/error separation; failures cannot echo
+  old local values or revive tombstones. FPL, source credentials/URLs, history
+  and device reminder consent are excluded. KVS is not an encrypted vault/ACK.
+- Sports widget uses a signed App Group and expiring saved-plan snapshots; its
+  links open Matchday without autoplay. Unsupported football live metrics are
+  omitted rather than renewed from a global feed timestamp. FPL widget unchanged.
+- Final full Catalyst suite passes1264/two optional skips/zero failures. Ten
+  component PNGs were explicitly inspected: only five approved Home backdrops
+  change; sources/controls/badges are byte-identical. Non-recording visual gate
+  passes. All42 FPL Swift file hashes match the turn's starting state.
+- New signing is blocked: cached profiles lack iCloud/App Groups and Xcode has
+  no account. Accounts screen opened for owner sign-in; Jet stays locked and141
+  is not replaced. No physical/cross-device/widget acceptance is claimed. The
+  separate141 CS6 PiP pause remains unresolved. Exact status: release142.
+- Current-source unsigned native app/extension and temporary UI-only Release
+  test compilation pass. The temporary scheme is removed; owned outputs and
+  keep-awake are cleaned after recording the staged recovery receipt.
+
+## 2026-10-11: Resumed141 CS playback and PiP qualification on Jet
+
+- Owner made Jet available; scope remains single-player CS/PiP, no TestFlight.
+  Rebuild uses saved141 source unchanged; signature/source/readback pass.
+- Exact CS5 maps to streamedpk, not a fallback. Native/source controls,60s
+  visible Home PiP, same-item/attempt, ordinary Stop/inline/Close pass;51.782s
+  round-trip advance. Separate read-only observations show changing PiP frames
+  before reactivation. Passive buffering persists; muted testing is not audio.
+- CS1/DaddyLive short native/control check passes. CS6/timstreams starts and
+  shows changing background frames, but fails >30s advance and is paused on
+  return with the same item/attempt. No fatal/retry/fallback establishes cause.
+  Fresh playlist lacksENDLIST/VOD; its20.020s window is not programme length.
+- Home/Search retries skip after the exact real Watch row disappears; never
+  count those as passes or erase the failed CS6 result. Retain the remaining
+  qualification gate instead of guessing a lifecycle or provider repair.
+  See release141 for finite attribution/provenance; no production edits.
+
+## 2026-10-11: Score identity, CS wrapper and fair-cap repairs; owner testing stop
+
+- Approved score/remaining-CS/PiP scope only. Full nonblank football identity
+  replaces display-code matching in score/freshness joins; squad/date/opponent
+  safeguards remain. Five official-mapper/service/Home regressions pass.
+- Confirmed native CS segment-URI rotation preserves the entire encoded query
+  but changes among reviewed outer Worker hosts. Runtime profiles retain the
+  first admitted immutable URL/headers, including the verified exact TikTok
+  image host; no signatures, media bytes or destination protections change.
+- Six-choice CS truncation could hide later upstreams behind ten initial
+  variants.141 admits/deduplicates100 max, reserves groups, fills slots and
+  preserves selected order/profiles. Four regressions and independent reviewGO.
+- Frozen/signed141 installs Jet;1172 units/two optional skips pass. Initial
+  synthetic NSCache/visual failure passes unchanged rerun; cause unresolved.
+-140 CS6 PiP passes full60s Home, same item/attempt, Stop/inline/Close, but its
+  actual source key proves DaddyLive, not the repaired streamedpk format.
+ 140 native Home shows the current official Liverpool–City0–0 score.
+- Owner stops141 exact-CS5 PiP to watch the game. Host/runner stopped; leave
+  Jet alone. No partial141 test counted; opaque-key attributed repaired-format
+  PiP/controls remain open. Source receipts retained, owned temporary data
+  cleaned. No Watch Two/UI redesign/phone/backend/Git/TestFlight actions.
+
+## 2026-10-11: Bounded remaining-CS qualification and score identity diagnosis
+
+- Owner scope: remaining CS and Jet iPad testing, plus Palace–Forest explanation.
+  No Watch Two, redesign, score production edit, phone, TestFlight or publication.
+- Real CS1–CS6 choices/control/native gates distinguish each requested family
+  from its explicit failed-row/fallback. Short CS2–CS6 decoded passes do not
+  establish continuity: fresh delivery404, no-ready-layer startup failures and
+  CoreMedia fatal/retry receipts remain real open acceptance failures. Exact
+  underlying fatal cause is unknown; no header/cache/lifecycle defect is proven.
+- CS2 retains same native identity and >30s time advance across60s visible Home
+  and return. Stop/inline gate is blocked by remote PiP AX hittability. Fix only
+  the test helper's ordinary drag prerequisites, retaining exact geometry,
+  actual movement/non-overlap/Stop hittability and all native assertions. Signed
+  compilation/source/signature pass; fresh CS1/CS2 deliveries fail startup, so
+  the corrected drag is not runtime-qualified. No full CS PiP acceptance claim.
+- Confirmed score code defect: official CRY/NFO display labels are incorrectly
+  used for service identity/freshness joins with full-name catalog/observations.
+  Feed had2–1 when checked; exact failed device poll was not retained. Recommend
+  full-name identity plus mapper/service/Home regression separately; diagnosis
+  does not authorize an unrelated score/FPL production change in this gate.
+- Preserve correct production transport and all owner settings; exact variant,
+  source/executable and physical receipts are in release138. Remove owned
+  temporary build/test/private copies and UI runner; end task-bound keep-awake.
+
+## 2026-10-11: Focused CS football identity repair and real Jet iPad regression
+
+- Owner requests proper CS matching, a regression and iPad tests only. Preserve
+  all other behavior; no new Home/Watch Two/PiP/FPL/fixture, trust, phone,
+  TestFlight, Git publication or cloud changes.
+- Fresh public metadata offers Hull City–Everton at13:00UTC. The iPad also has
+  Hull City AFC–Everton FC at that time; the old CS key rejects legal names while
+  accepting plain names. CS is enabled and local failures show no exact match.
+  The originally tapped duplicate is unknown; do not claim a deliberate removal.
+- Reuse the main catalog's unique reviewed football club identities. Preserve
+  both teams, sport,15-minute bound, complete unknown names, squad qualifiers
+  and conflicting-ID rejection; non-football and transport remain unchanged.
+- Six new unit methods cover positive and rejection boundaries; three fail on
+  the old matcher. Complete simulator-free gate passes1151/two optional skips,
+  source tools, goldens and unsigned Release. Independent review passes.
+- Final real-feed physical gate selects the suffixed row and hard-fails if its
+  expected picker disappears, rather than skipping the regression. It passes
+  with CS1–CS6 visible. Separate same-match CS1 native progress and responsive
+  controls pass: two physical passes/no failures/skips. Muted/brief evidence is
+  not audio, sustained playback, PiP, all variants or Watch Two proof.
+- Signed private138/source comparison/readback pass; source/executable receipts
+  are in release138. Preserve user settings/account, remove owned temporary
+  outputs/UI runner and end task-bound keep-awake. Shared121 and phones125 stay.
+
+## 2026-10-10: Researched watchdog plan and private CS contract qualification
+
+- Owner requests deep research and a plan for proactive detection and bounded
+  small repairs, with the Mac awake only through the active task. Reuse cloud
+  collection and GitHub verification; routine monitoring must work with the Mac
+  off. `operations/Fotty-Watchdog-Plan.md` is the durable reviewed proposal, not
+  activation, paid agent execution, publication, deployment or TestFlight.
+- Separate admitted-source contracts, accepted fixture integrity, actual native
+  experience and missing-observer detection. Persistent quiet incidents need
+  exact revisions, stable keys, recovery receipts, retention ceilings, expiring
+  leases/fencing and one repair owner. Automatically safe runtime recovery and
+  independently reviewed repair preparation are distinct from production writes.
+  Trust, identity, coverage, privacy, spending and distribution remain gates.
+- The already approved CS/iPad repair carries the maintainer's bounded public
+  request headers into the existing guarded proxy. Eight regressions plus fresh
+  Catalyst1093 passes/two optional skips and iOS Release compilation pass.
+  No credentials/cookies/custom or response headers, host/path/TLS relaxation,
+  source activation or fixture invention. Private137 is installed on Jet iPad;
+  owner phones125 and shared TestFlight121 remain unchanged.
+- Exact Calgary–Anaheim CS2 briefly proves selected-source native progress and
+  responsive controls; CS1 fails and falls back. The local ring then records a
+  CS2 decoded-stage unknown failure/retry. Do not convert that brief gate into
+  sustained playback acceptance or infer a precise provider/AVFoundation cause.
+  Failed/skipped physical gates remain dated evidence in release137/136, not
+  silently waived. Test-only canaries distinguish input/runner interference from
+  app defects and bind PiP evidence to the actual qualified source/item/attempt.
+- Final private137 harness source/binary have a separate verified pre-build
+  receipt. Home/Matchday/Search passes; CS PiP fails before start because local
+  records prove an actual CS2 failure/new attempt. The additional passive
+  Watch Two canary loses runner/session after76 seconds, with Fotty activity
+  before disconnect and no matching crash/Jetsam cause. Result: one pass/two
+  failures/no skips. Preserve these limits; no speculative product/hook changes.
+- No telemetry upload, Git publication, cloud activation, device reset, phone
+  install or TestFlight. Retain exact source recovery receipts, remove only owned
+  test/build artifacts and runner, and release task-bound keep-awake at completion.
+
+## 2026-10-10: Home projection and audio-session ownership cleanup
+
+- Owner requests Home coordinator/audio cleanup and proper tests, expressly no
+  TestFlight. This is source/local verification only, with FPL features paused;
+  no device install, backend deployment, Git publication, data reset or spending.
+  Source version128 remains unchanged and is not the installed128 executable.
+- Reuse the verified stabilization-after recovery bundle as the before boundary.
+  Add `HomeProjectionCoordinator` with one immutable base/scope packet, exact
+  catalog/score/clock/selection keys, facts-cache reuse and request generations.
+  Stale/cancelled entrants cannot revoke accepted pending work. Scope edits retain
+  the accepted base revision; pending work derives latest scope at atomic commit.
+  Keep cooperative sixteen-row stages on MainActor, not detached non-Sendable
+  values. The view retains structured task, filters, layout, modal/navigation and
+  single/two-match Watch ownership; independent baseline comparison confirms it.
+- Apple performance guidance informs serialized off-main audio preparation.
+  Launch/navigation/route configuration does not activate audio. Use SDK27 async
+  activation and serial-queue blocking fallback on supported older runtimes;
+  coalesce demand, cancel individual waiters and reprepare after media-services
+  reset. AVPlayer/WebKit/PiP/transport state retain their native owners. Typed
+  stage/code errors stay local; no new deactivation or telemetry-upload policy.
+- Recheck current attempt/source/player/item/intent/lifecycle/error after awaits.
+  Pause/replacement/dismissal/terminal failure revoke permission; separate PiP
+  preparation cannot cancel pending Play. Resume first starts without a stuck
+  spinner; two-pane resume uses current audio focus. Start provider clocks only
+  after prepared Play/navigation. Deferred Web navigation seeds current pause,
+  suspension/mute/fill intent and respects provider-owned audio. Independent
+  review finds and fixes terminal late-Play and fresh remote-Play false-playing
+  races; preserve explicit Retry's existing new-attempt path and retained intent.
+- Add44 executed behavioural regressions: ten Home,23 audio and eleven Web tests.
+  Controlled suspension covers cancellation/replacement/reset/PiP/background/
+  terminal/remote commands; Web tests execute production-emitted JavaScript.
+  Final freshly compiled Catalyst1036 total/1034 pass/two existing optional skips/
+  zero failures,52 offline tooling tests, source membership/version/catalog/
+  provider identity/diff gates and unsigned generic iOS Release pass. Native
+  checksums are unchanged across the final gate. Six earlier audio runtime
+  warnings no longer appear; four offscreen MatchReminderTests focus warnings
+  remain, not proven native focus defects. No device sound/latency/PiP claim.
+- Refresh architecture, risks and developer handoff. Preserve a verified local
+  `backups/release-source/ownership-20261010-after` bundle, not binary provenance.
+  Two sequential current-source gates reuse the same bounded one-job output path;
+  owned DerivedData/results/runner and review temporaries are removed. About30GiB
+  remains free; unrelated user artifacts/caches are preserved. Native audio route,
+  interruption/PiP and responsiveness acceptance remain separate device gates.
+
+## 2026-10-10: Source stabilization and a reproducible developer handoff
+
+- Owner approves the proposed maintenance pass after discussion of code
+  readability and badge regressions. Scope is source/local verification only;
+  no FPL feature work, Git publication, device install, backend or TestFlight.
+- Capture and verify a local recovery baseline before edits without changing the
+  source index/refs or discarding the large pre-existing dirty tree. Preserve
+  ignored credentials/data and distinguish capture from historical binary proof.
+  Retain bounded before/after recovery bundles rather than build artifacts.
+- Mechanically separate image transport/cache/decode into `Core/Images`, ordered
+  selection/view state into `Design/CachedAsyncImage.swift`, and independent Home
+  policies, Details and motion into dedicated Dashboard files. Independent
+  comparisons against the before bundle confirm unchanged moved declarations
+  and remaining owner logic. Do not relocate private tasks/state or weaken actors.
+- Register all five new Swift sources explicitly. Add the bounded offline native
+  membership gate with32 synthetic tests and run it in the existing iOS CI script;
+  extend trigger paths. Preserve existing behavioural tests and extend negative
+  Home guard scope to the extracted files. No source-string assertion is dropped.
+- Current-source Catalyst992 total/990 pass/two existing optional skips/no failure,
+  unsigned generic iOS Release,52 combined offline tooling tests, catalog/identity/
+  version checks, shell syntax, actionlint and diff checks pass. Six audio and four
+  offscreen-focus runtime warnings remain review evidence, not native hang/focus
+  diagnoses. Device acceptance is unchanged from128; no new UI/playback claim.
+- README and `docs/Fotty-Developer-Handoff.md` identify source recovery, current
+  ownership, local commands and next safe seams. Home's live coordinator, Watch
+  lookup state, cross-sport brand service and audio-session activation need focused
+  tests/measurements before deeper cleanup. No blanket rewrite or LOC-only defect.
+- Sequential one-job gate reused one bounded directory; owned DerivedData/results/
+  workflow-lint binary and review clones removed. About30GiB free; no unrelated
+  artifacts/caches removed. Native version remains128, not a new release candidate.
+
+## 2026-10-10: Finished-match receipts and shared badge selection in private128
+
+- Owner requests proper false-LIVE repairs and Jet iPad testing, then reports
+  wrong Man United and multiple badges. No TestFlight, phones or backend rollout.
+  Production schedule already has explicit final facts for560592/560595; use
+  native reconciliation rather than infer a result from time or disappeared data.
+- Official PL mapper retains explicit recent finals. Repository/service separate
+  source receipt from attempts, retain bounded accepted terminal identity, revoke
+  stale/failed/empty active authority, use post-await clocks and preserve Details
+  enrichment. Home retains terminal vetoes before deduplication; Matchday/Watch/
+  reminders share terminal policy. Notification history survives temporary unknown
+  or empty feeds without replaying kickoff/goals; explicit final still advances it.
+- Badge cause: shared CachedAsyncImage allowed warm fallback cache to skip an
+  uncached higher-priority URL, and unkeyed image state survived row/candidate
+  changes. Provider Man United66.png visually correct; no provider-ID cache
+  collision established. Ordered selection, primary-only immediate cache, full
+  URL-list state identity and cancellation fix all shared consumers. Official PL
+  stable-code crests are carried through mapper/repository and guarded Home
+  precedence without overriding schedule identity or borrowing cup/youth facts.
+- Final current-source units:992 total,990 passed,two existing optional skips,
+  zero failures. Signed iOS Release/strict signature/app+extension128, catalog,
+  version/provider vectors/proxy tests/diff checks pass. Jet in-place sequence2132
+  and installed2.0.1(128) readback pass. Both real-feed physical journeys pass,
+  no skips/failures. Actual landscape Home/Matchday badges checked after scores
+  load and navigation; deterministic tests cover warm-cache/reuse/terminal races.
+- Replace the first private128 binary with final hash recorded in release128.
+  The initial runner timeout was repeated AX descendant enumeration, not proven
+  app crash; bounded fixture checks pass. Optional verbose test diagnostics stay
+  off; app telemetry/permissions unchanged. No data reset, new packages, backend
+  deployment, publication or shared release. Keep127's playback/QoE limits.
+- Evidence and cleanup scope: `docs/releases/Fotty-2.0.1-128.md`. Only the owned
+  runner, temporary physical scheme and sole1.9GiB build/result gate removed;
+  absence independently verified,31GiB free. Ordinary Fotty128 remains running
+  as9217; later mirror still shows correct Man United/Tottenham with loaded scores.
+
+## 2026-10-10: Whole-app performance repairs and private Jet iPad127
+
+- Owner approves the whole-app open-source review recommendations in priority
+  order, then private Jet iPad testing; expressly no TestFlight. FPL stays paused.
+  Shared121, phones125, backend and spending/privacy policy remain unchanged.
+- Implement all thirteen accepted items: bounded native transport/CS redirects,
+  decoded-frame handoff, independent Watch Two attempts/continuity, score polling
+  leases, resident badge freshness, independent provider/fixture publication,
+  revision-keyed Search/Home facts, date/duplicate-ID indexes, two shared image
+  decode permits, cached quality persistence, bounded asynchronous backup import,
+  scalar pull-only native QoE and deterministic cancellation/clock regressions.
+  Applicable OSS patterns are references, not new dependencies or copied engines.
+- Actual iPad profiling justified follow-up repairs: unchanged receipts skip
+  duplicate merges; fixture metadata is prepared once; Home/Search/Matchday use
+  cancellable MainActor checkpoints and atomic exact-key publication. Matchday
+  exposes flat lazy rows with stable section/column/member identity. Do not move
+  non-Sendable service/event objects to an unsafe detached task to hide a hang.
+  Apple UI guidance also led to reachable child controls and truthful failed-pane
+  audio availability, without a redesign or invented fixture/playback evidence.
+- Current-source Catalyst logic gate:941 total,939 passed,two existing optional
+  skips,zero failures. Signed iOS Release/strict signature/app+extension127,
+  version/catalog/provider-identity gates and Jet iPad in-place readback pass.
+  Final physical Home/Matchday/Search and Watch Two90s soak:two passed,no skips
+  or failures. No account/source reset; latest binary hash is in release127.
+- Synthetic9500-row decode/dedup/discovery/Search workload is ~90% lower;
+  not whole-app FPS. Final46.788s trace captures repaired Matchday work outside
+  hangs. Sole521ms hang is native keyboard focus/input views, without distinctive
+  Fotty frames. This does not prove all stutter eliminated. Two decoded panes,
+  alternate-source switching, native sound/PiP/background and WebKit network QoE
+  are not newly qualified; final96 pull samples report measurements unavailable.
+- Keep evidence/results/limits in `docs/releases/Fotty-2.0.1-127.md`; remove only
+  the owned temporary physical scheme, test runner and bounded gate after use.
+  Cleanup verified:runner absent,~2.9GiB gate/scheme removed,31GiB free. Ordinary
+  Fotty127 remains running on Jet iPad; visual-confirmation replay also passed.
+
+## 2026-10-10: Playback stages and open-source performance review
+
+- Owner approves local failure-stage tracking plus a named Jet iPad install;
+  adds open-source research, not a wholesale engine/dependency migration.
+  Native app/widget advance to private126; shared121 remains unchanged.
+- WebKit reports bounded, typed document-load/media-observed/media-ready,
+  decoded/buffering, document/media failure and process-termination observations.
+  Navigation failures retain only numeric platform codes. Passive JS observes
+  eligible media, never drives playback; stale attempts and unrelated post-start
+  documents cannot annotate the selected stream. Loaded/ready is not decoding.
+  Native startup records readiness/decoded milestones in the same local context.
+  Failures carry last_observed_stage, not an invented causal verdict. Opaque
+  provider media and child/ad observations before ownership limit interpretation.
+- Same 250-record/14-day retention and no new upload. New callbacks do not alter
+  source admission, startup/recovery grace, provider controls or PiP. Frequent
+  duplicate stages are suppressed; buffering becomes eligible again on recovery.
+- Verification: 862 native tests, two skips, zero failures; catalog/identity checks
+  and signed iOS Release app/extension126 pass. Jet iPad in-place install sequence
+  1868 and independent2.0.1(126) readback pass; launched process8092 observed.
+  No new live-play/UI acceptance claimed. Owned output removed;33GiB free.
+- Research inspected primary repositories/source, without cloning or installing
+  packages: Mux AVPlayer monitoring/event cancellation, Nuke pipeline, Pulse,
+  Swiftfin's AVPlayer adapter and Point-Free clocks/concurrency extras. Priorities:
+  richer typed native QoE evidence; injectable clocks for deadline/cancellation
+  tests; measure badge-cache performance before considering stable Nuke13;
+  profile synchronous quality-store serialization before changing persistence.
+  Pulse URLSession logging is not transparent WebKit networking visibility;
+  raw request/header capture would need a separate privacy review. Swiftfin's
+  adapter itself contains buffering TODOs, so popularity is not correctness proof.
+  Concurrency Extras' serial executor is test-only, not a production optimizer.
+- Primary references: https://github.com/muxinc/mux-stats-sdk-avplayer,
+  https://github.com/kean/Nuke, https://github.com/kean/Pulse,
+  https://github.com/jellyfin/Swiftfin, https://github.com/pointfreeco/swift-clocks,
+  https://github.com/pointfreeco/swift-concurrency-extras. No measured app speedup
+  or installed dependency is claimed by this research.
+
+## 2026-10-10: Local playback correlation, source-only
+
+- Owner requests actionable tracking for iPhone/iPad playback differences.
+  Existing iPad125 local records show repeated web startup timeouts and failover;
+  document loading or a provider outage is not a proven cause. Some provider
+  labels are lost to the existing punctuation filter; retries had no parent link.
+- Normal playback and each Watch Two pane now retain a watch-session UUID,
+  attempt ordinal/previous attempt, source UUID, opaque endpoint digest,
+  device family and numeric OS version. Source failures, web retry scheduling
+  and session closure are local quality events; transport/recovery is unchanged.
+- No raw URLs, headers, credentials, fixture names or new telemetry upload.
+  Existing 250-record/14-day attempt-cohort retention remains; older parts of
+  a watch session can expire. Endpoint digests change with signed URL rotation
+  and do not distinguish header-only differences or prove broadcaster identity.
+  Source UUIDs are local choices, not cross-device stable identities.
+- Focused Catalyst tests:138 executed,one skipped,zero failures; unsigned iOS
+  Release compile passes. Owned build output removed;33GiB free. This is not
+  device playback acceptance or a repair of the underlying iPad timeout.
+  Installed125/shared121 and backend are unchanged; no distribution authority
+  is inferred from this source-only tracking pass.
+
+## 2026-10-10: Install latest verified private125 on Jet iPad
+
+- Owner requests the latest iPad update; connected inventory confirms Jet iPad
+  Air4/iPadOS27.0.1. Native source matches the retained125 receipt. Rebuild that
+  frozen source with pinned official Xcode27.0/27A266a, signed Release/jobs1.
+  Signature, version and receipt checks pass; no app/source behavior changes.
+- In-place installation sequence1860 and independent2.0.1(125) readback pass.
+  Ordinary launch remains running after30seconds, main PID7648. No uninstall,
+  reset, account copying, simulator or UI-test helper. Saved-data equivalence,
+  actual screen interactions/playback/PiP remain unqualified by this launch check.
+- Sole owned370MiB temporary source/build gate removed;33GiB free. Shared121,
+  other devices and backend unchanged. See release125 for executable hash.
+
+## 2026-10-08: Install private125 on Kiel's confirmed iPhone11
+
+- **Authority**: Owner requests direct-install fallback for pending TestFlight
+  email, confirms the named iPhone11 belongs to Kiel, then completes Developer
+  Mode/restart. No other target, TestFlight release, role change, Git publication,
+  backend deployment, paid-policy or FPL feature work.
+- **Provenance**: Rebuild the retained125 frozen source with official Xcode27.0,
+  signed optimized Release/jobs1 and explicit target provisioning. Both source
+  comparisons, compiled app/widget identities/versions/floors, target profile
+  inclusion/expiry/team, strict signatures and blank provider keys pass. No new
+  runtime source/version change. See release125 for source and binary hashes.
+- **Evidence**: Fresh inventory confirms iPhone11/iOS26.5.2,26.4-compatible,
+  wired/paired and Developer Mode Enabled. Fotty initially absent; installation
+  sequence5708 and two independent2.0.1(125) readbacks pass. A rejected empty-env
+  CLI launch option is corrected to normal launch, without rebuild/reinstall.
+  Main PID595 remains at10/20/30seconds. Device Hub requires iOS27 to mirror
+  with this Mac; stop the sharing attempt on26.5.2. No UI, playback/audio/PiP or
+  performance acceptance claim; Fotty's own compatibility floor remains26.4.
+- **Distribution**: Live Apple group now has12 testers after Kiel's earlier
+  addition; his TestFlight status was Invited and reinvite submitted. Neither
+  mailbox delivery nor TestFlight acceptance is proven by this direct install.
+  Shared121, owner125, Jet iPad120 and production Worker remain unchanged.
+- **Cleanup**: Sole owned368MiB temporary gate removed; about15GiB free;
+  existing source receipt retained. No uninstall, data copying/reset, helper or
+  unrelated cache cleanup. Leave the normally launched app for Kiel to use.
+
+## 2026-10-08: Install private usability build125 on Jelani’s iPhone
+
+- **Authority**: Owner requests phone deployment for testing. Only Jelani’s
+  iPhone15ProMax; no TestFlight, other device, Git publication, Worker deployment,
+  new feeds, paid-policy changes or FPL feature work.
+- **Packaging**: App/extension/source metadata advance coherently to2.0.1(125).
+  Reuse the completed852-pass/two-optional-skip exact functional native gate;
+  seven offline version tests and fresh catalog/project/syntax checks pass.
+  Extract the synthetic reminder persistence namespace into a local test constant
+  to clear a confirmed scanner false positive without changing its value/assertions
+  or scanner rules. Capture1002-file frozen source; compare before installation.
+  Official Xcode27.0/jobs1 signed Release, strict signatures, compiled versions
+  and blank provider keys pass. See release125 for frozen/source/binary hashes.
+- **Device**: Wireless discovery unavailable; cable then requires same-device/Mac
+  trust restoration completed by owner. Fresh paired/unlocked identity is correct.
+  In-place install sequence2624 and independent2.0.1(125) readback pass. Normal
+  argument-free launch remains running at10/20/30seconds. Device Hub shows new
+  dark Home, retained Cricket scope, readable grid and four native glass-tab labels.
+  Apple UI acceptance guidance keeps this launch-screen evidence separate from
+  full interaction, accessibility, saved/reminder, playback/PiP or measured speed.
+- **Cleanup/handoff**: Failed324MiB and successful326MiB owned build roots removed;
+  about15GiB free; intentional19MiB source receipt retained. No uninstall/reset,
+  UI-test helper or unrelated cleanup. Fotty is left open for owner testing.
+  Shared121, Jet iPad120 and production Worker remain unchanged; backend repairs
+  remain staged. No broad visual/performance acceptance claim.
+
+## 2026-10-08: Complete source-only Apple-native usability repairs
+
+- **Authority**: Proceed with the focused usability audit repairs. Source/local
+  verification only; no device interaction/install, Git publication, Worker
+  deployment or TestFlight. FPL feature work remains paused. Preserve the large
+  pre-existing dirty worktree and installed/shared binaries.
+- **Design**: Apple UI guidance shaped readable reflow, minimum control targets,
+  honest labels and explicit filter feedback. Preserve Fotty's club badges,
+  sport artwork, native tabs and inline future-match countdowns. No dependency,
+  wholesale redesign, extra glass layer or automatic reminder opt-in.
+- **Identity**: The observed Arsenal/Arsenal FC duplicate has a unique exact-start
+  reviewed football join. Require reviewed clubs, senior squad and compatible
+  competition evidence; reject held proof, cup/youth/women contradictions and
+  multiple official candidates. Preserve sources and explicit provider aliases;
+  typed identity cannot move to another official fixture. Saved and reminder
+  continuity retains opaque IDs, accepted facts and notification intent revisions.
+  Reverse provider aliases require the same start. Quarantine stays quarantined.
+  Explicit removal/cancellation revokes corresponding legacy requests; passive
+  refresh does not delete bookmarks or opt-ins. Concurrent aliases share one intent.
+- **Home/Search/Matchday**: Show the active filter scope and return to results only
+  after explicit Home filter changes. Empty-copy windows match the real six-hour
+  or personalized three-day projection. Search future results and unplayable
+  Matchday/channel rows offer Details with visible Save and existing opt-in reminder
+  controls. Details distinguishes listed, missing, unknown-start and stopped
+  broadcasts without claiming successful playback or asking live users to wait.
+- **Secondary screens**: Focus/enlarge exists only in supported wide landscape;
+  one-source Retry acts directly. Recovery scrolls within the remaining pane.
+  Portrait player identity wraps, and channels do not invent opponents. Match Hub
+  removes duplicate freshness/pre-match promises for live games. Settings exposes
+  truthful Premier League/foreground alert scope separately from scheduled reminders,
+  real source loading/empty/failure recovery and subdued passive values. Feedback
+  explicitly says copied, not sent; no unverified TestFlight deep link was invented.
+- **Verification**: Official Xcode27.0/jobs1, simulator-free full native suite:
+  852 pass, two existing optional skips, zero failures; unsigned generic iOS Release
+  passes. Version2.0.1(124), generated football catalog, provider identity vectors,
+  project lint and whitespace checks pass. New regressions exposed and closed
+  exact-ID typed-to-raw saved continuity; the one-shot concurrent test callback was
+  corrected without weakening its assertions. Existing Catalyst audio/focus warnings
+  are not physical iOS responsiveness proof. No zero-jank or new PiP qualification.
+- **Handoff**: Source remains124, owner iPhone124/Jet iPad120/shared121 and production
+  Worker unchanged. Native visual/interaction acceptance is a separate named-device
+  gate. Sole temporary gate reused through corrections and removed by trap;
+  failed output/crash attachment/result bundles are removed; about15GiB free.
+
+## 2026-10-06: Install private native all-sport repairs on Jelani’s iPhone124
+
+- **Authority**: Owner requests deployment to phone for testing. Only Jelani’s
+  iPhone15ProMax; no Worker deployment/publication, TestFlight, other device,
+  new feeds, paid policy or FPL feature work. Backend repairs remain staged.
+- **Packaging**: Live ASC list still shows shared121. Advance source app/extension
+  to2.0.1(124), capture998-file pre-build receipt and compare before installation.
+  Recent818-pass/two-skip exact native-code gate is reused; fresh coherent version,
+  generated catalog, three-feed live metadata identity and signed optimized iOS
+  Release pass. Official Xcode27.0/27A266a/jobs1, strict signatures and blank
+  embedded provider keys; no simulator or device UI-test helper.
+- **Device**: Fresh named-device inventory/lock read succeeds; install in place
+  without uninstall/reset, database sequence2504. Independent app inventory reads
+  124. Ordinary launch and45-second process hold pass. Physical UI/font/reminder,
+  live playback/audio/PiP acceptance remain separate; no account equality claim.
+- **Cleanup**: Sole320MiB build root removed by trap;26GiB free. Small19MiB
+  history-free recovery receipt retained intentionally. Shared121/Jet iPad120/
+  production Worker unchanged. See `docs/releases/Fotty-2.0.1-124.md` for hashes,
+  code scope and backend dependency; leave the iPhone launched for owner testing.
+
+## 2026-10-06: Complete source-only all-sport audit repairs and shared row cleanup
+
+- **Authority**: Owner says proceed with required fixes after the all-sport audit.
+  Implementation/local verification only: no Git publication, Worker deployment,
+  device installation, TestFlight, new feeds/flags, paid-policy or FPL changes.
+  Preserve the large pre-existing dirty worktree and current installed binaries.
+- **Fixture admission**: Isolate recognized missing/status/correction disputes per
+  record while healthy competitions and unrelated rows advance. Held facts and
+  original receipts remain unchanged; per-competition failures/backoff remain
+  visible. Schema1 optional verified/held markers reject null/unknown values and
+  cannot bypass transport/schema/scope/publisher-provenance barriers. Empty
+  success advances the replay fence. Correction confirmation is per fixture,
+  independent of unrelated additions. Partial HTTP200 requires validated fresh
+  verified records; unavailable row overrides expire after30minutes.
+- **Additional integration defects**: Independent offline review reproduced
+  opaque-ID replacements duplicating a native identity, football-data publisher
+  IDs moving competition, and terminal resurrection under replacement IDs.
+  Preserve originals as held, withhold contradictory replacements, and advance
+  unaffected records; never guess aliases/migrate accepted fixture identities.
+  Raw semantic/publisher duplicates remain full-collection barriers. Distinct
+  starts/participant identities/squads remain independent. Numeric latest-receipt
+  selection fixes mixed fractional/nonfractional UTC ordering without renewal.
+  These are verified synthetic failure modes, not claims of production incidents.
+- **Collection/monitoring**: Scoped provisional pending dates drive bounded hot
+  polling but never public fixtures/countdowns/reminders. Fresh terminal/postponed
+  publisher evidence is compared with accepted active facts. Fresh current facts
+  against an old quiet receipt require refresh, not a definitive omission claim;
+  identical consecutive redacted fact evidence must repeat/escalate after grace.
+  Same-publisher MLB/NHL/WNBA reconciliation remains distinct from independent
+  publisher corroboration and cannot activate an unpublished lane.
+- **Native continuity/status**: Cache merges preserve watermarks and demand newer
+  correction/status receipts; held starts cannot create or retain reminders.
+  Bookmarks remain. Fresh independently matched provider receipts allow Broadcast
+  listed, not inferred LIVE. Exact unique verified MLB/NHL joins support actual
+  plain-category feeds and reviewed name aliases, with explicit local provider-ID
+  aliases for playback/bookmark/reminder continuity, including later terminal
+  receipts. Conflicting leagues/squads/dates and ambiguous doubleheaders reject.
+  Details/landscape controls share certainty policy; held Cricket Matchday and
+  normalized Motorsport search agree with Home. Generic channels prove no match.
+- **UI**: Apple UI skill/HIG informed readable identity-first upcoming rows:
+  countdowns move below identity, compact reminders keep44-point targets, Watch
+  stays beside playable rows, and channel cards lose repeated type/status text.
+  Preserve badges, artwork, themes, focus/Undo ownership and native navigation.
+  Rendered320/375/430/788-point schedule/channel variants were inspected. Hosted
+  accessibility layout is calibrated separately: detached ImageRenderer excludes
+  some platform-backed content, per [Apple's documentation](https://developer.apple.com/documentation/swiftui/imagerenderer).
+  These checks do not establish physical reminder/large-text/playback acceptance.
+- **Verification**: Final full gate818 Catalyst tests pass/two optional skips/zero
+  failures, provider identity preflight and generic unsigned iOS Release pass.
+  Full367 web/backend units (including synthetic workerd/DO tests), TypeScript,
+  lint, Worker dry-run and isolated webpack production build pass. Independent
+  backend recheck passes88 overlapping tests; focused138 overlap the full suite.
+  Three obsolete test expectations were repaired to express held-start certainty,
+  unknown baseball duration and a genuinely newer per-row receipt, not by weakening
+  correct production guards. Existing Catalyst audio-session/detached-focus runtime
+  warnings remain; no new device-performance or zero-warning claim.
+- **Boundaries/cleanup**: One bounded output path/jobs1; no simulator or heavy
+  parallel builds. DerivedData and isolated web build copy are removed, then
+  owned screenshots/logs are cleaned. Production6399f52d/source cricket-isolation-1,
+  shared121, iPhone123 and Jet iPad120 stay unchanged. Source build versions remain
+  123 until a separately approved packaging gate; bump native/Worker source IDs
+  and capture the immutable source receipt before any later install/deployment.
+
+## 2026-10-06: Isolate disputed cricket records and align Home destination counts
+
+- **Authority/scope**: Owner says fix properly, then explicitly approves the
+  focused protected Worker publication/deployment plus matching private build on
+  Jelani’s iPhone. No shared TestFlight, other device, paid/new-feed activation or
+  FPL feature changes. Preserve the large pre-existing dirty worktree.
+- **Cause**: Three disappeared accepted records and two unflagged future kickoff
+  changes froze the whole ICC60 cohort atOct3, blocking fresh unrelated LIVE and
+  terminal updates. Separately, sport tiles counted the global catalog while
+  taps obeyed retained CPL/Channels and Home-interest filters. Willow programme
+  identity is unknown; generic channel playback does not prove a named fixture.
+- **Contract**: Keep complete collection/identity/watermark/bound gates. Isolate
+  recognized record disputes, retaining exact facts/receipts as held, while fresh
+  unaffected rows are verified. Preserve failed cohort coverage, failures and
+  backoff. Revision hash includes markers. Native schema1 handles legacy absent
+  markers, rejects invalid markers, fences cache watermarks and removes confident
+  held countdowns/reminders without deleting bookmarks. Only fresh matched
+  provider descriptors grant separate listing receipts, never generic LIVE.
+  Cached sport summaries describe their actual destination without clearing
+  saved preferences or adding per-tile render scans. Apple UI skill/HIG scope
+  guidance informed that preference-preserving design, not a screen redesign.
+- **Publication**: Six backend/monitor files only, normal protected PR39 merge
+  `243f9bb`; all PR and main Web/quality/CodeQL gates pass.79 focused units and
+  primary333 web tests pass. Exact merged Worker dry-run/deployment6399f52d
+  succeeds with source2026-10-06.cricket-isolation-1;100% version and all17
+  binding names/types,4DO identities, vars/secret names/types/rate limits and
+  */5 cron are verified unchanged. Exact-version scheduled16:15:59 succeeds.
+- **Production**: Normal due receipt16:16:30 UTC has77 rows/72 verified/five held/
+  two fresh verified live.270987 is live,274310 finished; five disputed facts and
+  Oct3 receipts remain unchanged. ICC68 stays unavailable/650 failures, so issue37
+  remains open. Current-match staleness alert clears; coverage/failure alerts do
+  not. Bounded CWI check matches its one supported current/next-day fixture.
+- **Native gate**:799 Catalyst passes/two optional skips/zero failures and unsigned
+  Release pass after fixing a missing SwiftUI return. Signed private123 app and
+  extension, strict signatures and blank provider keys pass. First install loses
+  access as the phone locks; its output is cleaned. Rebuilt123 installs in place,
+  verified in device inventory. Phone locks before normal launch-hold; UI checks
+  await unlock. No erasure or record-equality proof.27GiB free, all owned build
+  output cleaned. Shared121/Jet iPad120 unchanged; see release123.
+
+## 2026-10-06: Install private122 on the named owner iPhone
+
+- **Scope**: Owner reports the phone connected; finish the authorized private
+  build/install/normal launch, not shared TestFlight or other device testing.
+- **Connection**: Exact iPhone15ProMax/iOS27.0.1 is visible but initially unpaired.
+  Standard CoreDevice pairing succeeds; fresh details show connected/paired,
+  Developer Mode enabled and wired transport. No cable demand, unpair/reset,
+  alternate device or network configuration change.
+- **Evidence**: Source versions remain coherent2.0.1(122); independent read-only
+  packaging review finds no blocker. Rebuilt signed generic-iOS Release with
+  pinned official Xcode27/jobs1 passes strict deep signatures and compiled
+  app/extension122 checks; embedded provider keys are blank. Device inventory
+  reads121 before the normal in-place install, which succeeds. A diagnostic-only
+  column error is corrected to bundleVersion; installed122 is then verified
+  without another install/build. Normal launch and repeated process checks pass.
+  Current native screenshot shows Home/catalog/badges/sport art/navigation.
+- **Limits/cleanup**: No records are erased or compared; do not claim data-equality
+  proof. Animated lookup, Cancel/Undo, light/dark/large text and playback remain
+  owner acceptance, not launch proof. Owned build output and screenshot are
+  removed;27GiB free remains. Shared121/Jet iPad unchanged. See release122.
+
+## 2026-10-05: Prepare private122; named iPhone wireless installation blocked
+
+- **Authority**: Owner requests the new Inline/all-sports UI batch on Jelani's
+  iPhone for testing. The usual connection is wireless; unavailable discovery
+  does not require a cable. No other device or shared/TestFlight release.
+- **Provenance**: Increment only app/extension build metadata to2.0.1(122),
+  preserving bundle identities and signing team. Source preflight finds no new
+  data-reset path; do not claim installed records were compared or retained.
+- **Evidence**: Coherent four-configuration version verification, seven verifier
+  tests and project lint pass. Signed generic-iOS Release with pinned official
+  Xcode27/jobs1 passes; strict deep signatures, compiled app/extension122 and
+  blank embedded provider keys are verified. Prior source batch has786 passing
+  tests/two optional skips and native artwork evidence, not new device proof.
+- **Actual outcome**: Paired owner phone has Developer Mode enabled but remains
+  unavailable/offline in bounded CoreDevice/xcdevice/xctrace checks. Pre-install
+  inventory fails4016; installation is never attempted and no launch occurs.
+  Await an unlocked phone on the Mac's local Wi-Fi, then retry this same gate.
+  No device substitution, re-pairing, reset or network configuration changes.
+  Cleanup trap removes all owned build output on failure;28GiB free remains.
+  Shared121 and previously installed owner121 are unchanged. See release122.
+
+## 2026-10-05: Finish the all-sports Inline loading motion family, source-only
+
+- **Scope correction/authority**: Owner rejects the cricket-only animation pass
+  as incomplete and says fix. Apply its calm quality standard across the whole
+  known sport-art family, not a recolored ball. Local implementation/checks only;
+  leave the ended iPhone gate alone. No install, TestFlight, Git publication,
+  provider/backend, paid-service or FPL feature change. Shared2.0.1(121) stays.
+- **Native contract**: Preserve the approved nonblocking Inline panel, truthful
+  loading status and reachable Cancel. Equipment stays within its160x120 logical
+  canvas and the51.8x38.85 artwork inside a52-point Inline slot. No animation
+  completion delay, extra gesture capture, sound, network asset or new library.
+  Retain visibility/scene/Reduce Motion/Low Power guards and the30fps ceiling;
+  this is a scheduling limit, not a measured physical-device frame-rate claim.
+- **Implementation**: Football rolls, basketball/tennis use smooth eased contact,
+  baseball has a restrained seam arc, oval balls retain distinct NFL/rugby rhythms,
+  hockey glides with a bounded trail, motorsport uses a calmer track loop and
+  combat gloves a softer approach. Preserve cricket's approved gentle motion.
+  Add original explicit table-tennis paddle/net, golf green/flag/dimpled ball,
+  darts board/flight, volleyball panels, handball grip panels, lacrosse stick/net
+  and cycling wheel/crank art. Multi-sport composition and honest unknown-category
+  symbol fallback get bounded motion. Champions League keeps verified identity
+  admission with quiet original stadium lighting, not an official UEFA logo.
+  Normalize UI aliases and keep table tennis before tennis / NFL before soccer;
+  align ping-pong and Formula1 discovery aliases. Add light/dark edge contrast
+  and stronger source-level Increase Contrast treatment. Watch Two's preparation
+  and per-pane waits use the same artwork with hit testing disabled; playback,
+  source admission/selection, transport, PiP and fixture classification unchanged.
+- **Evidence**: Final simulator-free full gate passes788 tests (786 passed,
+  two optional skips), unsigned generic-iOS Release, parser/plist/whitespace.
+  Inspect all eight current native ImageRenderer sheets:20 profiles, four phases,
+  light/dark,160x120 and exact Inline scale. No observed blank/mismatched equipment
+  or clipping; all bounds/loop/suppression/pixel tests pass. These are native art
+  renders, not actual phone/iPad screens or an observed continuous animation.
+  Independent source review confirms prior alias, sizing, clipping and two-match
+  coverage findings resolved. Final alias checks, parser/plist and scoped
+  whitespace checks pass. The Catalyst host reports legacy audio-activation and
+  out-of-body FocusState diagnostics in existing player/reminder tests; this is
+  not a warning-free or measured-performance result. Owned DerivedData, result
+  bundles, logs and contact sheets are removed;28GiB free remains. No physical
+  device or shared distribution changed.
+- **Open acceptance**: Physical device light/dark, Increase Contrast, Reduce
+  Motion/Low Power transitions, perceived motion/legibility, navigation and
+  real-player controls remain a separately authorized gate. No claim of improved
+  measured responsiveness or release acceptance. Relevant current Apple guidance:
+  [Motion](https://developer.apple.com/design/human-interface-guidelines/motion),
+  [Loading](https://developer.apple.com/design/human-interface-guidelines/loading).
+
+## 2026-10-05: Implement the approved Inline feedback direction, source-only
+
+- **Authority**: Owner chooses Inline after the original interactive motion
+  preview and says proceed. Native implementation/local checks only; no device
+  installation, TestFlight, Git publication, backend or paid-service change.
+  Leave the owner-ended iPhone gate alone. Shared2.0.1(121) is unchanged.
+- **Native contract**: Keep the catalog visible during stream lookup. A compact
+  bottom safe-area panel above navigation carries sport artwork, current status,
+  requested match/pair and a real44-point Cancel; no full-screen dimmer or raw
+  provider diagnostics. Anchor outside Home's NavigationStack destinations so
+  lookup feedback also survives opening the full lineup. Use semantic text,
+  wrapping, accessibility stacking and selected browsing appearance; iPad's
+  temporary panel has a720-point readable width rather than stretched text.
+  Success confirmation stays beside the reminder action with one-use Undo and
+  Dismiss, never an automatic notification opt-in or timed dismissal.
+- **Implementation/safety**: Reuse current SwiftUI/Canvas and press feedback, not
+  new Lottie/Pow/PopupView runtime packages. Cricket gets gentle bounded bounce,
+  seam rocking and warm original art; retain30fps/visibility/scene/Reduce Motion/
+  Low Power guards and the existing feedback-frame window, no forced completion
+  delay or sound. Nonblocking lookup exposed independent single/multi lanes:
+  admit one at a time, freeze requested pair titles and disable playback/selection
+  controls, not browsing/filtering/saving/reminders. Both Cancel paths invalidate
+  tasks/UUIDs. Opening another modal destination first cancels the browsing
+  lookup; final UI commits recheck ownership and multi-view stays busy until
+  its terminal commit, so delayed completion cannot steal the new destination.
+  Reminder receipts check row/token/store revision and accepted
+  record; restoration invalidates old cancellation receipts. Undo cancellation
+  rechecks current fixture identity/status/time and uses accepted reschedules,
+  never the obsolete snapshot. Permission failures retain Settings recovery;
+  cancelling a reminder keeps its bookmark. Bookmark stores, sources, transport
+  and PiP owners stay unchanged.
+- **Evidence**: Approved browser concept; source review and parser checks.
+  Independent review caught/fixed loader-canvas overflow and enabled-but-no-op
+  Match Center Watch/Retry controls and modal/player presentation conflicts.
+  Sequential simulator-free local CI passes:782 tests,780 passed/two optional
+  skips, zero failures; unsigned generic-iOS Release compiles. No new warning
+  is emitted by the gate. Parser/project-plist/targeted whitespace checks pass;
+  owned DerivedData, result bundles and logs are removed (28GiB free afterward).
+  The final ownership review finds no concrete stale-publication regression.
+  offscreen host layout checks calibrate actual semantic-font expansion instead
+  of assuming Catalyst environment changes enlarge text (288pt measured165pt
+  in both settings). Those measurements do not qualify phone Dynamic Type.
+  No compile/unit result is native visual or physical playback acceptance.
+- **Open acceptance**: Actual owner-device comparison to the Inline preview,
+  light/dark, narrow iPad landscape, maximum text/long two-match names, VoiceOver
+  focus and Cancel/Undo journeys remain a separately authorized gate. This is not
+  an installed update or a new shared beta. Relevant Apple guidance:
+  [Loading](https://developer.apple.com/design/human-interface-guidelines/loading),
+  [Motion](https://developer.apple.com/design/human-interface-guidelines/motion).
+
+## 2026-10-04: Complete121 existing-group internal TestFlight release
+
+- **Authority/outcome**: Finish the owner-authorized internal upload using only
+  Fotty Internal Smoke. Existing group attached; UI confirms121 Internal / Testing,
+  Saved notes and11 invitations.111/100 remain available; no membership change.
+- **Independent evidence**: Apple API13:56:52 AST confirms2.0.1(121), VALID,
+  INTERNAL_ONLY, IN_BETA_TESTING, usesNonExemptEncryption=false, external
+  NOT_APPLICABLE. Automatic notifications already true, not changed. Group
+  availability does not prove email delivery or installed-binary acceptance.
+- **Compliance boundary**: The earlier modal is closed and normal group dialog
+  appears on this turn's fresh check. Agent submits no declaration this turn;
+  how it cleared is not established. Owner confirms all current testers outside
+  France and is in Tobago. Stop repeating the country question; no France
+  distribution enabled. Source facts remain CryptoKit AES-GCM/HMAC plus locally
+  composed PBKDF2; public Apple guidance does not explicitly resolve that KDF
+  composition's classification. Do not invent a legal exemption determination.
+- **Preservation**: No source edit/build/device action, credential/role change,
+  support request, public release, Git publication or backend deployment. Both
+  devices remain untouched. Small handoff proof retained; packaging stays cleaned.
+
+## 2026-10-04: Save121 testing notes; await country fact for compliance
+
+- **Evidence**: Owner restores ASC browser sign-in. Build2.0.1(121) English
+  (U.K.) What to Test is saved; UI says Saved. No all-provider/PiP/zero-jank or
+  downloaded-device acceptance claim. Groups0; Add Group routes to compliance.
+- **Remaining fact**: Standard-algorithm questionnaire path asks whether this
+  private beta is distributed in France. Source uses OS CryptoKit AES-GCM/HMAC
+  and app-composed PBKDF2. Do not guess the country or mislabel PBKDF2 an OS API.
+  Owner asked for the geographic distribution fact; no declaration saved.
+  Do not claim Testing/group availability until Apple confirms it. This is not
+  a confirmed code defect or legal classification. Form stays open for owner.
+  No source change/build/device action/tester-role change; saved notes only.
+
+## 2026-10-04: Internal121 upload succeeds after Xcode sign-in
+
+- **Authority**: Owner authorizes internal TestFlight upload only. Keep the
+  existing11-person Fotty Internal Smoke group,111/fallback100 and memberships;
+  leave both devices untouched, especially the owner-ended iPhone test gate.
+- **Evidence**: Native/test/config/qualification support remains identical to
+  owner121; only later docs differ. Fresh994-file pre-archive receipt
+  `backups/release-source/2.0.1-121-testflight`, source SHA256
+  `f1f5fb077c1b1f19c55f17e82e7ab44816a826d09817b4e0eca0b3f22054deae`.
+  Official Xcode27/jobs1 optimized archive, strict signatures, blank embedded
+  keys, manifests/icons/dSYMs and immediate pre-export source comparisons pass.
+  See release121 for archive fingerprints; these are not uploaded-binary proof.
+- **Blocker**: Existing internal-only export fails with Failed to Use Accounts.
+  Existing API-key retry reports empty role/no distribution signing certificate.
+  Native Xcode Apple Accounts is signed out; sign-in window opened for owner.
+  Reading TestFlight with the API key is not distribution-signing proof. No new
+  credential, permission, tester, backend, Git or FPL change. Build121 is not
+  uploaded; Apple still lists111 latest. Owner subsequently restores enrolled
+  account; Xcode shows Admin team. Close the GUI before the command-line retry.
+  Xcode automatically created a new27.0.1 iPad symbol cache at11:10:30 AST;
+  remove only that6.3GiB cache after GUI exit, preserving the September27.0
+  cache. First-attempt packaging/logs are removed; receipts stay. Retry requires
+  a fresh pre-archive receipt because these documentation updates are later.
+- **Recovery**: Signed-in retry uses fresh994-file receipt
+  `backups/release-source/2.0.1-121-testflight-signed-in`, source SHA256
+  `4148d9b3348c7affdaffe587fba6fb4acec30191ab3a18c430d2ccda1af36912`.
+  Independent native-input parity, source/restore comparisons and archive checks
+  pass. Xcode reports Upload succeeded / EXPORT SUCCEEDED11:24:36 AST.
+  Apple processing and existing-group assignment remain a separate verification
+  gate; do not call an uploaded build Testing before that evidence exists.
+- **Current external gate**: Apple11:27:26 AST confirms121 VALID/INTERNAL_ONLY,
+  ID `e8fffe58-a819-4f79-96b8-be9214b41679`, MISSING_EXPORT_COMPLIANCE/null
+  declaration. Existing API key rejects PATCH403, no mutation. ASC browser is
+  signed out; owner sign-in page opened. Do not call this tester availability.
+  Private backup uses CryptoKit AES-GCM/HMAC but app-composed PBKDF2; do not
+  blindly repeat an HTTPS-only declaration or call the KDF an OS API. No legal
+  exemption determination/source change made; see release121/Apple guidance.
+  Packaging/logs/new device-symbol cache cleaned; approximately33GiB free.
+
+## 2026-10-04: Correct phone Matchday claims and qualify owner121
+
+- **Confirmed defect**: Phone120's neutral raw Villa/Palace Home listing became
+  Matchday LIVE and Following Premier League. Decoded iPad footage is women's
+  football; elapsed provider timing and bare club names were not that proof.
+  121 introduces listedNow grouping/shared card status and rejects roster-only
+  league-follow inference. The no-score player header follows the same live
+  distinction. Preserve Watch, saved intent and explicit verified evidence.
+- **Verification**:761 Catalyst passes/two intentional skips, six new regressions,
+  version/catalog/provider checks, sequential unsigned/signed optimized Release,
+  strict nested signatures/blank provider keys and frozen compare pass. Exact
+  11 native/test/config receipt paths differ from120; no transport, source switch,
+  FPL, persistence or qualification-support change. Install command times out but
+  app inventory, native Settings121 and normal PID604 launch prove completion.
+- **Physical phone**: iPhone15ProMax/iOS27.0.1 Home/Matchday/Settings render and
+  navigate; false LIVE/PL-follow entry is gone. Visible preferences remain.
+  67.711982s actual navigation trace has no >250ms potential hangs,22 app hitches,
+  maximum20.838041ms. Not zero-jank or comparable speedup proof. Two Brighton
+  broadcasts decode; Pause holds at81:25. Owner says it runs perfectly and ends
+  phone testing: leave it alone, no further device actions. PiP/background/
+  restoration/Close were not newly qualified. Concurrent other-app use is not
+  Fotty crash/PiP-failure evidence. Audible owner reply is not background proof.
+- **Scope and provenance**:993-file pre-build receipt
+  `backups/release-source/2.0.1-121-owner-iphone`, recovery commit
+  `9cc2d6226370239d2ca6f4e0d8a5d9961e894443`, source SHA256
+  `35b75f80039f09f9488c76551cb98cc3750f39bf5a5b9ab56ba2ce1f563fb708`.
+  See release121 for signed fingerprints and evidence limits. Existing early
+  cached-score header bypass remains a focused caveat outside this repair.
+  Keep iPad120 proof separate. Shared111/fallback100 unchanged; distribution
+  archive/export/upload needs its separate gate. Owner121 is a candidate for the
+  next existing-group internal beta, not an uploaded/processed shared build.
+  Removed only245MiB owned trace/export/launch output after compact review;
+  34GiB free. Build outputs had already been cleaned automatically. Receipts and
+  unrelated data remain; no phone action follows the owner's stop.
+
+## 2026-10-04: Finish owner120 iPad navigation and Watch Two performance gate
+
+- **Measured cause and repair**: Follow-up117–119 recordings narrowed repeated
+  Home/CPL work to clock-invalidated immutable facts, date parsing, Matchday
+  matching and multi-view admission.120 prepares selection once per projection,
+  checks supported sources first and uses one early-stop candidate pass, and
+  memoizes exact short ISO8601 inputs under the existing formatter lock.
+  Preserve full selection/revision invalidation and all current time-relative
+  freshness/phase/eligibility guards. Cache pure results, not accepted snapshots.
+  NSCache retention limits are advisory; eviction never changes parse behavior.
+- **Verification**:755 Catalyst passes/two intentional skips; seven new semantic
+  regressions plus version/catalog/provider checks pass. Sequential unsigned/
+  signed optimized Release, strict nested signatures and blank embedded keys
+  pass. Exact Jet iPad in-place install/normal launch/visible120 pass. Typed
+  local preferences including the manager ID remain; SwiftData not compared.
+- **Actual native evidence**: Two installed120/PID3171 navigation recordings
+  last45.865955s/45.714625s. Neither reports a >250ms potential hang; 37/25 app
+  hitches remain, maximum99.994416/49.995ms. Do not call this zero-jank or infer
+  a speedup percentage from changing live catalogs/workloads. Real Home dragging
+  and repeated Home/Matchday/Settings navigation render and recover normally.
+- **Watch Two**: Two football broadcasts decode/advance together. Independent
+  source selection, paused-other-pane preservation, per-pane Pause/Play, Swap,
+  Equal/Focus, Fit/Fill and Close pass. Focus labels fit. Source clock offsets
+  and brief layout reloads remain. Visual audio focus is not audible audio/
+  teardown qualification; PiP/background/iPhone are separate. Villa footage is
+  women's football, not proof of a men's PL fixture/cohort. See release120.
+- **Provenance and scope**:992-file pre-build receipt
+  `backups/release-source/2.0.1-120-owner-ipad`, recovery commit
+  `361f0f94f8dd77faaa5a659db8d7dca0c3cc389b`, source SHA256
+  `427d65b0aabc25f5e63b12d598b8dd127a31165e193a6857566d9d20b7d12cd6`.
+  Secret scan/restore/pre-install compare pass; documentation is later.
+  Apple UI/staged performance guidance informed native checks and evidence
+  limits. Owned temporary artifacts are cleaned after compact results; immutable
+  receipts and unrelated data stay. Shared111/fallback100 unchanged. No FPL
+  features, TestFlight, Git publication, backend, tester or spending change.
+
+## 2026-10-03: Measure Home stalls, repair repeated work and install owner116
+
+- **Evidence**: Exact installed115/Jet iPad SwiftUI trace45.933s found13 Home
+  body updates/2.181s total/max214.526ms overlapping four main-thread hangs
+  (max1.352s). This is real runtime evidence, not delayed mirror capture.
+  No matched115 symbols or successful mirrored-scroll workload; individual
+  function self-cost and scroll qualification are not established.
+- **Repair**: Prepare immutable follow/league selection once; revision-key
+  same-count interest edits and publish per-event follow/major-league facts with
+  discovery. Raw arbitrary events bypass ID-only facts; inactive filters short
+  circuit. Preserve fixture matching/ranking/source eligibility/persistence.
+  Physical115 also exposed fragmented Source1 in the Focus sidebar. Compact
+  persistent chrome now separates identity/controls, retains scaled44pt targets,
+  single-line source labels, allocated width and16:9 fitted video. Apple UI and
+  staged performance-audit guidance shaped these focused repairs, not a redesign.
+- **Verification**:736 Catalyst passes/two skips; nine new regressions; old
+  source-shape contract corrected and full suite rerun. Seven version tests,
+  provider/catalog identity, unsigned/signed optimized Release, strict signatures
+  and empty embedded keys pass. Only Jet iPad received2.0.1(116); normal PID2474
+  remains present. Exact typed preference comparisons preserve local manager,
+  season, interest filter, reminders, appearance and review payloads without
+  publishing IDs. SwiftData follows were not separately compared.
+- **Provenance**: Final988-file pre-build receipt is
+  `backups/release-source/2.0.1-116-owner-ipad-r2`, recovery commit
+  `fe6b7691cb1c0c0492aceb5a6b0f265dffe7a4c0`, source SHA256
+  `1a0dd10bf92c9b15818b8e2bac9c1e706aabc77f011557deb631acb045ea120a`.
+  Secret scan/restore/pre-install compare pass. See release116 for executable
+  and bundle fingerprints; later documentation is not frozen build input.
+- **Active blocker**: Mac locked; automatic unlock fails. iPad is connected and
+  unlocked. CLI app/PID attachment fails even with official Xcode pinned, while
+  installed get-task-allow is true; do not infer an entitlement restriction.
+  Earlier GUI115 recording worked. Unlock Mac, rerun the same116 workload and
+  inspect compact Focus controls. No measured improvement/native116 visual or
+  shared-release qualification claimed; approval for this repair/device gate
+  remains active and does not need repeating.
+- **Resources**: Correct packaging PATH/tool discovery before heavy work; keep
+  a checked app until install rather than let optional diagnostics force rebuilds.
+  Sequential jobs1/no simulators; owned outputs cleaned,43GiB free. Retain only
+  matched43MiB dSYM in `backups/performance/owner-2.0.1-116` for pending profiling,
+  then remove. No TestFlight/Git/backend/tester/spending/FPL feature change.
+
+## 2026-10-03: Continue approved repairs without repeated permission and install owner115
+
+- **Authority**: The owner explicitly clarified that known repairs and the
+  already-approved named-device testing gate should continue without repeat
+  approval; major new scope/UX/architecture, privacy/security, cost or distribution
+  decisions still need direction. AGENTS/Workflow now preserve that distinction.
+  Only Jet iPad was targeted; no iPhone, TestFlight, Git publication, backend,
+  tester, spending or FPL feature change.
+- **Identity**: Source/app/extension advance together to2.0.1(115). Seven offline
+  version tests/preflight pass; no functional change follows the727-pass/two-skip
+  Catalyst and unsigned iOS gate. Signed optimized Release, strict nested
+  signatures, empty embedded provider keys and installed CoreDevice115 identity
+  pass using official Xcode27 and jobs1.
+- **Receipt**: Pre-build987-file capture, default secret scan/round-trip restore
+  and pre-install compare pass. Recovery commit
+  `11c4e158463fad38c061e65a027aebc37c1eb226`; source SHA256
+  `85d899ea6b32db2af3d840703282faef041a6d09ee925931b0e05fb2a9a3e661`.
+  Independent review confirms212 captured native inputs still match. Later
+  documentation is outside this frozen source receipt. See release115 for the
+  distinct recovery-bundle and locally signed executable fingerprints.
+- **Physical evidence**: Home/Light/landscape shows neutral Broadcast listed
+  and More events. Hockey Watch reaches sport-specific loading; Pause/Sources
+  labels fit on one line. No successful source-switch, decoding or PiP check is
+  claimed. Mac lock briefly blocked control; access returned but Device Hub
+  reports AVC stream RTCP timeout/CoreDevice9015 on localNetwork. Restarting
+  screen sharing did not stabilize it, and iPad Home remained unobservable.
+  This is a control-transport failure, not app-crash/provider-failure evidence.
+  The same app process remains present beyond60 seconds. Normal app termination/
+  relaunch retires the agent's test attempt; no data reset. Stable cable/control
+  access is the next physical prerequisite, not another approval request.
+- **Data limits**: Baseline preferences copied before install, but plutil's
+  whole-plist JSON conversion failed on typed objects. Automatic cleanup removed
+  the copies, so exact equality cannot be reconstructed. Subsequent typed read
+  confirms positive local manager/season, interest preference and reminders
+  presence without displaying IDs. Saved payload is absent with no established
+  prior payload; follow records were not compared. No blanket preservation claim.
+- **Cleanup**: Local packaging-path/search-path errors were repaired without
+  bypassing signatures or source/secret checks. Each failed/interrupted and final
+  gate automatically removed owned build/DerivedData/log/preference output;
+  subsequent inspection copies are also removed.46 GiB free; intentional source
+  receipts and unrelated user caches remain. No simulator or UI-test runner.
+
+## 2026-10-03: Resolve confirmed owner-iPad toolbar, listed-status and web-attempt recovery defects
+
+- **Authority**: Owner requested resolving the reported findings, not merely
+  explaining them. Source/local verification only; no new build number, signing,
+  installation, TestFlight, Git publication, backend change or FPL feature work.
+  Frozen owner114 and shared111 remain unchanged.
+- **Physical evidence**: After retry, normal Device Hub control worked on Jet
+  iPad114. Home/Matchday/Settings, Light/Dark restored to Light, provider fullscreen
+  Pause/Play, advancing WebKit PiP outside Fotty for more60 seconds, restoration
+  and the six-choice Sources sheet worked. The decoded baseball video was an
+  end-card loop. Sources wrapped; second-source black playback/control state was
+  not proven because capture lag and auto-hidden chrome limited observation.
+  No crash, actual live-match decoding, scroll timing or successful second-source
+  recovery is claimed. Two Instruments attaches did not find the app process.
+- **Truthful status**: Raw provider coverage retained the same baseball names and
+  kickoff as a fresh official finished fixture, but lacked required competition/
+  cohort identity. Do not loosen the merge or suppress rows by names/time alone.
+  Neutral "Broadcast listed"/listed counts replace false red ON NOW claims;
+  confirmed LIVE/counts retain verified status. Fresh official terminal rows
+  remain filtered; Watch/source eligibility and source admission are unchanged.
+- **Native layout**: Measure the real UIKit Pause/Sources labels and symbols,
+  honor scaled text and44-point targets, and reflow when width is insufficient.
+  Hidden Sources deactivates only its minimum constraints, avoiding a stack-view
+  zero-size conflict. No new overlay gesture or duplicate provider control.
+- **Lifecycle**: Both single and two-match web surfaces use attempt-keyed
+  WebViews. Pause/audio/rotation/scene changes retain identity; selected source/
+  retry replaces it. Attempt-tagged bridge messages and committed URL/query/
+  navigation ownership reject stale events. First selected-load commit gates
+  unknown navigation starts. Native startup deadlines cover missing JavaScript;
+  navigation/process failures recover only the current attempt, with explicit
+  pause/background cancellation. PiP resets on document replacement and stale
+  source/attempt callbacks cannot clear the new player's state. Teardown
+  invalidates work, recursively suspends child media, invokes native WebKit
+  pause/close and releases delegates. Allowlists/cookie-domain boundaries remain.
+- **Verification**: Independent scoped review and Swift parse/whitespace checks
+  pass. Added UIKit geometry, executed-JavaScript, navigation ordering, native
+  teardown and PiP regressions. Final tools/ios-ci.sh passes sequential jobs1,
+  official Xcode27 and no simulator: structured Catalyst result is727 passed/two
+  opt-in skips/zero failures, including the18 new regressions; unsigned generic
+  iOS Release passes. Coherent version and five provider identity vectors pass.
+  The installed
+  114 receipt does not capture this modified source. Six Mac audio activation
+  warnings remain; no new mobile performance diagnosis is implied.
+  Initial qualification corrected test-helper visibility and invalid manual
+  WKNavigation fixtures: verified host crashes were CFRetain(NULL) in WebKit
+  navigation deallocation. Real offline HTML navigation objects replace those
+  fixtures without weakening production ownership checks; final tests pass.
+  Apple UI guidance informed label sizing/reflow and honest status presentation;
+  tests/builds are not a native screenshot or owner acceptance.
+- **Next gate**: Separate owner-device authority, new immutable source receipt/
+  build identity and exact-source switch/retry/PiP/no-duplicate-audio acceptance.
+  No old Mac app or browser preview qualifies the repaired native UI.
+- **Cleanup**: Owned build/DerivedData/results/logs were removed on every exit.
+  Five positively identified invalid-fixture host crash reports were summarized
+  and removed; unrelated logs/caches and the intentional owner114 source backup
+  are preserved.47 GiB remains free. No binaries or screenshots retained.
+
+## 2026-10-03: Install private usability build114 on Jet iPad without claiming interaction acceptance
+
+- **Authority**: Owner approved proceeding from the native qualification gate
+  to exact-device checks. Jet iPad was the only available owner device; Jelani's
+  iPhone remained unavailable and no substitute phone was targeted. No TestFlight,
+  development-repository commit/push, backend or FPL feature change.
+- **Identity**: Allocate2.0.1(114) across app/widget/source configuration to avoid
+  confusing the current repairs with frozen candidate113. Seven offline version
+  regressions and coherent-version preflight pass. No functional code changed
+  after the709-test/two-skip current-source gate; only version metadata changed.
+- **Provenance**: Verified pre-build local receipt has986 files, recovery commit
+  `b94ffa258118519b4c532f9bfe3d7c5d0a1f24f9`, source SHA256
+  `7a7272026ba8d7b56b888773950e74ba1bb5e24e54716b8db161594a45937ddb`.
+  Full secret scan/round-trip restore and pre-install compare pass. It captures
+  this dirty working tree, not the narrower frozen113 assembly; it is not an
+  off-Mac backup or a backend deployment receipt.
+- **Physical checks**: Official Xcode27/27A266a, sequential jobs1, signed optimized
+  Release and strict nested signatures pass. CoreDevice reports installed114 on
+  Jet iPad Air4/iPadOS27.0.1; normal Fotty process survives a60-second relaunch hold.
+  No matching Fotty crash files were found before/after. This proves identity and
+  sampled process survival, not rendered responsiveness, scrolling or media.
+- **Local data**: A bounded post-install preference read confirms a positive
+  local manager, matching confirmation/current season and a present disabled
+  Home-interest filter. No manager value was printed, embedded or exported.
+  A planned baseline read arrived after installation and cannot establish a
+  pre/post comparison; saved-match payload was unavailable in this read. Follow
+  records and full retained-state/backup acceptance remain open. No preferences
+  were changed and no app data was wiped/restored.
+- **Interaction blocker**: Owner screenshot shows Computer Use/Any App enabled.
+  This chat's tool still denies Device Hub and, after reset, exposes no native
+  app surface; do not ask for broader permissions or bypass it with shell/HID,
+  preference writes or an iOS UI-test runner. No UI, live playback, PiP or
+  performance acceptance is claimed. The Apple UI/performance workflows keep
+  those evidence levels distinct; six Catalyst audio warnings remain unqualified
+  on the device.
+- **Cleanup**: Owned signed app/DerivedData and transient private preference
+  copies are removed. A copy completing alongside cleanup recreated a308-KiB
+  owned folder; root explicitly removed and reverified it after transfers stopped.
+  Retain only the intentional19-MiB source receipt;46 GiB free. See release114.
+
+## 2026-10-03: Qualify current usability repairs after full-access restoration
+
+- **Scope**: Owner enabled full access and requested retrying the blocked native
+  checks. Source/local qualification only; no install, signing/archive, TestFlight,
+  commit/push, deployment, spending change, FPL feature work or skill activation.
+- **Environment**: Official Xcode27/27A266a now compiles the Swift macros normally.
+  The first full-access attempt compiled but stalled in a header-only badge test;
+  this was a test-fixture failure, not an observed app crash.
+- **Focused repair**: Add explicit MIME/nosniff metadata to the controlled
+  URLProtocol fixture, bounded session deadlines and a fail-only watchdog. Cancel
+  that watchdog before waiting for transport shutdown and assert it never supplied
+  cancellation. Keep the fixture body-free with no successful completion callback;
+  both tests still exercise the actual production downloader and task cancellation.
+  Independent review passes. No app transport code changed in this follow-up.
+- **Evidence boundary**: This verifies the controlled fixture on the tested
+  Foundation runtime and the collector's two-MiB application accumulation limit.
+  A bounded real-wire header-only probe did not establish prompt header admission;
+  do not claim a universal transport timing or Foundation-internal buffering bound.
+  Existing production request/resource timeouts remain8/12 seconds.
+- **Verification**: Final full tools/ios-ci.sh gate passes, sequential jobs1/no
+  simulator. Structured xcresult reports709 passed, two intentional opt-in skips,
+  zero failures; unsigned generic iOS Release passes. The nine focused suites
+  executed, including terminal/reminder queue, saved cricket, CPL cancellation,
+  Home replacement, backup fencing, badge cancellation and native/Watch Two retry
+  regressions. Skips are the opt-in reference HLS soak and live Score808 discovery.
+  Five provider identity vectors and coherent2.0.1(113) version preflight pass.
+- **Open evidence**: Six SessionCore_macOS_Legacy audio activation warnings were
+  recorded in the Catalyst test host. They are not mobile smoothness proof or a
+  demonstrated iOS defect; exact-device performance and playback/PiP/Watch Two,
+  retained data, reminder delivery, backup and accessibility acceptance remain open.
+  This current working tree is not the frozen Oct1 candidate113 receipt; shared111
+  and owner112 are unchanged. No new distribution receipt/build number allocated.
+- **Cleanup**: Owned CI output, result bundles, compiled probes and module caches
+  were removed after both failure and success.47 GiB remains free; unrelated user
+  artifacts and caches were preserved.
+
+## 2026-10-03: Close verified terminal precedence and queued reminder edge cases
+
+- **Scope**: Follow-up local qualification of the approved usability repairs;
+  FPL feature work remains paused. No install, upload, publication, deployment,
+  commit, spending change or new build number.
+- **Confirmed failures**: A separate lagging score poll could keep an accepted
+  finished/cancelled fixture Live or preserve a future cancelled countdown.
+  Reminder reconciliation captured records before an earlier queued opt-in
+  finished its permission/add wait, missing a new record and its bookmark.
+- **Repair**: Only verified terminal fixture facts outrank nonterminal score
+  states. Genuine live, unverified/nonterminal ordering and raw final score labels
+  remain unchanged. Derive reminder evidence after the previous queued operation
+  completes; apply accepted terminal facts to its newly created bookmark before
+  revoking the alert. Missing or conflicting fixture evidence cannot cancel it.
+- **Verification**: Independent bounded reviews pass. All five follow-up Swift
+  source/test files parse and whitespace checks pass. Added native regressions
+  cover lagging score states, permission/add suspension, retained terminal
+  bookmarks and missing/conflicting controls; they remain unexecuted. An isolated
+  harness compiled the actual production queue method against controlled model
+  doubles and passed four cases, not the app suite or physical acceptance.
+- **Remaining gate**: A minimal SwiftUI compile probe reproduces the same sandbox
+  macro-launcher failure before Fotty code is involved. Full native qualification
+  remains blocked; do not bypass it or reuse frozen Oct1 candidate113's receipt.
+  Run tools/ios-ci.sh in normal macOS Terminal, then obtain separate exact-device
+  authority/acceptance. Owned probe/harness output was removed;47 GiB free.
+
+## 2026-10-03: Repair confirmed app-wide usability and lifecycle defects locally
+
+- **Scope**: Owner approved all confirmed audit repairs, focused on usability
+  and performance. FPL feature work remains paused. Source/local verification
+  only: no install, TestFlight, commit, push, Worker deployment or spending change.
+- **Playback**: Explicit native Pause revokes recovery permission, including
+  network restoration and stall callbacks; explicit Play renews it. Preserve
+  native/WebKit PiP ownership and background suspension semantics. Watch Two's
+  delayed retry now has source/attempt/token ownership and cancellation fences;
+  stale, recovered, paused or dismissed attempts cannot reload a panel. Goal
+  Audio only focuses a viable panel, preserving working audio on a failed slot.
+- **Saved state and fixtures**: Verified finished/cancelled facts reconcile saved
+  matches and reminder revocation without re-entering playable catalogs. Persist
+  cricket status/format/receipt metadata compatibly, retain exact-team artwork,
+  and invalidate Matchday projections on same-count content changes. Source-free
+  elapsed CPL starts await confirmation rather than inventing Live; valid untyped
+  provider Live behavior stays unchanged. Unavailable cricket cohorts retry after
+  five minutes. Cancelled CPL checks release their throttle; normal checks retain
+  the reviewed thirty-minute cadence. Missing fixtures never imply cancellation.
+- **UI, recovery and resources**: Revalidate Home selection when actual sports
+  change, not just row count. Watch accessibility labels name the event/channel;
+  section titles expose heading semantics. Backup review generation tickets fence
+  stale success/error/busy publication after input changes or dismissal. Badge
+  refresh replaces old remote URLs deterministically, preserves current concurrent
+  lookup results and deliberate artwork overrides, and validates URLs before
+  counting success. Streaming collection rejects oversized headers before reading
+  and stops unknown/lying-length bodies at the existing two-MiB boundary; cancel
+  the transport without changing coalescing, bounded cache or thumbnail decoding.
+- **Verification**: Independent scoped reviews and whitespace checks pass; all
+  23 edited Swift source/test files parse. Seven offline native-version tests and
+  five provider identity vectors pass. A temporary Foundation-only harness compiled
+  actual production badge/retry/audio helpers and passed 17 assertions; it is not
+  the app unit suite, a device test or measured smoothness evidence. Added focused
+  native regressions remain unexecuted: the full simulator-free gate failed at
+  Catalyst compilation because the session sandbox rejected Swift's macro-plugin
+  launcher (`sandbox_apply: Operation not permitted`). Do not bypass that boundary
+  or report a qualified build. Run `tools/ios-ci.sh` in an authorized environment,
+  then request separate exact-device playback/PiP/Watch Two, backup and accessibility
+  acceptance. No simulator was launched. Owned CI/harness output removed;47 GiB free.
+- **Receipt boundary**: Source still identifies 2.0.1 (113), but these repairs
+  postdate the frozen Oct1 candidate113 and invalidate reuse of its qualification
+  receipt for this working tree. Shared111 and owner112 are unchanged; no new
+  build number or distribution receipt was allocated. Current remote health was
+  not probed by this source-only repair gate.
+
+## 2026-10-03: Prepare reusable iOS design and performance skill upgrades
+
+- **Scope**: Owner chose reusable iOS skills, not Fotty-only guidance. Current
+  focus is usability/performance; this instruction-maintenance gate authorizes
+  no app/FPL/backend changes, builds, device actions, publication or release.
+- **Decision**: Preserve the existing Apple UI skill and add a native-reference
+  handoff; pair it with an evidence-led iOS performance audit. Keep portable
+  packages in `agent/skill-candidates`, synthetic trials in `agent/skill-evals`
+  and Fotty-specific tool/ownership routing in `agent/playbooks/ios-skills.md`.
+  Root AGENTS and Current-State link that adapter. Personal installed skills
+  remain unchanged/read-only; global activation is a separate pending gate.
+- **Verification**: Both skill manifests validate, YAML metadata parses, five
+  local reference links and all eight fixture cases resolve. One independent
+  evaluator passes eight reviewer-graded behavioral cases, including first-load
+  cache loss, same-ID stale scores, leaving correct code unchanged and rejecting
+  unsupported/confounded performance claims. Synthetic trials are not app proof.
+  Independent source review found and reverified fixes for an ignored fixture
+  and missing routing. No dependency install or temporary build output.
+- **Evidence**: `docs/audit/Fotty-iOS-Skill-Upgrade-2026-10-03.md`. Future global
+  activation needs permitted personal-directory access and a fresh comparison;
+  do not bypass the boundary or treat staging as automatic discovery.
+
+## 2026-10-01: Qualify coherent native candidate113 without distributing it
+
+- **Scope**: Owner approved proceeding with overall reliability priorities.
+  First gate is source-only candidate preparation/qualification, not a device
+  install, TestFlight release, development-repository commit/push or deployment.
+  Shared111 and owner iPad112 remain unchanged; the seven-day round is unstarted.
+- **Confirmed repair**: A fresh CPL receipt was awaited but ignored by the
+  older-provider early return. Accept the schedule before that guard, project
+  source-free CPL rows and include them in saved/reminder reconciliation. Keep
+  unrelated rows/sources and older/unverified snapshot rejection. Two parameterized
+  regressions cover kickoff changes in both directions and rejected revisions.
+  Controlled tests prove identity resolution, not real notification delivery.
+- **Candidate isolation**: Restore verified owner112; overlay exactly ten native/
+  config/test paths and three gate-tool paths. All228 native/gate inputs byte/mode
+  match primary; no native additions/deletions. Preserve unrelated dirty work.
+  Retain older baseline web files; separately record deployed PR36 source/version.
+  The native snapshot is not a substitute backend deployment tree.
+- **Reproducibility**: Pre-build local receipt has964 files, one independent root
+  commit `70e32ca0cecafcfad6aa8482767fce882dbbfb92`, source SHA256
+  `d94562b4df02b756e3797fc341524a92c64a33924eea1d8963ffab1690e4d87c`.
+  Full secret scan, round-trip restore and post-build comparison pass. A failed
+  mechanical overlay was corrected before building; review then caught malformed
+  YAML introduced by version allocation. Correct it and add parsed app/extension/
+  four-configuration version preflight plus seven offline tests; recapture and
+  rerun the full gate. Neither rejected receipt is the final candidate.
+- **Qualification**: Official Xcode27/27A266a, sequential jobs1/no simulator:
+  657 Catalyst tests passed/two opt-in skips/zero failures, unsigned iOS Release
+  passed; five identity vectors, 13 recovery and seven version tests pass.
+  Four existing Mac audio activation warnings remain explicit, not a mobile
+  performance defect claim. Fresh20:57 UTC production health identifies source
+  `2026-10-01.cricket-corrections-1`; verified cricket67/sports70 retain the three
+  reviewed ICC starts. No paid or live-score probe was made.
+- **Next gates**: Release113 and build113 ledger replace stale current routing,
+  preserving historical93 evidence. Exact phone/tablet launch and retained data,
+  sustained playback/PiP/Watch Two, actual reminder return, disposable Files
+  recovery, accessibility and one independently received report remain open.
+  Current19 MiB receipt stays local; newest verified off-Mac backup is still93.
+  Owned assembly, rejected receipts, logs/DerivedData/results removed;44 GiB free.
+
+## 2026-10-01: Publish and deploy only the verified ICC correction ledger
+
+- **Authority/scope**: Owner explicitly approved protected publication and
+  Worker deployment. Native changes, installs, TestFlight, new sources, accounts,
+  secrets, spending and paid-Coach settings excluded. The clean attached
+  checkout isolates three functional files, unique identity and operations doc;
+  unrelated dirty primary work and differing package/lockfile are preserved.
+- **Protected receipt**: [PR36](https://github.com/jetboss/Fotty/pull/36) passed
+  Web CI36915867915 (including optimized build), quality36915868048 and
+  CodeQL36915867920 before normal squash merge
+  `0416690f66019657dea4c299d51546b5b3b3c7a6`. Exact candidate tree equals
+  that merge; the reused release checkout is clean/detached there.
+- **Qualification**: Exact clean lock, bundled Node24:326/326 units, typecheck,
+  focused zero-warning lint, dry-run, staged/source gitleaks and whitespace pass.
+  Baseline full lint remains48 warnings/zero errors. Independent backend/native
+  review finds no contract blocker. Existing ten dependency alerts remain open;
+  reachability triage finds no Worker-runtime blocker, not zero vulnerabilities.
+- **Deployment**: Source `2026-10-01.cricket-corrections-1`, Worker version
+  `87b347ed-0b0c-4df1-b0ec-9c755f06fc5d`, deployment
+  `dfe83ec8-61e8-4fc2-b5ba-73367a120c54`,100% traffic. Runtime/migration,
+  four DO namespaces, rate limits, vars and four secret names/types compare
+  exactly with source4. Cron remains five minutes. Exact-version scheduled
+  invocation at19:46:01.790 UTC is ok/zero exceptions; tail stopped.
+- **Recovery**: At19:46:20 UTC all67 IDs remain, only the three reviewed starts
+  change, other64 starts stay equal. WI9/ICC58 receipts19:45:36.647 UTC;
+  source verified, aggregate/per-cohort failures0, no internal evidence leaks.
+  Hosted cricket36916807008, sports36916809058 and CPL36916811364 all pass on
+  merged main. CPL reports schedule current without fixture commit/PR.
+  CWI current/next24h audit is healthy; sports remains same-publisher comparison.
+  Health/embed, CPL39 and complete3/3 catalog pass; no paid-Coach/live-score call.
+  Reviewed incident34 closed; failures before recovery stay historical evidence.
+- **Boundaries/cleanup**: No app build/install/release. Owner112 already accepts
+  same-ID correction/cache/reminder reconciliation, but the replay-refresh
+  repair remains local; shared111 predates broad cricket ingestion. Physical
+  delivery is not proved. Owned dependency/bundle outputs removed,44 GiB free.
+  Rollback is code-only to source4/versiond1cdb4e4; never reset accepted data.
+  [Full deployment receipt](https://github.com/jetboss/Fotty/pull/36#issuecomment-5939284827).
+
+## 2026-10-01: Admit three verified ICC kickoff corrections and fix cricket replay refresh locally
+
+- **Authority**: Owner approved the focused fixes after source verification.
+  Source-only implementation/qualification; no commit, publication, deployment,
+  installation, TestFlight, credential or spending change.
+- **Verified facts**: Rendered ICC women fixtures and canonical match-centre
+  pages confirm275298 Oct4 02:00Z,275299 Oct6 02:30Z,275300 Oct7 02:00Z.
+  The complete18:38:42 UTC feed agrees in UTC/Malaysia/India, but its revision
+  flags are false. This is authoritative ICC publication, not independent-board
+  corroboration. The initial slugless-page reads were not clearance; rendered
+  canonical links resolve the publication evidence. See cricket operations.
+- **Repair**: Immutable `icc-kickoff-corrections.mjs` authorizes only these exact
+  retained-old→collected-new scheduled transitions, requiring real ordered
+  women/team identities and names, series15827/name, T20/ICC scope, canonical
+  source, equal row/collection receipt after verification, ≤6h age and expiry
+  before either kickoff. It never rewrites a source row or fabricates
+  `is_revised`; internal series evidence is stripped before publication.
+  Unknown unflagged moves/reversals still reject. Subsequent explicitly revised
+  publisher corrections retain existing authority; this is not permanent time
+  pinning. Complete collection, cohort isolation, watermark/terminal guards,
+  durable persistence, retry budgets and CPL ownership are unchanged.
+- **Native**: A replayed provider receipt now merges independently accepted
+  cricket with empty provider evidence before returning; cricket/sports merges
+  share one bookmark/reminder reconciliation. No stale source is borrowed.
+  Three regressions cover±30min changes, exact saved-ID continuity, matching
+  stale source exclusion, participant rejection and complete-empty replacement.
+- **Verification**: Backend/monitor68, full local web/Worker322, Catalyst655
+  passed/two skipped; generic unsigned iOS Release, nonincremental typecheck,
+  focused zero-warning ESLint and Worker dry-run pass. Independent source/native
+  reviews find no blocking defect. Four existing Catalyst audio-session runtime
+  warnings are not resolved by this fixture repair. No simulator used.
+- **Live rehearsal**: At19:02:16 UTC, production67 plus fresh complete ICC67
+  recovers in memory to verified/zero from43 failures, changing exactly the
+  three starts, preserving WI9/ICC58. No cloud write: source4 still holds the
+  incident; shared111/owner112 and physical acceptance remain unchanged.
+- **Cleanup/next gate**: Owned build/result/dry-run files removed;44 GiB free,
+  user artifacts/dependencies preserved. Protected publication and new Worker
+  identity/fresh recovery receipts require separate approval; native installs
+  and significant shared batches remain separate gates.
+
+## 2026-10-01: Publish and deploy the qualified fixture expansion, without an app release
+
+- **Authority**: Owner answered option 1: publish/deploy verified backend only.
+  No new feed/account/contact, spending, paid-Coach/secret changes, native
+  publication, device install or TestFlight release. Source strategy for the
+  remaining 23 lanes is still a separate decision.
+- **Protected receipt**: Reused the clean attached activation checkout; copied
+  only nine qualified fixture Worker files and three operations docs. Protected
+  [PR35](https://github.com/jetboss/Fotty/pull/35) merged normally, without bypass,
+  as `3742b96f08d02e4dce722073f818c3b3f7a4a43d`. All checks pass: Web CI
+  36883227752, quality 36883227772, CodeQL 36883227802. The deployed checkout was
+  detached at this exact merge. Unrelated dirty primary/native work is preserved.
+- **Qualification**: Bundled Node24, exact clean lock; all 321 units, nonincremental
+  typecheck, focused zero-warning ESLint, dry-run and redacted scans pass. Full
+  repository lint has 48 baseline warnings, zero errors; hosted CI includes build.
+  No local app/simulator build. Independent source/consumer review finds no new
+  contract regression. Dependency reachability review finds no fixture-runtime
+  blocker; existing alert/upgrade PRs stay separate, not silently dismissed.
+- **Deployment**: Source `2026-10-01.sports-fixtures-4`, Worker
+  `d1cdb4e4-abb5-48a5-b024-2b276ddc23c8`, 100% traffic, registered five-minute
+  cron. Existing bindings/website0/WNBA0, Coach disabled/50 and four secret
+  names/types remain unchanged. Exact-version scheduled handler observed at
+  15:30:45 UTC, outcome ok, zero exceptions; bounded redacted tail ends.
+- **Live coverage**: All six football scopes have accepted 15:25:46 UTC receipts
+  (empty this window); MLB13/NHL57 give 70 fixtures. Eight covered /23 unsupported
+  lanes. Hosted sports monitor 36884399877 passes on merged main; this manual
+  dispatch does not prove hourly GitHub scheduler timing or independent league
+  completeness. Full all-sport fixture coverage is not claimed.
+- **Cricket**: WI9 now refreshes independently; all 58 ICC records compare equal
+  to the pre-deploy snapshot and retain 13:00:46 source observations. Three
+  unflagged tri-series kickoff changes stay unresolved. At 15:25 the aggregate/
+  ICC failure streak is 18, WI0. Monitor 36884670580 correctly still fails
+  repeated-sync-failure/coverage-unavailable; partial WI recovery is not healthy
+  ICC. CPL39, health/embed and complete 3/3 catalog contracts pass; no paid Coach
+  or quota-consuming football-live call. No new physical acceptance claimed.
+- **Next gates**: Choose free-only vs paid-source evaluation for 23 gaps; verify
+  ICC timing with independent source evidence. Local native valid-empty/cooldown
+  fixes still need separate owner-device acceptance before a significant shared
+  batch. Operations/source ledger and current summary now reflect source4.
+
+## 2026-10-01: Expand fixture supervision and qualify existing-source coverage without claiming universal data
+
+- **Authority**: Continue the app-wide fixture implementation to its local gate.
+  No new commit/merge/publication, activation, install, TestFlight, account,
+  publisher contact or spending authority. These remain separate decisions.
+- **Coverage**: Reuse the existing football-data credential and one six-code
+  bulk query for PL/CL, La Liga, Serie A, Bundesliga and Ligue 1. Remove four
+  duplicate gated descriptors; the local manifest has26 groups /31 scopes,
+  24 bounded adapters, eight eligible scopes /23 unresolved source lanes.
+  Production source3 still covers four scopes, not eight. Existing website/WNBA
+  flags and paid Coach disabled/50 policy remain unchanged. Scope migration
+  cannot upgrade old PL/CL receipts into healthy empty new leagues; persisted
+  attempted scope prevents failed migration from bypassing five-minute backoff.
+- **Evidence boundaries**: The six-code account check returns200 with exact
+  scope/window/count0, proving transport/schema. Official published PL/UCL
+  calendars corroborate expected emptiness for Oct1–Oct8 exclusive, but dynamic
+  rearrangements and the other four leagues are not independently certified.
+  Required Football-Data.org attribution is included in native/web source.
+- **Native repair**: Owner112's legacy football warning has concrete empty-result
+  premium and keyless proxy-cooldown paths. Cache valid-empty schedules as
+  success, avoid unconfigured fanout, preserve actual proxy/cancellation errors
+  and decode before cache admission. Eight injected-session/repository tests
+  pass; the exact old device error and new-device acceptance remain open.
+- **Cricket incident**: At14:10 UTC production holds67 fixtures (WI9/ICC58),
+  eight failures and its original13:00 UTC observation. Fresh ICC changes only
+  three future women's tri-series kickoffs by30 minutes with is_revised=false;
+  no independent correction clearance. Fresh CWI agrees with all five in-window
+  WI fixtures and shows no live/next24h omission. Scheduled monitor36877207360
+  confirms repeated-sync-failure/coverage-unavailable at14:33 UTC.
+- **Isolation repair**: After the unchanged bounded whole-collection gate,
+  independently admit WI/ICC cohorts. Conflicted rows and receipts remain exact;
+  cross-cohort IDs, older empty/pending-only receipts and status/time/participant
+  guard violations reject. Aggregate failures and five-minute retry persist
+  until full recovery. Retained/fresh/CPL unions cannot exceed400: otherwise
+  keep the entire previous valid snapshot, not truncated or invalid output.
+  CPL authority and admission policy are unchanged. This is source-only, not
+  deployment recovery or permission to accept the three disputed times.
+- **Supervision**: Updated the existing heartbeat in place using the OpenAI Docs
+  workflow: Fotty all-sport fixture supervision, same stable ID/six-hour cadence.
+  Both bounded audits and published monitors are checked; admitted scopes,
+  deferred gaps and offseason are distinguished. Read-only task-scoped agent
+  investigations do not become routine collectors or deploy themselves.
+- **Sources still needed**: The per-competition access ledger records all23
+  gaps and free F1/AFL candidates with unresolved licence/operator/completeness
+  gates. Bounded official paid-provider research favors evaluating TheSportsDB
+  first, not buying or claiming universal coverage. Owner must choose a source
+  strategy/budget before account/contract/sample activation work.
+- **Verification**: All317 backend tests pass, including actual-workerd source
+  contracts and63 cricket/monitor tests. TypeScript, zero-warning focused ESLint,
+  dry-run and redacted targeted scans pass. Fresh sequential simulator-free
+  native gate:652 passed /two skipped; unsigned iOS Release compile passes.
+  Existing SwiftLint length/style errors remain, not a zero-warning claim.
+  Owned Xcode/runtime/dry-run output is removed;46GiB free, user caches retained.
+  No old installed Mac binary substitutes for evidence. Operations details:
+  `docs/operations/Sports-Fixture-Service.md`, `Cricket-Fixture-Service.md` and
+  `Sports-Fixture-Source-Gaps.md`.
+
+## 2026-10-01: Activate only verified cloud fixture sources and qualify the owner consumer separately
+
+- **Authority**: Owner approved cleared cloud activation and subsequent Jet iPad
+  testing. No TestFlight, paid-limit/secret change, public web deployment or
+  unreviewed source activation.
+- **Publication**: Protected PR31–33 pass full CI/CodeQL/repository gates. PR33
+  merged as `7eb401cf00dd06331f4ec5991c989f3c3377b0f2`; deployed source
+  `2026-10-01.sports-fixtures-3`, Worker
+  `dc563c36-0137-41d5-b2bf-d292634902e7`, preserves existing bindings/budgets and
+  registers the five-minute due-check cron.
+- **Production correction**: Node mocks missed workerd's unsupported
+  redirect:error. Both collectors now use manual and reject 3xx without following
+  Location. Real edge-runtime regressions cover success, redirects and source
+  gates; diagnostic receipts contain finite stage/code/kind/status only.
+- **Cleared scope**: PL/CL credentialed scope/window/count checks and successful
+  production receipts pass; MLB13/NHL57 fixtures are accepted. WNBA returns
+  HTTP200 HTML to a bounded remote preview despite valid local JSON. Its separate
+  default-off flag stops collection without deleting state or weakening admission.
+  Website feeds stay off; 27 competition scopes remain deferred/unsupported.
+- **Evidence**: 302 clean-worktree and 298 primary JS tests, primary TypeScript,
+  focused zero-warning ESLint, Worker dry-run and redacted scan pass. Hosted
+  monitor 36847037463 is healthy after the initial activation failure. Cricket's
+  67-fixture audit, 39-fixture CPL and existing health/embed/3-provider contracts
+  pass. A read-only exact-version tail observed the five-minute scheduled handler
+  at 10:10:45 UTC with outcome ok; this is separate from the manually dispatched
+  monitor. GitHub hourly sports timing and full device interaction remain open.
+- **Consumer**: Owner build 112 uses an immutable pre-build receipt. Signed
+  app/extension 112 installed/launched on exact Jet
+  iPad; original container retained, manager and Home-curation keys match their
+  pre-install fingerprints. Native sports cache validates 70 rows/31 lanes and the
+  exact production revision; cricket validates 67 rows/three lanes, with receipts
+  at 10:10:46 UTC. Actual landscape Home was captured and the installed
+  process remained alive beyond60 seconds; no old Mac app substituted for evidence.
+  Full reminder/provider/playback acceptance is not claimed.
+- **New finding**: Native Home still shows football verification failure.
+  Separate scoped PL/CL probes succeed with empty current-season windows. The
+  legacy repository's empty-result premium fallback can throw unauthorized with
+  intentionally empty bundled keys; transient proxy cooldown has another no-key
+  failure cascade. Exact observed device error is not captured. This path was
+  not changed or its warning hidden; qualify a focused repair before TestFlight.
+- **Receipt safety**: Gitleaks classified the protected dashboard's public
+  SankeyRenderer digest as an API key. The snapshot tool now accepts only that
+  exact manifest/single-line/rule entry when it hashes the actual copied renderer.
+  Other findings/errors still reject; dashboard files remain untouched. A full-line
+  pattern and duplicate-key regression prevent JSON key collapse from hiding a
+  secret. Thirteen offline tests include actual default-scanner rejection checks.
+
+## 2026-09-30: Stage automatic app-wide fixture coverage without weakening source truth
+
+- **Authority**: The owner approved implementing the app-wide extension after
+  the cricket service. This is source-only implementation/local qualification;
+  cloud/GitHub publication, activation, installs and TestFlight remain separate.
+- **Implementation**: 30 source groups / 31 competition scopes, 28 bounded
+  adapters and explicit boxing/PDC gaps. Per-source Durable Objects retain
+  accepted UTC/participant/squad/status facts and immutable receipts; the shared
+  cron checks adaptive five-minute / 15-minute / four-hour due times. Cold reads
+  do not wait for all scrapes; hung registry slots expire independently.
+- **Native**: One validated cache/consumer merges into the shared catalog,
+  including failed-provider refresh paths and saved reminder identity. Existing
+  cricket/football score owners and actual provider streams remain independent.
+  Typed tournaments/sessions/cards do not fabricate opponents. Exact NCAA
+  competition identity verifies college/women cohorts without requiring those
+  words in a title; contradictory gender/youth/reserve evidence remains rejected.
+- **Review repairs**: Stale hot receipts cannot become healthy after kickoff
+  ages; multi-day live tournaments cannot silently disappear; future finals and
+  terminal rollbacks reject; repeat confirmation proofs survive polls for offline
+  clients. WNBA prior-year files cannot establish current empty coverage.
+- **Monitoring**: A staged hourly workflow validates identities/coverage and
+  newly fetches MLB/NHL/WNBA for current/imminent reconciliation. This is the
+  same publisher, not independent-publisher proof. Fresh omissions/disagreements
+  retain exact repeat hashes so continuously renewed receipts cannot conceal
+  them; ordinary farther-future gaps remain informational. No paid credential or
+  gated website feed is used by this crosscheck. Cricket's CWI monitor is intact.
+- **Access / open gates**: Both sports flags stay zero. Publicly accessible
+  ESPN feeds require a separate source-access resolution, not inferred reuse
+  permission. Boxing/PDC source gaps, credentialed PL/CL bulk scope verification,
+  protected publication/activation and named-device acceptance remain open. The
+  retained Worker version identifies production cricket, not these staged edits;
+  bump at the eventual deployment gate. Paid Coach stays disabled at limit 50.
+- **Verification**: All 294 JavaScript tests (35 monitor/crosscheck) pass;
+  TypeScript, lint, Worker dry-run, actionlint, redacted secret scans and the
+  sequential simulator-free Catalyst unit / generic unsigned iOS Release gate
+  pass, including 21 new native tests. New-file SwiftLint error fixed; style
+  warnings remain. No old installed Mac binary was used as acceptance evidence.
+  Owned temporary output is removed; about 48 GiB free. Details:
+  `docs/operations/Sports-Fixture-Service.md`.
+
+## 2026-09-30: Activate cloud cricket collection and the protected hourly monitor
+
+- **Authority**: The owner approved the explicitly separate Cloudflare/GitHub
+  activation gate. No native installation or TestFlight distribution was approved.
+- **Activation**: Worker `88a5bce6-c694-435c-9b8c-6ac3173121de`, source
+  `2026-09-30.cricket-fixtures-1`, retains existing budgets/secrets and adds the
+  shared cricket registry plus registered five-minute cron. Protected PR27 merged
+  as `1f4ce95e1e813c8cefd309dcec423c2a451f3320`; hourly workflow first production
+  audit 36750055302 passes. Registration and manual dispatch are evidence, not
+  proof of every future scheduled invocation.
+- **Preservation**: Remote main predates September 20 production, so publication
+  reconciles only the retained backend foundation and cricket dependencies.
+  Existing runtime modules match the build-111 receipt; its entrypoint differs
+  only by cricket integration. Paid Coach stays disabled with the existing
+  group limit of 50. The older remote native access/draft contract is a separate
+  publication/enablement prerequisite, not a reason to reopen paid calls.
+- **Review fixes**: CodeQL caught repeated entity decoding and comment-removal
+  token joins in the independent comparison parser. One-pass decoding and lexical
+  masking, plus four regressions, resolve both findings. All required repository
+  gates, CodeQL, GitHub Web CI (204 units, type/lint/dry-run/build), 200 local
+  units and the 38-test live monitor pass. No protection bypass was used.
+- **Live evidence**: 63 verified fixtures, two explicit pending pairings and zero
+  sync failures. CWI independently agrees with all five upcoming West Indies
+  fixtures in the window; South Africa–Australia is live, today's West Indies
+  matches finished. Existing health, 39-fixture CPL, embed and catalog contracts
+  pass with three responding catalogs. No football-live quota or paid API call.
+- **Boundary**: One native update is still needed before testers consume the
+  feed; the earlier 18-test native qualification remains separate from physical
+  acceptance. No app build/install, TestFlight, public web deploy, tester/role,
+  secret or paid-policy change. Owned temporary output is cleaned; ~52 GiB free.
+  Codex blocked archival of the clean 23 MiB managed source checkout because
+  this chat is pinned; build/dependency output was removed, protection preserved.
+
+
+## 2026-09-30: Automate broader cricket coverage with durable state and independent supervision
+
+- **Authority**: The owner approved implementing the discussed automatic
+  fixture-update plan after observing an omitted current cricket match. Backend
+  and GitHub publication were requested as a separate approval gate; no device
+  installation or TestFlight release is authorized in this turn.
+- **Decision**: Use the ICC website's structured international feed, retain CPL's
+  separately reviewed authority, and store accepted revisions in one shared
+  Durable Object. Routine collection is deterministic cloud work, not a model
+  guessing/updating schedules. Keep coverage and stream availability separate.
+- **Implementation**: Adaptive five-/15-/240-minute source refreshes, strict UTC
+  and bounded-pagination validation, explicit live/terminal status, gender/youth
+  identity, no stale receipt renewal, and conflict/missing-active admission guards.
+  Native caching and five-minute failure retries consume the new route; current
+  provider streams require both teams/squad and a 15-minute kickoff match.
+  The hourly monitor independently compares CWI and deduplicates actionable or
+  repeated failures. A six-hour read-only local Codex heartbeat investigates new
+  failures with scoped sub-agents and stays quiet on unchanged states.
+- **CPL correction**: The verifier's series summary moved matches21/22 one day
+  later, while its individual match pages and CWI results support the existing
+  official times. Exact reviewed exceptions restore the local 39-fixture audit
+  without moving fixtures or renewing the bundled verification receipt.
+- **Evidence**: Live local collection returns 63 named fixtures; ICC shows
+  India–West Indies and South Africa–Australia live, and CWI independently matches
+  India–West Indies. Two provisional pairings are explicitly pending, not
+  invented. All 196 web/Worker tests, full simulator-free native gate (18 new
+  cricket tests), type/lint/dry-run/build, actionlint and targeted secret scans
+  pass. Temporary output is removed; about 52 GiB remains free.
+- **Boundary**: Native integration needs one app update before testers benefit.
+  Neither cloud deployment nor GitHub workflow publication occurred yet. The
+  existing paid Coach policy is unchanged, no paid cricket API was added, and
+  the next CPL season still requires source review. Do not promise every domestic
+  league or interpret fixture discovery as successful playback.
+
+
+## 2026-09-22: Measure private-beta participation from Apple instead of instrumenting Fotty
+
+- **Authority**: The owner approved an alternative to tester-entered codes so
+  they can distinguish active TestFlight participants from invitees who are not
+  using the app.
+- **Decision**: Keep participation reporting outside the iOS app. Read the
+  existing App Store Connect beta-tester roster plus tester-grouped P7D and P30D
+  usage metrics into a local owner-only dashboard. Do not add an analytics SDK,
+  tester identity, background upload, privacy-manifest declaration or new
+  tester interaction to Fotty.
+- **Implementation**: `owner-tools/testflight-usage-sync` creates a ten-minute
+  ES256 JWT, follows only bounded `api.appstoreconnect.apple.com/v1` pagination,
+  joins metrics by Apple's tester ID and writes private names/emails to a
+  Git-ignored `.local` snapshot. `owner-tools/testflight-usage-dashboard`
+  presents factual categories—Recently active, Used this month, No recent
+  sessions and Not installed—with filters, source evidence and an explicit
+  measurement-limit disclosure. The tracked preview contains only invented
+  `example.invalid` identities; live compiled output remains local and ignored.
+- **Evidence**: Six focused Node tests pass for JWT signature/expiry,
+  classification, ID joins, bounded pagination, exact P7D/P30D requests and
+  evidence wording. The protected Data App build passes with separate data.
+  Phone-width and 1280-point visual checks pass. A least-privilege Marketing
+  team key now completes the live Apple sync: the local 22 September snapshot
+  contains 11 testers, 10 active in P7D, 217 P7D sessions, 763 P30D sessions and
+  zero P30D crashes/feedback. The rendered dashboard visibly identifies the
+  App Store Connect source and contains no synthetic identities.
+- **Boundary**: The private key is mode 0600 outside the repository. Real roster
+  and compiled output remain ignored and loopback-only; the tracked fixture is
+  still synthetic. This is a refreshable snapshot, not continuous telemetry,
+  and Apple sessions do not prove feature use, playback success or duration.
+  No iOS/TestFlight build, app privacy behavior or external service changed.
+
+## 2026-09-20: Release the validated 2.0.1 batch as internal build 111
+
+- **Authority**: The owner approved TestFlight deployment after the Worker and
+  app release gates passed, then explicitly confirmed assigning the build to the
+  existing internal group and saving the prepared testing notes.
+- **Decision**: Distribute 2.0.1 (111) only through `Fotty Internal Smoke`; keep
+  build 100 available as the fallback. Do not add testers, alter roles or
+  notification preferences, create an external group, submit to App Review or
+  publish Git source as part of this release.
+- **Evidence**: The immutable pre-build receipt matched immediately before the
+  signed archive upload. Xcode 27 reported `Upload succeeded`; Apple completed
+  processing and App Store Connect showed build 111 as `Testing` at 12:57 AST
+  with the 11-person internal group attached and focused English (U.K.) notes
+  saved. The complete simulator-free native gate, 149 Worker/web units, lint,
+  Worker dry-run and optimized web build passed. Owned archive, DerivedData,
+  export and distribution-log output was removed; about 59 GiB remained free.
+- **Boundary**: Availability is not exact-build physical acceptance. Install and
+  exercise 111 through TestFlight on iPhone and iPad before widening the beta.
+  No tester, role, external-testing, App Review, Git or additional Worker change
+  occurred during distribution.
+
+## 2026-09-20: Harden and deploy the single active Worker before splitting services
+
+- **Authority**: The owner requested targeted Worker research, improvement and
+  deployment of every active Worker, then asked whether multiple Workers would
+  materially improve Fotty.
+- **Decision**: Keep the current catalog, fixture, football-data and Coach routes
+  behind one public Worker for this stability release. A Worker is already
+  globally distributed; splitting stateless routes does not by itself improve
+  latency or availability. Consider separating the paid Coach first only when
+  independent secrets, budgets, permissions or release cadence justify the
+  migration. Do not add a cron cache warmer without shared authoritative state.
+- **Implementation**: Bound every remote catalog/fixture/football response and
+  request time, preserve last-known-good CPL behavior, expose non-sensitive
+  source/version/coverage headers, and emit structured provider events. Enable
+  production logs with full invocation sampling and traces at five percent.
+  Keep the direct embed fallback when catalog mirrors are partial or unavailable.
+- **Evidence**: The final suite passes 149 Worker/web units, lint, workflow syntax
+  and Wrangler dry-run; the production Next build passed before the first
+  deployment. Deployment `1ce467d8-ce0c-46b3-9ce2-9fcfbdd18b00` reports
+  source `2026-09-20.worker-stability-1`. Live verification returns the complete
+  39-row CPL schedule with Antigua vs Jamaica in the Final and four PL schedule
+  matches. Structured production telemetry shows both StreameX catalogs return
+  530 from Cloudflare and Streamed Backup responds; lookup remains HTTP 200 with
+  a direct fallback and `partial` coverage. API-Football rejected current-season
+  live scores under the configured plan, and the Worker now advertises that
+  restriction and defers another upstream attempt for four hours. A new
+  deployment-level monitor verifies source identity, health, CPL integrity,
+  catalog fallback and the embed redirect without calling the quota-consuming
+  live-score route. It caught and fixed the redirect's missing version header;
+  the final production monitor passes with the expected external warnings.
+- **Boundary**: Paid Coach remains disabled with the approved group limit of 50
+  attempts per day; no DeepSeek call, secret change, app/TestFlight build, cron
+  trigger, web deploy or service split was performed. The daily GitHub monitor
+  job is a local source change until separately published.
+
+## 2026-09-20: Keep mirror telemetry internal, expose active Home filters and resolve CPL playoff identity
+
+- **Authority**: During private iPad review, the owner rejected a permanent
+  `Some broadcasts may be missing` banner and a same-day `Final` against `Teams
+  to be confirmed`. They also observed that Browse Sports can fall too far below
+  a populated match stack, but did not yet approve a replacement hierarchy.
+- **Decision**: Keep partial-provider coverage as internal telemetry because one
+  redundant mirror miss is not evidence that a visible broadcast is missing.
+  Show customer-facing catalog notices only for a full refresh failure or stale
+  verified-fixture authority. Name retained sport filters in Home's empty state
+  and offer `Show all sports`. Preserve confirmed playoff
+  stage plus both teams through the CPL manifest, client model and presentation.
+  Stage-only future rounds use one honest title and no invented opponent badges.
+- **Implementation**: The live verifier now contributes playoff participants
+  only when both map to reviewed CPL identities; the official schedule remains
+  kickoff authority. The current reviewed fallback records every 2026 playoff
+  pairing and the final as Antigua & Barbuda Falcons vs Jamaica Kingsmen. Client
+  reconciliation preserves known teams from a bundled or in-memory schedule
+  while accepting a newer verified kickoff, preventing an old stage-only device
+  cache from regressing identity. `CPL Final` remains visible as the competition
+  label when teams are present.
+- **Evidence**: All 141 web/Worker units and complete simulator-free iOS CI pass.
+  Focused Swift checks cover silent partial-mirror telemetry, honest unresolved stages,
+  confirmed Final identity, manifest parity and the cache/time no-regression
+  case. Signed optimized 2.0.1 (110) installs and runs on Jet iPad; an exact-build
+  screenshot shows Fight selected, Football reporting seven live events, the
+  filter-specific empty state, `Show all sports`, and no routine mirror banner.
+  Bounded output was removed.
+- **Boundary**: Browse Sports remains in its existing location pending approval
+  of a compact top-level sport picker. The updated Worker is source-checked but
+  not deployed. No TestFlight, iPhone, tester, commit or Git publication action.
+
+## 2026-09-20: Make Liquid Glass the real tab bar and reflow compact Home identity
+
+- **Authority**: After private build 107 removed the duplicate blank surface, the
+  owner clarified that Fotty should incorporate Liquid Glass into the actual
+  Home/Matchday/FPL/Settings navigation and reported clipped sport/match names.
+  The ongoing rebuild remains scoped to Jelani's iPhone.
+- **Decision**: Use four genuine native `TabView` items and remove the parallel
+  custom dock. Preserve Fotty's badges and sport art, but adapt composition to
+  the real 375-point canvas: artwork above full-width sport labels, one line per
+  team, a semantic secondary-list style and scaled reflow before trailing actions.
+  Do not shrink essential identity to compensate for a rigid row.
+- **Evidence**: The pre-fix screen reserved tile width for side-by-side icon/text
+  and match-row width for badges, combined title, countdown and reminder. The
+  first vertical tile pass measured 198 points and was rejected by the existing
+  190-point regression; reduced excess padding passes without reducing touch
+  targets. Complete simulator-free CI and the optimized device gate pass.
+  CoreDevice reports and runs 2.0.1 (109); exact-build light/dark screenshots show
+  the native glass bar and readable team names. The below-fold sport grid has a
+  rendered compact-width pass but still needs owner on-device inspection.
+- **Boundary**: No iPad, TestFlight, tester, backend, web, commit or Git action.
+
+## 2026-09-20: Remove the duplicate iOS 27 tab surface after physical proof
+
+- **Authority**: Owner reported a large blank bar on the private iPhone Home and
+  unlocked that device for correction and verification. Scope remains the named
+  iPhone; no iPad or TestFlight action.
+- **Decision**: Do not place a hidden native `TabView` beneath Fotty's separate
+  four-item dock. iOS 27 can expose that system surface as an empty Liquid Glass
+  capsule despite hidden-toolbar configuration. Keep all four destination trees
+  alive in a layered container, with only the selected layer drawn, interactive
+  and accessible, so navigation and scroll state survive without duplicate chrome.
+- **Evidence**: Build 106 physically proved that toolbar hiding and disabling
+  minimization were insufficient. After the structural correction, full
+  simulator-free CI and the optimized device gate pass. CoreDevice reports and
+  runs private 2.0.1 (107) on Jelani's iPhone; a fresh 1125-by-2436 screenshot
+  shows Home meeting Fotty's custom dock directly with no empty capsule.
+- **Boundary**: Physical light-mode and larger-text acceptance remain open. No
+  TestFlight, iPad, tester, backend, web, commit or Git publication action.
+
+## 2026-09-20: Implement the approved Home concept on Jelani's iPhone first
+
+- **Authority**: Owner approved rebuilding the final Apple-inspired Home concept
+  on their iPhone for testing. This authorizes the native UI change and one
+  private in-place iPhone install, not TestFlight, iPad or publication.
+- **Decision**: Let one badge-led live panel establish hierarchy, use transparent
+  compact paired-badge rows for Up Next, move Browse Sports after the schedule,
+  and restore full-colour Apple equipment artwork in the established three-column
+  phone grid. Keep glass restrained to the live panel and control chrome. Preserve
+  the catalog, prioritization, countdown/reminder, Watch, playback and navigation
+  owners rather than creating a preview-only parallel Home.
+- **Evidence**: The existing rendered compact-grid test caught an oversized first
+  pass and passes after tightening the tile. Complete simulator-free iOS CI and
+  generic Release pass. Signed optimized 2.0.1 (105) installs in place on the
+  named Jelani iPhone and CoreDevice reads that exact version. The device locked
+  before automatic launch, so launch hold and physical visual acceptance remain
+  open. Owned output was removed and disk returned to about 59 GiB free.
+- **Boundary**: No iPad, TestFlight, tester, backend, web, commit or Git action.
+
+## 2026-09-20: Close confirmed full-app audit defects without expanding release scope
+
+- **Authority**: Owner requested implementation of every confirmed defect from
+  the preceding read-only audit. This authorizes source fixes and proportionate
+  local verification, not a device install, Worker deployment or TestFlight.
+- **Decision**: Preserve user intent and system ownership instead of adding more
+  UI state. Use native `TabView` for persistent roots, one app-level catalog
+  lifecycle, reviewed HTTPS playback origins, attempt-scoped quality evidence,
+  independent Watch Two recovery budgets, and data-declared CPL season topology.
+  Add a network-level and global limiter to deterministic FPL scoring so rotating
+  installation IDs cannot bypass abuse controls. Require an immutable source
+  receipt capture/compare step for future shared builds.
+- **Implementation**: Watch Two no longer resumes after an explicit pause merely
+  because the network or foreground returns; failure of one pane cancels sibling
+  resolution, terminal panes leave surviving audio usable, and score-triggered
+  focus begins only after a real baseline. Web frames and catalog variants reject
+  insecure, credentialed and unreviewed origins, and ATS arbitrary web loads are
+  disabled. CPL validation accepts reviewed future seasons/new teams while a
+  declared fixture count rejects truncation. UI coverage uses deterministic
+  fixtures and iPad-only entry, with Dynamic Type, VoiceOver, Reduce Motion and
+  safe-area corrections on the affected surface.
+- **Verification**: Complete simulator-free iOS CI, Catalyst units and unsigned
+  iOS Release pass. All 140 web/Worker unit tests, ESLint and Wrangler dry-run
+  pass. All 30 release-source/memory tests and `git diff --check` pass. Temporary
+  Xcode output was removed and disk space remained about 61 GiB free.
+- **Boundary**: No device install, live playback claim, deployment, TestFlight,
+  build-number change, commit or unrelated dirty-worktree cleanup occurred.
+
+## 2026-09-20: Qualify build 104 installation and launch without overstating UI automation
+
+- **Authority**: The owner unlocked Jet iPad to finish the already-approved
+  private build-104 device gate. TestFlight remained a separate gate.
+- **Decision**: Accept CoreDevice's exact 2.0.1 (104) inventory plus a bounded
+  60-second foreground process hold as installation and launch evidence. Do not
+  call Watch Two physically requalified when XCTest timed out enabling device
+  automation before the UI test body began.
+- **Evidence**: The unlocked device first reported and held build 104 for 60
+  seconds. One Watch Two run stopped in Apple's automation initialization. After
+  UI Automation was enabled, XCTest entered Fotty and selected Home, but Watch
+  Two correctly remained absent for 15 seconds because the live catalog lacked
+  two qualifying watchable matches. No player assertion executed. The runner
+  and bounded outputs were removed; optimized Release 104 was restored, read
+  back and held for another 60 seconds. Free space remained near 61 GiB.
+- **Boundary**: Watch Two interaction on this exact build, real-match playback,
+  PiP and TestFlight promotion remain open. No iPhone, tester, backend, commit or
+  Git action occurred.
+
+## 2026-09-19: Start 2.0.1 as a playback-confidence release in build 104
+
+- **Authority**: Owner approved proceeding with the proposed 2.0.1 patch plan.
+  Existing direction authorizes private Jet iPad qualification but keeps
+  TestFlight as a separate decision.
+- **Decision**: Advance the app and Live Activity extension together to 2.0.1
+  (104). Carry forward build 103's accepted video-first Watch Two design and
+  close a real observability gap: both MultiView panels now record attempts,
+  decoded starts, recovery, failover, terminal failure and startup time under the
+  same redacted, build-scoped quality contract as the normal player. Centralize
+  the allowed playback context and test release identity across both targets,
+  `project.yml` and their plists.
+- **Why**: Prior Watch Two failures were invisible to Owner Status and opt-in
+  beta reports, so an affected tester could supply a report while the local
+  release evidence appeared healthy. A patch release should improve confidence,
+  not duplicate already-implemented fixture, FPL and feedback systems.
+- **Evidence**: Complete simulator-free CI passes. Live 2026/27 feeds contain
+  380 PL and 144 Champions League fixtures; official CPL comparison passes all
+  39 fixtures while preserving the reviewed match-28 exception; live football
+  identity passes across three reachable provider feeds. The opt-in soak first
+  exposed a removed URL helper and a fake-header proxy route, then passed its
+  final 120-second direct Apple HLS hold with one request/source/item, decoded
+  progress and zero failover. The final complete simulator-free gate passes
+  again. The signed optimized
+  Release and in-place Jet iPad install pass. Two UI attempts and automatic app
+  launch were blocked because the iPad re-locked; the device then disconnected,
+  so build-104 exact-version/process and interaction evidence remain open rather
+  than inferred. Temporary roots and the UI-test helper were removed; no new
+  crash report was observed before disconnect.
+- **Boundary**: No TestFlight, iPhone, tester, backend, commit or Git action.
+  Real-match playback/PiP and longer soak evidence remain separate from policy
+  tests and installation.
+
+## 2026-09-19: Make MultiView video-first in private build 103
+
+- **Authority**: Owner approved fixing the undersized iPad playback surfaces and
+  expects the physical interaction to be automated rather than manually delegated.
+  This authorizes the Jet iPad candidate, not TestFlight or iPhone distribution.
+- **Decision**: Wide iPad MultiView opens in Focus with one materially larger
+  16:9 feed and one live secondary feed. Either numbered panel promotes in one
+  tap; Equal remains explicit. Fit is the safe default and Fill now applies to
+  web as well as native playback without replacing the source attempt.
+- **Why**: Equal-width 590 × 704 web containers forced 16:9 media into about
+  590 × 332 of visible content and presented the rest as meaningless black
+  player area. Passing source/audio automation had not asserted video geometry.
+- **Evidence**: On Jet iPad's 1180 × 820 window, automation measures the focused
+  viewport at about 821 × 461 and the secondary at 352 × 198, validates both
+  16:9, panel promotion, Equal, Fit/Fill/Fit, independent source changes, audio
+  transfer and a 12-second stability hold. Full simulator-free CI and the signed
+  optimized physical Release gate pass; build 103 is installed and running.
+- **Boundary**: No TestFlight, iPhone, tester, backend or Git action. Human visual
+  preference, audio quality, compact width and longer live soak remain separate.
+
+## 2026-09-19: Qualify independent MultiView controls on Jet iPad
+
+- **Authority**: Owner requested an app-controlled test of the redesigned
+  two-match player on the connected iPad. This authorizes a private device
+  install and automated interaction, not TestFlight distribution.
+- **Decision**: Keep Source and Audio controls permanently visible in each
+  panel header. Source changes reload only their owning panel; Audio explicitly
+  selects which panel is audible. Keep browser playback controls interactive and
+  retain one global Close/Swap/Fill-or-Fit toolbar.
+- **Automation**: Add stable identifiers for entry, ordered event selection,
+  per-panel source/audio controls and panel presence. Do not assign an
+  accessibility identifier to the shared header container because it collapses
+  its children's distinct identities.
+- **Evidence**: A physical Jet iPad UI journey selected two current matches,
+  changed panel 1 to Source 2 while panel 2 stayed on Source 1, changed panel 2
+  independently, moved audio to panel 2 and held both panels for 12 seconds. The
+  complete simulator-free CI gate and signed optimized Release gate pass.
+- **Device and cleanup**: Private 2.0.0 (102) is installed and running on Jet
+  iPad. Fotty's UI-test runner was removed after the journey. No TestFlight,
+  iPhone, tester or backend action was taken; owned temporary output was removed.
+
+## 2026-09-19: Unify sport identity and make two-match playback truthful
+
+- **Authority**: Owner requested fixes to the icon system and a full review and
+  update of the Watch two matches experience. This is source implementation and
+  local qualification only; no install, build-number change or TestFlight action.
+- **Decision**: Replace platform-variable emoji sport art with one category-aware
+  SF Symbol family in a stable tinted emblem. Cover the catalog's football,
+  American football, rugby, cricket, basketball, baseball, hockey, tennis,
+  combat, motorsport, darts, golf, volleyball, table tennis and college variants,
+  with one explicit generic fallback.
+- **Two-match interaction**: Use one user vocabulary (`Watch two`, `Choose two
+  matches`, `Two-match view`), show only live/imminent events with active catalog
+  sources, preserve tap order as positions 1 and 2, and acknowledge Start before
+  concurrent resolution. Recent positive health may rank resolution but may not
+  hide the manual two-match action.
+- **Player ownership**: Browser-backed panels retain provider play/pause controls;
+  Fotty does not show a native button that cannot control them and no longer puts
+  a whole-panel tap gesture above the web surface. Explicit 44-point source/audio
+  actions choose the source and audible panel. Native panels retain working app
+  play/pause, and automatic goal-audio appears only for two football matches.
+- **Verification**: The complete simulator-free gate passes provider/catalog
+  checks, the full Catalyst unit suite and an unsigned generic iOS Release build.
+  The first render pass caught an over-tall compact sports grid; the emblem was
+  returned to its original footprint and the complete gate then passed. Physical
+  iPhone/iPad appearance, provider controls and simultaneous live playback remain
+  open. The bounded DerivedData root was removed; free disk remains 63 GiB.
+
+## 2026-09-19: Install app-wide UI candidate 101 on Jet iPad; preserve shared 100
+
+- **Authority**: Owner explicitly approves installing the completed UI update on
+  Jet iPad for physical verification. This does not authorize TestFlight, iPhone,
+  backend or Git actions.
+- **Decision**: Allocate private build 101, build a signed optimized Release with
+  official Xcode 27, install it in place and preserve the existing app container.
+  Keep shared internal build 100 unchanged.
+- **Evidence**: App and Live Activity extension are 2.0.0 (101), arm64 and
+  strictly signed; the profile contains the exact iPad. CoreDevice confirms the
+  installed version. The app survives a 60-second launch hold and two fresh crash
+  queries return zero Fotty files. Physical original-resolution screenshots show
+  full-width Home, two-column Matchday, wide disconnected FPL and grouped Settings
+  without clipping or side bars.
+- **Follow-up acceptance**: After the owner connects FPL, the same app container
+  contains a valid manager ID and current-season confirmation. A full
+  terminate/relaunch opens the connected Live workspace without ID re-entry and
+  still produces no crash log. Do not copy the numeric ID into documentation.
+- **Device state**: The display-only developer viewer did not justify a UI-test
+  helper. Fotty's own Matchday route and only the selected-tab preference exposed
+  the remaining primary tabs. The full preference file was preserved and the tab
+  was restored to Home; no manager, theme, interest, source or notification data
+  changed.
+- **Open gate**: Real interaction checks for Search, Light/System, accessibility
+  text/narrow window, connected Coach keyboard/drafts, player/source recovery,
+  playback and PiP. No TestFlight upload or blanket owner acceptance claimed.
+- **Cleanup**: Remove only the bounded task-owned build output, screenshots and
+  temporary preference copies after documentation; keep the installed app/data.
+- **Evidence file**: `docs/releases/Fotty-2.0.0-101.md`.
+
+## 2026-09-19: Complete app-wide UI source polish; retain honest visual gates
+
+- **Authority**: Owner rejects stopping at the initial narrow polish pass and
+  asks to continue until the intended Apple-aligned app-wide work is finished.
+  Source implementation/qualification is in scope, not distribution or installs.
+- **Decision**: Apply existing design contract across Home, Matchday, Search,
+  every FPL workspace/tool, Settings/onboarding, Match Hub/insights and player
+  source/recovery presentation. Preserve sports art, badges, compact normal rows,
+  normal phone grid, useful wide layouts and existing tab/session ownership.
+- **Interaction**: Adaptive labels/actions, semantic button regions, selected and
+  disabled feedback, Increase Contrast/Reduce Transparency support. Coach setup
+  and messages scroll together; FPL retains native keyboard avoidance without
+  replacing the root tree. Match Hub has one scroll owner and measured Close
+  inset. Failed active source's Retry label now matches its existing callback.
+- **Verification**: 586 full Catalyst units pass with two opt-in live/soak skips.
+  Current component renders and independent cross-reviews completed. Stale
+  source-shape assertions corrected without dropping their behavioral guardrails.
+  Unsigned iOS Release compilation passes. Both unsigned and signed integrated UI
+  runners are killed before connection; current macOS security logs confirm the
+  launch denial despite valid signed bundle. No security bypass or old Mac app
+  substitution. UI journeys were authored but did not execute.
+- **Open gate**: Physical keyboard, large-text, theme, navigation and playback
+  presentation acceptance. Installation question for Jet iPad remains unanswered.
+  No version bump, install, TestFlight, backend, commit or push.
+- **Cleanup**: Removed the single 1.4 GiB temporary build/result/render directory;
+  no lingering app/test runner or unrelated cache removal. Final 63 GiB free.
+- **Evidence**: `docs/audit/Fotty-Appwide-UI-Completion-2026-09-19.md` separates
+  implementation, automated renders, blocked native automation and owner sign-off.
+
+## 2026-09-19: Apply the UI standard to scoped interaction and grouping polish
+
+- **Authority**: Owner says proceed after the Apple-grounded design-skill work.
+  This pass is source-only, not an installation or a shared beta update.
+- **Decision**: Keep the approved composition, identity art and behaviour. Add
+  stationary press feedback to opted-in Home/Watch/reminder controls; make
+  Settings action/navigation-row feedback visible in both themes. Remove the
+  nested Search channel card and align consequential Matchday schedule notes.
+- **Boundary**: No FPL logic, fixture policy, source selection, playback/PiP,
+  reminders policy, backend, version, device installation or TestFlight changes.
+  Shared consumers were checked; no new whole-screen gestures or animations.
+- **Verification**: 137 focused Catalyst unit/render checks and unsigned iOS
+  Release pass on official Xcode 27. Independent source review finds no blocking
+  regression. Offscreen component renders were inspected; physical touch,
+  navigation, appearance and Dynamic Type acceptance remain open. Fix the visual
+  harness's sample-clock mismatch rather than accepting misleading evidence.
+- **Evidence**: `docs/audit/Fotty-UI-Interaction-Polish-2026-09-19.md`. Keep device
+  screenshots and actual interaction separate from compile/render evidence.
+
+## 2026-09-19: Strengthen native UI design guidance and visual acceptance
+
+- **Authority**: Owner requested improved UI/design skill close to Apple guidance.
+  This is instruction/documentation work, not a new app redesign or release.
+- **Decision**: Add reusable personal `apple-ui-design` guidance and the repository
+  `docs/FOTTY-UI-DESIGN-STANDARD.md`; route UI tasks from AGENTS and the Apple baseline.
+- **Standard**: Ground material decisions in current HIG; preserve Fotty's sports
+  identity. Specify hierarchy and adaptation before broad edits, then compare
+  exact native renders against approved references. Treat visual inspection,
+  interaction, automation and owner acceptance as separate evidence.
+- **Boundary**: No app source, assets, version, devices, backend, GitHub or TestFlight
+  changed. The skill improves the process; it does not prove existing UI quality.
+- **Verification**: Skill/YAML/link validation, whitespace and memory-export checks
+  pass. An independent discussion-only scenario preserves identity, touch targets,
+  material hierarchy and evidence limits; clarify provisional offline feedback.
+
+## 2026-09-14: Ship internal build 100 using verified official Xcode 27
+
+- **Authority**: Owner approved the toolchain update and existing internal group;
+  no new testers, direct installs, public release, backend deployment or Git push.
+- **Toolchain**: Owner completed required components for official Xcode 27
+  (27A266a). Every gate/export explicitly pins its developer directory; global
+  xcode-select still names the older beta. No simulator runtime downloaded/booted.
+- **Qualification**: Fresh 658-file pre-build receipt; 581 Catalyst tests pass,
+  zero failures, two explicit opt-in skips; iOS Release and signed archive pass.
+  Source/working copies matched before upload. Nested identities, signatures,
+  arm64, dSYMs, icons, three manifests, empty provider keys and audio mode verified.
+  Existing synchronous audio-session warning remains. Live identity passed two
+  feeds; the third timed out. Backend health/sourceVersion matches; no deployment.
+- **Distribution**: Xcode upload succeeds at 15:12 AST. Apple completes processing;
+  built-in encryption declaration and English (U.K.) test notes saved. Existing
+  Fotty Internal Smoke assigned. Fresh Apple UI confirms 100 Internal / Testing,
+  11 invitations around 15:17 AST. No installs reported, email delivery unverified.
+  Build 93 preserved as fallback. CS remains opt-in; physical acceptance stays open.
+- **Cleanup**: Remove finished 1.9 GiB installer, 1.1 GiB temporary release root
+  and exact distribution log. Keep 17 MB immutable source recovery receipt; no
+  older Xcode/cache deletion. Final 65 GiB free. See release 100 for hashes.
+
+## 2026-09-14: Verified Xcode 27 awaits protected Mac setup authorization
+
+- **Evidence**: Owner saved/extracted official Xcode 27 (27A266a). Strict deep
+  signature validation and Gatekeeper Apple System assessment pass. Move the app
+  to `/Applications/Xcode.app`; preserve both older toolchains, no duplicate copy.
+- **Boundary**: Required-component installation is waiting on SecurityAgent.
+  Owner must authorize with the Mac password. No credentials accessed, new
+  license accepted, simulator runtime selected or developer default changed.
+- **Release state**: No candidate-100 build/upload yet. Apple still shows 93
+  Internal / Testing for Fotty Internal Smoke (11 invitations, 10 installs).
+  Keep the 1.9 GiB task installer until setup succeeds, then clean it; 63 GiB
+  free. Existing beta installer and unrelated caches are untouched.
+
+## 2026-09-14: Approved Xcode update awaits an owner-downloaded installer
+
+- **Authority**: Owner approved updating Xcode without simulators, then rebuilding
+  for the existing internal TestFlight group. No additional distribution scope.
+- **Evidence**: Apple's Applications page lists final Xcode 27 (27A266a), released
+  today. In-app downloads are blocked; unauthenticated CLI returns 403. No new
+  installer was saved, no toolchain changed, 68 GiB remains free. Existing beta
+  installer and installed Xcodes are preserved.
+- **Next gate**: Owner downloads the official installer in Safari. Verify its
+  signature/build, handle any new license with the owner, then requalify before
+  upload. Build 93 remains shared; do not reuse the rejected beta archive.
+
+## 2026-09-14: Build 99 qualifies locally but Apple rejects the old beta toolchain
+
+- **Authority**: Owner approved final checks and the existing internal TestFlight
+  group. No new testers, device installs, backend deployment or Git publication.
+- **Evidence**: 581 units pass under public Xcode 26.6; its generic iOS destination
+  is unavailable. The Xcode 27 rerun from the verified temporary source copy
+  passes 581 units, two opt-in skips, iOS Release and signed archive validation.
+  A Documents permission prompt interrupted the original-path run; no broader
+  permission was granted. Preserve both the interruption and clean rerun evidence.
+- **Boundary**: Apple's upload validator rejects 27 beta 5 despite dated August
+  acceptance notes. Current RC is required. Do not falsify toolchain metadata,
+  redownload simulators or declare upload/group access successful. Obtain owner
+  approval before the large Xcode update. Shared build remains 93.
+- **Traceability**: Saved a verified 17 MB pre-build source receipt, compared
+  original and restored trees before upload, and removed all owned build output.
+  No snapshot uploaded to GitHub. See release 99 for hashes and cleanup evidence.
+
+## 2026-09-14: Owner accepts CS2 playback, source controls and PiP on private 98
+
+- **Evidence**: Owner identified CS2 as playing, then confirmed pause/resume,
+  opening Sources and switching back to StreamEx all work on the test iPad.
+  The owner subsequently confirmed “pip works”.
+- **Boundary**: Record these as passed for that session, not every CS option.
+  Timed background soak, lock/unlock, other variants and loading-time switching
+  remain unconfirmed.
+  No source changes, build, install or TestFlight action in this acknowledgement.
+  See release 98 for the precise scope of the accepted test.
+
+## 2026-09-13: Install CS correction build 98 on Jet iPad only
+
+- **Authority**: Owner approved the private device gate after the CS-only audit.
+  No further functional code changed; app/extension versions advance to 98.
+- **Evidence**: Signed optimized Release, nested signatures, installed versions,
+  landscape Home and a 54-second same-process hold pass. CS remained enabled
+  across the in-place update. No new Fotty incident was listed in that window.
+- **Boundary**: Actual CS decoded controls/source switching/PiP still need owner
+  acceptance. No iPhone, TestFlight, UI-test helper or app-data reset. Owned build
+  and inspection output removed; disk remains 70 GiB free. See release 98.
+
+## 2026-09-13: CS uses shared playback routing and retains attempt ownership
+
+- **Scope**: Owner clarified recent changes are playback/CS sources, not FPL.
+- **Decision**: Route by typed delivery/endpoint, not a nested query URL; reuse
+  the rule in MultiView. Direct HLS retries native once, never as an invented
+  webpage. Real web handoffs retain their original fallback and source metadata.
+- **Lifecycle**: Recheck cancellation/source/attempt after validation; PiP input
+  commands publish after UIView updates, and dismantled surfaces stop callbacks.
+- **Admission/tracking**: Preserve reused-ID conflicts before matching; permit
+  exact Live-catalog fallback if the sport catalog is missing/broken. Keep CS
+  numbering and add hidden hashed source attribution to bounded local events.
+- **Boundary**: Source-only gate, not a new install or TestFlight release. Jet
+  iPad remains 97; physical CS control/switch/PiP acceptance is still required.
+  See `docs/audit/Fotty-CS-Playback-Integration-2026-09-13.md` for test evidence.
+
+## 2026-09-13: Native player callbacks must not publish during SwiftUI updates
+
+- **Finding**: Builds 94-96 could render CS HLS but then leave every visible
+  control unresponsive. The device's build-95 incident is a FrontBoard
+  `0x8BADF00D` scene-update watchdog. Its main-thread stack repeats
+  `updateUIView` -> callback assignment -> playback-state mutation -> SwiftUI
+  update; the sampled URL classification is incidental, not the root cause.
+- **Decision**: Callback properties on `PlayerUIView` are passive assignments.
+  Ready/display, time-control and PiP availability publish only from their real
+  AVKit/KVO observations. Preserve build 96's dynamic hit-test ownership: the
+  native surface reveals controls while hidden and yields once controls appear.
+- **Gate**: A regression proves callback reassignment emits no state, the
+  hit-test regression still passes, and signed private build 97 is installed
+  only on Jet iPad. A 15-second CS playback/control/switch-back check remains
+  required before TestFlight.
+
+## 2026-09-13: Add an opt-in CS stream lane without changing fixture authority
+
+- **Decision**: Add a third, off-by-default playback module whose user-facing
+  sources are opaque `CS1`, `CS2`, and so on. Fotty consumes the add-on's
+  Stremio `manifest`, `catalog` and `stream` contracts; it does not copy the
+  client/add-on UI or use the remote catalog as a fixture source.
+- **Identity/safety**: A request must match exact sport, both whole-team
+  identities and kickoff within 15 minutes. Multiple IDs conflict rather than
+  choosing the first. Only HTTPS responses and same-origin `/api/manifest` or
+  `/watch` deliveries are admitted; cross-origin, arbitrary-path and P2P/Ace
+  results fail closed. Channel rows and undated events are not inferred as a
+  named match.
+- **Integration**: The independent lane shares the existing 18-second attempt
+  deadline and attempt-scoped health/failover. Existing providers keep their
+  neutral Broadcast labels; only the CS lane exposes its opaque family labels.
+  The bundled toggle defaults off for existing and new installations.
+- **Verification/boundary**: Exact/reversed-pair, category, kickoff,
+  youth/senior, ambiguity, delivery allowlist, deduplication, player routing and
+  opt-in defaults are covered by Catalyst tests; the complete simulator-free
+  Catalyst and generic iOS Release gate passes. No device install, TestFlight,
+  backend deployment, remote fixture change or decoded-playback claim.
+
+## 2026-09-13: Keep confidence evidence private and make time transitions absolute
+
+- **Decision**: Reuse Fotty's bounded, privacy-safe quality history for a hidden
+  Owner Status view, filtered to the exact installed version/build. Reveal it by
+  seven taps on the Settings version row; never restore engineering messages to
+  Home. Contextual playback reports may seed an empty draft but cannot overwrite
+  existing tester work or silently enable diagnostic sharing.
+- **Temporal correctness**: FPL deadline notifications now use absolute UTC
+  calendar components including seconds and carry a typed route back to the FPL
+  gameweek workspace. Kickoff alerts require scheduled/timed to in-play, so
+  halftime or suspension recovery cannot create a second kickoff alert.
+- **Verification/boundary**: New tests cover build attribution, draft preservation,
+  UTC/DST-resistant notification construction, FPL destination ownership and
+  kickoff transitions. The complete simulator-free Catalyst unit and generic iOS
+  Release gate passes. No device install, TestFlight/backend change, remote
+  analytics or physical notification/visual acceptance is claimed.
+
+## 2026-09-13: Watch acknowledgement owns the first presentation frame
+
+- **Decision**: Home, Matchday and Match Center set their stream-resolution UI
+  before discovery, yield a bounded 60 ms presentation window, acknowledge the
+  accepted action with a light haptic and ignore a repeated tap for the same
+  in-flight event. A different event can still replace the active lookup.
+- **Why**: Provider catalog matching can begin before SwiftUI commits the loading
+  surface. With visually plain Watch controls, a user could reasonably believe
+  the tap was missed and tap again, restarting the same request and extending
+  the apparent delay.
+- **Verification/boundary**: A regression protects all three entry points and the
+  complete simulator-free Catalyst unit plus generic iOS Release gate passes.
+  This is source validation, not physical-device timing evidence; it is not
+  installed or distributed.
+
+## 2026-09-09: Verify off-Mac recovery in a separate private GitHub repository
+
+- **Authority**: Owner chose GitHub and approved creating `fotty-recovery`.
+  Authenticated owner is `jetboss`; the exact repository did not previously
+  exist. Create it Private and disable Actions before uploading any files.
+- **Storage**: `https://github.com/jetboss/fotty-recovery`, outer storage commit
+  `f54a314dc03ea24eefd535b9455c9f26f275b64e`, contains restore instructions and
+  the unchanged 17 MB build-93 bundle/receipt, not the development Git history.
+- **Verification**: A fresh clone from GitHub matches both original files
+  byte-for-byte. Disposable source restore validates all 645 files/modes,
+  source commit and hashes and passes Gitleaks. Private visibility and disabled
+  Actions are verified after upload. The owned 70 MB staging root is removed;
+  the original local recovery bundle stays, with approximately 48 GiB free.
+- **Boundary**: No change to the working repository's origin/index/history,
+  TestFlight, app source, devices, backend or collaborators. No scheduled backup.
+  The saved post-release snapshot predates local performance-feedback changes;
+  it is not exact historical binary provenance or automatic protection for
+  future edits. See `docs/operations/SOURCE-RECOVERY.md` for the restore procedure.
+
+## 2026-09-09: Prepare recovery, opt-in field evidence and independent build-93 testing
+
+- **Scope**: Owner approved the blind-spot follow-up. Source/local gates only;
+  no device install, TestFlight upload, new tester, remote Git publication,
+  backend/paid-service change or automatic analytics.
+- **Recovery**: Capture current app source before feedback edits into a verified
+  17 MB, 645-file independent one-commit bundle. No old ancestry or active-index
+  mutation. Receipt/restore procedure and future pre-archive capture/compare
+  gate are in `docs/operations/SOURCE-RECOVERY.md`. The post-release capture
+  does not prove exact original build-93 inputs. Off-Mac destination is pending.
+- **Evidence**: Existing feedback consent now exports the latest dated scroll
+  and hang scalars with reporting windows, reported/mixed build attribution and
+  honest unavailable state. At most two <=2 KiB summaries, 14-day retention,
+  corruption/ordering guards and late-pre-clear rejection. No raw MetricKit
+  payloads, traces, private metadata or silent upload.
+- **Qualification**: Eight Python recovery tests and actual snapshot restore/
+  Gitleaks verification pass. Full public-Xcode gate: 546 Catalyst units pass,
+  zero failures, two opt-in skips; generic iOS Release passes. Owned 953 MB
+  temporary output removed; approximately 48 GiB free.
+- **Boundary**: Build 93 remains the recorded shared candidate; changes above
+  are unreleased after 93. `docs/beta/BUILD-93-QUALIFICATION.md` prepares entry
+  checks, five uncoached tasks, a seven-day ledger and verified report receipt.
+  Physical/independent acceptance is not complete and no reports were sent.
+  See `docs/audit/Fotty-Field-Readiness-2026-09-09.md`.
+
+## 2026-09-08: Ship shared UI batch 93 to the existing internal group
+
+- **Authority**: Owner requested TestFlight deployment. Allocate 2.0.0 (93)
+  after private 92; no feature/test code changes, tester/role changes, external
+  testing, direct-device installs, backend deployment or Git publication.
+- **Scope**: Batch private 82–92: compact Home, app-wide grouping, badges and
+  equipment, adaptive iPad width, optional kickoff clashes, consistent clocks,
+  quieter routine refreshes and shaded sport loading motion.
+- **Qualification**: Fresh metadata audit reaches three feeds without conflicts;
+  five identity vectors pass. Full public-Xcode Catalyst units: 538 pass, two
+  opt-in live/soak tests skip. Four refreshed UI checks pass on Xcode 27. Initial
+  kickoff automation did not advance its test clock; unchanged rerun passes.
+  Record this intermittent test action, not an invented production fix.
+- **Distribution**: Public Xcode 26.6 (17F113) archive passes app/widget versions,
+  strict signatures, minimum OS and production-default checks. Apple accepts
+  internal-only upload with symbols at 21:31 AST, completes processing and the
+  established encryption declaration, and shows 93 Internal / Testing after
+  saved What to Test notes and assignment to the existing eight-person Fotty
+  Internal Smoke group. Fresh group count supersedes historical seven-person
+  notes. Build 81 remains Testing as the previous shared fallback.
+- **Boundary**: TestFlight download/email delivery, real device UI/motion/power
+  and live playback acceptance remain open; direct iPad 92 is not certification
+  of the TestFlight artifact. Owned 2.3 GB release output and distribution log
+  are removed, about 47 GiB free. See `docs/releases/Fotty-2.0.0-93.md`.
+
+## 2026-09-08: Shaded sport loaders and private Jet iPad build 92
+
+- **Authority**: Owner approved the loader redesign and iPad deployment, not a
+  TestFlight release. Home tile artwork and established playback remain intact.
+- **Implementation**: One bounded native Canvas draws original equipment with
+  stationary lighting, sport-specific movement and contact shadows. Rugby is
+  distinct from NFL. Pure pose math is loop-continuous; motion pauses offscreen,
+  inactive, under Reduce Motion or Low Power Mode, with observed power changes.
+  No sound, haptics, downloaded media, new dependency or artificial loading delay.
+- **Identity**: Blue/silver Champions League treatment requires explicit UEFA/UCL
+  metadata or an official match agreeing on whole team identities and kickoff.
+  Youth, women's, confederation conflicts and catalog conflicts stay generic
+  football. This does not modify competition filtering or infer match status.
+- **Evidence**: 169 focused Catalyst checks pass, one opt-in playback soak skips.
+  Four-phase dark/light native artwork inspected; initial Canvas compile and
+  one-level render-rounding test issues corrected before final qualification.
+  Signed Release/strict app+widget signatures, installed version 92 and 30-second
+  main-app hold pass on Jet iPad. Home retains current CPL Watch and interests.
+- **Boundary**: No stream was started and no physical loader/power/hitch claim
+  is made. iPhone stays 90; recorded TestFlight stays 81. Owned temporary build
+  output is removed; details and acceptance are in release 92 and
+  `docs/audit/Fotty-Sport-Loading-Motion-2026-09-08.md`.
+
+## 2026-09-08: Install the Home clock fix as private build 91 on Jet iPad
+
+- **Authority**: Owner requested iPad deployment only. App/widget and the
+  XcodeGen manifest advance together to 2.0.0 (91); no feature edits or project
+  regeneration during deployment.
+- **Evidence**: Jet iPad was connected/unlocked on 90. Optimized signed Release
+  and strict nested signatures pass; CoreDevice verifies installed 91 and a
+  successful 30-second startup hold. Actual portrait Home at 20:26 shows the
+  current 19:00 CPL match once with Watch, full width, without the old countdown
+  or routine stale banner. No playback was started.
+- **Boundary**: iPhone remains 90 and TestFlight 81. No simulator, device UI-test
+  runner, settings/data reset or FPL identity action. Only the owned temporary
+  deployment output is removed. See release 91 for remaining physical acceptance.
+
+## 2026-09-08: Keep Home time, sections and adaptive rows consistent
+
+- **Report**: Jet iPad showed Cricket “1 on now” while a started CPL fixture
+  retained “Starts in 1h 5m” and a stale paired row duplicated tomorrow's match.
+- **Change**: Project a single identified sequence of Home headings/rows before
+  lazy rendering. Row identity includes section, ordered members and columns;
+  rendering consumes that explicit column value. Clock ticks keep stable IDs.
+  Visible controls no longer receive the cached catalog item's timestamp.
+- **Refresh**: Restart the local clock on activation/catalog change and wake at
+  kickoff even within one minute. Share a 90-second automatic attempt throttle;
+  cancellation allows retry. Routine cache/age copy is silent without advancing
+  receipts or concealing real fetch/partial/CPL verification failures.
+- **Evidence**: 137 BetaUsability/HomeDiscovery/SportsCatalogRefresh/MatchReminder
+  units pass. Six focused Catalyst checks pass (transition/navigation, filters/
+  full lineup, large text, stale CPL, offline and partial notices). The transition
+  test was strengthened and rerun for a genuinely narrow, full-width card.
+  Generic unsigned iOS Release compilation and whitespace/shell checks pass.
+  Direct native test-app inspection confirms current/next rows. Early automation
+  initialization failures and two corrected test assumptions are documented in
+  `docs/audit/Fotty-Home-Clock-2026-09-08.md`; they are not app regressions.
+- **Boundary**: Source only; no provider/backend changes, version increment,
+  device installation, TestFlight, simulator or production preference changes.
+  Physical kickoff/foreground/rotation acceptance awaits an authorized install.
+  Both owner devices remain 90; TestFlight remains 81. One bounded temporary
+  gate is cleaned after verification.
+
+## 2026-09-08: Complete private build 90 delivery on both owner devices
+
+- **Retry evidence**: Both named devices connected and unlocked. A fresh optimized
+  signed app/widget 90 passed strict signatures. CoreDevice verifies 2.0.0 (90)
+  installed on Jelani's iPhone 15 Pro Max and Jet iPad Air 4. Both launch and
+  survive 30-second process holds. The earlier connection/lock blocker is resolved.
+- **Scope**: Same approved optional-clash/UI source, no further feature edits or
+  version increment. No TestFlight, simulator, device UI-test runner, data reset
+  or FPL identity confirmation. Visual/playback acceptance is distinct from startup.
+- **Cleanup**: The one bounded retry build directory was trap-cleaned after both
+  devices were verified; approximately 48 GiB free. See release 90.
+
+## 2026-09-08: Build private 90; device installation awaits unlocked connections
+
+- **Authority**: Owner requested installation on Jelani's iPhone and Jet iPad.
+- **Build**: One optimized signed iOS Release artifact passed strict nested
+  signatures; app/widget both report 90. Synced the XcodeGen manifest's stale
+  build number with the active project, without regenerating the project.
+- **Outcome**: iPhone installation hit CoreDevice disconnect error 4000; iPad
+  installation hit error 3002/closed remote connection. Fresh installed-app
+  queries confirm iPhone remains 87 and iPad 89. Both now require unlocking.
+  Do not claim successful delivery or increment past 90 merely for the retry.
+- **Boundary**: No TestFlight, data reset or device UI-test runner. Temporary
+  signed/build products were trap-cleaned after failure; about 48 GiB free.
+  Retry the same intended build after the owner unlocks and connects both devices.
+
+## 2026-09-08: Make kickoff clashes optional and off by default
+
+- **Owner feedback**: The landscape fix is accepted. The kickoff-clash hint no
+  longer feels useful enough to occupy Matchday by default.
+- **Decision**: Keep an opt-in under Settings → Preferences, labelled “Show
+  kickoff clashes”, with one short explanation of overlapping My Matchday games.
+  It is not a push notification and does not belong under permission controls.
+- **Implementation**: Shared persisted preference, default off for new/existing
+  installs without an explicit choice. Gate both the banner and conflict scan;
+  include the choice in the cached projection key. Preserve saves and reminders.
+  Private backups retain the choice; older backups restore it as off.
+- **Verification**: All 78 BetaUsability/SportsPersonalization/PrivateBackup tests
+  pass, including default-off, saved preference, reminder independence and older
+  backup restore. Four Catalyst checks pass: opt-in across navigation, grouped
+  notification controls and Settings/Matchday Dynamic Type. Generic unsigned iOS
+  Release compilation, shell syntax and whitespace checks pass. No simulators;
+  the one bounded validation directory was trap-cleaned (about 48 GiB free).
+- **Boundary**: Source-only; no build-number change, device install or TestFlight
+  upload. Jet iPad remains 89 and still needs a later install for this change.
+
+## 2026-09-08: Use the iPad's available width in private build 89
+
+- **Cause**: Jet iPad's 1180-point landscape screenshot showed narrow content
+  caps, nine sport tiles plus a lone tile and a broken Motorsport label.
+- **Decision**: Adapt to actual window width, not device orientation. At 1000
+  points, use two-card fixture rows and side-by-side Settings/FPL groups; narrow
+  windows and accessibility text retain one column. Balance tablet sports rows
+  without changing phone overflow or catalog ordering/data ownership.
+- **Regression fixes**: Preserve the existing compact grid height with padding
+  adjustments; make the complete FPL workspace-tab label clickable. Use AnyLayout
+  for non-destructive rearrangement and keep lazy fixture rows bounded to two.
+- **Evidence**: 142 focused units and 13 distinct Catalyst UI journeys pass,
+  including actual wide/narrow resizing with FPL state retained. Signed Release,
+  strict signatures, exact installed version and 30-second launch hold pass on
+  Jet iPad. Its actual Home screenshot confirms full-width content, five-plus-five
+  sports and two-column match cards. Other physical screen/appearance acceptance
+  remains open; fixture warning/service health and playback are separate.
+- **Authority**: Explicit Jet iPad install approval only. No iPhone/TestFlight
+  update, data/consent reset or device UI-test runner. Owned validation output
+  and screenshots removed; approximately 48 GiB free. See release 89 and the
+  iPad layout audit for scope and validation limits.
+
+## 2026-09-08: Install the finished UI polish as private iPad build 88
+
+- **Authority**: Owner requested iPad deployment for testing, not TestFlight.
+- **Evidence**: Fresh signed optimized Release build, strict nested signatures,
+  CoreDevice installed-version verification and launch pass on Jet iPad (iPad Air
+  4th generation). App/widget build numbers advanced together to 88.
+- **Boundary**: No iPhone update, TestFlight upload, data reset or UI-test runner
+  install. Physical iPad visual acceptance remains with the owner. Temporary
+  build output removed. See `docs/releases/Fotty-2.0.0-88.md`.
+
+## 2026-09-08: Finish the build 87 visual-review findings locally
+
+- **Decision**: Preserve the approved calm presentation and existing behaviour;
+  finish the specific remaining hierarchy/grouping issues before another install.
+- **Implementation**: Shared Matchday reasons appear once per section; kickoff
+  clash details expand on demand while the warning stays visible. Settings has
+  a compact leading title and explicitly visible pushed navigation bars. Search
+  rounds its group ends without replacing lazy rows. FPL setup puts the team
+  check above optional link help and retains confirmation/local-data safeguards.
+- **Verification**: All 108 BetaUsability/FPLTrust tests, generic iOS Release
+  compilation and five Catalyst checks pass: Matchday/Settings Dynamic Type,
+  grouped notifications, Help/feedback navigation and non-connecting FPL input.
+  Temporary build output is removed. UI test summaries also carried a generic
+  main-thread runtime warning; this pass does not diagnose it or claim measured
+  performance improvement.
+- **Boundary**: Source-only finishing pass; installed owner build 87 and recorded
+  TestFlight 81 are unchanged. Physical visual acceptance remains separate,
+  especially the real FPL workspaces awaiting owner team confirmation.
+
+## 2026-09-08: Install app-wide UI build 87 and record real visual gaps
+
+- **Evidence**: Signed Release/signatures, exact-device installation/version and
+  launch pass. Mirroring reviewed Home, Matchday, Settings/Notifications and
+  cricket search. Temporary query cleared and Home restored; no settings changed.
+- **Findings**: Repeated Matchday reason labels, competing notices, dense FPL
+  confirmation, inconsistent header spacing and square search grouping remain.
+  FPL workspace review is blocked on owner identity confirmation, not bypassed.
+- **Boundary**: TestFlight unchanged; no playback or iPad/light/large-type physical
+  qualification. Owned output cleaned. See `docs/releases/Fotty-2.0.0-87.md`.
+
+## 2026-09-08: Owner defines current milestone as intentional, premium UI
+
+- **Priority**: Existing behaviour is stable enough from owner testing. Polish
+  every screen's visual hierarchy, typography, spacing, action clarity and
+  empty/loading states. Do not add features or reopen backend/playback/FPL logic
+  except for a regression introduced by UI work.
+- **Evidence**: The app-wide presentation batch passes usability/FPL trust suites,
+  generic iOS Release compilation and four Catalyst large-text audits. This is
+  regression evidence, not per-screen physical visual acceptance. No deployment.
+
+## 2026-09-08: Extend the calm UI direction across native browsing
+
+- **Decision**: App-wide presentation consistency, preserving all functional
+  destinations and trust labels rather than literally copying sample FPL data.
+- **Implementation**: Circular All sports/Rugby equipment correction; grouped
+  Matchday with simple header; readable shared fixture rows; underlined FPL
+  workspaces and responsive tool rows; calmer manager/Coach headers; grouped
+  search and sentence-case Settings headings. Shared semantic typography retains
+  Dynamic Type. Existing player gestures and lifecycle remain untouched.
+- **Boundary**: Local source batch only. Build 86 remains installed and TestFlight
+  stays 81. Individual tool/iPad/appearance acceptance is not inferred from unit
+  tests. Screen matrix: `docs/audit/Fotty-Appwide-UI-2026-09-08.md`.
+
+## 2026-09-08: Install and physically inspect UI build 86
+
+- **Evidence**: Signed Release/signatures, CoreDevice install/version and launch
+  pass on Jelani's iPhone. Actual mirrored Home/Settings/Notifications, cricket
+  filtering and sports sheet checks pass. Restored All sports; no toggles changed.
+- **Finding/boundary**: Rugby artwork still shares American football's mapping.
+  Light mode, large text and playback were not tested in this pass. No TestFlight
+  upload or other-device install. Owned output cleaned; see release 86.
+
+## 2026-09-08: Match Home equipment artwork to the approved preview
+
+- **Decision**: Use native full-colour equipment emoji on Home sport tiles,
+  matching the concept's football, cricket bat/ball, basketball, baseball and
+  tennis artwork. Keep the All sports grid and unknown-sport symbol fallback.
+- **Implementation**: SportEmblem has an opt-in illustrated-equipment mode;
+  other surfaces retain their SF Symbols. Existing selection motion respects
+  Reduce Motion. No downloaded assets, team-badge changes or added network work.
+- **Boundary**: Local source change, not installed or uploaded. Actual rendering
+  follows the device OS emoji artwork. Focused test status is in Current-State.
+
+## 2026-09-08: Restore visual emphasis instead of shrinking all Home content
+
+- **Decision**: Apply the owner's preview comparison: larger wordmark/team
+  typography, better tile insets, competition labels without redundant sport
+  prefixes, accent-coloured reminders and a uniform bottom navigation surface.
+- **Implementation**: Home badges opt out of coloured outlines while retaining
+  their contrast surface, cached sources and initials fallback. Team names wrap
+  rather than forcing ordinary text to one line. Keep Sports/Search/Watch 2
+  reachable; remove the competing Watch 2 container, not the feature.
+- **Boundary**: No fixture classification, playback, score, reminder policy or
+  preference change. Source work only; owner build 85 and TestFlight 81 unchanged.
+  Verification status is tracked in Current-State; visual acceptance remains open.
+
+## 2026-09-08: Install Settings UI as private owner build 85
+
+- **Decision**: Update Jelani's iPhone in place for the requested UI test, without
+  uploading to TestFlight or installing on another device.
+- **Evidence**: Signed optimized Release build, strict signatures and CoreDevice
+  installation pass. Launch denied by the device lock; owner acceptance pending.
+  Temporary build output cleaned. See `docs/releases/Fotty-2.0.0-85.md`.
+
+## 2026-09-08: Continue the calm UI direction with grouped Settings
+
+- **Decision**: Keep Settings' main page focused on destinations, with match
+  notification switches and FPL reminder access together on a Notifications page.
+  Preserve existing preference keys, source controls, privacy disclosures and
+  explicit system-permission opt-in.
+- **Implementation**: Rename the interests entry to Home interests, expose
+  Backup & restore directly, remove the decorative pitch background and bound
+  the content width on iPad. Refresh actual notification permission on foreground;
+  distinguish quiet/temporary delivery from full authorization.
+- **Boundary**: Local source work only; build 84 remains the owner-device build
+  and TestFlight remains 81. Wider FPL/Matchday layout changes are still separate.
+  Catalyst app/test compilation succeeded; automation initialization timed out
+  before execution, including the single retry. The three requested navigation,
+  large-text and support checks are not claimed as passed. Owned output cleaned.
+
+## 2026-09-08: Correct the native Home density after build 82 was visually rejected
+
+- **Finding**: The owner screenshot did not match the compact concept. The
+  shared `fottyScaled` helper maps numerical sizes to semantic system styles;
+  changing its numerical argument within one bucket cannot reduce the font.
+  Tall reserved title lines and a separate sports-overflow row also remained.
+- **Decision**: Use Home-scoped `ScaledMetric` sizes for compact tile, interests,
+  team and wordmark typography without changing the app-wide semantic helper.
+  Keep equal measured tiles and Dynamic Type, reduce equipment/badge sizes,
+  remove reserved empty title lines, and move phone overflow into the header.
+  Do not offer that extra action on iPad where all sports are already shown.
+- **Verification**: The focused usability suite passes, including a native
+  rendered 361-point phone grid budget of at most 190 points at standard text
+  size. Large-text and clipping UI audits pass. Navigation initially exposed
+  redundant iPad overflow; the corrected navigation journey passes.
+- **Boundary**: This corrects native Home/shared discovery density, not the
+  broader FPL/Settings concepts or the separately reported U19 classification.
+  Real phone comparison must be recorded separately from automated checks.
+- **Physical follow-through**: Intermediate build 83 exposed four columns on
+  Pro Max. Build 84 caps phones at three and adds a 398-point-width regression;
+  signed build/install/launch and actual mirrored Home, overflow and cricket
+  filtering checks pass on Jelani's iPhone. Restored All sports. Owner visual
+  acceptance remains pending, and TestFlight stays 81. See the build-84 record.
+
+## 2026-09-08: Install calm-Home UI as private owner build 82
+
+- **Decision**: Use a distinct build number for the requested iPhone acceptance
+  check without notifying the TestFlight group.
+- **Evidence**: Signed optimized Release build and strict signatures pass;
+  CoreDevice confirms 2.0.0 (82) installed on Jelani's iPhone. Automatic launch
+  was denied because the device was locked. Owner acceptance remains pending.
+- **Boundary**: In-place install only, no uninstall/data reset or other device.
+  TestFlight remains 81. Owned build products cleaned on exit. See
+  `docs/releases/Fotty-2.0.0-82.md`.
+
+## 2026-09-08: Make routine Home UI quieter without concealing stale data
+
+- **Decision**: Implement the first UI batch locally and preview broader screen
+  changes before applying them. Preserve badges, equal sport choices, side Watch
+  actions, opt-in reminders, interests and source-freshness rules.
+- **Implementation**: Compact the masthead/interests/shared match rows. Scope
+  CPL warnings to the events displayed in Home, Search and My Matchday; avoid
+  stacking football and catalog notices. Move check timestamps behind a
+  separately accessible Update details control. Healthy listings need no banner,
+  while failed, stale and partial updates retain actionable warnings.
+- **Testing policy**: Do not suppress notices during automated UI tests. Seed
+  explicit fresh/stale/offline/partial states instead. The notice container must
+  contain, not overwrite, child control accessibility identities.
+- **Boundary**: Build 81 remains the distributed baseline. No install, upload,
+  version change or broader FPL/Settings redesign in this batch. An interactive
+  sample-data concept covers the next UI discussion, not actual live fixtures.
+- **Evidence**: Six focused Catalyst UI journeys, catalog/usability unit tests,
+  and the final unsigned generic-iOS Release compile pass. See
+  `docs/audit/Fotty-Calmer-Home-UI-2026-09-08.md`; physical acceptance is pending.
+
+## 2026-09-07: Release one reproducible build-81 reliability candidate
+
+- **Decision**: Reconcile the current product graph against clean remote
+  ancestry, close the FPL duplicate-replacement defect, qualify it without a
+  simulator, and distribute one internal-only build rather than another direct
+  device binary.
+- **Implementation**: Reject unchanged/already-selected FPL elements with
+  accessible feedback, isolate deterministic UI fixtures from production
+  manager freshness, and add stable identifiers plus failure-only release
+  evidence for Home, match-start and squad journeys.
+- **Evidence**: Exact replay and Gitleaks pass; 22 memory tests, the complete
+  public-Xcode 26.6 simulator-free policy/unit/Release gate and all 20 Xcode 27
+  Catalyst UI journeys pass. The 2.0.0 (81) app and extension archive versions,
+  identifiers and strict signatures pass; Xcode upload, Apple processing,
+  compliance, focused notes and assignment to the unchanged seven-person
+  internal group are complete.
+- **Boundary**: Build 80 remains rollback. Exact TestFlight iPhone/iPad behavior
+  and decoded Champions League match-time playback remain open; no tester,
+  role, external group, production Worker, device install or Git history changed.
+
+## 2026-09-07: Bound instruction context and make local memory retrieval/export trustworthy
+
+- **Decision**: Use Current-State.md plus relevant topic sections for onboarding;
+  retain historical records without treating old release statements as current.
+  Source-only and read-only work have explicit stop boundaries; no automatic
+  device installation, publishing, or simulator/build work for memory changes.
+- **Implementation**: The standard-library memory helper preserves PiP/FPL/UCL/
+  CPL, ranks bounded sections, prefers the current summary, and labels history.
+  Export redacts URL credentials, structured secrets and private keys, checks
+  residual patterns, verifies source digests and atomically replaces the last
+  good bundle. Clipboard copying is opt-in. Health reports its limited checks.
+- **Cross-project scope**: Codex gets shared Mac limits. Cursor continuity now
+  separates project notes from explicit confirmed global preferences, rejects
+  automatic assistant summaries as authority, and rebuilds per-workspace briefs.
+  OtakuVerse's old homelab runbook is archived rather than active.
+- **Verification/boundary**: Offline synthetic tests cover retrieval, redaction,
+  failed exports, scope isolation and confirmation. No app build, version change,
+  device install, TestFlight upload, production request or credential rotation.
+  See `docs/audit/Instruction-Workflow-Repair-2026-09-07.md` for final checks.
+
+## 2026-09-07: Join Champions League schedule truth to provider availability without inventing Watch
+
+- **Finding**: The official 144-fixture feed was complete, but 17 formal club
+  names were not exact reviewed aliases. Provider-only Home could omit an
+  official fixture until a stream listing appeared, while different provider IDs
+  could display the same match twice.
+- **Decision**: Review all current official aliases; project source-free official
+  Champions League rows into Home/Search/My Matchday; and merge cross-ID rows
+  only on sport, exact kickoff and two reviewed whole-team identities. Prefer a
+  source-backed representative and union only real provider descriptors.
+- **Monitoring**: `tools/audit-ucl-readiness.mjs` compares the official window
+  with three live catalogs and optionally resolves Worker variants. The daily
+  provider workflow reports 72 hours; a dedicated workflow runs every 30
+  minutes from 16:00–23:59 UTC on Tuesday–Thursday and Saturday, failing when a
+  fixture is inside 30 minutes through three hours after kickoff without a
+  usable source. Worker-generated Legacy fallback URLs are not usable evidence;
+  Admin/PPV is included because the real player supports it.
+- **Evidence/boundary**: All 36 official team names resolve. Protected PR 21
+  merged as `2f7c6a13`; its post-merge hosted run found all 18 Matchday 1
+  fixtures with three concrete variants each. Build 80 passes the complete
+  simulator-free suite, public-Xcode 26.6 signed Release compile, strict archive
+  signing and Apple processing. The established no-listed-encryption answer and
+  focused notes persisted, and App Store Connect independently shows Internal /
+  Testing for only the unchanged seven-person `Fotty Internal Smoke` group.
+  Build 79 remains the rollback. Live UCL score/minute and goal/full-time alert
+  coverage remains off, and metadata resolution is not decoded-playback proof.
+
+## 2026-09-06: Matchday rendering is a revision projection, not body-time catalog work
+
+- **Finding**: My Matchday combined per-frame `SceneStorage` scroll writes with
+  repeated full-catalog personalization, official-fixture matching, status,
+  playback selection and live sort calculations during SwiftUI body evaluation.
+  Root tab selection also animated the replacement of the complete screen tree.
+- **Decision**: Remove absolute Matchday scroll persistence and root-tab
+  replacement animation. Build a single no-animation presentation projection
+  keyed by catalog, score, clock, saved-match and follow revisions. Each
+  candidate resolves official state, relevance, row reason and playback action
+  once; sections and sort order reuse those values.
+- **Settings boundary**: Remove instructions that merely repeat a control or
+  destination, including provider implementation versions. Preserve disclosure,
+  permission recovery, data-loss, destructive-action and error copy.
+- **Evidence/boundary**: The complete simulator-free policy suite, live provider
+  identity audit and generic iOS Release compile pass. Signed build 79 installed
+  on Jelani's iPhone and Jet iPad; automatic phone launch was denied because it
+  was locked, while iPad install and launch succeeded. Public Xcode 26.6 then
+  archived and uploaded the internal-only candidate. Apple processed it, the
+  established no-listed-encryption declaration was saved, and build 79 is
+  Testing for the unchanged seven-person `Fotty Internal Smoke` group. No
+  external group, tester or role changed. Hands-on acceptance remains open.
+
+## 2026-09-06: Track the real WebKit owner before suspending background playback
+
+- **Finding**: Device AVKit/WebKit logs from rejected build 77 show the provider
+  HTML video entered WebKit-owned PiP and was playing. Fotty then received scene
+  background and invoked its own suspension JavaScript; AVKit immediately
+  changed the Web player to paused. The prior native-item diagnosis was not the
+  playback path used by this cricket reproduction.
+- **Decision**: Report standard and prefixed PiP events only for the confirmed
+  owning web video. Give the scene transition 750 ms for that event, cancel web
+  suspension when PiP is active, and cancel/reject native handoff while WebKit
+  PiP or background owns playback. Preserve ordinary non-PiP suspension and
+  same-attempt foreground recovery.
+- **Evidence/boundary**: Executed JavaScript and bridge tests cover PiP state,
+  owner-document scoping and deduplication; lifecycle tests cover the background
+  race, ordinary suspension and handoff exclusion. The complete simulator-free
+  unit/Release gate passes. Signed private build 78 is installed only on Jelani's
+  iPhone; the owner repeated the previously failing provider PiP path and
+  confirmed it is fixed. Build 78 is the accepted private baseline. TestFlight
+  remains 75.
+
+## 2026-09-06: Let AVKit own native PiP background transitions
+
+- **Finding**: Internal TestFlight build 75 could display a native cricket PiP
+  window on Jelani's iPhone yet leave its player paused; the PiP Play control did
+  not recover until Fotty foregrounded. Scene background could win a race with
+  the AVKit active callback, and system player-state changes were not observed.
+- **Decision**: Preserve a playing PiP-capable native item across that callback
+  race, explicitly pause only after PiP stop/failure/availability loss, and
+  observe `AVPlayer.timeControlStatus` so system PiP Play/Pause remains aligned
+  with Fotty and Now Playing. Keep the same player, item, proxy and attempt.
+- **Evidence/boundary**: Four focused lifecycle regressions, the complete
+  simulator-free unit/Release gate and ten selected Catalyst UI checks pass.
+  Private optimized build 76 installed in place and launched only on Jelani's
+  iPhone, but real testing rejected it: the native cricket item still could not
+  resume from the system PiP Play control while Fotty remained backgrounded.
+  TestFlight remains build 75 and build 76 must not be promoted. The next gate
+  must exercise the paused live-network path, not only callback ordering.
+
+## 2026-09-06: Make visible copy earn its space
+
+- **Decision**: Primary surfaces retain only state, action, recovery and material
+  privacy/correctness boundaries. Remove repeated explanations and replace
+  implementation vocabulary such as catalog, endpoint, API allowance, cache,
+  snapshot and playback handshake with user language.
+- **Scope**: Home, Search, My Matchday, Match Hub, player states, Settings and all
+  FPL workspaces were reviewed. Detailed teaching remains in Help; accessibility
+  labels and consent/destructive/correctness warnings remain explicit.
+- **Evidence/boundary**: Long direct visible labels fell from 64 audit candidates
+  to 29. Complete simulator-free unit/Release and ten focused Catalyst UI gates
+  pass. This stabilizes English copy but does not yet migrate localization, install
+  a build or upload TestFlight.
+
+## 2026-09-06: Make saved CPL interests immediately visible and remove repeated Home timing copy
+
+- **Decision**: Competition toggles from the interests editor mutate and save
+  through the same SwiftData `ModelContext` that powers its `@Query` views.
+  Durable writes in an isolated context remain available for non-UI workflows,
+  but the editor must not return Home to a stale interest snapshot.
+- **CPL identity**: Every internally verified `cpl-2026-*` schedule row belongs
+  to a saved CPL interest, including knockout placeholders whose teams are not
+  known yet. Untrusted provider/editorial rows still require two reviewed CPL
+  teams, and generic cricket channels remain outside the competition filter.
+- **UI**: Remove the permanent Home timing/source disclaimer and repeated CPL
+  schedule explainer. A current schedule-only CPL row displays its scheduled
+  time inside the already-labeled live section instead of repeating `On now ·
+  listed start`; broadcast caveats remain available where availability is
+  actually explained.
+- **Verification**: The exact 7:00 PM match 29 path is covered from saved CPL
+  interest through the Home live section; all 39 schedule rows match CPL. The
+  full simulator-free unit suite and generic iOS Release compile pass. No build
+  was uploaded or installed.
+
+## 2026-09-06: Activate fixture freshness and release the complete batch as internal build 75
+
+- **Decision**: Ship the accumulated daily-use work as one significant internal
+  TestFlight release rather than another direct-device patch. Keep the existing
+  seven-person `Fotty Internal Smoke` group unchanged.
+- **Activation**: Merge only the six fixture-monitor/Worker files through clean
+  PR 17, deploy Worker version `e46fb1d9-06eb-4efb-8d24-ff5544e42215`, and run
+  protected workflow 34056219335. Never publish the dirty old-ancestry checkout.
+- **Release**: Allocate 2.0.0 (75) after confirming build 55 was Apple's latest.
+  Public Xcode 26.6 full simulator-free gates, signed metadata/signatures and
+  internal-only upload pass; Apple shows build 75 Testing for the one existing
+  internal group with focused notes saved.
+- **Boundary**: No direct install, new tester/role, external testing or App Store
+  submission. Exact TestFlight installation and physical iPhone/iPad acceptance
+  remain open. The reusable 8.52 GB arm64 iOS platform component was required by
+  lightweight Xcode; every task-owned archive/result/log was removed.
+
+## 2026-09-06: Never present retained fixture data as freshly verified
+
+- **Decision**: Treat fixture revision, verification receipt, and broadcast
+  catalog receipt as separate facts. Retained data may remain useful, but must
+  not inherit the timestamp or authority of an unrelated successful refresh.
+- **CPL**: Successful two-source verification always advances `checkedAt` while
+  only content changes advance `revision`. iOS accepts only known source states,
+  uses a two-hour freshness window, and will not replace a verified cache with a
+  lower-trust fallback.
+- **Football**: Keep football-data.org plus its 15-minute cache as PL/UCL schedule
+  authority. A failed schedule refresh clears old analysis from official
+  matching and produces a visible refresh notice; it does not remove the
+  independently refreshed streaming catalog.
+- **Monitoring**: Retain both CPL source audits and add daily full-season PL/CL
+  contract validation. A monitoring failure is visible workflow evidence, never
+  permission to publish partial data.
+- **Boundary/evidence**: Live audits passed for 39 CPL, 380 PL and 144 CL rows;
+  complete simulator-free iOS/Release, 136 web/Worker units, lint and Worker
+  dry-run pass. The later build-75 decision above records activation and internal
+  distribution; this entry preserves the implementation-time boundary.
+
+## 2026-09-06: Give personalized Home a bounded three-day lookahead in build 74
+
+- **Decision**: When the Home-only interest switch is active, show selected live
+  events and the next 72 hours of selected fixtures chronologically, capped at
+  three upcoming rows on iPhone and four on iPad.
+- **Scope boundary**: Increase shared catalog retention to 72 hours so the view
+  has data, but preserve broad Home's six-hour featured window, two-row later
+  cap and explicit 48-hour later boundary. Full lineup and Search remain escape
+  routes; no separate fixture feed or official-schedule claim is introduced.
+- **Why**: Build 73's filter worked on hardware, but a one-day-only visible set
+  can make a user's intentionally narrow Home feel empty between matchdays.
+- **Verification**: Final simulator-free tests and generic Release pass. Signed
+  optimized 2.0.0 (74) installed/launched only on Jet iPad; CoreDevice reports
+  the exact build and a screenshot shows the active interest state plus
+  `Next 3 days`. iPhone 70 and TestFlight 55 are unchanged.
+
+## 2026-09-06: Make Home curation user-controlled in private build 73
+
+- **Decision**: Reuse favorite teams and reviewed competition follows as one
+  interest model. Add an opt-in `Only show my interests on Home` preference and
+  one compact Home editor; do not create a second favorites database.
+- **Safe default**: Existing users keep the broad catalog until they opt in. An
+  empty or unavailable interest set fails open and disables the persisted
+  restriction where observed, so preference loss cannot masquerade as an empty
+  provider catalog.
+- **Escape and alert boundary**: Full lineup and Search retain the complete
+  catalog. Following a competition affects Home/Matchday relevance only and
+  never opts the user into reminders or notifications.
+- **Portability**: The encrypted private backup stores the switch as an optional
+  version-one field; older backups decode and restore to broad Home.
+- **Evidence**: Final simulator-free units and generic iOS Release pass. Signed
+  optimized 2.0.0 (73) installed/launched only on Jet iPad and visually shows
+  the truthful broad-Home state after upgrade. Hands-on selection/filtering and
+  accessibility remain open. iPhone 70 and TestFlight 55 are unchanged.
+
+## 2026-09-06: Bound Home prominence by audience relevance in private build 72
+
+- **Decision**: Show at most three featured live rows on compact phones and
+  four on iPad. Rank followed PL/UCL, Premier League, Champions League and
+  CPL/explicit interests ahead of unrelated lower-priority listings. Keep every
+  remaining live event in a counted `More live` disclosure and Full lineup.
+- **Boundary**: This is presentation ranking only. It cannot invent importance
+  metadata, change competition identity, hide events from the catalog, claim a
+  score is live or prove a stream will decode.
+- **Diagnostic correction**: Build 71's iPad capture exposed duplicate
+  Alaves/Deportivo Alavés rows. Build 72 merges only exact reviewed aliases at
+  the same sport and kickoff, preserving real sources and rejecting fuzzy name
+  similarity as identity.
+- **Verification**: The full simulator-free tests and generic iOS Release pass.
+  CoreDevice reports signed optimized 2.0.0 (72) on Jet iPad; the duplicate is
+  visually absent and the normal process survives 60 seconds. Hands-on More-live,
+  scroll/rotation, real-PL ordering and media/accessibility checks remain open.
+  Jelani's iPhone 70 and TestFlight 55 are unchanged.
+
+## 2026-09-06: Refresh Stephon Antoine's internal TestFlight access
+
+- **Finding**: The accepted App Store Connect account
+  `stephonmantoine@gmail.com` was already in `Fotty Internal Smoke`, but Apple
+  showed `No Builds Available` even though build 2.0.0 (55) was active,
+  assigned to the group and due to expire in 88 days.
+- **Decision/implementation**: Remove only that account's stale membership from
+  the internal group and immediately add the same accepted account back. Keep
+  its Marketing role, App Store Connect access, every other tester, all builds
+  and external distribution unchanged.
+- **Verification**: Apple confirmed `1 tester has been added to this group`, the
+  group returned to six testers and Stephon's status changed to `Invited`.
+  Installation and physical acceptance remain Stephon's next steps.
+- **Sharp edge**: A separate misspelled pending user,
+  `steponmantoine@gmail.com`, still exists in Users and Access. Do not confuse
+  it with the accepted tester or resend it as the working account.
+
+## 2026-09-06: Reject build 68 and cancel cold-scroll work at its real owners
+
+- **Evidence**: The owner still saw Home stutter on the optimized build 68.
+  Instruments and syslog could not attach because Xcode's beta device service
+  treated the otherwise connected iOS 27 phone as offline, so the render path
+  was audited directly rather than inventing trace evidence.
+- **Correction**: Restrict catalog-wide CPL fallback to source-less CPL rows;
+  reference-count badge waiters and cancel an underlying load when no visible
+  row needs it; honor a 24-hour persisted badge-catalog freshness window; parse
+  remote league catalogs outside MainActor; remove regex compilation from badge
+  normalization.
+- **Evidence**: Full simulator-free tests and generic iOS Release pass. Signed,
+  optimized 2.0.0 (69) installs/launches on Jelani's iPhone and survives the
+  process hold. Temporary output is removed and about 63 GiB remains free.
+- **Boundary**: Physical cold-scroll acceptance of 69 is pending. Build 68 is
+  superseded. Jet iPad and TestFlight 55 remain unchanged.
+
+## 2026-09-06: Make catalog performance an owned, measurable system in build 68
+
+- **Decision**: Keep catalog rows independent of global badge-service
+  publication, publish the multi-league badge map atomically, coalesce and bound
+  image work, cache Home projections by meaningful revisions and move complete
+  SwiftData replacement to a model actor.
+- **Measurement**: Keep coarse CatalogProjection/CatalogCacheReplace signposts
+  and subscribe to MetricKit in real app runs. Retain only the latest hitch/hang
+  scalars; never accumulate raw payloads or Instruments traces.
+- **Workflow**: Performance validation uses a signed Release build on one
+  explicit physical iPhone through `tools/ios-performance-gate.sh`. The script
+  forbids target guessing, simulators and UI-test runners, uses one temporary
+  build root, and removes it on success, failure or interruption.
+- **Evidence**: Full simulator-free tests and generic iOS Release pass. The
+  optimized 2.0.0 (68) app installed/launched on Jelani's iPhone and remained
+  alive after 30 seconds. Disk returned to approximately 63 GiB free.
+- **Boundary**: A cold-cache rapid Home/Full-lineup scroll remains required for
+  perceived-performance acceptance. Jet iPad and TestFlight 55 are unchanged.
+
+## 2026-09-06: Bound first-scroll catalog work in private build 67
+
+- **Incident**: On iPhone, the first catalog gesture could freeze and stutter
+  before later scrolling became smooth. Home eagerly created offscreen rows,
+  wrote SceneStorage for every geometry change and decoded/animated arriving
+  provider badges from the view task.
+- **Correction**: Use lazy catalog stacks; capture offset without observation and
+  persist only at scroll idle/disappear. Downsample badge bytes off the main actor
+  to 256 pixels and publish dense badge loads without per-image transitions.
+- **Verification**: The downsample and source-contract regressions, complete
+  simulator-free policy suite, three-feed identity audit, signed Debug install
+  and generic iOS Release build pass. CoreDevice reports 2.0.0 (67) installed on
+  Jelani's iPhone.
+- **Boundary**: The locked phone denied automatic launch, so process hold and
+  physical first-scroll acceptance remain open. Jet iPad and TestFlight 55 are
+  unchanged.
+
+## 2026-09-06: Reject build 65 and replace comparator work with build 66
+
+- **Incident**: Both owner devices opened and closed on build 65. Three device
+  reports prove foreground scene-create `0x8BADF00D` watchdog terminations. The
+  main thread was repeatedly performing catalog selection and club-name
+  normalization from Home's sort comparator.
+- **Correction**: Decorate every event with one precomputed presentation key,
+  then sort only that key, kickoff and ID. Use attached supported-source metadata
+  as the cheap availability signal; keep full broadcast matching tap-owned.
+- **Verification**: A 40-event regression proves exactly one rank evaluation per
+  item. The complete simulator-free policy suite, three-feed live identity and
+  generic iOS Release pass. CoreDevice reports 2.0.0 (66) on the owner iPhone and
+  iPad; both main app/extension pairs survive more than 65 seconds with no new
+  crash report.
+- **Boundary**: Build 65 is rejected and must not be distributed. Build 66 is an
+  installed private candidate, not hands-on Home/playback acceptance. TestFlight
+  remains 55 and no backend, provider, tester, production or paid state changed.
+
+## 2026-09-06: Allocate and install private live-first build 65
+
+- **Identity**: Allocate 2.0.0 (65) across the app and Live Activity extension
+  so live-first discovery is never mistaken for accepted build 64.
+- **Devices**: Build one signed universal Debug artifact and install/launch it
+  on Jelani's iPhone 15 Pro Max and Jet iPad. Independent CoreDevice reads
+  report Fotty Sports Hub 2.0.0 (65) on both.
+- **Verification**: Generated competition data, five identity vectors, three
+  reachable live feeds, the complete simulator-free policy suite and generic
+  iOS Release build pass. The relevant Home Catalyst journey also passed before
+  version allocation. Temporary build output was deleted; about 64 GiB remains.
+- **Boundary**: This is private installation, not visual/playback acceptance or
+  TestFlight distribution. TestFlight remains 55; no backend, provider, tester,
+  paid-Coach, production or remote Git state changed.
+
+## 2026-09-06: Never hide live matches behind Home's upcoming limit
+
+- **Decision**: Home has a distinct Live now section containing every current
+  live/listed-now event. The three-row cap applies only to upcoming discovery.
+  Followed events lead live ordering, followed by Premier League, Champions
+  League and the remaining competition tiers.
+- **Why**: The redesigned Home sorted current events only by phase and kickoff,
+  then kept three. A live Premier League match could therefore disappear behind
+  See all after three earlier events, which violates the primary live-sports
+  journey.
+- **Provider copy**: The independent Score808 lane remains part of the bounded
+  combined resolver, but its empty/error copy is provider-neutral. Provider
+  identity remains available in attempt diagnostics and no longer implies that
+  Score808 was the only route checked.
+- **Verification**: The complete simulator-free policy suite and generic iOS
+  Release build pass, including a regression proving five live rows are retained
+  while five upcoming rows are capped at three. The focused Home Catalyst
+  interaction journey passes. Temporary build output was deleted.
+- **Boundary**: This is local source after private build 64. No device,
+  TestFlight, production/provider, backend or tester state changed.
+
+## 2026-09-06: Accept private iPhone web controls in build 64
+
+- **Evidence**: Builds 61/62 still showed controls above a decoded provider feed
+  without reliably owning physical touches. Build 63 proved the UIKit Sources
+  action but exposed a second race: the preceding surface reveal tap allowed the
+  provider's scripted restart to override Fotty Pause.
+- **Correction**: Back only the compact Pause/Sources toolbar with UIKit buttons,
+  leaving the rest of WebKit directly interactive. Clear any earlier trusted
+  provider interaction when the app issues Pause; only a new provider tap may
+  authorize provider Play.
+- **Verification**: The complete simulator-free gate passes. On build 64 on
+  Jelani's iPhone, a decoded stream held exactly at 76:05 for over 4.5 seconds,
+  Fotty Play resumed, the provider's own Play resumed after a second pause, and
+  Sources opened its selector. CoreDevice confirms 2.0.0 (64).
+- **Boundary**: Jet iPad now runs and launches private build 64. Two physical UI
+  attempts failed before a player opened, so they did not test controls; a known
+  decoded stream and audible-close recheck remain. TestFlight remains 55; no
+  backend, tester, production or paid state changed.
+
+## 2026-09-06: Supersede private build 59 with playback-control build 61
+
+- **Evidence**: Owner-device inspection reproduced a decoded web broadcast that
+  continued after Fotty Pause; the visible label remained `Pause`. This is
+  stronger than compile or mock evidence and keeps playback acceptance open.
+- **Correction**: Keep web chrome out of hit-testing-disabled ancestry. Treat
+  Fotty Pause as explicit intent against provider-script restarts, while a real
+  provider surface interaction can still authorize Play.
+- **Verification**: The executed monitor regression covers both programmatic
+  restart rejection and genuine provider resume. The full simulator-free gate
+  and generic Release build pass. One signed build 61 is installed and launched
+  on the owner iPhone/iPad; CoreDevice confirms 2.0.0 (61) on both.
+- **Boundary**: Installation is not exact-build playback acceptance. One quiet
+  physical UI run returned an unidentified test failure; the diagnostic rerun
+  then blocked on owner-device lock. All runner, result, diagnostic and build
+  artifacts were removed. TestFlight remains 55 and no
+  backend, tester, paid or production state changed.
+
+## 2026-09-05: Allocate private build 59 for exact-device roadmap acceptance
+
+- **Identity**: Allocate 2.0.0 (59) across app and Live Activity extension so
+  the post-58 roadmap work is never mistaken for an earlier installed binary.
+- **Devices**: Install one strictly signed universal Debug artifact on Jelani's
+  iPhone and Jet iPad. Both launch and retain their main app/extension process
+  pairs through 60 seconds; CoreDevice reads back 2.0.0 (59) on each.
+- **Verification**: Exact final source passes 486 tests with two intentional
+  skips, generic unsigned iOS Release, seven affected Catalyst UI journeys,
+  three-feed live identity preflight and signed Release smoke.
+- **Boundary**: This is a private cable candidate, not TestFlight or hands-on
+  acceptance. Shared TestFlight stays 55; no backend, production, tester, remote
+  Git or paid-Coach state changed. UI mirroring still needs owner authentication.
+
+## 2026-09-05: Preserve daily context and make local recovery truthful
+
+- **Browsing ownership**: Scene storage owns Home filters and Home/Search/
+  Matchday positions. Existing shared catalog and FPL workspace owners remain;
+  no new polling or duplicate feed is introduced.
+- **Accessibility/theme**: Existing Settings controls reflow at accessibility
+  sizes and use scaled typography. Secondary Playback Sources follows the chosen
+  appearance; dark remains scoped to actual player/pitch presentation.
+- **Persistence**: Publish Matchday mutations only after encode, write and
+  readback verification. A failed removal cannot cancel a reminder. Refuse
+  follows in SwiftData's volatile fallback rather than promising session-only
+  state is saved.
+- **Recovery/reporting**: Self-open every encrypted export before Files handoff.
+  Restore Matchday before replacing follows and roll it back if the database
+  replacement fails. Copy/share means prepared, never received.
+- **Verification**: After unlock, 486 of 488 tests pass and two intentional
+  live/soak tests skip; generic iOS Release and all seven affected Catalyst UI
+  journeys pass. UI automation resets retained browsing defaults only once per
+  DEBUG test process, so tests start independently while tab-return restoration
+  remains under test. All owned build roots were removed.
+- **Boundary**: Local batch only. Exact-device appearance/accessibility, Files
+  recovery and received-feedback acceptance remain. No distribution, backend,
+  version, production or paid action was taken.
+
+## 2026-09-04: Bind the full FPL workspace to season, identity and evidence
+
+- **Ownership**: Keep one primary refresh owner. A selected rival fetches only
+  its published picks and uses the same accepted bootstrap/fixtures/live packet
+  as the owner. Player histories have five-minute receipt checks, bounded selected
+  requests and manager/player/season fences; errors retain labeled previous data.
+- **Season safety**: Require explicit confirmation for legacy/restored or new-
+  season manager IDs. Unknown unscoped drafts/chats cannot be safely attributed;
+  preserve bytes without adoption or deletion. Check loaded season before reads,
+  writes and async publication, not only when a screen opens.
+- **Planning**: Use actual remaining calendar entries, official chip windows and
+  reviewed 2025/26–2026/27 restrictions; unknown future rules fail closed. All
+  wildcard entry points share the same qualified budget. Journals name their
+  target gameweek and preserve the date of historical Coach evidence.
+- **Coach**: Resolve explicit names against the complete current official catalog
+  before shortlist reduction; clarify ambiguous/missing names before paid work.
+  Bound history reads and user-context follow-ups. Optional structured transfers
+  undergo complete-squad validation; never parse prose into executable moves or
+  describe model confidence as measured accuracy. Public bank/selling values are
+  estimates, and missing adjusted draft bank stays unknown.
+- **Points**: Preserve raw official GW points and distinguish net contribution
+  after transfer hits. Do not subtract hits twice from a computed net fallback.
+- **Boundary**: Local batch only. Evidence and outstanding checks are in the FPL
+  workspace implementation record. No deployment, paid request or distribution.
+- **Verification**: 481 native tests passed, zero failures, two intentional
+  live/soak skips; unsigned generic iOS Release, 135 web/Worker tests and final
+  Worker dry-run passed. Owned build/packaging output removed, about 30 GiB free.
+
+## 2026-09-04: Connect discovery, personal Matchday and current playback
+
+- **Direction**: Implement roadmap batch 2 without another redesign, new tabs,
+  simulators, device installation or release. Home discovers; Matchday plans.
+- **Playback**: Shared current-event policy chooses exact active sources first,
+  then reviewed CPL Fox/Willow alternatives. Preserve one tap and honest channel
+  provenance, not a claim about the channel's actual programme.
+- **Evidence**: Typed catalog receipts distinguish empty, failed, partial and old
+  checks. Keep conflict tombstones through partial collection. Discovery has fair
+  bounded family opportunities and cancellation ownership, not reduced playback
+  decode grace. Generic failures are attempt-local, not provider-wide penalties.
+- **Personalization**: Canonical sport/team aliases and reviewed league selection
+  drive Following. Isolated transactional migration preserves unrelated pending
+  edits and exposes failure. Saved/reminder identity survives omissions and
+  same-ID schedule changes without fuzzy cross-match merges.
+- **Refresh**: Match Hub publishes one score/insights snapshot; cancellation fences
+  late completion. Canonical routes survive API enrichment. Catalog-only hubs
+  refresh actual source withdrawal instead of presenting a dead Refresh action.
+- **Verification**: Runtime evidence and physical gaps are recorded in
+  `docs/audit/Fotty-Connected-Sports-Journey-2026-09-04.md`. Production remains
+  unchanged; the source-only Coach cap is still 50 with paid access disabled.
+
+## 2026-09-04: Implement the first private-product foundation batch
+
+- **Direction**: The owner approved the whole-product strategy, not only audit
+  patches. `docs/FOTTY-PRODUCT-EXECUTION-PLAN.md` is the current sequence. Preserve
+  private scope, badges, compact UI, distinct Home/Matchday and optional FPL.
+- **First batch**: Harden the native relay with loopback/session admission,
+  destination/redirect/credential scope and resource bounds. DNS preflight is not
+  full rebinding protection. Preserve unfinished manager/season FPL transfers,
+  expose changed-baseline conflicts, validate complete combined routes and clear
+  replaced working state on backup restore.
+- **Owner cost choice**: 50 paid Coach attempts per UTC day for the entire group.
+  Deterministic/on-device answers do not count. Persist reservations before model
+  work and never refund uncertain cancellation/failure charges automatically.
+  This is a usage ceiling, not an exact invoice guarantee or per-tester allowance.
+- **Private access**: Individual revocable bearer codes in device-only Keychain;
+  only their digests in a Worker secret. Mandatory configuration, one global
+  Durable Object and one cancellable deadline. This is not attestation. Checked-in
+  paid flag remains disabled; production/code provisioning requires separate
+  approval and an app-compatible rollout, never an unprotected rollback.
+- **Evidence**: Full simulator-free Catalyst/iOS Release gate, 83 web/Worker tests,
+  Worker dry-run and diff check pass. Owned output cleaned; about 31 GiB free.
+  See the foundation implementation record for physical/production gaps.
+- **Boundary**: No paid call, code generation/delivery, version bump, installation,
+  upload, production change or Git publication. Build 58/TestFlight 55 do not
+  contain this work. The broader roadmap remains unfinished.
+
+## 2026-09-04: Record comprehensive product audit without changing the app
+
+- **Request boundary**: The owner asked for a deep whole-app audit and overlooked
+  ideas explained for a nondeveloper. This turn inspects and recommends; it does
+  not approve implementation, new services, uploads, invitations or Git publication.
+- **Record**: `docs/audit/Fotty-Whole-Product-Audit-2026-09-04.md` separates current
+  strengths, source-level defects, unverified runtime/production conditions and
+  ten optional improvements. It recommends Trust and Daily Use before expanding
+  the beta or adding more tools, while preserving the current visual identity.
+- **Evidence**: Four parallel source/test reviews, existing iPad visual reference,
+  primary-product reference checks, 71 fresh passing web/Worker tests, passing
+  offline catalog/identity/CPL checks and zero known npm advisory findings. The
+  earlier 326-test Catalyst/Release result is reused explicitly, not claimed as
+  a new run. No simulator, device, Xcode build or paid Coach call was used.
+- **Limits**: No application/backend behavior changed. Prior five repairs remain
+  local after build 58; TestFlight 55 and device installs are unchanged. Live
+  playback, exact-candidate accessibility/restore, production access/billing and
+  feedback receipt still require their separate acceptance evidence.
+
+## 2026-09-04: Fix the first five reliability audit findings before adding features
+
+- **Scope**: The owner approved the five priorities discussed after build 58: exact match admission, cancellable retries, selected-player media ownership, retained concrete alternatives and coherent FPL live refresh. No TestFlight, device/service deployment or Git publication was requested for this step.
+- **Decision**: Fail closed on ambiguous identity instead of ranking a one-team match. Quarantine contradictory provider IDs in one source-less internal row and omit them from browsing. Preserve exact delivery URL/header identities under existing bounded lookup limits.
+- **Lifecycle**: `LivePlayerViewModel` remains the single retry/attempt owner. WebKit preserves intentional pause/background state; known ad/hidden/ended/removed media cannot retain broadcast ownership. Native handoff needs selected-video or explicitly bound player-API evidence, not general network traffic. Unknown MSE players may remain web-only; this is not universal ad detection or PiP certification.
+- **FPL**: One visible-workspace poller reuses the state owner/revision path, including planning/deadline and full-time/final transitions. All scoring inputs require bounded current provenance before automatic publication. Failed refreshes retain the complete prior snapshot/timestamps, with age-aware presentation. No official transfer writes or paid Coach calls are added.
+- **Evidence**: Controlled owner/transport/JavaScript tests plus the simulator-free Catalyst and generic iOS Release gate; exact final results and physical limits are in `docs/audit/Fotty-Reliability-Fixes-2026-09-04.md`. The nine remaining audit findings are separate work.
+
+## 2026-09-04: Implement exact direct-site Score808 discovery and audit system transitions
+
+- **Decision**: Build 58 removes the unverified donor mapping and independently checks the owner's actual Score808 site's public calendar only during an explicit late-window football Watch. Exact canonical teams, kickoff/timezone, visibility, expiry and unique current page ownership are required. Published HTTPS destinations and redirects are bounded; original page/player context is preserved. No rolling stream URL, TLS bypass or proxy is introduced.
+- **Implementation**: Pure `Score808SiteCatalog`, bounded `Score808SiteResolver` and attempt-local `StreamDiscoveryCoordinator`. Partial choices and actionable failures survive slow-lane cancellation; incomplete detailed logs remain a follow-up. Shared HTML checks now consume the requested 8 KiB, without calling generic HTML proof of playback. Direct-site monitoring accepts only the observed main player and is reinstalled before every source/attempt load.
+- **Verification**: Real production resolver returned the exact supplied Watch page during the reported fixture. Final simulator-free Catalyst suite: 273 passed, zero failures, two intentional skips after the live window closed; generic iOS Release and signed Debug builds pass. Final review caught a reused-web-view provider-mode bug, fixed with both-direction regression coverage. See `docs/releases/Fotty-2.0.0-58.md` for exact installation and remaining physical acceptance.
+- **Audit**: `docs/audit/Fotty-Deep-App-Audit-2026-09-04.md` ranks 14 separate findings. Next recommended work is shared match identity, retry ownership, retained alternatives/media ownership, then coherent FPL/catalog snapshots. These are recommendations, not silently implemented changes or device-reproduced failures. No TestFlight, Worker/web deployment, Git publication or other device is authorized by this focused fix.
+
+## 2026-09-04: Correct Score808 discovery claims using the owner's exact page
+
+- **Evidence**: The supplied Score808 page decoded 852 × 480 football video in the browser through a different media host. Its public calendar explicitly maps the selected teams and kickoff to that page. It includes old events and reuses Watch URLs, so a generic article URL must not become a permanent per-match fallback.
+- **Correction**: The following build-57 entry is historical implementation evidence, not a valid discovery contract. Copying an `admin` ID into `hotel` was unverified; its HTML validator does not reject the documented stubs. A sequential timeout can also erase earlier failure evidence. The prior certificate-only explanation cannot be applied to this direct site.
+- **Next boundary**: Remove donor guessing, implement date/identity-checked direct-site discovery with bounded trusted destinations, and test actual player/context behavior before a new private build. No app source or deployment changed in this diagnostic turn. See `docs/audit/Fotty-Score808-Route-Investigation-2026-09-04.md`.
+
+## 2026-09-04: Re-check and validate Score808 only in its late availability window
+
+- **Finding**: Score808 commonly publishes its player only around 20 minutes before kickoff. Ipswich Town–Liverpool appeared identically in all three current catalogs with `admin`, `delta`, `echo` and `golf`, but no `hotel`, so Fotty never attempted Score808. A bounded diagnostic found the maintained `hotel` route with the event's `admin` identifier returned a full player page, while the other event identifiers returned only empty stubs. The Watch resolver also returned any cached event with some sources immediately, preventing a deliberate late-provider refresh.
+- **Decision/implementation**: Treat Score808 as late-bound. From 30 minutes before a football kickoff through three hours after, an explicit Watch resolution refreshes provider metadata even if the cached row already has another source. When `hotel` remains missing, infer exactly one `hotel` descriptor from a non-empty `admin` identifier, probe only stream 1 and pass it through the existing page validator. Do not show an early/dead Score808 row, infer from `delta`/`echo`/`golf`, duplicate an explicit `hotel`, weaken TLS, or create background stream traffic. If the refresh fails, preserve the cached event and continue the same bounded validation path.
+- **Evidence**: New regressions prove the 30-minute boundary, football-only scope, three-hour tail, explicit-provider deduplication and refusal to guess without `admin`. The complete simulator-free Catalyst unit and generic iOS Release gate passes. The signed-device run repeats generated-catalog and three-feed identity checks. CoreDevice independently reports Fotty Sports Hub 2.0.0 (57) on Jet iPad with the app and Live Activity extension running; owned build output is removed.
+- **Boundary**: Build 57 is installed only on Jet iPad for private testing; TestFlight remains build 55. `embed.st` still has an expired certificate, so valid discovery cannot make the current route safe to load until the provider repairs TLS. No iPhone, other iPad, tester group, service, App Store submission or Git publication changed. See `docs/releases/Fotty-2.0.0-57.md`.
+
+## 2026-09-04: Preserve provider security failures instead of reporting an empty stream catalog
+
+- **Finding**: During the live Ipswich Town–Liverpool fixture, every current catalog feed carried the exact event with four descriptors and the two StreamEx APIs returned 12 concrete variants. All variants pointed to `embed.st`; its Let's Encrypt certificate had expired at 2026-09-04 14:59:58 UTC. Apple networking independently rejected the real URL with `NSURLErrorDomain -1202`. The resolver validated each candidate but then discarded those concrete failures when no session survived, and three single-match entry points discarded the final failure message, reducing a provider trust outage to an unexplained Retry/no-stream result.
+- **Decision/implementation**: Never bypass ATS, accept an invalid certificate, rewrite playback to HTTP or restore a first-party stream proxy. Classify server certificate/trust and secure-connection errors as `provider_security_failure`, including the `NSError` form Foundation produced in the live check. Preserve the most actionable candidate failure when every embed fails and surface its safe user message consistently from Home, Arena and Match Hub. Continue consuming provider-supplied concrete embed URLs dynamically, so a renewed certificate or changed valid host can recover without a rebuild.
+- **Evidence**: New regressions cover expired-certificate classification, the Foundation `NSError` bridge, ordinary timeouts and failure precedence. The complete simulator-free Catalyst unit and generic iOS Release gate passes after the final bridge correction. The signed-device run repeated generated-catalog and three-feed identity checks; CoreDevice independently reports Fotty Sports Hub 2.0.0 (56) on Jet iPad with the app and Live Activity extension running. Temporary build output was removed.
+- **Boundary**: This fixes diagnosis and recovery semantics, not the provider's certificate. Current playback remains unavailable while every supplied host fails trust. Build 56 is installed only on Jet iPad for private testing; TestFlight remains build 55. No iPhone, other iPad, tester group, Worker, web deployment, Git commit or publication changed. See `docs/releases/Fotty-2.0.0-56.md`.
+
+## 2026-09-04: Add accepted users to the internal TestFlight group as a separate step
+
+- **Finding**: App Store Connect account acceptance does not automatically grant TestFlight group membership. `Fotty Internal Smoke` still had three testers even though Jhamol and Kirby/Rhys had accepted their team invitations. Akielle remained marked `Resend Invitation` and therefore was not selectable as an internal tester.
+- **Decision/evidence**: After explicit owner confirmation at the final access-change action, add Jhamol Clarke and Rhys Benjamin to the existing internal group only. Apple confirmed two testers added; the group now has five testers and both new rows show Internal / Invited. After separate owner confirmation, resend Akielle Jackson's App Store Connect invitation; Apple confirmed `Invitation Resent`.
+- **Boundary**: Akielle must complete the newest account invitation before TestFlight membership can be added. No role, app scope, build assignment, external group or public distribution changed.
+
+## 2026-09-03: Use Fotty Sports Hub as the public name without migrating technical identity
+
+- **Product decision**: The owner approved **Fotty Sports Hub** because the product now covers multiple sports, while retaining the accepted F-over-pitch icon and `FOTTY` wordmark. Use `Fotty` naturally in ordinary copy; use the full name for installed-product and primary metadata identity, with `SPORTS HUB` as a subordinate visual descriptor.
+- **Implementation**: Add one iOS brand contract, set app/extension display names, expose the descriptor in Home and the full name in Settings, and update the PWA manifest plus primary web metadata/navigation identity. Preserve bundle IDs, Xcode target/scheme/module names, deep links, storage keys, private-backup identifiers, service routes and signing so installed data and integrations do not migrate.
+- **Version/evidence**: Allocate 2.0.0 (55) because TestFlight build 54 is already distributed. Apple plists/JSON and spelling checks pass; web/Worker units pass 71/71, lint and production build pass; the complete simulator-free Catalyst unit/generic iOS Release gate passes. The current identity audit passes across three feeds. Xcode 26.6 (`17F113`) archives the normal generic-device Release with two jobs; app/extension both report 2.0.0 (55), the new display name and valid strict signatures. The signed app executable SHA-256 is `78b66698e84faf600802ff854c8c695c30aa678397007014b7e45d257685f3f9`. Apple processed the accepted internal-only upload, saved the built-in-encryption declaration and focused English (U.K.) notes, and shows build 55 as Internal / Testing for only Fotty Internal Smoke with its three testers.
+- **Tester access/boundary**: At the owner's direction, invite Jhamol Clarke (`jhamol61@gmail.com`) with the Marketing role, Fotty Sports Hub as the only selected app and Create Apps disabled. Apple confirms the invitation was sent. It is pending App Store Connect acceptance and is not internal TestFlight group membership; the existing group remains at three testers. No direct device install, external group, App Store submission, web/Worker deployment, Git publication or physical acceptance occurred. Exact build-55 installation, retained-data checks, iPhone/iPad layout and live playback/PiP acceptance remain open. All disposable archive/export/DerivedData/distribution-log output was removed; disk remains approximately 32 GiB free.
+
+## 2026-09-03: Promote the accepted one-tap CPL correction as internal TestFlight build 54
+
+- **Authority/scope**: The owner explicitly approved a TestFlight update and invitations for `akiellejackson@gmail.com` and `kirbybenjamin1996@gmail.com`. Allocate build 54 because builds 52 and 53 were already physically distributed; do not reuse them. Keep the rollout internal-only, reuse only `Fotty Internal Smoke`, and do not install directly on a device or open external testing.
+- **Release evidence**: Current generated-catalog and three-feed identity checks pass. Xcode 26.6 archived the normal generic-device Release with two jobs; app and extension both report 2.0.0 (54), minimum iOS 26.4, expected bundle identifiers and a strict valid signature. The signed app executable SHA-256 is `96d82accd1d0510d29c95c1709caf8f3877c9bed9472364c61efc4dff7b36d61`. Apple accepted and completed the internal-only upload. The unchanged built-in-encryption-only declaration and focused English (U.K.) notes are saved. Build detail shows only Fotty Internal Smoke, with three existing testers; a fresh group read reports nine builds and build 54 as Internal / Testing.
+- **Access decision**: Send both new users the qualifying Marketing role with only Fotty selected in the one-app chooser and no Create Apps permission. They are pending App Store Connect invitations, not yet TestFlight group members; add them only after each accepts. Apple confirmed both invitations were sent.
+- **Boundary/cleanup**: Build 53's owner acceptance covers the changed CPL behaviour, but exact build-54 TestFlight installation and feedback remain open. Email receipt and invitation acceptance are not inferred. All task-owned archive, DerivedData, export and distribution-log artifacts were deleted; free disk remains approximately 33 GiB. No simulator, direct install, external group, App Store submission, service deployment, commit or publication occurred.
+
+## 2026-09-03: Use one-tap CPL channel fallback in private build 53 without inventing programme data
+
+- **Finding**: CPL schedule rows and the generic Fox Cricket/Willow Cricket rows intentionally had separate identities. Exact team-and-kickoff matching prevented a channel source from being falsely attached to every CPL fixture, but it also left a currently scheduled CPL row saying no stream even when a playable cricket channel was listed elsewhere on the same screen.
+- **Decision/implementation**: Preserve exact match-source matching as the preferred Watch path. For a CPL fixture with no exact active source, from two minutes before kickoff through eight hours after it, expose one `Watch` action across Home, the full schedule and Search. One tap opens Fox Cricket when active; Willow remains a separate channel row. A passed trusted CPL kickoff counts as `On now · listed start`, not an official live claim. Build 52's intermediate options sheet and second tap were rejected during physical use and removed immediately.
+- **Verification**: Focused policies cover supported/retired sources, CPL identity, both availability-window edges, preferred-channel ordering, the listed-start activity summary and removal of the sheet. The complete simulator-free Catalyst unit/policy suite and generic iOS Release compile pass under Xcode 26.6 with two jobs. Private build 53 then passes live identity across three reachable feeds, signed Debug/generic Release compilation, strict signing and installation only on Jelani's iPhone. CoreDevice independently reports 2.0.0 (53) with the normal app and extension running. All owned temporary build roots were removed; free disk remains approximately 33 GiB.
+- **Physical acceptance/boundary**: The owner confirmed during the current CPL window that build 53 no longer says tomorrow and opens the broadcast from the fixture with one tap and no intermediate sheet. This is time-scoped acceptance of the exact discovery/routing correction, not proof of permanent Fox/Willow programming or the remaining wider-beta gates. TestFlight remains build 51; build 52 is superseded. No iPad/other-phone change, upload, tester mutation, service deployment, commit or publication occurred.
+
+## 2026-09-03: Release build 51 to the internal group and invite the CPL tester
+
+- **Authority**: The owner explicitly approved publishing build 51's focused testing notes, assigning only the existing `Fotty Internal Smoke` group and adding `kevon.samuel32@gmail.com` as an internal tester. No external TestFlight/App Store submission, new group, device install, simulator, service deployment, paid call or Git publication was authorized or performed.
+- **Access decision**: Kevon Samuel had already accepted App Store Connect and already held the qualifying Marketing role with app access. Preserve that role and do not broaden permissions. Add only that account to the existing internal group. Apple labels the scope `All Apps`, but its app chooser contains exactly one row—Fotty (`com.jelani.Fotty`)—selected; with only one account app, the UI cannot preserve a distinguishable one-app selection. Recheck and narrow this scope before a second app is added to the account.
+- **Apple evidence**: App Store Connect confirmed one tester added. A fresh group read shows three testers and eight builds, with Kevon Samuel listed as Internal / Invited. A fresh iOS builds read shows 2.0.0 (51) Internal / Testing for Fotty Internal Smoke. The English (U.K.) notes are saved and cover discovery/badges, CPL fixture accuracy, playback/PiP, FPL, appearance/accessibility/backup and labelled TestFlight feedback.
+- **Boundary**: Group availability and invitation state are proven. Email delivery, TestFlight installation, CPL playback, PiP/background continuity, FPL correctness and received feedback remain tester acceptance work.
+
+## 2026-09-03: Use an Apple-supported public Xcode for TestFlight archives
+
+- **Finding**: The installed Xcode 27 beta still built, signed and installed build 51 on the owner's beta-OS iPhone, but App Store Connect later rejected its otherwise valid internal delivery as an unsupported Xcode/SDK version. The Mac's supported Xcode 26.6 installation contained the iOS 26.5 SDK but did not expose a generic iOS destination or compile Fotty's assets until its matching platform runtime was installed.
+- **Decision/implementation**: Keep the beta Xcode available for current beta-device work, but select the current Apple-supported public/RC Xcode explicitly for TestFlight. Verify `generic/platform=iOS` before archiving. Install only the matching Apple-silicon platform component when required; do not boot a simulator. Record its persistent disk cost separately from disposable release artifacts.
+- **Evidence**: Apple lists Xcode 26.6 (`17F113`) as the current supported public release. After the 8.52 GB iOS 26.5 component was installed, the normal generic-device Release archive passed strict signing with matching app/extension 2.0.0 (51), minimum 26.4 and expected identifiers. Apple's internal-only upload returned `Upload succeeded` / `EXPORT SUCCEEDED` at 18:07 AST. Every task-owned archive, DerivedData/export root, failure result bundle and distribution log was removed; free disk is approximately 33 GiB.
+- **Boundary**: Upload acceptance alone was not Apple processing, compliance completion, group assignment, installation or physical acceptance. App Store Connect later completed processing and build 51 is now Internal / Testing as recorded above. The component is retained because future supported uploads require it; no simulator process ran and no connected device changed.
+
+## 2026-09-03: Activate independently refreshable CPL fixtures and fail closed on source conflict
+
+- **Finding**: The app still bundled a schedule manually checked on 27 August and retained started CPL rows for 36 hours. Current verification also exposed a dangerous upstream disagreement: CPL and Wisden list Match 28 at 10:00 a.m. Guyana time, while Cricbuzz currently reports a start five hours later.
+- **Decision/implementation**: Keep the official CPL announcement and explicit official corrections authoritative. The existing Worker dynamically compares those facts with Cricbuzz as a current independent verifier, returning an agreed update or a complete reviewed 39-match fallback. Validate every identity/time/stage before iOS caches it, preserve the newer last-known-good copy on failure, and retain the bundled schedule offline. A daily action may prepare a manifest PR when sources agree; it may not write directly to `main` or guess through a conflict. Retire started T20 rows after eight hours.
+- **Evidence**: Structural and live three-source audits pass with the known Match 28 conflict surfaced; five focused CPL policy/route tests and the complete 71-test web/Worker suite pass with clean lint and Worker dry-run. The protected publication PR #16 passed repository, web, simulator-free iOS and CodeQL gates and merged at `d97140f`; manual monitor run `33764542003` then passed on `main`. Production health identifies source `2026-09-03.cpl-fixtures-3` / Cloudflare version `2b988894-e84a-45ac-b60f-23e2a8eac498`, and the route returns 39 fixtures with official Match 28 at 14:00 UTC. CoreDevice independently reports 2.0.0 (51) on Jelani's iPhone 15 Pro Max, launches the normal app and observes it for 60 seconds.
+- **Boundary**: Runtime two-source agreement is labeled `live-verified`; the PR is the separate durable fallback review path. The repository keeps default read-only workflow permissions, while its Actions PR capability is enabled only so the pinned monitor can create that review PR; the workflow contains no approval or merge step. Build 51 is directly installed on the owner iPhone and its internal-only upload is Apple-accepted but still processing; neither path proves iPad, exact TestFlight availability or interaction acceptance. The 2026 data must never auto-roll into another season.
+
+## 2026-09-01: Allocate build 50 for the connected iPhone 16e
+
+- **Authority**: The owner explicitly requested installing Fotty on the connected iPhone 16e. This authorized pairing, device registration, a unique private build, installation and bounded launch verification on that device only—not TestFlight, another device, tester changes, service deployment, Git publication or automated UI interaction.
+- **Version/provisioning decision**: Do not reuse private build 49 because current source contains later Graphify/FPL/playback changes. Allocate 2.0.0 (50) across app and Live Activity extension. When the generic Debug profile was rejected for omitting the newly paired phone, preserve the already-passing source and rebuild once against its actual UDID with automatic device registration; do not uninstall, weaken signing or alter another device.
+- **Evidence**: The physical iPhone 16e is wired, unlocked, paired, on iOS 26.6 with Developer Mode enabled and had no existing Fotty install. Reference generation, live identity across three reachable feeds and the complete simulator-free Catalyst policy suite pass. Strict app signing and matching app/extension 2.0.0 (50) identity pass; CoreDevice independently reports build 50, launches the normal app and sees it for 60 seconds. The generic iOS Release graph also compiles, and all owned build roots are removed.
+- **Boundary**: This proves installation and process health only. Exact-device UI, playback, PiP/background, notifications, FPL, accessibility and backup acceptance remain manual. Shared TestFlight remains build 48; any changed later candidate must be 51 or higher.
+
+## 2026-08-31: Extract playback decisions without splitting playback ownership
+
+- **Finding**: Graphify identified `LivePlayerViewModel` as the next production hotspot at 100 direct edges and 1,256 lines. Its AVPlayer, WebKit, proxy, attempt, task and PiP lifecycle must remain coordinated, but failure precedence and source classification were deterministic policy embedded inside that mutable owner. The file also retained an unused duplicate initial-selection method, logger and imports.
+- **Decision/implementation**: Keep `LivePlayerViewModel` as the only mutable playback authority. Extract failure classification/state/value contracts, source-shape/health-ranked selection and a pure recovery decision table. The table preserves the established order: network loss keeps the same attempt; failed native handoff returns to the same web source; direct native startup may try its web form; a non-rejected web source receives one bounded stall/startup retry; source exhaustion and failover occur only after those options. The view model executes every side effect.
+- **Evidence**: The view-model file falls to 1,154 lines and Graphify degree to 99. The final map has 383 files, 5,819 nodes and 15,129 clustered edges with an empty import-cycle section. Community count is deliberately excluded as a trend because repeated identical-source clustering yielded 235 and 251. Focused recovery/source policy tests and the existing attempt, pause/background, native-return, PiP and bridge contracts pass, followed by the complete simulator-free Catalyst unit and generic iOS Release gate.
+- **Boundary**: Compilation cannot prove a current third-party stream decodes or system PiP survives app switching. Those remain exact-build physical acceptance. No version, device install, TestFlight upload, deployment, Git commit or publication was authorized or performed.
+
+## 2026-08-31: Split FPL persistence and derived computation without splitting truth
+
+- **Finding**: Graphify identified `FPLAdvisorViewModel` as the most connected production node at 154 edges. Its legitimate UI/request ownership was mixed with UserDefaults encoding/migration and a large pure derived-state calculation. Full load and live refresh paths also performed that calculation twice in immediate succession.
+- **Decision/implementation**: Keep every observable property, request revision and mutation boundary on `FPLAdvisorViewModel`. Extract manager/season workspace storage into `FPLWorkspacePersistence` and pure validation/live/planning/command/optimizer computation into `FPLAdvisorDerivedStateBuilder`. Collapse load and live-refresh recomputation to one pass. Do not introduce child observable stores or competing sources of squad/scoring truth.
+- **Evidence**: The view-model file falls from 1,405 to 1,318 lines. Its Graphify degree falls to 152; the full follow-up graph has 382 files, 5,794 nodes, 15,090 edges, 235 communities and no import cycle. Existing legacy-draft, relaunch, published/draft switching, scoring and stale-Coach tests pass in the focused suite, followed by the complete simulator-free Catalyst unit and generic iOS Release gate.
+- **Boundary**: This is internal structure and repeated-work removal, not an FPL behavior or storage-format change. No version, install, upload, deployment, Git commit or publication was authorized or performed.
+
+## 2026-08-31: Physically remove dead graphs and use Graphify as evidence, not authority
+
+- **Authority/finding**: The owner selected dead-code removal and code optimization as the next milestone and specifically requested Graphify relationship analysis. The initial map contained 464 code files, 6,437 nodes, 16,886 edges and 291 communities. It confirmed no import cycles but exposed retired product islands and the real high-connectivity state owners.
+- **Decision/implementation**: Keep only the iOS/Live Activity, companion sports web and Cloudflare Worker product graph. Delete the TWA/Android and homelab roots, the compile-isolated Hybrid P2P/Ace/warmup stack, disconnected web v1 surfaces, duplicate playback/session/token code and obsolete one-off browser probes. Narrow internal web exports. Do not delete from graph degree alone: preserve installed-store type metadata, P2P-shaped input rejection, the Live Activity compatibility field, dynamic service-worker registration, generated catalog contracts and Wrangler bindings.
+- **Evidence**: The final Graphify map is 380 files, 5,769 nodes, 15,005 edges and 250 communities, again with no import cycles. Knip reports only the documented dynamic/generated/configuration exceptions. The complete simulator-free iOS gate, clean web lint, 66/66 web/Worker tests, production Next build and Worker dry-run pass.
+- **Boundary**: The graph identifies `FPLAdvisorViewModel`, `LivePlayerViewModel`, `SportsDashboardView` and `MatchHubData` as the next refactor seams, not dead code. This work did not authorize or perform a version change, direct install, TestFlight upload, deployment, Git commit or publication.
+
+## 2026-08-31: Adopt all five whole-app qualification recommendations
+
+- **Authority/product direction**: The owner approved every recommendation in `docs/audit/Fotty-Whole-App-Readiness-Audit-2026-08-31.md`. Sports discovery and truthful playback are the universal promise; FPL remains a first-class optional module. Gameweek, Squad and Coach stay primary, Tools stays secondary, and each tool must expose whether it uses official facts/fixtures, projections, estimates, published data, an on-device plan or an advanced solver. Fotty never submits official FPL changes.
+- **Active-graph cleanup**: Remove the unreachable community/chat/profile, old insights/highlights, mock-match, stream-debug and validation code from the production target. Remove the avatar/photo surface and photo-library permission because no non-social job remains. Retain the old SwiftData type metadata only as compatibility tombstones until a tested migration can prove existing private stores remain readable; this is not an active social product.
+- **Trust boundaries**: Show a blocking persistence warning when the durable SwiftData store cannot open. Reconcile `PrivacyInfo.xcprivacy` to the actual transmitted boundary using Apple's current key/type names: public FPL User ID, installation Device ID and opt-in Coach Other User Content; local diagnostics are not automatically uploaded. Add a non-secret Worker `sourceVersion` to health, but treat it as local/source-only until an authorized deployment is read back.
+- **Compatibility/qualification**: Keep iOS/iPadOS 26.4 as the intentional minimum for this private cycle. The next beta expansion is limited to 3–5 trusted testers completing the seven-day protocol in `docs/beta/PRIVATE-QUALIFICATION-2.0.md`. Exact-candidate physical PiP, backup/restore, live-stream recovery and accessibility checks are entry gates, not tasks to defer into a wider group.
+- **Boundary**: This approval authorizes local implementation and simulator-free qualification. It does not authorize a version bump, device install, TestFlight upload, Worker/web deployment, tester/role mutation, paid-model call or Git publication.
+
+## 2026-08-31: Use whole-app qualification, not feature count, for the next beta
+
+- **Authority/finding**: The owner requested a deep audit of every system, screen and option and asked for the material questions before continuing. The resulting current authority is `docs/audit/Fotty-Whole-App-Readiness-Audit-2026-08-31.md`; older World Cup/Arena and build-33 completion reports are marked historical for current-status purposes.
+- **Decision implemented now**: Treat build-49 source as owner/private pre-test quality, not wider-beta qualified. Preserve the existing TestFlight build 48 until one coherent milestone closes exact-build hardware, outsider-task, privacy and backend-version evidence. Fix the reproduced loaded-badge accessibility label and prevent intercepted stream URLs from entering Release logs; Debug logs retain only credential/query/fragment-free host/path information.
+- **Verification**: The exact edited source passes `git diff --check`, the complete simulator-free iOS unit/policy and generic Release gate, 74/74 web/Worker tests, zero-error lint, Worker dry-run and production health. Badge gates pass 272/272 reviewed artwork URLs and 128/128 current live provider tokens. All task-owned DerivedData/result folders are deleted; no simulator, device install, upload, deployment, paid model call or Git publication occurred.
+- **Decision status**: All five questions were subsequently approved and implemented locally; the entry above is the current authority.
+
+## 2026-08-31: Treat live badge tokens and fallback catalogs as one reliability chain
+
+- **Finding**: TestFlight build 48 sent opaque provider badge tokens through a corrupted decoded URL. Basketball's current catalog depends entirely on those tokens; current MLB listings often omit them and depend on bundled name lookups. Empty-provider Villarreal also exposed that valid ESPN results were not published until every optional catalog task finished.
+- **Decision/implementation**: Correct the token endpoint, validate the exact current token set without retaining images, publish each completed league result immediately, retry a fully failed bootstrap after a two-minute cooldown and let the shared image loader fall through from bad explicit art to a known brand. Extend current football/MLB/American-football coverage and keep ambiguous rugby shorthand sport-scoped.
+- **Evidence/boundary**: All 164 current provider tokens and the full simulator-free native gate pass. The owner stopped the shared archive before export/upload; build 48 remains newest in TestFlight. A separate signed Debug build installed in place only on Jelani's iPhone, where CoreDevice reports 2.0.0 (49) and a normal app/extension launch. The iPad, tester group, services and repository were unchanged.
+
+## 2026-08-31: Use private pre-tests for small fixes and TestFlight for milestones
+
+- **Direction**: Do not push every small bug fix to TestFlight. Install uniquely numbered, validated pre-test builds only on the owner's explicitly selected iPhone. Let several days of fixes and improvements accumulate, then use TestFlight only for a coherent significant change that warrants a new tester round and focused notes.
+- **Release rule**: Time passing is not sufficient by itself; the batch must have meaningful user-visible scope or substantial reliability/quality value. Urgent blockers remain an explicit exception. A build number consumed by a physical private install cannot identify later changed source, so the next changed shared milestone after private build 49 must be 50 or higher.
+
+## 2026-08-31: Make badge identity exact and motion contextual
+
+- **Finding**: The shared UI could show a football loader while cricket or another sport was selected, several animations ran indefinitely without complete accessibility/power/lifecycle gates, and the badge bootstrap could fan out into per-team SportsDB requests. A live audit hit the provider's 25-request/two-minute throttle and its first permissive normalization cross-wired Paris FC with the `Paris` alias for Paris Saint-Germain.
+- **Decision/implementation**: Keep one measured `TeamBadgeWindow` with a monogram fallback, exact source-controlled aliases and no fuzzy cross-club substitution. Bootstrap football artwork through bounded league-level ESPN metadata; reserve SportsDB for CPL/IPL/Argentinian basketball and one-off unresolved names. Add one sport motion profile used by Home selection, discovery/loading, stream resolution and player preparation. Continuous animation stops under Reduce Motion, Low Power Mode and inactive scenes; never cover playing video with decoration. Remove the obsolete user-facing P2P handshake/peers/chunks screen.
+- **Evidence/boundaries**: The non-retaining live audit validates 272/272 image signatures across 148 source football names plus NBA/WNBA/MLB/NHL/CPL/IPL and proves all 13 shared URLs are aliases of the same club. Motion/badge regressions, the full Catalyst suite and a generic unsigned iOS Release pass without a simulator. A one-shot celebration primitive exists but is not connected to inferred events; only a verified goal/wicket/equivalent may trigger it. No build number, device install, TestFlight upload, server deployment or Git publication.
+
+## 2026-08-30: Keep Fotty private and make recovery user-controlled
+
+- **Authority/decision**: The owner explicitly decided Fotty stays private. The supported distribution paths are the existing invite-only internal TestFlight group and an explicitly authorized private cable build for a narrow device check. Public App Store submission and external TestFlight are not active goals; do not build review workarounds or widen access without a new explicit decision.
+- **Implementation**: Add a versioned Private Backup workflow under Settings → Privacy & Local Data. A user-chosen password protects the file with AES-256-GCM and PBKDF2-HMAC-SHA256. The previewable payload covers preferences, follows, saved Matchday identity and manager-scoped local FPL plans. It deliberately excludes credentials, provider URLs/source identifiers, Coach conversations, AI consent, reminders, diagnostics and cached feeds. Restore validates the entire payload before mutation, replaces only the documented local state, clears consent and leaves reminders off.
+- **Evidence/boundaries**: Four focused encryption/capture/restore/atomicity regressions and the complete simulator-free iOS CI gate pass, including provider identity vectors, all unit tests and generic unsigned iOS Release. The backup file type is registered as `.fottybackup`. No build number, device install, upload, deployment, paid call or tester change was made. Real Files-app export/import, wrong-password handling and restore on a physical device remain human acceptance.
 
 ## 2026-08-30: Remove retired product graphs after CodeQL exposed their residual risk
 
@@ -1834,3 +6825,32 @@ This document tracks technical and product decisions to ensure all agents (Curso
 - **Decision**: Apply the catalog/provider referer only to the top-level embed navigation in `audit_live_playback_matrix.mjs`. Never configure it as a browser-context header, because that overwrites the nested HLS request's required `embed.st` referer.
 - **Why**: The first release-candidate matrix reported repeated `lb8.strmd.st` HTTP 403 responses. A controlled redacted probe returned HTTP 200 with the embed referrer, revealing that the harness—not the provider—had manufactured the failure.
 - **Verification**: The corrected current-catalog rerun decoded advancing 960×540 `golf` video in about 13.8 seconds with media HTTP 200 and zero popups. Three other families remained non-decoding in the bounded window, so source-specific health remains honest rather than generalized from the one success.
+
+## 2026-08-31: Real team labels always carry a truthful badge window
+
+- **Decision**: Treat team identity as one reusable presentation contract across discovery, Match Center, playback, following/onboarding, team news, tactical views, and FPL. `TeamBadgeWindow` resolves explicit artwork, then the shared team-brand cache, then a monogram; `TeamIdentityLabel` binds that badge to an atomic team name. FPL team codes map to the official Premier League crest endpoint. Do not attach a badge to a league, channel, unknown placeholder, custom FPL squad name, or a name embedded only in prose.
+- **Why**: Team badges are a distinctive part of Fotty's identity and make dense sport/FPL screens scannable. Older circular images and optional-only `AsyncImage` branches produced inconsistent shapes and blank gaps when a URL was absent or failed.
+- **Verification**: Unit coverage checks monograms, blank-name fallback, exact national-team matching, official FPL crest construction, and shared-component presence on representative surfaces. The full no-simulator Catalyst test gate and generic iOS Release build passed with two Xcode jobs; its owned DerivedData was deleted and free disk remained 47 GB.
+
+## 2026-08-31: Build 48 is the shared internal acceptance candidate
+
+- **Decision**: Consolidate the completed badge/motion plan, encrypted private recovery, private build-47 PiP continuity correction and football identity/search work into one normal internal-only TestFlight build. Allocate 48 because Apple showed 46 as the latest upload and direct build 47 was already consumed; never reuse a physically distributed build number.
+- **Authority and scope**: The owner explicitly approved continuing through the full six-step plan and then testing, followed by action-time approval for the built-in-encryption declaration, testing notes and only the existing Fotty Internal Smoke group. No new tester/role, external TestFlight/App Store submission, Worker/web deployment, paid model call, simulator, direct install or Git publication is authorized or performed.
+- **Verification**: The exact build-48 no-simulator Catalyst unit/generic Release gate, 74 web units, zero-error lint, Worker dry-run, production web build, live three-feed football identity check and same-day 272/272 artwork audit pass. The signed app and Live Activity extension both report 2.0.0 (48), the expected identifiers/team and minimum 26.4; strict signatures pass. Xcode reported upload success at 12:03:54 AST. Apple independently shows build 48 Internal / Testing for Fotty Internal Smoke with two invitations and saved seven-task notes. The iPhone remains build 46 and Jet iPad private build 47 until TestFlight updates; physical acceptance and one received feedback report remain open. The 321 MB archive tree and Xcode distribution logs were removed, returning disk to about 47 GiB free. See `docs/releases/Fotty-2.0.0-48.md`.
+
+## 2026-09-06: Catalog smoothness outranks exact pixel restoration
+
+- **Decision**: Home, Full lineup and Search do not persist absolute lazy-stack
+  offsets. Home fixture/date content is flattened so each `ForEach` identity
+  resolves to one stable child; presentation data is prepared before row-body
+  evaluation, normal row geometry is bounded, and catalog rows share a coarse
+  clock rather than creating independent timelines.
+- **Why**: Apple documents that unseen lazy geometry is estimated, absolute
+  offsets are unstable, dynamic child counts impair lazy-stack lifetime and
+  prefetching, and layout changes or repeated work during appearance cause
+  missed frame deadlines. Builds 68 and 69 reduced peripheral work but retained
+  those structural conditions and were physically rejected.
+- **Verification**: The complete no-simulator Catalyst suite and generic
+  optimized iOS build pass. Signed build 70 installed/launched only on Jelani's
+  iPhone and the app/extension survived the hold. Cold-scroll acceptance remains
+  open; no TestFlight/iPad distribution occurred.

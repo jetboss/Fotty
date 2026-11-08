@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-11-01T02:07:18.258039+00:00",
+  "channel": "Willow Sports",
+  "status": 200,
+  "mime": "application/vnd.apple.mpegurl",
+  "mediaSegments": 10,
+  "endList": false,
+  "declaredPlaylistType": null,
+  "nativeObservation": "normal Watch ended immediately; not qualified",
+  "failureStage": "upstream_response",
+  "upstreamHTTPStatus": 403,
+  "nativeErrorDomain": "url",
+  "nativeErrorCode": -1102,
+  "disposition": "not retained in normal channel definitions; metadata lead pending compatible public delivery; no access workaround attempted"
+}

@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "completedAt": "2026-10-30T14:49:51.747247+00:00",
+  "baselineRef": "origin/main",
+  "baselineCommit": "83b1a44c0e6d14e9032e61a8c5169190d22f8a27",
+  "patch": "activation.patch",
+  "patchSha256": "0a0f7a5af810da1917096f4330139d3502e26d42574daaa2ca35a8c8eac5608c",
+  "patchBytes": 179126,
+  "fileCount": 10,
+  "files": [
+    {
+      "path": "web/workers/playback/src/broadcast-registry-policy.mjs",
+      "baselineSha256": null,
+      "reconstructedSha256": "92af4eeb9d236ed13e6abbed932bb0d0c7fe28fb6070bf90985df6b7f0a0a78b",
+      "newFile": true
+    },
+    {
+      "path": "web/workers/playback/src/broadcast-registry-policy.test.mjs",
+      "baselineSha256": null,
+      "reconstructedSha256": "cd4bdc9b6733ce0eeef6abea7845f048395eaa229e60dc5333c102bc76925bbe",
+      "newFile": true
+    },
+    {
+      "path": "web/workers/playback/src/broadcast-registry-worker.test.mjs",
+      "baselineSha256": null,
+      "reconstructedSha256": "c954b4ab037043bc0353331cdacb1174b75df141be7cace8d0c8dbb9e6003428",
+      "newFile": true
+    },
+    {
+      "path": "web/workers/playback/src/broadcast-registry.mjs",
+      "baselineSha256": null,
+      "reconstructedSha256": "68911123fe84936a6cf6732e8cc3ac27647f1f8e34c0468b49320d012b047400",
+      "newFile": true
+    },
+    {
+      "path": "web/workers/playback/src/broadcast-registry.test.mjs",
+      "baselineSha256": null,
+      "reconstructedSha256": "49dcaa06419e9a1ae9369f0790e281249ee2584c166baa1128b9ee5722e7dec0",
+      "newFile": true
+    },
+    {
+      "path": "web/workers/playback/src/broadcast-source-adapters.mjs",
+      "baselineSha256": null,
+      "reconstructedSha256": "c8ce9c12f94d6f13877689fa08ef24db09440db2d0b6bfbd7eec0af3e8c346fb",
+      "newFile": true
+    },
+    {
+      "path": "web/workers/playback/src/broadcast-source-adapters.test.mjs",
+      "baselineSha256": null,
+      "reconstructedSha256": "0d04a3557d5ac6bc06a0a5c36e6ed19a695da101419893706b82c6c31440fd94",
+      "newFile": true
+    },
+    {
+      "path": "web/workers/playback/src/index.js",
+      "baselineSha256": "08154d3fb24ba808301d734af9473c4cf19d5c0c5b901c6f9240822ed7fbd620",
+      "reconstructedSha256": "7145d442f61c0e2c0af1ed9dcf007b43c697736b8e9fb6de369c34cd6572996b",
+      "newFile": false
+    },
+    {
+      "path": "web/workers/playback/src/worker-version.mjs",
+      "baselineSha256": "c84ecce54cdcbb7f0835a58218197110eed44fe7e0256ab7ec36dd5736390de9",
+      "reconstructedSha256": "bc560ce79afe52faf5556fa6c339042e97dced2e3ea06dda5f5904582ed47f77",
+      "newFile": false
+    },
+    {
+      "path": "web/workers/playback/wrangler.toml",
+      "baselineSha256": "4e32236c82118108f3f7cce88d546f45741aafe92fca8f8451db7dd16519bed0",
+      "reconstructedSha256": "e021e3dce04c6fffe7571661ed93fcfca0f2ae2a4282f98dae4bfdf2aa9cf3ce",
+      "newFile": false
+    }
+  ],
+  "plannedSourceVersion": "2026-10-30.shared-broadcast-registry-1",
+  "registryEnabled": "0",
+  "gitApplyCheck": {
+    "exitCode": 0,
+    "cwdOutsideRepository": true,
+    "usesIndex": false
+  },
+  "gitApply": {
+    "exitCode": 0,
+    "cwdOutsideRepository": true,
+    "usesIndex": false
+  },
+  "fullFilesystemReconstruction": {
+    "verified": true,
+    "fileCount": 100,
+    "sha256": "65816fdadd07f068ddb001cb1332daadbd05c9b6a38fb6c2932cfda69851e81e",
+    "installedDependencySymlinkExcluded": true
+  },
+  "unrelatedRuntimeExclusionsVerified": 9,
+  "offlineTestReceipt": "clean-activation-tests.json",
+  "qualifiedTests": {
+    "tests": 202,
+    "pass": 202,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "activationRule": "Registry flag remains0; change to1 only after explicit activation approval and deployment/version/schema checks. Preserve additive migration/binding on containment.",
+  "noRealMediaLocationsOrCredentials": true,
+  "syntheticPrivacyTestLocationsOnly": true,
+  "rootGitIndexOrRefsModified": false,
+  "network": false,
+  "publication": false,
+  "deployment": false,
+  "reconstructionRemovedAfterVerification": true
+}

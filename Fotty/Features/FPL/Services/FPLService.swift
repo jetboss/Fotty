@@ -168,7 +168,10 @@ public actor FPLService {
         )
     }
 
-    private func fetchResource<T: Decodable & Sendable>(_ path: String) async throws -> FPLResource<T> {
+    private func fetchResource<T: Decodable & Sendable>(
+        _ path: String, maximumAge: TimeInterval? = nil
+    ) async throws -> FPLResource<T> {
+        try Task.checkCancellation()
         let now = Date()
         let calendarSeason = FPLSeasonIdentifier.currentLabel(at: now)
         if activeSeasonLabel != calendarSeason {
@@ -178,7 +181,7 @@ public actor FPLService {
         }
 
         if let entry = cache[path], entry.season == activeSeasonLabel,
-           now.timeIntervalSince(entry.timestamp) < cacheTTL(for: path) {
+           now.timeIntervalSince(entry.timestamp) < min(cacheTTL(for: path), maximumAge ?? .infinity) {
             let value = try JSONDecoder().decode(T.self, from: entry.data)
             try validateSeason(of: value, expectedSeason: calendarSeason)
             updateSeasonContext(from: value)
@@ -196,6 +199,9 @@ public actor FPLService {
         }
 
         var request = URLRequest(url: url)
+        // Our metadata records the resource's actual fetch time. A second HTTP
+        // cache must not quietly extend the caller's bounded freshness window.
+        request.cachePolicy = .reloadIgnoringLocalCacheData
         request.setValue(
             "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
             forHTTPHeaderField: "User-Agent"
@@ -203,6 +209,7 @@ public actor FPLService {
 
         do {
             let (data, response) = try await session.data(for: request)
+            try Task.checkCancellation()
             guard let httpResponse = response as? HTTPURLResponse,
                   (200...299).contains(httpResponse.statusCode) else {
                 if let snapshot: FPLResource<T> = loadDiskSnapshot(key: path, endpoint: path, now: now) {
@@ -222,6 +229,7 @@ public actor FPLService {
                 metadata: FPLResourceMetadata(source: .network, fetchedAt: fetchedAt, endpoint: path)
             )
         } catch {
+            try Task.checkCancellation()
             if let snapshot: FPLResource<T> = loadDiskSnapshot(key: path, endpoint: path, now: now) {
                 return snapshot
             }
@@ -239,12 +247,18 @@ public actor FPLService {
     public func clearCache() { cache.removeAll() }
 
     public func fetchBootstrapResource() async throws -> FPLResource<FPLBootstrapResponse> { try await fetchResource("bootstrap-static/") }
+    func fetchBootstrapResource(maximumAge: TimeInterval) async throws -> FPLResource<FPLBootstrapResponse> {
+        try await fetchResource("bootstrap-static/", maximumAge: maximumAge)
+    }
     public func fetchFixturesResource() async throws -> FPLResource<[FPLFixture]> { try await fetchResource("fixtures/") }
     public func fetchManagerSummaryResource(id: Int) async throws -> FPLResource<FPLManagerSummary> { try await fetchResource("entry/\(id)/") }
     public func fetchPicksResource(managerId: Int, gameweek: Int) async throws -> FPLResource<FPLManagerPicks> { try await fetchResource("entry/\(managerId)/event/\(gameweek)/picks/") }
     public func fetchManagerHistoryResource(id: Int) async throws -> FPLResource<FPLManagerHistoryResponse> { try await fetchResource("entry/\(id)/history/") }
     public func fetchEventLiveResource(gameweek: Int) async throws -> FPLResource<FPLEventLiveResponse> { try await fetchResource("event/\(gameweek)/live/") }
     public func fetchElementSummaryResource(playerId: Int) async throws -> FPLResource<FPLElementSummaryResponse> { try await fetchResource("element-summary/\(playerId)/") }
+    func fetchElementSummaryResource(playerId: Int, maximumAge: TimeInterval) async throws -> FPLResource<FPLElementSummaryResponse> {
+        try await fetchResource("element-summary/\(playerId)/", maximumAge: maximumAge)
+    }
     public func fetchLeagueStandingsResource(leagueId: Int, page: Int = 1) async throws -> FPLResource<FPLLeagueStandingsResponse> {
         try await fetchResource("leagues-classic/\(leagueId)/standings/?page_standings=\(max(1, page))")
     }

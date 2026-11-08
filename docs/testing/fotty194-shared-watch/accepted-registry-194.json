@@ -1,0 +1,25 @@
+{
+  "build": 194,
+  "schema": 1,
+  "generatedAt": "2026-10-30T19:54:39.156Z",
+  "providerScopes": 21,
+  "families": [
+    "cncsports",
+    "communitysports",
+    "flixstreams",
+    "plaviosports",
+    "reviewedtv",
+    "score808",
+    "streamex",
+    "streamvix"
+  ],
+  "observations": 1434,
+  "links": 27,
+  "linkStates": {
+    "conflicting": 16,
+    "needsVerification": 10,
+    "listed": 1
+  },
+  "typedUSChannelObservations": 0,
+  "notPlaybackProof": true
+}

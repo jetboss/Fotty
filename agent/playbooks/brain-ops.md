@@ -6,6 +6,7 @@ Use this when changing project memory, agent instructions, or the generated Note
 
 - `AGENTS.md`
 - `agent/AGENT-START.md`
+- `docs/notebooklm/Current-State.md`
 - `agent/AGENTS.md`
 - `agent/OPERATOR.md`
 - `.cursor/rules/private-knowledge-base.mdc`
@@ -23,7 +24,9 @@ Use this when changing project memory, agent instructions, or the generated Note
 
 ## Verification
 
-- Run `bash -n tools/*.sh` for touched shell scripts.
+- Run `bash -n` separately for each touched shell script (multiple filenames to one bash invocation are arguments, not separate syntax checks).
 - Run `./tools/notebooklm-refresh.sh`.
-- Run `./tools/brain-doctor.sh`.
+- Run `python3 -B -m unittest discover -s tools/tests -p 'test_memory_support.py'` for memory-tool changes.
+- Run `./tools/brain-doctor.sh --export` after refreshing the bundle.
+- Source checks and export freshness/privacy checks are distinct; neither verifies live app claims.
 - Run `./tools/ask-brain.sh "What is the current Fotty product graph?"`.

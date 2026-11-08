@@ -68,7 +68,7 @@ struct HeroMatchCarousel: View {
     private func heroCard(for event: AnalyticalDataEngine.EventReference) -> some View {
         let matchedFootball = event.normalizedCategory == "football"
             ? scoreService.findMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate) : nil
-        let score = event.normalizedCategory == "football"
+        let score = event.normalizedCategory == "football" && !WatchingSpoilerProtection.shared.protects(event)
             ? scoreService.scoreForMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate) : nil
         let isLive = HomeMatchPriority.isLive(event, scoreService: scoreService)
         let scoreCoverageAvailable = FootballDataPolicy.hasConfirmedLiveScoreCoverage(

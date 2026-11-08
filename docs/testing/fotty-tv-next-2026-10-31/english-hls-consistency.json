@@ -1,0 +1,114 @@
+{
+  "observedAt": "2026-11-01T02:56:10.158238+00:00",
+  "scope": "two bounded current HLS metadata samples per failing candidate; no media, keys, URL/token persistence or security exceptions",
+  "receipts": [
+    {
+      "first": {
+        "name": "Sky Sports Cricket",
+        "status": 200,
+        "hls": true,
+        "endlist": false,
+        "sequence": 3693,
+        "target": "12",
+        "durations": [
+          "9.600000",
+          "9.600000",
+          "9.600000",
+          "11.520000",
+          "9.600000",
+          "9.600000"
+        ]
+      },
+      "second": {
+        "name": "Sky Sports Cricket",
+        "status": 200,
+        "hls": true,
+        "endlist": false,
+        "sequence": 3694,
+        "target": "12",
+        "durations": [
+          "9.600000",
+          "9.600000",
+          "11.520000",
+          "9.600000",
+          "9.600000",
+          "9.600000"
+        ]
+      },
+      "overlappingSequences": 5,
+      "changedOverlappingURIs": 0
+    },
+    {
+      "first": {
+        "name": "Sky Sports Football",
+        "status": 200,
+        "hls": true,
+        "endlist": false,
+        "sequence": 1549,
+        "target": "10",
+        "durations": [
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000"
+        ]
+      },
+      "second": {
+        "name": "Sky Sports Football",
+        "status": 200,
+        "hls": true,
+        "endlist": false,
+        "sequence": 1550,
+        "target": "10",
+        "durations": [
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000"
+        ]
+      },
+      "overlappingSequences": 5,
+      "changedOverlappingURIs": 0
+    },
+    {
+      "first": {
+        "name": "TNT Sports 1",
+        "status": 200,
+        "hls": true,
+        "endlist": false,
+        "sequence": 8455,
+        "target": "10",
+        "durations": [
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000"
+        ]
+      },
+      "second": {
+        "name": "TNT Sports 1",
+        "status": 200,
+        "hls": true,
+        "endlist": false,
+        "sequence": 8457,
+        "target": "10",
+        "durations": [
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "10.000000",
+          "9.600000"
+        ]
+      },
+      "overlappingSequences": 4,
+      "changedOverlappingURIs": 0
+    }
+  ]
+}

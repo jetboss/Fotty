@@ -5,6 +5,8 @@
  */
 
 export const FOTTY_DEFAULTS = {
+  brandName: "Fotty Sports Hub",
+  shortBrandName: "Fotty",
   siteUrl: "https://getfotty.com",
   legalBaseUrl: "https://getfotty.com",
   /** Cloudflare Worker for Watch playback APIs on static FTP (no Node `/api` on Apache). */

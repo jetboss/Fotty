@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-29",
+  "build": 187,
+  "device": "Jet iPad only",
+  "normalHomeDirectSourceActionReached": true,
+  "primaryFamilyUnavailableDuringGate": true,
+  "source": "CS2",
+  "sourcePickerSelectionVerified": true,
+  "nativeReadyLayerHoldSeconds": 90,
+  "samePlayerItemAttemptThroughoutHold": true,
+  "mediaTimeAdvanceSeconds": 83.818663318,
+  "nativeFullscreenPauseResumeDonePassed": true,
+  "correctProgrammeObservation": "Visible Newcastle players and opposing blue team, consistent with the independently dated Everton\u2013Newcastle fixture; no continuous pixel or audible proof. Programme snapshots reviewed.",
+  "pipOriginalGate": "FAILED: no actual PiP window at60seconds Home; start was not observed before Home and app.activate preceded restore",
+  "pipFocusedGate": "test-only start/visible-window/system-restore correction compiled, not rerun because no supported live football remained at22:29UTC",
+  "pipProductChangeMade": false,
+  "phoneTouched": false,
+  "FPLFeatureChanges": false,
+  "multiStreamFeatureChanges": false,
+  "TestFlightRelease": false,
+  "futureTargetCoverage": "PL/UCL/supported cricket and true upstream independence remain pending actual eligible live windows"
+}

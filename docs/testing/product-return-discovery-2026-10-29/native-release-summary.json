@@ -1,0 +1,9 @@
+{
+  "version": "2.0.1",
+  "build": "184",
+  "platforms": [
+    "iPhoneOS"
+  ],
+  "binarySHA256": "f3db31bae14d75afd429f17f6402a82c46e2f884188370ea3a2ce84dc65ff0d2",
+  "machOBuildInfo": "Fotty unsigned Release executable:\nLoad command 11\n      cmd LC_BUILD_VERSION\n  cmdsize 32\n platform IOS\n    minos 26.4\n      sdk 27.1\n   ntools 1\n     tool LD\n  version 27037.1\n"
+}

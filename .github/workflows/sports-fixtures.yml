@@ -1,0 +1,40 @@
+name: Sports Fixture Monitor
+
+on:
+  schedule:
+    - cron: "41 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+  issues: write
+
+concurrency:
+  group: sports-fixture-monitor
+  cancel-in-progress: false
+
+jobs:
+  fixtures:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Validate the monitor contract
+        run: node --test tools/audit-sports-fixtures.test.mjs tools/sports-fixture-crosscheck.test.mjs
+      - name: Audit accepted sports fixture coverage
+        id: audit
+        run: node tools/audit-sports-fixtures.mjs --report-mode --output="${RUNNER_TEMP}/sports-fixture-audit.json"
+      - name: Notify the owner only for actionable or matching repeated failures
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node tools/audit-sports-fixtures-github.mjs --report="${RUNNER_TEMP}/sports-fixture-audit.json"
+      - name: "Record an unhealthy sports audit: ${{ steps.audit.outputs.finding_keys }}"
+        if: always() && steps.audit.outputs.failed == 'true'
+        run: exit 1
+      - name: Remove the temporary monitor receipt
+        if: always()
+        run: rm -f "${RUNNER_TEMP}/sports-fixture-audit.json"

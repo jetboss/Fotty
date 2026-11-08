@@ -1,0 +1,100 @@
+{
+  "ppvAliasByteRangePreflight": {
+    "checkedAt": "2026-10-28T21:17:56.904Z",
+    "status": 200,
+    "contentType": "application/vnd.apple.mpegurl; charset=utf-8",
+    "HLSMarkers": {
+      "initial": {
+        "header": true,
+        "master": true,
+        "segments": 0,
+        "mediaSequence": false,
+        "encrypted": false,
+        "byteRanges": false,
+        "ended": false
+      },
+      "child": {
+        "header": true,
+        "master": false,
+        "segments": 4,
+        "mediaSequence": true,
+        "encrypted": false,
+        "byteRanges": true,
+        "ended": false
+      },
+      "mediaKind": "segment",
+      "requestedAdvertisedRange": true,
+      "rangeHonored": true,
+      "transportStream": true,
+      "fragmentedMP4": false,
+      "nativeDecodeUnverified": true
+    },
+    "segmentByteCount": 131072,
+    "childStatus": 200,
+    "childContentType": "application/vnd.apple.mpegurl; charset=utf-8",
+    "segmentStatus": 206,
+    "segmentContentType": "image/webp",
+    "completedAt": "2026-10-28T21:18:06.820Z"
+  },
+  "normalPickerMapping": {
+    "checkedAt": "2026-10-28T21:25:06.969Z",
+    "entryCount": 43,
+    "malformedEntryCount": 0,
+    "admittedDistinctDeliveryCount": 32,
+    "choices": [
+      {
+        "label": "CS1",
+        "quality": "HD",
+        "source_hint": "daddylive",
+        "source_identity_scope": "upstream",
+        "source_identity": "cs_fada09d27ba43d60a99ce614",
+        "delivery": "same_origin_hls_proxy"
+      },
+      {
+        "label": "CS2",
+        "quality": "1080p",
+        "source_hint": "ppvst",
+        "source_identity_scope": "upstream",
+        "source_identity": "cs_8c5eae3b3904042c91d0ee33",
+        "delivery": "same_origin_hls_proxy"
+      },
+      {
+        "label": "CS3",
+        "quality": "1080p",
+        "source_hint": "sktech",
+        "source_identity_scope": "upstream",
+        "source_identity": "cs_1c1fc732807cf84fe4dc946c",
+        "delivery": "reviewed_direct_hls"
+      },
+      {
+        "label": "CS4",
+        "quality": "720p",
+        "source_hint": "ak47live",
+        "source_identity_scope": "delivery",
+        "delivery": "same_origin_hls_proxy"
+      },
+      {
+        "label": "CS5",
+        "quality": "HD",
+        "source_hint": "ak47live",
+        "source_identity_scope": "delivery",
+        "delivery": "same_origin_hls_proxy"
+      },
+      {
+        "label": "CS6",
+        "quality": "HD",
+        "source_hint": "ak47live",
+        "source_identity_scope": "delivery",
+        "delivery": "same_origin_hls_proxy"
+      }
+    ],
+    "ppvChoice": {
+      "label": "CS2",
+      "quality": "1080p",
+      "source_hint": "ppvst",
+      "source_identity_scope": "upstream",
+      "source_identity": "cs_8c5eae3b3904042c91d0ee33",
+      "delivery": "same_origin_hls_proxy"
+    }
+  }
+}

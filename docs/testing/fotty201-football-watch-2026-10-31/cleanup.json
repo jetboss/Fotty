@@ -1,0 +1,10 @@
+{
+  "atUTC": "2026-10-31T16:28:13.600283+00:00",
+  "ownedGateRemoved": true,
+  "ownedTempFilesRemoved": 33,
+  "ownedDependencySymlinkRemoved": true,
+  "originalDependenciesPreserved": true,
+  "freeBeforeGiB": 17.68,
+  "freeAfterGiB": 18.66,
+  "noPersistentKeepAwakeCreated": true
+}

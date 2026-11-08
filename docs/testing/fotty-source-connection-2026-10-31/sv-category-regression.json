@@ -1,0 +1,7 @@
+{
+  "tests": 37,
+  "failures": 0,
+  "skips": 0,
+  "scope": "StreamVixSportsAddonTests after keyed-category repair; before Simulcast repair",
+  "physicalDevice": "Jet iPad"
+}

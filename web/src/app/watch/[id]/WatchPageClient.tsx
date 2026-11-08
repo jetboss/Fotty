@@ -1,160 +1,99 @@
 "use client";
 
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { PlaybackWarmup } from '@/components/PlaybackWarmup';
-import { VideoPlayer } from '@/components/VideoPlayer';
-import { Activity, Bell, BellOff, Info, Tv, X } from 'lucide-react';
-import { AnimatePresence } from 'framer-motion';
-import { FottyAPI, ScrapedMatch } from '@/lib/api';
-import { trackEvent } from '@/lib/analytics';
-import { buildWatchMatchContext, findWatchMatch, logStreamDiagnostic, pickBackupAfterFailure, rankEventStreamGuide } from '@/lib/stream-guide';
-import { MatchHeaderOverlay } from '@/components/MatchHeaderOverlay';
-import { MatchTimeline } from '@/components/MatchTimeline';
-import { SponsoredSlot } from '@/components/SponsoredSlot';
-import { recordRecentMatch, updateUserPreferences } from '@/lib/storage';
-import { useReminderToggle } from '@/lib/user-experience';
-import { isP2PContentId, resolveWatchRouteId } from '@/lib/watch-session';
-import { isP2PSessionActive } from '@/lib/p2p-session';
-import { FOTTY_LIVE_LABEL } from '@/lib/watch-stream-display';
-import { MatchStreamHub } from '@/components/stream-guide/MatchStreamHub';
-import { buildWatchHref, hasStreameXPlayback } from '@/lib/live';
-import { buildDirectEmbedUrl } from '@/lib/stream-guide/embed-url';
-import { isV2WatchMode } from '@/lib/v2/watch-context';
-import { v2AppPath, v2HomePath } from '@/lib/v2/preview';
-import { relatedWatchMatches } from '@/lib/v2/watch-related-matches';
-import { formatStreamFeedLabel } from '@/lib/stream-guide/feed-label';
-import { useMatchFeedPoll } from '@/hooks/use-match-feed-poll';
-import { useWatchKeyboard } from '@/hooks/use-watch-keyboard';
-import { requestWatchPictureInPicture } from '@/lib/watch-pip';
-import { fixtureTeamLabels, isEventFixture } from "@/lib/fixture-normalization";
-import { WatchFixtureHeader } from '@/components/watch/WatchFixtureHeader';
-import { WatchEventHeader } from '@/components/watch/WatchEventHeader';
-import { useP2PBrokerSession } from './useP2PBrokerSession';
-import { useEventStreams } from './useEventStreams';
-import { useEventPlaybackRecovery } from './useEventPlaybackRecovery';
-import { usePlaybackController } from './usePlaybackController';
-import { resolveEventBackupIndex } from '@/lib/watch-event-recovery';
-import { classifyPlaybackFault } from '@/lib/playback-controller';
-import { decodeWatchEventSources, dedupeWatchEventSources, watchEventSourcesKey } from '@/lib/watch-event-sources';
 import {
-  StreamDiagnosticsPanel,
-  TelemetryGrid,
-  WatchDetailsPanel,
-  WatchVideoStage,
-} from '@/components/watch/WatchPanels';
-import { WatchToolbarV2 } from '@/components/watch/WatchToolbarV2';
-import { WatchAsideV2 } from '@/components/watch/WatchAsideV2';
-import { MatchStreamHubV2 } from '@/components/stream-guide/MatchStreamHubV2';
-import { DirectEventPlayer, type DirectEventPlayerHandle, UnavailablePlayer, watchUnavailableTitle } from '@/components/watch/WatchPlayers';
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { FottyAPI, type ScrapedMatch } from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
+import {
+  buildWatchMatchContext,
+  findWatchMatch,
+  logStreamDiagnostic,
+  pickBackupAfterFailure,
+  rankEventStreamGuide,
+} from "@/lib/stream-guide";
+import { buildDirectEmbedUrl } from "@/lib/stream-guide/embed-url";
+import { formatStreamFeedLabel } from "@/lib/stream-guide/feed-label";
+import { buildWatchHref, hasStreameXPlayback } from "@/lib/live";
+import { fixtureTeamLabels, isEventFixture } from "@/lib/fixture-normalization";
+import { resolveWatchRouteId } from "@/lib/watch-session";
+import { decodeWatchEventSources, dedupeWatchEventSources, watchEventSourcesKey } from "@/lib/watch-event-sources";
+import { resolveEventBackupIndex } from "@/lib/watch-event-recovery";
+import { relatedWatchMatches } from "@/lib/v2/watch-related-matches";
+import { v2AppPath, v2HomePath } from "@/lib/v2/preview";
+import { recordRecentMatch, updateUserPreferences } from "@/lib/storage";
+import { useReminderToggle } from "@/lib/user-experience";
+import { useMatchFeedPoll } from "@/hooks/use-match-feed-poll";
+import { useWatchKeyboard } from "@/hooks/use-watch-keyboard";
+import { WatchVideoStage } from "@/components/watch/WatchPanels";
+import {
+  DirectEventPlayer,
+  type DirectEventPlayerHandle,
+} from "@/components/watch/WatchPlayers";
+import { WatchToolbarV2 } from "@/components/watch/WatchToolbarV2";
+import { WatchFixtureHeader } from "@/components/watch/WatchFixtureHeader";
+import { WatchEventHeader } from "@/components/watch/WatchEventHeader";
+import { WatchAsideV2 } from "@/components/watch/WatchAsideV2";
+import { MatchStreamHubV2 } from "@/components/stream-guide/MatchStreamHubV2";
+import { useEventStreams } from "./useEventStreams";
+import { useEventPlaybackRecovery } from "./useEventPlaybackRecovery";
 
-const MAX_P2P_SESSION_RECOVERIES = 2;
 const EVENT_IFRAME_LOAD_TIMEOUT_MS = 20_000;
 const EMBED_PLAYBACK_RECOVERY_MS = 20_000;
-const DIRECT_P2P_ROUTE_VALUES = new Set(["direct", "simple", "straight", "native", "edge", "app"]);
 
 export default function WatchPageClient() {
   const { id } = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
   const routeId = resolveWatchRouteId(id, searchParams);
-  const title = searchParams.get('title') || "Live Stream";
-  const league = searchParams.get('league') || undefined;
-  const sport = searchParams.get('sport') || league?.split(" · ")[0] || undefined;
-  const eventSourceCode = searchParams.get('source') || undefined;
-  const eventSourceId = searchParams.get('eventId') || undefined;
-  const eventSourcesParam = searchParams.get('sources') || undefined;
-  const p2pRoute = (searchParams.get('p2pRoute') || "").trim().toLowerCase();
-  const useDirectP2PRoute = DIRECT_P2P_ROUTE_VALUES.has(p2pRoute);
-  const defaultReturn = v2HomePath();
-  const rawReturnTo = searchParams.get('returnTo') || defaultReturn;
-  const returnTo = rawReturnTo.startsWith("/") ? rawReturnTo : defaultReturn;
-  const v2Watch = isV2WatchMode(returnTo);
-  const homeReturnTo = v2Watch ? v2HomePath() : returnTo;
-  const matchId = searchParams.get('matchId') || routeId || title;
-  const cidValue = routeId || "";
-  const startsAt = searchParams.get('startsAt') || undefined;
-  const isEventPlayback = Boolean(eventSourceCode && eventSourceId);
-  const eventSources = useMemo(() => {
-    const primary = eventSourceCode && eventSourceId ? [{ source: eventSourceCode, id: eventSourceId }] : [];
-    return dedupeWatchEventSources([...primary, ...decodeWatchEventSources(eventSourcesParam)]);
-  }, [eventSourceCode, eventSourceId, eventSourcesParam]);
-  const eventStreamKey = eventSources.length > 0 ? watchEventSourcesKey(eventSources) : undefined;
+  const title = searchParams.get("title") || "Live Stream";
+  const league = searchParams.get("league") || undefined;
+  const sport = searchParams.get("sport") || league?.split(" · ")[0] || undefined;
+  const eventSourceCode = searchParams.get("source") || undefined;
+  const eventSourceId = searchParams.get("eventId") || undefined;
+  const eventSourcesParam = searchParams.get("sources") || undefined;
+  const startsAt = searchParams.get("startsAt") || undefined;
+  const rawReturnTo = searchParams.get("returnTo") || v2HomePath();
+  const returnTo = rawReturnTo.startsWith("/") ? rawReturnTo : v2HomePath();
+  const matchId = searchParams.get("matchId") || routeId || title;
+  const routeValue = routeId || "";
 
-  const [showTelemetry, setShowTelemetry] = useState(false);
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-  const [autoFailoverMessage, setAutoFailoverMessage] = useState<string | null>(null);
-  const [currentTime, setCurrentTime] = useState(() => Date.now());
+  const eventSources = useMemo(() => {
+    const primary = eventSourceCode && eventSourceId
+      ? [{ source: eventSourceCode, id: eventSourceId }]
+      : [];
+    return dedupeWatchEventSources([
+      ...primary,
+      ...decodeWatchEventSources(eventSourcesParam),
+    ]);
+  }, [eventSourceCode, eventSourceId, eventSourcesParam]);
+  const eventStreamKey = eventSources.length > 0
+    ? watchEventSourcesKey(eventSources)
+    : undefined;
+  const hasEventIdentity = eventSources.length > 0;
+
   const [matchRecord, setMatchRecord] = useState<ScrapedMatch | null>(null);
   const [boardMatches, setBoardMatches] = useState<ScrapedMatch[]>([]);
   const [matchLookupDone, setMatchLookupDone] = useState(false);
-  const videoStageRef = useRef<HTMLDivElement>(null);
-  const directEventPlayerRef = useRef<DirectEventPlayerHandle>(null);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [playbackError, setPlaybackError] = useState<string | null>(null);
-  const failedEventSourceIdsRef = useRef<Set<string>>(new Set());
-  const currentEventEmbedURLRef = useRef<string | null>(null);
-  const embedPlaybackStartedRef = useRef(false);
+  const [autoFailoverMessage, setAutoFailoverMessage] = useState<string | null>(null);
   const [failedEventSourceIds, setFailedEventSourceIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    // Block unwanted popups and click-jacking redirects triggered by third-party embed scripts
-    const origOpen = window.open;
-    window.open = function (...args) {
-      console.warn("[Fotty Guard] Blocked popup window:", args[0]);
-      return null;
-    };
-    return () => {
-      window.open = origOpen;
-    };
-  }, []);
-  const {
-    state: playbackState,
-    startAttempt,
-    reportFrameReady,
-    reportDecodedProgress,
-    reportFault,
-    commitRecovery,
-    advanceAttempt,
-  } = usePlaybackController();
-
-  const p2pCid = useMemo(() => {
-    if (isP2PContentId(matchRecord?.cid)) return matchRecord.cid;
-    if (!isEventPlayback && isP2PContentId(cidValue)) return cidValue;
-    return "";
-  }, [cidValue, isEventPlayback, matchRecord?.cid]);
-
-  const isP2PChannelWatch =
-    matchRecord?.kind === "channel" ||
-    searchParams.get("kind") === "channel" ||
-    (isP2PContentId(cidValue) && !startsAt && !isEventPlayback);
-  const blockedFixturePlayback =
-    matchLookupDone &&
-    !isEventPlayback &&
-    !isP2PChannelWatch &&
-    !(matchRecord && hasStreameXPlayback(matchRecord));
-
-  const useEventEmbed = isEventPlayback;
-  const useP2PPlayback = isP2PChannelWatch;
-
-  const {
-    brokerPlaybackState,
-    brokerWarmMessage,
-    brokerSessionId,
-    brokerWarmStartedAt,
-    playerGeneration,
-    telemetry,
-    p2pHealth,
-    retryBrokerSession,
-  } = useP2PBrokerSession({
-    enabled: useP2PPlayback && Boolean(p2pCid) && !useDirectP2PRoute,
-    cid: p2pCid,
-    title,
-    matchId,
-  });
+  const [playbackStartedURL, setPlaybackStartedURL] = useState<string | null>(null);
+  const failedEventSourceIdsRef = useRef<Set<string>>(new Set());
+  const embedPlaybackStartedRef = useRef(false);
+  const currentEventEmbedURLRef = useRef<string | null>(null);
+  const directEventPlayerRef = useRef<DirectEventPlayerHandle>(null);
 
   const clearPlaybackMessages = useCallback(() => {
-    setAutoFailoverMessage(null);
     setPlaybackError(null);
+    setAutoFailoverMessage(null);
     failedEventSourceIdsRef.current.clear();
     setFailedEventSourceIds([]);
   }, []);
@@ -163,55 +102,59 @@ export default function WatchPageClient() {
     eventStreamState,
     eventFrameLoaded,
     setEventFrameLoaded,
-    eventFrameTimedOut,
-    setEventFrameTimedOut,
     streamsCheckedAt,
     refreshEventStreams,
     selectEventStream,
   } = useEventStreams({
-    enabled: useEventEmbed,
+    enabled: hasEventIdentity,
     eventSources,
     eventStreamKey,
     matchId,
     onStreamsApplied: clearPlaybackMessages,
   });
 
-  const reminderEntry = useMemo(() => {
-    if (!startsAt) return null;
-    const kickoff = new Date(startsAt).getTime();
-    if (!Number.isFinite(kickoff) || kickoff <= currentTime) return null;
+  const eventStreams = useMemo(
+    () => eventStreamState.key === eventStreamKey ? eventStreamState.streams || [] : [],
+    [eventStreamKey, eventStreamState.key, eventStreamState.streams]
+  );
+  const selectedEventStreamIndex = Math.min(
+    eventStreamState.selectedIndex || 0,
+    Math.max(eventStreams.length - 1, 0)
+  );
+  const selectedEventStream = eventStreams[selectedEventStreamIndex];
+  const eventStreamError = !hasEventIdentity
+    ? "This retired watch route has no supported StreamEx or Score808 source. Return to Discover and choose a current match."
+    : eventStreamState.key === eventStreamKey
+      ? eventStreamState.error || null
+      : null;
+  const isEventStreamLoading = hasEventIdentity && eventStreamState.key !== eventStreamKey;
+  const eventEmbedURL = useMemo(() => {
+    if (selectedEventStream?.embedUrl?.trim()) return selectedEventStream.embedUrl;
+    const source = selectedEventStream?.source || eventSourceCode;
+    const sourceId = selectedEventStream?.id || eventSourceId;
+    if (!source || !sourceId) return null;
+    return buildDirectEmbedUrl(source, sourceId, selectedEventStream?.streamNo || 1);
+  }, [eventSourceCode, eventSourceId, selectedEventStream]);
+  const embedPlaybackStarted = playbackStartedURL === eventEmbedURL;
 
-    return {
-      id: matchId,
-      cid: cidValue || matchId,
-      title,
-      league,
-      sport,
-      startsAt,
-      href: typeof window !== "undefined" ? `${window.location.pathname}${window.location.search}` : `/watch/${encodeURIComponent(cidValue || "")}`,
-    };
-  }, [cidValue, currentTime, league, matchId, sport, startsAt, title]);
-  const { reminded, toggleReminder } = useReminderToggle(reminderEntry);
+  useLayoutEffect(() => {
+    currentEventEmbedURLRef.current = eventEmbedURL;
+    embedPlaybackStartedRef.current = false;
+  }, [eventEmbedURL]);
 
   const closePlayer = useCallback(() => {
-    router.replace(homeReturnTo);
-  }, [homeReturnTo, router]);
-
-  useEffect(() => {
-    if (!cidValue) return;
-    recordRecentMatch({ cid: cidValue, title, league });
-  }, [cidValue, title, league]);
+    router.replace(returnTo);
+  }, [returnTo, router]);
 
   useEffect(() => {
     let cancelled = false;
-
     FottyAPI.fetchMatchesFresh()
       .then((matches) => {
         if (cancelled) return;
         setBoardMatches(matches);
-        const found = findWatchMatch(matches, cidValue, matchId, title);
+        const found = findWatchMatch(matches, routeValue, matchId, title);
         setMatchRecord(found);
-        if (!isEventPlayback && found && hasStreameXPlayback(found)) {
+        if (!hasEventIdentity && found && hasStreameXPlayback(found)) {
           router.replace(buildWatchHref(found, returnTo));
         }
       })
@@ -219,217 +162,109 @@ export default function WatchPageClient() {
       .finally(() => {
         if (!cancelled) setMatchLookupDone(true);
       });
-
     return () => {
       cancelled = true;
     };
-  }, [cidValue, isEventPlayback, matchId, returnTo, router, title]);
+  }, [hasEventIdentity, matchId, returnTo, routeValue, router, title]);
 
   const refreshWatchBoard = useCallback(async () => {
     try {
       const matches = await FottyAPI.fetchMatchesFresh();
       setBoardMatches(matches);
-      const found = findWatchMatch(matches, cidValue, matchId, title);
-      if (found) setMatchRecord(found);
+      setMatchRecord(findWatchMatch(matches, routeValue, matchId, title));
       return true;
     } catch {
       return false;
     }
-  }, [cidValue, matchId, title]);
+  }, [matchId, routeValue, title]);
 
   useEffect(() => {
-    const interval = window.setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 30_000);
-
+    const interval = window.setInterval(() => setCurrentTime(Date.now()), 30_000);
     return () => window.clearInterval(interval);
   }, []);
 
-  const isBrokerWarming = useP2PPlayback && !useDirectP2PRoute && brokerPlaybackState === "warming";
-  // Default path keeps broker warmup/session reuse. p2pRoute=direct uses the
-  // native-style public P2P manifest with a short-lived token for Chrome testing.
-  const streamURL = useMemo(() => {
-    if (!useP2PPlayback || !p2pCid) {
-      return "";
-    }
-    if (useDirectP2PRoute) {
-      return FottyAPI.getNativeP2PStreamURL(p2pCid);
-    }
-    if (brokerPlaybackState !== "ready" || !brokerSessionId) {
-      return "";
-    }
-    return FottyAPI.getStreamURL(p2pCid, brokerSessionId);
-  }, [brokerPlaybackState, brokerSessionId, p2pCid, useDirectP2PRoute, useP2PPlayback]);
-  const isEventStreamLoading = Boolean(useEventEmbed && !eventSourceCode && !eventSourceId && eventStreamState.key !== eventStreamKey);
-  const eventStreams = useMemo(
-    () => (eventStreamState.key === eventStreamKey ? eventStreamState.streams || [] : []),
-    [eventStreamKey, eventStreamState.key, eventStreamState.streams]
-  );
-  const selectedEventStreamIndex = Math.min(eventStreamState.selectedIndex || 0, Math.max(eventStreams.length - 1, 0));
-  const selectedEventStream = eventStreams[selectedEventStreamIndex];
-  const eventEmbedURL = useMemo(() => {
-    if (selectedEventStream?.embedUrl?.trim()) return selectedEventStream.embedUrl;
-    const source = selectedEventStream?.source || eventSourceCode;
-    const id = selectedEventStream?.id || eventSourceId;
-    if (!source || !id) return null;
-    return buildDirectEmbedUrl(source, id, selectedEventStream?.streamNo || 1);
-  }, [
-    eventSourceCode,
-    eventSourceId,
-    selectedEventStream?.embedUrl,
-    selectedEventStream?.source,
-    selectedEventStream?.id,
-    selectedEventStream?.streamNo,
-  ]);
-  useLayoutEffect(() => {
-    currentEventEmbedURLRef.current = eventEmbedURL;
-    embedPlaybackStartedRef.current = false;
-    if (useEventEmbed && eventEmbedURL) {
-      const sourceKey = `event:${eventStreamKey || matchId}`;
-      const maxRecoveries = Math.max(0, eventStreams.length - 1);
-      if (
-        playbackState.mode !== "event" ||
-        playbackState.sourceKey !== sourceKey ||
-        playbackState.maxRecoveries !== maxRecoveries
-      ) {
-        startAttempt(sourceKey, "event", maxRecoveries);
-      }
-    }
-  }, [
-    eventEmbedURL,
-    eventStreamKey,
-    eventStreams.length,
-    matchId,
-    playbackState.maxRecoveries,
-    playbackState.mode,
-    playbackState.sourceKey,
-    startAttempt,
-    useEventEmbed,
-  ]);
   useEffect(() => {
-    if (useP2PPlayback && p2pCid) {
-      startAttempt(`p2p:${p2pCid}`, "p2p", MAX_P2P_SESSION_RECOVERIES);
-    }
-  }, [p2pCid, startAttempt, useP2PPlayback]);
-  const eventStreamError = eventStreamState.key === eventStreamKey ? eventStreamState.error || null : null;
-  const hasP2PTelemetry = telemetry.peerCount > 0 || telemetry.downloadSpeedKbps > 0 || telemetry.readySegmentCount > 0;
-  const p2pUnavailable =
-    useP2PPlayback &&
-    !useDirectP2PRoute &&
-    brokerPlaybackState === "failed" &&
-    !playbackError;
-  const isP2PActive = !p2pUnavailable && (useDirectP2PRoute ? Boolean(streamURL) : Boolean(brokerSessionId) || isP2PSessionActive(telemetry));
-  const p2pFeedLive = !p2pUnavailable && (useDirectP2PRoute ? Boolean(streamURL) : Boolean(brokerSessionId) || isP2PActive || Boolean(p2pHealth?.playable));
-  const sourceSummary = useEventEmbed
-    ? FOTTY_LIVE_LABEL
-    : p2pUnavailable
-      ? "P2P source unavailable"
-    : useDirectP2PRoute
-      ? "P2P stream"
-    : p2pFeedLive
-      ? brokerSessionId
-        ? "P2P broker session active"
-        : isP2PActive
-          ? "P2P session active"
-          : "P2P stream connected"
-      : hasP2PTelemetry
-        ? "P2P session warming"
-        : "Connecting to P2P swarm…";
+    if (!routeValue) return;
+    recordRecentMatch({ cid: routeValue, title, league });
+  }, [league, routeValue, title]);
 
-  const titleParts = title.split(/\s+vs\.?\s+|\s+v\s+/i);
-  const homeName = titleParts[0] || title;
-  const awayName = titleParts[1] || "Away";
-  const isFixtureTitle = titleParts.length >= 2;
-  const eventGuide = useEventEmbed ? rankEventStreamGuide(eventStreams, matchId) : null;
+  const eventGuide = useMemo(
+    () => rankEventStreamGuide(eventStreams, matchId),
+    [eventStreams, matchId]
+  );
 
-  const switchToEventBackup = useCallback(
-    (reason: string) => {
-      const resolved = resolveEventBackupIndex(
-        eventGuide,
-        selectedEventStreamIndex,
-        failedEventSourceIdsRef.current,
-        pickBackupAfterFailure
-      );
-      const attemptId = playbackState.attemptId;
-      const failed = eventGuide?.all.find(
-        (source) => source.eventIndex === selectedEventStreamIndex
-      );
-      if (failed?.id) {
-        failedEventSourceIdsRef.current.add(failed.id);
-        setFailedEventSourceIds(Array.from(failedEventSourceIdsRef.current));
-      }
-
-      const recoveryAction = reportFault(
-        attemptId,
-        classifyPlaybackFault(reason, "event_feed_failure")
-      );
-      if (!resolved || recoveryAction !== "switch-source") return false;
-
-      const { nextIndex, backup } = resolved;
-      setAutoFailoverMessage(`${reason} Switched to ${formatStreamFeedLabel(backup, nextIndex)}.`);
-      setPlaybackError(null);
-      setEventFrameTimedOut(false);
-      commitRecovery(attemptId);
-      selectEventStream(nextIndex);
-      logStreamDiagnostic("fallback_used", {
-        matchId,
-        sourceId: backup.diagnosticsSafeId,
-        playbackMode: "event",
-        reason,
-      });
-      return true;
-    },
-    [
-      commitRecovery,
+  const switchToEventBackup = useCallback((reason: string) => {
+    const resolved = resolveEventBackupIndex(
       eventGuide,
-      matchId,
-      playbackState.attemptId,
-      reportFault,
-      selectEventStream,
       selectedEventStreamIndex,
-      setEventFrameTimedOut,
-    ]
-  );
+      failedEventSourceIdsRef.current,
+      pickBackupAfterFailure
+    );
+    const failed = eventGuide.all.find(
+      (source) => source.eventIndex === selectedEventStreamIndex
+    );
+    if (failed?.id) {
+      failedEventSourceIdsRef.current.add(failed.id);
+      setFailedEventSourceIds(Array.from(failedEventSourceIdsRef.current));
+    }
+    if (!resolved) return false;
 
-  const tryNextDirectEventFeed = useCallback(
-    (reason: string) => {
-      const switched = switchToEventBackup(reason);
-      if (!switched) {
-        const remaining = (eventStreams?.length || 0) - failedEventSourceIdsRef.current.size;
-        setPlaybackError(
-          remaining > 0
-            ? "Could not switch feeds automatically. Use Try backup below or pick another stream."
-            : "All direct feeds were tried. Refresh the list or choose another source below."
-        );
-      }
-      return switched;
-    },
-    [eventStreams.length, switchToEventBackup]
-  );
+    const { nextIndex, backup } = resolved;
+    setAutoFailoverMessage(`${reason} Switched to ${formatStreamFeedLabel(backup, nextIndex)}.`);
+    setPlaybackError(null);
+    selectEventStream(nextIndex);
+    logStreamDiagnostic("fallback_used", {
+      matchId,
+      sourceId: backup.diagnosticsSafeId,
+      playbackMode: "event",
+      reason,
+    });
+    return true;
+  }, [eventGuide, matchId, selectEventStream, selectedEventStreamIndex]);
 
-  // StreameX-only for fixtures — P2P channel playback stays on the Live Board for now.
+  const tryNextDirectEventFeed = useCallback((reason: string) => {
+    if (switchToEventBackup(reason)) return true;
+    setPlaybackError(
+      eventStreams.length > failedEventSourceIdsRef.current.size
+        ? "Could not switch automatically. Choose another feed below."
+        : "All available feeds were tried. Refresh the list or choose another match."
+    );
+    return false;
+  }, [eventStreams.length, switchToEventBackup]);
+
   useEventPlaybackRecovery({
-    useEventEmbed,
-    // A direct provider iframe is cross-origin. Frame load is not decoded
-    // playback proof, and lack of observable playhead data must not make Fotty
-    // abandon a stream the user may already be watching.
+    useEventEmbed: hasEventIdentity,
     canObservePlayback: Boolean(eventEmbedURL?.startsWith("/")),
     eventEmbedURL,
     eventFrameLoaded,
     eventStreamError,
-    feedCount: eventStreams?.length || 0,
-    embedPlaybackStarted: playbackState.phase === "playing",
+    feedCount: eventStreams.length,
+    embedPlaybackStarted,
     embedPlaybackStartedRef,
     selectedEventStreamIndex,
     loadTimeoutMs: EVENT_IFRAME_LOAD_TIMEOUT_MS,
     startTimeoutMs: EMBED_PLAYBACK_RECOVERY_MS,
     onLoadTimeout: () => tryNextDirectEventFeed("This feed is slow to load — trying another stream."),
-    onStartTimeout: () =>
-      tryNextDirectEventFeed("This feed had trouble starting — trying another stream."),
-    setEventFrameTimedOut,
+    onStartTimeout: () => tryNextDirectEventFeed("This feed had trouble starting — trying another stream."),
   });
 
-  // Mid-playback failover relies on embed frame errors while using cross-origin provider iframes.
+  const reminderEntry = useMemo(() => {
+    if (!startsAt) return null;
+    const kickoff = new Date(startsAt).getTime();
+    if (!Number.isFinite(kickoff) || kickoff <= currentTime) return null;
+    return {
+      id: matchId,
+      cid: routeValue || matchId,
+      title,
+      league,
+      sport,
+      startsAt,
+      href: typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}`
+        : `/watch/index`,
+    };
+  }, [currentTime, league, matchId, routeValue, sport, startsAt, title]);
+  const { reminded, toggleReminder } = useReminderToggle(reminderEntry);
 
   const matchContext = buildWatchMatchContext({
     title,
@@ -437,557 +272,171 @@ export default function WatchPageClient() {
     sport,
     startsAt,
     match: matchRecord,
-    hasWorkingStream: useEventEmbed
-      ? Boolean(eventEmbedURL && !eventStreamError)
-      : !p2pUnavailable && !playbackError,
-    isCheckingStreams: isEventStreamLoading || isBrokerWarming,
+    hasWorkingStream: Boolean(eventEmbedURL && !eventStreamError),
+    isCheckingStreams: isEventStreamLoading || (!hasEventIdentity && !matchLookupDone),
   });
-
-  const isEventWatch = isEventPlayback || Boolean(matchRecord && isEventFixture(matchRecord));
+  const isEventWatch = hasEventIdentity || Boolean(matchRecord && isEventFixture(matchRecord));
   const isFixtureWatch = Boolean(
-    matchRecord &&
-    !isEventWatch &&
-    !fixtureTeamLabels(matchRecord).isUpdating
+    matchRecord && !isEventWatch && !fixtureTeamLabels(matchRecord).isUpdating
   );
-  const statusTone =
-    matchContext.status === "live"
-      ? "live"
-      : matchContext.status === "upcoming"
-        ? "upcoming"
-        : matchContext.status === "finished"
-          ? "finished"
-          : "neutral";
-
-  const streamHealthLine = useMemo(() => {
-    if (!useEventEmbed || !eventGuide?.recommended) return undefined;
-    const source = eventGuide.recommended;
-    const index = eventGuide.all.findIndex((item) => item.id === source.id);
-    return formatStreamFeedLabel(source, Math.max(index, 0));
-  }, [eventGuide, useEventEmbed]);
-
+  const statusTone = matchContext.status === "live"
+    ? "live"
+    : matchContext.status === "upcoming"
+      ? "upcoming"
+      : matchContext.status === "finished"
+        ? "finished"
+        : "neutral";
+  const streamHealthLine = eventGuide.recommended
+    ? formatStreamFeedLabel(
+        eventGuide.recommended,
+        Math.max(eventGuide.all.findIndex((source) => source.id === eventGuide.recommended?.id), 0)
+      )
+    : undefined;
   const sameLeagueMatches = useMemo(
-    () =>
-      relatedWatchMatches(boardMatches, matchRecord, {
-        matchId,
-        cid: cidValue,
-        league,
-      }),
-    [boardMatches, cidValue, league, matchId, matchRecord]
+    () => relatedWatchMatches(boardMatches, matchRecord, { matchId, cid: routeValue, league }),
+    [boardMatches, league, matchId, matchRecord, routeValue]
   );
 
-  useMatchFeedPoll(refreshWatchBoard, 45_000, v2Watch && matchContext.status === "live");
+  useMatchFeedPoll(refreshWatchBoard, 45_000, matchContext.status === "live");
 
-  const handleSelectFeed = useCallback(
-    (index: number) => {
-      const stream = eventStreams[index];
-      if (!stream) return;
-      trackEvent("change_source_click", {
-        title,
-        streamNo: stream.streamNo,
-        playbackMode: "event",
-        reason: "keyboard_or_chip",
-      });
-      setPlaybackError(null);
-      setAutoFailoverMessage(null);
-      embedPlaybackStartedRef.current = false;
-      advanceAttempt(playbackState.attemptId);
-      selectEventStream(index);
-    },
-    [advanceAttempt, eventStreams, playbackState.attemptId, selectEventStream, title]
-  );
-
-  const handleTogglePiP = useCallback(async () => {
-    const result = await requestWatchPictureInPicture(videoStageRef.current);
-    if (!result.ok && result.reason === "embed-only") {
-      setAutoFailoverMessage("PiP works on native player feeds. Direct embeds open in the provider frame.");
-    }
-  }, []);
+  const handleSelectFeed = useCallback((index: number) => {
+    const stream = eventStreams[index];
+    if (!stream) return;
+    trackEvent("change_source_click", {
+      title,
+      streamNo: stream.streamNo,
+      playbackMode: "event",
+      reason: "keyboard_or_chip",
+    });
+    setPlaybackError(null);
+    setAutoFailoverMessage(null);
+    embedPlaybackStartedRef.current = false;
+    setPlaybackStartedURL(null);
+    selectEventStream(index);
+  }, [eventStreams, selectEventStream, title]);
 
   useWatchKeyboard({
-    enabled: v2Watch,
+    enabled: true,
     feedCount: eventStreams.length,
-    onSelectFeed: useEventEmbed && eventStreams.length > 1 ? handleSelectFeed : undefined,
+    onSelectFeed: eventStreams.length > 1 ? handleSelectFeed : undefined,
     onBack: closePlayer,
-    onTogglePiP: v2Watch && !useEventEmbed && Boolean(streamURL) ? handleTogglePiP : undefined,
   });
 
-  const handleRetryPlayback = useCallback(() => {
-    setPlaybackError(null);
-    if (useP2PPlayback && p2pCid) {
-      startAttempt(`p2p:${p2pCid}`, "p2p", MAX_P2P_SESSION_RECOVERIES);
-    }
-    retryBrokerSession();
-    logStreamDiagnostic("playback_recovered", { matchId, playbackMode: useEventEmbed ? "event" : "p2p", reason: "retry" });
-  }, [matchId, p2pCid, retryBrokerSession, startAttempt, useEventEmbed, useP2PPlayback]);
-
-  const handlePlaybackFailure = useCallback(
-    (message: string, reason: string) => {
-      const attemptId = playbackState.attemptId;
-      const recoveryAction = reportFault(
-        attemptId,
-        classifyPlaybackFault(message, reason)
-      );
-      if (recoveryAction === "none") return;
-      if (useP2PPlayback && !useEventEmbed && p2pCid) {
-        if (useDirectP2PRoute) {
-          setPlaybackError(message);
-          return;
-        }
-        if (recoveryAction === "recycle-session") {
-          setPlaybackError(null);
-          setAutoFailoverMessage("Stream hiccup — reconnecting this P2P session.");
-          commitRecovery(attemptId);
-          retryBrokerSession();
-          logStreamDiagnostic("playback_stalled", {
-            matchId,
-            sourceId: p2pCid,
-            playbackMode: "p2p",
-            reason: "player_failure_session_recycle",
-          });
-          return;
-        }
-      }
-
-      setPlaybackError(message);
-    },
-    [
-      commitRecovery,
-      matchId,
-      p2pCid,
-      playbackState.attemptId,
-      reportFault,
-      retryBrokerSession,
-      useDirectP2PRoute,
-      useEventEmbed,
-      useP2PPlayback,
-    ]
-  );
-
   return (
-    <div
-      className="flex min-h-[100svh] flex-col overflow-x-hidden bg-background text-text-primary"
-      data-shell={v2Watch ? "v2-watch" : undefined}
-    >
-      <AnimatePresence mode="wait">
-        {blockedFixturePlayback ? (
-          <div key="streameX-required" className="flex min-h-[100svh] flex-col bg-black">
-            <UnavailablePlayer
-              title="Stream not linked yet"
-              message={
-                v2Watch
-                  ? "Fotty does not have a live stream for this match yet. Check back closer to kickoff, or browse the schedule for other matches."
-                  : "Fotty does not have a live stream for this match yet. Check back closer to kickoff, or browse Discover for other fixtures."
-              }
-              onBrowseLive={closePlayer}
-              guideHref={v2Watch ? v2AppPath("/search") : "/search"}
-              sourceLabel={title}
-            />
-          </div>
-        ) : isBrokerWarming ? (
-          <div key="warmup" className="fixed inset-0 z-50">
-            <PlaybackWarmup 
+    <main className="min-h-[100svh] bg-[var(--v2-background)] text-white">
+      <div className="lg:grid lg:h-[100dvh] lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:overflow-hidden">
+        <div className="flex min-h-0 flex-col lg:overflow-y-auto">
+          <WatchVideoStage v2>
+            <DirectEventPlayer
+              ref={directEventPlayerRef}
               title={title}
-              peerCount={telemetry.peerCount || 0}
-              speedKbps={isNaN(telemetry.downloadSpeedKbps) ? 0 : telemetry.downloadSpeedKbps}
-              bufferSeconds={telemetry.bufferSeconds || 0}
-              readySegments={telemetry.readySegmentCount || 0}
-              statusMessage={
-                brokerWarmMessage ||
-                telemetry.error ||
-                (telemetry.readySegmentCount > 0
-                  ? "Validating stream segments…"
-                  : "Warming P2P broker session…")
-              }
-              sourceId={p2pCid || cidValue}
-              sessionId={brokerSessionId}
-              startedAt={brokerWarmStartedAt}
-              hasTelemetry={Boolean(telemetry.peerCount > 0 || telemetry.downloadSpeedKbps > 0 || telemetry.readySegmentCount > 0 || telemetry.firstSegmentReady)}
-              onCancel={closePlayer}
-            />
-          </div>
-        ) : (
-          <div
-            key="player"
-            className={`flex min-h-[100svh] animate-in flex-col overflow-x-hidden fade-in duration-500 ${
-              v2Watch
-                ? "lg:grid lg:h-[100dvh] lg:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] lg:grid-rows-1 lg:overflow-hidden"
-                : "lg:grid lg:h-[100dvh] lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:grid-rows-1 lg:overflow-hidden"
-            }`}
-          >
-            <div className="flex min-h-0 flex-col overflow-visible lg:overflow-y-auto">
-              <WatchVideoStage ref={videoStageRef} v2={v2Watch}>
-                {useEventEmbed ? (
-                <DirectEventPlayer
-                  ref={directEventPlayerRef}
-                  title={title}
-                  embedURL={eventEmbedURL}
-                  eventSource={
-                    selectedEventStream
-                      ? {
-                          source: selectedEventStream.source,
-                          id: selectedEventStream.id,
-                          streamNo: selectedEventStream.streamNo,
-                        }
-                      : undefined
-                  }
-                  streamKey={
-                    selectedEventStream
-                      ? `${selectedEventStream.provider || "event"}:${selectedEventStream.source}:${selectedEventStream.id}:${selectedEventStream.streamNo}`
-                      : undefined
-                  }
-                  isLoading={isEventStreamLoading}
-                  error={eventStreamError}
-                  returnTo={homeReturnTo}
-                  onFrameLoad={(loadedEmbedURL) => {
-                    if (loadedEmbedURL !== currentEventEmbedURLRef.current) return;
-                    reportFrameReady(playbackState.attemptId);
-                    setEventFrameLoaded(true);
-                    setEventFrameTimedOut(false);
-                    setAutoFailoverMessage(null);
-                  }}
-                  onPlaybackStarted={() => {
-                    embedPlaybackStartedRef.current = true;
-                    reportDecodedProgress(playbackState.attemptId);
-                  }}
-                  onPlaybackPulse={() => {
-                    embedPlaybackStartedRef.current = true;
-                    reportDecodedProgress(playbackState.attemptId);
-                  }}
-                  onPlaybackStalled={(failedEmbedURL) => {
-                    if (failedEmbedURL !== currentEventEmbedURLRef.current) return;
-                    tryNextDirectEventFeed("This feed stopped — trying another stream.");
-                  }}
-                  onFrameError={(failedEmbedURL) => {
-                    if (failedEmbedURL !== currentEventEmbedURLRef.current) return;
-                    tryNextDirectEventFeed("This feed had trouble loading — trying another stream.");
-                  }}
-                  onRetry={refreshEventStreams}
-                />
-              ) : p2pUnavailable ? (
-                <div className="pointer-events-auto absolute inset-0">
-                <UnavailablePlayer
-                  title={watchUnavailableTitle(brokerWarmMessage)}
-                  message={
-                    brokerWarmMessage ||
-                    "Fotty will keep checking as coverage improves. Try another feed below, retry this source, or head back to Home."
-                  }
-                  onRetry={handleRetryPlayback}
-                  retryLabel="Try again"
-                  guideHref={v2Watch ? v2AppPath("/search") : "/search"}
-                  onBrowseLive={closePlayer}
-                  sourceLabel={title}
-                />
-                </div>
-              ) : streamURL ? (
-                <div className="pointer-events-auto absolute inset-0 min-h-0">
-                <VideoPlayer
-                  key={`${p2pCid || cidValue}-${brokerSessionId}-${playerGeneration}`}
-                  src={streamURL}
-                  title={title}
-                  playbackKey={playerGeneration}
-                  onPlaybackFailure={handlePlaybackFailure}
-                  onRetry={handleRetryPlayback}
-	                  onPlaybackStarted={() => {
-	                    reportDecodedProgress(playbackState.attemptId);
-	                    setPlaybackError(null);
-	                  }}
-                />
-                </div>
-              ) : (
-                <div className="pointer-events-auto absolute inset-0">
-                <UnavailablePlayer
-                  title="Preparing stream"
-                  message="Fotty is checking this watch path and preparing the player."
-                  onBrowseLive={closePlayer}
-                />
-                </div>
-              )}
-
-              {/* Video overlays — classic only; v2 uses toolbar below the player */}
-              {!v2Watch && !p2pUnavailable ? (
-                <div className="pointer-events-none absolute left-1/2 top-[calc(0.75rem+env(safe-area-inset-top))] z-30 max-w-[calc(100vw-7rem)] -translate-x-1/2 sm:top-6">
-                  {isFixtureTitle ? (
-                    <MatchHeaderOverlay
-                      home={{ name: homeName, badge: "" }}
-                      away={{ name: awayName, badge: "" }}
-                    />
-                  ) : (
-                    <div className="flex max-w-[70vw] items-center gap-2 rounded-full border border-white/10 bg-black/50 px-4 py-2 text-white backdrop-blur-md">
-                      <Tv size={16} className={`shrink-0 ${v2Watch ? "text-white/70" : "text-accent"}`} />
-                      <span className="truncate text-xs font-black">{title}</span>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {!v2Watch ? (
-              <button 
-                type="button"
-                aria-label="Close player"
-                onClick={closePlayer}
-                className="pointer-events-auto absolute left-3 top-[calc(0.75rem+env(safe-area-inset-top))] z-40 flex h-10 min-w-10 items-center justify-center gap-1 rounded-full border border-white/10 bg-black/55 px-3 backdrop-blur-md transition-transform active:scale-90 sm:left-6 sm:top-6"
-                  >
-                    <X size={18} className="text-white" />
-                  </button>
-              ) : null}
-              </WatchVideoStage>
-
-              {v2Watch ? (
-                <>
-                <WatchToolbarV2
-                  title={title}
-                  subtitle={isFixtureWatch ? undefined : league || sport}
-                  feedCount={eventStreams.length}
-                  statusLabel={
-                    matchContext.status === "upcoming" && matchContext.kickoffLabel
-                      ? matchContext.kickoffLabel
-                      : matchContext.statusLabel
-                  }
-                  statusTone={statusTone}
-                  streamHealthLine={streamHealthLine}
-                  hideTitle={isFixtureWatch || isEventWatch}
-                  showReminder={Boolean(reminderEntry)}
-                  reminded={reminded}
-                  onToggleReminder={() => {
-                    const active = toggleReminder();
-                    if (active) updateUserPreferences({ matchReminders: true });
-                  }}
-                  showDiagnostics={showDiagnostics}
-                  onToggleDiagnostics={() => setShowDiagnostics((value) => !value)}
-                  showPiP={v2Watch && !useEventEmbed && Boolean(streamURL)}
-                  onTogglePiP={!useEventEmbed && streamURL ? handleTogglePiP : undefined}
-                  onBack={closePlayer}
-                  playbackHint="Tip: Tap the speaker icon on the video toolbar to adjust sound."
-                />
-                {isFixtureWatch ? (
-                  <WatchFixtureHeader
-                    match={matchRecord}
-                    context={matchContext}
-                    now={currentTime}
-                  />
-                ) : isEventWatch ? (
-                  <WatchEventHeader
-                    title={title}
-                    sport={sport}
-                    league={league}
-                    match={matchRecord}
-                    context={matchContext}
-                  />
-                ) : null}
-                </>
-              ) : (
-              <div className={`shrink-0 border-b border-white/5 px-3 py-2 sm:px-md lg:py-2 ${v2Watch ? "bg-[#111113]" : "bg-surface"}`}>
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="hidden text-[10px] font-bold uppercase text-text-tertiary sm:block">Now Playing</p>
-                  <div className="mt-1 flex min-w-0 items-center gap-2">
-                    {useEventEmbed ? <Tv size={15} className={`shrink-0 ${v2Watch ? "text-white/70" : "text-accent"}`} /> : <Activity size={15} className={`shrink-0 ${v2Watch ? "text-white/70" : "text-accent"}`} />}
-                    <p className="truncate text-sm font-bold text-text-primary">{sourceSummary}</p>
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-                  {reminderEntry && (
-                    <button
-                      type="button"
-                      aria-pressed={reminded}
-                      onClick={() => {
-                        const active = toggleReminder();
-                        if (active) {
-                          updateUserPreferences({ matchReminders: true });
-                        }
-                      }}
-                      className={reminded
-                        ? "rounded-full bg-accent px-2.5 py-2 text-[11px] font-bold text-white sm:px-3"
-                        : "rounded-full border border-white/10 bg-white/5 px-2.5 py-2 text-[11px] font-bold text-text-secondary sm:px-3"}
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        {reminded ? <BellOff size={13} /> : <Bell size={13} />}
-                        <span className="max-[430px]:sr-only">{reminded ? "Reminder saved" : "Remind me"}</span>
-                      </span>
-                    </button>
-                  )}
-                  {useP2PPlayback && (
-                    <button
-                      type="button"
-                      aria-pressed={showTelemetry}
-                      onClick={() => setShowTelemetry(!showTelemetry)}
-                      className={showTelemetry
-                        ? "rounded-full bg-accent px-2.5 py-2 text-[11px] font-bold text-white sm:px-3"
-                        : "rounded-full border border-white/10 bg-white/5 px-2.5 py-2 text-[11px] font-bold text-text-secondary sm:px-3"}
-                    >
-                      <span className="max-[430px]:sr-only">{showTelemetry ? "Hide Pulse" : "Pulse"}</span>
-                      <Activity size={13} className="hidden max-[430px]:block" />
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    aria-pressed={showDiagnostics}
-                    onClick={() => setShowDiagnostics((value) => !value)}
-                    className={showDiagnostics
-                      ? "rounded-full bg-accent px-2.5 py-2 text-[11px] font-bold text-white sm:px-3"
-                      : "rounded-full border border-white/10 bg-white/5 px-2.5 py-2 text-[11px] font-bold text-text-secondary sm:px-3"}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Info size={13} />
-                      <span className="max-[430px]:sr-only">Status</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={closePlayer}
-                    className={
-                      v2Watch
-                        ? "rounded-full bg-white px-2.5 py-2 text-[11px] font-semibold text-zinc-950 sm:px-3"
-                        : "rounded-full border border-white/10 bg-white/5 px-2.5 py-2 text-[11px] font-bold text-text-primary sm:px-3"
-                    }
-                  >
-                    <span className="max-[430px]:hidden">Home</span>
-                    <span className="hidden max-[430px]:inline">{v2Watch ? "Home" : "Board"}</span>
-                  </button>
-                </div>
-              </div>
-              </div>
-              )}
-
-            {showDiagnostics ? (
-              <StreamDiagnosticsPanel
-                mode={useEventEmbed ? "Event" : "P2P"}
-                access="Allowed"
-                lookup={useEventEmbed ? (isEventStreamLoading ? "Checking" : eventStreamError ? "Failed" : "Ready") : useDirectP2PRoute ? (streamURL ? "Direct" : "Idle") : brokerPlaybackState}
-                feeds={useEventEmbed ? eventStreams.length : useDirectP2PRoute ? (streamURL ? 1 : 0) : brokerSessionId ? 1 : 0}
-                selected={useEventEmbed
-                  ? selectedEventStream
-                    ? `${FOTTY_LIVE_LABEL} #${selectedEventStream.streamNo}`
-                    : "None"
-                  : useDirectP2PRoute ? p2pCid || "None" : brokerSessionId || "None"}
-                frameState={useEventEmbed ? eventFrameLoaded ? "Loaded" : eventFrameTimedOut ? "Timed out" : eventEmbedURL ? "Waiting" : "No iframe" : undefined}
-                lastCheckedAt={streamsCheckedAt || p2pHealth?.checkedAt}
-                error={playbackError || eventStreamError || telemetry.error}
-              />
-            ) : null}
-
-            {autoFailoverMessage ? (
-              <div className={`border-b border-white/5 px-md py-2 text-[11px] font-medium ${v2Watch ? "bg-[var(--v2-surface)] text-text-tertiary" : "bg-surface font-bold text-text-secondary"}`}>
-                {autoFailoverMessage}
-              </div>
-            ) : null}
-
-            {v2Watch ? (
-              <MatchStreamHubV2
-                mode={useEventEmbed ? "event" : "p2p"}
-                matchId={matchId}
-                eventStreams={eventStreams}
-                selectedEventIndex={selectedEventStreamIndex}
-                isLoading={isEventStreamLoading}
-                loadError={eventStreamError}
-                playbackError={playbackError}
-                lastCheckedAt={streamsCheckedAt}
-                failedEventSourceIds={failedEventSourceIds}
-                onSelectEventStream={handleSelectFeed}
-                onTryNextEventStream={
-                  useEventEmbed && eventStreams.length > 1
-                    ? () => tryNextDirectEventFeed("Trying another direct stream.")
-                    : undefined
-                }
-                onBrowseLive={closePlayer}
-                onRefreshEventStreams={refreshEventStreams}
-              />
-            ) : (
-            <MatchStreamHub
-              v2={v2Watch}
-              watchReturnTo={homeReturnTo}
-              mode={useEventEmbed ? "event" : "p2p"}
-              matchId={matchId}
-              matchContext={matchContext}
-              eventStreams={eventStreams}
-              selectedEventIndex={selectedEventStreamIndex}
-              isLoading={isEventStreamLoading}
-              loadError={eventStreamError}
-              telemetry={telemetry}
-              isP2PWarming={isBrokerWarming}
-              isP2PActive={isP2PActive}
-              cid={p2pCid || cidValue || undefined}
-              p2pHealth={p2pHealth}
-              lastCheckedAt={streamsCheckedAt}
-              playbackError={playbackError}
-              onSelectEventStream={(index) => {
-                const stream = eventStreams[index];
-                trackEvent("change_source_click", {
-                  title,
-                  streamNo: stream?.streamNo,
-                  playbackMode: "event",
-                });
-                setPlaybackError(null);
+              embedURL={eventEmbedURL}
+              eventSource={selectedEventStream ? {
+                source: selectedEventStream.source,
+                id: selectedEventStream.id,
+                streamNo: selectedEventStream.streamNo,
+              } : undefined}
+              streamKey={selectedEventStream
+                ? `${selectedEventStream.provider || "event"}:${selectedEventStream.source}:${selectedEventStream.id}:${selectedEventStream.streamNo}`
+                : undefined}
+              isLoading={isEventStreamLoading || (!hasEventIdentity && !matchLookupDone)}
+              error={eventStreamError}
+              returnTo={returnTo}
+              onFrameLoad={(loadedURL) => {
+                if (loadedURL !== currentEventEmbedURLRef.current) return;
+                setEventFrameLoaded(true);
                 setAutoFailoverMessage(null);
-                selectEventStream(index);
               }}
-              failedEventSourceIds={failedEventSourceIds}
-              onTryNextEventStream={
-                useEventEmbed && eventStreams.length > 1
-                  ? () => tryNextDirectEventFeed("Trying another direct stream.")
-                  : undefined
-              }
-              onBrowseLive={closePlayer}
-              onRefreshEventStreams={refreshEventStreams}
-              onRetryPlayback={useP2PPlayback ? handleRetryPlayback : undefined}
+              onFrameError={(failedURL) => {
+                if (failedURL === currentEventEmbedURLRef.current) {
+                  tryNextDirectEventFeed("This feed had trouble loading — trying another stream.");
+                }
+              }}
+              onPlaybackStarted={() => {
+                embedPlaybackStartedRef.current = true;
+                setPlaybackStartedURL(eventEmbedURL);
+              }}
+              onPlaybackPulse={() => {
+                embedPlaybackStartedRef.current = true;
+                setPlaybackStartedURL(eventEmbedURL);
+              }}
+              onPlaybackStalled={(failedURL) => {
+                if (failedURL === currentEventEmbedURLRef.current) {
+                  tryNextDirectEventFeed("This feed stopped — trying another stream.");
+                }
+              }}
+              onRetry={refreshEventStreams}
             />
-            )}
+          </WatchVideoStage>
 
-              {!v2Watch ? (
-              <WatchDetailsPanel
-                className="min-h-0 flex-1 overflow-visible pb-[calc(1rem+env(safe-area-inset-bottom,0px))] lg:hidden"
-                isEventPlayback={useEventEmbed}
-                showTelemetry={showTelemetry}
-                telemetry={telemetry}
-                isP2PActive={isP2PActive}
-                p2pFeedConnected={p2pFeedLive}
-                title={title}
-                league={league}
-                sport={sport}
-              />
-              ) : null}
+          <WatchToolbarV2
+            title={title}
+            subtitle={league || sport}
+            feedCount={eventStreams.length}
+            statusLabel={matchContext.status === "upcoming" && matchContext.kickoffLabel
+              ? matchContext.kickoffLabel
+              : matchContext.statusLabel}
+            statusTone={statusTone}
+            streamHealthLine={streamHealthLine}
+            hideTitle={isFixtureWatch || isEventWatch}
+            showReminder={Boolean(reminderEntry)}
+            reminded={reminded}
+            onToggleReminder={() => {
+              if (toggleReminder()) updateUserPreferences({ matchReminders: true });
+            }}
+            onUnmute={() => directEventPlayerRef.current?.unmute()}
+            onBack={closePlayer}
+            playbackHint="Use the provider controls inside the video for sound and playback."
+          />
+
+          {isFixtureWatch ? (
+            <WatchFixtureHeader match={matchRecord} context={matchContext} now={currentTime} />
+          ) : isEventWatch ? (
+            <WatchEventHeader
+              title={title}
+              sport={sport}
+              league={league}
+              match={matchRecord}
+              context={matchContext}
+            />
+          ) : null}
+
+          {autoFailoverMessage ? (
+            <div className="border-b border-white/5 bg-[var(--v2-surface)] px-4 py-2 text-[11px] text-text-tertiary">
+              {autoFailoverMessage}
             </div>
+          ) : null}
 
-            {v2Watch && useEventEmbed ? (
-              <div className="hidden min-h-0 lg:flex">
-                <WatchAsideV2
-                  title={title}
-                  subtitle={league || sport}
-                  sources={eventGuide?.all}
-                  selectedIndex={selectedEventStreamIndex}
-                  onSelectFeed={handleSelectFeed}
-                  relatedMatches={sameLeagueMatches}
-                  returnTo={homeReturnTo}
-                />
-              </div>
-            ) : (
-            <aside className={`hidden min-h-0 flex-col overflow-hidden border-white/5 lg:flex lg:border-l ${v2Watch ? "bg-[var(--v2-background)]" : "bg-background"}`}>
-              <div className="shrink-0 border-b border-white/5 px-md py-2">
-                <SponsoredSlot placement="watch" compact />
-              </div>
-              {useP2PPlayback && showTelemetry && (
-                <div className="shrink-0 border-b border-white/5 bg-surface-elevated/40 px-md py-2">
-                  <TelemetryGrid telemetry={telemetry} isP2PActive={isP2PActive} />
-                </div>
-              )}
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <MatchTimeline
-                  title={title}
-                  league={league}
-                  sport={sport}
-                  isP2PPlayback={useP2PPlayback}
-                  telemetry={telemetry}
-                  p2pFeedConnected={p2pFeedLive}
-                  compact
-                  v2={v2Watch}
-                />
-              </div>
-            </aside>
-            )}
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
+          <MatchStreamHubV2
+            matchId={matchId}
+            eventStreams={eventStreams}
+            selectedEventIndex={selectedEventStreamIndex}
+            isLoading={isEventStreamLoading}
+            loadError={eventStreamError}
+            playbackError={playbackError}
+            lastCheckedAt={streamsCheckedAt}
+            failedEventSourceIds={failedEventSourceIds}
+            onSelectEventStream={handleSelectFeed}
+            onTryNextEventStream={eventStreams.length > 1
+              ? () => tryNextDirectEventFeed("Trying another direct stream.")
+              : undefined}
+            onBrowseLive={closePlayer}
+            onRefreshEventStreams={refreshEventStreams}
+          />
+        </div>
+
+        <div className="hidden min-h-0 lg:flex">
+          <WatchAsideV2
+            title={title}
+            subtitle={league || sport}
+            sources={eventGuide.all}
+            selectedIndex={selectedEventStreamIndex}
+            onSelectFeed={handleSelectFeed}
+            relatedMatches={sameLeagueMatches}
+            returnTo={returnTo || v2AppPath("/")}
+          />
+        </div>
+      </div>
+    </main>
   );
 }

@@ -1,0 +1,12 @@
+{
+  "configurationSlotsChecked": 23,
+  "configurationSlotsPresentBefore": 15,
+  "preserved": true,
+  "fplSlotsChecked": 6,
+  "fplPreserved": true,
+  "sourceEnablementPreserved": true,
+  "savedMatchesPreserved": true,
+  "syncConsentPreserved": true,
+  "changedSlotCount": 0,
+  "scope": "Exact plist configuration equality, including absent/present; does not establish SwiftData row equality."
+}

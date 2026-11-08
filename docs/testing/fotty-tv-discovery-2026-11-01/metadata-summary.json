@@ -1,0 +1,136 @@
+{
+  "scope": "bounded metadata compatibility only; no native decoded or normal Watch pass yet",
+  "primaryChecks": [
+    {
+      "index": 0,
+      "channel": "beIN SPORTS XTRA (1080p)",
+      "host": "bein-xtra-bein.amagi.tv",
+      "rootStatus": 200,
+      "contentType": "application/vnd.apple.mpegurl",
+      "hls": true,
+      "codecs": [
+        "avc1.4d4028,mp4a.40.2",
+        "avc1.640028,mp4a.40.2",
+        "avc1.4d4028,mp4a.40.2",
+        "avc1.4d4028,mp4a.40.2",
+        "avc1.4d4028,mp4a.40.2",
+        "avc1.4d4028,mp4a.40.2"
+      ],
+      "leafStatus": 200,
+      "hasMediaSegments": true,
+      "hasMap": false,
+      "encryptionMethods": [],
+      "segmentCount": 10
+    },
+    {
+      "index": 1,
+      "channel": "Willow Sports (1080p) [Geo-blocked]",
+      "host": "amg01269-amg01269c1-firetv-us-5377.playouts.now.amagi.tv",
+      "rootStatus": 403,
+      "contentType": "text/html"
+    },
+    {
+      "index": 2,
+      "channel": "Willow Sports (1080p) [Geo-blocked]",
+      "host": "amg01269-amg01269c1-sportstribal-emea-5204.playouts.now.amagi.tv",
+      "rootStatus": 403,
+      "contentType": "text/html"
+    },
+    {
+      "index": 3,
+      "channel": "Willow Sports (1080p)",
+      "host": "d36r8jifhgsk5j.cloudfront.net",
+      "rootStatus": 200,
+      "contentType": "application/vnd.apple.mpegurl",
+      "hls": true,
+      "codecs": [],
+      "hasMediaSegments": true,
+      "hasMap": false,
+      "encryptionMethods": [],
+      "segmentCount": 10
+    },
+    {
+      "index": 4,
+      "channel": "Fubo Sports Network (720p)",
+      "host": "aegis-cloudfront-1.tubi.video",
+      "rootStatus": 404,
+      "contentType": ""
+    },
+    {
+      "index": 5,
+      "channel": "CBS Sports Golazo Network (720p)",
+      "host": "dai.google.com",
+      "rootStatus": 302,
+      "contentType": "text/html; charset=utf-8",
+      "redirectHost": "dai.google.com"
+    },
+    {
+      "index": 6,
+      "channel": "Willow Sports",
+      "host": "amg01269-amg01269c1-distrotv-us-5379.playouts.now.amagi.tv",
+      "rootStatus": 403,
+      "contentType": "text/html"
+    },
+    {
+      "index": 7,
+      "channel": "Willow Sports (UK)",
+      "host": "amg01269-amg01269c1-sportstribal-emea-5204.playouts.now.amagi.tv",
+      "rootStatus": 403,
+      "contentType": "text/html"
+    },
+    {
+      "index": 8,
+      "channel": "Willow Sports (Austrailia)",
+      "host": "amg01269-amg01269c1-willowtv-us-5479.playouts.now.amagi.tv",
+      "rootStatus": 403,
+      "contentType": "text/html"
+    }
+  ],
+  "cbsRedirect": [
+    {
+      "hop": 0,
+      "status": 302,
+      "host": "dai.google.com"
+    },
+    {
+      "hop": 1,
+      "status": 200,
+      "host": "dai.google.com",
+      "hls": true,
+      "codecs": [
+        "mp4a.40.2,avc1.64001E",
+        "mp4a.40.2,avc1.64001F",
+        "mp4a.40.2,avc1.64001F",
+        "mp4a.40.2,avc1.640020",
+        "mp4a.40.2,avc1.640020",
+        "mp4a.40.2,avc1.640020",
+        "mp4a.40.2,avc1.64002A",
+        "mp4a.40.2,avc1.64002A",
+        "mp4a.40.2",
+        "avc1.64001E",
+        "avc1.64001F",
+        "avc1.64001F",
+        "avc1.640020",
+        "avc1.640020",
+        "avc1.64002A"
+      ],
+      "leafStatus": 200,
+      "leafHost": "dai.google.com",
+      "segments": 15
+    }
+  ],
+  "fuboPublishedUS": {
+    "status": 200,
+    "hls": true,
+    "advertisedAVC": true,
+    "provenance": "https://iptv-org.github.io/iptv/countries/us.m3u",
+    "relation": "Maintained generated snapshot; current source-file Tubi route returns404. The advertised CloudFront route is preserved literally."
+  },
+  "publisherIdentityReferences": [
+    "https://www.paramountpressexpress.com/cbs-sports/shows/cbs-sports-golazo-network/about/",
+    "https://www.beinsports.com/en-us/soccer/articles/bein-sports-xtra-and-video-on-demand-launched-on-amazon-s-fire-tv-channels-2023-11-13",
+    "https://ir.fubo.tv/news/news-details/2026/Fubo-Sports-Network-and-Hoops-HQ-Launch-The-Hoops-HQ-Show-With-Seth-Davis-and-Andy-Katz/default.aspx",
+    "https://aimages.willow.tv/WillowTV_Ad_media_kit.pdf"
+  ],
+  "guards": "No accounts, headers, expiry manipulation, HTTP upgrade, geographic workaround, security exception or fabricated programme association."
+}

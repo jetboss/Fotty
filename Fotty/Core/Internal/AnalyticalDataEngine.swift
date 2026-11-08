@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 // MARK: - Live Sports Stream Processor
 // Resolves football matches to playable streams via embedsports.top
@@ -26,7 +27,7 @@ struct AnalyticalDataEngine {
             } else {
                 // Try as object with matches key
                 let container = try decoder.container(keyedBy: CodingKeys.self)
-                self.matches = try container.decodeIfPresent([EventReference].self, forKey: .matches)
+                self.matches = try container.decode([EventReference].self, forKey: .matches)
             }
         }
 
@@ -45,9 +46,22 @@ struct AnalyticalDataEngine {
         let popular: Bool?
         let teams: NexusATeams?
         let sources: [NexusASource]?
+        /// Fotty-owned ingestion metadata. Persist the quarantine in local
+        /// caches, but never allow it to advertise or resolve a delivery route.
+        let hasCatalogIdentityConflict: Bool
+        /// Optional schedule/status receipt; old provider and saved JSON remains
+        /// decodable. It never supplies a stream URL or channel programme.
+        let cricketFixture: CricketFixtureMetadata?
+        let sportsFixture: SportsFixtureMetadata?
+        /// Exact competition evidence from an official schedule or fixture feed.
+        let competitionID: String?
 
         enum CodingKeys: String, CodingKey {
             case id, title, category, date, poster, popular, teams, sources
+            case hasCatalogIdentityConflict = "_fottyIdentityConflict"
+            case cricketFixture = "_fottyCricketFixture"
+            case sportsFixture = "_fottySportsFixture"
+            case competitionID = "_fottyCompetitionID"
         }
 
         init(from decoder: Decoder) throws {
@@ -58,7 +72,12 @@ struct AnalyticalDataEngine {
             poster = try container.decodeIfPresent(String.self, forKey: .poster)
             popular = try container.decodeIfPresent(Bool.self, forKey: .popular)
             teams = try container.decodeIfPresent(NexusATeams.self, forKey: .teams)
-            sources = try container.decodeIfPresent([NexusASource].self, forKey: .sources)
+            hasCatalogIdentityConflict = try container.decodeIfPresent(Bool.self, forKey: .hasCatalogIdentityConflict) ?? false
+            cricketFixture = try container.decodeIfPresent(CricketFixtureMetadata.self, forKey: .cricketFixture)
+            sportsFixture = try container.decodeIfPresent(SportsFixtureMetadata.self, forKey: .sportsFixture)
+            competitionID = try container.decodeIfPresent(String.self, forKey: .competitionID) ?? sportsFixture?.competitionID
+            let decodedSources = try container.decodeIfPresent([NexusASource].self, forKey: .sources)
+            sources = hasCatalogIdentityConflict ? [] : decodedSources
 
             if let decodedId = try container.decodeIfPresent(String.self, forKey: .id), !decodedId.isEmpty {
                 id = decodedId
@@ -76,7 +95,11 @@ struct AnalyticalDataEngine {
             poster: String?,
             popular: Bool?,
             teams: NexusATeams?,
-            sources: [NexusASource]?
+            sources: [NexusASource]?,
+            hasCatalogIdentityConflict: Bool = false,
+            cricketFixture: CricketFixtureMetadata? = nil,
+            sportsFixture: SportsFixtureMetadata? = nil,
+            competitionID: String? = nil
         ) {
             self.id = id
             self.title = title
@@ -85,7 +108,11 @@ struct AnalyticalDataEngine {
             self.poster = poster
             self.popular = popular
             self.teams = teams
-            self.sources = sources
+            self.hasCatalogIdentityConflict = hasCatalogIdentityConflict
+            self.cricketFixture = cricketFixture
+            self.sportsFixture = sportsFixture
+            self.competitionID = competitionID ?? sportsFixture?.competitionID
+            self.sources = hasCatalogIdentityConflict ? [] : sources
         }
 
         nonisolated var kickoffDate: Date? {
@@ -96,13 +123,19 @@ struct AnalyticalDataEngine {
             return Date(timeIntervalSince1970: Double(date))
         }
 
-        /// Live feed: keep only fixtures in a short window around now (drops months/years-old junk). Unknown kickoff kept.
+        /// Live feed: retain enough trusted future catalog for the personalized
+        /// three-day Home window while still dropping months/years-old junk.
+        /// Broadcast channels and unknown kickoffs remain available.
         nonisolated func passesNearTermLiveListWindow(at now: Date = .init()) -> Bool {
+            guard !hasCatalogIdentityConflict else { return false }
             if isBroadcastChannel { return true }
             guard let kickoff = kickoffDate else { return true }
-            let pastGrace: TimeInterval = 36 * 3600
-            let futureHorizon: TimeInterval = 48 * 3600
-            return kickoff >= now.addingTimeInterval(-pastGrace) && kickoff <= now.addingTimeInterval(futureHorizon)
+            if cricketFixture != nil || sportsFixture != nil {
+                return kickoff >= now.addingTimeInterval(-14 * 86400)
+                    && kickoff <= now.addingTimeInterval(CatalogTimingPolicy.retentionFutureHorizon)
+            }
+            return kickoff >= now.addingTimeInterval(-CatalogTimingPolicy.retentionPastGrace)
+                && kickoff <= now.addingTimeInterval(CatalogTimingPolicy.retentionFutureHorizon)
         }
 
         var normalizedCategory: String {
@@ -115,6 +148,7 @@ struct AnalyticalDataEngine {
 
         var homeName: String {
             if isBroadcastChannel { return title ?? "Cricket channel" }
+            if let sportsFixture, sportsFixture.eventKind != .match { return sportsFixture.title }
             if let explicit = teams?.home?.name, !explicit.isEmpty {
                 return explicit
             }
@@ -123,6 +157,7 @@ struct AnalyticalDataEngine {
 
         var awayName: String {
             if isBroadcastChannel { return "" }
+            if let sportsFixture, sportsFixture.eventKind != .match { return "" }
             if let explicit = teams?.away?.name, !explicit.isEmpty {
                 return explicit
             }
@@ -130,15 +165,19 @@ struct AnalyticalDataEngine {
         }
 
         var homeBadgeURL: URL? {
-            AnalyticalDataEngine.imageURL(from: teams?.home?.badge)
+            guard !hasCatalogIdentityConflict else { return nil }
+            return AnalyticalDataEngine.imageURL(from: teams?.home?.badge)
+                ?? TeamBrandService.sportSpecificBadgeURL(for: homeName, category: normalizedCategory)
         }
 
         var awayBadgeURL: URL? {
-            AnalyticalDataEngine.imageURL(from: teams?.away?.badge)
+            guard !hasCatalogIdentityConflict else { return nil }
+            return AnalyticalDataEngine.imageURL(from: teams?.away?.badge)
+                ?? TeamBrandService.sportSpecificBadgeURL(for: awayName, category: normalizedCategory)
         }
 
         var posterURL: URL? {
-            AnalyticalDataEngine.imageURL(from: poster)
+            hasCatalogIdentityConflict ? nil : AnalyticalDataEngine.imageURL(from: poster)
         }
 
         private func splitTeamsFromTitle() -> (home: String, away: String) {
@@ -179,7 +218,21 @@ struct AnalyticalDataEngine {
                 home: NexusATeam(name: match.homeTeam.displayName, badge: match.homeTeam.crest),
                 away: NexusATeam(name: match.awayTeam.displayName, badge: match.awayTeam.crest)
             )
-            self.sources = [] // No streams in review mode
+            // An official fixture is schedule truth, not evidence that a
+            // provider has published a playable route.
+            self.sources = []
+            self.hasCatalogIdentityConflict = false
+            self.cricketFixture = nil
+            self.sportsFixture = nil
+            switch AnalyticalDataEngine.officialCompetitionTab(match.competition) {
+            case .premierLeague: self.competitionID = "premier-league"
+            case .championsLeague: self.competitionID = "champions-league"
+            case .laLiga: self.competitionID = "la-liga"
+            case .serieA: self.competitionID = "serie-a"
+            case .bundesliga: self.competitionID = "bundesliga"
+            case .ligue1: self.competitionID = "ligue-1"
+            default: self.competitionID = nil
+            }
         }
     }
 
@@ -193,7 +246,7 @@ struct AnalyticalDataEngine {
         let streamPathPrefix: String
     }
 
-    private struct LiveStreamVariant: Decodable {
+    struct LiveStreamVariant: Decodable {
         let streamNo: Int?
         let language: String?
         let hd: Bool?
@@ -253,12 +306,25 @@ struct AnalyticalDataEngine {
         let variants: [LiveStreamVariant]?
         let sources: [LiveStreamVariant]?
 
+        private enum CodingKeys: String, CodingKey { case data, streams, variants, sources }
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            data = try values.decodeIfPresent([LiveStreamVariant].self, forKey: .data)
+            streams = try values.decodeIfPresent([LiveStreamVariant].self, forKey: .streams)
+            variants = try values.decodeIfPresent([LiveStreamVariant].self, forKey: .variants)
+            sources = try values.decodeIfPresent([LiveStreamVariant].self, forKey: .sources)
+            guard data != nil || streams != nil || variants != nil || sources != nil else {
+                throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath,
+                    debugDescription: "Stream catalog has no recognized variant array"))
+            }
+        }
+
         var allVariants: [LiveStreamVariant] {
             data ?? streams ?? variants ?? sources ?? []
         }
     }
 
-    struct StreamCandidate {
+    struct StreamCandidate: Sendable {
         let sourceCode: String
         let streamNo: Int
         let language: String?
@@ -289,18 +355,26 @@ struct AnalyticalDataEngine {
         }
     }
 
+    private struct StreamCandidateLookup: Sendable {
+        var candidates: [StreamCandidate] = []
+        var confirmedEmpty = false
+    }
+
     // Preferred source order — StreamEx + Score808 first (VipLeague/P2P retired from player).
     // hotel (Score808) + delta (StreamEx) — player allowlist is these two.
     private static let preferredSources = ["admin", "delta", "golf", "hotel", "echo", "india"]
     nonisolated private static let canonicalEmbedOrigin = "https://embed.st"
-    private static let feedSession: URLSession = {
+    private static let feedBodyClient: FottyBoundedHTTPClient = {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 5
         configuration.timeoutIntervalForResource = 7
         configuration.waitsForConnectivity = false
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        return URLSession(configuration: configuration)
+        return FottyBoundedHTTPClient(configuration: configuration)
     }()
+    nonisolated static let maximumStreamVariantBytes = 512 * 1024
+    nonisolated static let maximumStreamVariants = 128
+    nonisolated static let maximumMatchCatalogBytes = 4 * 1024 * 1024
     private static let dataFeedProfiles: [DataFeedProfile] = [
         DataFeedProfile(
             label: "Nexus Alpha",
@@ -362,13 +436,20 @@ struct AnalyticalDataEngine {
     /// Internal implementation for NexusA stream finding
     static func findStreams_NexusAImplementation(
         homeTeam: String,
-        awayTeam: String
+        awayTeam: String,
+        kickoffDate: Date? = nil,
+        matchID: String = "",
+        category: String = "football"
     ) async throws -> [StreamSource] {
         // 1. Fetch all live events from NexusA
         let events = try await fetchLiveEvents_NexusAImplementation()
 
-        // 2. Find matching event by team names
-        guard let match = findMatch(events: events, homeTeam: homeTeam, awayTeam: awayTeam) else {
+        // Name-only legacy callers cannot prove which day's fixture they mean.
+        // Active fallback callers supply the same dated identity as Watch.
+        let request = StreamPlaybackRequest(matchID: matchID,
+            displayTitle: "\(homeTeam) vs \(awayTeam)", homeTeam: homeTeam, awayTeam: awayTeam,
+            category: category, kickoffDate: kickoffDate)
+        guard let match = CatalogPlaybackIdentity.matchingEvent(for: request, in: events) else {
             throw ProcessorError.noSourcesFound
         }
 
@@ -537,7 +618,30 @@ struct AnalyticalDataEngine {
 
     /// Return all available sport events (live + upcoming) for browsing.
     static func allLiveEvents() async throws -> [EventReference] {
-        return try await fetchLiveEvents()
+        return try await browsableCatalogEvents(from: fetchLiveEvents())
+    }
+
+    static func liveCatalogSnapshot() async throws -> LiveCatalogSnapshot {
+        var snapshots: [LiveCatalogSnapshot] = []
+        var failedProviders = 0
+        for provider in providers {
+            try Task.checkCancellation()
+            do { snapshots.append(try await provider.fetchCatalogSnapshot()) }
+            catch {
+                try Task.checkCancellation()
+                failedProviders += 1
+            }
+        }
+        try Task.checkCancellation()
+        guard !snapshots.isEmpty else { throw URLError(.cannotLoadFromNetwork) }
+        return LiveCatalogSnapshot(
+            events: deduplicateMatches(snapshots.flatMap(\.events)),
+            checkedAt: snapshots.map(\.checkedAt).min() ?? Date(),
+            source: snapshots.map(\.source).joined(separator: ", "),
+            respondingFeeds: snapshots.reduce(0) { $0 + $1.respondingFeeds },
+            attemptedFeeds: snapshots.reduce(failedProviders) { $0 + $1.attemptedFeeds },
+            isPartial: failedProviders > 0 || snapshots.contains(where: \.isPartial)
+        )
     }
 
     @MainActor
@@ -655,6 +759,20 @@ struct AnalyticalDataEngine {
         footballLeagueClassification(for: match, officialMatch: officialMatch).tab
     }
 
+    /// Converts the independently verified schedule into source-free catalog
+    /// rows. Home/Matchday can therefore show a Champions League fixture even
+    /// before a stream provider publishes it, without inventing Watch access.
+    static func officialScheduleEvents(
+        from matches: [FootballMatch],
+        competition: FootballLeagueTab
+    ) -> [EventReference] {
+        matches.compactMap { match in
+            guard officialCompetitionTab(match.competition) == competition,
+                  match.matchDate != nil else { return nil }
+            return EventReference(from: match)
+        }
+    }
+
     /// Official fixture identity wins only after `LiveScoreService` has matched
     /// both teams and a bounded kickoff. Provider metadata and seasonal rosters
     /// remain deterministic fallbacks when that reconciliation is unavailable.
@@ -662,12 +780,26 @@ struct AnalyticalDataEngine {
         for match: EventReference,
         officialMatch: FootballMatch? = nil
     ) -> FootballLeagueClassification {
+        guard !match.hasCatalogIdentityConflict else {
+            return FootballLeagueClassification(tab: .other, evidence: .unresolvedProviderMarker,
+                reasonCode: "conflicting_catalog_identity")
+        }
         if let officialMatch {
             return FootballLeagueClassification(
                 tab: officialCompetitionTab(officialMatch.competition),
                 evidence: .officialFixture,
                 reasonCode: nil
             )
+        }
+
+        if let fixture = match.sportsFixture, fixture.sport == "football" {
+            let tabs: [String: FootballLeagueTab] = ["premier-league": .premierLeague,
+                "champions-league": .championsLeague, "la-liga": .laLiga, "serie-a": .serieA,
+                "bundesliga": .bundesliga, "ligue-1": .ligue1]
+            if let tab = tabs[fixture.competitionID] {
+                return FootballLeagueClassification(tab: tab,
+                    evidence: fixture.verified ? .officialFixture : .providerMarker, reasonCode: nil)
+            }
         }
 
         let sourceIdentity = match.sources?
@@ -764,87 +896,177 @@ struct AnalyticalDataEngine {
     // MARK: - Private
 
     static func fetchLiveEvents() async throws -> [EventReference] {
-        var allMatches: [EventReference] = []
-
-        for provider in providers {
-            do {
-                let matches = try await provider.fetchLiveEvents()
-                allMatches.append(contentsOf: matches)
-            } catch {
-                print("[LiveSports] Provider \(provider.name) failed to fetch events: \(error.localizedDescription)")
-            }
-        }
-
-        return deduplicateMatches(allMatches)
+        try await liveCatalogSnapshot().events
     }
 
-    static func fetchLiveEvents_NexusAImplementation() async throws -> [EventReference] {
-        return try await withThrowingTaskGroup(of: [EventReference].self) { group in
+    static func browsableCatalogEvents(from events: [EventReference]) -> [EventReference] {
+        events.filter { !$0.hasCatalogIdentityConflict }
+    }
+
+    static func fetchLiveEvents_NexusAImplementation(budget: Duration = .seconds(7)) async throws -> [EventReference] {
+        try await fetchCatalogSnapshot_NexusAImplementation(budget: budget).events
+    }
+
+    static func fetchCatalogSnapshot_NexusAImplementation(budget: Duration = .seconds(7)) async throws -> LiveCatalogSnapshot {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: budget)
+        var normalized: [LiveCatalogSnapshot.Observation]?
+        if let url = Config.footballProxyBaseURL?.appendingPathComponent("api/live/catalog") {
+            do {
+                let components = budget.components
+                let seconds = min(6, max(0.1, Double(components.seconds) + Double(components.attoseconds) / 1e18))
+                var request = URLRequest(url: url)
+                request.timeoutInterval = seconds
+                request.setValue("application/json", forHTTPHeaderField: "Accept")
+                let body = try await feedBodyClient.fetch(request, maximumBytes: maximumMatchCatalogBytes,
+                    deadline: seconds, redirectPolicy: { original, target in
+                        original.scheme == target.scheme && original.host == target.host && original.port == target.port
+                    }).data
+                normalized = try decodeBroadcastCatalog(from: body)
+            } catch {
+                try Task.checkCancellation()
+                // During rollout/edge failure, use the already reviewed direct
+                // adapter inside the SAME total clock. A valid unavailable
+                // envelope below does not duplicate all provider requests.
+            }
+        }
+        try Task.checkCancellation()
+        if let normalized { return try LiveCatalogSnapshot.combine(normalized) }
+        let remaining = clock.now.duration(to: deadline)
+        guard remaining > .zero else { throw URLError(.timedOut) }
+        return try await fetchDirectCatalogSnapshot(budget: remaining)
+    }
+
+    private struct BroadcastCatalogEnvelope: Decodable {
+        struct Provider: Decodable {
+            let id: String
+            let family: String
+            let outcome: String
+            let matches: [EventReference]
+        }
+        let schemaVersion: Int
+        let observedAt: Date
+        let independentFamilies: Int
+        let providers: [Provider]
+    }
+
+    static func decodeBroadcastCatalog(from data: Data, at now: Date = Date()) throws -> [LiveCatalogSnapshot.Observation] {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let value = try decoder.singleValueContainer().decode(String.self)
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = formatter.date(from: value) { return date }
+            formatter.formatOptions = [.withInternetDateTime]
+            guard let date = formatter.date(from: value) else { throw ProcessorError.invalidData }
+            return date
+        }
+        let envelope = try decoder.decode(BroadcastCatalogEnvelope.self, from: data)
+        let ids = Set(["nexus-primary", "nexus-mirror", "nexus-backup"])
+        guard envelope.schemaVersion == 1, envelope.independentFamilies == 1,
+              envelope.providers.count == ids.count,
+              Set(envelope.providers.map(\.id)) == ids,
+              now.timeIntervalSince(envelope.observedAt) >= -30,
+              now.timeIntervalSince(envelope.observedAt) <= 120 else { throw ProcessorError.invalidData }
+        return try envelope.providers.map { provider in
+            guard provider.family == "nexus", provider.matches.count <= 4_000,
+                  ["available", "empty", "partial", "unavailable"].contains(provider.outcome),
+                  provider.outcome != "available" || !provider.matches.isEmpty,
+                  !["empty", "unavailable"].contains(provider.outcome) || provider.matches.isEmpty,
+                  provider.matches.allSatisfy({ row in
+                      !row.hasCatalogIdentityConflict && row.sportsFixture == nil && row.cricketFixture == nil
+                          && row.competitionID == nil && !row.id.isEmpty && row.id.utf8.count <= 256
+                          && (row.title?.isEmpty == false) && (row.title?.utf8.count ?? 0) <= 512
+                          && (row.sources?.count ?? 0) <= 64
+                  }) else { throw ProcessorError.invalidData }
+            return .init(source: provider.id, events: provider.outcome == "unavailable" ? nil : provider.matches,
+                         isPartial: provider.outcome == "partial")
+        }
+    }
+
+    private static func fetchDirectCatalogSnapshot(budget: Duration) async throws -> LiveCatalogSnapshot {
+        // Check the bounded mirror set, not whichever returns first. An empty
+        // valid feed is a result; an error-shaped JSON object is not one.
+        let accumulator = LiveCatalogAccumulator(sources: dataFeedProfiles.map(\.label))
+        await withTaskGroup(of: Bool.self) { group in
+            // One catalog clock, including fallback endpoints. Retain completed
+            // mirrors on expiry and label the missing coverage explicitly.
+            group.addTask {
+                try? await Task.sleep(for: budget)
+                return true
+            }
             for provider in dataFeedProfiles {
                 group.addTask {
-                    // Try primary feed first
-                    if let matches = try? await fetchMatches(path: provider.matchesAllPath, baseURL: provider.baseURL), !matches.isEmpty {
-                        print("[LiveSports] Loaded \(matches.count) matches via \(provider.label)")
-                        return matches
+                    do {
+                        let matches = try await fetchMatches(path: provider.matchesAllPath, baseURL: provider.baseURL)
+                        await accumulator.record(matches, source: provider.label)
+                        return false
+                    } catch {
+                        guard !Task.isCancelled else { return false }
                     }
-
-                    // Fallback for older deployments or temporary API regressions.
-                    var mergedMatches: [EventReference] = []
-                    for path in [provider.matchesLivePath, provider.matchesUpcomingPath] {
-                        if let matches = try? await fetchMatches(path: path, baseURL: provider.baseURL) {
-                            mergedMatches.append(contentsOf: matches)
+                    // The two complementary fallback feeds share the second
+                    // five-second stage. Preserve one if the other is down.
+                    await withTaskGroup(of: Void.self) { fallbacks in
+                        for path in [provider.matchesLivePath, provider.matchesUpcomingPath] {
+                            fallbacks.addTask {
+                                if let rows = try? await fetchMatches(path: path, baseURL: provider.baseURL) {
+                                    await accumulator.record(rows, source: provider.label, fallbackPart: path)
+                                }
+                            }
                         }
                     }
-                    if !mergedMatches.isEmpty {
-                        print("[LiveSports] Loaded \(mergedMatches.count) matches via \(provider.label) fallback feeds")
-                        return mergedMatches
-                    }
-                    throw ProcessorError.noSourcesFound
+                    return false
                 }
             }
-
-            var firstValidMatches: [EventReference]?
-            while let result = await group.nextResult() {
-                if case .success(let matches) = result, !matches.isEmpty {
-                    firstValidMatches = matches
-                    group.cancelAll()
-                    break
-                }
+            var completed = 0
+            for await expired in group {
+                if expired { break }
+                completed += 1
+                if completed == dataFeedProfiles.count { break }
             }
-
-            if let matches = firstValidMatches {
-                return deduplicateMatches(matches)
-            }
-            throw ProcessorError.noSourcesFound
+            group.cancelAll()
         }
+        try Task.checkCancellation()
+        return try LiveCatalogSnapshot.combine(accumulator.observations)
     }
 
     static func streamCandidates(
         for source: NexusASource,
-        synthesizeWhenEmpty: Bool = true
+        synthesizeWhenEmpty: Bool = true,
+        onCandidates: (@Sendable ([StreamCandidate]) -> Void)? = nil,
+        onEmptyCatalog: (@Sendable () -> Void)? = nil,
+        onFailure: (@Sendable (String, Error) -> Void)? = nil
     ) async -> [StreamCandidate] {
+        guard !Task.isCancelled else { return [] }
         let sourcePart = encodedPathComponent(source.source)
         let idPart = encodedPathComponent(source.id)
 
-        var resolved = await withTaskGroup(of: [StreamCandidate].self) { group in
+        let lookup = await withTaskGroup(of: StreamCandidateLookup.self) { group in
             for provider in dataFeedProfiles {
                 let path = "\(provider.streamPathPrefix)/\(sourcePart)/\(idPart)"
                 group.addTask {
                     do {
                         let variants = try await fetchStreamVariants(path: path, baseURL: provider.baseURL)
-                        if !variants.isEmpty {
-                            print("[LiveSports] \(source.source) catalog from \(provider.label): \(variants.count) variants")
+                        if variants.isEmpty {
+                            guard !Task.isCancelled else { return StreamCandidateLookup() }
+                            onEmptyCatalog?()
+                            return StreamCandidateLookup(confirmedEmpty: true)
                         }
+                        print("[LiveSports] \(source.source) catalog from \(provider.label): \(variants.count) variants")
 
                         var candidates: [StreamCandidate] = []
                         for variant in variants {
-                            guard let embedURL = variant.embedUrl,
-                                  URL(string: embedURL) != nil else {
+                            guard let embedURL = variant.embedUrl else {
                                 continue
                             }
 
                             let streamNo = max(variant.streamNo ?? 1, 1)
                             let sourceCode = (variant.source?.isEmpty == false) ? (variant.source ?? source.source) : source.source
+                            guard let url = URL(string: embedURL),
+                                  StreamPluginProviderMatching.allowsSharedPlaybackURL(
+                                    url,
+                                    sourceCode: sourceCode
+                                  ) else { continue }
                             candidates.append(
                                 StreamCandidate(
                                     sourceCode: sourceCode,
@@ -858,23 +1080,33 @@ struct AnalyticalDataEngine {
                                 )
                             )
                         }
-                        return candidates
+                        // A nonempty catalog whose routes were missing or not
+                        // admitted is not evidence for canonical fallback.
+                        guard !candidates.isEmpty else { throw ProcessorError.invalidData }
+                        guard !Task.isCancelled else { return StreamCandidateLookup() }
+                        onCandidates?(curatedPlaybackCandidates(from: [candidates], limit: 32))
+                        return StreamCandidateLookup(candidates: candidates)
                     } catch {
+                        guard !Task.isCancelled else { return StreamCandidateLookup() }
+                        onFailure?(provider.label, error)
                         print("[LiveSports] Stream catalog failed \(provider.label) for \(source.source): \(error.localizedDescription)")
-                        return []
+                        return StreamCandidateLookup()
                     }
                 }
             }
 
-            var collected: [StreamCandidate] = []
-            for await providerCandidates in group {
-                collected.append(contentsOf: providerCandidates)
+            var collected = StreamCandidateLookup()
+            for await providerLookup in group {
+                collected.candidates.append(contentsOf: providerLookup.candidates)
+                collected.confirmedEmpty = collected.confirmedEmpty || providerLookup.confirmedEmpty
             }
             return collected
         }
+        var resolved = lookup.candidates
 
         // Catalog often returns [] for hotel/delta even when embed.st/{source}/{id} carries the full player.
-        if synthesizeWhenEmpty,
+        if !Task.isCancelled, synthesizeWhenEmpty,
+           lookup.confirmedEmpty,
            resolved.isEmpty,
            supportsCanonicalEmbedFallback(sourceCode: source.source),
            let embedURL = canonicalEmbedURL(for: source, streamNo: 1) {
@@ -909,42 +1141,38 @@ struct AnalyticalDataEngine {
         return deduplicateCandidates(resolved)
     }
 
-    /// Turns raw provider variants into useful broadcast choices. HD/SD pairs
-    /// for the same channel become one row, each source family gets a first
-    /// chance, and the remaining slots favor the most-used alternatives.
+    /// Preserve concrete delivery alternatives, including same-label HD/SD
+    /// routes. Round-robin families so one large catalog cannot fill the entire
+    /// validation budget before another family's first or second choice.
     nonisolated static func curatedPlaybackCandidates(
         from candidateGroups: [[StreamCandidate]],
         limit: Int
     ) -> [StreamCandidate] {
         guard limit > 0 else { return [] }
 
-        let groups = candidateGroups.compactMap { rawGroup -> [StreamCandidate]? in
-            var bestByBroadcast: [String: StreamCandidate] = [:]
-            for candidate in deduplicateCandidates(rawGroup) {
-                let label = candidate.language?
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                    .lowercased()
-                let key = (label?.isEmpty == false)
-                    ? label!
-                    : "\(candidate.sourceCode.lowercased())#\(candidate.streamNo)"
-                if let existing = bestByBroadcast[key] {
-                    if isBetterBroadcastCandidate(candidate, than: existing) {
-                        bestByBroadcast[key] = candidate
-                    }
-                } else {
-                    bestByBroadcast[key] = candidate
-                }
-            }
-            let group = bestByBroadcast.values.sorted(by: isBetterBroadcastCandidate)
-            return group.isEmpty ? nil : group
+        var familyOrder: [String] = []
+        var byFamily: [String: [StreamCandidate]] = [:]
+        for candidate in candidateGroups.flatMap({ $0 }) {
+            let family = candidate.sourceCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if byFamily[family] == nil { familyOrder.append(family) }
+            byFamily[family, default: []].append(candidate)
         }
-
-        var selected = groups.compactMap(\.first)
-        let remaining = groups
-            .flatMap { $0.dropFirst() }
-            .sorted(by: isBetterBroadcastCandidate)
-        selected.append(contentsOf: remaining)
-        return Array(deduplicateCandidates(selected).prefix(limit))
+        let groups = familyOrder.map { family in
+            deduplicateCandidates((byFamily[family] ?? []).sorted(by: isBetterBroadcastCandidate))
+        }
+        var selected: [StreamCandidate] = []
+        var index = 0
+        while selected.count < limit {
+            var added = false
+            for group in groups where index < group.count {
+                selected.append(group[index])
+                added = true
+                if selected.count == limit { break }
+            }
+            guard added else { break }
+            index += 1
+        }
+        return selected
     }
 
     nonisolated private static func isBetterBroadcastCandidate(
@@ -955,7 +1183,9 @@ struct AnalyticalDataEngine {
         let lhsViewers = lhs.viewers ?? -1
         let rhsViewers = rhs.viewers ?? -1
         if lhsViewers != rhsViewers { return lhsViewers > rhsViewers }
-        return lhs.streamNo < rhs.streamNo
+        if lhs.streamNo != rhs.streamNo { return lhs.streamNo < rhs.streamNo }
+        if lhs.embedURL != rhs.embedURL { return lhs.embedURL < rhs.embedURL }
+        return lhs.catalogProvider < rhs.catalogProvider
     }
 
     private static func compareCandidates(_ lhs: StreamCandidate, _ rhs: StreamCandidate) -> Bool {
@@ -1018,7 +1248,10 @@ struct AnalyticalDataEngine {
         var result: [StreamCandidate] = []
 
         for candidate in candidates {
-            let key = candidate.embedURL.lowercased()
+            // Provider mirrors returning the same URL/family are duplicates;
+            // path case, query parameters and distinct family headers are not.
+            let family = candidate.sourceCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let key = "\(family)|\(candidate.embedURL)"
             if seenURLs.insert(key).inserted {
                 result.append(candidate)
             }
@@ -1048,24 +1281,30 @@ struct AnalyticalDataEngine {
         request.setValue(baseURL, forHTTPHeaderField: "Referer")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await feedSession.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw ProcessorError.httpError
-        }
-
-        let decoder = JSONDecoder()
-        if let variants = try? decoder.decode([LiveStreamVariant].self, from: data) {
-            return variants
-        }
-        if let envelope = try? decoder.decode(LiveStreamVariantEnvelope.self, from: data) {
-            return envelope.allVariants
-        }
-        return []
+        let response = try await feedBodyClient.fetch(request,
+            maximumBytes: maximumStreamVariantBytes, deadline: 7)
+        try Task.checkCancellation()
+        return try decodeStreamVariants(from: response.data)
     }
 
-    private static func fetchMatches(path: String, baseURL: String) async throws -> [EventReference] {
+    /// An error-shaped HTTP200 response is not a valid empty catalog and must
+    /// reach the resolver's failure path rather than trigger empty fallback.
+    static func decodeStreamVariants(from data: Data) throws -> [LiveStreamVariant] {
+        guard data.count <= maximumStreamVariantBytes else { throw ProcessorError.invalidData }
+        let decoder = JSONDecoder()
+        let variants: [LiveStreamVariant]
+        if let array = try? decoder.decode([LiveStreamVariant].self, from: data) { variants = array }
+        else { variants = try decoder.decode(LiveStreamVariantEnvelope.self, from: data).allVariants }
+        guard variants.count <= maximumStreamVariants,
+              variants.allSatisfy({ ($0.embedUrl?.utf8.count ?? 0) <= 16_384
+                  && ($0.source?.utf8.count ?? 0) <= 100
+                  && ($0.language?.utf8.count ?? 0) <= 100
+                  && ($0.heatTier?.utf8.count ?? 0) <= 100 }) else { throw ProcessorError.invalidData }
+        return variants
+    }
+
+    static func fetchMatches(path: String, baseURL: String,
+                             transport: FottyBoundedHTTPClient? = nil) async throws -> [EventReference] {
         guard let url = URL(string: "\(baseURL)\(path)") else {
             throw ProcessorError.invalidURL
         }
@@ -1076,17 +1315,31 @@ struct AnalyticalDataEngine {
         request.setValue(baseURL, forHTTPHeaderField: "Referer")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await feedSession.data(for: request)
-
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw ProcessorError.httpError
+        let data: Data
+        do {
+            let bodyInterval = FottyPerformanceTrace.catalog.beginInterval("CatalogBodyRead")
+            defer { FottyPerformanceTrace.catalog.endInterval("CatalogBodyRead", bodyInterval) }
+            // URLSession delegate chunks are accumulated off MainActor. The
+            // complete-body mode retains the same 4 MiB ingestion limit while
+            // avoiding one actor-isolated append for every individual byte.
+            data = try await (transport ?? feedBodyClient).fetch(request,
+                maximumBytes: maximumMatchCatalogBytes, deadline: 5).data
+        } catch let failure as FottyBoundedHTTPClient.Failure {
+            switch failure {
+            case .responseTooLarge: throw ProcessorError.invalidData
+            case .httpStatus(_), .invalidResponse: throw ProcessorError.httpError
+            case .unsafeRedirect: throw failure
+            }
         }
-
-        return try decodeMatches(from: data)
+        try Task.checkCancellation()
+        let decodeInterval = FottyPerformanceTrace.catalog.beginInterval("CatalogDecode")
+        defer { FottyPerformanceTrace.catalog.endInterval("CatalogDecode", decodeInterval) }
+        let matches = try decodeMatches(from: data)
+        guard matches.count <= 10_000 else { throw ProcessorError.invalidData }
+        return matches
     }
 
-    private static func decodeMatches(from data: Data) throws -> [EventReference] {
+    static func decodeMatches(from data: Data) throws -> [EventReference] {
         let decoder = JSONDecoder()
 
         if let matches = try? decoder.decode([EventReference].self, from: data) {
@@ -1100,20 +1353,168 @@ struct AnalyticalDataEngine {
         throw ProcessorError.invalidData
     }
 
-    private static func deduplicateMatches(_ matches: [EventReference]) -> [EventReference] {
-        var seenIds = Set<String>()
-        var result: [EventReference] = []
-
-        for match in matches {
-            if seenIds.insert(match.id).inserted {
-                result.append(match)
-            }
-        }
-
-        return result
+    static func deduplicateMatches(_ matches: [EventReference]) -> [EventReference] {
+        var accumulator = MatchDeduplicationAccumulator(capacity: matches.count)
+        for match in matches { accumulator.acceptID(match) }
+        for match in accumulator.matchesByID { accumulator.acceptFixture(match) }
+        return accumulator.merged
     }
 
-    private static func normalizedCategoryKey(_ rawCategory: String?) -> String {
+    /// Home yields between bounded batches while retaining exactly the same
+    /// two-pass identity/merge rules as synchronous callers. Intermediate rows
+    /// stay local; cancellation or a newer request discards the whole result.
+    /// The work count covers both passes and permits deterministic batch tests
+    /// without publishing fixture identities or partially prepared snapshots.
+    static func deduplicateMatchesCooperatively(
+        _ matches: [EventReference],
+        isCurrent: () -> Bool,
+        checkpoint: (_ processedRows: Int) async -> Bool
+    ) async -> [EventReference]? {
+        func acceptsRequest() -> Bool { !Task.isCancelled && isCurrent() }
+        guard acceptsRequest() else { return nil }
+        var accumulator = MatchDeduplicationAccumulator(capacity: matches.count)
+        var processedRows = 0
+        func suspend() async -> Bool {
+            guard acceptsRequest() else { return false }
+            guard await checkpoint(processedRows) else { return false }
+            return acceptsRequest()
+        }
+        for (index, match) in matches.enumerated() {
+            guard acceptsRequest() else { return nil }
+            accumulator.acceptID(match)
+            processedRows += 1
+            if (index + 1).isMultiple(of: 32), !(await suspend()) { return nil }
+        }
+        if !matches.count.isMultiple(of: 32), !(await suspend()) { return nil }
+        for (index, match) in accumulator.matchesByID.enumerated() {
+            guard acceptsRequest() else { return nil }
+            accumulator.acceptFixture(match)
+            processedRows += 1
+            if (index + 1).isMultiple(of: 32), !(await suspend()) { return nil }
+        }
+        if !accumulator.matchesByID.count.isMultiple(of: 32), !(await suspend()) { return nil }
+        guard acceptsRequest() else { return nil }
+        return accumulator.merged
+    }
+
+    @MainActor
+    private struct MatchDeduplicationAccumulator {
+        private(set) var matchesByID: [EventReference] = []
+        private var indicesByID: [String: Int] = [:]
+        private var fixtureIndices: [String: Int] = [:]
+        private(set) var merged: [EventReference] = []
+
+        init(capacity: Int) {
+            matchesByID.reserveCapacity(capacity)
+            indicesByID.reserveCapacity(capacity)
+        }
+
+        mutating func acceptID(_ match: EventReference) {
+            guard let index = indicesByID[match.id] else {
+                indicesByID[match.id] = matchesByID.count
+                matchesByID.append(match)
+                return
+            }
+            let existing = matchesByID[index]
+            guard !existing.hasCatalogIdentityConflict else { return }
+            guard !match.hasCatalogIdentityConflict, existing.kickoffDate == match.kickoffDate,
+                  CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: existing), in: [match]) != nil else {
+                // One quarantined ID remains in the resolver snapshot, not two
+                // Identifiable rows in UI and not a fabricated empty success.
+                matchesByID[index] = EventReference(id: existing.id, title: existing.title,
+                    category: existing.category, date: existing.date, poster: existing.poster,
+                    popular: existing.popular, teams: existing.teams, sources: [],
+                    hasCatalogIdentityConflict: true, cricketFixture: existing.cricketFixture,
+                    sportsFixture: existing.sportsFixture, competitionID: existing.competitionID)
+                return
+            }
+            var seenSources = Set<String>()
+            let sources = ((existing.sources ?? []) + (match.sources ?? [])).filter {
+                seenSources.insert("\($0.source)|\($0.id)").inserted
+            }
+            matchesByID[index] = EventReference(id: existing.id, title: existing.title,
+                category: existing.category, date: existing.date, poster: existing.poster,
+                popular: existing.popular, teams: existing.teams,
+                sources: sources.isEmpty && existing.sources == nil && match.sources == nil ? nil : sources,
+                cricketFixture: existing.cricketFixture ?? match.cricketFixture,
+                sportsFixture: existing.sportsFixture ?? match.sportsFixture,
+                competitionID: existing.competitionID ?? match.competitionID)
+        }
+
+        // Different provider families sometimes assign different event IDs to
+        // the same fixture. Collapse them only when sport, exact kickoff and
+        // both reviewed whole-team identities agree. This preserves genuine
+        // doubleheaders and keeps youth/reserve fixtures distinct.
+        mutating func acceptFixture(_ event: EventReference) {
+            guard !event.hasCatalogIdentityConflict,
+                  let fixtureKey = AnalyticalDataEngine.duplicateFixtureKey(for: event) else {
+                merged.append(event)
+                return
+            }
+            guard let index = fixtureIndices[fixtureKey] else {
+                fixtureIndices[fixtureKey] = merged.count
+                merged.append(event)
+                return
+            }
+
+            let existing = merged[index]
+            if let previous = existing.sportsFixture, let current = event.sportsFixture,
+               previous.fixtureID != current.fixtureID {
+                // Two official IDs at the same instant are an ambiguity, not
+                // permission to combine doubleheaders or overwrite a receipt.
+                merged.append(event)
+                return
+            }
+            let preferred: EventReference
+            let secondary: EventReference
+            if (existing.sources?.isEmpty ?? true), !(event.sources?.isEmpty ?? true) {
+                preferred = event
+                secondary = existing
+            } else {
+                preferred = existing
+                secondary = event
+            }
+            var seenSources = Set<String>()
+            let sources = ((preferred.sources ?? []) + (secondary.sources ?? [])).filter {
+                seenSources.insert("\($0.source)|\($0.id)").inserted
+            }
+            merged[index] = EventReference(
+                id: preferred.id,
+                title: preferred.title ?? secondary.title,
+                category: preferred.category ?? secondary.category,
+                date: preferred.date ?? secondary.date,
+                poster: preferred.poster ?? secondary.poster,
+                popular: preferred.popular ?? secondary.popular,
+                teams: preferred.teams ?? secondary.teams,
+                sources: sources,
+                cricketFixture: preferred.cricketFixture ?? secondary.cricketFixture,
+                sportsFixture: preferred.sportsFixture ?? secondary.sportsFixture,
+                competitionID: preferred.competitionID ?? secondary.competitionID
+            )
+        }
+    }
+
+    private static func duplicateFixtureKey(for event: EventReference) -> String? {
+        guard !event.isBroadcastChannel,
+              let kickoff = event.kickoffDate,
+              event.homeName != "Home", event.awayName != "Away",
+              !event.homeName.isEmpty, !event.awayName.isEmpty else { return nil }
+        let category = event.normalizedCategory
+        func teamKey(_ name: String) -> String {
+            if category == "football", let club = FootballCompetitionCatalog.canonicalClubID(for: name) {
+                return "football:\(club)"
+            }
+            if let known = SportsTeamIdentity.known(name: name, category: category) {
+                return "known:\(known.id)"
+            }
+            return "raw:\(SportsTeamIdentity.normalized(name))"
+        }
+        let competition = event.competitionID ?? ""
+        let squad = category == "football" ? CatalogPlaybackIdentity.footballSquadIdentity(for: event).sorted().joined(separator: ",") : ""
+        return "\(category)|\(competition)|\(Int64(kickoff.timeIntervalSince1970))|\(teamKey(event.homeName))|\(teamKey(event.awayName))|\(squad)"
+    }
+
+    static func normalizedCategoryKey(_ rawCategory: String?) -> String {
         let raw = rawCategory?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
         guard !raw.isEmpty else { return "other" }
 
@@ -1128,6 +1529,14 @@ struct AnalyticalDataEngine {
             return "baseball"
         case "nhl", "khl", "ahl":
             return "hockey"
+        case "nfl", "american football":
+            return "american-football"
+        case "atp", "wta":
+            return "tennis"
+        case "motor-sports", "motorsports", "f1", "formula 1":
+            return "motorsport"
+        case "pga":
+            return "golf"
         default:
             return raw
         }
@@ -1156,7 +1565,7 @@ struct AnalyticalDataEngine {
         return "\(scheme)://\(host)"
     }
 
-    private static func imageURL(from raw: String?) -> URL? {
+    static func imageURL(from raw: String?) -> URL? {
         guard let raw, !raw.isEmpty else { return nil }
 
         if raw.hasPrefix("http://") || raw.hasPrefix("https://") {
@@ -1169,116 +1578,11 @@ struct AnalyticalDataEngine {
             return URL(string: s + raw) ?? URL(string: sx + raw)
         }
 
-        // Most badge values are proxy tokens. (obfuscated)
+        // Most badge values are opaque provider tokens. They are not paths and
+        // must be sent through the provider's badge-image endpoint.
         let encoded = raw.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? raw
-        let badgeBase = StringObfuscator.decode([0x2E, 0x1B, 0x0, 0x4, 0xA, 0x7B, 0x41, 0x4E, 0x1F, 0xD, 0x6, 0xC, 0x2, 0x1E, 0x33, 0x56, 0x68, 0x1F, 0x1F, 0x4, 0x11, 0x1C, 0x4B, 0x1D, 0xA, 0x7, 0x7, 0x5, 0x17, 0x4A, 0x6, 0x0, 0x0, 0x1, 0x1, 0x4F])
-        let proxyBase = StringObfuscator.decode([0x2E, 0x1B, 0x0, 0x4, 0xA, 0x7B, 0x41, 0x4E, 0x1B, 0xE, 0x3, 0x47, 0x10, 0x7, 0x24, 0x57, 0x27, 0x2, 0x11, 0xC, 0x57, 0x2F, 0xB, 0x15, 0x4, 0x11, 0x1C, 0x4B, 0x1D, 0xA, 0x7, 0x7, 0x5, 0x17, 0x4A, 0x1, 0xA, 0x6, 0x1E, 0x1B, 0x41])
-        return URL(string: badgeBase + "\(encoded).webp") ?? URL(string: proxyBase + "\(encoded)")
-    }
-
-    /// Fuzzy match a football-data.org match to a NexusA live event
-    private static func findMatch(
-        events: [EventReference],
-        homeTeam: String,
-        awayTeam: String
-    ) -> EventReference? {
-
-        let canonicalHome = FootballCompetitionCatalog.canonicalClubID(for: homeTeam)
-        let canonicalAway = FootballCompetitionCatalog.canonicalClubID(for: awayTeam)
-        if let canonicalHome, let canonicalAway,
-           let exactIdentityMatch = events.first(where: { event in
-               guard event.normalizedCategory == "football" else { return false }
-               return FootballCompetitionCatalog.canonicalClubID(for: event.homeName) == canonicalHome
-                   && FootballCompetitionCatalog.canonicalClubID(for: event.awayName) == canonicalAway
-           }) {
-            return exactIdentityMatch
-        }
-
-        // Unknown clubs retain the bounded legacy word matcher as a fallback;
-        // recognized clubs never depend on title substrings or abbreviations.
-        let homeWords = normalizeTeam(homeTeam)
-        let awayWords = normalizeTeam(awayTeam)
-
-        // Score each event by how many team name words match
-        var bestMatch: (event: EventReference, score: Int)?
-
-        for event in events {
-            guard let title = event.title?.lowercased() else { continue }
-
-            // Must be football category
-            if let category = event.category?.lowercased(),
-               category != "football" && category != "soccer" { continue }
-
-            var score = 0
-
-            for word in homeWords {
-                if title.contains(word) { score += 1 }
-            }
-            for word in awayWords {
-                if title.contains(word) { score += 1 }
-            }
-
-            // Need at least 2 matching words (one from each team minimum)
-            if score >= 2 {
-                if score > (bestMatch?.score ?? -1) {
-                    bestMatch = (event, score)
-                }
-            }
-        }
-
-        return bestMatch?.event
-    }
-
-    /// Normalize a team name into searchable words
-    private static func normalizeTeam(_ name: String) -> [String] {
-        let cleaned = name.lowercased()
-            .replacingOccurrences(of: " fc", with: "")
-            .replacingOccurrences(of: " cf", with: "")
-            .replacingOccurrences(of: " afc", with: "")
-            // NOTE: Do NOT replace "united" → "utd". The NexusA catalog uses full team names
-            // (e.g. "Manchester United vs …"), so the replacement kills the title match.
-
-        // Use > 1 (length >= 2) so 3-char tokens like "PSG", "BVB", "Man" are kept.
-        let words = cleaned.components(separatedBy: .whitespaces)
-            .filter { $0.count > 1 }
-
-        // Also add common abbreviation mappings
-        var result = words
-
-        let abbreviations: [String: [String]] = [
-            "manchester": ["man"],
-            "liverpool": ["liverpool"],
-            "arsenal": ["arsenal"],
-            "chelsea": ["chelsea"],
-            "tottenham": ["tottenham", "spurs"],
-            "newcastle": ["newcastle"],
-            "city": ["city"],
-            "palace": ["crystal", "palace"],
-            "wolves": ["wolverhampton", "wolves"],
-            "nottingham": ["nottingham", "forest"],
-            "brighton": ["brighton"],
-            "bournemouth": ["bournemouth"],
-            "brentford": ["brentford"],
-            "fulham": ["fulham"],
-            "everton": ["everton"],
-            "burnley": ["burnley"],
-            "villa": ["aston", "villa"],
-            "paris": ["psg", "paris"],
-            "bayern": ["bayern", "munich"],
-            "barcelona": ["barcelona", "barca"],
-            "madrid": ["real", "madrid"],
-            "juventus": ["juventus", "juve"],
-            "inter": ["inter", "milan"],
-            "dortmund": ["dortmund", "bvb"],
-        ]
-
-        for word in words {
-            if let extras = abbreviations[word] {
-                result.append(contentsOf: extras)
-            }
-        }
-
-        return Array(Set(result))
+        let badgeBase = StringObfuscator.decode([0x2E, 0x1B, 0x0, 0x4, 0xA, 0x7B, 0x41, 0x4E, 0x1F, 0xD, 0x6, 0xC, 0x2, 0x1E, 0x33, 0x56, 0x68, 0x1F, 0x1F, 0x5B, 0x18, 0x31, 0x7, 0x4E, 0x5, 0x14, 0x15, 0xE, 0x6, 0x0, 0x79, 0x50, 0x27, 0xB, 0x13, 0x11, 0x56])
+        return URL(string: badgeBase + "\(encoded).webp")
     }
 
     private static func isP2PCandidate(_ candidate: StreamCandidate) -> Bool {

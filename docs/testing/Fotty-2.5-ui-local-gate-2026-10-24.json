@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-24",
+  "scope": "Core sports UI source implementation; no device interaction, installation, publication or TestFlight",
+  "sourceVersion": "2.0.1 (175)",
+  "installedDevices": "Both existing175 devices deliberately untouched for owner25October feedback",
+  "references": [
+    "Fotty-2.5-Native-Experience.md",
+    "Approved fotty-full-experience.html",
+    "Approved Inline fotty-next-level-ui.html"
+  ],
+  "host": {
+    "platform": "macCatalyst",
+    "os": "macOS27.0.1",
+    "xcode": "27.0 (27A266a)",
+    "developerDirectory": "/Applications/Xcode.app/Contents/Developer",
+    "jobs": 1,
+    "simulators": false
+  },
+  "builds": {
+    "debugCatalyst": 0,
+    "finalUnsignedGenericIOSRelease": 0,
+    "signingAllowed": false,
+    "archive": false
+  },
+  "tests": {
+    "passed": 328,
+    "failed": 0,
+    "skipped": 0,
+    "total": 328,
+    "newTests": 16,
+    "firstRun": {
+      "passed": 327,
+      "failed": 1,
+      "defect": "Compact sports grid206pt exceeded existing190pt density limit; fixed padding/gaps without weakening limit"
+    },
+    "finalResult": "Passed"
+  },
+  "renders": {
+    "captured": 21,
+    "reviewed": 21,
+    "retained": 5,
+    "retainedApproxKiB": 792,
+    "method": "UIHostingController.drawHierarchy.v1",
+    "widths": [
+      320,
+      393,
+      650,
+      1180
+    ],
+    "playerWidth": 720,
+    "appearances": [
+      "light",
+      "dark"
+    ],
+    "accessibility": "Explicit reflow branches exercised; Catalyst glyph sizes do not establish mobile Dynamic Type typography",
+    "evidenceLevel": "Native static production-component assemblages, NOT complete physical iPhone/iPad screenshots",
+    "artifacts": "fotty25-ui-2026-10-24/README.md",
+    "pixelBaselines": "Original10October baseline artifacts preserved; not silently rebaselined or claimed passing"
+  },
+  "source": {
+    "digestAlgorithm": "SHA256 of shasum output for the explicitly ordered21 UI/project/test paths",
+    "sha256": "e6f58f7def7853a2cb78211c2ea889bab2045704b083b519e3dcde5cb98710a3",
+    "coverage": "Focused UI files only; not a distribution source receipt",
+    "paths": [
+      "Fotty/Features/Dashboard/SportsDashboardView.swift",
+      "Fotty/Features/Dashboard/Components/SportsDiscoveryViews.swift",
+      "Fotty/Features/Dashboard/Components/LiveEventCard.swift",
+      "Fotty/Features/Dashboard/CatalogEventDetailsView.swift",
+      "Fotty/Features/Social/ArenaDiscoveryView.swift",
+      "Fotty/Features/Search/SearchView.swift",
+      "Fotty/Features/Settings/SettingsScreen.swift",
+      "Fotty/Features/Settings/Components/SettingsComponents.swift",
+      "Fotty/Features/Settings/Views/StreamPluginsSettingsView.swift",
+      "Fotty/Features/Settings/SettingsManageFollowsView.swift",
+      "Fotty/Features/Settings/Views/SettingsPrivacyView.swift",
+      "Fotty/Features/Settings/Views/SettingsSupportViews.swift",
+      "Fotty/Features/Player/LivePlayerView.swift",
+      "Fotty/Features/Player/ViewingExperienceView.swift",
+      "Fotty/Features/Player/Components/LiveStreamSelectorSheet.swift",
+      "FottyTests/Fotty25HomeDesignTests.swift",
+      "FottyTests/Fotty25SecondaryDesignTests.swift",
+      "FottyTests/Fotty25PlayerDesignTests.swift",
+      "FottyTests/Fotty25DesignRenderTests.swift",
+      "FottyTests/BetaUsabilityTests.swift",
+      "Fotty.xcodeproj/project.pbxproj"
+    ],
+    "protectedFPLAndMultistreamFiles": 52,
+    "protectedFilesChanged": 0,
+    "nativeMembership": {
+      "app": 191,
+      "unit": 69,
+      "ui": 5,
+      "extension": 5
+    }
+  },
+  "openGates": [
+    "Physical whole-screen comparison, safe areas and touch/menu/keyboard/VoiceOver behavior",
+    "Mobile Dynamic Type and native material/font fidelity",
+    "Same-owner fullscreen/PiP/playback and physical responsiveness for a future signed candidate",
+    "Deliberate pixel-baseline replacement after candidate review"
+  ],
+  "resources": {
+    "temporaryGateApproxKiB": 1114960,
+    "ownedGateRemoved": true,
+    "temporaryAwakeHelperStopped": true,
+    "freeDiskBeforeApproxGiB": 12,
+    "freeDiskAfterApproxGiB": 12,
+    "retained": "Only five small reviewed component studies and redacted receipt; no build/result/log/media/token/device identifier"
+  },
+  "research": "Apple design resources, Mobbin, Refero, selected native GitHub projects; no new dependency, account, plugin, paid subscription or global skill install"
+}

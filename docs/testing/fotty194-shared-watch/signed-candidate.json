@@ -1,0 +1,15 @@
+{
+  "build": "194",
+  "marketingVersion": "2.0.1",
+  "sdk": "iphoneos27.2",
+  "deepStrictSignatureVerified": true,
+  "sourceFiles": 206,
+  "sourceClosureSHA256": "ac447bebcd641def0781c7edd94af3c6f89d6569f419dce75581d5e3a965066a",
+  "sourceClosureUnchanged": true,
+  "install": "blocked-device-locked",
+  "physical194": "pending",
+  "existingJetBuild": 193,
+  "failure": "Developer image mount requires owner unlock; CoreDevice12040/10003",
+  "phoneTouched": false,
+  "testFlight": false
+}

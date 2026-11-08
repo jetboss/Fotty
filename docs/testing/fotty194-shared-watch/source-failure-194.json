@@ -1,0 +1,75 @@
+[
+  {
+    "event": "source_failure",
+    "at": "2026-10-30T19:55:00.819210+00:00",
+    "facts": {
+      "source": "FS1",
+      "source_family": "flixstreams",
+      "preparation_stage": "contract_validation",
+      "preparation_reason": "http_status",
+      "preparation_http_status": "502",
+      "relay_request_http_status": "502",
+      "relay_failure_stage": "upstream_response",
+      "relay_failure_kind": "http_status",
+      "failure_kind": "sourceFailure",
+      "last_observed_stage": "preparing",
+      "source_count": "11"
+    }
+  },
+  {
+    "event": "source_discovery_result",
+    "at": "2026-10-30T19:55:00.855194+00:00",
+    "facts": {
+      "source_family": "communitysports",
+      "result": "exact_fixture_match",
+      "stage": "preparing"
+    }
+  },
+  {
+    "event": "source_discovery_result",
+    "at": "2026-10-30T19:55:01.153733+00:00",
+    "facts": {
+      "source_family": "plaviosports",
+      "failure_kind": "provider_returned_empty",
+      "result": "no_exact_fixture_match",
+      "stage": "preparing"
+    }
+  },
+  {
+    "event": "source_discovery_result",
+    "at": "2026-10-30T19:55:01.282304+00:00",
+    "facts": {
+      "source_family": "flixstreams",
+      "result": "exact_fixture_match",
+      "stage": "preparing"
+    }
+  },
+  {
+    "event": "source_failure",
+    "at": "2026-10-30T19:55:02.516739+00:00",
+    "facts": {
+      "source": "FS1",
+      "source_family": "flixstreams",
+      "preparation_stage": "contract_validation",
+      "preparation_reason": "http_status",
+      "preparation_http_status": "502",
+      "relay_request_http_status": "502",
+      "relay_failure_stage": "upstream_response",
+      "relay_failure_kind": "http_status",
+      "failure_kind": "sourceFailure",
+      "last_observed_stage": "preparing",
+      "source_count": "12"
+    }
+  },
+  {
+    "event": "automatic_failover",
+    "at": "2026-10-30T19:55:02.548713+00:00",
+    "facts": {
+      "source": "FS1",
+      "source_family": "flixstreams",
+      "failure_kind": "sourceFailure",
+      "last_observed_stage": "preparing",
+      "source_count": "12"
+    }
+  }
+]

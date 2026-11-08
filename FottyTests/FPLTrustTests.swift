@@ -1,4 +1,5 @@
 import XCTest
+import UserNotifications
 @testable import Fotty
 
 final class FPLTrustTests: XCTestCase {
@@ -248,7 +249,12 @@ final class FPLTrustTests: XCTestCase {
         XCTAssertEqual(model.coachMessages.map(\.sender), [.user])
         XCTAssertFalse(model.isCoachThinking)
         XCTAssertNil(model.coachStatusMessage)
-        XCTAssertNil(model.sendCoachQuestion("Do not send", operation: pending.answer))
+        let localTask = try XCTUnwrap(model.sendCoachQuestion("Review my squad", operation: { _, _ in
+            XCTFail("Cloud-off follow-up must not call the paid operation")
+            throw URLError(.cancelled)
+        }))
+        await localTask.value
+        XCTAssertEqual(model.coachMessages.last?.sender, .coach)
     }
 
     @MainActor
@@ -275,6 +281,10 @@ final class FPLTrustTests: XCTestCase {
         await fulfillment(of: [old.started], timeout: 2)
         model.clearManagerId()
         model.managerId = 9_999_992
+        XCTAssertNil(model.sendCoachQuestion("Wait until current data loads", operation: old.answer))
+        // Simulate the new workspace's current calendar arriving. The old
+        // manager's pending completion must still be unable to publish here.
+        model.bootstrap = try decodeBootstrap()
         let current = PendingCoachAnswer(started: expectation(description: "New manager started"))
         let second = try XCTUnwrap(model.sendCoachQuestion("New manager question", operation: current.answer))
         await fulfillment(of: [current.started], timeout: 2)
@@ -994,6 +1004,36 @@ final class FPLTrustTests: XCTestCase {
         XCTAssertTrue(reminders.contains { $0.id.hasSuffix("7200") })
     }
 
+    func testDeadlineNotificationUsesAbsoluteUTCAndTypedFPLRoute() throws {
+        let gameweek = try decodeGameweek(deadline: "2026-11-01T06:30:27Z")
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-30T00:00:00Z"))
+        let reminder = try XCTUnwrap(
+            FPLAlertScheduler.reminderPlan(for: gameweek, now: now).first { $0.id.hasSuffix("86400") }
+        )
+
+        let request = FPLAlertScheduler.notificationRequest(for: reminder)
+        let trigger = try XCTUnwrap(request.trigger as? UNCalendarNotificationTrigger)
+
+        XCTAssertFalse(trigger.repeats)
+        XCTAssertEqual(trigger.dateComponents.timeZone?.secondsFromGMT(), 0)
+        XCTAssertEqual(trigger.dateComponents.date, reminder.fireDate)
+        XCTAssertEqual(trigger.dateComponents.second, 27)
+        XCTAssertEqual(request.content.userInfo["route"] as? String, "fpl-deadline")
+        XCTAssertEqual(request.content.userInfo["fireDate"] as? Double, reminder.fireDate.timeIntervalSince1970)
+        XCTAssertNil(request.content.userInfo["matchID"])
+    }
+
+    func testHalftimeAndSuspensionResumptionNeverAnnounceAnotherKickoff() {
+        XCTAssertTrue(FootballMatchAlertTransitionPolicy.shouldAnnounceKickoff(from: .scheduled, to: .inPlay))
+        XCTAssertTrue(FootballMatchAlertTransitionPolicy.shouldAnnounceKickoff(from: .timed, to: .inPlay))
+        for prior: FootballMatch.MatchStatus in [.paused, .suspended, .inPlay, .finished, .postponed, .cancelled, .awarded] {
+            XCTAssertFalse(
+                FootballMatchAlertTransitionPolicy.shouldAnnounceKickoff(from: prior, to: .inPlay),
+                "Unexpected kickoff from \(prior)"
+            )
+        }
+    }
+
     func testFreeTransferEstimatePreservesBankThroughWildcardWeek() throws {
         let json = #"""
         {
@@ -1528,7 +1568,14 @@ final class FPLTrustTests: XCTestCase {
             ["id": 4, "singular_name": "Forward", "singular_name_short": "FWD", "plural_name": "Forwards", "plural_name_short": "FWD", "squad_select": 3, "squad_min_play": 1, "squad_max_play": 3]
         ]
         let root: [String: Any] = [
-            "events": [], "elements": players, "teams": teams, "element_types": types, "total_players": 15,
+            "events": (1...2).map { week -> [String: Any] in
+                let deadline = "\(FPLSeasonIdentifier.currentLabel().prefix(4))-08-\(week == 1 ? "21" : "28")T17:30:00Z"
+                return ["id": week, "name": "Gameweek \(week)",
+                 "deadline_time": deadline,
+                 "deadline_time_epoch": Int(ISO8601DateFormatter().date(from: deadline)!.timeIntervalSince1970),
+                 "finished": false, "data_checked": false, "is_previous": false,
+                 "is_current": week == 1, "is_next": week == 2]
+            }, "elements": players, "teams": teams, "element_types": types, "total_players": 15,
             "game_settings": ["squad_squadplay": 11, "squad_squadsize": 15, "squad_team_limit": 3, "squad_total_spend": 1000, "max_extra_free_transfers": 4],
             "chips": [["id": 1, "name": "wildcard", "number": 1, "start_event": 2, "stop_event": 19, "chip_type": "transfer"]]
         ]

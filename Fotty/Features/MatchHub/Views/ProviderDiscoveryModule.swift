@@ -23,7 +23,7 @@ struct ProviderDiscoveryModule: View {
                 .foregroundStyle(FottyTheme.accentText)
             ProgressView()
                 .scaleEffect(0.78)
-            Text("Scanning global sources…")
+            Text("Finding broadcasts…")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(FottyTheme.textSecondary)
                 .lineLimit(1)
@@ -38,13 +38,13 @@ struct ProviderDiscoveryModule: View {
             HStack {
                 Image(systemName: "antenna.radiowaves.left.and.right")
                     .foregroundStyle(FottyTheme.accentText)
-                Text("AVAILABLE SOURCES")
+                Text("BROADCASTS")
                     .font(.system(size: 12, weight: .black))
                     .tracking(1)
                 
                 Spacer()
                 
-                Text("\(providers.count) PROVIDERS")
+                Text("\(providers.count) OPTIONS")
                     .font(.system(size: 10, weight: .bold))
                     .foregroundStyle(FottyTheme.textTertiary)
             }
@@ -79,7 +79,6 @@ struct ProviderDiscoveryModule: View {
         if p.contains("streamex") { return .red }
         if p.contains("vip") { return .blue }
         if p.contains("meth") { return .green }
-        if p.contains("p2p") { return .orange }
         return FottyTheme.accent
     }
 }

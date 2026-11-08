@@ -1,0 +1,8 @@
+{
+  "outcome": "test_harness_crash_not_a_provider_playback_result",
+  "stage": "web_hold_entry",
+  "signal": "SIGABRT",
+  "stack": "Swift concurrency task deallocation via XCTest error observation",
+  "repair": "test helper uses equivalent Task.sleep(nanoseconds:) instead of Duration generic sleeps; no production player change",
+  "reference": "https://github.com/swiftlang/swift/issues/86204"
+}

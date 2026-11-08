@@ -1,0 +1,149 @@
+{
+  "schemaVersion": 1,
+  "revision": "b6c4fce84d5daa766596d039acfbda8b1011fff06441f8d18c3367f38d88b440",
+  "generatedAt": "2026-11-01T00:00:00.000Z",
+  "providers": [
+    {
+      "providerCode": "reviewedtv",
+      "scope": "baseball",
+      "status": "partial",
+      "complete": false,
+      "observedAt": "2026-11-01T00:00:00.000Z",
+      "expiresAt": "2026-11-01T00:10:00.000Z"
+    },
+    {
+      "providerCode": "reviewedtv",
+      "scope": "hockey",
+      "status": "partial",
+      "complete": false,
+      "observedAt": "2026-11-01T00:00:00.000Z",
+      "expiresAt": "2026-11-01T00:10:00.000Z"
+    }
+  ],
+  "broadcasts": [
+    {
+      "id": "br:6ec877239e412efcb84cde4c784323f7d646b1ec0689319c8ca19db140692bca",
+      "providerCode": "reviewedtv",
+      "providerEventID": "reviewed-tv:assignment:2222222222222222222222222222222222222222222222222222222222222222",
+      "streamID": "reviewed-tv:espn3-latinamerica-south",
+      "resourceType": "tv",
+      "scope": "hockey",
+      "kind": "event",
+      "sport": "hockey",
+      "title": "NHL – New Jersey Devils vs. Edmonton Oilers",
+      "participants": [
+        "New Jersey Devils",
+        "Edmonton Oilers"
+      ],
+      "start": "2026-11-01T00:00:00.000Z",
+      "competitionID": "nhl",
+      "squad": {
+        "gender": "men",
+        "ageGroup": "senior"
+      },
+      "channelID": "sports-channel:espn3-latinamerica-south",
+      "stationMarket": "UY",
+      "verification": "dated",
+      "issues": [],
+      "observedAt": "2026-11-01T00:00:00.000Z",
+      "expiresAt": "2026-11-01T00:10:00.000Z"
+    },
+    {
+      "id": "br:80cd26238b70685c3f9860d106a3056538377329ad0df9ffdbf72f4725053a62",
+      "providerCode": "reviewedtv",
+      "providerEventID": "reviewed-tv:assignment:1111111111111111111111111111111111111111111111111111111111111111",
+      "streamID": "reviewed-tv:espn2-latinamerica-south",
+      "resourceType": "tv",
+      "scope": "baseball",
+      "kind": "event",
+      "sport": "baseball",
+      "title": "MLB – Milwaukee Brewers vs. Tampa Bay Rays",
+      "participants": [
+        "Milwaukee Brewers",
+        "Tampa Bay Rays"
+      ],
+      "start": "2026-11-01T00:00:00.000Z",
+      "competitionID": "mlb",
+      "squad": {
+        "gender": "men",
+        "ageGroup": "senior"
+      },
+      "channelID": "sports-channel:espn2-latinamerica-south",
+      "stationMarket": "UY",
+      "verification": "dated",
+      "issues": [],
+      "observedAt": "2026-11-01T00:00:00.000Z",
+      "expiresAt": "2026-11-01T00:10:00.000Z"
+    }
+  ],
+  "links": [
+    {
+      "fixtureID": "sports-fixture:mlb:test",
+      "broadcastID": "br:80cd26238b70685c3f9860d106a3056538377329ad0df9ffdbf72f4725053a62",
+      "providerCode": "reviewedtv",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "fixtureFingerprint": {
+        "fixtureID": "sports-fixture:mlb:test",
+        "sport": "baseball",
+        "start": "2026-11-01T00:30:00.000Z",
+        "participants": [
+          "Milwaukee Brewers",
+          "Tampa Bay Rays"
+        ],
+        "competitionID": "mlb",
+        "squad": {
+          "gender": "men",
+          "ageGroup": "senior"
+        }
+      },
+      "expiresAt": "2026-11-01T00:10:00.000Z",
+      "startRelation": "channel-coverage"
+    },
+    {
+      "fixtureID": "sports-fixture:nhl:test",
+      "broadcastID": "br:6ec877239e412efcb84cde4c784323f7d646b1ec0689319c8ca19db140692bca",
+      "providerCode": "reviewedtv",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "fixtureFingerprint": {
+        "fixtureID": "sports-fixture:nhl:test",
+        "sport": "hockey",
+        "start": "2026-11-01T00:30:00.000Z",
+        "participants": [
+          "New Jersey Devils",
+          "Edmonton Oilers"
+        ],
+        "competitionID": "nhl",
+        "squad": {
+          "gender": "men",
+          "ageGroup": "senior"
+        }
+      },
+      "expiresAt": "2026-11-01T00:10:00.000Z",
+      "startRelation": "channel-coverage"
+    }
+  ],
+  "tvGuide": [
+    {
+      "id": "tv-guide:1111111111111111111111111111111111111111111111111111111111111111",
+      "channelID": "sports-channel:espn2-latinamerica-south",
+      "market": "UY",
+      "sport": "baseball",
+      "title": "MLB – Milwaukee Brewers vs. Tampa Bay Rays",
+      "start": "2026-11-01T00:00:00.000Z",
+      "observedAt": "2026-11-01T00:00:00.000Z",
+      "expiresAt": "2026-11-01T04:00:00.000Z"
+    },
+    {
+      "id": "tv-guide:2222222222222222222222222222222222222222222222222222222222222222",
+      "channelID": "sports-channel:espn3-latinamerica-south",
+      "market": "UY",
+      "sport": "hockey",
+      "title": "NHL – New Jersey Devils vs. Edmonton Oilers",
+      "start": "2026-11-01T00:00:00.000Z",
+      "observedAt": "2026-11-01T00:00:00.000Z",
+      "expiresAt": "2026-11-01T04:00:00.000Z"
+    }
+  ]
+}

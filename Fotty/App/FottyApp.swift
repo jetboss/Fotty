@@ -3,108 +3,10 @@ import SwiftData
 import AVFoundation
 import UIKit
 
-enum MediaAudioSession {
-    private static var observerTokens: [NSObjectProtocol] = []
-    private static var didInstallLifecycleObservers = false
-    
-    static func configureForPlaybackIfNeeded() {
-        let session = AVAudioSession.sharedInstance()
-
-        do {
-            // The playback category already supports AirPlay and Bluetooth A2DP.
-            // Passing those route options here produces AVAudioSession error -50 on
-            // some iPadOS versions because they are intended for other categories.
-            try session.setCategory(.playback, mode: .moviePlayback, options: [])
-        } catch {
-            print("[MediaAudioSession] Failed to set playback category: \(error.localizedDescription)")
-        }
-    }
-
-    /// Activate only when media is about to play. Configuring at launch is
-    /// harmless; activating at launch would unnecessarily interrupt audio from
-    /// another app before the user starts a Fotty broadcast.
-    static func activateForPlaybackIfNeeded() {
-        let session = AVAudioSession.sharedInstance()
-        configureForPlaybackIfNeeded()
-        do {
-            try session.setActive(true)
-        } catch {
-            print("[MediaAudioSession] Failed to activate playback session: \(error.localizedDescription)")
-        }
-    }
-
-    static func configureNativeBackgroundPlayback(_ player: AVPlayer) {
-        player.audiovisualBackgroundPlaybackPolicy = .continuesIfPossible
-    }
-
-    static func installLifecycleObserversIfNeeded() {
-        if Thread.isMainThread {
-            installLifecycleObserversOnMainThreadIfNeeded()
-        } else {
-            DispatchQueue.main.async {
-                installLifecycleObserversOnMainThreadIfNeeded()
-            }
-        }
-    }
-    
-    private static func installLifecycleObserversOnMainThreadIfNeeded() {
-        guard !didInstallLifecycleObservers else { return }
-        didInstallLifecycleObservers = true
-        
-        let center = NotificationCenter.default
-        
-        observerTokens.append(
-            center.addObserver(
-                forName: UIApplication.didBecomeActiveNotification,
-                object: nil,
-                queue: .main
-            ) { _ in
-                configureForPlaybackIfNeeded()
-            }
-        )
-        
-        observerTokens.append(
-            center.addObserver(
-                forName: AVAudioSession.mediaServicesWereResetNotification,
-                object: nil,
-                queue: .main
-            ) { _ in
-                configureForPlaybackIfNeeded()
-            }
-        )
-        
-        observerTokens.append(
-            center.addObserver(
-                forName: AVAudioSession.routeChangeNotification,
-                object: nil,
-                queue: .main
-            ) { _ in
-                configureForPlaybackIfNeeded()
-            }
-        )
-        
-        observerTokens.append(
-            center.addObserver(
-                forName: AVAudioSession.interruptionNotification,
-                object: nil,
-                queue: .main
-            ) { notification in
-                guard let rawType = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
-                      let interruptionType = AVAudioSession.InterruptionType(rawValue: rawType),
-                      interruptionType == .ended else {
-                    return
-                }
-                configureForPlaybackIfNeeded()
-            }
-        )
-    }
-}
-
 @main
 struct FottyApp: App {
     @AppStorage(FottyAppearance.storageKey) private var appearance = FottyAppearance.dark.rawValue
     @UIApplicationDelegateAdaptor(FottyAppDelegate.self) private var appDelegate
-    @StateObject private var socialCloudStore = SocialCloudStore()
     @State private var liveScoreService = LiveScoreService.shared
     @State private var didConfigureMediaAudioSession = false
     @State private var didClearOrphanedLiveActivities = false
@@ -171,7 +73,6 @@ struct FottyApp: App {
             rootContent
                 .preferredColorScheme(FottyAppearance.saved(appearance).colorScheme)
                 .tint(FottyTheme.accentText)
-                .environmentObject(socialCloudStore)
                 .environment(liveScoreService)
                 .onAppear {
                     if !didClearOrphanedLiveActivities {

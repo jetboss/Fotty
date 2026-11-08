@@ -1,0 +1,15 @@
+{
+  "preparedAt": "2026-11-04T17:01:28.650958+00:00",
+  "build": 238,
+  "normalRestoreSigned": true,
+  "privateOutageHarnessCompiled": true,
+  "nativeSourceCount": 213,
+  "nativeSourceInventoryHash": "e0852b2895ae8860e17825a0e556a2c564ee0273ef532e2fb6696d07d59ce653",
+  "deviceInstalled": false,
+  "testRun": false,
+  "fixturePin": "must be generated from fresh in-progress status",
+  "primaryFixture": "sports-fixture:champions-league:575387",
+  "fallbackFixture": "sports-fixture:champions-league:575386",
+  "plannedStartUTC": "2026-11-04T17:45:00Z",
+  "scope": "Normal Watch to correct programme,90-second hold,forced source loss,automatic replacement and independent-provenance review. No unrelated PiP/FPL/multi tests."
+}

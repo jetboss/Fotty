@@ -111,7 +111,7 @@ function LeagueStandingsPanelInner({
   );
 }
 
-export function StandingsTable({
+function StandingsTable({
   rows,
   league,
   compact,

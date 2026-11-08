@@ -1,0 +1,6 @@
+.local/
+.env
+.env.*
+!.env.example
+*.p8
+.DS_Store

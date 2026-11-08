@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-29",
+  "method": "Normal public IAB navigation, pixels and accessibility/DOM observations; separate from inert REA analysis. No native device or playback test.",
+  "apple": {
+    "surfaces": [
+      "public MLS hub",
+      "public linked completed San Jose\u2013Colorado event"
+    ],
+    "observed": [
+      "Badges, final state, venue/competition context and Recap/Full Replay/Add on event page",
+      "Public MLS Live Matches heading contained Final-labelled cards in sampled state"
+    ],
+    "notActivated": [
+      "Play",
+      "Recap",
+      "Full Replay",
+      "Add",
+      "trial/subscription",
+      "account/profile"
+    ],
+    "limits": [
+      "Web page, not native geometry or performance",
+      "Personal account/history content and avatar imagery not retained"
+    ]
+  },
+  "stremio": {
+    "surfaces": [
+      "Board",
+      "The Kid public-domain title metadata and existing source label"
+    ],
+    "observed": [
+      "Default catalogue navigation",
+      "Streaming service unavailable prompt",
+      "Title details and listed1080p source",
+      "Separate library/watch/share actions"
+    ],
+    "transientDismissals": [
+      "promotion closed",
+      "service warning Later"
+    ],
+    "notActivated": [
+      "source",
+      "trailer",
+      "install addon/service",
+      "library/save",
+      "profile",
+      "Dont show again"
+    ],
+    "limits": [
+      "Listed1080p not actual decoded resolution",
+      "No torrent/media URL or encoded source route retained"
+    ]
+  },
+  "dazn": {
+    "surfaces": [
+      "actual public TT Home",
+      "TT Schedule"
+    ],
+    "observed": [
+      "Automatic GB-to-TT locale redirect",
+      "All sports, Live TV, Schedule and search routes",
+      "Current/upcoming, competition and free-to-watch groupings",
+      "Schedule sports filters"
+    ],
+    "transientConsent": "Essential cookies only in research browser; no account or Fotty setting change",
+    "notActivated": [
+      "signup/login",
+      "watch",
+      "subscription",
+      "reminder",
+      "follow"
+    ],
+    "limits": [
+      "GB SSR receipts and TT browser are distinct variants",
+      "No paid player/native/control/latency claim"
+    ]
+  },
+  "espn": "Agent retained public response/static artifact and official documentation; Watch access barrier not bypassed.",
+  "jiohotstar": "Agent retained restriction-artifact identity and published product listing/screens; no executable consumer artifact or native REA."
+}

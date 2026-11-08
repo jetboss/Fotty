@@ -1,0 +1,42 @@
+{
+  "observedUTC": "2026-10-30T11:12:03Z",
+  "kind": "Read-only response to owner South Africa\u2013Australia LIVE/Watch complaint",
+  "requests": {
+    "metadata": 4,
+    "streamDescriptorsOrMedia": 0
+  },
+  "officialICC": {
+    "receiptUTC": "2026-10-30T11:12:01.023Z",
+    "http": 200,
+    "completeRows": 81,
+    "teams": [
+      "South Africa",
+      "Australia"
+    ],
+    "format": "3rdTest",
+    "initialStartUTC": "2026-10-27T08:30:00Z",
+    "day": 4,
+    "phase": "Lunch",
+    "onBreak": true,
+    "ended": false
+  },
+  "CS": {
+    "version": "3.1.3",
+    "catalogRows": 29,
+    "namedPairAndDefaultVideoIdentityAgree": true,
+    "releasedUTC": "2026-10-30T08:00:00Z",
+    "declaredTestDay": 3,
+    "admission": "Date differs from initial fixture start; explicit day3 conflicts with officialday4. No validated match binding."
+  },
+  "AS": {
+    "catalogRows": 11,
+    "declaredTestDay": 3,
+    "sourceClock": "08:00 UK time",
+    "fullSourceCalendarDate": false,
+    "admission": "Wrong official day, no full dated UTC; later Test-day support is outside existing reviewed adapter."
+  },
+  "nativeConfirmedGap": "CS common matching compares source released to initial fixture kickoff within15minutes; no explicit verified daily Test occurrence model. Never replace that fence with a wider tolerance or an invented daily date.",
+  "UIConfirmedGap": "Fixture ongoing/live state does not prove active play or stream availability. Existing live-context presentation needs actual break/day data. Watch is offered for automatic discovery even without a confirmed stream.",
+  "errorMeaning": "Chosen aggregate matchNotFound/no_exact_fixture_match, not proof every provider has no stream and not a decoder failure. Provider-specific attempt cause was not independently logged for this SA\u2013Australia tap.",
+  "noAdditionalChanges": "No app/source patch or backend activation performed for this read-only diagnosis; phone/FPL/multi/TestFlight untouched."
+}

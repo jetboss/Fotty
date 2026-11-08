@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-10-28T20:28:43.447Z",
+  "sourceVersion": "2026-10-28.efl-cup-1",
+  "sportsFixtureServiceEnabled": true,
+  "sportsPublicWebFeedsEnabled": false,
+  "sportsEFLEnabled": true,
+  "sportsWNBAEnabled": false,
+  "sportsFixtureRefreshMode": "scheduled-per-source-adaptive"
+}

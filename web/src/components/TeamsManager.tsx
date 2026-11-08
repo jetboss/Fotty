@@ -32,9 +32,12 @@ export function TeamsManager({ variant = "classic", backHref, homeHref }: TeamsM
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | "unsupported">("unsupported");
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
-      setNotificationPermission(Notification.permission);
-    }
+    if (!("Notification" in window)) return;
+    const permissionCheck = window.setTimeout(
+      () => setNotificationPermission(Notification.permission),
+      0
+    );
+    return () => window.clearTimeout(permissionCheck);
   }, []);
 
   const catalog = useMemo(() => buildTeamCatalogFromMatches(matches), [matches]);

@@ -1,0 +1,232 @@
+[
+  {
+    "at": "2026-11-04T09:53:06.699691+00:00",
+    "name": "schedule_refresh",
+    "outcome": "success",
+    "details": {
+      "result": "fixtures"
+    }
+  },
+  {
+    "at": "2026-11-04T09:53:57.125921+00:00",
+    "name": "watch_requested",
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T09:53:57.142119+00:00",
+    "name": "watch_discovery_started",
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T09:54:03.734868+00:00",
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "details": {
+      "mode": "source_discovery",
+      "failure_kind": "invalid_match_mapping",
+      "result": "conflicting_fixture_match",
+      "stage": "preparing"
+    }
+  },
+  {
+    "at": "2026-11-04T09:54:03.804901+00:00",
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "details": {
+      "mode": "source_discovery",
+      "stage": "preparing",
+      "result": "no_exact_fixture_match",
+      "failure_kind": "provider_returned_empty"
+    }
+  },
+  {
+    "at": "2026-11-04T09:54:03.866809+00:00",
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "details": {
+      "stage": "preparing",
+      "mode": "source_discovery",
+      "failure_kind": "manifest_unreachable",
+      "result": "catalog_http_failure"
+    }
+  },
+  {
+    "at": "2026-11-04T09:54:04.023376+00:00",
+    "name": "resolution_failure",
+    "outcome": "failure",
+    "details": {
+      "mode": "resolution",
+      "failure_kind": "manifest_unreachable"
+    }
+  },
+  {
+    "at": "2026-11-04T09:58:38.011412+00:00",
+    "name": "watch_requested",
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T09:58:38.026102+00:00",
+    "name": "watch_discovery_started",
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T09:58:38.524685+00:00",
+    "name": "attempt_started",
+    "outcome": "info",
+    "details": {
+      "source": "TV1",
+      "source_count": "1",
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T09:58:39.510056+00:00",
+    "name": "source_discovery_result",
+    "outcome": "success",
+    "details": {
+      "mode": "source_discovery",
+      "stage": "preparing",
+      "result": "exact_fixture_match"
+    }
+  },
+  {
+    "at": "2026-11-04T09:58:39.870116+00:00",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "details": {
+      "source": "TV1",
+      "source_count": "2",
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T09:58:39.891406+00:00",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T09:58:40.124118+00:00",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T09:58:40.217293+00:00",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "details": {
+      "source": "TV1",
+      "source_count": "2",
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T09:58:40.228332+00:00",
+    "name": "audio_preparation_duration",
+    "outcome": "info",
+    "details": {
+      "source": "TV1",
+      "source_count": "2",
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T09:58:43.826311+00:00",
+    "name": "playback_stage",
+    "outcome": "info",
+    "details": {
+      "source": "TV1",
+      "stage": "media_ready",
+      "source_count": "2",
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T09:58:43.843925+00:00",
+    "name": "decoded_progress",
+    "outcome": "success",
+    "details": {
+      "source": "TV1",
+      "source_count": "2",
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T09:59:23.311579+00:00",
+    "name": "attempt_started",
+    "outcome": "info",
+    "details": {
+      "source": "CS1",
+      "source_count": "2",
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T09:59:23.820395+00:00",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "details": {
+      "source": "CS1",
+      "mode": "native",
+      "source_count": "2"
+    }
+  },
+  {
+    "at": "2026-11-04T09:59:23.836827+00:00",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T09:59:23.938524+00:00",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T09:59:24.005501+00:00",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "details": {
+      "source": "CS1",
+      "mode": "native",
+      "source_count": "2"
+    }
+  },
+  {
+    "at": "2026-11-04T09:59:24.017576+00:00",
+    "name": "audio_preparation_duration",
+    "outcome": "info",
+    "details": {
+      "source": "CS1",
+      "mode": "native",
+      "source_count": "2"
+    }
+  },
+  {
+    "at": "2026-11-04T09:59:26.887181+00:00",
+    "name": "playback_stage",
+    "outcome": "info",
+    "details": {
+      "source": "CS1",
+      "mode": "native",
+      "source_count": "2",
+      "stage": "media_ready"
+    }
+  },
+  {
+    "at": "2026-11-04T09:59:26.914375+00:00",
+    "name": "decoded_progress",
+    "outcome": "success",
+    "details": {
+      "source": "CS1",
+      "mode": "native",
+      "source_count": "2"
+    }
+  }
+]

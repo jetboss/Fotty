@@ -68,8 +68,14 @@ struct FPLSquadSourceNotice: View {
 }
 
 public struct FPLMainView: View {
+    private struct RefreshIdentity: Hashable {
+        let isActive: Bool
+        let managerSelectionID: UUID
+    }
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.fottyWideLayout) private var usesWideLayout
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var session: FPLWorkspaceSession
     @ObservedObject private var viewModel: FPLAdvisorViewModel
@@ -163,6 +169,29 @@ public struct FPLMainView: View {
             case .journal: return "Learn from calls after each gameweek"
             }
         }
+
+        /// Short trust labels keep official facts, local plans and projections
+        /// distinct without hiding useful advanced tools.
+        var evidenceLabel: String {
+            switch self {
+            case .live, .leagues: return "Official data"
+            case .fixtures: return "Official fixtures"
+            case .rivals: return "Published data"
+            case .transfers, .journal: return "On-device plan"
+            case .captain, .compare, .planner: return "Projection"
+            case .priceRadar: return "Estimate"
+            case .wildcard: return "Advanced solver"
+            }
+        }
+
+        var evidenceSymbol: String {
+            switch self {
+            case .live, .leagues, .fixtures, .rivals: return "checkmark.seal.fill"
+            case .transfers, .journal: return "iphone"
+            case .captain, .compare, .planner, .priceRadar: return "chart.xyaxis.line"
+            case .wildcard: return "wand.and.stars"
+            }
+        }
     }
     
     public init() {
@@ -198,6 +227,16 @@ public struct FPLMainView: View {
 #endif
 
     private var isCompactWidth: Bool { horizontalSizeClass == .compact }
+    private var workspaceColumns: AnyLayout {
+        usesWideLayout
+            ? AnyLayout(HStackLayout(alignment: .top, spacing: 16))
+            : AnyLayout(VStackLayout(spacing: isCompactWidth ? 10 : 14))
+    }
+    private var managerHeaderLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+    }
     private var contentInset: CGFloat { isCompactWidth ? 12 : 16 }
     private var scrollLocation: String {
         workspace == .tools ? "Tools/\(selectedTool?.rawValue ?? "overview")" : workspace.rawValue
@@ -208,7 +247,7 @@ public struct FPLMainView: View {
             ZStack {
                 FottyTheme.background.ignoresSafeArea()
                 
-                if viewModel.managerId == nil {
+                if viewModel.managerId == nil || viewModel.requiresManagerConfirmation {
                     FPLManagerInputView(viewModel: viewModel)
                 } else if viewModel.isLoading && viewModel.bootstrap == nil {
                     // Loading State
@@ -267,8 +306,13 @@ public struct FPLMainView: View {
                       .frame(maxWidth: .infinity)
                     }
                 } else if workspace == .coach {
+                  workspaceColumns {
+                    if usesWideLayout {
+                        ScrollView { headerBanner }
+                            .frame(width: 300)
+                    }
                     VStack(spacing: isCompactWidth ? 8 : 10) {
-                        if !isCompactWidth {
+                        if !isCompactWidth && !usesWideLayout {
                             compactFPLHeader
                                 .padding(.horizontal, contentInset)
                                 .padding(.top, 8)
@@ -277,12 +321,15 @@ public struct FPLMainView: View {
                         FPLAICoachView(viewModel: viewModel)
                             .padding(.horizontal, contentInset)
                     }
-                    .frame(maxWidth: 960)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                  }
+                  .padding(.horizontal, usesWideLayout ? 16 : 0)
                 } else {
                     FPLWorkspaceScrollView(session: session, location: scrollLocation, managerSelectionID: viewModel.managerSelectionID) {
-                        VStack(spacing: isCompactWidth ? 10 : 14) {
+                        workspaceColumns {
                             headerBanner
+                                .frame(width: usesWideLayout ? 300 : nil)
+                          VStack(spacing: isCompactWidth ? 10 : 14) {
                             workspaceBar
 
                             if viewModel.isRefreshing || (viewModel.isLoading && viewModel.bootstrap != nil) {
@@ -311,31 +358,48 @@ public struct FPLMainView: View {
                             
                             workspaceContent
                                 .padding(.horizontal, contentInset)
+                          }
+                          .frame(maxWidth: .infinity, alignment: .topLeading)
                         }
-                        .frame(maxWidth: 960)
                         .frame(maxWidth: .infinity)
+                        .padding(.horizontal, usesWideLayout ? 16 : 0)
                         .padding(.top, isCompactWidth ? 4 : 8)
                         .padding(.bottom, 16)
                     }
                     .id(scrollLocation)
                     .refreshable {
-                        await viewModel.loadData(isRefresh: true)
+                        if !viewModel.usesAutomatedTestFixture {
+                            await viewModel.loadData(isRefresh: true)
+                        }
                     }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(.hidden, for: .navigationBar)
-            .task(id: scenePhase) {
-                guard scenePhase == .active else { return }
+            .task(id: RefreshIdentity(isActive: scenePhase == .active, managerSelectionID: viewModel.managerSelectionID)) {
+                guard scenePhase == .active else {
+                    viewModel.cancelRivalRefresh(clearSelection: false)
+                    return
+                }
                 if !viewModel.usesAutomatedTestFixture,
                    viewModel.managerId != nil {
                     // Recompute phase using the service's TTL-bounded cache.
                     // Only an explicit pull-to-refresh clears that cache.
                     await viewModel.loadData()
+                    // One visible-workspace poller, including planning. It must
+                    // survive moving between Gameweek/Squad/Coach, but stop when
+                    // this tab disappears or the scene leaves the foreground.
+                    while !Task.isCancelled {
+                        do { try await Task.sleep(for: .seconds(FPLMatchdayRefreshPolicy.interval)) }
+                        catch { break }
+                        guard !Task.isCancelled else { break }
+                        await viewModel.refreshMatchdayData()
+                    }
                 }
             }
         }
         .sheet(isPresented: $showsFeedback) { FottyFeedbackSheet(area: .fpl) }
+        .onDisappear { viewModel.cancelRivalRefresh(clearSelection: false) }
         .onChange(of: viewModel.managerSelectionID) { _, _ in session.resetNavigation() }
         .tint(FottyTheme.accentText)
     }
@@ -343,12 +407,9 @@ public struct FPLMainView: View {
     private var compactFPLHeader: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text("FPL")
+                Text("Your FPL")
                     .font(FottyTheme.typeScreenTitle)
                     .foregroundStyle(FottyTheme.textPrimary)
-                Text("Ask with your current squad and gameweek in view")
-                    .font(FottyTheme.typeMeta)
-                    .foregroundStyle(FottyTheme.textSecondary)
             }
             Spacer()
         }
@@ -360,27 +421,25 @@ public struct FPLMainView: View {
                 let isSelected = workspace == item
                 Button {
                     HapticManager.selection()
-                    withAnimation(FottyTheme.springSnappy) {
+                    withAnimation(reduceMotion ? nil : FottyTheme.springSnappy) {
                         workspace = item
                     }
                 } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: item.icon)
-                            .font(.fottyScaled(size: isCompactWidth ? 13 : 15, weight: .semibold))
+                    VStack(spacing: 6) {
                         Text(item.displayName(for: viewModel.gameweekPhase))
-                            .font(FottyTheme.typeCaption)
-                            .lineLimit(1)
+                            .font(.subheadline.weight(isSelected ? .semibold : .regular))
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .foregroundStyle(isSelected ? FottyTheme.textOnAccent : FottyTheme.textSecondary)
+                    .foregroundStyle(isSelected ? FottyTheme.accentText : FottyTheme.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: isCompactWidth ? 44 : 52)
-                    .background(isSelected ? FottyTheme.accent : FottyTheme.surface)
-                    .clipShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD, style: .continuous))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: FottyTheme.radiusMD, style: .continuous)
-                            .strokeBorder(isSelected ? Color.clear : FottyTheme.border, lineWidth: 1)
+                    .contentShape(Rectangle())
+                    .overlay(alignment: .bottom) {
+                        Rectangle()
+                            .fill(isSelected ? FottyTheme.accentText : FottyTheme.border)
+                            .frame(height: isSelected ? 2 : 1)
                     }
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FottyPressButtonStyle())
                 .accessibilityLabel(item.displayName(for: viewModel.gameweekPhase))
                 .accessibilityIdentifier("fpl-workspace-\(item.rawValue.lowercased())")
                 .accessibilityAddTraits(isSelected ? [.isSelected] : [])
@@ -430,44 +489,69 @@ public struct FPLMainView: View {
         if let selectedTool {
             VStack(alignment: .leading, spacing: 14) {
                 Button {
-                    withAnimation(FottyTheme.springSnappy) { self.selectedTool = nil }
+                    withAnimation(reduceMotion ? nil : FottyTheme.springSnappy) { self.selectedTool = nil }
                 } label: {
                     Label("All tools", systemImage: "chevron.left")
                         .font(FottyTheme.typeAction)
                         .foregroundStyle(FottyTheme.accentText)
                         .frame(minHeight: 44)
                 }
+                .buttonStyle(FottyPressButtonStyle())
                 .accessibilityIdentifier("fpl-all-tools")
                 Text(selectedTool.rawValue)
                     .font(FottyTheme.typeSectionTitle)
                     .foregroundStyle(FottyTheme.textPrimary)
                     .accessibilityAddTraits(.isHeader)
+                Label(selectedTool.evidenceLabel, systemImage: selectedTool.evidenceSymbol)
+                    .font(FottyTheme.typeMeta.weight(.semibold))
+                    .foregroundStyle(FottyTheme.textSecondary)
+                Text("Plans stay in Fotty. Confirm changes in official FPL.")
+                    .font(FottyTheme.typeMeta)
+                    .foregroundStyle(FottyTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 toolDestination(selectedTool)
             }
         } else {
             VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text("Decision tools")
+                        .font(FottyTheme.typeSectionTitle)
+                        .foregroundStyle(FottyTheme.textPrimary)
+                    Text("Official data and Fotty estimates are labelled. Plans stay in Fotty.")
+                        .font(FottyTheme.typeMeta)
+                        .foregroundStyle(FottyTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .accessibilityIdentifier("fpl-tools-trust-guide")
                 ForEach(FPLTool.groups, id: \.title) { group in
                   FottySectionHeader(title: group.title)
-                  LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 10), count: dynamicTypeSize.isAccessibilitySize ? 1 : (isCompactWidth ? 2 : 3)), spacing: 10) {
+                  LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 10), count: dynamicTypeSize.isAccessibilitySize || isCompactWidth ? 1 : 2), spacing: 6) {
                     ForEach(group.tools) { tool in
                         Button {
-                            withAnimation(FottyTheme.springSnappy) { selectedTool = tool }
+                            withAnimation(reduceMotion ? nil : FottyTheme.springSnappy) { selectedTool = tool }
                         } label: {
-                            VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .center, spacing: 12) {
                                 Image(systemName: tool.icon)
                                     .font(.fottyScaled(size: 18, weight: .bold))
                                     .foregroundStyle(FottyTheme.accentText)
+                                    .frame(width: 28)
+                                    .accessibilityHidden(true)
+                              VStack(alignment: .leading, spacing: 4) {
                                 Text(tool.rawValue)
                                     .font(FottyTheme.typeModuleTitle)
                                     .foregroundStyle(FottyTheme.textPrimary)
                                     .multilineTextAlignment(.leading)
-                                Text(tool.subtitle)
-                                    .font(FottyTheme.typeMeta)
-                                    .foregroundStyle(FottyTheme.textSecondary)
-                                    .multilineTextAlignment(.leading)
-                                Spacer(minLength: 0)
+                                Label(tool.evidenceLabel, systemImage: tool.evidenceSymbol)
+                                    .font(FottyTheme.typeCaption.weight(.semibold))
+                                    .foregroundStyle(FottyTheme.textTertiary)
+                              }
+                              Spacer(minLength: 4)
+                              Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(FottyTheme.textSecondary)
+                                .accessibilityHidden(true)
                             }
-                            .frame(maxWidth: .infinity, minHeight: isCompactWidth ? 94 : 106, alignment: .leading)
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                             .padding(isCompactWidth ? 12 : 14)
                             .background(FottyTheme.surface)
                             .clipShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD, style: .continuous))
@@ -476,8 +560,9 @@ public struct FPLMainView: View {
                                     .strokeBorder(FottyTheme.border, lineWidth: 1)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusMD))
                         .accessibilityIdentifier("fpl-tool-\(tool.id)")
+                        .accessibilityHint(tool.subtitle)
                     }
                   }
                 }
@@ -504,7 +589,7 @@ public struct FPLMainView: View {
     }
 
     private func navigateFromGameweek(_ destination: FPLCommandCenterAction.Destination) {
-        withAnimation(FottyTheme.springSnappy) {
+        withAnimation(reduceMotion ? nil : FottyTheme.springSnappy) {
             switch destination {
             case .squad:
                 workspace = .squad
@@ -529,26 +614,26 @@ public struct FPLMainView: View {
     private var headerBanner: some View {
         VStack(spacing: isCompactWidth ? 8 : 12) {
             // Manager Team & Quick Action Row
-            HStack {
+            managerHeaderLayout {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(viewModel.managerSummary?.name ?? "Your FPL team")
-                        .font(.fottyScaled(size: isCompactWidth ? 17 : 19, weight: .black))
+                        .font(.title2.weight(.bold))
                         .foregroundStyle(FottyTheme.textPrimary)
                     
                     if let gw = viewModel.currentGameweek ?? viewModel.nextGameweek {
-                        HStack(spacing: 4) {
+                        VStack(alignment: .leading, spacing: 3) {
                             Text("Gameweek \(gw.id)")
                                 .font(FottyTheme.typeMeta)
                                 .foregroundStyle(FottyTheme.accentText)
                             
-                            Text("• Deadline \(gw.deadlineTimeFormatted)")
+                            Text("Deadline \(gw.deadlineTimeFormatted)")
                                 .font(FottyTheme.typeMeta)
                                 .foregroundStyle(FottyTheme.textSecondary)
                         }
                     }
                 }
                 
-                Spacer()
+                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 
                 Button {
                     HapticManager.impact(.light)
@@ -558,7 +643,7 @@ public struct FPLMainView: View {
                         Image(systemName: "person.crop.circle.badge.xmark")
                         Text("Switch")
                     }
-                    .font(.fottyScaled(size: 11, weight: .bold))
+                    .font(FottyTheme.typeCaption.weight(.semibold))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
                     .background(FottyTheme.surfaceElevated)
@@ -568,13 +653,14 @@ public struct FPLMainView: View {
                     .frame(minHeight: 44)
                     .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusLG))
+                .accessibilityLabel("Switch FPL manager")
             }
             
             Divider()
                 .background(FottyTheme.border)
             
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 12), count: dynamicTypeSize.isAccessibilitySize ? 1 : 3), spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 12), count: dynamicTypeSize.isAccessibilitySize || usesWideLayout ? 1 : 3), spacing: 12) {
                 statItem(
                     label: "Overall rank",
                     value: viewModel.managerSummary?.summaryOverallRank.map { "#\($0)" } ?? "-"
@@ -594,18 +680,8 @@ public struct FPLMainView: View {
             }
         }
         .padding(isCompactWidth ? 12 : 16)
-        .background(
-            LinearGradient(
-                colors: [FottyTheme.surfaceElevated, FottyTheme.surface],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: isCompactWidth ? 16 : 20))
-        .overlay(
-            RoundedRectangle(cornerRadius: isCompactWidth ? 16 : 20)
-                .stroke(FottyTheme.border, lineWidth: 1)
-        )
+        .background(FottyTheme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal, contentInset)
     }
     

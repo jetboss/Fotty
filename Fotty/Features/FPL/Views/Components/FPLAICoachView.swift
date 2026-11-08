@@ -3,6 +3,7 @@ import SwiftUI
 public struct FPLAICoachView: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject var viewModel: FPLAdvisorViewModel
     @AppStorage("fotty.fpl.smartCoachConsent") private var smartCoachConsent = false
 
@@ -33,19 +34,15 @@ public struct FPLAICoachView: View {
     }
 
     private var isCompactWidth: Bool { horizontalSizeClass == .compact }
+    private var promptsScrollWithConversation: Bool {
+        dynamicTypeSize.isAccessibilitySize || isComposerFocused
+    }
 
     public var body: some View {
         VStack(spacing: 10) {
-            header
-            if !smartCoachConsent {
-                consentCard
-            } else {
-                profileBar
-            }
             messageStream
-            if smartCoachConsent {
-                composer
-            }
+            composer
+                .layoutPriority(1)
         }
         .sheet(isPresented: $isShowingHistory) {
             FPLCoachHistorySheet(viewModel: viewModel)
@@ -84,16 +81,12 @@ public struct FPLAICoachView: View {
             Image(systemName: "sparkles")
                 .foregroundStyle(FottyTheme.accentText)
             VStack(alignment: .leading, spacing: 2) {
-                Text("SMART FPL COACH")
-                    .font(.headline.weight(.black))
+                Text("Smart Coach")
+                    .font(.headline.weight(.semibold))
                     .foregroundStyle(FottyTheme.textPrimary)
-                Text(smartCoachConsent ? "DeepSeek + official FPL recheck" : "Cloud coach is off")
+                Text(smartCoachConsent ? "Advice uses current FPL evidence" : "On-device help available • Cloud Coach off")
                     .font(.caption)
                     .foregroundStyle(FottyTheme.textSecondary)
-                Text("Advice: \(viewModel.squadSourceTitle). Points: published lineup.")
-                    .font(.caption)
-                    .foregroundStyle(FottyTheme.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
             if !viewModel.coachMessages.isEmpty {
@@ -104,6 +97,7 @@ public struct FPLAICoachView: View {
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
+                .buttonStyle(FottyPressButtonStyle())
                 .foregroundStyle(FottyTheme.error)
                 .accessibilityLabel("Clear coach chat")
             }
@@ -114,6 +108,7 @@ public struct FPLAICoachView: View {
                     .frame(width: 44, height: 44)
                     .contentShape(Rectangle())
             }
+            .buttonStyle(FottyPressButtonStyle())
             .foregroundStyle(FottyTheme.accentText)
             .accessibilityLabel("Open coach history")
         }
@@ -124,11 +119,11 @@ public struct FPLAICoachView: View {
 
     private var consentCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Enable evidence-checked reasoning", systemImage: "lock.shield.fill")
+            Label("Enable cloud strategy advice", systemImage: "lock.shield.fill")
                 .font(.headline)
                 .foregroundStyle(FottyTheme.textPrimary)
 
-            Text("When you ask a question, Fotty sends the question, up to six shortened recent coach messages, your public FPL manager ID, and a compact squad/plan snapshot to Fotty's Cloudflare Worker. The Worker refreshes public FPL evidence and sends it to DeepSeek. The DeepSeek credential stays on the server, and Fotty never submits team changes.")
+            Text("Cloud Coach sends your question, recent chat context, public manager ID and a compact squad snapshot to Fotty's service for DeepSeek processing. It never submits team changes.")
                 .font(.subheadline)
                 .foregroundStyle(FottyTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -145,7 +140,7 @@ public struct FPLAICoachView: View {
                     .background(FottyTheme.accent)
                     .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FottyPressButtonStyle(cornerRadius: 10))
         }
         .padding(14)
         .background(FottyTheme.surfaceElevated)
@@ -172,19 +167,24 @@ public struct FPLAICoachView: View {
             HStack {
                 if let freshness = viewModel.primaryFreshness {
                     Label(
-                        "\(freshness.source.rawValue) • \(freshness.shortAgeDescription)",
+                        "\(freshness.source.displayName) • \(freshness.shortAgeDescription)",
                         systemImage: freshness.source == .diskSnapshot ? "externaldrive.badge.exclamationmark" : "checkmark.circle"
                     )
                     .font(.caption2)
                     .foregroundStyle(freshness.source == .diskSnapshot ? FottyTheme.accentText : FottyTheme.textSecondary)
                 }
                 Spacer()
-                Button("Disable cloud coach") {
+                Button {
                     viewModel.cancelCoachRequest()
                     smartCoachConsent = false
+                } label: {
+                    Text("Disable cloud coach")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(FottyTheme.textTertiary)
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
                 }
-                .font(.caption2.weight(.bold))
-                .foregroundStyle(FottyTheme.textTertiary)
+                .buttonStyle(FottyPressButtonStyle())
             }
         }
         .padding(10)
@@ -214,6 +214,15 @@ public struct FPLAICoachView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 12) {
+                    header
+                    if smartCoachConsent {
+                        profileBar
+                    } else {
+                        consentCard
+                    }
+                    if promptsScrollWithConversation {
+                        promptSuggestions
+                    }
                     if viewModel.coachMessages.isEmpty {
                         welcomeState
                     } else {
@@ -225,7 +234,7 @@ public struct FPLAICoachView: View {
                     if isThinking {
                         HStack(spacing: 8) {
                             ProgressView().tint(FottyTheme.accentText)
-                            Text("Refreshing official evidence and checking the full plan…")
+                            Text("Checking FPL data…")
                                 .font(.subheadline)
                                 .foregroundStyle(FottyTheme.textSecondary)
                             Spacer()
@@ -246,7 +255,7 @@ public struct FPLAICoachView: View {
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: viewModel.coachMessages.count) { _, _ in
                 if let last = viewModel.coachMessages.last?.id {
-                    withAnimation { proxy.scrollTo(last, anchor: .bottom) }
+                    withAnimation(reduceMotion ? nil : .default) { proxy.scrollTo(last, anchor: .bottom) }
                 }
             }
         }
@@ -261,7 +270,7 @@ public struct FPLAICoachView: View {
             Text("Ask for a decision, not just a player name")
                 .font(.headline.weight(.bold))
                 .foregroundStyle(FottyTheme.textPrimary)
-            Text(briefing?.topRecommendation ?? "The coach will check your squad, fixtures, rules, chips, live state and selected rival together.")
+            Text(briefing?.topRecommendation ?? "Ask about points, transfers, captaincy or your full squad.")
                 .font(.subheadline)
                 .foregroundStyle(FottyTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -271,26 +280,34 @@ public struct FPLAICoachView: View {
         .padding(.horizontal, 18)
     }
 
-    private var composer: some View {
-        VStack(spacing: 8) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(prompts, id: \.self) { prompt in
-                        Button(prompt) { sendQuery(prompt) }
+    private var promptSuggestions: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(prompts, id: \.self) { prompt in
+                    Button { sendQuery(prompt) } label: {
+                        Text(prompt)
                             .font(.caption.weight(.bold))
                             .padding(.horizontal, 10)
                             .padding(.vertical, 7)
+                            .frame(minHeight: 44)
                             .background(FottyTheme.surface)
                             .foregroundStyle(FottyTheme.textPrimary)
                             .clipShape(Capsule())
-                            .buttonStyle(.plain)
+                            .contentShape(Capsule())
                     }
+                    .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusXL))
+                    .disabled(isThinking)
                 }
             }
+        }
+    }
 
+    private var composer: some View {
+        VStack(spacing: 8) {
+            if !promptsScrollWithConversation { promptSuggestions }
             HStack(spacing: 10) {
                 TextField("Ask about the whole decision…", text: $viewModel.coachInputDraft, axis: .vertical)
-                    .lineLimit(1...4)
+                    .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 2 : 4))
                     .font(.body)
                     .padding(11)
                     .background(FottyTheme.surface)
@@ -302,7 +319,10 @@ public struct FPLAICoachView: View {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 34))
                         .foregroundStyle(canSend ? FottyTheme.accentText : FottyTheme.textTertiary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
                 }
+                .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusXL))
                 .disabled(!canSend)
                 .accessibilityLabel("Send question")
             }
@@ -321,7 +341,7 @@ public struct FPLAICoachView: View {
             if isUser { Spacer(minLength: 42) }
             VStack(alignment: isUser ? .trailing : .leading, spacing: 5) {
                 if let card = message.coachCard, !isUser {
-                    coachResponseCard(card)
+                    coachResponseCard(card, recheckQuery: FPLCoachRecheck.question(for: message, in: viewModel.coachMessages))
                 } else {
                     Text(LocalizedStringKey(message.text))
                         .font(.subheadline)
@@ -346,7 +366,7 @@ public struct FPLAICoachView: View {
         }
     }
 
-    private func coachResponseCard(_ card: FPLCoachCardPayload) -> some View {
+    private func coachResponseCard(_ card: FPLCoachCardPayload, recheckQuery: String?) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 3) {
@@ -359,19 +379,19 @@ public struct FPLAICoachView: View {
                         .textSelection(.enabled)
                 }
                 Spacer(minLength: 8)
-                Text(card.confidence.capitalized)
+                Text(card.confidenceLabel)
                     .font(FottyTheme.typeCaption)
                     .foregroundStyle(FottyTheme.textOnAccent)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(FottyTheme.accent)
                     .clipShape(Capsule())
-                    .accessibilityLabel("\(card.confidence.capitalized) confidence")
+                    .accessibilityLabel(card.confidenceLabel)
             }
 
             coachCardSection(
-                title: "Evidence checked",
-                symbol: "checkmark.shield.fill",
+                title: card.evidenceHeading,
+                symbol: "doc.text.magnifyingglass",
                 items: card.evidence,
                 color: FottyTheme.success
             )
@@ -381,6 +401,11 @@ public struct FPLAICoachView: View {
                 items: card.downside,
                 color: FottyTheme.accentText
             )
+
+            Text(card.assuranceNote)
+                .font(.caption)
+                .foregroundStyle(FottyTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
             coachCardSection(
                 title: "Verify before deadline",
                 symbol: "checklist",
@@ -388,27 +413,32 @@ public struct FPLAICoachView: View {
                 color: FottyTheme.accentText
             )
 
-            HStack(spacing: 6) {
-                Text(card.source)
-                Text("•")
-                Text(card.officialDataStatus)
-                if let verifiedAt = card.verifiedAt {
-                    Text("•")
-                    Text(verifiedAt, style: .relative)
-                }
-                if let usage = card.usage {
-                    Text("•")
-                    Text("\(usage.totalTokens) tokens")
-                }
-            }
+            Text(evidenceSummary(for: card))
             .font(FottyTheme.typeCaption)
             .foregroundStyle(FottyTheme.textTertiary)
+            .fixedSize(horizontal: false, vertical: true)
+
+            if let recheckQuery {
+                Button {
+                    sendQuery(recheckQuery)
+                } label: {
+                    Label("Recheck with current evidence", systemImage: "arrow.clockwise")
+                        .font(FottyTheme.typeAction)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+                .disabled(isThinking)
+                .accessibilityHint("Creates a new dated answer. The earlier answer remains historical.")
+            }
 
             Button {
-                viewModel.recordCoachDecision(card)
-                statusMessage = "Recommendation saved to the Decision Journal."
+                if viewModel.recordCoachDecision(card) {
+                    statusMessage = "Recommendation saved for GW\(viewModel.planningGameweek). Its original evidence date is retained."
+                } else {
+                    statusMessage = viewModel.coachStatusMessage ?? viewModel.draftErrorMessage ?? "Recommendation could not be saved. Refresh your team and try again."
+                }
             } label: {
-                Label("Save to Decision Journal", systemImage: "bookmark.fill")
+                Label("Save decision for GW\(viewModel.planningGameweek)", systemImage: "bookmark.fill")
                     .font(FottyTheme.typeAction)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
@@ -425,6 +455,15 @@ public struct FPLAICoachView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("fpl-coach-response")
+    }
+
+    private func evidenceSummary(for card: FPLCoachCardPayload) -> String {
+        var details = [card.source, card.officialDataStatus]
+        if let verifiedAt = card.verifiedAt {
+            details.append("Evidence fetched \(verifiedAt.formatted(date: .abbreviated, time: .shortened))")
+        }
+        if let usage = card.usage { details.append("\(usage.totalTokens) tokens") }
+        return details.joined(separator: " • ")
     }
 
     @ViewBuilder
@@ -460,7 +499,7 @@ public struct FPLAICoachView: View {
     }
 
     private func sendQuery(_ query: String) {
-        guard smartCoachConsent, !isThinking else { return }
+        guard !isThinking else { return }
         isComposerFocused = false
         viewModel.sendCoachQuestion(query)
     }
@@ -511,9 +550,16 @@ public struct FPLCoachHistorySheet: View {
                         .font(.subheadline)
                         .textSelection(.enabled)
                     if let card = message.coachCard {
-                        Text("\(card.confidence.capitalized) confidence • \(card.source) • \(card.officialDataStatus)\(card.usage.map { " • \($0.totalTokens) tokens" } ?? "")")
+                        Text("Historical answer • \(card.confidenceLabel) • \(card.source) • \(card.officialDataStatus)\(card.usage.map { " • \($0.totalTokens) tokens" } ?? "")")
                             .font(.caption2)
                             .foregroundStyle(FottyTheme.textTertiary)
+                        if let query = FPLCoachRecheck.question(for: message, in: viewModel.coachMessages) {
+                            Button("Recheck with current evidence") {
+                                viewModel.sendCoachQuestion(query)
+                                dismiss()
+                            }
+                            .disabled(viewModel.isCoachThinking)
+                        }
                     }
                 }
                 .padding(.vertical, 5)

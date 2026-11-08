@@ -55,13 +55,16 @@ export function DiscoverViewV2({ initialIndex = [] }: DiscoverViewV2Props) {
   }, []);
 
   useEffect(() => {
-    if (initialIndex.length === 0) {
-      void reload();
-    }
+    const initialLoad = initialIndex.length === 0
+      ? window.setTimeout(() => void reload(), 0)
+      : undefined;
     const interval = setInterval(() => {
       void reload();
     }, 45_000);
-    return () => clearInterval(interval);
+    return () => {
+      if (initialLoad !== undefined) window.clearTimeout(initialLoad);
+      clearInterval(interval);
+    };
   }, [initialIndex.length, reload]);
 
   const posterSources = useMemo(

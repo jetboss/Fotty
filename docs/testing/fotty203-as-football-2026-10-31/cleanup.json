@@ -1,0 +1,10 @@
+{
+  "ownedBuildGateRemoved": true,
+  "ownedRawPreferenceBackupsRemoved": true,
+  "ownedKeepAwakeStopped": true,
+  "installed203Preserved": true,
+  "beforeCleanupFreeGiB": 16.6,
+  "afterCleanupFreeGiB": 17.53,
+  "agentFinishPassed": true,
+  "physicalAcceptanceStillPending": "Jet manual unlock"
+}

@@ -1,0 +1,61 @@
+{
+  "startedUTC": "2026-11-01T15:35:27.188Z",
+  "scope": "Bounded six-sample Fox SD manifest continuity; no child/segment requests",
+  "originalMetadataReads": 1,
+  "maxRootReads": 6,
+  "sampleSpacingSeconds": 10,
+  "reviewedChildIPv4": [
+    "77.72.23.4",
+    "77.72.19.131",
+    "77.72.23.43"
+  ],
+  "samples": [
+    {
+      "index": 1,
+      "startedUTC": "2026-11-01T15:35:28.493Z",
+      "socketAddressPinned": true,
+      "http": 200,
+      "contentType": "application/x-mpegURL",
+      "connectionUsedValidatedAddress": true,
+      "elapsedMS": 401,
+      "bytes": 500,
+      "observedUTC": "2026-11-01T15:35:28.894Z",
+      "mediaSequence": 214466,
+      "targetDurationSeconds": 10,
+      "segments": 4,
+      "endList": false,
+      "childHosts": [
+        "185.6.14.67",
+        "77.72.19.131",
+        "77.72.23.4",
+        "93.189.56.50"
+      ],
+      "unreviewedAdvertisedChildHosts": [
+        "93.189.56.50",
+        "185.6.14.67"
+      ]
+    }
+  ],
+  "childHostSet": [
+    "185.6.14.67",
+    "77.72.19.131",
+    "77.72.23.4",
+    "93.189.56.50"
+  ],
+  "noSegments": true,
+  "noKeys": true,
+  "noCodeOrPolicyChanges": true,
+  "originalMetadataHTTP": 200,
+  "originalMetadataBytes": 159715,
+  "root": {
+    "scheme": "http",
+    "fqdn": "y3fqd48g.megatv.fun",
+    "port": 80,
+    "pathShape": "/iptv/<opaque14>/<approved-channel>/index.m3u8"
+  },
+  "outcome": "stopped-on-actionable-change",
+  "failure": "unreviewed-advertised-child-address",
+  "sequenceAdvanced": false,
+  "completedUTC": "2026-11-01T15:35:28.895Z",
+  "redaction": "No URLs, opaque capabilities, numeric resource paths, segment names or query values retained."
+}

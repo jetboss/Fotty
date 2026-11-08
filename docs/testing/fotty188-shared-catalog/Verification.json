@@ -1,0 +1,26 @@
+{
+  "checkedAtUTC": "2026-10-30T02:00:56.384110+00:00",
+  "scope": "Private shared official-fixture/source catalog and one-tap single Watch; no distribution",
+  "nativeInputCount": 332,
+  "frozenSourceSHA256": "206beaa6f4cacd0ab728246ff2f561ce5c4a26a1119ed7e0aec4dc3cbfb6696d",
+  "protectedFPLMultiInputCount": 44,
+  "protectedInputsUnchanged": true,
+  "oneTapTests": {
+    "result": "Passed",
+    "totalTestCount": 124,
+    "passedTests": 124,
+    "failedTests": 0,
+    "skippedTests": 0
+  },
+  "initialSourceCatalogTests": {
+    "passed": 431,
+    "failed": 0,
+    "physicalOnlySkipped": 4
+  },
+  "queuedClockGate": {
+    "passed": 52,
+    "failed": 0,
+    "skipped": 0
+  },
+  "physicalAcceptance": "Pending normal189 launch and hands-on Watch/playback check; owner phone is in another app. Background install/version189 verified; no decoded-playback claim."
+}

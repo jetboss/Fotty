@@ -1,0 +1,13 @@
+{
+  "build": "205",
+  "device": "Jet iPad",
+  "tests": 180,
+  "failures": 0,
+  "skips": 0,
+  "classes": {
+    "CommunitySportsAddonTests": 142,
+    "StreamVixSportsAddonTests": 38
+  },
+  "delayedCSResponseRegressionSeconds": 13.25,
+  "sourceTimeout": "CS stream request23/transport24; metadata and sibling adapters unchanged"
+}

@@ -1,0 +1,16 @@
+{
+  "checkedAt": "2026-11-01T20:25:47.997256+00:00",
+  "build": "219",
+  "version": "2.0.1",
+  "signedReleaseCompile": "passed",
+  "strictCodeSignature": "passed",
+  "ATSExceptionDomainCount": 0,
+  "widgetBuilds": [
+    "219"
+  ],
+  "installed": true,
+  "nativeAcceptance": "mixed: normal Juventus Watch TV4 passed90s; Willow failed startup; not fully stable",
+  "installedOn": "Jet iPad only",
+  "normalAppLaunched": true,
+  "installedAt": "2026-11-01T20:26:08.529348+00:00"
+}

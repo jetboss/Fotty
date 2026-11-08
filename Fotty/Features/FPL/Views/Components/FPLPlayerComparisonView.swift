@@ -1,6 +1,7 @@
 import SwiftUI
 
 public struct FPLPlayerComparisonView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject var viewModel: FPLAdvisorViewModel
     @State private var selectingSlot: ComparisonSlot?
     @State private var playerQuery = ""
@@ -10,6 +11,11 @@ public struct FPLPlayerComparisonView: View {
     }
     private var player1Index: Int { viewModel.playerScores.firstIndex { $0.id == viewModel.comparisonPlayer1ID } ?? 0 }
     private var player2Index: Int { viewModel.playerScores.firstIndex { $0.id == viewModel.comparisonPlayer2ID } ?? min(1, max(0, viewModel.playerScores.count - 1)) }
+    private var comparisonLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 12))
+    }
     
     public init(viewModel: FPLAdvisorViewModel) {
         self.viewModel = viewModel
@@ -28,6 +34,13 @@ public struct FPLPlayerComparisonView: View {
                     .foregroundStyle(FottyTheme.textPrimary)
                 
                 Spacer()
+                Button {
+                    Task { await loadSelectedSummaries(forceRefresh: true) }
+                } label: {
+                    Image(systemName: "arrow.clockwise").frame(minWidth: 44, minHeight: 44)
+                }
+                .accessibilityLabel("Refresh both players' official history")
+                .disabled(viewModel.playerScores.count < 2 || !viewModel.loadingElementSummaries.isEmpty)
             }
             .padding(16)
             .background(FottyTheme.surface)
@@ -38,13 +51,13 @@ public struct FPLPlayerComparisonView: View {
                 let p2 = viewModel.playerScores[min(player2Index, viewModel.playerScores.count - 1)]
                 
                 // Player Selection Pickers
-                HStack(spacing: 12) {
+                comparisonLayout {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
-                            Circle().fill(Color.green).frame(width: 8, height: 8)
+                            Circle().fill(FottyTheme.success).frame(width: 8, height: 8)
                             Text("PLAYER 1")
                                 .font(.fottyScaled(size: 10, weight: .bold))
-                                .foregroundStyle(Color.green)
+                                .foregroundStyle(FottyTheme.success)
                         }
                         
                         Button { playerQuery = ""; selectingSlot = .first } label: {
@@ -53,6 +66,7 @@ public struct FPLPlayerComparisonView: View {
                                 .multilineTextAlignment(.leading)
                                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         }
+                        .buttonStyle(FottyPressButtonStyle())
                         .accessibilityLabel("Choose first player, \(p1.player.webName)")
                         .padding(8)
                         .background(FottyTheme.surfaceElevated)
@@ -78,6 +92,7 @@ public struct FPLPlayerComparisonView: View {
                                 .multilineTextAlignment(.leading)
                                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         }
+                        .buttonStyle(FottyPressButtonStyle())
                         .accessibilityLabel("Choose second player, \(p2.player.webName)")
                         .padding(8)
                         .background(FottyTheme.surfaceElevated)
@@ -98,14 +113,18 @@ public struct FPLPlayerComparisonView: View {
                         Spacer()
                     }
                     
-                    RadarChartCanvas(
-                        p1Metrics: computeRadarMetrics(p1),
-                        p2Metrics: computeRadarMetrics(p2),
-                        p1Name: p1.player.webName,
-                        p2Name: p2.player.webName
-                    )
-                    .frame(height: 220)
-                    .padding(.vertical, 8)
+                    if dynamicTypeSize.isAccessibilitySize {
+                        accessibleStrengths(first: p1, second: p2)
+                    } else {
+                        RadarChartCanvas(
+                            p1Metrics: computeRadarMetrics(p1),
+                            p2Metrics: computeRadarMetrics(p2),
+                            p1Name: p1.player.webName,
+                            p2Name: p2.player.webName
+                        )
+                        .frame(height: 220)
+                        .padding(.vertical, 8)
+                    }
                 }
                 .padding(16)
                 .background(FottyTheme.surface)
@@ -124,7 +143,7 @@ public struct FPLPlayerComparisonView: View {
                 .background(FottyTheme.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
 
-                HStack(alignment: .top, spacing: 10) {
+                comparisonLayout {
                     evidenceCard(p1)
                     evidenceCard(p2)
                 }
@@ -135,9 +154,10 @@ public struct FPLPlayerComparisonView: View {
                     .padding(24)
             }
         }
-        .task { await loadSelectedSummaries() }
-        .onChange(of: player1Index) { _, _ in Task { await loadSelectedSummaries() } }
-        .onChange(of: player2Index) { _, _ in Task { await loadSelectedSummaries() } }
+        .task(id: "\(viewModel.comparisonPlayer1ID ?? 0)-\(viewModel.comparisonPlayer2ID ?? 0)-\(viewModel.evidenceRevision)") {
+            await loadSelectedSummaries()
+        }
+        .onDisappear { viewModel.cancelPlayerHistoryChecks() }
         .sheet(item: $selectingSlot) { slot in
             NavigationStack {
                 List {
@@ -152,8 +172,18 @@ public struct FPLPlayerComparisonView: View {
                         } label: {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(score.player.webName).font(.headline).foregroundStyle(FottyTheme.textPrimary)
-                                Text("\(score.team.name) · \(score.player.positionName) · \(score.player.formattedCost)")
-                                    .font(.subheadline).foregroundStyle(FottyTheme.textSecondary)
+                                HStack(spacing: 5) {
+                                    TeamIdentityLabel(
+                                        teamName: score.team.name,
+                                        badgeURL: score.team.badgeURL,
+                                        badgeSize: 20,
+                                        font: .subheadline,
+                                        foregroundColor: FottyTheme.textSecondary
+                                    )
+                                    Text("· \(score.player.positionName) · \(score.player.formattedCost)")
+                                        .font(.subheadline)
+                                        .foregroundStyle(FottyTheme.textSecondary)
+                                }
                             }
                             .frame(minHeight: 44)
                         }
@@ -184,12 +214,13 @@ public struct FPLPlayerComparisonView: View {
         value?.formatted(.number.precision(.fractionLength(2))) ?? "Not supplied"
     }
 
-    private func loadSelectedSummaries() async {
+    private func loadSelectedSummaries(forceRefresh: Bool = false) async {
         guard viewModel.playerScores.count >= 2 else { return }
         let first = viewModel.playerScores[min(player1Index, viewModel.playerScores.count - 1)].id
         let second = viewModel.playerScores[min(player2Index, viewModel.playerScores.count - 1)].id
-        async let firstSummary = viewModel.fetchElementSummary(playerID: first)
-        async let secondSummary = viewModel.fetchElementSummary(playerID: second)
+        viewModel.cancelPlayerHistoryChecks(except: [first, second])
+        async let firstSummary = viewModel.fetchElementSummary(playerID: first, forceRefresh: forceRefresh)
+        async let secondSummary = viewModel.fetchElementSummary(playerID: second, forceRefresh: forceRefresh)
         _ = await (firstSummary, secondSummary)
     }
 
@@ -204,8 +235,12 @@ public struct FPLPlayerComparisonView: View {
                 .foregroundStyle(FottyTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
             Divider().background(FottyTheme.border)
+            Text(viewModel.playerHistoryStatus(playerID: score.id))
+                .font(.caption2)
+                .foregroundStyle(FottyTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
             if history.isEmpty {
-                Text("Recent official match history is loading or unavailable.")
+                Text(viewModel.elementSummaries[score.id] == nil ? "No recent history loaded." : "No recent appearances supplied.")
                     .font(.caption2)
                     .foregroundStyle(FottyTheme.textTertiary)
             } else {
@@ -244,28 +279,60 @@ public struct FPLPlayerComparisonView: View {
         let attacking = min(1.0, max(0.15, score.xGIScore / 100.0))
         return [form, ict, composite, value, attacking]
     }
+
+    private func accessibleStrengths(first: PlayerScore, second: PlayerScore) -> some View {
+        let labels = ["Form", "ICT Index", "Composite", "Value/£", "xG Threat"]
+        let firstMetrics = computeRadarMetrics(first)
+        let secondMetrics = computeRadarMetrics(second)
+        return VStack(alignment: .leading, spacing: 12) {
+            Text("Relative model scores, on the chart’s 0–100 scale.")
+                .font(FottyTheme.typeMeta)
+                .foregroundStyle(FottyTheme.textSecondary)
+            ForEach(labels.indices, id: \.self) { index in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(labels[index]).font(FottyTheme.typeModuleTitle)
+                    Text("\(first.player.webName): \(Int((firstMetrics[index] * 100).rounded()))")
+                    Text("\(second.player.webName): \(Int((secondMetrics[index] * 100).rounded()))")
+                }
+                .font(FottyTheme.typeBody)
+                .foregroundStyle(FottyTheme.textPrimary)
+                .accessibilityElement(children: .combine)
+            }
+        }
+    }
     
     @ViewBuilder
     private func metricRow(_ label: String, val1: String, val2: String, p1Better: Bool) -> some View {
-        HStack {
+        VStack(alignment: .leading, spacing: 6) {
+          if dynamicTypeSize.isAccessibilitySize {
+            Text(label)
+                .font(FottyTheme.typeModuleTitle)
+                .foregroundStyle(FottyTheme.textSecondary)
+          }
+          HStack(alignment: .top) {
             Text(val1)
                 .font(.fottyScaled(size: 12, weight: .bold))
-                .foregroundStyle(p1Better ? Color.green : FottyTheme.textPrimary)
+                .foregroundStyle(p1Better ? FottyTheme.success : FottyTheme.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
             
-            Text(label)
+            if !dynamicTypeSize.isAccessibilitySize {
+              Text(label)
                 .font(.fottyScaled(size: 11, weight: .bold))
                 .foregroundStyle(FottyTheme.textSecondary)
                 .frame(maxWidth: .infinity, alignment: .center)
+            }
             
             Text(val2)
                 .font(.fottyScaled(size: 12, weight: .bold))
                 .foregroundStyle(!p1Better ? FottyTheme.accentText : FottyTheme.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .trailing)
+          }
         }
         .padding(10)
         .background(FottyTheme.surfaceElevated)
         .clipShape(RoundedRectangle(cornerRadius: 10))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(label), first player \(val1), second player \(val2)")
     }
 }
 
@@ -278,6 +345,15 @@ private struct RadarChartCanvas: View {
     let p2Name: String
     
     private let axisLabels = ["Form", "ICT Index", "Composite", "Value/£", "xG Threat"]
+    private var accessibilitySummary: String {
+        let comparisons = axisLabels.indices.compactMap { index -> String? in
+            guard p1Metrics.indices.contains(index), p2Metrics.indices.contains(index) else { return nil }
+            let first = Int((p1Metrics[index] * 100).rounded())
+            let second = Int((p2Metrics[index] * 100).rounded())
+            return "\(axisLabels[index]): \(p1Name) \(first), \(p2Name) \(second)"
+        }
+        return "Fotty model relative strengths, chart scale 0 to 100. " + comparisons.joined(separator: ". ")
+    }
     
     var body: some View {
         GeometryReader { geometry in
@@ -319,9 +395,9 @@ private struct RadarChartCanvas: View {
                 
                 // Player 1 Polygon (Green)
                 RadarPolygon(metrics: p1Metrics, radius: radius, center: center)
-                    .fill(Color.green.opacity(0.35))
+                    .fill(FottyTheme.success.opacity(0.35))
                 RadarPolygon(metrics: p1Metrics, radius: radius, center: center)
-                    .stroke(Color.green, lineWidth: 2)
+                    .stroke(FottyTheme.success, lineWidth: 2)
                 
                 // Player 2 Polygon (Orange/LiveAccent)
                 RadarPolygon(metrics: p2Metrics, radius: radius, center: center)
@@ -330,6 +406,8 @@ private struct RadarChartCanvas: View {
                     .stroke(FottyTheme.liveAccent, lineWidth: 2)
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilitySummary)
     }
     
     private func angleFor(index: Int, total: Int) -> Double {

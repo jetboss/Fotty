@@ -1,0 +1,24 @@
+{
+  "artifacts": [
+    {
+      "artifact": "Fotty.app",
+      "version": "190",
+      "bundleID": "com.jelani.Fotty",
+      "strictSignature": true,
+      "profileValid": true,
+      "jetIncluded": true,
+      "expectedTeam": true
+    },
+    {
+      "artifact": "FottyLiveActivityExtension.appex",
+      "version": "190",
+      "bundleID": "com.jelani.Fotty.LiveActivityExtension",
+      "strictSignature": true,
+      "profileValid": true,
+      "jetIncluded": true,
+      "expectedTeam": true
+    }
+  ],
+  "nativeFrozenInputs": 332,
+  "sourceFingerprint": "3267020c2d494210bea44c7ab67ad1bfaa2ddc80f8137335da257d4ad22e190f"
+}

@@ -1,10 +1,10 @@
 import type { ScrapedMatch } from "./api";
 import type { ReminderEntry } from "./storage";
-import { buildWatchPageHref, isP2PContentId } from "./watch-session";
+import { buildWatchPageHref } from "./watch-session";
 import { encodeWatchEventSources } from "./watch-event-sources";
 
-export const FOTTY_TIME_ZONE = "America/Port_of_Spain";
-export const FOTTY_LOCALE = "en-US";
+const FOTTY_TIME_ZONE = "America/Port_of_Spain";
+const FOTTY_LOCALE = "en-US";
 
 export function getDisplayTimeZone() {
   try {
@@ -55,7 +55,7 @@ export function formatKickoff(startsAt?: string) {
   return `${dayLabel} ${timeLabel}`;
 }
 
-export function canSetReminder(match: ScrapedMatch) {
+function canSetReminder(match: ScrapedMatch) {
   if (match.kind !== "fixture" || !match.startsAt) return false;
   const kickoff = new Date(match.startsAt).getTime();
   return Number.isFinite(kickoff) && kickoff > Date.now();
@@ -108,13 +108,11 @@ export function isMatchLiveNow(match: ScrapedMatch, now = Date.now()) {
 }
 
 export function buildWatchHref(match: ScrapedMatch, returnTo: string) {
-  if (match.kind === "fixture" && !hasStreameXPlayback(match)) {
+  if (!hasStreameXPlayback(match)) {
     return returnTo;
   }
 
-  const watchId = hasStreameXPlayback(match)
-    ? match.id || match.eventSource!.id
-    : match.cid;
+  const watchId = match.id || match.eventSource!.id;
   const params = new URLSearchParams({
     title: match.displayTitle || match.title,
     league: match.subtitle || match.league || "",
@@ -123,14 +121,9 @@ export function buildWatchHref(match: ScrapedMatch, returnTo: string) {
   });
 
   if (match.sport) params.set("sport", match.sport);
-  if (hasStreameXPlayback(match)) params.set("playback", "event");
+  params.set("playback", "event");
   if (match.startsAt) params.set("startsAt", match.startsAt);
-  if (match.kind === "channel" || isP2PContentId(watchId)) {
-    params.set("cid", watchId);
-    params.set("kind", "channel");
-  } else {
-    params.set("id", watchId);
-  }
+  params.set("id", watchId);
 
   if (match.eventSource) {
     params.set("source", match.eventSource.source);

@@ -83,7 +83,7 @@ function rankForGlance(matches: ScrapedMatch[], trackedTeams: TrackedTeamEntry[]
   });
 }
 
-export function buildOnNowGlance(
+function buildOnNowGlance(
   matches: ScrapedMatch[],
   trackedTeams: TrackedTeamEntry[] = []
 ) {

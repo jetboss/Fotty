@@ -301,7 +301,7 @@ function orderEventSources(sources: Array<{ source?: string; id: string }>) {
 
 function scheduleKey(event: ScheduleMatchPayload) {
   const id = event.id?.trim();
-  if (id && !id.startsWith("p2p-")) return id;
+  if (id) return id;
   return `${normalizeText(event.title || "match").replace(/\s+/g, "-")}-${toKickoffMillis(event.date) || 0}`;
 }
 

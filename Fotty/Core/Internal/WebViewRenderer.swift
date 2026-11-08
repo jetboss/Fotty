@@ -19,6 +19,18 @@ class WebViewRenderer: NSObject {
     private var currentProviderName = ""
     private var currentReferer = ""
     private var currentEmbedURL = ""
+
+    /// Diagnostic output must never persist signed stream queries or fragments.
+    private static func redactedLocation(for url: URL) -> String {
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return "unavailable"
+        }
+        components.user = nil
+        components.password = nil
+        components.query = nil
+        components.fragment = nil
+        return components.string ?? url.host ?? "unavailable"
+    }
     
     private var currentOrigin: String {
         guard let url = URL(string: currentReferer),
@@ -368,7 +380,9 @@ extension WebViewRenderer: WKScriptMessageHandler {
               let urlString = body["url"] as? String,
               let url = URL(string: urlString) else { return }
         
-        print("[WebViewRenderer] Intercepted: \(urlString)")
+        #if DEBUG
+        print("[WebViewRenderer] Intercepted: \(Self.redactedLocation(for: url))")
+        #endif
         
         if !interceptedURLs.contains(url) {
             interceptedURLs.append(url)
@@ -461,7 +475,9 @@ extension WebViewRenderer: WKNavigationDelegate {
             
             // Intercept .m3u8 requests at the navigation level
             if urlString.contains(".m3u8") || urlString.contains(".mp4") {
-                print("[WebViewRenderer] Navigation intercepted: \(urlString)")
+                #if DEBUG
+                print("[WebViewRenderer] Navigation intercepted: \(Self.redactedLocation(for: url))")
+                #endif
                 if !interceptedURLs.contains(url) {
                     interceptedURLs.append(url)
                 }

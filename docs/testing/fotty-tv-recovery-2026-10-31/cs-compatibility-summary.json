@@ -1,0 +1,11 @@
+{
+  "scope": "Pre-install diagnostic only; actual LocalStreamProxy with Apple player on Mac. Not Jet or normal-picker qualification.",
+  "channel": "Sky Sports Football / UK / CS1",
+  "decoded_samples": 108,
+  "observation_seconds": 30.8,
+  "first_decoded_seconds": 4.6,
+  "advertised_video_codec": "avc1.4d401f",
+  "catalog_meta_identity": "Exact same advertised ID, title, UK NETWORKS description and fresh stream linkage verified",
+  "security": "Existing CS HTTPS wrapper and destination checks; no expanded manifest/host/header/port exception",
+  "pending": "Normal Jet Watch, sustained correct-programme observation, picker label and basic controls"
+}

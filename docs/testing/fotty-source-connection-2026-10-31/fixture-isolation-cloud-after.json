@@ -1,0 +1,76 @@
+{
+  "observedAtUTC": "2026-10-31T21:40:20.034Z",
+  "playback": {
+    "sourceVersion": "2026-10-31.fixture-isolation-1",
+    "footballScheduleConfigured": true,
+    "broadcastRegistryEnabled": true,
+    "cricketFixtureRegistryConfigured": true,
+    "sportsFixtureRegistryConfigured": true,
+    "sportsFixtureServiceEnabled": true,
+    "sportsPublicWebFeedsEnabled": false,
+    "sportsEFLEnabled": true,
+    "sportsWNBAEnabled": false,
+    "apiFootballCredentialConfigured": true,
+    "premierLeagueLiveScoresConfigured": true
+  },
+  "watchdog": {
+    "activation": "active",
+    "activatedAt": "2026-10-11T11:14:52.000Z",
+    "expectedDeploymentRevision": "2026-10-31.fixture-isolation-1",
+    "configurationRevision": "2026-10-29.native-catalog-parity-1",
+    "notificationCount": 130,
+    "incidentCount": 61,
+    "overflow": false,
+    "retainedPriorNotifications": true,
+    "originalActivationPreserved": true
+  },
+  "existingPlaybackFlagsPreserved": true,
+  "fixture": {
+    "id": "sports-fixture:premier-league:560628",
+    "sport": "football",
+    "start": "2026-10-31T20:00:00.000Z",
+    "status": "live",
+    "eventKind": "match",
+    "title": "Aston Villa FC vs Fulham FC",
+    "competitionId": "premier-league",
+    "competitionName": "Premier League",
+    "participants": [
+      {
+        "id": "football-data:58",
+        "name": "Aston Villa FC",
+        "role": "home"
+      },
+      {
+        "id": "football-data:63",
+        "name": "Fulham FC",
+        "role": "away"
+      }
+    ],
+    "squad": {
+      "gender": "men",
+      "ageGroup": "senior"
+    },
+    "source": {
+      "name": "football-data.org",
+      "url": "https://api.football-data.org/v4/matches?competitions=PL%2CCL%2CPD%2CSA%2CBL1%2CFL1&limit=500&dateFrom=2026-10-30&dateTo=2026-11-08",
+      "observedAt": "2026-10-31T21:39:20.112Z",
+      "updatedAt": "2026-10-31T21:38:27.000Z"
+    }
+  },
+  "premierLeague": {
+    "sport": "football",
+    "competitionId": "premier-league",
+    "competitionName": "Premier League",
+    "status": "covered",
+    "checkedAt": "2026-10-31T21:39:20.112Z",
+    "fixtureCount": 15,
+    "pendingFixtureCount": 0,
+    "nextStart": "2026-11-01T16:30:00.000Z",
+    "sync": {
+      "consecutiveFailures": 0,
+      "lastAttemptAt": "2026-10-31T21:39:20.112Z",
+      "lastSuccessAt": "2026-10-31T21:39:20.112Z",
+      "conflict": false
+    }
+  }
+}

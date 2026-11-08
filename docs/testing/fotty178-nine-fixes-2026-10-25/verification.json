@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "build": "2.0.1(178)",
+  "toolchain": "Xcode27.1 (27A9275), iOS27.1 SDK; macOS27.0.1 host",
+  "nativeGate": {
+    "platform": "fresh source-built Mac Catalyst",
+    "uniqueSelectedCases": 363,
+    "initialPassed": 362,
+    "initialFailed": 1,
+    "initialFailure": "Obsolete HomeTerminalReconciliation assertion expected a pre-quarantined row to remain visible; corrected test expectation preserves quarantine and independent rematch/squad/league cases.",
+    "affectedRerun": {
+      "result": "Passed",
+      "passedTests": 40,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 40
+    },
+    "countsOverlap": true,
+    "classes": [
+      "SportsContinuityBridgeTests",
+      "SportsPreferenceSyncTests",
+      "SportsWidgetSnapshotTests",
+      "SportsPersonalizationTests",
+      "HomeTerminalReconciliationTests",
+      "SportsFixtureCatalogTests",
+      "CricketFixtureCatalogTests",
+      "CatalogPlaybackIdentityTests",
+      "HomeProjectionCoordinatorTests",
+      "Fotty25SecondaryDesignTests",
+      "Fotty25HomeDesignTests",
+      "Fotty25PlayerDesignTests",
+      "SportsSearchDiscoveryTests",
+      "HomeDiscoveryTests"
+    ],
+    "singleOnlyCoordinatorMethods": 32,
+    "scope": "No FPL or multi-stream suite executed; focused related unit/geometry cases only."
+  },
+  "webCatalogTests": {
+    "passed": 11,
+    "failed": 0
+  },
+  "generatorCoherence": "passed",
+  "physicalXCTest": {
+    "requestedCasesExecuted": 0,
+    "runnerInfrastructureFailures": 1,
+    "reason": "Timed out while enabling automation mode at physical Touch ID gate",
+    "suitePassed": false
+  },
+  "normalDeviceGate": {
+    "device": "Jet iPad",
+    "os": "iPadOS27.0.1",
+    "signedReleaseCompile": "passed",
+    "codesignVerification": "deep strict passed",
+    "installedVersionReadback": "2.0.1(178)",
+    "normalLaunchWithoutTestArguments": true,
+    "testRunnerRemoved": true,
+    "manualJourney": "manual-journey.json"
+  },
+  "preservation": {
+    "protectedSourceFiles": 59,
+    "protectedHashesUnchanged": true,
+    "appInputManifestFiles": 313,
+    "appInputManifestSHA256": "510cf66f03a52007e2d1eb61d579ca393ec11faa1cafda72a2315b65f5afe1ac",
+    "finalProductionInputsUnchanged": true,
+    "preferences": "preference-preservation.json",
+    "phoneTouched": false,
+    "testFlightReleased": false,
+    "gitPublished": false,
+    "cloudDeployed": false
+  },
+  "binarySHA256": {
+    "catalystHostStub": "034af6f7111ade6f2439f5763354704584f3d4abf3bd5ab692a873a50095e745",
+    "catalystProductionDebugDylib": "be9d47c6700f54230f7010c5f851045e3c20acc7f781915db42906b55cbd1a7b",
+    "catalystFinalUnitExecutable": "bf43e9e49ea1ad8620a291e1bb1f54bce047d2bf2a71284b27d9c538cdc834d8",
+    "iOSDebugExecutable": "afcbb2aeaf89168f9bba02ed3cc0f2cdb8646af50c85f691de924db1314d24a9",
+    "iOSDebugProductionDylib": "a0572ce3396dd190235ed51477bd8e071c93b9f65a4d701d7db15b81eade7f59",
+    "iOSNormalReleaseExecutable": "bef0bb203373625ba6357d03644c8e5281c3ff7dac1effa36a7e488461c3d3b1"
+  },
+  "localMemoryRefresh": "passed; source presence/current-summary/reference/digest/privacy-pattern checks passed; no remote sync",
+  "whitespaceCheck": "passed",
+  "cleanup": {
+    "ownedBuildGateRemoved": true,
+    "ownedKeepAwakeStopped": true,
+    "ownedXCTestRunnerAbsent": true,
+    "ownedDesktopCapturesMoved": true,
+    "signedAppArchivesAndResultsRetained": false,
+    "rawPreferencesRetained": false,
+    "freeBytesAfter": 47440695296
+  }
+}

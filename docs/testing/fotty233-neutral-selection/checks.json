@@ -1,0 +1,18 @@
+{
+  "build": "3.0.0(233)",
+  "installedOn": "Jet iPad",
+  "focusedPassed": 116,
+  "optionalSkipped": 2,
+  "failed": 0,
+  "signatureVerified": true,
+  "excludedFileHashesUnchanged": 42,
+  "protectedPreferencesUnchanged": 16,
+  "stationPlayback": [
+    "TV1",
+    "CS1"
+  ],
+  "exactLiveMatchWatch": "blocked before ranking",
+  "phoneTouched": false,
+  "testflight": false,
+  "memoryChecksPassed": true
+}

@@ -15,4 +15,8 @@ final class CoreMediaProvider: LiveStreamingProvider {
         // NexusA specific fetch logic is already in AnalyticalDataEngine
         return try await AnalyticalDataEngine.fetchLiveEvents_NexusAImplementation()
     }
+
+    @MainActor func fetchCatalogSnapshot() async throws -> LiveCatalogSnapshot {
+        try await AnalyticalDataEngine.fetchCatalogSnapshot_NexusAImplementation()
+    }
 }

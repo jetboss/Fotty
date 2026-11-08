@@ -64,7 +64,7 @@ public struct FPLDecisionJournalView: View {
                 .accessibilityLabel("Record a decision")
             }
 
-            Text("Stored only on this device for the current manager and season. A good decision can still have a bad one-week result.")
+            Text("Saved on this device for the current manager and season.")
                 .font(FottyTheme.typeCaption)
                 .foregroundStyle(FottyTheme.textTertiary)
         }
@@ -81,7 +81,7 @@ public struct FPLDecisionJournalView: View {
             Text("No decisions recorded yet")
                 .font(FottyTheme.typeModuleTitle)
                 .foregroundStyle(FottyTheme.textPrimary)
-            Text("Save a route from Transfer Lab, save a Smart Coach card, or record your own captain, lineup, chip, or strategy call.")
+            Text("Record a captain, lineup, chip, transfer or strategy decision.")
                 .font(FottyTheme.typeBody)
                 .foregroundStyle(FottyTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -185,7 +185,7 @@ public struct FPLDecisionJournalView: View {
             }
             .foregroundStyle(FottyTheme.textPrimary)
             .padding(.horizontal, 8)
-            .frame(minHeight: 36)
+            .frame(minHeight: 44)
             .background(FottyTheme.surfaceElevated)
             .clipShape(Capsule())
         }
@@ -211,16 +211,36 @@ private struct FPLDecisionComposerView: View {
     @State private var title = ""
     @State private var rationale = ""
     @State private var expectedOutcome = ""
+    @State private var targetGameweek = 0
+    @State private var saveError: String?
+    @State private var composerOwner: String?
+
+    private var currentOwner: String? {
+        guard let managerID = viewModel.managerId, let bootstrap = viewModel.bootstrap else { return nil }
+        return "\(managerID)|\(FPLSeasonIdentifier.label(from: bootstrap.events))"
+    }
+
+    private var targetWeeks: [Int] {
+        Set((viewModel.bootstrap?.events ?? []).map(\.id)).filter { (1...38).contains($0) }.sorted()
+    }
 
     private var canSave: Bool {
         !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && !rationale.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && targetWeeks.contains(targetGameweek)
+            && composerOwner != nil && composerOwner == currentOwner
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Decision") {
+                    Picker("Intended gameweek", selection: $targetGameweek) {
+                        Text("Choose gameweek").tag(0)
+                        ForEach(targetWeeks, id: \.self) { week in
+                            Text("Gameweek \(week)").tag(week)
+                        }
+                    }
                     Picker("Type", selection: $kind) {
                         ForEach(FPLDecisionJournalEntry.Kind.allCases) { kind in
                             Label(kind.rawValue, systemImage: kind.symbol).tag(kind)
@@ -235,6 +255,18 @@ private struct FPLDecisionComposerView: View {
                 Section {
                     Text("Fotty records this locally. It does not submit a change to official FPL.")
                         .foregroundStyle(.secondary)
+                    if let saveError { Text(saveError).foregroundStyle(FottyTheme.error) }
+                }
+            }
+            .onAppear {
+                composerOwner = currentOwner
+                if targetGameweek == 0, targetWeeks.contains(viewModel.planningGameweek) {
+                    targetGameweek = viewModel.planningGameweek
+                }
+            }
+            .onChange(of: currentOwner) { _, owner in
+                if owner != composerOwner {
+                    saveError = "The manager or season changed. Close this note and reopen the journal for the intended manager before saving."
                 }
             }
             .navigationTitle("Record Decision")
@@ -244,14 +276,16 @@ private struct FPLDecisionComposerView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
-                        viewModel.recordDecision(
+                        let saved = viewModel.recordDecision(
                             kind: kind,
                             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
                             rationale: rationale.trimmingCharacters(in: .whitespacesAndNewlines),
                             expectedOutcome: expectedOutcome.trimmingCharacters(in: .whitespacesAndNewlines),
-                            source: "Manual note"
+                            source: "Manual note",
+                            targetGameweek: targetGameweek
                         )
-                        dismiss()
+                        if saved { dismiss() }
+                        else { saveError = "The decision could not be saved for this manager and gameweek. Refresh FPL and try again." }
                     }
                     .disabled(!canSave)
                 }

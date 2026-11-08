@@ -1,8 +1,14 @@
 import SwiftUI
 
 public struct FPLLiveTrackerView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject var viewModel: FPLAdvisorViewModel
     let onOpenPlan: (() -> Void)?
+    private var scoreLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(alignment: .lastTextBaseline, spacing: 8))
+    }
 
     public init(viewModel: FPLAdvisorViewModel, onOpenPlan: (() -> Void)? = nil) {
         self.viewModel = viewModel
@@ -23,21 +29,14 @@ public struct FPLLiveTrackerView: View {
             }
             sourceCard
         }
-        .task(id: viewModel.gameweekPhase.rawValue) {
-            guard viewModel.gameweekPhase == .locked || viewModel.gameweekPhase == .live else { return }
-            while !Task.isCancelled {
-                await viewModel.refreshMatchdayData()
-                try? await Task.sleep(for: .seconds(60))
-            }
-        }
     }
 
     private func scoreCard(_ summary: FPLLiveSquadSummary) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Label(
-                    !summary.hasCompleteScoringData ? "INCOMPLETE PLAYER DATA" : (summary.pointsAreProjected ? "PROVISIONAL FPL TOTAL" : (summary.isFinal ? "OFFICIAL RESULT" : "OFFICIAL LIVE")),
-                    systemImage: summary.pointsAreProjected ? "arrow.triangle.2.circlepath" : (summary.isFinal ? "checkmark.seal.fill" : "bolt.fill")
+                    scoreTitle(summary),
+                    systemImage: viewModel.scoringSnapshotNeedsRefresh ? "clock.arrow.circlepath" : (summary.pointsAreProjected ? "arrow.triangle.2.circlepath" : (summary.isFinal ? "checkmark.seal.fill" : "bolt.fill"))
                 )
                     .font(.caption.weight(.black))
                     .foregroundStyle(summary.isFinal ? FottyTheme.success : FottyTheme.accentText)
@@ -47,56 +46,68 @@ public struct FPLLiveTrackerView: View {
                     .foregroundStyle(FottyTheme.textSecondary)
             }
 
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
+            scoreLayout {
                 Text(summary.totalPoints.map(String.init) ?? "—")
                     .font(.fottyScaled(size: 42, weight: .black, design: .rounded))
                     .foregroundStyle(FottyTheme.textPrimary)
-                Text(summary.pointsAreProjected ? "projected points" : "points")
+                Text(summary.transferCost > 0
+                     ? (summary.pointsAreProjected ? "projected net points" : "net points")
+                     : (summary.pointsAreProjected ? "projected points" : "points"))
                     .font(.subheadline.weight(.bold))
                     .foregroundStyle(FottyTheme.textSecondary)
-                Spacer()
+                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 VStack(alignment: .trailing, spacing: 2) {
                     Text(summary.hasCompleteScoringData ? "\(summary.playersRemaining)" : "—")
                         .font(.title3.weight(.black))
                         .foregroundStyle(summary.playersRemaining > 0 ? FottyTheme.accentText : FottyTheme.textPrimary)
-                    Text("FIXTURES LEFT")
+                    Text("PLAYERS LEFT")
                         .font(.fottyScaled(size: 8, weight: .black))
                         .foregroundStyle(FottyTheme.textTertiary)
                 }
             }
 
-            HStack(spacing: 0) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), alignment: .leading), count: dynamicTypeSize.isAccessibilitySize ? 1 : 4), alignment: .leading, spacing: 10) {
                 metric("PLAYED", summary.hasCompleteScoringData ? "\(summary.playersPlayed)/\(summary.rows.count)" : "—")
-                Spacer()
                 metric("BONUS IN TOTAL", summary.hasCompleteScoringData ? "+\(summary.officialBonus)" : "—")
-                Spacer()
                 metric("AUTOSUBS", summary.hasCompleteScoringData ? "\(summary.displayedAutomaticSubs.count)" : "—")
-                Spacer()
-                metric("STATUS", !summary.hasCompleteScoringData ? "INCOMPLETE" : (summary.pointsAreProjected ? "PROVISIONAL" : (summary.isFinal ? "FINAL" : "UPDATING")))
+                metric("STATUS", viewModel.scoringSnapshotNeedsRefresh ? "SAVED" : (!summary.hasCompleteScoringData ? "INCOMPLETE" : (summary.pointsAreProjected ? "PROVISIONAL" : (summary.isFinal ? "FINAL" : "UPDATING"))))
             }
 
-            if !summary.hasCompleteScoringData {
-                Text("Some official player statistics are missing. Any total shown is the published official snapshot; autosub projections and player totals wait for complete data.")
+            if viewModel.scoringSnapshotNeedsRefresh {
+                Text("\(summary.pointsAreProjected ? "Provisional" : "Official") snapshot · \(viewModel.scoringSnapshotAgeDescription ?? "update time unavailable"). Waiting for a complete refresh.")
                     .font(.caption)
                     .foregroundStyle(FottyTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            if summary.pointsAreProjected, let officialPoints = summary.officialCurrentPoints,
-               let totalPoints = summary.totalPoints {
+            if !summary.hasCompleteScoringData {
+                Text("\(summary.scoringBasisDescription) Some player statistics are missing; autosub projections and player totals wait for complete data.")
+                    .font(.caption)
+                    .foregroundStyle(FottyTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if summary.transferCost > 0 || summary.officialPointsBeforeTransfers == nil {
+                Text(summary.scoringBasisDescription)
+                    .font(.caption)
+                    .foregroundStyle(FottyTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if summary.pointsAreProjected, let baseline = summary.officialNetPoints,
+               let totalPoints = summary.totalPoints, let change = summary.projectionPointChange {
+                let changeColor = change < 0 ? FottyTheme.error : (change > 0 ? FottyTheme.success : FottyTheme.textSecondary)
                 HStack(spacing: 10) {
-                    autosubScore("OFFICIAL CURRENT", points: officialPoints)
+                    autosubScore(summary.projectionBaselineLabel, points: baseline)
                     Image(systemName: "arrow.right")
                         .font(.caption.weight(.black))
                         .foregroundStyle(FottyTheme.textTertiary)
-                    autosubScore("PROVISIONAL TOTAL", points: totalPoints)
+                    autosubScore("PROJECTED NET", points: totalPoints)
                     Spacer(minLength: 0)
-                    Text(String(format: "%+d", totalPoints - officialPoints))
+                    Text(String(format: "%+d", change))
                         .font(.subheadline.weight(.black))
-                        .foregroundStyle(FottyTheme.success)
+                        .foregroundStyle(changeColor)
                         .padding(.horizontal, 9)
                         .padding(.vertical, 6)
-                        .background(FottyTheme.success.opacity(0.12))
+                        .background(changeColor.opacity(0.12))
                         .clipShape(Capsule())
                 }
                 .padding(11)
@@ -119,6 +130,13 @@ public struct FPLLiveTrackerView: View {
         )
         .clipShape(RoundedRectangle(cornerRadius: 18))
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(FottyTheme.liveAccent.opacity(0.25), lineWidth: 1))
+    }
+
+    func scoreTitle(_ summary: FPLLiveSquadSummary) -> String {
+        if !summary.hasCompleteScoringData { return "INCOMPLETE PLAYER DATA" }
+        if viewModel.scoringSnapshotNeedsRefresh { return "LAST COMPLETE UPDATE" }
+        if summary.pointsAreProjected { return "PROVISIONAL FPL TOTAL" }
+        return summary.isFinal ? "OFFICIAL RESULT" : "OFFICIAL LIVE"
     }
 
     private func autosubScore(_ label: String, points: Int) -> some View {
@@ -160,9 +178,18 @@ public struct FPLLiveTrackerView: View {
                                 badge("SUB", color: FottyTheme.accentText.opacity(0.28))
                             }
                         }
-                        Text("\(row.team.shortName) • \(row.stats.minutes)m • BPS \(row.stats.bps)\(row.stats.bonus > 0 ? " • +\(row.stats.bonus) bonus" : "")")
-                            .font(.caption2)
-                            .foregroundStyle(FottyTheme.textTertiary)
+                        HStack(spacing: 4) {
+                            TeamIdentityLabel(
+                                teamName: row.team.shortName,
+                                badgeURL: row.team.badgeURL,
+                                badgeSize: 18,
+                                font: .caption2,
+                                foregroundColor: FottyTheme.textTertiary
+                            )
+                            Text("• \(row.stats.minutes)m • BPS \(row.stats.bps)\(row.stats.bonus > 0 ? " • +\(row.stats.bonus) bonus" : "")")
+                                .font(.caption2)
+                                .foregroundStyle(FottyTheme.textTertiary)
+                        }
                     }
                     Spacer()
                     VStack(alignment: .trailing, spacing: 2) {
@@ -273,7 +300,7 @@ public struct FPLLiveTrackerView: View {
             .font(.fottyScaled(size: 8, weight: .black))
             .foregroundStyle(text == "C" ? FottyTheme.textOnAccent : FottyTheme.textPrimary)
             .padding(.horizontal, 5)
-            .frame(height: 17)
+            .padding(.vertical, 2)
             .background(color)
             .clipShape(Capsule())
     }
@@ -309,12 +336,13 @@ public struct FPLLiveTrackerView: View {
     }
 
     private var sourceDetail: String {
+        let age = viewModel.scoringSnapshotAgeDescription.map { " Scoring data updated \($0) (oldest required input)." } ?? ""
         if viewModel.liveSquadSummary?.pointsAreProjected == true {
-            return "Official event-live points plus Fotty's deterministic bench-order and captaincy rules. Pending changes remain labeled provisional."
+            return "Official event-live points plus Fotty's deterministic bench-order and captaincy rules. Pending changes remain labeled provisional." + age
         }
-        if let metadata = viewModel.resourceMetadata["eventLive"] {
-            return "Event-live snapshot: \(metadata.source.rawValue), updated \(metadata.shortAgeDescription)."
+        if let metadata = viewModel.scoringFreshness {
+            return "Complete scoring data: \(metadata.source.displayName)." + age
         }
-        return "Official event-live points, bonus and automatic substitutions appear only when that endpoint is available."
+        return "Official live points, bonus and automatic substitutions appear when FPL publishes them."
     }
 }

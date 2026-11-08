@@ -1,0 +1,14 @@
+{
+  "completedAtUTC": "2026-10-29T19:49:05.639576+00:00",
+  "normalBuildRetained": 186,
+  "ownedUITestRunnerRemovedAndAbsenceVerified": true,
+  "ownedTemporaryGateRemoved": true,
+  "ownedKeepAwakeStopped": true,
+  "ownedBuildsRunningAtCleanup": 0,
+  "privatePreferencesRawLogsScreenshotsResultsAndDerivedDataRemoved": true,
+  "diskFreeBytesBeforeCleanup": 22168326144,
+  "diskFreeBytesAfterCleanup": 22659772416,
+  "onlySmallRedactedReceiptsRetained": true,
+  "phoneTouched": false,
+  "testFlightReleased": false
+}

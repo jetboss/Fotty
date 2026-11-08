@@ -1,0 +1,274 @@
+[
+  {
+    "channel": "football",
+    "status": 200,
+    "contentType": "application/x-mpegurl; charset=utf-8",
+    "bytes": 2160,
+    "tags": [
+      "#EXTM3U",
+      "#EXT-X-VERSION",
+      "#EXT-X-MEDIA-SEQUENCE",
+      "#EXT-X-ALLOW-CACHE",
+      "#EXT-X-TARGETDURATION",
+      "#EXTINF",
+      "#EXTINF",
+      "#EXTINF",
+      "#EXTINF",
+      "#EXTINF",
+      "#EXTINF"
+    ],
+    "referenceCount": 6,
+    "targetDuration": [
+      "10"
+    ],
+    "mediaSequence": [
+      "2"
+    ],
+    "segments": [
+      {
+        "position": -3,
+        "status": 200,
+        "bytes": 2097152,
+        "contentType": "video/mp2t",
+        "probe": {
+          "programs": [
+            {
+              "streams": [
+                {
+                  "index": 0,
+                  "codec_name": "h264",
+                  "codec_type": "video",
+                  "width": 1920,
+                  "height": 1080,
+                  "start_time": "50.000000"
+                },
+                {
+                  "index": 1,
+                  "codec_name": "aac",
+                  "codec_type": "audio",
+                  "sample_rate": "48000",
+                  "channels": 2,
+                  "start_time": "50.012000"
+                }
+              ]
+            }
+          ],
+          "stream_groups": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 1920,
+              "height": 1080,
+              "start_time": "50.000000"
+            },
+            {
+              "index": 1,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "sample_rate": "48000",
+              "channels": 2,
+              "start_time": "50.012000"
+            }
+          ],
+          "format": {
+            "start_time": "50.000000",
+            "duration": "2.960000"
+          }
+        },
+        "probeExit": 0
+      },
+      {
+        "position": -2,
+        "status": 200,
+        "bytes": 2097152,
+        "contentType": "video/mp2t",
+        "probe": {
+          "programs": [
+            {
+              "streams": [
+                {
+                  "index": 0,
+                  "codec_name": "h264",
+                  "codec_type": "video",
+                  "width": 1920,
+                  "height": 1080,
+                  "start_time": "60.000000"
+                },
+                {
+                  "index": 1,
+                  "codec_name": "aac",
+                  "codec_type": "audio",
+                  "sample_rate": "48000",
+                  "channels": 2,
+                  "start_time": "60.017333"
+                }
+              ]
+            }
+          ],
+          "stream_groups": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 1920,
+              "height": 1080,
+              "start_time": "60.000000"
+            },
+            {
+              "index": 1,
+              "codec_name": "aac",
+              "codec_type": "audio",
+              "sample_rate": "48000",
+              "channels": 2,
+              "start_time": "60.017333"
+            }
+          ],
+          "format": {
+            "start_time": "60.000000",
+            "duration": "2.760000"
+          }
+        },
+        "probeExit": 0
+      }
+    ]
+  },
+  {
+    "channel": "tnt2",
+    "status": 200,
+    "contentType": "application/x-mpegurl; charset=utf-8",
+    "bytes": 2174,
+    "tags": [
+      "#EXTM3U",
+      "#EXT-X-VERSION",
+      "#EXT-X-MEDIA-SEQUENCE",
+      "#EXT-X-ALLOW-CACHE",
+      "#EXT-X-TARGETDURATION",
+      "#EXTINF",
+      "#EXTINF",
+      "#EXTINF",
+      "#EXTINF",
+      "#EXTINF",
+      "#EXTINF"
+    ],
+    "referenceCount": 6,
+    "targetDuration": [
+      "13"
+    ],
+    "mediaSequence": [
+      "48"
+    ],
+    "segments": [
+      {
+        "position": -3,
+        "status": 200,
+        "bytes": 2097152,
+        "contentType": "video/mp2t",
+        "probe": {
+          "programs": [
+            {
+              "streams": [
+                {
+                  "index": 0,
+                  "codec_name": "eac3",
+                  "codec_type": "audio",
+                  "sample_rate": "48000",
+                  "channels": 6,
+                  "start_time": "512.808000"
+                },
+                {
+                  "index": 1,
+                  "codec_name": "h264",
+                  "codec_type": "video",
+                  "width": 1920,
+                  "height": 1080,
+                  "start_time": "512.840000"
+                }
+              ]
+            }
+          ],
+          "stream_groups": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "sample_rate": "48000",
+              "channels": 6,
+              "start_time": "512.808000"
+            },
+            {
+              "index": 1,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 1920,
+              "height": 1080,
+              "start_time": "512.840000"
+            }
+          ],
+          "format": {
+            "start_time": "512.808000",
+            "duration": "1.732000"
+          }
+        },
+        "probeExit": 0
+      },
+      {
+        "position": -2,
+        "status": 200,
+        "bytes": 2097152,
+        "contentType": "video/mp2t",
+        "probe": {
+          "programs": [
+            {
+              "streams": [
+                {
+                  "index": 0,
+                  "codec_name": "eac3",
+                  "codec_type": "audio",
+                  "sample_rate": "48000",
+                  "channels": 6,
+                  "start_time": "522.408000"
+                },
+                {
+                  "index": 1,
+                  "codec_name": "h264",
+                  "codec_type": "video",
+                  "width": 1920,
+                  "height": 1080,
+                  "start_time": "522.440000"
+                }
+              ]
+            }
+          ],
+          "stream_groups": [],
+          "streams": [
+            {
+              "index": 0,
+              "codec_name": "eac3",
+              "codec_type": "audio",
+              "sample_rate": "48000",
+              "channels": 6,
+              "start_time": "522.408000"
+            },
+            {
+              "index": 1,
+              "codec_name": "h264",
+              "codec_type": "video",
+              "width": 1920,
+              "height": 1080,
+              "start_time": "522.440000"
+            }
+          ],
+          "format": {
+            "start_time": "522.408000",
+            "duration": "1.732000"
+          }
+        },
+        "probeExit": 0
+      }
+    ]
+  }
+]

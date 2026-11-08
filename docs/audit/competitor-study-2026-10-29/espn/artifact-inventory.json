@@ -1,0 +1,46 @@
+{
+  "home": {
+    "url": "https://www.espn.com/",
+    "finalURL": "https://www.espn.com/",
+    "status": 200,
+    "bytes": 262871,
+    "sha256": "6d2e2da5edb7b15619e6bcb047d1e294cd5bfcca36020d860555b965a64752f8",
+    "headers": {
+      "Content-Type": "text/html;charset=UTF-8",
+      "Date": "Thu, 29 Oct 2026 13:30:07 GMT",
+      "etag": "W/\"2dac4af4bc35512c3b32eefb9e1dbe01a2105684\""
+    },
+    "fetchedUTC": "2026-10-29T13:30:08.026107+00:00"
+  },
+  "critical": {
+    "url": "https://a.espncdn.com/redesign/0.799.1/js/espn-critical.js",
+    "finalURL": "https://a.espncdn.com/redesign/0.799.1/js/espn-critical.js",
+    "status": 200,
+    "bytes": 455874,
+    "sha256": "a2266b32fd9e0d23a9e9b2b4c1d6cf3c5318880e7a1dd41602f6f94fdedc955d",
+    "headers": {
+      "Last-Modified": "Sun, 25 Oct 2026 13:32:53 GMT",
+      "ETag": "\"02b608484a4c1dba5190c72d8b240481\"",
+      "Content-Type": "application/javascript",
+      "Date": "Thu, 29 Oct 2026 13:30:39 GMT"
+    },
+    "fetchedUTC": "2026-10-29T13:30:39.665168+00:00"
+  },
+  "acquisitionLimitBytes": 4194304,
+  "acquiredArtifactBytes": 718745,
+  "artifactExecution": false,
+  "nativeAppInspection": false,
+  "paidPlayback": false,
+  "blockedTargets": [
+    {
+      "url": "https://www.espn.com/watch/",
+      "inertFetchStatus": 404,
+      "webObserved": "JavaScript robot verification; no bypass or runtime launch"
+    },
+    {
+      "url": "https://plus.espn.com/app",
+      "inertFetchStatus": 403,
+      "webSource": "Official feature page retrieved by web search/open only; not native runtime"
+    }
+  ]
+}

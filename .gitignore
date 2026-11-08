@@ -77,3 +77,8 @@ web/public/audit_*.png
 web/public/*preview*.png
 web/public/watch_real_user.png
 FottyAndroid/screenshot_fix.png
+
+# Local agent/tool state
+.codex/
+.wrangler/
+**/.wrangler/

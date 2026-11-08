@@ -77,6 +77,7 @@ public struct FPLSquadPitchView: View {
     let draftError: (() -> String?)?
     let onResetTemplate: (() -> Void)?
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     
     @State private var currentPicks: [FPLPick]
     @State private var selectedPickID: Int? = nil
@@ -174,6 +175,11 @@ public struct FPLSquadPitchView: View {
     private var playerShirtSize: CGFloat { isCompactWidth ? 34 : 52 }
     private var playerNameplateHeight: CGFloat { nameplateHeight }
     private var playerSubplateHeight: CGFloat { fixturePlateHeight }
+    private var squadToolbarLayout: AnyLayout {
+        dynamicTypeSize >= .xxLarge
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 8))
+    }
     
     private func getScore(for element: Int) -> PlayerScore? {
         scores.first(where: { $0.player.id == element })
@@ -219,11 +225,12 @@ public struct FPLSquadPitchView: View {
                             .foregroundStyle(FottyTheme.textPrimary)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
+                            .frame(minHeight: 44)
                             .background(FottyTheme.surfaceElevated)
                             .clipShape(Capsule())
                             .overlay(Capsule().stroke(FottyTheme.accent.opacity(0.4), lineWidth: 1))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FottyPressButtonStyle())
                     }
                 }
                 .padding(12)
@@ -238,7 +245,12 @@ public struct FPLSquadPitchView: View {
             // A single compact toolbar preserves the useful pitch height on
             // narrow iPhones (including Display Zoom) without scaling the
             // whole interface or shrinking its tap targets.
-            if isCompactWidth {
+            if dynamicTypeSize >= .xxLarge {
+                VStack(alignment: .leading, spacing: 10) {
+                    squadSummaryStrip
+                    squadActionStrip
+                }
+            } else if isCompactWidth {
                 squadCompactToolbar
                     .padding(.horizontal, 2)
             } else {
@@ -496,7 +508,7 @@ public struct FPLSquadPitchView: View {
     }
 
     private var squadSummaryStrip: some View {
-        HStack(spacing: 8) {
+        squadToolbarLayout {
             Text("FORMATION")
                 .font(.fottyScaled(size: 9, weight: .black))
                 .foregroundStyle(FottyTheme.textTertiary)
@@ -507,17 +519,18 @@ public struct FPLSquadPitchView: View {
                 .frame(minHeight: 28)
                 .background(FottyTheme.accent.opacity(0.18))
                 .clipShape(Capsule())
-            Spacer(minLength: 4)
+            if dynamicTypeSize < .xxLarge { Spacer(minLength: 4) }
             Text("Cost £\(String(format: "%.1f", totalCostMillion))m")
                 .foregroundStyle(totalCostMillion <= 100 ? FottyTheme.success : FottyTheme.error)
-            Text("•")
-                .foregroundStyle(FottyTheme.textTertiary)
+            if dynamicTypeSize < .xxLarge {
+                Text("•").foregroundStyle(FottyTheme.textTertiary)
+            }
             Text("Bank £\(String(format: "%.1f", remainingBankMillion))m")
                 .foregroundStyle(FottyTheme.accentText)
         }
         .font(.fottyScaled(size: 11, weight: .semibold))
-        .lineLimit(1)
-        .minimumScaleFactor(0.85)
+        .lineLimit(dynamicTypeSize >= .xxLarge ? nil : 1)
+        .minimumScaleFactor(dynamicTypeSize >= .xxLarge ? 1 : 0.85)
     }
 
     private var squadCompactToolbar: some View {
@@ -560,7 +573,7 @@ public struct FPLSquadPitchView: View {
                     .background(FottyTheme.accent)
                     .clipShape(Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FottyPressButtonStyle())
             .accessibilityHint("Optimizes the starting eleven from the current squad")
 
             Menu {
@@ -598,7 +611,7 @@ public struct FPLSquadPitchView: View {
     }
 
     private var squadActionStrip: some View {
-        HStack(spacing: 8) {
+        squadToolbarLayout {
             Button {
                 HapticManager.impact(.heavy)
                 autoOptimizeStartingXI()
@@ -611,7 +624,7 @@ public struct FPLSquadPitchView: View {
                     .background(FottyTheme.accent)
                     .clipShape(Capsule())
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FottyPressButtonStyle())
 
             Menu {
                 ForEach(PitchDisplayChipMode.allCases) { mode in
@@ -629,7 +642,7 @@ public struct FPLSquadPitchView: View {
                 Label(pitchDisplayChip.rawValue, systemImage: "slider.horizontal.3")
                     .font(.fottyScaled(size: 10, weight: .bold))
                     .foregroundStyle(FottyTheme.accentText)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize >= .xxLarge ? nil : 1)
                     .padding(.horizontal, 10)
                     .frame(minHeight: 44)
                     .background(FottyTheme.surfaceElevated)
@@ -650,14 +663,14 @@ public struct FPLSquadPitchView: View {
                         .background(FottyTheme.surfaceElevated)
                         .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FottyPressButtonStyle())
             }
         }
         .frame(maxWidth: horizontalSizeClass == .compact ? .infinity : nil, alignment: .trailing)
     }
 
     private func resetSquadChanges() {
-        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+        withAnimation(reduceMotion ? nil : .spring(response: 0.35, dampingFraction: 0.7)) {
             currentPicks = initialPicks
             selectedPickID = nil
         }
@@ -696,7 +709,7 @@ public struct FPLSquadPitchView: View {
                             size: playerShirtSize
                         )
                         .scaleEffect(isSelected ? 1.15 : 1.0)
-                        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
+                        .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.6), value: isSelected)
                         
                         // Season goals are not a live goal event; don't badge them as one.
                         
@@ -753,7 +766,12 @@ public struct FPLSquadPitchView: View {
                             let fdrBg = FottyFixtureDifficulty.background(diff)
                             let fdrFg = FottyFixtureDifficulty.foreground(diff)
                             
-                            HStack(spacing: 2) {
+                            HStack(spacing: 3) {
+                                TeamBadgeWindow(
+                                    teamName: nextFixture.opponent.name,
+                                    badgeURL: nextFixture.opponent.badgeURL,
+                                    size: 14
+                                )
                                 Text("\(oppCode) \(location)\n\(diff)/5")
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(fdrFg)
@@ -770,7 +788,12 @@ public struct FPLSquadPitchView: View {
                                 )
                             )
                         } else {
-                            HStack(spacing: 2) {
+                            HStack(spacing: 3) {
+                                TeamBadgeWindow(
+                                    teamName: score.team.name,
+                                    badgeURL: score.team.badgeURL,
+                                    size: 14
+                                )
                                 Text(score.team.shortName)
                                     .font(.caption2.weight(.bold))
                                     .foregroundStyle(Color.black.opacity(0.7))
@@ -803,7 +826,8 @@ public struct FPLSquadPitchView: View {
                 }
                 .frame(width: playerCardWidth)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FottyPressButtonStyle())
+            .accessibilityIdentifier("fpl-squad-player-\(pick.element)")
             .accessibilityLabel(playerAccessibilityLabel(score: score, pick: pick))
             .accessibilityHint("Opens player stats and squad actions")
             .accessibilityAddTraits(isSelected ? [.isSelected] : [])
@@ -819,32 +843,64 @@ public struct FPLSquadPitchView: View {
                     .accessibilityAddTraits(.isHeader)
                 ForEach(isBench ? benchPicks : startingPicks.sorted { $0.position < $1.position }) { pick in
                     if let score = getScore(for: pick.element) {
+                        let isSelected = selectedPickID == pick.element
                         Button { handlePlayerTap(pick) } label: {
                             VStack(alignment: .leading, spacing: 6) {
                                 Text(score.player.webName + (pick.isCaptain ? " · Captain" : (pick.isViceCaptain ? " · Vice-captain" : "")))
                                     .font(.headline)
                                     .foregroundStyle(FottyTheme.textPrimary)
-                                Text("\(score.team.name) · \(score.player.formattedCost)")
-                                    .font(.subheadline)
-                                    .foregroundStyle(FottyTheme.textSecondary)
-                                if let fixture = score.upcomingFixtures.first {
-                                    Text("\(fixture.opponent.shortName) · \(fixture.isHome ? "Home" : "Away") · \(FottyFixtureDifficulty.label(fixture.difficulty))")
+                                HStack(spacing: 5) {
+                                    TeamIdentityLabel(
+                                        teamName: score.team.name,
+                                        badgeURL: score.team.badgeURL,
+                                        badgeSize: 20,
+                                        font: .subheadline,
+                                        foregroundColor: FottyTheme.textSecondary
+                                    )
+                                    Text("· \(score.player.formattedCost)")
                                         .font(.subheadline)
                                         .foregroundStyle(FottyTheme.textSecondary)
                                 }
+                                if let fixture = score.upcomingFixtures.first {
+                                    HStack(spacing: 5) {
+                                        TeamIdentityLabel(
+                                            teamName: fixture.opponent.shortName,
+                                            badgeURL: fixture.opponent.badgeURL,
+                                            badgeSize: 20,
+                                            font: .subheadline,
+                                            foregroundColor: FottyTheme.textSecondary
+                                        )
+                                        Text("· \(fixture.isHome ? "Home" : "Away") · \(FottyFixtureDifficulty.label(fixture.difficulty))")
+                                            .font(.subheadline)
+                                            .foregroundStyle(FottyTheme.textSecondary)
+                                    }
+                                }
                                 if pitchDisplayChip != .fixture {
                                     Text(lensText(for: score, pick: pick)).font(.subheadline).foregroundStyle(FottyTheme.accentText)
+                                }
+                                if isSelected {
+                                    Label("Selected for swap", systemImage: "arrow.left.arrow.right")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(FottyTheme.accentText)
                                 }
                             }
                             .multilineTextAlignment(.leading)
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(14)
-                            .background(FottyTheme.surface)
+                            .background(isSelected ? FottyTheme.accent.opacity(0.12) : FottyTheme.surface)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .strokeBorder(isSelected ? FottyTheme.accentText : .clear, lineWidth: 2)
+                            }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FottyPressButtonStyle())
+                        .accessibilityIdentifier("fpl-squad-player-\(pick.element)")
                         .accessibilityLabel(playerAccessibilityLabel(score: score, pick: pick))
-                        .accessibilityHint("Opens player stats and squad actions")
+                        .accessibilityHint(selectedPickID == nil
+                            ? "Opens player stats and squad actions"
+                            : (isSelected ? "Cancels this swap selection" : "Choose this player for the slot swap"))
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
                     }
                 }
             }
@@ -1035,6 +1091,8 @@ public struct FPLSquadPitchView: View {
     
     private func replacePlayerInSquad(oldElementId: Int, newElementId: Int) -> Bool {
         guard let idx = currentPicks.firstIndex(where: { $0.element == oldElementId }) else { return false }
+        guard newElementId != oldElementId,
+              !currentPicks.contains(where: { $0.element == newElementId }) else { return false }
         var updated = currentPicks
         let old = currentPicks[idx]
         updated[idx] = FPLPick(
@@ -1102,12 +1160,18 @@ public struct FPLSquadPitchView: View {
 // MARK: - Official Player Deep-Dive Sheet
 
 public struct FPLPlayerDetailSheet: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let score: PlayerScore
     let onMakeCaptain: () -> Void
     let onMakeViceCaptain: () -> Void
     let onReplace: () -> Void
     
     @Environment(\.dismiss) private var dismiss
+    private var detailActionLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 8))
+    }
     
     private var photoURL: URL? {
         if let code = score.player.code {
@@ -1170,9 +1234,18 @@ public struct FPLPlayerDetailSheet: View {
                         .font(.fottyScaled(size: 18, weight: .black))
                         .foregroundStyle(FottyTheme.textPrimary)
                     
-                    Text("\(score.team.name) • \(score.player.positionName)")
-                        .font(.fottyScaled(size: 12, weight: .bold))
-                        .foregroundStyle(FottyTheme.accentText)
+                    HStack(spacing: 5) {
+                        TeamIdentityLabel(
+                            teamName: score.team.name,
+                            badgeURL: score.team.badgeURL,
+                            badgeSize: 20,
+                            font: .fottyScaled(size: 12, weight: .bold),
+                            foregroundColor: FottyTheme.accentText
+                        )
+                        Text("• \(score.player.positionName)")
+                            .font(.fottyScaled(size: 12, weight: .bold))
+                            .foregroundStyle(FottyTheme.accentText)
+                    }
                     
                     HStack(spacing: 8) {
                         Text(score.player.formattedCost)
@@ -1191,7 +1264,7 @@ public struct FPLPlayerDetailSheet: View {
                 Spacer()
             }
             
-            HStack(spacing: 8) {
+            detailActionLayout {
                 Button {
                     onMakeCaptain()
                     dismiss()
@@ -1201,11 +1274,11 @@ public struct FPLPlayerDetailSheet: View {
                         .foregroundStyle(.black)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                         .background(Color.yellow)
                         .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FottyPressButtonStyle())
                 
                 Button {
                     onMakeViceCaptain()
@@ -1216,11 +1289,11 @@ public struct FPLPlayerDetailSheet: View {
                         .foregroundStyle(FottyTheme.textPrimary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                         .background(FottyTheme.surfaceElevated)
                         .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FottyPressButtonStyle())
                 
                 Button {
                     dismiss()
@@ -1231,11 +1304,11 @@ public struct FPLPlayerDetailSheet: View {
                         .foregroundStyle(FottyTheme.accentText)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 8)
-                        .frame(maxWidth: .infinity)
+                        .frame(maxWidth: .infinity, minHeight: 44)
                         .background(FottyTheme.accent.opacity(0.15))
                         .clipShape(Capsule())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FottyPressButtonStyle())
             }
         }
         .padding(16)
@@ -1250,7 +1323,7 @@ public struct FPLPlayerDetailSheet: View {
                 .font(.fottyScaled(size: 11, weight: .black))
                 .foregroundStyle(FottyTheme.textSecondary)
             
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0)), count: dynamicTypeSize.isAccessibilitySize ? 1 : 3), spacing: 10) {
                 statTile(title: "FPL next-GW estimate", value: metric(score.player.officialExpectedPointsNext))
                 statTile(title: "Points / match", value: score.player.pointsPerGame)
                 statTile(title: "xGI / 90", value: metric(score.player.expectedGoalInvolvementsPer90))
@@ -1291,9 +1364,12 @@ public struct FPLPlayerDetailSheet: View {
                             .font(.fottyScaled(size: 9, weight: .bold))
                             .foregroundStyle(FottyTheme.textTertiary)
                         
-                        Text(fix.opponent.shortName)
-                            .font(.fottyScaled(size: 11, weight: .black))
-                            .foregroundStyle(FottyTheme.textPrimary)
+                        TeamIdentityLabel(
+                            teamName: fix.opponent.shortName,
+                            badgeURL: fix.opponent.badgeURL,
+                            badgeSize: 18,
+                            font: .fottyScaled(size: 11, weight: .black)
+                        )
                         
                         Text(fix.isHome ? "(H)" : "(A)")
                             .font(.fottyScaled(size: 8, weight: .medium))
@@ -1351,6 +1427,7 @@ public struct FPLPlayerDetailSheet: View {
 // MARK: - Player Picker Sheet
 
 public struct FPLPlayerPickerSheet: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let initialPositionType: Int // 1: GKP, 2: DEF, 3: MID, 4: FWD, 0: All
     let currentElementId: Int
     let scores: [PlayerScore]
@@ -1445,6 +1522,11 @@ public struct FPLPlayerPickerSheet: View {
                                 .font(.fottyScaled(size: 10, weight: .black))
                                 .foregroundStyle(FottyTheme.textTertiary)
                             
+                            TeamBadgeWindow(
+                                teamName: cur.team.name,
+                                badgeURL: cur.team.badgeURL,
+                                size: 20
+                            )
                             Text("\(cur.player.webName) (\(cur.team.shortName) • \(cur.player.formattedCost))")
                                 .font(.fottyScaled(size: 12, weight: .bold))
                                 .foregroundStyle(FottyTheme.accentText)
@@ -1457,7 +1539,7 @@ public struct FPLPlayerPickerSheet: View {
                     
                     // Position filters are only useful when not replacing a player.
                     if initialPositionType == 0 {
-                    HStack(spacing: 6) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 6), count: dynamicTypeSize.isAccessibilitySize ? 2 : 5), spacing: 6) {
                         positionTabButton(title: "All", type: 0)
                         positionTabButton(title: "GKP", type: 1)
                         positionTabButton(title: "DEF", type: 2)
@@ -1482,7 +1564,10 @@ public struct FPLPlayerPickerSheet: View {
                             } label: {
                                 Image(systemName: "xmark.circle.fill")
                                     .foregroundStyle(FottyTheme.textTertiary)
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .contentShape(Rectangle())
                             }
+                            .accessibilityLabel("Clear player search")
                         }
                     }
                     .padding(10)
@@ -1513,6 +1598,7 @@ public struct FPLPlayerPickerSheet: View {
                                     }
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
+                                    .frame(minHeight: 44)
                                     .background(isSelected ? FottyTheme.accent : FottyTheme.surface)
                                     .foregroundStyle(isSelected ? FottyTheme.textOnAccent : FottyTheme.textSecondary)
                                     .clipShape(Capsule())
@@ -1520,7 +1606,7 @@ public struct FPLPlayerPickerSheet: View {
                                         Capsule().stroke(isSelected ? Color.clear : FottyTheme.border, lineWidth: 1)
                                     )
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(FottyPressButtonStyle())
                             }
                             
                             Divider()
@@ -1535,6 +1621,7 @@ public struct FPLPlayerPickerSheet: View {
                                     .font(.fottyScaled(size: 11, weight: selectedTeamId == nil ? .bold : .medium))
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
+                                    .frame(minHeight: 44)
                                     .background(selectedTeamId == nil ? FottyTheme.surfaceElevated : FottyTheme.surface)
                                     .foregroundStyle(selectedTeamId == nil ? FottyTheme.textPrimary : FottyTheme.textSecondary)
                                     .clipShape(Capsule())
@@ -1542,7 +1629,7 @@ public struct FPLPlayerPickerSheet: View {
                                         Capsule().stroke(selectedTeamId == nil ? FottyTheme.accent.opacity(0.4) : FottyTheme.border, lineWidth: 1)
                                     )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(FottyPressButtonStyle())
                             
                             ForEach(teams) { team in
                                 let isSelected = selectedTeamId == team.id
@@ -1550,10 +1637,18 @@ public struct FPLPlayerPickerSheet: View {
                                     HapticManager.impact(.light)
                                     selectedTeamId = isSelected ? nil : team.id
                                 } label: {
-                                    Text(team.shortName)
-                                        .font(.fottyScaled(size: 11, weight: isSelected ? .bold : .medium))
+                                    HStack(spacing: 5) {
+                                        TeamBadgeWindow(
+                                            teamName: team.name,
+                                            badgeURL: team.badgeURL,
+                                            size: 18
+                                        )
+                                        Text(team.shortName)
+                                            .font(.fottyScaled(size: 11, weight: isSelected ? .bold : .medium))
+                                    }
                                         .padding(.horizontal, 10)
                                         .padding(.vertical, 6)
+                                        .frame(minHeight: 44)
                                         .background(isSelected ? FottyTheme.surfaceElevated : FottyTheme.surface)
                                         .foregroundStyle(isSelected ? FottyTheme.accentText : FottyTheme.textSecondary)
                                         .clipShape(Capsule())
@@ -1561,7 +1656,7 @@ public struct FPLPlayerPickerSheet: View {
                                             Capsule().stroke(isSelected ? FottyTheme.accent : FottyTheme.border, lineWidth: 1)
                                         )
                                 }
-                                .buttonStyle(.plain)
+                                .buttonStyle(FottyPressButtonStyle())
                             }
                         }
                         .padding(.horizontal, 16)
@@ -1573,6 +1668,8 @@ public struct FPLPlayerPickerSheet: View {
                             .foregroundStyle(FottyTheme.error)
                             .fixedSize(horizontal: false, vertical: true)
                             .padding(.horizontal, 16)
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel(selectionError)
                             .accessibilityIdentifier("fpl-player-selection-error")
                     }
 
@@ -1602,10 +1699,11 @@ public struct FPLPlayerPickerSheet: View {
                                     .foregroundStyle(FottyTheme.accentText)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 8)
+                                    .frame(minHeight: 44)
                                     .background(FottyTheme.surfaceElevated)
                                     .clipShape(Capsule())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(FottyPressButtonStyle())
                             .padding(.top, 6)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1624,7 +1722,7 @@ public struct FPLPlayerPickerSheet: View {
                                     } label: {
                                         playerCardRow(score, isCurrent: isCurrent, isGK: isGK)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(FottyPressButtonStyle())
                                     .accessibilityIdentifier("fpl-replacement-\(score.player.id)")
                                 }
                             }
@@ -1658,7 +1756,7 @@ public struct FPLPlayerPickerSheet: View {
             Text(title)
                 .font(.fottyScaled(size: 11, weight: isSelected ? .black : .bold))
                 .foregroundStyle(isSelected ? FottyTheme.textOnAccent : FottyTheme.textPrimary)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 44)
                 .padding(.vertical, 7)
                 .background(isSelected ? FottyTheme.accent : FottyTheme.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -1667,7 +1765,8 @@ public struct FPLPlayerPickerSheet: View {
                         .stroke(isSelected ? Color.clear : FottyTheme.border, lineWidth: 1)
                 )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FottyPressButtonStyle())
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
     
     @ViewBuilder
@@ -1700,7 +1799,14 @@ public struct FPLPlayerPickerSheet: View {
                 }
                 
                 HStack(spacing: 4) {
-                    Text("\(score.team.name) • \(score.player.positionName)")
+                    TeamIdentityLabel(
+                        teamName: score.team.name,
+                        badgeURL: score.team.badgeURL,
+                        badgeSize: 18,
+                        font: .fottyScaled(size: 11, weight: .medium),
+                        foregroundColor: FottyTheme.textSecondary
+                    )
+                    Text("• \(score.player.positionName)")
                     
                     if let nextFixture = score.upcomingFixtures.first {
                         Text("•")

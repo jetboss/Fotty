@@ -1,0 +1,11 @@
+{
+  "id": "streamvix-sports-extension",
+  "name": "SV sources",
+  "providerCode": "streamvix",
+  "version": "1.0.0",
+  "author": "Fotty Core",
+  "description": "Optional direct deliveries for corroborated football fixtures. Off by default.",
+  "iconName": "rectangle.stack.badge.play.fill",
+  "resolutionMode": "native",
+  "allowedDomains": ["p7.streamhostingcdn.top"]
+}

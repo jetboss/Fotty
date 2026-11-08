@@ -263,13 +263,68 @@ test("published official autosubs prevent a competing projection", () => {
 
 test("deducts transfer cost from a provisional rules total", () => {
   const input = scoringFixture();
-  input.picks.entry_history.points = 46;
+  input.picks.entry_history.points = 50;
   input.picks.entry_history.event_transfers_cost = 4;
   const scoring = resolveFplScoring(input);
 
   assert.equal(scoring.transfer_cost, 4);
   assert.equal(scoring.computed_published_points, 46);
   assert.equal(scoring.projected_points_after_safe_autosubs, 60);
+  assert.equal(scoring.official_current_points, 50);
+  assert.equal(scoring.official_points_before_transfers, 50);
+  assert.equal(scoring.official_net_points, 46);
+  const answer = deterministicFplScoringResponse(scoring).answer;
+  assert.match(answer, /50 points before transfers/);
+  assert.match(answer, /46 net points/);
+  assert.match(answer, /projects \*\*60 points\*\* after the 4-point transfer cost/);
+});
+
+test("published current and final GW points preserve raw evidence but display net after hits", () => {
+  for (const final of [false, true]) {
+    const input = scoringFixture({ fixtureComplete: false });
+    input.event.finished = final;
+    input.event.data_checked = final;
+    input.picks.entry_history.points = 50;
+    input.picks.entry_history.event_transfers_cost = 4;
+    const scoring = resolveFplScoring(input);
+    assert.equal(scoring.official_current_points, 50);
+    assert.equal(scoring.official_net_points, 46);
+    assert.equal(scoring.displayed_points, 46);
+    assert.equal(scoring.projected_points_after_safe_autosubs, null);
+    const answer = deterministicFplScoringResponse(scoring).answer;
+    assert.match(answer, /50 points before transfers/);
+    assert.match(answer, /46 net points/);
+    assert.doesNotMatch(answer, /50 points\*\* after/);
+  }
+});
+
+test("official autosubs, missing published total and negative net avoid double transfer deduction", () => {
+  const official = scoringFixture();
+  official.picks.automatic_subs = [{ element_in: 12, element_out: 1 }];
+  official.picks.entry_history.points = 64;
+  official.picks.entry_history.event_transfers_cost = 4;
+  const scoring = resolveFplScoring(official);
+  assert.equal(scoring.displayed_points, 60);
+  assert.match(deterministicFplScoringResponse(scoring).answer, /64 points before transfers/);
+  assert.match(deterministicFplScoringResponse(scoring).answer, /60 net points/);
+  const fallback = scoringFixture({ fixtureComplete: false });
+  delete fallback.picks.entry_history.points;
+  fallback.picks.entry_history.event_transfers_cost = 4;
+  assert.equal(resolveFplScoring(fallback).computed_published_points, 46);
+  assert.equal(resolveFplScoring(fallback).displayed_points, 46);
+  fallback.picks.entry_history.points = 2;
+  fallback.picks.entry_history.event_transfers_cost = 8;
+  assert.equal(resolveFplScoring(fallback).displayed_points, -6);
+});
+
+test("incomplete scoring labels independently published points before hits without inventing a complete total", () => {
+  const input = scoringFixture();
+  input.live.elements = [];
+  input.picks.entry_history.event_transfers_cost = 4;
+  const result = deterministicFplScoringResponse(resolveFplScoring(input));
+  assert.equal(result.confidence, "low");
+  assert.match(result.answer, /50 points before transfer costs/);
+  assert.match(result.answer, /incomplete/);
 });
 
 test("routes current total and automatic-substitution questions to deterministic scoring", () => {
@@ -279,10 +334,10 @@ test("routes current total and automatic-substitution questions to deterministic
 });
 
 test("direct current-score wording stays factual without swallowing future strategy", () => {
-  for (const query of ["What is my current total?", "What are my current points?", "Show my live score", "What's my live gameweek total?", "What’s my current total?"]) {
+  for (const query of ["What is my current total?", "What are my current points?", "Show my live score", "What's my live gameweek total?", "What’s my current total?", "What are my total points?", "What is my total?", "Check my points"]) {
     assert.equal(isFplScoringQuestion(query), true, query);
   }
-  for (const query of ["How can I improve my score next week?", "What is my projected total next week?", "Who should I captain?", "Should I roll or take a hit?"]) {
+  for (const query of ["How can I improve my score next week?", "What is my projected total next week?", "Who should I captain?", "Should I roll or take a hit?", "Predict my gameweek points", "What are my expected points?", "What were my points last gameweek?"]) {
     assert.equal(isFplScoringQuestion(query), false, query);
   }
 });

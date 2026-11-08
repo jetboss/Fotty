@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-01",
+  "build": "219",
+  "device": "Jet iPad",
+  "normalApp": true,
+  "homeRefreshNotice": {
+    "seenImmediatelyAfterLaunch": true,
+    "clearedWithoutDismissalOrManualRefresh": true,
+    "observationWindowUTC": "20:26\u201320:27",
+    "persistentThroughoutCheck": false
+  },
+  "football": {
+    "fixture": "Juventus\u2013Napoli",
+    "competition": "Serie A",
+    "kickoffUTC": "2026-11-01T19:45:00Z",
+    "statusReceipt": "219-current-football-status.json",
+    "entry": "Home existing-match Watch",
+    "selectedSource": "TV4",
+    "sourceFamily": "reviewedtv",
+    "programmeObserved": "ESPN3 JUV 0\u20130 NAP",
+    "visibleProgrammeClock": [
+      "42:03",
+      "43:08",
+      "43:39"
+    ],
+    "discovery": {
+      "CS": "exact_fixture_match",
+      "AS": "exact_fixture_match",
+      "Flix": "exact_fixture_match",
+      "pickerChoices": 14
+    },
+    "initialTransportFailureUTC": "2026-11-01T20:27:24.450368Z",
+    "automaticRetryUTC": "2026-11-01T20:27:24.485434Z",
+    "nativeDecodedUTC": "2026-11-01T20:27:32.026261Z",
+    "nativePositiveContinuityUTC": "2026-11-01T20:29:02.460499Z",
+    "decodedHoldSeconds": 90.434238,
+    "sourcePickerOpenedWithoutStoppingPlayback": true,
+    "manualSourceChangeOrRetry": false,
+    "result": "passed normal Watch correct-programme advancing hold; does not qualify every alternative"
+  },
+  "StartingPresentation": {
+    "automatedTests": "passed",
+    "physicalObservation": "not observed: publisher had advanced current fixtures to LIVE by installation"
+  },
+  "willow": "failed before decoded video; separate219-willow-failed-receipt.json; original218 failure retained",
+  "phoneFPLMultiTestFlight": "untouched"
+}

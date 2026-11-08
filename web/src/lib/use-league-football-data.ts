@@ -29,8 +29,14 @@ function readCache(league: FootballLeagueTab, includeScorers: boolean): LeagueFo
   const entry = cache.get(cacheKey(league, includeScorers));
   if (!entry) return null;
   if (Date.now() - entry.fetchedAt > FOOTBALL_STANDINGS_CACHE_MS) return null;
-  const { fetchedAt: _f, ...state } = entry;
-  return state;
+  return {
+    standings: entry.standings,
+    scorers: entry.scorers,
+    loading: entry.loading,
+    configured: entry.configured,
+    message: entry.message,
+    error: entry.error,
+  };
 }
 
 function writeCache(league: FootballLeagueTab, includeScorers: boolean, state: LeagueFootballDataState) {
@@ -66,11 +72,17 @@ export function useLeagueFootballData(league: FootballLeagueTab, includeScorers 
     let cancelled = false;
     const cached = readCache(debouncedLeague, includeScorers);
     if (cached) {
-      setState(cached);
-      return;
+      queueMicrotask(() => {
+        if (!cancelled) setState(cached);
+      });
+      return () => {
+        cancelled = true;
+      };
     }
 
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    queueMicrotask(() => {
+      if (!cancelled) setState((prev) => ({ ...prev, loading: true, error: null }));
+    });
 
     const query = includeScorers ? "&scorers=1" : "";
     fetch(`/api/football/standings?league=${encodeURIComponent(debouncedLeague)}${query}`)

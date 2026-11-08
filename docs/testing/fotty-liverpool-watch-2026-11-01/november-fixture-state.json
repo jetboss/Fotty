@@ -1,0 +1,605 @@
+{
+  "checkedAtUTC": "2026-11-01T18:58:07.033Z",
+  "sports": {
+    "status": 200,
+    "keys": [
+      "schemaVersion",
+      "complete",
+      "checkedAt",
+      "sourceStatus",
+      "fixtures",
+      "coverage",
+      "revision"
+    ],
+    "sourceStatus": "partial",
+    "coverage": [
+      {
+        "sport": "football",
+        "competitionId": "premier-league",
+        "competitionName": "Premier League",
+        "status": "covered",
+        "checkedAt": "2026-11-01T18:55:23.251Z",
+        "fixtureCount": 20,
+        "pendingFixtureCount": 0,
+        "nextStart": "2026-11-02T20:00:00.000Z",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": "2026-11-01T18:55:23.251Z",
+          "lastSuccessAt": "2026-11-01T18:55:23.251Z",
+          "conflict": false
+        }
+      },
+      {
+        "sport": "football",
+        "competitionId": "champions-league",
+        "competitionName": "UEFA Champions League",
+        "status": "covered",
+        "checkedAt": "2026-11-01T18:55:23.251Z",
+        "fixtureCount": 18,
+        "pendingFixtureCount": 0,
+        "nextStart": "2026-11-03T17:45:00.000Z",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": "2026-11-01T18:55:23.251Z",
+          "lastSuccessAt": "2026-11-01T18:55:23.251Z",
+          "conflict": false
+        }
+      },
+      {
+        "sport": "football",
+        "competitionId": "la-liga",
+        "competitionName": "La Liga",
+        "status": "covered",
+        "checkedAt": "2026-11-01T18:55:23.251Z",
+        "fixtureCount": 19,
+        "pendingFixtureCount": 0,
+        "nextStart": "2026-11-01T20:00:00.000Z",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": "2026-11-01T18:55:23.251Z",
+          "lastSuccessAt": "2026-11-01T18:55:23.251Z",
+          "conflict": false
+        }
+      },
+      {
+        "sport": "football",
+        "competitionId": "serie-a",
+        "competitionName": "Serie A",
+        "status": "covered",
+        "checkedAt": "2026-11-01T18:55:23.251Z",
+        "fixtureCount": 20,
+        "pendingFixtureCount": 0,
+        "nextStart": "2026-11-01T19:45:00.000Z",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": "2026-11-01T18:55:23.251Z",
+          "lastSuccessAt": "2026-11-01T18:55:23.251Z",
+          "conflict": false
+        }
+      },
+      {
+        "sport": "football",
+        "competitionId": "bundesliga",
+        "competitionName": "Bundesliga",
+        "status": "covered",
+        "checkedAt": "2026-11-01T18:55:23.251Z",
+        "fixtureCount": 17,
+        "pendingFixtureCount": 0,
+        "nextStart": "2026-11-06T19:30:00.000Z",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": "2026-11-01T18:55:23.251Z",
+          "lastSuccessAt": "2026-11-01T18:55:23.251Z",
+          "conflict": false
+        }
+      },
+      {
+        "sport": "football",
+        "competitionId": "ligue-1",
+        "competitionName": "Ligue 1",
+        "status": "covered",
+        "checkedAt": "2026-11-01T18:55:23.251Z",
+        "fixtureCount": 15,
+        "pendingFixtureCount": 0,
+        "nextStart": "2026-11-01T19:45:00.000Z",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": "2026-11-01T18:55:23.251Z",
+          "lastSuccessAt": "2026-11-01T18:55:23.251Z",
+          "conflict": false
+        }
+      },
+      {
+        "sport": "football",
+        "competitionId": "carabao-cup",
+        "competitionName": "Carabao Cup",
+        "status": "unavailable",
+        "checkedAt": "2026-10-30T21:50:04.959Z",
+        "fixtureCount": 1,
+        "pendingFixtureCount": 0,
+        "sync": {
+          "consecutiveFailures": 417,
+          "lastAttemptAt": "2026-11-01T18:55:23.255Z",
+          "lastSuccessAt": "2026-10-30T21:50:04.959Z",
+          "conflict": false,
+          "failure": {
+            "stage": "collection",
+            "code": "upstream-unavailable",
+            "kind": "Error",
+            "httpStatus": 404
+          }
+        }
+      },
+      {
+        "sport": "baseball",
+        "competitionId": "mlb",
+        "competitionName": "Major League Baseball",
+        "status": "covered",
+        "checkedAt": "2026-11-01T15:54:12.915Z",
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": "2026-11-01T15:54:12.915Z",
+          "lastSuccessAt": "2026-11-01T15:54:12.915Z",
+          "conflict": false
+        }
+      },
+      {
+        "sport": "hockey",
+        "competitionId": "nhl",
+        "competitionName": "National Hockey League",
+        "status": "covered",
+        "checkedAt": "2026-11-01T18:55:23.252Z",
+        "fixtureCount": 63,
+        "pendingFixtureCount": 0,
+        "nextStart": "2026-11-01T20:30:00.000Z",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": "2026-11-01T18:55:23.252Z",
+          "lastSuccessAt": "2026-11-01T18:55:23.252Z",
+          "conflict": false
+        }
+      },
+      {
+        "sport": "basketball",
+        "competitionId": "wnba",
+        "competitionName": "Women's National Basketball Association",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "The league CDN does not return structured data to the cloud fixture service; activation requires verified source access.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "basketball",
+        "competitionId": "nba",
+        "competitionName": "National Basketball Association",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "american-football",
+        "competitionId": "nfl",
+        "competitionName": "National Football League",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "american-football",
+        "competitionId": "college-football",
+        "competitionName": "NCAA Football",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "basketball",
+        "competitionId": "college-basketball-men",
+        "competitionName": "NCAA Division I Men's Basketball",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "basketball",
+        "competitionId": "college-basketball-women",
+        "competitionName": "NCAA Division I Women's Basketball",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "football",
+        "competitionId": "mls",
+        "competitionName": "Major League Soccer",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "tennis",
+        "competitionId": "atp",
+        "competitionName": "ATP men's singles and doubles",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "tennis",
+        "competitionId": "wta",
+        "competitionName": "WTA women's singles and doubles",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "golf",
+        "competitionId": "pga",
+        "competitionName": "PGA Tour",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "golf",
+        "competitionId": "lpga",
+        "competitionName": "LPGA Tour",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "golf",
+        "competitionId": "dp-world-tour",
+        "competitionName": "DP World Tour",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "motorsport",
+        "competitionId": "formula-1",
+        "competitionName": "Formula 1",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "motorsport",
+        "competitionId": "indycar",
+        "competitionName": "IndyCar Series",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "motorsport",
+        "competitionId": "nascar-cup",
+        "competitionName": "NASCAR Cup Series",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "fight",
+        "competitionId": "ufc",
+        "competitionName": "Ultimate Fighting Championship",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "rugby",
+        "competitionId": "rugby-prem",
+        "competitionName": "Prem Rugby",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "rugby",
+        "competitionId": "rugby-urc",
+        "competitionName": "United Rugby Championship",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "rugby",
+        "competitionId": "rugby-top14",
+        "competitionName": "French Top 14",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "rugby",
+        "competitionId": "nrl",
+        "competitionName": "National Rugby League",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "afl",
+        "competitionId": "afl",
+        "competitionName": "Australian Football League",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "This public website feed is awaiting separate source-access review.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "fight",
+        "competitionId": "boxing",
+        "competitionName": "Boxing",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "No verified complete public schedule with explicit UTC start times; ESPN does not expose a boxing scoreboard league.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      },
+      {
+        "sport": "darts",
+        "competitionId": "pdc",
+        "competitionName": "PDC darts",
+        "status": "unsupported",
+        "checkedAt": null,
+        "fixtureCount": 0,
+        "pendingFixtureCount": 0,
+        "reason": "The official PDC feed exposes local startDate/startTime without a verified timezone; bounded date filtering and live-status semantics need verification.",
+        "sync": {
+          "consecutiveFailures": 0,
+          "lastAttemptAt": null,
+          "lastSuccessAt": null,
+          "conflict": false
+        }
+      }
+    ],
+    "fixtureCount": 173
+  },
+  "cricket": {
+    "status": 200,
+    "keys": [
+      "schemaVersion",
+      "complete",
+      "checkedAt",
+      "revision",
+      "sourceStatus",
+      "fixtures",
+      "coverage",
+      "sync"
+    ],
+    "sourceStatus": "partial",
+    "sync": {
+      "consecutiveFailures": 5786,
+      "cohorts": {
+        "west-indies": {
+          "consecutiveFailures": 1592,
+          "lastAttemptAt": "2026-11-01T18:55:23.256Z",
+          "lastSuccessAt": "2026-10-24T23:50:39.651Z",
+          "failure": {
+            "stage": "admission",
+            "code": "kickoff-unconfirmed"
+          }
+        },
+        "icc": {
+          "consecutiveFailures": 5786,
+          "lastAttemptAt": "2026-11-01T18:55:23.256Z",
+          "lastSuccessAt": "2026-10-03T04:51:20.153Z",
+          "failure": {
+            "stage": "admission",
+            "code": "kickoff-unconfirmed"
+          }
+        }
+      },
+      "lastAttemptAt": "2026-11-01T18:55:23.256Z",
+      "lastSuccessAt": "2026-10-03T04:51:20.153Z"
+    },
+    "coverage": [
+      {
+        "competitionId": "cpl",
+        "competitionName": "Caribbean Premier League",
+        "status": "offseason",
+        "checkedAt": "2026-11-01T18:55:23.256Z",
+        "fixtureCount": 0,
+        "expectedFixtureCount": 0
+      },
+      {
+        "competitionId": "west-indies",
+        "competitionName": "West Indies internationals",
+        "status": "unavailable",
+        "checkedAt": "2026-10-24T23:50:39.651Z",
+        "fixtureCount": 2,
+        "expectedFixtureCount": 2,
+        "pendingFixtureCount": 0,
+        "nextStart": "2026-10-28T04:00:00.000Z"
+      },
+      {
+        "competitionId": "icc",
+        "competitionName": "International cricket",
+        "status": "unavailable",
+        "checkedAt": "2026-10-03T04:51:20.153Z",
+        "fixtureCount": 70,
+        "expectedFixtureCount": 70,
+        "pendingFixtureCount": 0,
+        "nextStart": "2026-10-03T05:00:00.000Z"
+      }
+    ],
+    "fixtureCount": 72
+  }
+}

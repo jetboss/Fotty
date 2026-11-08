@@ -14,7 +14,6 @@ import { NoStreamsAvailableState } from "./NoStreamsAvailableState";
 import { PlaybackErrorPanel } from "./PlaybackErrorPanel";
 
 interface MatchStreamHubV2Props {
-  mode: "event" | "p2p";
   matchId?: string;
   eventStreams?: EventStreamVariant[];
   selectedEventIndex?: number;
@@ -30,7 +29,6 @@ interface MatchStreamHubV2Props {
 }
 
 export function MatchStreamHubV2({
-  mode,
   matchId,
   eventStreams,
   selectedEventIndex = 0,
@@ -44,9 +42,8 @@ export function MatchStreamHubV2({
   onBrowseLive,
   onRefreshEventStreams,
 }: MatchStreamHubV2Props) {
-  const guide =
-    mode === "event" ? rankEventStreamGuide(eventStreams || [], matchId) : null;
-  const feedCount = mode === "event" ? eventStreams?.length || 0 : 1;
+  const guide = rankEventStreamGuide(eventStreams || [], matchId);
+  const feedCount = eventStreams?.length || 0;
   const hasMultipleFeeds = feedCount > 1;
   const showRecovery =
     Boolean(playbackError) || Boolean(failedEventSourceIds?.length) || Boolean(loadError);
@@ -57,7 +54,7 @@ export function MatchStreamHubV2({
       ? pickBackupAfterFailure(guide, failedSource?.id, failedEventSourceIds)
       : null;
 
-  if (mode === "event" && !isLoading && !loadError && feedCount === 0) {
+  if (!isLoading && !loadError && feedCount === 0) {
     return (
       <section className="bg-[var(--v2-background)] px-4 py-4">
         <NoStreamsAvailableState onRefresh={onRefreshEventStreams} lastCheckedAt={lastCheckedAt} />

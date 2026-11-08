@@ -1,0 +1,21 @@
+{
+  "build": 211,
+  "channel": "CBS Sports Golazo Network",
+  "outcome": "failed-before-decoded-picture",
+  "manualRetries": 0,
+  "evidence": {
+    "source": "TV16",
+    "source_family": "reviewedtv",
+    "last_observed_stage": "preparing",
+    "native_error_domain": "url",
+    "native_error_code": "-1102",
+    "native_log_code": "-12660",
+    "relay_http_status": "403",
+    "relay_failure_stage": "upstream_response",
+    "relay_failure_kind": "http_status",
+    "relay_failure_resource_category": "media",
+    "relay_retained_completed_count": "13",
+    "relay_retained_failed_count": "9"
+  },
+  "conclusion": "Master and leaf HLS accessible; media segment delivery refused with HTTP403 through real guarded relay. No access workaround or qualification."
+}

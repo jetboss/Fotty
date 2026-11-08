@@ -1,6 +1,7 @@
 import SwiftUI
 
 public struct FPLPriceAlertsView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let alerts: [PriceChangeAlert]
     @State private var selectedFilter: AlertFilter = .all
 
@@ -39,11 +40,11 @@ public struct FPLPriceAlertsView: View {
                     .font(.fottyScaled(size: 8, weight: .black))
                     .foregroundStyle(FottyTheme.accentText)
             }
-            Text("FPL's price signals suggest a direction, not a guaranteed change tonight. Don't make a transfer on this signal alone.")
+            Text("Direction only—not a guaranteed price change.")
                 .font(.caption)
                 .foregroundStyle(FottyTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 7) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(minimum: 0), spacing: 7), count: dynamicTypeSize.isAccessibilitySize ? 1 : 3), spacing: 7) {
                 ForEach(AlertFilter.allCases) { filter in
                     let selected = selectedFilter == filter
                     Button(filter.rawValue) { selectedFilter = filter }
@@ -51,12 +52,13 @@ public struct FPLPriceAlertsView: View {
                         .foregroundStyle(selected ? FottyTheme.textOnAccent : FottyTheme.textSecondary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 7)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .multilineTextAlignment(.center)
                         .background(selected ? FottyTheme.accent : FottyTheme.surfaceElevated)
                         .clipShape(Capsule())
-                        .frame(minHeight: 44)
                         .contentShape(Rectangle())
                         .accessibilityAddTraits(selected ? [.isSelected] : [])
-                        .buttonStyle(.plain)
+                        .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusXL))
                 }
             }
         }
@@ -70,10 +72,10 @@ public struct FPLPriceAlertsView: View {
             Image(systemName: "minus.circle")
                 .font(.title)
                 .foregroundStyle(FottyTheme.textTertiary)
-            Text("No official projection in this category")
+            Text("No qualifying projection")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(FottyTheme.textPrimary)
-            Text("This means the current FPL snapshot did not return a qualifying projection. It does not guarantee that prices will remain unchanged.")
+            Text("No current player meets this filter.")
                 .font(.caption)
                 .foregroundStyle(FottyTheme.textSecondary)
                 .multilineTextAlignment(.center)
@@ -98,9 +100,18 @@ public struct FPLPriceAlertsView: View {
                     Text(alert.player.webName)
                         .font(.subheadline.weight(.black))
                         .foregroundStyle(FottyTheme.textPrimary)
-                    Text("\(alert.team.shortName) • \(alert.player.positionName) • \(alert.player.formattedCost)")
-                        .font(.caption2)
-                        .foregroundStyle(FottyTheme.textTertiary)
+                    HStack(spacing: 4) {
+                        TeamIdentityLabel(
+                            teamName: alert.team.shortName,
+                            badgeURL: alert.team.badgeURL,
+                            badgeSize: 18,
+                            font: .caption2,
+                            foregroundColor: FottyTheme.textTertiary
+                        )
+                        Text("• \(alert.player.positionName) • \(alert.player.formattedCost)")
+                            .font(.caption2)
+                            .foregroundStyle(FottyTheme.textTertiary)
+                    }
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 1) {

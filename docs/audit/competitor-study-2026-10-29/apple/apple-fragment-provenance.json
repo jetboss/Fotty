@@ -1,0 +1,29 @@
+[
+  {
+    "file": "reduced-motion-key-play.js",
+    "parentSHA256": "2ec7bd510d97f1029f3cc640b14ec444c864e563e01c2aae4244e2b24c3b9b08",
+    "parentUTF8ByteStart": 1380980,
+    "parentUTF8ByteEndExclusive": 1381489,
+    "bytes": 509,
+    "sha256": "8d221a4511e3b1388439fab2b581848bdeeadbdba4abd50d3d1f5095055a1d68",
+    "scope": "exact unmodified expression/function bytes; surrounding bindings and external owners omitted, runtime unknown"
+  },
+  {
+    "file": "resume-label.js",
+    "parentSHA256": "2ec7bd510d97f1029f3cc640b14ec444c864e563e01c2aae4244e2b24c3b9b08",
+    "parentUTF8ByteStart": 114717,
+    "parentUTF8ByteEndExclusive": 114994,
+    "bytes": 277,
+    "sha256": "5fa070db8286ecadf3b9e248841fc82b70d7c5ba77935b6d3b0f3ee356913f2f",
+    "scope": "exact unmodified expression/function bytes; surrounding bindings and external owners omitted, runtime unknown"
+  },
+  {
+    "file": "play-label.js",
+    "parentSHA256": "2ec7bd510d97f1029f3cc640b14ec444c864e563e01c2aae4244e2b24c3b9b08",
+    "parentUTF8ByteStart": 114998,
+    "parentUTF8ByteEndExclusive": 115200,
+    "bytes": 202,
+    "sha256": "fdc2830ce49376971c409069b0bee7cb62593c4c7f1c0dadcd01aedd787e6445",
+    "scope": "exact unmodified expression/function bytes; surrounding bindings and external owners omitted, runtime unknown"
+  }
+]

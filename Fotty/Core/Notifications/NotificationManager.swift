@@ -2,6 +2,7 @@ import Foundation
 import UserNotifications
 import Observation
 import UIKit
+import MetricKit
 
 enum FottyDeepLinkDestination: Equatable {
     case fpl
@@ -44,6 +45,7 @@ final class MatchNavigationStore {
 
     var pendingMatchID: String?
     var pendingReminderID: String?
+    var pendingFPL = false
     private(set) var activeLivePlayerMatchID: String?
 
     private init() {}
@@ -51,14 +53,22 @@ final class MatchNavigationStore {
     func open(matchID: String) {
         let trimmed = matchID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+        pendingFPL = false
         pendingMatchID = trimmed
     }
 
     func openReminder(eventID: String) {
         let id = eventID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !id.isEmpty else { return }
+        pendingFPL = false
         pendingMatchID = nil
         pendingReminderID = id
+    }
+
+    func openFPL() {
+        pendingMatchID = nil
+        pendingReminderID = nil
+        pendingFPL = true
     }
 
     func open(url: URL) {
@@ -76,7 +86,7 @@ final class MatchNavigationStore {
             guard activeLivePlayerMatchID != matchID else { return }
             open(matchID: matchID)
         case .fpl:
-            break
+            openFPL()
         }
     }
 
@@ -178,6 +188,8 @@ final class FottyAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
     ) -> Bool {
         MatchAlertPreferences.registerDefaults()
         UNUserNotificationCenter.current().delegate = self
+        FottyMetricSubscriber.shared.start()
+        SportsReminderBackgroundRefresh.shared.registerAtLaunch()
         return true
     }
 
@@ -193,11 +205,65 @@ final class FottyAppDelegate: NSObject, UIApplicationDelegate, UNUserNotificatio
         didReceive response: UNNotificationResponse
     ) async {
         guard response.actionIdentifier == UNNotificationDefaultActionIdentifier else { return }
-        guard let matchID = response.notification.request.content.userInfo["matchID"] as? String else { return }
-        let isReminder = response.notification.request.content.userInfo["route"] as? String == "match-reminder"
+        let userInfo = response.notification.request.content.userInfo
+        let route = userInfo["route"] as? String
+        if route == "fpl-deadline" {
+            await MainActor.run { MatchNavigationStore.shared.openFPL() }
+            return
+        }
+        guard let matchID = userInfo["matchID"] as? String else { return }
+        let isReminder = route == "match-reminder"
         await MainActor.run {
             if isReminder { MatchNavigationStore.shared.openReminder(eventID: matchID) }
             else { MatchNavigationStore.shared.open(matchID: matchID) }
+        }
+    }
+}
+
+/// Receives Apple's field performance summaries without uploading or retaining
+/// raw diagnostics. Two bounded, dated summaries can be shared only through
+/// the existing explicit diagnostic export/feedback consent.
+final class FottyMetricSubscriber: NSObject, MXMetricManagerSubscriber {
+    static let shared = FottyMetricSubscriber()
+
+    private let lock = NSLock()
+    private var isStarted = false
+
+    private override init() {}
+
+    func start() {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !isStarted, !AppRuntime.isAutomatedTesting else { return }
+        isStarted = true
+        _ = FottyPerformanceStore.shared.summary()
+        MXMetricManager.shared.add(self)
+    }
+
+    func didReceive(_ payloads: [MXMetricPayload]) {
+        for payload in payloads {
+            guard let ratio = payload.animationMetrics?.scrollHitchTimeRatio.value else { continue }
+            FottyPerformanceStore.shared.record(
+                windowStart: payload.timeStampBegin, windowEnd: payload.timeStampEnd,
+                reportedBuild: payload.metaData?.applicationBuildVersion,
+                includesMultipleVersions: payload.includesMultipleApplicationVersions,
+                scrollHitchRatio: ratio
+            )
+        }
+    }
+
+    func didReceive(_ payloads: [MXDiagnosticPayload]) {
+        for payload in payloads {
+            guard let hangs = payload.hangDiagnostics, !hangs.isEmpty else { continue }
+            let durations = hangs.map { $0.hangDuration.converted(to: .seconds).value }
+            guard durations.allSatisfy({ $0.isFinite && $0 >= 0 }), let longest = durations.max() else { continue }
+            let builds = Set(hangs.map { $0.metaData.applicationBuildVersion })
+            FottyPerformanceStore.shared.record(
+                windowStart: payload.timeStampBegin, windowEnd: payload.timeStampEnd,
+                reportedBuild: builds.count == 1 ? builds.first : nil,
+                includesMultipleVersions: builds.count > 1,
+                hangCount: hangs.count, longestHangSeconds: longest
+            )
         }
     }
 }

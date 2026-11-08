@@ -1,0 +1,45 @@
+{
+  "checkedUTC": "2026-10-29T18:12:40.373Z",
+  "http": 200,
+  "bytes": 226893,
+  "sourceObservedAt": "2026-10-29T18:12:40.373Z",
+  "rawRows": 59,
+  "normalizedFixtures": 59,
+  "live": [
+    {
+      "fixture": "icc:269792",
+      "teams": [
+        "South Africa",
+        "Australia"
+      ],
+      "startUTC": "2026-10-27T08:30:00.000Z",
+      "status": "live",
+      "phase": "stumps",
+      "contextPresent": true,
+      "optionalIDTypes": {
+        "batting": "string",
+        "bowling": "string"
+      },
+      "optionalIDsBound": true,
+      "innings": 3
+    },
+    {
+      "fixture": "icc:274665",
+      "teams": [
+        "Bangladesh",
+        "West Indies"
+      ],
+      "startUTC": "2026-10-28T03:30:00.000Z",
+      "status": "live",
+      "phase": "stumps",
+      "contextPresent": true,
+      "optionalIDTypes": {
+        "batting": "string",
+        "bowling": "string"
+      },
+      "optionalIDsBound": true,
+      "innings": 2
+    }
+  ],
+  "rawPayloadRetained": false
+}

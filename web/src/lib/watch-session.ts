@@ -1,29 +1,4 @@
-export { buildWatchPageHref, WATCH_ROUTE_SEGMENT } from "@/lib/watch-route";
-
-/** Retained for legacy player error classification; account-backed sessions are retired. */
-export function isWatchSessionAuthError(_message?: string | null): boolean {
-  void _message;
-  return false;
-}
-
-/** Account-backed stream sessions are retired; playback is guest-accessible. */
-export async function refreshWatchSessionIfNeeded(): Promise<boolean> {
-  return false;
-}
-
-/** No token exists in the supported guest-access product graph. */
-export function invalidateWatchSessionToken(): boolean {
-  return false;
-}
-
-/** Compatibility shim for retired account-backed stream sessions. */
-export async function invalidateWatchSessionTokenAsync(): Promise<boolean> {
-  return false;
-}
-
-export function isP2PContentId(value?: string | null): value is string {
-  return Boolean(value && /^[a-f0-9]{40}$/i.test(value));
-}
+export { buildWatchPageHref } from "@/lib/watch-route";
 
 const STATIC_EXPORT_PLACEHOLDER_IDS = new Set(["index", "placeholder"]);
 

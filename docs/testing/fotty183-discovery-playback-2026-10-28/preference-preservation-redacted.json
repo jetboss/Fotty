@@ -1,0 +1,13 @@
+{
+  "baselineSlots": 34,
+  "finalSlots": 34,
+  "selectedPersonalSourcePreferenceSlots": 19,
+  "selectedUnchanged": 19,
+  "selectedChangedCount": 0,
+  "totalCommonSlotsChanged": 5,
+  "newRuntimeSlots": 0,
+  "phoneInteraction": false,
+  "orientationRestored": "landscape",
+  "homeFilterRestored": "football",
+  "captureKeyboardRestored": false
+}

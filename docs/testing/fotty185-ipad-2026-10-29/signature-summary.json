@@ -1,0 +1,23 @@
+{
+  "strictSignature": "passed",
+  "bundles": [
+    {
+      "bundle": "com.jelani.Fotty",
+      "version": "2.0.1",
+      "build": "185",
+      "profileContainsJet": true,
+      "profileValid": true,
+      "groupCorrect": true,
+      "executableSHA256": "33cd16b65e37388b53f6435b8c93a190abb04c2055b1d82a19e4af96d971af94"
+    },
+    {
+      "bundle": "com.jelani.Fotty.LiveActivityExtension",
+      "version": "2.0.1",
+      "build": "185",
+      "profileContainsJet": true,
+      "profileValid": true,
+      "groupCorrect": true,
+      "executableSHA256": "d0048461e2ce2b4e36605154307b6483cf17e70cd95fab9898e87bd1c44e3767"
+    }
+  ]
+}

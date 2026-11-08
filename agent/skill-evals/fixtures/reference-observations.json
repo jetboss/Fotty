@@ -1,0 +1,24 @@
+{
+  "kind": "synthetic supplied observations, not screenshots",
+  "approved": {
+    "platform": "phone",
+    "widthPoints": 393,
+    "textSize": "normal",
+    "teamArt": "club badges",
+    "sportArt": "custom equipment",
+    "watchPosition": "beside names",
+    "navigation": "glass tabs"
+  },
+  "reportedNative": {
+    "source": "candidate N",
+    "platform": "phone",
+    "widthPoints": 393,
+    "textSize": "accessibility",
+    "teamArt": "club badges",
+    "sportArt": "generic initials",
+    "watchPosition": "below names",
+    "navigation": "glass tabs"
+  },
+  "availableEvidence": "These textual observations only. No image, touch evidence or hit-region measurement.",
+  "userScope": "Discuss differences only. Preserve meaningful art and accessible text."
+}

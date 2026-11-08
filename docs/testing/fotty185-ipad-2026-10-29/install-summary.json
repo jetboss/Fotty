@@ -1,0 +1,13 @@
+{
+  "device": "Jet iPad",
+  "version": "2.0.1",
+  "build": "185",
+  "installedReadback": true,
+  "configurationSlots": 34,
+  "configurationSlotsUnchanged": 34,
+  "launched": false,
+  "phoneTouched": false,
+  "FPLFeatureChanges": false,
+  "multiStreamFeatureChanges": false,
+  "testFlight": false
+}

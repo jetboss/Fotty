@@ -1,0 +1,144 @@
+{
+  "observedDateUTC": "2026-11-05",
+  "qualification": "metadata/transport only; not native match acceptance",
+  "results": [
+    {
+      "catalog": "cnc_SKTechLiveEvents_tv",
+      "name": "\ud83d\udd34 Millonarios vs Am\u00e9rica de Cali",
+      "description": "\ud83c\udfc6 Primera A\n\ud83d\udd50 Nov 05, 2026 01:30 UTC\n\n\ud83d\udce1 Available Servers: 2",
+      "count": 3,
+      "probes": [
+        {
+          "label": "\ud83d\udd34 Millonarios vs Am\u00e9rica de Cali",
+          "headerKeys": [
+            "User-Agent"
+          ],
+          "hops": [
+            {
+              "host": "93.domhsd.com",
+              "status": 302,
+              "hls": false,
+              "master": false,
+              "ended": false,
+              "redirectHost": "99.domhsd.com",
+              "redirectScheme": "https"
+            },
+            {
+              "host": "99.domhsd.com",
+              "status": 403,
+              "hls": false,
+              "master": false,
+              "ended": false
+            }
+          ]
+        },
+        {
+          "label": "\ud83d\udd34 Millonarios vs Am\u00e9rica de Cali",
+          "headerKeys": [
+            "User-Agent"
+          ],
+          "hops": [
+            {
+              "host": "98.envivosenhd.beer",
+              "status": 302,
+              "hls": false,
+              "master": false,
+              "ended": false,
+              "redirectHost": "99.envivosenhd.beer",
+              "redirectScheme": "https"
+            },
+            {
+              "host": "99.envivosenhd.beer",
+              "status": 403,
+              "hls": false,
+              "master": false,
+              "ended": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "catalog": "cnc_PlayZTVLiveEvents_tv",
+      "name": "\ud83d\udd1c Adelaide Strikers Women vs Brisbane Heat Women",
+      "description": "\ud83d\udccc Cricket\n\ud83c\udfc6 Women's Big Bash League\n\ud83d\udd50 Nov 05, 2026 04:40 UTC\n\n\ud83d\udce1 Available Servers: 7",
+      "count": 22,
+      "probes": [
+        {
+          "label": "\ud83d\udd1c Adelaide Strikers Women vs Brisbane Heat Women",
+          "headerKeys": [
+            "User-Agent"
+          ],
+          "hops": [
+            {
+              "host": "bl.rutube.ru",
+              "status": 200,
+              "hls": true,
+              "master": true,
+              "ended": false,
+              "encryption": []
+            },
+            {
+              "host": "river-3-343.rtbcdn.ru",
+              "status": 200,
+              "hls": true,
+              "master": false,
+              "ended": false,
+              "encryption": []
+            }
+          ],
+          "mediaPlaylist": true,
+          "segments": 12
+        }
+      ]
+    },
+    {
+      "catalog": "tenies-spacelivetv",
+      "name": "Willow Cricket HD US",
+      "description": "Live broadcast for Willow Cricket HD US.\n\nCategory: General\nStatus: online",
+      "count": 1,
+      "probes": [
+        {
+          "label": "Willow Cricket HD US",
+          "headerKeys": [
+            "Referer",
+            "Origin"
+          ],
+          "hops": [
+            {
+              "host": "cdnlivetv.tv",
+              "status": 503,
+              "hls": false,
+              "master": false,
+              "ended": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "catalog": "tenies-spacelivetv",
+      "name": "FOX Sports 501 Cricket HD AU",
+      "description": "Live broadcast for FOX Sports 501 Cricket HD AU.\n\nCategory: General\nStatus: offline",
+      "count": 1,
+      "probes": [
+        {
+          "label": "FOX Sports 501 Cricket HD AU",
+          "headerKeys": [
+            "Referer",
+            "Origin"
+          ],
+          "hops": [
+            {
+              "host": "cdnlivetv.tv",
+              "status": 503,
+              "hls": false,
+              "master": false,
+              "ended": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

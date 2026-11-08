@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "gate": "Mac-side public fixture/current provider metadata association only",
+  "startedAt": "2026-10-30T13:58:26.972Z",
+  "completedAt": "2026-10-30T13:58:31.296Z",
+  "fixtureReads": 2,
+  "actualProviderReads": 14,
+  "maxConcurrentFamilies": 2,
+  "maximumReadsPerFamily": 8,
+  "noMediaOrStreamDescriptorRequests": true,
+  "noCloudOrDecodedPlaybackClaim": true,
+  "fixtureReceipts": [
+    {
+      "kind": "sports",
+      "actualReads": 1,
+      "admittedRows": 119,
+      "httpStatus": 200,
+      "sourceStatus": "verified",
+      "rawRows": 133,
+      "acceptedCurrentRowsBeforeFreshness": 119,
+      "liveRows": 0,
+      "testRows": 0,
+      "testsWithCompletePeriodAuthority": 0
+    },
+    {
+      "kind": "cricket",
+      "actualReads": 1,
+      "admittedRows": 18,
+      "httpStatus": 200,
+      "sourceStatus": "partial",
+      "rawRows": 69,
+      "acceptedCurrentRowsBeforeFreshness": 23,
+      "liveRows": 2,
+      "testRows": 3,
+      "testsWithCompletePeriodAuthority": 0
+    }
+  ],
+  "providers": [
+    {
+      "providerCode": "communitysports",
+      "httpStatusCounts": {
+        "200": 8
+      },
+      "scopes": [
+        {
+          "scope": "live",
+          "complete": false,
+          "status": "partial"
+        },
+        {
+          "scope": "networks",
+          "complete": false,
+          "status": "partial"
+        },
+        {
+          "scope": "football",
+          "complete": false,
+          "status": "partial"
+        },
+        {
+          "scope": "cricket",
+          "complete": false,
+          "status": "partial"
+        },
+        {
+          "scope": "basketball",
+          "complete": false,
+          "status": "partial"
+        }
+      ],
+      "rawObservationCount": 370,
+      "normalization": "accepted",
+      "normalizedObservationCount": 297,
+      "verificationCounts": {
+        "dated": 18,
+        "undated": 14,
+        "conflicting": 265
+      },
+      "kindCounts": {
+        "event": 240,
+        "channel": 57
+      },
+      "issueCounts": {
+        "missing-date": 157,
+        "identity-conflict": 104,
+        "missing-participants": 161,
+        "catalog-conflict": 43
+      },
+      "actualReads": 8,
+      "metadataReads": 0,
+      "searchReads": 2,
+      "durationMilliseconds": 1977
+    },
+    {
+      "providerCode": "plaviosports",
+      "httpStatusCounts": {
+        "200": 6
+      },
+      "scopes": [
+        {
+          "scope": "football",
+          "complete": false,
+          "status": "partial"
+        },
+        {
+          "scope": "cricket",
+          "complete": false,
+          "status": "partial"
+        },
+        {
+          "scope": "live",
+          "complete": false,
+          "status": "partial"
+        }
+      ],
+      "rawObservationCount": 347,
+      "normalization": "accepted",
+      "normalizedObservationCount": 347,
+      "verificationCounts": {
+        "conflicting": 238,
+        "undated": 109
+      },
+      "kindCounts": {
+        "event": 167,
+        "channel": 180
+      },
+      "issueCounts": {
+        "missing-date": 167,
+        "missing-participants": 57,
+        "identity-conflict": 181
+      },
+      "actualReads": 6,
+      "metadataReads": 1,
+      "searchReads": 0,
+      "durationMilliseconds": 3602
+    }
+  ],
+  "association": {
+    "fixtureCount": 137,
+    "liveFixtureCount": 2,
+    "broadcastCount": 644,
+    "linkCount": 12,
+    "states": {
+      "needsVerification": 6,
+      "conflicting": 6
+    },
+    "reasons": {
+      "missing-date": 5,
+      "missing-test-authority": 1,
+      "identity-conflict": 1,
+      "time-conflict": 4,
+      "format-conflict": 1
+    },
+    "providerStates": {
+      "plaviosports": {
+        "needsVerification": 5,
+        "conflicting": 2
+      },
+      "communitysports": {
+        "needsVerification": 1,
+        "conflicting": 4
+      }
+    },
+    "testPeriodFacts": {
+      "sourceTestRows": 2,
+      "sourceTestsWithExplicitDay": 2,
+      "officialTestsWithCompletePeriodAuthority": 0
+    }
+  }
+}

@@ -1,0 +1,234 @@
+{
+  "schema": "fotty.competitor-rea-static.v1",
+  "product": "DAZN",
+  "dateLocal": "2026-10-29",
+  "target": "Three actually browser-observed public catalogue JavaScript chunks, revision suffix8880f74",
+  "sourceAcquisition": "Root observed exact script URLs in hydrated public catalogue after automatic GB→TT redirect; this agent fetched only those three files without executing them.",
+  "summaryEvidence": "ev_3de9866efeccb7b1d3d9ad57a150f4c3ae8e3999078a8dda4c4ef9298a0b13b6",
+  "parentEvidence": "ev_980eb990824c601336cacee71d38e6f1a3576997c33e6ded6ca76d1788b1e80b",
+  "focusedAssetEvidence": "ev_1f6bd8385765b62f6a775323a4dda6bd0e0fd44ec4e735e5fa4a56c053bca393",
+  "rootArtifactSHA256": "f2736798692f57c705149fec6cb0c511082320a01015a09b2dee95f77994981f",
+  "statistics": {
+    "relevant_files": 3,
+    "nested_asar_containers": 0,
+    "text_bytes_read": 882030,
+    "invalid_utf8_files": 0,
+    "parsed_javascript_files": 3,
+    "visited_ast_nodes": 197977,
+    "findings": 2973,
+    "modules": 273,
+    "parse_failures": 0
+  },
+  "analysisLimits": {
+    "maxHeapMiB": 256,
+    "perSourceTimeoutMs": 30000
+  },
+  "coverage": {
+    "application": {
+      "status": "partial",
+      "truncated": false,
+      "omitted_count": null,
+      "limits": [
+        {
+          "name": "javascript_analysis_parent_result_budget_bytes",
+          "value": 295004728,
+          "unit": "bytes"
+        },
+        {
+          "name": "javascript_analysis_semantic_result_budget_bytes",
+          "value": 0,
+          "unit": "bytes"
+        },
+        {
+          "name": "javascript_analysis_worker_heap_limit_bytes",
+          "value": 293601280,
+          "unit": "bytes"
+        },
+        {
+          "name": "javascript_analysis_worker_timeout_ms",
+          "value": 30000,
+          "unit": "milliseconds"
+        }
+      ]
+    },
+    "semantic": {
+      "status": "partial",
+      "truncated": true,
+      "omitted_nodes": null,
+      "omitted_relations": null,
+      "limits": [
+        {
+          "name": "javascript_analysis_parent_result_budget_bytes",
+          "value": 295004728,
+          "unit": "bytes"
+        },
+        {
+          "name": "javascript_analysis_semantic_result_budget_bytes",
+          "value": 0,
+          "unit": "bytes"
+        },
+        {
+          "name": "javascript_analysis_worker_heap_limit_bytes",
+          "value": 293601280,
+          "unit": "bytes"
+        },
+        {
+          "name": "javascript_analysis_worker_timeout_ms",
+          "value": 30000,
+          "unit": "milliseconds"
+        }
+      ],
+      "families": [
+        {
+          "family": "boundary",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "call-flow",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "child-process",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "closure",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "configuration",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "data-flow",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "event",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "object-flow",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "promise-ownership",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "request",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "resource-lifecycle",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        },
+        {
+          "family": "timer",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": null,
+          "unknown_count": 3
+        }
+      ]
+    },
+    "application_unknowns": 4,
+    "semantic_unknowns": 36
+  },
+  "selectedModule": {
+    "file": "main-3257753e-4243a0d22cfebfa8d998.8880f74.js",
+    "moduleKey": "1680",
+    "sourceSHA256": "2bf9ad39f6ac88e57007ca11c4a1c49ece079bcc826b2c0b421832a13d103af6",
+    "sourceRange": {
+      "start": {
+        "line": 1,
+        "column": 8492
+      },
+      "end": {
+        "line": 1,
+        "column": 22619
+      }
+    },
+    "rangeUnits": "REA line/column; do not reinterpret as byte offsets"
+  },
+  "findings": [
+    {
+      "id": "DZ-REA-01",
+      "authority": "shipped-artifact static syntax plus manually inspected compiled control flow",
+      "observation": "The selected component computes tile-tier availability separately from content details and conditionally renders its main action with that predicate.",
+      "inferenceForFotty": "Keep schedule/event identity, viewing eligibility and current delivery readiness separate. Use truthful action states; do not copy DAZN subscription logic.",
+      "limits": "External hooks and all dynamic owners/default flags unresolved. Does not prove an entitlement decision, successful Watch, or native playback."
+    },
+    {
+      "id": "DZ-REA-02",
+      "authority": "shipped-artifact static syntax plus manually inspected compiled control flow",
+      "observation": "The selected reminder branch requires UPCOMING tile type and feature/state conditions. Its callback prevents default and event propagation, then passes the current tile and reminder-active state.",
+      "inferenceForFotty": "Keep future reminders contextual, preserve selected playback, and prevent a small secondary action from invoking the parent match action.",
+      "limits": "Not an executed click. Alternate alert branch and region-specific rollout remain separate. Fotty already has reminder foundations; preserve/verify rather than claim missing."
+    }
+  ],
+  "notEstablished": [
+    "Paid/native live playback",
+    "iPhone/iPad implementation equivalence",
+    "Performance or buffering superiority",
+    "Complete application graph or runtime reachability",
+    "Uninspected feature flags/defaults",
+    "DRM/access behaviour"
+  ],
+  "limitations": [
+    "Boundary extraction covers unshadowed JSON/global coercions plus parse and validation method candidates.",
+    "Child-process extraction covers asynchronous node:child_process creation, literal argv/env/stdio options, exit/error listeners, and kill signals.",
+    "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+    "Configuration extraction covers process.env, process.argv, node:fs reads, and direct logical defaults.",
+    "Event extraction covers EventEmitter-style literal registrations, removals, and dispatch candidates; dynamic names remain unknown.",
+    "Function fingerprints are static candidates; equal digests can remain ambiguous and do not prove behavioral equivalence.",
+    "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
+    "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+    "Local data flow does not claim control-flow-sensitive reaching definitions or arbitrary dynamic property resolution.",
+    "Promise ownership covers explicit unshadowed Promise construction, static factories, aggregation, chaining, and await syntax only.",
+    "Request extraction covers fetch, WebSocket, node:http/node:https construction, direct option fields, and exact local response consumers.",
+    "Resource constraint during analyze_javascript_application: Expanded application relationships for main-3257753e-4243a0d22cfebfa8d998.8880f74.js exceed the parent's result budget; complete static facts were retained on the file node",
+    "Resource extraction covers built-in filesystem/network acquisition and exact local close/destroy/end handles.",
+    "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+    "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+    "The semantic graph contains static syntax observations and conservative relationship candidates; it does not claim runtime execution.",
+    "Timer extraction covers global or node:timers scheduling and exact local-handle cancellation.",
+    "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code.",
+    "dazn-58ebb9af-f26b8e64447aef75bd8a.8880f74.js: Resource constraint during analyze_javascript_application: Semantic graph for dazn-58ebb9af-f26b8e64447aef75bd8a.8880f74.js exceeds the parent's remaining result budget; static and module facts were retained",
+    "main-3257753e-4243a0d22cfebfa8d998.8880f74.js: Resource constraint during analyze_javascript_application: main-3257753e-4243a0d22cfebfa8d998.8880f74.js: Resource constraint during analyze_javascript_application: The parent reserved its remaining result capacity for static observations; semantic analysis of main-3257753e-4243a0d22cfebfa8d998.8880f74.js was not started",
+    "main-9acf4d28-57a6ae902982f36a89c0.8880f74.js: Resource constraint during analyze_javascript_application: Semantic graph for main-9acf4d28-57a6ae902982f36a89c0.8880f74.js exceeds the parent's remaining result budget; static and module facts were retained"
+  ]
+}

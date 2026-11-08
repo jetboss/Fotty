@@ -15,7 +15,7 @@ export { buildFootballMatchesUpstreamUrl };
 
 const FOOTBALL_DATA_BASE = "https://api.football-data.org/v4";
 
-export function getFootballDataToken() {
+function getFootballDataToken() {
   return process.env.FOOTBALL_DATA_API_KEY?.trim() || "";
 }
 
@@ -33,7 +33,7 @@ type StandingsApiTable = {
   form?: string | null;
 };
 
-export function parseStandingsPayload(json: {
+function parseStandingsPayload(json: {
   standings?: Array<{
     type?: string;
     table?: StandingsApiTable[];
@@ -60,7 +60,7 @@ export function parseStandingsPayload(json: {
   }));
 }
 
-export async function fetchCompetitionStandings(code: string): Promise<StandingsRow[]> {
+async function fetchCompetitionStandings(code: string): Promise<StandingsRow[]> {
   const token = getFootballDataToken();
   if (!token) return [];
 
@@ -77,7 +77,7 @@ export async function fetchCompetitionStandings(code: string): Promise<Standings
   return parseStandingsPayload(json);
 }
 
-export async function fetchCompetitionScorers(code: string, limit = 10): Promise<ScorerRow[]> {
+async function fetchCompetitionScorers(code: string, limit = 10): Promise<ScorerRow[]> {
   const token = getFootballDataToken();
   if (!token) return [];
 

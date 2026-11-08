@@ -1,29 +1,41 @@
 import SwiftUI
 
 struct SettingsPrivacyView: View {
-    @Environment(\.dismiss) private var dismiss
-    
+    @State private var lastLiveStore = LastLiveMatchStore.shared
+
     var body: some View {
-        NavigationStack {
-            ZStack {
-                FottyTheme.background.ignoresSafeArea()
+        ZStack {
+            FottyTheme.background.ignoresSafeArea()
                 
-                ScrollView {
-                    VStack(spacing: FottyTheme.spacingXL) {
+            ScrollView {
+                VStack(spacing: FottyTheme.spacingXL) {
                         SettingsSection(title: "On This Device") {
                             privacyDisclosureRow(
                                 icon: "internaldrive.fill",
                                 color: FottyTheme.success,
-                                title: "Local profile and preferences",
-                                detail: "Your profile, followed teams, saved matches, notification choices, local messages, FPL manager ID, drafts, and Coach history are stored on this device."
+                                title: "Preferences and planning",
+                                detail: "Followed teams, saved matches, notification choices, public FPL manager ID, local drafts, and Coach history are stored on this device."
                             )
                             SettingsDivider()
                             privacyDisclosureRow(
-                                icon: "icloud.slash.fill",
+                                icon: "icloud",
                                 color: .gray,
-                                title: "No account sync",
-                                detail: "Cloud accounts and cross-device social sync are currently unavailable."
+                                title: "Optional sports sync",
+                                detail: "Sports continuity can sync sports interests, viewing-window choices and saved match identities through your Apple Account, only after you enable it. Reminders, viewing history and stream links are not included."
                             )
+                            SettingsDivider()
+                            NavigationLink {
+                                SettingsPrivateBackupView()
+                            } label: {
+                                SettingsRow(
+                                    icon: "lock.doc.fill",
+                                    iconColor: FottyTheme.accentText,
+                                    title: "Private Backup",
+                                    subtitle: "Encrypted export and reviewed restore of your local setup"
+                                )
+                            }
+                            .buttonStyle(SettingsRowButtonStyle())
+                            .accessibilityIdentifier("settings-private-backup-link")
                             SettingsDivider()
                             NavigationLink {
                                 SettingsQualityDiagnosticsView()
@@ -35,14 +47,42 @@ struct SettingsPrivacyView: View {
                                     subtitle: "Review or export private on-device reliability records"
                                 )
                             }
+                            .buttonStyle(SettingsRowButtonStyle())
+                        }
+
+                        SettingsSection(title: "Returning to a Match") {
+                            SettingsToggleRow(
+                                icon: "play.rectangle",
+                                iconColor: FottyTheme.accentText,
+                                title: "Remember last live match",
+                                subtitle: "Keep one match locally for up to 36 hours. Not included in sports sync.",
+                                isOn: $lastLiveStore.isEnabled
+                            )
+                            .accessibilityIdentifier("settings-remember-last-live")
+                            if lastLiveStore.record != nil {
+                                SettingsDivider()
+                                SettingsRow(icon: "xmark.circle", iconColor: FottyTheme.textSecondary,
+                                            title: "Forget last match") {
+                                    lastLiveStore.clear()
+                                }
+                                .accessibilityIdentifier("settings-forget-last-live")
+                            }
                         }
 
                         SettingsSection(title: "Network Use") {
+                            NavigationLink {
+                                SettingsCoachAccessView()
+                            } label: {
+                                SettingsRow(icon: "key.fill", iconColor: FottyTheme.accentText,
+                                            title: "Coach Access", subtitle: "Manage this device's private invitation code")
+                            }
+                            .buttonStyle(SettingsRowButtonStyle())
+                            SettingsDivider()
                             privacyDisclosureRow(
                                 icon: "network",
                                 color: .blue,
                                 title: "Football data",
-                                detail: "Fotty contacts configured football-data services to load fixtures, scores, teams, and tables."
+                                detail: "Fotty contacts configured football-data services to load fixtures, scores, teams, and tables. Football data provided by the Football-Data.org API."
                             )
                             SettingsDivider()
                             privacyDisclosureRow(
@@ -74,24 +114,15 @@ struct SettingsPrivacyView: View {
                             }
                         }
 
-                        Text("Local diagnostic records are never uploaded automatically. Deleting Fotty removes its on-device data through iOS. You can revoke notifications in the Settings app and avoid Smart Coach whenever you do not want Coach data sent over the network.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(FottyTheme.textTertiary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 40)
-                    }
-                    .padding(FottyTheme.spacingMD)
                 }
-            }
-            .navigationTitle("Privacy & Security")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
+                .padding(FottyTheme.spacingMD)
+                .frame(maxWidth: 800, alignment: .leading)
+                .frame(maxWidth: .infinity)
             }
         }
-        .fottyStandardSheetChrome()
+        .navigationTitle("Privacy & Security")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { lastLiveStore.pruneExpiredRecord() }
     }
 
     private func privacyDisclosureRow(
@@ -104,10 +135,10 @@ struct SettingsPrivacyView: View {
             SettingsIcon(icon: icon, color: color)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(FottyTheme.typeModuleTitle)
                     .foregroundStyle(FottyTheme.textPrimary)
                 Text(detail)
-                    .font(.system(size: 12))
+                    .font(FottyTheme.typeBody)
                     .foregroundStyle(FottyTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -119,6 +150,7 @@ struct SettingsPrivacyView: View {
 }
 
 private struct SettingsQualityDiagnosticsView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var summary = FottyQualitySummary.empty
     @State private var exportText = ""
     @State private var isShowingClearConfirmation = false
@@ -136,6 +168,8 @@ private struct SettingsQualityDiagnosticsView: View {
                         metricRow("Recovered in place", value: "\(summary.recoveredPlaybackEvents)")
                         SettingsDivider()
                         metricRow("Automatic switches", value: "\(summary.automaticFailovers)")
+                        SettingsDivider()
+                        metricRow("Resolution failures", value: "\(summary.resolutionFailures)")
                         SettingsDivider()
                         metricRow("Terminal failures", value: "\(summary.terminalPlaybackFailures)")
                         SettingsDivider()
@@ -179,12 +213,14 @@ private struct SettingsQualityDiagnosticsView: View {
                         }
                     }
 
-                    Text("Fotty stores at most 250 quality events for 14 days. These records never contain match names, manager IDs, stream URLs, credentials, or Coach prompts, and they are never uploaded automatically.")
+                    Text("Fotty keeps at most 250 quality events and two small, dated performance summaries for up to 14 days. No match names, manager IDs, stream URLs, credentials, Coach prompts or raw diagnostic traces are included. Nothing is uploaded automatically.")
                         .font(.footnote)
                         .foregroundStyle(FottyTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 .padding(FottyTheme.spacingMD)
+                .frame(maxWidth: 800, alignment: .leading)
+                .frame(maxWidth: .infinity)
             }
         }
         .navigationTitle("Quality & Diagnostics")
@@ -201,22 +237,29 @@ private struct SettingsQualityDiagnosticsView: View {
             }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("This removes Fotty's local reliability records and cannot be undone.")
+            Text("This removes Fotty's local reliability records and performance summaries and cannot be undone.")
         }
     }
 
     private func metricRow(_ title: String, value: String) -> some View {
-        HStack {
+        metricLayout {
             Text(title)
                 .foregroundStyle(FottyTheme.textPrimary)
-            Spacer()
+            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
             Text(value)
                 .fontWeight(.semibold)
                 .foregroundStyle(FottyTheme.textSecondary)
         }
-        .font(.system(size: 14))
+        .font(FottyTheme.typeBody)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, FottyTheme.spacingMD)
         .padding(.vertical, 12)
+    }
+
+    private var metricLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 12))
     }
 
     private func refresh() {

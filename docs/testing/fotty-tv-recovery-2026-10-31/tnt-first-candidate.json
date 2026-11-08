@@ -1,0 +1,12 @@
+{
+  "build": "210-before-station-health-correction",
+  "channel": "TNT Sports 2",
+  "selected": "TV13",
+  "firstVideoObservationUTC": "2026-11-01T04:16:42.151Z",
+  "endObservationUTC": "2026-11-01T04:18:38.476Z",
+  "observedAdvancingPictureSeconds": 116.325,
+  "normalWatch": true,
+  "manualRetry": false,
+  "programme": "TNT Sports 2 watermark; Moto3 race progressed from lap 6 to lap 7",
+  "limit": "Frozen-playlist automatic renewal did not occur during this observed hold; controlled recovery verified separately by unit test"
+}

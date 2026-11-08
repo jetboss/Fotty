@@ -2,14 +2,8 @@ import Foundation
 import SwiftUI
 import Combine
 
-struct FPLLocalSquadDraft: Codable {
-    let picks: [FPLPick]
-    let basedOnGameweek: Int?
-    let targetGameweek: Int?
-    let budgetLimit: Int?
-}
-
 private struct FPLCoachRequestContext: Equatable {
+    let season: String
     let managerSelectionID: UUID
     let managerID: Int?
     let gameweek: Int?
@@ -41,6 +35,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
     }
     
     @Published public var managerId: Int?
+    @Published private(set) var requiresManagerConfirmation = false
     @Published public var isLoading: Bool = false
     @Published public var isRefreshing: Bool = false
     @Published public var errorMessage: String? = nil
@@ -70,6 +65,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
     @Published public var squadValidation: FPLSquadValidationReport?
     @Published public var freeTransferEstimate: FPLFreeTransferEstimate?
     @Published public var liveSquadSummary: FPLLiveSquadSummary?
+    @Published private(set) var matchdayRefreshFailed = false
     @Published public var commandCenterState: FPLCommandCenterState?
     @Published public var planningRoutes: [FPLDraftRoute] = []
     @Published public var savedScenarios: [FPLSavedScenario] = []
@@ -77,6 +73,9 @@ public final class FPLAdvisorViewModel: ObservableObject {
     @Published public var gameweekReviews: [FPLGameweekReview] = []
     @Published public var coachProfile: FPLCoachProfile = .default
     @Published public var elementSummaries: [Int: FPLElementSummaryResponse] = [:]
+    @Published private(set) var elementSummaryErrors: [Int: String] = [:]
+    @Published private(set) var loadingElementSummaries: Set<Int> = []
+    @Published private(set) var evidenceRevision = UUID()
     @Published public var draftErrorMessage: String?
     @Published public var alertStatusMessage: String?
     
@@ -93,6 +92,25 @@ public final class FPLAdvisorViewModel: ObservableObject {
     @Published public var isRivalLoading: Bool = false
     @Published public var rivalErrorMessage: String? = nil
     @Published public var isShowingRivalSheet: Bool = false
+    private var selectedRivalEntry: FPLLeagueStandingEntry?
+    private var selectedRivalLeagueID: Int?
+    private var rivalLoadTask: Task<FPLResource<FPLManagerPicks>, Error>?
+    private var rivalPrimaryEvidenceRevision: UUID?
+
+    var rivalComparisonNeedsRefresh: Bool {
+        guard let comparison = rivalGapAnalysis, let checkedAt = comparison.checkedAt else { return true }
+        return rivalErrorMessage != nil || comparison.gameweek != currentGameweek?.id
+            || scoringSnapshotNeedsRefresh || rivalPrimaryEvidenceRevision != evidenceRevision
+            || selectedRivalLeagueID != selectedLeagueId
+            || (!comparison.isFinalComparison && now().timeIntervalSince(checkedAt) > 90)
+    }
+
+    var rivalComparisonStatus: String {
+        if isRivalLoading { return "UPDATING" }
+        guard let comparison = rivalGapAnalysis else { return "CHOOSE RIVAL" }
+        if rivalComparisonNeedsRefresh { return "LAST COMPLETE" }
+        return comparison.isFinalComparison ? "FINAL" : "PROVISIONAL"
+    }
     @Published public var isCustomDraft: Bool = false
     
     // AI Coach Chat History State
@@ -109,39 +127,53 @@ public final class FPLAdvisorViewModel: ObservableObject {
     private var rivalRequestID = UUID()
     private(set) var managerSelectionID = UUID()
     private var draftBudgetLimit: Int?
-    private let draftDefaults: UserDefaults
+    private let workspacePersistence: FPLWorkspacePersistence
+    private let managerSeasonStore: FPLManagerSeasonStore
+    private var elementSummaryRequests: [Int: UUID] = [:]
+    private var elementSummaryTasks: [Int: Task<FPLResource<FPLElementSummaryResponse>, Error>] = [:]
+    private var elementSummaryTaskIdentities: [Int: String] = [:]
+    let transferStagingStore: FPLTransferStagingStore
     private let matchdayContext: FPLMatchdayContextStore
+    private let dataProvider: any FPLAdvisorDataProviding
+    private let now: @Sendable () -> Date
     private var fixtureShowsPublishedSquad = false
     private var coachRequestID: UUID?
     private var coachRequestTask: Task<Void, Never>?
+    private var coachRequestRequiresCloudConsent = true
 
-    private var customDraftStorageKey: String? {
-        managerId.map { "fotty.fpl.\(FPLSeasonIdentifier.currentLabel()).manager.\($0).customDraftPicks" }
-    }
-
-    private var coachMessagesStorageKey: String? {
-        managerId.map { "fotty.fpl.\(FPLSeasonIdentifier.currentLabel()).manager.\($0).coachMessages" }
-    }
-    
     private func loadCustomDraft() -> FPLLocalSquadDraft? {
         if usesAutomatedTestFixture { return savedSquadDraft }
-        guard let key = customDraftStorageKey else { return nil }
-        let legacy = draftDefaults.data(forKey: key).flatMap { try? JSONDecoder().decode([FPLPick].self, from: $0) }
-        if let data = draftDefaults.data(forKey: key + ".context"),
-           let draft = try? JSONDecoder().decode(FPLLocalSquadDraft.self, from: data),
-           legacy == nil || legacy == draft.picks {
-            return draft
-        }
-        // Keep the build-43 array readable, including when returning to TestFlight.
-        guard let picks = legacy,
-              !picks.isEmpty else { return nil }
-        return FPLLocalSquadDraft(picks: picks, basedOnGameweek: nil, targetGameweek: nil, budgetLimit: nil)
+        return workspacePersistence.loadDraft(managerID: managerId)
     }
+
+    var hasUnverifiedLegacyWorkspace: Bool { workspacePersistence.hasUnverifiedLegacyWorkspace }
 
     var planningGameweek: Int {
         gameweekPhase == .planning
             ? (currentGameweek?.id ?? nextGameweek?.id ?? 1)
             : (nextGameweek?.id ?? ((currentGameweek?.id ?? 0) + 1))
+    }
+
+    private var currentWorkspaceSeason: String? {
+        guard !requiresManagerConfirmation, let bootstrap, !bootstrap.events.isEmpty else { return nil }
+        let season = FPLSeasonIdentifier.label(from: bootstrap.events)
+        guard season == FPLSeasonIdentifier.currentLabel(at: now()),
+              storedManagerId <= 0 || !managerSeasonStore.needsConfirmation(managerID: storedManagerId, at: now()) else { return nil }
+        return season
+    }
+
+    @discardableResult
+    private func acceptsWorkspaceMutation() -> Bool {
+        // The bounded UI fixture represents an already confirmed current-season
+        // workspace. Keep it independent of persisted manager IDs and wall-clock
+        // season rollover so interaction tests never mutate or fetch real data.
+        if usesAutomatedTestFixture { return true }
+        guard currentWorkspaceSeason != nil else {
+            if storedManagerId > 0 { requestManagerConfirmation() }
+            draftErrorMessage = "Refresh and confirm your current-season team before changing this plan. Existing saved work is unchanged."
+            return false
+        }
+        return true
     }
 
     var squadSourceTitle: String {
@@ -169,6 +201,34 @@ public final class FPLAdvisorViewModel: ObservableObject {
         return (savedSquadDraft?.budgetLimit ?? draftBudgetLimit ?? cost) - cost
     }
 
+    var wildcardBudget: FPLWildcardBudget {
+        FPLWildcardBudget.resolve(publishedPicks: officialPicks, publishedGameweek: picksGameweek,
+            managerSummary: managerSummary, players: bootstrap?.elements ?? [],
+            savedDraftBudgetLimit: savedSquadDraft?.budgetLimit, draftBudgetLimit: draftBudgetLimit,
+            settings: bootstrap?.gameSettings)
+    }
+
+    /// Identity-checked source shared by the staging UI and its final save gate.
+    var transferStagingBaseline: FPLTransferStagingBaseline? {
+        guard let managerId, managerId > 0,
+              !requiresManagerConfirmation,
+              usesAutomatedTestFixture || managerSummary?.id == managerId,
+              let bootstrap, let picks = picks?.picks,
+              FPLPlanningBounds.targetGameweek(explicit: planningGameweek, planningGameweek: planningGameweek,
+                events: bootstrap.events) != nil,
+              currentWorkspaceSeason != nil else { return nil }
+        let published = officialPicks?.picks ?? []
+        let budget = FPLTransferPlanContext.budgetLimit(
+            picks: published, players: bootstrap.elements,
+            bank: officialPicks?.entryHistory?.bank
+                ?? (managerSummary?.currentEvent == picksGameweek ? managerSummary?.lastDeadlineBank : nil)
+        ) ?? (isCustomDraft ? savedSquadDraft?.budgetLimit : nil)
+        return FPLTransferStagingBaseline(
+            picks: published.isEmpty ? picks : FPLTransferStagingBaseline.priced(picks, using: published),
+            publishedPicks: published, publishedGameweek: picksGameweek,
+            targetGameweek: planningGameweek, budgetLimit: budget)
+    }
+
     /// Shared by initial/foreground loads and the live refresh. Never deletes a draft.
     func applyPublishedSquad(_ published: FPLManagerPicks?, gameweek: Int?) {
         if let published, let gameweek, gameweek >= (picksGameweek ?? 0) {
@@ -176,8 +236,9 @@ public final class FPLAdvisorViewModel: ObservableObject {
             picksGameweek = gameweek
         }
         savedSquadDraft = loadCustomDraft()
-        let showPublished = usesAutomatedTestFixture ? fixtureShowsPublishedSquad
-            : (customDraftStorageKey.map { draftDefaults.bool(forKey: $0 + ".showPublished") } ?? false)
+        let showPublished = usesAutomatedTestFixture
+            ? fixtureShowsPublishedSquad
+            : workspacePersistence.shouldShowPublishedSquad(managerID: managerId)
         if let draft = savedSquadDraft, !showPublished || officialPicks == nil {
             picks = FPLManagerPicks(activeChip: nil, entryHistory: nil, picks: draft.picks)
             isCustomDraft = true
@@ -188,38 +249,30 @@ public final class FPLAdvisorViewModel: ObservableObject {
     }
 
     func showPublishedSquad() {
-        guard let key = customDraftStorageKey, officialPicks != nil else { return }
+        guard managerId != nil, officialPicks != nil else { return }
         if usesAutomatedTestFixture { fixtureShowsPublishedSquad = true }
-        else { draftDefaults.set(true, forKey: key + ".showPublished") }
+        else { workspacePersistence.setShowsPublishedSquad(true, managerID: managerId) }
         applyPublishedSquad(nil, gameweek: nil)
         draftErrorMessage = nil
         recalculateRecommendations()
     }
 
     func showSavedDraft() {
-        guard let key = customDraftStorageKey, loadCustomDraft() != nil else { return }
+        guard managerId != nil, loadCustomDraft() != nil else { return }
         if usesAutomatedTestFixture { fixtureShowsPublishedSquad = false }
-        else { draftDefaults.set(false, forKey: key + ".showPublished") }
+        else { workspacePersistence.setShowsPublishedSquad(false, managerID: managerId) }
         applyPublishedSquad(nil, gameweek: nil)
         draftErrorMessage = nil
         recalculateRecommendations()
     }
     
     public func loadSavedCoachMessages() {
-        coachMessages = []
-        guard let coachMessagesStorageKey else { return }
-        guard let data = draftDefaults.data(forKey: coachMessagesStorageKey),
-              let decoded = try? JSONDecoder().decode([AICoachMessage].self, from: data) else {
-            return
-        }
-        self.coachMessages = decoded
+        coachMessages = workspacePersistence.loadCoachMessages(managerID: managerId)
     }
     
     public func saveCoachMessages() {
         guard !usesAutomatedTestFixture else { return }
-        guard let coachMessagesStorageKey else { return }
-        guard let data = try? JSONEncoder().encode(coachMessages) else { return }
-        draftDefaults.set(data, forKey: coachMessagesStorageKey)
+        workspacePersistence.saveCoachMessages(coachMessages, managerID: managerId)
     }
     
     public func addCoachMessage(_ msg: AICoachMessage) {
@@ -230,12 +283,23 @@ public final class FPLAdvisorViewModel: ObservableObject {
     public func clearCoachHistory() {
         cancelCoachRequest()
         coachMessages.removeAll()
-        guard !usesAutomatedTestFixture, let coachMessagesStorageKey else { return }
-        draftDefaults.removeObject(forKey: coachMessagesStorageKey)
+        guard !usesAutomatedTestFixture else { return }
+        workspacePersistence.clearCoachMessages(managerID: managerId)
     }
     
-    public init(draftDefaults: UserDefaults = .standard) {
-        self.draftDefaults = draftDefaults
+    public convenience init(draftDefaults: UserDefaults = .standard) {
+        self.init(draftDefaults: draftDefaults, dataProvider: FPLService.shared)
+    }
+
+    init(
+        draftDefaults: UserDefaults,
+        dataProvider: any FPLAdvisorDataProviding,
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
+        self.dataProvider = dataProvider
+        self.now = now
+        self.workspacePersistence = FPLWorkspacePersistence(defaults: draftDefaults)
+        self.managerSeasonStore = FPLManagerSeasonStore(defaults: draftDefaults)
         self.matchdayContext = draftDefaults === UserDefaults.standard
             ? .shared : FPLMatchdayContextStore(defaults: draftDefaults)
         self._storedManagerId = AppStorage(wrappedValue: 0, "fotty.user.fplManagerId", store: draftDefaults)
@@ -245,16 +309,18 @@ public final class FPLAdvisorViewModel: ObservableObject {
         usesAutomatedTestFixture = false
         #endif
 
-        if storedManagerId <= 0,
-           let legacyValue = draftDefaults.string(forKey: "fotty.fpl.managerId"),
-           let legacyManagerId = Int(legacyValue),
-           legacyManagerId > 0 {
+        self.transferStagingStore = FPLTransferStagingStore(
+            defaults: draftDefaults, persists: !usesAutomatedTestFixture
+        )
+
+        if let legacyManagerId = workspacePersistence.legacyManagerID(currentStoredID: storedManagerId) {
             storedManagerId = legacyManagerId
-            draftDefaults.removeObject(forKey: "fotty.fpl.managerId")
         }
         self.managerId = usesAutomatedTestFixture
             ? 9_999_999
             : (storedManagerId > 0 ? storedManagerId : nil)
+        self.requiresManagerConfirmation = !usesAutomatedTestFixture && storedManagerId > 0
+            && managerSeasonStore.needsConfirmation(managerID: storedManagerId, at: now())
         migrateLegacyLocalDataIfNeeded()
         loadSavedCoachMessages()
         if usesAutomatedTestFixture {
@@ -378,6 +444,8 @@ public final class FPLAdvisorViewModel: ObservableObject {
         clearManagerId()
         storedManagerId = id
         managerId = id
+        managerSeasonStore.confirm(managerID: id, at: now())
+        requiresManagerConfirmation = false
         migrateLegacyLocalDataIfNeeded()
         loadSavedCoachMessages()
         coachProfile = FPLCoachProfileStore.load(managerID: id)
@@ -392,6 +460,10 @@ public final class FPLAdvisorViewModel: ObservableObject {
     
     public func clearManagerId() {
         cancelCoachRequest()
+        cancelRivalRefresh(clearSelection: true)
+        managerSeasonStore.clear()
+        requiresManagerConfirmation = false
+        invalidateElementSummaryRequests()
         let clearedManagerID = managerId
         loadRequestID = UUID()
         leagueRequestID = UUID()
@@ -424,6 +496,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
         squadValidation = nil
         freeTransferEstimate = nil
         liveSquadSummary = nil
+        matchdayRefreshFailed = false
         commandCenterState = nil
         planningRoutes = []
         savedScenarios = []
@@ -431,6 +504,8 @@ public final class FPLAdvisorViewModel: ObservableObject {
         gameweekReviews = []
         coachProfile = .default
         elementSummaries = [:]
+        elementSummaryErrors = [:]
+        evidenceRevision = UUID()
         draftErrorMessage = nil
         alertStatusMessage = nil
         draftBudgetLimit = nil
@@ -457,34 +532,44 @@ public final class FPLAdvisorViewModel: ObservableObject {
     }
 
     private func migrateLegacyLocalDataIfNeeded() {
-        guard let customDraftStorageKey, let coachMessagesStorageKey else { return }
-        let defaults = draftDefaults
-        let legacyDraftKey = "fotty.fpl.customDraftPicks"
-        let legacyCoachKey = "fotty.fpl.coachMessages"
+        workspacePersistence.migrateLegacyWorkspace(managerID: managerId)
+    }
 
-        if defaults.data(forKey: customDraftStorageKey) == nil,
-           let legacyDraft = defaults.data(forKey: legacyDraftKey) {
-            defaults.set(legacyDraft, forKey: customDraftStorageKey)
+    /// Restore/rollover is not the explicit user identity-confirmation action.
+    func requestManagerConfirmation(managerID: Int? = nil) {
+        let previous = managerID ?? self.managerId ?? (storedManagerId > 0 ? storedManagerId : nil)
+        clearManagerId()
+        if let previous, previous > 0 {
+            storedManagerId = previous
+            self.managerId = previous
+            requiresManagerConfirmation = true
         }
-        if defaults.data(forKey: coachMessagesStorageKey) == nil,
-           let legacyMessages = defaults.data(forKey: legacyCoachKey) {
-            defaults.set(legacyMessages, forKey: coachMessagesStorageKey)
-        }
-        defaults.removeObject(forKey: legacyDraftKey)
-        defaults.removeObject(forKey: legacyCoachKey)
     }
     
     public func loadData(isRefresh: Bool = false) async {
+        await loadData(isRefresh: isRefresh, isMatchdayRefresh: false)
+    }
+
+    private func loadData(isRefresh: Bool, isMatchdayRefresh: Bool) async {
         guard let id = managerId, id > 0 else { return }
+        if !usesAutomatedTestFixture, storedManagerId > 0,
+           managerSeasonStore.needsConfirmation(managerID: id, at: now()) {
+            if !requiresManagerConfirmation { requestManagerConfirmation(managerID: id) }
+            return
+        }
         let requestID = UUID()
         loadRequestID = requestID
+        let selectionID = managerSelectionID
+        let requestedSeason = FPLSeasonIdentifier.currentLabel(at: now())
         let refreshStartedAt = Date()
-        
+        let priorGameweekID = currentGameweek?.id
+        let priorPhase = gameweekPhase
+        isRefreshing = isRefresh || isMatchdayRefresh
+        isLoading = !isRefreshing
+
         if isRefresh {
-            isRefreshing = true
-            await FPLService.shared.clearCache()
-        } else {
-            isLoading = true
+            invalidateElementSummaryRequests()
+            await dataProvider.clearCache()
         }
         errorMessage = nil
         defer {
@@ -495,10 +580,12 @@ public final class FPLAdvisorViewModel: ObservableObject {
         }
         
         do {
-            async let bootstrapTask = FPLService.shared.fetchBootstrapResource()
-            async let fixturesTask = FPLService.shared.fetchFixturesResource()
-            async let summaryTask = FPLService.shared.fetchManagerSummaryResource(id: id)
-            async let historyTask = FPLService.shared.fetchManagerHistoryResource(id: id)
+            async let bootstrapTask = dataProvider.fetchBootstrapResource(
+                maximumAge: FPLMatchdayRefreshPolicy.bootstrapMaximumAge(gameweek: currentGameweek, now: now())
+            )
+            async let fixturesTask = dataProvider.fetchFixturesResource()
+            async let summaryTask = dataProvider.fetchManagerSummaryResource(id: id)
+            async let historyTask = dataProvider.fetchManagerHistoryResource(id: id)
 
             let (bootstrapResource, fixtureResource, summaryResource, historyResource) = try await (
                 bootstrapTask,
@@ -506,7 +593,8 @@ public final class FPLAdvisorViewModel: ObservableObject {
                 summaryTask,
                 historyTask
             )
-            guard !Task.isCancelled, loadRequestID == requestID, managerId == id else { return }
+            guard !Task.isCancelled, loadRequestID == requestID,
+                  managerSelectionID == selectionID, managerId == id else { return }
 
             let bData = bootstrapResource.value
             let fData = fixtureResource.value
@@ -520,12 +608,17 @@ public final class FPLAdvisorViewModel: ObservableObject {
 
             let officialCurrent = bData.events.first(where: { $0.isCurrent })
             let officialNext = bData.events.first(where: { $0.isNext })
-            let activeGameweek = officialCurrent?.finished == true
+            // Keep a visible live result through full-time/data_checked. A new
+            // official-current ID still advances it; an ordinary reopen keeps
+            // the existing next-planning-week selection behavior.
+            let retainVisibleCurrent = isMatchdayRefresh && priorGameweekID == officialCurrent?.id
+            let activeGameweek = officialCurrent?.finished == true && !retainVisibleCurrent
                 ? (officialNext ?? officialCurrent)
                 : (officialCurrent ?? officialNext)
             let fetchedPhase = FPLGameweekPhase.resolve(
                 gameweek: activeGameweek,
-                fixtures: fData
+                fixtures: fData,
+                now: now()
             )
 
             var fetchedOfficialPicks: FPLManagerPicks?
@@ -533,7 +626,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
             var fetchedEventLive: FPLEventLiveResponse?
             if let gameweekID = activeGameweek?.id {
                 do {
-                    let picksResource = try await FPLService.shared.fetchPicksResource(
+                    let picksResource = try await dataProvider.fetchPicksResource(
                         managerId: id,
                         gameweek: gameweekID
                     )
@@ -542,7 +635,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
                     fetchedMetadata["picks"] = picksResource.metadata
                 } catch {
                     if gameweekID > 1,
-                       let previous = try? await FPLService.shared.fetchPicksResource(
+                       let previous = try? await dataProvider.fetchPicksResource(
                         managerId: id,
                         gameweek: gameweekID - 1
                        ) {
@@ -553,14 +646,55 @@ public final class FPLAdvisorViewModel: ObservableObject {
                 }
 
                 if fetchedPhase != .planning,
-                   let liveResource = try? await FPLService.shared.fetchEventLiveResource(gameweek: gameweekID) {
+                   let liveResource = try? await dataProvider.fetchEventLiveResource(gameweek: gameweekID) {
                     fetchedEventLive = liveResource.value
                     fetchedMetadata["eventLive"] = liveResource.metadata
                 }
             }
-            guard !Task.isCancelled, loadRequestID == requestID, managerId == id else { return }
+            guard !Task.isCancelled, loadRequestID == requestID,
+                  managerSelectionID == selectionID, managerId == id else { return }
 
+            if isMatchdayRefresh,
+               !FPLMatchdayRefreshPolicy.canPublishRefresh(fetchedMetadata, phase: fetchedPhase, now: now()) {
+                throw URLError(.resourceUnavailable)
+            }
+            if isMatchdayRefresh, fetchedPhase != .planning,
+               fetchedPicksGameweek != activeGameweek?.id {
+                throw URLError(.resourceUnavailable)
+            }
+            if fetchedPhase != .planning,
+               !FPLMatchdayRefreshPolicy.hasCurrentScoringResources(fetchedMetadata, now: now()) {
+                if isMatchdayRefresh {
+                    // Atomic publication: retain every old value AND original
+                    // timestamp, instead of refreshing points over old fixtures.
+                    throw URLError(.resourceUnavailable)
+                }
+                fetchedEventLive = nil
+                fetchedMetadata.removeValue(forKey: "eventLive")
+            }
+
+            guard requestedSeason == FPLSeasonIdentifier.currentLabel(at: now()),
+                  FPLSeasonIdentifier.label(from: bData.events) == requestedSeason else {
+                if storedManagerId > 0 { requestManagerConfirmation(managerID: id) }
+                throw URLError(.resourceUnavailable)
+            }
+            let previousPlayers = Dictionary(uniqueKeysWithValues: (bootstrap?.elements ?? []).map { ($0.id, $0) })
+            let retainedHistoryIDs = Set(bData.elements.compactMap { player -> Int? in
+                guard let old = previousPlayers[player.id], old.firstName == player.firstName,
+                      old.secondName == player.secondName, old.team == player.team else { return nil }
+                return player.id
+            })
+            if Set(elementSummaries.keys).union(elementSummaryTasks.keys).contains(where: { !retainedHistoryIDs.contains($0) }) {
+                invalidateElementSummaryRequests()
+            }
+            elementSummaries = elementSummaries.filter { retainedHistoryIDs.contains($0.key) }
+            elementSummaryErrors = elementSummaryErrors.filter { retainedHistoryIDs.contains($0.key) }
+            for playerID in retainedHistoryIDs {
+                let key = "element-\(playerID)"
+                fetchedMetadata[key] = resourceMetadata[key]
+            }
             self.bootstrap = bData
+            self.decisionJournalEntries = FPLDecisionJournalStore.load(managerID: id, season: requestedSeason)
             self.fixtures = fData
             self.managerSummary = summaryData
             self.managerHistory = historyResource.value
@@ -574,6 +708,8 @@ public final class FPLAdvisorViewModel: ObservableObject {
             self.nextGameweek = officialNext
             self.gameweekPhase = fetchedPhase
             self.eventLive = fetchedEventLive
+            self.matchdayRefreshFailed = false
+            self.evidenceRevision = UUID()
 
             let scores = FPLAdvisorEngine.scoreAllPlayers(
                 players: bData.elements,
@@ -607,7 +743,8 @@ public final class FPLAdvisorViewModel: ObservableObject {
                     settings: bData.gameSettings,
                     startGameweek: start,
                     horizon: coachProfile.planningHorizon,
-                    budget: budget
+                    budget: budget,
+                    events: bData.events
                 ).first
                 self.picks = generated.map {
                     FPLManagerPicks(activeChip: nil, entryHistory: nil, picks: $0.picks)
@@ -626,27 +763,31 @@ public final class FPLAdvisorViewModel: ObservableObject {
             let planningStart = gameweekPhase == .planning
                 ? (activeGameweek?.id ?? officialNext?.id ?? 1)
                 : (officialNext?.id ?? ((activeGameweek?.id ?? 0) + 1))
-            self.fixtureGameweeks = Array(planningStart..<(planningStart + 5))
+            self.fixtureGameweeks = FPLPlanningBounds.gameweeks(start: planningStart, horizon: 5, events: bData.events)
             self.freeTransferEstimate = FPLFreeTransferEstimator.estimate(
                 history: historyResource.value,
                 targetGameweek: planningStart,
                 startedEvent: summaryData.startedEvent,
                 maximum: bData.gameSettings?.maximumFreeTransfers ?? FPLTransferRules.maximumBankedFreeTransfers
             )
-            recalculateRecommendations()
-            rebuildDecisionState(rebuildOptimizer: true)
+            recalculateRecommendations(rebuildOptimizer: !isMatchdayRefresh
+                || priorGameweekID != activeGameweek?.id || priorPhase != fetchedPhase)
+            await refreshSelectedRivalAfterPrimarySnapshot()
 
-            await recordLatestConfirmedReview(
-                managerID: id,
-                requestID: requestID,
-                bootstrap: bData,
-                fixtures: fData,
-                history: historyResource.value
-            )
+            if !isMatchdayRefresh {
+                await recordLatestConfirmedReview(
+                    managerID: id,
+                    requestID: requestID,
+                    bootstrap: bData,
+                    fixtures: fData,
+                    history: historyResource.value
+                )
+            }
             guard !Task.isCancelled, loadRequestID == requestID, managerId == id else { return }
 
             let classicLeagues = summaryData.leagues?.classic ?? []
-            if let firstLeague = classicLeagues.first(where: \.isPrivateMiniLeague) ?? classicLeagues.first {
+            if !isMatchdayRefresh,
+               let firstLeague = classicLeagues.first(where: \.isPrivateMiniLeague) ?? classicLeagues.first {
                 self.selectedLeagueId = firstLeague.id
                 await loadLeagueStandings(leagueId: firstLeague.id)
             }
@@ -663,7 +804,10 @@ public final class FPLAdvisorViewModel: ObservableObject {
             )
         } catch {
             guard !Task.isCancelled, loadRequestID == requestID, managerId == id else { return }
-            if let urlError = error as? URLError, urlError.code == .notConnectedToInternet {
+            if isMatchdayRefresh {
+                self.matchdayRefreshFailed = true
+                self.errorMessage = "Could not refresh the complete FPL snapshot. Showing the previous update; retrying automatically."
+            } else if let urlError = error as? URLError, urlError.code == .notConnectedToInternet {
                 self.errorMessage = "Fantasy Premier League is unavailable while this device is offline."
             } else {
                 self.errorMessage = "Could not load that FPL manager. Check the manager ID and try again."
@@ -687,18 +831,21 @@ public final class FPLAdvisorViewModel: ObservableObject {
         fixtures: [FPLFixture],
         history: FPLManagerHistoryResponse
     ) async {
-        guard let completed = bootstrap.events
+        guard let season = currentWorkspaceSeason,
+              FPLSeasonIdentifier.label(from: bootstrap.events) == season,
+              let completed = bootstrap.events
             .filter({ $0.finished && $0.dataChecked == true })
             .max(by: { $0.id < $1.id }),
               history.current.contains(where: { $0.event == completed.id }) else { return }
         do {
-            async let picksResource = FPLService.shared.fetchPicksResource(
+            async let picksResource = dataProvider.fetchPicksResource(
                 managerId: managerID,
                 gameweek: completed.id
             )
-            async let liveResource = FPLService.shared.fetchEventLiveResource(gameweek: completed.id)
+            async let liveResource = dataProvider.fetchEventLiveResource(gameweek: completed.id)
             let (officialPicks, officialLive) = try await (picksResource, liveResource)
-            guard !Task.isCancelled, loadRequestID == requestID, managerId == managerID else { return }
+            guard !Task.isCancelled, loadRequestID == requestID, managerId == managerID,
+                  currentWorkspaceSeason == season else { return }
             let summary = FPLDecisionEngine.liveSquadSummary(
                 gameweek: completed,
                 picks: officialPicks.value,
@@ -714,7 +861,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
                 history: history,
                 players: bootstrap.elements
             ) {
-                gameweekReviews = FPLReviewStore.upsert(review, managerID: managerID)
+                gameweekReviews = FPLReviewStore.upsert(review, managerID: managerID, season: season)
             }
         } catch {
             // The next refresh can retry. A review is never synthesized without
@@ -724,6 +871,10 @@ public final class FPLAdvisorViewModel: ObservableObject {
     
     public func loadLeagueStandings(leagueId: Int, page: Int = 1, appending: Bool = false) async {
         guard page >= 1 else { return }
+        guard let season = currentWorkspaceSeason else {
+            leagueErrorMessage = "Refresh and confirm your current-season team before loading this league."
+            return
+        }
         let requestID = UUID()
         leagueRequestID = requestID
         self.selectedLeagueId = leagueId
@@ -742,7 +893,8 @@ public final class FPLAdvisorViewModel: ObservableObject {
         }
         do {
             let res = try await FPLService.shared.fetchLeagueStandings(leagueId: leagueId, page: page)
-            guard !Task.isCancelled, leagueRequestID == requestID, selectedLeagueId == leagueId else { return }
+            guard !Task.isCancelled, leagueRequestID == requestID, selectedLeagueId == leagueId,
+                  currentWorkspaceSeason == season else { return }
             if appending, let current = leagueStandings {
                 let existingEntries = current.standings.results
                 let existingIDs = Set(existingEntries.map(\.entry))
@@ -759,7 +911,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
                 self.leagueStandings = res
             }
         } catch {
-            guard !Task.isCancelled, leagueRequestID == requestID else { return }
+            guard !Task.isCancelled, leagueRequestID == requestID, currentWorkspaceSeason == season else { return }
             self.leagueErrorMessage = "Could not load this league. Check your connection and try again."
         }
     }
@@ -774,8 +926,10 @@ public final class FPLAdvisorViewModel: ObservableObject {
     
     public func inspectRival(entry: FPLLeagueStandingEntry) async {
         guard entry.entry != managerId else { return }
-        guard let gwId = currentGameweek?.id,
-              let standings = leagueStandings?.standings.results else {
+        guard let season = currentWorkspaceSeason,
+              let managerID = managerId, let gameweek = currentGameweek,
+              let standings = leagueStandings?.standings.results,
+              let leagueID = selectedLeagueId else {
             rivalErrorMessage = "Load a current gameweek and mini-league before choosing a rival."
             return
         }
@@ -783,51 +937,107 @@ public final class FPLAdvisorViewModel: ObservableObject {
             rivalErrorMessage = "Rival squads publish after the gameweek deadline. Standings remain available before then."
             return
         }
+        rivalLoadTask?.cancel()
+        if selectedRivalID != entry.entry || selectedRivalLeagueID != leagueID {
+            rivalGapAnalysis = nil
+            rivalPicks = nil
+        }
+        selectedRivalEntry = entry
+        selectedRivalLeagueID = leagueID
+        selectedRivalID = entry.entry
+        rivalManagerName = "\(entry.entryName) (\(entry.managerName))"
+        isShowingRivalSheet = true
+        guard let ownPicks = officialPicks, picksGameweek == gameweek.id,
+              let bootstrap, let live = eventLive,
+              FPLMatchdayRefreshPolicy.hasCurrentScoringResources(resourceMetadata, now: now()),
+              !scoringSnapshotNeedsRefresh else {
+            rivalErrorMessage = "Refresh your gameweek first. A rival comparison needs the same current scoring data for both teams."
+            isRivalLoading = false
+            rivalRequestID = UUID()
+            return
+        }
+        guard let myEntry = standings.first(where: { $0.entry == managerID }) ?? managerStandingFallback() else {
+            rivalErrorMessage = "Your standings were not available. Refresh the mini-league before comparing."
+            isRivalLoading = false
+            rivalRequestID = UUID()
+            return
+        }
+        let input = FPLRivalSnapshotInput(managerID: managerID, rivalID: entry.entry,
+            gameweek: gameweek, ownPicks: ownPicks, bootstrap: bootstrap,
+            live: live, fixtures: fixtures, metadata: resourceMetadata)
+        let capturedScores = playerScores
+        let capturedPhase = gameweekPhase
+        let primaryRequestID = loadRequestID
+        let primaryEvidenceRevision = evidenceRevision
         isRivalLoading = true
         rivalErrorMessage = nil
-        self.rivalManagerName = "\(entry.entryName) (\(entry.managerName))"
-        self.selectedRivalID = entry.entry
         let selectionID = managerSelectionID
         let requestID = UUID()
         rivalRequestID = requestID
-        defer { if rivalRequestID == requestID { isRivalLoading = false } }
-
-        let myEntry = standings.first(where: { $0.entry == managerId })
-            ?? managerStandingFallback()
-        
+        let provider = dataProvider
+        let task = Task { try await provider.fetchPicksResource(managerId: entry.entry, gameweek: gameweek.id) }
+        rivalLoadTask = task
+        defer {
+            if rivalRequestID == requestID { isRivalLoading = false; rivalLoadTask = nil }
+        }
+        func stillOwnsComparison() -> Bool {
+            !Task.isCancelled && !task.isCancelled && managerSelectionID == selectionID
+                && rivalRequestID == requestID && managerId == managerID
+                && selectedRivalID == entry.entry && selectedLeagueId == leagueID
+                && currentGameweek?.id == gameweek.id && picksGameweek == gameweek.id
+                && currentWorkspaceSeason == season
+                && loadRequestID == primaryRequestID
+                && FPLMatchdayRefreshPolicy.scoringKeys.allSatisfy { resourceMetadata[$0] == input.metadata[$0] }
+                && evidenceRevision == primaryEvidenceRevision && !scoringSnapshotNeedsRefresh
+        }
         do {
-            let rivalPicksData = try await FPLService.shared.fetchPicks(managerId: entry.entry, gameweek: gwId)
-            guard !Task.isCancelled, managerSelectionID == selectionID, rivalRequestID == requestID else { return }
-            self.rivalPicks = rivalPicksData
-            
-            if let myE = myEntry, let myP = officialPicks, picksGameweek == gwId {
-                self.rivalGapAnalysis = FPLAdvisorEngine.analyzeRivalGap(
-                    myEntry: myE,
-                    rivalEntry: entry,
-                    myPicks: myP.picks,
-                    rivalPicks: rivalPicksData.picks,
-                    allScores: playerScores,
-                    gameweek: gwId,
-                    phase: gameweekPhase,
-                    eventLive: eventLive,
-                    fixtures: fixtures
-                )
-            } else {
-                self.rivalGapAnalysis = nil
-                self.rivalErrorMessage = "Your position was not available in the loaded league page."
-            }
+            let resource = try await withTaskCancellationHandler(operation: { try await task.value }, onCancel: { task.cancel() })
+            guard stillOwnsComparison() else { return }
+            let snapshot = try FPLRivalScoringSnapshot.make(input: input, rival: resource, now: now())
+            rivalPicks = resource.value
+            rivalPrimaryEvidenceRevision = primaryEvidenceRevision
+            rivalGapAnalysis = FPLAdvisorEngine.analyzeRivalGap(myEntry: myEntry, rivalEntry: entry,
+                myPicks: ownPicks.picks, rivalPicks: resource.value.picks, allScores: capturedScores,
+                gameweek: gameweek.id, phase: capturedPhase, eventLive: live, fixtures: input.fixtures,
+                scoringSnapshot: snapshot)
             rebuildDecisionState(rebuildOptimizer: false)
-            
-            self.isShowingRivalSheet = true
         } catch {
-            guard !Task.isCancelled, managerSelectionID == selectionID, rivalRequestID == requestID else { return }
-            self.rivalGapAnalysis = nil
-            self.rivalErrorMessage = "That published rival squad is not available yet. Try again after the deadline or refresh the league."
+            guard stillOwnsComparison() else { return }
+            rivalErrorMessage = rivalGapAnalysis == nil
+                ? "A complete, current rival squad is not available. Refresh the gameweek and try again."
+                : "Could not update the rival comparison. The last complete comparison is still shown."
+        }
+    }
+
+    /// Called once by the existing primary-snapshot owner; never starts a poller.
+    func refreshSelectedRivalAfterPrimarySnapshot() async {
+        guard let selectedRivalEntry, selectedRivalLeagueID == selectedLeagueId else { return }
+        let entry = leagueStandings?.standings.results.first { $0.entry == selectedRivalEntry.entry } ?? selectedRivalEntry
+        await inspectRival(entry: entry)
+    }
+
+    /// Invalidates even providers which finish after cancellation.
+    func cancelRivalRefresh(clearSelection: Bool = false) {
+        rivalRequestID = UUID()
+        rivalLoadTask?.cancel()
+        rivalLoadTask = nil
+        isRivalLoading = false
+        if clearSelection {
+            selectedRivalEntry = nil
+            rivalPrimaryEvidenceRevision = nil
+            selectedRivalLeagueID = nil
+            selectedRivalID = nil
+            rivalManagerName = nil
+            rivalPicks = nil
+            rivalGapAnalysis = nil
+            rivalErrorMessage = nil
         }
     }
 
     private func managerStandingFallback() -> FPLLeagueStandingEntry? {
-        guard let managerId, let managerSummary else { return nil }
+        guard let managerId, let managerSummary,
+              let total = managerSummary.summaryOverallPoints,
+              let eventTotal = managerSummary.summaryEventPoints else { return nil }
         let league = managerSummary.leagues?.classic.first(where: { $0.id == selectedLeagueId })
         return FPLLeagueStandingEntry(
             entry: managerId,
@@ -835,8 +1045,8 @@ public final class FPLAdvisorViewModel: ObservableObject {
             playerName: managerSummary.fullName,
             rank: league?.entryRank ?? managerSummary.summaryOverallRank ?? 0,
             lastRank: league?.entryLastRank ?? 0,
-            total: managerSummary.summaryOverallPoints ?? 0,
-            eventTotal: managerSummary.summaryEventPoints ?? 0
+            total: total,
+            eventTotal: eventTotal
         )
     }
     
@@ -844,16 +1054,40 @@ public final class FPLAdvisorViewModel: ObservableObject {
     
     @discardableResult
     public func updateUserSquad(picks: [FPLPick]) -> Bool {
-        guard let bootstrap, let key = customDraftStorageKey else {
+        saveUserSquad(picks: picks, transferBudget: nil)
+    }
+
+    @discardableResult
+    func saveTransferStaging(_ staging: FPLTransferStagingState) -> Bool {
+        guard staging.managerID == managerId, staging.season == FPLSeasonIdentifier.currentLabel(),
+              !staging.hasConflict, staging.baseline == transferStagingBaseline,
+              let budget = staging.baseline.budgetLimit else {
+            draftErrorMessage = "The squad or budget changed. Review the latest data in Transfer Lab before saving."
+            return false
+        }
+        return saveUserSquad(
+            picks: FPLTransferStagingBaseline.priced(staging.picks, using: staging.baseline.picks),
+            transferBudget: budget)
+    }
+
+    private func saveUserSquad(picks: [FPLPick], transferBudget: Int?) -> Bool {
+        guard acceptsWorkspaceMutation() else { return false }
+        guard let bootstrap, managerId != nil, !requiresManagerConfirmation else {
             draftErrorMessage = "Load your manager and player data before saving a draft."
             return false
         }
+        guard FPLPlanningBounds.targetGameweek(explicit: planningGameweek, planningGameweek: planningGameweek,
+                events: bootstrap.events) != nil else {
+            draftErrorMessage = "No valid upcoming gameweek is available for this draft. Refresh the official calendar."
+            return false
+        }
+        let effectiveBudget = transferBudget ?? (isCustomDraft ? (savedSquadDraft?.budgetLimit ?? draftBudgetLimit) : draftBudgetLimit)
         let validation = FPLSquadValidator.validate(
             picks: picks,
             players: bootstrap.elements,
             elementTypes: bootstrap.elementTypes,
             gameSettings: bootstrap.gameSettings,
-            budgetLimit: isCustomDraft ? (savedSquadDraft?.budgetLimit ?? draftBudgetLimit) : draftBudgetLimit
+            budgetLimit: effectiveBudget
         )
         guard validation.isValid else {
             self.draftErrorMessage = validation.issues.first(where: { $0.severity == .error })?.message
@@ -861,17 +1095,13 @@ public final class FPLAdvisorViewModel: ObservableObject {
         }
         let draft = FPLLocalSquadDraft(
             picks: picks,
-            basedOnGameweek: isCustomDraft ? (savedSquadDraft?.basedOnGameweek ?? picksGameweek) : picksGameweek,
+            basedOnGameweek: transferBudget != nil ? picksGameweek : (isCustomDraft ? (savedSquadDraft?.basedOnGameweek ?? picksGameweek) : picksGameweek),
             targetGameweek: planningGameweek,
-            budgetLimit: isCustomDraft ? (savedSquadDraft?.budgetLimit ?? draftBudgetLimit) : draftBudgetLimit
+            budgetLimit: effectiveBudget
         )
         do {
-            let encoded = try JSONEncoder().encode(picks)
-            let context = try JSONEncoder().encode(draft)
             if !usesAutomatedTestFixture {
-                draftDefaults.set(encoded, forKey: key)
-                draftDefaults.set(context, forKey: key + ".context")
-                draftDefaults.set(false, forKey: key + ".showPublished")
+                try workspacePersistence.saveDraft(draft, managerID: managerId)
             }
             fixtureShowsPublishedSquad = false
         } catch {
@@ -967,7 +1197,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
         }
     }
     
-    public func recalculateRecommendations() {
+    public func recalculateRecommendations(rebuildOptimizer: Bool = false) {
         guard let currentPicks = self.picks else { return }
         let bank = planningBank
         self.transferRecs = FPLAdvisorEngine.getTransferRecommendations(
@@ -979,58 +1209,42 @@ public final class FPLAdvisorViewModel: ObservableObject {
             picks: currentPicks.picks,
             allScores: playerScores
         )
-        rebuildDecisionState(rebuildOptimizer: false)
+        rebuildDecisionState(rebuildOptimizer: rebuildOptimizer)
     }
 
     public func rebuildDecisionState(rebuildOptimizer: Bool) {
         guard let bootstrap else { return }
-        let planningStart = gameweekPhase == .planning
-            ? (currentGameweek?.id ?? nextGameweek?.id ?? 1)
-            : (nextGameweek?.id ?? ((currentGameweek?.id ?? 0) + 1))
-
-        if let currentPicks = picks {
-            squadValidation = FPLSquadValidator.validate(
-                picks: currentPicks.picks,
-                players: bootstrap.elements,
-                elementTypes: bootstrap.elementTypes,
-                gameSettings: bootstrap.gameSettings,
-                budgetLimit: isCustomDraft ? (savedSquadDraft?.budgetLimit ?? draftBudgetLimit) : nil
-            )
-        }
-        // Never combine an older fallback lineup or a local plan with this
-        // game's live statistics, even while the draft is visible in Squad.
-        if let currentGameweek, picksGameweek == currentGameweek.id,
-           let officialPicks, let eventLive {
-            liveSquadSummary = FPLDecisionEngine.liveSquadSummary(
-                gameweek: currentGameweek,
-                picks: officialPicks,
-                live: eventLive,
-                players: bootstrap.elements,
-                teams: bootstrap.teams,
-                fixtures: fixtures
-            )
-        } else {
-            liveSquadSummary = nil
-        }
-
-        planningRoutes = FPLPlannerEngine.routes(
-            recommendations: transferRecs,
-            fixtures: fixtures,
-            startGameweek: planningStart,
-            horizon: coachProfile.planningHorizon,
-            freeTransfers: freeTransferEstimate,
-            gameweek: currentGameweek
+        let state = FPLAdvisorDerivedStateBuilder.build(
+            input: FPLAdvisorDerivedStateInput(
+                bootstrap: bootstrap,
+                fixtures: fixtures,
+                phase: gameweekPhase,
+                currentGameweek: currentGameweek,
+                planningStartGameweek: planningGameweek,
+                displayedPicks: picks,
+                publishedPicks: officialPicks,
+                publishedPicksGameweek: picksGameweek,
+                eventLive: eventLive,
+                playerScores: playerScores,
+                transferRecommendations: transferRecs,
+                freeTransfers: freeTransferEstimate,
+                managerHistory: managerHistory,
+                managerSummary: managerSummary,
+                coachProfile: coachProfile,
+                isCustomDraft: isCustomDraft,
+                draftBudgetLimit: draftBudgetLimit,
+                savedDraftBudgetLimit: savedSquadDraft?.budgetLimit,
+                existingValidation: squadValidation
+            ),
+            rebuildOptimizer: rebuildOptimizer
         )
-        commandCenterState = FPLDecisionEngine.commandCenter(
-            phase: gameweekPhase,
-            gameweek: currentGameweek,
-            picks: gameweekPhase == .planning ? picks : (picksGameweek == currentGameweek?.id ? officialPicks : nil),
-            scores: playerScores,
-            validation: squadValidation,
-            freeTransfers: freeTransferEstimate,
-            live: liveSquadSummary,
-            history: managerHistory
-        )
+        squadValidation = state.validation
+        liveSquadSummary = state.liveSquadSummary
+        planningRoutes = state.planningRoutes
+        commandCenterState = state.commandCenter
+        if let optimizedSquads = state.optimizedSquads {
+            self.optimizedSquads = optimizedSquads
+        }
 
         if !usesAutomatedTestFixture, let managerId, let officialPicks {
             matchdayContext.update(
@@ -1044,24 +1258,11 @@ public final class FPLAdvisorViewModel: ObservableObject {
             )
         }
 
-        if rebuildOptimizer {
-            let budget = draftBudgetLimit
-                ?? managerSummary?.lastDeadlineValue
-                ?? bootstrap.gameSettings?.squadTotalSpend
-                ?? 1_000
-            optimizedSquads = FPLSquadOptimizer.generate(
-                scores: playerScores,
-                fixtures: fixtures,
-                elementTypes: bootstrap.elementTypes,
-                settings: bootstrap.gameSettings,
-                startGameweek: planningStart,
-                horizon: coachProfile.planningHorizon,
-                budget: budget
-            )
-        }
     }
 
     public func saveScenario(name: String, route: FPLDraftRoute, gameweek: Int) {
+        guard acceptsWorkspaceMutation(), let bootstrap,
+              FPLPlanningBounds.targetGameweek(explicit: gameweek, planningGameweek: planningGameweek, events: bootstrap.events) != nil else { return }
         guard let managerId else { return }
         let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let scenario = FPLSavedScenario(
@@ -1074,52 +1275,104 @@ public final class FPLAdvisorViewModel: ObservableObject {
     }
 
     public func removeScenario(id: String) {
-        guard let managerId else { return }
+        guard acceptsWorkspaceMutation(), let managerId else { return }
         savedScenarios = FPLScenarioStore.remove(id: id, managerID: managerId)
     }
 
-    public func fetchElementSummary(playerID: Int) async -> FPLElementSummaryResponse? {
-        if let cached = elementSummaries[playerID] { return cached }
-        guard !usesAutomatedTestFixture else { return nil }
+    public func fetchElementSummary(playerID: Int, forceRefresh: Bool = false) async -> FPLElementSummaryResponse? {
+        guard !Task.isCancelled, !requiresManagerConfirmation,
+              let season = currentWorkspaceSeason,
+              bootstrap?.elements.contains(where: { $0.id == playerID }) == true else { return nil }
+        let key = "element-\(playerID)"
+        if !forceRefresh, let cached = elementSummaries[playerID],
+           FPLPlayerEvidencePolicy.isCurrent(resourceMetadata[key], at: now()) { return cached }
+        guard !usesAutomatedTestFixture else { return elementSummaries[playerID] }
+        let selection = managerSelectionID
+        let playerIdentity = bootstrap?.elements.first { $0.id == playerID }.map { "\($0.firstName)|\($0.secondName)|\($0.team)" }
+        let taskIdentity = "\(season)|\(playerIdentity ?? "")"
+        let requestID: UUID
+        let task: Task<FPLResource<FPLElementSummaryResponse>, Error>
+        if !forceRefresh, elementSummaryTaskIdentities[playerID] == taskIdentity,
+           let existing = elementSummaryTasks[playerID], let id = elementSummaryRequests[playerID] {
+            task = existing
+            requestID = id
+        } else {
+            elementSummaryTasks[playerID]?.cancel()
+            requestID = UUID()
+            elementSummaryRequests[playerID] = requestID
+            elementSummaryTaskIdentities[playerID] = taskIdentity
+            let provider = dataProvider
+            task = Task {
+                try await provider.fetchElementSummaryResource(playerId: playerID,
+                    maximumAge: forceRefresh ? 0 : FPLPlayerEvidencePolicy.maximumAge)
+            }
+            elementSummaryTasks[playerID] = task
+        }
+        loadingElementSummaries.insert(playerID)
+        defer {
+            if elementSummaryRequests[playerID] == requestID {
+                elementSummaryTasks[playerID] = nil
+                elementSummaryTaskIdentities[playerID] = nil
+                loadingElementSummaries.remove(playerID)
+            }
+        }
         do {
-            let resource = try await FPLService.shared.fetchElementSummaryResource(playerId: playerID)
+            let resource = try await task.value
+            guard !Task.isCancelled, managerSelectionID == selection,
+                  elementSummaryRequests[playerID] == requestID,
+                  currentWorkspaceSeason == season,
+                  bootstrap?.elements.first(where: { $0.id == playerID }).map({ "\($0.firstName)|\($0.secondName)|\($0.team)" }) == playerIdentity else { return nil }
+            guard resource.metadata.endpoint == "element-summary/\(playerID)/",
+                  resourceMetadata[key].map({ resource.metadata.fetchedAt >= $0.fetchedAt }) ?? true else {
+                elementSummaryErrors[playerID] = "A mismatched or older history update was rejected."
+                return elementSummaries[playerID]
+            }
             elementSummaries[playerID] = resource.value
-            resourceMetadata["element-\(playerID)"] = resource.metadata
+            resourceMetadata[key] = resource.metadata
+            elementSummaryErrors[playerID] = FPLPlayerEvidencePolicy.isCurrent(resource.metadata, at: now())
+                ? nil : "Showing saved history; a current update could not be checked."
             return resource.value
         } catch {
-            return nil
+            guard !Task.isCancelled, managerSelectionID == selection,
+                  elementSummaryRequests[playerID] == requestID else { return nil }
+            elementSummaryErrors[playerID] = elementSummaries[playerID] == nil
+                ? "Player history could not be loaded. Try refreshing."
+                : "History refresh failed. Showing the previous update."
+            return elementSummaries[playerID]
         }
+    }
+
+    private func invalidateElementSummaryRequests() {
+        elementSummaryTasks.values.forEach { $0.cancel() }
+        elementSummaryTasks.removeAll()
+        elementSummaryRequests.removeAll()
+        elementSummaryTaskIdentities.removeAll()
+        loadingElementSummaries.removeAll()
+    }
+
+    func cancelPlayerHistoryChecks(except selected: Set<Int> = []) {
+        for id in Array(elementSummaryTasks.keys) where !selected.contains(id) {
+            elementSummaryTasks.removeValue(forKey: id)?.cancel()
+            elementSummaryRequests[id] = nil
+            elementSummaryTaskIdentities[id] = nil
+            loadingElementSummaries.remove(id)
+        }
+    }
+
+    func playerHistoryStatus(playerID: Int) -> String {
+        if loadingElementSummaries.contains(playerID) { return "Checking official history…" }
+        if let error = elementSummaryErrors[playerID] { return error }
+        guard let metadata = resourceMetadata["element-\(playerID)"] else { return "History not checked yet." }
+        return "\(FPLPlayerEvidencePolicy.isCurrent(metadata, at: now()) ? "Checked" : "Last checked") · \(metadata.shortAgeDescription)"
     }
 
     public func refreshMatchdayData() async {
-        guard !isLoading, !isRefreshing, let managerId,
-              let gameweek = currentGameweek,
-              gameweekPhase != .planning else { return }
-        let selectionID = managerSelectionID
-        let loadID = loadRequestID
-        do {
-            async let liveResource = FPLService.shared.fetchEventLiveResource(gameweek: gameweek.id)
-            async let picksResource = FPLService.shared.fetchPicksResource(
-                managerId: managerId,
-                gameweek: gameweek.id
-            )
-            let (live, officialPicks) = try await (liveResource, picksResource)
-            guard !Task.isCancelled, managerSelectionID == selectionID, loadRequestID == loadID,
-                  self.managerId == managerId, self.currentGameweek?.id == gameweek.id else { return }
-            eventLive = live.value
-            applyPublishedSquad(officialPicks.value, gameweek: gameweek.id)
-            resourceMetadata["eventLive"] = live.metadata
-            resourceMetadata["picks"] = officialPicks.metadata
-            gameweekPhase = FPLGameweekPhase.resolve(gameweek: gameweek, fixtures: fixtures)
-            recalculateRecommendations()
-            rebuildDecisionState(rebuildOptimizer: false)
-        } catch {
-            // Keep the last labeled snapshot on screen. Pull-to-refresh remains
-            // available and the next timer tick will retry.
-        }
+        guard !usesAutomatedTestFixture, !isLoading, !isRefreshing, managerId != nil else { return }
+        await loadData(isRefresh: false, isMatchdayRefresh: true)
     }
 
     public func updateCoachProfile(_ profile: FPLCoachProfile) {
+        guard acceptsWorkspaceMutation() else { return }
         coachProfile = profile
         if let managerId {
             FPLCoachProfileStore.save(profile, managerID: managerId)
@@ -1149,20 +1402,42 @@ public final class FPLAdvisorViewModel: ObservableObject {
     }
 
     var scoringFreshness: FPLResourceMetadata? {
-        guard let live = resourceMetadata["eventLive"], let picks = resourceMetadata["picks"] else { return nil }
-        return live.fetchedAt < picks.fetchedAt ? live : picks
+        let resources = FPLMatchdayRefreshPolicy.scoringKeys.compactMap { resourceMetadata[$0] }
+        guard resources.count == FPLMatchdayRefreshPolicy.scoringKeys.count else { return nil }
+        return resources.min { $0.fetchedAt < $1.fetchedAt }
     }
 
+    /// Presentation only: never recalculate retained points from failed inputs.
+    /// A confirmed final result remains final even when it is no longer recent.
+    var scoringSnapshotNeedsRefresh: Bool {
+        liveSquadSummary?.isFinal != true && (matchdayRefreshFailed
+            || !FPLMatchdayRefreshPolicy.hasCurrentScoringResources(resourceMetadata, now: now()))
+    }
+
+    var scoringSnapshotAgeDescription: String? {
+        guard let metadata = scoringFreshness else { return nil }
+        let seconds = Int(max(0, now().timeIntervalSince(metadata.fetchedAt)))
+        if seconds < 60 { return "just now" }
+        if seconds < 3_600 { return "\(seconds / 60)m ago" }
+        if seconds < 86_400 { return "\(seconds / 3_600)h ago" }
+        return "\(seconds / 86_400)d ago"
+    }
+
+    @discardableResult
     public func recordDecision(
         kind: FPLDecisionJournalEntry.Kind,
         title: String,
         rationale: String,
         expectedOutcome: String,
         source: String,
-        estimatedPointCost: Int? = nil
-    ) {
-        guard let managerId else { return }
-        let gameweek = currentGameweek?.id ?? nextGameweek?.id ?? 1
+        estimatedPointCost: Int? = nil,
+        targetGameweek: Int? = nil
+    ) -> Bool {
+        guard acceptsWorkspaceMutation(), let managerId, !requiresManagerConfirmation, let bootstrap,
+              let gameweek = FPLPlanningBounds.targetGameweek(explicit: targetGameweek,
+                planningGameweek: planningGameweek, events: bootstrap.events) else { return false }
+        let season = FPLSeasonIdentifier.label(from: bootstrap.events)
+        guard season == FPLSeasonIdentifier.currentLabel(at: now()) else { return false }
         let entry = FPLDecisionJournalEntry(
             managerID: managerId,
             gameweek: gameweek,
@@ -1173,10 +1448,12 @@ public final class FPLAdvisorViewModel: ObservableObject {
             source: source,
             estimatedPointCost: estimatedPointCost
         )
-        decisionJournalEntries = FPLDecisionJournalStore.upsert(entry, managerID: managerId)
+        decisionJournalEntries = FPLDecisionJournalStore.upsert(entry, managerID: managerId, season: season)
+        return decisionJournalEntries.contains { $0.id == entry.id }
     }
 
     public func recordRouteDecision(_ route: FPLDraftRoute) {
+        guard let target = route.weeklyProjectedGain.keys.min() else { return }
         let moveDescription = route.transfers.isEmpty
             ? "Roll the transfer"
             : route.transfers.map { "\($0.playerOut.player.webName) → \($0.playerIn.player.webName)" }.joined(separator: ", ")
@@ -1186,15 +1463,24 @@ public final class FPLAdvisorViewModel: ObservableObject {
             rationale: "\(moveDescription). \(route.explanation)",
             expectedOutcome: "Modeled \(route.projectedGain >= 0 ? "+" : "")\(route.projectedGain.formatted(.number.precision(.fractionLength(1)))) points over \(coachProfile.planningHorizon) gameweeks after the estimated hit.",
             source: "Transfer Lab",
-            estimatedPointCost: route.hitCost
+            estimatedPointCost: route.hitCost,
+            targetGameweek: target
         )
     }
 
-    public func recordCoachDecision(_ card: FPLCoachCardPayload) {
-        recordDecision(
+    @discardableResult
+    public func recordCoachDecision(_ card: FPLCoachCardPayload) -> Bool {
+        if let checked = card.verifiedAt,
+           FPLSeasonIdentifier.currentLabel(at: checked) != currentWorkspaceSeason {
+            coachStatusMessage = "Recheck this older-season recommendation before saving a current plan."
+            return false
+        }
+        let receipt = card.verifiedAt.map { "Evidence checked \($0.formatted(date: .abbreviated, time: .shortened))." }
+            ?? "Original evidence date not recorded; recheck before acting."
+        return recordDecision(
             kind: .strategy,
             title: "Smart Coach recommendation",
-            rationale: card.answer,
+            rationale: "\(receipt) \(card.answer)",
             expectedOutcome: card.verifyBeforeDeadline.first ?? "Revisit this advice after the gameweek.",
             source: card.source
         )
@@ -1205,22 +1491,23 @@ public final class FPLAdvisorViewModel: ObservableObject {
         outcome: FPLDecisionJournalEntry.Outcome,
         note: String = ""
     ) {
-        guard let managerId,
+        guard acceptsWorkspaceMutation(), let season = currentWorkspaceSeason, let managerId,
               let existing = decisionJournalEntries.first(where: { $0.id == id }) else { return }
         var updated = existing
         updated.outcome = outcome
         updated.outcomeNote = note
         updated.updatedAt = Date()
-        decisionJournalEntries = FPLDecisionJournalStore.upsert(updated, managerID: managerId)
+        decisionJournalEntries = FPLDecisionJournalStore.upsert(updated, managerID: managerId, season: season)
     }
 
     public func removeDecision(id: String) {
-        guard let managerId else { return }
-        decisionJournalEntries = FPLDecisionJournalStore.remove(id: id, managerID: managerId)
+        guard acceptsWorkspaceMutation(), let season = currentWorkspaceSeason, let managerId else { return }
+        decisionJournalEntries = FPLDecisionJournalStore.remove(id: id, managerID: managerId, season: season)
     }
 
     private var coachRequestContext: FPLCoachRequestContext {
         FPLCoachRequestContext(
+            season: FPLSeasonIdentifier.currentLabel(at: now()),
             managerSelectionID: managerSelectionID, managerID: managerId,
             gameweek: currentGameweek?.id, publishedGameweek: picksGameweek,
             planningGameweek: planningGameweek, phase: gameweekPhase,
@@ -1239,8 +1526,13 @@ public final class FPLAdvisorViewModel: ObservableObject {
         operation: (@MainActor (String, [AICoachMessage]) async throws -> FPLSmartCoachResult)? = nil
     ) -> Task<Void, Never>? {
         let query = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty, !isCoachThinking,
-              usesAutomatedTestFixture || draftDefaults.bool(forKey: "fotty.fpl.smartCoachConsent") else { return nil }
+        guard !query.isEmpty, !isCoachThinking, !requiresManagerConfirmation else { return nil }
+        guard usesAutomatedTestFixture || currentWorkspaceSeason != nil else {
+            coachStatusMessage = "Refresh and confirm your current-season team before asking Coach."
+            return nil
+        }
+        let cloudAllowed = usesAutomatedTestFixture || workspacePersistence.hasSmartCoachConsent
+        coachRequestRequiresCloudConsent = cloudAllowed
         let requestID = UUID()
         let context = coachRequestContext
         coachRequestID = requestID
@@ -1261,7 +1553,15 @@ public final class FPLAdvisorViewModel: ObservableObject {
             }
             do {
                 let result: FPLSmartCoachResult
-                if let operation { result = try await operation(query, history) }
+                if !cloudAllowed {
+                    result = await self.deterministicCoachResult(query: query) ?? FPLSmartCoachResult(
+                        answer: "Cloud Coach is off. I can explain points and supported FPL rules on this device. Enable Cloud Coach for strategic player advice.",
+                        confidence: "bounded", evidence: ["No request was sent off this device."],
+                        assumptions: ["This question needs evidence or judgment beyond the on-device rules."],
+                        actions: ["Enable Cloud Coach only if you want to share the listed team context."],
+                        model: nil, verifiedAt: nil, officialDataStatus: "Not checked", source: .localFallback, usage: .zero)
+                }
+                else if let operation { result = try await operation(query, history) }
                 else { result = try await self.askSmartCoach(query: query, history: history) }
                 guard self.acceptsCoachReply(requestID, context: context) else { return }
                 self.addCoachResult(result, gameweek: context.gameweek)
@@ -1296,7 +1596,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
 
     private func acceptsCoachReply(_ id: UUID, context: FPLCoachRequestContext) -> Bool {
         guard coachRequestID == id, !Task.isCancelled else { return false }
-        guard usesAutomatedTestFixture || draftDefaults.bool(forKey: "fotty.fpl.smartCoachConsent") else {
+        guard !coachRequestRequiresCloudConsent || usesAutomatedTestFixture || workspacePersistence.hasSmartCoachConsent else {
             coachStatusMessage = "Cloud coach is off. The pending reply was discarded."
             return false
         }
@@ -1344,7 +1644,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
             assumptions: ["The local fallback did not refresh server-side official data or use DeepSeek."],
             actions: ["Confirm availability, free transfers, selling prices, and final changes in official FPL."],
             model: nil, verifiedAt: primaryFreshness?.fetchedAt,
-            officialDataStatus: primaryFreshness?.source.rawValue ?? "Device snapshot",
+            officialDataStatus: primaryFreshness?.source.displayName ?? "Saved FPL data",
             source: .localFallback, usage: .zero
         )
     }
@@ -1366,7 +1666,7 @@ public final class FPLAdvisorViewModel: ObservableObject {
             )
         }
         #endif
-        guard let managerId, let managerSummary else {
+        guard currentWorkspaceSeason != nil, let managerId, let managerSummary else {
             throw FPLSmartCoachError.service("Load an FPL manager before asking the coach.")
         }
         let context = coachRequestContext
@@ -1375,6 +1675,9 @@ public final class FPLAdvisorViewModel: ObservableObject {
             return deterministic
         }
         guard !Task.isCancelled, coachRequestContext == context else { throw CancellationError() }
+        guard workspacePersistence.hasSmartCoachConsent else {
+            throw FPLSmartCoachError.service("Cloud Coach is off. Enable it before sending strategic questions.")
+        }
         let result = try await FPLSmartCoachService.ask(
             query: query,
             managerID: managerId,

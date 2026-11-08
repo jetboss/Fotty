@@ -136,6 +136,13 @@ export function resolveFplScoring({ event, picks, live, fixtures, players }) {
   const officialCurrentPoints = Number.isSafeInteger(picks.entry_history?.points)
     ? picks.entry_history.points
     : computedPublishedPoints;
+  // Official FPL Help distinguishes published GW points from the total after
+  // transfer costs. Keep the published contract; net the displayed contribution
+  // exactly once. computedPublishedPoints is already net when used as fallback.
+  const officialPointsBeforeTransfers = Number.isSafeInteger(picks.entry_history?.points)
+    ? picks.entry_history.points : null;
+  const officialNetPoints = officialPointsBeforeTransfers !== null
+    ? officialPointsBeforeTransfers - transferCost : computedPublishedPoints;
   const officialAutomaticSubs = Array.isArray(picks.automatic_subs) ? picks.automatic_subs : [];
   const benchBoost = String(picks.active_chip || "").toLowerCase() === "bboost";
 
@@ -213,9 +220,11 @@ export function resolveFplScoring({ event, picks, live, fixtures, players }) {
     gameweek: eventId,
     has_complete_scoring_data: hasCompleteScoringData,
     official_current_points: officialCurrentPoints,
+    official_points_before_transfers: officialPointsBeforeTransfers,
+    official_net_points: officialNetPoints,
     computed_published_points: computedPublishedPoints,
     projected_points_after_safe_autosubs: projectedPoints,
-    displayed_points: projectedPoints ?? officialCurrentPoints,
+    displayed_points: projectedPoints ?? officialNetPoints,
     transfer_cost: transferCost,
     status: !hasCompleteScoringData ? "incomplete" : eventIsFinal
       ? "official-final"
@@ -249,7 +258,10 @@ export function resolveFplScoring({ event, picks, live, fixtures, players }) {
 
 export function isFplScoringQuestion(query) {
   const text = String(query || "").toLowerCase();
-  const currentScoreRequest = /\b(?:what(?:['’]s| is| are)|check|verify|show)\s+(?:my|the)\s+(?:current|live)\s+(?:gameweek\s+)?(?:points|total|score)\b/i;
+  // Keep the current-snapshot factual boundary identical to native routing.
+  const anotherPeriod = /\b(?:next|future|upcoming|last|previous)\s+(?:gameweek|week)\b|\b(?:predict|prediction|expected)\b/i;
+  if (anotherPeriod.test(text)) return false;
+  const currentScoreRequest = /\b(?:what(?:['’]s| is| are)|check|verify|show)\s+(?:my|the)\s+(?:(?:current|live)\s+)?(?:(?:gameweek|total)\s+)?(?:points|total|score)\b/i;
   if (currentScoreRequest.test(text)) return true;
   return /auto(?:matic)?[-\s]?sub|substitut|bench.*(?:point|replace|come on)|(?:point|total|score).*(?:bench|sub|replace|did not play|didn't play|no minutes)|(?:did not play|didn't play|no minutes).*(?:point|total|sub|replace)|how many (?:gameweek )?points|correct (?:gameweek )?(?:points|total)|gameweek points/i.test(text);
 }
@@ -258,10 +270,11 @@ export function deterministicFplScoringResponse(scoring, verifiedAt) {
   if (!scoring || !scoring.has_complete_scoring_data) {
     const official = scoring?.official_current_points;
     const hasOfficial = Number.isSafeInteger(official);
+    const basis = scoring?.transfer_cost > 0 ? " before transfer costs" : "";
     return {
-      answer: `${hasOfficial ? `The published official snapshot shows **${official} points**, but player-level scoring data is incomplete.` : "I cannot verify your gameweek total because official scoring data is unavailable or incomplete."} Missing data does not mean a player failed to appear. I cannot confirm automatic substitutions or a corrected total until the data is complete.`,
+      answer: `${hasOfficial ? `The published official snapshot shows **${official} points${basis}**, but player-level scoring data is incomplete.` : "I cannot verify your gameweek total because official scoring data is unavailable or incomplete."} Missing data does not mean a player failed to appear. I cannot confirm automatic substitutions or a corrected total until the data is complete.`,
       confidence: "low",
-      evidence: hasOfficial ? [`Published official points: ${official}; player-level evidence is incomplete.`] : ["No complete official scoring snapshot is available."],
+      evidence: hasOfficial ? [`Published official points${basis}: ${official}; player-level evidence is incomplete.`] : ["No complete official scoring snapshot is available."],
       assumptions: ["Missing player statistics are unknown, not zero points or a confirmed non-appearance."],
       actions: ["Refresh Live Points and try again when official FPL data is available."],
       source: "Fotty rules engine",
@@ -273,11 +286,20 @@ export function deterministicFplScoringResponse(scoring, verifiedAt) {
   }
   const projected = scoring.projected_points_after_safe_autosubs;
   const official = scoring.official_current_points;
+  const net = scoring.official_net_points ?? official;
   const projectedSubs = scoring.projected_automatic_subs || [];
   const officialSubs = scoring.official_automatic_subs || [];
   const transferNote = scoring.transfer_cost > 0
     ? ` after the ${scoring.transfer_cost}-point transfer cost`
     : "";
+  const officialSummary = scoring.transfer_cost > 0
+    ? (Number.isSafeInteger(scoring.official_points_before_transfers)
+      ? `Official FPL publishes **${official} points before transfers**. That contributes **${net} net points**${transferNote}.`
+      : `The published lineup contributes **${net} net points**${transferNote}, calculated from player points.`)
+    : `Official FPL currently records **${official} points**.`;
+  const officialEvidence = scoring.transfer_cost > 0
+    ? `Published points before transfers: ${scoring.official_points_before_transfers ?? "unavailable"}; net contribution: ${net}; transfer cost: ${scoring.transfer_cost}.`
+    : `Official current points: ${official}.`;
 
   if (Number.isFinite(projected)) {
     const replacementText = projectedSubs
@@ -288,10 +310,10 @@ export function deterministicFplScoringResponse(scoring, verifiedAt) {
       : "";
     const changes = [replacementText, captainText].filter(Boolean).join("; ");
     return {
-      answer: `The official snapshot currently shows **${official} points**, but that total has not yet applied every proven FPL rule. Fotty's rules engine projects **${projected} points**${transferNote}: ${changes}. The ${projected}-point figure is the correct provisional total if the official live data remains unchanged.`,
+      answer: `${scoring.transfer_cost > 0 ? officialSummary : `The official snapshot currently shows **${official} points**, but that total has not yet applied every proven FPL rule.`} Fotty's rules engine projects **${projected} points**${transferNote}: ${changes}. The ${projected}-point figure is the correct provisional total if the official live data remains unchanged.`,
       confidence: "high",
       evidence: [
-        `Official current points: ${official}.`,
+        officialEvidence,
         ...projectedSubs.map((substitution) => `${substitution.in_name} played and scored ${substitution.in_points}; ${substitution.out_name}'s fixture is complete with no appearance.`),
         ...(scoring.projected_captain ? [`${scoring.projected_captain.name} played and inherits the captain multiplier because the published captain is confirmed out.`] : []),
         `Formation and goalkeeper-only substitution rules remain valid${scoring.transfer_cost > 0 ? `; ${scoring.transfer_cost} transfer points are deducted` : ""}.`,
@@ -309,9 +331,9 @@ export function deterministicFplScoringResponse(scoring, verifiedAt) {
   if (officialSubs.length) {
     const replacements = officialSubs.map((substitution) => `${substitution.in_name} for ${substitution.out_name}`).join("; ");
     return {
-      answer: `Official FPL currently records **${official} points**${transferNote}. The published automatic substitutions are: ${replacements}.`,
+      answer: `${officialSummary} The published automatic substitutions are: ${replacements}.`,
       confidence: "high",
-      evidence: [`Official current points: ${official}.`, `Official automatic substitutions: ${replacements}.`],
+      evidence: [officialEvidence, `Official automatic substitutions: ${replacements}.`],
       assumptions: scoring.status === "official-final" ? [] : ["Bonus or corrections can still change until the gameweek is data-checked."],
       actions: scoring.status === "official-final" ? [] : ["Refresh after the remaining fixtures and data checks finish."],
       source: "Official FPL + Fotty rules engine",
@@ -323,9 +345,9 @@ export function deterministicFplScoringResponse(scoring, verifiedAt) {
   }
 
   return {
-    answer: `Official FPL currently records **${official} points**${transferNote}. Fotty cannot prove another eligible automatic substitution from the completed-fixture evidence yet, so it will not invent a different total.`,
+    answer: `${officialSummary} Fotty cannot prove another eligible automatic substitution from the completed-fixture evidence yet, so it will not invent a different total.`,
     confidence: "high",
-    evidence: [`Official current points: ${official}.`],
+    evidence: [officialEvidence],
     assumptions: scoring.status === "official-final" ? [] : ["Players with a fixture remaining can still appear, and bonus or corrections can still change."],
     actions: scoring.status === "official-final" ? [] : ["Refresh after the relevant fixtures finish or FPL publishes automatic substitutions."],
     source: "Official FPL + Fotty rules engine",

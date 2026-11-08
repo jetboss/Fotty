@@ -1,0 +1,615 @@
+{
+  "observedAt": "2026-11-01T01:36:51.121Z",
+  "qualification": "metadata inventory only; no media fetched or enabled",
+  "rows": [
+    {
+      "country": "us",
+      "label": "ESPNU HD (720p)",
+      "id": "ESPNU.us@HD",
+      "scheme": "http:",
+      "port": "9590",
+      "host": "85.237.89.160"
+    },
+    {
+      "country": "us",
+      "label": "Fox Sports 1 (720p)",
+      "id": "FoxSports1.us@HD",
+      "scheme": "http:",
+      "port": "9590",
+      "host": "85.237.89.160"
+    },
+    {
+      "country": "us",
+      "label": "NBC Sports NOW (1080p)",
+      "id": "NBCSportsNOW.us@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "d4whmvwm0rdvi.cloudfront.net"
+    },
+    {
+      "country": "us",
+      "label": "USA Network Latin America (1080p)",
+      "id": "USANetworkLatinAmerica.us@Panregional",
+      "scheme": "http:",
+      "port": "9002",
+      "host": "138.121.15.230"
+    },
+    {
+      "country": "us",
+      "label": "USA Network Latin America (1080p)",
+      "id": "USANetworkLatinAmerica.us@Panregional",
+      "scheme": "http:",
+      "port": "1935",
+      "host": "bantel-cdn1.iptvperu.tv"
+    },
+    {
+      "country": "us",
+      "label": "Willow (720p)",
+      "id": "Willow.us@SD",
+      "scheme": "http:",
+      "port": "80",
+      "host": "tvsen5.aynascope.net"
+    },
+    {
+      "country": "us",
+      "label": "Willow (720p)",
+      "id": "Willow.us@SD",
+      "scheme": "http:",
+      "port": "80",
+      "host": "tvsen7.aynascope.net"
+    },
+    {
+      "country": "us",
+      "label": "Willow (720p)",
+      "id": "Willow.us@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "tvsen5.aynaott.com"
+    },
+    {
+      "country": "us",
+      "label": "Willow Sports (1080p) [Geo-blocked]",
+      "id": "WillowSports.us@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "amg01269-amg01269c1-firetv-us-5377.playouts.now.amagi.tv"
+    },
+    {
+      "country": "us",
+      "label": "Willow Sports (1080p) [Geo-blocked]",
+      "id": "WillowSports.us@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "amg01269-amg01269c1-sportstribal-emea-5204.playouts.now.amagi.tv"
+    },
+    {
+      "country": "us",
+      "label": "Willow Sports (1080p)",
+      "id": "WillowSports.us@HD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "d36r8jifhgsk5j.cloudfront.net"
+    },
+    {
+      "country": "us",
+      "label": "ESPN Deportes HD (720p)",
+      "id": "ESPNDeportes.us@HD",
+      "scheme": "http:",
+      "port": "9998",
+      "host": "168.228.44.241"
+    },
+    {
+      "country": "us",
+      "label": "CBS Sports Golazo Network (720p)",
+      "id": "CBSSportsGolazoNetwork.us@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "dai.google.com"
+    },
+    {
+      "country": "us",
+      "label": "Willow (720p) [Geo-blocked]",
+      "id": "Willow.us@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "tvsen7.aynaott.com"
+    },
+    {
+      "country": "us",
+      "label": "USA Network (720p)",
+      "id": "USANetwork.us@East",
+      "scheme": "http:",
+      "port": "80",
+      "host": "190.197.41.183"
+    },
+    {
+      "country": "us",
+      "label": "USA Network (720p)",
+      "id": "USANetwork.us@East",
+      "scheme": "http:",
+      "port": "80",
+      "host": "200.32.231.178"
+    },
+    {
+      "country": "us",
+      "label": "ESPN Extra Latin America (1080p)",
+      "id": "ESPNExtraLatinAmerica.us@Argentine",
+      "scheme": "https:",
+      "port": "443",
+      "host": "barinaslive1.boldmss.com"
+    },
+    {
+      "country": "us",
+      "label": "ESPN Latin America (1080p)",
+      "id": "ESPNLatinAmerica.us@South",
+      "scheme": "https:",
+      "port": "443",
+      "host": "barinaslive1.boldmss.com"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 2 Latin America (1080p)",
+      "id": "ESPN2LatinAmerica.us@South",
+      "scheme": "https:",
+      "port": "443",
+      "host": "barinaslive1.boldmss.com"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 3 Latin America (1080p)",
+      "id": "ESPN3LatinAmerica.us@South",
+      "scheme": "https:",
+      "port": "443",
+      "host": "barinaslive1.boldmss.com"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 4 Latin America (1080p)",
+      "id": "ESPN4LatinAmerica.us@South",
+      "scheme": "https:",
+      "port": "443",
+      "host": "barinaslive1.boldmss.com"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 5 Latin America (1080p)",
+      "id": "ESPN5LatinAmerica.us@South",
+      "scheme": "https:",
+      "port": "443",
+      "host": "barinaslive1.boldmss.com"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 6 Latin America (1080p)",
+      "id": "ESPN6LatinAmerica.us@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "barinaslive1.boldmss.com"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 7 Latin America (1080p)",
+      "id": "ESPN7LatinAmerica.us@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "barinaslive1.boldmss.com"
+    },
+    {
+      "country": "us",
+      "label": "ESPN Latin America Argentina",
+      "id": "ESPNLatinAmerica.us@Argentina",
+      "scheme": "https:",
+      "port": "1936",
+      "host": "bantel-cdn1.iptvperu.tv"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 2 Latin America Argentina",
+      "id": "ESPN2LatinAmerica.us@Argentina",
+      "scheme": "https:",
+      "port": "1936",
+      "host": "bantel-cdn1.iptvperu.tv"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 3 Latin America Argentina",
+      "id": "ESPN3LatinAmerica.us@Argentina",
+      "scheme": "https:",
+      "port": "1936",
+      "host": "bantel-cdn1.iptvperu.tv"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 5 Latin America (720p)",
+      "id": "ESPN5LatinAmerica.us@South",
+      "scheme": "https:",
+      "port": "1936",
+      "host": "bantel-cdn1.iptvperu.tv"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 6 Latin America (720p)",
+      "id": "ESPN6LatinAmerica.us@SD",
+      "scheme": "https:",
+      "port": "1936",
+      "host": "bantel-cdn1.iptvperu.tv"
+    },
+    {
+      "country": "us",
+      "label": "ESPN HD (720p)",
+      "id": "ESPN.us@HD",
+      "scheme": "http:",
+      "port": "9590",
+      "host": "85.237.89.160"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 2 HD (720p)",
+      "id": "ESPN2.us@HD",
+      "scheme": "http:",
+      "port": "9590",
+      "host": "85.237.89.160"
+    },
+    {
+      "country": "us",
+      "label": "ESPN Latin America Colombia (1080p)",
+      "id": "ESPNLatinAmerica.us@Colombia",
+      "scheme": "http:",
+      "port": "8000",
+      "host": "190.61.47.54"
+    },
+    {
+      "country": "us",
+      "label": "ESPN 2 Latin America Colombia (1080p)",
+      "id": "ESPN2LatinAmerica.us@Colombia",
+      "scheme": "http:",
+      "port": "8000",
+      "host": "190.61.47.54"
+    },
+    {
+      "country": "us",
+      "label": "ESPN (432p)",
+      "id": "ESPN.us@SD",
+      "scheme": "http:",
+      "port": "80",
+      "host": "tvsen7.aynascope.net"
+    },
+    {
+      "country": "us",
+      "label": "ESPN (720p) [Geo-blocked]",
+      "id": "ESPN.us@SD",
+      "scheme": "http:",
+      "port": "8080",
+      "host": "212.5.144.156"
+    },
+    {
+      "country": "us",
+      "label": "Fox Sports 1 (720p)",
+      "id": "FoxSports1.us@HD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "tvsen7.aynascope.net"
+    },
+    {
+      "country": "us",
+      "label": "Fox Sports 2 (720p)",
+      "id": "FoxSports2.us@HD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "tvsen7.aynascope.net"
+    },
+    {
+      "country": "us",
+      "label": "ESPN Latin America Mexico (1080p)",
+      "id": "ESPNLatinAmerica.us@Mexico",
+      "scheme": "http:",
+      "port": "9997",
+      "host": "168.228.44.241"
+    },
+    {
+      "country": "uk",
+      "label": "Sky Sports F1 (720p)",
+      "id": "SkySportsF1.uk@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "cdn.stmify.com"
+    },
+    {
+      "country": "uk",
+      "label": "Sky Sports NFL (720p)",
+      "id": "SkySportsNFL.uk@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "cdn.stmify.com"
+    },
+    {
+      "country": "uk",
+      "label": "DAZN 1 Portugal",
+      "id": "DAZN1.uk@Portugal",
+      "scheme": "http:",
+      "port": "8080",
+      "host": "50.7.120.34"
+    },
+    {
+      "country": "uk",
+      "label": "DAZN 3 Portugal (720p)",
+      "id": "DAZN3.uk@Portugal",
+      "scheme": "http:",
+      "port": "8080",
+      "host": "23.237.104.106"
+    },
+    {
+      "country": "uk",
+      "label": "DAZN 4 (540p)",
+      "id": "DAZN4.uk@Portugal",
+      "scheme": "http:",
+      "port": "8080",
+      "host": "23.237.104.106"
+    },
+    {
+      "country": "uk",
+      "label": "DAZN 5 (720p)",
+      "id": "DAZN5.uk@Portugal",
+      "scheme": "http:",
+      "port": "8080",
+      "host": "23.237.104.106"
+    },
+    {
+      "country": "uk",
+      "label": "TNT Sports 1",
+      "id": "TNTSports1.uk@SD",
+      "scheme": "http:",
+      "port": "80",
+      "host": "37.49.224.5"
+    },
+    {
+      "country": "uk",
+      "label": "TNT Sports 2",
+      "id": "TNTSports2.uk@SD",
+      "scheme": "http:",
+      "port": "80",
+      "host": "37.49.224.5"
+    },
+    {
+      "country": "uk",
+      "label": "TNT Sports 3",
+      "id": "TNTSports3.uk@SD",
+      "scheme": "http:",
+      "port": "80",
+      "host": "37.49.224.5"
+    },
+    {
+      "country": "uk",
+      "label": "TNT Sports 4",
+      "id": "TNTSports4.uk@SD",
+      "scheme": "http:",
+      "port": "80",
+      "host": "37.49.224.5"
+    },
+    {
+      "country": "au",
+      "label": "Fox Sports News (1080p)",
+      "id": "FoxSportsNews.au@SD",
+      "scheme": "https:",
+      "port": "443",
+      "host": "skynewsau-live-premium.akamaized.net"
+    }
+  ],
+  "metadata": [
+    {
+      "id": "CBSSportsGolazoNetwork.us",
+      "name": "CBS Sports Golazo Network",
+      "country": "US",
+      "fields": [
+        "id",
+        "name",
+        "alt_names",
+        "network",
+        "owners",
+        "country",
+        "categories",
+        "is_nsfw",
+        "launched",
+        "closed",
+        "replaced_by",
+        "website"
+      ]
+    },
+    {
+      "id": "FoxSports1.us",
+      "name": "Fox Sports 1",
+      "country": "US",
+      "fields": [
+        "id",
+        "name",
+        "alt_names",
+        "network",
+        "owners",
+        "country",
+        "categories",
+        "is_nsfw",
+        "launched",
+        "closed",
+        "replaced_by",
+        "website"
+      ]
+    },
+    {
+      "id": "FoxSports2.us",
+      "name": "Fox Sports 2",
+      "country": "US",
+      "fields": [
+        "id",
+        "name",
+        "alt_names",
+        "network",
+        "owners",
+        "country",
+        "categories",
+        "is_nsfw",
+        "launched",
+        "closed",
+        "replaced_by",
+        "website"
+      ]
+    },
+    {
+      "id": "NBCSportsNOW.us",
+      "name": "NBC Sports NOW",
+      "country": "US",
+      "fields": [
+        "id",
+        "name",
+        "alt_names",
+        "network",
+        "owners",
+        "country",
+        "categories",
+        "is_nsfw",
+        "launched",
+        "closed",
+        "replaced_by",
+        "website"
+      ]
+    },
+    {
+      "id": "Willow.us",
+      "name": "Willow",
+      "country": "US",
+      "fields": [
+        "id",
+        "name",
+        "alt_names",
+        "network",
+        "owners",
+        "country",
+        "categories",
+        "is_nsfw",
+        "launched",
+        "closed",
+        "replaced_by",
+        "website"
+      ]
+    },
+    {
+      "id": "WillowSports.us",
+      "name": "Willow Sports",
+      "country": "US",
+      "fields": [
+        "id",
+        "name",
+        "alt_names",
+        "network",
+        "owners",
+        "country",
+        "categories",
+        "is_nsfw",
+        "launched",
+        "closed",
+        "replaced_by",
+        "website"
+      ]
+    }
+  ],
+  "feedMetadata": [
+    {
+      "id": "SD",
+      "channel": "CBSSportsGolazoNetwork.us",
+      "feed": "SD",
+      "languages": [
+        "eng"
+      ],
+      "timezones": [
+        "America/New_York"
+      ],
+      "broadcastArea": [
+        "c/US"
+      ]
+    },
+    {
+      "id": "HD",
+      "channel": "FoxSports1.us",
+      "feed": "HD",
+      "languages": [
+        "eng"
+      ],
+      "timezones": [
+        "America/New_York"
+      ],
+      "broadcastArea": [
+        "c/US"
+      ]
+    },
+    {
+      "id": "UHD",
+      "channel": "FoxSports1.us",
+      "feed": "UHD",
+      "languages": [
+        "eng"
+      ],
+      "timezones": [
+        "America/New_York"
+      ],
+      "broadcastArea": [
+        "c/US"
+      ]
+    },
+    {
+      "id": "HD",
+      "channel": "FoxSports2.us",
+      "feed": "HD",
+      "languages": [
+        "eng"
+      ],
+      "timezones": [
+        "America/New_York"
+      ],
+      "broadcastArea": [
+        "c/US"
+      ]
+    },
+    {
+      "id": "SD",
+      "channel": "NBCSportsNOW.us",
+      "feed": "SD",
+      "languages": [
+        "eng"
+      ],
+      "timezones": [
+        "America/New_York"
+      ],
+      "broadcastArea": [
+        "c/US"
+      ]
+    },
+    {
+      "id": "SD",
+      "channel": "Willow.us",
+      "feed": "SD",
+      "languages": [
+        "eng"
+      ],
+      "timezones": [
+        "America/New_York"
+      ],
+      "broadcastArea": [
+        "c/US"
+      ]
+    },
+    {
+      "id": "SD",
+      "channel": "WillowSports.us",
+      "feed": "SD",
+      "languages": [
+        "eng"
+      ],
+      "timezones": [
+        "America/Los_Angeles"
+      ],
+      "broadcastArea": [
+        "c/US",
+        "c/CA"
+      ]
+    }
+  ]
+}

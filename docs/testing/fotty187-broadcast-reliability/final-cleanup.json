@@ -1,0 +1,18 @@
+{
+  "completedAtUTC": "2026-10-29T23:14:54.907014+00:00",
+  "ownedGateDeleted": true,
+  "ownedGatePointerRemoved": true,
+  "ownedKeepAwakeStopped": false,
+  "ownedManagedCheckoutRuntimeSymlinkRemoved": true,
+  "originalRuntimePreserved": true,
+  "rawPreferencesDeviceAttachmentsResultsAndBuildOutputRemoved": true,
+  "freeDiskGiBAfter": 20.92,
+  "emailBindingAbsentInTestedSourceConfig": true,
+  "sourceEmailEnabledZero": true,
+  "localExactEmailPatchPreserved": true,
+  "nativeDeviceBuildRetained": 187,
+  "agentFinishPassed": true,
+  "keepAwakeAlreadyExitedAtCleanup": true,
+  "ownedKeepAwakeRemaining": false,
+  "noCaffeinateProcessConfirmed": true
+}

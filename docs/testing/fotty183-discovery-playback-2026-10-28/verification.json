@@ -1,0 +1,105 @@
+{
+  "reviewedAtUTC": "2026-10-29T00:43:44.269193+00:00",
+  "device": "Jet iPad",
+  "version": "2.0.1",
+  "build": "183",
+  "scope": "private source-discovery and single-playback gate",
+  "install": {
+    "build": "2.0.1(183)",
+    "device": "Jet iPad",
+    "strictSignature": "passed",
+    "profileContainsJet": true,
+    "installedReadback": true,
+    "configurationSlotsBeforeLaunch": 34,
+    "configurationSlotsUnchanged": 34,
+    "phoneInteraction": false,
+    "testFlightRelease": false
+  },
+  "sourceIntegrity": {
+    "matchedBuildInputs": 314,
+    "matchedProtectedInputs": 43,
+    "localSignedExecutableSHA256": "6b45bca8f3c497fa949e463bc7f813d5bc5317eb1e90ca3fdc6d485e66bdbbc6",
+    "deviceExecutableHashMeasured": false
+  },
+  "regressions": {
+    "AS": {
+      "result": "Passed",
+      "totalTestCount": 68,
+      "passedTests": 67,
+      "failedTests": 0,
+      "skippedTests": 1,
+      "startTime": 1793232675.675,
+      "finishTime": 1793232896.077
+    },
+    "CNCAndOptionalLookupPolicy": {
+      "result": "Passed",
+      "totalTestCount": 46,
+      "passedTests": 46,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "startTime": 1793233917.402,
+      "finishTime": 1793233944.88
+    },
+    "countsAreSeparateRunsNotUniqueCombinedTests": true,
+    "revertedHypothesis": "Failed speculative hockey/catalog-policy tests were discarded and production/test paths restored to the exact original candidate; no guard relaxation retained."
+  },
+  "physical": {
+    "normalAppInstalledAndLaunched": true,
+    "normalExistingFixtureCheckPerformed": true,
+    "fixture": "nhl:2026020199",
+    "build182": "CS and CNC no_exact_fixture_match",
+    "build183": "CS no_exact_fixture_match; CNC exact match followed by no_admitted_stream_delivery (2 entries,2 rejected)",
+    "decodedFramesObserved": false,
+    "ninetySecondCorrectProgrammeHold": "pending_no_admitted_current_delivery",
+    "nativeFullscreen": "not_exercised_current_candidate",
+    "pauseResume": "not_exercised_current_candidate",
+    "sourceSwitching": "not_exercised_current_candidate",
+    "pictureInPicture": "not_exercised_current_candidate",
+    "audio": "not_verified",
+    "outcome": "pending_external_source_contract_and_live_windows"
+  },
+  "preservation": {
+    "baselineSlots": 34,
+    "finalSlots": 34,
+    "selectedPersonalSourcePreferenceSlots": 19,
+    "selectedUnchanged": 19,
+    "selectedChangedCount": 0,
+    "totalCommonSlotsChanged": 5,
+    "newRuntimeSlots": 0,
+    "phoneInteraction": false,
+    "orientationRestored": "landscape",
+    "homeFilterRestored": "football",
+    "captureKeyboardRestored": false
+  },
+  "excluded": {
+    "phoneInteraction": false,
+    "FPLFeatureEdits": false,
+    "multiStreamFeatureEdits": false,
+    "sourceDefaultsChanged": false,
+    "securityAdmissionExpanded": false,
+    "cloudDeployment": false,
+    "gitPublication": false,
+    "testFlightRelease": false
+  },
+  "finalWindow": {
+    "asFootballCatalogRows": 5,
+    "asFootballAllRowsAccountedFor": true,
+    "asCricketCatalogRows": 20,
+    "asFootballCurrentExactCandidateCount": 0,
+    "iccRowsAccountedFor": 59,
+    "iccCurrentTestStatus": "STUMPS",
+    "metadataRequestsInFinalRefresh": 5,
+    "mediaRequestsInFinalRefresh": 0,
+    "receipt": "source-window-final-as-icc.json"
+  },
+  "cleanup": {
+    "finishedAtUTC": "2026-10-29T00:44:11.840562+00:00",
+    "ownedGateRemoved": true,
+    "ownedKeepAwakeStopped": true,
+    "freeDiskBeforeCleanupBytes": 21024452608,
+    "freeDiskAfterCleanupBytes": 22205358080,
+    "temporaryPrivatePreferenceDeviceProfileCopiesRemoved": true,
+    "unrelatedCachesDeleted": false,
+    "agentFinishExit": 0
+  }
+}

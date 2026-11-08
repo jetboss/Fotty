@@ -1,0 +1,20 @@
+{
+  "sourceVersion": "2026-10-30.shared-broadcast-registry-1",
+  "mergedCommit": "c4cb85e7f9d06a77fb6a1bb91cea917c598dd9d6",
+  "enabled": true,
+  "generatedAt": "2026-10-30T15:36:10.165Z",
+  "observations": 743,
+  "channels": 241,
+  "events": 502,
+  "associationStates": {
+    "conflicting": 3,
+    "needsVerification": 9
+  },
+  "listedLinks": 0,
+  "providersObserved": 7,
+  "failedProviderFamilies": [
+    "streamex",
+    "score808"
+  ],
+  "metadataIsPlaybackProof": false
+}

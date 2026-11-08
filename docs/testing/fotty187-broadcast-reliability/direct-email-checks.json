@@ -1,0 +1,133 @@
+{
+  "schema": 1,
+  "preparedAtUTC": "2026-10-29T23:13:19.710958+00:00",
+  "status": "prepared-default-OFF; not activated, sent, onboarded or deployed by this gate",
+  "baseline": "83b1a44c0e6d14e9032e61a8c5169190d22f8a27",
+  "patchSHA256": "deae37c5879694f85b394d0236937d0bca1b3b1e091a6c0d65cfba1fc74a53de",
+  "files": [
+    {
+      "path": "web/workers/watchdog/src/owner-email.mjs",
+      "added": 265,
+      "removed": 0,
+      "sha256": "6cfd8c3e54445342b4fb85a71c16c8e18af7680cc19d97af0263a92fbb7abbc6"
+    },
+    {
+      "path": "web/workers/watchdog/src/index.mjs",
+      "added": 26,
+      "removed": 4,
+      "sha256": "b14aa6970fb639be1f10a55ceff8e6804d0f6b228bbd6e40783a36872425d4f5"
+    },
+    {
+      "path": "web/workers/watchdog/src/owner-email.runtime.test.mjs",
+      "added": 155,
+      "removed": 0,
+      "sha256": "1890633c2ecb34ca19c1ced81b889e5a7b8e43e5ce15469f4c23a9f2e7cac273"
+    },
+    {
+      "path": "web/workers/watchdog/src/runtime.test.mjs",
+      "added": 3,
+      "removed": 2,
+      "sha256": "4c1cb79b13d0b91426212bbc702bc1a0e9915357675ac3f4d2dae97d75c0d95d"
+    },
+    {
+      "path": "web/workers/watchdog/wrangler.toml",
+      "added": 7,
+      "removed": 0,
+      "sha256": "328e9fb48c451b5ab98c5efca2c872a7473b01c2506502463ed8c6a73f3ffe9e"
+    },
+    {
+      "path": "tools/watchdog/owner-email.test.mjs",
+      "added": 260,
+      "removed": 0,
+      "sha256": "25475366f2b6fc8fc1b0e1d91262c23f80833742a2e935f07292e9be9d74f768"
+    },
+    {
+      "path": "tools/watchdog/owner-alert.mjs",
+      "added": 28,
+      "removed": 0,
+      "sha256": "37beaba6fa31ef0b0ad9500aded4c96dfd91b064ef7de788c8003cc2ee88c281"
+    },
+    {
+      "path": "tools/watchdog/owner-alert.test.mjs",
+      "added": 32,
+      "removed": 0,
+      "sha256": "8446b9e930923a0cb250da9b005412b6d5db7e489fe91aa75ca44d0bd2291c4f"
+    },
+    {
+      "path": ".github/workflows/watchdog-ci.yml",
+      "added": 1,
+      "removed": 1,
+      "sha256": "e68917ef62b65e0d225f1664cd05f1d9bdb94823f90d6b9d8a9fdd23b8db87e0"
+    },
+    {
+      "path": "docs/operations/Watchdog-Direct-Email.md",
+      "added": 73,
+      "removed": 0,
+      "sha256": "49bb1d17f35391ae0b7e367d85b443c730f3f676def4cf648abf6aaca7fd9b8b"
+    },
+    {
+      "path": "docs/operations/Watchdog-Owner-Alerts.md",
+      "added": 7,
+      "removed": 0,
+      "sha256": "875a1be199b12e85be302a2f33367e5a56afc7e809328f6c49c0df553cd3c401"
+    }
+  ],
+  "tests": {
+    "tests": 214,
+    "pass": 214,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "includesRealWorkerdSQLite": true,
+  "configurationLossRegression": "Established pending cutover with missing/garbled flag reports enabled configuration-mismatch without further send or state writes; pristine missing is quiet; only exact string0 pauses and retains queue. Real production DO/index plus unit regressions pass.",
+  "existingRuntimeTestFixtureCorrection": "Fake storage now respects watchdog-observation-v1 key instead of returning the collector record for the separate email key.",
+  "emailTransportInTests": "Injected fake binding only; no Cloudflare Email Service/SMTP sends",
+  "testLogSHA256": "dcdb04d3abd75731a0fecbc482f33ecd0df14d2fd1483416e1dd70a19026c048",
+  "eslint": {
+    "errors": 0,
+    "warnings": 0,
+    "profile": "ESLint recommended, existing installed runtime"
+  },
+  "patchAppliesToExactBaselineAndWhitespaceCheck": true,
+  "patchOnlyGitleaksLeaks": 0,
+  "watchdogDryRun": {
+    "passed": true,
+    "bytes": 149189,
+    "sha256": "c6eac13889a3d8ddc5aed4efb6d6154e6c088eba70710745d60446b5de95bc5e",
+    "sourceEmailEnabled": "0",
+    "emailBindingConfigured": false,
+    "testRoutesOrRecipientsInBundle": false
+  },
+  "workflowYAML": {
+    "parsed": true,
+    "newRuntimeIncluded": true,
+    "permissionsUnchanged": true,
+    "actionlint": "Not available locally; protected gate remains required"
+  },
+  "limits": {
+    "historicalCutoverBaseline": "pre-cutover IDs known without replay;121-history runtime fixture passes",
+    "initialCutoverWindowMinutes": 30,
+    "attemptsPerUTCDay": 12,
+    "minimumStartGapMinutes": 5,
+    "noticesPerBatch": 16,
+    "pendingNotices": 64,
+    "knownNoticeIDs": 513,
+    "leaseSeconds": 120,
+    "sendDeadlineSeconds": 10,
+    "maximumRetryBackoffMinutes": 60
+  },
+  "privacy": "No owner destination, credentials, media URLs, viewing history or private device IDs in source/status/receipt; only private configured envelope uses recipient.",
+  "destinationVerification": {
+    "state": "verified",
+    "verifiedAtUTC": "2026-10-29T23:06:34Z",
+    "evidence": "Root operator receipt; private destination omitted. This gate did not issue a verification/send."
+  },
+  "remainingActivationGates": [
+    "Establish and verify sender-domain onboarding/eligibility; root account sending-domain list returned Unauthorized. Do not change DNS or assume getfotty.com is onboarded.",
+    "Review protected source/CI and separately authorize fixed-destination binding plus fresh-cutover activation; retain explicit approved live flags/binding on every deployment. A source-default string0 remains an intentional pause and is not classified as configuration loss.",
+    "Qualify one optional labelled test through the real binding/inbox separately; no exactly-once or human-reading claim."
+  ],
+  "cleanup": "Generated dry-run bundle and patch-check baseline removed after hashing; exact patch and small logs remain under the root-owned Email gate."
+}

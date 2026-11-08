@@ -86,29 +86,34 @@ enum HomeMatchPriority {
     @MainActor
     static func isLive(
         _ event: AnalyticalDataEngine.EventReference,
-        scoreService: LiveScoreService
+        scoreService: LiveScoreService,
+        now: Date = Date()
     ) -> Bool {
+        if VerifiedFixtureTerminalPolicy.state(for: event, at: now) != nil { return false }
         // Prefer official scoreboard when we have a match (API-Football / cached).
-        if event.normalizedCategory == "football",
-           let status = scoreService.scoreForMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate)?.status {
+        if let status = MatchStartPolicy.currentStatus(for: event, scores: scoreService, now: now) {
             return status.isLive
         }
         // StreamEx/Nexus often lists club friendlies and smaller leagues that never match
         // the scoreboard API. If kickoff has started and we're still inside the match window,
         // treat it as live so it pins to the Live rail instead of burying mid-list.
-        return event.broadcastTiming() == .live
+        if event.isCPLFixture, let kickoff = event.kickoffDate, kickoff <= now {
+            return !event.isPastEstimatedMatchWindow(at: now)
+        }
+        return event.broadcastTiming(at: now) == .live
     }
 
     @MainActor
     static func isFinished(
         _ event: AnalyticalDataEngine.EventReference,
-        scoreService: LiveScoreService
+        scoreService: LiveScoreService,
+        now: Date = Date()
     ) -> Bool {
-        if event.normalizedCategory == "football",
-           let status = scoreService.scoreForMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate)?.status {
-            return status.isFinished
+        if VerifiedFixtureTerminalPolicy.state(for: event, at: now) != nil { return true }
+        if let status = MatchStartPolicy.currentStatus(for: event, scores: scoreService, now: now) {
+            return status.isFinished || status == .cancelled
         }
-        return event.isPastEstimatedMatchWindow()
+        return event.isPastEstimatedMatchWindow(at: now)
     }
 
     static func isStartingSoon(_ event: AnalyticalDataEngine.EventReference) -> Bool {
@@ -127,7 +132,7 @@ enum HomeMatchPriority {
         scoreService: LiveScoreService,
         now: Date = Date()
     ) -> Bool {
-        if isLive(event, scoreService: scoreService) { return true }
+        if isLive(event, scoreService: scoreService, now: now) { return true }
         guard let kickoff = event.kickoffDate else { return false }
         return kickoff > now && kickoff <= now.addingTimeInterval(multiViewPregameWindow)
     }

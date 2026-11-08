@@ -36,14 +36,15 @@ function SideRailLink({ item, pathname }: { item: V2NavItem; pathname: string })
   );
 }
 
-export function V2TopNav() {
+function V2TopNav() {
   const homeHref = v2HomePath();
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/[0.06] bg-[var(--v2-background)]/90 px-4 pt-[calc(0.65rem+env(safe-area-inset-top,0px))] backdrop-blur-xl lg:hidden">
       <div className="mx-auto flex h-11 max-w-[1440px] items-center gap-3">
-        <Link href={homeHref} className="text-sm font-bold tracking-[0.2em] text-white" aria-label="Fotty home">
-          FOTTY
+        <Link href={homeHref} className="flex items-baseline gap-2 text-white" aria-label="Fotty Sports Hub home">
+          <span className="text-sm font-bold tracking-[0.2em]">FOTTY</span>
+          <span className="hidden text-[9px] font-bold tracking-[0.14em] text-text-tertiary min-[360px]:inline">SPORTS HUB</span>
         </Link>
         <div className="ml-auto flex items-center gap-1">
           <Link
@@ -60,7 +61,7 @@ export function V2TopNav() {
   );
 }
 
-export function V2SideRail() {
+function V2SideRail() {
   const pathname = usePathname();
   const homeHref = v2HomePath();
   const desktopNav = buildV2DesktopNav();
@@ -74,11 +75,14 @@ export function V2SideRail() {
   return (
     <aside className="sticky top-0 z-50 hidden h-svh w-52 shrink-0 flex-col border-r border-white/[0.06] bg-[var(--v2-background)] px-3 py-5 lg:flex">
       <div className="mb-6 flex items-center justify-between gap-3 whitespace-nowrap rounded-xl px-2">
-        <Link href={homeHref} className="flex items-center gap-2.5 py-1.5 transition hover:opacity-90" aria-label="Fotty home">
+        <Link href={homeHref} className="flex items-center gap-2.5 py-1.5 transition hover:opacity-90" aria-label="Fotty Sports Hub home">
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white/10 text-[11px] font-bold text-white">
             F
           </span>
-          <span className="text-[13px] font-bold tracking-[0.14em] text-white">FOTTY</span>
+          <span className="flex flex-col leading-none">
+            <span className="text-[13px] font-bold tracking-[0.14em] text-white">FOTTY</span>
+            <span className="mt-1 text-[8px] font-bold tracking-[0.16em] text-text-tertiary">SPORTS HUB</span>
+          </span>
         </Link>
       </div>
 
@@ -95,7 +99,7 @@ export function V2SideRail() {
   );
 }
 
-export function V2BottomNav() {
+function V2BottomNav() {
   const pathname = usePathname();
   const mobileNav = buildV2MobileNav();
 

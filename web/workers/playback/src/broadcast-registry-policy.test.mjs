@@ -1,0 +1,412 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { normalizeBroadcastCollection, normalizeRegistryFixtures, associateBroadcasts, buildBroadcastSnapshot,
+  BROADCAST_REGISTRY_LIMITS } from "./broadcast-registry-policy.mjs";
+
+const now = new Date("2026-10-30T11:30:00.000Z"), stamp = (offset = 0) => new Date(+now + offset).toISOString();
+const fixture = (changes = {}) => ({ fixtureID: "sports-fixture:premier-league:123", sport: "football",
+  participants: ["Liverpool", "Chelsea"], start: stamp(-30 * 60_000), competitionID: "premier-league",
+  squad: { gender: "men", ageGroup: "senior" }, status: "live", observedAt: stamp(), verified: true, ...changes });
+const row = (changes = {}) => ({ providerEventID: "nuvio_sport_match", streamID: "nuvio_sport_match", resourceType: "tv",
+  scope: "football", kind: "event", sport: "football", title: "Liverpool vs Chelsea", participants: ["Liverpool", "Chelsea"],
+  start: stamp(-30 * 60_000), verification: "dated", observedAt: stamp(), expiresAt: stamp(20 * 60_000), ...changes });
+const collection = (rows = [row()], changes = {}) => ({ providerCode: "communitysports", observedAt: stamp(), complete: true,
+  scopes: [{ scope: "football", status: "available", complete: true }], broadcasts: rows, ...changes });
+async function joined(rows = [row()], fixtures = [fixture()], changes = {}) {
+  const source = await normalizeBroadcastCollection("communitysports", collection(rows, changes), now);
+  return { source, links: associateBroadcasts({ fixtures, broadcasts: source.broadcasts, providers: source.scopes, now }) };
+}
+
+const tvAssignment = (changes = {}) => row({ providerEventID: "reviewed-tv:assignment:" + "a".repeat(64),
+  streamID: "reviewed-tv:espn-latinamerica-south", channelID: "sports-channel:espn-latinamerica-south", stationMarket: "UY",
+  competitionID: "premier-league", squad: { gender: "men", ageGroup: "senior" }, expiresAt: stamp(600_000), ...changes });
+async function tvJoined(changes = {}, fixtures = [fixture()]) {
+  const source = await normalizeBroadcastCollection("reviewedtv", collection([tvAssignment(changes)], { providerCode: "reviewedtv",
+    scopes: [{ scope: "football", status: "partial", complete: false }] }), now);
+  return { source, links: associateBroadcasts({ fixtures, broadcasts: source.broadcasts, providers: source.scopes, now }) };
+}
+
+test("reviewed UY channel assignment retains source coverage separately from official kickoff, including 0…60 minutes early", async () => {
+  for (const lead of [0, 15, 30, 60]) {
+    const coverage = new Date(Date.parse(fixture().start) - lead * 60_000).toISOString(), result = await tvJoined({ start: coverage });
+    assert.equal(result.source.broadcasts[0].start, coverage); assert.equal(result.source.broadcasts[0].end, undefined);
+    assert.equal(result.links[0].state, "listed"); assert.equal(result.links[0].matchMethod, "channel-assignment");
+    assert.equal(result.links[0].startRelation, "channel-coverage"); assert.equal(result.links[0].fixtureFingerprint.start, fixture().start);
+    assert.equal(result.links[0].expiresAt, stamp(600_000));
+  }
+  const generic = await joined([row({ start: new Date(Date.parse(fixture().start) - 30 * 60_000).toISOString() })]);
+  assert.equal(generic.links[0].state, "conflicting", "The ordinary football source fence remains15 minutes");
+});
+
+test("reviewed football assignment requires its finite channel/stream/market/type and ten-minute evidence contract", async () => {
+  for (const changes of [{ stationMarket: "AR" }, { stationMarket: "US" }, { stationMarket: undefined },
+    { channelID: "sports-channel:espn-latinamerica-us" }, { streamID: "reviewed-tv:espn2-latinamerica-south" },
+    { channelID: "sports-channel:espn8-latinamerica-south", streamID: "reviewed-tv:espn8-latinamerica-south" },
+    { competitionID: "youth-champions-league" }, { squad: { gender: "women", ageGroup: "senior" } },
+    { end: stamp(120 * 60_000) }, { kind: "programme" }, { providerEventID: "reviewed-tv:programme:" + "a".repeat(64) },
+    { expiresAt: stamp(600_001) }]) await assert.rejects(tvJoined(changes), /invalid-collection/u);
+  for (let n = 2; n <= 7; n++) assert.equal((await tvJoined({ channelID: `sports-channel:espn${n}-latinamerica-south`, streamID: `reviewed-tv:espn${n}-latinamerica-south` })).links[0].state, "listed");
+});
+
+test("a TV assignment needs one fresh exact official pair/competition/squad/UTC date and never supplies live authority", async () => {
+  for (const changes of [{ start: new Date(Date.parse(fixture().start) - 60 * 60_000 - 1).toISOString() },
+    { start: new Date(Date.parse(fixture().start) + 1).toISOString() }, { start: "2026-10-29T23:45:00.000Z" },
+    { competitionID: "champions-league" }, { participants: ["Liverpool Women", "Chelsea Women"] }]) {
+    assert.equal((await tvJoined(changes)).links.some((l) => l.state === "listed"), false, JSON.stringify(changes));
+  }
+  for (const changes of [{ squad: undefined }, { competitionID: undefined }, { squad: { gender: "women", ageGroup: "senior" } },
+    { status: "finished" }, { verified: false }, { observedAt: stamp(-31 * 60_000) }]) {
+    assert.equal((await tvJoined({}, [fixture(changes)])).links.some((l) => l.state === "listed"), false, JSON.stringify(changes));
+  }
+  const duplicates = [fixture(), fixture({ fixtureID: "sports-fixture:other", start: stamp(-20 * 60_000) })];
+  assert.equal((await tvJoined({}, duplicates)).links.some((l) => l.state === "listed"), false);
+  const scheduled = (await tvJoined({}, [fixture({ status: "scheduled", start: stamp(30 * 60_000) })])).links[0];
+  assert.equal(scheduled.state, "listed"); assert.equal(scheduled.fixtureFingerprint.start, stamp(30 * 60_000));
+  assert.equal((await tvJoined({ observedAt: stamp(-600_001), expiresAt: stamp(-1) })).links[0].state, "needsVerification");
+});
+
+test("conflicting reviewed assignment siblings retain diagnosis without suppressing a different valid channel", async () => {
+  const source = await normalizeBroadcastCollection("reviewedtv", collection([
+    tvAssignment({ verification: "conflicting", issues: ["catalog-conflict"] }),
+    tvAssignment({ providerEventID: "reviewed-tv:assignment:" + "b".repeat(64), streamID: "reviewed-tv:espn2-latinamerica-south", channelID: "sports-channel:espn2-latinamerica-south" }),
+  ], { providerCode: "reviewedtv", scopes: [{ scope: "football", status: "partial", complete: false }] }), now);
+  assert.equal(source.broadcasts.length, 2); assert.ok(source.broadcasts.every((b) => b.stationMarket === "UY"));
+  const links = associateBroadcasts({ fixtures: [fixture()], broadcasts: source.broadcasts, providers: source.scopes, now });
+  assert.deepEqual(links.map((l) => l.state).sort(), ["conflicting", "listed"]);
+  assert.ok(links.every((link) => link.startRelation === "channel-coverage"));
+});
+
+test("twenty stale TV assignments retain their legacy-reader shape alongside five listed match sources", async () => {
+  const fixtures = Array.from({ length: 25 }, (_, i) => fixture({
+    fixtureID: `sports-fixture:premier-league:${i}`, participants: [`Home ${i}`, `Away ${i}`],
+  }));
+  const tv = await normalizeBroadcastCollection("reviewedtv", collection(fixtures.slice(0, 20).map((f, i) =>
+    tvAssignment({ providerEventID: "reviewed-tv:assignment:" + i.toString(16).padStart(64, "0"),
+      participants: f.participants, observedAt: stamp(-600_001), expiresAt: stamp(-1) })),
+    { providerCode: "reviewedtv", scopes: [{ scope: "football", status: "partial", complete: false }] }), now);
+  const cs = await normalizeBroadcastCollection("communitysports", collection(fixtures.slice(20).map((f, i) =>
+    row({ providerEventID: `cs_${i}`, streamID: `cs_${i}`, participants: f.participants }))), now);
+  const broadcasts = [...tv.broadcasts, ...cs.broadcasts], providers = [...tv.scopes, ...cs.scopes];
+  const links = associateBroadcasts({ fixtures, broadcasts, providers, now });
+  const wire = await buildBroadcastSnapshot({ providers, broadcasts, links, now });
+  const assignments = wire.links.filter((link) => link.matchMethod === "channel-assignment");
+  assert.equal(assignments.length, 20);
+  assert.ok(assignments.every((link) => link.startRelation === "channel-coverage"
+    && link.state === "needsVerification" && link.reason === "stale-source" && Date.parse(link.expiresAt) < +now));
+  assert.deepEqual(wire.links.filter((link) => link.state === "listed").map((link) => link.fixtureID).sort(),
+    fixtures.slice(20).map((f) => f.fixtureID).sort());
+});
+
+test("edition-specific access decisions gate old and new readers without treating a guide market as an audience grant", async () => {
+  const { source } = await tvJoined();
+  const f = fixture(), channel = source.broadcasts[0].channelID;
+  const reviewed = { entitlement: "cleared", use: "event-playback", territory: "worldwide", reviewID: "test-contract",
+    expiresAt: stamp(120_000) };
+  function linkFor(policy) {
+    return associateBroadcasts({ fixtures: [f], broadcasts: source.broadcasts, providers: source.scopes, now,
+      programmePolicies: new Map([[JSON.stringify([channel, f.fixtureID]), policy]]) })[0];
+  }
+  for (const change of [{ entitlement: "denied" }, { entitlement: "blackout" }, { use: "station-only" },
+    { territory: "restricted" }, { territory: "unknown" }, { expiresAt: stamp() }, { reviewID: undefined }]) {
+    const link = linkFor({ ...reviewed, ...change });
+    assert.deepEqual([link.state, link.reason, link.startRelation], ["needsVerification", "unsupported-scope", "channel-coverage"]);
+    assert.ok(link.access);
+  }
+  assert.equal(linkFor(reviewed).state, "listed");
+  assert.equal(linkFor(reviewed).expiresAt, reviewed.expiresAt);
+  const normal = await tvJoined({ access: reviewed });
+  assert.equal(normal.links[0].state, "listed");
+  assert.equal(normal.links[0].access, undefined, "A scraped policy cannot upgrade unknown historical scope");
+});
+
+test("wire text retains171-char participants and harmlessZWJ/tagemoji while C1/bidi never enter a snapshot", async () => {
+  const england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
+  const source = await normalizeBroadcastCollection("communitysports", collection([
+    row(), row({ providerEventID: "long_name", streamID: "long_name", participants: ["A".repeat(171), "Other Team"] }),
+    row({ providerEventID: "zwj", streamID: "zwj", title: "Family 👨\u200D👩\u200D👧\u200D👦" }),
+    row({ providerEventID: "tag", streamID: "tag", title: "England " + england }),
+  ]), now);
+  assert.equal(source.broadcasts.length, 4);
+  assert.ok(source.broadcasts.some((r) => r.participants[0].length === 171));
+  assert.ok(source.broadcasts.some((r) => r.title === "England " + england));
+  for (const scalar of ["\u0085", "\u061c", "\u200e", "\u200f", "\u202a", "\u202e", "\u2066", "\u2069"])
+    await assert.rejects(normalizeBroadcastCollection("communitysports", collection([row({ title: "Fixture" + scalar + "Title" })]), now), /invalid-collection/u);
+  for (const scalar of ["\u0085", "\u200d", "\u{E0067}"])
+    await assert.rejects(normalizeBroadcastCollection("communitysports", collection([row({ providerEventID: "source" + scalar + "event" })]), now), /invalid-collection/u);
+});
+
+test("normalized registry retains bounded identity facts and strips every unrelated raw location/credential", async () => {
+  const { source, links } = await joined([row({ url: "https://private.example/media?token=secret", headers: { Authorization: "secret" },
+    description: "https://another.example/private", token: "secret" })]);
+  assert.equal(source.broadcasts[0].id.length, 67);
+  assert.match(source.broadcasts[0].id, /^br:[a-f0-9]{64}$/);
+  assert.equal(links[0].state, "listed");
+  assert.equal(links[0].matchMethod, "exact");
+  assert.equal(links[0].fixtureFingerprint.start, fixture().start);
+  const text = JSON.stringify(source);
+  assert.equal(text.includes("https://"), false); assert.equal(text.includes("secret"), false);
+  await assert.rejects(normalizeBroadcastCollection("communitysports", collection([row({ providerEventID: "https://private.example/token" })]), now), /invalid-collection/);
+});
+
+test("US station market is an optional finite CS main-Willow channel fact, never a programme or arbitrary source instruction", async () => {
+  const channel = (changes = {}) => row({ kind: "channel", sport: "cricket", scope: "networks", title: "Willow Cricket",
+    participants: [], start: undefined, channelID: "cricket-channel:willow", verification: "undated", stationMarket: "US", ...changes });
+  const input = (broadcast, providerCode = "communitysports") => ({ providerCode, observedAt: stamp(), complete: false,
+    scopes: [{ scope: broadcast.scope, status: "partial", complete: false }], broadcasts: [broadcast] });
+  for (const scope of ["networks", "cricket", "live"]) {
+    const source = await normalizeBroadcastCollection("communitysports", input(channel({ scope })), now);
+    assert.equal(source.broadcasts[0].stationMarket, "US");
+    const legacy = await normalizeBroadcastCollection("communitysports", input(channel({ scope, stationMarket: undefined })), now);
+    assert.equal(legacy.broadcasts[0].stationMarket, undefined, "Missing market stays unknown, not inferred US");
+  }
+  for (const changes of [{ stationMarket: "UK" }, { stationMarket: "us" }, { stationMarket: null },
+    { stationMarket: { country: "US" } }, { channelID: "cricket-channel:fox-cricket" }, { scope: "football" },
+    { kind: "event" }, { kind: "programme", start: stamp(-60_000), end: stamp(60_000) }]) {
+    await assert.rejects(normalizeBroadcastCollection("communitysports", input(channel(changes)), now), /invalid-collection/u);
+  }
+  await assert.rejects(normalizeBroadcastCollection("plaviosports", input(channel(), "plaviosports"), now), /invalid-collection/u);
+  const malformed = await normalizeBroadcastCollection("communitysports", input(channel({ participants: ["India", "Australia"] })), now);
+  assert.equal(malformed.broadcasts[0].verification, "conflicting"); assert.equal(malformed.broadcasts[0].stationMarket, undefined);
+  const opts = { providerCode: "communitysports", observedAt: stamp(), complete: false,
+    scopes: [{ scope: "networks", status: "partial", complete: false }, { scope: "cricket", status: "partial", complete: false }] };
+  const us = channel(), unknown = channel({ scope: "cricket", stationMarket: undefined });
+  for (const broadcasts of [[us, unknown], [unknown, us]]) {
+    const conflict = await normalizeBroadcastCollection("communitysports", { ...opts, broadcasts }, now);
+    assert.equal(conflict.broadcasts.length, 1); assert.equal(conflict.broadcasts[0].verification, "conflicting");
+    assert.equal(conflict.broadcasts[0].stationMarket, undefined);
+  }
+});
+
+test("exact pairing, scope, squad and date conflicts never become listed broadcasts", async () => {
+  assert.equal((await joined([row({ participants: ["Liverpool", "Arsenal"] })])).links.length, 0);
+  for (const [changes, reason] of [[{ start: stamp(-46 * 60_000) }, "time-conflict"],
+    [{ competitionID: "champions-league" }, "competition-conflict"],
+    [{ squad: { gender: "women", ageGroup: "senior" } }, "squad-conflict"]]) {
+    const { links } = await joined([row(changes)]);
+    assert.equal(links[0].state, "conflicting"); assert.equal(links[0].reason, reason);
+  }
+  const missing = (await joined([row({ start: undefined, verification: "undated" })])).links[0];
+  assert.equal(missing.state, "needsVerification"); assert.equal(missing.reason, "missing-date");
+});
+
+test("reviewed football club aliases preserve exact pairs and explicit squad identity", async () => {
+  for (const [official, published] of [
+    [["Brighton & Hove Albion", "Manchester United"], ["Brighton", "Man Utd"]],
+    [["Wolverhampton Wanderers", "Tottenham Hotspur"], ["Wolves", "Tottenham"]],
+    [["Manchester United Women", "Brighton & Hove Albion Women"], ["Man Utd Ladies", "Brighton W"]],
+    [["Manchester United Under-19", "Brighton & Hove Albion U19"], ["Man Utd U 19", "Brighton Under 19"]],
+  ]) {
+    const women = official.some((name) => /\bWomen\b/u.test(name)), youth = official.some((name) => /(?:Under-19|U19)/u.test(name));
+    const result = await joined([row({ participants: published })], [fixture({ participants: official,
+      squad: { gender: women ? "women" : "men", ageGroup: youth ? "u19" : "senior" } })]);
+    assert.equal(result.links[0]?.state, "listed", published.join(" / "));
+    assert.deepEqual(result.links[0].fixtureFingerprint.participants, official, "Fingerprint keeps the actual official names");
+  }
+  for (const published of [["Brighton Women", "Man Utd Women"], ["Brighton U19", "Man Utd Under-19"],
+    ["Brighton Reserves", "Man Utd Reserve"], ["Brighton Academy", "Man Utd Academy"],
+    ["Brighton", "Manchester City"], ["Brighton Albion B", "Man Utd"]]) {
+    assert.equal((await joined([row({ participants: published })],
+      [fixture({ participants: ["Brighton & Hove Albion", "Manchester United"] })])).links.length, 0, published.join(" / "));
+  }
+  assert.deepEqual(normalizeRegistryFixtures([fixture({ participants: ["Man Utd", "Manchester United"] })], now), [],
+    "Two aliases for one club are not two opponents");
+});
+
+test("football aliases do not cross sports or conceal conflicting duplicate squads", async () => {
+  const source = await joined([row(), row({ scope: "live", participants: ["Liverpool Women", "Chelsea Women"] })], [fixture()],
+    { scopes: [{ scope: "football", status: "available", complete: true }, { scope: "live", status: "available", complete: true }] });
+  assert.equal(source.source.broadcasts[0].verification, "conflicting");
+  assert.notEqual(source.links[0]?.state, "listed");
+  const cricket = fixture({ fixtureID: "cricket-fixture:icc:alias", sport: "cricket", competitionID: "icc", squad: undefined,
+    format: "T20", participants: ["West Indies", "Australia"] });
+  const opts = { scopes: [{ scope: "cricket", status: "available", complete: true }] };
+  const common = row({ scope: "cricket", sport: "cricket", format: "T20", competitionID: "icc" });
+  assert.equal((await joined([{ ...common, participants: cricket.participants }], [cricket], opts)).links[0]?.state, "listed");
+  assert.equal((await joined([{ ...common, participants: ["West Indies Women", "Australia Women"] }], [cricket], opts)).links.length, 0);
+  assert.equal((await joined([{ ...common, participants: ["WI", "Australia"] }], [cricket], opts)).links.length, 0,
+    "No new country alias is invented when no reviewed shared JavaScript country table exists");
+});
+
+test("malformed or conflicting duplicate observations remain vetoes rather than first-row positives", async () => {
+  const { source, links } = await joined([row(), row({ start: stamp(-2 * 60 * 60_000) })]);
+  assert.equal(source.broadcasts.length, 1);
+  assert.equal(source.broadcasts[0].verification, "conflicting");
+  assert.equal(links[0].state, "conflicting");
+  const malformed = await joined([row({ start: "2026-02-30T11:00:00Z" })]);
+  assert.equal(malformed.source.broadcasts[0].verification, "conflicting");
+  assert.notEqual(malformed.links[0].state, "listed");
+});
+
+test("terminal, unverified, stale and contradictory official facts cannot lend fixture authority", async () => {
+  for (const changes of [{ status: "finished" }, { status: "cancelled" }, { status: "postponed" }, { verified: false },
+    { observedAt: stamp(-31 * 60_000) }]) assert.equal((await joined([row()], [fixture(changes)])).links.length, 0);
+  assert.deepEqual(normalizeRegistryFixtures([fixture(), fixture({ start: stamp(-29 * 60_000) })], now), []);
+  const stale = await joined([row({ observedAt: stamp(-25 * 60_000), expiresAt: stamp(-5 * 60_000) })]);
+  assert.equal(stale.links[0].state, "needsVerification"); assert.equal(stale.links[0].reason, "stale-source");
+});
+
+test("Test occurrence joins explicit source UTC with official same day, ordinal and canonical period only", async () => {
+  const official = fixture({ fixtureID: "cricket-fixture:icc:269792", sport: "cricket", participants: ["South Africa", "Australia"],
+    competitionID: "icc", squad: undefined, format: "Test", matchOrdinal: 3, day: 4,
+    start: "2026-10-27T08:30:00.000Z", end: "2026-10-31T15:30:00.000Z" });
+  const broadcast = row({ scope: "cricket", sport: "cricket", title: "South Africa vs Australia, 3rd Test Day 4",
+    participants: official.participants, format: "Test", matchOrdinal: 3, day: 4, start: "2026-10-30T08:00:00.000Z" });
+  const opts = { scopes: [{ scope: "cricket", status: "available", complete: true }] };
+  const { links } = await joined([broadcast], [official], opts);
+  assert.equal(links[0].state, "listed"); assert.equal(links[0].matchMethod, "test-period");
+  assert.equal(links[0].fixtureFingerprint.start, official.start);
+  for (const [changes, reason] of [[{ day: 3 }, "day-conflict"], [{ matchOrdinal: 2 }, "ordinal-conflict"],
+    [{ start: "2026-11-01T08:00:00.000Z" }, "time-conflict"], [{ format: "T20", day: undefined, matchOrdinal: undefined }, "format-conflict"]]) {
+    const wrong = await joined([{ ...broadcast, ...changes }], [official], opts);
+    assert.equal(wrong.links[0].state, "conflicting"); assert.equal(wrong.links[0].reason, reason);
+  }
+  const noEnd = await joined([broadcast], [{ ...official, end: undefined }], opts);
+  assert.equal(noEnd.links[0].state, "needsVerification"); assert.equal(noEnd.links[0].reason, "missing-test-authority");
+  const staleDay = await joined([broadcast], [{ ...official, observedAt: stamp(-11 * 60_000) }], opts);
+  assert.equal(staleDay.links[0].state, "needsVerification"); assert.equal(staleDay.links[0].reason, "missing-test-authority");
+  const agingDay = await joined([broadcast], [{ ...official, observedAt: stamp(-5 * 60_000) }], opts);
+  assert.equal(agingDay.links[0].expiresAt, stamp(5 * 60_000), "A listed link cannot outlive its official Test-day authority");
+  assert.equal("dailyStart" in links[0].fixtureFingerprint, false);
+});
+
+test("whole-Test event uses exact original start without optional daily context, while daily occurrences retain authority checks", async () => {
+  const official = fixture({ fixtureID: "cricket-fixture:icc:whole-test", sport: "cricket", participants: ["South Africa", "Australia"],
+    competitionID: "icc", squad: undefined, format: "Test", start: "2026-10-27T08:30:00.000Z" });
+  const broadcast = row({ scope: "cricket", sport: "cricket", title: "South Africa vs Australia, Test",
+    participants: official.participants, format: "Test", start: official.start });
+  const opts = { scopes: [{ scope: "cricket", status: "available", complete: true }] };
+  const exact = (await joined([broadcast], [official], opts)).links[0];
+  assert.equal(exact.state, "listed"); assert.equal(exact.matchMethod, "exact");
+  assert.equal((await joined([{ ...broadcast, start: "2026-10-27T08:45:00.000Z" }], [official], opts)).links[0].state, "listed");
+  assert.equal((await joined([{ ...broadcast, start: "2026-10-27T08:45:01.000Z" }], [official], opts)).links[0].reason, "time-conflict");
+  const later = (await joined([{ ...broadcast, start: "2026-10-30T08:00:00.000Z" }], [official], opts)).links[0];
+  assert.equal(later.state, "conflicting"); assert.equal(later.reason, "time-conflict");
+  const daily = (await joined([{ ...broadcast, matchOrdinal: 3, day: 4 }], [official], opts)).links[0];
+  assert.equal(daily.state, "needsVerification"); assert.equal(daily.reason, "missing-test-authority");
+  const wrongOrdinal = (await joined([{ ...broadcast, matchOrdinal: 2 }], [{ ...official, matchOrdinal: 3 }], opts)).links[0];
+  assert.equal(wrongOrdinal.state, "conflicting"); assert.equal(wrongOrdinal.reason, "ordinal-conflict");
+  const current = { ...official, matchOrdinal: 3, day: 4, end: "2026-10-31T15:30:00.000Z" };
+  assert.equal((await joined([broadcast], [current], opts)).links[0].state, "listed");
+  const programme = { ...broadcast, kind: "programme", channelID: "cricket-channel:willow", end: stamp(60 * 60_000), expiresAt: stamp(10 * 60_000) };
+  assert.notEqual((await joined([programme], [official], opts)).links[0].state, "listed", "A whole-match start does not authorize a current linear programme");
+});
+
+test("generic channels never prove a fixture but an explicitly dated exact programme may link", async () => {
+  const official = fixture({ fixtureID: "cricket-fixture:icc:123", sport: "cricket", participants: ["India", "England"],
+    competitionID: "icc", squad: undefined, format: "T20", matchOrdinal: 3 });
+  const channel = row({ scope: "networks", kind: "channel", sport: "cricket", title: "Willow Cricket",
+    participants: [], start: undefined, verification: "undated", channelID: "cricket-channel:willow" });
+  const opts = { scopes: [{ scope: "networks", status: "available", complete: true }] };
+  assert.equal((await joined([channel], [official], opts)).links.length, 0);
+  const programme = { ...channel, providerEventID: "programme1", streamID: "programme1", kind: "programme", title: "India vs England",
+    participants: official.participants, start: official.start, end: stamp(60 * 60_000), format: "T20", matchOrdinal: 3, verification: "dated", expiresAt: stamp(10 * 60_000) };
+  const admitted = (await joined([programme], [official], opts)).links[0];
+  assert.equal(admitted.state, "listed"); assert.equal(admitted.matchMethod, "programme");
+  for (const changed of [{ ...programme, channelID: undefined }, { ...programme, participants: [] }]) {
+    assert.equal((await joined([changed], [official], opts)).links.some((link) => link.state === "listed"), false);
+  }
+});
+
+test("partial positive cohorts remain useful while held source failure never renews them", async () => {
+  const partial = await joined([row()], [fixture()], { complete: false, scopes: [{ scope: "football", status: "partial", complete: false }] });
+  assert.equal(partial.links[0].state, "listed");
+  const held = associateBroadcasts({ fixtures: [fixture()], broadcasts: partial.source.broadcasts,
+    providers: [{ providerCode: "communitysports", scope: "football", status: "failed" }], now });
+  assert.equal(held[0].state, "needsVerification"); assert.equal(held[0].reason, "source-unavailable");
+  const retainedScope = { providerCode: "communitysports", scope: "football", status: "failed",
+    observedAt: stamp(), lastSuccessAt: stamp(), expiresAt: stamp(20 * 60_000), failure: "source-unavailable" };
+  const retained = associateBroadcasts({ fixtures: [fixture()], broadcasts: partial.source.broadcasts,
+    providers: [retainedScope], now });
+  assert.equal(retained[0].state, "listed", "Catalog failure alone must not erase an accepted exact source identity");
+  assert.equal(retained[0].expiresAt, partial.source.broadcasts[0].expiresAt, "Failure never renews original listing expiry");
+  assert.equal(associateBroadcasts({ fixtures: [fixture()], broadcasts: partial.source.broadcasts,
+    providers: [{ ...retainedScope, expiresAt: stamp(-1) }], now })[0].state, "needsVerification");
+});
+
+test("one unmarked broadcast cannot belong to two competing canonical fixtures", async () => {
+  const other = fixture({ fixtureID: "sports-fixture:champions-league:other", competitionID: "champions-league" });
+  const ambiguous = await joined([row()], [fixture(), other]);
+  assert.equal(ambiguous.links.length, 2);
+  assert.ok(ambiguous.links.every((link) => link.state === "conflicting" && link.reason === "catalog-conflict"));
+  const explicit = await joined([row({ competitionID: "premier-league" })], [fixture(), other]);
+  assert.equal(explicit.links.filter((link) => link.state === "listed").length, 1);
+  assert.equal(explicit.links.find((link) => link.state === "listed").fixtureID, fixture().fixtureID);
+});
+
+test("equivalent sport and Live source entries share one identity without losing contradiction vetoes", async () => {
+  const scopes = [{ scope: "football", status: "available", complete: true }, { scope: "live", status: "available", complete: true }];
+  const equivalent = await joined([row(), row({ scope: "live", title: "Live: Liverpool vs Chelsea" })], [fixture()], { scopes });
+  assert.equal(equivalent.source.broadcasts.length, 1);
+  assert.equal(equivalent.links[0].state, "listed");
+  const contradiction = await joined([row(), row({ scope: "live", participants: ["Liverpool", "Arsenal"] })], [fixture()], { scopes });
+  assert.equal(contradiction.source.broadcasts.length, 1);
+  assert.equal(contradiction.source.broadcasts[0].verification, "conflicting");
+  assert.notEqual(contradiction.links[0]?.state, "listed");
+});
+
+test("stable event lookup facts have four-hour ceiling while programme currentness remains ten minutes", async () => {
+  const stable = await joined([row({ expiresAt: stamp(4 * 60 * 60_000) })]);
+  assert.equal(stable.links[0].state, "listed");
+  assert.equal(stable.links[0].expiresAt, stamp(30 * 60_000), "Fresh official LIVE authority remains the shorter fence");
+  await assert.rejects(normalizeBroadcastCollection("communitysports", collection([row({ expiresAt: stamp(4 * 60 * 60_000 + 1) })]), now), /invalid-collection/);
+  const programme = row({ kind: "programme", sport: "cricket", scope: "networks", channelID: "cricket-channel:willow",
+    end: stamp(60 * 60_000), expiresAt: stamp(10 * 60_000 + 1) });
+  await assert.rejects(normalizeBroadcastCollection("communitysports", collection([programme],
+    { scopes: [{ scope: "networks", status: "available", complete: true }] }), now), /invalid-collection/);
+});
+
+test("content revision is deterministic without renewing source observations and caps never truncate identities", async () => {
+  const { source, links } = await joined();
+  const first = await buildBroadcastSnapshot({ providers: source.scopes, broadcasts: source.broadcasts, links, now });
+  const second = await buildBroadcastSnapshot({ providers: source.scopes, broadcasts: source.broadcasts, links, now: new Date(+now + 1000) });
+  assert.equal(first.revision, second.revision); assert.notEqual(first.generatedAt, second.generatedAt);
+  assert.equal(second.broadcasts[0].observedAt, stamp());
+  await assert.rejects(buildBroadcastSnapshot({ providers: [], broadcasts: Array(BROADCAST_REGISTRY_LIMITS.records + 1).fill(source.broadcasts[0]), links: [], now }), /capacity-exceeded/);
+  await assert.rejects(normalizeBroadcastCollection("communitysports", collection(Array(1501).fill(row())), now), /invalid-collection/);
+});
+
+
+test("verified limited-overs early coverage retains both clocks and requires one exact dated fixture", async () => {
+  const official = fixture({ sport: "cricket", participants: ["Pakistan", "Sri Lanka"], competitionID: "icc", squad: undefined, format: "ODI", start: stamp(-60 * 60_000) });
+  const source = row({ sport: "cricket", scope: "cricket", participants: ["Pakistan", "Sri Lanka"], competitionID: undefined, format: "ODI", start: stamp(-90 * 60_000) });
+  const options = { scopes: [{ scope: "cricket", status: "available", complete: true }] };
+  const check = async (sourceChanges = {}, fixtureChanges = {}, extras = []) => (await joined([row({ ...source, ...sourceChanges })],
+    [{ ...official, ...fixtureChanges }, ...extras], options)).links;
+  for (const format of ["ODI", "T20"]) for (const lead of [15 * 60_000 + 1, 30 * 60_000, 60 * 60_000]) {
+    const link = (await check({ format, start: new Date(Date.parse(official.start) - lead).toISOString() }, { format }))[0];
+    assert.equal(link.state, "listed"); assert.equal(link.startRelation, "early-coverage");
+    assert.equal(link.fixtureFingerprint.start, official.start); assert.equal(link.matchMethod, "exact");
+  }
+  assert.equal((await check({ start: new Date(Date.parse(official.start) - 15 * 60_000).toISOString() }))[0].startRelation, undefined);
+  for (const changes of [
+    { start: new Date(Date.parse(official.start) - 60 * 60_000 - 1).toISOString() },
+    { start: new Date(Date.parse(official.start) + 30 * 60_000).toISOString() },
+    { format: "T20" }, { format: undefined }, { participants: ["Pakistan Women", "Sri Lanka Women"] },
+    { competitionID: "other-series" }, { verification: "undated", start: undefined },
+  ]) assert.equal((await check(changes)).some((link) => link.state === "listed"), false, JSON.stringify(changes));
+  for (const format of ["Test", "T10"]) assert.notEqual((await check({ format }, { format }))[0]?.state, "listed");
+  assert.notEqual((await check({ start: "2026-10-30T00:00:00.000Z" }, { start: "2026-10-30T00:30:00.000Z" }))[0]?.state, "conflicting");
+  assert.notEqual((await check({ start: "2026-10-29T23:45:00.000Z" }, { start: "2026-10-30T00:15:00.000Z" }))[0]?.state, "listed");
+  assert.equal((await check({}, {}, [{ ...official, fixtureID: "cricket-fixture:other", start: stamp(-40 * 60_000) }])).some((link) => link.state === "listed"), false);
+  assert.equal((await check({ observedAt: stamp(-60_000), expiresAt: stamp(-1) }))[0].state, "needsVerification");
+});
+
+test("Plavio CNC dated pair uses only a unique exact fresh official limited-overs fixture", async () => {
+ const f=fixture({fixtureID:"cricket-fixture:icc:123",sport:"cricket",participants:["Ireland","Namibia"],format:"ODI",competitionID:"icc"});
+ const b=row({providerEventID:"plaviohdtv-cnc-playztv-86",streamID:"plaviohdtv-cnc-playztv-86",scope:"cricket",sport:"cricket",participants:f.participants,title:"Ireland vs Namibia"});
+ const source=await normalizeBroadcastCollection("plaviosports",collection([b],{providerCode:"plaviosports",scopes:[{scope:"cricket",status:"available",complete:true}]}),now);
+ const run=(fs,bs=source.broadcasts)=>associateBroadcasts({fixtures:fs,broadcasts:bs,providers:source.scopes,now});
+ assert.equal(run([f])[0].state,"listed");
+ assert.equal(source.broadcasts[0].format,undefined,"No fabricated source format");
+ const agedLive=run([{...f,observedAt:stamp(-11*60000)}])[0];
+ assert.equal(agedLive.state,"listed");
+ assert.equal(agedLive.expiresAt,stamp(19*60000),"Original live receipt expiry is not renewed");
+ const scheduled={...f,status:"scheduled",start:stamp(2*3600000),observedAt:stamp(-15*60000)};
+ const scheduledRows=source.broadcasts.map(r=>({...r,start:scheduled.start}));
+ assert.equal(run([scheduled],scheduledRows)[0].state,"listed","Exact upcoming cricket survives the official refresh cadence");
+ assert.equal(run([{...scheduled,observedAt:stamp(-24*3600000-1)}],scheduledRows).length,0);
+
+ for (const change of [{format:"Test"},{start:stamp(-31*60000)},{observedAt:stamp(-31*60000)}]) assert.notEqual(run([{...f,...change}])[0]?.state,"listed");
+ assert.ok(run([f,{...f,fixtureID:"cricket-fixture:icc:124"}]).every(l=>l.state!=="listed"));
+ assert.notEqual(run([f],source.broadcasts.map(b=>({...b,providerEventID:"plaviohdtv-unreviewed"})))[0]?.state,"listed");
+});

@@ -1,9 +1,159 @@
 import Foundation
+import CryptoKit
 
 // MARK: - Live Source Health Store
-// Tracks reliability and performance of stream sources to optimize Watch Now selection.
+// Retains successful provider performance to optimize Watch Now selection.
+// Content and playback failures belong to the current attempt, not a host.
 
 enum LiveSourceHealthStore {
+    enum MatchOutcome: Int { case decoded, sustained, failed, stalled, wrongProgramme }
+    enum MatchEvidence: Int {
+        case sustained, recentlyPlayed, unknown, recentlyFailed, repeatedlyFailed, wrongProgramme
+        var hasPlayed: Bool { self == .sustained || self == .recentlyPlayed }
+    }
+    private struct MatchDelivery: Hashable {
+        let fixture: Data
+        let delivery: Data
+        init(_ source: StreamSource, fixtureID: String) {
+            fixture = digest(["fixture", fixtureID])
+            let contract = source.playbackContract ?? .describing(url: source.url, provider: source.provider, headers: source.headers)
+            let fields = ["delivery", source.url.absoluteString, contract.endpoint.rawValue, contract.container.rawValue]
+                + transportFields(source)
+            delivery = digest(fields)
+        }
+    }
+    private static let processKey = SymmetricKey(size: .bits256)
+    private static func digest(_ fields: [String]) -> Data {
+        // Length framing preserves names/values containing punctuation. The random
+        // key prevents correlation across launches and is never serialized.
+        var mac = HMAC<SHA256>(key: processKey)
+        for field in fields {
+            let bytes = Data(field.utf8)
+            var length = UInt64(bytes.count).bigEndian
+            withUnsafeBytes(of: &length) { mac.update(data: Data($0)) }
+            mac.update(data: bytes)
+        }
+        return Data(mac.finalize())
+    }
+    private static func transportFields(_ source: StreamSource) -> [String] {
+        [source.cookie == nil ? "no-cookie" : "cookie", source.cookie ?? "",
+         source.referer == nil ? "no-referer" : "referer", source.referer ?? ""]
+            + source.headers.keys.sorted().flatMap { [$0, source.headers[$0] ?? ""] }
+    }
+    /// All bound adapters preserve the exact local row ID only after an admitted
+    /// same-choice renewal. FS/SV additionally publish an unambiguous channel
+    /// path and finite lease-only query contract, even when discovery gets a new
+    /// row ID. Other adapters do not gain a query-stripping heuristic.
+    private static func programmeKeys(for session: StreamSession, at now: Date) -> [Data] {
+        guard let binding = session.eventBinding, binding.fixtureID == session.matchID,
+              binding.providerCode == StreamEventBinding.providerCode(forSessionProviderName: session.providerName) else { return [] }
+        let contract = session.playbackContract
+        let base = ["programme", binding.fixtureID, binding.providerCode, binding.resource, binding.resourceType,
+                    binding.providerEventID, binding.streamID, binding.manifestRevision, binding.sport,
+                    binding.kickoffDate.map { String($0.timeIntervalSince1970.bitPattern) } ?? "undated",
+                    contract.endpoint.rawValue, contract.container.rawValue, session.qualityLabel ?? ""]
+            + transportFields(session.legacySource)
+        var keys = [digest(base + ["renewed-row", session.id.uuidString])]
+        let url = session.playableURL
+        let stableChannel = (binding.providerCode == "flixstreams" && FlixStreamsAddonClient.isAdmittedDelivery(url))
+            || (binding.providerCode == "streamvix" && StreamVixSportsAddonClient.isAdmittedDelivery(url, now: now))
+        if stableChannel, let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            keys.append(digest(base + ["declared-channel", components.scheme ?? "", components.host ?? "",
+                                       String(components.port ?? 443), components.percentEncodedPath]))
+        }
+        return keys
+    }
+    private struct MatchObservation {
+        let watchID: UUID
+        let outcome: MatchOutcome
+        let at: Date
+        let sharedHealthKey: String
+        let providerCode: String?
+    }
+    // Volatile, capped, exact event and executable delivery. An observation
+    // never leaves this process or affects a neighbour sharing its CDN.
+    private static var matchObservations: [MatchDelivery: [MatchObservation]] = [:]
+    private static var wrongProgrammes: [Data: Date] = [:]
+    private static let matchObservationLifetime: TimeInterval = 6 * 60 * 60
+    static func recordMatchOutcome(_ outcome: MatchOutcome, for source: StreamSource, fixtureID: String,
+                                   watchID: UUID, at now: Date = Date(), session: StreamSession? = nil) {
+        guard AppRuntime.privateOutageFixture == nil else { return }
+        queue.sync {
+            let key = MatchDelivery(source, fixtureID: fixtureID)
+            if outcome == .wrongProgramme, let session, session.matchID == fixtureID, session.id == source.id {
+                for logical in programmeKeys(for: session, at: now) { wrongProgrammes[logical] = now }
+                wrongProgrammes = wrongProgrammes.filter { (0...matchObservationLifetime).contains(now.timeIntervalSince($0.value)) }
+                while wrongProgrammes.count > 256, let oldest = wrongProgrammes.min(by: { $0.value < $1.value })?.key {
+                    wrongProgrammes.removeValue(forKey: oldest)
+                }
+            }
+            var recent = matchObservations[key, default: []].filter { (0...matchObservationLifetime).contains(now.timeIntervalSince($0.at)) }
+            let previous = recent.first { $0.watchID == watchID }
+            // A later decoded callback from the same tap does not erase an
+            // interruption or the viewer's explicit wrong-programme observation.
+            guard (previous?.outcome.rawValue ?? -1) <= outcome.rawValue else { return }
+            recent.removeAll { $0.watchID == watchID }
+            recent.append(.init(watchID: watchID, outcome: outcome, at: now, sharedHealthKey: singleStreamEvidenceKey(for: source),
+                                providerCode: StreamEventBinding.providerCode(forSessionProviderName: source.provider)))
+            matchObservations[key] = Array(recent.suffix(8))
+            if matchObservations.count > 128,
+               let oldest = matchObservations.min(by: { ($0.value.last?.at ?? .distantPast) < ($1.value.last?.at ?? .distantPast) })?.key {
+                matchObservations.removeValue(forKey: oldest)
+            }
+        }
+    }
+    private static func evidence(_ key: MatchDelivery, at now: Date, programme: [Data] = []) -> MatchEvidence {
+        if programme.contains(where: { wrongProgrammes[$0].map { (0...matchObservationLifetime).contains(now.timeIntervalSince($0)) } ?? false }) {
+            return .wrongProgramme
+        }
+        let recent = matchObservations[key, default: []].filter { (0...matchObservationLifetime).contains(now.timeIntervalSince($0.at)) }
+        if recent.contains(where: { $0.outcome == .wrongProgramme }) { return .wrongProgramme }
+        guard let last = recent.last else { return .unknown }
+        let bad = recent.suffix(3).filter { $0.outcome == .failed || $0.outcome == .stalled }.count
+        if bad >= 2 { return .repeatedlyFailed }
+        if last.outcome == .sustained { return .sustained }
+        return last.outcome == .decoded ? .recentlyPlayed : .recentlyFailed
+    }
+    static func matchEvidence(for source: StreamSource, fixtureID: String, at now: Date = Date()) -> MatchEvidence {
+        queue.sync { evidence(MatchDelivery(source, fixtureID: fixtureID), at: now) }
+    }
+    static func matchEvidence(for session: StreamSession, at now: Date = Date()) -> MatchEvidence {
+        queue.sync { evidence(MatchDelivery(session.legacySource, fixtureID: session.matchID),
+            at: now, programme: programmeKeys(for: session, at: now)) }
+    }
+    static func sustainedMatchProviders(for fixtureID: String, at now: Date = Date()) -> Set<String> {
+        let fixture = digest(["fixture", fixtureID])
+        return queue.sync {
+            Set(matchObservations.compactMap { key, samples in
+                guard key.fixture == fixture, evidence(key, at: now) == .sustained else { return nil }
+                return samples.last?.providerCode
+            })
+        }
+    }
+    private static func unreliableSharedHistory(in fixtureID: String, at now: Date) -> Set<String> {
+        var keys = Set<String>()
+        let fixture = digest(["fixture", fixtureID])
+        for (key, samples) in matchObservations where key.fixture == fixture {
+            if evidence(key, at: now).rawValue >= MatchEvidence.recentlyFailed.rawValue, let sample = samples.last {
+                keys.insert(sample.sharedHealthKey)
+            }
+        }
+        return keys
+    }
+    static func positiveRecoveryHistory(for source: StreamSource, fixtureID: String, at now: Date = Date()) -> Bool {
+        queue.sync {
+            let status = evidence(MatchDelivery(source, fixtureID: fixtureID), at: now)
+            if status != .unknown { return status.hasPlayed }
+            let key = singleStreamEvidenceKey(for: source)
+            return !unreliableSharedHistory(in: fixtureID, at: now).contains(key)
+                && singleStreamEvidence(snapshot: loadSnapshots()[key], at: now).tier < 2
+        }
+    }
+    private struct RecentStartupSample: Codable {
+        let recordedAt: TimeInterval
+        let latencyMs: Int
+    }
+
     private struct Snapshot: Codable {
         var successCount: Int = 0
         var failureCount: Int = 0
@@ -14,14 +164,23 @@ enum LiveSourceHealthStore {
         var consecutiveFailures: Int?
         var lastFailureAt: TimeInterval?
         var lastFailureReason: String?
+        // Optional for backwards-compatible v1 decoding. These are positive
+        // decoded-start observations, not attempts or an uptime/success rate.
+        var recentStartupSamples: [RecentStartupSample]?
     }
 
     private static let storageKey = "fotty.live.sourceHealth.v1"
     private static let contextStorageKey = "fotty.live.lastGoodProvider.v1"
     private static let queue = DispatchQueue(label: "com.fotty.liveSourceHealthStore")
     private static var verifyingSourceKeys = Set<String>()
-    static let circuitBreakerFailureThreshold = 2
-    static let circuitBreakerDuration: TimeInterval = 15 * 60
+    /// One queue-owned payload, not a process-lifetime freshness flag. Reading
+    /// current bytes first also observes direct defaults replacement/removal.
+    private struct SnapshotCache {
+        let persistedData: Data?
+        let snapshots: [String: Snapshot]
+    }
+    private static var snapshotCache: SnapshotCache?
+    private static var snapshotDecodeCount = 0
 
     static func isVerifying(_ source: StreamSource) -> Bool {
         queue.sync { verifyingSourceKeys.contains(sourceKey(for: source)) }
@@ -68,9 +227,9 @@ enum LiveSourceHealthStore {
 
     /// Best-first ordering for failover and initial Watch Now pick.
     static func ranked(_ sources: [StreamSource], contextKey: String? = nil) -> [StreamSource] {
-        guard sources.count > 1 else { return sources }
         return queue.sync {
             let snapshots = loadSnapshots()
+            guard sources.count > 1 else { return sources }
             let lastGood = contextKey.flatMap { loadLastGood()[$0] }
             return sources.sorted { lhs, rhs in
                 let l = liveScore(
@@ -106,38 +265,28 @@ enum LiveSourceHealthStore {
         }
     }
 
-    /// Automatic attempts skip a provider family briefly after repeated failures.
-    /// Manual source selection remains available and can override this circuit.
+    /// A missing broadcast, HTTP response, startup timeout or stall is not proof
+    /// that other fixtures on this family/host are unavailable. Callers exclude
+    /// failed source IDs within their current attempt before asking for ranking.
     static func automaticCandidates(
         in sources: [StreamSource],
         contextKey: String? = nil,
         at date: Date = Date()
     ) -> [StreamSource] {
-        let available = queue.sync {
-            let snapshots = loadSnapshots()
-            return sources.filter { source in
-                !isCircuitOpen(
-                    snapshots[sourceKey(for: source)] ?? Snapshot(),
-                    at: date.timeIntervalSince1970
-                )
-            }
-        }
-        return ranked(available, contextKey: contextKey)
+        ranked(sources, contextKey: contextKey)
     }
 
     static func isTemporarilyUnavailable(_ source: StreamSource, at date: Date = Date()) -> Bool {
         queue.sync {
-            let snapshot = loadSnapshots()[sourceKey(for: source)] ?? Snapshot()
-            return isCircuitOpen(snapshot, at: date.timeIntervalSince1970)
+            _ = loadSnapshots()
+            return false
         }
     }
 
     static func cooldownRemaining(for source: StreamSource, at date: Date = Date()) -> TimeInterval? {
         queue.sync {
-            let snapshot = loadSnapshots()[sourceKey(for: source)] ?? Snapshot()
-            guard isCircuitOpen(snapshot, at: date.timeIntervalSince1970),
-                  let lastFailureAt = snapshot.lastFailureAt else { return nil }
-            return max(0, circuitBreakerDuration - (date.timeIntervalSince1970 - lastFailureAt))
+            _ = loadSnapshots()
+            return nil
         }
     }
 
@@ -146,12 +295,9 @@ enum LiveSourceHealthStore {
         host: String = "embed.st",
         at date: Date = Date()
     ) -> Bool {
-        let family = rawFamily.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let normalizedFamily = family == "hotel" ? "score808" : family
-        let key = "web|\(normalizedFamily)|\(host.lowercased())"
         return queue.sync {
-            let snapshot = loadSnapshots()[key] ?? Snapshot()
-            return isCircuitOpen(snapshot, at: date.timeIntervalSince1970)
+            _ = loadSnapshots()
+            return false
         }
     }
 
@@ -179,6 +325,172 @@ enum LiveSourceHealthStore {
             let ri = order.firstIndex(of: rhs.id) ?? Int.max
             return li < ri
         }
+    }
+
+    /// Single-stream ordering uses local language preference, positive continuity
+    /// and recent decoded startup evidence. It never filters a candidate or claims
+    /// an uptime/success rate; current-attempt exclusion remains the caller's.
+    static func rankedSingleStreamSources(
+        _ sources: [StreamSource], contextKey: String? = nil, at date: Date = Date()
+    ) -> [StreamSource] {
+        guard sources.count > 1 else { return sources }
+        return queue.sync {
+            singleStreamOrder(for: sources, contextKey: contextKey, at: date).map { sources[$0] }
+        }
+    }
+
+    static func rankedSingleStreamSessions(
+        _ sessions: [StreamSession], contextKey: String? = nil, at date: Date = Date(), applyMatchEvidence: Bool = true
+    ) -> [StreamSession] {
+        guard sessions.count > 1 else { return sessions }
+        return queue.sync {
+            // A verified alternate delivery of the exact UK Sky station has
+            // the station's language too. A CS label alone remains unknown.
+            let languages = sessions.map { session -> CommentaryPreference? in
+                if let binding = session.eventBinding, binding.providerCode == "communitysports",
+                   binding.fixtureID == session.matchID, binding.expiresAt > date,
+                   let station = SportsTVStation.station(id: binding.fixtureID), station.provider == "TV11" {
+                    return station.language
+                }
+                return SportsTVStation.station(provider: session.providerName)?.language
+            }
+            // The reviewed Sky TV route currently advertises HEVC in MPEG-TS,
+            // which Apple HLS cannot display. Prefer its verified CS alternate
+            // on a cold tie; actual positive startup/continuity can still win.
+            let hasSkyAlternate = zip(sessions, languages).contains { session, language in
+                language != nil && session.eventBinding?.providerCode == "communitysports"
+                    && session.matchID == "sports-channel:sky-sports-football"
+            }
+            let deliveryRanks = sessions.map { hasSkyAlternate && $0.providerName == "TV11" ? 1 : 0 }
+            let matchContext = sessions.allSatisfy { SportsTVStation.station(id: $0.matchID) == nil }
+            let matchSelection = applyMatchEvidence && matchContext
+            let matchEvidence = matchSelection ? sessions.map { evidence(MatchDelivery($0.legacySource, fixtureID: $0.matchID),
+                at: date, programme: programmeKeys(for: $0, at: date)) } : nil
+            let sharedEvidenceToIgnore = matchSelection && Set(sessions.map(\.matchID)).count == 1
+                ? unreliableSharedHistory(in: sessions[0].matchID, at: date) : []
+            return singleStreamOrder(for: sessions.map(\.legacySource), contextKey: contextKey, at: date,
+                knownLanguages: languages, coldDeliveryRanks: deliveryRanks,
+                evidenceBeforeLanguage: matchContext, matchEvidence: matchEvidence, sharedEvidenceToIgnore: sharedEvidenceToIgnore)
+                .map { sessions[$0] }
+        }
+    }
+
+    /// Positive decoded-start history only. Absence is unknown, never a
+    /// provider ban or a claim that another fixture's delivery has failed.
+    static func hasFreshSingleStreamSuccess(for source: StreamSource, at date: Date = Date()) -> Bool {
+        queue.sync { singleStreamEvidence(snapshot: loadSnapshots()[singleStreamEvidenceKey(for: source)], at: date).tier < 2 }
+    }
+
+    private struct SingleStreamEvidence {
+        // 0: measured startup; 1: fresh decoded success without latency;
+        // 2: no fresh positive observation. Lower is preferred.
+        let tier: Int
+        let startupBucket: Int
+        let confidence: Int
+    }
+
+    private static let recentStartupWindow: TimeInterval = 7 * 24 * 60 * 60
+    private static let maximumRecentStartupMs = 180_000
+    private static let maximumRecentStartupSamples = 12
+
+    /// Called only while the store's queue is owned. Stable indices retain
+    /// duplicate IDs and ensure equal candidates do not shuffle on each read.
+    private static func singleStreamOrder(
+        for sources: [StreamSource], contextKey: String?, at date: Date,
+        knownLanguages: [CommentaryPreference?]? = nil, coldDeliveryRanks: [Int]? = nil,
+        evidenceBeforeLanguage: Bool = false, matchEvidence: [MatchEvidence]? = nil, sharedEvidenceToIgnore: Set<String> = []
+    ) -> [Int] {
+        let snapshots = loadSnapshots()
+        let lastGood = contextKey.flatMap { loadLastGood()[$0] }
+        let evidence = sources.map { source in
+            let key = singleStreamEvidenceKey(for: source)
+            return singleStreamEvidence(snapshot: sharedEvidenceToIgnore.contains(key) ? nil : snapshots[key], at: date)
+        }
+        let preference = CommentaryPreference.saved()
+        let languageRanks = sources.indices.map {
+            preference.preferenceRank(for: knownLanguages?[$0] ?? SportsTVStation.station(provider: sources[$0].provider)?.language)
+        }
+        let continuity = sources.map { SinglePlaybackContinuityStore.hasRecentHold($0, at: date) }
+        return sources.indices.sorted { lhs, rhs in
+            if let matchEvidence {
+                func reliability(_ index: Int) -> Int {
+                    let status = matchEvidence[index]
+                    // A current failure always revokes an older successful hold.
+                    if status.rawValue >= MatchEvidence.recentlyFailed.rawValue { return status.rawValue }
+                    if status == .sustained || continuity[index] { return 0 }
+                    return status == .recentlyPlayed ? 1 : 2
+                }
+                let l = reliability(lhs), r = reliability(rhs)
+                if l != r { return l < r }
+            }
+            if !evidenceBeforeLanguage && languageRanks[lhs] != languageRanks[rhs] { return languageRanks[lhs] < languageRanks[rhs] }
+            if matchEvidence == nil && continuity[lhs] != continuity[rhs] { return continuity[lhs] }
+            let l = evidence[lhs], r = evidence[rhs]
+            if l.tier != r.tier { return l.tier < r.tier }
+            // Respect a known language mismatch, but unknown language must not
+            // make a fast CS/AS delivery lose to a slower TV label automatically.
+            if evidenceBeforeLanguage && languageRanks[lhs] != languageRanks[rhs]
+                && max(languageRanks[lhs], languageRanks[rhs]) == 2 { return languageRanks[lhs] < languageRanks[rhs] }
+            if l.startupBucket != r.startupBucket { return l.startupBucket < r.startupBucket }
+            if evidenceBeforeLanguage && languageRanks[lhs] != languageRanks[rhs] { return languageRanks[lhs] < languageRanks[rhs] }
+            // Confidence can break only a roughly 500ms speed tie, and is capped
+            // independently of legacy lifetime success counts.
+            if l.confidence != r.confidence { return l.confidence > r.confidence }
+            let lDirect = isDirectMediaCandidate(sources[lhs])
+            let rDirect = isDirectMediaCandidate(sources[rhs])
+            if lDirect != rDirect { return lDirect }
+            if let coldDeliveryRanks, coldDeliveryRanks[lhs] != coldDeliveryRanks[rhs] {
+                return coldDeliveryRanks[lhs] < coldDeliveryRanks[rhs]
+            }
+            if let lastGood, !evidenceBeforeLanguage || l.tier < 2 {
+                let lGood = providerFamily(for: sources[lhs]) == lastGood
+                let rGood = providerFamily(for: sources[rhs]) == lastGood
+                if lGood != rGood { return lGood }
+            }
+            return lhs < rhs
+        }
+    }
+
+    private static func isDirectMediaCandidate(_ source: StreamSource) -> Bool {
+        let contract = source.playbackContract ?? .describing(url: source.url, provider: source.provider, headers: source.headers)
+        return contract.endpoint == .directMedia
+    }
+
+    private static func isFreshPositiveTimestamp(_ timestamp: TimeInterval, at date: Date) -> Bool {
+        let now = date.timeIntervalSince1970
+        guard now.isFinite, timestamp.isFinite else { return false }
+        let age = now - timestamp
+        return age >= 0 && age <= recentStartupWindow
+    }
+
+    private static func isValidRecentSample(_ sample: RecentStartupSample, at date: Date) -> Bool {
+        (1...maximumRecentStartupMs).contains(sample.latencyMs)
+            && isFreshPositiveTimestamp(sample.recordedAt, at: date)
+    }
+
+    private static func singleStreamEvidence(snapshot: Snapshot?, at date: Date) -> SingleStreamEvidence {
+        guard let snapshot else { return .init(tier: 2, startupBucket: 0, confidence: 0) }
+        let samples = (snapshot.recentStartupSamples ?? []).suffix(maximumRecentStartupSamples)
+            .filter { isValidRecentSample($0, at: date) }.map(\.latencyMs).sorted()
+        if !samples.isEmpty {
+            let middle = samples.count / 2
+            let median = samples.count.isMultiple(of: 2)
+                ? (samples[middle - 1] + samples[middle]) / 2 : samples[middle]
+            return .init(tier: 0, startupBucket: median / 500, confidence: min(samples.count, 3))
+        }
+        guard let lastSuccessAt = snapshot.lastSuccessAt, snapshot.successCount > 0,
+              isFreshPositiveTimestamp(lastSuccessAt, at: date) else {
+            return .init(tier: 2, startupBucket: 0, confidence: 0)
+        }
+        // A fresh legacy aggregate has no individually dated observations. Warm
+        // start with one weak latency observation, never 100-success dominance.
+        if snapshot.recentStartupSamples == nil, snapshot.startupSamples > 0, snapshot.totalStartupMs > 0 {
+            let average = Double(snapshot.totalStartupMs) / Double(snapshot.startupSamples)
+            if average.isFinite, average >= 1, average <= Double(maximumRecentStartupMs) {
+                return .init(tier: 0, startupBucket: Int(average) / 500, confidence: 1)
+            }
+        }
+        return .init(tier: 1, startupBucket: 0, confidence: 0)
     }
 
     /// Finds the best source index based on historical health data.
@@ -227,18 +539,29 @@ enum LiveSourceHealthStore {
     ) {
         queue.sync {
             var snapshots = loadSnapshots()
-            let key = sourceKey(for: source)
-            var snapshot = snapshots[key] ?? Snapshot()
-            snapshot.successCount += 1
-            if let startupLatencyMs, startupLatencyMs > 0 {
-                snapshot.totalStartupMs += startupLatencyMs
-                snapshot.startupSamples += 1
+            // Preserve legacy ranking for other playback contexts, while
+            // single-stream TV history belongs to a station, not its shared CDN.
+            for key in Set([sourceKey(for: source), singleStreamEvidenceKey(for: source)]) {
+                var snapshot = snapshots[key] ?? Snapshot()
+                snapshot.successCount += 1
+                if let startupLatencyMs, startupLatencyMs > 0 {
+                    snapshot.totalStartupMs += startupLatencyMs
+                    snapshot.startupSamples += 1
+                }
+                let observedAt = Date()
+                snapshot.lastSuccessAt = observedAt.timeIntervalSince1970
+                var recent = (snapshot.recentStartupSamples ?? []).filter { isValidRecentSample($0, at: observedAt) }
+                if let startupLatencyMs, (1...maximumRecentStartupMs).contains(startupLatencyMs) {
+                    recent.append(.init(recordedAt: observedAt.timeIntervalSince1970, latencyMs: startupLatencyMs))
+                }
+                // An empty new field distinguishes a current no-latency observation
+                // from an untouched legacy aggregate. Keep only owned recent facts.
+                snapshot.recentStartupSamples = Array(recent.suffix(maximumRecentStartupSamples))
+                snapshot.consecutiveFailures = nil
+                snapshot.lastFailureAt = nil
+                snapshot.lastFailureReason = nil
+                snapshots[key] = snapshot
             }
-            snapshot.lastSuccessAt = Date().timeIntervalSince1970
-            snapshot.consecutiveFailures = 0
-            snapshot.lastFailureAt = nil
-            snapshot.lastFailureReason = nil
-            snapshots[key] = snapshot
             saveSnapshots(snapshots)
 
             if let contextKey, !contextKey.isEmpty {
@@ -257,26 +580,13 @@ enum LiveSourceHealthStore {
         recordSuccess(for: session.legacySource, startupLatencyMs: startupLatencyMs, contextKey: contextKey)
     }
 
-    /// Records a playback failure or stall for a stream source.
+    /// Compatibility entry point for attempt-local playback failures. The player
+    /// already excludes exhausted source IDs for that attempt. Neither a generic
+    /// reason string nor a stall supplies fixture-independent outage evidence,
+    /// so these must never create a persisted family/host penalty or circuit.
     static func recordFailure(for source: StreamSource, wasStall: Bool, reason: String? = nil) {
         queue.sync {
-            var snapshots = loadSnapshots()
-            let key = sourceKey(for: source)
-            var snapshot = snapshots[key] ?? Snapshot()
-            let now = Date().timeIntervalSince1970
-            if let previousFailure = snapshot.lastFailureAt,
-               now - previousFailure > circuitBreakerDuration {
-                snapshot.consecutiveFailures = 0
-            }
-            snapshot.failureCount += 1
-            if wasStall {
-                snapshot.stallCount += 1
-            }
-            snapshot.consecutiveFailures = (snapshot.consecutiveFailures ?? 0) + 1
-            snapshot.lastFailureAt = now
-            snapshot.lastFailureReason = reason.map { String($0.prefix(240)) }
-            snapshots[key] = snapshot
-            saveSnapshots(snapshots)
+            _ = loadSnapshots()
         }
     }
 
@@ -287,11 +597,13 @@ enum LiveSourceHealthStore {
     // MARK: - Internals
 
     private static func sourceKey(for source: StreamSource) -> String {
-        if let p2pKey = p2pSourceKey(for: source.url, providerHint: source.provider) {
-            return p2pKey
-        }
         let host = source.url.host?.lowercased() ?? "unknown-host"
         return "web|\(providerFamily(for: source))|\(host)"
+    }
+
+    private static func singleStreamEvidenceKey(for source: StreamSource) -> String {
+        guard let station = SportsTVStation.station(provider: source.provider) else { return sourceKey(for: source) }
+        return "single-tv|\(station.provider)|\(source.url.host?.lowercased() ?? "unknown-host")"
     }
 
     private static func sessionKey(for session: StreamSession) -> String {
@@ -300,11 +612,17 @@ enum LiveSourceHealthStore {
 
     /// Coarse provider family so “StreamEx #2” and “StreamEx #1” share last-good memory.
     static func providerFamily(for source: StreamSource) -> String {
+        if let family = StreamPluginProviderMatching.opaqueProviderFamily(source.provider) { return family }
         let nexus = source.headers["X-Fotty-Nexus-Source"]?.lowercased()
         if let nexus, !nexus.isEmpty {
             return nexus == "hotel" ? "score808" : nexus
         }
         let provider = source.provider.lowercased()
+        let providerRange = NSRange(provider.startIndex..<provider.endIndex, in: provider)
+        if let pattern = try? NSRegularExpression(pattern: #"^cs\d+$"#),
+           pattern.firstMatch(in: provider, range: providerRange) != nil {
+            return StreamPluginProviderMatching.communitySportsProviderCode
+        }
         if provider.contains("streamex") || provider.contains("delta") { return "delta" }
         if provider.contains("vipleague") || provider.contains("echo") { return "echo" }
         if provider.contains("methstreams") || provider.contains("golf") { return "golf" }
@@ -317,44 +635,15 @@ enum LiveSourceHealthStore {
         return provider.components(separatedBy: " ").first ?? provider
     }
 
-    private static func isCircuitOpen(_ snapshot: Snapshot, at now: TimeInterval) -> Bool {
-        guard (snapshot.consecutiveFailures ?? 0) >= circuitBreakerFailureThreshold,
-              let lastFailureAt = snapshot.lastFailureAt else { return false }
-        return now - lastFailureAt < circuitBreakerDuration
-    }
-
-    private static func p2pSourceKey(for url: URL, providerHint: String) -> String? {
-        let host = url.host?.lowercased() ?? ""
-        let isKnownP2P = host.contains("p2p.pixel-invoice.com")
-            || providerHint.lowercased().contains("p2p")
-            || url.absoluteString.lowercased().contains("/proxy/acestream/")
-
-        guard isKnownP2P else { return nil }
-
-        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
-        if let cid = components?.queryItems?.first(where: { item in
-            item.name == "infohash" || item.name == "id"
-        })?.value?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !cid.isEmpty {
-            return "p2p|\(cid.lowercased())"
-        }
-
-        return "p2p|\(host)|\(url.path.lowercased())"
-    }
-
     private static func computeScore(for snapshot: Snapshot) -> Double {
-        let attempts = snapshot.successCount + snapshot.failureCount
-        let reliability = attempts > 0
-            ? Double(snapshot.successCount) / Double(attempts)
-            : 0.25
+        let attempts = snapshot.successCount
+        let reliability = attempts > 0 ? 1.0 : 0.25
 
         let averageStartupMs = snapshot.startupSamples > 0
             ? Double(snapshot.totalStartupMs) / Double(snapshot.startupSamples)
             : 2500
 
         let successBoost = log(Double(snapshot.successCount) + 1) * 9
-        let failurePenalty = Double(snapshot.failureCount) * 2
-        let stallPenalty = Double(snapshot.stallCount) * 6
         let startupPenalty = averageStartupMs / 300
 
         var recencyBonus = 0.0
@@ -369,7 +658,7 @@ enum LiveSourceHealthStore {
             }
         }
 
-        var score = reliability * 100 + successBoost + recencyBonus - failurePenalty - stallPenalty - startupPenalty
+        var score = reliability * 100 + successBoost + recencyBonus - startupPenalty
 
         if snapshot.successCount == 0 {
             score -= 22
@@ -388,10 +677,6 @@ enum LiveSourceHealthStore {
     ) -> Double {
         var localScore = computeScore(for: snapshot)
 
-        if isCircuitOpen(snapshot, at: Date().timeIntervalSince1970) {
-            localScore -= 1_000
-        }
-
         if let lastGoodProvider, !lastGoodProvider.isEmpty {
             let family = providerFamily(for: source)
             if family == lastGoodProvider || source.provider.lowercased().contains(lastGoodProvider) {
@@ -399,24 +684,51 @@ enum LiveSourceHealthStore {
             }
         }
 
-        if let brokerScoreText = source.headers["X-Fotty-P2P-Broker-Score"],
-           let brokerScore = Double(brokerScoreText) {
-            return max(localScore, brokerScore)
-        }
-
         return localScore
     }
 
     private static func loadSnapshots() -> [String: Snapshot] {
-        guard let data = UserDefaults.standard.data(forKey: storageKey) else {
+        let persistedData = UserDefaults.standard.data(forKey: storageKey)
+        if let cached = snapshotCache, cached.persistedData == persistedData {
+            return cached.snapshots
+        }
+        guard let data = persistedData else {
+            snapshotCache = .init(persistedData: nil, snapshots: [:])
             return [:]
         }
-        return (try? JSONDecoder().decode([String: Snapshot].self, from: data)) ?? [:]
+        snapshotDecodeCount &+= 1
+        guard var snapshots = try? JSONDecoder().decode([String: Snapshot].self, from: data) else {
+            // Do not repeatedly decode the same malformed payload or erase it.
+            // A later changed payload still gets its own decoding opportunity.
+            snapshotCache = .init(persistedData: data, snapshots: [:])
+            return [:]
+        }
+        // v1 stored failures under a family/host key, with no fixture identity or
+        // typed transport evidence. Retire only those negative observations;
+        // keep measured successes, startup latency and last-good preferences.
+        var migrated = false
+        for (key, var snapshot) in snapshots {
+            guard snapshot.failureCount != 0 || snapshot.stallCount != 0
+                || snapshot.consecutiveFailures != nil || snapshot.lastFailureAt != nil
+                || snapshot.lastFailureReason != nil else { continue }
+            snapshot.failureCount = 0
+            snapshot.stallCount = 0
+            snapshot.consecutiveFailures = nil
+            snapshot.lastFailureAt = nil
+            snapshot.lastFailureReason = nil
+            snapshots[key] = snapshot
+            migrated = true
+        }
+        snapshotCache = .init(persistedData: data, snapshots: snapshots)
+        if migrated { saveSnapshots(snapshots) }
+        return snapshots
     }
 
     private static func saveSnapshots(_ snapshots: [String: Snapshot]) {
         guard let data = try? JSONEncoder().encode(snapshots) else { return }
+        guard AppRuntime.privateOutageFixture == nil else { return }
         UserDefaults.standard.set(data, forKey: storageKey)
+        snapshotCache = .init(persistedData: data, snapshots: snapshots)
     }
 
     private static func loadLastGood() -> [String: String] {
@@ -424,7 +736,15 @@ enum LiveSourceHealthStore {
     }
 
     private static func saveLastGood(_ map: [String: String]) {
+        guard AppRuntime.privateOutageFixture == nil else { return }
         UserDefaults.standard.set(map, forKey: contextStorageKey)
+    }
+
+    /// Counts actual JSON decoder invocations, not elapsed-time or UI proof.
+    /// Test inspection is serialized with reads and unavailable in normal use.
+    static func snapshotDecodeCountForTesting() -> Int? {
+        guard AppRuntime.isAutomatedTesting else { return nil }
+        return queue.sync { snapshotDecodeCount }
     }
 
     static func resetForTesting() {
@@ -433,6 +753,10 @@ enum LiveSourceHealthStore {
             UserDefaults.standard.removeObject(forKey: storageKey)
             UserDefaults.standard.removeObject(forKey: contextStorageKey)
             verifyingSourceKeys.removeAll()
+            matchObservations.removeAll()
+            wrongProgrammes.removeAll()
+            snapshotCache = nil
+            snapshotDecodeCount = 0
         }
     }
 }

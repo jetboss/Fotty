@@ -1,0 +1,30 @@
+{
+  "checkedUTC": "2026-11-01T15:35:00Z",
+  "gates": [
+    {
+      "result": "Failed",
+      "passedTests": 270,
+      "failedTests": 1,
+      "skippedTests": 0,
+      "totalTestCount": 271,
+      "gate": "fox-focused",
+      "failures": [
+        {
+          "failureText": "Crash: Fotty at closure #1 in XCTUnwrap<A>(_:_:file:line:)",
+          "testName": "testActualReviewedFoxRelayUsesBoundRootAndLiteralAdvertisedSegmentWithoutCredentials()"
+        }
+      ]
+    },
+    {
+      "result": "Passed",
+      "passedTests": 271,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 271,
+      "gate": "fox-corrected",
+      "failures": []
+    }
+  ],
+  "initialFailureCause": "New test mock intercepted HTTPS only, so HTTP fixture escaped mock and its failure body was indexed unsafely. Test transport and safe response parsing corrected. This was not an on-device app crash.",
+  "finalAppOrNativePlaybackClaim": false
+}

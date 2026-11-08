@@ -1,0 +1,108 @@
+{
+  "build": "223",
+  "completion": "metadata_collection_complete_no_playback_claim",
+  "fixtureID": "sports-fixture:champions-league:575377",
+  "fixtureStatus": "scheduled",
+  "kickoffUTC": "2026-11-03T17:45:00Z",
+  "liveStatusAuthority": "not_checked",
+  "mode": "metadata",
+  "observedAtUTC": "2026-11-03T17:21:12Z",
+  "rows": [
+    {
+      "catalog": "catalog_failed",
+      "deliveries": [],
+      "elapsedMilliseconds": 1126,
+      "failureCategory": "unknown",
+      "provider": "streamex",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [
+        {
+          "endpoint": "webPage",
+          "label": "Score808",
+          "result": "not_tested"
+        }
+      ],
+      "elapsedMilliseconds": 1265,
+      "provider": "score808",
+      "registeredMatches": 0,
+      "resolution": "descriptors_admitted"
+    },
+    {
+      "catalog": "notListed",
+      "deliveries": [],
+      "elapsedMilliseconds": 683,
+      "failureCategory": "provider_returned_empty",
+      "failureStage": "no_exact_fixture_match",
+      "provider": "communitysports",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "catalog_failed",
+      "deliveries": [],
+      "elapsedMilliseconds": 664,
+      "failureCategory": "manifest_invalid",
+      "failureStage": "invalid_addon_contract",
+      "provider": "plaviosports",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "unsupported_sport",
+      "deliveries": [],
+      "elapsedMilliseconds": 0,
+      "provider": "cncsports",
+      "registeredMatches": 0,
+      "resolution": "unsupported_sport"
+    },
+    {
+      "catalog": "failed(Fotty.StreamFailureCategory.manifestUnreachable)",
+      "deliveries": [],
+      "elapsedMilliseconds": 933,
+      "failureCategory": "manifest_unreachable",
+      "failureStage": "catalog_http_failure",
+      "provider": "flixstreams",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "catalog_failed",
+      "contractChecks": {
+        "catalogCount": true,
+        "configuration": true,
+        "genres": true,
+        "id": true,
+        "nativeValidationAccepted": true,
+        "resources": true,
+        "tv": true
+      },
+      "deliveries": [],
+      "elapsedMilliseconds": 940,
+      "failureCategory": "invalid_match_mapping",
+      "failureStage": "conflicting_fixture_match",
+      "provider": "streamvix",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "notListed",
+      "deliveries": [],
+      "elapsedMilliseconds": 39,
+      "failureCategory": "provider_returned_empty",
+      "failureStage": "no_exact_fixture_match",
+      "provider": "reviewedtv",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    }
+  ],
+  "schemaVersion": 1,
+  "sequence": 9,
+  "title": "FK Shakhtar Donetsk vs Sporting Clube de Portugal",
+  "toolRevision": "2026-10-31.connection-2",
+  "executionExitCode": 0,
+  "executionState": "collection_complete"
+}

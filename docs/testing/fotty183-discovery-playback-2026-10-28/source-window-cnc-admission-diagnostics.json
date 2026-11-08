@@ -1,0 +1,94 @@
+{
+  "checkedAt": "2026-10-29T00:39:05.649366Z",
+  "fixture": "nhl:2026020199",
+  "requests": [
+    {
+      "stage": "catalog",
+      "httpStatus": 200,
+      "bytes": 304508,
+      "sha256": "a66ad8d4726e69a7ff0ae222091e069cede93f680c2a97e10d734a35cd085741"
+    },
+    {
+      "stage": "exact_metadata",
+      "httpStatus": 200,
+      "bytes": 1699,
+      "sha256": "ea04983894f962e1552d7823a25906a0be2864753eacc4fd1456e32a8b75b050"
+    },
+    {
+      "stage": "same_advertised_stream_descriptor",
+      "httpStatus": 200,
+      "bytes": 848,
+      "sha256": "3a209b25c99a5ac275d4bfac0ca41b74f60c33b1eb85884a80ebe8e344a48cac"
+    }
+  ],
+  "descriptorDiagnostics": [
+    {
+      "index": 0,
+      "topKeys": [
+        "externalUrl",
+        "name",
+        "title"
+      ],
+      "unsupportedTopKeys": [
+        "externalUrl"
+      ],
+      "nameType": "str",
+      "reviewedNamePrefix": false,
+      "nameWithinByteLimit": true,
+      "nameHasUnreviewedControls": false,
+      "behaviorHintKeys": null,
+      "proxyHeaderKeys": null,
+      "requestHeaderKeys": null,
+      "requestHeadersExactlyReviewed": false,
+      "responseHeadersEmptyOrAbsent": false,
+      "urlType": "NoneType"
+    },
+    {
+      "index": 1,
+      "topKeys": [
+        "behaviorHints",
+        "name",
+        "title",
+        "url"
+      ],
+      "unsupportedTopKeys": [],
+      "nameType": "str",
+      "reviewedNamePrefix": true,
+      "nameWithinByteLimit": true,
+      "nameHasUnreviewedControls": false,
+      "behaviorHintKeys": [
+        "proxyHeaders"
+      ],
+      "proxyHeaderKeys": [
+        "request"
+      ],
+      "requestHeaderKeys": [
+        "Referer",
+        "User-Agent"
+      ],
+      "requestHeadersExactlyReviewed": false,
+      "reviewedHeaderValueMatches": {
+        "Origin": false,
+        "Referer": false,
+        "User-Agent": false
+      },
+      "responseHeadersEmptyOrAbsent": true,
+      "urlType": "str",
+      "deliveryShape": {
+        "https": true,
+        "admittedHost": false,
+        "portNilOr443": true,
+        "noUserInfo": true,
+        "noQuery": true,
+        "noFragment": true,
+        "noPercentEscape": true,
+        "underByteLimit": true,
+        "reviewedPathShape": false
+      },
+      "deliveryHost": "live.kinescopecdn.net"
+    }
+  ],
+  "sameDatedIdentityVerified": true,
+  "streamEntryCount": 2,
+  "status": "bounded_current_descriptor_inspected"
+}

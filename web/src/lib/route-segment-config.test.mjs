@@ -12,7 +12,6 @@ const DYNAMIC_DATA_ROUTES = [
 ];
 
 test("live-data API routes stay force-dynamic in source", () => {
-  const configSource = readFileSync(join(webRoot, "src/lib/route-segment-config.ts"), "utf8");
   const patchScript = readFileSync(join(webRoot, "scripts/patch-watch-routes-static.sh"), "utf8");
   const dockerfile = readFileSync(join(webRoot, "Dockerfile"), "utf8");
 
@@ -34,9 +33,6 @@ test("live-data API routes stay force-dynamic in source", () => {
   );
 
   for (const relativePath of DYNAMIC_DATA_ROUTES) {
-    const escapedPath = relativePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    assert.match(configSource, new RegExp(escapedPath));
-
     const source = readFileSync(join(webRoot, relativePath), "utf8");
     assert.match(
       source,

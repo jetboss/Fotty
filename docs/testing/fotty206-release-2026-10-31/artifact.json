@@ -1,0 +1,33 @@
+{
+  "version": "2.0.1",
+  "build": "206",
+  "sourceSHA256": "0d7cf644712009f13158a57383954d31a24788d2392b20f8cf98d0b3acca49a9",
+  "sourceCommit": "51de10730b05f65b9aec14252f729b72e922ba68",
+  "sourceReceipt": "backups/release-source/2.0.1-206-testflight-final",
+  "bundles": [
+    {
+      "dsymMatches": true,
+      "bundle": "Fotty.app",
+      "version": "2.0.1",
+      "build": "206",
+      "signed": true,
+      "archiveDebugEntitlement": true,
+      "binarySHA256": "608847edeb478ac6dc9d5e68d357076aded2934aa764dd7bfe3eee5d5289b7c5",
+      "uuid": "UUID: 90BCE74F-F99B-3007-AFE5-CA7572C76879"
+    },
+    {
+      "dsymMatches": true,
+      "bundle": "FottyLiveActivityExtension.appex",
+      "version": "2.0.1",
+      "build": "206",
+      "signed": true,
+      "archiveDebugEntitlement": true,
+      "binarySHA256": "5151c13671e4fae95cef88b5a22ac18f38212cb28b705f2e5a17b2623248963a",
+      "uuid": "UUID: A8610344-13B3-3B81-B9F9-F4E9C4CBE322"
+    }
+  ],
+  "releaseNotes": "Bug fixes",
+  "backgroundAudio": true,
+  "providerKeysEmpty": true,
+  "appIconPresent": true
+}

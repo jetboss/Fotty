@@ -1,0 +1,106 @@
+{
+  "schema": 1,
+  "investigation": "Stremio discovery and correct-catalog follow-up",
+  "authority": "official repository source, not REA-proven deployed core behavior",
+  "repository": "Stremio/stremio-core",
+  "commit": "3417c2e7ed45cdbfd86b3226f69814c2dc4947ad",
+  "license": "MIT",
+  "sources": [
+    {
+      "path": "src/types/addon/request.rs",
+      "blobSHA": "8184caf7a31679e65fecc2bcbbc81f6a42bb76b9",
+      "url": "https://github.com/Stremio/stremio-core/blob/3417c2e7ed45cdbfd86b3226f69814c2dc4947ad/src/types/addon/request.rs"
+    },
+    {
+      "path": "src/types/addon/manifest.rs",
+      "blobSHA": "068c7e6d670de56662f2403049e1ddbcebd8fae0",
+      "url": "https://github.com/Stremio/stremio-core/blob/3417c2e7ed45cdbfd86b3226f69814c2dc4947ad/src/types/addon/manifest.rs"
+    },
+    {
+      "path": "src/models/meta_details.rs",
+      "blobSHA": "9db447e263761c6704ee5480c03a956ab3233905",
+      "url": "https://github.com/Stremio/stremio-core/blob/3417c2e7ed45cdbfd86b3226f69814c2dc4947ad/src/models/meta_details.rs"
+    },
+    {
+      "path": "src/models/common/resource_loadable.rs",
+      "blobSHA": "34721ec4be672b7cc9e259087d34ed40ab86cd0f",
+      "url": "https://github.com/Stremio/stremio-core/blob/3417c2e7ed45cdbfd86b3226f69814c2dc4947ad/src/models/common/resource_loadable.rs"
+    },
+    {
+      "path": "src/addon_transport/http_transport/http_transport.rs",
+      "blobSHA": "04b6d7f50e2c53536f857199c2dc047be82ba449",
+      "url": "https://github.com/Stremio/stremio-core/blob/3417c2e7ed45cdbfd86b3226f69814c2dc4947ad/src/addon_transport/http_transport/http_transport.rs"
+    },
+    {
+      "path": "src/unit_tests/meta_details/live_tv.rs",
+      "blobSHA": "6d980fb43db454082a22b63472d8a7d783f67c72",
+      "url": "https://github.com/Stremio/stremio-core/blob/3417c2e7ed45cdbfd86b3226f69814c2dc4947ad/src/unit_tests/meta_details/live_tv.rs"
+    }
+  ],
+  "findings": [
+    {
+      "mechanism": "Manifest-capability request planning across addons",
+      "locations": [
+        "src/types/addon/request.rs:168-199,359-368",
+        "src/types/addon/manifest.rs:120-145"
+      ],
+      "observed": "AllOfResource plans requests across all installed descriptors whose advertised resource/type/id-prefix accepts the requested ID; catalog enumeration is a separate plan.",
+      "recommendation": "Plan Fotty discovery from a verified canonical fixture independently for each reviewed eligible adapter. A closed master catalog must not determine whether CS/AS can be asked. Preserve explicit provider-event binding rather than sending Fotty IDs into addon namespaces.",
+      "limit": "Stremio relies on common ID namespaces and first metadata choices; it does not implement sports teams/date/squad correctness."
+    },
+    {
+      "mechanism": "Explicit catalog/meta/video/stream ID linkage",
+      "locations": [
+        "src/models/meta_details.rs:603-679,840-914",
+        "src/addon_transport/http_transport/http_transport.rs:34-71"
+      ],
+      "observed": "Meta defaultVideoId wins; otherwise suitable video/channel identity supplies stream_path. Embedded meta streams and separately requested streams are tracked with provenance request base/path; transport percent-encodes exact resource/type/ID.",
+      "recommendation": "Retain an immutable EventBinding from verified fixture through provider event/meta to advertised streamID/type, recording date/squad/competition/format evidence and manifest revision. Refresh/rebind on conflict; never reconstruct stream IDs from display titles or substitute a generic channel.",
+      "limit": "Generic live-channel support cannot corroborate the current sports programme."
+    },
+    {
+      "mechanism": "Per-resource outcomes and explicit cache bypass",
+      "locations": [
+        "src/models/common/resource_loadable.rs:14-35,64-75,163-226,273-281",
+        "src/models/meta_details.rs:895-913"
+      ],
+      "observed": "Each request carries Loading/Ready/typed Error; parallel effect updates only matching request. A force_request primitive bypasses cached content, including errors. However streams_update uses force:false.",
+      "recommendation": "Keep Fotty's append-only18s fanout. Give positive and empty stream results independent bounded freshness; explicit retry of a now-live exact event must bypass a stale negative response. Test empty-before-kickoff→published-later without app restart.",
+      "limit": "Cannot claim current Stremio core automatically refreshes late-published stream lists; the inspected stream updater does not force refresh."
+    },
+    {
+      "mechanism": "Background schedule refresh preserves playable source state",
+      "locations": [
+        "src/models/meta_details.rs:68-70,682-730",
+        "src/unit_tests/meta_details/live_tv.rs:106-191"
+      ],
+      "observed": "Live schedule refresh uses a separate request, leaves displayed channel and streams intact, suppresses overlapping refresh, waits15min normally or1min after coverage expiry/error. Tests assert streams unchanged after refresh/retry.",
+      "recommendation": "Refresh sports/provider metadata separately from active playback and last accepted confirmed binding. Keep an admitted playing source during catalogue outage; mark catalogue freshness without erasing playback or silently accepting conflicting data.",
+      "limit": "EPG refresh interval is not a stream descriptor expiry policy; do not copy channel behavior to infer a fixture is on a channel."
+    },
+    {
+      "mechanism": "Last-good preference is revalidated against a current response",
+      "locations": [
+        "src/models/meta_details.rs:917-979"
+      ],
+      "observed": "Remembered stream must be present in current resource output with same addon transport, then source match or binge match; stored URL alone is not returned.",
+      "recommendation": "Keep decoded-start ranking/preferences, but resolve a fresh matching descriptor before using expired/provider-revised sessions. Preserve exact fixture binding and required headers/lease expiry.",
+      "limit": "Binge grouping belongs to episodic content; do not port it as a sports identity heuristic."
+    }
+  ],
+  "proposedFottyFlow": [
+    "Fresh official fixture",
+    "Reviewed adapter capability plan",
+    "Exact provider-event binding with provenance",
+    "Current stream descriptor(s), independent per provider",
+    "Validated compatible candidate(s)",
+    "Watch attempt and decoded-playback evidence"
+  ],
+  "availabilityDistinctions": {
+    "scheduled": "authoritative fixture only; not promise of a stream",
+    "discovered": "fresh exact provider binding plus compatible stream candidate; not playback proof",
+    "decoded": "current native advancing programme evidence, scoped and timestamped"
+  },
+  "priority": "Proactively refresh bounded descriptors for owner-relevant approaching/live critical fixtures; retry late-published emptiness; do not solve dead ends only by hiding Watch.",
+  "noChanges": true
+}

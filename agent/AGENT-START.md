@@ -2,11 +2,16 @@
 
 Read this before architecture work, broad refactors, release planning, or unfamiliar debugging.
 
+Read `docs/notebooklm/Current-State.md` next. Retrieve the relevant topic sections
+below rather than loading the full historical corpus. Current code and verified
+external state outrank prior release notes; history is evidence, not authority.
+
 ## Durable sources
 
 | File | Purpose |
 |---|---|
-| `docs/notebooklm/Project-Memory.md` | Product direction, current state, and non-negotiable decisions. |
+| `docs/notebooklm/Current-State.md` | Short current baseline, constraints, open gates and routing. |
+| `docs/notebooklm/Project-Memory.md` | Detailed product context and historical snapshots; retrieve by topic. |
 | `docs/notebooklm/Architecture-Map.md` | Active module and data-flow ownership. |
 | `docs/notebooklm/Decisions-Log.md` | Newest-first technical and product decisions. |
 | `docs/notebooklm/Risks.md` | Known sharp edges and guardrails. |
@@ -26,13 +31,16 @@ From the repository root:
 ./tools/agent-start.sh "Describe the task"
 ```
 
-After significant work:
+After significant implementation, prepend a decision and update the current
+summary if needed. Read-only audits do not require a generated-export rewrite.
 
 ```bash
 ./tools/agent-finish.sh "Describe what changed"
 ```
 
 These commands use only the local repository. The homelab and remote embedding index are retired.
+The finish command checks sources and refreshes the sharing bundle atomically;
+clipboard copying happens only with explicit `--copy-path` export invocation.
 
 ## Retired paths
 

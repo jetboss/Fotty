@@ -1,0 +1,11 @@
+{
+  "build": "2.0.1(182)",
+  "device": "Jet iPad",
+  "strictSignature": "passed",
+  "profileContainsJet": true,
+  "installedReadback": true,
+  "configurationSlotsBeforeLaunch": 34,
+  "configurationSlotsUnchanged": 34,
+  "phoneInteraction": false,
+  "testFlightRelease": false
+}

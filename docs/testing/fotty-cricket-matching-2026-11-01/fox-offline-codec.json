@@ -1,0 +1,71 @@
+{
+  "startedUTC": "2026-11-01T14:36:58.818Z",
+  "completedUTC": "2026-11-01T14:37:00.737Z",
+  "scope": "One freshly advertised Fox SD manifest and one bounded advertised segment, then offline codec inspection",
+  "originalMetadata": {
+    "source": "https://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/playlist.m3u",
+    "http": 200,
+    "bytes": 159715,
+    "selectedLiteralLabel": "CR | Fox Cricket 501"
+  },
+  "manifest": {
+    "origin": "http://y3fqd48g.megatv.fun",
+    "pathShape": "/iptv/<opaque-capability>/<numeric-channel>/index.m3u8",
+    "http": 200,
+    "bytes": 500,
+    "elapsedMilliseconds": 398,
+    "publicDNSAddresses": 1,
+    "socketAddressPinned": true,
+    "connectionUsedValidatedAddress": true,
+    "mediaSequence": 214114,
+    "targetDurationSeconds": 10,
+    "segments": 4,
+    "keyTags": 0,
+    "priorObservedSequenceAt1424UTC": 214036
+  },
+  "segment": {
+    "origin": "http://77.72.23.4",
+    "port": 80,
+    "pathShape": "/iptv/<opaque-capability>/<numeric-resource>/<opaque>.ts?md5=<opaque>",
+    "literalAdvertisedQueryPreserved": true,
+    "requestRange": "bytes=0-1048575",
+    "http": 206,
+    "contentType": "video/mp2t",
+    "bytes": 324864,
+    "elapsedMilliseconds": 993,
+    "publicDNSAddresses": 1,
+    "socketAddressPinned": true,
+    "connectionUsedValidatedAddress": true,
+    "byteCapReached": false,
+    "wholeObjectCompletionEstablished": false,
+    "completionLimitation": "A bounded HTTP206 range response was inspected; the full-object Content-Range total was not retained."
+  },
+  "offlineProbe": {
+    "existingTool": "ffprobe",
+    "input": "Owned local temporary file only",
+    "protocolWhitelist": ["file"],
+    "maximumProbeBytes": 1048576,
+    "analysisDurationMicroseconds": 1000000,
+    "streams": [
+      {
+        "codec_type": "video",
+        "codec_name": "h264",
+        "width": 1920,
+        "height": 1080,
+        "pix_fmt": "yuv420p"
+      }
+    ],
+    "audio": "No audio stream was reported in this bounded probe; audible playback remains unverified."
+  },
+  "cleanup": { "ownedSegmentDeletedInFinally": true, "rawMediaRetained": false },
+  "boundaries": {
+    "redirectsFollowed": 0,
+    "keyOrLicenseRequests": 0,
+    "accountOrAuthenticationRequests": 0,
+    "cookiesOrAuthenticationHeaders": false,
+    "appHTTPPolicyChanges": false,
+    "devicesTouched": false
+  },
+  "qualification": "HLS metadata advancement and a compatible video codec are observed. This is not a native decoded hold, correct Australian programme, audio or reliability pass.",
+  "redaction": "No full stream URL, opaque capability, resource identifier, md5 value or private device identifier retained."
+}

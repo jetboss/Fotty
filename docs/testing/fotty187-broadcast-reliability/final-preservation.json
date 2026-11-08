@@ -1,0 +1,13 @@
+{
+  "preferencesBeforeCount": 34,
+  "preferencesAfterCount": 34,
+  "exactUnchangedSlotCount": 28,
+  "ownedRunnerUninstallSucceeded": true,
+  "protectedSourceCount": 45,
+  "protectedSourceHashesUnchanged": true,
+  "userConfigurationUnchanged": true,
+  "onlyExpectedRuntimeCacheSlotsChanged": true,
+  "expectedRuntimeCacheSlotCount": 6,
+  "normalInstalledBuild": 187,
+  "ownedRunnerAbsentAfterUninstall": true
+}

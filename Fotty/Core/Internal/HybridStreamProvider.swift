@@ -1,412 +1,55 @@
 import Foundation
-import Observation
-import os.log
 
-private let hybridLogger = Logger(subsystem: "com.jelani.Fotty", category: "HybridPlayer")
-
-#if FOTTY_LEGACY_P2P
-/// Retained only as an opt-in migration reference. Production builds do not
-/// define `FOTTY_LEGACY_P2P` and cannot instantiate this retired resolver.
-actor HybridStreamProvider {
-    static let shared = HybridStreamProvider()
-
-    enum PlaybackPriority {
-        case web    // Priority 1: Direct Web (Echo, Delta, Golf)
-        case p2p    // Priority 2: P2P Backup (AceStream/Admin)
-    }
-
-    private enum ResolutionBatch {
-        case web([StreamSource])
-        case p2p([StreamSource])
-    }
-
-    private let webTimeout: TimeInterval = 12.0
-
-    /// Resolves the prioritized list of streams (Fast Web + P2P Backup Concurrently).
-    func resolvePrioritizedSources(for match: AnalyticalDataEngine.EventReference) async throws -> [StreamSource] {
-        hybridLogger.info("Resolving prioritized sources for: \(match.title ?? "Unknown", privacy: .public)")
-
-        // Settings modules are an allowlist over the single Nexus catalog lookup.
-        // Older builds resolved each module independently, repeating the same network
-        // and WebKit extraction work before querying the catalog again here.
-        let pluginWebSources: [StreamSource] = []
-
-        return try await withTaskGroup(of: ResolutionBatch.self) { group in
-            // Task 1: Web Scraper (Fast Path)
-            group.addTask {
-                do {
-                    let sources = try await self.withTimeout(seconds: self.webTimeout) {
-                        try await self.attemptWebPriority(for: match, pluginSources: pluginWebSources)
-                    }
-                    return .web(sources)
-                } catch {
-                    hybridLogger.error("Web priority failed: \(error.localizedDescription, privacy: .public)")
-                    let fallbackSources = await AnalyticalDataEngine.fallbackEmbedSources(for: match)
-                    return .web(fallbackSources)
-                }
-            }
-
-            var p2pFallbackSources: [StreamSource] = []
-            var webSourcesResult: [StreamSource] = []
-            var didFinishWebPath = false
-
-            while let batch = await group.next() {
-                switch batch {
-                case .web(let webSources):
-                    didFinishWebPath = true
-                    webSourcesResult = webSources
-                    if webSources.isEmpty {
-                        if !p2pFallbackSources.isEmpty {
-                            group.cancelAll()
-                            return LiveSourceHealthStore.ranked(
-                                self.deduplicated(p2pFallbackSources),
-                                contextKey: LiveSourceHealthStore.contextKey(for: match)
-                            )
-                        }
-                    } else if !p2pFallbackSources.isEmpty {
-                        group.cancelAll()
-                        return LiveSourceHealthStore.ranked(
-                            self.combineWebAndP2PWithPairing(web: webSources, p2p: p2pFallbackSources),
-                            contextKey: LiveSourceHealthStore.contextKey(for: match)
-                        )
-                    }
-                    // Web has sources but P2P not finished yet — wait for the P2P batch (do not cancel).
-                case .p2p(let p2pSources):
-                    p2pFallbackSources = p2pSources
-                    if didFinishWebPath {
-                        if !webSourcesResult.isEmpty {
-                            group.cancelAll()
-                            return LiveSourceHealthStore.ranked(
-                                self.combineWebAndP2PWithPairing(web: webSourcesResult, p2p: p2pFallbackSources),
-                                contextKey: LiveSourceHealthStore.contextKey(for: match)
-                            )
-                        }
-                        if !p2pSources.isEmpty {
-                            group.cancelAll()
-                            return LiveSourceHealthStore.ranked(
-                                self.deduplicated(p2pSources),
-                                contextKey: LiveSourceHealthStore.contextKey(for: match)
-                            )
-                        }
-                    }
-                }
-            }
-
-            if !webSourcesResult.isEmpty {
-                let final = self.combineWebAndP2PWithPairing(web: webSourcesResult, p2p: p2pFallbackSources)
-                let ranked = LiveSourceHealthStore.ranked(
-                    final,
-                    contextKey: LiveSourceHealthStore.contextKey(for: match)
-                )
-                hybridLogger.info("Resolution complete (\(ranked.count) sources). Primary: \(ranked.first?.provider ?? "None", privacy: .public)")
-                return ranked
-            }
-            if !p2pFallbackSources.isEmpty {
-                let final = LiveSourceHealthStore.ranked(
-                    self.deduplicated(p2pFallbackSources),
-                    contextKey: LiveSourceHealthStore.contextKey(for: match)
-                )
-                hybridLogger.info("Resolution complete (P2P only: \(final.count) sources). Primary: \(final.first?.provider ?? "None", privacy: .public)")
-                return final
-            }
-
-            hybridLogger.info("Resolution complete. No sources found.")
-            return []
-        }
-        .throwingIfEmpty()
-    }
-
-    /// Priority One: Direct Web sources (StreamEx / Score808 modules, then catalog)
-    private func attemptWebPriority(
-        for match: AnalyticalDataEngine.EventReference,
-        pluginSources: [StreamSource] = []
-    ) async throws -> [StreamSource] {
-        let existingSources = match.sources
-        let homeName = await match.homeName
-        let awayName = await match.awayName
-        let enabledCodes = await StreamPluginRegistry.shared.enabledProviderCodes()
-        let allowedCodes = StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes: enabledCodes)
-
-        // Always resolve the Nexus catalog. Relying only on per-plugin fetches can drop
-        // entire families (Score808/hotel) when StreamEx wins and Score808 times out.
-        let catalog: [StreamSource]
-        if existingSources == nil || existingSources?.isEmpty == true {
-            hybridLogger.debug("Stub match detected (\(homeName, privacy: .public)), performing deep resolution...")
-            catalog = try await AnalyticalDataEngine.findStreams_NexusAImplementation(
-                homeTeam: homeName,
-                awayTeam: awayName
-            )
-        } else {
-            catalog = try await AnalyticalDataEngine.findStreamsDirect(for: match)
-        }
-
-        let webCatalog = catalog.filter { !isP2PSource($0) && !StreamPluginProviderMatching.isP2PLike($0) }
-        let fromPlugins = pluginSources.filter { !isP2PSource($0) && !StreamPluginProviderMatching.isP2PLike($0) }
-
-        let fromCatalog = webCatalog.filter { source in
-            allowedCodes.contains { code in
-                StreamPluginProviderMatching.matches(source, code: code)
-            }
-        }
-        let fromPluginsAllowed = fromPlugins.filter { source in
-            allowedCodes.contains { code in
-                StreamPluginProviderMatching.matches(source, code: code)
-            }
-        }
-
-        let sources = deduplicated(fromPluginsAllowed + fromCatalog)
-        guard !sources.isEmpty else {
-            throw ProcessorError.noSourcesFound
-        }
-
-        return sources
-    }
-
-    /// Priority Two: P2P Backup (AceStream) — skipped when homelab/module returns nothing
-    private func attemptP2PPriority(
-        for match: AnalyticalDataEngine.EventReference,
-        pluginSources: [StreamSource] = []
-    ) async throws -> [StreamSource] {
-        var p2pSources = pluginSources.filter { isP2PSource($0) }
-
-        if p2pSources.isEmpty {
-            p2pSources = try await fetchPreferredP2PSources(
-                homeTeam: match.homeName,
-                awayTeam: match.awayName,
-                category: match.normalizedCategory
-            )
-        }
-
-        guard !p2pSources.isEmpty else {
-            throw ProcessorError.noSourcesFound
-        }
-
-        return p2pSources
-    }
-
-    private func isP2PSource(_ source: StreamSource) -> Bool {
-        let absolute = source.url.absoluteString.lowercased()
-        let provider = source.provider.lowercased()
-        let quality = source.quality.lowercased()
-        return absolute.contains(":6878")
-            || absolute.contains("/proxy/acestream/")
-            || provider.contains("p2p")
-            || quality.contains("p2p")
-    }
-
-    private func deduplicated(_ sources: [StreamSource]) -> [StreamSource] {
-        var seenCanonicalURLs = Set<String>()
-        return sources.filter { source in
-            // For P2P sources, the query parameters (infohash) define the uniqueness.
-            // For Web sources, we strip tokens/sessions to prevent duplicates of the same provider.
-            let isP2P = isP2PSource(source)
-            let canonical: String
-
-            if isP2P {
-                // Keep the full URL string for P2P to ensure different CIDs aren't collapsed
-                canonical = source.url.absoluteString
-            } else {
-                // Strip query params for web sources to prevent token-based duplicates
-                canonical = "\(source.url.scheme ?? "")://\(source.url.host ?? "")\(source.url.path)"
-            }
-
-            return seenCanonicalURLs.insert(canonical).inserted
-        }
-    }
-
-    /// Prefer Streamex-class web feeds first, then interleave each web row with P2P backups
-    /// tagged as paired to the closest anchor (region hint when possible).
-    private func combineWebAndP2PWithPairing(web: [StreamSource], p2p: [StreamSource]) -> [StreamSource] {
-        let w = deduplicated(web)
-        let p = deduplicated(p2p)
-
-        let result: [StreamSource]
-        if w.isEmpty || p.isEmpty {
-            result = deduplicated(w + p)
-        } else {
-            result = deduplicated(interleaveWebWithPairedP2P(web: w, p2p: p))
-        }
-
-        hybridLogger.debug("Final source list resolved (\(result.count) total):")
-        for (index, source) in result.enumerated() {
-            hybridLogger.debug("  \(index + 1). \(source.provider, privacy: .public) [\(source.quality, privacy: .public)]")
-        }
-
-        return result
-    }
-
-    private func interleaveWebWithPairedP2P(web: [StreamSource], p2p: [StreamSource]) -> [StreamSource] {
-        let webOrdered = sortHighPriorityFirst(web)
-        let p2pSorted = p2p.sorted { p2pFixtureMatchScore($0) > p2pFixtureMatchScore($1) }
-        var buckets = Array(repeating: [StreamSource](), count: webOrdered.count)
-        for source in p2pSorted {
-            let idx = bestWebAnchorIndex(for: source, web: webOrdered)
-            buckets[idx].append(tagP2PWithWebAnchor(source, anchor: webOrdered[idx]))
-        }
-        var out: [StreamSource] = []
-        for i in webOrdered.indices {
-            out.append(webOrdered[i])
-            out.append(contentsOf: buckets[i])
-        }
-        return out
-    }
-
-    private func p2pFixtureMatchScore(_ source: StreamSource) -> Int {
-        guard let raw = source.headers["X-Fotty-P2P-Match-Score"]?.trimmingCharacters(in: .whitespacesAndNewlines),
-              let v = Int(raw) else { return 0 }
-        return v
-    }
-
-    private func isLikelyHighPriorityFeed(_ source: StreamSource) -> Bool {
-        let url = source.url.absoluteString.lowercased()
-        if url.contains("streamex") || url.contains("vipleague") || url.contains("methstreams") {
-            return true
-        }
-        let cat = source.headers["X-Fotty-Nexus-Catalog"]?.lowercased() ?? ""
-        let provider = source.provider.lowercased()
-        return cat.contains("streamex") || cat.contains("nexus") ||
-               provider.contains("vipleague") || provider.contains("methstreams") ||
-               provider.contains("streamex")
-    }
-
-    private func sortHighPriorityFirst(_ web: [StreamSource]) -> [StreamSource] {
-        web.sorted { lhs, rhs in
-            let l = isLikelyHighPriorityFeed(lhs)
-            let r = isLikelyHighPriorityFeed(rhs)
-            if l != r { return l && !r }
-            return lhs.provider < rhs.provider
-        }
-    }
-
-    private func p2pLabelForPairing(_ source: StreamSource) -> String {
-        let t = source.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        if !t.isEmpty { return t }
-        return source.provider
-    }
-
-    private func bracketRegionTag(from label: String) -> String? {
-        guard let open = label.lastIndex(of: "["),
-              let close = label.lastIndex(of: "]"),
-              open < close else { return nil }
-        let inner = label[label.index(after: open)..<close]
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .uppercased()
-        if (2 ... 4).contains(inner.count), inner.allSatisfy({ $0.isLetter }) {
-            return inner
-        }
-        return nil
-    }
-
-    private func webRegionHint(for source: StreamSource) -> String? {
-        if let t = source.title, let r = bracketRegionTag(from: t) { return r }
-        if let r = bracketRegionTag(from: source.provider) { return r }
-        let host = source.url.host?.lowercased() ?? ""
-        if host.hasSuffix(".co.uk") || host.contains(".uk.") { return "UK" }
-        if host.hasSuffix(".com.au") { return "AU" }
-        if host.hasSuffix(".ie") { return "IE" }
-        return nil
-    }
-
-    private func bestWebAnchorIndex(for p2p: StreamSource, web: [StreamSource]) -> Int {
-        guard let firstIndex = web.indices.first else { return 0 }
-        let label = p2pLabelForPairing(p2p)
-        if let pr = bracketRegionTag(from: label) {
-            if let idx = web.enumerated().first(where: { webRegionHint(for: $0.element) == pr })?.offset {
-                return idx
-            }
-        }
-        if let idx = web.firstIndex(where: { isLikelyHighPriorityFeed($0) }) {
-            return idx
-        }
-        return firstIndex
-    }
-
-    private func tagP2PWithWebAnchor(_ p2p: StreamSource, anchor: StreamSource) -> StreamSource {
-        p2p.mergingHeaders([
-            "X-Fotty-Paired-Web-Provider": anchor.provider,
-            "X-Fotty-Paired-Web-Host": anchor.url.host ?? "",
-            "X-Fotty-Paired-Nexus-Source": anchor.headers["X-Fotty-Nexus-Source"] ?? "",
-            "X-Fotty-Paired-Nexus-Stream": anchor.headers["X-Fotty-Nexus-Stream"] ?? ""
-        ])
-    }
-
-    /// The 'Pre-Warm' Pattern: Silently monitor P2P health while Web is playing.
-    /// Reference VLC for iOS: Checks for peer count in the background.
-    func prewarmP2P(for match: AnalyticalDataEngine.EventReference) {
-        Task.detached(priority: .background) {
-            hybridLogger.debug("❄️ Pre-warming P2P swarm for \(match.title ?? "event", privacy: .public)...")
-            // Silently check if the match has P2P sources to warm up the swarm.
-            _ = try? await self.fetchPreferredP2PSources(
-                homeTeam: match.homeName,
-                awayTeam: match.awayName,
-                category: match.normalizedCategory
-            )
-            hybridLogger.debug("✅ P2P swarm pre-warmed.")
-        }
-    }
-
-    private func withTimeout<T>(seconds: TimeInterval, operation: @escaping @Sendable () async throws -> T) async throws -> T {
-        try await withThrowingTaskGroup(of: T.self) { group in
-            defer { group.cancelAll() }
-
-            group.addTask {
-                try await operation()
-            }
-
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
-                throw ProcessorError.timeout
-            }
-
-            guard let result = try await group.next() else {
-                throw CancellationError()
-            }
-            return result
-        }
-    }
-
-    private func fetchPreferredP2PSources(
-        homeTeam: String,
-        awayTeam: String,
-        category: String?
-    ) async throws -> [StreamSource] {
-        do {
-            let exactSources = try await P2PDataService.shared.findStreams(
-                homeTeam: homeTeam,
-                awayTeam: awayTeam,
-                category: category,
-                allowSportChannelFallback: false
-            )
-            if !exactSources.isEmpty {
-                return exactSources
-            }
-        } catch {
-            if !shouldAllowSportChannelFallback(for: category) {
-                throw error
-            }
-        }
-
-        guard shouldAllowSportChannelFallback(for: category) else {
-            throw ProcessorError.noSourcesFound
-        }
-
-        return try await P2PDataService.shared.findStreams(
-            homeTeam: homeTeam,
-            awayTeam: awayTeam,
-            category: category,
-            allowSportChannelFallback: true
-        )
+/// A mounted player's immutable receipt may age while its exact fixture keeps
+/// receiving verified updates. Only a fresh equivalent admission can authorize
+/// descriptor recovery; corrections, terminal facts and Test-day changes veto.
+@MainActor
+enum RegisteredDescriptorRecoveryPolicy {
+    static func currentRequest(for original: StreamPlaybackRequest, in catalog: [EventReference],
+                               at now: Date = Date()) -> StreamPlaybackRequest? {
+        guard let old = original.preferredEvent, old.id == original.matchID,
+              !old.hasCatalogIdentityConflict,
+              let current = CurrentEventBroadcastPolicy.currentEvent(for: old, in: catalog, at: now),
+              current.id == old.id, !current.hasCatalogIdentityConflict,
+              current.kickoffDate == old.kickoffDate,
+              current.normalizedCategory == old.normalizedCategory,
+              (current.competitionID ?? current.cricketFixture?.competitionID)
+                == (old.competitionID ?? old.cricketFixture?.competitionID),
+              CatalogPlaybackIdentity.matchingEvent(for: original, in: [current]) != nil,
+              CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: current), in: [old]) != nil,
+              MatchStartPolicy(event: current, now: now).timingAllowsPlayback else { return nil }
+        if let oldSports = old.sportsFixture {
+            // An unchanged schedule retains its publisher's old status-change
+            // time. Watch already admits its freshly checked identity; recovery
+            // must use the same receipt without upgrading that status to LIVE.
+            guard let fresh = current.sportsFixture, current.cricketFixture == nil, fresh.verified,
+                  fresh.fixtureID == oldSports.fixtureID, fresh.squad == oldSports.squad,
+                  Set(fresh.participants.map(\.id)) == Set(oldSports.participants.map(\.id)),
+                  [.scheduled, .live].contains(fresh.status),
+                  (-300...SportsFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(
+                    fresh.status == .scheduled ? fresh.identityReceipt : fresh.observedAt)) else { return nil }
+        } else if let oldCricket = old.cricketFixture {
+            guard let fresh = current.cricketFixture, current.sportsFixture == nil, fresh.verified,
+                  fresh.fixtureID == oldCricket.fixtureID, fresh.format == oldCricket.format,
+                  fresh.homeTeamID == oldCricket.homeTeamID, fresh.awayTeamID == oldCricket.awayTeamID,
+                  fresh.broadcastDayIdentity == oldCricket.broadcastDayIdentity,
+                  [.scheduled, .live].contains(fresh.status),
+                  (-300...CricketFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(fresh.observedAt)) else { return nil }
+        } else if CricketBroadcastChannel.identifying(request: StreamPlaybackRequest(event: current)) == nil
+                    && SportsTVStation.identifying(StreamPlaybackRequest(event: current)) == nil { return nil }
+        return StreamPlaybackRequest(event: current, watchID: original.watchID)
     }
 }
-#else
-/// Production source resolver. Fotty 2.0 supports only enabled StreamEx and
-/// Score808 web-module families; retired P2P/Ace paths are not consulted.
+
+/// Production resolver for enabled, reviewed source families. Optional native
+/// add-ons join separately; retired P2P/Ace paths are never consulted.
 actor HybridStreamProvider {
     static let shared = HybridStreamProvider()
 
     private let webTimeout: TimeInterval = 12
 
     func resolvePrioritizedSources(for match: AnalyticalDataEngine.EventReference) async throws -> [StreamSource] {
+        guard !match.hasCatalogIdentityConflict else { throw ProcessorError.invalidData }
         let resolved: [StreamSource]
         do {
             resolved = try await withTimeout(seconds: webTimeout) {
@@ -432,7 +75,10 @@ actor HybridStreamProvider {
         if match.sources?.isEmpty != false {
             catalog = try await AnalyticalDataEngine.findStreams_NexusAImplementation(
                 homeTeam: match.homeName,
-                awayTeam: match.awayName
+                awayTeam: match.awayName,
+                kickoffDate: match.kickoffDate,
+                matchID: match.id,
+                category: match.normalizedCategory
             )
         } else {
             catalog = try await AnalyticalDataEngine.findStreamsDirect(for: match)
@@ -451,10 +97,9 @@ actor HybridStreamProvider {
     }
 
     private func deduplicated(_ sources: [StreamSource]) -> [StreamSource] {
-        var seen = Set<String>()
+        var seen = Set<StreamDeliveryIdentity>()
         return sources.filter { source in
-            let canonical = "\(source.url.scheme ?? "")://\(source.url.host ?? "")\(source.url.path)"
-            return seen.insert(canonical).inserted
+            seen.insert(StreamDeliveryIdentity(url: source.url, headers: source.headers)).inserted
         }
     }
 
@@ -475,6 +120,116 @@ actor HybridStreamProvider {
     }
 }
 
+/// Emits at most one CS discovery receipt per owned resolution. Admission and
+/// cancellation remain the resolver's job; recording never starts network work.
+enum CommunitySportsDiscoveryQuality {
+    struct Receipt: Equatable {
+        let outcome: FottyQualityOutcome
+        let durationMilliseconds: Int?
+        let details: [String: String]
+    }
+
+    static func receipt(_ report: StreamDiscoveryCoordinator.Report, attemptID: String,
+                        providerName: String = "CS", sourceFamily: String = "communitysports") -> Receipt? {
+        guard UUID(uuidString: attemptID) != nil else { return nil }
+        let attempt = report.attempts.last { $0.providerName == providerName }
+        let events = report.timeline.filter { $0.providerName == providerName }
+        guard attempt != nil || !events.isEmpty else { return nil }
+        var details = ["mode": "source_discovery", "source_family": sourceFamily,
+                       "attempt_id": attemptID, "stage": "preparing"]
+        let outcome: FottyQualityOutcome
+        if let attempt,
+           ![StreamFailureCategory.navigationCancelled, .duplicateRequestCancelled, .userCancelled]
+            .contains(where: { $0 == attempt.finalFailureCategory }) {
+            // A terminal CS result is not cancelled retroactively when the user
+            // cancels a still-pending sibling after CS has already completed.
+            outcome = attempt.finalFailureCategory == nil ? .success : .failure
+            details["result"] = attempt.manifestResult ?? "discovery_completed"
+            if let category = attempt.finalFailureCategory {
+                details["failure_kind"] = category.rawValue
+                let metadata = events.last(where: { $0.failureCategory != nil })?.redactedMetadata ?? [:]
+                if let code = metadata["platform_error_code"] {
+                    details["platform_error_code"] = code
+                }
+                let countKeys = providerName == "CS"
+                    ? ["cs_stream_entry_count", "cs_admission_rejected_count"]
+                    : ["addon_stream_entry_count", "addon_admission_rejected_count"]
+                for key in countKeys {
+                    if let value = metadata[key], let count = Int(value), (0...100).contains(count) {
+                        details[key] = String(count)
+                    }
+                }
+            }
+        } else if report.exitReason == .cancelled {
+            outcome = .info
+            details["result"] = "discovery_cancelled"
+        } else if attempt != nil {
+            outcome = .info
+            details["result"] = "discovery_cancelled"
+        } else if report.reachedDeadline {
+            outcome = .failure
+            details["result"] = "discovery_deadline"
+            details["failure_kind"] = StreamFailureCategory.providerTimeout.rawValue
+        } else {
+            outcome = .info
+            details["result"] = "discovery_incomplete"
+        }
+        let duration = attempt.flatMap { (0...3_600_000).contains($0.responseTimeMs) ? $0.responseTimeMs : nil }
+        return Receipt(outcome: outcome, durationMilliseconds: duration, details: details)
+    }
+
+    static func record(_ report: StreamDiscoveryCoordinator.Report, attemptID: String,
+                       store: FottyQualityStore = .shared) {
+        guard let receipt = receipt(report, attemptID: attemptID) else { return }
+        store.record(category: .playback, name: "source_discovery_result", outcome: receipt.outcome,
+                     durationMilliseconds: receipt.durationMilliseconds, details: receipt.details)
+    }
+}
+
+/// A separate receipt keeps AS failures visible without overwriting CS evidence.
+enum AdditionalSportsDiscoveryQuality {
+    static func record(_ report: StreamDiscoveryCoordinator.Report, attemptID: String,
+                       store: FottyQualityStore = .shared) {
+        guard let receipt = CommunitySportsDiscoveryQuality.receipt(report, attemptID: attemptID,
+            providerName: "AS", sourceFamily: StreamPluginProviderMatching.plavioSportsProviderCode) else { return }
+        store.record(category: .playback, name: "source_discovery_result", outcome: receipt.outcome,
+                     durationMilliseconds: receipt.durationMilliseconds, details: receipt.details)
+    }
+}
+
+/// LivXow discovery stays distinguishable from both optional sibling add-ons.
+enum CNCSportsDiscoveryQuality {
+    static func record(_ report: StreamDiscoveryCoordinator.Report, attemptID: String,
+                       store: FottyQualityStore = .shared) {
+        guard let receipt = CommunitySportsDiscoveryQuality.receipt(report, attemptID: attemptID,
+            providerName: "LS", sourceFamily: StreamPluginProviderMatching.cncSportsProviderCode) else { return }
+        store.record(category: .playback, name: "source_discovery_result", outcome: receipt.outcome,
+                     durationMilliseconds: receipt.durationMilliseconds, details: receipt.details)
+    }
+}
+
+/// A discovery receipt is not a decoded-playback or fixture-status claim.
+enum FlixStreamsDiscoveryQuality {
+    static func record(_ report: StreamDiscoveryCoordinator.Report, attemptID: String,
+                       store: FottyQualityStore = .shared) {
+        guard let receipt = CommunitySportsDiscoveryQuality.receipt(report, attemptID: attemptID,
+            providerName: "FS", sourceFamily: StreamPluginProviderMatching.flixStreamsProviderCode) else { return }
+        store.record(category: .playback, name: "source_discovery_result", outcome: receipt.outcome,
+                     durationMilliseconds: receipt.durationMilliseconds, details: receipt.details)
+    }
+}
+
+/// Timing corroboration and discovery remain separate from decoded playback.
+enum StreamVixSportsDiscoveryQuality {
+    static func record(_ report: StreamDiscoveryCoordinator.Report, attemptID: String,
+                       store: FottyQualityStore = .shared) {
+        guard let receipt = CommunitySportsDiscoveryQuality.receipt(report, attemptID: attemptID,
+            providerName: "SV", sourceFamily: StreamPluginProviderMatching.streamVixProviderCode) else { return }
+        store.record(category: .playback, name: "source_discovery_result", outcome: receipt.outcome,
+                     durationMilliseconds: receipt.durationMilliseconds, details: receipt.details)
+    }
+}
+
 private extension Array where Element == StreamSource {
     func throwingIfEmpty() throws -> [StreamSource] {
         guard !isEmpty else {
@@ -484,41 +239,55 @@ private extension Array where Element == StreamSource {
     }
 }
 
-private func shouldAllowSportChannelFallback(for category: String?) -> Bool {
-    let normalized = (category ?? "")
-        .trimmingCharacters(in: .whitespacesAndNewlines)
-        .lowercased()
+/// The metadata probe must obey the same origin admission as the real player.
+/// Redirected requests rebuild cookies for their destination, never forwarding
+/// the flattened Cookie header from the original embed request.
+final class SharedEmbedRedirectDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    private let sourceCode: String
+    private let cookies: @Sendable (URL) -> [HTTPCookie]
+    private let lock = NSLock()
+    private var redirects = 0
+    private var rejected = false
 
-    switch normalized {
-    case "":
-        return false
-    case "football", "soccer":
-        // Football exact-match CIDs are ideal, but Streamex often has no playable
-        // direct stream for big fixtures while the P2P catalog only exposes the
-        // carrying channel (Sky/TNT/BT/Champions League/etc.). Let the existing
-        // football channel fallback run, then require broker validation before
-        // any source reaches AVPlayer.
-        return true
-    default:
-        return true
+    init(sourceCode: String, cookies: @escaping @Sendable (URL) -> [HTTPCookie] = {
+        HTTPCookieStorage.shared.cookies(for: $0) ?? []
+    }) {
+        self.sourceCode = sourceCode
+        self.cookies = cookies
     }
-}
 
-@MainActor
-private enum StreamWebExtractor {
-    static func extract(
-        from embedURL: String,
-        referer: String,
-        providerName: String,
-        timeout: TimeInterval = 8
-    ) async throws -> [StreamSource] {
-        let renderer = WebViewRenderer()
-        return try await renderer.extractSources(
-            from: embedURL,
-            referer: referer,
-            providerName: providerName,
-            timeout: timeout
-        )
+    var rejectedRedirect: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return rejected
+    }
+
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        lock.lock()
+        redirects += 1
+        let allowed = !rejected && redirects <= 5
+            && response.url.map { StreamPluginProviderMatching.allowsSharedPlaybackURL($0, sourceCode: sourceCode) } == true
+            && request.url.map { StreamPluginProviderMatching.allowsSharedPlaybackURL($0, sourceCode: sourceCode) } == true
+        if !allowed { rejected = true }
+        lock.unlock()
+        guard allowed, let destination = request.url, task.state != .canceling else {
+            completionHandler(nil)
+            // Declining a redirect can leave an unfinished 3xx response body
+            // open. No body is useful after admission fails; unblock bytes(for:)
+            // immediately, retaining the typed rejection rather than a timeout.
+            if !allowed { task.cancel() }
+            return
+        }
+        var redirected = request
+        for field in ["Cookie", "Authorization", "Proxy-Authorization"] {
+            redirected.setValue(nil, forHTTPHeaderField: field)
+        }
+        for (field, value) in HTTPCookie.requestHeaderFields(with: cookies(destination)) {
+            redirected.setValue(value, forHTTPHeaderField: field)
+        }
+        completionHandler(redirected)
     }
 }
 
@@ -527,133 +296,865 @@ actor LiveStreamResolver {
 
     private enum ProviderSlot: String {
         case coreMedia = "CoreMedia"
-        case p2p = "P2P"
     }
 
-    private let validationSession: URLSession = {
-        let configuration = URLSessionConfiguration.ephemeral
+    private let validationSession: URLSession
+    private var preflightProviderSchedule = FixtureProviderPreflightSchedule()
+
+    init(validationConfiguration: URLSessionConfiguration? = nil) {
+        let configuration = validationConfiguration ?? URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 6
         configuration.timeoutIntervalForResource = 8
         configuration.waitsForConnectivity = false
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
-        return URLSession(configuration: configuration)
-    }()
-
-    private let resolverRetryLimit = 2
-    /// How many P2P sessions to validate per match resolve (antenna list). Sport-channel used to stop after 1.
-    private let maxP2PSessionsPerResolutionAttempt = 14
-    private let maxWebEmbedFallbackSessionsPerResolution = 6
-    private let maxNativeWebExtractionAttemptsWhenEmbedFallbackExists = 1
-    private let p2pReuseWindowSeconds: TimeInterval = 45
-    private let p2pPrewarmCooldownSeconds: TimeInterval = 120
-    private var recentP2PPrewarms: [String: Date] = [:]
-
-    private struct ProviderResolutionOutput: Sendable {
-        let providerName: String
-        let result: Result<[StreamSession], StreamFailure>
-        let timeline: [StreamEventRecord]
-        let providerAttempts: [StreamProviderAttemptLog]
-        let resolvedAt: Date
+        validationSession = URLSession(configuration: configuration)
     }
+
+    // Mirrors and candidate retries already get bounded opportunities. Do not
+    // restart the entire shared catalog scan inside the common discovery clock.
+    private let resolverRetryLimit = 1
 
     func resolvePlayback(
         for request: StreamPlaybackRequest,
+        singleStreamDiscovery: Bool = false,
+        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)? = nil
+    ) async -> StreamResolutionOutcome {
+        await resolvePlayback(for: request, onChoices: nil,
+            singleStreamDiscovery: singleStreamDiscovery, onProgress: onProgress)
+    }
+
+    /// Incremental choices are opt-in for the scene-owned single-player path.
+    /// Existing aggregate callers retain their original API and completion.
+    func resolvePlayback(
+        for request: StreamPlaybackRequest,
+        onChoices: (@Sendable ([StreamSession]) async -> Void)?,
+        singleStreamDiscovery: Bool = true,
+        refreshOptionalSources: Bool = false,
         onProgress: (@Sendable (StreamAttemptProgress) async -> Void)? = nil
     ) async -> StreamResolutionOutcome {
         let attemptID = UUID().uuidString
-        guard !Task.isCancelled else {
-            return cancelledOutcome(
+        let startedAt = Date()
+        if singleStreamDiscovery, let watchID = request.watchID {
+            FottyQualityStore.shared.record(category: .playback, name: "watch_discovery_started", outcome: .info,
+                details: ["watch_session_id": watchID.uuidString, "attempt_id": attemptID, "route": "single"])
+        }
+        if request.preferredEvent?.hasCatalogIdentityConflict == true {
+            let failure = StreamFailure(providerName: nil, category: .invalidMatchMapping,
+                technicalMessage: "Provider catalog supplied conflicting identities for this event ID.",
+                userMessage: "This broadcast listing has conflicting match details. Please refresh the schedule.",
+                retryable: false, fallbackAllowed: false,
+                redactedMetadata: ["identity_result": "quarantined_catalog_id"])
+            var timeline: [StreamEventRecord] = []
+            appendEvent(to: &timeline, name: .provider1ValidationFailed, request: request,
+                attemptID: attemptID, providerName: nil, currentState: .failed,
+                failureCategory: .invalidMatchMapping, redactedMetadata: failure.redactedMetadata)
+            let diagnostics = makeDiagnostics(attemptID: attemptID, request: request, finalState: .failed,
+                timeline: timeline, providerAttempts: [], startedAt: startedAt)
+            await recordDiagnostics(diagnostics)
+            return .failure(failure, diagnostics)
+        }
+        let enabled = await StreamPluginRegistry.shared.enabledProviderCodes()
+        let foregroundTVLookup = singleStreamDiscovery && onChoices != nil
+        let plan = await CuratedStreamSourceCatalog.discoveryPlan(for: request,
+            enabledProviderCodes: Set(enabled), allowDeferredTVLookup: foregroundTVLookup)
+        var lanes: [StreamDiscoveryCoordinator.Lane] = []
+        if plan.usesSharedCatalog {
+            lanes.append { report in
+                await self.resolveSharedPlayback(for: request, attemptID: attemptID,
+                                                 onProgress: onProgress, report: report,
+                                                 useRegistry: singleStreamDiscovery)
+            }
+        }
+        if plan.score808SiteEligible {
+            lanes.append { report in
+                await self.resolveScore808Site(for: request, attemptID: attemptID, report: report,
+                    useRegistry: singleStreamDiscovery)
+            }
+        }
+        let sustainedProviders = foregroundTVLookup && request.preferredEvent?.isBroadcastChannel == false
+            ? LiveSourceHealthStore.sustainedMatchProviders(for: request.matchID) : []
+        var sustainedLanes = Set<Int>()
+        for source in plan.optionalSources {
+            if sustainedProviders.contains(source.providerCode) { sustainedLanes.insert(lanes.count) }
+            lanes.append { report in
+                await self.resolveOptionalSports(for: request, attemptID: attemptID,
+                    source: source, report: report, useDiscoveryIndex: singleStreamDiscovery,
+                    refreshTVRegistry: foregroundTVLookup,
+                    refreshOptionalSources: singleStreamDiscovery && refreshOptionalSources)
+            }
+        }
+        if singleStreamDiscovery {
+            // Cold-start discriminators: how many providers were enabled and how
+            // many discovery lanes were actually built. When the next failure is
+            // reviewed, an absent "watch_discovery_started" record means the Watch
+            // gate suppressed the attempt; a present record with zero candidate
+            // lanes means no enabled source supported the fixture.
+            FottyQualityStore.shared.record(category: .playback, name: "watch_discovery_plan",
+                outcome: .info, details: ["source_count": "\(enabled.count)", "candidate_count": "\(lanes.count)"])
+        }
+        guard !lanes.isEmpty else {
+            let failure = StreamFailure(category: .noProviderAvailable,
+                technicalMessage: "No enabled reviewed provider supports this lookup.",
+                userMessage: singleStreamDiscovery && request.preferredEvent?.isBroadcastChannel == true
+                    ? "No enabled source supports this channel. Review your source settings."
+                    : "No enabled source can check this match. Review your source settings.",
+                retryable: false, fallbackAllowed: false,
+                redactedMetadata: ["discovery_result": "no_eligible_provider"])
+            let diagnostics = makeDiagnostics(attemptID: attemptID, request: request, finalState: .failed,
+                timeline: [], providerAttempts: [], startedAt: startedAt)
+            await recordDiagnostics(diagnostics)
+            return .failure(failure, diagnostics)
+        }
+        let publishChoices: (@Sendable ([StreamSession]) async -> Void)?
+        if let publish = onChoices {
+            publishChoices = { @Sendable sessions in
+                guard !Task.isCancelled else { return }
+                let enabledNow = await StreamPluginRegistry.shared.enabledProviderCodes()
+                let allowed = StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes: enabledNow)
+                let admitted = sessions.filter { session in
+                    !session.hasExpiredMediaLease()
+                        && (!singleStreamDiscovery || LiveSourceHealthStore.matchEvidence(for: session) != .wrongProgramme)
+                        && allowed.contains { StreamPluginProviderMatching.matches(session.legacySource, code: $0) }
+                }
+                guard !Task.isCancelled, !admitted.isEmpty else { return }
+                await publish(LiveSourceHealthStore.rankedSessions(admitted))
+            }
+        } else { publishChoices = nil }
+        let discoveryDeadline = StreamDiscoveryCoordinator.discoveryDeadline(
+            singleStreamDiscovery: singleStreamDiscovery,
+            optionalProviderCodes: Set(plan.optionalSources.map(\.providerCode)))
+        let collected = await StreamDiscoveryCoordinator.collect(lanes: lanes, deadline: discoveryDeadline,
+            preferDirectInitialChoice: singleStreamDiscovery && onChoices != nil, sustainedProviderLanes: sustainedLanes,
+            onSessions: publishChoices)
+        // A working sibling must not erase the optional lane's result. This
+        // bounded local receipt is discovery evidence, not playback or health
+        // scoring, and has no fixture, URL, header or response-body fields.
+        CommunitySportsDiscoveryQuality.record(collected, attemptID: attemptID)
+        AdditionalSportsDiscoveryQuality.record(collected, attemptID: attemptID)
+        CNCSportsDiscoveryQuality.record(collected, attemptID: attemptID)
+        FlixStreamsDiscoveryQuality.record(collected, attemptID: attemptID)
+        StreamVixSportsDiscoveryQuality.record(collected, attemptID: attemptID)
+        if Task.isCancelled {
+            return cancelledOutcome(attemptID: attemptID, request: request,
+                                    timeline: collected.timeline, providerAttempts: collected.attempts,
+                                    category: .navigationCancelled,
+                                    technicalMessage: "Cancelled during provider discovery.")
+        }
+        let enabledAtCompletion = await StreamPluginRegistry.shared.enabledProviderCodes()
+        let sessions = LiveSourceHealthStore.rankedSessions(deduplicatedSessions(collected.sessions.filter { session in
+            !session.hasExpiredMediaLease()
+                && (!singleStreamDiscovery || LiveSourceHealthStore.matchEvidence(for: session) != .wrongProgramme)
+                && StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes: enabledAtCompletion)
+                .contains { StreamPluginProviderMatching.matches(session.legacySource, code: $0) }
+        }))
+        let exitEvent = StreamEventRecord(name: .streamResolutionStarted, matchID: request.matchID,
+            matchTitle: request.displayTitle, attemptID: attemptID,
+            currentState: sessions.isEmpty ? .failed : .readyToPlay,
+            redactedMetadata: ["discovery_exit": collected.exitReason.rawValue,
+                               "incomplete_lanes": "\(collected.incompleteLanes)"])
+        let diagnostics = makeDiagnostics(
+            attemptID: attemptID, request: request,
+            finalState: sessions.isEmpty ? .failed : .readyToPlay,
+            timeline: (collected.timeline + [exitEvent]).sorted { $0.timestamp < $1.timestamp },
+            providerAttempts: collected.attempts, startedAt: startedAt
+        )
+        await recordDiagnostics(diagnostics)
+        if !sessions.isEmpty {
+            return .success(StreamResolutionSuccess(attemptID: attemptID, sessions: sessions,
+                                                    diagnostics: diagnostics))
+        }
+        var failures = collected.failures
+        if collected.reachedDeadline {
+            failures.append(StreamFailure(providerName: nil, category: .providerTimeout,
+                technicalMessage: "Provider discovery reached its bounded deadline.",
+                userMessage: "Checking the broadcast providers took too long. Please try again.",
+                retryable: true, fallbackAllowed: true))
+        }
+        let failure = StreamTransportFailurePolicy.mostActionableFailure(in: failures)
+            ?? StreamFailure(providerName: nil, category: .providerReturnedEmpty,
+                technicalMessage: "No enabled provider returned a matched player page.",
+                userMessage: singleStreamDiscovery && request.preferredEvent?.isBroadcastChannel == true
+                    ? "No playable stream is available for this channel right now."
+                    : "No playable stream is available for this match right now.",
+                retryable: true, fallbackAllowed: false)
+        return .failure(failure, diagnostics)
+    }
+
+    /// Foreground metadata only: one current fixture, at most two reviewed
+    /// optional providers, an eight-second owner and a separate preflight budget.
+    /// No player, media probe, source setting or shared publisher is involved.
+    func preflightSources(for request: StreamPlaybackRequest) async {
+        guard !Task.isCancelled else { return }
+        let enabled = Set(await StreamPluginRegistry.shared.enabledProviderCodes())
+        let plan = await CuratedStreamSourceCatalog.discoveryPlan(for: request, enabledProviderCodes: enabled)
+        var sources = plan.optionalSources
+        if plan.score808SiteEligible,
+           let score808 = CuratedStreamSourceCatalog.definition(forProviderCode: "score808") {
+            sources.append(score808)
+        }
+        guard !sources.isEmpty else { return }
+        var lanes: [StreamDiscoveryCoordinator.Lane] = []
+        var tickets: [FixtureStreamDiscoveryIndex.Ticket] = []
+        let selectedCodes = preflightProviderSchedule.takeProviders(for: request.matchID,
+            available: sources.map(\.providerCode))
+        for code in selectedCodes {
+            guard let source = sources.first(where: { $0.providerCode == code }) else { continue }
+            guard let ticket = await FixtureStreamDiscoveryIndex.shared.begin(
+                for: request, providerCode: source.providerCode, preflight: true) else { continue }
+            tickets.append(ticket)
+            lanes.append { report in
+                if source.providerCode == "score808" {
+                    let result = await self.resolveScore808Site(for: request,
+                        attemptID: UUID().uuidString, report: report, useRegistry: true)
+                    if Task.isCancelled {
+                        await FixtureStreamDiscoveryIndex.shared.abandon(ticket)
+                    } else {
+                        switch result {
+                        case .success(let success):
+                            await FixtureStreamDiscoveryIndex.shared.complete(ticket, sessions: success.sessions)
+                        case .failure(let failure, _):
+                            await FixtureStreamDiscoveryIndex.shared.complete(ticket, sessions: [], failure: failure)
+                        }
+                    }
+                    return result
+                }
+                return await self.resolveOptionalSports(for: request, attemptID: UUID().uuidString,
+                    source: source, report: report, useDiscoveryIndex: true, preflightTicket: ticket)
+            }
+        }
+        guard !lanes.isEmpty else { return }
+        _ = await StreamDiscoveryCoordinator.collect(lanes: lanes, deadline: .seconds(8))
+        // Completed generations ignore abandonment; a parent cancelled before
+        // a lane started must still release its metadata-only lease.
+        for ticket in tickets { await FixtureStreamDiscoveryIndex.shared.abandon(ticket) }
+    }
+
+    /// Stable upstream identity can survive wrapper rotation. A delivery hash
+    /// includes expiring query credentials and must not veto their refresh;
+    /// keep that fallback tied to the same admitted origin/path and choice.
+    nonisolated static func isSameDescriptorChoice(_ candidate: StreamSession, as previous: StreamSession) -> Bool {
+        guard candidate.qualityLabel == previous.qualityLabel,
+              candidate.playbackContract.endpoint == previous.playbackContract.endpoint else { return false }
+        if previous.diagnosticMetadata["source_key_scope"] == "upstream",
+           let key = previous.diagnosticMetadata["source_key"] {
+            return candidate.diagnosticMetadata["source_key_scope"] == "upstream"
+                && candidate.diagnosticMetadata["source_key"] == key
+        }
+        return candidate.providerName == previous.providerName
+            && candidate.playableURL.scheme == previous.playableURL.scheme
+            && candidate.playableURL.host == previous.playableURL.host
+            && candidate.playableURL.port == previous.playableURL.port
+            && candidate.playableURL.path == previous.playableURL.path
+    }
+
+    /// Re-resolve metadata for the selected provider event only. An old binding
+    /// authorizes a lookup, never replay of an expired URL or a new route grant.
+    /// A unique current choice must preserve provider-event/stream identity.
+    nonisolated static func supportsDescriptorRenewal(_ session: StreamSession) -> Bool {
+        guard let provider = session.eventBinding?.providerCode else { return false }
+        return provider == ReviewedTVPlaylistClient.providerCode || session.playbackContract.endpoint == .directMedia
+            && ["communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix"].contains(provider)
+    }
+
+    func refreshedDescriptor(for session: StreamSession, request: StreamPlaybackRequest) async -> StreamSession? {
+        guard Self.supportsDescriptorRenewal(session) else { return nil }
+        if let binding = session.eventBinding, binding.usesRegistryAssociation {
+            let entries = await BroadcastRegistryClient.shared.lookup(for: request, enabledProviderCodes: [binding.providerCode])
+            if binding.currentRegistryEntry(in: entries, request: request, at: Date()) == nil {
+                _ = await BroadcastRegistryClient.shared.refreshForPlayback()
+                guard !Task.isCancelled else { return nil }
+            }
+        }
+        if session.eventBinding?.providerCode == ReviewedTVPlaylistClient.providerCode {
+            return await withTaskGroup(of: StreamSession?.self) { group in
+                group.addTask {
+                    await ReviewedTVPlaylistClient.shared.refreshedDescriptor(for: session, request: request)
+                }
+                group.addTask {
+                    do { try await Task.sleep(for: .seconds(6)) } catch { return nil }
+                    return nil
+                }
+                defer { group.cancelAll() }
+                return await group.next() ?? nil
+            }
+        }
+        guard !Task.isCancelled, let binding = session.eventBinding,
+              binding.matchesIdentity(request: request, providerCode: binding.providerCode),
+              await StreamPluginRegistry.shared.enabledProviderCodes().contains(binding.providerCode) else { return nil }
+        let recoveryRequest: StreamPlaybackRequest
+        if binding.usesRegistryAssociation {
+            guard let current = await RegisteredDescriptorRecoveryPolicy.currentRequest(for: request,
+                in: MatchListViewModel.shared.playbackAdmissionCatalog) else { return nil }
+            recoveryRequest = current
+        } else { recoveryRequest = request }
+        guard binding.matchesIdentity(request: recoveryRequest, providerCode: binding.providerCode) else { return nil }
+        let metadataRequest: StreamPlaybackRequest
+        if binding.usesRegistryAssociation {
+            let current = await BroadcastRegistryClient.shared.lookup(for: recoveryRequest,
+                enabledProviderCodes: [binding.providerCode], at: Date())
+            guard let association = binding.currentRegistryEntry(in: current, request: recoveryRequest, at: Date()) else { return nil }
+            metadataRequest = recoveryRequest.usingRegistryMatch(association)
+        } else { metadataRequest = recoveryRequest }
+        return await withTaskGroup(of: StreamSession?.self) { group in
+            group.addTask {
+                do {
+                    let candidates: [StreamSession]
+                    if binding.providerCode == "communitysports" {
+                        candidates = try await CommunitySportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
+                    } else if binding.providerCode == "cncsports" {
+                        candidates = try await CNCSportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
+                    } else if binding.providerCode == "flixstreams" {
+                        candidates = try await FlixStreamsAddonClient.shared.resolve(for: metadataRequest)
+                    } else if binding.providerCode == "streamvix" {
+                        candidates = try await StreamVixSportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
+                    } else {
+                        candidates = try await PlavioSportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
+                    }
+                    try Task.checkCancellation()
+                    let matching = candidates.filter { candidate in
+                        guard let current = candidate.eventBinding,
+                              current.matches(request: recoveryRequest, providerCode: binding.providerCode),
+                              current.providerEventID == binding.providerEventID,
+                              current.streamID == binding.streamID,
+                              candidate.playbackContract.endpoint == session.playbackContract.endpoint,
+                              candidate.qualityLabel == session.qualityLabel else { return false }
+                        return Self.isSameDescriptorChoice(candidate, as: session)
+                    }
+                    guard matching.count == 1, let fresh = matching.first,
+                          await StreamPluginRegistry.shared.enabledProviderCodes().contains(binding.providerCode)
+                    else { return nil }
+                    let acceptedRequest: StreamPlaybackRequest
+                    if binding.usesRegistryAssociation {
+                        guard let current = await RegisteredDescriptorRecoveryPolicy.currentRequest(for: request,
+                            in: MatchListViewModel.shared.playbackAdmissionCatalog) else { return nil }
+                        acceptedRequest = current
+                    } else { acceptedRequest = recoveryRequest }
+                    return session.renewingDelivery(from: fresh, for: acceptedRequest)
+                } catch { return nil }
+            }
+            group.addTask {
+                do { try await Task.sleep(for: .seconds(binding.providerCode == "communitysports" && request.preferredEvent?.isBroadcastChannel == false ? CommunitySportsAddonClient.streamTransportDeadline : 6)) } catch { return nil }
+                return nil
+            }
+            defer { group.cancelAll() }
+            return await group.next() ?? nil
+        }
+    }
+
+    nonisolated private static func usesCurrentCricketRegistry(_ request: StreamPlaybackRequest,
+        providerCode: String) -> Bool {
+        guard providerCode == "communitysports", let event = request.preferredEvent,
+              let cricket = event.cricketFixture, cricket.verified, cricket.status == .live,
+              cricket.format == .odi || cricket.format == .t20,
+              event.id == CricketFixtureCatalog.fixtureIDPrefix + cricket.fixtureID,
+              request.matchID == event.id, !event.hasCatalogIdentityConflict else { return false }
+        return true
+    }
+
+    nonisolated static func needsCurrentCricketRegistry(_ request: StreamPlaybackRequest,
+        providerCode: String, at now: Date) -> Bool {
+        usesCurrentCricketRegistry(request, providerCode: providerCode)
+            && request.preferredEvent?.cricketFixture.map { (-300..<600).contains(now.timeIntervalSince($0.observedAt)) } == true
+    }
+
+    /// Current-listing CS rows depend on the registry's official fixture join.
+    /// Join its existing refresh inside this provider lane, never before other
+    /// providers can resolve. The preflight's eight-second owner still cancels
+    /// this wait and releases its ticket without publishing a false empty result.
+    @MainActor
+    static func optionalRegistryMatches(for request: StreamPlaybackRequest, providerCode: String,
+        registry: BroadcastRegistryClient? = nil, at now: Date = Date()) async -> [BroadcastRegistryMatch] {
+        let registry = registry ?? .shared
+        let found = registry.lookup(for: request, enabledProviderCodes: [providerCode], at: now)
+        guard found.isEmpty, needsCurrentCricketRegistry(request, providerCode: providerCode, at: now) else { return found }
+        let started = ContinuousClock.now
+        _ = await registry.refreshForPlayback(at: now)
+        guard !Task.isCancelled else { return [] }
+        let elapsed = started.duration(to: .now).components
+        let completedAt = now.addingTimeInterval(Double(elapsed.seconds) + Double(elapsed.attoseconds) / 1e18)
+        return registry.lookup(for: request, enabledProviderCodes: [providerCode], at: completedAt)
+    }
+
+    nonisolated static func isUnassociatedCurrentCricketMiss(_ error: Error, request: StreamPlaybackRequest,
+        providerCode: String, registered: [BroadcastRegistryMatch], at now: Date) -> Bool {
+        registered.isEmpty && (error as? CommunitySportsAddonError) == .matchNotFound
+            // An old cached official receipt also means authority is pending,
+            // never proof of source absence. This does not authorize playback:
+            // the registry/adapter still require independently fresh evidence.
+            && usesCurrentCricketRegistry(request, providerCode: providerCode)
+    }
+
+    private func resolveOptionalSports(
+        for request: StreamPlaybackRequest,
+        attemptID: String,
+        source: CuratedStreamSourceCatalog.Definition,
+        report: @escaping StreamDiscoveryCoordinator.Reporter,
+        useDiscoveryIndex: Bool = false,
+        preflightTicket: FixtureStreamDiscoveryIndex.Ticket? = nil,
+        refreshTVRegistry: Bool = false,
+        refreshOptionalSources: Bool = false
+    ) async -> StreamResolutionOutcome {
+        let providerCode = source.providerCode
+        let providerName = source.discoveryName
+        let startedAt = Date()
+        let startedEvent = StreamEventRecord(
+            name: .provider1Started,
+            matchID: request.matchID,
+            matchTitle: request.displayTitle,
+            providerName: providerName,
+            attemptID: attemptID,
+            currentState: .resolving,
+            redactedMetadata: ["mode": "exact_addon_lookup"]
+        )
+        report(.event(startedEvent))
+
+        let needsFreshTVAssociation = refreshTVRegistry && source.dispatch == .reviewedTV
+            && request.registryMatch == nil && ReviewedSportsFixtureMatcher.requestIdentity(for: request) != nil
+        if needsFreshTVAssociation {
+            let hasFreshProgramme = await MainActor.run {
+                ReviewedTVPlaylistClient.programmeLookupRequest(for: request) != nil
+            }
+            if !hasFreshProgramme {
+                // Registry work belongs to this parallel lane. AS/CS can publish
+                // and start while one existing registry refresh is joined.
+                _ = await BroadcastRegistryClient.shared.refreshForPlayback()
+            }
+            if Task.isCancelled {
+                return cancelledOutcome(attemptID: attemptID, request: request,
+                    timeline: [], providerAttempts: [], category: .navigationCancelled,
+                    technicalMessage: "Cancelled while joining broadcast registry refresh.")
+            }
+        }
+
+        let registered = useDiscoveryIndex ? await Self.optionalRegistryMatches(for: request,
+            providerCode: providerCode) : []
+        // Explicit single-player Retry asks every enabled lane for current
+        // metadata. It must not replay a still-leased descriptor that just
+        // failed. Registry identity facts and provider limits remain intact.
+        let cachedCandidates = useDiscoveryIndex && preflightTicket == nil && !refreshOptionalSources
+            ? await FixtureStreamDiscoveryIndex.shared.cachedSessions(for: request, providerCode: providerCode)
+            : nil
+        let cached = cachedCandidates.flatMap { candidates -> [StreamSession]? in
+            let allowed = registered.isEmpty ? candidates : candidates.filter { session in
+                guard let binding = session.eventBinding else { return false }
+                return registered.contains { binding.matchesRegistryEntry($0, request: request, at: Date()) }
+            }
+            return allowed.isEmpty ? nil : allowed
+        }
+        let ticket: FixtureStreamDiscoveryIndex.Ticket?
+        if useDiscoveryIndex && cached == nil {
+            if let preflightTicket { ticket = preflightTicket }
+            else { ticket = await FixtureStreamDiscoveryIndex.shared.begin(
+                for: request, providerCode: providerCode, preflight: false) }
+        } else { ticket = nil }
+        do {
+            guard !needsFreshTVAssociation || !registered.isEmpty else {
+                throw CommunitySportsAddonError.matchNotFound
+            }
+            let sessions: [StreamSession]
+            if let cached {
+                sessions = cached
+            } else {
+                if source.dispatch == .reviewedTV, request.registryMatch == nil, !registered.isEmpty {
+                    // One closed playlist read resolves every independently
+                    // assigned station. The generic two-adapter lookup cap
+                    // must not hide TV3–TV8 or reread the playlist per station.
+                    let resolved = try await resolveOptionalAdapter(source, request: request, forceRefresh: true,
+                        forceFreshMetadata: refreshOptionalSources)
+                    let admitted = resolved.filter { session in
+                        guard let binding = session.eventBinding else { return false }
+                        return registered.contains { association in
+                            association.matches(request: request, providerCode: providerCode,
+                                providerEventID: binding.providerEventID, streamID: binding.streamID, at: Date())
+                                && binding.matches(request: request, providerCode: providerCode)
+                        }
+                    }
+                    guard !admitted.isEmpty else { throw CommunitySportsAddonError.matchNotFound }
+                    sessions = deduplicatedSessions(admitted)
+                    for session in sessions { report(.partialSession(session)) }
+                } else if registered.isEmpty {
+                    FottyQualityStore.shared.record(category: .playback, name: "direct_fallback_lookup",
+                        outcome: .info, details: ["source": providerCode, "mode": "registry_empty_direct_fallback"])
+                    sessions = try await resolveOptionalAdapter(source, request: request, forceRefresh: useDiscoveryIndex,
+                        forceFreshMetadata: refreshOptionalSources)
+                } else {
+                    sessions = try await Self.resolveRegisteredOptionalSessions(for: request,
+                        providerCode: providerCode, associations: registered, resolve: { scoped in
+                            try await self.resolveOptionalAdapter(source, request: scoped, forceRefresh: true,
+                                forceFreshMetadata: refreshOptionalSources)
+                        }, onSession: { report(.partialSession($0)) })
+                }
+            }
+            try Task.checkCancellation()
+            guard await StreamPluginRegistry.shared.enabledProviderCodes().contains(providerCode) else {
+                throw CancellationError()
+            }
+            if let ticket {
+                await FixtureStreamDiscoveryIndex.shared.complete(ticket, sessions: sessions, failure: nil)
+            }
+            sessions.forEach { report(.session($0)) }
+            let attempt = StreamProviderAttemptLog(
+                providerName: providerName,
+                responseTimeMs: Int(Date().timeIntervalSince(startedAt) * 1000),
+                resolvedStreamType: sessions.first?.streamType ?? .unknown,
+                urlShape: "reviewed_addon",
+                requiredHeaders: sessions.first?.requiredHeaders.isEmpty == false,
+                validationResult: "exact_match_admitted",
+                manifestResult: "exact_fixture_match"
+            )
+            report(.attempt(attempt))
+            let succeededEvent = StreamEventRecord(
+                name: .provider1ValidationSucceeded,
+                matchID: request.matchID,
+                matchTitle: request.displayTitle,
+                providerName: providerName,
+                attemptID: attemptID,
+                currentState: .readyToPlay,
+                redactedMetadata: ["session_count": "\(sessions.count)", "mode": "exact_addon_lookup"]
+            )
+            report(.event(succeededEvent))
+            let diagnostics = makeDiagnostics(
                 attemptID: attemptID,
                 request: request,
-                timeline: [],
-                providerAttempts: [],
-                category: .navigationCancelled,
-                technicalMessage: "Stream attempt cancelled before resolution began."
+                finalState: .readyToPlay,
+                timeline: [startedEvent, succeededEvent],
+                providerAttempts: [attempt],
+                startedAt: startedAt
+            )
+            return .success(
+                StreamResolutionSuccess(attemptID: attemptID, sessions: sessions, diagnostics: diagnostics)
+            )
+        } catch {
+            let failure = communitySportsFailure(from: error, providerName: providerName)
+            if let ticket {
+                if Task.isCancelled || error is CancellationError
+                    || Self.isUnassociatedCurrentCricketMiss(error, request: request,
+                        providerCode: providerCode, registered: registered, at: startedAt) {
+                    // A generated-clock CS catalog cannot date this fixture by
+                    // itself. Its miss must not veto an exact registry link
+                    // that finishes loading after this lane's bounded lookup.
+                    await FixtureStreamDiscoveryIndex.shared.abandon(ticket)
+                } else {
+                    await FixtureStreamDiscoveryIndex.shared.complete(ticket, sessions: [], failure: failure)
+                }
+            }
+            report(.failure(failure))
+            let attempt = StreamProviderAttemptLog(
+                providerName: providerName,
+                responseTimeMs: Int(Date().timeIntervalSince(startedAt) * 1000),
+                resolvedStreamType: .unknown,
+                urlShape: "reviewed_addon",
+                requiredHeaders: false,
+                validationResult: "failed",
+                manifestResult: failure.redactedMetadata["manifest_result"],
+                finalFailureCategory: failure.category
+            )
+            report(.attempt(attempt))
+            let failedEvent = StreamEventRecord(
+                name: .provider1ValidationFailed,
+                matchID: request.matchID,
+                matchTitle: request.displayTitle,
+                providerName: providerName,
+                attemptID: attemptID,
+                currentState: .failed,
+                failureCategory: failure.category,
+                redactedMetadata: failure.redactedMetadata
+            )
+            report(.event(failedEvent))
+            let diagnostics = makeDiagnostics(
+                attemptID: attemptID,
+                request: request,
+                finalState: .failed,
+                timeline: [startedEvent, failedEvent],
+                providerAttempts: [attempt],
+                startedAt: startedAt
+            )
+            return .failure(failure, diagnostics)
+        }
+    }
+
+    /// The production registered lane keeps only fresh deliveries from each
+    /// exact association. The adapter still owns all source-specific matching
+    /// and transport admission; this seam cannot invent an executable ID.
+    nonisolated static func resolveRegisteredOptionalSessions(
+        for request: StreamPlaybackRequest, providerCode: String, associations: [BroadcastRegistryMatch],
+        resolve: @escaping @Sendable (StreamPlaybackRequest) async throws -> [StreamSession],
+        onSession: @escaping @Sendable (StreamSession) -> Void = { _ in },
+        clock: @escaping @Sendable () -> Date = { Date() }
+    ) async throws -> [StreamSession] {
+        var choices: [StreamSession] = [], lastError: Error?
+        // Retain independent literal broadcasts without a second broad search.
+        // The calling coordinator's deadline and cancellation own all children.
+        for association in associations.prefix(2) {
+            try Task.checkCancellation()
+            do {
+                let resolved = try await resolve(request.usingRegistryMatch(association))
+                try Task.checkCancellation()
+                let now = clock()
+                let admitted = resolved.filter { session in
+                    guard let binding = session.eventBinding, !session.hasExpiredMediaLease(at: now) else { return false }
+                    return binding.matchesRegistryEntry(association, request: request, at: now)
+                        && binding.matches(request: request, providerCode: providerCode, at: now)
+                }
+                for session in admitted { choices.append(session); onSession(session) }
+            } catch {
+                try Task.checkCancellation()
+                lastError = error
+            }
+        }
+        guard !choices.isEmpty else { throw lastError ?? CommunitySportsAddonError.matchNotFound }
+        var seen = Set<StreamDeliveryIdentity>()
+        return choices.filter { seen.insert(StreamDeliveryIdentity(url: $0.playableURL, headers: $0.requiredHeaders)).inserted }
+    }
+
+    #if FOTTY_SOURCE_CONNECTION_TOOL
+    /// Test-bundle entry only. Invokes production adapters independently without
+    /// changing Watch, settings, registry publication or source ordering.
+    func inspectSourceConnection(_ source: CuratedStreamSourceCatalog.Definition,
+        request: StreamPlaybackRequest) async -> StreamResolutionOutcome {
+        let id = UUID().uuidString
+        switch source.dispatch {
+        case .sharedCatalog:
+            return await resolveSharedPlayback(for: request, attemptID: id, onProgress: nil,
+                report: { _ in }, useRegistry: false)
+        case .score808:
+            return await resolveScore808Site(for: request, attemptID: id, report: { _ in }, useRegistry: false)
+        default:
+            return await resolveOptionalSports(for: request, attemptID: id, source: source,
+                report: { _ in }, useDiscoveryIndex: false)
+        }
+    }
+    #endif
+
+    private func resolveOptionalAdapter(_ source: CuratedStreamSourceCatalog.Definition,
+        request: StreamPlaybackRequest, forceRefresh: Bool,
+        forceFreshMetadata: Bool = false) async throws -> [StreamSession] {
+        switch source.dispatch {
+        case .reviewedTV: return try await ReviewedTVPlaylistClient.shared.resolve(for: request)
+        case .streamVix: return try await StreamVixSportsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
+        case .cncSports: return try await CNCSportsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
+        case .flixStreams: return try await FlixStreamsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
+        case .plavioSports: return try await PlavioSportsAddonClient.shared.resolve(for: request, forceRefresh: forceRefresh)
+        case .communitySports: return try await CommunitySportsAddonClient.shared.resolve(for: request, forceRefresh: forceRefresh)
+        case .sharedCatalog, .score808: throw CommunitySportsAddonError.matchNotFound
+        }
+    }
+
+    private func communitySportsFailure(from error: Error, providerName: String = "CS") -> StreamFailure {
+        guard let addOnError = error as? CommunitySportsAddonError else {
+            return failureFromError(
+                providerName: providerName,
+                fallbackAllowed: true,
+                defaultUserMessage: "Broadcast information could not be checked just now.",
+                error: error,
+                defaultCategory: .manifestUnreachable,
+                redactedMetadata: ["discovery": "exact_addon_lookup"]
             )
         }
 
-        // Hard cap so Watch Now cannot sit on "Looking for a playable stream..." forever.
-        let startedAt = Date()
-        let outcome = await withTaskGroup(of: StreamResolutionOutcome?.self) { group in
-            group.addTask { [self] in
-                await performResolution(
-                    attemptID: attemptID,
-                    request: request,
-                    onProgress: onProgress
-                )
-            }
-            group.addTask {
-                do {
-                    try await Task.sleep(nanoseconds: 20_000_000_000)
-                } catch {
-                    return nil
-                }
-                return nil
-            }
-            var result: StreamResolutionOutcome?
-            for await value in group {
-                if let value {
-                    result = value
-                    group.cancelAll()
-                    break
-                }
-                group.cancelAll()
-                if Task.isCancelled {
-                    result = cancelledOutcome(
-                        attemptID: attemptID,
-                        request: request,
-                        timeline: [],
-                        providerAttempts: [],
-                        category: .navigationCancelled,
-                        technicalMessage: "Stream attempt cancelled while resolving."
-                    )
-                    break
-                }
-                let failure = StreamFailure(
-                    providerName: ProviderSlot.coreMedia.rawValue,
-                    category: .providerTimeout,
-                    technicalMessage: "Stream resolution exceeded 20s budget.",
-                    userMessage: "No playable stream is available for this match right now.",
-                    retryable: true,
-                    fallbackAllowed: true
-                )
-                result = .failure(
-                    failure,
-                    StreamAttemptDiagnostics(
-                        attemptID: attemptID,
-                        matchID: request.matchID,
-                        matchTitle: request.displayTitle,
-                        finalState: .failed,
-                        createdAt: startedAt,
-                        completedAt: Date(),
-                        timeline: [],
-                        providerAttempts: []
-                    )
-                )
-                break
-            }
-            return result ?? .failure(
-                StreamFailure(
-                    providerName: ProviderSlot.coreMedia.rawValue,
-                    category: .providerTimeout,
-                    technicalMessage: "Stream resolution timed out.",
-                    userMessage: "No playable stream is available for this match right now.",
-                    retryable: true,
-                    fallbackAllowed: true
-                ),
-                StreamAttemptDiagnostics(
-                    attemptID: attemptID,
-                    matchID: request.matchID,
-                    matchTitle: request.displayTitle,
-                    finalState: .failed,
-                    createdAt: startedAt,
-                    completedAt: Date(),
-                    timeline: [],
-                    providerAttempts: []
-                )
+        return Self.communitySportsFailure(from: addOnError, providerName: providerName)
+    }
+
+    nonisolated static func communitySportsFailure(from addOnError: CommunitySportsAddonError,
+                                                  providerName: String = "CS") -> StreamFailure {
+        let entryCountKey = providerName == "CS" ? "cs_stream_entry_count" : "addon_stream_entry_count"
+        let rejectedCountKey = providerName == "CS" ? "cs_admission_rejected_count" : "addon_admission_rejected_count"
+        switch addOnError {
+        case .httpFailure(let statusCode, let stage):
+            return StreamFailure(
+                providerName: providerName,
+                category: [408, 504].contains(statusCode) ? .providerTimeout : .manifestUnreachable,
+                technicalMessage: "The optional add-on returned an unsuccessful HTTP status.",
+                userMessage: "Broadcast information could not be checked just now.",
+                retryable: true,
+                fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "\(stage.rawValue)_http_failure",
+                                   "platform_error_code": String(statusCode)]
+            )
+        case .transportFailure(let code, let stage):
+            return StreamTransportFailurePolicy.makeFailure(
+                providerName: providerName,
+                code: URLError.Code(rawValue: code),
+                technicalMessage: "The optional add-on request failed in transport.",
+                defaultCategory: .manifestUnreachable,
+                defaultUserMessage: "Broadcast information could not be checked just now.",
+                fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "\(stage.rawValue)_transport_failure",
+                                   "platform_error_code": String(code)]
+            )
+        case .invalidJSON(let stage):
+            return StreamFailure(
+                providerName: providerName,
+                category: .manifestInvalid,
+                technicalMessage: "The optional add-on returned malformed JSON.",
+                userMessage: "Broadcast information could not be checked just now.",
+                retryable: true,
+                fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "\(stage.rawValue)_invalid_json"]
+            )
+        case .matchNotFound:
+            return StreamFailure(
+                providerName: providerName,
+                category: .providerReturnedEmpty,
+                technicalMessage: "The optional add-on had no exact playable match at this kickoff.",
+                userMessage: "A matching broadcast could not be confirmed for this match.",
+                retryable: true,
+                fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "no_exact_fixture_match"]
+            )
+        case .streamEntriesEmpty:
+            return StreamFailure(
+                providerName: providerName,
+                category: .providerReturnedEmpty,
+                technicalMessage: "The exact fixture matched, but its stream list contained no entries.",
+                userMessage: "The additional sources found this match but have not listed any streams yet.",
+                retryable: true,
+                fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "stream_entries_empty",
+                                   entryCountKey: "0", rejectedCountKey: "0"]
+            )
+        case .streamAdmissionRejected(let entryCount):
+            let count = String(min(max(entryCount, 0), 100))
+            return StreamFailure(
+                providerName: providerName,
+                category: .providerReturnedEmpty,
+                technicalMessage: "The exact fixture matched, but none of its bounded entries met the supported delivery contract.",
+                userMessage: "The additional sources found this match, but their streams are not compatible right now. Try another source.",
+                retryable: true,
+                fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "no_admitted_stream_delivery",
+                                   entryCountKey: count, rejectedCountKey: count]
+            )
+        case .conflictingMatch:
+            return StreamFailure(
+                providerName: providerName,
+                category: .invalidMatchMapping,
+                technicalMessage: "The optional add-on returned conflicting exact fixture candidates.",
+                userMessage: "The broadcast details could not be matched to this fixture.",
+                retryable: false,
+                fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "conflicting_fixture_match"]
+            )
+        case .unsafeResponse:
+            return StreamFailure(
+                providerName: providerName,
+                category: .providerSecurityFailure,
+                technicalMessage: "The optional add-on returned a cross-origin or unapproved delivery URL.",
+                userMessage: "The additional broadcast source could not be opened safely.",
+                retryable: false,
+                fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "unsafe_response_rejected"]
+            )
+        case .unsafeMetadata(let stage, let reason, let invalidScalar):
+            // Only one invalid character's public Unicode code point may refine
+            // this fixed diagnostic. Never retain the identifier or its hash.
+            let scalarSuffix: String
+            if reason == .streamIDCharacters, let invalidScalar, let scalar = UnicodeScalar(invalidScalar),
+               !CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.~")).contains(scalar) {
+                scalarSuffix = String(format: "_u%04X", invalidScalar)
+            } else { scalarSuffix = reason == .streamIDCharacters ? "_unresolved" : "" }
+            return StreamFailure(
+                providerName: providerName,
+                category: .providerSecurityFailure,
+                technicalMessage: "The optional add-on metadata request was rejected by its existing safety contract.",
+                userMessage: "The additional broadcast source could not be opened safely.",
+                retryable: false,
+                fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "\(stage.rawValue)_unsafe_\(reason.rawValue)\(scalarSuffix)"]
+            )
+        case .configurationUnavailable, .invalidManifest, .invalidResponse:
+            return StreamFailure(
+                providerName: providerName,
+                category: .manifestInvalid,
+                technicalMessage: "The optional add-on contract was unavailable or invalid.",
+                userMessage: "Broadcast information could not be checked just now.",
+                retryable: true,
+                fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "invalid_addon_contract"]
             )
         }
-        return outcome
+    }
+
+    private func resolveScore808Site(
+        for request: StreamPlaybackRequest, attemptID: String,
+        report: @escaping StreamDiscoveryCoordinator.Reporter,
+        useRegistry: Bool = false
+    ) async -> StreamResolutionOutcome {
+        let startedAt = Date()
+        let result: Result<[StreamSession], StreamFailure>
+        do {
+            let registered = useRegistry ? await BroadcastRegistryClient.shared.lookup(for: request,
+                enabledProviderCodes: ["score808"], at: Date()) : []
+            var choices: [StreamSession] = [], lastError: Error?
+            if registered.isEmpty {
+                if let session = try await Score808SiteResolver().resolve(for: request) { choices = [session] }
+            } else {
+                for association in registered.prefix(2) {
+                    do {
+                        if let session = try await Score808SiteResolver().resolve(for: request.usingRegistryMatch(association)),
+                           let binding = session.eventBinding,
+                           association.matches(request: request, providerCode: "score808",
+                            providerEventID: binding.providerEventID, streamID: binding.streamID, at: Date()),
+                           binding.matches(request: request, providerCode: "score808") {
+                            choices.append(session); report(.partialSession(session))
+                        }
+                    } catch { try Task.checkCancellation(); lastError = error }
+                }
+            }
+            try Task.checkCancellation()
+            if !choices.isEmpty { result = .success(deduplicatedSessions(choices)) }
+            else if let lastError { throw lastError }
+            else {
+                result = .failure(StreamFailure(providerName: "Score808", category: .providerReturnedEmpty,
+                    technicalMessage: "No fresh unambiguous site event and configured player matched.",
+                    userMessage: "Fotty checked the available broadcast sources, but none has a playable stream for this match yet. Try again shortly.",
+                    retryable: true, fallbackAllowed: true))
+            }
+        } catch {
+            result = .failure(failureFromError(providerName: "Score808", fallbackAllowed: true,
+                defaultUserMessage: "The available broadcast sources could not provide a playable stream just now. Please try again.",
+                error: error, defaultCategory: .manifestUnreachable,
+                redactedMetadata: ["discovery": "direct_site"]))
+        }
+        var attempts: [StreamProviderAttemptLog] = []
+        let failure: StreamFailure?
+        let sessions: [StreamSession]
+        switch result {
+        case .success(let found):
+            found.forEach { report(.session($0)) }
+            sessions = found
+            failure = nil
+        case .failure(let error):
+            report(.failure(error))
+            sessions = []
+            failure = error
+        }
+        attempts.append(StreamProviderAttemptLog(providerName: "Score808",
+            responseTimeMs: Int(Date().timeIntervalSince(startedAt) * 1000),
+            resolvedStreamType: .unknown, urlShape: "score808_site",
+            requiredHeaders: true, validationResult: failure == nil ? "matched_player_page" : "failed",
+            manifestResult: "direct_site_calendar", segmentResult: "awaiting_decoded_web_playback",
+            finalFailureCategory: failure?.category))
+        let diagnostics = makeDiagnostics(attemptID: attemptID, request: request,
+            finalState: failure == nil ? .readyToPlay : .failed,
+            timeline: [], providerAttempts: attempts, startedAt: startedAt)
+        if let failure { return .failure(failure, diagnostics) }
+        return .success(StreamResolutionSuccess(attemptID: attemptID, sessions: sessions, diagnostics: diagnostics))
+    }
+
+    private func resolveSharedPlayback(
+        for request: StreamPlaybackRequest,
+        attemptID: String,
+        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?,
+        report: @escaping StreamDiscoveryCoordinator.Reporter,
+        useRegistry: Bool = false
+    ) async -> StreamResolutionOutcome {
+        // StreamDiscoveryCoordinator owns the one overall deadline; descriptor
+        // and validation slices only keep a slow child from monopolising it.
+        let associations = useRegistry ? await BroadcastRegistryClient.shared.lookup(for: request,
+            enabledProviderCodes: ["streamex"], at: Date()) : []
+        let registeredRequest = associations.first.map { request.usingRegistryMatch($0) } ?? request
+        return await performResolution(attemptID: attemptID, request: registeredRequest, onProgress: onProgress, report: report)
     }
 
     /// Resolution is owned by the caller's structured task. Cancelling that task only
@@ -662,192 +1163,19 @@ actor LiveStreamResolver {
         _ = request
     }
 
-    func prewarmLikelyP2P(for requests: [StreamPlaybackRequest], limit: Int = 3) async {
-        let prioritized = requests
-            .sorted { lhs, rhs in
-                let lhsPreferred = lhs.preferredEvent?.popular ?? false
-                let rhsPreferred = rhs.preferredEvent?.popular ?? false
-                if lhsPreferred != rhsPreferred {
-                    return lhsPreferred && !rhsPreferred
-                }
-                let lhsDistance = abs(lhs.kickoffDate?.timeIntervalSinceNow ?? 86_400)
-                let rhsDistance = abs(rhs.kickoffDate?.timeIntervalSinceNow ?? 86_400)
-                return lhsDistance < rhsDistance
-            }
-            .prefix(limit)
-
-        for request in prioritized {
-            await prewarmP2PIfNeeded(for: request)
-        }
-    }
-
-    func validateManualP2PSource(
-        _ source: StreamSource,
-        matchID: String,
-        matchTitle: String,
-        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)? = nil
-    ) async -> StreamResolutionOutcome {
-        let request = StreamPlaybackRequest(
-            matchID: matchID,
-            displayTitle: matchTitle,
-            homeTeam: matchTitle,
-            awayTeam: "",
-            category: "football",
-            preferredEvent: nil
-        )
-
-        let attemptID = UUID().uuidString
-        var timeline: [StreamEventRecord] = []
-        var providerAttempts: [StreamProviderAttemptLog] = []
-        var currentState: StreamLoadState = .warmingUpP2P
-
-        await emitProgress(
-            attemptID: attemptID,
-            state: .warmingUpP2P,
-            userMessage: "The stream is still preparing...",
-            technicalMessage: "Validating manual P2P source.",
-            providerName: ProviderSlot.p2p.rawValue,
-            onProgress: onProgress
-        )
-        appendEvent(
-            to: &timeline,
-            name: .streamAttemptCreated,
-            request: request,
-            attemptID: attemptID,
-            currentState: .warmingUpP2P
-        )
-
-        let validated = await validateP2PSource(
-            source,
-            request: request,
-            attemptID: attemptID,
-            timeline: &timeline,
-            providerAttempts: &providerAttempts,
-            onProgress: onProgress
-        )
-
-        switch validated {
-        case .success(let session):
-            currentState = .readyToPlay
-            appendEvent(
-                to: &timeline,
-                name: .readyToPlay,
-                request: request,
-                attemptID: attemptID,
-                providerName: ProviderSlot.p2p.rawValue,
-                currentState: .readyToPlay
-            )
-            let diagnostics = makeDiagnostics(
-                attemptID: attemptID,
-                request: request,
-                finalState: currentState,
-                timeline: timeline,
-                providerAttempts: providerAttempts
-            )
-            await recordDiagnostics(diagnostics)
-            return .success(
-                StreamResolutionSuccess(
-                    attemptID: attemptID,
-                    sessions: [session],
-                    diagnostics: diagnostics
-                )
-            )
-        case .failure(let failure):
-            currentState = .failed
-            appendEvent(
-                to: &timeline,
-                name: .p2pWarmupFailed,
-                request: request,
-                attemptID: attemptID,
-                providerName: ProviderSlot.p2p.rawValue,
-                currentState: .failed,
-                failureCategory: failure.category,
-                redactedMetadata: failure.redactedMetadata
-            )
-            let diagnostics = makeDiagnostics(
-                attemptID: attemptID,
-                request: request,
-                finalState: currentState,
-                timeline: timeline,
-                providerAttempts: providerAttempts
-            )
-            await recordDiagnostics(diagnostics)
-            return .failure(failure, diagnostics)
-        }
-    }
-
     func catalogEvent(for request: StreamPlaybackRequest) async -> AnalyticalDataEngine.EventReference? {
         try? await resolveCatalogEvent(for: request)
-    }
-
-    private func fetchPreferredP2PSources(
-        homeTeam: String,
-        awayTeam: String,
-        category: String?
-    ) async throws -> [StreamSource] {
-        do {
-            let exactSources = try await P2PDataService.shared.findStreams(
-                homeTeam: homeTeam,
-                awayTeam: awayTeam,
-                category: category,
-                allowSportChannelFallback: false
-            )
-            if !exactSources.isEmpty {
-                return exactSources
-            }
-        } catch {
-            if !shouldAllowSportChannelFallback(for: category) {
-                throw error
-            }
-        }
-
-        guard shouldAllowSportChannelFallback(for: category) else {
-            throw ProcessorError.noSourcesFound
-        }
-
-        return try await P2PDataService.shared.findStreams(
-            homeTeam: homeTeam,
-            awayTeam: awayTeam,
-            category: category,
-            allowSportChannelFallback: true
-        )
-    }
-
-    private func prewarmP2PIfNeeded(for request: StreamPlaybackRequest) async {
-        let key = activeKey(for: request)
-        let now = Date()
-        if let lastPrewarm = recentP2PPrewarms[key],
-           now.timeIntervalSince(lastPrewarm) < p2pPrewarmCooldownSeconds {
-            return
-        }
-
-        do {
-            let sources = try await fetchPreferredP2PSources(
-                homeTeam: request.homeTeam,
-                awayTeam: request.awayTeam,
-                category: request.category
-            )
-            guard !sources.isEmpty else { return }
-
-            let bestIndex = LiveSourceHealthStore.bestSourceIndex(in: sources) ?? 0
-            let source = sources[min(bestIndex, sources.count - 1)]
-            await AceSessionEngine.shared.prewarmSession(for: source)
-            recentP2PPrewarms[key] = Date()
-        } catch {
-            // Best effort only: prewarm should never affect foreground playback flow.
-        }
     }
 
     private func performResolution(
         attemptID: String,
         request: StreamPlaybackRequest,
-        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?
+        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?,
+        report: @escaping StreamDiscoveryCoordinator.Reporter
     ) async -> StreamResolutionOutcome {
         let startedAt = Date()
         var timeline: [StreamEventRecord] = []
         var providerAttempts: [StreamProviderAttemptLog] = []
-        var currentState: StreamLoadState = .idle
-        var validatedSessions: [StreamSession] = []
 
         appendEvent(
             to: &timeline,
@@ -863,25 +1191,25 @@ actor LiveStreamResolver {
             attemptID: attemptID,
             currentState: .idle
         )
-
         await emitProgress(
             attemptID: attemptID,
             state: .resolving,
             userMessage: "Looking for a playable stream...",
-            technicalMessage: "Starting controlled stream resolution.",
-            providerName: nil,
+            technicalMessage: "Starting web stream resolution.",
+            providerName: ProviderSlot.coreMedia.rawValue,
             onProgress: onProgress
         )
-        currentState = .resolving
         appendEvent(
             to: &timeline,
             name: .streamResolutionStarted,
             request: request,
             attemptID: attemptID,
-            currentState: currentState
+            providerName: ProviderSlot.coreMedia.rawValue,
+            currentState: .resolving
         )
 
-        if Task.isCancelled {
+        timeline.forEach { report(.event($0)) }
+        guard !Task.isCancelled else {
             return cancelledOutcome(
                 attemptID: attemptID,
                 request: request,
@@ -892,60 +1220,39 @@ actor LiveStreamResolver {
             )
         }
 
-        // Web-only resolution — P2P / AceStream retired from Watch Now.
-        let outcome = await withTaskGroup(of: ProviderResolutionOutput?.self) { group in
-            group.addTask {
-                await self.runProvider1Track(request: request, attemptID: attemptID, onProgress: onProgress)
-            }
+        let result = await attemptProvider1(
+            request: request,
+            attemptID: attemptID,
+            timeline: &timeline,
+            providerAttempts: &providerAttempts,
+            onProgress: onProgress,
+            report: report
+        )
 
-            var webOutput: ProviderResolutionOutput?
-            for await output in group {
-                guard let output = output else { continue }
-                webOutput = output
-                if case .success(let sessions) = output.result, !sessions.isEmpty {
-                    group.cancelAll()
-                    return output
-                }
-            }
-
-            if let web = webOutput, case .success(let sessions) = web.result, !sessions.isEmpty {
-                return web
-            }
-            if let output = webOutput {
-                return output
-            }
-
-            return ProviderResolutionOutput(
-                providerName: "HybridStreamProvider",
-                result: .failure(
-                    StreamFailure(
-                        providerName: ProviderSlot.coreMedia.rawValue,
-                        category: .providerReturnedEmpty,
-                        technicalMessage: "Web resolution returned no StreamEx/Score808 result.",
-                        userMessage: "No stream sources were found.",
-                        retryable: true,
-                        fallbackAllowed: false
-                    )
-                ),
-                timeline: [],
-                providerAttempts: [],
-                resolvedAt: Date()
-            )
-        }
-
-        let finalOutput = outcome
-
-        // Merge the winning track's data into our main resolution record
-        timeline.append(contentsOf: finalOutput.timeline)
-        providerAttempts.append(contentsOf: finalOutput.providerAttempts)
-
-        switch finalOutput.result {
-        case .success(let sessions):
-            validatedSessions.append(contentsOf: sessions)
+        switch result {
         case .failure(let failure):
-            // If the winner was a failure, and we haven't tried the other one yet (due to early failure),
-            // the group loop above already handled the fallback logic.
-            if validatedSessions.isEmpty {
+            let diagnostics = makeDiagnostics(
+                attemptID: attemptID,
+                request: request,
+                finalState: .failed,
+                timeline: timeline,
+                providerAttempts: providerAttempts,
+                startedAt: startedAt
+            )
+            await recordDiagnostics(diagnostics)
+            return .failure(failure, diagnostics)
+
+        case .success(let sessions):
+            let validatedSessions = deduplicatedSessions(sessions)
+            guard !validatedSessions.isEmpty else {
+                let failure = StreamFailure(
+                    providerName: ProviderSlot.coreMedia.rawValue,
+                    category: .noProviderAvailable,
+                    technicalMessage: "Web resolution completed without a validated StreamSession.",
+                    userMessage: "No playable stream is available for this match right now.",
+                    retryable: true,
+                    fallbackAllowed: false
+                )
                 let diagnostics = makeDiagnostics(
                     attemptID: attemptID,
                     request: request,
@@ -957,102 +1264,33 @@ actor LiveStreamResolver {
                 await recordDiagnostics(diagnostics)
                 return .failure(failure, diagnostics)
             }
-        }
 
-        let deduplicated = deduplicatedSessions(validatedSessions)
-        guard !deduplicated.isEmpty else {
-            let failure = StreamFailure(
-                providerName: nil,
-                category: .noProviderAvailable,
-                technicalMessage: "All providers completed without yielding a validated StreamSession.",
-                userMessage: "No playable stream is available for this match right now.",
-                retryable: true,
-                fallbackAllowed: false
+            appendEvent(
+                to: &timeline,
+                name: .readyToPlay,
+                request: request,
+                attemptID: attemptID,
+                providerName: validatedSessions.first?.providerName,
+                currentState: .readyToPlay,
+                redactedMetadata: ["session_count": "\(validatedSessions.count)"]
             )
             let diagnostics = makeDiagnostics(
                 attemptID: attemptID,
                 request: request,
-                finalState: .failed,
+                finalState: .readyToPlay,
                 timeline: timeline,
                 providerAttempts: providerAttempts,
                 startedAt: startedAt
             )
             await recordDiagnostics(diagnostics)
-            return .failure(failure, diagnostics)
-        }
-
-        currentState = .readyToPlay
-        appendEvent(
-            to: &timeline,
-            name: .readyToPlay,
-            request: request,
-            attemptID: attemptID,
-            providerName: deduplicated.first?.providerName,
-            currentState: currentState,
-            redactedMetadata: ["session_count": "\(deduplicated.count)"]
-        )
-        let diagnostics = makeDiagnostics(
-            attemptID: attemptID,
-            request: request,
-            finalState: currentState,
-            timeline: timeline,
-            providerAttempts: providerAttempts,
-            startedAt: startedAt
-        )
-        await recordDiagnostics(diagnostics)
-        return .success(
-            StreamResolutionSuccess(
-                attemptID: attemptID,
-                sessions: deduplicated,
-                diagnostics: diagnostics
+            return .success(
+                StreamResolutionSuccess(
+                    attemptID: attemptID,
+                    sessions: validatedSessions,
+                    diagnostics: diagnostics
+                )
             )
-        )
-    }
-
-    private func runProvider1Track(
-        request: StreamPlaybackRequest,
-        attemptID: String,
-        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?
-    ) async -> ProviderResolutionOutput {
-        var timeline: [StreamEventRecord] = []
-        var providerAttempts: [StreamProviderAttemptLog] = []
-        let result = await attemptProvider1(
-            request: request,
-            attemptID: attemptID,
-            timeline: &timeline,
-            providerAttempts: &providerAttempts,
-            onProgress: onProgress
-        )
-        return ProviderResolutionOutput(
-            providerName: ProviderSlot.coreMedia.rawValue,
-            result: result,
-            timeline: timeline,
-            providerAttempts: providerAttempts,
-            resolvedAt: Date()
-        )
-    }
-
-    private func runProvider2Track(
-        request: StreamPlaybackRequest,
-        attemptID: String,
-        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?
-    ) async -> ProviderResolutionOutput {
-        var timeline: [StreamEventRecord] = []
-        var providerAttempts: [StreamProviderAttemptLog] = []
-        let result = await attemptProvider2(
-            request: request,
-            attemptID: attemptID,
-            timeline: &timeline,
-            providerAttempts: &providerAttempts,
-            onProgress: onProgress
-        )
-        return ProviderResolutionOutput(
-            providerName: ProviderSlot.p2p.rawValue,
-            result: result,
-            timeline: timeline,
-            providerAttempts: providerAttempts,
-            resolvedAt: Date()
-        )
+        }
     }
 
     private func attemptProvider1(
@@ -1060,7 +1298,8 @@ actor LiveStreamResolver {
         attemptID: String,
         timeline: inout [StreamEventRecord],
         providerAttempts: inout [StreamProviderAttemptLog],
-        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?
+        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?,
+        report: @escaping StreamDiscoveryCoordinator.Reporter
     ) async -> Result<[StreamSession], StreamFailure> {
         await emitProgress(
             attemptID: attemptID,
@@ -1087,13 +1326,15 @@ actor LiveStreamResolver {
                 attemptID: attemptID,
                 timeline: &timeline,
                 providerAttempts: &providerAttempts,
-                onProgress: onProgress
+                onProgress: onProgress,
+                report: report
             )
 
             switch resolved {
             case .success(let sessions):
                 return .success(sessions)
             case .failure(let failure):
+                report(.failure(failure))
                 lastFailure = failure
                 let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1000)
                 providerAttempts.append(
@@ -1128,85 +1369,13 @@ actor LiveStreamResolver {
         )
     }
 
-    private func attemptProvider2(
-        request: StreamPlaybackRequest,
-        attemptID: String,
-        timeline: inout [StreamEventRecord],
-        providerAttempts: inout [StreamProviderAttemptLog],
-        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?
-    ) async -> Result<[StreamSession], StreamFailure> {
-        await emitProgress(
-            attemptID: attemptID,
-            state: .warmingUpP2P,
-            userMessage: "The stream is still preparing...",
-            technicalMessage: "Trying \(ProviderSlot.p2p.rawValue).",
-            providerName: ProviderSlot.p2p.rawValue,
-            onProgress: onProgress
-        )
-        appendEvent(
-            to: &timeline,
-            name: .provider2Started,
-            request: request,
-            attemptID: attemptID,
-            providerName: ProviderSlot.p2p.rawValue,
-            currentState: .warmingUpP2P
-        )
-
-        var lastFailure: StreamFailure?
-        for attempt in 1...resolverRetryLimit {
-            let startedAt = Date()
-            let resolved = await resolveP2PSessionsOnce(
-                request: request,
-                attemptID: attemptID,
-                timeline: &timeline,
-                providerAttempts: &providerAttempts,
-                onProgress: onProgress
-            )
-
-            switch resolved {
-            case .success(let sessions):
-                return .success(sessions)
-            case .failure(let failure):
-                lastFailure = failure
-                let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1000)
-                providerAttempts.append(
-                    StreamProviderAttemptLog(
-                        providerName: ProviderSlot.p2p.rawValue,
-                        responseTimeMs: elapsedMs,
-                        resolvedStreamType: .p2pProxyHLS,
-                        urlShape: failure.redactedMetadata["url_shape"] ?? "none",
-                        requiredHeaders: true,
-                        validationResult: "failed",
-                        manifestResult: failure.redactedMetadata["manifest_result"],
-                        segmentResult: failure.redactedMetadata["segment_result"],
-                        finalFailureCategory: failure.category
-                    )
-                )
-                guard failure.retryable, attempt < resolverRetryLimit else {
-                    return .failure(failure)
-                }
-            }
-        }
-
-        return .failure(
-            lastFailure
-                ?? StreamFailure(
-                    providerName: ProviderSlot.p2p.rawValue,
-                    category: .providerReturnedEmpty,
-                    technicalMessage: "\(ProviderSlot.p2p.rawValue) returned no playable sources.",
-                    userMessage: "No playable stream is available for this match right now.",
-                    retryable: true,
-                    fallbackAllowed: false
-                )
-        )
-    }
-
     private func resolveCoreMediaSessionsOnce(
         request: StreamPlaybackRequest,
         attemptID: String,
         timeline: inout [StreamEventRecord],
         providerAttempts: inout [StreamProviderAttemptLog],
-        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?
+        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?,
+        report: @escaping StreamDiscoveryCoordinator.Reporter
     ) async -> Result<[StreamSession], StreamFailure> {
         guard !Task.isCancelled else {
             return .failure(cancelledFailure(.navigationCancelled, "Cancelled before core media resolution."))
@@ -1289,12 +1458,12 @@ actor LiveStreamResolver {
         let allowedCodes = StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes: enabledCodes)
         let sourceDescriptors = rawDescriptors
             .filter { descriptor in
-                let source = descriptor.source.lowercased()
-                return (allowedCodes.contains("streamex") && ["admin", "delta", "echo", "golf", "india"].contains(source))
-                    || (allowedCodes.contains("score808") && source == "hotel")
+                guard let owner = StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: descriptor.source)
+                else { return false }
+                return allowedCodes.contains(owner)
             }
             .sorted { lhs, rhs in
-                let order = ["admin", "delta", "echo", "golf", "india", "hotel"]
+                let order = CuratedStreamSourceCatalog.all.flatMap(\.catalogSourceCodes)
                 let li = order.firstIndex(of: lhs.source.lowercased()) ?? order.count
                 let ri = order.firstIndex(of: rhs.source.lowercased()) ?? order.count
                 return li < ri
@@ -1309,63 +1478,39 @@ actor LiveStreamResolver {
             currentState: .resolving,
             redactedMetadata: ["source_count": "\(sourceDescriptors.count)"]
         )
+        if let event = timeline.last { report(.event(event)) }
 
-        var actualCandidateGroups: [[AnalyticalDataEngine.StreamCandidate]] = []
-
-        for descriptor in sourceDescriptors {
-            if Task.isCancelled {
-                return .failure(cancelledFailure(.navigationCancelled, "Cancelled during core media candidate scan."))
-            }
-
-            let webCandidates = await AnalyticalDataEngine.streamCandidates(
-                for: descriptor,
-                synthesizeWhenEmpty: false
-            )
-                .filter { !isP2PCandidate($0) }
-            if !webCandidates.isEmpty {
-                actualCandidateGroups.append(webCandidates)
-            }
-        }
-
-        var curatedCandidates = AnalyticalDataEngine.curatedPlaybackCandidates(
-            from: actualCandidateGroups,
-            limit: 12
-        )
-
-        // A canonical URL remains a last-resort path only when the catalog has
-        // no variants at all. Never mix invented rows into an event which has
-        // real catalog choices, and never fabricate both #1 and #2.
-        if curatedCandidates.isEmpty {
-            curatedCandidates = sourceDescriptors.compactMap { descriptor in
-                guard AnalyticalDataEngine.supportsCanonicalEmbedFallback(
-                    sourceCode: descriptor.source
-                ) else { return nil }
-                guard let embedURL = AnalyticalDataEngine.canonicalEmbedURL(
-                    for: descriptor,
-                    streamNo: 1
-                ) else { return nil }
-                return AnalyticalDataEngine.StreamCandidate(
-                    sourceCode: descriptor.source,
-                    streamNo: 1,
-                    language: nil,
-                    isHD: true,
-                    heatTier: "last_resort",
-                    embedURL: embedURL,
-                    catalogProvider: "embed.st"
-                )
+        let descriptors = sourceDescriptors.map { descriptor in
+            let family = descriptor.source.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let fallback: AnalyticalDataEngine.StreamCandidate?
+            if AnalyticalDataEngine.supportsCanonicalEmbedFallback(sourceCode: family),
+               let url = AnalyticalDataEngine.canonicalEmbedURL(for: descriptor, streamNo: 1) {
+                fallback = AnalyticalDataEngine.StreamCandidate(sourceCode: family, streamNo: 1,
+                    language: nil, isHD: true, heatTier: "last_resort", embedURL: url, catalogProvider: "embed.st")
+            } else { fallback = nil }
+            return SharedStreamDiscovery.Descriptor(id: "\(family)|\(descriptor.id)", family: family, fallback: fallback) { publish in
+                let candidates = await AnalyticalDataEngine.streamCandidates(for: descriptor, synthesizeWhenEmpty: false,
+                    onCandidates: { candidates in
+                        publish(.candidates(Self.admittedSharedCandidates(candidates, allowedCodes: allowedCodes)))
+                    },
+                    onEmptyCatalog: { publish(.emptyCatalog) },
+                    onFailure: { mirror, error in
+                        publish(.failure(Self.sharedCatalogFailure(error, mirror: mirror, family: family)))
+                    })
+                return Self.admittedSharedCandidates(candidates, allowedCodes: allowedCodes)
             }
         }
-
-        let webEmbedSessions = await validateWebEmbedFallbackSessions(
-            from: curatedCandidates,
-            request: request,
-            attemptID: attemptID,
-            timeline: &timeline,
-            providerAttempts: &providerAttempts
-        )
+        let validationBatch = await SharedStreamDiscovery.collect(descriptors: descriptors,
+            validate: { candidate in
+                await self.validateWebEmbedCandidate(candidate, request: request, providerName: candidate.sourceCode,
+                    onFailure: { failure in report(.failure(failure)) })
+            },
+            report: { update in
+                await self.reportSharedUpdate(update, request: request, attemptID: attemptID, report: report)
+            })
 
         let sessions = LiveSourceHealthStore.rankedSessions(
-            deduplicatedSessions(webEmbedSessions).filter { session in
+            deduplicatedSessions(validationBatch.sessions).filter { session in
                 allowedCodes.contains { code in
                     StreamPluginProviderMatching.matches(session.legacySource, code: code)
                 }
@@ -1373,6 +1518,11 @@ actor LiveStreamResolver {
         )
 
         guard !sessions.isEmpty else {
+            if let actionableFailure = StreamTransportFailurePolicy.mostActionableFailure(
+                in: validationBatch.failures
+            ) {
+                return .failure(actionableFailure)
+            }
             return .failure(
                 StreamFailure(
                     providerName: ProviderSlot.coreMedia.rawValue,
@@ -1400,302 +1550,90 @@ actor LiveStreamResolver {
         return .success(sessions)
     }
 
-    private func resolveP2PSessionsOnce(
-        request: StreamPlaybackRequest,
-        attemptID: String,
-        timeline: inout [StreamEventRecord],
-        providerAttempts: inout [StreamProviderAttemptLog],
-        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?
-    ) async -> Result<[StreamSession], StreamFailure> {
-        guard !Task.isCancelled else {
-            return .failure(cancelledFailure(.navigationCancelled, "Cancelled before P2P resolution."))
+    nonisolated private static func admittedSharedCandidates(
+        _ candidates: [AnalyticalDataEngine.StreamCandidate], allowedCodes: [String]
+    ) -> [AnalyticalDataEngine.StreamCandidate] {
+        candidates.filter {
+            let url = $0.embedURL.lowercased()
+            guard !url.contains("acestream://"), !url.contains("/proxy/acestream/"),
+                  let code = StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: $0.sourceCode)
+            else { return false }
+            return allowedCodes.contains(code)
         }
-
-        let allowCategoryFallback = shouldAllowSportChannelFallback(for: request.category)
-
-        func loadP2PSources(allowSportChannelFallback: Bool) async -> Result<[StreamSource], StreamFailure> {
-            do {
-                let sources = try await P2PDataService.shared.findStreams(
-                    homeTeam: request.homeTeam,
-                    awayTeam: request.awayTeam,
-                    category: request.category,
-                    allowSportChannelFallback: allowSportChannelFallback
-                )
-                guard !sources.isEmpty else {
-                    return .failure(
-                        StreamFailure(
-                            providerName: ProviderSlot.p2p.rawValue,
-                            category: .providerReturnedEmpty,
-                            technicalMessage: allowSportChannelFallback
-                                ? "P2P sport-channel fallback returned zero preflighted sources."
-                                : "P2P exact-match search returned zero preflighted sources.",
-                            userMessage: "No playable stream is available for this match right now.",
-                            retryable: true,
-                            fallbackAllowed: allowCategoryFallback && !allowSportChannelFallback
-                        )
-                    )
-                }
-                return .success(sources)
-            } catch {
-                return .failure(
-                    failureFromError(
-                        providerName: ProviderSlot.p2p.rawValue,
-                        fallbackAllowed: allowCategoryFallback && !allowSportChannelFallback,
-                        defaultUserMessage: "No playable stream is available for this match right now.",
-                        error: error,
-                        defaultCategory: .providerReturnedEmpty
-                    )
-                )
-            }
-        }
-
-        var candidateGroups: [(strategy: String, sources: [StreamSource])] = []
-        var initialFailure: StreamFailure?
-
-        switch await loadP2PSources(allowSportChannelFallback: false) {
-        case .success(let exactSources):
-            candidateGroups.append(("exact-match", exactSources))
-        case .failure(let failure):
-            initialFailure = failure
-        }
-
-        if allowCategoryFallback {
-            switch await loadP2PSources(allowSportChannelFallback: true) {
-            case .success(let fallbackSources):
-                let existingIDs = Set(candidateGroups.flatMap(\.sources).map(\.id))
-                let uniqueFallbackSources = fallbackSources.filter { !existingIDs.contains($0.id) }
-                if !uniqueFallbackSources.isEmpty {
-                    candidateGroups.append(("sport-channel", uniqueFallbackSources))
-                }
-            case .failure(let failure):
-                initialFailure = initialFailure ?? failure
-            }
-        }
-
-        guard !candidateGroups.isEmpty else {
-            if let initialFailure {
-                appendEvent(
-                    to: &timeline,
-                    name: .provider2ValidationFailed,
-                    request: request,
-                    attemptID: attemptID,
-                    providerName: ProviderSlot.p2p.rawValue,
-                    currentState: .failed,
-                    failureCategory: initialFailure.category,
-                    redactedMetadata: initialFailure.redactedMetadata
-                )
-                return .failure(initialFailure)
-            }
-
-            return .failure(
-                StreamFailure(
-                    providerName: ProviderSlot.p2p.rawValue,
-                    category: .providerReturnedEmpty,
-                    technicalMessage: "P2P provider returned zero preflighted sources.",
-                    userMessage: "No playable stream is available for this match right now.",
-                    retryable: true,
-                    fallbackAllowed: false
-                )
-            )
-        }
-
-        var sessions: [StreamSession] = []
-        var lastFailure: StreamFailure?
-
-        for (groupIndex, group) in candidateGroups.enumerated() {
-            if groupIndex > 0 {
-                appendEvent(
-                    to: &timeline,
-                    name: .fallbackStarted,
-                    request: request,
-                    attemptID: attemptID,
-                    providerName: ProviderSlot.p2p.rawValue,
-                    currentState: .fallingBack,
-                    redactedMetadata: ["strategy": group.strategy]
-                )
-                await emitProgress(
-                    attemptID: attemptID,
-                    state: .fallingBack,
-                    userMessage: "Trying another source...",
-                    technicalMessage: "P2P is trying \(group.strategy) channels.",
-                    providerName: ProviderSlot.p2p.rawValue,
-                    onProgress: onProgress
-                )
-            }
-
-            appendEvent(
-                to: &timeline,
-                name: .provider2Resolved,
-                request: request,
-                attemptID: attemptID,
-                providerName: ProviderSlot.p2p.rawValue,
-                currentState: .warmingUpP2P,
-                redactedMetadata: [
-                    "source_count": "\(group.sources.count)",
-                    "strategy": group.strategy
-                ]
-            )
-
-            for source in group.sources {
-                if Task.isCancelled {
-                    return .failure(cancelledFailure(.navigationCancelled, "Cancelled during P2P validation."))
-                }
-
-                let validation = await validateP2PSource(
-                    source,
-                    request: request,
-                    attemptID: attemptID,
-                    timeline: &timeline,
-                    providerAttempts: &providerAttempts,
-                    onProgress: onProgress
-                )
-
-                switch validation {
-                case .success(let session):
-                    sessions.append(session)
-                    if groupIndex > 0 {
-                        appendEvent(
-                            to: &timeline,
-                            name: .fallbackSucceeded,
-                            request: request,
-                            attemptID: attemptID,
-                            providerName: ProviderSlot.p2p.rawValue,
-                            currentState: .readyToPlay,
-                            redactedMetadata: ["strategy": group.strategy]
-                        )
-                    }
-                    if sessions.count >= maxP2PSessionsPerResolutionAttempt {
-                        return .success(sessions)
-                    }
-                case .failure(let failure):
-                    lastFailure = failure
-                }
-            }
-        }
-
-        // If at least one source validated, succeed even when we never hit the early return
-        // (e.g. exact-match had only one passing warmup — previously this fell through to failure).
-        if !sessions.isEmpty {
-            return .success(sessions)
-        }
-
-        return .failure(
-            lastFailure
-                ?? initialFailure
-                ?? StreamFailure(
-                    providerName: ProviderSlot.p2p.rawValue,
-                    category: .p2pWarmupFailed,
-                    technicalMessage: "P2P provider returned sources, but none survived warmup validation.",
-                    userMessage: "No playable stream is available for this match right now.",
-                    retryable: true,
-                    fallbackAllowed: false
-                )
-        )
     }
 
-    private func validateWebEmbedFallbackSessions(
-        from candidates: [AnalyticalDataEngine.StreamCandidate],
-        request: StreamPlaybackRequest,
-        attemptID: String,
-        timeline: inout [StreamEventRecord],
-        providerAttempts: inout [StreamProviderAttemptLog]
-    ) async -> [StreamSession] {
-        var sessions: [StreamSession] = []
+    nonisolated private static func sharedCatalogFailure(_ error: Error, mirror: String, family: String) -> StreamFailure {
+        let metadata = ["discovery_phase": "catalog", "catalog_mirror": mirror, "scope": "selected_descriptor"]
+        if let code = StreamTransportFailurePolicy.urlErrorCode(from: error) {
+            return StreamTransportFailurePolicy.makeFailure(providerName: family, code: code,
+                technicalMessage: "Selected descriptor catalog request failed.",
+                defaultCategory: .manifestUnreachable,
+                defaultUserMessage: "This broadcast provider could not be checked just now.",
+                fallbackAllowed: true, redactedMetadata: metadata)
+        }
+        return StreamFailure(providerName: family, category: .manifestUnreachable,
+            technicalMessage: "Selected descriptor catalog request failed.",
+            userMessage: "This broadcast provider could not be checked just now.",
+            retryable: true, fallbackAllowed: true, redactedMetadata: metadata)
+    }
 
-        for candidate in candidates {
-            guard sessions.count < maxWebEmbedFallbackSessionsPerResolution else { break }
-            guard !Task.isCancelled else { break }
-
-            let startedAt = Date()
-            appendEvent(
-                to: &timeline,
-                name: .provider1ValidationStarted,
-                request: request,
-                attemptID: attemptID,
-                providerName: ProviderSlot.coreMedia.rawValue,
-                currentState: .validating,
-                redactedMetadata: [
-                    "mode": "web_embed",
-                    "url_shape": redactURLShape(candidate.embedURL),
-                    "stream_no": "\(candidate.streamNo)"
-                ]
-            )
-
-            let validation = await validateWebEmbedCandidate(
-                candidate,
-                request: request,
-                providerName: ProviderSlot.coreMedia.rawValue
-            )
-            let elapsedMs = Int(Date().timeIntervalSince(startedAt) * 1000)
-
+    private func reportSharedUpdate(_ update: SharedStreamDiscovery.Update,
+        request: StreamPlaybackRequest, attemptID: String, report: StreamDiscoveryCoordinator.Reporter
+    ) {
+        switch update {
+        case .fairOpportunity: report(.fairOpportunity)
+        case .lookupFailure(let failure):
+            report(.failure(failure))
+            report(.attempt(StreamProviderAttemptLog(providerName: failure.providerName ?? ProviderSlot.coreMedia.rawValue,
+                responseTimeMs: 0, resolvedStreamType: .unknown, urlShape: "catalog_descriptor",
+                requiredHeaders: false, validationResult: "catalog_failed",
+                manifestResult: failure.redactedMetadata["discovery_phase"], finalFailureCategory: failure.category)))
+        case .validationStarted(let candidate):
+            report(.event(StreamEventRecord(name: .provider1ValidationStarted, matchID: request.matchID,
+                matchTitle: request.displayTitle, providerName: candidate.sourceCode, attemptID: attemptID,
+                currentState: .validating, redactedMetadata: ["mode": "incremental_web_embed",
+                    "url_shape": redactURLShape(candidate.embedURL), "stream_no": "\(candidate.streamNo)"])))
+        case .validated(let candidate, let validation, let elapsed, let publish):
+            let failure: StreamFailure?
+            let session: StreamSession?
             switch validation {
-            case .success(let session):
-                sessions.append(session)
-                providerAttempts.append(
-                    StreamProviderAttemptLog(
-                        providerName: ProviderSlot.coreMedia.rawValue,
-                        responseTimeMs: elapsedMs,
-                        resolvedStreamType: session.streamType,
-                        urlShape: redactURL(session.playableURL),
-                        requiredHeaders: !session.requiredHeaders.isEmpty,
-                        validationResult: "validated_web_embed",
-                        manifestResult: session.diagnosticMetadata["manifest_result"],
-                        segmentResult: session.diagnosticMetadata["segment_result"]
-                    )
-                )
-                appendEvent(
-                    to: &timeline,
-                    name: .provider1ValidationSucceeded,
-                    request: request,
-                    attemptID: attemptID,
-                    providerName: ProviderSlot.coreMedia.rawValue,
-                    currentState: .validating,
-                    redactedMetadata: [
-                        "mode": "web_embed",
-                        "url_shape": redactURL(session.playableURL)
-                    ]
-                )
-            case .failure(let failure):
-                providerAttempts.append(
-                    StreamProviderAttemptLog(
-                        providerName: ProviderSlot.coreMedia.rawValue,
-                        responseTimeMs: elapsedMs,
-                        resolvedStreamType: .unknown,
-                        urlShape: failure.redactedMetadata["url_shape"] ?? redactURLShape(candidate.embedURL),
-                        requiredHeaders: true,
-                        validationResult: "failed_web_embed",
-                        manifestResult: failure.redactedMetadata["manifest_result"],
-                        segmentResult: failure.redactedMetadata["segment_result"],
-                        finalFailureCategory: failure.category
-                    )
-                )
-                appendEvent(
-                    to: &timeline,
-                    name: .provider1ValidationFailed,
-                    request: request,
-                    attemptID: attemptID,
-                    providerName: ProviderSlot.coreMedia.rawValue,
-                    currentState: .validating,
-                    failureCategory: failure.category,
-                    redactedMetadata: failure.redactedMetadata.merging(["mode": "web_embed"]) { current, _ in current }
-                )
+            case .success(let value):
+                session = value; failure = nil
+                if publish { report(.partialSession(value)) }
+            case .failure(let value):
+                session = nil; failure = value
+                report(.failure(value))
             }
+            report(.attempt(StreamProviderAttemptLog(providerName: candidate.sourceCode,
+                responseTimeMs: elapsed, resolvedStreamType: session?.streamType ?? .unknown,
+                urlShape: redactURLShape(candidate.embedURL), requiredHeaders: true,
+                validationResult: session == nil ? "failed_web_embed" : "validated_web_embed",
+                manifestResult: session?.diagnosticMetadata["manifest_result"] ?? failure?.redactedMetadata["manifest_result"],
+                segmentResult: session?.diagnosticMetadata["segment_result"] ?? failure?.redactedMetadata["segment_result"],
+                finalFailureCategory: failure?.category)))
+            report(.event(StreamEventRecord(name: session == nil ? .provider1ValidationFailed : .provider1ValidationSucceeded,
+                matchID: request.matchID, matchTitle: request.displayTitle, providerName: candidate.sourceCode,
+                attemptID: attemptID, currentState: .validating, failureCategory: failure?.category,
+                redactedMetadata: ["mode": "incremental_web_embed", "url_shape": redactURLShape(candidate.embedURL)])))
         }
-
-        return sessions
     }
 
-    private func validateWebEmbedCandidate(
+    func validateWebEmbedCandidate(
         _ candidate: AnalyticalDataEngine.StreamCandidate,
         request: StreamPlaybackRequest,
-        providerName: String
+        providerName: String,
+        onFailure: (@Sendable (StreamFailure) -> Void)? = nil
     ) async -> Result<StreamSession, StreamFailure> {
-        guard let url = URL(string: candidate.embedURL) else {
+        guard let url = URL(string: candidate.embedURL),
+              StreamPluginProviderMatching.allowsSharedPlaybackURL(
+                url,
+                sourceCode: candidate.sourceCode
+              ) else {
             return .failure(
                 StreamFailure(
                     providerName: providerName,
                     category: .invalidURL,
-                    technicalMessage: "Web embed candidate was not a valid URL.",
+                    technicalMessage: "Web embed candidate was outside Fotty's approved HTTPS provider origins.",
                     userMessage: "No playable stream is available for this match right now.",
                     retryable: false,
                     fallbackAllowed: true,
@@ -1712,8 +1650,23 @@ actor LiveStreamResolver {
         // embed.st intermittently returns ~1KB empty JW shells; retry before rejecting Score808/StreamEx.
         let maxAttempts = candidate.sourceCode.lowercased() == "hotel" ? 3 : 2
         var lastFailure: StreamFailure?
+        func rejectedRedirectFailure() -> StreamFailure {
+            StreamFailure(providerName: providerName, category: .invalidURL,
+                technicalMessage: "Web embed validation rejected an unreviewed redirect destination.",
+                userMessage: "This broadcast source could not be opened. Try another source.",
+                retryable: false, fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "web_embed_redirect_rejected"])
+        }
 
         for attempt in 1...maxAttempts {
+            let previousFailureID = lastFailure?.id
+            defer {
+                // A later retry/deadline must not erase an already observed
+                // certificate, authorization or explicit provider failure.
+                if !Task.isCancelled, let failure = lastFailure, failure.id != previousFailureID {
+                    onFailure?(failure)
+                }
+            }
             if Task.isCancelled {
                 return .failure(cancelledFailure(.navigationCancelled, "Web embed validation cancelled."))
             }
@@ -1731,8 +1684,16 @@ actor LiveStreamResolver {
             }
             urlRequest.setValue("text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", forHTTPHeaderField: "Accept")
 
+            let redirects = SharedEmbedRedirectDelegate(sourceCode: candidate.sourceCode)
             do {
-                let (bytes, response) = try await validationSession.bytes(for: urlRequest)
+                let (bytes, response) = try await validationSession.bytes(for: urlRequest, delegate: redirects)
+                defer { bytes.task.cancel() }
+                guard !redirects.rejectedRedirect,
+                      response.url.map({ StreamPluginProviderMatching.allowsSharedPlaybackURL($0, sourceCode: candidate.sourceCode) }) == true else {
+                    let failure = rejectedRedirectFailure()
+                    lastFailure = failure
+                    return .failure(failure)
+                }
                 guard let httpResponse = response as? HTTPURLResponse else {
                     lastFailure = StreamFailure(
                         providerName: providerName,
@@ -1763,9 +1724,9 @@ actor LiveStreamResolver {
                 }
 
                 let contentType = (httpResponse.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
-                // Real embed.st players ship ~600KB of inline config; ad-only stubs are ~1–2KB
-                // and produce hls:networkError_manifestLoadError inside the web player.
-                let prefix = try await readPrefix(from: bytes, limit: 8192, minimumBytes: 256)
+                // Read the actual bounded prefix, including rejection text after
+                // the first 256 bytes. HTML reachability is not playback proof.
+                let prefix = try await readPrefix(from: bytes, limit: 8192)
                 let bodyPreview = String(data: prefix, encoding: .utf8) ?? ""
                 let bodyLower = bodyPreview.lowercased()
                 let looksLikeEmbedPage = contentType.contains("text/html")
@@ -1831,12 +1792,18 @@ actor LiveStreamResolver {
                     )
                 )
             } catch {
+                if redirects.rejectedRedirect, !Task.isCancelled {
+                    let failure = rejectedRedirectFailure()
+                    lastFailure = failure
+                    return .failure(failure)
+                }
                 lastFailure = failureFromError(
                     providerName: providerName,
                     fallbackAllowed: true,
                     defaultUserMessage: "No playable stream is available for this match right now.",
                     error: error,
-                    defaultCategory: .manifestUnreachable
+                    defaultCategory: .manifestUnreachable,
+                    redactedMetadata: ["url_shape": redactURL(url)]
                 )
             }
         }
@@ -1932,557 +1899,61 @@ actor LiveStreamResolver {
         return "\(scheme)://\(host)"
     }
 
-    private func validateDirectSource(
-        _ source: StreamSource,
-        request: StreamPlaybackRequest,
-        providerName: String
-    ) async -> Result<StreamSession, StreamFailure> {
-        let validationStart = Date()
-
-        if let unsupported = unsupportedFailureIfNeeded(for: source.url, providerName: providerName) {
-            return .failure(unsupported)
+    func resolveCatalogEvent(
+        for request: StreamPlaybackRequest,
+        fetch: @escaping @Sendable (Duration) async throws -> [AnalyticalDataEngine.EventReference] = { budget in
+            try await AnalyticalDataEngine.fetchLiveEvents_NexusAImplementation(budget: budget)
+        },
+        lateRefreshTimeout: Duration = .seconds(3)
+    ) async throws -> AnalyticalDataEngine.EventReference? {
+        if let association = request.registryMatch {
+            // A cloud association chooses the advertised primary event ID.
+            // Fresh primary facts and existing source guards must still agree.
+            let events = try await fetch(.seconds(7))
+            try Task.checkCancellation()
+            let receipt = Date()
+            switch await CatalogPlaybackIdentity.registeredSelection(for: request, in: events,
+                catalogObservedAt: receipt, association: association, at: receipt) {
+            case .matched(let event): return event
+            case .missing, .conflicting: return nil
+            }
         }
-
-        var urlRequest = URLRequest(url: source.url)
-        urlRequest.timeoutInterval = 5
-        applyHeaders(source.headers, to: &urlRequest)
-        urlRequest.setValue("*/*", forHTTPHeaderField: "Accept")
-
-        do {
-            let (bytes, response) = try await validationSession.bytes(for: urlRequest)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                return .failure(
-                    StreamFailure(
-                        providerName: providerName,
-                        category: .invalidURL,
-                        technicalMessage: "Validation response was not HTTP.",
-                        userMessage: "No playable stream is available for this match right now.",
-                        retryable: false,
-                        fallbackAllowed: true,
-                        redactedMetadata: ["url_shape": redactURL(source.url)]
-                    )
-                )
-            }
-
-            guard (200...299).contains(httpResponse.statusCode) else {
-                return .failure(
-                    StreamFailure(
-                        providerName: providerName,
-                        category: httpResponse.statusCode == 401 || httpResponse.statusCode == 403 ? .authFailed : .manifestUnreachable,
-                        technicalMessage: "Validation returned HTTP \(httpResponse.statusCode).",
-                        userMessage: "No playable stream is available for this match right now.",
-                        retryable: httpResponse.statusCode >= 500,
-                        fallbackAllowed: true,
-                        redactedMetadata: [
-                            "url_shape": redactURL(source.url),
-                            "status_code": "\(httpResponse.statusCode)"
-                        ]
-                    )
-                )
-            }
-
-            let contentType = (httpResponse.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased()
-            let initialData = try await readPrefix(from: bytes, limit: 4096, minimumBytes: 512)
-            let elapsedMs = Int(Date().timeIntervalSince(validationStart) * 1000)
-
-            if isHLS(url: source.url, contentType: contentType, data: initialData) {
-                guard let manifest = String(data: initialData, encoding: .utf8), manifest.contains("#EXTM3U") else {
-                    return .failure(
-                        StreamFailure(
-                            providerName: providerName,
-                            category: .manifestInvalid,
-                            technicalMessage: "Manifest payload did not contain #EXTM3U.",
-                            userMessage: "No playable stream is available for this match right now.",
-                            retryable: false,
-                            fallbackAllowed: true,
-                            redactedMetadata: [
-                                "url_shape": redactURL(source.url),
-                                "manifest_result": "missing_extm3u"
-                            ]
-                        )
-                    )
-                }
-
-                guard let firstSegment = firstSegmentURL(in: manifest, relativeTo: source.url) else {
-                    return .failure(
-                        StreamFailure(
-                            providerName: providerName,
-                            category: .manifestInvalid,
-                            technicalMessage: "Manifest contained no playable segment entries.",
-                            userMessage: "No playable stream is available for this match right now.",
-                            retryable: false,
-                            fallbackAllowed: true,
-                            redactedMetadata: [
-                                "url_shape": redactURL(source.url),
-                                "manifest_result": "empty_segments"
-                            ]
-                        )
-                    )
-                }
-
-                let segmentValidation = await validateSegment(
-                    segmentURL: firstSegment,
-                    headers: source.headers,
-                    providerName: providerName
-                )
-
-                switch segmentValidation {
-                case .success(let segmentBytes):
-                    return .success(
-                        StreamSession(
-                            matchID: request.matchID,
-                            title: source.title ?? request.displayTitle,
-                            playableURL: source.url,
-                            streamType: .hls,
-                            providerName: source.provider,
-                            requiredHeaders: source.headers,
-                            qualityLabel: source.quality,
-                            validationStatus: .validated,
-                            diagnosticMetadata: [
-                                "url_shape": redactURL(source.url),
-                                "manifest_result": "ok",
-                                "segment_result": "ok",
-                                "segment_bytes": "\(segmentBytes)",
-                                "validation_ms": "\(elapsedMs)"
-                            ],
-                            activePeers: source.activePeers
-                        )
-                    )
-                case .failure(let failure):
-                    return .failure(failure)
-                }
-            }
-
-            if initialData.count < 256 {
-                return .failure(
-                    StreamFailure(
-                        providerName: providerName,
-                        category: .segmentUnreachable,
-                        technicalMessage: "Validation returned only \(initialData.count) bytes.",
-                        userMessage: "No playable stream is available for this match right now.",
-                        retryable: true,
-                        fallbackAllowed: true,
-                        redactedMetadata: [
-                            "url_shape": redactURL(source.url),
-                            "segment_result": "short_body"
-                        ]
-                    )
-                )
-            }
-
-            let streamType: StreamType = isMP4(url: source.url, contentType: contentType) ? .mp4 : .unknown
-            return .success(
-                StreamSession(
-                    matchID: request.matchID,
-                    title: source.title ?? request.displayTitle,
-                    playableURL: source.url,
-                    streamType: streamType,
-                    providerName: source.provider,
-                    requiredHeaders: source.headers,
-                    qualityLabel: source.quality,
-                    validationStatus: .validated,
-                    diagnosticMetadata: [
-                        "url_shape": redactURL(source.url),
-                        "manifest_result": "not_applicable",
-                        "segment_result": "ok",
-                        "validation_ms": "\(elapsedMs)"
-                    ],
-                    activePeers: source.activePeers
-                )
-            )
-        } catch is CancellationError {
-            return .failure(cancelledFailure(.navigationCancelled, "Direct source validation cancelled."))
-        } catch let error as URLError {
-            return .failure(
-                StreamFailure(
-                    providerName: providerName,
-                    category: error.code == .timedOut ? .providerTimeout : .manifestUnreachable,
-                    technicalMessage: error.localizedDescription,
-                    userMessage: "No playable stream is available for this match right now.",
-                    retryable: error.code == .timedOut || error.code == .networkConnectionLost,
-                    fallbackAllowed: true,
-                    redactedMetadata: ["url_shape": redactURL(source.url)]
-                )
-            )
-        } catch {
-            return .failure(
-                failureFromError(
-                    providerName: providerName,
-                    fallbackAllowed: true,
-                    defaultUserMessage: "No playable stream is available for this match right now.",
-                    error: error,
-                    defaultCategory: .unknown
-                )
-            )
-        }
-    }
-
-    private func validateP2PSource(
-        _ source: StreamSource,
-        request: StreamPlaybackRequest,
-        attemptID: String,
-        timeline: inout [StreamEventRecord],
-        providerAttempts: inout [StreamProviderAttemptLog],
-        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?
-    ) async -> Result<StreamSession, StreamFailure> {
-        let providerName = ProviderSlot.p2p.rawValue
-        let start = Date()
-
-        if let unsupported = unsupportedFailureIfNeeded(for: source.url, providerName: providerName) {
-            return .failure(unsupported)
-        }
-
-        appendEvent(
-            to: &timeline,
-            name: .provider2ValidationStarted,
-            request: request,
-            attemptID: attemptID,
-            providerName: providerName,
-            currentState: .warmingUpP2P,
-            redactedMetadata: ["url_shape": redactURL(source.url)]
+        let preferred = await CatalogPlaybackIdentity.matchingEvent(
+            for: request, in: request.preferredEvent.map { [$0] } ?? []
         )
-        appendEvent(
-            to: &timeline,
-            name: .p2pWarmupStarted,
-            request: request,
-            attemptID: attemptID,
-            providerName: providerName,
-            currentState: .warmingUpP2P,
-            redactedMetadata: ["url_shape": redactURL(source.url)]
-        )
+        let preferredHasSources = preferred?.sources?.isEmpty == false
+        let needsLateProviderRefresh = Score808LateDiscoveryPolicy.isLookupWindow(
+            kickoffDate: request.kickoffDate ?? preferred?.kickoffDate,
+            category: request.category
+        ) && preferred?.sources?.contains(where: {
+            $0.source.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "hotel"
+        }) != true
 
-        await emitProgress(
-            attemptID: attemptID,
-            state: .warmingUpP2P,
-            userMessage: "Connecting to P2P proxy...",
-            technicalMessage: "Preparing broker session (manifest + segment validation).",
-            providerName: providerName,
-            onProgress: onProgress
-        )
-
-        do {
-            let prepared = try await AceSessionEngine.shared.prepareSession(for: source, forceRestart: false) { snapshot in
-                await self.emitAceWarmupProgress(
-                    attemptID: attemptID,
-                    snapshot: snapshot,
-                    providerName: providerName,
-                    onProgress: onProgress
-                )
-            }
-            let urlShape = redactURL(prepared.playbackURL)
-            let session = StreamSession(
-                matchID: request.matchID,
-                title: source.title ?? request.displayTitle,
-                playableURL: prepared.playbackURL,
-                streamType: .p2pProxyHLS,
-                providerName: source.provider,
-                requiredHeaders: source.headers,
-                qualityLabel: source.quality,
-                expiryTime: prepared.expiresAt ?? prepared.preparedAt.addingTimeInterval(p2pReuseWindowSeconds),
-                leaseID: prepared.sessionID,
-                canRefresh: true,
-                validationStatus: .validated,
-                diagnosticMetadata: [
-                    "cid": prepared.cid,
-                    "url_shape": urlShape,
-                    "manifest_result": "ok",
-                    "segment_result": "ok",
-                    "session_state": prepared.lastStatus?.state ?? "ready"
-                ],
-                createdAt: prepared.preparedAt,
-                lastRefreshAt: prepared.preparedAt,
-                activePeers: source.activePeers ?? prepared.lastStatus?.peerCount
-            )
-            let elapsedMs = Int(Date().timeIntervalSince(start) * 1000)
-            providerAttempts.append(
-                StreamProviderAttemptLog(
-                    providerName: providerName,
-                    responseTimeMs: elapsedMs,
-                    resolvedStreamType: session.streamType,
-                    urlShape: urlShape,
-                    requiredHeaders: !session.requiredHeaders.isEmpty,
-                    validationResult: "validated",
-                    manifestResult: "ok",
-                    segmentResult: "ok"
-                )
-            )
-            appendEvent(
-                to: &timeline,
-                name: .p2pWarmupSucceeded,
-                request: request,
-                attemptID: attemptID,
-                providerName: providerName,
-                sessionID: prepared.sessionID,
-                currentState: .readyToPlay,
-                redactedMetadata: [
-                    "cid": prepared.cid,
-                    "url_shape": urlShape,
-                    "peer_count": "\(prepared.lastStatus?.peerCount ?? 0)"
-                ]
-            )
-            appendEvent(
-                to: &timeline,
-                name: .provider2ValidationSucceeded,
-                request: request,
-                attemptID: attemptID,
-                providerName: providerName,
-                sessionID: prepared.sessionID,
-                currentState: .readyToPlay,
-                redactedMetadata: ["cid": prepared.cid, "url_shape": urlShape]
-            )
-            return .success(session)
-        } catch let error as AceSessionEngine.PreparationError {
-            let category: StreamFailureCategory
-            switch error {
-            case .timedOut:
-                category = .p2pWarmupFailed
-            case .brokerSessionNotFound:
-                category = .p2pWarmupFailed
-            case .cancelled:
-                category = .navigationCancelled
-            case .invalidSource:
-                category = .rawP2PIDReturned
-            case .failed(let reason):
-                category = mapP2PReasonToCategory(reason)
-            }
-
-            let failure = StreamFailure(
-                providerName: providerName,
-                category: category,
-                technicalMessage: error.errorDescription ?? "P2P warmup failed.",
-                userMessage: category == .p2pProxyNotReady || category == .p2pWarmupFailed
-                    ? "The stream is still preparing..."
-                    : "No playable stream is available for this match right now.",
-                retryable: category == .p2pProxyNotReady || category == .p2pWarmupFailed || category == .p2pProxyUnreachable,
-                fallbackAllowed: false,
-                redactedMetadata: ["url_shape": redactURL(source.url)]
-            )
-            appendEvent(
-                to: &timeline,
-                name: .p2pWarmupFailed,
-                request: request,
-                attemptID: attemptID,
-                providerName: providerName,
-                currentState: .failed,
-                failureCategory: failure.category,
-                redactedMetadata: failure.redactedMetadata
-            )
-            appendEvent(
-                to: &timeline,
-                name: .provider2ValidationFailed,
-                request: request,
-                attemptID: attemptID,
-                providerName: providerName,
-                currentState: .failed,
-                failureCategory: failure.category,
-                redactedMetadata: failure.redactedMetadata
-            )
-            return .failure(failure)
-        } catch {
-            let failure = failureFromError(
-                providerName: providerName,
-                fallbackAllowed: false,
-                defaultUserMessage: "No playable stream is available for this match right now.",
-                error: error,
-                defaultCategory: .p2pWarmupFailed
-            )
-            appendEvent(
-                to: &timeline,
-                name: .provider2ValidationFailed,
-                request: request,
-                attemptID: attemptID,
-                providerName: providerName,
-                currentState: .failed,
-                failureCategory: failure.category,
-                redactedMetadata: failure.redactedMetadata
-            )
-            return .failure(failure)
-        }
-    }
-
-    private func resolveCatalogEvent(for request: StreamPlaybackRequest) async throws -> AnalyticalDataEngine.EventReference? {
-        if let preferred = request.preferredEvent,
-           let sources = preferred.sources,
-           !sources.isEmpty {
+        if preferredHasSources, !needsLateProviderRefresh {
             return preferred
         }
 
-        let allEvents = try await AnalyticalDataEngine.fetchLiveEvents_NexusAImplementation()
-        guard !allEvents.isEmpty else { return nil }
-
-        let targetCategory = request.category.lowercased()
-        let homePhrase = canonicalTeamPhrase(request.homeTeam)
-        let awayPhrase = canonicalTeamPhrase(request.awayTeam)
-        let kickoff = request.kickoffDate
-
-        struct EventSnapshot {
-            let event: AnalyticalDataEngine.EventReference
-            let normalizedCategory: String
-            let homeName: String
-            let awayName: String
-            let kickoffDate: Date?
-            let hasSources: Bool
-            let isPopular: Bool
-        }
-
-        let snapshots = await MainActor.run {
-            allEvents.map { event in
-                EventSnapshot(
-                    event: event,
-                    normalizedCategory: event.normalizedCategory.lowercased(),
-                    homeName: event.homeName,
-                    awayName: event.awayName,
-                    kickoffDate: event.kickoffDate,
-                    hasSources: !(event.sources ?? []).isEmpty,
-                    isPopular: event.popular == true
-                )
-            }
-        }
-
-        // Notification and Live Activity routes can cold-launch with only the
-        // provider catalog id. Resolve that exact identity before attempting
-        // fuzzy team-name matching, which has no useful input in this path.
-        if let exact = snapshots.first(where: {
-            CatalogRouteIdentity.matches(eventID: $0.event.id, requestedID: request.matchID)
-        }) {
-            return exact.event
-        }
-
-        return snapshots
-            .filter { snapshot in
-                targetCategory.isEmpty || snapshot.normalizedCategory == targetCategory
-            }
-            .map { snapshot -> (event: AnalyticalDataEngine.EventReference, score: Int, kickoffDate: Date?, homeOverlap: Int, awayOverlap: Int) in
-                let eventHome = canonicalTeamPhrase(snapshot.homeName)
-                let eventAway = canonicalTeamPhrase(snapshot.awayName)
-                let homeOverlap = tokenOverlapScore(lhs: homePhrase, rhs: eventHome)
-                let awayOverlap = tokenOverlapScore(lhs: awayPhrase, rhs: eventAway)
-                var score = 0
-
-                if eventHome == homePhrase { score += 60 }
-                if eventAway == awayPhrase { score += 60 }
-                if aliasesEquivalent(eventHome, homePhrase) { score += 50 }
-                if aliasesEquivalent(eventAway, awayPhrase) { score += 50 }
-                score += homeOverlap * 12
-                score += awayOverlap * 12
-
-                if let kickoff, let eventKickoff = snapshot.kickoffDate {
-                    let delta = abs(eventKickoff.timeIntervalSince(kickoff))
-                    if delta <= 15 * 60 {
-                        score += 35
-                    } else if delta <= 60 * 60 {
-                        score += 15
-                    }
-                }
-
-                if snapshot.hasSources {
-                    score += 10
-                }
-                if snapshot.isPopular {
-                    score += 2
-                }
-
-                return (snapshot.event, score, snapshot.kickoffDate, homeOverlap, awayOverlap)
-            }
-            .sorted { lhs, rhs in
-                if lhs.score != rhs.score {
-                    return lhs.score > rhs.score
-                }
-                let lhsDate = lhs.kickoffDate ?? .distantFuture
-                let rhsDate = rhs.kickoffDate ?? .distantFuture
-                return lhsDate < rhsDate
-            }
-            .first { candidate in
-                candidate.score >= 40
-                    || (candidate.homeOverlap > 0 && candidate.awayOverlap > 0 && candidate.score >= 24)
-            }?
-            .event
-    }
-
-    private func validateSegment(
-        segmentURL: URL,
-        headers: [String: String],
-        providerName: String
-    ) async -> Result<Int, StreamFailure> {
-        var request = URLRequest(url: segmentURL)
-        request.timeoutInterval = 8
-        applyHeaders(headers, to: &request)
-        request.setValue("bytes=0-1023", forHTTPHeaderField: "Range")
-        request.setValue("*/*", forHTTPHeaderField: "Accept")
-
+        let allEvents: [AnalyticalDataEngine.EventReference]
         do {
-            let (bytes, response) = try await validationSession.bytes(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                return .failure(
-                    StreamFailure(
-                        providerName: providerName,
-                        category: .segmentUnreachable,
-                        technicalMessage: "Segment probe response was not HTTP.",
-                        userMessage: "No playable stream is available for this match right now.",
-                        retryable: true,
-                        fallbackAllowed: true,
-                        redactedMetadata: ["url_shape": redactURL(segmentURL)]
-                    )
-                )
-            }
-            guard (200...299).contains(httpResponse.statusCode) else {
-                return .failure(
-                    StreamFailure(
-                        providerName: providerName,
-                        category: .segmentUnreachable,
-                        technicalMessage: "Segment probe returned HTTP \(httpResponse.statusCode).",
-                        userMessage: "No playable stream is available for this match right now.",
-                        retryable: httpResponse.statusCode >= 500,
-                        fallbackAllowed: true,
-                        redactedMetadata: [
-                            "url_shape": redactURL(segmentURL),
-                            "segment_result": "http_\(httpResponse.statusCode)"
-                        ]
-                    )
-                )
-            }
-
-            let prefix = try await readPrefix(from: bytes, limit: 2048, minimumBytes: 512)
-            guard prefix.count >= 512 else {
-                return .failure(
-                    StreamFailure(
-                        providerName: providerName,
-                        category: .segmentUnreachable,
-                        technicalMessage: "Segment probe returned only \(prefix.count) bytes.",
-                        userMessage: "No playable stream is available for this match right now.",
-                        retryable: true,
-                        fallbackAllowed: true,
-                        redactedMetadata: [
-                            "url_shape": redactURL(segmentURL),
-                            "segment_result": "short_body"
-                        ]
-                    )
-                )
-            }
-
-            return .success(prefix.count)
-        } catch let error as URLError {
-            return .failure(
-                StreamFailure(
-                    providerName: providerName,
-                    category: error.code == .timedOut ? .segmentUnreachable : .manifestUnreachable,
-                    technicalMessage: error.localizedDescription,
-                    userMessage: "No playable stream is available for this match right now.",
-                    retryable: true,
-                    fallbackAllowed: true,
-                    redactedMetadata: ["url_shape": redactURL(segmentURL)]
-                )
-            )
+            // The typed catalog collector owns this deadline and returns all
+            // completed observations, including conflict tombstones. An outer
+            // cancellation race would discard conflicts already seen before a
+            // slow mirror timed out and incorrectly revive a stale preferred ID.
+            // Only an admitted preferred event gets the optional 3s refresh;
+            // cold routes retain the catalog's full bounded admission scan.
+            allEvents = try await fetch(preferredHasSources ? lateRefreshTimeout : .seconds(7))
+            try Task.checkCancellation()
         } catch {
-            return .failure(
-                failureFromError(
-                    providerName: providerName,
-                    fallbackAllowed: true,
-                    defaultUserMessage: "No playable stream is available for this match right now.",
-                    error: error,
-                    defaultCategory: .segmentUnreachable
-                )
-            )
+            try Task.checkCancellation()
+            if preferredHasSources { return preferred }
+            throw error
+        }
+        guard !allEvents.isEmpty else { return preferred }
+
+        switch await CatalogPlaybackIdentity.selection(for: request, in: allEvents) {
+        case .matched(let event): return event
+        case .missing: return preferred
+        case .conflicting: return nil
         }
     }
 
@@ -2504,48 +1975,6 @@ actor LiveStreamResolver {
                 providerName: providerName
             )
         )
-    }
-
-    private func emitAceWarmupProgress(
-        attemptID: String,
-        snapshot: AceSessionEngine.SessionSnapshot,
-        providerName: String?,
-        onProgress: (@Sendable (StreamAttemptProgress) async -> Void)?
-    ) async {
-        let mapped = mapAceSnapshotToStreamProgress(snapshot)
-        await emitProgress(
-            attemptID: attemptID,
-            state: mapped.state,
-            userMessage: mapped.userMessage,
-            technicalMessage: mapped.technicalMessage,
-            providerName: providerName,
-            onProgress: onProgress
-        )
-    }
-
-    private func mapAceSnapshotToStreamProgress(_ snapshot: AceSessionEngine.SessionSnapshot)
-        -> (state: StreamLoadState, userMessage: String, technicalMessage: String?) {
-        switch snapshot.state {
-        case .idle:
-            return (.warmingUpP2P, "Connecting to P2P...", nil)
-        case .starting:
-            return (.warmingUpP2P, "Starting P2P session...", snapshot.message)
-        case .resolving:
-            return (.warmingUpP2P, "Looking for peers...", snapshot.message)
-        case .warming(let peers, let speed, _):
-            if peers > 0 {
-                return (.warmingUpP2P, "Warming P2P (\(peers) peers, \(Int(speed)) kbps)", snapshot.message)
-            }
-            return (.warmingUpP2P, "Warming P2P...", snapshot.message)
-        case .validatingManifest:
-            return (.validating, "Verifying stream...", snapshot.message)
-        case .ready:
-            return (.readyToPlay, "Stream ready.", snapshot.message)
-        case .failed(let reason):
-            return (.warmingUpP2P, reason, snapshot.message)
-        case .timedOut:
-            return (.failed, "P2P warmup timed out.", snapshot.message)
-        }
     }
 
     private func appendEvent(
@@ -2602,16 +2031,10 @@ actor LiveStreamResolver {
         #endif
     }
 
-    private func activeKey(for request: StreamPlaybackRequest) -> String {
-        let dateKey = request.kickoffDate.map { String(Int($0.timeIntervalSince1970)) } ?? "none"
-        return "\(request.homeTeam.lowercased())|\(request.awayTeam.lowercased())|\(dateKey)"
-    }
-
     private func deduplicatedSessions(_ sessions: [StreamSession]) -> [StreamSession] {
-        var seen = Set<String>()
+        var seen = Set<StreamDeliveryIdentity>()
         return sessions.filter { session in
-            let key = "\(session.providerName.lowercased())|\(redactURL(session.playableURL))"
-            return seen.insert(key).inserted
+            seen.insert(StreamDeliveryIdentity(url: session.playableURL, headers: session.requiredHeaders)).inserted
         }
     }
 
@@ -2624,18 +2047,6 @@ actor LiveStreamResolver {
                 userMessage: "No playable stream is available for this match right now.",
                 retryable: false,
                 fallbackAllowed: true
-            )
-        }
-
-        if scheme == "acestream" || scheme == "magnet" {
-            return StreamFailure(
-                providerName: providerName,
-                category: .rawP2PIDReturned,
-                technicalMessage: "Provider returned a raw P2P identifier instead of a proxy URL.",
-                userMessage: "No playable stream is available for this match right now.",
-                retryable: false,
-                fallbackAllowed: true,
-                redactedMetadata: ["url_shape": redactURL(url)]
             )
         }
 
@@ -2706,50 +2117,17 @@ actor LiveStreamResolver {
             || url.contains("/proxy/acestream/")
     }
 
-    private func isHLS(url: URL, contentType: String, data: Data) -> Bool {
-        if url.pathExtension.lowercased() == "m3u8" {
-            return true
-        }
-        if contentType.contains("mpegurl") || contentType.contains("application/x-mpegurl") {
-            return true
-        }
-        if let body = String(data: data, encoding: .utf8), body.contains("#EXTM3U") {
-            return true
-        }
-        return false
-    }
-
-    private func isMP4(url: URL, contentType: String) -> Bool {
-        let ext = url.pathExtension.lowercased()
-        return ext == "mp4" || contentType.contains("video/mp4")
-    }
-
     private func readPrefix(
         from bytes: URLSession.AsyncBytes,
-        limit: Int,
-        minimumBytes: Int
+        limit: Int
     ) async throws -> Data {
         var data = Data()
         var iterator = bytes.makeAsyncIterator()
         while data.count < limit,
               let byte = try await iterator.next() {
             data.append(byte)
-            if data.count >= minimumBytes {
-                break
-            }
         }
         return data
-    }
-
-    private func firstSegmentURL(in manifest: String, relativeTo baseURL: URL) -> URL? {
-        for rawLine in manifest.components(separatedBy: .newlines) {
-            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !line.isEmpty, !line.hasPrefix("#") else { continue }
-            if let resolved = URL(string: line, relativeTo: baseURL)?.absoluteURL {
-                return resolved
-            }
-        }
-        return nil
     }
 
     private func applyHeaders(_ headers: [String: String], to request: inout URLRequest) {
@@ -2766,52 +2144,27 @@ actor LiveStreamResolver {
         }
     }
 
-    private func mapP2PReasonToCategory(_ reason: String) -> StreamFailureCategory {
-        let normalized = reason.lowercased()
-        if normalized.contains("timed out") {
-            return .p2pWarmupFailed
-        }
-        if normalized.contains("proxy") || normalized.contains("offline") || normalized.contains("unreachable") {
-            return .p2pProxyUnreachable
-        }
-        if normalized.contains("not ready") || normalized.contains("warming") {
-            return .p2pProxyNotReady
-        }
-        if normalized.contains("manifest") {
-            return .manifestInvalid
-        }
-        return .p2pWarmupFailed
-    }
-
     private func failureFromError(
         providerName: String,
         fallbackAllowed: Bool,
         defaultUserMessage: String,
         error: Error,
-        defaultCategory: StreamFailureCategory
+        defaultCategory: StreamFailureCategory,
+        redactedMetadata: [String: String] = [:]
     ) -> StreamFailure {
         if let failure = error as? StreamFailure {
             return failure
         }
 
-        if let urlError = error as? URLError {
-            let category: StreamFailureCategory
-            switch urlError.code {
-            case .timedOut:
-                category = .providerTimeout
-            case .networkConnectionLost, .notConnectedToInternet:
-                category = .manifestUnreachable
-            default:
-                category = defaultCategory
-            }
-
-            return StreamFailure(
+        if let urlErrorCode = StreamTransportFailurePolicy.urlErrorCode(from: error) {
+            return StreamTransportFailurePolicy.makeFailure(
                 providerName: providerName,
-                category: category,
-                technicalMessage: urlError.localizedDescription,
-                userMessage: defaultUserMessage,
-                retryable: urlError.code == .timedOut || urlError.code == .networkConnectionLost,
-                fallbackAllowed: fallbackAllowed
+                code: urlErrorCode,
+                technicalMessage: error.localizedDescription,
+                defaultCategory: defaultCategory,
+                defaultUserMessage: defaultUserMessage,
+                fallbackAllowed: fallbackAllowed,
+                redactedMetadata: redactedMetadata
             )
         }
 
@@ -2823,46 +2176,6 @@ actor LiveStreamResolver {
             retryable: false,
             fallbackAllowed: fallbackAllowed
         )
-    }
-
-    private func normalizedPhrase(_ value: String) -> String {
-        let ignoredTokens: Set<String> = [
-            "fc", "cf", "afc", "ac", "sc", "sk", "fk", "nk", "tj", "club", "team"
-        ]
-
-        return value
-            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
-            .lowercased()
-            .replacingOccurrences(of: "[^a-z0-9 ]", with: " ", options: .regularExpression)
-            .split(separator: " ")
-            .filter { !ignoredTokens.contains(String($0)) }
-            .joined(separator: " ")
-    }
-
-    private func canonicalTeamPhrase(_ value: String) -> String {
-        let phrase = normalizedPhrase(value)
-        switch phrase {
-        case "turkiye", "turkey": return "turkey"
-        case "cape verde islands", "cape verde": return "cape verde"
-        case "curaçao", "curacao": return "curacao"
-        case "cote d ivoire", "ivory coast": return "ivory coast"
-        case "dr congo", "congo dr", "democratic republic of congo": return "congo dr"
-        case "bosnia and herzegovina", "bosnia herzegovina": return "bosnia herzegovina"
-        case "usa", "united states": return "united states"
-        case "korea republic", "south korea": return "south korea"
-        default: return phrase
-        }
-    }
-
-    private func aliasesEquivalent(_ left: String, _ right: String) -> Bool {
-        canonicalTeamPhrase(left) == canonicalTeamPhrase(right)
-    }
-
-    private func tokenOverlapScore(lhs: String, rhs: String) -> Int {
-        // Use > 1 (i.e. length >= 2) so 3-char tokens like "PSG", "Man", "BVB" are included.
-        let left = Set(lhs.split(separator: " ").map(String.init).filter { $0.count > 1 })
-        let right = Set(rhs.split(separator: " ").map(String.init).filter { $0.count > 1 })
-        return left.intersection(right).count
     }
 
     private func redactURL(_ url: URL) -> String {
@@ -2877,4 +2190,3 @@ actor LiveStreamResolver {
         return redactURL(url)
     }
 }
-#endif

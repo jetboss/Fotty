@@ -53,10 +53,6 @@ export function TeamNameAutocomplete({
   const showSuggestions = isFocused && suggestions.length > 0;
 
   useEffect(() => {
-    setActiveIndex(0);
-  }, [value, suggestions.length]);
-
-  useEffect(() => {
     const handlePointerDown = (event: MouseEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) {
         setIsFocused(false);
@@ -119,6 +115,7 @@ export function TeamNameAutocomplete({
         aria-autocomplete="list"
         autoComplete="off"
         onChange={(event) => {
+          setActiveIndex(0);
           onChange(event.target.value);
           setIsFocused(true);
         }}

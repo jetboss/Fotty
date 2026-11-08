@@ -7,12 +7,26 @@ on:
       - "web/**"
       - "shared/reference-data/**"
       - "tools/generate-football-competition-catalog.mjs"
+      - "tools/audit-cpl-fixtures.mjs"
+      - "tools/audit-cricket-fixtures*.mjs"
+      - "tools/audit-sports-fixtures*.mjs"
+      - "tools/sports-fixture-crosscheck*.mjs"
+      - ".github/workflows/cricket-fixtures.yml"
+      - ".github/workflows/sports-fixtures.yml"
+      - ".github/workflows/cpl-fixtures.yml"
       - ".github/workflows/web.yml"
   pull_request:
     paths:
       - "web/**"
       - "shared/reference-data/**"
       - "tools/generate-football-competition-catalog.mjs"
+      - "tools/audit-cpl-fixtures.mjs"
+      - "tools/audit-cricket-fixtures*.mjs"
+      - "tools/audit-sports-fixtures*.mjs"
+      - "tools/sports-fixture-crosscheck*.mjs"
+      - ".github/workflows/cricket-fixtures.yml"
+      - ".github/workflows/sports-fixtures.yml"
+      - ".github/workflows/cpl-fixtures.yml"
       - ".github/workflows/web.yml"
   workflow_dispatch:
 

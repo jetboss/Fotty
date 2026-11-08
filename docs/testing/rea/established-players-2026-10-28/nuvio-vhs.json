@@ -1,0 +1,303 @@
+{
+  "schema": 1,
+  "scope": "Nuvio exact-release source research plus separately identified published Video.js/VHS artifact REA; no execution/playback qualification",
+  "nuvio": {
+    "repo": "https://github.com/NuvioMedia/NuvioMobile",
+    "tag": "0.6.5-beta",
+    "commit": "af58a32b05741963beec861255f5b18f7ede69cf",
+    "license": "GPL-3.0",
+    "nativeReaBoundary": "CurrentKotlin/AVFoundation source inspected. Existing Java25 present but required JADX MCP JAR not configured; no APK downloaded and no engine installed.",
+    "files": [
+      {
+        "path": "composeApp/src/commonMain/kotlin/com/nuvio/app/features/addons/AddonRepository.kt",
+        "sha256": "bb7e1cbd9cfe67f607c5ef6580fccdf5c1bc347434c317010c7c6b700130302a",
+        "lines": "276-338",
+        "mechanism": "per-addon forced refresh/no concurrent duplicate refresh/preserves old manifest on failure"
+      },
+      {
+        "path": "composeApp/src/commonMain/kotlin/com/nuvio/app/features/player/PlayerStreamsRepository.kt",
+        "sha256": "cb05c5f854bc4b3bf8817b4461bec5dadff63b57949d22608b342abcfb60954f",
+        "lines": "300-410,455+",
+        "mechanism": "per-provider concurrent child completion and error groups; progressive presentation without sibling failure erasure"
+      },
+      {
+        "path": "composeApp/src/commonMain/kotlin/com/nuvio/app/features/streams/StreamFetchSupport.kt",
+        "sha256": "da4dbac22511ab5918c0b70bd0de7a3c7c2872366dc4f6c92444832f06f4fdda",
+        "lines": "64-82",
+        "mechanism": "distinct loading/empty/all-fetch-failed; cancellation rethrown"
+      },
+      {
+        "path": "composeApp/src/commonMain/kotlin/com/nuvio/app/features/streams/StreamLinkCacheRepository.kt",
+        "sha256": "f7281c9b7443552a33e7057ed2634acff11341a09bc984297cc8517ba5924aa8",
+        "lines": "62-66,90-117",
+        "mechanism": "do not save/reuse likely expiring playback credentials; remove corrupted/old entries"
+      }
+    ],
+    "additionalSourceHashes": [
+      {
+        "file": "AddonModels.kt",
+        "sha256": "913ba4a3d89f15d04793621675a33f8176760b1bfbe5b4c6438774fe8e2d17c6"
+      },
+      {
+        "file": "AddonManifestParser.kt",
+        "sha256": "a0a001505b528628b6857ed4be0753e174bb567938d376bedb5b8b02b9b97c0c"
+      },
+      {
+        "file": "AddonTransportUrls.kt",
+        "sha256": "064fb341a85ed31fcbf863f72984005784be3b41aaec0e629e32400c66335e5f"
+      },
+      {
+        "file": "CatalogRepository.kt",
+        "sha256": "9be878dc7ba568f733599ca8ff035edb5ee307a6d5da86215a62216a9362aa2f"
+      },
+      {
+        "file": "MetaDetailsRepository.kt",
+        "sha256": "694b6a93b43b4295b1214c2214d3584a278e4a3815562d6c1f32a6325ca07056"
+      },
+      {
+        "file": "AddonHttpClient.kt",
+        "sha256": "e31ebe6c0ec6c2383b3dd665dc6cfd13f5307f2036764cd973fbffee0bd11a92"
+      },
+      {
+        "file": "PlaybackUrlCredentials.kt",
+        "sha256": "bd1ab10917c683aa3250c5a3f8264683121069f4a0cf38bd6df744e748c1edfd"
+      }
+    ]
+  },
+  "vhs": {
+    "package": "@videojs/http-streaming",
+    "version": "3.17.5",
+    "license": "Apache-2.0",
+    "npmIntegrityVerified": true,
+    "distFile": "dist/videojs-http-streaming.es.js",
+    "distSHA256": "ea71f54a3b4a3185426f912ce1d4619566903985d9f26044f69eb8419549b53a",
+    "distBytes": 1000316,
+    "parent": "ev_c0a7bc999fca74b2869f3c95d7ad9ba06dc6a1dbcf2709aa72843e6720bf9712",
+    "summaryEvidence": "ev_afb90f3be84a98b6cb8626cf1101efb972f037bbc23eb232c5b4a8abf3148ca8",
+    "coverage": {
+      "application": {
+        "status": "partial",
+        "truncated": false,
+        "omitted_count": null,
+        "limits": [
+          {
+            "name": "javascript_analysis_parent_result_budget_bytes",
+            "value": 294128344,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_worker_heap_limit_bytes",
+            "value": 427819008,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_worker_timeout_ms",
+            "value": 60000,
+            "unit": "milliseconds"
+          }
+        ]
+      },
+      "semantic": {
+        "status": "partial",
+        "truncated": true,
+        "omitted_nodes": null,
+        "omitted_relations": null,
+        "limits": [
+          {
+            "name": "javascript_analysis_parent_result_budget_bytes",
+            "value": 294128344,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_worker_heap_limit_bytes",
+            "value": 427819008,
+            "unit": "bytes"
+          },
+          {
+            "name": "javascript_analysis_worker_timeout_ms",
+            "value": 60000,
+            "unit": "milliseconds"
+          }
+        ],
+        "families": [
+          {
+            "family": "boundary",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "call-flow",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "child-process",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "closure",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "configuration",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "data-flow",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "event",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "object-flow",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "promise-ownership",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "request",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "resource-lifecycle",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          },
+          {
+            "family": "timer",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": null,
+            "unknown_count": 1
+          }
+        ]
+      },
+      "application_unknowns": 1,
+      "semantic_unknowns": 12
+    },
+    "focusedFile": "src/reload-source-on-error.js",
+    "focusedSHA256": "87ad6a3146b7e03d5a6cea2d5320f36805c7a6619ad4de93bcd6fb251d9a8f82",
+    "focusedParent": "ev_503c6839407e6c4e2d3227156fa1074df34572f262824c421d5c671fb1cbcb11",
+    "focusedSummaryEvidence": "ev_6a2cc400b5b9aabb1f8edcff87e65ade768df7fcdbedc44f48a2d2531d5cbd50",
+    "focusedStatistics": {
+      "relevant_files": 1,
+      "nested_asar_containers": 0,
+      "text_bytes_read": 3408,
+      "invalid_utf8_files": 0,
+      "parsed_javascript_files": 1,
+      "visited_ast_nodes": 308,
+      "findings": 5,
+      "modules": 0,
+      "parse_failures": 0
+    },
+    "focusedSemanticUnknowns": 70,
+    "getSourceTrace": {
+      "evidence": "ev_e5f9ba15668b3cf9b95670cca1b4d6ca78db5ab578b561579f5125568f07f768",
+      "status": "ambiguous",
+      "summary": {
+        "total_seed_matches": 1,
+        "traversed_nodes": 1,
+        "traversed_relations": 0,
+        "traversed_functions": 1,
+        "traversed_modules": 1,
+        "relevant_unknowns": 2
+      }
+    },
+    "mechanisms": [
+      {
+        "src": "src/reload-source-on-error.js",
+        "lines": "5-11,48-58,67-83,89-105",
+        "distLines": "29453-29572",
+        "finding": "30s cooldown-gated custom getSource callback, live skips VOD position restoration; listener disposal. Default callback returns existing source, NOT automatic URL refresh."
+      },
+      {
+        "src": "src/playback-watcher.js",
+        "lines": "256-290,450-468",
+        "distLines": "29240-29261",
+        "finding": "Distinguish real paused/seeking state from stalled progression and resync when behind live seekable window."
+      }
+    ]
+  },
+  "limits": [
+    "No claimed Nuvio/VHS dependency; they are separate comparisons.",
+    "REA bundle coverage partial due result budget; no repeated identical analysis.",
+    "Focused plugin parsed complete but semantic dynamic merge/getSource binding ambiguous, not proven runtime path.",
+    "No devices, FPL, multi-stream, TestFlight, source changes, code execution, media, accounts, DRM/auth workarounds or deployment."
+  ],
+  "discoveryRecommendations": [
+    {
+      "mechanism": "manifest capability dispatch before descriptor requests",
+      "files": [
+        "AddonModels.kt:28-33",
+        "AddonManifestParser.kt:24-73",
+        "AddonTransportUrls.kt:6-23"
+      ],
+      "fottyAdaptation": "Reviewed provider-specific identity crosswalk from exact fixture; then resource/type/id-prefix dispatch. Do not make sourceB depend on publisherA catalog. Preserve dates/squads/competition/conflicts and current trust."
+    },
+    {
+      "mechanism": "independent per-addon outcomes and progressive groups",
+      "files": [
+        "PlayerStreamsRepository.kt:260-299,300-410",
+        "StreamFetchSupport.kt:64-82"
+      ],
+      "fottyAdaptation": "Track unsupported/pending/error/empty/candidates per exact fixture+provider; sibling response cannot overwrite another result. Distinguish no compatible provider/all requests failed/valid empty stream list."
+    },
+    {
+      "mechanism": "explicit force refresh for late-added sources",
+      "files": [
+        "StreamsRepository.kt:62-75",
+        "AddonHttpClient.kt:4-12",
+        "AddonRepository.kt:276-338"
+      ],
+      "fottyAdaptation": "One bounded refresh of manifest/catalog/descriptor on eligible near-live fixture or explicit retry when resource missing/stale; do not cache pre-window empty as all-day absence."
+    },
+    {
+      "mechanism": "stable provider instance and stream IDs",
+      "files": [
+        "StreamFetchSupport.kt:20-21",
+        "PlayerStreamsRepository.kt:266-268,383-396"
+      ],
+      "fottyAdaptation": "Preserve advertised provider+type+id through catalog/meta/stream; store fixture association with corroboration time and contract revision, not just display title."
+    }
+  ],
+  "nonTransferable": [
+    "Nuvio does not provide its own sports fixtures or prove every advertised stream decodes. Generic media IDs are not independent sports schedule corroboration.",
+    "Do not copy film-oriented embedded-stream prefix/first-video fallback to football/cricket.",
+    "Do not copy unlimited child fan-out, broad arbitrary source trust, raw URL/payload debug logs or movie resume seeking.",
+    "VHS custom getSource is extension affordance only; default reuses current source."
+  ]
+}

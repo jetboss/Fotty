@@ -1,0 +1,92 @@
+{
+  "checkedAtUTC": "2026-10-30T07:26:48Z",
+  "checkpointUTC": "2026-10-30T07:19:47Z",
+  "localCheckpoint": "30October2026 03:19 America/Port_of_Spain",
+  "kind": "Bounded metadata qualification; physical access pending",
+  "official": {
+    "ICC": {
+      "http": 200,
+      "completeRows": 57,
+      "sourceReceiptUTC": "2026-10-30T07:21:08.282Z",
+      "teams": [
+        "New Zealand",
+        "India"
+      ],
+      "dateUTC": "2026-10-30",
+      "startUTC": "07:00",
+      "competition": "4thT20I",
+      "squad": "senior",
+      "status": "Play In Progress",
+      "onBreak": false,
+      "interrupted": false,
+      "ended": false
+    },
+    "PLAndUCLDaySchedules": {
+      "date": "2026-10-30",
+      "http": 200,
+      "events": 0
+    },
+    "otherCricket": [
+      {
+        "teams": [
+          "Bangladesh",
+          "West Indies"
+        ],
+        "format": "1stTest",
+        "day": 3,
+        "phase": "session2; active",
+        "ASAdmission": "outside TestDay1 contract"
+      },
+      {
+        "teams": [
+          "South Africa",
+          "Australia"
+        ],
+        "format": "3rdTest",
+        "phase": "StumpsDay3; break"
+      }
+    ]
+  },
+  "CS": {
+    "version": "3.1.3",
+    "catalogRows": 29,
+    "catalogStartUTC": "2026-10-30T07:00:00Z",
+    "sameIDMetaStartUTC": "2026-10-30T07:00:00Z",
+    "metaReceiptUTC": "2026-10-30T07:26:47.579Z",
+    "sameID": true,
+    "finding": "Catalog and exact meta now align with current official fixture. Earlier07:30 catalog/meta facts are superseded, but original Ak47 schedule was not rechecked; no original-schedule correction, delivery availability or decoded-playback claim."
+  },
+  "AS": {
+    "version": "1.9.108",
+    "cricketRows": 19,
+    "sameID": true,
+    "metaReceiptUTC": "2026-10-30T07:26:48.144Z",
+    "nameShape": "4thT20: country pair with flags",
+    "clockOnly": "07:00 UK time",
+    "explicitCalendarDate": false,
+    "fullUTCRelease": false,
+    "videos": false,
+    "finding": "New upstream cricket envelope remains unqualified under current reviewed date/qualifier contract; no date/timezone inference or adapter bypass."
+  },
+  "physical": {
+    "target": "Jet iPad",
+    "inspection": "Locked screen at03:23Tobago",
+    "deviceInput": false,
+    "appLaunch": false,
+    "install": false,
+    "decodedHold": "pending",
+    "fullscreen": "pending",
+    "PiP": "pending",
+    "missingAccessNoticeThisCheckpoint": true
+  },
+  "bounds": {
+    "metadataRequests": 11,
+    "mediaOrStreamDescriptorRequests": 0,
+    "rawPayloadsPersisted": false,
+    "temporaryGateCreated": false,
+    "builds": 0,
+    "sourceSettingChanges": 0,
+    "phoneFPLMultiTestFlightUntouched": true
+  },
+  "outcome": "No delivery qualified. Current cricket window exists, but Jet access is unavailable. Preserve prior failed PiP receipt and all remaining gates."
+}

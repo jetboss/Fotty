@@ -1,0 +1,20 @@
+{
+  "build": 211,
+  "channel": "Willow Sports",
+  "outcome": "failed-before-decoded-picture",
+  "manualRetries": 0,
+  "evidence": {
+    "source": "TV19",
+    "source_family": "reviewedtv",
+    "last_observed_stage": "preparing",
+    "native_error_domain": "url",
+    "native_error_code": "-1102",
+    "native_log_code": "-12660",
+    "relay_http_status": "403",
+    "relay_failure_stage": "upstream_response",
+    "relay_failure_kind": "http_status",
+    "relay_failure_resource_category": "media",
+    "relay_retained_completed_count": "4",
+    "relay_retained_failed_count": "1"
+  }
+}

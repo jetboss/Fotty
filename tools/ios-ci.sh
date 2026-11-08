@@ -68,8 +68,13 @@ trap 'exit 143' TERM
 
 cd "$ROOT_DIR"
 
+python3 -B -m unittest tools/tests/test_native_source_membership.py
+python3 -B tools/check_native_source_membership.py
+ruby tools/verify-native-version.rb project.yml Fotty.xcodeproj/project.pbxproj
 node tools/generate-football-competition-catalog.mjs --check
 node tools/audit-provider-football-identity.mjs
+node --check tools/audit-team-badges.mjs
+node --check tools/audit-live-provider-badges.mjs
 
 RETIRED_PATTERN='(APP_REVIEW_SAFE|ReviewSafe|Info-ReviewSafe|IntegrityService|LicenseManager|Field Events|Division A|Series C)'
 if command -v rg >/dev/null 2>&1; then
@@ -96,6 +101,10 @@ xcodebuild build-for-testing \
   "${CATALYST_BUILD_SETTINGS[@]}" \
   -only-testing:FottyTests
 
+# The static visual fixture warms an evictable shared NSCache. Run it in its
+# own fresh host process so prior unit-test memory pressure cannot replace its
+# synthetic loaded badge with a placeholder. All visual assertions remain
+# mandatory; the second invocation covers every other unit test exactly once.
 xcodebuild test-without-building \
   -quiet \
   -project Fotty.xcodeproj \
@@ -107,7 +116,21 @@ xcodebuild test-without-building \
   -parallel-testing-enabled NO \
   CODE_SIGNING_ALLOWED=NO \
   "${CATALYST_BUILD_SETTINGS[@]}" \
-  -only-testing:FottyTests
+  -only-testing:FottyTests/VisualRegressionTests
+
+xcodebuild test-without-building \
+  -quiet \
+  -project Fotty.xcodeproj \
+  -scheme Fotty \
+  -configuration Debug \
+  -destination 'platform=macOS,variant=Mac Catalyst' \
+  -derivedDataPath "$DERIVED_DATA" \
+  -jobs "$XCODE_JOBS" \
+  -parallel-testing-enabled NO \
+  CODE_SIGNING_ALLOWED=NO \
+  "${CATALYST_BUILD_SETTINGS[@]}" \
+  -only-testing:FottyTests \
+  -skip-testing:FottyTests/VisualRegressionTests
 
 xcodebuild build \
   -quiet \

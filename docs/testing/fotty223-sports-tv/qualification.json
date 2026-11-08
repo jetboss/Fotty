@@ -1,0 +1,50 @@
+{
+  "build": 223,
+  "scope": "Private Sports TV station qualification on Jet iPad",
+  "stations": [
+    {
+      "name": "FIFA+",
+      "selected": "TV21",
+      "nativeHold": "passed",
+      "mediaAdvanceSeconds": 91.141,
+      "correctPicture": "English-subtitled football programme matched the independently sampled FIFA+ feed."
+    },
+    {
+      "name": "FIFA+ Women",
+      "selected": "TV22",
+      "nativeHold": "passed",
+      "mediaAdvanceSeconds": 91.19,
+      "correctPicture": "FIFA+ Women station feed. Historical Italy–USA World Cup footage."
+    },
+    {
+      "name": "Cricket Gold",
+      "selected": "TV23",
+      "nativeHold": "passed",
+      "mediaAdvanceSeconds": 91.207,
+      "correctPicture": "1998–99 ODI series, Australia vs Sri Lanka. Sri Lanka 7/231, over 47.1. Archive broadcast."
+    },
+    {
+      "name": "Fox Sports 1 US",
+      "selected": "TV24",
+      "nativeHold": "passed on fresh tune after first hold stalled",
+      "mediaAdvanceSeconds": 91.21,
+      "correctPicture": "FS1 college basketball. Ohio State 24–17 BYU in first half on retry."
+    }
+  ],
+  "primaryCaribbeanCoverage": "No verified T&T delivery for ESPN Extra Caribbean, Flow Sports or Rush. Existing fixture Watch sources unchanged.",
+  "limits": [
+    "No claim of PL, UCL, or current international cricket rights or programme assignment.",
+    "Private station test does not measure venue delay, audible output or long-session reliability."
+  ],
+  "stationAndAdapterUnitTests": {
+    "passed": 49,
+    "failed": 0,
+    "device": "Jet iPad"
+  },
+  "fs1InitialRun": {
+    "station": "Fox Sports 1 US",
+    "selected": "TV24",
+    "result": "Interrupted at 43.49 s by native waiting; 1 recorded stall. Picture showed FS1 Ohio State 24–15 BYU.",
+    "publisherProbe": "Playlist sequence advanced; an individual bounded media read failed. No causal attribution to the iPad stall."
+  }
+}

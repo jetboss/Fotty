@@ -1,0 +1,257 @@
+{
+  "observedUTC": "2026-11-03T17:20:24.329280+00:00",
+  "registryGeneratedUTC": "2026-11-03T17:20:25.021Z",
+  "officialFixtureCheckedUTC": "2026-11-03T17:10:04.903Z",
+  "uefaSchedule": "https://www.uefa.com/uefachampionsleague/news/02a8-2174c9e9019d-f909a77bd77a-1000--2026-27-champions-league-all-the-league-phase-fixtures-and-results/",
+  "fixtures": [
+    {
+      "fixture": "sports-fixture:champions-league:575377",
+      "teams": "FK Shakhtar Donetsk vs Sporting Clube de Portugal",
+      "kickoff": "2026-11-03T17:45:00.000Z",
+      "status": "scheduled",
+      "independentScoreboard": "pre",
+      "listings": [
+        {
+          "provider": "cncsports",
+          "teams": [
+            "Shakhtar",
+            "Sporting"
+          ],
+          "start": null,
+          "market": null,
+          "station": null,
+          "verification": "undated",
+          "issues": [
+            "missing-date"
+          ],
+          "currentLink": false
+        },
+        {
+          "provider": "streamvix",
+          "teams": [
+            "Shakhtar Donetsk",
+            "Sporting CP"
+          ],
+          "start": "2026-11-03T16:45:00.000Z",
+          "market": null,
+          "station": null,
+          "verification": "undated",
+          "issues": [
+            "unverified-fixture"
+          ],
+          "currentLink": false
+        },
+        {
+          "provider": "reviewedtv",
+          "teams": [
+            "Shakhtar",
+            "Sporting CP"
+          ],
+          "start": "2026-11-03T17:30:00.000Z",
+          "market": "UY",
+          "station": "sports-channel:espn5-latinamerica-south",
+          "verification": "dated",
+          "issues": [],
+          "currentLink": true
+        },
+        {
+          "provider": "cncsports",
+          "teams": [
+            "Shakhtar",
+            "Sporting"
+          ],
+          "start": null,
+          "market": null,
+          "station": null,
+          "verification": "undated",
+          "issues": [
+            "missing-date"
+          ],
+          "currentLink": false
+        }
+      ]
+    },
+    {
+      "fixture": "sports-fixture:champions-league:575378",
+      "teams": "Galatasaray SK vs VfB Stuttgart",
+      "kickoff": "2026-11-03T17:45:00.000Z",
+      "status": "scheduled",
+      "independentScoreboard": "pre",
+      "listings": [
+        {
+          "provider": "cncsports",
+          "teams": [
+            "Galatasaray",
+            "Stuttgart"
+          ],
+          "start": null,
+          "market": null,
+          "station": null,
+          "verification": "undated",
+          "issues": [
+            "missing-date"
+          ],
+          "currentLink": false
+        },
+        {
+          "provider": "streamvix",
+          "teams": [
+            "Galatasaray",
+            "Stuttgart"
+          ],
+          "start": "2026-11-03T16:45:00.000Z",
+          "market": null,
+          "station": null,
+          "verification": "undated",
+          "issues": [
+            "unverified-fixture"
+          ],
+          "currentLink": false
+        },
+        {
+          "provider": "cncsports",
+          "teams": [
+            "Galatasaray",
+            "Stuttgart"
+          ],
+          "start": null,
+          "market": null,
+          "station": null,
+          "verification": "undated",
+          "issues": [
+            "missing-date"
+          ],
+          "currentLink": false
+        },
+        {
+          "provider": "cncsports",
+          "teams": [
+            "Galatasaray",
+            "Stuttgart"
+          ],
+          "start": null,
+          "market": null,
+          "station": null,
+          "verification": "undated",
+          "issues": [
+            "missing-date"
+          ],
+          "currentLink": false
+        },
+        {
+          "provider": "reviewedtv",
+          "teams": [
+            "Galatasaray",
+            "Stuttgart"
+          ],
+          "start": "2026-11-03T17:30:00.000Z",
+          "market": "UY",
+          "station": "sports-channel:espn-latinamerica-south",
+          "verification": "dated",
+          "issues": [],
+          "currentLink": true
+        },
+        {
+          "provider": "cncsports",
+          "teams": [
+            "Galatasaray U19",
+            "Stuttgart U19"
+          ],
+          "start": null,
+          "market": null,
+          "station": null,
+          "verification": "undated",
+          "issues": [
+            "missing-date"
+          ],
+          "currentLink": false
+        },
+        {
+          "provider": "communitysports",
+          "teams": [
+            "Galatasaray",
+            "Stuttgart"
+          ],
+          "start": "2026-11-03T17:45:00.000Z",
+          "market": null,
+          "station": null,
+          "verification": "dated",
+          "issues": [],
+          "currentLink": true
+        }
+      ]
+    }
+  ],
+  "scopeReceipts": [
+    {
+      "providerCode": "cncsports",
+      "scope": "live",
+      "status": "failed",
+      "failure": "source-unavailable",
+      "observedAt": null
+    },
+    {
+      "providerCode": "communitysports",
+      "scope": "football",
+      "status": "partial",
+      "failure": null,
+      "observedAt": "2026-11-03T17:15:05.174Z"
+    },
+    {
+      "providerCode": "communitysports",
+      "scope": "live",
+      "status": "partial",
+      "failure": null,
+      "observedAt": "2026-11-03T17:15:05.174Z"
+    },
+    {
+      "providerCode": "flixstreams",
+      "scope": "football",
+      "status": "failed",
+      "failure": "source-unavailable",
+      "observedAt": "2026-11-03T00:10:29.494Z"
+    },
+    {
+      "providerCode": "plaviosports",
+      "scope": "football",
+      "status": "partial",
+      "failure": null,
+      "observedAt": "2026-11-02T12:20:04.975Z"
+    },
+    {
+      "providerCode": "plaviosports",
+      "scope": "live",
+      "status": "failed",
+      "failure": "invalid-collection",
+      "observedAt": "2026-11-02T12:20:04.975Z"
+    },
+    {
+      "providerCode": "reviewedtv",
+      "scope": "football",
+      "status": "partial",
+      "failure": null,
+      "observedAt": "2026-11-03T17:17:35.035Z"
+    },
+    {
+      "providerCode": "score808",
+      "scope": "football",
+      "status": "failed",
+      "failure": "invalid-collection",
+      "observedAt": "2026-11-02T22:25:04.693Z"
+    },
+    {
+      "providerCode": "streamex",
+      "scope": "live",
+      "status": "failed",
+      "failure": "source-unavailable",
+      "observedAt": null
+    },
+    {
+      "providerCode": "streamvix",
+      "scope": "football",
+      "status": "partial",
+      "failure": "invalid-collection",
+      "observedAt": "2026-11-03T17:00:05.403Z"
+    }
+  ]
+}

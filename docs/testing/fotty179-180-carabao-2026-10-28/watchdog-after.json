@@ -1,0 +1,9 @@
+{
+  "checkedAt": "2026-10-28T20:45:45.899Z",
+  "activation": "active",
+  "activatedAt": "2026-10-11T11:14:52.000Z",
+  "expectedDeploymentRevision": "2026-10-28.efl-cup-1",
+  "lastCompletedAt": 1793219437606,
+  "notifications": 114,
+  "overflow": false
+}

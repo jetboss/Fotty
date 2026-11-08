@@ -1,0 +1,214 @@
+{
+  "build": 191,
+  "kind": "redacted native quality events; not a decoded playback pass",
+  "events": [
+    {
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_count": "1",
+        "source_family": "communitysports",
+        "source_index": "1",
+        "last_observed_stage": "preparing"
+      },
+      "timeUTC": "2026-10-30T14:33:56.265Z"
+    },
+    {
+      "name": "playback_causal_evidence",
+      "outcome": "info",
+      "details": {
+        "source_count": "1",
+        "playback_intent": "true",
+        "source_family": "communitysports",
+        "handoff_phase": "none",
+        "source_index": "1",
+        "last_observed_stage": "preparing"
+      },
+      "timeUTC": "2026-10-30T14:33:56.933Z"
+    },
+    {
+      "name": "playback_causal_evidence",
+      "outcome": "info",
+      "details": {
+        "handoff_phase": "none",
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source_index": "1",
+        "source_count": "1",
+        "playback_intent": "true"
+      },
+      "timeUTC": "2026-10-30T14:33:57.303Z"
+    },
+    {
+      "name": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "media_ready",
+        "source_index": "1",
+        "source_count": "1",
+        "stage": "media_ready"
+      },
+      "timeUTC": "2026-10-30T14:33:59.376Z"
+    },
+    {
+      "name": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "decoded",
+        "source_index": "1",
+        "source_count": "1"
+      },
+      "timeUTC": "2026-10-30T14:33:59.390Z"
+    },
+    {
+      "name": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "relay_request_http_status": "200",
+        "source_count": "1",
+        "last_observed_stage": "decoded",
+        "failure_kind": "stalled",
+        "native_failure_trigger": "stall_timeout",
+        "source_index": "1",
+        "source_family": "communitysports",
+        "native_log_code": "-12888"
+      },
+      "timeUTC": "2026-10-30T14:34:27.498Z"
+    },
+    {
+      "name": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "failure_kind": "stalled",
+        "source_family": "communitysports",
+        "last_observed_stage": "decoded",
+        "source_index": "1",
+        "source_count": "1"
+      },
+      "timeUTC": "2026-10-30T14:34:27.531Z"
+    },
+    {
+      "name": "stall_observed_duration",
+      "outcome": "failure",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "decoded",
+        "source_index": "1",
+        "source_count": "1",
+        "reason_code": "failed"
+      },
+      "timeUTC": "2026-10-30T14:34:27.549Z"
+    },
+    {
+      "name": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "decoded",
+        "source_index": "1",
+        "source_count": "1"
+      },
+      "timeUTC": "2026-10-30T14:34:30.397Z"
+    },
+    {
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing",
+        "source_index": "1",
+        "source_count": "1"
+      },
+      "timeUTC": "2026-10-30T14:39:06.450Z"
+    },
+    {
+      "name": "playback_causal_evidence",
+      "outcome": "info",
+      "details": {
+        "handoff_phase": "none",
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source_index": "1",
+        "source_count": "1",
+        "playback_intent": "true"
+      },
+      "timeUTC": "2026-10-30T14:39:07.052Z"
+    },
+    {
+      "name": "playback_causal_evidence",
+      "outcome": "info",
+      "details": {
+        "handoff_phase": "none",
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing",
+        "source_index": "1",
+        "source_count": "1",
+        "playback_intent": "true"
+      },
+      "timeUTC": "2026-10-30T14:39:07.361Z"
+    },
+    {
+      "name": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source_index": "1",
+        "source_count": "1",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "source_family": "communitysports"
+      },
+      "timeUTC": "2026-10-30T14:39:10.215Z"
+    },
+    {
+      "name": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source_index": "1",
+        "source_family": "communitysports",
+        "source_count": "1",
+        "last_observed_stage": "decoded"
+      },
+      "timeUTC": "2026-10-30T14:39:10.235Z"
+    },
+    {
+      "name": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "failure_kind": "stalled",
+        "relay_request_http_status": "200",
+        "source_family": "communitysports",
+        "source_index": "1",
+        "source_count": "1",
+        "last_observed_stage": "decoded",
+        "native_failure_trigger": "stall_timeout"
+      },
+      "timeUTC": "2026-10-30T14:39:56.380Z"
+    },
+    {
+      "name": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "source_index": "1",
+        "source_count": "1",
+        "last_observed_stage": "decoded",
+        "failure_kind": "stalled",
+        "source_family": "communitysports"
+      },
+      "timeUTC": "2026-10-30T14:39:56.414Z"
+    },
+    {
+      "name": "stall_observed_duration",
+      "outcome": "failure",
+      "details": {
+        "source_index": "1",
+        "source_count": "1",
+        "last_observed_stage": "decoded",
+        "reason_code": "failed",
+        "source_family": "communitysports"
+      },
+      "timeUTC": "2026-10-30T14:39:56.432Z"
+    }
+  ]
+}

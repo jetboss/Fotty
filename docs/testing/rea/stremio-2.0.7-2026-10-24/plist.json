@@ -1,0 +1,176 @@
+{
+  "evidence_id": "ev_5d5d5032c6399be25f4781521f6c1c83bace512b91219227efcac39ed183f591",
+  "subject": {
+    "name": "Stremio",
+    "digest": {
+      "sha256": "7ace606680feb99b9797925832fc5b3c60dda81b8d1d72faa060037e52f9e3f6"
+    },
+    "format": "mach-o",
+    "architecture": "arm64",
+    "local_path": "/private/tmp/Fotty25REA.m4tURB/Extracted/Stremio.app/Contents/MacOS/Stremio"
+  },
+  "provider": {
+    "id": "native-macos",
+    "name": "macOS native inspection utilities",
+    "version": null
+  },
+  "analysis_profile": null,
+  "predicate_type": "rea.analysis",
+  "operation": "inspect_plist",
+  "parameters": {},
+  "raw_result": null,
+  "normalized_result": {
+    "format": "xml",
+    "value": {
+      "CFBundleURLTypes": [
+        {
+          "CFBundleTypeRole": "Viewer",
+          "CFBundleURLIconFile": "logo",
+          "CFBundleURLSchemes": [
+            "stremio"
+          ],
+          "CFBundleURLName": "com.stremio"
+        }
+      ],
+      "CFBundleInfoDictionaryVersion": "6.0",
+      "DTPlatformVersion": "26.5",
+      "CFBundleIconFile": "StremioIcon",
+      "CFBundleName": "Stremio",
+      "DTSDKName": "macosx26.5",
+      "NSUserActivityTypes": [
+        "handoff"
+      ],
+      "UISupportsDocumentBrowser": true,
+      "UIUserInterfaceStyle": "Dark",
+      "UIViewControllerBasedStatusBarAppearance": true,
+      "LSApplicationCategoryType": "public.app-category.entertainment",
+      "SUEnableAutomaticChecks": true,
+      "SUFeedURL": "https://dl.strem.io/apple/macos/source.xml",
+      "CFBundleDisplayName": "Stremio",
+      "LSApplicationQueriesSchemes": [
+        "vidhub",
+        "open-vidhub",
+        "vlc-x-callback",
+        "youtube",
+        "vlc",
+        "outplayer",
+        "infuse",
+        "iina",
+        "mpv",
+        "moonplayer",
+        "altstore-pal"
+      ],
+      "UIBackgroundModes": [
+        "audio"
+      ],
+      "DTSDKBuild": "25F70",
+      "CFBundleSupportedPlatforms": [
+        "MacOSX"
+      ],
+      "CFBundleShortVersionString": "2.0.7",
+      "SUEnableInstallerLauncherService": true,
+      "UISupportedInterfaceOrientations": [
+        "UIInterfaceOrientationLandscapeRight",
+        "UIInterfaceOrientationLandscapeLeft",
+        "UIInterfaceOrientationPortrait",
+        "UIInterfaceOrientationPortraitUpsideDown"
+      ],
+      "BuildMachineOSBuild": "25F84",
+      "DTPlatformBuild": "25F70",
+      "CFBundlePackageType": "APPL",
+      "DTXcodeBuild": "17F42",
+      "CFBundleDevelopmentRegion": "en",
+      "UIAppFonts": [
+        "PlusJakartaSans-Medium.ttf",
+        "PlusJakartaSans-Bold.ttf",
+        "PlusJakartaSans-Regular.ttf"
+      ],
+      "CFBundleVersion": "22",
+      "NSSupportsLiveActivities": true,
+      "NSSupportsSuddenTermination": true,
+      "NSSupportsAutomaticTermination": true,
+      "SUShowReleaseNotes": false,
+      "UIDeviceFamily": [
+        2,
+        6
+      ],
+      "UILaunchStoryboardName": "LaunchScreen",
+      "CFBundleIdentifier": "com.stremio.pal",
+      "UIApplicationSceneManifest": {
+        "UIApplicationSupportsMultipleScenes": false
+      },
+      "DTXcode": "2650",
+      "CFBundleIconName": "StremioIcon",
+      "UIApplicationSupportsIndirectInputEvents": true,
+      "NSAppTransportSecurity": {
+        "NSAllowsArbitraryLoads": true
+      },
+      "CFBundleExecutable": "Stremio",
+      "LSMinimumSystemVersion": "10.15",
+      "SUPublicEDKey": "+sZii04Xt3appAF8Vu5ayRvbhBoFbFc8e5ybGZekAPA=",
+      "DTPlatformName": "macosx",
+      "ITSAppUsesNonExemptEncryption": false,
+      "DTCompiler": "com.apple.compilers.llvm.clang.1_0"
+    },
+    "bundle": {
+      "identifier": "com.stremio.pal",
+      "executable": "Stremio",
+      "name": "Stremio",
+      "version": "22",
+      "short_version": "2.0.7"
+    },
+    "source_path": "/private/tmp/Fotty25REA.m4tURB/Extracted/Stremio.app/Contents/Info.plist",
+    "provenance": [
+      {
+        "tool": "file",
+        "command": [
+          "/usr/bin/file",
+          "-b",
+          "$PLIST"
+        ],
+        "tool_version": null,
+        "version_reason": "Tool exposes no uniform stable version flag; executable SHA-256 is a prelaunch file sample and does not prove atomic OS image binding.",
+        "executable_sha256": "8014815e1028410f48966f1880f99c842a5678cf2fcaa010e8d7e9e498f651d0",
+        "exit": {
+          "code": 0,
+          "signal": null
+        },
+        "stdout_bytes": 34,
+        "stderr_bytes": 0
+      },
+      {
+        "tool": "plutil",
+        "command": [
+          "/usr/bin/plutil",
+          "-convert",
+          "json",
+          "-o",
+          "-",
+          "--",
+          "$PLIST"
+        ],
+        "tool_version": null,
+        "version_reason": "Tool exposes no uniform stable version flag; executable SHA-256 is a prelaunch file sample and does not prove atomic OS image binding.",
+        "executable_sha256": "5ec63ed0506b7676b30fe69d00ae48c689daf1badc1e786a18166b01b615e8ac",
+        "exit": {
+          "code": 0,
+          "signal": null
+        },
+        "stdout_bytes": 2106,
+        "stderr_bytes": 0
+      }
+    ],
+    "limitations": []
+  },
+  "confidence": "observed",
+  "authority": "shipped-artifact",
+  "environment": null,
+  "limitations": [],
+  "locations": [
+    {
+      "kind": "artifact-path",
+      "path": "/private/tmp/Fotty25REA.m4tURB/Extracted/Stremio.app/Contents/Info.plist"
+    }
+  ],
+  "evidence_links": []
+}
