@@ -38,4 +38,10 @@ LOG="logs/verify-$STAMP.log"
   echo "== RESULT membership=$MEMBERSHIP ios-ci=$CI"
 } 2>&1 | tee "$LOG"
 cp "$LOG" logs/verify-latest.log
+# Limited disk: keep only this run's log, and remove the failure result bundles
+# xcodebuild drops in the temp folder (ios-ci.sh already removes its own
+# DerivedData on success and failure).
+find logs -maxdepth 1 -name 'verify-2*.log' ! -name "$(basename "$LOG")" -delete
+find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'ResultBundle_*.xcresult' -exec rm -rf {} + 2>/dev/null
+find /private/tmp -maxdepth 1 -name 'FottyCI.*' -mmin +180 -exec rm -rf {} + 2>/dev/null
 grep "== RESULT" logs/verify-latest.log
