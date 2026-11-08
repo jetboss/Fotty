@@ -778,11 +778,25 @@ actor LiveStreamResolver {
                     sessions = try await resolveOptionalAdapter(source, request: request, forceRefresh: useDiscoveryIndex,
                         forceFreshMetadata: refreshOptionalSources)
                 } else {
+                    // The registry is a hint, not a gate. When every registered
+                    // association misses (stale cloud row, joined TV channel that
+                    // is down, expired lease), run the same exact adapter lookup
+                    // the empty-registry branch uses. The adapter still owns
+                    // team/date/competition identity and transport admission.
+                    // Reviewed TV is excluded: a generic channel never identifies
+                    // a fixture without a registry or programme association.
+                    let directFallback: (@Sendable () async throws -> [StreamSession])? =
+                        source.dispatch == .reviewedTV ? nil : {
+                            FottyQualityStore.shared.record(category: .playback, name: "direct_fallback_lookup",
+                                outcome: .info, details: ["source": providerCode, "mode": "registry_miss_direct_fallback"])
+                            return try await self.resolveOptionalAdapter(source, request: request, forceRefresh: true,
+                                forceFreshMetadata: refreshOptionalSources)
+                        }
                     sessions = try await Self.resolveRegisteredOptionalSessions(for: request,
                         providerCode: providerCode, associations: registered, resolve: { scoped in
                             try await self.resolveOptionalAdapter(source, request: scoped, forceRefresh: true,
                                 forceFreshMetadata: refreshOptionalSources)
-                        }, onSession: { report(.partialSession($0)) })
+                        }, onSession: { report(.partialSession($0)) }, fallback: directFallback)
                 }
             }
             try Task.checkCancellation()
@@ -880,7 +894,8 @@ actor LiveStreamResolver {
         for request: StreamPlaybackRequest, providerCode: String, associations: [BroadcastRegistryMatch],
         resolve: @escaping @Sendable (StreamPlaybackRequest) async throws -> [StreamSession],
         onSession: @escaping @Sendable (StreamSession) -> Void = { _ in },
-        clock: @escaping @Sendable () -> Date = { Date() }
+        clock: @escaping @Sendable () -> Date = { Date() },
+        fallback: (@Sendable () async throws -> [StreamSession])? = nil
     ) async throws -> [StreamSession] {
         var choices: [StreamSession] = [], lastError: Error?
         // Retain independent literal broadcasts without a second broad search.
@@ -902,7 +917,16 @@ actor LiveStreamResolver {
                 lastError = error
             }
         }
-        guard !choices.isEmpty else { throw lastError ?? CommunitySportsAddonError.matchNotFound }
+        if choices.isEmpty {
+            // Registered associations are evidence, not the only route. A miss
+            // here must not hide an exact direct listing from the same provider.
+            guard let fallback else { throw lastError ?? CommunitySportsAddonError.matchNotFound }
+            try Task.checkCancellation()
+            let direct = try await fallback()
+            try Task.checkCancellation()
+            guard !direct.isEmpty else { throw lastError ?? CommunitySportsAddonError.matchNotFound }
+            choices = direct
+        }
         var seen = Set<StreamDeliveryIdentity>()
         return choices.filter { seen.insert(StreamDeliveryIdentity(url: $0.playableURL, headers: $0.requiredHeaders)).inserted }
     }
@@ -1099,6 +1123,17 @@ actor LiveStreamResolver {
                             choices.append(session); report(.partialSession(session))
                         }
                     } catch { try Task.checkCancellation(); lastError = error }
+                }
+                if choices.isEmpty {
+                    // Registry is a hint, not a gate: a stale or unbound Score808
+                    // association falls back to the same exact site lookup used
+                    // when the registry is empty. Identity checks are unchanged.
+                    try Task.checkCancellation()
+                    FottyQualityStore.shared.record(category: .playback, name: "direct_fallback_lookup",
+                        outcome: .info, details: ["source": "score808", "mode": "registry_miss_direct_fallback"])
+                    do {
+                        if let session = try await Score808SiteResolver().resolve(for: request) { choices = [session] }
+                    } catch { try Task.checkCancellation(); lastError = lastError ?? error }
                 }
             }
             try Task.checkCancellation()

@@ -765,3 +765,123 @@ private final class CNCFixtureGate {
         if completion == nil { pending = result }; lock.unlock(); completion?(result)
     }
 }
+
+/// The registry is a hint, not a gate: when every registered association
+/// misses, the same provider's exact direct lookup still gets a chance.
+final class RegistryHintDirectFallbackTests: XCTestCase {
+    private let start = ISO8601DateFormatter().date(from: "2026-11-07T12:30:00Z")!
+
+    private actor CallCounter {
+        private(set) var count = 0
+        func hit() { count += 1 }
+    }
+
+    private struct ResolveFailure: Error {}
+
+    private func association() -> (StreamPlaybackRequest, BroadcastRegistryMatch) {
+        let teams = ["Leeds United", "Tottenham Hotspur"]
+        let metadata = SportsFixtureMetadata(fixtureID: "sports-fixture:premier-league:560632", sport: "football",
+            competitionID: "premier-league", competitionName: "Premier League", eventKind: .match,
+            title: teams.joined(separator: " vs "),
+            participants: [.init(id: "lee", name: teams[0]), .init(id: "tot", name: teams[1])],
+            squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: start, verified: true)
+        let event = EventReference(id: metadata.fixtureID, title: metadata.title, category: "football",
+            date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
+            teams: .init(home: .init(name: teams[0], badge: nil), away: .init(name: teams[1], badge: nil)),
+            sources: [], sportsFixture: metadata, competitionID: "premier-league")
+        let request = StreamPlaybackRequest(event: event), expiry = start.addingTimeInterval(3600)
+        let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "d", count: 64),
+            providerCode: "communitysports", providerEventID: "cs-event", streamID: "cs-event", resourceType: "tv",
+            scope: "football", kind: .event, sport: "football", title: metadata.title, participants: teams, start: start,
+            competitionID: "premier-league", squad: metadata.squad, observedAt: start, expiresAt: expiry,
+            verification: .dated, issues: [])
+        let link = BroadcastRegistrySnapshot.Link(fixtureID: event.id, broadcastID: record.id,
+            providerCode: "communitysports", state: .listed, matchMethod: .exact,
+            fixtureFingerprint: .init(fixtureID: event.id, sport: "football", start: start, participants: teams,
+                competitionID: "premier-league", squad: metadata.squad), expiresAt: expiry)
+        let match = BroadcastRegistryMatch(broadcast: record, link: link, provider: .init(providerCode: "communitysports",
+            scope: "football", status: .available, observedAt: start, expiresAt: expiry))
+        return (request, match)
+    }
+
+    private func session(_ path: String) -> StreamSession {
+        StreamSession(matchID: "sports-fixture:premier-league:560632",
+            playableURL: URL(string: "https://direct.example/" + path + ".m3u8")!, streamType: .hls, providerName: "CS")
+    }
+
+    func testRegisteredFailureFallsBackToDirectExactLookup() async throws {
+        let (request, match) = association(), calls = CallCounter(), direct = session("direct")
+        let clock = start
+        let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+            providerCode: "communitysports", associations: [match],
+            resolve: { _ in throw ResolveFailure() }, clock: { clock },
+            fallback: { await calls.hit(); return [direct] })
+        XCTAssertEqual(choices.map(\.playableURL), [direct.playableURL])
+        let count = await calls.count
+        XCTAssertEqual(count, 1)
+    }
+
+    func testUnadmittedRegisteredResultsFallBackToDirectLookup() async throws {
+        // A stale association whose descriptor no longer binds to the registry
+        // entry is filtered out; the direct lane must still run.
+        let (request, match) = association(), direct = session("direct")
+        let clock = start
+        let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+            providerCode: "communitysports", associations: [match],
+            resolve: { _ in [self.session("unbound")] }, clock: { clock },
+            fallback: { [direct] })
+        XCTAssertEqual(choices.map(\.playableURL), [direct.playableURL])
+    }
+
+    func testWithoutFallbackRegisteredMissStillThrows() async {
+        let (request, match) = association()
+        let clock = start
+        do {
+            _ = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+                providerCode: "communitysports", associations: [match],
+                resolve: { _ in throw ResolveFailure() }, clock: { clock })
+            XCTFail("Expected the registered miss to throw without a fallback")
+        } catch { XCTAssertTrue(error is ResolveFailure) }
+    }
+
+    func testEmptyFallbackPreservesOriginalFailure() async {
+        let (request, match) = association()
+        let clock = start
+        do {
+            _ = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+                providerCode: "communitysports", associations: [match],
+                resolve: { _ in throw ResolveFailure() }, clock: { clock }, fallback: { [] })
+            XCTFail("Expected an empty direct lookup to keep the original failure")
+        } catch { XCTAssertTrue(error is ResolveFailure) }
+    }
+
+    func testFallbackDeliveriesAreDeduplicated() async throws {
+        let (request, match) = association(), direct = session("direct")
+        let clock = start
+        let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+            providerCode: "communitysports", associations: [match],
+            resolve: { _ in throw ResolveFailure() }, clock: { clock },
+            fallback: { [direct, self.session("direct"), self.session("second")] })
+        XCTAssertEqual(choices.count, 2)
+    }
+
+    func testCancellationNeverStartsDirectFallback() async {
+        let (request, match) = association(), calls = CallCounter()
+        let clock = start
+        let task = Task {
+            try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+                providerCode: "communitysports", associations: [match],
+                resolve: { _ in
+                    withUnsafeCurrentTask { $0?.cancel() }
+                    throw ResolveFailure()
+                }, clock: { clock },
+                fallback: { await calls.hit(); return [] })
+        }
+        do {
+            _ = try await task.value
+            XCTFail("Expected cancellation")
+        } catch { XCTAssertTrue(error is CancellationError) }
+        let count = await calls.count
+        XCTAssertEqual(count, 0)
+    }
+}
