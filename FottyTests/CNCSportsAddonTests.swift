@@ -768,6 +768,7 @@ private final class CNCFixtureGate {
 
 /// The registry is a hint, not a gate: when every registered association
 /// misses, the same provider's exact direct lookup still gets a chance.
+@MainActor
 final class RegistryHintDirectFallbackTests: XCTestCase {
     private let start = ISO8601DateFormatter().date(from: "2026-11-07T12:30:00Z")!
 
@@ -804,13 +805,13 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
         return (request, match)
     }
 
-    private func session(_ path: String) -> StreamSession {
+    nonisolated private static func session(_ path: String) -> StreamSession {
         StreamSession(matchID: "sports-fixture:premier-league:560632",
             playableURL: URL(string: "https://direct.example/" + path + ".m3u8")!, streamType: .hls, providerName: "CS")
     }
 
     func testRegisteredFailureFallsBackToDirectExactLookup() async throws {
-        let (request, match) = association(), calls = CallCounter(), direct = session("direct")
+        let (request, match) = association(), calls = CallCounter(), direct = Self.session("direct")
         let clock = start
         let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
             providerCode: "communitysports", associations: [match],
@@ -824,11 +825,11 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
     func testUnadmittedRegisteredResultsFallBackToDirectLookup() async throws {
         // A stale association whose descriptor no longer binds to the registry
         // entry is filtered out; the direct lane must still run.
-        let (request, match) = association(), direct = session("direct")
+        let (request, match) = association(), direct = Self.session("direct")
         let clock = start
         let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
             providerCode: "communitysports", associations: [match],
-            resolve: { _ in [self.session("unbound")] }, clock: { clock },
+            resolve: { _ in [Self.session("unbound")] }, clock: { clock },
             fallback: { [direct] })
         XCTAssertEqual(choices.map(\.playableURL), [direct.playableURL])
     }
@@ -856,12 +857,12 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
     }
 
     func testFallbackDeliveriesAreDeduplicated() async throws {
-        let (request, match) = association(), direct = session("direct")
+        let (request, match) = association(), direct = Self.session("direct")
         let clock = start
         let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
             providerCode: "communitysports", associations: [match],
             resolve: { _ in throw ResolveFailure() }, clock: { clock },
-            fallback: { [direct, self.session("direct"), self.session("second")] })
+            fallback: { [direct, Self.session("direct"), Self.session("second")] })
         XCTAssertEqual(choices.count, 2)
     }
 
