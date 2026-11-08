@@ -785,13 +785,16 @@ actor LiveStreamResolver {
                     // team/date/competition identity and transport admission.
                     // Reviewed TV is excluded: a generic channel never identifies
                     // a fixture without a registry or programme association.
-                    let directFallback: (@Sendable () async throws -> [StreamSession])? =
-                        source.dispatch == .reviewedTV ? nil : {
+                    var directFallback: (@Sendable () async throws -> [StreamSession])?
+                    if source.dispatch != .reviewedTV {
+                        let refreshMetadata = refreshOptionalSources
+                        directFallback = { @Sendable [source, request, providerCode] () async throws -> [StreamSession] in
                             FottyQualityStore.shared.record(category: .playback, name: "direct_fallback_lookup",
                                 outcome: .info, details: ["source": providerCode, "mode": "registry_miss_direct_fallback"])
                             return try await self.resolveOptionalAdapter(source, request: request, forceRefresh: true,
-                                forceFreshMetadata: refreshOptionalSources)
+                                forceFreshMetadata: refreshMetadata)
                         }
+                    }
                     sessions = try await Self.resolveRegisteredOptionalSessions(for: request,
                         providerCode: providerCode, associations: registered, resolve: { scoped in
                             try await self.resolveOptionalAdapter(source, request: scoped, forceRefresh: true,
