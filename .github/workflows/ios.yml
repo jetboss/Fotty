@@ -53,4 +53,4 @@ jobs:
         run: ./tools/ios-ci.sh
         env:
           FOTTY_XCODE_JOBS: "2"
-          FOTTY_CATALYST_DEPLOYMENT_TARGET: "26.0"
+          FOTTY_CATALYST_DEPLOYMENT_TARGET: "26.1"
