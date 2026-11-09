@@ -35,13 +35,22 @@ Owner decision, 9 Nov 2026: shrink the existing player in place rather than buil
 | 4a | `PlaybackAttempt.swift`: one value carrying the load request plus an explicit scope (source, playback intent, audio intent), with a single `isCurrent(in:)`. Converted: the network-recovery owner, the native failure observation, the stall-validation owner and its guards, the network-loss task, and the four audio paths (start, handoff claim, resume, PiP). Item identity stays inline (`===`), since a value type must not retain the item. | Medium–high | **Done** (build 254) |
 | 4b | Startup (`loadCurrentSource`: request fence, source fence, and a start fence with audio intent), Watch Two resume (sampling and seek callback), the startup waiter, resume-progress evidence, and the web-to-native transfer with its handoff audio leases and candidate audio isolation. | Medium–high | **Done** (build 255) |
 | 4c | The remaining 34 continuation fences: web-embed callbacks, web PiP and background suspension, auto-hide, resume validation, URL preparation, item observers, the watchdog and continuity loop, backup refresh, wrong-match reports, Watch Two candidate preparation, audio retirement and diagnostics. Adds `isCurrent(requestID:sourceID:)` and `isCurrent(requestID:)` shorthands. Stored-record state checks (a saved request ID compared with the current one) and the startup observation-end classifier stay as they are. | Medium | **Done** (build 256) |
-| 5 | `PlaybackLifecycleController`: background, foreground, PiP and fullscreen transitions. | Medium; Jet PiP check | |
+| 5 | `PlaybackLifecyclePolicy.swift`: the PiP keep-alive rule, the web background action and the native resume-after-foreground rule, as pure tested functions. The orchestration stays in the view model (see the finding below). | Medium; Jet PiP check | **Done** (build 257); Jet PiP check pending a live match |
 | 6 | `NativeWatchTwoController`: the multiview and web-to-native transfer (~850 lines). Multiview work is paused by the owner, so this slice moves code without changing behaviour. | Medium | |
 | 7 | `RecoveryCoordinator`: `recoverSourceStartupFailure` and its helpers, built on slices 3–4. | High; Jet live failover check | |
 | 8 | Route audio interruptions and route changes to the active player (audit §2.1-E). | Medium; device audio check | |
 | 9 | Decide `Fotty/Engine`: delete it, or reduce it to thin wrappers over the production matcher, relay and preparation. Do not keep a second copy of any rule. | Low | |
 
 **Target.** `LivePlayerViewModel` under about 1,500 lines, owning playback state, transitions and composition of the components above.
+
+## Slice 5 finding: lifecycle is not a clean controller seam
+
+Measured on 9 Nov, the background, foreground, PiP and fullscreen block (about 600 lines) uses 107 other view-model members, 55 of them private. They span recovery, audio, discovery, transport and diagnostics. A separate `PlaybackLifecycleController` would need a host interface about as wide as the view model, which moves code without reducing what it depends on. Slice 5 therefore extracted only the pure decisions.
+
+There are two ways to cut the file size further, and both are the owner's call:
+
+- **Extension files.** Move the lifecycle orchestration into `LivePlayerViewModel+Lifecycle.swift`. This shrinks the main file by about 600 lines but widens those 55 private members to internal, because Swift's `private` does not cross files.
+- **Leave it.** Continue to slices 6 and 7, which own more self-contained state (Watch Two and recovery) and may have cleaner seams.
 
 ## Fence scopes that differ today (found in slice 4a)
 

@@ -54,6 +54,7 @@
 		27A747E317F4F93BCF758765 /* APIFootballModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6EC3C0EF00CD4C2E2DB820A /* APIFootballModels.swift */; };
 		280590A19D6CB74EAA2DAB10 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0358C1299510CEB2A81BF269 /* SettingsScreen.swift */; };
 		29054634923724D53A47162E /* PlaybackFeedbackIssueTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10B590AA9F3D88078935D7A7 /* PlaybackFeedbackIssueTests.swift */; };
+		293AB96611817FB2B2F8E6B5 /* PlaybackLifecyclePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 145EF56555C2E9FA05B7D717 /* PlaybackLifecyclePolicy.swift */; };
 		29979D47BF061F8D5DB0068E /* LiveSourceHealthStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EB5F54537E6F1A2E2C8E657 /* LiveSourceHealthStore.swift */; };
 		2A44E602D7FC7C7F1EBD78F6 /* SportsPreferenceSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D91E536EDC0DBCC805AE5A7 /* SportsPreferenceSyncTests.swift */; };
 		2BBC93DB992249D8622381C8 /* PlavioSportsAddonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBF6ACFEB4685A95584834A /* PlavioSportsAddonTests.swift */; };
@@ -345,6 +346,7 @@
 		F836CDA4A08D4C78BE1BD2C5 /* FPLCommandCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA6AC5C1CD98DA21B0714B66 /* FPLCommandCenterView.swift */; };
 		F8ADA3ABA4C888F310D22E9F /* BackupFreshnessPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD5BD4D07836CC46E04C1056 /* BackupFreshnessPolicyTests.swift */; };
 		FCFFC75977B9560B820D14A0 /* CricketCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39EC6136B56C5B625821699 /* CricketCatalog.swift */; };
+		FD6B0587C11E63F5A8D0B5F5 /* PlaybackLifecyclePolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 374721E37D1CF66CF33561E6 /* PlaybackLifecyclePolicyTests.swift */; };
 		FDD587A7DCCD7CDD1C8F5066 /* StreamVixSportsAddonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8990680275903CA46C7D5D26 /* StreamVixSportsAddonClient.swift */; };
 		FE643A40E5E4E36DD23E56EC /* ReviewedSportsFixtureMatcherTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0F29747047F2B2192AC2FB /* ReviewedSportsFixtureMatcherTests.swift */; };
 		FE6AD62DD09DB438F8AAECBF /* badges-loaded-and-missing.png in Resources */ = {isa = PBXBuildFile; fileRef = CEC311F44FC3BD3B7FF3F9D2 /* badges-loaded-and-missing.png */; };
@@ -423,6 +425,7 @@
 		12ABB3FB0C037C0E7D5A279B /* ProviderDiscoveryModule.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProviderDiscoveryModule.swift; sourceTree = "<group>"; };
 		12ADEA600563A8324A095FD4 /* PlaybackErrorOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackErrorOverlay.swift; sourceTree = "<group>"; };
 		136BDB414A5841D75A06DEDB /* ImagePipelineOwnershipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePipelineOwnershipTests.swift; sourceTree = "<group>"; };
+		145EF56555C2E9FA05B7D717 /* PlaybackLifecyclePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackLifecyclePolicy.swift; sourceTree = "<group>"; };
 		14928D255D61D76D3E3DF0D6 /* stadium_football.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = stadium_football.png; sourceTree = "<group>"; };
 		15BD3A8AFF01AE306549D1E7 /* FPLSquadValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLSquadValidator.swift; sourceTree = "<group>"; };
 		16EED0D097C49BB77BC241F3 /* UCLReportedScoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UCLReportedScoreTests.swift; sourceTree = "<group>"; };
@@ -474,6 +477,7 @@
 		360B7DC9D29D4425882D1F97 /* FottyMatchActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyMatchActivityAttributes.swift; sourceTree = "<group>"; };
 		3692CA3D52424F1CC3FDCB34 /* MatchTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchTimelineView.swift; sourceTree = "<group>"; };
 		36CD20AA8325AC94DD9CD831 /* SettingsSupportViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSupportViews.swift; sourceTree = "<group>"; };
+		374721E37D1CF66CF33561E6 /* PlaybackLifecyclePolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackLifecyclePolicyTests.swift; sourceTree = "<group>"; };
 		3812CD80F2588B6C98377AF8 /* FPLService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLService.swift; sourceTree = "<group>"; };
 		3A278C3ACBF83EA28E0EE65B /* StreamPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamPlugin.swift; sourceTree = "<group>"; };
 		3A84EAD94D822BE031F1645A /* FPLWorkspaceEvidencePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLWorkspaceEvidencePolicy.swift; sourceTree = "<group>"; };
@@ -835,6 +839,7 @@
 				9BBF6ACFEB4685A95584834A /* PlavioSportsAddonTests.swift */,
 				533FB72EBF780EC46631BAE9 /* PlaybackAttemptTests.swift */,
 				10B590AA9F3D88078935D7A7 /* PlaybackFeedbackIssueTests.swift */,
+				374721E37D1CF66CF33561E6 /* PlaybackLifecyclePolicyTests.swift */,
 				8FEE681802D8C19D177CA470 /* PlaybackPolicyTests.swift */,
 				032DE88FFDFAE4043EE14BD7 /* PlaybackProgressPolicyTests.swift */,
 				1F79A0FDA93DFB33CF1A3D53 /* PlayerChromeUsabilityTests.swift */,
@@ -957,6 +962,7 @@
 				E6F33B7AEC78831B5AD098D0 /* NativeFullscreenPlayback.swift */,
 				4DB0337E89BEA82006304998 /* NativePlaybackPreparation.swift */,
 				3C3EB6A2C54FDCDDF4CD0BC4 /* PlaybackAttempt.swift */,
+				145EF56555C2E9FA05B7D717 /* PlaybackLifecyclePolicy.swift */,
 				B688C81101584E8456907DC5 /* PlaybackProgressPolicy.swift */,
 				B6FEF9007FE42A5B338BDE9F /* SinglePlaybackFeedbackContext.swift */,
 				0186E61D47B7B39CA5DE097D /* SinglePlaybackQualityPolicy.swift */,
@@ -1954,6 +1960,7 @@
 				825DD53F2C1C1EB0796A5F1F /* PlaybackControlsOverlay.swift in Sources */,
 				4FAE78A970FB638CE2812C3F /* PlaybackEngine.swift in Sources */,
 				3D687332B953D881397DC901 /* PlaybackErrorOverlay.swift in Sources */,
+				293AB96611817FB2B2F8E6B5 /* PlaybackLifecyclePolicy.swift in Sources */,
 				73F8301610D9C8CD51874EE7 /* PlaybackProgressPolicy.swift in Sources */,
 				9BAC98BB71519427A35B35E4 /* PlaybackState.swift in Sources */,
 				980B0B07D702ACDD81F33B24 /* ProviderDiscoveryModule.swift in Sources */,
@@ -2108,6 +2115,7 @@
 				2BBC93DB992249D8622381C8 /* PlavioSportsAddonTests.swift in Sources */,
 				78E5FDC23541CA6FD96BCD84 /* PlaybackAttemptTests.swift in Sources */,
 				29054634923724D53A47162E /* PlaybackFeedbackIssueTests.swift in Sources */,
+				FD6B0587C11E63F5A8D0B5F5 /* PlaybackLifecyclePolicyTests.swift in Sources */,
 				5A96741D11B45DFC61D7A6E0 /* PlaybackPolicyTests.swift in Sources */,
 				186FDFA1371F85D8C4274B03 /* PlaybackProgressPolicyTests.swift in Sources */,
 				228EBEB4C8766DC95C85CBBB /* PlayerChromeUsabilityTests.swift in Sources */,

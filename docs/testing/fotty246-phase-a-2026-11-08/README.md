@@ -240,3 +240,17 @@ No continuation in `LivePlayerViewModel` now compares `loadRequestID` inline. Wh
 
 **Jet (Release 3.0.0 (256)).** Installed, and the 60 s launch hold passed. `testWillowWatchAcknowledgementAndNinetySecondNativeHold` passed in 123.0 s: Willow Cricket via TV1 kept the same native player, item and attempt for 90 s, with media advancing 91.83 s. This run goes through the converted watchdog, continuity and item-observer fences. Web-embed paths and a live match were not exercised on the device.
 
+## Build 257: player shrink slice 5, `PlaybackLifecyclePolicy` (9 Nov, 21:00 UTC)
+
+**Change.** New `Fotty/Features/Player/PlaybackLifecyclePolicy.swift` holds three rules that were inline:
+
+- whether native playback stays alive for Picture in Picture (including the 10 s window after an explicit PiP request);
+- what a web player does on background: keep WebKit PiP, suspend after a grace period, or suspend now;
+- whether native playback resumes after foreground.
+
+The view model now calls the policy, and its assignments in each case are unchanged. The policy evaluates its inputs up front rather than short-circuiting; all of them are side-effect-free reads. The plan's `PlaybackLifecycleController` was not built. The lifecycle block uses 107 other members, 55 of them private, so a controller would need a host interface about as wide as the view model (see `docs/PLAYER-SHRINK-PLAN.md`). `LivePlayerViewModel` is now 4823 lines.
+
+**Tests.** The new `PlaybackLifecyclePolicyTests` pin every branch of the three rules, including the strict 10 s PiP window. Player and policy suites: 392 run, 0 failures, 1 skip. Full Catalyst suite: 2,736 run, 0 failures, 12 skips.
+
+**Jet (Release 3.0.0 (257)).** Installed, and the 60 s launch hold passed. **The Willow hold did not run.** At 21:12 UTC the test runner timed out enabling UI automation, which happens when the iPad is locked. **The PiP check is pending.** The physical PiP tests start from a live Home Watch, and nothing was live.
+

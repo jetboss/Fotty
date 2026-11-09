@@ -1497,20 +1497,20 @@ final class LivePlayerViewModel {
 
         if isUsingWebEmbed {
             stopPlaybackWatchdog()
-            if isWebPictureInPictureActive {
+            switch PlaybackLifecyclePolicy.webBackgroundAction(
+                isWebPictureInPictureActive: isWebPictureInPictureActive, isPlaying: isPlaying) {
+            case .keepPictureInPicture:
                 shouldResumeAfterForeground = false
                 shouldSuspendWebPlayback = false
                 connectionPhase = "PiP Active"
-                return
-            }
-
-            shouldResumeAfterForeground = isPlaying
-            if isPlaying {
+            case .suspendAfterGrace:
                 // WebKit reports PiP at almost the same moment iOS backgrounds
                 // the scene. Give that event a small window to arrive before
                 // suspending the owning document.
+                shouldResumeAfterForeground = true
                 scheduleWebBackgroundSuspension()
-            } else {
+            case .suspendNow:
+                shouldResumeAfterForeground = false
                 shouldSuspendWebPlayback = true
             }
             return
@@ -1531,8 +1531,9 @@ final class LivePlayerViewModel {
             return
         }
 
-        shouldResumeAfterForeground = userWantsPlayback
-            && (shouldResumeAfterForeground || isPlaying || isLoading || hasPendingNativePlay)
+        shouldResumeAfterForeground = PlaybackLifecyclePolicy.resumesNativeAfterForeground(
+            userWantsPlayback: userWantsPlayback, alreadyMarked: shouldResumeAfterForeground,
+            isPlaying: isPlaying, isLoading: isLoading, hasPendingNativePlay: hasPendingNativePlay)
         cancelAudioPreparation()
 
         if isPlaying {
@@ -1543,20 +1544,16 @@ final class LivePlayerViewModel {
     }
 
     private var shouldKeepPlaybackAliveForPictureInPicture: Bool {
-        guard allowsViewingPiP else { return false }
-        if isPictureInPictureActive { return true }
-        guard isPictureInPictureAvailable,
-              !isUsingWebEmbed,
-              isPlaying,
-              error == nil else {
-            return false
-        }
-        // The scene can reach background before AVKit's PiP delegate callback.
-        // Once a native player is PiP-capable, let AVKit own that transition
-        // instead of pausing the underlying player during this callback race.
-        if isAppBackgrounded { return player?.currentItem != nil }
-        guard let lastPictureInPictureRequestAt else { return false }
-        return Date().timeIntervalSince(lastPictureInPictureRequestAt) < 10
+        PlaybackLifecyclePolicy.keepsPlaybackAliveForPictureInPicture(.init(
+            allowsViewingPiP: allowsViewingPiP,
+            isPictureInPictureActive: isPictureInPictureActive,
+            isPictureInPictureAvailable: isPictureInPictureAvailable,
+            isUsingWebEmbed: isUsingWebEmbed,
+            isPlaying: isPlaying,
+            hasError: error != nil,
+            isAppBackgrounded: isAppBackgrounded,
+            hasCurrentItem: player?.currentItem != nil,
+            secondsSincePictureInPictureRequest: lastPictureInPictureRequestAt.map { Date().timeIntervalSince($0) }))
     }
 
     private func scheduleWebBackgroundSuspension() {
