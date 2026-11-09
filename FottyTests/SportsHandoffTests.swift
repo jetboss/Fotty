@@ -57,17 +57,24 @@ final class SportsHandoffTests: XCTestCase {
         }
     }
 
-    func testReceiverRequiresFreshSuccessfulCatalogAndKeepsCurrentSourceOnly() throws {
+    func testReceiverRequiresCurrentScheduleReceiptAndKeepsCurrentSourceOnly() throws {
         let identity = try SportsHandoffIdentity.make(event: event(), now: now)
         let current = EventReference(id: "fixture", title: "Liverpool vs Chelsea", category: "football",
             date: event().date, poster: nil, popular: nil, teams: event().teams,
             sources: [.init(source: "hotel", id: "fresh-route")])
-        let result = SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [current], catalogObservedAt: now, now: now)
+        let result = SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [current], scheduleCheckedAt: now, now: now)
         XCTAssertEqual(result?.sources?.first?.id, "fresh-route")
-        for receipt in [now.addingTimeInterval(-61), now.addingTimeInterval(6)] {
-            XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [current], catalogObservedAt: receipt, now: now))
+        // A schedule receipt is current for its 30 min status freshness, with
+        // 5 min of clock skew; outside that window the handoff is refused.
+        XCTAssertNotNil(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [current],
+            scheduleCheckedAt: now.addingTimeInterval(-ScheduleReceiptPolicy.freshness), now: now))
+        XCTAssertNotNil(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [current],
+            scheduleCheckedAt: now.addingTimeInterval(ScheduleReceiptPolicy.clockSkew), now: now))
+        for receipt in [now.addingTimeInterval(-ScheduleReceiptPolicy.freshness - 1),
+                        now.addingTimeInterval(ScheduleReceiptPolicy.clockSkew + 1)] {
+            XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [current], scheduleCheckedAt: receipt, now: now))
         }
-        XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [], catalogObservedAt: now, now: now))
+        XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [], scheduleCheckedAt: now, now: now))
     }
 
     func testReceiverCannotFallThroughContradictoryIDOrChooseAmbiguousNames() throws {
@@ -75,19 +82,19 @@ final class SportsHandoffTests: XCTestCase {
         for catalog in [[event(away: "Arsenal"), event(id: "different")],
                         [event(category: "basketball")], [event(offset: 86400)], [event(conflict: true)],
                         [event(id: "first"), event(id: "second")], [event(home: "Liverpool U21", away: "Chelsea U21")]] {
-            XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: catalog, catalogObservedAt: now, now: now))
+            XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: catalog, scheduleCheckedAt: now, now: now))
         }
     }
 
     func testCompetitionAndCricketSquadDoNotDisappearOnReceiver() throws {
         let football = try SportsHandoffIdentity.make(event: event(competition: "premier-league"), now: now)
-        XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: football, in: [event(competition: "fa-cup")], catalogObservedAt: now, now: now))
-        XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: football, in: [event()], catalogObservedAt: now, now: now))
+        XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: football, in: [event(competition: "fa-cup")], scheduleCheckedAt: now, now: now))
+        XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: football, in: [event()], scheduleCheckedAt: now, now: now))
         let women = event(home: "New Zealand", away: "South Africa", category: "cricket", title: "New Zealand vs South Africa Women")
         let identity = try SportsHandoffIdentity.make(event: women, now: now)
         XCTAssertNil(SportsHandoffMatchPolicy.confirmationEvent(for: identity,
-            in: [event(home: "New Zealand", away: "South Africa", category: "cricket")], catalogObservedAt: now, now: now))
-        XCTAssertEqual(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [women], catalogObservedAt: now, now: now)?.id, women.id)
+            in: [event(home: "New Zealand", away: "South Africa", category: "cricket")], scheduleCheckedAt: now, now: now))
+        XCTAssertEqual(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [women], scheduleCheckedAt: now, now: now)?.id, women.id)
     }
 
     func testUndatedMatchAndConflictingPublisherAreRejected() {

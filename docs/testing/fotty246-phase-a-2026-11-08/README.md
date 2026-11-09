@@ -287,3 +287,15 @@ The two hard-failure lists are now named. `unrecoverablePreparationReasons` and 
 
 **Jet (Release 3.0.0 (259)).** Installed, and the 60 s launch hold passed. `testWillowWatchAcknowledgementAndNinetySecondNativeHold` passed in 128.9 s, with media advancing 91.47 s on the same player, item and attempt. Failover, and therefore these recovery decisions, did not run on the device: Willow did not fail. A live failover check is still pending.
 
+
+## Build 260: dead-code cleanup and schedule receipts for sync, handoff and the widget (9 Nov, 23:00 UTC)
+
+**Cleanup.** `21d2f49` removed `Fotty/Engine` and nine unused app files (1,665 lines). `6766c06` removed the retired Streamed/StreamEx discovery and fetch code (3,834 lines). Periphery, with tests excluded from indexing, found both, and found no new orphans afterwards.
+
+**Regression found and fixed.** Matchday sync between devices, receiving a viewing handoff, and the saved-matches widget all required a successful shared-catalog fetch within the last 60 s. That fetch had failed since Streamed closed on 27 Oct and never ran after the 9 Nov retirement. As a result, synced plans stayed pending, every handoff failed with "could not be confirmed", and the widget used stored rows only. Tests did not catch this because they injected a fake catalog.
+
+The new `ScheduleReceiptPolicy` and `MatchListViewModel.scheduleReceipt(category:matchID:)` confirm a match against the schedule that covers it: CPL's schedule, the cricket schedule, or the sports schedule. The receipt must be verified (`verifiesCurrentRows`), checked within the schedules' 30 min status freshness, and allows 5 min of clock skew. Handoff confirmation uses the same window in place of its old 60 s catalog rule.
+
+**Tests.** `SportsContinuityBridgeTests` now imports a synced plan through a current sports schedule, and covers each receipt rule: the covering schedule per sport, unverified, stale at 30 min + 1 s, and no schedule. `SportsHandoffTests` covers the new window boundaries. Full Catalyst suite: 2,652 run, 0 failures, 12 skips.
+
+**Jet (Release 3.0.0 (260)).** The 60 s launch hold passed. The Willow TV1 90 s native hold passed, with media advancing 91.83 s, which exercises the edited resolver. Sync and handoff between two devices were not tested on hardware.

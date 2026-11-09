@@ -1187,9 +1187,9 @@ final class ViewingSessionCoordinator {
             let identity = try SportsHandoffIdentity.decode(activity: activity)
             let catalog = MatchListViewModel.shared
             await catalog.refresh()
-            guard let receipt = catalog.lastCatalogCheck, !catalog.refreshFailed,
+            guard let receipt = catalog.scheduleReceipt(category: identity.category, matchID: identity.eventID),
                   let event = SportsHandoffMatchPolicy.confirmationEvent(for: identity,
-                    in: catalog.playbackCatalog, catalogObservedAt: receipt) else {
+                    in: catalog.playbackCatalog, scheduleCheckedAt: receipt) else {
                 resolutionError = "That match could not be confirmed in the current schedule. Your current viewing is unchanged."
                 return
             }

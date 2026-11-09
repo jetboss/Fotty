@@ -363,9 +363,39 @@ final class SportsContinuityBridgeTests: XCTestCase {
         XCTAssertEqual(try gate.context.fetch(FetchDescriptor<FollowedTeamItem>()).first?.teamName, "Chelsea")
     }
 
-    func testPendingPlanSurvivesRelaunchAndImportsOnlyAfterFreshCatalog() async throws {
-        let now = Date()
-        let event = fixture(at: now.addingTimeInterval(3600))
+    private static func stamp(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
+
+    /// A verified sports schedule with one NBA match, checked at `checkedAt`.
+    private static func sportsSchedule(kickoff: Date, checkedAt: Date,
+                                       status: SportsFixtureCatalog.SourceStatus = .verified) -> SportsFixtureCatalog.Snapshot {
+        let fixture = SportsFixtureCatalog.Fixture(id: "sports-fixture:nba:continuity", sport: "basketball",
+            start: stamp(kickoff), status: .scheduled, eventKind: .match, title: "Boston Celtics vs New York Knicks",
+            competitionId: "nba", competitionName: "NBA",
+            participants: [.init(id: "boston", name: "Boston Celtics"), .init(id: "new-york", name: "New York Knicks")],
+            squad: .init(gender: .men, ageGroup: "senior"),
+            source: .init(name: "Official schedule", url: "https://www.espn.com/nba/schedule",
+                          observedAt: stamp(checkedAt), verification: nil))
+        let coverage = SportsFixtureCatalog.Coverage(sport: "basketball", competitionId: "nba", competitionName: "NBA",
+            status: .covered, checkedAt: stamp(checkedAt), fixtureCount: 1, pendingFixtureCount: 0, nextStart: nil)
+        return .init(schemaVersion: 1, complete: true, checkedAt: stamp(checkedAt), revision: "continuity-1",
+                     sourceStatus: status, fixtures: [fixture], coverage: [coverage])
+    }
+
+    private static func cricketSchedule(checkedAt: Date,
+                                        status: CricketFixtureCatalog.SourceStatus = .verified) -> CricketFixtureCatalog.Snapshot {
+        .init(schemaVersion: 1, complete: true, checkedAt: stamp(checkedAt), revision: "continuity-1",
+              sourceStatus: status, fixtures: [], coverage: [])
+    }
+
+    /// Since the shared catalog closed (27 Oct 2026), a synced plan is confirmed
+    /// against the current schedule that covers its sport.
+    func testPendingPlanSurvivesRelaunchAndImportsOnlyAfterCurrentSchedule() async throws {
+        // Whole seconds: ISO 8601 receipts carry no fractional part.
+        let now = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
+        let schedule = Self.sportsSchedule(kickoff: now.addingTimeInterval(3600), checkedAt: now)
+        let source = MatchListViewModel(fetchSnapshot: nil, refreshSports: { schedule }, now: { now })
+        await source.refresh()
+        let event = try XCTUnwrap(source.playbackCatalog.first { $0.sportsFixture != nil })
         let gate = try makeGate()
         let remote = record(.plannedMatch(SportsPlannedMatchIdentity(event: event)))
         gate.cloud.values[SportsSyncValidation.cloudKey(for: remote.intent.id)] = try XCTUnwrap(SportsSyncValidation.encode(remote))
@@ -375,21 +405,47 @@ final class SportsContinuityBridgeTests: XCTestCase {
 
         let restoredSync = SportsPreferenceSyncStore(defaults: gate.defaults, client: gate.cloud, originStore: gate.originStore)
         let restoredPlans = MyMatchdayStore(defaults: gate.defaults)
-        let catalog = MatchListViewModel(fetchSnapshot: {
-            LiveCatalogSnapshot(events: [event], checkedAt: now, source: "fixture-test",
-                respondingFeeds: 1, attemptedFeeds: 1, isPartial: false)
-        }, now: { now }, matchdayStore: restoredPlans)
+        let catalog = MatchListViewModel(fetchSnapshot: nil, refreshSports: { schedule }, now: { now },
+                                         matchdayStore: restoredPlans)
         let relaunched = SportsContinuityBridge(defaults: gate.defaults, sync: restoredSync, matchday: restoredPlans,
             catalog: catalog, clock: { now }, publishWidget: { _ in true }, storageAvailable: { true })
         relaunched.configure(modelContext: gate.context)
         restoredSync.receiveExternalChange(reason: NSUbiquitousKeyValueStoreInitialSyncChange)
         relaunched.refresh()
-        XCTAssertTrue(restoredPlans.savedMatches.isEmpty, "No receipt must mean pending, not applied")
+        XCTAssertTrue(restoredPlans.savedMatches.isEmpty, "No schedule receipt must mean pending, not applied")
         await catalog.refresh()
         relaunched.refresh()
         XCTAssertEqual(restoredPlans.savedMatches.first?.id, event.id)
         XCTAssertTrue(restoredPlans.savedMatches.first?.sources.isEmpty == true, "Only the current source-free fixture was saved")
         XCTAssertFalse(restoredSync.records.first { $0.intent.id == remote.intent.id }?.removed == true)
+    }
+
+    func testScheduleReceiptUsesTheCoveringScheduleAndRequiresCurrentVerification() async {
+        // Whole seconds: ISO 8601 receipts carry no fractional part.
+        let now = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
+        func model(sports: SportsFixtureCatalog.Snapshot? = nil, cricket: CricketFixtureCatalog.Snapshot? = nil) async -> MatchListViewModel {
+            let model = MatchListViewModel(fetchSnapshot: nil, refreshCricket: { cricket }, refreshSports: { sports }, now: { now })
+            await model.refresh()
+            return model
+        }
+        let current = await model(sports: Self.sportsSchedule(kickoff: now.addingTimeInterval(3600), checkedAt: now))
+        XCTAssertNotNil(current.scheduleReceipt(category: "basketball", matchID: "any", at: now))
+        XCTAssertNil(current.scheduleReceipt(category: "cricket", matchID: "any", at: now),
+                     "Cricket is confirmed only by the cricket schedule")
+        XCTAssertNotNil(current.scheduleReceipt(category: "basketball", matchID: "any",
+            at: now.addingTimeInterval(ScheduleReceiptPolicy.freshness)))
+        XCTAssertNil(current.scheduleReceipt(category: "basketball", matchID: "any",
+            at: now.addingTimeInterval(ScheduleReceiptPolicy.freshness + 1)), "A stale schedule cannot confirm")
+
+        let unverified = await model(sports: Self.sportsSchedule(kickoff: now.addingTimeInterval(3600), checkedAt: now,
+                                                                 status: .lastKnownGood))
+        XCTAssertNil(unverified.scheduleReceipt(category: "basketball", matchID: "any", at: now))
+
+        let cricket = await model(cricket: Self.cricketSchedule(checkedAt: now))
+        XCTAssertNotNil(cricket.scheduleReceipt(category: "cricket", matchID: "any", at: now))
+        XCTAssertNil(cricket.scheduleReceipt(category: "football", matchID: "any", at: now))
+        XCTAssertNil(MatchListViewModel(fetchSnapshot: nil, now: { now })
+            .scheduleReceipt(category: "football", matchID: "any", at: now), "No schedule, no receipt")
     }
 
     func testFailedRemoteFollowSaveRetriesAcrossRelaunchWithoutTombstoneEcho() throws {

@@ -365,8 +365,7 @@ final class SportsContinuityBridge {
             importedPlanIDs.removeValue(forKey: record.intent.id)
             return savePlanMappings() ? .applied : .failed
         }
-        guard let receipt = catalog.lastCatalogCheck, !catalog.refreshFailed,
-              (0...60).contains(clock().timeIntervalSince(receipt)) else { return .pending }
+        guard catalog.scheduleReceipt(category: match.category, matchID: match.id, at: clock()) != nil else { return .pending }
         let request = StreamPlaybackRequest(matchID: match.id, displayTitle: match.title, homeTeam: match.homeName,
             awayTeam: match.awayName, category: match.category, kickoffDate: match.kickoff, preferredEvent: nil)
         guard let current = CatalogPlaybackIdentity.matchingEvent(for: request, in: catalog.playbackCatalog),
@@ -417,11 +416,12 @@ final class SportsContinuityBridge {
     private func publishWidgetSnapshot() {
         guard requirePersistentStorage() else { return }
         let now = clock()
-        let currentCatalogIsFresh = catalog.lastCatalogCheck.map { (0...60).contains(now.timeIntervalSince($0)) } == true && !catalog.refreshFailed
         var badges: [String: (URL?, URL?)] = [:]
         let rows = matchday.savedMatches.prefix(SportsSyncValidation.maximumRecords).compactMap { saved -> SportsWidgetSnapshot.Match? in
             let stored = saved.event
             guard !stored.isBroadcastChannel, !stored.hasCatalogIdentityConflict else { return nil }
+            let currentCatalogIsFresh = catalog.scheduleReceipt(category: stored.normalizedCategory,
+                matchID: stored.id, at: now) != nil
             let event = currentCatalogIsFresh ? SavedMatchContinuityPolicy.currentEvent(for: saved, in: catalog.playbackCatalog) ?? stored : stored
             var phase: SportsWidgetSnapshot.Phase = .unconfirmed
             var observedAt: Date?

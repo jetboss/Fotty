@@ -167,15 +167,14 @@ struct SportsHandoffIdentity: Codable, Equatable, Sendable {
 
 @MainActor
 enum SportsHandoffMatchPolicy {
-    static let catalogFreshness: TimeInterval = 60
 
     /// The caller supplies the receipt from a successful current catalog fetch,
     /// not the time a cache was read. This returns context for confirmation; it
     /// neither creates a source nor starts playback.
     static func confirmationEvent(for identity: SportsHandoffIdentity, in catalog: [EventReference],
-                                  catalogObservedAt: Date, now: Date = .init()) -> EventReference? {
+                                  scheduleCheckedAt: Date, now: Date = .init()) -> EventReference? {
         guard (try? identity.validate(now: now)) != nil,
-              (-5...catalogFreshness).contains(now.timeIntervalSince(catalogObservedAt)) else { return nil }
+              ScheduleReceiptPolicy.isCurrent(scheduleCheckedAt, at: now) else { return nil }
         let request = StreamPlaybackRequest(matchID: identity.eventID, displayTitle: identity.title,
             homeTeam: identity.homeName, awayTeam: identity.awayName, category: identity.category,
             kickoffDate: identity.kickoff, preferredEvent: nil)

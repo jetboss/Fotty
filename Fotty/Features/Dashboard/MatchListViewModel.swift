@@ -54,6 +54,19 @@ private actor MatchCatalogCacheWriter {
 
 /// BLUEPRINT: @MainActor (Swift 6 Strict Concurrency)
 /// Manages the match list with local caching (SwiftData) and silent background refresh.
+/// Whether a schedule receipt is current enough to confirm a match for
+/// continuity and handoff: verified rows, checked within the schedules' status
+/// freshness, allowing for device clock skew. The schedules replaced the closed
+/// shared catalog, whose 60 s receipt these features used until 27 Oct 2026.
+enum ScheduleReceiptPolicy {
+    static let freshness = SportsFixtureCatalog.statusFreshness
+    static let clockSkew: TimeInterval = 300
+
+    static func isCurrent(_ receipt: Date, at now: Date) -> Bool {
+        (-clockSkew...freshness).contains(now.timeIntervalSince(receipt))
+    }
+}
+
 @MainActor
 @Observable
 final class MatchListViewModel {
@@ -252,6 +265,25 @@ final class MatchListViewModel {
         // missing. Only a failed check or unverified fixture authority should
         // interrupt the user; starting a retry never clears those states.
         return nil
+    }
+
+    /// When the schedule that covers a match was last verified, if that receipt
+    /// is current: CPL's own schedule, the cricket schedule for cricket, and
+    /// the sports schedule for everything else. Nil means the match cannot be
+    /// confirmed now.
+    func scheduleReceipt(category: String, matchID: String, at now: Date = Date()) -> Date? {
+        let verified: Bool, receipt: Date?
+        if CPLSchedule.isManagedFixtureID(matchID) {
+            verified = isCPLScheduleFresh(at: now); receipt = cplScheduleCheckedAt
+        } else if ReviewedSportsFixtureMatcher.sportKey(category) == "cricket" {
+            verified = cricketFixtureSnapshot?.sourceStatus.verifiesCurrentRows == true
+            receipt = cricketFixtureSnapshot?.receiptDate
+        } else {
+            verified = sportsFixtureSnapshot?.sourceStatus.verifiesCurrentRows == true
+            receipt = sportsFixtureSnapshot?.receiptDate
+        }
+        guard verified, let receipt, ScheduleReceiptPolicy.isCurrent(receipt, at: now) else { return nil }
+        return receipt
     }
 
     func isCPLScheduleFresh(at now: Date = Date()) -> Bool {
