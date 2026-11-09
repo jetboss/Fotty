@@ -18,36 +18,9 @@ enum ViewingPlaybackAudioPolicy {
 }
 
 enum ViewingPlaybackEngine: Equatable { case web, native }
-enum NativeWatchTwoPreflightStage: String {
-    case admission, proxy, validation, isolation, readiness, registration
-}
-enum NativeWatchTwoPreflightOutcome: String {
-    case notEligible = "not_eligible", unsupported = "unsupported", noCandidate = "no_candidate"
-    case staleCandidate = "stale_candidate", staleOwner = "stale_owner", cancelled
-    case proxyFailed = "proxy_failed", validationRejected = "validation_rejected"
-    case isolationFailed = "isolation_failed", readinessFailed = "readiness_failed"
-    case readinessTimeout = "readiness_timeout", registrationRejected = "registration_rejected", prepared
-}
 enum ViewingPlaybackContext: Equatable {
     case single
     case watchTwo(engine: ViewingPlaybackEngine)
-}
-
-/// Composition only: callers capture the exact candidate item and relay before
-/// retiring them. No active-player lookup, playback decision or invented cause.
-enum NativeHandoffCandidateDiagnostic {
-    static func details(itemStatus: AVPlayerItem.Status,
-                        native: PlayerDiagnosticService.DiagnosticSnapshot,
-                        candidateRelayDetails: [String: String]) -> [String: String] {
-        var details = native.qualityDetails.merging(candidateRelayDetails) { _, value in value }
-        switch itemStatus {
-        case .unknown: details["native_item_status"] = "unknown"
-        case .readyToPlay: details["native_item_status"] = "ready"
-        case .failed: details["native_item_status"] = "failed"
-        @unknown default: details["native_item_status"] = "other"
-        }
-        return details
-    }
 }
 
 /// Finite reasons why an initial observation ended without granting a source
@@ -457,7 +430,7 @@ final class LivePlayerViewModel {
     let networkPathObserver = NetworkPathObserver(label: "com.fotty.livePlayer.networkPath")
     var streamProxy: LocalStreamProxy?
     var nativeHandoffSession: StreamSession?
-    var attemptedNativeCandidateURLs: Set<String> = []
+    var nativeCandidateLedger = NativeHandoffCandidateLedger()
 
     private let diagnosticService = PlayerDiagnosticService()
     private let prepareAudioSession: @MainActor () async -> MediaAudioSessionPreparation
@@ -911,7 +884,7 @@ final class LivePlayerViewModel {
         guard canRequestNativePlaybackTransfer, let cachedNativeCandidate else { return }
         // A deliberate retry may validate this candidate again; passive
         // discovery still never retries or starts a decoder.
-        attemptedNativeCandidateURLs.remove("\(cachedNativeCandidate.sourceID.uuidString)|\(cachedNativeCandidate.candidate.url.absoluteString)")
+        nativeCandidateLedger.allowRetry(sourceID: cachedNativeCandidate.sourceID, url: cachedNativeCandidate.candidate.url)
         explicitNativeTransferID = UUID()
         beginNativePlaybackTransfer(cachedNativeCandidate.candidate,
             sourceID: cachedNativeCandidate.sourceID, requestID: cachedNativeCandidate.requestID)
@@ -1455,7 +1428,7 @@ final class LivePlayerViewModel {
             nativeHandoffSession = nil
             nativeWatchTwoDelivery = nil
         }
-        attemptedNativeCandidateURLs.removeAll()
+        nativeCandidateLedger.reset()
         failedSourceIDs.removeAll(); autoFailoverCount = 0
         webStartupRetryAttemptsBySource.removeAll(); webStallRetryAttemptsBySource.removeAll()
         nativeStartupRetryAttemptsBySource.removeAll()
@@ -2822,13 +2795,7 @@ final class LivePlayerViewModel {
     private func nativeStartupTimeoutDetails(
         player: AVPlayer, item: AVPlayerItem, deadline: NativePlaybackStartupDeadline
     ) -> [String: String] {
-        let status: String
-        switch item.status {
-        case .unknown: status = "unknown"
-        case .readyToPlay: status = "ready"
-        case .failed: status = "failed"
-        @unknown default: status = "other"
-        }
+        let status = NativeHandoffCandidateDiagnostic.itemStatusLabel(item.status)
         let control: String
         switch player.timeControlStatus {
         case .paused: control = "paused"
@@ -3556,12 +3523,7 @@ final class LivePlayerViewModel {
                 "preparation_reason": outcome.rawValue
             ]) { _, new in new }
             if let item = candidatePlayer?.currentItem {
-                switch item.status {
-                case .unknown: details["native_item_status"] = "unknown"
-                case .readyToPlay: details["native_item_status"] = "ready"
-                case .failed: details["native_item_status"] = "failed"
-                @unknown default: details["native_item_status"] = "other"
-                }
+                details["native_item_status"] = NativeHandoffCandidateDiagnostic.itemStatusLabel(item.status)
                 if let error = item.error as NSError? {
                     details["native_error_domain"] = NativePlaybackErrorDomain(error.domain).rawValue
                     details["native_error_code"] = String(error.code)
@@ -3574,7 +3536,7 @@ final class LivePlayerViewModel {
             // Capture its bounded receipt before cleanup, never the active owner's.
             details.merge(proxy?.diagnosticDetails() ?? [:]) { _, new in new }
             FottyQualityStore.shared.record(category: .playback, name: "native_pair_preflight",
-                outcome: retained ? .success : (outcome == .cancelled || outcome == .staleOwner ? .info : .failure),
+                outcome: outcome.qualityOutcome(retained: retained),
                 durationMilliseconds: Int(Date().timeIntervalSince(began) * 1000), details: details)
             if !retained {
                 candidatePlayer?.pause(); proxy?.stop()
@@ -3793,13 +3755,11 @@ final class LivePlayerViewModel {
               isPlaying,
               nativeHandoffTask == nil else { return }
 
-        let candidateKey = "\(sourceID.uuidString)|\(candidate.url.absoluteString)"
-        guard attemptedNativeCandidateURLs.count < 12,
-              attemptedNativeCandidateURLs.insert(candidateKey).inserted,
+        guard nativeCandidateLedger.admit(sourceID: sourceID, url: candidate.url),
               let selectedSession else { return }
 
         let diagnosticOperation = UUID()
-        diagnosticCandidateCount = min(diagnosticCandidateCount + 1, 12)
+        diagnosticCandidateCount = min(diagnosticCandidateCount + 1, NativeHandoffCandidateLedger.maximumAttempts)
         handoffDiagnosticOperationID = diagnosticOperation
         handoffDiagnosticPhase = .preparingURL
         let observedContext = captureCausalDiagnosticContext()

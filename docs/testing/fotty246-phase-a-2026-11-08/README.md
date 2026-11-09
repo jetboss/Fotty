@@ -254,3 +254,20 @@ The view model now calls the policy, and its assignments in each case are unchan
 
 **Jet (Release 3.0.0 (257)).** Installed, and the 60 s launch hold passed. **The Willow hold did not run.** At 21:12 UTC the test runner timed out enabling UI automation, which happens when the iPad is locked. **The PiP check is pending.** The physical PiP tests start from a live Home Watch, and nothing was live.
 
+**Update, 21:25 UTC.** With the iPad unlocked, the Willow 90 s hold passed on build 258, which contains slice 5 unchanged (see below).
+
+## Build 258: player shrink slice 6, `NativeHandoff` (9 Nov, 21:25 UTC)
+
+**Change.** New `Fotty/Features/Player/NativeHandoff.swift`:
+
+- `NativeWatchTwoPreflightStage`, `NativeWatchTwoPreflightOutcome` and `NativeHandoffCandidateDiagnostic` moved here unchanged;
+- `NativeWatchTwoPreflightOutcome.qualityOutcome(retained:)` replaces the inline receipt rule;
+- `NativeHandoffCandidateDiagnostic.itemStatusLabel(_:)` replaces three copies of the item-status label mapping;
+- `NativeHandoffCandidateLedger` replaces the raw `attemptedNativeCandidateURLs` set. It holds the key format, previously written in two places, and the cap of 12, which the diagnostic counter also uses now.
+
+The plan's `NativeWatchTwoController` was not built. Candidate preparation uses 68 view-model members (34 private) and the web-to-native transfer uses 76 (44 private). `LivePlayerViewModel` is now 4783 lines. Three `PlaybackPolicyTests` assertions moved from the old set to `nativeCandidateLedger.isEmpty`.
+
+**Tests.** The new `NativeHandoffTests` cover the ledger (one try per source and URL, a cap of 12, explicit retry, reset, key format), the status labels and the preflight receipt outcome. Player and policy suites: 395 run, 0 failures, 1 skip. Full Catalyst suite: 2,739 run, 0 failures, 12 skips.
+
+**Jet (Release 3.0.0 (258)).** Installed, and the 60 s launch hold passed. `testWillowWatchAcknowledgementAndNinetySecondNativeHold` passed in 131.5 s: the same native player, item and attempt for 90 s, with media advancing 91.55 s. The web-to-native transfer and Watch Two were not exercised on the device: TV1 is native, and multiview work is paused.
+

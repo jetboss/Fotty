@@ -1681,7 +1681,7 @@ final class PlaybackPolicyTests: XCTestCase {
         )
 
         XCTAssertNil(viewModel.nativeHandoffTask)
-        XCTAssertTrue(viewModel.attemptedNativeCandidateURLs.isEmpty)
+        XCTAssertTrue(viewModel.nativeCandidateLedger.isEmpty)
         XCTAssertEqual(viewModel.playbackState, .playing(.webEmbed))
     }
 
@@ -2064,7 +2064,7 @@ final class PlaybackPolicyTests: XCTestCase {
         model.handleNativePlaybackCandidate(.init(url: URL(string: "https://example.invalid/live.m3u8")!, headers: [:]),
             sourceID: source, requestID: request)
         XCTAssertNil(model.nativeHandoffTask)
-        XCTAssertTrue(model.attemptedNativeCandidateURLs.isEmpty)
+        XCTAssertTrue(model.nativeCandidateLedger.isEmpty)
         XCTAssertEqual(model.playbackState, .playing(.webEmbed))
         XCTAssertTrue(model.userWantsPlayback)
         XCTAssertEqual(model.loadRequestID, request)
@@ -3638,7 +3638,7 @@ final class PlaybackPolicyTests: XCTestCase {
             XCTAssertNil(model.nativeHandoffTask)
             XCTAssertNil(model.nativeHandoffSession)
             XCTAssertFalse(model.isNativePlaybackTransferInProgress)
-            XCTAssertTrue(model.attemptedNativeCandidateURLs.isEmpty)
+            XCTAssertTrue(model.nativeCandidateLedger.isEmpty)
             XCTAssertEqual(model.loadRequestID, request)
             XCTAssertEqual(model.activeSource?.id, source)
             XCTAssertEqual(model.playbackState, .playing(.webEmbed))

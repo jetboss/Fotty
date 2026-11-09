@@ -36,7 +36,7 @@ Owner decision, 9 Nov 2026: shrink the existing player in place rather than buil
 | 4b | Startup (`loadCurrentSource`: request fence, source fence, and a start fence with audio intent), Watch Two resume (sampling and seek callback), the startup waiter, resume-progress evidence, and the web-to-native transfer with its handoff audio leases and candidate audio isolation. | Medium–high | **Done** (build 255) |
 | 4c | The remaining 34 continuation fences: web-embed callbacks, web PiP and background suspension, auto-hide, resume validation, URL preparation, item observers, the watchdog and continuity loop, backup refresh, wrong-match reports, Watch Two candidate preparation, audio retirement and diagnostics. Adds `isCurrent(requestID:sourceID:)` and `isCurrent(requestID:)` shorthands. Stored-record state checks (a saved request ID compared with the current one) and the startup observation-end classifier stay as they are. | Medium | **Done** (build 256) |
 | 5 | `PlaybackLifecyclePolicy.swift`: the PiP keep-alive rule, the web background action and the native resume-after-foreground rule, as pure tested functions. The orchestration stays in the view model (see the finding below). | Medium; Jet PiP check | **Done** (build 257); Jet PiP check pending a live match |
-| 6 | `NativeWatchTwoController`: the multiview and web-to-native transfer (~850 lines). Multiview work is paused by the owner, so this slice moves code without changing behaviour. | Medium | |
+| 6 | `NativeHandoff.swift`: the Watch Two preflight enums and the handoff diagnostic moved out of the view-model file, a `NativeHandoffCandidateLedger` (one key format and the cap of 12, previously written in two places), one shared item-status label (previously three copies) and the preflight receipt mapping. No controller: the transfer and Watch Two paths use 68 to 76 view-model members each, about half private. | Medium | **Done** (build 258) |
 | 7 | `RecoveryCoordinator`: `recoverSourceStartupFailure` and its helpers, built on slices 3–4. | High; Jet live failover check | |
 | 8 | Route audio interruptions and route changes to the active player (audit §2.1-E). | Medium; device audio check | |
 | 9 | Decide `Fotty/Engine`: delete it, or reduce it to thin wrappers over the production matcher, relay and preparation. Do not keep a second copy of any rule. | Low | |
@@ -50,7 +50,7 @@ Measured on 9 Nov, the background, foreground, PiP and fullscreen block (about 6
 There are two ways to cut the file size further, and both are the owner's call:
 
 - **Extension files.** Move the lifecycle orchestration into `LivePlayerViewModel+Lifecycle.swift`. This shrinks the main file by about 600 lines but widens those 55 private members to internal, because Swift's `private` does not cross files.
-- **Leave it.** Continue to slices 6 and 7, which own more self-contained state (Watch Two and recovery) and may have cleaner seams.
+- **Leave it.** The owner chose this on 9 Nov. Slice 6 then measured the same pattern for Watch Two and the transfer: the candidate preparation uses 68 members (34 private) and the web-to-native transfer uses 76 (44 private). So slice 6 also extracted only the standalone types and shared rules.
 
 ## Fence scopes that differ today (found in slice 4a)
 
