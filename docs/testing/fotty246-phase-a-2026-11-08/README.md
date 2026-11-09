@@ -194,5 +194,7 @@ Identities, saved settings, labels and health memory are kept. Cached Home rows 
 
 **Tests.** New `testRetiredSharedCatalogRemovesOnlyItsOwnDiscoveryLane` and `testRetiredCatalogRefreshesFixturesWithoutReportingFailure`. The existing shared-catalog routing test now pins its rules with the catalog explicitly live, so they remain correct if the family is restored. Full Catalyst suite: 2,727 run, 0 failures, 12 skips.
 
-**Not yet established.** No device build. On the next Jet install, Home should no longer show the banner and Settings should no longer list StreamEx.
+**Jet (Release 3.0.0 (253), 9 Nov 14:20 UTC).** Installed, and the 60 s launch hold passed. A physical UI run aimed at a non-existent match recorded the screen. Home showed no "Couldn't refresh" banner, and fixtures still published without the catalog: Pakistan v Sri Lanka at Stumps, the Browse sports grid, and tonight's two NHL games. The same Home on build 252 had shown the banner.
+
+**Not established.** Settings was not opened on the device, so StreamEx's removal from the Sources list is covered by the unit test only. No live Watch ran, because nothing was live.
 
