@@ -39,7 +39,6 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
             let enabled: Set<String> = ["communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix", "score808"]
             let plan = CuratedStreamSourceCatalog.discoveryPlan(for: request, enabledProviderCodes: enabled, at: kickoff)
             XCTAssertEqual(plan.optionalSources.map(\.providerCode), ["communitysports"])
-            XCTAssertFalse(plan.usesSharedCatalog)
             XCTAssertFalse(plan.score808SiteEligible)
             let disabled = CuratedStreamSourceCatalog.discoveryPlan(for: request,
                 enabledProviderCodes: enabled.subtracting(["communitysports"]), at: kickoff)
@@ -218,7 +217,6 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
         let quarantined = try XCTUnwrap(conflict.first)
         XCTAssertTrue(quarantined.hasCatalogIdentityConflict)
         XCTAssertTrue(quarantined.sources?.isEmpty == true)
-        XCTAssertTrue(AnalyticalDataEngine.browsableCatalogEvents(from: conflict).isEmpty)
         XCTAssertFalse(quarantined.passesNearTermLiveListWindow(at: kickoff))
         XCTAssertNil(quarantined.homeBadgeURL)
         XCTAssertNil(quarantined.awayBadgeURL)
@@ -306,12 +304,6 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
         XCTAssertEqual(failure.category, .invalidMatchMapping)
         XCTAssertFalse(failure.fallbackAllowed)
         XCTAssertTrue(diagnostics.providerAttempts.isEmpty)
-        do {
-            _ = try await HybridStreamProvider().resolvePrioritizedSources(for: quarantined)
-            XCTFail("Legacy direct resolution must reject the same quarantine")
-        } catch ProcessorError.invalidData {
-            // Expected preflight rejection; no transport or provider is invoked.
-        }
     }
 
     func testChannelSelectionRemainsExactIDAndNeverClaimsAMatchProgramme() {
@@ -333,47 +325,6 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
             homeTeam: raceRequest.homeTeam, awayTeam: raceRequest.awayTeam, category: raceRequest.category,
             kickoffDate: kickoff)
         XCTAssertNil(CatalogPlaybackIdentity.matchingEvent(for: unknownID, in: [race]))
-    }
-
-    func testThreeGenericEnglishRoutesRemainAvailable() {
-        let candidates = (1...3).map { candidate(number: $0) }
-        let selected = AnalyticalDataEngine.curatedPlaybackCandidates(from: [candidates], limit: 12)
-        XCTAssertEqual(selected.map(\.streamNo), [1, 2, 3])
-        XCTAssertEqual(Set(selected.map(\.embedURL)).count, 3)
-    }
-
-    func testSameLabelSDFallbackRemainsAfterPreferredHDFails() {
-        let hd = candidate(number: 1, hd: true), sd = candidate(number: 2, hd: false)
-        let selected = AnalyticalDataEngine.curatedPlaybackCandidates(from: [[sd, hd]], limit: 6)
-        var attempted: [String] = []
-        let available = selected.first { option in
-            attempted.append(option.embedURL)
-            return option.embedURL == sd.embedURL
-        }
-        XCTAssertEqual(attempted, [hd.embedURL, sd.embedURL])
-        XCTAssertEqual(available?.embedURL, sd.embedURL)
-    }
-
-    func testExactMirrorDuplicatesCollapseButQueryPathCaseAndFamilyRemain() {
-        let url = "https://player.example/Live?channel=1"
-        let items = [candidate(url: url, mirror: "first"), candidate(url: url, mirror: "second"),
-                     candidate(url: "https://player.example/Live?channel=2"),
-                     candidate(url: "https://player.example/live?channel=1"),
-                     candidate(source: "hotel", url: url)]
-        let selected = AnalyticalDataEngine.curatedPlaybackCandidates(from: [items], limit: 12)
-        XCTAssertEqual(selected.count, 4)
-        XCTAssertEqual(selected.filter { $0.sourceCode == "admin" && $0.embedURL == url }.count, 1)
-    }
-
-    func testFamilyFairnessAppliesAcrossDescriptorsAndEveryRound() {
-        let admin = (1...10).map { candidate(number: $0) }
-        let delta = (1...2).map { candidate(source: "delta", number: $0) }
-        let hotel = (1...2).map { candidate(source: "hotel", number: $0) }
-        let groups = [Array(admin.prefix(3)), Array(admin.dropFirst(3)), delta, hotel]
-        let selected = AnalyticalDataEngine.curatedPlaybackCandidates(from: groups, limit: 6)
-        XCTAssertEqual(selected.map(\.sourceCode), ["admin", "delta", "hotel", "admin", "delta", "hotel"])
-        XCTAssertEqual(selected.map(\.streamNo), [1, 1, 1, 2, 2, 2])
-        XCTAssertTrue(AnalyticalDataEngine.curatedPlaybackCandidates(from: groups, limit: 0).isEmpty)
     }
 
     func testFinalDeliveryDedupNeverUsesRedactedURLsOrIgnoresHeaders() {
@@ -574,66 +525,28 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
             sources: [])
         let plan = CuratedStreamSourceCatalog.discoveryPlan(for: StreamPlaybackRequest(event: row),
             enabledProviderCodes: ["communitysports", "plaviosports", "flixstreams", "arbitrary-addon"], at: kickoff)
-        XCTAssertFalse(plan.usesSharedCatalog)
         XCTAssertFalse(plan.score808SiteEligible)
         XCTAssertEqual(plan.optionalSources.map(\.provider), [.communitySports, .plavioSports, .flixStreams])
         let disabled = CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: [], at: kickoff)
         XCTAssertTrue(disabled.optionalSources.isEmpty)
     }
 
-    /// Pins the shared-catalog routing rules with the catalog explicitly live,
-    /// so they stay correct if the family is ever restored.
-    func testReviewedPlanPreservesScoreOnlySharedDiscoveryAndExistingWindow() {
+    func testReviewedPlanKeepsScore808WindowAndOptionalDefaults() {
         let beforeWindow = kickoff.addingTimeInterval(-Score808LateDiscoveryPolicy.lookupLeadTime - 1)
-        let scoreOnly = CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: ["score808"],
-            sharedCatalogRetired: false, at: beforeWindow)
-        XCTAssertEqual(scoreOnly.sharedCatalogProviderCodes, ["score808"])
-        XCTAssertTrue(scoreOnly.usesSharedCatalog, "The hotel catalog route remains available before late-site discovery")
-        XCTAssertFalse(scoreOnly.score808SiteEligible)
-        XCTAssertTrue(CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: ["score808"], at: kickoff).score808SiteEligible)
+        XCTAssertFalse(CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: ["score808"],
+            at: beforeWindow).score808SiteEligible)
+        XCTAssertTrue(CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: ["score808"],
+            at: kickoff).score808SiteEligible, "Score808's own site lane does not depend on any catalog")
         let defaults = Set(CuratedStreamSourceCatalog.all.filter(\.defaultEnabled).map(\.providerCode))
-        let defaultPlan = CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: defaults,
-            sharedCatalogRetired: false, at: kickoff)
-        XCTAssertEqual(defaultPlan.sharedCatalogProviderCodes, ["streamex", "score808"])
+        let defaultPlan = CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: defaults, at: kickoff)
         XCTAssertTrue(defaultPlan.optionalSources.isEmpty, "A new plan must not enable optional sources")
         let undated = CuratedStreamSourceCatalog.discoveryPlan(for: request(undated: true),
-            enabledProviderCodes: ["streamex", "communitysports", "plaviosports"], sharedCatalogRetired: false, at: kickoff)
-        XCTAssertTrue(undated.usesSharedCatalog)
+            enabledProviderCodes: ["communitysports", "plaviosports"], at: kickoff)
         XCTAssertTrue(undated.optionalSources.isEmpty, "Dated exact optional lookup must not invent fixture authority")
         let cricket = CuratedStreamSourceCatalog.discoveryPlan(for: request(category: "cricket"),
             enabledProviderCodes: ["cncsports", "streamvix", "score808"], at: kickoff)
         XCTAssertTrue(cricket.optionalSources.isEmpty)
         XCTAssertFalse(cricket.score808SiteEligible)
-    }
-
-    /// Streamed/StreamEx closed upstream (retired 9 Nov 2026). Its shared
-    /// catalog lane is gone for every family that used it, while Score808's own
-    /// site lane and the optional sources keep their existing rules.
-    func testRetiredSharedCatalogRemovesOnlyItsOwnDiscoveryLane() {
-        XCTAssertTrue(CuratedStreamSourceCatalog.isSharedCatalogRetired)
-        let streamEx = CuratedStreamSourceCatalog.definition(forProviderCode: "streamex")
-        XCTAssertEqual(streamEx?.isRetired, true)
-        XCTAssertEqual(CuratedStreamSourceCatalog.all.filter(\.isRetired).map(\.providerCode), ["streamex"])
-
-        let defaults = Set(CuratedStreamSourceCatalog.all.filter(\.defaultEnabled).map(\.providerCode))
-        let plan = CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: defaults, at: kickoff)
-        XCTAssertFalse(plan.usesSharedCatalog)
-        XCTAssertTrue(plan.score808SiteEligible, "Score808's own site lane does not depend on the shared catalog")
-        let beforeWindow = kickoff.addingTimeInterval(-Score808LateDiscoveryPolicy.lookupLeadTime - 1)
-        XCTAssertFalse(CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: ["score808"],
-            at: beforeWindow).usesSharedCatalog, "The hotel codes also came only from the shared catalog")
-        let optional = CuratedStreamSourceCatalog.discoveryPlan(for: request(),
-            enabledProviderCodes: ["streamex", "communitysports", "plaviosports"], at: kickoff)
-        XCTAssertFalse(optional.usesSharedCatalog)
-        XCTAssertEqual(optional.optionalSources.map(\.provider), [.communitySports, .plavioSports])
-
-        XCTAssertFalse(CuratedStreamSourceCatalog.settingsProviderCodes.contains("streamex"))
-        XCTAssertEqual(CuratedStreamSourceCatalog.settingsProviderCodes,
-                       CuratedStreamSourceCatalog.all.map(\.providerCode).filter { $0 != "streamex" })
-        let lanes = FixtureSourceCatalogCollector.lanes(primaryMatches: [], primaryFailure: .manifestUnreachable,
-            requests: [request()], at: kickoff)
-        XCTAssertFalse(lanes.contains { $0.providerCode == "streamex" }, "The collector must not poll a closed catalog")
-        XCTAssertTrue(lanes.contains { $0.providerCode == "score808" })
     }
 
     func testExpiredBindingRetainsLookupIdentityWithoutClaimingFreshMetadata() throws {
@@ -907,9 +820,4 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
             sources: [NexusASource(source: "admin", id: "provider-event")])
     }
 
-    private func candidate(source: String = "admin", number: Int = 1, hd: Bool = true,
-                           url: String? = nil, mirror: String = "test") -> AnalyticalDataEngine.StreamCandidate {
-        AnalyticalDataEngine.StreamCandidate(sourceCode: source, streamNo: number, language: "English", isHD: hd,
-            heatTier: nil, embedURL: url ?? "https://player.example/\(source)/event/\(number)", catalogProvider: mirror)
-    }
 }

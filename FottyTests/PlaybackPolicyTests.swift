@@ -46,13 +46,6 @@ final class PlaybackPolicyTests: XCTestCase {
         XCTAssertEqual(CatalogBroadcastTiming.live.actionLabel, "Watch live")
     }
 
-    func testCanonicalFallbackRejectsFamiliesWithoutAMaintainedRouteContract() {
-        XCTAssertTrue(AnalyticalDataEngine.supportsCanonicalEmbedFallback(sourceCode: "hotel"))
-        XCTAssertTrue(AnalyticalDataEngine.supportsCanonicalEmbedFallback(sourceCode: "delta"))
-        XCTAssertFalse(AnalyticalDataEngine.supportsCanonicalEmbedFallback(sourceCode: "echo"))
-        XCTAssertFalse(AnalyticalDataEngine.supportsCanonicalEmbedFallback(sourceCode: "admin"))
-    }
-
     func testLateScore808DiscoveryUsesOnlyExplicitFootballWindow() {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         XCTAssertTrue(Score808LateDiscoveryPolicy.isLookupWindow(
@@ -119,74 +112,6 @@ final class PlaybackPolicyTests: XCTestCase {
         XCTAssertTrue(script.contains("candidate.querySelector('video, iframe')"))
         XCTAssertTrue(script.contains("fotty_set_content_mode"))
         XCTAssertTrue(script.contains("object-fit:"))
-    }
-
-    @MainActor
-    func testCatalogChoicesPreferDistinctBroadcastsAndPreserveProviderDiversity() {
-        let admin = [
-            makeCandidate(source: "admin", number: 1, language: "English - Sky Sports", hd: true, viewers: 20_000),
-            makeCandidate(source: "admin", number: 2, language: "English - Sky Sports", hd: false, viewers: 1_000),
-            makeCandidate(source: "admin", number: 3, language: "English - Sky Sport 8", hd: true, viewers: 1_500),
-        ]
-        let delta = [
-            makeCandidate(source: "delta", number: 1, language: "English", hd: true, viewers: 200),
-        ]
-        let golf = [
-            makeCandidate(source: "golf", number: 1, language: "English", hd: true, viewers: 2_500),
-        ]
-
-        let selected = AnalyticalDataEngine.curatedPlaybackCandidates(
-            from: [admin, delta, golf],
-            limit: 4
-        )
-
-        XCTAssertEqual(selected.map(\.sourceCode), ["admin", "delta", "golf", "admin"])
-        XCTAssertEqual(selected.map(\.streamNo), [1, 1, 1, 3])
-        XCTAssertFalse(selected.contains { $0.streamNo == 2 && $0.sourceCode == "admin" })
-    }
-
-    @MainActor
-    func testCanonicalFallbackCreatesOnlyOneChoiceForMaintainedFamilies() {
-        let event = AnalyticalDataEngine.EventReference(
-            id: "fixture-1",
-            title: "Home vs Away",
-            category: "football",
-            date: nil,
-            poster: nil,
-            popular: nil,
-            teams: nil,
-            sources: [
-                NexusASource(source: "admin", id: "event-admin"),
-                NexusASource(source: "delta", id: "event-delta"),
-            ]
-        )
-
-        let fallback = AnalyticalDataEngine.fallbackEmbedSources(for: event)
-
-        XCTAssertEqual(fallback.count, 1)
-        XCTAssertEqual(Set(fallback.compactMap { $0.headers["X-Fotty-Nexus-Source"] }), ["delta"])
-        XCTAssertTrue(fallback.allSatisfy { $0.url.path.hasSuffix("/1") })
-        XCTAssertFalse(fallback.contains { StreamPluginProviderMatching.isP2PLike($0) })
-    }
-
-    @MainActor
-    private func makeCandidate(
-        source: String,
-        number: Int,
-        language: String,
-        hd: Bool,
-        viewers: Int
-    ) -> AnalyticalDataEngine.StreamCandidate {
-        AnalyticalDataEngine.StreamCandidate(
-            sourceCode: source,
-            streamNo: number,
-            language: language,
-            isHD: hd,
-            heatTier: nil,
-            embedURL: "https://embed.st/embed/\(source)/event/\(number)",
-            catalogProvider: "test",
-            viewers: viewers
-        )
     }
 
     func testLiveScoreScopeIsPremierLeagueOnlyForNow() {
@@ -1355,29 +1280,6 @@ final class PlaybackPolicyTests: XCTestCase {
             StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: "india"),
             "streamex"
         )
-    }
-
-    func testSharedCatalogPlaybackURLsRequireReviewedHTTPSOrigins() throws {
-        XCTAssertTrue(StreamPluginProviderMatching.allowsSharedPlaybackURL(
-            try XCTUnwrap(URL(string: "https://video.embed.st/embed/delta/example/1")),
-            sourceCode: "delta"
-        ))
-        for rawURL in [
-            "http://embed.st/embed/delta/example/1",
-            "https://embed.st.evil.example/embed/delta/example/1",
-            "https://user:password@embed.st/embed/delta/example/1",
-            "https://embed.st:8443/embed/delta/example/1",
-            "javascript:alert(1)"
-        ] {
-            XCTAssertFalse(StreamPluginProviderMatching.allowsSharedPlaybackURL(
-                try XCTUnwrap(URL(string: rawURL)),
-                sourceCode: "delta"
-            ), rawURL)
-        }
-        XCTAssertFalse(StreamPluginProviderMatching.allowsSharedPlaybackURL(
-            try XCTUnwrap(URL(string: "https://embed.st/embed/delta/example/1")),
-            sourceCode: "retired-provider"
-        ))
     }
 
     func testPlaybackFailuresDoNotOpenFamilyCircuit() throws {

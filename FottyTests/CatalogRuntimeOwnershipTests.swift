@@ -404,7 +404,7 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
             XCTAssertLessThanOrEqual(payload.count, maximumPayloadBytes)
             for iteration in 1...3 {
                 let decodeStart = DispatchTime.now().uptimeNanoseconds
-                let decoded = try AnalyticalDataEngine.decodeMatches(from: payload)
+                let decoded = try JSONDecoder().decode([AnalyticalDataEngine.EventReference].self, from: payload)
                 let decodeMilliseconds = Double(DispatchTime.now().uptimeNanoseconds - decodeStart) / 1_000_000
                 XCTAssertEqual(decoded.count, benchmark.rows)
 
@@ -438,7 +438,7 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
         let copiesPerFixture = 4
         for uniqueRows in [250, 1_000] {
             let payload = try benchmarkPayload(rows: uniqueRows, targetBytes: nil, now: now)
-            let originals = try AnalyticalDataEngine.decodeMatches(from: payload)
+            let originals = try JSONDecoder().decode([AnalyticalDataEngine.EventReference].self, from: payload)
             let repeated = (0..<copiesPerFixture).flatMap { copy in
                 originals.map { row in
                     EventReference(id: row.id, title: row.title, category: row.category,
@@ -478,7 +478,7 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
                        "Premier League", "CPL", "Yankees", "Alcaraz", "zz-no-match"]
         for rows in [250, 1_000] {
             let payload = try benchmarkPayload(rows: rows, targetBytes: nil, now: now)
-            let events = try AnalyticalDataEngine.decodeMatches(from: payload)
+            let events = try JSONDecoder().decode([AnalyticalDataEngine.EventReference].self, from: payload)
             let discovery = HomeSportsDiscovery(events: events, now: now)
             let expectedFootballIDs = events.filter { $0.normalizedCategory == "football" }.map(\.id)
             XCTAssertEqual(discovery.items.count + discovery.channels.count, rows)

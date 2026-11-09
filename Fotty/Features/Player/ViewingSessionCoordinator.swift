@@ -143,8 +143,8 @@ final class ViewingSessionCoordinator {
             in: MatchListViewModel.shared.playbackAdmissionCatalog) else { return nil }
         let status = MatchStartPolicy.currentStatus(for: current, scores: LiveScoreService.shared)
         return MatchStartPolicy(event: current, status: status).timingAllowsPlayback ? current : nil
-    }, catalogEvent: @escaping @MainActor (StreamPlaybackRequest) async -> EventReference? = {
-        await LiveStreamResolver.shared.catalogEvent(for: $0)
+    }, catalogEvent: @escaping @MainActor (StreamPlaybackRequest) async -> EventReference? = { _ in
+        nil // No production catalog since the shared catalog closed; tests may inject one.
     }, cancelPlayback: @escaping @MainActor (StreamPlaybackRequest) async -> Void = {
         LiveStreamResolver.shared.cancelAttempt(for: $0)
     }) {

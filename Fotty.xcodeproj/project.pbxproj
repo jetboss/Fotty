@@ -162,10 +162,8 @@
 		7BB3EEBBDEAA0B12D6483927 /* SportsWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DCC095B7B32B1BAA3A359EF /* SportsWidgetSnapshot.swift */; };
 		7CD1AC108C8C9CD73F9FD6CD /* SingleRetryDiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B3295D9F806350EAF7C766 /* SingleRetryDiscoveryTests.swift */; };
 		7E146A324FB9B157419FC7A0 /* Fotty25PlayerDesignTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA4CC0ED33C734EF9104BFE3 /* Fotty25PlayerDesignTests.swift */; };
-		7EA9E6CC6E40077C9ADEE35D /* LiveStreamingProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CEDB1DAFF8EB5EFA3DE7493 /* LiveStreamingProvider.swift */; };
 		7F908D3B6156F69970D879A7 /* CatalogIncrementalPublicationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E34A7806CC7492FC81705044 /* CatalogIncrementalPublicationTests.swift */; };
 		803B4B3E67FE9F7A27EB1978 /* CricketMatchContextTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78A57B9A599A4D0969671C66 /* CricketMatchContextTests.swift */; };
-		8100658DB78FB18B3ABE0561 /* SharedStreamDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C7783D58426C468D907E353 /* SharedStreamDiscovery.swift */; };
 		815A59F521E0BCCA9B532308 /* HomeProjectionCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5B113760E70AB7E8E1CE51 /* HomeProjectionCoordinator.swift */; };
 		825DD53F2C1C1EB0796A5F1F /* PlaybackControlsOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DD832F1175EE8658444587E /* PlaybackControlsOverlay.swift */; };
 		83F37BD2D333306118742EDE /* NetworkPathObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6337E176CBF569BE6D54978 /* NetworkPathObserver.swift */; };
@@ -245,7 +243,6 @@
 		BB87339E708D53EA69B2E8E2 /* FootballScoreReceiptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84401ED0BBA569429F089F86 /* FootballScoreReceiptTests.swift */; };
 		BBA7F9D0D5CB920E340A38D0 /* MatchdayDayNavigationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D88742C1A5EE70E38141AF59 /* MatchdayDayNavigationTests.swift */; };
 		BCE385AF43A6D334B413AEC4 /* UserProfileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D995C50C24B7F74804A99290 /* UserProfileStore.swift */; };
-		BDC989BD6CA4EC3E35566C6D /* LiveViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47F43391C57B2F6D35A30583 /* LiveViewModel.swift */; };
 		BEA1EA83D2CACB1371EFA854 /* StreamVixTimingPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF649CCB1570F8E04AEE9A83 /* StreamVixTimingPolicy.swift */; };
 		BEAB7BF078E380260C43512E /* SettingsPrivacyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0B5CC2E5BDC44C516C3AF3E /* SettingsPrivacyView.swift */; };
 		BEEC43C9FC9D30FCA1125AE4 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CE3F329600D270A2563007E /* Components.swift */; };
@@ -298,14 +295,12 @@
 		DE2633C4456949B426C02793 /* sources-phone-dark.png in Resources */ = {isa = PBXBuildFile; fileRef = 2FD8217F610010890D6E5ED1 /* sources-phone-dark.png */; };
 		DE3170FAA4B29D1E9D329B91 /* SportsFixtureCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C68B241393986C83EB4EB7A /* SportsFixtureCatalogTests.swift */; };
 		E07392D6AE4EFD9B801EF021 /* CNCSportsAddonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4AD05F35CA0A6C545B264A /* CNCSportsAddonClient.swift */; };
-		E17B12E12BBD65C0FD92EA5E /* CoreMediaProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E16E53FE0A1651F7AABE8EF /* CoreMediaProvider.swift */; };
 		E232DAFAE2D372ECEE6B98E2 /* FottySportsPlanWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71CC365261B6BF474F8F812 /* FottySportsPlanWidget.swift */; };
 		E349E3A21D479F9EC95C53D6 /* Manifests in Resources */ = {isa = PBXBuildFile; fileRef = 9AEDDD5F58237ACD0BDC8023 /* Manifests */; };
 		E3581BC192E70B4B0E6DAB6B /* ViewingSceneLease.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7B919C9DDD86EAE2F234CFD /* ViewingSceneLease.swift */; };
 		E36D374F53C85403132FFD71 /* FPLAICoachService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 525F46472E582A4FE2A1641A /* FPLAICoachService.swift */; };
 		E5A5B0E2453BE30144DF300D /* SportsTVExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A9436CF02CA31EE0AF6FCCC /* SportsTVExperience.swift */; };
 		E5B6C9FD75A1061F37DD2993 /* FottyMatchActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360B7DC9D29D4425882D1F97 /* FottyMatchActivityAttributes.swift */; };
-		E5E6C848952793A6E251E454 /* SharedStreamDiscoveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 338E1974B4ADA99E4E8A4956 /* SharedStreamDiscoveryTests.swift */; };
 		E7153996ADC919FC41B33CA2 /* AnalyticalDataEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AF1FEBE88FD2C3EA9DCDA06 /* AnalyticalDataEngine.swift */; };
 		E792F7755B3B071B700C8B32 /* FPLAICoachView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C53FC0FE3F28E36E910CF74 /* FPLAICoachView.swift */; };
 		E871EAB7EA14C8BBD258AB85 /* home-ipad-narrow.png in Resources */ = {isa = PBXBuildFile; fileRef = 1A64749ECCD5AA5D4EC9DF77 /* home-ipad-narrow.png */; };
@@ -395,7 +390,6 @@
 		0B29B943381F8AF48A1E00BA /* ApplePlatformBaselineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ApplePlatformBaselineTests.swift; sourceTree = "<group>"; };
 		0B5CB6E2FC3E8C69D6B25672 /* InlineReminderFeedbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InlineReminderFeedbackTests.swift; sourceTree = "<group>"; };
 		0B6EEC487E21F9ED0CE9381B /* FottyFPLDeadlineWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyFPLDeadlineWidget.swift; sourceTree = "<group>"; };
-		0C7783D58426C468D907E353 /* SharedStreamDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedStreamDiscovery.swift; sourceTree = "<group>"; };
 		0CFDFCEB475C843E72D2A16D /* UCLReportedScoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UCLReportedScoreView.swift; sourceTree = "<group>"; };
 		0DC016AF01C49A24ACB7C7FB /* stadium_general.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = stadium_general.png; sourceTree = "<group>"; };
 		0E036FC72946463478B6611A /* LivePlaybackRecoveryOverridesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePlaybackRecoveryOverridesTests.swift; sourceTree = "<group>"; };
@@ -451,7 +445,6 @@
 		2FD8217F610010890D6E5ED1 /* sources-phone-dark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "sources-phone-dark.png"; sourceTree = "<group>"; };
 		2FFB2EE83EBF68C0B9A54374 /* LivePlayerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePlayerViewModel.swift; sourceTree = "<group>"; };
 		31E32B105446EA9F6B5F96C5 /* MatchReminderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchReminderTests.swift; sourceTree = "<group>"; };
-		338E1974B4ADA99E4E8A4956 /* SharedStreamDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedStreamDiscoveryTests.swift; sourceTree = "<group>"; };
 		33974375B050147ADC2322FF /* NativePlaybackPreparationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativePlaybackPreparationTests.swift; sourceTree = "<group>"; };
 		358E97224A7B03EE6AD9D4B4 /* MatchCardFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MatchCardFormatting.swift; sourceTree = "<group>"; };
 		360B7DC9D29D4425882D1F97 /* FottyMatchActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyMatchActivityAttributes.swift; sourceTree = "<group>"; };
@@ -481,7 +474,6 @@
 		469E3918650B9F86B832FE79 /* URLExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLExtensions.swift; sourceTree = "<group>"; };
 		46FBFFDC78DAE06BCDDBBF09 /* LiveSourceHealthScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSourceHealthScopeTests.swift; sourceTree = "<group>"; };
 		4744193DAA45F40E9DA6D529 /* TeamFollowKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamFollowKey.swift; sourceTree = "<group>"; };
-		47F43391C57B2F6D35A30583 /* LiveViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveViewModel.swift; sourceTree = "<group>"; };
 		48070512128334AFE9A5E436 /* TeamOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamOnboardingView.swift; sourceTree = "<group>"; };
 		488EC0D5107F28246404F449 /* FPLManagerConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLManagerConnection.swift; sourceTree = "<group>"; };
 		49979063C270AB2E683D7A93 /* WebViewRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebViewRenderer.swift; sourceTree = "<group>"; };
@@ -512,7 +504,6 @@
 		5BC7D810125386D7B22CFAFE /* SportsWidgetSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsWidgetSnapshotStore.swift; sourceTree = "<group>"; };
 		5C90A4A3B50D720C5FC54AE6 /* Score808SiteCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Score808SiteCatalogTests.swift; sourceTree = "<group>"; };
 		5CD9EEFEEC84FD9F7F675342 /* FPLLeagueStandingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLLeagueStandingsView.swift; sourceTree = "<group>"; };
-		5CEDB1DAFF8EB5EFA3DE7493 /* LiveStreamingProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveStreamingProvider.swift; sourceTree = "<group>"; };
 		5E714149FEA6D12082043CF0 /* StreamResolutionOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamResolutionOverlay.swift; sourceTree = "<group>"; };
 		5EB5F54537E6F1A2E2C8E657 /* LiveSourceHealthStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSourceHealthStore.swift; sourceTree = "<group>"; };
 		5EC1E5B86A6A9E980E399174 /* ViewingPlaybackOwnershipTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewingPlaybackOwnershipTests.swift; sourceTree = "<group>"; };
@@ -547,7 +538,6 @@
 		7C68B241393986C83EB4EB7A /* SportsFixtureCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsFixtureCatalogTests.swift; sourceTree = "<group>"; };
 		7D2E1A0E86257DD9C5DB8333 /* BetaUsabilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BetaUsabilityTests.swift; sourceTree = "<group>"; };
 		7DA2EF754DC11FBFDD073D4A /* home-ipad-landscape.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "home-ipad-landscape.png"; sourceTree = "<group>"; };
-		7E16E53FE0A1651F7AABE8EF /* CoreMediaProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreMediaProvider.swift; sourceTree = "<group>"; };
 		7F0F29747047F2B2192AC2FB /* ReviewedSportsFixtureMatcherTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewedSportsFixtureMatcherTests.swift; sourceTree = "<group>"; };
 		800B3EA8DCFB122CEABB21E6 /* SportsFixtureCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsFixtureCatalog.swift; sourceTree = "<group>"; };
 		81621DF315356CD7D48CB5D9 /* FootballModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FootballModels.swift; sourceTree = "<group>"; };
@@ -813,7 +803,6 @@
 				EBFA990392CDEF4A45E52CCB /* ReviewedTVPlaylistClientTests.swift */,
 				5C90A4A3B50D720C5FC54AE6 /* Score808SiteCatalogTests.swift */,
 				419DF391A482D2721DBB32FF /* SettingsUsabilityTests.swift */,
-				338E1974B4ADA99E4E8A4956 /* SharedStreamDiscoveryTests.swift */,
 				A09EF2739E6E8E114395AA7D /* SingleNativeFallbackPolicyTests.swift */,
 				21AB48C123C8AEF0C12B7121 /* SinglePlaybackFeedbackContextTests.swift */,
 				FC4870E6117911962EE5CDA4 /* SinglePlaybackQualityTests.swift */,
@@ -1169,7 +1158,6 @@
 				D1C46E9492D2F47C8891B59E /* CatalogEventDetailsView.swift */,
 				E84EF46B8CBF961FD68A8C70 /* HomeCatalogProjectionPolicies.swift */,
 				5F5B113760E70AB7E8E1CE51 /* HomeProjectionCoordinator.swift */,
-				47F43391C57B2F6D35A30583 /* LiveViewModel.swift */,
 				51B0A4ED15414BC625DF5469 /* MatchListViewModel.swift */,
 				86AA474852E2C6BD74600911 /* SportsDashboardView.swift */,
 				2937E8F6BAC690F227739A02 /* SportsTVView.swift */,
@@ -1321,7 +1309,6 @@
 				BC58DC3233EB1385BE282CC2 /* FottyBoundedHTTPClient.swift */,
 				6490671312449481486B1A4A /* LiveCatalogSnapshot.swift */,
 				5EB5F54537E6F1A2E2C8E657 /* LiveSourceHealthStore.swift */,
-				5CEDB1DAFF8EB5EFA3DE7493 /* LiveStreamingProvider.swift */,
 				4C5A629380007246A6CB4D63 /* LocalStreamProxy.swift */,
 				107EAB2FEFAA8864DF42F609 /* LocalStreamProxyPolicy.swift */,
 				18C54FE0F6DE209944D27053 /* PlavioSportsAddonClient.swift */,
@@ -1329,11 +1316,9 @@
 				58CD9A3AA8178993A635C99A /* ReviewedTVPlaylistClient.swift */,
 				4483A2DCF2E02D4602F83943 /* Score808SiteCatalog.swift */,
 				CDFBE9FBE58FDE3B6283F592 /* Score808SiteResolver.swift */,
-				0C7783D58426C468D907E353 /* SharedStreamDiscovery.swift */,
 				A455F94552E65EBF3EE2932E /* StreamDiscoveryCoordinator.swift */,
 				8990680275903CA46C7D5D26 /* StreamVixSportsAddonClient.swift */,
 				FF649CCB1570F8E04AEE9A83 /* StreamVixTimingPolicy.swift */,
-				D5AAECC0484DD559C125C57B /* Providers */,
 			);
 			path = Networking;
 			sourceTree = "<group>";
@@ -1464,14 +1449,6 @@
 				F78F02379BB89CD32BE0190F /* MatchModels.swift */,
 			);
 			path = Models;
-			sourceTree = "<group>";
-		};
-		D5AAECC0484DD559C125C57B /* Providers */ = {
-			isa = PBXGroup;
-			children = (
-				7E16E53FE0A1651F7AABE8EF /* CoreMediaProvider.swift */,
-			);
-			path = Providers;
 			sourceTree = "<group>";
 		};
 		D86C7D32772F22E446E2B5A0 /* Shared */ = {
@@ -1767,7 +1744,6 @@
 				8A7DEB70F533EF622D7D2317 /* CommunitySportsAddonClient.swift in Sources */,
 				BEEC43C9FC9D30FCA1125AE4 /* Components.swift in Sources */,
 				A894C14DC954F51D86E9AF2B /* Config.swift in Sources */,
-				E17B12E12BBD65C0FD92EA5E /* CoreMediaProvider.swift in Sources */,
 				41524985B046584DCE4FED4D /* CricketActivityPresentationPolicy.swift in Sources */,
 				FCFFC75977B9560B820D14A0 /* CricketCatalog.swift in Sources */,
 				66EC56E6A901D21883FAD107 /* CricketFixtureCatalog.swift in Sources */,
@@ -1856,8 +1832,6 @@
 				1E3E3B10ED60BDC676079E6A /* LivePlayerViewModel.swift in Sources */,
 				29979D47BF061F8D5DB0068E /* LiveSourceHealthStore.swift in Sources */,
 				91941CCCA7A3E5879AEDFE48 /* LiveStreamSelectorSheet.swift in Sources */,
-				7EA9E6CC6E40077C9ADEE35D /* LiveStreamingProvider.swift in Sources */,
-				BDC989BD6CA4EC3E35566C6D /* LiveViewModel.swift in Sources */,
 				4A4A2777647BFA6971B3A24F /* LiveWebEmbedPlayerView.swift in Sources */,
 				EF8D0CE0A195DDE36AF3EBB0 /* LoadingStateOverlay.swift in Sources */,
 				40A9B775128F8EAC04CEBBD8 /* LocalDataStore.swift in Sources */,
@@ -1911,7 +1885,6 @@
 				170215FF20FD02FB83AFAD74 /* SettingsSupportViews.swift in Sources */,
 				EFF1D933C2B4833F1B5DA455 /* SettingsView.swift in Sources */,
 				3CAD1E86E575BF0F54166488 /* SettingsViewModel.swift in Sources */,
-				8100658DB78FB18B3ABE0561 /* SharedStreamDiscovery.swift in Sources */,
 				659CC45ECB62007EA81A1D00 /* SinglePlaybackFeedbackContext.swift in Sources */,
 				3F5C1DBDFB7D95AF907CA1EF /* SinglePlaybackQualityPolicy.swift in Sources */,
 				B3840CDAF5B84FB73D6CF93C /* SocialModels.swift in Sources */,
@@ -2049,7 +2022,6 @@
 				F2898792B1B64D5C3F6D03B1 /* ReviewedTVPlaylistClientTests.swift in Sources */,
 				19B6CFC422969C75BBE67EE0 /* Score808SiteCatalogTests.swift in Sources */,
 				5F23CC7F0B612273FA6B3235 /* SettingsUsabilityTests.swift in Sources */,
-				E5E6C848952793A6E251E454 /* SharedStreamDiscoveryTests.swift in Sources */,
 				425193EA637C973972182A28 /* SingleNativeFallbackPolicyTests.swift in Sources */,
 				E9D981C3B2181FF611BADFD6 /* SinglePlaybackFeedbackContextTests.swift in Sources */,
 				9354BA6217BD74E68FFC64DC /* SinglePlaybackQualityTests.swift in Sources */,

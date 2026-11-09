@@ -274,15 +274,10 @@ final class MatchListViewModel {
         return ordered
     }
 
-    /// Nil while the shared catalog is retired: Home then publishes fixture
-    /// lanes only and a dead upstream is never reported as a refresh failure.
+    /// Production has no catalog lane since the shared catalog closed; Home
+    /// publishes fixture lanes only. Tests may still inject provider rows.
     typealias CatalogFetch = @MainActor () async throws -> LiveCatalogSnapshot
-    @ObservationIgnored private var fetchSnapshot: CatalogFetch? = MatchListViewModel.productionCatalogFetch()
-
-    private static func productionCatalogFetch() -> CatalogFetch? {
-        if CuratedStreamSourceCatalog.isSharedCatalogRetired { return nil }
-        return { try await AnalyticalDataEngine.liveCatalogSnapshot() }
-    }
+    @ObservationIgnored private var fetchSnapshot: CatalogFetch?
     @ObservationIgnored private var refreshSchedule: @MainActor () async -> CPLSchedule.Snapshot? = { await CPLScheduleUpdater.shared.refresh() }
     @ObservationIgnored private var refreshCricket: @MainActor () async -> CricketFixtureCatalog.Snapshot? = { await CricketFixtureUpdater.shared.refresh() }
     @ObservationIgnored private var refreshSports: @MainActor () async -> SportsFixtureCatalog.Snapshot? = { await SportsFixtureUpdater.shared.refresh() }

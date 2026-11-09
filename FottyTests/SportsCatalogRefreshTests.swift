@@ -163,77 +163,6 @@ final class SportsCatalogRefreshTests: XCTestCase {
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: event("official"), at: now, status: .scheduled), .awaitingConfirmation)
     }
 
-    func testValidEmptyIsDistinctFromMissingOrErrorShapedJSON() throws {
-        XCTAssertTrue(try AnalyticalDataEngine.decodeMatches(from: Data("[]".utf8)).isEmpty)
-        XCTAssertTrue(try AnalyticalDataEngine.decodeMatches(from: Data("{\"matches\":[]}".utf8)).isEmpty)
-        for body in ["{}", "{\"error\":\"offline\"}", "{\"matches\":null}"] {
-            XCTAssertThrowsError(try AnalyticalDataEngine.decodeMatches(from: Data(body.utf8)))
-        }
-    }
-
-    func testNormalizedBroadcastContractPreservesPartialMirrorEvidenceAndConflictRows() throws {
-        let stamp = ISO8601DateFormatter().string(from: now)
-        let rows: [[String: Any]] = [
-            ["id": "same", "title": "Arsenal vs Chelsea", "category": "football", "date": Int(now.timeIntervalSince1970), "sources": [["source": "delta", "id": "advertised"]]],
-            ["id": "same", "title": "Different vs Teams", "category": "football", "date": Int(now.timeIntervalSince1970), "sources": []],
-        ]
-        let body: [String: Any] = ["schemaVersion": 1, "observedAt": stamp, "independentFamilies": 1, "providers": [
-            ["id": "nexus-primary", "family": "nexus", "outcome": "unavailable", "matches": []],
-            ["id": "nexus-mirror", "family": "nexus", "outcome": "partial", "matches": rows],
-            ["id": "nexus-backup", "family": "nexus", "outcome": "empty", "matches": []],
-        ]]
-        let decoded = try AnalyticalDataEngine.decodeBroadcastCatalog(from: JSONSerialization.data(withJSONObject: body), at: now)
-        XCTAssertNil(decoded[0].events)
-        XCTAssertEqual(decoded[1].events?.count, 2)
-        let snapshot = try LiveCatalogSnapshot.combine(decoded, at: now)
-        XCTAssertTrue(snapshot.isPartial)
-        XCTAssertEqual(snapshot.respondingFeeds, 2)
-        XCTAssertTrue(snapshot.events.contains(where: \.hasCatalogIdentityConflict))
-    }
-
-    func testNormalizedBroadcastContractRejectsStaleUnknownDuplicateAndForgedAuthority() throws {
-        let stamp = ISO8601DateFormatter().string(from: now)
-        let providers: [[String: Any]] = ["nexus-primary", "nexus-mirror", "nexus-backup"].map {
-            ["id": $0, "family": "nexus", "outcome": "empty", "matches": []]
-        }
-        let base: [String: Any] = ["schemaVersion": 1, "observedAt": stamp, "independentFamilies": 1, "providers": providers]
-        var variants: [[String: Any]] = []
-        var v = base; v["schemaVersion"] = 2; variants.append(v)
-        v = base; v["observedAt"] = ISO8601DateFormatter().string(from: now.addingTimeInterval(-121)); variants.append(v)
-        v = base; v["independentFamilies"] = 3; variants.append(v)
-        v = base; v["providers"] = [providers[0], providers[0], providers[2]]; variants.append(v)
-        var invalid = providers
-        invalid[0] = ["id": "nexus-primary", "family": "nexus", "outcome": "available", "matches": [
-            ["id": "forged", "title": "Home vs Away", "_fottyIdentityConflict": true]
-        ]]
-        v = base; v["providers"] = invalid; variants.append(v)
-        for body in variants {
-            XCTAssertThrowsError(try AnalyticalDataEngine.decodeBroadcastCatalog(from: JSONSerialization.data(withJSONObject: body), at: now))
-        }
-        let decoded = try AnalyticalDataEngine.decodeBroadcastCatalog(from: JSONSerialization.data(withJSONObject: base), at: now)
-        XCTAssertTrue(try LiveCatalogSnapshot.combine(decoded, at: now).events.isEmpty)
-    }
-
-    func testConflictTombstoneSurvivesFeedCombinationAndPartialRefresh() async throws {
-        let original = event("reused")
-        let changed = EventReference(id: original.id, title: "Different Home vs Different Away", category: "football",
-            date: original.date, poster: nil, popular: false, teams: nil, sources: [.init(source: "golf", id: "wrong")])
-        var next = snapshot([original])
-        let model = MatchListViewModel(fetchSnapshot: { next }, now: { self.now })
-        await model.refresh()
-        next = try LiveCatalogSnapshot.combine([
-            .init(source: "first", events: [original]), .init(source: "other", events: [changed]),
-            .init(source: "down", events: nil)
-        ], at: now)
-        guard case .conflicting = CatalogPlaybackIdentity.selection(for: StreamPlaybackRequest(event: original), in: next.events) else {
-            return XCTFail("A conflict must not become a missing event")
-        }
-        await model.refresh()
-        XCTAssertTrue(model.matches.isEmpty)
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: original, in: model.playbackCatalog, at: now))
-        XCTAssertEqual(model.identityConflicts.count, 1)
-    }
-
     func testErrorOnlyCancellationDoesNotPublishIndependentSchedule() async {
         let model = MatchListViewModel(fetchSnapshot: { throw CancellationError() },
             refreshSchedule: { self.cplSnapshot(CPLSchedule.fixtures) }, now: { self.now })
@@ -394,38 +323,6 @@ final class SportsCatalogRefreshTests: XCTestCase {
         XCTAssertEqual(model.cplScheduleSourceStatus, .lastKnownGood)
         XCTAssertFalse(model.isCPLScheduleFresh(at: now))
         XCTAssertNotNil(model.catalogNotice(at: now))
-    }
-
-    func testCombiningWaitedFeedsPreservesCoverageAndValidEmpty() throws {
-        let combined = try LiveCatalogSnapshot.combine([
-            .init(source: "first", events: [event("a")]),
-            .init(source: "second", events: [event("b")]),
-            .init(source: "down", events: nil)
-        ], at: now)
-        XCTAssertEqual(Set(combined.events.map(\.id)), ["a", "b"])
-        XCTAssertTrue(combined.isPartial)
-        XCTAssertEqual(combined.respondingFeeds, 2)
-        XCTAssertEqual(combined.attemptedFeeds, 3)
-        let empty = try LiveCatalogSnapshot.combine([.init(source: "valid", events: [])], at: now)
-        XCTAssertFalse(empty.isPartial)
-        XCTAssertTrue(empty.events.isEmpty)
-        XCTAssertThrowsError(try LiveCatalogSnapshot.combine([.init(source: "down", events: nil)]))
-    }
-
-    func testCompletedFallbackConflictSurvivesPendingSiblingAtDeadline() throws {
-        let original = event("reused")
-        let conflicting = EventReference(id: original.id, title: "Different Home vs Different Away", category: "football",
-            date: original.date, poster: nil, popular: false, teams: nil, sources: [])
-        let accumulator = LiveCatalogAccumulator(sources: ["first", "fallback", "pending"])
-        accumulator.record([original], source: "first")
-        accumulator.record([conflicting], source: "fallback", fallbackPart: "live")
-        // Upcoming and the third mirror never finish. Already completed evidence
-        // must still be available when the owning lookup deadline stops them.
-        let result = try LiveCatalogSnapshot.combine(accumulator.observations, at: now)
-        XCTAssertTrue(result.isPartial)
-        guard case .conflicting = CatalogPlaybackIdentity.selection(for: StreamPlaybackRequest(event: original), in: result.events) else {
-            return XCTFail("The observed conflict was lost behind an unfinished sibling")
-        }
     }
 
     func testFailedRefreshRetainsRowsAndReceiptButShowsFailure() async {

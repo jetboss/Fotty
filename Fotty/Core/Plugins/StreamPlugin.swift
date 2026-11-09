@@ -288,11 +288,8 @@ enum CuratedStreamSourceCatalog {
     static var settingsProviderCodes: [String] { all.filter { !$0.isRetired }.map(\.providerCode) }
 
     struct DiscoveryPlan: Sendable, Equatable {
-        let sharedCatalogProviderCodes: [String]
         let score808SiteEligible: Bool
         let optionalSources: [Definition]
-
-        var usesSharedCatalog: Bool { !sharedCatalogProviderCodes.isEmpty }
     }
 
     /// Build lanes from enabled reviewed capabilities and the exact request.
@@ -302,28 +299,16 @@ enum CuratedStreamSourceCatalog {
         for request: StreamPlaybackRequest,
         enabledProviderCodes: Set<String>,
         allowDeferredTVLookup: Bool = false,
-        sharedCatalogRetired: Bool = isSharedCatalogRetired,
         at now: Date = Date()
     ) -> DiscoveryPlan {
         guard !request.matchID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               request.preferredEvent?.hasCatalogIdentityConflict != true else {
-            return .init(sharedCatalogProviderCodes: [], score808SiteEligible: false, optionalSources: [])
+            return .init(score808SiteEligible: false, optionalSources: [])
         }
         let enabled = Set(enabledProviderCodes.compactMap { definition(forProviderCode: $0)?.providerCode })
         let hasExactFixture = ReviewedSportsFixtureMatcher.requestIdentity(for: request) != nil
         let television = SportsTVStation.identifying(request)
         let isReviewedChannel = CricketBroadcastChannel.identifying(request: request) != nil || television != nil
-        let shared = all.filter { definition in
-            // Every catalog source code (Score808's "hotel" included) arrives
-            // only through the shared catalog, so retiring it ends this lane.
-            guard !sharedCatalogRetired, enabled.contains(definition.providerCode),
-                  !definition.catalogSourceCodes.isEmpty else { return false }
-            // A standalone channel's independent CS path does not need to
-            // retry the primary catalog. Preserve genuine channel references.
-            return !isReviewedChannel || request.preferredEvent?.sources?.contains { source in
-                definition.catalogSourceCodes.contains(source.source.trimmingCharacters(in: .whitespacesAndNewlines).lowercased())
-            } == true
-        }.map(\.providerCode)
         let optional = optionalSources.filter { definition in
             guard enabled.contains(definition.providerCode) else { return false }
             if television != nil {
@@ -348,7 +333,7 @@ enum CuratedStreamSourceCatalog {
             }
             return true
         }
-        return .init(sharedCatalogProviderCodes: shared,
+        return .init(
             score808SiteEligible: enabled.contains(Provider.score808.rawValue)
                 && Score808LateDiscoveryPolicy.isLookupWindow(
                     kickoffDate: request.kickoffDate ?? request.preferredEvent?.kickoffDate,
@@ -428,16 +413,6 @@ enum StreamPluginProviderMatching {
 
     static func hasActiveCatalogSource(_ event: AnalyticalDataEngine.EventReference) -> Bool {
         event.sources?.contains(where: isActiveCatalogSource(_:)) == true
-    }
-
-    static func allowsSharedPlaybackURL(_ url: URL, sourceCode: String) -> Bool {
-        guard activeProviderCode(forCatalogSourceCode: sourceCode) != nil,
-              url.scheme?.lowercased() == "https",
-              url.user == nil,
-              url.password == nil,
-              url.port == nil || url.port == 443,
-              let host = url.host?.lowercased() else { return false }
-        return isApprovedSharedPlaybackHost(host)
     }
 
     static func isApprovedSharedPlaybackHost(_ host: String) -> Bool {

@@ -30,7 +30,8 @@ class MatchHubViewModel: ObservableObject {
     private var dataTask: Task<Void, Never>?
     private var dataRequestID = UUID()
     private let repository: any MatchHubDataLoading
-    private var lookupCatalog: @MainActor (StreamPlaybackRequest) async -> EventReference? = { await LiveStreamResolver.shared.catalogEvent(for: $0) }
+    /// No production catalog since the shared catalog closed; tests may inject one.
+    private var lookupCatalog: @MainActor (StreamPlaybackRequest) async -> EventReference? = { _ in nil }
     private var currentDate: () -> Date = Date.init
     private var isFixtureOnly = false
     /// A retained catalog snapshot is readable after failure, not authority to
@@ -248,7 +249,7 @@ class MatchHubViewModel: ObservableObject {
             if ReviewedSportsFixtureMatcher.requestIdentity(for: baseRequest) != nil {
                 matchedEvent = event
             } else {
-                matchedEvent = await LiveStreamResolver.shared.catalogEvent(for: baseRequest) ?? event
+                matchedEvent = await lookupCatalog(baseRequest) ?? event
             }
             guard !Task.isCancelled, streamRequestID == requestID else { return }
             guard MatchStartPolicy(event: matchedEvent, status: knownLive).timingAllowsPlayback else {

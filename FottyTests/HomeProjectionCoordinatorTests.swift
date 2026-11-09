@@ -522,7 +522,7 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
                 "date": Int64(now.timeIntervalSince1970) + 3_600 + Int64(index) * 60,
                 "popular": index % 10 == 0, "sources": []]
         }
-        let originals = try AnalyticalDataEngine.decodeMatches(from: JSONSerialization.data(withJSONObject: objects))
+        let originals = try JSONDecoder().decode([EventReference].self, from: JSONSerialization.data(withJSONObject: objects))
         let repeated = (0..<4).flatMap { copy in
             originals.map { row in
                 EventReference(id: row.id, title: row.title, category: row.category, date: row.date,
