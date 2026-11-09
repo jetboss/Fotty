@@ -31,7 +31,7 @@ Owner decision, 9 Nov 2026: shrink the existing player in place rather than buil
 |---|---|---|---|
 | 1 | `NetworkPathObserver`: one path-monitor owner shared by the view model and `MultiLivePlayerView`, holding its owner weakly. It fixes the audit §2.1-D retain cycle. | Low | **Done** (`7349e44`, build 250) |
 | 2 | `BackupFreshness.swift`: a pure `BackupFreshnessPolicy` (which backups to replace and which to renew), a `BackupRefreshScheduler` and the choice collector, moved out of the view model. The view model keeps only guards and wiring. | Low | **Done** (build 251) |
-| 3 | `PlaybackProgressMonitor`: unify the four progress samplers (watchdog, stall validation, resume validation, continuity) behind one type that emits typed events. The policy stays in the view model. | Medium; Jet check | |
+| 3 | `PlaybackProgressPolicy.swift`: every progress threshold and interval as a named, pinned constant, plus a `PlaybackStagnationCounter` value type for the watchdog. The view model's samplers keep their structure and call the policy. | Medium | **Done** (build 252); the live 90 s hold is pending a live match |
 | 4 | `PlaybackAttempt` handle: one value carrying source, request, intent and item, with a single `isCurrent()`. Replace the three ad-hoc fencing schemes (audit §2.3-A) path by path. | Medium–high | |
 | 5 | `PlaybackLifecycleController`: background, foreground, PiP and fullscreen transitions. | Medium; Jet PiP check | |
 | 6 | `NativeWatchTwoController`: the multiview and web-to-native transfer (~850 lines). Multiview work is paused by the owner, so this slice moves code without changing behaviour. | Medium | |
@@ -43,4 +43,4 @@ Owner decision, 9 Nov 2026: shrink the existing player in place rather than buil
 
 ## Receipts
 
-- Slices 1–2: [testing/fotty246-phase-a-2026-11-08/README.md](testing/fotty246-phase-a-2026-11-08/README.md)
+- Slices 1–3: [testing/fotty246-phase-a-2026-11-08/README.md](testing/fotty246-phase-a-2026-11-08/README.md)

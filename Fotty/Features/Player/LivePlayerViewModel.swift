@@ -448,15 +448,24 @@ final class LivePlayerViewModel {
     private let validateNativeSource: @MainActor (URL, [String: String]) async -> StreamContractValidator.ValidationResult
 
     var lastStartupLatencyMs: Int?
-    var playbackStagnationTicks = 0
-    var lastObservedPlaybackSecond: Double?
+    /// Watchdog stagnation (policy in PlaybackProgressPolicy.swift). The two
+    /// forwarding properties keep the existing test and controls surface.
+    var stagnation = PlaybackStagnationCounter()
+    var playbackStagnationTicks: Int {
+        get { stagnation.ticks }
+        set { stagnation.ticks = newValue }
+    }
+    var lastObservedPlaybackSecond: Double? {
+        get { stagnation.lastSecond }
+        set { stagnation.lastSecond = newValue }
+    }
     var sourceAttemptStartedAt: Date?
     var shouldResumeAfterForeground = false
     var playerItemNotificationTokens: [NSObjectProtocol] = []
     private var playerItemStatusObservation: NSKeyValueObservation?
     private var initialNativeStartupRequestID: UUID?
 
-    let nativeWatchdogStallThresholdTicks = 6
+    var nativeWatchdogStallThresholdTicks: Int { PlaybackProgressPolicy.frozenTickThreshold(single: false) }
 
     init(
         event: AnalyticalDataEngine.EventReference,
@@ -1803,8 +1812,8 @@ final class LivePlayerViewModel {
             if singleRecovery { networkLossTask?.cancel() }
             let loss = Task {
                 do {
-                    if singleRecovery { try await timing.wait(for: .seconds(2)) }
-                    else { try await Task.sleep(for: .seconds(2)) }
+                    if singleRecovery { try await timing.wait(for: PlaybackProgressPolicy.networkLossGrace) }
+                    else { try await Task.sleep(for: PlaybackProgressPolicy.networkLossGrace) }
                 } catch { return }
                 guard !Task.isCancelled, self.isPlaybackSessionActive,
                       self.loadRequestID == requestID, !self.isAppBackgrounded,
@@ -1988,7 +1997,7 @@ final class LivePlayerViewModel {
         let observationIntent = nativeWatchTwoIntentID
         foregroundResumeValidationTask?.cancel()
         foregroundResumeValidationTask = Task {
-            try? await timing.wait(for: .seconds(8))
+            try? await timing.wait(for: PlaybackProgressPolicy.resumeValidationDelay)
             guard !Task.isCancelled,
                   loadRequestID == requestID,
                   activeSource?.id == source.id,
@@ -1998,7 +2007,7 @@ final class LivePlayerViewModel {
             let now = self.player?.currentTime().seconds ?? start
             observeSingleNativeResumeProgress(player: player, item: item, sourceID: source.id,
                 requestID: requestID, intentID: observationIntent, startSeconds: start, currentSeconds: now)
-            if abs(now - start) < 0.1,
+            if PlaybackProgressPolicy.resumeDidNotAdvance(from: start, to: now),
                self.player?.timeControlStatus != .paused {
                 validateRecoverableStall(
                     for: source,
@@ -4264,7 +4273,7 @@ final class LivePlayerViewModel {
         var observationSecond = observationPlayer?.currentTime().seconds
         playbackWatchdogTask = Task {
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2))
+                try? await Task.sleep(for: PlaybackProgressPolicy.watchdogInterval)
                 guard !Task.isCancelled,
                       loadRequestID == requestID,
                       activeSource?.id == source.id,
@@ -4287,9 +4296,8 @@ final class LivePlayerViewModel {
                 if p.timeControlStatus == .waitingToPlayAtSpecifiedRate || (single && p.timeControlStatus == .playing) {
                     let now = p.currentTime().seconds
                     if single && p.timeControlStatus == .playing { observeSingleNativeWatchdogProgress(now) }
-                    else if let last = lastObservedPlaybackSecond, abs(now - last) < 0.05 { playbackStagnationTicks += 1 }
-                    else { playbackStagnationTicks = 1; lastObservedPlaybackSecond = now }
-                    if playbackStagnationTicks >= (single ? 2 : nativeWatchdogStallThresholdTicks) {
+                    else { stagnation.observeWaiting(now) }
+                    if stagnation.isFrozen(single: single) {
                         validateRecoverableStall(
                             for: source,
                             reason: "Frozen.",
@@ -4298,7 +4306,7 @@ final class LivePlayerViewModel {
                         )
                         return
                     }
-                } else { playbackStagnationTicks = 0; lastObservedPlaybackSecond = p.currentTime().seconds }
+                } else { stagnation.reset(at: p.currentTime().seconds) }
             }
         }
     }
@@ -4306,15 +4314,7 @@ final class LivePlayerViewModel {
     // Advancing single-player video is not one stagnant sample. Besides stall
     // detection, the controls timer depends on zero meaning healthy progress.
     func observeSingleNativeWatchdogProgress(_ seconds: Double) {
-        let wasStagnant = playbackStagnationTicks > 0
-        if seconds.isFinite, seconds >= 0,
-           lastObservedPlaybackSecond.map({ abs(seconds - $0) >= 0.05 }) ?? true {
-            playbackStagnationTicks = 0
-            lastObservedPlaybackSecond = seconds
-            if wasStagnant, showControls { scheduleAutoHide() }
-        } else {
-            playbackStagnationTicks += 1
-        }
+        if stagnation.observePlaying(seconds), showControls { scheduleAutoHide() }
     }
 
     func validateRecoverableStall(
@@ -4342,17 +4342,17 @@ final class LivePlayerViewModel {
         stallValidationTask = Task {
             defer { if stallValidationOwner?.token == token { stallValidationOwner = nil } }
             let single = usesSingleStreamRanking && viewingPlaybackContext == .single
-            for _ in 0..<(single ? 12 : 20) {
+            for _ in 0..<PlaybackProgressPolicy.stallSampleCount(single: single) {
                 do {
-                    if single { try await timing.wait(for: .milliseconds(500)) }
-                    else { try await Task.sleep(for: .milliseconds(500)) }
+                    if single { try await timing.wait(for: PlaybackProgressPolicy.stallSampleInterval) }
+                    else { try await Task.sleep(for: PlaybackProgressPolicy.stallSampleInterval) }
                 } catch { return }
                 guard !Task.isCancelled,
                       isPlaybackSessionActive, userWantsPlayback, !isAppBackgrounded,
                       loadRequestID == expectedRequestID,
                       activeSource?.id == source.id else { return }
                 if let expectedItem, player?.currentItem !== expectedItem { return }
-                if let p = player, p.currentTime().seconds > start + 0.35 {
+                if let p = player, PlaybackProgressPolicy.hasDecodedProgress(from: start, to: p.currentTime().seconds) {
                     recoverFromSoftStall(for: source, requestID: expectedRequestID, decodedProgress: true)
                     return
                 }
@@ -4363,9 +4363,9 @@ final class LivePlayerViewModel {
             if let expectedItem, player?.currentItem !== expectedItem { return }
             if let player,
                (!single && player.timeControlStatus == .playing)
-                || player.currentTime().seconds > start + 0.35 {
+                || PlaybackProgressPolicy.hasDecodedProgress(from: start, to: player.currentTime().seconds) {
                 recoverFromSoftStall(for: source, requestID: expectedRequestID,
-                                     decodedProgress: player.currentTime().seconds > start + 0.35)
+                                     decodedProgress: PlaybackProgressPolicy.hasDecodedProgress(from: start, to: player.currentTime().seconds))
                 return
             }
             handleSourceStartupFailure(

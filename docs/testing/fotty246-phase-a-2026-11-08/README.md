@@ -155,3 +155,18 @@ After run A the device stored one evidence entry (CS1, sustained). Run B chose t
 **Tests.** The new `BackupFreshnessPolicyTests` cover replacement order and fixed index, no change without a usable fresh choice, renewal exclusions, capacity and order, and family grouping, all without a view model. The existing view-model tests pass unchanged. Full Catalyst suite: 2,721 run, 0 failures, 12 skips.
 
 **Jet live check (Release 3.0.0 (251)).** Pakistan v Sri Lanka Test via CS1: picture 8.81 s after Watch, then the 90 s hold passed in a 136.2 s test. The 10-minute refresh does not fire inside a 90 s hold, so on the device this check shows playback is unaffected; the policy itself is unit-tested.
+
+## Build 252: player shrink slice 3, `PlaybackProgressPolicy` (9 Nov, 12:30 UTC)
+
+**Change.** New `Fotty/Features/Player/PlaybackProgressPolicy.swift` holds every progress threshold and interval the player's samplers used inline:
+
+- watchdog: 2 s interval, 0.05 s stagnation, 2 or 6 frozen ticks;
+- stall validation: 12 or 20 samples of 500 ms, 0.35 s decoded progress;
+- resume validation: 8 s delay, 0.1 s;
+- network-loss grace: 2 s.
+
+`PlaybackStagnationCounter` replaces the watchdog's two counters and mirrors the previous branches exactly. The view model keeps its loops and forwarding properties (`playbackStagnationTicks`, `lastObservedPlaybackSecond`, `nativeWatchdogStallThresholdTicks`) for existing tests and the controls timer. No value changed. `xcodegen` added only the two new files.
+
+**Tests.** The new `PlaybackProgressPolicyTests` pin every constant to its previous value, check the progress and resume boundaries, and check counter behaviour branch by branch (single Playing clock including NaN, negative and infinite values; multi-stream waiting; reset). One boundary test initially assumed 10.1 − 10 ≥ 0.1, but in binary floating point it is 0.0999…. The previous inline check behaves the same way, so the test was corrected, not the code. Full Catalyst suite: 2,725 run, 0 failures, 12 skips.
+
+**Jet (Release 3.0.0 (252)).** The 60 s launch hold passed. **The live 90 s hold is pending.** At 12:33 UTC the Pakistan v Sri Lanka Test had reached Stumps. Home correctly showed "Stumps" and "Broadcast unconfirmed" with no Watch action, so the runner found no Watch to tap. No PL/UCL is scheduled today, and the next live fixture is NHL at 01:00 UTC. Home also showed "Couldn't refresh. Broadcasts may have changed.", the recurring cloud-registry refresh failure first seen 8 Nov 16:45–18:45 UTC. It is unrelated to this slice and still uninvestigated.
