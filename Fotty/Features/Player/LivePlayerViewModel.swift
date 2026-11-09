@@ -390,7 +390,7 @@ final class LivePlayerViewModel {
     /// and upstream tokens rotate). One bounded lookup per interval keeps the
     /// backup list current so a mid-match failure does not walk stale siblings.
     private let backupRefreshInterval: Duration
-    @ObservationIgnored private var backupRefreshTask: Task<Void, Never>?
+    @ObservationIgnored private let backupRefreshScheduler = BackupRefreshScheduler()
     @ObservationIgnored private var prefetchingRenewals: Set<UUID> = []
     /// Read-only receipts for tests and diagnostics.
     private(set) var backupRefreshCount = 0
@@ -4184,18 +4184,15 @@ final class LivePlayerViewModel {
         handleSourceStartupFailure(current, reason: "Provider reports this broadcast is unavailable", expectedRequestID: loadRequestID)
     }
 
-    // MARK: Backup freshness (Jet, 8 Nov 16:06 UTC)
+    // MARK: Backup freshness (policy and scheduler in BackupFreshness.swift)
 
     func startBackupRefreshIfNeeded() {
-        guard backupRefreshTask == nil, usesSingleStreamRanking, viewingPlaybackContext == .single,
+        guard usesSingleStreamRanking, viewingPlaybackContext == .single,
               !event.isBroadcastChannel, !isPlaybackSessionRetired else { return }
-        let timing = self.timing, interval = backupRefreshInterval
-        backupRefreshTask = Task { [weak self] in
-            while !Task.isCancelled {
-                do { try await timing.wait(for: interval) } catch { return }
-                guard let self, !Task.isCancelled else { return }
-                await self.refreshBackupsOnce()
-            }
+        backupRefreshScheduler.start(every: backupRefreshInterval, timing: timing) { [weak self] in
+            guard let self else { return false }
+            await self.refreshBackupsOnce()
+            return true
         }
     }
 
@@ -4218,39 +4215,12 @@ final class LivePlayerViewModel {
         guard !Task.isCancelled, isPlaybackSessionActive, !isPlaybackSessionRetired,
               loadRequestID == attempt, activeSession?.id == active.id else { return }
         backupRefreshCount += 1
-        replaceBackups(with: collector.choices, active: active)
+        if let rebuilt = BackupFreshnessPolicy.replacingBackups(in: providedSessions, with: collector.choices,
+                active: active, matchID: event.id, isPlayable: StreamPluginProviderMatching.isActivePlayerSession) {
+            providedSessions = rebuilt
+        }
         // A successful fresh lookup renews the single exhausted-delivery budget.
         usedExhaustedMatchLookup = false
-    }
-
-    private func replaceBackups(with fresh: [StreamSession], active: StreamSession) {
-        var seen: Set<StreamDeliveryIdentity> = [StreamDeliveryIdentity(url: active.playableURL, headers: active.requiredHeaders)]
-        let incoming = fresh.filter { session in
-            session.matchID == event.id && StreamPluginProviderMatching.isActivePlayerSession(session)
-                && !session.hasExpiredMediaLease()
-                && seen.insert(StreamDeliveryIdentity(url: session.playableURL, headers: session.requiredHeaders)).inserted
-        }
-        guard !incoming.isEmpty, let activeIndex = providedSessions.firstIndex(where: { $0.id == active.id }) else { return }
-        let refreshed = Set(incoming.map(Self.backupFamily))
-        var pending = incoming[...]
-        var rebuilt: [StreamSession] = []
-        for (offset, session) in providedSessions.enumerated() {
-            let stale = session.id != active.id && refreshed.contains(Self.backupFamily(session))
-            if !stale { rebuilt.append(session); continue }
-            if offset < activeIndex {
-                // Refill in place so the playing session keeps its index; keep
-                // the older entry only when no fresh replacement remains.
-                rebuilt.append(pending.popFirst() ?? session)
-            }
-        }
-        rebuilt.append(contentsOf: pending)
-        // Defensive: never move the playing session; skip this refresh instead.
-        guard rebuilt.indices.contains(activeIndex), rebuilt[activeIndex].id == active.id else { return }
-        providedSessions = rebuilt
-    }
-
-    nonisolated static func backupFamily(_ session: StreamSession) -> String {
-        StreamEventBinding.providerCode(forSessionProviderName: session.providerName) ?? session.providerName.lowercased()
     }
 
     /// Failover renews a chosen backup's descriptor before playing it, one at a
@@ -4258,17 +4228,12 @@ final class LivePlayerViewModel {
     /// is the same metadata call and identity check as the serial path; no
     /// media, relay or validator request is made here.
     func prefetchDescriptorRenewals(after chosen: StreamSource, limit: Int = 2) {
-        // At most `limit` renewals are in flight at once across failovers.
-        let capacity = limit - prefetchingRenewals.count
-        guard capacity > 0, usesSingleStreamRanking, viewingPlaybackContext == .single, !event.isBroadcastChannel,
+        guard usesSingleStreamRanking, viewingPlaybackContext == .single, !event.isBroadcastChannel,
               !isPlaybackSessionRetired else { return }
-        let now = Date()
-        let candidates = providedSessions.filter { session in
-            session.id != chosen.id && !failedSourceIDs.contains(session.id)
-                && !descriptorRefreshAttempts.contains(session.id) && !prefetchingRenewals.contains(session.id)
-                && LiveStreamResolver.supportsDescriptorRenewal(session)
-                && (session.eventBinding?.isCurrent(at: now) == false || session.hasExpiredMediaLease(at: now))
-        }.prefix(capacity)
+        // At most `limit` renewals are in flight at once across failovers.
+        let candidates = BackupFreshnessPolicy.renewalCandidates(in: providedSessions, chosen: chosen.id,
+            failed: failedSourceIDs, alreadyRenewed: descriptorRefreshAttempts, inFlight: prefetchingRenewals,
+            capacity: limit - prefetchingRenewals.count, supportsRenewal: LiveStreamResolver.supportsDescriptorRenewal)
         for session in candidates {
             prefetchingRenewals.insert(session.id)
             Task { [weak self] in
@@ -4831,7 +4796,7 @@ final class LivePlayerViewModel {
         cancelPendingWebRetry()
         loadTask?.cancel(); hideTask?.cancel(); stallValidationTask?.cancel(); playbackWatchdogTask?.cancel()
         failoverBannerTask?.cancel(); foregroundResumeValidationTask?.cancel(); nativeHandoffTask?.cancel(); webBackgroundSuspensionTask?.cancel()
-        backupRefreshTask?.cancel(); backupRefreshTask = nil; prefetchingRenewals.removeAll()
+        backupRefreshScheduler.stop(); prefetchingRenewals.removeAll()
         stopNetworkPathMonitoring(); removeItemFailureObservers()
         withModelOwnedNativeRateCommand { player?.pause() }
         player = nil; streamProxy?.stop(); streamProxy = nil; nativeHandoffSession = nil
@@ -4839,12 +4804,4 @@ final class LivePlayerViewModel {
         NowPlayingManager.shared.clearNowPlaying(ownerID: remoteCommandOwnerID)
         ownsRemoteCommands = false
     }
-}
-
-
-/// Accumulates incremental resolver choices for one backup refresh.
-@MainActor
-final class BackupChoiceCollector {
-    private(set) var choices: [StreamSession] = []
-    func add(_ sessions: [StreamSession]) { choices.append(contentsOf: sessions) }
 }

@@ -141,3 +141,17 @@ After run A the device stored one evidence entry (CS1, sustained). Run B chose t
 **Tests.** A new leak test shows that a player which started network monitoring but was never cleaned up is released. Nine existing assertions now go through the observer API; the "repeated start reuses the monitor" check now uses `startCount`. Full Catalyst suite: 2,717 run, 0 failures, 12 skips.
 
 **Jet live check (Release 3.0.0 (250)).** Pakistan v Sri Lanka Test, Watch on CS1 (chosen from persisted evidence): first picture 9.41 s after Watch, then the 90 s hold passed in a 143.7 s test. Provider audio was muted (runner launch).
+
+## Build 251: player shrink slice 2, `BackupFreshness` (9 Nov, 12:15 UTC)
+
+**Change.** The build-247 backup logic moves to `Fotty/Features/Player/BackupFreshness.swift`:
+
+- `BackupFreshnessPolicy`: pure functions for family grouping, same-family replacement around a fixed playing index, and the choice of parallel renewal candidates;
+- `BackupRefreshScheduler`: the 10-minute loop;
+- `BackupChoiceCollector`: the choice collector.
+
+`LivePlayerViewModel` keeps only its guards and state wiring (4,853 → 4,809 lines). Behaviour is unchanged. `xcodegen` added only the two new files.
+
+**Tests.** The new `BackupFreshnessPolicyTests` cover replacement order and fixed index, no change without a usable fresh choice, renewal exclusions, capacity and order, and family grouping, all without a view model. The existing view-model tests pass unchanged. Full Catalyst suite: 2,721 run, 0 failures, 12 skips.
+
+**Jet live check (Release 3.0.0 (251)).** Pakistan v Sri Lanka Test via CS1: picture 8.81 s after Watch, then the 90 s hold passed in a 136.2 s test. The 10-minute refresh does not fire inside a 90 s hold, so on the device this check shows playback is unaffected; the policy itself is unit-tested.

@@ -29,8 +29,8 @@ Owner decision, 9 Nov 2026: shrink the existing player in place rather than buil
 
 | # | Slice | Risk | Status |
 |---|---|---|---|
-| 1 | `NetworkPathObserver`: one path-monitor owner shared by the view model and `MultiLivePlayerView`, holding its owner weakly. It fixes the audit §2.1-D retain cycle. | Low | **Done** (this commit) |
-| 2 | `BackupFreshnessController`: move the build-247 backup refresh and parallel descriptor renewal out of the view model. | Low | Next |
+| 1 | `NetworkPathObserver`: one path-monitor owner shared by the view model and `MultiLivePlayerView`, holding its owner weakly. It fixes the audit §2.1-D retain cycle. | Low | **Done** (`7349e44`, build 250) |
+| 2 | `BackupFreshness.swift`: a pure `BackupFreshnessPolicy` (which backups to replace and which to renew), a `BackupRefreshScheduler` and the choice collector, moved out of the view model. The view model keeps only guards and wiring. | Low | **Done** (build 251) |
 | 3 | `PlaybackProgressMonitor`: unify the four progress samplers (watchdog, stall validation, resume validation, continuity) behind one type that emits typed events. The policy stays in the view model. | Medium; Jet check | |
 | 4 | `PlaybackAttempt` handle: one value carrying source, request, intent and item, with a single `isCurrent()`. Replace the three ad-hoc fencing schemes (audit §2.3-A) path by path. | Medium–high | |
 | 5 | `PlaybackLifecycleController`: background, foreground, PiP and fullscreen transitions. | Medium; Jet PiP check | |
@@ -43,4 +43,4 @@ Owner decision, 9 Nov 2026: shrink the existing player in place rather than buil
 
 ## Receipts
 
-- Slice 1: [testing/fotty246-phase-a-2026-11-08/README.md](testing/fotty246-phase-a-2026-11-08/README.md)
+- Slices 1–2: [testing/fotty246-phase-a-2026-11-08/README.md](testing/fotty246-phase-a-2026-11-08/README.md)
