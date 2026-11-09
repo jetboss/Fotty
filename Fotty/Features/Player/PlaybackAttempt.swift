@@ -62,6 +62,17 @@ struct PlaybackAttempt: Equatable, Sendable {
         audioIntent = nil
     }
 
+    /// An attempt with an explicit scope and supplied values, for work that
+    /// captured its parts at different moments. Parts outside `scope` are ignored.
+    init(requestID: UUID, scope: Scope, sourceID: UUID? = nil,
+         playbackIntent: UUID? = nil, audioIntent: UUID? = nil) {
+        self.scope = scope
+        self.requestID = requestID
+        self.sourceID = scope.contains(.source) ? sourceID : nil
+        self.playbackIntent = scope.contains(.playbackIntent) ? playbackIntent : nil
+        self.audioIntent = scope.contains(.audioIntent) ? audioIntent : nil
+    }
+
     /// An attempt fenced on the load request only.
     init(requestID: UUID) {
         scope = []

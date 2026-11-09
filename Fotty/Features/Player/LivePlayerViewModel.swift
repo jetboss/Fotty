@@ -1902,6 +1902,11 @@ final class LivePlayerViewModel {
         stallValidationTask?.cancel()
         stopPlaybackWatchdog()
         let token = UUID(), request = loadRequestID, intent = nativeWatchTwoIntentID
+        // The samples fence on source too; the seek callback never did (see
+        // PLAYER-SHRINK-PLAN.md, "Fence scopes that differ today").
+        let sampleFence = PlaybackAttempt(requestID: request, scope: [.source, .playbackIntent],
+            sourceID: source.id, playbackIntent: intent)
+        let seekFence = PlaybackAttempt(requestID: request, scope: .playbackIntent, playbackIntent: intent)
         singleResumeOwner = (token, request)
         let observation = SingleNativeResumeObservation(position: expectedPlayer.currentTime().seconds)
         transition(to: .recovering(.native), phase: "Resuming")
@@ -1914,8 +1919,7 @@ final class LivePlayerViewModel {
                 guard !Task.isCancelled, singleResumeOwner?.token == token,
                       viewingPlaybackContext == .single, usesSingleStreamRanking,
                       isPlaybackSessionActive, !isAppBackgrounded, userWantsPlayback,
-                      error == nil, loadRequestID == request, activeSource?.id == source.id,
-                      nativeWatchTwoIntentID == intent, player === expectedPlayer,
+                      error == nil, isCurrent(sampleFence), player === expectedPlayer,
                       expectedPlayer.currentItem === item else { return }
                 let elapsed = max(timing.monotonicNow() - began, Double(sample) * 0.5)
                 let position = expectedPlayer.currentTime().seconds
@@ -1948,7 +1952,7 @@ final class LivePlayerViewModel {
                         Task { @MainActor in
                             guard let self, self.singleResumeOwner?.token == token,
                                   self.viewingPlaybackContext == .single,
-                                  self.loadRequestID == request, self.nativeWatchTwoIntentID == intent,
+                                  self.isCurrent(seekFence),
                                   self.userWantsPlayback, !self.isAppBackgrounded,
                                   self.player === expectedPlayer, expectedPlayer.currentItem === item else { return }
                             observation.seekPending = false
@@ -2083,6 +2087,10 @@ final class LivePlayerViewModel {
             return
         }
         var source = session.legacySource
+        // Descriptor renewal may replace `source`, but only with the same session
+        // ID, so these fences stay valid for the whole startup task.
+        let requestFence = PlaybackAttempt(requestID: rid)
+        let sourceFence = PlaybackAttempt(requestID: rid, sourceID: source.id)
         let requiresFreshDescriptor = requiredDescriptorRefreshSourceIDs.contains(source.id)
         if requiresFreshDescriptor {
             // Explicit negotiation is not a second automatic startup budget.
@@ -2134,7 +2142,7 @@ final class LivePlayerViewModel {
         }
         if deferSingleNativePreparationForBackgroundIfNeeded() { return }
         loadTask = Task {
-            guard !Task.isCancelled, loadRequestID == rid else { return }
+            guard !Task.isCancelled, isCurrent(requestFence) else { return }
             // Descriptor negotiation is part of this retry's existing startup
             // budget. A paused/replaced owner cannot publish its completion.
             let negotiationStarted = refreshDescriptor ? timing.monotonicNow() : nil
@@ -2158,7 +2166,7 @@ final class LivePlayerViewModel {
                     request = current
                 } else { request = originalRequest }
                 let fresh = await refreshSourceDescriptor(session, request)
-                guard !Task.isCancelled, loadRequestID == rid, activeSource?.id == source.id,
+                guard !Task.isCancelled, isCurrent(sourceFence),
                       isPlaybackSessionActive, userWantsPlayback, !isAppBackgrounded else { return }
                 pausedDescriptorNegotiationSourceID = nil
                 if singleNativePreparation?.requestID == rid {
@@ -2202,7 +2210,7 @@ final class LivePlayerViewModel {
             if isWebEmbedSource(source) {
                 withModelOwnedNativeRateCommand { player?.pause() }
                 player = nil
-                guard !Task.isCancelled, loadRequestID == rid else { return }
+                guard !Task.isCancelled, isCurrent(requestFence) else { return }
                 guard await waitForNativeAudioRetirementBeforeWeb(requestID: rid) else { return }
                 transition(to: userWantsPlayback ? .connecting(.webEmbed) : .paused(.webEmbed),
                            phase: userWantsPlayback ? "Starting Web Stream..." : "Paused")
@@ -2223,15 +2231,15 @@ final class LivePlayerViewModel {
                 MediaAudioSession.configureNativeBackgroundPlayback(player)
                 player.automaticallyWaitsToMinimizeStalling = true
                 let url = try await preparePlaybackURL(for: session, requestID: rid)
-                guard !Task.isCancelled, loadRequestID == rid else { return }
+                guard !Task.isCancelled, isCurrent(requestFence) else { return }
 
                 // --- AUDIT FIX [CONTRACT VALIDATION] ---
                 connectionPhase = "Validating Source..."
                 let validation = await validateNativeSource(url, source.headers)
                 // Validation may finish after a switch/dismissal even if its
                 // transport ignores cancellation. Never replace the new item.
-                guard !Task.isCancelled, loadRequestID == rid,
-                      isPlaybackSessionActive, activeSource?.id == source.id else { return }
+                guard !Task.isCancelled, isCurrent(sourceFence),
+                      isPlaybackSessionActive else { return }
                 if case .invalid(let reason, let diagnostic) = validation {
                     let details = (diagnostic ?? .init(stage: .contractValidation, reason: .unavailable)).qualityDetails
                     handleSourceStartupFailure(source, reason: "Stream Contract Failed: \(reason)", expectedRequestID: rid,
@@ -2246,6 +2254,8 @@ final class LivePlayerViewModel {
                 player.replaceCurrentItem(with: item)
                 connectionPhase = "Buffering..."
                 let startupIntent = audioIntentID
+                let startupFence = PlaybackAttempt(requestID: rid, scope: [.source, .audioIntent],
+                    sourceID: source.id, audioIntent: startupIntent)
                 guard await requestPlaybackStart(player: player) else { return }
                 // Audio preparation has completed and the exact owned item has
                 // received its first Play. Readiness must not restart this clock.
@@ -2263,8 +2273,8 @@ final class LivePlayerViewModel {
                 // The caller resumes on a new actor turn. Recheck ownership
                 // before any success/failure publication, not only in the waiter.
                 guard !Task.isCancelled, isPlaybackSessionActive, userWantsPlayback,
-                      loadRequestID == rid, activeSource?.id == source.id,
-                      self.player === player, player.currentItem === item, audioIntentID == startupIntent,
+                      isCurrent(startupFence),
+                      self.player === player, player.currentItem === item,
                       error == nil, playbackState != .failed,
                       !isAppBackgrounded || shouldKeepPlaybackAliveForPictureInPicture else { return }
                 switch startup {
@@ -2708,10 +2718,12 @@ final class LivePlayerViewModel {
     ) async -> NativePlaybackStartupDeadline.Decision {
         var baseline: Double?
         var recordedReadiness = false
+        let fence = PlaybackAttempt(requestID: requestID, scope: [.source, .audioIntent],
+            sourceID: source.id, audioIntent: intentID)
         while true {
-            let ownsAttempt = isPlaybackSessionActive && loadRequestID == requestID
-                && activeSource?.id == source.id && self.player === player && player.currentItem === item
-                && audioIntentID == intentID && error == nil && playbackState != .failed
+            let ownsAttempt = isPlaybackSessionActive && isCurrent(fence)
+                && self.player === player && player.currentItem === item
+                && error == nil && playbackState != .failed
                 && (!isAppBackgrounded || shouldKeepPlaybackAliveForPictureInPicture)
             let seconds = player.currentTime().seconds
             // AVPlayer can initially report an invalid media time. Adopt the
@@ -2778,10 +2790,11 @@ final class LivePlayerViewModel {
     ) -> Bool {
         guard viewingPlaybackContext == .single, diagnosticRoute == .single,
               isPlaybackSessionActive, !isPlaybackSessionRetired,
-              loadRequestID == requestID, activeSource?.id == sourceID,
+              isCurrent(PlaybackAttempt(requestID: requestID, scope: [.source, .playbackIntent],
+                  sourceID: sourceID, playbackIntent: intentID)),
               player === expectedPlayer, expectedPlayer.currentItem === expectedItem,
               initialNativeStartupRequestID != requestID,
-              userWantsPlayback, nativeWatchTwoIntentID == intentID, !isUsingWebEmbed,
+              userWantsPlayback, !isUsingWebEmbed,
               error == nil, isPlaying,
               !isAppBackgrounded || shouldKeepPlaybackAliveForPictureInPicture,
               expectedItem.status == .readyToPlay,
@@ -3769,11 +3782,12 @@ final class LivePlayerViewModel {
     private func beginNativePlaybackTransfer(
         _ candidate: NativeWebPlaybackCandidate, sourceID: UUID, requestID: UUID
     ) {
+        let transferFence = PlaybackAttempt(requestID: requestID, sourceID: sourceID)
+        let requestFence = PlaybackAttempt(requestID: requestID)
         // Without actual session isolation, a muted native probe can interrupt
         // the proven Web owner. Older OSes keep that owner instead of probing.
         guard let transferID = explicitNativeTransferID, viewingPlaybackContext == .single,
-              nativeAudioIsolationBackend.isSupported, activeSource?.id == sourceID,
-              loadRequestID == requestID,
+              nativeAudioIsolationBackend.isSupported, isCurrent(transferFence),
               isUsingWebEmbed,
               !isAppBackgrounded,
               !isWebPictureInPictureActive,
@@ -3818,7 +3832,7 @@ final class LivePlayerViewModel {
                     // is paused and any in-flight audio change has reconciled.
                     Task { [weak self] in
                         let safe = await retirement?.wait() ?? true
-                        guard let self, self.loadRequestID == requestID,
+                        guard let self, self.isCurrent(requestFence),
                               self.nativeTransferSuspensionID == transferID else { return }
                         if safe { self.nativeTransferSuspensionID = nil; self.nativeTransferAcknowledgedID = nil }
                         else {
@@ -3844,7 +3858,7 @@ final class LivePlayerViewModel {
                 }
                 if self.explicitNativeTransferID == transferID {
                     self.explicitNativeTransferID = nil
-                    if !adoptedCandidate, self.loadRequestID == requestID {
+                    if !adoptedCandidate, self.isCurrent(requestFence) {
                         self.showPlaybackBanner("Couldn’t switch players. Your original source is unchanged.")
                     }
                 }
@@ -3867,7 +3881,7 @@ final class LivePlayerViewModel {
             // Validate the same scoped delivery that will be given to AVPlayer.
             // A direct probe loses captured WK cookie scope and can falsely
             // reject media which is valid through this already-admitted relay.
-            guard !Task.isCancelled, loadRequestID == requestID, activeSource?.id == sourceID,
+            guard !Task.isCancelled, isCurrent(transferFence),
                   !isAppBackgrounded, !isWebPictureInPictureActive,
                   isUsingWebEmbed, playbackState == .preparingNativeHandoff else {
                 terminalResult = handoffDiagnosticAbandonment(sourceID: sourceID, requestID: requestID)
@@ -3879,7 +3893,7 @@ final class LivePlayerViewModel {
                 requestID: requestID, operationID: diagnosticOperation) ?? terminalContext
             let validation = await validateNativeSource(playbackURL, assetHeaders)
             guard validation.isValid, !Task.isCancelled,
-                  loadRequestID == requestID, activeSource?.id == sourceID,
+                  isCurrent(transferFence),
                   !isAppBackgrounded, !isWebPictureInPictureActive,
                   isUsingWebEmbed, playbackState == .preparingNativeHandoff else {
                 let abandonment = handoffDiagnosticAbandonment(sourceID: sourceID, requestID: requestID)
@@ -3920,8 +3934,7 @@ final class LivePlayerViewModel {
             let ready = await waitForSourceReadiness(item, timeoutSeconds: 7)
             guard ready,
                   !Task.isCancelled,
-                  loadRequestID == requestID,
-                  activeSource?.id == sourceID,
+                  isCurrent(transferFence),
                   !isAppBackgrounded,
                   !isWebPictureInPictureActive,
                   isUsingWebEmbed, playbackState == .preparingNativeHandoff else {
@@ -3948,7 +3961,7 @@ final class LivePlayerViewModel {
                 requestID: requestID, operationID: diagnosticOperation) ?? terminalContext
             let prepared = await prepareMutedNativeHandoffAudio(sourceID: sourceID, requestID: requestID)
             guard prepared.mayContinue, !Task.isCancelled, userWantsPlayback,
-                  loadRequestID == requestID, activeSource?.id == sourceID,
+                  isCurrent(transferFence),
                   !isAppBackgrounded, !isWebPictureInPictureActive,
                   isUsingWebEmbed, playbackState == .preparingNativeHandoff else {
                 terminalResult = handoffDiagnosticAbandonment(sourceID: sourceID, requestID: requestID)
@@ -3959,7 +3972,7 @@ final class LivePlayerViewModel {
             candidateIsolation = await prepareNativeCandidateAudioIsolation(player: candidatePlayer,
                 sourceID: sourceID, requestID: requestID)
             guard candidateIsolation != nil, !Task.isCancelled, userWantsPlayback,
-                  loadRequestID == requestID, activeSource?.id == sourceID,
+                  isCurrent(transferFence),
                   !isAppBackgrounded, !isWebPictureInPictureActive,
                   isUsingWebEmbed, playbackState == .preparingNativeHandoff else {
                 terminalResult = handoffDiagnosticAbandonment(sourceID: sourceID, requestID: requestID)
@@ -3986,8 +3999,7 @@ final class LivePlayerViewModel {
             )
             guard started,
                   !Task.isCancelled,
-                  loadRequestID == requestID,
-                  activeSource?.id == sourceID,
+                  isCurrent(transferFence),
                   !isAppBackgrounded,
                   !isWebPictureInPictureActive,
                   isUsingWebEmbed, playbackState == .preparingNativeHandoff,
@@ -4031,7 +4043,7 @@ final class LivePlayerViewModel {
         let releasedSingleAudio = viewingPlaybackContext == .single && webAudioRevocations.contains {
             !$0.acknowledged && $0.sourceID == sourceID && $0.requestID == requestID
         }
-        if activeSource?.id == sourceID, loadRequestID == requestID {
+        if isCurrent(PlaybackAttempt(requestID: requestID, sourceID: sourceID)) {
             retiredWebOwner = (sourceID, requestID)
         }
         if let prepared = preparedNativeWatchTwo, prepared.retirementBegan,
@@ -4046,8 +4058,7 @@ final class LivePlayerViewModel {
         }
         if releasedSingleAudio { onSingleWebAudioRetired?() }
         guard isPlaybackSessionActive,
-              loadRequestID == requestID,
-              activeSource?.id == sourceID,
+              isCurrent(PlaybackAttempt(requestID: requestID, sourceID: sourceID)),
               nativeHandoffSession?.id == sourceID,
               !isUsingWebEmbed,
               nativeHandoffAwaitingWebRetirement,
@@ -4068,8 +4079,7 @@ final class LivePlayerViewModel {
     /// before Play. It needs no shared-session configuration or activation;
     /// even changing category/mode can disturb the proven, active Web owner.
     func prepareMutedNativeHandoffAudio(sourceID: UUID, requestID: UUID) async -> MediaAudioSessionPreparation {
-        guard !Task.isCancelled, isPlaybackSessionActive, !isPlaybackSessionRetired, activeSource?.id == sourceID,
-              loadRequestID == requestID, isUsingWebEmbed, userWantsPlayback else { return .cancelled }
+        guard !Task.isCancelled, isPlaybackSessionActive, !isPlaybackSessionRetired, isCurrent(PlaybackAttempt(requestID: requestID, sourceID: sourceID)), isUsingWebEmbed, userWantsPlayback else { return .cancelled }
         return .completed([])
     }
 
@@ -4078,11 +4088,12 @@ final class LivePlayerViewModel {
         let intent = audioIntentID
         guard nativeAudioIsolationBackend.isSupported, let item = candidate.currentItem,
               isPlaybackSessionActive, !isPlaybackSessionRetired, isUsingWebEmbed, userWantsPlayback,
-              activeSource?.id == sourceID, loadRequestID == requestID else { return nil }
+              isCurrent(PlaybackAttempt(requestID: requestID, sourceID: sourceID)) else { return nil }
         let isolation = makeNativeAudioIsolation(player: candidate, item: item, sourceID: sourceID, requestID: requestID)
         let disconnected = isolation.request(disconnected: true)
         guard await disconnected.wait(), !Task.isCancelled, isPlaybackSessionActive, !isPlaybackSessionRetired,
-              userWantsPlayback, audioIntentID == intent, activeSource?.id == sourceID, loadRequestID == requestID,
+              userWantsPlayback, isCurrent(PlaybackAttempt(requestID: requestID, scope: [.source, .audioIntent],
+                  sourceID: sourceID, audioIntent: intent)),
               candidate.currentItem === item, !isAppBackgrounded, !isWebPictureInPictureActive,
               isUsingWebEmbed else {
             isolation.request(disconnected: true)
@@ -4096,7 +4107,7 @@ final class LivePlayerViewModel {
         let raw = nativeAudioIsolationBackend
         let backend = NativePlayerAudioIsolationBackend(isSupported: true, setDisconnected: { [weak self] player, disconnected in
             let context: CausalDiagnosticContext?
-            if let self, self.activeSource?.id == sourceID, self.loadRequestID == requestID {
+            if let self, self.isCurrent(PlaybackAttempt(requestID: requestID, sourceID: sourceID)) {
                 context = self.captureCausalDiagnosticContext()
             } else { context = nil }
             let operation = UUID()

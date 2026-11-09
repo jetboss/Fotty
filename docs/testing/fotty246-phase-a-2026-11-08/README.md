@@ -214,3 +214,19 @@ Each conversion keeps the exact scope its inline check had. The active source ca
 **Tests.** The new `PlaybackAttemptTests` cover request-only scope, each scope part in isolation, a captured nil source, identity equality, and on a real player model that source selection keeps a request-only fence current but ends a source fence, while cancelling the load ends both. Player suites (retry lifecycle, ownership, fullscreen): 170 run, 0 failures. Full Catalyst suite: 2,732 run, 0 failures, 12 skips.
 
 **Jet (Release 3.0.0 (254)).** Installed, and the 60 s launch hold passed. `testWillowWatchAcknowledgementAndNinetySecondNativeHold` passed in 124.4 s: Willow Cricket via TV1 kept the same native player, item and attempt for 90 s, with media advancing 91.85 s. This exercises the slice 3 progress thresholds and the slice 4a audio-start fences on a 24/7 channel. A live sports match is still pending, and so is the slice 3 hold on a match.
+
+## Build 255: player shrink slice 4b, remaining `PlaybackAttempt` paths (9 Nov, 17:30 UTC)
+
+**Change.** `PlaybackAttempt` gains an explicit initialiser for work that captured its parts at different moments. Converted, each with its previous scope:
+
+- startup: one request fence and one request-and-source fence, captured once (descriptor renewal keeps the session ID), plus a start fence that adds the audio intent;
+- Watch Two resume: the sampling loop (request, source, intent) and the seek callback (request and intent only, as before);
+- the startup waiter (request, source, audio intent) and resume-progress evidence (request, source, playback intent);
+- the web-to-native transfer: two fences hoisted at the top of `beginNativePlaybackTransfer`, plus the handoff audio leases, muted handoff audio and candidate audio isolation.
+
+About 40 continuation fences remain for slice 4c; see `docs/PLAYER-SHRINK-PLAN.md`. `LivePlayerViewModel` is now 4827 lines.
+
+**Tests.** New `testExplicitScopeKeepsOnlyScopedParts`. Player and policy suites: 389 run, 0 failures, 1 skip. Full Catalyst suite: 2,733 run, 0 failures, 12 skips.
+
+**Jet (Release 3.0.0 (255)).** Installed, and the 60 s launch hold passed. `testWillowWatchAcknowledgementAndNinetySecondNativeHold` passed in 124.8 s: Willow Cricket via TV1 kept the same native player, item and attempt for 90 s, with media advancing 91.80 s. This run goes through the converted startup fences and startup waiter. The web-to-native transfer did not run, because TV1 is native, and a live match is still pending.
+

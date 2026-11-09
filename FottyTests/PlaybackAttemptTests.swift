@@ -57,6 +57,26 @@ final class PlaybackAttemptTests: XCTestCase {
         XCTAssertNotEqual(attempt, PlaybackAttempt(requestID: request), "Scope is part of identity")
     }
 
+    /// Slice 4b: work that captured its parts at different moments supplies
+    /// them explicitly. Parts outside the scope are dropped, not compared.
+    func testExplicitScopeKeepsOnlyScopedParts() {
+        let startup = PlaybackAttempt(requestID: request, scope: [.source, .audioIntent],
+            sourceID: source, playbackIntent: UUID(), audioIntent: audio)
+        XCTAssertNil(startup.playbackIntent)
+        XCTAssertEqual(startup, PlaybackAttempt(capturing: current(), scope: [.source, .audioIntent]))
+        XCTAssertTrue(startup.isCurrent(in: current(playback: UUID())))
+        XCTAssertFalse(startup.isCurrent(in: current(audio: UUID())))
+        XCTAssertFalse(startup.isCurrent(in: current(source: .some(UUID()))))
+
+        let seek = PlaybackAttempt(requestID: request, scope: .playbackIntent, sourceID: source, playbackIntent: playback)
+        XCTAssertNil(seek.sourceID)
+        XCTAssertTrue(seek.isCurrent(in: current(source: .some(UUID()))),
+            "The Watch Two seek callback never fenced on source; its scope is kept")
+        XCTAssertFalse(seek.isCurrent(in: current(playback: UUID())))
+        XCTAssertEqual(PlaybackAttempt(requestID: request, scope: .source, sourceID: source),
+                       PlaybackAttempt(requestID: request, sourceID: source))
+    }
+
     /// On a real player model, source selection keeps the load request, so a
     /// request-only fence survives it and a source fence does not. Cancelling
     /// the load replaces the request and ends both.
