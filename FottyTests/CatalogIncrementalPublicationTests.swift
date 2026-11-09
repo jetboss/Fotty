@@ -312,10 +312,12 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
         index.updateEnabledProviders(enabled, revision: 1)
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: event, in: model.playbackCatalog,
             enabledProviderCodes: enabled, at: clock))
-        XCTAssertEqual(FixtureSourceLookupPresentation.state(for: event, at: clock, discoveryIndex: index)?.title,
-                       "Check streams", "Enabled adapters offer a fresh check, never a claimed compatible broadcast")
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: event, in: model.playbackCatalog,
-            at: clock, discoveryIndex: index))
+        let cold = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: event, at: clock, discoveryIndex: index))
+        XCTAssertEqual(cold.title, "Watch", "A started fixture with enabled adapters gets Watch at cold start")
+        XCTAssertEqual(cold.currentCandidateCount, 0, "Watch is a fresh lookup, never a claimed compatible broadcast")
+        XCTAssertEqual(cold.catalogListedProviderCount, 0)
+        XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: event, in: model.playbackCatalog,
+            at: clock, discoveryIndex: index)?.evidence, .freshLookupOpportunity)
 
         let request = StreamPlaybackRequest(event: event)
         let binding = try XCTUnwrap(StreamEventBinding(request: request, providerCode: "communitysports",
@@ -746,20 +748,26 @@ extension CatalogIncrementalPublicationTests {
                 providerEventID: "exact_fixture")], at: now)
             let state = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: event, at: now,
                 discoveryIndex: discovery, catalogIndex: catalog))
-            XCTAssertEqual(state.canWatch, outcome == .listed)
+            // A started fixture gets a fresh Watch lookup unless its listing is a
+            // conflict or unsupported; a listing alone is still the only
+            // catalog evidence counted as "listed".
+            let vetoed = outcome == .conflicting || outcome == .unsupported
+            XCTAssertEqual(state.canWatch, !vetoed, "\(outcome)")
             XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: event, in: [event], at: now,
-                discoveryIndex: discovery, catalogIndex: catalog)?.evidence, outcome == .listed ? .freshLookupOpportunity : nil)
+                discoveryIndex: discovery, catalogIndex: catalog)?.evidence, vetoed ? nil : .freshLookupOpportunity)
             XCTAssertEqual(state.catalogListedProviderCount, outcome == .listed ? 1 : 0)
-            XCTAssertEqual(state.detailsTitle, outcome == .listed ? "Broadcast listed" : "Broadcast unconfirmed")
+            XCTAssertEqual(state.detailsTitle, outcome == .listed ? "Broadcast listed"
+                : vetoed ? "Broadcast unconfirmed" : "Look for a broadcast")
             XCTAssertNil(discovery.summary(for: request, at: now), "A listing attempt must not require eager per-match descriptor work")
             let stale = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: event,
                 at: now.addingTimeInterval(FixtureCatalogAvailabilityIndex.metadataLifetime),
                 discoveryIndex: discovery, catalogIndex: catalog))
-            XCTAssertFalse(stale.canWatch, "Expired listing/history must not grant Watch")
-            XCTAssertNil(CurrentEventBroadcastPolicy.action(for: event, in: [event],
+            XCTAssertEqual(stale.catalogListedProviderCount, 0, "Expired listing/history is not a current listing")
+            XCTAssertNotEqual(CurrentEventBroadcastPolicy.action(for: event, in: [event],
                 at: now.addingTimeInterval(FixtureCatalogAvailabilityIndex.metadataLifetime),
-                discoveryIndex: discovery, catalogIndex: catalog))
+                discoveryIndex: discovery, catalogIndex: catalog)?.evidence, .providerListing)
             catalog.updateEnabledProviders([], revision: 2)
+            discovery.updateEnabledProviders([], revision: 2)
             XCTAssertFalse(FixtureSourceLookupPresentation.state(for: event,
                 at: now.addingTimeInterval(FixtureCatalogAvailabilityIndex.metadataLifetime + 1),
                 discoveryIndex: discovery, catalogIndex: catalog)?.canWatch == true)
@@ -800,8 +808,12 @@ extension CatalogIncrementalPublicationTests {
         let definitiveAt = now.addingTimeInterval(101)
         let definitive = try XCTUnwrap(discovery.begin(for: request, providerCode: "plaviosports", preflight: false, at: definitiveAt))
         discovery.complete(definitive, sessions: [], failure: LiveStreamResolver.communitySportsFailure(from: .conflictingMatch), at: definitiveAt)
-        XCTAssertFalse(FixtureSourceLookupPresentation.state(for: event, at: definitiveAt,
-            discoveryIndex: discovery, catalogIndex: catalog)?.canWatch == true)
+        let withdrawn = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: event, at: definitiveAt,
+            discoveryIndex: discovery, catalogIndex: catalog))
+        XCTAssertEqual(withdrawn.catalogListedProviderCount, 0, "Both older listings are withdrawn by newer negatives")
+        // One AS identity conflict cannot suppress a fresh CS lookup (fotty244 handoff).
+        XCTAssertTrue(withdrawn.canOfferFreshWatch)
+        XCTAssertEqual(withdrawn.detailsTitle, "Look for a broadcast")
         let renewedAt = now.addingTimeInterval(FixtureCatalogAvailabilityIndex.minimumRefreshInterval + 1)
         let renewed = try XCTUnwrap(catalog.begin(providerCode: "communitysports", at: renewedAt))
         catalog.complete(renewed, matches: [.init(matchID: event.id, outcome: .listed,
@@ -824,9 +836,11 @@ extension CatalogIncrementalPublicationTests {
         discovery.complete(retry, sessions: [], failure: LiveStreamResolver.communitySportsFailure(from: .transportFailure(code: -1001, stage: .streams)), at: at)
         XCTAssertTrue(FixtureSourceLookupPresentation.state(for: event, at: at,
             discoveryIndex: discovery, catalogIndex: catalog)?.canWatch == true)
-        XCTAssertFalse(FixtureSourceLookupPresentation.state(for: event,
+        let expired = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: event,
             at: now.addingTimeInterval(FixtureCatalogAvailabilityIndex.metadataLifetime),
-            discoveryIndex: discovery, catalogIndex: catalog)?.canWatch == true)
+            discoveryIndex: discovery, catalogIndex: catalog))
+        XCTAssertEqual(expired.catalogListedProviderCount, 0, "An unconfirmed fetch cannot extend the listing")
+        XCTAssertEqual(expired.detailsTitle, "Look for a broadcast", "Watch remains a fresh lookup only")
     }
 
     private func exactListingFixture() -> EventReference {

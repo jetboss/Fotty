@@ -984,7 +984,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             enabledProviderCodes: [], at: now, phase: .completion))
     }
 
-    func testDefaultScore808OffersSourceFreeVerifiedCupCheckWithoutInventingWatch() throws {
+    func testDefaultScore808OffersSourceFreeVerifiedCupFreshWatchWithoutClaimingAListing() throws {
         let defaults = StreamPluginRegistry.bundledCatalog(savedStates: [:]).plugins
         let codes = Set(defaults.filter(\.isEnabled).map(\.providerCode))
         XCTAssertTrue(codes.contains("score808"))
@@ -996,7 +996,9 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         XCTAssertEqual(admitted.sportsFixture, row.sportsFixture)
         XCTAssertEqual(admitted.competitionID, "carabao-cup")
         XCTAssertTrue(admitted.sources?.isEmpty == true)
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now))
+        XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now,
+            discoveryIndex: freshWatchIndex(codes), catalogIndex: FixtureCatalogAvailabilityIndex())?.evidence,
+            .freshLookupOpportunity, "Watch runs the resolver; it never claims a listing")
         // The existing resolver dispatch uses this same football/window rule;
         // the request needs no primary descriptor or optional-source opt-in.
         let request = StreamPlaybackRequest(event: admitted)
@@ -1021,7 +1023,8 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
     func testScore808OnlyCupCheckRejectsHeldStaleStoppedAndOutOfWindowReceipts() {
         let invalid = [
             cup(verified: false),
-            cup(observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1)),
+            cup(offset: -SportsFixtureMetadata.unconfirmedLiveWindow,
+                observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1)),
             cup(observedAt: now.addingTimeInterval(301)),
             cup(offset: -Score808LateDiscoveryPolicy.lookupTailTime - 1),
             cup(offset: MatchStartPolicy.playbackLead + 1, status: .scheduled),
@@ -1033,6 +1036,10 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         }
         let edge = cup(observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness))
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: edge, in: [edge],
+            enabledProviderCodes: ["score808"], at: now))
+        // One missed fixture refresh keeps a started LIVE row eligible (unconfirmed).
+        let staleLive = cup(observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1))
+        XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: staleLive, in: [staleLive],
             enabledProviderCodes: ["score808"], at: now))
         let upcoming = cup(offset: MatchStartPolicy.playbackLead, status: .scheduled)
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: upcoming, in: [upcoming],
@@ -1081,7 +1088,8 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [refreshed],
             enabledProviderCodes: [], at: now, phase: .completion))
         for current in [cup(verified: false), cup(status: .finished),
-                        cup(observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1))] {
+                        cup(offset: -SportsFixtureMetadata.unconfirmedLiveWindow,
+                            observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1))] {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [current],
                 enabledProviderCodes: ["score808"], at: now, phase: .completion))
         }
@@ -1096,8 +1104,10 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         let cricket = cricket()
         XCTAssertNil(OptionalSourceLookupPolicy.event(for: cricket, in: [cricket],
             enabledProviderCodes: ["streamvix"], at: now))
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: football, in: [football], at: now),
-                     "An opted-in optional lookup is not a listed or decoded broadcast")
+        let action = CurrentEventBroadcastPolicy.action(for: football, in: [football], at: now,
+            discoveryIndex: freshWatchIndex(["streamvix"]), catalogIndex: FixtureCatalogAvailabilityIndex())
+        XCTAssertEqual(action?.evidence, .freshLookupOpportunity,
+                       "An opted-in optional lookup is a fresh Watch, not a listed or decoded broadcast")
     }
 
     func testStreamVixOfficialLookupRequiresReviewedPremierOrChampionsLeagueRatherThanAnyFootball() {
@@ -1232,7 +1242,12 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         let admitted = try XCTUnwrap(check(row))
         XCTAssertEqual(admitted.sportsFixture, row.sportsFixture)
         XCTAssertTrue(admitted.sources?.isEmpty == true)
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now))
+        XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now,
+            discoveryIndex: freshWatchIndex(enabled), catalogIndex: FixtureCatalogAvailabilityIndex())?.evidence,
+            .freshLookupOpportunity)
+        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now,
+            discoveryIndex: freshWatchIndex([]), catalogIndex: FixtureCatalogAvailabilityIndex()),
+            "With no enabled discovery source there is nothing to look up")
         XCTAssertNotNil(check(sports(status: .scheduled, offset: MatchStartPolicy.playbackLead)))
         XCTAssertNil(check(sports(status: .scheduled, offset: MatchStartPolicy.playbackLead + 1)))
         let starting = sports(status: .scheduled, offset: -1)
@@ -1241,21 +1256,58 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         XCTAssertNil(check(sports(status: .scheduled, offset: -VerifiedFixtureStartingPolicy.grace)))
     }
 
-    func testLiveSportsFixtureOffersCheckStreamsAtColdStartWithoutInventingWatch() throws {
+    /// Leeds–Tottenham 7 Nov: after a relaunch every local index is empty and
+    /// the cloud registry may omit the match. Watch must still reach the
+    /// resolver, whose exact adapters decide whether a stream exists.
+    func testLiveSportsFixtureOffersFreshWatchAtColdStartWithoutClaimingABroadcast() throws {
         let row = sports(), index = FixtureStreamDiscoveryIndex()
+        index.updateEnabledProviders(enabled, revision: 1)
         let state = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row, at: now,
-            enabledProviderCodes: enabled, discoveryIndex: index))
-        XCTAssertTrue(state.canTriggerLookup, "A live supported sports fixture offers a fresh check at cold start")
-        XCTAssertFalse(state.canWatch, "But never fabricates a Watch action")
-        XCTAssertEqual(state.title, "Check streams")
-        XCTAssertEqual(state.symbol, "antenna.radiowaves.left.and.right")
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now, discoveryIndex: index),
-            "The fresh check must not authorize a Watch action")
+            enabledProviderCodes: enabled, discoveryIndex: index, catalogIndex: FixtureCatalogAvailabilityIndex(),
+            registry: BroadcastRegistryClient(defaults: UserDefaults(suiteName: "cold-start-\(UUID().uuidString)")!)))
+        XCTAssertTrue(state.canWatch, "A live supported fixture offers Watch at cold start")
+        XCTAssertTrue(state.canOfferFreshWatch)
+        XCTAssertEqual(state.currentCandidateCount, 0, "No compatible broadcast is claimed")
+        XCTAssertEqual(state.catalogListedProviderCount, 0)
+        XCTAssertEqual(state.title, "Watch")
+        XCTAssertEqual(state.detailsTitle, "Look for a broadcast")
+        XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now, discoveryIndex: index,
+            catalogIndex: FixtureCatalogAvailabilityIndex())?.evidence, .freshLookupOpportunity)
+        let cricketState = FixtureSourceLookupPresentation.state(for: cricket(), at: now,
+            enabledProviderCodes: enabled, discoveryIndex: index)
+        XCTAssertNotEqual(cricketState?.canOfferFreshWatch, true, "Cricket keeps its existing evidence-first rule")
+    }
+
+    func testDefinitiveEmptyLookupWithholdsFreshWatchOnlyUntilItAges() throws {
+        let row = sports(), index = FixtureStreamDiscoveryIndex()
+        index.updateEnabledProviders(enabled, revision: 1)
+        let request = StreamPlaybackRequest(event: row)
+        let ticket = try XCTUnwrap(index.begin(for: request, providerCode: "communitysports", preflight: false, at: now))
+        index.complete(ticket, sessions: [], failure: nil, at: now)
+        let empty = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row, at: now,
+            enabledProviderCodes: enabled, discoveryIndex: index, catalogIndex: FixtureCatalogAvailabilityIndex()))
+        XCTAssertFalse(empty.canWatch, "A just-completed empty lookup is reported honestly")
+        XCTAssertEqual(empty.statusTitle, "Broadcast unavailable")
+        let later = now.addingTimeInterval(FixtureStreamDiscoveryIndex.positiveLifetime + 1)
+        XCTAssertTrue(try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row, at: later,
+            enabledProviderCodes: enabled, discoveryIndex: index, catalogIndex: FixtureCatalogAvailabilityIndex())).canWatch,
+            "The negative ages out with the discovery lifetime and Watch returns")
     }
 
     func testSportsReceiptUsesExistingFreshnessAndPreservesTerminalVeto() {
         XCTAssertNotNil(check(sports(observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness))))
-        XCTAssertNil(check(sports(observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1))))
+        // One missed fixture refresh mid-match keeps the live fixture eligible
+        // for an exact lookup (never displayed as confirmed LIVE) until the
+        // four-hour window from kickoff ends.
+        let stale = sports(observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1))
+        XCTAssertNotNil(check(stale))
+        XCTAssertFalse(stale.sportsFixture?.isLive(at: now) ?? true)
+        XCTAssertTrue(stale.sportsFixture?.isUnconfirmedLive(at: now, kickoff: try XCTUnwrap(stale.kickoffDate)) ?? false)
+        XCTAssertNil(check(sports(offset: -SportsFixtureMetadata.unconfirmedLiveWindow,
+            observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1))))
+        XCTAssertNil(check(sports(status: .scheduled, offset: -3_600,
+            observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1))),
+            "Only a LIVE receipt gains the unconfirmed grace")
         XCTAssertNotNil(check(sports(observedAt: now.addingTimeInterval(300))))
         XCTAssertNil(check(sports(observedAt: now.addingTimeInterval(301))))
         XCTAssertNil(check(sports(status: .scheduled, offset: 60,
@@ -1332,6 +1384,13 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             date: offset.map { Int64(now.addingTimeInterval($0).timeIntervalSince1970) }, poster: nil, popular: false,
             teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Chelsea", badge: nil)),
             sources: [], sportsFixture: metadata, competitionID: competitionID)
+    }
+
+    /// Explicit, order-independent enablement for Watch-gate assertions.
+    private func freshWatchIndex(_ codes: Set<String>) -> FixtureStreamDiscoveryIndex {
+        let index = FixtureStreamDiscoveryIndex()
+        index.updateEnabledProviders(codes, revision: 1)
+        return index
     }
 
     private func cup(

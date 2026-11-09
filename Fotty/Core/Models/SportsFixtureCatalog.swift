@@ -647,6 +647,20 @@ struct SportsFixtureMetadata: Codable, Equatable, Sendable {
     func isLive(at now: Date) -> Bool {
         verified && status == .live && (-300...SportsFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(observedAt))
     }
+    /// A verified LIVE receipt that aged past `statusFreshness` without any
+    /// newer status (for example one failed fixture refresh mid-match). It is
+    /// never displayed as confirmed LIVE, but it keeps the fixture eligible for
+    /// an exact source lookup until the generic four-hour broadcast window
+    /// from kickoff ends. A terminal receipt still wins immediately.
+    static let unconfirmedLiveWindow: TimeInterval = 4 * 3600
+    func isUnconfirmedLive(at now: Date, kickoff: Date) -> Bool {
+        // The LIVE fact itself must postdate kickoff (5 min skew): an early
+        // publisher status is not evidence that this match is under way.
+        verified && status == .live && !isLive(at: now)
+            && observedAt >= kickoff.addingTimeInterval(-300)
+            && now.timeIntervalSince(observedAt) > SportsFixtureCatalog.statusFreshness
+            && (0..<Self.unconfirmedLiveWindow).contains(now.timeIntervalSince(kickoff))
+    }
     func hasCurrentProviderListing(at now: Date) -> Bool {
         guard let providerObservedAt else { return false }
         return (-300...SportsFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(providerObservedAt))

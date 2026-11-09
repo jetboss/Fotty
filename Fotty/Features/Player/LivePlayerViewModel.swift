@@ -381,6 +381,19 @@ final class LivePlayerViewModel {
     private let refreshSourceDescriptor: @MainActor (StreamSession, StreamPlaybackRequest) async -> StreamSession?
     private let currentDescriptorRecoveryRequest: @MainActor (StreamPlaybackRequest) -> StreamPlaybackRequest?
     private let currentMatchProviders: @MainActor () -> Set<String>?
+    /// Fresh exact lookup after the in-hand deliveries are exhausted. Injected
+    /// so lifecycle tests never reach production resolvers or the network.
+    typealias FreshMatchLookup = @MainActor (StreamPlaybackRequest,
+        @escaping @Sendable ([StreamSession]) async -> Void) async -> Void
+    private let freshMatchLookup: FreshMatchLookup
+    /// While a match plays, its backup deliveries age (event bindings last 90 s
+    /// and upstream tokens rotate). One bounded lookup per interval keeps the
+    /// backup list current so a mid-match failure does not walk stale siblings.
+    private let backupRefreshInterval: Duration
+    @ObservationIgnored private var backupRefreshTask: Task<Void, Never>?
+    @ObservationIgnored private var prefetchingRenewals: Set<UUID> = []
+    /// Read-only receipts for tests and diagnostics.
+    private(set) var backupRefreshCount = 0
     @ObservationIgnored private var lastMatchComparison: [String: String]?
     private let nativePlaylistIsNonAdvancing: @MainActor (LocalStreamProxy) -> Bool
     private let nativePlaylistIsAdvancing: @MainActor (LocalStreamProxy) -> Bool
@@ -482,7 +495,14 @@ final class LivePlayerViewModel {
         controlsNeedAccessibilityVisibility: @escaping @MainActor () -> Bool = {
             UIAccessibility.isVoiceOverRunning || UIAccessibility.isSwitchControlRunning
         },
-        currentMatchProviders: @escaping @MainActor () -> Set<String>? = { LivePlaybackSourcePolicy.enabledMatchProviders }
+        currentMatchProviders: @escaping @MainActor () -> Set<String>? = { LivePlaybackSourcePolicy.enabledMatchProviders },
+        freshMatchLookup: @escaping FreshMatchLookup = { request, publish in
+            // Hosted tests never reach production resolvers; they inject a lookup.
+            guard !AppRuntime.isAutomatedTesting else { return }
+            _ = await LiveStreamResolver.shared.resolvePlayback(for: request, onChoices: publish,
+                refreshOptionalSources: true)
+        },
+        backupRefreshInterval: Duration = .seconds(600)
     ) {
         self.event = event
         self.webRetryDelay = webRetryDelay
@@ -491,6 +511,8 @@ final class LivePlayerViewModel {
         self.refreshSourceDescriptor = refreshSourceDescriptor
         self.currentDescriptorRecoveryRequest = currentDescriptorRecoveryRequest
         self.currentMatchProviders = currentMatchProviders
+        self.freshMatchLookup = freshMatchLookup
+        self.backupRefreshInterval = backupRefreshInterval
         self.nativePlaylistIsNonAdvancing = nativePlaylistIsNonAdvancing
         self.nativePlaylistIsAdvancing = nativePlaylistIsAdvancing
         self.prepareAudioSession = prepareAudioSession
@@ -2629,6 +2651,7 @@ final class LivePlayerViewModel {
             recordMatchOutcome(.decoded, for: source)
             if let station = SportsTVStation.station(id: event.id) { SportsTVLibrary.shared.recordPlayed(station.id) }
             observeSingleContinuity(source)
+            startBackupRefreshIfNeeded()
         }
         if receipt == nil || receipt != SinglePlaybackStartEvidence.Receipt.none {
             FottyQualityStore.shared.record(
@@ -3028,6 +3051,20 @@ final class LivePlayerViewModel {
             expectedRequestID: expectedRequestID, diagnosticDetails: diagnosticDetails, recordFailure: true)
     }
 
+    /// A web provider reports failures as text, never typed diagnostics. A
+    /// stall, timeout or generic failure after its one same-source reload may
+    /// still look for a fresh delivery. An explicit provider rejection or an
+    /// unsupported/denied source is final for this attempt.
+    nonisolated static func webFailureCanAwaitFreshDelivery(failureKind: LivePlaybackFailureKind,
+                                                           reason: String) -> Bool {
+        guard !LivePlaybackPolicy.isExplicitProviderRejection(reason) else { return false }
+        switch failureKind {
+        case .stalled, .startupTimeout, .sourceFailure, .network, .unknown: return true
+        case .accessDenied, .decodeFailure, .providerUnavailable, .proxy, .resumeFailure, .unsupportedSource:
+            return false
+        }
+    }
+
     private func canAwaitFreshSingleDelivery(failureKind: LivePlaybackFailureKind,
                                              structuredFailure: LivePlaybackStructuredFailure?,
                                              diagnosticDetails: [String: String]) -> Bool {
@@ -3036,6 +3073,15 @@ final class LivePlayerViewModel {
             return false
         }
         if structuredFailure?.httpStatus != nil { return true }
+        // Jet, 8 Nov: CS5 decoded for 55 min, stalled, and every remaining
+        // alternative came from the same hour-old discovery and failed within
+        // 35 s. The last one was classified `unknown`, which ended the session
+        // with no fresh lookup. Once this session has decoded, any non-hard
+        // failure earns the single exhausted-delivery lookup; the fresh
+        // resolver still owns identity and transport admission.
+        if playbackIntervals.hasDecodedDuringSession, !event.isBroadcastChannel,
+           structuredFailure?.disallowsAutomaticRetry != true,
+           ![.accessDenied, .unsupportedSource, .proxy].contains(failureKind) { return true }
         if reason == PlaybackPreparationDiagnostic.Reason.leaseExpired.rawValue { return true }
         if failureKind == .startupTimeout {
             return diagnosticDetails["native_failure_trigger"] == NativePlaybackDiagnosticTrigger.readinessTimeout.rawValue
@@ -3199,6 +3245,7 @@ final class LivePlayerViewModel {
                     FottyQualityStore.shared.record(category: .playback, name: "automatic_failover", outcome: .failure,
                         details: playbackQualityDetails(["failure_kind": failureKind.rawValue]))
                     currentSourceIndex = index
+                    prefetchDescriptorRenewals(after: next)
                     showPlaybackBanner("Switching to another source")
                     loadCurrentSource()
                     return
@@ -3252,6 +3299,7 @@ final class LivePlayerViewModel {
                 details: playbackQualityDetails(["failure_kind": failureKind.rawValue])
             )
             currentSourceIndex = idx
+            prefetchDescriptorRenewals(after: next)
             showPlaybackBanner("Switching to another source")
             loadCurrentSource()
         }
@@ -3259,11 +3307,13 @@ final class LivePlayerViewModel {
                 (isCheckingAdditionalSources && !singleDiscoveryContinuationRevoked ||
                     !isCheckingAdditionalSources && playbackIntervals.hasDecodedDuringSession && !usedExhaustedMatchLookup && !event.isBroadcastChannel &&
                         LivePlaybackSourcePolicy.currentMatchForSwitch(event, in: MatchListViewModel.shared.playbackAdmissionCatalog) != nil),
-                !isPlaybackSessionRetired, !isUsingWebEmbed, userWantsPlayback, !isAppBackgrounded,
+                !isPlaybackSessionRetired, userWantsPlayback, !isAppBackgrounded,
                 !isPictureInPictureActive, !isWebPictureInPictureActive, nativeFullscreen == nil,
                 !event.hasCatalogIdentityConflict, MatchStartPolicy(event: event).timingAllowsPlayback,
-                canAwaitFreshSingleDelivery(failureKind: failureKind, structuredFailure: structuredFailure,
-                    diagnosticDetails: diagnosticDetails) {
+                isUsingWebEmbed
+                    ? Self.webFailureCanAwaitFreshDelivery(failureKind: failureKind, reason: reason)
+                    : canAwaitFreshSingleDelivery(failureKind: failureKind, structuredFailure: structuredFailure,
+                        diagnosticDetails: diagnosticDetails) {
             // A typed source-local failure still exhausts this delivery.
             // The original discovery may supply one fresh delivery before its
             // own deadline; no failed URL or terminal callback gains a retry.
@@ -3271,7 +3321,9 @@ final class LivePlayerViewModel {
             loadRequestID = UUID()
             pendingSingleDiscoveryFailure = .init(sourceID: source.id, requestID: loadRequestID,
                 failureKind: failureKind, qualityDetails: details,
-                requiresFreshBinding: structuredFailure?.httpStatus == nil)
+                // Fresh web embeds are revalidated by the resolver but carry no
+                // event binding; requiring one would reject every web backup.
+                requiresFreshBinding: !isUsingWebEmbed && structuredFailure?.httpStatus == nil)
             shouldResumeAfterForeground = false
             shouldSuspendWebPlayback = true
             error = nil
@@ -3283,9 +3335,9 @@ final class LivePlayerViewModel {
                     guard let self, !Task.isCancelled else { return }
                     if let current = LivePlaybackSourcePolicy.currentMatchForSwitch(event, in: MatchListViewModel.shared.playbackAdmissionCatalog) {
                         let request = StreamPlaybackRequest(event: current, watchID: playbackCorrelation.sessionID)
-                        _ = await LiveStreamResolver.shared.resolvePlayback(for: request, onChoices: { [weak self] choices in
+                        await freshMatchLookup(request) { [weak self] choices in
                             await self?.appendFreshMatchChoices(choices)
-                        }, refreshOptionalSources: true)
+                        }
                     }
                     guard !Task.isCancelled else { return }
                     exhaustedMatchLookup = nil
@@ -4135,6 +4187,113 @@ final class LivePlayerViewModel {
         handleSourceStartupFailure(current, reason: "Provider reports this broadcast is unavailable", expectedRequestID: loadRequestID)
     }
 
+    // MARK: Backup freshness (Jet, 8 Nov 16:06 UTC)
+
+    func startBackupRefreshIfNeeded() {
+        guard backupRefreshTask == nil, usesSingleStreamRanking, viewingPlaybackContext == .single,
+              !event.isBroadcastChannel, !isPlaybackSessionRetired else { return }
+        let timing = self.timing, interval = backupRefreshInterval
+        backupRefreshTask = Task { [weak self] in
+            while !Task.isCancelled {
+                do { try await timing.wait(for: interval) } catch { return }
+                guard let self, !Task.isCancelled else { return }
+                await self.refreshBackupsOnce()
+            }
+        }
+    }
+
+    /// One exact lookup for the playing match. Its results replace older
+    /// backups from the same provider family; the playing delivery, its index
+    /// and every other family stay untouched. Paused, failing, recovering or
+    /// background-suspended sessions spend no request.
+    func refreshBackupsOnce() async {
+        guard isPlaybackSessionActive, !isPlaybackSessionRetired, viewingPlaybackContext == .single,
+              usesSingleStreamRanking, userWantsPlayback, isPlaying, error == nil,
+              pendingSingleDiscoveryFailure == nil, exhaustedMatchLookup == nil,
+              let current = LivePlaybackSourcePolicy.currentMatchForSwitch(event,
+                  in: MatchListViewModel.shared.playbackAdmissionCatalog),
+              let active = activeSession else { return }
+        let attempt = loadRequestID
+        let collector = BackupChoiceCollector()
+        await freshMatchLookup(StreamPlaybackRequest(event: current, watchID: playbackCorrelation.sessionID)) { choices in
+            await collector.add(choices)
+        }
+        guard !Task.isCancelled, isPlaybackSessionActive, !isPlaybackSessionRetired,
+              loadRequestID == attempt, activeSession?.id == active.id else { return }
+        backupRefreshCount += 1
+        replaceBackups(with: collector.choices, active: active)
+        // A successful fresh lookup renews the single exhausted-delivery budget.
+        usedExhaustedMatchLookup = false
+    }
+
+    private func replaceBackups(with fresh: [StreamSession], active: StreamSession) {
+        var seen: Set<StreamDeliveryIdentity> = [StreamDeliveryIdentity(url: active.playableURL, headers: active.requiredHeaders)]
+        let incoming = fresh.filter { session in
+            session.matchID == event.id && StreamPluginProviderMatching.isActivePlayerSession(session)
+                && !session.hasExpiredMediaLease()
+                && seen.insert(StreamDeliveryIdentity(url: session.playableURL, headers: session.requiredHeaders)).inserted
+        }
+        guard !incoming.isEmpty, let activeIndex = providedSessions.firstIndex(where: { $0.id == active.id }) else { return }
+        let refreshed = Set(incoming.map(Self.backupFamily))
+        var pending = incoming[...]
+        var rebuilt: [StreamSession] = []
+        for (offset, session) in providedSessions.enumerated() {
+            let stale = session.id != active.id && refreshed.contains(Self.backupFamily(session))
+            if !stale { rebuilt.append(session); continue }
+            if offset < activeIndex {
+                // Refill in place so the playing session keeps its index; keep
+                // the older entry only when no fresh replacement remains.
+                rebuilt.append(pending.popFirst() ?? session)
+            }
+        }
+        rebuilt.append(contentsOf: pending)
+        // Defensive: never move the playing session; skip this refresh instead.
+        guard rebuilt.indices.contains(activeIndex), rebuilt[activeIndex].id == active.id else { return }
+        providedSessions = rebuilt
+    }
+
+    nonisolated static func backupFamily(_ session: StreamSession) -> String {
+        StreamEventBinding.providerCode(forSessionProviderName: session.providerName) ?? session.providerName.lowercased()
+    }
+
+    /// Failover renews a chosen backup's descriptor before playing it, one at a
+    /// time. Renew the next two concurrently while the first one starts. This
+    /// is the same metadata call and identity check as the serial path; no
+    /// media, relay or validator request is made here.
+    func prefetchDescriptorRenewals(after chosen: StreamSource, limit: Int = 2) {
+        // At most `limit` renewals are in flight at once across failovers.
+        let capacity = limit - prefetchingRenewals.count
+        guard capacity > 0, usesSingleStreamRanking, viewingPlaybackContext == .single, !event.isBroadcastChannel,
+              !isPlaybackSessionRetired else { return }
+        let now = Date()
+        let candidates = providedSessions.filter { session in
+            session.id != chosen.id && !failedSourceIDs.contains(session.id)
+                && !descriptorRefreshAttempts.contains(session.id) && !prefetchingRenewals.contains(session.id)
+                && LiveStreamResolver.supportsDescriptorRenewal(session)
+                && (session.eventBinding?.isCurrent(at: now) == false || session.hasExpiredMediaLease(at: now))
+        }.prefix(capacity)
+        for session in candidates {
+            prefetchingRenewals.insert(session.id)
+            Task { [weak self] in
+                guard let self else { return }
+                defer { self.prefetchingRenewals.remove(session.id) }
+                let original = StreamPlaybackRequest(event: self.event)
+                let request = session.eventBinding?.usesRegistryAssociation == true
+                    ? self.currentDescriptorRecoveryRequest(original) : original
+                guard let request else { return }
+                let fresh = await self.refreshSourceDescriptor(session, request)
+                guard !self.isPlaybackSessionRetired, self.activeSession?.id != session.id,
+                      let index = self.providedSessions.firstIndex(where: { $0.id == session.id }) else { return }
+                // Success or failure, this source has spent its one renewal.
+                self.descriptorRefreshAttempts.insert(session.id)
+                guard let fresh, fresh.id == session.id, let binding = fresh.eventBinding,
+                      binding.matches(request: request, providerCode: binding.providerCode) else { return }
+                self.providedSessions[index] = fresh
+                self.requiredDescriptorRefreshSourceIDs.remove(session.id)
+            }
+        }
+    }
+
     func startPlaybackWatchdog(for source: StreamSource) {
         stopPlaybackWatchdog(); isPlaybackWatchdogArmed = true
         let requestID = loadRequestID
@@ -4675,6 +4834,7 @@ final class LivePlayerViewModel {
         cancelPendingWebRetry()
         loadTask?.cancel(); hideTask?.cancel(); stallValidationTask?.cancel(); playbackWatchdogTask?.cancel()
         failoverBannerTask?.cancel(); foregroundResumeValidationTask?.cancel(); nativeHandoffTask?.cancel(); webBackgroundSuspensionTask?.cancel()
+        backupRefreshTask?.cancel(); backupRefreshTask = nil; prefetchingRenewals.removeAll()
         stopNetworkPathMonitoring(); removeItemFailureObservers()
         withModelOwnedNativeRateCommand { player?.pause() }
         player = nil; streamProxy?.stop(); streamProxy = nil; nativeHandoffSession = nil
@@ -4682,4 +4842,12 @@ final class LivePlayerViewModel {
         NowPlayingManager.shared.clearNowPlaying(ownerID: remoteCommandOwnerID)
         ownsRemoteCommands = false
     }
+}
+
+
+/// Accumulates incremental resolver choices for one backup refresh.
+@MainActor
+final class BackupChoiceCollector {
+    private(set) var choices: [StreamSession] = []
+    func add(_ sessions: [StreamSession]) { choices.append(contentsOf: sessions) }
 }

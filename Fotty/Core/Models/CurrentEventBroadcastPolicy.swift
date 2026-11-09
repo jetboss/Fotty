@@ -170,9 +170,45 @@ enum CurrentEventBroadcastPolicy {
             discoveryIndex: discoveryIndex, catalogIndex: catalogIndex, registry: registry)?.canWatch == true {
             return Action(event: current, isChannelFallback: false, evidence: .freshLookupOpportunity)
         }
-        // The official schedule identifies the fixture. Only its own source
-        // or a current programme assignment can qualify a match Watch action.
+        // The official schedule identifies the fixture. Only its own source,
+        // a current programme assignment or a fresh-lookup opportunity can
+        // qualify a match Watch action.
+        WatchGateSuppressionReceipt.recordIfNeeded(for: current, at: now, index: index)
         return nil
+    }
+}
+
+/// A started fixture with enabled sources that still gets no Watch action is
+/// the condition the 7 Nov incident could not diagnose. Record it at most once
+/// per fixture per ten minutes; the render path must not flood the 250-record
+/// quality buffer. No fixture name, URL or provider identifier is stored.
+@MainActor
+enum WatchGateSuppressionReceipt {
+    static let interval: TimeInterval = 10 * 60
+    private static var lastRecorded: [String: Date] = [:]
+
+    static func recordIfNeeded(for event: EventReference, at now: Date, index: FixtureStreamDiscoveryIndex,
+                               store: FottyQualityStore = .shared) {
+        guard !AppRuntime.isAutomatedTesting, !event.isBroadcastChannel,
+              let kickoff = event.kickoffDate, kickoff <= now,
+              !MatchStartPolicy(event: event, now: now).isStopped else { return }
+        let enabled = CuratedStreamSourceCatalog.discoveryPlan(for: StreamPlaybackRequest(event: event),
+            enabledProviderCodes: index.enabledProviderCodes, at: now).optionalSources.count
+        guard enabled > 0, shouldRecord(event.id, at: now) else { return }
+        let reason: String
+        if event.cricketFixture != nil { reason = "cricket_fixture_without_evidence" }
+        else if OptionalSourceLookupPolicy.event(for: event, in: [event], enabledProviderCodes: index.enabledProviderCodes,
+                                                 at: now, discoveryIndex: index) == nil { reason = "lookup_ineligible" }
+        else { reason = "no_fresh_watch" }
+        store.record(category: .playback, name: "watch_gate_suppressed", outcome: .info,
+            details: ["mode": "watch_gate", "reason_code": reason, "source_count": String(enabled)])
+    }
+
+    static func shouldRecord(_ fixtureID: String, at now: Date) -> Bool {
+        if let last = lastRecorded[fixtureID], (0..<interval).contains(now.timeIntervalSince(last)) { return false }
+        if lastRecorded.count >= 64 { lastRecorded.removeAll() }
+        lastRecorded[fixtureID] = now
+        return true
     }
 }
 
@@ -293,7 +329,7 @@ enum OptionalSourceLookupPolicy {
                     == Set([current.homeName, current.awayName].map(SportsTeamIdentity.normalized)) else { return nil }
             switch fixture.status {
             case .live:
-                guard fixture.isLive(at: now) else { return nil }
+                guard fixture.isLive(at: now) || fixture.isUnconfirmedLive(at: now, kickoff: kickoff) else { return nil }
             case .scheduled:
                 // An unchanged confirmed schedule can have an old publisher
                 // status timestamp. Its fresh identity receipt permits lookup,
@@ -339,19 +375,27 @@ enum FixtureSourceLookupPresentation {
         let hasLookupFailure: Bool
         let hasConfirmedAvailability: Bool
         let canOfferFreshLookup: Bool
+        /// A started, verified fixture with an enabled discovery-capable source
+        /// gets Watch even before any local or cloud evidence exists. The
+        /// resolver, with its own deadline and exact identity checks, decides
+        /// whether a stream is available. Cold start must not require a manual
+        /// "Check streams" step (7 Nov Leeds–Tottenham incident).
+        let canOfferFreshWatch: Bool
         init(currentCandidateCount: Int, previouslyFound: Bool, isChecking: Bool,
              catalogListedProviderCount: Int = 0, catalogPreviouslyListed: Bool = false,
              hasCompletedLookup: Bool = false, hasLookupFailure: Bool = false,
-             hasConfirmedAvailability: Bool = false, canOfferFreshLookup: Bool = false) {
+             hasConfirmedAvailability: Bool = false, canOfferFreshLookup: Bool = false,
+             canOfferFreshWatch: Bool = false) {
             self.currentCandidateCount = currentCandidateCount; self.previouslyFound = previouslyFound
             self.isChecking = isChecking; self.catalogListedProviderCount = catalogListedProviderCount
             self.catalogPreviouslyListed = catalogPreviouslyListed
             self.hasCompletedLookup = hasCompletedLookup; self.hasLookupFailure = hasLookupFailure
             self.hasConfirmedAvailability = hasConfirmedAvailability
             self.canOfferFreshLookup = canOfferFreshLookup
+            self.canOfferFreshWatch = canOfferFreshWatch
         }
         private var hasConfirmedDelivery: Bool { currentCandidateCount > 0 || hasConfirmedAvailability }
-        var canWatch: Bool { hasConfirmedDelivery || catalogListedProviderCount > 0 }
+        var canWatch: Bool { hasConfirmedDelivery || catalogListedProviderCount > 0 || canOfferFreshWatch }
         /// A live fixture with an enabled optional source can always trigger a
         /// fresh exact lookup even before any cached evidence exists. This is a
         /// manual check, never a fabricated Watch action.
@@ -381,12 +425,14 @@ enum FixtureSourceLookupPresentation {
         var detailsTitle: String {
             if hasConfirmedDelivery { return "Ready to watch" }
             if catalogListedProviderCount > 0 { return "Broadcast listed" }
+            if canOfferFreshWatch { return "Look for a broadcast" }
             if canOfferFreshLookup { return "Check streams" }
             return statusTitle
         }
         func detailsMessage(canWatchHere: Bool) -> String {
             if hasConfirmedDelivery { return "Choose Watch to open the broadcast." }
             if catalogListedProviderCount > 0 { return "Choose Watch to find and open the current broadcast." }
+            if canOfferFreshWatch { return "Choose Watch to look for a current broadcast." }
             if canOfferFreshLookup { return "Choose Check streams to look for a current broadcast." }
             if isChecking { return "Finding a matching broadcast in the background." }
             return hasCompletedLookup && !hasLookupFailure
@@ -453,6 +499,17 @@ enum FixtureSourceLookupPresentation {
             if case .failed = provider.outcome { return true }
             return false
         }
+        // A just-completed definitive negative from every relevant provider
+        // (empty descriptors, aged out with the 60 s discovery lifetime) or an
+        // identity conflict/unsupported listing withholds the fresh Watch.
+        let definitiveNegative = completed && !failed && candidateCount == 0 && !hasConfirmedAvailability
+        let catalogVetoesFreshWatch = catalog.contains { provider in
+            relevant.contains(provider.providerCode)
+                && (provider.outcome == .conflicting || provider.outcome == .unsupported)
+        }
+        let canOfferFreshWatch = event.cricketFixture == nil && !relevant.isEmpty
+            && event.kickoffDate.map { $0 <= now } == true
+            && !definitiveNegative && !catalogVetoesFreshWatch
         return State(currentCandidateCount: candidateCount,
                      previouslyFound: providers.contains { $0.lastCandidateFoundAt != nil },
                      isChecking: providers.contains { $0.outcome == .checking } || catalog.contains { $0.outcome == .checking },
@@ -464,7 +521,8 @@ enum FixtureSourceLookupPresentation {
                         && candidateCount == 0 && !hasConfirmedAvailability
                         && Set(eligibleCatalogListings.map(\.providerCode)).union(registeredProviders).isEmpty
                         && catalog.isEmpty
-                        && event.kickoffDate.map { $0 <= now } == true)
+                        && event.kickoffDate.map { $0 <= now } == true,
+                     canOfferFreshWatch: canOfferFreshWatch)
     }
 }
 

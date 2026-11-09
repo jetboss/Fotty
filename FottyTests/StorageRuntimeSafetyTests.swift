@@ -36,6 +36,28 @@ final class StorageRuntimeSafetyTests: XCTestCase {
         print("QUALITY_READ_BENCHMARK_100=\(started.duration(to: .now))")
     }
 
+    /// Jet, 8 Nov: 184 routine score refreshes evicted the previous day's
+    /// playback incident from the 250-record buffer.
+    func testRoutineRefreshSuccessesCannotEvictPlaybackEvidence() throws {
+        let name = "Fotty.quality.routine.\(UUID())"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let store = FottyQualityStore(defaults: defaults)
+        store.record(category: .playback, name: "terminal_failure", outcome: .failure, details: ["failure_kind": "stalled"])
+        store.record(category: .footballData, name: "live_refresh", outcome: .failure, details: ["result": "provider_failure"])
+        for _ in 0..<300 {
+            store.record(category: .footballData, name: "live_refresh", outcome: .success, details: ["result": "live"])
+        }
+        let records = store.records()
+        XCTAssertEqual(records.filter { $0.name == "terminal_failure" }.count, 1, "Playback evidence survives")
+        XCTAssertEqual(records.filter { $0.name == "live_refresh" && $0.outcome == .failure }.count, 1,
+                       "Refresh failures keep their normal retention")
+        XCTAssertEqual(records.filter { $0.name == "live_refresh" && $0.outcome == .success }.count,
+                       FottyQualityStore.maximumRoutineRefreshSuccesses)
+        for _ in 0..<260 { store.record(category: .playback, name: "sample", outcome: .info) }
+        XCTAssertEqual(store.records().count, 250, "The overall bound is unchanged")
+    }
+
     func testQualitySnapshotReloadsExternalWritesAndClear() throws {
         let name = "Fotty.quality.reload.\(UUID())"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))

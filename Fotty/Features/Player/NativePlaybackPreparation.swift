@@ -58,8 +58,13 @@ enum NativePlaybackPreparation {
             options: ["AVURLAssetHTTPHeaderFieldsKey": headers]))
         if observed.playbackContract.container != .mp4 {
             MediaAudioSession.configureNativeLivePlaybackItem(item)
+            // Live HLS: let AVFoundation size the buffer from the playlist's
+            // target duration. A fixed 12 s pushes startup and the live edge
+            // further behind and counts against the startup deadline.
+            item.preferredForwardBufferDuration = 0
+        } else {
+            item.preferredForwardBufferDuration = 12
         }
-        item.preferredForwardBufferDuration = 12
         return item
     }
 

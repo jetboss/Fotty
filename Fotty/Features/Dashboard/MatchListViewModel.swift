@@ -168,7 +168,10 @@ final class MatchListViewModel {
                 let scheduled = sports.status == .scheduled && (kickoff >= now
                     || !event.isPastEstimatedMatchWindow(at: now)
                         && (-300...SportsFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(sports.observedAt)))
-                return scheduled || sports.status == .live && sports.isLive(at: now)
+                // A stale LIVE receipt keeps its bounded catalog opportunity so
+                // Home evidence does not vanish after one failed fixture refresh.
+                return scheduled || sports.status == .live
+                    && (sports.isLive(at: now) || sports.isUnconfirmedLive(at: now, kickoff: kickoff))
             }
             if let cricket = event.cricketFixture {
                 guard cricket.verified, SportsSearchSchedule.isFresh(cricket.observedAt, at: now) else { return false }
@@ -452,7 +455,23 @@ final class MatchListViewModel {
         case sports(SportsFixtureCatalog.Snapshot?)
     }
 
+    /// Concurrent callers (pull-to-refresh, scene activation, the 15-minute
+    /// loop) join one refresh instead of returning before it completes. The
+    /// first caller owns it: cancelling that caller cancels the refresh.
+    @ObservationIgnored private var inFlightRefresh: Task<Void, Never>?
+
     func refresh() async {
+        if let inFlight = inFlightRefresh {
+            await inFlight.value
+            return
+        }
+        let task = Task { await performRefresh() }
+        inFlightRefresh = task
+        await withTaskCancellationHandler { await task.value } onCancel: { task.cancel() }
+        if inFlightRefresh == task { inFlightRefresh = nil }
+    }
+
+    private func performRefresh() async {
         guard !isRefreshing else { return }
         lastRefreshAttempt = currentDate()
         isRefreshing = true

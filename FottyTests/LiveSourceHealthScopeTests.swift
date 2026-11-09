@@ -585,6 +585,51 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         return value
     }
 
+    /// Owner decision 9 Nov 2026 (option A): a relaunch must not forget that a
+    /// delivery just sustained this match. Jet started a cold CS1 ahead of a
+    /// TV1 that had held the same fixture for 92 s, costing a 20 s timeout.
+    func testSustainedMatchEvidenceSurvivesSimulatedRelaunch() throws {
+        LiveSourceHealthStore.resetForTesting()
+        defer { LiveSourceHealthStore.resetForTesting() }
+        let fixture = "cricket-fixture:icc:\(UUID().uuidString)"
+        let tv = StreamSession(matchID: fixture, playableURL: URL(string: "https://tv.example.test/willow.m3u8")!,
+                               streamType: .hls, providerName: "TV1")
+        let wrong = StreamSession(matchID: fixture, playableURL: URL(string: "https://cs.example.test/other.m3u8")!,
+                                  streamType: .hls, providerName: "CS2")
+        LiveSourceHealthStore.recordMatchOutcome(.decoded, for: tv.legacySource, fixtureID: fixture, watchID: UUID())
+        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: tv.legacySource, fixtureID: fixture, watchID: UUID())
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: wrong.legacySource, fixtureID: fixture, watchID: UUID())
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: tv), .sustained)
+
+        LiveSourceHealthStore.reloadMatchEvidenceForTesting()
+
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: tv), .sustained, "Sustained evidence survives a relaunch")
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: wrong), .wrongProgramme, "A wrong-programme report survives")
+        XCTAssertFalse(LiveSourceHealthStore.sustainedMatchProviders(for: fixture).isEmpty,
+                       "The resolver can hold the first choice for the provider that sustained this match")
+        let other = StreamSession(matchID: "cricket-fixture:icc:other", playableURL: tv.playableURL,
+                                  streamType: .hls, providerName: "TV1")
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: other), .unknown, "Evidence stays scoped to its fixture")
+    }
+
+    func testPersistedMatchEvidenceExpiresAfterSixHours() throws {
+        LiveSourceHealthStore.resetForTesting()
+        defer { LiveSourceHealthStore.resetForTesting() }
+        let fixture = "sports-fixture:premier-league:\(UUID().uuidString)", now = Date()
+        let old = StreamSession(matchID: fixture, playableURL: URL(string: "https://tv.example.test/old.m3u8")!,
+                                streamType: .hls, providerName: "TV1")
+        let recent = StreamSession(matchID: fixture, playableURL: URL(string: "https://tv.example.test/recent.m3u8")!,
+                                   streamType: .hls, providerName: "TV2")
+        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: old.legacySource, fixtureID: fixture, watchID: UUID(),
+                                                 at: now.addingTimeInterval(-6 * 3600 + 60))
+        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: recent.legacySource, fixtureID: fixture, watchID: UUID(),
+                                                 at: now.addingTimeInterval(-60))
+        LiveSourceHealthStore.reloadMatchEvidenceForTesting(at: now.addingTimeInterval(120))
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: old, at: now.addingTimeInterval(120)), .unknown,
+                       "Evidence older than six hours is not restored")
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: recent, at: now.addingTimeInterval(120)), .sustained)
+    }
+
     private func session(matchID: String, path: String, family: String = "delta") throws -> StreamSession {
         StreamSession(matchID: matchID,
             playableURL: try XCTUnwrap(URL(string: "https://embed.example.test/embed/\(family)/\(path)")),

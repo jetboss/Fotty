@@ -580,6 +580,72 @@ final class CommunitySportsAddonTests: XCTestCase {
             manifestURL: URL(string: "https://nuviosports.xyz/manifest.json")!, addOnVersion: "3.1.3")
     }
 
+    // MARK: http Referer/Origin provenance (review 9 Nov 2026)
+
+    private func httpProvenanceEntry(target: String = "https://cdn.example.net/live/index.m3u8",
+                                     referer: String = "http://www.fawanews.sc/", origin: String = "http://www.fawanews.sc",
+                                     refererParam: String? = nil, delivery: String = "https://nuviosports.xyz/api/manifest.m3u8",
+                                     includeOrigin: Bool = true) throws -> CommunitySportsStreamEntry {
+        var headers = ["Referer": referer, "User-Agent": "Mozilla/5.0 Fixture"]
+        if includeOrigin { headers["Origin"] = origin }
+        var parts = try XCTUnwrap(URLComponents(string: delivery))
+        parts.queryItems = [URLQueryItem(name: "url", value: target),
+                            URLQueryItem(name: "referer", value: refererParam ?? referer),
+                            URLQueryItem(name: "rck", value: "fixture")]
+            + (includeOrigin ? [URLQueryItem(name: "origin", value: origin)] : [])
+        return CommunitySportsStreamEntry(name: "Direct Stream", title: nil, url: try XCTUnwrap(parts.url).absoluteString,
+            externalURL: nil, resolution: "720p", quality: nil, sourceHint: "ak47",
+            behaviorHints: .init(proxyHeaders: .init(request: headers)))
+    }
+
+    func testReviewedRouteAdmitsHTTPProvenanceAndSendsUserAgentOnly() throws {
+        let sessions = reviewed8443Sessions([try httpProvenanceEntry()])
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(sessions.first?.requiredHeaders, ["User-Agent": "Mozilla/5.0 Fixture"],
+                       "http Referer/Origin are page labels; Fotty never sends them")
+        XCTAssertEqual(sessions.first?.streamType, .hls)
+        let refererOnly = reviewed8443Sessions([try httpProvenanceEntry(includeOrigin: false)])
+        XCTAssertEqual(refererOnly.first?.requiredHeaders, ["User-Agent": "Mozilla/5.0 Fixture"])
+    }
+
+    func testHTTPProvenanceNeverAdmitsUnsafeTargetsOrProvenance() throws {
+        let rejected: [(String, CommunitySportsStreamEntry)] = [
+            ("http IP target", try httpProvenanceEntry(target: "http://203.0.113.9/hls/index.m3u8")),
+            ("http DNS target", try httpProvenanceEntry(target: "http://cdn.example.net/live/index.m3u8")),
+            ("https IP-literal target", try httpProvenanceEntry(target: "https://10.0.0.5/live/index.m3u8")),
+            ("non-m3u8 target", try httpProvenanceEntry(target: "https://cdn.example.net/live/index.mpd")),
+            ("IP-literal provenance", try httpProvenanceEntry(referer: "http://203.0.113.9/", origin: "http://203.0.113.9")),
+            ("local provenance", try httpProvenanceEntry(referer: "http://player.local/", origin: "http://player.local")),
+            ("non-default port", try httpProvenanceEntry(referer: "http://www.fawanews.sc:8080/", origin: "http://www.fawanews.sc:8080")),
+            ("credentials", try httpProvenanceEntry(referer: "http://user:pw@www.fawanews.sc/", origin: "http://www.fawanews.sc")),
+            ("referer query", try httpProvenanceEntry(referer: "http://www.fawanews.sc/?x=1")),
+            ("origin path", try httpProvenanceEntry(origin: "http://www.fawanews.sc/player")),
+            ("header differs from parameter", try httpProvenanceEntry(refererParam: "http://other.example/")),
+            ("different hosts", try httpProvenanceEntry(origin: "http://other.example")),
+            ("mixed schemes", try httpProvenanceEntry(origin: "https://www.fawanews.sc")),
+            ("unreviewed route", try httpProvenanceEntry(delivery: "https://nuviosports.xyz/api/other.m3u8")),
+            ("watch route", try httpProvenanceEntry(delivery: "https://nuviosports.xyz/watch/fixture")),
+        ]
+        for (label, entry) in rejected {
+            let sessions = reviewed8443Sessions([entry])
+            XCTAssertFalse(sessions.contains { $0.requiredHeaders["Referer"]?.hasPrefix("http://") == true }, label)
+            if label != "watch route" { XCTAssertTrue(sessions.isEmpty, label) }
+        }
+        // Another manifest origin cannot use the reviewed exception.
+        let foreign = CommunitySportsAddonClient.makeSessions(from: [try httpProvenanceEntry(
+                delivery: "https://addon.example/api/manifest.m3u8")],
+            request: makeRequest(home: "Chelsea", away: "Brighton", category: "football"),
+            manifestURL: URL(string: "https://addon.example/manifest.json")!, addOnVersion: "3.1.3")
+        XCTAssertTrue(foreign.isEmpty)
+        // The relay still never forwards http provenance upstream.
+        let request = LocalStreamProxyPolicy.remoteRequest(url: URL(string: "https://cdn.example.net/live/index.m3u8")!,
+            selectedMediaURL: URL(string: "https://nuviosports.xyz/api/manifest.m3u8")!, method: "GET",
+            capturedHeaders: ["Referer": "http://www.fawanews.sc/", "Origin": "http://www.fawanews.sc"],
+            cookies: [], clientHeaders: [:], timeout: 5)
+        XCTAssertNil(request.value(forHTTPHeaderField: "Referer"))
+        XCTAssertNil(request.value(forHTTPHeaderField: "Origin"))
+    }
+
     func testHeaderContractRetainsNoHintRoutesAndDeliveryDeduplication() throws {
         let plain = try decodedHeaderEntry(headers: nil)
         let first = try decodedHeaderEntry(headers: ["User-Agent": "public-a"])

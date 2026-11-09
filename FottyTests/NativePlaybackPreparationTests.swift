@@ -123,13 +123,14 @@ final class NativePlaybackPreparationTests: XCTestCase {
     func testFrozenWindowFailedRenewalNeverReplaysTheUnexpiredStalledDelivery() async throws {
         let fixture = try descriptorFixture()
         XCTAssertGreaterThan(fixture.old.expiryTime!, Date(), "This test must not rely on the old lease expiring")
-        var refreshes = 0, validations = 0
+        var refreshes = 0, validations = 0, freshLookups = 0
         let model = LivePlayerViewModel(event: fixture.event, providedSessions: [fixture.old], ownsRemoteCommands: false,
             prepareAudioSession: { XCTFail("No delivery can activate audio"); return .completed([]) },
             configureAudioSession: { XCTFail("No delivery can configure audio"); return .completed([]) },
             validateNativeSource: { _, _ in validations += 1; return .invalid("Old stalled URL must not be validated") },
             refreshSourceDescriptor: { _, _ in refreshes += 1; return nil },
-            nativePlaylistIsNonAdvancing: { _ in true })
+            nativePlaylistIsNonAdvancing: { _ in true },
+            freshMatchLookup: { _, _ in freshLookups += 1 })
         defer { model.cleanup() }
         model.didApplyLandscape = true; XCTAssertTrue(model.configureSingleStreamRanking())
         model.player = AVPlayer(playerItem: AVPlayerItem(url: URL(fileURLWithPath: "/dev/null")))
@@ -140,6 +141,10 @@ final class NativePlaybackPreparationTests: XCTestCase {
         model.handleSourceStartupFailure(source, reason: "Frozen.", countsAsStall: true,
             expectedRequestID: attempt, diagnosticDetails: ["native_failure_trigger": "stall_timeout"])
         await model.loadTask?.value
+        // After the one same-source renewal fails, a decoded match runs one
+        // fresh lookup for other sources; an empty result ends honestly.
+        for _ in 0..<200 where model.playbackState != .failed { await Task.yield() }
+        XCTAssertEqual(freshLookups, 1)
         XCTAssertEqual(refreshes, 1); XCTAssertEqual(validations, 0)
         XCTAssertEqual(model.playbackState, .failed)
         XCTAssertEqual(model.activeSession?.playableURL, fixture.old.playableURL,
@@ -201,13 +206,14 @@ final class NativePlaybackPreparationTests: XCTestCase {
 
     func testFrozenWindowExplicitRetryAndPickerReselectionRequireFreshDeliveryAfterFailedLookup() async throws {
         for explicitPath in ["retry", "picker"] {
-            let fixture = try descriptorFixture(); var refreshes = 0, validated: [URL] = []
+            let fixture = try descriptorFixture(); var refreshes = 0, validated: [URL] = [], freshLookups = 0
             let model = LivePlayerViewModel(event: fixture.event, providedSessions: [fixture.old], ownsRemoteCommands: false,
                 prepareAudioSession: { XCTFail("Controlled validation cannot activate audio"); return .completed([]) },
                 configureAudioSession: { XCTFail("Controlled validation cannot configure audio"); return .completed([]) },
                 validateNativeSource: { url, _ in validated.append(url); return .invalid("Controlled terminal validation") },
                 refreshSourceDescriptor: { _, _ in refreshes += 1; return refreshes == 1 ? nil : fixture.fresh },
-                nativePlaylistIsNonAdvancing: { _ in true }, currentMatchProviders: { ["communitysports"] })
+                nativePlaylistIsNonAdvancing: { _ in true }, currentMatchProviders: { ["communitysports"] },
+                freshMatchLookup: { _, _ in freshLookups += 1 })
             model.didApplyLandscape = true; XCTAssertTrue(model.configureSingleStreamRanking())
             let player = AVPlayer(playerItem: AVPlayerItem(url: URL(fileURLWithPath: "/dev/null")))
             model.player = player
@@ -218,6 +224,8 @@ final class NativePlaybackPreparationTests: XCTestCase {
             model.handleSourceStartupFailure(source, reason: "Frozen.", countsAsStall: true,
                 expectedRequestID: attempt, diagnosticDetails: ["native_failure_trigger": "stall_timeout"])
             await model.loadTask?.value
+            for _ in 0..<200 where model.playbackState != .failed { await Task.yield() }
+            XCTAssertEqual(freshLookups, 1, "One fresh lookup before the terminal state: \(explicitPath)")
             XCTAssertEqual(refreshes, 1); XCTAssertTrue(validated.isEmpty)
             XCTAssertEqual(model.playbackState, .failed)
             if explicitPath == "retry" { model.retryCurrentSourceExplicitly() }
@@ -573,7 +581,10 @@ final class NativePlaybackPreparationTests: XCTestCase {
                                                     session: session, evidence: currentMP4)
         XCTAssertNil(item.error)
         XCTAssertEqual(item.status, .unknown)
-        XCTAssertEqual(item.preferredForwardBufferDuration, 12)
+        XCTAssertEqual(item.preferredForwardBufferDuration, 12, "Progressive mp4 keeps its deeper buffer")
+        let live = NativePlaybackPreparation.makeItem(url: url, headers: [:], session: session, evidence: nil)
+        XCTAssertEqual(live.preferredForwardBufferDuration, 0, "Live HLS uses AVFoundation's automatic buffer")
+        XCTAssertTrue(live.canUseNetworkResourcesForLiveStreamingWhilePaused)
         XCTAssertEqual((item.asset as? AVURLAsset)?.url, url)
         XCTAssertEqual(session.streamType, .hls)
         XCTAssertNil(session.mediaProbeEvidence)

@@ -16,6 +16,40 @@ final class SportsCatalogRefreshTests: XCTestCase {
               attemptedFeeds: partial ? 2 : 1, isPartial: partial)
     }
 
+    /// Pull-to-refresh or scene activation during an in-flight refresh must
+    /// observe that refresh's result, not return before it completes.
+    func testConcurrentRefreshCallersJoinOneFetchAndBothSeeItsResult() async throws {
+        var fetches = 0
+        var blocksFetch = true
+        var release: CheckedContinuation<Void, Never>?
+        let entered = XCTestExpectation(description: "first fetch entered")
+        let model = MatchListViewModel(fetchSnapshot: {
+            fetches += 1
+            if blocksFetch {
+                await withCheckedContinuation { release = $0; entered.fulfill() }
+            }
+            return self.snapshot([self.event("joined-refresh")])
+        }, now: { self.now })
+        let first = Task { await model.refresh() }
+        await fulfillment(of: [entered], timeout: 5)
+        XCTAssertNotNil(release)
+        // Before the fix a second caller returned at once with no result.
+        let second = Task { () -> Bool in
+            await model.refresh()
+            return model.matches.contains { $0.id == "joined-refresh" }
+        }
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(fetches, 1)
+        blocksFetch = false
+        release?.resume()
+        await first.value
+        let secondSawResult = await second.value
+        XCTAssertTrue(secondSawResult, "A joined caller returns only after the in-flight refresh published")
+        XCTAssertEqual(fetches, 1, "Joined callers do not start a second fetch")
+        await model.refresh()
+        XCTAssertEqual(fetches, 2, "A later refresh after completion fetches again")
+    }
+
     private func cplSnapshot(
         _ fixtures: [CPLSchedule.Fixture],
         checkedAt: Date? = nil,
@@ -441,10 +475,19 @@ final class SportsCatalogRefreshTests: XCTestCase {
         await fulfillment(of: [began], timeout: 2)
         XCTAssertTrue(model.isRefreshing)
         XCTAssertFalse(model.isLoading)
-        await model.refresh()
+        // The overlapping caller joins the in-flight refresh instead of
+        // returning early, and observes its result when it returns.
+        let second = Task { () -> [String] in
+            await model.refresh()
+            return model.matches.map(\.id)
+        }
+        for _ in 0..<20 { await Task.yield() }
         XCTAssertEqual(calls, 1)
         continuation?.resume(returning: snapshot([event("fresh")]))
         await first.value
+        let secondSaw = await second.value
+        XCTAssertEqual(calls, 1)
+        XCTAssertEqual(secondSaw, ["fresh"])
         XCTAssertEqual(model.matches.map(\.id), ["fresh"])
     }
 

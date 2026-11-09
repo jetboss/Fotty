@@ -1166,7 +1166,7 @@ actor CommunitySportsAddonClient {
             }).first else { continue }
             let directHLS = isReviewedDirectHLS(accepted.0, manifestURL: manifestURL, sourceHint: entry.sourceHint)
             guard let requestHeaders = admittedRequestHeaders(for: entry, deliveryURL: accepted.0,
-                                                              reviewedDirectHLS: directHLS) else { continue }
+                manifestURL: manifestURL, reviewedDirectHLS: directHLS) else { continue }
             guard accepted.1 || admitsWrappedTarget(accepted.0, manifestURL: manifestURL,
                 sourceHint: entry.sourceHint, headers: requestHeaders) else { continue }
             // The reviewed header contract is native HLS only. Do not silently
@@ -1240,7 +1240,7 @@ actor CommunitySportsAddonClient {
     /// local proxy. No credentials or response mutation; the approved direct
     /// route has its own fixed public provenance rather than proxy-query hints.
     nonisolated private static func admittedRequestHeaders(
-        for entry: CommunitySportsStreamEntry, deliveryURL: URL,
+        for entry: CommunitySportsStreamEntry, deliveryURL: URL, manifestURL: URL,
         reviewedDirectHLS: Bool = false
     ) -> [String: String]? {
         guard let proxy = entry.behaviorHints?.proxyHeaders else { return reviewedDirectHLS ? nil : [:] }
@@ -1271,19 +1271,67 @@ actor CommunitySportsAddonClient {
             return headers
         }
         let query = URLComponents(url: deliveryURL, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let allowsHTTPProvenance = admitsHTTPProvenanceRoute(deliveryURL, manifestURL: manifestURL)
         var provenance: [String: URL] = [:]
+        var httpProvenance = false
         for (header, parameter) in [("Referer", "referer"), ("Origin", "origin")] {
             guard let value = headers[header] else { continue }
             let matching = query.filter { $0.name.lowercased() == parameter }
             guard matching.count == 1, matching[0].value == value,
-                  let url = URL(string: value), LocalStreamProxyPolicy.allowsDestination(url),
-                  url.query == nil, url.fragment == nil else { return nil }
+                  let url = URL(string: value), url.query == nil, url.fragment == nil else { return nil }
+            if LocalStreamProxyPolicy.allowsDestination(url) {
+                // Unchanged HTTPS provenance rule.
+            } else if allowsHTTPProvenance, isPublicHTTPProvenance(url) {
+                httpProvenance = true
+            } else { return nil }
             if header == "Origin", !url.path.isEmpty && url.path != "/" { return nil }
             provenance[header] = url
         }
-        if let origin = provenance["Origin"], let referer = provenance["Referer"],
-           !hasSameHTTPSOrigin(origin, referer) { return nil }
+        if let origin = provenance["Origin"], let referer = provenance["Referer"] {
+            let sameSite = httpProvenance
+                ? origin.scheme?.lowercased() == referer.scheme?.lowercased()
+                    && origin.host?.lowercased() == referer.host?.lowercased() && origin.port == referer.port
+                : hasSameHTTPSOrigin(origin, referer)
+            guard sameSite else { return nil }
+        }
+        if httpProvenance {
+            // Fotty never connects to a Referer/Origin. The reviewed wrapper
+            // already carries this provenance in its own URL parameters, and
+            // the relay drops http provenance; send User-Agent only.
+            headers["Referer"] = nil
+            headers["Origin"] = nil
+        }
         return headers
+    }
+
+    /// Plain-http Referer/Origin provenance is accepted only for the reviewed
+    /// manifest's literal `/api/manifest(.m3u8)` wrapper whose single nested
+    /// target already passes the ordinary HTTPS/public destination rule.
+    /// Reviewed 9 Nov 2026 (docs/testing/fotty246-phase-a-2026-11-08/CS-http-provenance-review.md).
+    nonisolated static func admitsHTTPProvenanceRoute(_ deliveryURL: URL, manifestURL: URL) -> Bool {
+        guard let reviewed = URL(string: "https://nuviosports.xyz/manifest.json"),
+              hasSameHTTPSOrigin(manifestURL, reviewed), manifestURL.path == reviewed.path,
+              manifestURL.query == nil, manifestURL.fragment == nil,
+              manifestURL.user == nil, manifestURL.password == nil,
+              LocalStreamProxyPolicy.isCommunitySportsManifestRoute(deliveryURL, manifestURL: reviewed) else { return false }
+        let targets = (URLComponents(url: deliveryURL, resolvingAgainstBaseURL: false)?.queryItems ?? [])
+            .filter { $0.name.lowercased() == "url" }
+        guard targets.count == 1, let raw = targets[0].value, let target = URL(string: raw),
+              target.absoluteString.utf8.count <= 8_192, target.pathExtension.lowercased() == "m3u8" else { return false }
+        return LocalStreamProxyPolicy.allowsDestination(target)
+    }
+
+    /// A page address, never a destination: http on the default port, a public
+    /// DNS name (no IP literal or local suffix) and no credentials.
+    nonisolated static func isPublicHTTPProvenance(_ url: URL) -> Bool {
+        guard url.scheme?.lowercased() == "http", url.port == nil || url.port == 80,
+              url.user == nil, url.password == nil, url.query == nil, url.fragment == nil,
+              let host = url.host?.lowercased(), !host.isEmpty,
+              LocalStreamProxyPolicy.publicIPAddress(host.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))) == nil,
+              var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return false }
+        parts.scheme = "https"; parts.port = nil
+        guard let asHTTPS = parts.url else { return false }
+        return LocalStreamProxyPolicy.allowsDestination(asHTTPS)
     }
 
     nonisolated static func catalogID(for category: String) -> String {

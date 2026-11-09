@@ -552,6 +552,248 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         XCTAssertNil(model.nativeStartupRetryAttemptsBySource[first.id])
     }
 
+    /// Leeds–Tottenham 7 Nov: a decoded web source that stalls after its one
+    /// same-source reload, long after Watch discovery finished, must run one
+    /// fresh lookup and start a late backup instead of ending the session.
+    func testDecodedWebStallRunsFreshLookupAndStartsLateUnboundWebBackup() async throws {
+        let lookups = FreshLookupRecorder()
+        let event = singleDiscoveryFixture()
+        let backup = singleDiscoverySession(event: event, provider: "CS2", suffix: "web-backup", web: true)
+        lookups.choices = [backup]
+        let (model, primary) = try await playingSingleWebPlayer(event: event, lookups: lookups)
+        defer { model.cleanup() }
+        let original = MatchListViewModel.shared.matches
+        MatchListViewModel.shared.matches = [event]
+        defer { MatchListViewModel.shared.matches = original }
+
+        model.webStallRetryAttemptsBySource[primary.id] = 1
+        model.handleWebEmbedFailure(sourceID: primary.id, requestID: model.loadRequestID, reason: "Playback stalled")
+        XCTAssertNil(model.error)
+        XCTAssertTrue(model.failedSourceIDs.contains(primary.id))
+        for _ in 0..<200 where model.activeSource?.id != backup.id { await Task.yield() }
+        await model.loadTask?.value
+
+        XCTAssertEqual(lookups.requests.map(\.matchID), [event.id])
+        XCTAssertEqual(model.activeSource?.id, backup.id)
+        XCTAssertEqual(model.playbackState, .connecting(.webEmbed))
+        XCTAssertNil(model.error)
+    }
+
+    func testDecodedWebStallWithoutFreshDeliveryEndsAfterOneLookup() async throws {
+        let lookups = FreshLookupRecorder()
+        let event = singleDiscoveryFixture()
+        let (model, primary) = try await playingSingleWebPlayer(event: event, lookups: lookups)
+        defer { model.cleanup() }
+        let original = MatchListViewModel.shared.matches
+        MatchListViewModel.shared.matches = [event]
+        defer { MatchListViewModel.shared.matches = original }
+
+        model.webStallRetryAttemptsBySource[primary.id] = 1
+        model.handleWebEmbedFailure(sourceID: primary.id, requestID: model.loadRequestID, reason: "Playback stalled")
+        for _ in 0..<200 where model.playbackState != .failed { await Task.yield() }
+
+        XCTAssertEqual(lookups.requests.count, 1)
+        XCTAssertEqual(model.playbackState, .failed)
+        XCTAssertNotNil(model.error)
+    }
+
+    func testExplicitWebProviderRejectionStaysTerminalWithoutFreshLookup() async throws {
+        let lookups = FreshLookupRecorder()
+        let event = singleDiscoveryFixture()
+        let (model, primary) = try await playingSingleWebPlayer(event: event, lookups: lookups)
+        defer { model.cleanup() }
+        let original = MatchListViewModel.shared.matches
+        MatchListViewModel.shared.matches = [event]
+        defer { MatchListViewModel.shared.matches = original }
+
+        model.handleWebEmbedFailure(sourceID: primary.id, requestID: model.loadRequestID,
+                                    reason: "Broadcast is unavailable")
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(model.playbackState, .failed)
+        XCTAssertTrue(lookups.requests.isEmpty)
+        XCTAssertFalse(LivePlayerViewModel.webFailureCanAwaitFreshDelivery(failureKind: .stalled,
+            reason: "Embedding disabled"))
+        XCTAssertTrue(LivePlayerViewModel.webFailureCanAwaitFreshDelivery(failureKind: .startupTimeout,
+            reason: "Timed out"))
+        XCTAssertFalse(LivePlayerViewModel.webFailureCanAwaitFreshDelivery(failureKind: .accessDenied,
+            reason: "HTTP 403"))
+    }
+
+    /// Jet, 8 Nov 16:06 UTC: a native CS source decoded for 55 min, every
+    /// remaining alternative from the hour-old discovery failed, and the last
+    /// `unknown` failure ended the session without a fresh lookup.
+    func testDecodedNativeSessionUnknownFailureRunsOneFreshLookup() async throws {
+        let lookups = FreshLookupRecorder()
+        let event = singleDiscoveryFixture()
+        let stale = singleDiscoverySession(event: event, provider: "CS6", suffix: "hour-old-alternative", web: false)
+        let model = LivePlayerViewModel(event: event, providedSessions: [stale], ownsRemoteCommands: false,
+            prepareAudioSession: { .completed([]) }, configureAudioSession: { .completed([]) },
+            currentMatchProviders: { ["communitysports"] },
+            freshMatchLookup: { request, _ in lookups.requests.append(request) })
+        defer { model.cleanup() }
+        let original = MatchListViewModel.shared.matches
+        MatchListViewModel.shared.matches = [event]
+        defer { MatchListViewModel.shared.matches = original }
+        model.didApplyLandscape = true
+        XCTAssertTrue(model.configureSingleStreamRanking())
+        let attempt = model.loadRequestID
+        model.transition(to: .playing(.native), phase: "Playing")
+        model.recordPlaybackStage(.decoded, sourceID: stale.id, requestID: attempt)
+        model.nativeStartupRetryAttemptsBySource[stale.id] = 1
+        model.handleSourceStartupFailure(stale.legacySource, reason: "Native player reported an opaque failure",
+                                         expectedRequestID: attempt)
+        for _ in 0..<200 where model.playbackState != .failed { await Task.yield() }
+        XCTAssertEqual(lookups.requests.map(\.matchID), [event.id],
+                       "One fresh lookup runs before the session can end")
+        XCTAssertEqual(model.playbackState, .failed, "An empty fresh lookup ends honestly")
+    }
+
+    /// While a match plays, a periodic exact lookup replaces older backups of
+    /// the same family. The playing delivery keeps its index; other families stay.
+    func testBackupRefreshReplacesSameFamilyBackupsWithoutMovingThePlayingSession() async throws {
+        let lookups = FreshLookupRecorder()
+        let event = singleDiscoveryFixture()
+        let primary = singleDiscoverySession(event: event, provider: "CS1", suffix: "playing", web: true)
+        let staleA = singleDiscoverySession(event: event, provider: "CS2", suffix: "stale-a", web: true)
+        let staleB = singleDiscoverySession(event: event, provider: "CS3", suffix: "stale-b", web: true)
+        let otherFamily = singleDiscoverySession(event: event, provider: "AS1", suffix: "other-family", web: true)
+        let model = LivePlayerViewModel(event: event, providedSessions: [staleA, primary, staleB, otherFamily],
+            ownsRemoteCommands: false, prepareAudioSession: { .completed([]) }, configureAudioSession: { .completed([]) },
+            currentMatchProviders: { ["communitysports", "plaviosports"] },
+            freshMatchLookup: { request, publish in
+                lookups.requests.append(request)
+                if !lookups.choices.isEmpty { await publish(lookups.choices) }
+            })
+        defer { model.cleanup() }
+        model.didApplyLandscape = true
+        XCTAssertTrue(model.configureSingleStreamRanking())
+        model.currentSourceIndex = try XCTUnwrap(model.sessions.firstIndex { $0.id == primary.id })
+        model.loadCurrentSource()
+        await model.loadTask?.value
+        model.handleWebEmbedPlaybackStarted(sourceID: primary.id, requestID: model.loadRequestID, startupLatencyMs: 400)
+        XCTAssertTrue(model.isPlaying)
+        let original = MatchListViewModel.shared.matches
+        MatchListViewModel.shared.matches = [event]
+        defer { MatchListViewModel.shared.matches = original }
+        let index = model.currentSourceIndex, attempt = model.loadRequestID
+        let freshA = singleDiscoverySession(event: event, provider: "CS2", suffix: "fresh-a", web: true)
+        let freshB = singleDiscoverySession(event: event, provider: "CS4", suffix: "fresh-b", web: true)
+        let duplicate = singleDiscoverySession(event: event, provider: "CS1", suffix: "playing", web: true)
+        lookups.choices = [freshA, duplicate, freshB]
+
+        await model.refreshBackupsOnce()
+
+        XCTAssertEqual(lookups.requests.map(\.matchID), [event.id])
+        XCTAssertEqual(model.backupRefreshCount, 1)
+        XCTAssertEqual(model.activeSource?.id, primary.id)
+        XCTAssertEqual(model.currentSourceIndex, index, "The playing session never moves")
+        XCTAssertEqual(model.loadRequestID, attempt, "No new attempt starts")
+        XCTAssertTrue(model.isPlaying)
+        let ids = Set(model.sessions.map(\.id))
+        XCTAssertFalse(ids.contains(staleA.id)); XCTAssertFalse(ids.contains(staleB.id))
+        XCTAssertTrue(ids.contains(freshA.id)); XCTAssertTrue(ids.contains(freshB.id))
+        XCTAssertTrue(ids.contains(otherFamily.id), "Another family's backup is not replaced by CS results")
+        XCTAssertEqual(model.sessions.filter { $0.playableURL == primary.playableURL }.count, 1)
+
+        lookups.choices = []
+        let before = model.sessions.map(\.id)
+        await model.refreshBackupsOnce()
+        XCTAssertEqual(model.sessions.map(\.id), before, "An empty lookup keeps the existing backups")
+    }
+
+    func testPausedSessionSpendsNoBackupRefreshRequest() async throws {
+        let lookups = FreshLookupRecorder()
+        let event = singleDiscoveryFixture()
+        let (model, _) = try await playingSingleWebPlayer(event: event, lookups: lookups)
+        defer { model.cleanup() }
+        let original = MatchListViewModel.shared.matches
+        MatchListViewModel.shared.matches = [event]
+        defer { MatchListViewModel.shared.matches = original }
+        model.requestPauseFromRemoteCommand()
+        XCTAssertFalse(model.isPlaying)
+        await model.refreshBackupsOnce()
+        XCTAssertTrue(lookups.requests.isEmpty)
+        XCTAssertEqual(model.backupRefreshCount, 0)
+    }
+
+    /// Failover used to renew each stale backup only when chosen, one after
+    /// another (Jet: three backups failed over 35 s). The next two renew together.
+    func testFailoverRenewsTheNextTwoBackupDescriptorsConcurrently() async throws {
+        let event = singleDiscoveryFixture()
+        let request = StreamPlaybackRequest(event: event)
+        let old = Date().addingTimeInterval(-120)
+        func binding(_ id: String, at time: Date) throws -> StreamEventBinding {
+            try XCTUnwrap(StreamEventBinding(request: request, providerCode: "communitysports",
+                providerEventID: "nuvio_sport_\(id)", streamID: "nuvio_sport_\(id)", manifestRevision: "1",
+                verifiedAt: time, expiresAt: time.addingTimeInterval(90), at: time))
+        }
+        let stale = try (1...4).map { n in
+            StreamSession(matchID: event.id, playableURL: URL(string: "https://media.example/old-\(n).m3u8")!,
+                streamType: .hls, providerName: "CS\(n)", expiryTime: Date().addingTimeInterval(300), canRefresh: true,
+                createdAt: old, eventBinding: try binding("choice\(n)", at: old))
+        }
+        var started = 0, gates: [CheckedContinuation<Void, Never>] = []
+        let model = LivePlayerViewModel(event: event, providedSessions: stale, ownsRemoteCommands: false,
+            refreshSourceDescriptor: { session, request in
+                started += 1
+                await withCheckedContinuation { gates.append($0) }
+                guard let n = stale.firstIndex(where: { $0.id == session.id }).map({ $0 + 1 }),
+                      let next = try? binding("choice\(n)", at: Date()) else { return nil }
+                let delivered = StreamSession(matchID: event.id, playableURL: URL(string: "https://media.example/fresh-\(n).m3u8")!,
+                    streamType: .hls, providerName: "CS\(n)", expiryTime: Date().addingTimeInterval(300), canRefresh: true,
+                    createdAt: Date(), eventBinding: next)
+                return session.renewingDelivery(from: delivered, for: request)
+            }, currentMatchProviders: { ["communitysports"] })
+        defer { model.cleanup() }
+        XCTAssertTrue(model.configureSingleStreamRanking())
+        let chosen = model.sessions[0]
+        model.prefetchDescriptorRenewals(after: chosen.legacySource)
+        for _ in 0..<200 where started < 2 { await Task.yield() }
+        XCTAssertEqual(started, 2, "Exactly the next two renewals are in flight together")
+        XCTAssertEqual(gates.count, 2)
+        model.prefetchDescriptorRenewals(after: chosen.legacySource)
+        for _ in 0..<20 { await Task.yield() }
+        XCTAssertEqual(started, 2, "At most two renewals are in flight; none is duplicated")
+        gates.forEach { $0.resume() }
+        for _ in 0..<200 where model.sessions.filter({ $0.playableURL.lastPathComponent.hasPrefix("fresh") }).count < 2 {
+            await Task.yield()
+        }
+        let renewed = model.sessions.filter { $0.playableURL.lastPathComponent.hasPrefix("fresh") }
+        XCTAssertEqual(renewed.count, 2)
+        XCTAssertTrue(renewed.allSatisfy { $0.eventBinding?.isCurrent() == true })
+        XCTAssertFalse(renewed.contains { $0.id == chosen.id }, "The chosen backup renews on its own serial path")
+    }
+
+    @MainActor private final class FreshLookupRecorder {
+        var requests: [StreamPlaybackRequest] = []
+        var choices: [StreamSession] = []
+    }
+
+    private func playingSingleWebPlayer(event: EventReference,
+                                        lookups: FreshLookupRecorder) async throws -> (LivePlayerViewModel, StreamSession) {
+        let primary = singleDiscoverySession(event: event, provider: "CS1", suffix: "web-primary", web: true)
+        let model = LivePlayerViewModel(event: event, providedSessions: [primary], ownsRemoteCommands: false,
+            prepareAudioSession: { .completed([]) }, configureAudioSession: { .completed([]) },
+            currentMatchProviders: { ["communitysports"] },
+            freshMatchLookup: { request, publish in
+                lookups.requests.append(request)
+                if !lookups.choices.isEmpty { await publish(lookups.choices) }
+            })
+        model.didApplyLandscape = true
+        XCTAssertTrue(model.configureSingleStreamRanking())
+        model.setSingleSourceDiscoveryActive(true)
+        model.loadCurrentSource()
+        await model.loadTask?.value
+        XCTAssertTrue(model.isUsingWebEmbed)
+        XCTAssertEqual(model.activeSource?.id, primary.id)
+        model.handleWebEmbedPlaybackStarted(sourceID: primary.id, requestID: model.loadRequestID, startupLatencyMs: 400)
+        XCTAssertTrue(model.isPlaying)
+        // Watch discovery finished long before half-time.
+        model.setSingleSourceDiscoveryActive(false)
+        XCTAssertFalse(model.isCheckingAdditionalSources)
+        return (model, primary)
+    }
+
     func testTypedInitialExhaustionContinuesToFreshBoundLateCSWithoutAnotherTap() async throws {
         for failure in ["readiness", "playback-start", "lease", "decode", "network"] {
             let (model, initial, retiredAttempt) = try typedSingleDiscoveryPlayer(failure)

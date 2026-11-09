@@ -476,6 +476,8 @@ final class FottyQualityStore {
     ]
     private static let retentionInterval: TimeInterval = 14 * 24 * 60 * 60
     private static let maximumRecords = 250
+    static let routineRefreshNames: Set<String> = ["live_refresh", "schedule_refresh"]
+    static let maximumRoutineRefreshSuccesses = 40
 
     private let defaults: UserDefaults
     private let storageKey: String
@@ -704,7 +706,18 @@ final class FottyQualityStore {
 
     private static func pruned(_ records: [FottyQualityRecord], now: Date) -> [FottyQualityRecord] {
         let cutoff = now.addingTimeInterval(-retentionInterval)
+        // Routine successful score/schedule refreshes arrive every few minutes.
+        // Left uncapped they evicted a whole day of playback evidence (Jet,
+        // 8 Nov: 184 of 249 records). Keep only the newest few; failures and
+        // every playback receipt keep their existing retention.
+        var routineSuccesses = 0
         let retained = records.filter { $0.timestamp >= cutoff }
+            .sorted { $0.timestamp > $1.timestamp }
+            .filter { record in
+                guard record.outcome == .success, routineRefreshNames.contains(record.name) else { return true }
+                routineSuccesses += 1
+                return routineSuccesses <= maximumRoutineRefreshSuccesses
+            }
         let cohorts = Dictionary(grouping: retained) { record in
             if record.category == .playback, let attemptID = record.details["attempt_id"] {
                 return "playback:\(attemptID)"

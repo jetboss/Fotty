@@ -1,5 +1,6 @@
 import Foundation
 import CryptoKit
+import Security
 
 // MARK: - Live Source Health Store
 // Retains successful provider performance to optimize Watch Now selection.
@@ -14,6 +15,7 @@ enum LiveSourceHealthStore {
     private struct MatchDelivery: Hashable {
         let fixture: Data
         let delivery: Data
+        init(fixture: Data, delivery: Data) { self.fixture = fixture; self.delivery = delivery }
         init(_ source: StreamSource, fixtureID: String) {
             fixture = digest(["fixture", fixtureID])
             let contract = source.playbackContract ?? .describing(url: source.url, provider: source.provider, headers: source.headers)
@@ -22,10 +24,41 @@ enum LiveSourceHealthStore {
             delivery = digest(fields)
         }
     }
-    private static let processKey = SymmetricKey(size: .bits256)
+    /// Owner decision 9 Nov 2026 (option A): per-match evidence survives a
+    /// relaunch so a reopened match prefers the delivery that just sustained it.
+    /// The HMAC key is device-local (Keychain, this device only, never synced
+    /// or exported). Without Keychain access it stays per-launch, as before,
+    /// and evidence is not persisted. Hosted tests never touch the Keychain.
+    private static let evidenceKey: (key: SymmetricKey, persistent: Bool) = loadEvidenceKey()
+    private static var processKey: SymmetricKey { evidenceKey.key }
+    private static func loadEvidenceKey() -> (key: SymmetricKey, persistent: Bool) {
+        guard !AppRuntime.isAutomatedTesting else { return (SymmetricKey(size: .bits256), false) }
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.jelani.Fotty.match-evidence.v1",
+            kSecAttrAccount as String: "hmac",
+            kSecAttrSynchronizable as String: false,
+            kSecUseDataProtectionKeychain as String: true]
+        var read = base
+        read[kSecReturnData as String] = true
+        read[kSecMatchLimit as String] = kSecMatchLimitOne
+        var result: CFTypeRef?
+        if SecItemCopyMatching(read as CFDictionary, &result) == errSecSuccess,
+           let data = result as? Data, data.count == 32 {
+            return (SymmetricKey(data: data), true)
+        }
+        let fresh = SymmetricKey(size: .bits256)
+        let bytes = fresh.withUnsafeBytes { Data($0) }
+        var add = base
+        add[kSecValueData as String] = bytes
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let status = SecItemAdd(add as CFDictionary, nil)
+        return (fresh, status == errSecSuccess)
+    }
     private static func digest(_ fields: [String]) -> Data {
-        // Length framing preserves names/values containing punctuation. The random
-        // key prevents correlation across launches and is never serialized.
+        // Length framing preserves names/values containing punctuation. The key
+        // is device-local and never serialized, so digests cannot be correlated
+        // off this device or after the Keychain item is removed.
         var mac = HMAC<SHA256>(key: processKey)
         for field in fields {
             let bytes = Data(field.utf8)
@@ -70,11 +103,82 @@ enum LiveSourceHealthStore {
         let sharedHealthKey: String
         let providerCode: String?
     }
-    // Volatile, capped, exact event and executable delivery. An observation
-    // never leaves this process or affects a neighbour sharing its CDN.
-    private static var matchObservations: [MatchDelivery: [MatchObservation]] = [:]
-    private static var wrongProgrammes: [Data: Date] = [:]
+    // Capped, exact event and executable delivery, kept on this device for at
+    // most six hours. An observation never leaves the device, is not exported
+    // by private backup, and never affects a neighbour sharing its CDN.
+    private static var matchObservations: [MatchDelivery: [MatchObservation]] = loadedMatchEvidence().observations
+    private static var wrongProgrammes: [Data: Date] = loadedMatchEvidence().wrongProgrammes
     private static let matchObservationLifetime: TimeInterval = 6 * 60 * 60
+    private static let matchEvidenceStorageKey = "fotty.live.matchEvidence.v1"
+
+    private struct PersistedMatchEvidence: Codable {
+        struct Observation: Codable {
+            let watchID: UUID; let outcome: Int; let at: Date
+            let sharedHealthKey: String; let providerCode: String?
+        }
+        struct Entry: Codable { let fixture: Data; let delivery: Data; let observations: [Observation] }
+        struct WrongProgramme: Codable { let key: Data; let at: Date }
+        let version: Int
+        let entries: [Entry]
+        let wrongProgrammes: [WrongProgramme]
+    }
+
+    private static func loadedMatchEvidence(at now: Date = Date())
+        -> (observations: [MatchDelivery: [MatchObservation]], wrongProgrammes: [Data: Date]) {
+        guard evidenceKey.persistent, AppRuntime.privateOutageFixture == nil,
+              let data = UserDefaults.standard.data(forKey: matchEvidenceStorageKey) else { return ([:], [:]) }
+        return decodeMatchEvidence(data, at: now)
+    }
+
+    private static func decodeMatchEvidence(_ data: Data, at now: Date)
+        -> (observations: [MatchDelivery: [MatchObservation]], wrongProgrammes: [Data: Date]) {
+        guard let stored = try? JSONDecoder().decode(PersistedMatchEvidence.self, from: data),
+              stored.version == 1 else { return ([:], [:]) }
+        let fresh = { (date: Date) in (0...matchObservationLifetime).contains(now.timeIntervalSince(date)) }
+        var observations: [MatchDelivery: [MatchObservation]] = [:]
+        for entry in stored.entries.prefix(128) {
+            let kept = entry.observations.suffix(8).compactMap { item -> MatchObservation? in
+                guard fresh(item.at), let outcome = MatchOutcome(rawValue: item.outcome) else { return nil }
+                return MatchObservation(watchID: item.watchID, outcome: outcome, at: item.at,
+                                        sharedHealthKey: item.sharedHealthKey, providerCode: item.providerCode)
+            }
+            if !kept.isEmpty { observations[MatchDelivery(fixture: entry.fixture, delivery: entry.delivery)] = kept }
+        }
+        var wrong: [Data: Date] = [:]
+        for item in stored.wrongProgrammes.prefix(256) where fresh(item.at) { wrong[item.key] = item.at }
+        return (observations, wrong)
+    }
+
+    /// Called on the store queue after a change.
+    private static func persistMatchEvidence() {
+        guard evidenceKey.persistent, AppRuntime.privateOutageFixture == nil,
+              let data = encodedMatchEvidence() else { return }
+        UserDefaults.standard.set(data, forKey: matchEvidenceStorageKey)
+    }
+
+    private static func encodedMatchEvidence() -> Data? {
+        let payload = PersistedMatchEvidence(version: 1,
+            entries: matchObservations.map { key, samples in
+                .init(fixture: key.fixture, delivery: key.delivery, observations: samples.map {
+                    .init(watchID: $0.watchID, outcome: $0.outcome.rawValue, at: $0.at,
+                          sharedHealthKey: $0.sharedHealthKey, providerCode: $0.providerCode)
+                })
+            },
+            wrongProgrammes: wrongProgrammes.map { .init(key: $0.key, at: $0.value) })
+        return try? JSONEncoder().encode(payload)
+    }
+
+    /// Simulates a relaunch in hosted tests: round-trips the current evidence
+    /// through the persisted codec and lifetime filter, then replaces memory.
+    static func reloadMatchEvidenceForTesting(at now: Date = Date()) {
+        guard AppRuntime.isAutomatedTesting else { return }
+        queue.sync {
+            guard let data = encodedMatchEvidence() else { return }
+            let restored = decodeMatchEvidence(data, at: now)
+            matchObservations = restored.observations
+            wrongProgrammes = restored.wrongProgrammes
+        }
+    }
     static func recordMatchOutcome(_ outcome: MatchOutcome, for source: StreamSource, fixtureID: String,
                                    watchID: UUID, at now: Date = Date(), session: StreamSession? = nil) {
         guard AppRuntime.privateOutageFixture == nil else { return }
@@ -100,6 +204,7 @@ enum LiveSourceHealthStore {
                let oldest = matchObservations.min(by: { ($0.value.last?.at ?? .distantPast) < ($1.value.last?.at ?? .distantPast) })?.key {
                 matchObservations.removeValue(forKey: oldest)
             }
+            persistMatchEvidence()
         }
     }
     private static func evidence(_ key: MatchDelivery, at now: Date, programme: [Data] = []) -> MatchEvidence {
@@ -755,6 +860,7 @@ enum LiveSourceHealthStore {
             verifyingSourceKeys.removeAll()
             matchObservations.removeAll()
             wrongProgrammes.removeAll()
+            UserDefaults.standard.removeObject(forKey: matchEvidenceStorageKey)
             snapshotCache = nil
             snapshotDecodeCount = 0
         }

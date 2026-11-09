@@ -1293,8 +1293,13 @@ final class StartingFixturePresentationTests: XCTestCase {
         XCTAssertEqual(admitted.sportsFixture?.status, .scheduled)
         XCTAssertTrue(admitted.sources?.isEmpty == true)
         XCTAssertFalse(admitted.sportsFixture?.isLive(at: now) ?? true)
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now),
-            "Eligibility for an exact source lookup is not a confirmed playable broadcast")
+        let index = FixtureStreamDiscoveryIndex()
+        index.updateEnabledProviders(["communitysports"], revision: 1)
+        let action = CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now,
+            discoveryIndex: index, catalogIndex: FixtureCatalogAvailabilityIndex())
+        XCTAssertEqual(action?.evidence, .freshLookupOpportunity,
+            "A started fixture offers a fresh lookup Watch, never a confirmed playable broadcast")
+        XCTAssertFalse(action?.event.sportsFixture?.isLive(at: now) ?? true)
         XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row], enabledProviderCodes: [], at: now))
         let beforeKickoff = event(start: now.addingTimeInterval(60))
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: beforeKickoff, in: [beforeKickoff],
