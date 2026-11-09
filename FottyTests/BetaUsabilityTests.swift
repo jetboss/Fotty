@@ -1405,7 +1405,6 @@ final class BetaUsabilityTests: XCTestCase {
             "Fotty/Features/Dashboard/HomeCatalogProjectionPolicies.swift",
             "Fotty/Features/Dashboard/HomeProjectionCoordinator.swift",
             "Fotty/Features/Dashboard/CatalogEventDetailsView.swift",
-            "Fotty/Features/Dashboard/MomentumPulse.swift",
             "Fotty/Features/Dashboard/Components/HeroMatchCarousel.swift",
             "Fotty/Features/Dashboard/Components/LiveEventCard.swift",
             "Fotty/Features/Dashboard/Components/HomeSportsDiscovery.swift",

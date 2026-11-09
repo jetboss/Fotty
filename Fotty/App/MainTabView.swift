@@ -14,7 +14,6 @@ struct MainTabView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.scenePhase) private var scenePhase
-    @ObservedObject private var badgeManager = NotificationBadgeManager.shared
     @Environment(LiveScoreService.self) private var liveScoreService
     @State private var matchNavigationStore = MatchNavigationStore.shared
     @StateObject private var fplSession = FPLWorkspaceSession()
