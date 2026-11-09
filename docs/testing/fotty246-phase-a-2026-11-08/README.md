@@ -133,3 +133,11 @@ Not exercised: mid-match failure recovery under real conditions (A1/A1b) and the
 | B, relaunch | **`played_this_fixture`** | CS1 | 6.7 s / 8.75 s | 92.6 s, 0 stalls |
 
 After run A the device stored one evidence entry (CS1, sustained). Run B chose the source from that persisted evidence, which the store used to discard on every launch. Note that CS1 also started cleanly here, so the 20 s cold-stall case of build 248 did not recur. That run is what proves the fix is needed; these runs prove the mechanism works. AS (402) and Flix (503) were still unavailable. Provider audio is muted only for runner-launched sessions (`FOTTY_PHYSICAL_LIVE_TEST`); a normal launch plays audio. Jet now runs Release 3.0.0 (249).
+
+## Build 250: player shrink slice 1, `NetworkPathObserver` (9 Nov, 11:50 UTC)
+
+**Change.** The owner chose to shrink `LivePlayerViewModel` in place ([PLAYER-SHRINK-PLAN.md](../../PLAYER-SHRINK-PLAN.md)); `REDO-PLAN.md` is marked superseded. Slice 1 moves the system path monitor into one `NetworkPathObserver` (`Fotty/Core/Media`), now used by both the view model and `MultiLivePlayerView`. It holds its owner weakly, which fixes the AUDIT §2.1-D retain cycle, and exposes `isRunning`/`startCount` for tests. The reachability policy is unchanged and stays in the view model. `xcodegen generate` reproduced the project with only the new file's four lines; membership is Fotty=215.
+
+**Tests.** A new leak test shows that a player which started network monitoring but was never cleaned up is released. Nine existing assertions now go through the observer API; the "repeated start reuses the monitor" check now uses `startCount`. Full Catalyst suite: 2,717 run, 0 failures, 12 skips.
+
+**Jet live check (Release 3.0.0 (250)).** Pakistan v Sri Lanka Test, Watch on CS1 (chosen from persisted evidence): first picture 9.41 s after Watch, then the 90 s hold passed in a 143.7 s test. Provider audio was muted (runner launch).

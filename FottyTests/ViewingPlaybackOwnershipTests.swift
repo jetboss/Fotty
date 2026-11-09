@@ -221,14 +221,15 @@ final class ViewingPlaybackOwnershipTests: XCTestCase {
         await model.loadTask?.value
         let attempt = model.loadRequestID
         let source = model.activeSource?.id
-        let monitor = try XCTUnwrap(model.networkPathMonitor)
+        XCTAssertTrue(model.networkPathObserver.isRunning)
+        let monitorStarts = model.networkPathObserver.startCount
         model.transition(to: .paused(.webEmbed), phase: "Paused")
 
         model.startPlaybackIfNeeded()
         XCTAssertTrue(model.didStartPlayback)
         XCTAssertEqual(model.loadRequestID, attempt)
         XCTAssertEqual(model.activeSource?.id, source)
-        XCTAssertTrue(model.networkPathMonitor === monitor)
+        XCTAssertEqual(model.networkPathObserver.startCount, monitorStarts, "A repeated start reuses the running monitor")
         XCTAssertEqual(model.playbackState, .paused(.webEmbed))
     }
 
@@ -248,7 +249,7 @@ final class ViewingPlaybackOwnershipTests: XCTestCase {
         XCTAssertEqual(model.loadRequestID, retiredAttempt)
         XCTAssertEqual(model.playbackCorrelation.sessionID, retiredCorrelation)
         XCTAssertEqual(model.playbackState, .idle)
-        XCTAssertNil(model.networkPathMonitor)
+        XCTAssertFalse(model.networkPathObserver.isRunning)
         XCTAssertNil(model.player)
         XCTAssertEqual(FottyQualityStore.shared.records().filter {
             $0.name == "session_closed" && $0.details["attempt_id"] == activeAttempt

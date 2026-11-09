@@ -436,7 +436,7 @@ final class LivePlayerViewModel {
     private let controlsNeedAccessibilityVisibility: @MainActor () -> Bool
     private let playbackIntervals = FottyPlaybackIntervals()
     private var controlsHideGeneration = UUID()
-    var networkPathMonitor: NWPathMonitor?
+    let networkPathObserver = NetworkPathObserver(label: "com.fotty.livePlayer.networkPath")
     var streamProxy: LocalStreamProxy?
     var nativeHandoffSession: StreamSession?
     var attemptedNativeCandidateURLs: Set<String> = []
@@ -1757,14 +1757,11 @@ final class LivePlayerViewModel {
     }
 
     func startNetworkPathMonitoring() {
-        guard !isPlaybackSessionRetired, networkPathMonitor == nil else { return }
-        let monitor = NWPathMonitor()
-        networkPathMonitor = monitor
-        monitor.pathUpdateHandler = { path in Task { @MainActor in self.handleNetworkReachabilityChange(path.status == .satisfied) } }
-        monitor.start(queue: DispatchQueue(label: "network.monitor"))
+        guard !isPlaybackSessionRetired else { return }
+        networkPathObserver.start { [weak self] reachable in self?.handleNetworkReachabilityChange(reachable) }
     }
 
-    func stopNetworkPathMonitoring() { networkPathMonitor?.cancel(); networkPathMonitor = nil }
+    func stopNetworkPathMonitoring() { networkPathObserver.stop() }
 
     private func invalidateSingleNetworkRecovery() {
         guard viewingPlaybackContext == .single else { return }

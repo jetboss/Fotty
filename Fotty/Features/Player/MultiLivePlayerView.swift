@@ -613,7 +613,7 @@ private struct MultiLivePanelView: View {
     @State private var lastObservedPlaybackStage = FottyPlaybackStage.preparing
     @State private var playbackIntervals = FottyPlaybackIntervals()
     @State private var streamProxy: LocalStreamProxy?
-    @State private var networkPathMonitor: NWPathMonitor?
+    @State private var networkPathObserver: NetworkPathObserver?
     @State private var isNetworkReachable = true
     @State private var pendingRetryAfterNetworkRestore = false
     @State private var playerItemNotificationTokens: [NSObjectProtocol] = []
@@ -1151,19 +1151,14 @@ private struct MultiLivePanelView: View {
     
     private func startNetworkPathMonitoring() {
         stopNetworkPathMonitoring()
-        let monitor = NWPathMonitor()
-        networkPathMonitor = monitor
-        monitor.pathUpdateHandler = { path in
-            Task { @MainActor in
-                handleNetworkReachabilityChange(path.status == .satisfied)
-            }
-        }
-        monitor.start(queue: DispatchQueue(label: "com.fotty.multiLivePanel.networkPath.\(slot.id)"))
+        let observer = NetworkPathObserver(label: "com.fotty.multiLivePanel.networkPath.\(slot.id)")
+        networkPathObserver = observer
+        observer.start { reachable in handleNetworkReachabilityChange(reachable) }
     }
     
     private func stopNetworkPathMonitoring() {
-        networkPathMonitor?.cancel()
-        networkPathMonitor = nil
+        networkPathObserver?.stop()
+        networkPathObserver = nil
     }
     
     private func handleNetworkReachabilityChange(_ reachable: Bool) {

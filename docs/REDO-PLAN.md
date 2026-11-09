@@ -1,5 +1,8 @@
 # Fotty playback redo — Steps 4–7 plan
 
+> **Superseded 2026-11-09.** The owner chose to shrink `LivePlayerViewModel` in place instead of migrating to the parallel `Fotty/Engine` path. See [PLAYER-SHRINK-PLAN.md](PLAYER-SHRINK-PLAN.md) for the plan and the reasons. This document is kept as history.
+
+
 Status: bug fixes (worker freshness + native cold-start "Check streams") are already
 deployed. This document plans the remaining *structural* work: replace the
 registry-gated, `LivePlayerViewModel`-centric playback path with the clean

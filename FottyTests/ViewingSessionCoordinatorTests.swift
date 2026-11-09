@@ -1639,7 +1639,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         XCTAssertFalse(retained.model.userWantsPlayback)
         XCTAssertFalse(owner.panes[0].model.didStartPlayback)
         XCTAssertNil(owner.panes[0].model.loadTask)
-        XCTAssertNil(owner.panes[0].model.networkPathMonitor)
+        XCTAssertFalse(owner.panes[0].model.networkPathObserver.isRunning)
         XCTAssertNil(owner.panes[0].model.player)
         XCTAssertNil(owner.resolutionError)
     }
@@ -2851,7 +2851,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         XCTAssertTrue(pane.model.ownsRemoteCommands)
         XCTAssertTrue(NowPlayingManager.shared.isOwned(by: pane.model.remoteCommandOwnerID))
         XCTAssertFalse(pane.model.didStartPlayback)
-        XCTAssertNil(pane.model.networkPathMonitor)
+        XCTAssertFalse(pane.model.networkPathObserver.isRunning)
         XCTAssertNil(pane.model.loadTask)
         XCTAssertNil(pane.model.player)
     }
@@ -2886,7 +2886,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         }
         XCTAssertEqual(factory.models.count, 1)
         XCTAssertFalse(pane.model.didStartPlayback)
-        XCTAssertNil(pane.model.networkPathMonitor)
+        XCTAssertFalse(pane.model.networkPathObserver.isRunning)
     }
 
     func testSameProviderIDWithChangedOpponentsCreatesAFreshOwner() throws {
@@ -3684,8 +3684,8 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             XCTAssertFalse(secondary.model.userWantsPlayback)
             XCTAssertNil(owner.resolutionError)
             XCTAssertEqual(factory.models.count, 2)
-            XCTAssertNil(primary.model.networkPathMonitor)
-            XCTAssertNil(secondary.model.networkPathMonitor)
+            XCTAssertFalse(primary.model.networkPathObserver.isRunning)
+            XCTAssertFalse(secondary.model.networkPathObserver.isRunning)
         }
     }
 
@@ -3775,7 +3775,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             XCTAssertFalse(model.didStartPlayback)
             XCTAssertFalse(model.userWantsPlayback)
             XCTAssertNil(model.player)
-            XCTAssertNil(model.networkPathMonitor)
+            XCTAssertFalse(model.networkPathObserver.isRunning)
             XCTAssertFalse(NowPlayingManager.shared.isOwned(by: model.remoteCommandOwnerID))
         }
     }

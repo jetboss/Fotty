@@ -764,6 +764,26 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         XCTAssertFalse(renewed.contains { $0.id == chosen.id }, "The chosen backup renews on its own serial path")
     }
 
+    /// AUDIT.md §2.1-D: the path monitor's closure retained the whole player,
+    /// so a dropped player without cleanup() leaked its AVPlayer and relay.
+    func testNetworkMonitoringDoesNotRetainAPlayerThatWasNeverCleanedUp() {
+        weak var released: LivePlayerViewModel?
+        var observer: NetworkPathObserver?
+        do {
+            let event = singleDiscoveryFixture()
+            let model = LivePlayerViewModel(event: event,
+                providedSessions: [singleDiscoverySession(event: event, provider: "CS1", suffix: "leak", web: true)],
+                ownsRemoteCommands: false)
+            model.startNetworkPathMonitoring()
+            XCTAssertTrue(model.networkPathObserver.isRunning)
+            observer = model.networkPathObserver
+            released = model
+        }
+        XCTAssertNil(released, "The network observer must not keep the player alive")
+        observer?.stop()
+        XCTAssertEqual(observer?.isRunning, false)
+    }
+
     @MainActor private final class FreshLookupRecorder {
         var requests: [StreamPlaybackRequest] = []
         var choices: [StreamSession] = []

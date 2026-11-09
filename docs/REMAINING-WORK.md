@@ -31,7 +31,7 @@ The full Catalyst unit suite at 249: **2,716 run, 0 failures, 12 device-only ski
 - **Flix** catalog returned **HTTP 503**.
 - **Willow TV and CS** were the only working sources for live cricket.
 
-**Plan:** `docs/REDO-PLAN.md` (Steps 4–7 and the §3.2 extraction map).
+**Plan:** [PLAYER-SHRINK-PLAN.md](PLAYER-SHRINK-PLAN.md): shrink `LivePlayerViewModel` in place (owner decision, 9 Nov). It supersedes the parallel-engine Steps 4–7 in `REDO-PLAN.md`, so read the Step 4–7 sections below in light of that plan.
 
 ## 2. What needs to be done (prioritized)
 

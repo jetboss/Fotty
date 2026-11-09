@@ -1019,7 +1019,7 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
         XCTAssertEqual(player.rate, 0)
         XCTAssertEqual(model.loadRequestID, attempt)
         XCTAssertNil(model.loadTask)
-        XCTAssertNil(model.networkPathMonitor)
+        XCTAssertFalse(model.networkPathObserver.isRunning)
         XCTAssertFalse(model.didStartPlayback, "Presentation must not mount or load the session again")
         model.beginNativeFullscreen()
         XCTAssertTrue(model.nativeFullscreen === session, "Repeated entry must not replace the active lease")
