@@ -100,8 +100,14 @@ final class PlaybackAttemptTests: XCTestCase {
         XCTAssertTrue(model.isCurrent(requestOnly))
         XCTAssertFalse(model.isCurrent(sourceBound))
 
+        // Slice 4c shorthand for work handed a request and source.
+        XCTAssertTrue(model.isCurrent(requestID: requestOnly.requestID))
+        XCTAssertTrue(model.isCurrent(requestID: requestOnly.requestID, sourceID: sessions[1].id))
+        XCTAssertFalse(model.isCurrent(requestID: requestOnly.requestID, sourceID: sessions[0].id))
+
         model.cancelLoading()
         XCTAssertFalse(model.isCurrent(requestOnly))
+        XCTAssertFalse(model.isCurrent(requestID: requestOnly.requestID))
         XCTAssertTrue(model.isCurrent(model.captureAttempt([])), "A fresh capture is current")
     }
 }

@@ -230,3 +230,13 @@ About 40 continuation fences remain for slice 4c; see `docs/PLAYER-SHRINK-PLAN.m
 
 **Jet (Release 3.0.0 (255)).** Installed, and the 60 s launch hold passed. `testWillowWatchAcknowledgementAndNinetySecondNativeHold` passed in 124.8 s: Willow Cricket via TV1 kept the same native player, item and attempt for 90 s, with media advancing 91.80 s. This run goes through the converted startup fences and startup waiter. The web-to-native transfer did not run, because TV1 is native, and a live match is still pending.
 
+## Build 256: player shrink slice 4c, last `PlaybackAttempt` fences (9 Nov, 18:30 UTC)
+
+**Change.** The remaining 34 continuation fences now go through `PlaybackAttempt`, each with its previous scope. They cover web-embed callbacks, web PiP and background suspension, auto-hide, resume validation, URL preparation, item stall and failure observers, the watchdog and continuity loop, backup refresh, wrong-match reports, Watch Two candidate preparation, audio retirement before web, and handoff diagnostics. Two shorthands, `isCurrent(requestID:sourceID:)` and `isCurrent(requestID:)`, build the attempt for work that is handed a request and source. Checks against `activeSession?.id` use the source scope, because a session's source carries the session's ID.
+
+No continuation in `LivePlayerViewModel` now compares `loadRequestID` inline. What remains is stored-record state checks, where a saved request ID is compared with the current one, and the startup observation-end classifier, which reports why ownership ended. `LivePlayerViewModel` is now 4826 lines.
+
+**Tests.** `PlaybackAttemptTests` gains the shorthand checks on a real player model. Player and policy suites: 389 run, 0 failures, 1 skip. Full Catalyst suite: 2,733 run, 0 failures, 12 skips.
+
+**Jet (Release 3.0.0 (256)).** Installed, and the 60 s launch hold passed. `testWillowWatchAcknowledgementAndNinetySecondNativeHold` passed in 123.0 s: Willow Cricket via TV1 kept the same native player, item and attempt for 90 s, with media advancing 91.83 s. This run goes through the converted watchdog, continuity and item-observer fences. Web-embed paths and a live match were not exercised on the device.
+
