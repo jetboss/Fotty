@@ -53,7 +53,7 @@ enum FixtureSourceCatalogCollector {
             return code
         })
         return CuratedStreamSourceCatalog.all.filter {
-            $0.provider != .reviewedTV || cloudOwned.contains($0.providerCode)
+            !$0.isRetired && ($0.provider != .reviewedTV || cloudOwned.contains($0.providerCode))
         }.map { definition in
             if cloudOwned.contains(definition.providerCode), let snapshot = registrySnapshot {
                 // This lane spends the same ticket/cadence as a local lookup but

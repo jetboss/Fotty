@@ -169,4 +169,30 @@ After run A the device stored one evidence entry (CS1, sustained). Run B chose t
 
 **Tests.** The new `PlaybackProgressPolicyTests` pin every constant to its previous value, check the progress and resume boundaries, and check counter behaviour branch by branch (single Playing clock including NaN, negative and infinite values; multi-stream waiting; reset). One boundary test initially assumed 10.1 − 10 ≥ 0.1, but in binary floating point it is 0.0999…. The previous inline check behaves the same way, so the test was corrected, not the code. Full Catalyst suite: 2,725 run, 0 failures, 12 skips.
 
-**Jet (Release 3.0.0 (252)).** The 60 s launch hold passed. **The live 90 s hold is pending.** At 12:33 UTC the Pakistan v Sri Lanka Test had reached Stumps. Home correctly showed "Stumps" and "Broadcast unconfirmed" with no Watch action, so the runner found no Watch to tap. No PL/UCL is scheduled today, and the next live fixture is NHL at 01:00 UTC. Home also showed "Couldn't refresh. Broadcasts may have changed.", the recurring cloud-registry refresh failure first seen 8 Nov 16:45–18:45 UTC. It is unrelated to this slice and still uninvestigated.
+**Jet (Release 3.0.0 (252)).** The 60 s launch hold passed. **The live 90 s hold is pending.** At 12:33 UTC the Pakistan v Sri Lanka Test had reached Stumps. Home correctly showed "Stumps" and "Broadcast unconfirmed" with no Watch action, so the runner found no Watch to tap. No PL/UCL is scheduled today, and the next live fixture is NHL at 01:00 UTC. Home also showed "Couldn't refresh. Broadcasts may have changed.", first seen 8 Nov 16:45–18:45 UTC and unrelated to this slice. *Correction, 9 Nov 14:00 UTC:* the cause is the closed shared catalog, not the cloud registry; see the next section.
+
+## Source change: retire the closed shared catalog (9 Nov, 14:00 UTC)
+
+**Finding.** Home's "Couldn't refresh. Broadcasts may have changed." came from the primary match catalog, not the cloud broadcast registry. That catalog's only family, Streamed (also served as StreamEx), has shut down:
+
+- the worker's `/api/live/catalog` answered in about 60 ms with all three mirrors (`nexus-primary`, `nexus-mirror`, `nexus-backup`) marked `unavailable`;
+- `www.streamex.net` and `streamex.sh` redirect to `www.streamex.hn`, whose API paths return a JSON string holding a page titled "Streamed Closure" ("We are no longer operating Streamed");
+- `streamed.pk` redirects every API path to the same closure page;
+- the canonical embed host `embed.st` no longer resolves in DNS;
+- the daily Provider Metadata Monitor has failed every run since 27 Oct 2026 with these same errors.
+
+The broadcast registry (`/api/live/broadcasts`) is healthy: 1,351 broadcasts and 28 providers in 5.4 s, inside its 20 s limit. Score808's own site lane (`score808live.tv`) is separate and up.
+
+**Change.** `CuratedStreamSourceCatalog.isSharedCatalogRetired` (with `Definition.isRetired` for StreamEx):
+
+- Home refresh no longer calls the catalog; fixture lanes publish on their own and a closed upstream is not reported as a refresh failure;
+- the Watch discovery plan has no shared-catalog lane (this also ends the dead Score808 "hotel" catalog route, while its site lane stays);
+- the 60 s source collector no longer polls the StreamEx lane;
+- Settings no longer lists StreamEx.
+
+Identities, saved settings, labels and health memory are kept. Cached Home rows load without catalog sources, so no stale StreamEx source can offer Watch. The unreachable legacy callers (`LiveViewModel`, `MatchListActor`) are untouched. No worker change or deployment.
+
+**Tests.** New `testRetiredSharedCatalogRemovesOnlyItsOwnDiscoveryLane` and `testRetiredCatalogRefreshesFixturesWithoutReportingFailure`. The existing shared-catalog routing test now pins its rules with the catalog explicitly live, so they remain correct if the family is restored. Full Catalyst suite: 2,727 run, 0 failures, 12 skips.
+
+**Not yet established.** No device build. On the next Jet install, Home should no longer show the banner and Settings should no longer list StreamEx.
+

@@ -187,6 +187,9 @@ enum CuratedStreamSourceCatalog {
             }
         }
         var isOptional: Bool { opaqueLabelPrefix != nil }
+        /// A retired family keeps its identity (saved settings, health memory,
+        /// labels) but no refresh, discovery or collector lane calls it.
+        var isRetired: Bool { dispatch == .sharedCatalog && CuratedStreamSourceCatalog.isSharedCatalogRetired }
 
         /// These are the existing lane gates, not fixture or playback proof.
         /// CS keeps its reviewed Live fallback; other adapters keep their own
@@ -272,6 +275,18 @@ enum CuratedStreamSourceCatalog {
 
     static var optionalSources: [Definition] { all.filter(\.isOptional) }
 
+    /// The shared catalog family (Streamed, also served as StreamEx) closed
+    /// upstream. Since 27 Oct 2026 its three catalog mirrors return a closure
+    /// page, its stream lookup is gone and its embed host no longer resolves;
+    /// the provider monitor has failed daily since then. Retired 9 Nov 2026:
+    /// Home no longer refreshes it, Watch no longer searches it, the source
+    /// collector no longer polls it and Settings no longer lists it. Score808's
+    /// own site lane is independent and unaffected.
+    static let isSharedCatalogRetired = true
+
+    /// Sources a person can switch on or off in Settings.
+    static var settingsProviderCodes: [String] { all.filter { !$0.isRetired }.map(\.providerCode) }
+
     struct DiscoveryPlan: Sendable, Equatable {
         let sharedCatalogProviderCodes: [String]
         let score808SiteEligible: Bool
@@ -287,6 +302,7 @@ enum CuratedStreamSourceCatalog {
         for request: StreamPlaybackRequest,
         enabledProviderCodes: Set<String>,
         allowDeferredTVLookup: Bool = false,
+        sharedCatalogRetired: Bool = isSharedCatalogRetired,
         at now: Date = Date()
     ) -> DiscoveryPlan {
         guard !request.matchID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -298,7 +314,10 @@ enum CuratedStreamSourceCatalog {
         let television = SportsTVStation.identifying(request)
         let isReviewedChannel = CricketBroadcastChannel.identifying(request: request) != nil || television != nil
         let shared = all.filter { definition in
-            guard enabled.contains(definition.providerCode), !definition.catalogSourceCodes.isEmpty else { return false }
+            // Every catalog source code (Score808's "hotel" included) arrives
+            // only through the shared catalog, so retiring it ends this lane.
+            guard !sharedCatalogRetired, enabled.contains(definition.providerCode),
+                  !definition.catalogSourceCodes.isEmpty else { return false }
             // A standalone channel's independent CS path does not need to
             // retry the primary catalog. Preserve genuine channel references.
             return !isReviewedChannel || request.preferredEvent?.sources?.contains { source in

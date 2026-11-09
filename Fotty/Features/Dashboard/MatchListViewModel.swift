@@ -274,7 +274,15 @@ final class MatchListViewModel {
         return ordered
     }
 
-    @ObservationIgnored private var fetchSnapshot: @MainActor () async throws -> LiveCatalogSnapshot = { try await AnalyticalDataEngine.liveCatalogSnapshot() }
+    /// Nil while the shared catalog is retired: Home then publishes fixture
+    /// lanes only and a dead upstream is never reported as a refresh failure.
+    typealias CatalogFetch = @MainActor () async throws -> LiveCatalogSnapshot
+    @ObservationIgnored private var fetchSnapshot: CatalogFetch? = MatchListViewModel.productionCatalogFetch()
+
+    private static func productionCatalogFetch() -> CatalogFetch? {
+        if CuratedStreamSourceCatalog.isSharedCatalogRetired { return nil }
+        return { try await AnalyticalDataEngine.liveCatalogSnapshot() }
+    }
     @ObservationIgnored private var refreshSchedule: @MainActor () async -> CPLSchedule.Snapshot? = { await CPLScheduleUpdater.shared.refresh() }
     @ObservationIgnored private var refreshCricket: @MainActor () async -> CricketFixtureCatalog.Snapshot? = { await CricketFixtureUpdater.shared.refresh() }
     @ObservationIgnored private var refreshSports: @MainActor () async -> SportsFixtureCatalog.Snapshot? = { await SportsFixtureUpdater.shared.refresh() }
@@ -317,7 +325,7 @@ final class MatchListViewModel {
     }
 
     /// Controlled async owner tests never contact providers or mutate shared reminders.
-    init(fetchSnapshot: @escaping @MainActor () async throws -> LiveCatalogSnapshot,
+    init(fetchSnapshot: CatalogFetch?,
          refreshSchedule: @escaping @MainActor () async -> CPLSchedule.Snapshot? = { nil },
          refreshCricket: @escaping @MainActor () async -> CricketFixtureCatalog.Snapshot? = { nil },
          refreshSports: @escaping @MainActor () async -> SportsFixtureCatalog.Snapshot? = { nil },
@@ -482,14 +490,17 @@ final class MatchListViewModel {
         let cricket = refreshCricket
         let sports = refreshSports
         await withTaskGroup(of: RefreshLaneResult.self) { group in
-            group.addTask { @MainActor in
-                do { return .catalog(.success(try await fetch())) }
-                catch { return .catalog(.failure(error)) }
+            if let fetch {
+                group.addTask { @MainActor in
+                    do { return .catalog(.success(try await fetch())) }
+                    catch { return .catalog(.failure(error)) }
+                }
             }
             group.addTask { @MainActor in .cpl(await cpl()) }
             group.addTask { @MainActor in .cricket(await cricket()) }
             group.addTask { @MainActor in .sports(await sports()) }
-            var catalogCompleted = false
+            // Without a catalog lane, fixture lanes publish as they complete.
+            var catalogCompleted = fetch == nil
             var acceptedProvider: LiveCatalogSnapshot?
             var pendingFixtures: [RefreshLaneResult] = []
             for await result in group {

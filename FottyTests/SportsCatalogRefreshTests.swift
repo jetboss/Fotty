@@ -537,6 +537,25 @@ final class SportsCatalogRefreshTests: XCTestCase {
         XCTAssertEqual(model.lastCatalogCheck, clock)
     }
 
+    /// The shared catalog is retired (9 Nov 2026): Home refreshes its fixture
+    /// lanes only, and a closed upstream is never shown as a refresh failure.
+    func testRetiredCatalogRefreshesFixturesWithoutReportingFailure() async {
+        var sportsCalls = 0
+        var cricketCalls = 0
+        let model = MatchListViewModel(fetchSnapshot: nil,
+            refreshCricket: { cricketCalls += 1; return nil },
+            refreshSports: { sportsCalls += 1; return nil },
+            now: { self.now })
+        await model.refresh()
+        XCTAssertEqual(sportsCalls, 1)
+        XCTAssertEqual(cricketCalls, 1)
+        XCTAssertFalse(model.refreshFailed)
+        XCTAssertNil(model.error)
+        XCTAssertNil(model.lastCatalogCheck, "No catalog receipt is invented")
+        XCTAssertNil(model.catalogNotice(at: now))
+        XCTAssertFalse(model.isRefreshing)
+    }
+
     func testCancellationAllowsImmediateForegroundRetryAndPartialStaysOffCustomerUI() async {
         var calls = 0
         let model = MatchListViewModel(fetchSnapshot: {

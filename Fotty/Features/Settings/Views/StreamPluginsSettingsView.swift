@@ -145,7 +145,7 @@ struct StreamPluginsSettingsView: View {
         let snapshot = await StreamPluginRegistry.shared.playbackSettingsSnapshot(reload: reload)
         guard !Task.isCancelled else { return }
         plugins = snapshot.plugins
-            .filter { StreamPluginProviderMatching.activePlayerProviderCodes.contains($0.providerCode.lowercased()) }
+            .filter { CuratedStreamSourceCatalog.settingsProviderCodes.contains($0.providerCode.lowercased()) }
         loadState = .resolved(availableSourceCount: plugins.count, unavailableSourceCount: snapshot.unavailableSourceCount)
     }
 
