@@ -304,39 +304,19 @@ final class SportsSearchScheduleTests: XCTestCase {
     }
 
     func testViewModelSearchReadsAcceptedSnapshotsWithoutFetchingOrChangingHome() async throws {
-        var requests = 0, scheduleRequests = 0
+        var scheduleRequests = 0
         let accepted = sportsSnapshot([sportsFixture()])
-        let model = MatchListViewModel(fetchSnapshot: {
-            requests += 1
-            return .init(events: [], checkedAt: self.now, source: "controlled", respondingFeeds: 1,
-                         attemptedFeeds: 1, isPartial: false)
-        }, refreshSports: { scheduleRequests += 1; return accepted }, now: { self.now })
+        let model = MatchListViewModel(refreshSports: { scheduleRequests += 1; return accepted }, now: { self.now })
         await model.refresh()
         XCTAssertTrue(model.matches.isEmpty)
         for _ in 0..<4 {
             let events = model.searchSchedule(at: now)
             XCTAssertEqual(events.map(\.id), accepted.fixtures.map(\.id))
         }
-        XCTAssertEqual(requests, 1)
         XCTAssertEqual(scheduleRequests, 1, "Search is a presentation projection, not a new request owner")
         XCTAssertTrue(model.matches.isEmpty)
         XCTAssertTrue(model.searchSchedule(at: now.addingTimeInterval(24 * 3600 + 1)).isEmpty,
                       "An index rebuild must evaluate current receipt age rather than its original clock")
     }
 
-    func testViewModelRetainsHiddenIdentityConflictVetoWhenSupplementingSearch() async {
-        let accepted = sportsSnapshot([sportsFixture()])
-        let row = accepted.fixtures[0]
-        let conflict = EventReference(id: row.id, title: row.title, category: row.sport,
-            date: Int64(row.kickoff!.timeIntervalSince1970), poster: nil, popular: false, teams: nil,
-            sources: [], hasCatalogIdentityConflict: true)
-        let model = MatchListViewModel(fetchSnapshot: {
-            .init(events: [conflict], checkedAt: self.now, source: "controlled", respondingFeeds: 1,
-                  attemptedFeeds: 1, isPartial: false)
-        }, refreshSports: { accepted }, now: { self.now })
-        await model.refresh()
-        XCTAssertEqual(model.identityConflicts.map(\.id), [row.id])
-        XCTAssertTrue(model.searchSchedule(at: now).isEmpty,
-                      "Home hiding a conflict must not permit Search to recreate the same ID")
-    }
 }

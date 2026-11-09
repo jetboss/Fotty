@@ -226,7 +226,7 @@ struct SportsDashboardView: View {
                 catalogNoticeForEvents: { events in
                     matchListViewModel?.catalogNotice(at: HomeSportsDiscovery.automatedClockDate ?? Date(), displaying: events)
                 },
-                catalogCheckedAt: matchListViewModel?.lastCatalogCheck,
+                catalogCheckedAt: matchListViewModel?.cplScheduleCheckedAt,
                 isRefreshing: matchListViewModel?.isRefreshing ?? false,
                 onRefresh: { await matchListViewModel?.refresh(); discoveryDate = Date() },
                 catalogRevision: discoveryProjectionRevision,
@@ -411,8 +411,6 @@ struct SportsDashboardView: View {
             if let viewModel = matchListViewModel {
                 if viewModel.isLoading {
                     loadingView
-                } else if let error = viewModel.error {
-                    errorView(error)
                 } else {
                     matchesContent(viewModel)
                 }
@@ -449,9 +447,6 @@ struct SportsDashboardView: View {
             personalization.facts[$0.id]?.isCPL ?? $0.event.isCPLFixture
         }
         let catalogNoticeDate = HomeSportsDiscovery.automatedClockDate ?? Date()
-        let hasSourceCatalogEvidence = FixtureCatalogAvailabilityIndex.shared
-            .hasRecentSuccessfulCatalogEvaluation(
-                for: items.prefix(32).map { StreamPlaybackRequest(event: $0.event) }, at: catalogNoticeDate)
         // Read layout/state dependencies before entering the escaping lazy
         // content closure. The sequence itself must update on a width change.
         let entries = homeEntries(sections: sections, later: later, items: items,
@@ -520,9 +515,8 @@ struct SportsDashboardView: View {
                 }
                 #endif
 
-                if let notice = viewModel.catalogNotice(at: catalogNoticeDate, displaysCPLSchedule: displaysCPLSchedule,
-                                                       hasSourceCatalogEvidence: hasSourceCatalogEvidence) {
-                    CatalogRefreshNotice(message: notice, checkedAt: viewModel.lastCatalogCheck,
+                if let notice = viewModel.catalogNotice(at: catalogNoticeDate, displaysCPLSchedule: displaysCPLSchedule) {
+                    CatalogRefreshNotice(message: notice, checkedAt: viewModel.cplScheduleCheckedAt,
                                          isRefreshing: viewModel.isRefreshing) {
                         await viewModel.refresh()
                     }
@@ -2368,9 +2362,6 @@ struct SportsDashboardView: View {
     }
 
     private func emptyStateMessage(applyingHomeInterests: Bool) -> String {
-        if let error = matchListViewModel?.error, !error.isEmpty {
-            return "Connection failed. Check your network and try again.\n\n\(error)"
-        }
         if applyingHomeInterests && isHomeInterestRestrictionActive && !showFollowedOnly {
             return "Nothing from your interests is scheduled in the next three days. Try Full lineup or Search."
         }
@@ -2464,41 +2455,4 @@ struct SportsDashboardView: View {
         }
     }
 
-    private func errorView(_ message: String) -> some View {
-        GeometryReader { geometry in
-            ScrollView {
-                VStack(spacing: FottyTheme.spacingMD) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.fottyScaled(size: 40))
-                        .foregroundStyle(FottyTheme.accentText)
-
-                    Text("Couldn't load matches")
-                        .font(.fottyScaled(size: 18, weight: .semibold))
-                        .foregroundStyle(FottyTheme.textPrimary)
-
-                    Text(message)
-                        .font(.fottyScaled(size: 13))
-                        .foregroundStyle(FottyTheme.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Button {
-                        Task { await matchListViewModel?.refresh() }
-                    } label: {
-                        Text("Retry")
-                            .font(.fottyScaled(size: 15, weight: .semibold))
-                            .foregroundStyle(FottyTheme.textOnAccent)
-                            .padding(.horizontal, 24)
-                            .padding(.vertical, 12)
-                            .background(FottyTheme.accentGradient)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusXL))
-                }
-                .frame(maxWidth: 640)
-                .padding(FottyTheme.spacingXL)
-                .frame(maxWidth: .infinity, minHeight: geometry.size.height)
-            }
-        }
-    }
 }

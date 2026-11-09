@@ -11,36 +11,32 @@ final class SportsCatalogRefreshTests: XCTestCase {
               teams: nil, sources: [.init(source: "delta", id: id)])
     }
 
-    private func snapshot(_ rows: [EventReference], at date: Date? = nil, partial: Bool = false) -> LiveCatalogSnapshot {
-        .init(events: rows, checkedAt: date ?? now, source: "controlled", respondingFeeds: 1,
-              attemptedFeeds: partial ? 2 : 1, isPartial: partial)
+    /// A current sports schedule whose one match starts within Home's window.
+    private func sports(_ id: String, at clock: Date? = nil) -> SportsFixtureCatalog.Snapshot {
+        ScheduleTestFixtures.sports(kickoff: (clock ?? now).addingTimeInterval(3600), checkedAt: clock ?? now, ids: [id])
     }
 
-    /// Pull-to-refresh or scene activation during an in-flight refresh must
-    /// observe that refresh's result, not return before it completes.
-    func testConcurrentRefreshCallersJoinOneFetchAndBothSeeItsResult() async throws {
+    // MARK: Refresh mechanics (schedule lanes since the shared catalog closed)
+
+    func testConcurrentRefreshCallersJoinOneScheduleRefresh() async {
         var fetches = 0
-        var blocksFetch = true
+        var blocks = true
         var release: CheckedContinuation<Void, Never>?
-        let entered = XCTestExpectation(description: "first fetch entered")
-        let model = MatchListViewModel(fetchSnapshot: {
+        let entered = XCTestExpectation(description: "first schedule fetch entered")
+        let model = MatchListViewModel(refreshSports: {
             fetches += 1
-            if blocksFetch {
-                await withCheckedContinuation { release = $0; entered.fulfill() }
-            }
-            return self.snapshot([self.event("joined-refresh")])
+            if blocks { await withCheckedContinuation { release = $0; entered.fulfill() } }
+            return self.sports("joined")
         }, now: { self.now })
         let first = Task { await model.refresh() }
         await fulfillment(of: [entered], timeout: 5)
-        XCTAssertNotNil(release)
-        // Before the fix a second caller returned at once with no result.
         let second = Task { () -> Bool in
             await model.refresh()
-            return model.matches.contains { $0.id == "joined-refresh" }
+            return model.matches.contains { $0.id == "sports-fixture:nba:joined" }
         }
         for _ in 0..<20 { await Task.yield() }
         XCTAssertEqual(fetches, 1)
-        blocksFetch = false
+        blocks = false
         release?.resume()
         await first.value
         let secondSawResult = await second.value
@@ -48,6 +44,59 @@ final class SportsCatalogRefreshTests: XCTestCase {
         XCTAssertEqual(fetches, 1, "Joined callers do not start a second fetch")
         await model.refresh()
         XCTAssertEqual(fetches, 2, "A later refresh after completion fetches again")
+    }
+
+    func testForegroundRefreshIsBoundedButChecksImmediatelyAfterTimeAway() async {
+        var clock = now
+        var calls = 0
+        let model = MatchListViewModel(refreshSports: { calls += 1; return self.sports("current", at: clock) },
+                                       now: { clock })
+        await model.refreshIfNeeded()
+        XCTAssertEqual(calls, 1)
+        clock = now.addingTimeInterval(10)
+        await model.refreshIfNeeded()
+        XCTAssertEqual(calls, 1, "Cold launch and rapid scene changes share the same request")
+        clock = now.addingTimeInterval(91)
+        await model.refreshIfNeeded()
+        XCTAssertEqual(calls, 2)
+    }
+
+    func testCancelledRefreshAllowsImmediateRetryAndPublishesNothingLate() async {
+        var calls = 0
+        var release: CheckedContinuation<Void, Never>?
+        let began = expectation(description: "schedule request")
+        let model = MatchListViewModel(refreshSports: {
+            calls += 1
+            if calls == 1 { await withCheckedContinuation { release = $0; began.fulfill() } }
+            return self.sports(calls == 1 ? "late" : "retried")
+        }, now: { self.now })
+        model.matches = [event("saved")]
+        let task = Task { await model.refresh() }
+        await fulfillment(of: [began], timeout: 2)
+        task.cancel()
+        release?.resume()
+        await task.value
+        XCTAssertFalse(model.matches.contains { $0.id == "sports-fixture:nba:late" },
+                       "A cancelled refresh cannot publish its late schedule")
+        XCTAssertFalse(model.isRefreshing)
+        await model.refreshIfNeeded()
+        XCTAssertEqual(calls, 2, "Cancellation does not spend the foreground throttle")
+        XCTAssertEqual(model.matches.map(\.id), ["sports-fixture:nba:retried"])
+    }
+
+    func testRefreshReplacesRowsRestoredFromCacheEvenWhenNoScheduleChanged() async {
+        let model = MatchListViewModel(refreshSports: { nil }, now: { self.now })
+        model.matches = [event("cached-before-27-october")]
+        await model.refresh()
+        XCTAssertTrue(model.matches.isEmpty, "Home rows come only from the current schedules")
+        XCTAssertNil(model.catalogNotice(at: now), "No schedule failure is shown as a refresh error")
+    }
+
+    func testOnlyAStaleCPLScheduleProducesTheHomeNotice() {
+        let model = MatchListViewModel(now: { self.now })
+        XCTAssertNil(model.catalogNotice(at: now, displaysCPLSchedule: false))
+        XCTAssertEqual(model.catalogNotice(at: now, displaysCPLSchedule: true), "CPL start times may have changed.",
+                       "Without a fresh CPL receipt, displayed CPL times are flagged")
     }
 
     private func cplSnapshot(
@@ -163,141 +212,30 @@ final class SportsCatalogRefreshTests: XCTestCase {
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: event("official"), at: now, status: .scheduled), .awaitingConfirmation)
     }
 
-    func testErrorOnlyCancellationDoesNotPublishIndependentSchedule() async {
-        let model = MatchListViewModel(fetchSnapshot: { throw CancellationError() },
-            refreshSchedule: { self.cplSnapshot(CPLSchedule.fixtures) }, now: { self.now })
-        model.matches = [event("kept")]
-        await model.refresh()
-        XCTAssertEqual(model.matches.map(\.id), ["kept"])
-        XCTAssertFalse(model.refreshFailed)
-    }
-
-    func testVerifiedScheduleAfterFeedFailureDoesNotBorrowStaleSources() async throws {
+    func testVerifiedScheduleReplacesStaleProviderRows() async throws {
         let fixture = try XCTUnwrap(CPLSchedule.fixtures.first)
         let time = fixture.kickoff.addingTimeInterval(-1800)
         let planned = fixture.event(sources: [])
         let stale = EventReference(id: "old-provider", title: planned.title, category: "cricket", date: planned.date,
             poster: nil, popular: false, teams: planned.teams, sources: [.init(source: "delta", id: "stale")])
-        let model = MatchListViewModel(fetchSnapshot: { throw URLError(.notConnectedToInternet) },
-            refreshSchedule: {
+        let model = MatchListViewModel(refreshSchedule: {
                 self.cplSnapshot([fixture], checkedAt: time)
             }, now: { time })
         model.matches = [stale]
         await model.refresh()
-        XCTAssertTrue(model.refreshFailed)
         XCTAssertEqual(model.matches.map(\.id), [fixture.id])
         XCTAssertTrue(model.matches.allSatisfy { $0.sources?.isEmpty != false })
-        XCTAssertNil(model.lastCatalogCheck)
     }
 
-    func testCPLScheduleFreshnessIsIndependentFromCatalogFreshness() async throws {
-        let fixture = try XCTUnwrap(CPLSchedule.fixtures.first { $0.kickoff > now })
-        let freshModel = MatchListViewModel(
-            fetchSnapshot: { self.snapshot([]) },
-            refreshSchedule: { self.cplSnapshot([fixture]) },
-            now: { self.now }
-        )
-
-        await freshModel.refresh()
-        XCTAssertTrue(freshModel.isCPLScheduleFresh(at: now))
-        XCTAssertNil(freshModel.catalogNotice(at: now))
-
-        var onFetch: (() -> Void)?
-        let staleModel = MatchListViewModel(
-            fetchSnapshot: { onFetch?(); return self.snapshot([]) },
-            refreshSchedule: {
-                self.cplSnapshot(
-                    [fixture],
-                    checkedAt: self.now.addingTimeInterval(-CPLSchedule.verificationFreshnessWindow - 1)
-                )
-            },
-            now: { self.now }
-        )
-        await staleModel.refresh()
-        XCTAssertFalse(staleModel.isCPLScheduleFresh(at: now))
-        XCTAssertEqual(
-            staleModel.catalogNotice(at: now),
-            "CPL start times may have changed."
-        )
-        XCTAssertNil(staleModel.catalogNotice(at: now, displaying: [event("football-only")]),
-                     "A CPL-only warning must not appear while browsing football")
-        XCTAssertNil(staleModel.catalogNotice(at: now, displaying: []),
-                     "An empty filtered view does not display stale CPL fixtures")
-        for visible in [[fixture.event()], [event("football-only")], []] {
-            let containsCPL = visible.contains(where: \.isCPLFixture)
-            XCTAssertEqual(staleModel.catalogNotice(at: now, displaysCPLSchedule: containsCPL),
-                           staleModel.catalogNotice(at: now, displaying: visible),
-                           "Reusing identity facts must not change warning scope")
-        }
-        XCTAssertEqual(staleModel.catalogNotice(at: now, displaysCPLSchedule: true),
-                       "CPL start times may have changed.")
-        XCTAssertNil(freshModel.catalogNotice(at: now, displaysCPLSchedule: true))
-        XCTAssertEqual(freshModel.catalogNotice(at: now.addingTimeInterval(CPLSchedule.verificationFreshnessWindow + 1),
-                                              displaysCPLSchedule: true),
-                       "CPL start times may have changed.",
-                       "Cached fixture identity must never cache schedule freshness")
-        onFetch = {
-            XCTAssertTrue(staleModel.isRefreshing)
-            XCTAssertEqual(staleModel.catalogNotice(at: self.now), "CPL start times may have changed.",
-                           "Starting a retry must not hide known stale schedule data")
-        }
-        await staleModel.refresh()
-        onFetch = nil
-    }
-
-    func testReplayedProviderReceiptCannotHoldBackCPLCorrectionOrLendStaleSources() async throws {
-        for correctedHours in [1.5, 2.5] {
-            let original = CPLSchedule.Fixture(1,
-                ISO8601DateFormatter().string(from: now.addingTimeInterval(7200)), .trinbago, .saintLucia)
-            let planned = original.event()
-            let provider = EventReference(id: "provider-cpl", title: planned.title, category: "cricket",
-                date: planned.date, poster: nil, popular: false, teams: planned.teams,
-                sources: [.init(source: "delta", id: "stale-cpl-stream")])
-            let unrelated = event("other-sport")
-            var check = now
-            var schedule = cplSnapshot([original])
-            let model = MatchListViewModel(fetchSnapshot: {
-                self.snapshot([provider, unrelated], at: check)
-            }, refreshSchedule: { schedule }, now: { self.now })
-            await model.refresh()
-            let old = try XCTUnwrap(model.matches.first { $0.id == original.id })
-            let saved = SavedMatchRecord(event: old, savedAt: now)
-            XCTAssertEqual(old.sources?.first?.id, "stale-cpl-stream")
-
-            let receipt = now.addingTimeInterval(60)
-            let corrected = CPLSchedule.Fixture(1,
-                ISO8601DateFormatter().string(from: now.addingTimeInterval(correctedHours * 3600)),
-                .trinbago, .saintLucia)
-            check = now.addingTimeInterval(-60)
-            schedule = cplSnapshot([corrected], checkedAt: receipt)
-            await model.refresh()
-
-            let current = try XCTUnwrap(model.matches.first { $0.id == original.id })
-            XCTAssertEqual(model.lastCatalogCheck, now, "An old provider receipt is not a new catalog check")
-            XCTAssertEqual(model.cplScheduleCheckedAt, receipt)
-            XCTAssertEqual(model.cplScheduleSourceStatus, .verified)
-            XCTAssertEqual(current.kickoffDate, corrected.kickoff)
-            XCTAssertTrue(current.sources?.isEmpty == true)
-            XCTAssertFalse(model.matches.contains { $0.id == provider.id })
-            XCTAssertEqual(model.matches.first { $0.id == unrelated.id }?.sources?.first?.id,
-                           unrelated.sources?.first?.id)
-            XCTAssertEqual(SavedMatchContinuityPolicy.currentEvent(for: saved, in: model.playbackCatalog)?.kickoffDate,
-                           corrected.kickoff, "Saved/reminded identity must resolve the corrected kickoff")
-        }
-    }
-
-    func testReplayedProviderCannotReplaceCPLWithOlderOrUnverifiedSchedule() async throws {
+    func testReplayedScheduleCannotReplaceCPLWithOlderOrUnverifiedSchedule() async throws {
         for status in [CPLSchedule.SourceStatus.verified, .lastKnownGood] {
             let original = CPLSchedule.Fixture(1,
                 ISO8601DateFormatter().string(from: now.addingTimeInterval(7200)), .trinbago, .saintLucia)
-            var check = now
             var schedule = cplSnapshot([original])
-            let model = MatchListViewModel(fetchSnapshot: { self.snapshot([], at: check) },
-                refreshSchedule: { schedule }, now: { self.now })
+            let model = MatchListViewModel(refreshSchedule: { schedule }, now: { self.now })
             await model.refresh()
             let changed = CPLSchedule.Fixture(1,
                 ISO8601DateFormatter().string(from: now.addingTimeInterval(9000)), .trinbago, .saintLucia)
-            check = now.addingTimeInterval(-60)
             schedule = cplSnapshot([changed], checkedAt: now.addingTimeInterval(status == .verified ? -60 : 60),
                                    status: status)
             await model.refresh()
@@ -305,14 +243,12 @@ final class SportsCatalogRefreshTests: XCTestCase {
             XCTAssertEqual(model.cplScheduleCheckedAt, now)
             XCTAssertEqual(model.cplScheduleSourceStatus, .verified)
             XCTAssertEqual(model.matches.first { $0.id == original.id }?.kickoffDate, original.kickoff)
-            XCTAssertEqual(model.lastCatalogCheck, now)
         }
     }
 
     func testLastKnownGoodCPLScheduleNeverClaimsCurrentVerification() async throws {
         let fixture = try XCTUnwrap(CPLSchedule.fixtures.first { $0.kickoff > now })
         let model = MatchListViewModel(
-            fetchSnapshot: { self.snapshot([]) },
             refreshSchedule: {
                 self.cplSnapshot([fixture], status: .lastKnownGood)
             },
@@ -323,197 +259,6 @@ final class SportsCatalogRefreshTests: XCTestCase {
         XCTAssertEqual(model.cplScheduleSourceStatus, .lastKnownGood)
         XCTAssertFalse(model.isCPLScheduleFresh(at: now))
         XCTAssertNotNil(model.catalogNotice(at: now))
-    }
-
-    func testFailedRefreshRetainsRowsAndReceiptButShowsFailure() async {
-        var fail = false
-        let first = snapshot([event("saved")])
-        let model = MatchListViewModel(fetchSnapshot: {
-            if fail { throw URLError(.notConnectedToInternet) }
-            return first
-        }, now: { self.now })
-        await model.refresh()
-        fail = true
-        await model.refresh()
-        XCTAssertEqual(model.matches.map(\.id), ["saved"])
-        XCTAssertEqual(model.lastCatalogCheck, now)
-        XCTAssertTrue(model.refreshFailed)
-        XCTAssertNotNil(model.catalogNotice(at: now))
-        XCTAssertNil(model.error)
-        XCTAssertFalse(model.isRefreshing)
-    }
-
-    func testAuthoritativeEmptyClearsPreviousRowsButPartialRetainsOmissions() async {
-        var next = snapshot([event("saved")])
-        let model = MatchListViewModel(fetchSnapshot: { next }, now: { self.now })
-        await model.refresh()
-        next = snapshot([event("new")], partial: true)
-        await model.refresh()
-        XCTAssertEqual(Set(model.matches.map(\.id)), ["saved", "new"])
-        XCTAssertTrue(model.isPartialCatalog)
-        next = snapshot([])
-        await model.refresh()
-        XCTAssertTrue(model.matches.isEmpty)
-        XCTAssertFalse(model.refreshFailed)
-        XCTAssertFalse(model.isPartialCatalog)
-        XCTAssertNil(model.error)
-    }
-
-    func testOverlappingRefreshIsCoalescedEvenWithExistingRows() async {
-        let began = expectation(description: "catalog request")
-        var continuation: CheckedContinuation<LiveCatalogSnapshot, Error>?
-        var calls = 0
-        let model = MatchListViewModel(fetchSnapshot: {
-            calls += 1
-            return try await withCheckedThrowingContinuation { continuation = $0; began.fulfill() }
-        }, now: { self.now })
-        model.matches = [event("cached")]
-        let first = Task { await model.refresh() }
-        await fulfillment(of: [began], timeout: 2)
-        XCTAssertTrue(model.isRefreshing)
-        XCTAssertFalse(model.isLoading)
-        // The overlapping caller joins the in-flight refresh instead of
-        // returning early, and observes its result when it returns.
-        let second = Task { () -> [String] in
-            await model.refresh()
-            return model.matches.map(\.id)
-        }
-        for _ in 0..<20 { await Task.yield() }
-        XCTAssertEqual(calls, 1)
-        continuation?.resume(returning: snapshot([event("fresh")]))
-        await first.value
-        let secondSaw = await second.value
-        XCTAssertEqual(calls, 1)
-        XCTAssertEqual(secondSaw, ["fresh"])
-        XCTAssertEqual(model.matches.map(\.id), ["fresh"])
-    }
-
-    func testForegroundRefreshIsBoundedButChecksImmediatelyAfterTimeAway() async {
-        var clock = now
-        var calls = 0
-        let model = MatchListViewModel(fetchSnapshot: {
-            calls += 1
-            return self.snapshot([self.event("current")], at: clock)
-        }, now: { clock })
-        await model.refreshIfNeeded()
-        XCTAssertEqual(calls, 1)
-        clock = now.addingTimeInterval(10)
-        await model.refreshIfNeeded()
-        XCTAssertEqual(calls, 1, "Cold launch and rapid scene changes share the same request")
-        clock = now.addingTimeInterval(601)
-        XCTAssertNil(model.catalogNotice(at: clock), "Age alone is silent while automatic refresh catches up")
-        XCTAssertEqual(model.lastCatalogCheck, now, "Suppressing routine copy must not invent a new receipt")
-        await model.refreshIfNeeded()
-        XCTAssertEqual(calls, 2)
-        XCTAssertEqual(model.lastCatalogCheck, clock)
-    }
-
-    func testForegroundFailurePreservesWarningAndOldReceiptUntilSuccessfulCheck() async {
-        var clock = now
-        var fails = false
-        var calls = 0
-        let model = MatchListViewModel(fetchSnapshot: {
-            calls += 1
-            if fails { throw URLError(.notConnectedToInternet) }
-            return self.snapshot([self.event("kept")], at: clock)
-        }, now: { clock })
-        await model.refreshIfNeeded()
-        clock = now.addingTimeInterval(900)
-        fails = true
-        await model.refreshIfNeeded()
-        XCTAssertTrue(model.refreshFailed)
-        XCTAssertEqual(model.lastCatalogCheck, now)
-        XCTAssertEqual(model.catalogNotice(at: clock), "Couldn't refresh. Broadcasts may have changed.")
-        await model.refreshIfNeeded()
-        XCTAssertEqual(calls, 2, "A failed refresh must not turn scene changes into a retry storm")
-        fails = false
-        clock = clock.addingTimeInterval(90)
-        await model.refreshIfNeeded()
-        XCTAssertFalse(model.refreshFailed)
-        XCTAssertNil(model.catalogNotice(at: clock))
-        XCTAssertEqual(model.lastCatalogCheck, clock)
-    }
-
-    /// The shared catalog is retired (9 Nov 2026): Home refreshes its fixture
-    /// lanes only, and a closed upstream is never shown as a refresh failure.
-    func testRetiredCatalogRefreshesFixturesWithoutReportingFailure() async {
-        var sportsCalls = 0
-        var cricketCalls = 0
-        let model = MatchListViewModel(fetchSnapshot: nil,
-            refreshCricket: { cricketCalls += 1; return nil },
-            refreshSports: { sportsCalls += 1; return nil },
-            now: { self.now })
-        await model.refresh()
-        XCTAssertEqual(sportsCalls, 1)
-        XCTAssertEqual(cricketCalls, 1)
-        XCTAssertFalse(model.refreshFailed)
-        XCTAssertNil(model.error)
-        XCTAssertNil(model.lastCatalogCheck, "No catalog receipt is invented")
-        XCTAssertNil(model.catalogNotice(at: now))
-        XCTAssertFalse(model.isRefreshing)
-    }
-
-    func testCancellationAllowsImmediateForegroundRetryAndPartialStaysOffCustomerUI() async {
-        var calls = 0
-        let model = MatchListViewModel(fetchSnapshot: {
-            calls += 1
-            if calls == 1 { throw CancellationError() }
-            return self.snapshot([self.event("kept")], partial: true)
-        }, now: { self.now })
-        model.matches = [event("cached")]
-        XCTAssertNil(model.catalogNotice(at: now), "A warm cache is not itself a user-facing error")
-        await model.refreshIfNeeded()
-        await model.refreshIfNeeded()
-        XCTAssertEqual(calls, 2)
-        XCTAssertTrue(model.isPartialCatalog, "Partial mirror coverage remains available as internal telemetry")
-        XCTAssertNil(model.catalogNotice(at: now), "A mirror miss is not proof of missing user-visible content")
-        XCTAssertEqual(Set(model.matches.map(\.id)), ["cached", "kept"])
-    }
-
-    func testRepeatedPartialReceiptsRemainSilentForCustomers() async {
-        var clock = now
-        let model = MatchListViewModel(fetchSnapshot: {
-            self.snapshot([self.event("kept")], at: clock, partial: true)
-        }, now: { clock })
-
-        await model.refresh()
-        XCTAssertNil(model.catalogNotice(at: clock))
-
-        await model.refresh()
-        XCTAssertNil(model.catalogNotice(at: clock))
-
-        clock = now.addingTimeInterval(60)
-        await model.refresh()
-        XCTAssertTrue(model.isPartialCatalog)
-        XCTAssertNil(model.catalogNotice(at: clock), "A new partial receipt must not create permanent Home furniture")
-    }
-
-    func testCancellationRejectsLateProviderAndSchedulePublication() async {
-        let began = expectation(description: "catalog request")
-        var continuation: CheckedContinuation<LiveCatalogSnapshot, Error>?
-        let model = MatchListViewModel(fetchSnapshot: {
-            try await withCheckedThrowingContinuation { continuation = $0; began.fulfill() }
-        }, now: { self.now })
-        model.matches = [event("saved")]
-        let task = Task { await model.refresh() }
-        await fulfillment(of: [began], timeout: 2)
-        task.cancel()
-        continuation?.resume(returning: snapshot([event("late")]))
-        await task.value
-        XCTAssertEqual(model.matches.map(\.id), ["saved"])
-        XCTAssertNil(model.lastCatalogCheck)
-        XCTAssertFalse(model.refreshFailed)
-        XCTAssertFalse(model.isRefreshing)
-    }
-
-    func testOlderReceiptCannotRewindAcceptedCatalog() async {
-        var next = snapshot([event("new")])
-        let model = MatchListViewModel(fetchSnapshot: { next }, now: { self.now })
-        await model.refresh()
-        next = snapshot([event("old")], at: now.addingTimeInterval(-60))
-        await model.refresh()
-        XCTAssertEqual(model.matches.map(\.id), ["new"])
-        XCTAssertEqual(model.lastCatalogCheck, now)
     }
 
     func testRainDelayedCPLSharesEightHourDiscoveryAndExpiryWindow() {

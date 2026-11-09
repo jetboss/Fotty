@@ -133,7 +133,7 @@ final class SportsContinuityBridgeTests: XCTestCase {
             var saves = 0
             var widgetWrites = 0
             let fallback = SportsContinuityBridge(defaults: gate.defaults, sync: restoredSync,
-                matchday: gate.matchday, catalog: MatchListViewModel(fetchSnapshot: { throw URLError(.notConnectedToInternet) }),
+                matchday: gate.matchday, catalog: MatchListViewModel(refreshSchedule: { nil }),
                 saveContext: { _ in saves += 1 }, publishWidget: { _ in widgetWrites += 1; return true },
                 storageAvailable: { false })
             fallback.configure(modelContext: emptyContainer.mainContext)
@@ -363,37 +363,12 @@ final class SportsContinuityBridgeTests: XCTestCase {
         XCTAssertEqual(try gate.context.fetch(FetchDescriptor<FollowedTeamItem>()).first?.teamName, "Chelsea")
     }
 
-    private static func stamp(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
-
-    /// A verified sports schedule with one NBA match, checked at `checkedAt`.
-    private static func sportsSchedule(kickoff: Date, checkedAt: Date,
-                                       status: SportsFixtureCatalog.SourceStatus = .verified) -> SportsFixtureCatalog.Snapshot {
-        let fixture = SportsFixtureCatalog.Fixture(id: "sports-fixture:nba:continuity", sport: "basketball",
-            start: stamp(kickoff), status: .scheduled, eventKind: .match, title: "Boston Celtics vs New York Knicks",
-            competitionId: "nba", competitionName: "NBA",
-            participants: [.init(id: "boston", name: "Boston Celtics"), .init(id: "new-york", name: "New York Knicks")],
-            squad: .init(gender: .men, ageGroup: "senior"),
-            source: .init(name: "Official schedule", url: "https://www.espn.com/nba/schedule",
-                          observedAt: stamp(checkedAt), verification: nil))
-        let coverage = SportsFixtureCatalog.Coverage(sport: "basketball", competitionId: "nba", competitionName: "NBA",
-            status: .covered, checkedAt: stamp(checkedAt), fixtureCount: 1, pendingFixtureCount: 0, nextStart: nil)
-        return .init(schemaVersion: 1, complete: true, checkedAt: stamp(checkedAt), revision: "continuity-1",
-                     sourceStatus: status, fixtures: [fixture], coverage: [coverage])
-    }
-
-    private static func cricketSchedule(checkedAt: Date,
-                                        status: CricketFixtureCatalog.SourceStatus = .verified) -> CricketFixtureCatalog.Snapshot {
-        .init(schemaVersion: 1, complete: true, checkedAt: stamp(checkedAt), revision: "continuity-1",
-              sourceStatus: status, fixtures: [], coverage: [])
-    }
-
     /// Since the shared catalog closed (27 Oct 2026), a synced plan is confirmed
     /// against the current schedule that covers its sport.
     func testPendingPlanSurvivesRelaunchAndImportsOnlyAfterCurrentSchedule() async throws {
-        // Whole seconds: ISO 8601 receipts carry no fractional part.
-        let now = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
-        let schedule = Self.sportsSchedule(kickoff: now.addingTimeInterval(3600), checkedAt: now)
-        let source = MatchListViewModel(fetchSnapshot: nil, refreshSports: { schedule }, now: { now })
+        let now = ScheduleTestFixtures.wholeSecond()
+        let schedule = ScheduleTestFixtures.sports(kickoff: now.addingTimeInterval(3600), checkedAt: now)
+        let source = MatchListViewModel(refreshSports: { schedule }, now: { now })
         await source.refresh()
         let event = try XCTUnwrap(source.playbackCatalog.first { $0.sportsFixture != nil })
         let gate = try makeGate()
@@ -405,7 +380,7 @@ final class SportsContinuityBridgeTests: XCTestCase {
 
         let restoredSync = SportsPreferenceSyncStore(defaults: gate.defaults, client: gate.cloud, originStore: gate.originStore)
         let restoredPlans = MyMatchdayStore(defaults: gate.defaults)
-        let catalog = MatchListViewModel(fetchSnapshot: nil, refreshSports: { schedule }, now: { now },
+        let catalog = MatchListViewModel(refreshSports: { schedule }, now: { now },
                                          matchdayStore: restoredPlans)
         let relaunched = SportsContinuityBridge(defaults: gate.defaults, sync: restoredSync, matchday: restoredPlans,
             catalog: catalog, clock: { now }, publishWidget: { _ in true }, storageAvailable: { true })
@@ -421,14 +396,13 @@ final class SportsContinuityBridgeTests: XCTestCase {
     }
 
     func testScheduleReceiptUsesTheCoveringScheduleAndRequiresCurrentVerification() async {
-        // Whole seconds: ISO 8601 receipts carry no fractional part.
-        let now = Date(timeIntervalSince1970: Date().timeIntervalSince1970.rounded(.down))
+        let now = ScheduleTestFixtures.wholeSecond()
         func model(sports: SportsFixtureCatalog.Snapshot? = nil, cricket: CricketFixtureCatalog.Snapshot? = nil) async -> MatchListViewModel {
-            let model = MatchListViewModel(fetchSnapshot: nil, refreshCricket: { cricket }, refreshSports: { sports }, now: { now })
+            let model = MatchListViewModel(refreshCricket: { cricket }, refreshSports: { sports }, now: { now })
             await model.refresh()
             return model
         }
-        let current = await model(sports: Self.sportsSchedule(kickoff: now.addingTimeInterval(3600), checkedAt: now))
+        let current = await model(sports: ScheduleTestFixtures.sports(kickoff: now.addingTimeInterval(3600), checkedAt: now))
         XCTAssertNotNil(current.scheduleReceipt(category: "basketball", matchID: "any", at: now))
         XCTAssertNil(current.scheduleReceipt(category: "cricket", matchID: "any", at: now),
                      "Cricket is confirmed only by the cricket schedule")
@@ -437,14 +411,14 @@ final class SportsContinuityBridgeTests: XCTestCase {
         XCTAssertNil(current.scheduleReceipt(category: "basketball", matchID: "any",
             at: now.addingTimeInterval(ScheduleReceiptPolicy.freshness + 1)), "A stale schedule cannot confirm")
 
-        let unverified = await model(sports: Self.sportsSchedule(kickoff: now.addingTimeInterval(3600), checkedAt: now,
+        let unverified = await model(sports: ScheduleTestFixtures.sports(kickoff: now.addingTimeInterval(3600), checkedAt: now,
                                                                  status: .lastKnownGood))
         XCTAssertNil(unverified.scheduleReceipt(category: "basketball", matchID: "any", at: now))
 
-        let cricket = await model(cricket: Self.cricketSchedule(checkedAt: now))
+        let cricket = await model(cricket: ScheduleTestFixtures.cricket(checkedAt: now))
         XCTAssertNotNil(cricket.scheduleReceipt(category: "cricket", matchID: "any", at: now))
         XCTAssertNil(cricket.scheduleReceipt(category: "football", matchID: "any", at: now))
-        XCTAssertNil(MatchListViewModel(fetchSnapshot: nil, now: { now })
+        XCTAssertNil(MatchListViewModel(now: { now })
             .scheduleReceipt(category: "football", matchID: "any", at: now), "No schedule, no receipt")
     }
 
@@ -461,7 +435,7 @@ final class SportsContinuityBridgeTests: XCTestCase {
 
         let restoredSync = SportsPreferenceSyncStore(defaults: gate.defaults, client: gate.cloud, originStore: gate.originStore)
         let relaunched = SportsContinuityBridge(defaults: gate.defaults, sync: restoredSync,
-            matchday: gate.matchday, catalog: MatchListViewModel(fetchSnapshot: { throw URLError(.notConnectedToInternet) }),
+            matchday: gate.matchday, catalog: MatchListViewModel(refreshSchedule: { nil }),
             publishWidget: { _ in true }, storageAvailable: { true })
         relaunched.configure(modelContext: gate.context)
         XCTAssertTrue(try gate.context.fetch(FetchDescriptor<FollowedTeamItem>()).isEmpty)
@@ -621,7 +595,7 @@ final class SportsContinuityBridgeTests: XCTestCase {
         else { gate.matchday = MyMatchdayStore(defaults: defaults) }
         for event in initialSavedMatches { XCTAssertEqual(gate.matchday.save(event), .saved) }
         gate.bridge = SportsContinuityBridge(defaults: defaults, sync: gate.sync, matchday: gate.matchday,
-            catalog: MatchListViewModel(fetchSnapshot: { throw URLError(.notConnectedToInternet) }),
+            catalog: MatchListViewModel(refreshSchedule: { nil }),
             saveContext: save, publishWidget: { [weak gate] snapshot in
                 guard gate?.widgetWritesAllowed == true else { return false }
                 guard snapshot.validatedData() != nil else { return false }

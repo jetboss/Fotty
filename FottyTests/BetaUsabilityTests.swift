@@ -2745,7 +2745,7 @@ final class HomeDiscoveryTests: XCTestCase {
     }
 
     func testHomeSportSelectionRevalidatesSameCountCatalogReplacement() {
-        let model = MatchListViewModel(fetchSnapshot: { throw URLError(.cancelled) })
+        let model = MatchListViewModel(refreshSchedule: { nil })
         model.matches = [event("hockey", sport: "hockey"), event("cricket", sport: "cricket")]
         let oldCount = model.matches.count
         let oldSports = model.sportsTabs

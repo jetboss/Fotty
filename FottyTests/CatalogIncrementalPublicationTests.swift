@@ -27,13 +27,6 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
         }
     }
 
-    private func provider() -> LiveCatalogSnapshot {
-        .init(events: [.init(id: "fast", title: "Arsenal vs Chelsea", category: "football",
-              date: Int64(now.timeIntervalSince1970), poster: nil, popular: true, teams: nil,
-              sources: [.init(source: "delta", id: "fast")])], checkedAt: now,
-              source: "controlled", respondingFeeds: 1, attemptedFeeds: 1, isPartial: false)
-    }
-
     private func stamp(_ date: Date) -> String {
         ISO8601DateFormatter().string(from: date)
     }
@@ -74,187 +67,10 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
                 fixtureCount: fixtures.count, pendingFixtureCount: 0, nextStart: nil)])
     }
 
-    func testAlreadyCompletedFixtureLanesJoinFirstProviderPublicationOnce() async {
-        let delayedProvider = Gate<LiveCatalogSnapshot>()
-        let fixtureFinished = XCTestExpectation(description: "all fixture lanes completed")
-        fixtureFinished.expectedFulfillmentCount = 3
-        let cpl = cplSnapshot(), cricket = cricketSnapshot(), sports = sportsSnapshot()
-        let model = MatchListViewModel(fetchSnapshot: { await delayedProvider.wait() },
-            refreshSchedule: { fixtureFinished.fulfill(); return cpl },
-            refreshCricket: { fixtureFinished.fulfill(); return cricket },
-            refreshSports: { fixtureFinished.fulfill(); return sports }, now: { self.now })
-        let owner = Task { await model.refresh() }
-        await fulfillment(of: [delayedProvider.entered, fixtureFinished], timeout: 2)
-        XCTAssertTrue(model.matches.isEmpty, "Fixture evidence awaits a non-cancelled provider outcome")
-        delayedProvider.release(provider())
-        await owner.value
-        XCTAssertEqual(model.contentRevision, 1, "Already completed receipts require one merged publication, not four")
-        XCTAssertEqual(Set(model.matches.map(\.id)), ["fast", cpl.fixtures[0].id,
-            "cricket-fixture:controlled-cricket", sports.fixtures[0].id])
-        XCTAssertEqual(model.cplScheduleCheckedAt, cpl.checkedAt)
-        XCTAssertEqual(model.cricketFixtureSnapshot, cricket)
-        XCTAssertEqual(model.sportsFixtureSnapshot, sports)
-        XCTAssertTrue(model.matches.filter { $0.id != "fast" }.allSatisfy { $0.sources?.isEmpty != false })
-    }
-
-    func testUnchangedFixtureReceiptsDoNotRepublishAcceptedProvider() async {
-        var cplGate = Gate<CPLSchedule.Snapshot?>()
-        var cricketGate = Gate<CricketFixtureCatalog.Snapshot?>()
-        var sportsGate = Gate<SportsFixtureCatalog.Snapshot?>()
-        let cpl = cplSnapshot(), cricket = cricketSnapshot(), sports = sportsSnapshot()
-        cplGate.release(cpl); cricketGate.release(cricket); sportsGate.release(sports)
-        let model = MatchListViewModel(fetchSnapshot: { self.provider() },
-            refreshSchedule: { await cplGate.wait() }, refreshCricket: { await cricketGate.wait() },
-            refreshSports: { await sportsGate.wait() }, now: { self.now })
-        await model.refresh()
-        let before = model.contentRevision
-        cplGate = Gate(); cricketGate = Gate(); sportsGate = Gate()
-        let published = XCTestExpectation(description: "fresh provider published")
-        withObservationTracking { _ = model.matches } onChange: { published.fulfill() }
-        let owner = Task { await model.refresh() }
-        await fulfillment(of: [published, cplGate.entered, cricketGate.entered, sportsGate.entered], timeout: 2)
-        XCTAssertEqual(model.contentRevision, before + 1)
-        cplGate.release(cpl); cricketGate.release(cricket); sportsGate.release(sports)
-        await owner.value
-        XCTAssertEqual(model.contentRevision, before + 1, "Receipt replay must not repeat merge, cache write and UI projection")
-        XCTAssertEqual(model.cricketFixtureSnapshot, cricket)
-        XCTAssertEqual(model.sportsFixtureSnapshot, sports)
-    }
-
-    func testRejectedFixtureReceiptsDoNotRepublishAcceptedProvider() async {
-        var cplGate = Gate<CPLSchedule.Snapshot?>()
-        var cricketGate = Gate<CricketFixtureCatalog.Snapshot?>()
-        var sportsGate = Gate<SportsFixtureCatalog.Snapshot?>()
-        let cpl = cplSnapshot(), cricket = cricketSnapshot(), sports = sportsSnapshot()
-        cplGate.release(cpl); cricketGate.release(cricket); sportsGate.release(sports)
-        let model = MatchListViewModel(fetchSnapshot: { self.provider() },
-            refreshSchedule: { await cplGate.wait() }, refreshCricket: { await cricketGate.wait() },
-            refreshSports: { await sportsGate.wait() }, now: { self.now })
-        await model.refresh()
-        let before = model.contentRevision
-        cplGate = Gate(); cricketGate = Gate(); sportsGate = Gate()
-        let published = XCTestExpectation(description: "fresh provider published")
-        withObservationTracking { _ = model.matches } onChange: { published.fulfill() }
-        let owner = Task { await model.refresh() }
-        await fulfillment(of: [published, cplGate.entered, cricketGate.entered, sportsGate.entered], timeout: 2)
-        let older = now.addingTimeInterval(-60)
-        cplGate.release(cplSnapshot(receipt: older, hours: 2))
-        cricketGate.release(cricketSnapshot(receipt: older, status: .live))
-        // An explicitly unavailable envelope cannot advance the accepted sports receipt.
-        sportsGate.release(.init(schemaVersion: sports.schemaVersion, complete: sports.complete,
-            checkedAt: stamp(older), revision: "rejected", sourceStatus: .unavailable,
-            fixtures: sports.fixtures, coverage: sports.coverage))
-        await owner.value
-        XCTAssertEqual(model.contentRevision, before + 1)
-        XCTAssertEqual(model.cplScheduleCheckedAt, cpl.checkedAt)
-        XCTAssertEqual(model.cricketFixtureSnapshot, cricket)
-        XCTAssertEqual(model.sportsFixtureSnapshot, sports)
-    }
-
-    func testNewerReceiptWithSameCPLFactsStillPublishes() async {
-        var gate = Gate<CPLSchedule.Snapshot?>()
-        gate.release(cplSnapshot())
-        let model = MatchListViewModel(fetchSnapshot: { self.provider() },
-            refreshSchedule: { await gate.wait() }, now: { self.now })
-        await model.refresh()
-        let before = model.contentRevision
-        gate = Gate()
-        let published = XCTestExpectation(description: "fresh provider published")
-        withObservationTracking { _ = model.matches } onChange: { published.fulfill() }
-        let owner = Task { await model.refresh() }
-        await fulfillment(of: [published, gate.entered], timeout: 2)
-        let next = now.addingTimeInterval(60)
-        gate.release(cplSnapshot(receipt: next))
-        await owner.value
-        XCTAssertEqual(model.contentRevision, before + 2)
-        XCTAssertEqual(model.cplScheduleCheckedAt, next)
-        XCTAssertEqual(model.matches.first { $0.isCPLFixture }?.kickoffDate, now.addingTimeInterval(3600))
-    }
-
-    func testChangedSameIDFixtureFactsPublishEvenWithSameRevision() async {
-        var cplGate = Gate<CPLSchedule.Snapshot?>()
-        var cricketGate = Gate<CricketFixtureCatalog.Snapshot?>()
-        var sportsGate = Gate<SportsFixtureCatalog.Snapshot?>()
-        cplGate.release(cplSnapshot()); cricketGate.release(cricketSnapshot()); sportsGate.release(sportsSnapshot())
-        let model = MatchListViewModel(fetchSnapshot: { self.provider() },
-            refreshSchedule: { await cplGate.wait() }, refreshCricket: { await cricketGate.wait() },
-            refreshSports: { await sportsGate.wait() }, now: { self.now })
-        await model.refresh()
-        let before = model.contentRevision
-        cplGate = Gate(); cricketGate = Gate(); sportsGate = Gate()
-        let published = XCTestExpectation(description: "fresh provider published")
-        withObservationTracking { _ = model.matches } onChange: { published.fulfill() }
-        let owner = Task { await model.refresh() }
-        await fulfillment(of: [published, cplGate.entered, cricketGate.entered, sportsGate.entered], timeout: 2)
-        let next = now.addingTimeInterval(60)
-        cplGate.release(cplSnapshot(receipt: next, hours: 2))
-        cricketGate.release(cricketSnapshot(receipt: next, status: .live))
-        sportsGate.release(sportsSnapshot(receipt: next, status: .live))
-        await owner.value
-        XCTAssertEqual(model.contentRevision, before + 4, "Provider and each independently changed lane remain publishable")
-        XCTAssertEqual(model.matches.first { $0.isCPLFixture }?.kickoffDate, now.addingTimeInterval(7200))
-        XCTAssertEqual(model.matches.first { $0.cricketFixture != nil }?.cricketFixture?.status, .live)
-        XCTAssertEqual(model.matches.first { $0.sportsFixture != nil }?.sportsFixture?.status, .live)
-    }
-
-    func testChangedCoverageDemotesFactsWithoutRenewingIndependentReceipt() async {
-        var gate = Gate<SportsFixtureCatalog.Snapshot?>()
-        let initial = sportsSnapshot()
-        gate.release(initial)
-        let model = MatchListViewModel(fetchSnapshot: { self.provider() },
-            refreshSports: { await gate.wait() }, now: { self.now })
-        await model.refresh()
-        let before = model.contentRevision
-        gate = Gate()
-        let published = XCTestExpectation(description: "fresh provider published")
-        withObservationTracking { _ = model.matches } onChange: { published.fulfill() }
-        let owner = Task { await model.refresh() }
-        await fulfillment(of: [published, gate.entered], timeout: 2)
-        gate.release(sportsSnapshot(receipt: now.addingTimeInterval(60), unavailable: true))
-        await owner.value
-        XCTAssertEqual(model.contentRevision, before + 2)
-        XCTAssertEqual(model.sportsFixtureSnapshot?.coverage.first?.status, .unavailable)
-        XCTAssertEqual(model.sportsFixtureSnapshot?.coverage.first?.checkedAt, initial.coverage.first?.checkedAt)
-        XCTAssertEqual(model.sportsFixtureSnapshot?.fixtures.first?.source.observedAt, initial.fixtures.first?.source.observedAt)
-        XCTAssertFalse(model.matches.first { $0.sportsFixture != nil }?.sportsFixture?.verified ?? true)
-    }
-
-    func testProviderPublishesBeforeSlowFixtureLaneFinishes() async {
-        let slow = Gate<CPLSchedule.Snapshot?>()
-        let model = MatchListViewModel(fetchSnapshot: { self.provider() }, refreshSchedule: { await slow.wait() }, now: { self.now })
-        let published = XCTestExpectation(description: "provider published")
-        withObservationTracking { _ = model.matches } onChange: { published.fulfill() }
-        let owner = Task { await model.refresh() }
-        await fulfillment(of: [slow.entered, published], timeout: 2)
-        XCTAssertEqual(model.matches.map(\.id), ["fast"])
-        XCTAssertEqual(model.lastCatalogCheck, now)
-        XCTAssertFalse(model.isLoading)
-        XCTAssertTrue(model.isRefreshing, "Refresh ownership remains coalesced while fixtures finish")
-        slow.release(nil)
-        await owner.value
-        XCTAssertFalse(model.isRefreshing)
-    }
-
-    func testCancellationCannotAcceptLateFixtureReceipt() async {
-        let slow = Gate<CPLSchedule.Snapshot?>()
-        let model = MatchListViewModel(fetchSnapshot: { self.provider() }, refreshSchedule: { await slow.wait() }, now: { self.now })
-        let published = XCTestExpectation(description: "provider published")
-        withObservationTracking { _ = model.matches } onChange: { published.fulfill() }
-        let owner = Task { await model.refresh() }
-        await fulfillment(of: [slow.entered, published], timeout: 2)
-        owner.cancel()
-        slow.release(.init(revision: "late", checkedAt: now, fixtures: CPLSchedule.fixtures, sourceStatus: .verified))
-        await owner.value
-        XCTAssertEqual(model.matches.map(\.id), ["fast"])
-        XCTAssertNil(model.cplScheduleCheckedAt)
-        XCTAssertFalse(model.isRefreshing)
-    }
-
-    func testIndependentFixturePublishesAfterProviderFailureWithoutWaitingForOtherLanes() async {
+    func testIndependentScheduleLanePublishesWithoutWaitingForOtherLanes() async {
         let slow = Gate<SportsFixtureCatalog.Snapshot?>()
         let fixture = CPLSchedule.Fixture(1, ISO8601DateFormatter().string(from: now.addingTimeInterval(3600)), .trinbago, .guyana)
-        let model = MatchListViewModel(fetchSnapshot: { throw URLError(.notConnectedToInternet) },
-            refreshSchedule: { .init(revision: "independent", checkedAt: self.now, fixtures: [fixture], sourceStatus: .verified) },
+        let model = MatchListViewModel(refreshSchedule: { .init(revision: "independent", checkedAt: self.now, fixtures: [fixture], sourceStatus: .verified) },
             refreshSports: { await slow.wait() }, now: { self.now })
         let published = XCTestExpectation(description: "independent fixture published")
         withObservationTracking { _ = model.matches } onChange: { published.fulfill() }
@@ -264,15 +80,13 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
         XCTAssertTrue(model.matches.allSatisfy { $0.sources?.isEmpty != false })
         XCTAssertFalse(model.isLoading)
         XCTAssertTrue(model.isRefreshing)
-        XCTAssertTrue(model.refreshFailed)
-        XCTAssertNil(model.lastCatalogCheck)
         slow.release(nil)
         await owner.value
     }
 
     /// Offline outage drill across the real VM/fixture/action/index policies.
     /// A bound candidate is metadata evidence here, never decoded playback.
-    func testPrimaryOutageRetainsOfficialPremierLeagueDiscoveryThroughFoundAndExpiredCandidates() async throws {
+    func testOfficialPremierLeagueDiscoveryThroughFoundAndExpiredCandidates() async throws {
         var clock = now
         let checked = stamp(now)
         let fixture = SportsFixtureCatalog.Fixture(id: "sports-fixture:premier-league:outage-drill",
@@ -288,11 +102,8 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
             coverage: [.init(sport: "football", competitionId: "premier-league", competitionName: "Premier League",
                 status: .covered, checkedAt: checked, fixtureCount: 1, pendingFixtureCount: 0, nextStart: nil)])
         let accepted = try SportsFixtureCatalog.validatedSnapshot(from: JSONEncoder().encode(supplied), now: now)
-        var primaryFetches = 0, fixtureFetches = 0
-        let model = MatchListViewModel(fetchSnapshot: {
-            primaryFetches += 1
-            throw URLError(.badServerResponse)
-        }, refreshSports: {
+        var fixtureFetches = 0
+        let model = MatchListViewModel(refreshSports: {
             fixtureFetches += 1
             return fixtureFetches == 1 ? accepted : nil
         }, now: { clock })
@@ -302,10 +113,7 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
         XCTAssertEqual(event.sportsFixture?.status, .live)
         XCTAssertTrue(event.sportsFixture?.verified == true)
         XCTAssertTrue(event.sources?.isEmpty != false)
-        XCTAssertTrue(model.refreshFailed)
-        XCTAssertNil(model.lastCatalogCheck)
         XCTAssertFalse(model.isLoading)
-        XCTAssertNil(model.error, "The primary outage must not hide an accepted independent fixture behind an empty error screen")
 
         let index = FixtureStreamDiscoveryIndex()
         let enabled: Set<String> = ["plaviosports", "communitysports"]
@@ -345,15 +153,13 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
         XCTAssertTrue(recheck.previouslyFound)
         XCTAssertEqual(recheck.currentCandidateCount, 0)
 
-        // Neither a repeated failed primary fetch nor a temporarily absent
-        // official response authorizes clearing the already accepted snapshot.
+        // A temporarily absent official response does not clear the
+        // already accepted snapshot.
         await model.refresh()
         let retained = try XCTUnwrap(model.playbackCatalog.first { $0.id == fixture.id })
-        XCTAssertEqual(primaryFetches, 2)
         XCTAssertEqual(fixtureFetches, 2)
         XCTAssertEqual(model.sportsFixtureSnapshot, accepted)
         XCTAssertEqual(retained.sportsFixture, event.sportsFixture)
-        XCTAssertTrue(model.identityConflicts.isEmpty)
         XCTAssertTrue(retained.sources?.isEmpty != false)
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: retained, in: model.playbackCatalog,
             enabledProviderCodes: enabled, at: clock))
@@ -368,24 +174,6 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
         XCTAssertNil(index.cachedSessions(for: request, providerCode: "communitysports", at: clock))
     }
 
-    func testProviderCancellationDoesNotAuthorizeAlreadyCompletedFixtures() async {
-        let delayedProvider = Gate<LiveCatalogSnapshot>()
-        let fixtureFinished = XCTestExpectation(description: "fixture completed")
-        let model = MatchListViewModel(fetchSnapshot: {
-            _ = await delayedProvider.wait()
-            throw CancellationError()
-        }, refreshSchedule: {
-            fixtureFinished.fulfill()
-            return .init(revision: "queued", checkedAt: self.now, fixtures: CPLSchedule.fixtures, sourceStatus: .verified)
-        }, now: { self.now })
-        let owner = Task { await model.refresh() }
-        await fulfillment(of: [delayedProvider.entered, fixtureFinished], timeout: 2)
-        delayedProvider.release(provider())
-        await owner.value
-        XCTAssertTrue(model.matches.isEmpty)
-        XCTAssertNil(model.cplScheduleCheckedAt)
-        XCTAssertFalse(model.refreshFailed)
-    }
 }
 
 // Full fixture owner + real shared collector/index, with bounded fake source
@@ -407,8 +195,7 @@ extension CatalogIncrementalPublicationTests {
     func testSharedCatalogStartsQueuedSourcesUsingTheirActualAdvancingClock() async {
         let initial = now, sports = sportsSnapshot(), clock = AdvancingCatalogClock(now)
         let definitions = CuratedStreamSourceCatalog.all.filter { $0.provider != .reviewedTV }
-        let model = MatchListViewModel(fetchSnapshot: { throw URLError(.cannotLoadFromNetwork) },
-            refreshSports: { sports }, now: { initial })
+        let model = MatchListViewModel(refreshSports: { sports }, now: { initial })
         await model.refresh()
         let requests = model.sourceCatalogRequests(at: initial)
         let index = FixtureCatalogAvailabilityIndex(), calls = SourceCatalogCallRecorder()
@@ -432,12 +219,10 @@ extension CatalogIncrementalPublicationTests {
         let definitions = CuratedStreamSourceCatalog.all.filter { $0.provider != .reviewedTV }
         let sports = sportsSnapshot(hours: -1.0 / 60)
         let cricket = cricketSnapshot()
-        let model = MatchListViewModel(fetchSnapshot: { throw URLError(.cannotLoadFromNetwork) },
-            refreshCricket: { cricket }, refreshSports: { sports }, now: { clock })
+        let model = MatchListViewModel(refreshCricket: { cricket }, refreshSports: { sports }, now: { clock })
         await model.refresh()
         let requests = model.sourceCatalogRequests(at: clock)
         XCTAssertEqual(requests.count, 2)
-        XCTAssertTrue(model.refreshFailed)
         let index = FixtureCatalogAvailabilityIndex()
         index.updateEnabledProviders(Set(definitions.map(\.providerCode)), revision: 1)
         let calls = SourceCatalogCallRecorder()
@@ -455,9 +240,6 @@ extension CatalogIncrementalPublicationTests {
         let event = requests.first { $0.category == "basketball" }!.preferredEvent!
         let summary = index.summary(for: StreamPlaybackRequest(event: event), at: clock)
         XCTAssertEqual(summary?.listedProviderCount, 6)
-        XCTAssertEqual(summary?.providers.first { $0.providerCode == "streamex" }?.outcome, .failed(.manifestUnreachable))
-        XCTAssertNil(model.catalogNotice(at: clock, availabilityIndex: index),
-            "One failed primary cannot produce a whole-catalog warning while enabled sibling catalogs respond")
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: event, in: model.playbackAdmissionCatalog,
             at: clock, discoveryIndex: FixtureStreamDiscoveryIndex()))
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: event, in: model.playbackAdmissionCatalog,
@@ -473,8 +255,7 @@ extension CatalogIncrementalPublicationTests {
     func testSharedCatalogCancellationDoesNotSpendBudgetForNeverStartedSources() async {
         let clock = now
         let sports = sportsSnapshot()
-        let model = MatchListViewModel(fetchSnapshot: { throw URLError(.cannotLoadFromNetwork) },
-            refreshSports: { sports }, now: { clock })
+        let model = MatchListViewModel(refreshSports: { sports }, now: { clock })
         await model.refresh()
         let requests = model.sourceCatalogRequests(at: clock)
         let index = FixtureCatalogAvailabilityIndex()
@@ -500,8 +281,7 @@ extension CatalogIncrementalPublicationTests {
     func testSharedCatalogFutureListingUsesOfficialScheduleWithoutEnablingWatch() async {
         let clock = now
         let sports = sportsSnapshot(hours: 7 * 24)
-        let model = MatchListViewModel(fetchSnapshot: { throw URLError(.cannotLoadFromNetwork) },
-            refreshSports: { sports }, now: { clock })
+        let model = MatchListViewModel(refreshSports: { sports }, now: { clock })
         await model.refresh()
         let requests = model.sourceCatalogRequests(at: clock)
         XCTAssertEqual(requests.count, 1, "The shared catalog includes next-week planning beyond Home's compact window")
@@ -531,8 +311,7 @@ extension CatalogIncrementalPublicationTests {
     func testCloudListingReplacesDuplicateLocalFetchAndSuppressesPrimaryNoticeOnlyUntilSourceExpiry() async throws {
         let clock = now, event = exactListingFixture(), request = StreamPlaybackRequest(event: event)
         let snapshot = cloudCatalogSnapshot(for: request, expiry: clock.addingTimeInterval(30))
-        let lane = try XCTUnwrap(FixtureSourceCatalogCollector.lanes(primaryMatches: [],
-            primaryFailure: .manifestUnreachable, registrySnapshot: snapshot, requests: [request], at: clock)
+        let lane = try XCTUnwrap(FixtureSourceCatalogCollector.lanes(registrySnapshot: snapshot, requests: [request], at: clock)
             .first { $0.providerCode == "communitysports" })
         XCTAssertEqual(lane.origin, .cloud, "The existing ticket must import cloud facts without fetching its local adapter")
         let imported = try await lane.load([request], clock)
@@ -543,13 +322,9 @@ extension CatalogIncrementalPublicationTests {
         index.updateEnabledProviders(["communitysports"], revision: 1)
         await FixtureSourceCatalogCollector.refresh(requests: [request], lanes: [lane], index: index,
             at: clock, clock: { clock })
-        let model = MatchListViewModel(fetchSnapshot: { throw URLError(.cannotLoadFromNetwork) },
-            refreshSchedule: { nil }, refreshCricket: { nil }, refreshSports: { nil }, now: { clock })
+        let model = MatchListViewModel(refreshSchedule: { nil }, refreshCricket: { nil }, refreshSports: { nil }, now: { clock })
         await model.refresh()
-        XCTAssertTrue(model.refreshFailed, "A backup does not rewrite the failed primary receipt")
-        XCTAssertNil(model.catalogNotice(at: clock, displaying: [event], availabilityIndex: index))
         XCTAssertEqual(index.summary(for: request, at: clock)?.listedProviderCount, 1)
-        XCTAssertNotNil(model.catalogNotice(at: clock.addingTimeInterval(30), displaying: [event], availabilityIndex: index))
         XCTAssertEqual(index.summary(for: request, at: clock.addingTimeInterval(30))?.listedProviderCount, 0)
         let later = clock.addingTimeInterval(FixtureCatalogAvailabilityIndex.minimumRefreshInterval + 1)
         let ticket = try XCTUnwrap(index.begin(providerCode: "communitysports", at: later))
@@ -561,8 +336,7 @@ extension CatalogIncrementalPublicationTests {
     func testCloudCompleteEmptyCatalogProvesOnlyItsCurrentOfficialScope() async throws {
         let clock = now, request = StreamPlaybackRequest(event: exactListingFixture())
         let snapshot = cloudCatalogSnapshot(for: request, status: .empty, includesBroadcast: false)
-        let lane = try XCTUnwrap(FixtureSourceCatalogCollector.lanes(primaryMatches: [], primaryFailure: nil,
-            registrySnapshot: snapshot, requests: [request], at: clock).first { $0.providerCode == "communitysports" })
+        let lane = try XCTUnwrap(FixtureSourceCatalogCollector.lanes(registrySnapshot: snapshot, requests: [request], at: clock).first { $0.providerCode == "communitysports" })
         XCTAssertEqual(lane.origin, .cloud)
         let emptyRows = try await lane.load([request], clock)
         XCTAssertEqual(emptyRows.first?.outcome, .notListed)
@@ -574,8 +348,7 @@ extension CatalogIncrementalPublicationTests {
             "An explicitly complete empty catalog is a checked listing, never a playback claim")
         XCTAssertEqual(index.summary(for: request, at: clock)?.listedProviderCount, 0)
         let wrongScope = cloudCatalogSnapshot(for: request, scope: "cricket", status: .empty, includesBroadcast: false)
-        XCTAssertEqual(FixtureSourceCatalogCollector.lanes(primaryMatches: [], primaryFailure: nil,
-            registrySnapshot: wrongScope, requests: [request], at: clock)
+        XCTAssertEqual(FixtureSourceCatalogCollector.lanes(registrySnapshot: wrongScope, requests: [request], at: clock)
             .first { $0.providerCode == "communitysports" }?.origin, .local)
     }
 
@@ -583,8 +356,7 @@ extension CatalogIncrementalPublicationTests {
         let clock = now, request = StreamPlaybackRequest(event: exactListingFixture())
         for variant in ["conflicting", "needs-verification", "wrong-fingerprint", "channel"] {
             let snapshot = cloudCatalogSnapshot(for: request, variant: variant)
-            let lane = try XCTUnwrap(FixtureSourceCatalogCollector.lanes(primaryMatches: [], primaryFailure: nil,
-                registrySnapshot: snapshot, requests: [request], at: clock).first { $0.providerCode == "communitysports" })
+            let lane = try XCTUnwrap(FixtureSourceCatalogCollector.lanes(registrySnapshot: snapshot, requests: [request], at: clock).first { $0.providerCode == "communitysports" })
             let rows = try await lane.load([request], clock)
             XCTAssertNotEqual(rows.first?.outcome, .listed, variant)
             XCTAssertNotEqual(rows.first?.outcome, .notListed, variant)
@@ -600,8 +372,7 @@ extension CatalogIncrementalPublicationTests {
         let clock = now, request = StreamPlaybackRequest(event: exactListingFixture())
         let snapshot = cloudCatalogSnapshot(for: request,
             generatedAt: clock.addingTimeInterval(-BroadcastRegistrySnapshot.networkFreshness + 20))
-        let lane = try XCTUnwrap(FixtureSourceCatalogCollector.lanes(primaryMatches: [], primaryFailure: nil,
-            registrySnapshot: snapshot, requests: [request], at: clock).first { $0.providerCode == "communitysports" })
+        let lane = try XCTUnwrap(FixtureSourceCatalogCollector.lanes(registrySnapshot: snapshot, requests: [request], at: clock).first { $0.providerCode == "communitysports" })
         let rows = try await lane.load([request], clock)
         XCTAssertEqual(rows.first?.evidenceValidUntil, clock.addingTimeInterval(20))
         let index = FixtureCatalogAvailabilityIndex()
@@ -610,8 +381,7 @@ extension CatalogIncrementalPublicationTests {
             at: clock, clock: { clock })
         XCTAssertTrue(index.hasRecentSuccessfulCatalogEvaluation(for: [request], at: clock))
         XCTAssertFalse(index.hasRecentSuccessfulCatalogEvaluation(for: [request], at: clock.addingTimeInterval(20)))
-        XCTAssertEqual(FixtureSourceCatalogCollector.lanes(primaryMatches: [], primaryFailure: nil,
-            registrySnapshot: snapshot, requests: [request], at: clock.addingTimeInterval(20))
+        XCTAssertEqual(FixtureSourceCatalogCollector.lanes(registrySnapshot: snapshot, requests: [request], at: clock.addingTimeInterval(20))
             .first { $0.providerCode == "communitysports" }?.origin, .local,
             "An old envelope restores bounded local fallback")
         let disabled = FixtureCatalogAvailabilityIndex()
@@ -628,8 +398,7 @@ extension CatalogIncrementalPublicationTests {
         let snapshot = BroadcastRegistrySnapshot(schemaVersion: 1, revision: "old-cloud-cohort", generatedAt: clock,
             providers: [.init(providerCode: "communitysports", scope: "football", status: .available, complete: true,
                 observedAt: old, expiresAt: clock.addingTimeInterval(600))], broadcasts: [], links: [])
-        XCTAssertEqual(FixtureSourceCatalogCollector.lanes(primaryMatches: [], primaryFailure: nil,
-            registrySnapshot: snapshot, requests: [request], at: clock)
+        XCTAssertEqual(FixtureSourceCatalogCollector.lanes(registrySnapshot: snapshot, requests: [request], at: clock)
             .first { $0.providerCode == "communitysports" }?.origin, .local)
     }
 
@@ -854,24 +623,4 @@ extension CatalogIncrementalPublicationTests {
             sources: [], sportsFixture: metadata)
     }
 
-    func testSharedPrimaryEvidenceDoesNotRefreshAnOmittedRetainedPartialRow() async {
-        var clock = now, phase = 0
-        let original = EventReference(id: "provider-celtics", title: "Boston Celtics vs New York Knicks", category: "NBA",
-            date: Int64(now.addingTimeInterval(3600).timeIntervalSince1970), poster: nil, popular: false, teams: nil,
-            sources: [.init(source: "delta", id: "provider-stream")])
-        let sports = sportsSnapshot()
-        let model = MatchListViewModel(fetchSnapshot: {
-            .init(events: phase == 0 ? [original] : [], checkedAt: clock, source: "controlled-primary",
-                  respondingFeeds: 1, attemptedFeeds: 3, isPartial: phase != 0)
-        }, refreshSports: { sports }, now: { clock })
-        await model.refresh()
-        let requests = model.sourceCatalogRequests(at: clock)
-        XCTAssertEqual(requests.count, 1)
-        XCTAssertEqual(model.primarySourceCatalogEvidence(for: requests, at: clock).matches.first?.outcome, .listed)
-        phase = 1; clock = now.addingTimeInterval(60)
-        await model.refresh()
-        XCTAssertFalse(model.matches.isEmpty, "Partial primary responses must preserve official browsing inventory")
-        XCTAssertEqual(model.primarySourceCatalogEvidence(for: requests, at: clock).matches.first?.outcome, .notListed,
-            "A current partial receipt cannot renew an omitted source listing")
-    }
 }

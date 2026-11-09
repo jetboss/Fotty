@@ -950,63 +950,47 @@ final class SportsFixtureCatalogTests: XCTestCase {
         XCTAssertEqual(rows.map(\.id), [cricket.id])
     }
 
-    func testSavedMLBAndNHLReceiveTerminalFactsThroughEveryRefreshBranch() async throws {
+    func testSavedMLBAndNHLReceiveTerminalFactsFromTheSchedule() async throws {
         for (sport, competition, home, away) in [
             ("baseball", "mlb", "Seattle Mariners", "New York Yankees"),
             ("hockey", "nhl", "Edmonton Oilers", "Vancouver Canucks")
         ] {
             for terminal in [SportsFixtureCatalog.Status.finished, .cancelled] {
-                for mode in ["normal", "replayed", "failed"] {
-                    let suite = "Fotty.TerminalSportsJourney.\(UUID().uuidString)"
-                    let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-                    defer { defaults.removePersistentDomain(forName: suite) }
-                    let store = MyMatchdayStore(defaults: defaults)
-                    var clock = now
-                    func official(_ status: SportsFixtureCatalog.Status) -> SportsFixtureCatalog.Fixture {
-                        .init(id: "sports-fixture:\(competition):journey", sport: sport,
-                            start: stamp(now.addingTimeInterval(-3600)), status: status, eventKind: .match,
-                            title: "\(home) vs \(away)", competitionId: competition, competitionName: competition.uppercased(),
-                            participants: [.init(id: "home", name: home), .init(id: "away", name: away)],
-                            squad: .init(gender: .men, ageGroup: "senior"),
-                            source: .init(name: "Official schedule", url: "https://example.com/fixtures", observedAt: stamp(clock)))
-                    }
-                    let provider = EventReference(id: "provider-journey", title: "\(home) vs \(away)", category: sport,
-                        date: Int64(now.addingTimeInterval(-3600).timeIntervalSince1970), poster: nil, popular: false,
-                        teams: .init(home: .init(name: home, badge: "https://example.com/home-badge.png"),
-                                     away: .init(name: away, badge: "https://example.com/away-badge.png")),
-                        sources: [.init(source: "delta", id: "provider-journey")], competitionID: competition)
-                    var receipt = snapshot([official(.live)], receipt: clock)
-                    var catalogDate = clock
-                    var fails = false
-                    let model = MatchListViewModel(fetchSnapshot: {
-                        if fails { throw URLError(.notConnectedToInternet) }
-                        return .init(events: [provider], checkedAt: catalogDate, source: "controlled",
-                            respondingFeeds: 1, attemptedFeeds: 1, isPartial: false)
-                    }, refreshSports: { receipt }, now: { clock }, matchdayStore: store)
-                    await model.refresh()
-                    let live = try XCTUnwrap(model.matches.first)
-                    XCTAssertEqual(store.save(live), .saved)
-                    let savedAt = store.savedMatches.first?.savedAt
-                    XCTAssertEqual(MatchdayEventStatePolicy.section(for: live, at: clock), .live)
-                    XCTAssertNotNil(CurrentEventBroadcastPolicy.action(for: live, in: model.playbackCatalog, at: clock))
-
-                    clock = now.addingTimeInterval(60)
-                    receipt = snapshot([official(terminal)], receipt: clock)
-                    catalogDate = mode == "replayed" ? now.addingTimeInterval(-1) : clock
-                    fails = mode == "failed"
-                    await model.refresh()
-                    XCTAssertTrue(model.matches.isEmpty, "Terminal facts must stay outside the playable catalog")
-                    let ended = try XCTUnwrap(store.savedMatches.first).event
-                    XCTAssertEqual(ended.sportsFixture?.status, terminal, "\(competition)/\(mode)")
-                    XCTAssertEqual(ended.sportsFixture?.observedAt, clock, "Saving must not rewrite the source receipt")
-                    XCTAssertEqual(store.savedMatches.first?.savedAt, savedAt)
-                    XCTAssertEqual(ended.teams?.home?.badge, live.teams?.home?.badge)
-                    XCTAssertEqual(ended.teams?.away?.badge, live.teams?.away?.badge)
-                    XCTAssertTrue(ended.sources?.isEmpty == true)
-                    XCTAssertEqual(MatchdayEventStatePolicy.section(for: ended, at: clock), .recent)
-                    XCTAssertNil(CurrentEventBroadcastPolicy.action(for: ended, in: model.playbackCatalog, at: clock))
-                    XCTAssertEqual(MyMatchdayStore(defaults: defaults).savedMatches.first?.sportsFixture?.status, terminal)
+                let suite = "Fotty.TerminalSportsJourney.\(UUID().uuidString)"
+                let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+                defer { defaults.removePersistentDomain(forName: suite) }
+                let store = MyMatchdayStore(defaults: defaults)
+                var clock = now
+                func official(_ status: SportsFixtureCatalog.Status) -> SportsFixtureCatalog.Fixture {
+                    .init(id: "sports-fixture:\(competition):journey", sport: sport,
+                        start: stamp(now.addingTimeInterval(-3600)), status: status, eventKind: .match,
+                        title: "\(home) vs \(away)", competitionId: competition, competitionName: competition.uppercased(),
+                        participants: [.init(id: "home", name: home), .init(id: "away", name: away)],
+                        squad: .init(gender: .men, ageGroup: "senior"),
+                        source: .init(name: "Official schedule", url: "https://example.com/fixtures", observedAt: stamp(clock)))
                 }
+                var receipt = snapshot([official(.live)], receipt: clock)
+                let model = MatchListViewModel(refreshSports: { receipt }, now: { clock }, matchdayStore: store)
+                await model.refresh()
+                let live = try XCTUnwrap(model.matches.first)
+                XCTAssertEqual(store.save(live), .saved)
+                let savedAt = store.savedMatches.first?.savedAt
+                XCTAssertEqual(MatchdayEventStatePolicy.section(for: live, at: clock), .live)
+
+                clock = now.addingTimeInterval(60)
+                receipt = snapshot([official(terminal)], receipt: clock)
+                await model.refresh()
+                XCTAssertTrue(model.matches.isEmpty, "Terminal facts must stay outside the playable catalog")
+                let ended = try XCTUnwrap(store.savedMatches.first).event
+                XCTAssertEqual(ended.sportsFixture?.status, terminal, "\(competition)")
+                XCTAssertEqual(ended.sportsFixture?.observedAt, clock, "Saving must not rewrite the source receipt")
+                XCTAssertEqual(store.savedMatches.first?.savedAt, savedAt)
+                XCTAssertEqual(ended.teams?.home?.badge, live.teams?.home?.badge)
+                XCTAssertEqual(ended.teams?.away?.badge, live.teams?.away?.badge)
+                XCTAssertTrue(ended.sources?.isEmpty == true)
+                XCTAssertEqual(MatchdayEventStatePolicy.section(for: ended, at: clock), .recent)
+                XCTAssertNil(CurrentEventBroadcastPolicy.action(for: ended, in: model.playbackCatalog, at: clock))
+                XCTAssertEqual(MyMatchdayStore(defaults: defaults).savedMatches.first?.sportsFixture?.status, terminal)
             }
         }
     }
@@ -1174,31 +1158,11 @@ final class SportsFixtureCatalogTests: XCTestCase {
         XCTAssertEqual(AnalyticalDataEngine.normalizedCategoryKey("WTA"), "tennis")
     }
 
-    func testIndependentFixtureRefreshOnProviderFailureDoesNotBorrowOldSources() async {
-        let model = MatchListViewModel(fetchSnapshot: { throw URLError(.notConnectedToInternet) },
-            refreshSports: { self.snapshot([self.fixture()]) }, now: { self.now })
+    func testScheduleRefreshReplacesOldProviderRowWithoutBorrowingSources() async {
+        let model = MatchListViewModel(refreshSports: { self.snapshot([self.fixture()]) }, now: { self.now })
         model.matches = [provider()]
         await model.refresh()
-        XCTAssertTrue(model.refreshFailed)
         XCTAssertEqual(model.matches.count, 1)
-        XCTAssertTrue(model.matches.first?.sources?.isEmpty == true)
-        XCTAssertNil(model.lastCatalogCheck)
-    }
-
-    func testReplayedProviderReceiptCannotHoldBackIndependentFixture() async {
-        var check = now
-        var manifest = snapshot([fixture()])
-        let model = MatchListViewModel(fetchSnapshot: {
-            .init(events: [self.provider()], checkedAt: check, source: "controlled", respondingFeeds: 1,
-                  attemptedFeeds: 1, isPartial: false)
-        }, refreshSports: { manifest }, now: { self.now })
-        await model.refresh()
-        check = now.addingTimeInterval(-60)
-        manifest = snapshot([fixture(status: .postponed, observedAt: now.addingTimeInterval(60))],
-                            receipt: now.addingTimeInterval(60))
-        await model.refresh()
-        XCTAssertEqual(model.lastCatalogCheck, now)
-        XCTAssertEqual(model.matches.first?.sportsFixture?.status, .postponed)
         XCTAssertTrue(model.matches.first?.sources?.isEmpty == true)
     }
 

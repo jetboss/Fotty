@@ -71,19 +71,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         }
 
         func makeCatalog() -> MatchListViewModel {
-            MatchListViewModel(fetchSnapshot: {
-                if self.terminal { throw URLError(.notConnectedToInternet) }
-                let football = self.sport == "football"
-                let provider = EventReference(id: "primary-terminal-admission",
-                    title: football ? "Arsenal FC vs Chelsea FC" : "India vs West Indies", category: self.sport,
-                    date: Int64(self.kickoff.timeIntervalSince1970), poster: nil, popular: false,
-                    teams: .init(home: .init(name: football ? "Arsenal FC" : "India", badge: nil),
-                        away: .init(name: football ? "Chelsea FC" : "West Indies", badge: nil)),
-                    sources: [.init(source: "delta", id: "primary-terminal-admission")],
-                    competitionID: football ? "premier-league" : nil)
-                return .init(events: [provider], checkedAt: self.now, source: "controlled",
-                    respondingFeeds: 1, attemptedFeeds: 1, isPartial: false)
-            }, refreshCricket: { self.cricketSnapshot() }, refreshSports: { self.sportsSnapshot() }, now: { self.now })
+            MatchListViewModel(refreshCricket: { self.cricketSnapshot() }, refreshSports: { self.sportsSnapshot() }, now: { self.now })
         }
 
         func admitted(_ event: EventReference, in catalog: MatchListViewModel) -> EventReference? {
@@ -99,14 +87,13 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         }
     }
 
-    func testAcceptedTerminalRefreshVetoesStaleWatchAndLateSingleChoicesDuringPrimaryFailure() async throws {
+    func testAcceptedTerminalRefreshVetoesStaleWatchAndLateSingleChoices() async throws {
         for sport in ["football", "cricket"] {
             for cancelled in [false, true] {
                 let official = OfficialTerminalGate(sport: sport, cancelled: cancelled)
                 let catalog = official.makeCatalog()
                 await catalog.refresh()
                 let original = try XCTUnwrap(catalog.matches.first)
-                XCTAssertTrue(MatchStartPolicy(event: original, now: official.now).canAttemptPlayback)
                 let factory = ModelFactory(), sources = SingleDiscoveryGate()
                 let choice = session(for: original)
                 let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
@@ -119,7 +106,6 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
                 official.finish()
                 await catalog.refresh()
-                XCTAssertTrue(catalog.refreshFailed)
                 XCTAssertTrue(catalog.matches.isEmpty)
                 XCTAssertTrue(catalog.playbackCatalog.isEmpty, "Terminal admission facts must not become playable/UI rows")
                 let terminal = try XCTUnwrap(CurrentEventBroadcastPolicy.currentEvent(for: original,
@@ -181,55 +167,6 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             XCTAssertTrue(pane.model.userWantsPlayback)
             XCTAssertTrue(owner.isActive, "A discovery admission veto must not retire existing owner playback")
         }
-    }
-
-    func testLegacySavedProviderIdentityKeepsTerminalVetoAfterAliasExpiryAndClockAdvance() async throws {
-        let official = OfficialTerminalGate(sport: "football", cancelled: false)
-        let catalog = official.makeCatalog()
-        await catalog.refresh()
-        let canonical = try XCTUnwrap(catalog.matches.first)
-        let oldProvider = EventReference(id: "primary-terminal-admission", title: canonical.title,
-            category: canonical.category, date: canonical.date, poster: nil, popular: false,
-            teams: canonical.teams, sources: canonical.sources)
-        let saved = SavedMatchRecord(event: oldProvider, savedAt: official.now)
-        let legacy = try XCTUnwrap(SavedMatchContinuityPolicy.currentEvent(for: saved, in: catalog.playbackCatalog))
-        XCTAssertEqual(legacy.id, oldProvider.id)
-        XCTAssertEqual(legacy.sportsFixture?.fixtureID, canonical.id)
-        let liveAction = try XCTUnwrap(CurrentEventBroadcastPolicy.action(for: legacy,
-            in: catalog.playbackAdmissionCatalog, at: official.now))
-        XCTAssertEqual(liveAction.event.id, canonical.id,
-            "The normal Watch route resolves the saved provider alias before entering single discovery")
-
-        let factory = ModelFactory(), sources = SingleDiscoveryGate()
-        let choice = session(for: liveAction.event)
-        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
-            discoverSinglePlayback: { await sources.resolve($0, publish: $1) },
-            currentSingleEvent: { official.admitted($0, in: catalog) },
-            catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
-        defer { sources.complete(outcome(for: liveAction.event, sessions: [])); owner.stop() }
-        owner.watchSingle(liveAction.event)
-        await waitForSourceCheck { sources.publish != nil }
-        official.finish()
-        await catalog.refresh()
-        let terminal = try XCTUnwrap(catalog.playbackAdmissionCatalog.first)
-        XCTAssertNotEqual(terminal.id, legacy.id)
-        XCTAssertNil(terminal.sportsFixture?.providerEventIDs,
-            "The accepted terminal projection need not retain an old provider alias")
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: legacy, in: catalog.playbackAdmissionCatalog,
-            at: official.now, status: .inPlay))
-        XCTAssertTrue(catalog.playbackCatalog.isEmpty)
-
-        // Memoized terminal projection retains the accepted final fact; clock
-        // ageing cannot turn a still-open old live/sourced object back to Watch.
-        official.now = official.now.addingTimeInterval(SportsFixtureCatalog.statusFreshness + 1)
-        XCTAssertNotNil(VerifiedFixtureTerminalPolicy.state(for: terminal, at: official.now))
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: legacy, in: catalog.playbackAdmissionCatalog,
-            at: official.now, status: .inPlay))
-        await sources.publish?([choice])
-        sources.complete(outcome(for: liveAction.event, sessions: [choice]))
-        await waitForSourceCheck { owner.resolutionMessage == nil }
-        XCTAssertTrue(factory.models.isEmpty)
-        XCTAssertFalse(owner.isActive)
     }
 
     func testIncrementalSingleDiscoveryAppendsWithoutChangingPausedOwnerOrItem() async throws {

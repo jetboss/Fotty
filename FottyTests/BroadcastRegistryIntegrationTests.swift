@@ -21,8 +21,7 @@ final class BroadcastRegistryIntegrationTests: XCTestCase {
         func hasLocalLane(_ providers: [BroadcastRegistrySnapshot.Provider], requests: [StreamPlaybackRequest]) -> Bool {
             let snapshot = BroadcastRegistrySnapshot(schemaVersion: 1, revision: "scope-test", generatedAt: clock,
                 providers: providers, broadcasts: [], links: [])
-            return FixtureSourceCatalogCollector.lanes(primaryMatches: [], primaryFailure: nil,
-                registrySnapshot: snapshot, requests: requests, at: clock).contains {
+            return FixtureSourceCatalogCollector.lanes(registrySnapshot: snapshot, requests: requests, at: clock).contains {
                     $0.providerCode == "plaviosports" && $0.origin == .local
                 }
         }

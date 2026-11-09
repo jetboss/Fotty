@@ -94,7 +94,7 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
         XCTAssertFalse(tv.supportsOptionalFixture(event: fixture))
         XCTAssertTrue(CuratedStreamSourceCatalog.discoveryPlan(for: .init(event: fixture),
             enabledProviderCodes: ["reviewedtv"], at: now).optionalSources.isEmpty)
-        XCTAssertFalse(FixtureSourceCatalogCollector.lanes(primaryMatches: [], primaryFailure: nil)
+        XCTAssertFalse(FixtureSourceCatalogCollector.lanes()
             .contains { $0.providerCode == "reviewedtv" })
         XCTAssertTrue(BroadcastRegistrySnapshot.providerCodes.contains("reviewedtv"))
         let index = FixtureStreamDiscoveryIndex()

@@ -68,10 +68,6 @@ final class FottyNavigationUITests: XCTestCase {
         }
         if name.contains("testDashboardStaleCPL") {
             app.launchEnvironment["FOTTY_CATALOG_UI_STATE"] = "stale-cpl"
-        } else if name.contains("testDashboardOfflineNotice") {
-            app.launchEnvironment["FOTTY_CATALOG_UI_STATE"] = "offline"
-        } else if name.contains("testDashboardPartialNotice") {
-            app.launchEnvironment["FOTTY_CATALOG_UI_STATE"] = "partial"
         }
         if let surfaceOverride {
             app.launchEnvironment["FOTTY_SURFACE_UI_TESTING"] = "1"
@@ -448,13 +444,6 @@ final class FottyNavigationUITests: XCTestCase {
         reveal(football)
         tapBetaControl(football)
         XCTAssertFalse(warning.exists, "CPL freshness must not interrupt a football-only screen")
-        XCTAssertTrue(app.buttons["match-start-play-ui-football"].exists)
-    }
-
-    func testDashboardOfflineNoticeDoesNotHideMatches() throws {
-        XCTAssertTrue(app.staticTexts["Couldn't refresh. Broadcasts may have changed."].waitForExistence(timeout: 8))
-        XCTAssertTrue(app.buttons["catalog-retry-refresh"].exists)
-        XCTAssertFalse(app.staticTexts["catalog-check-time"].exists)
         XCTAssertTrue(app.buttons["match-start-play-ui-football"].exists)
     }
 

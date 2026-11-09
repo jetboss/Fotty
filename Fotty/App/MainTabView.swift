@@ -237,9 +237,8 @@ struct MainTabView: View {
                 await BroadcastRegistryClient.shared.refresh(at: now)
                 guard !Task.isCancelled else { return }
                 let requests = catalog.sourceCatalogRequests(at: now)
-                let primary = catalog.primarySourceCatalogEvidence(for: requests, at: now)
                 await FixtureSourceCatalogCollector.refresh(requests: requests,
-                    lanes: FixtureSourceCatalogCollector.lanes(primaryMatches: primary.matches, primaryFailure: primary.failure,
+                    lanes: FixtureSourceCatalogCollector.lanes(
                         registrySnapshot: BroadcastRegistryClient.shared.cachedSnapshot(at: now), requests: requests),
                     at: now)
                 do { try await Task.sleep(for: .seconds(60)) } catch { return }

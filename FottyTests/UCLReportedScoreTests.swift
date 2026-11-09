@@ -66,9 +66,7 @@ final class UCLReportedScoreTests: XCTestCase {
     func testFinishedUCLReportedScoreRemainsReadableWithoutAddingAPlaybackFixture() async throws {
         let final = UCLReportedScore(home: 3, away: 1, publisherUpdatedAt: stamp(publisherDate))
         let manifest = snapshot([fixture(score: final, status: .finished)])
-        let model = MatchListViewModel(fetchSnapshot: {
-            .init(events: [], checkedAt: self.now, source: "controlled", respondingFeeds: 1, attemptedFeeds: 1, isPartial: false)
-        }, refreshSports: { manifest }, now: { self.now })
+        let model = MatchListViewModel(refreshSports: { manifest }, now: { self.now })
         await model.refresh()
 
         XCTAssertTrue(model.playbackCatalog.isEmpty)

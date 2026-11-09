@@ -183,7 +183,6 @@ final class Fotty25DesignRenderTests: XCTestCase {
             "catalogBefore": catalogBefore, "catalogAfter": catalogAfter,
             "deduplicatedBefore": deduplicatedBefore.count, "deduplicatedAfter": deduplicatedAfter.count,
             "catalogContentRevision": fixture.catalog.contentRevision,
-            "catalogReceiptUTC": fixture.catalog.lastCatalogCheck.map { ISO8601DateFormatter().string(from: $0) } ?? "not accepted",
             "discoveryItemsAtCapture": HomeSportsDiscovery(events: fixture.catalog.matches, now: Date()).items.count,
             "automatedHomeClockUTC": HomeSportsDiscovery.automatedClockStart.map { ISO8601DateFormatter().string(from: $0) } ?? "not enabled",
             "platform": "Fresh test host; operator records actual build/OS/executable provenance separately",
@@ -269,20 +268,11 @@ final class Fotty25DesignRenderTests: XCTestCase {
             defaults.set(false, forKey: MatchdayPreferences.showKickoffClashesKey)
             let matchday = MyMatchdayStore(defaults: defaults)
             for event in events { XCTAssertEqual(matchday.save(event), .saved) }
-            let catalog = MatchListViewModel(fetchSnapshot: {
-                // DEBUG cache configuration records a current receipt. Give the
-                // subsequent local fetch its real completion time so production's
-                // replay fence correctly accepts it rather than an older setup time.
-                .init(events: events, checkedAt: Date(), source: "isolated-render-fixture", respondingFeeds: 1, attemptedFeeds: 1, isPartial: false)
-            }, now: { now }, matchdayStore: matchday)
+            // Home has no provider catalog; the render fixture seeds its rows directly.
+            let catalog = MatchListViewModel(now: { now }, matchdayStore: matchday)
             catalog.configure(modelContext: container.mainContext)
-            await catalog.refresh()
-            XCTAssertEqual(catalog.catalogSource, "isolated-render-fixture", "The controlled fetch must be accepted before root capture")
+            catalog.matches = events
             XCTAssertEqual(catalog.matches.count, events.count)
-            guard catalog.catalogSource == "isolated-render-fixture", catalog.matches.count == events.count else {
-                defaults.removePersistentDomain(forName: suite)
-                throw CaptureFailure.fixtureCatalogMissing
-            }
             let scores = LiveScoreService(now: { now })
             let viewing = ViewingSessionCoordinator(catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
             return RootFixture(suite: suite, defaults: defaults, container: container, matchday: matchday,

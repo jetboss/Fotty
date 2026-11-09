@@ -272,7 +272,7 @@ struct ArenaDiscoveryView: View {
                         matchdayScopePicker
 
                         if let notice = matchListViewModel.catalogNotice(displaying: matchdayProjection.rows.map(\.event)) {
-                            CatalogRefreshNotice(message: notice, checkedAt: matchListViewModel.lastCatalogCheck,
+                            CatalogRefreshNotice(message: notice, checkedAt: matchListViewModel.cplScheduleCheckedAt,
                                                  isRefreshing: matchListViewModel.isRefreshing) {
                                 await refreshMatchday()
                             }

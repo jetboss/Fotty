@@ -107,9 +107,7 @@ final class CricketMatchContextTests: XCTestCase {
     func testFinishedCricketContextRemainsReadableWithoutRestoringPlayback() async throws {
         var final = score; final.phase = .finished
         let manifest = snapshot([fixture(context: final, status: .finished)])
-        let model = MatchListViewModel(fetchSnapshot: {
-            .init(events: [], checkedAt: self.now, source: "controlled", respondingFeeds: 1, attemptedFeeds: 1, isPartial: false)
-        }, refreshCricket: { manifest }, now: { self.now })
+        let model = MatchListViewModel(refreshCricket: { manifest }, now: { self.now })
         await model.refresh()
 
         XCTAssertTrue(model.playbackCatalog.isEmpty, "Finished scorecards cannot become playable listings")
@@ -128,19 +126,6 @@ final class CricketMatchContextTests: XCTestCase {
         XCTAssertEqual(model.matchContextCatalog.count, 1)
         XCTAssertEqual(model.matchContextCatalog.first?.cricketFixture?.status, .finished)
         XCTAssertEqual(model.playbackCatalog.first?.cricketFixture?.status, .live)
-    }
-
-    func testTerminalContextCannotBypassAnExistingCatalogIdentityConflict() async throws {
-        var final = score; final.phase = .finished
-        let manifest = snapshot([fixture(context: final, status: .finished)])
-        let tombstone = event(context: nil, conflict: true)
-        let model = MatchListViewModel(fetchSnapshot: {
-            .init(events: [tombstone], checkedAt: self.now, source: "controlled", respondingFeeds: 1, attemptedFeeds: 1, isPartial: false)
-        }, refreshCricket: { manifest }, now: { self.now })
-        await model.refresh()
-        XCTAssertTrue(model.playbackCatalog.contains(where: \.hasCatalogIdentityConflict))
-        XCTAssertTrue(model.matchContextCatalog.contains(where: \.hasCatalogIdentityConflict))
-        XCTAssertNil(CurrentSportsMatchContextPolicy.event(for: event(context: score), in: model.matchContextCatalog, at: now))
     }
 
     func testCurrentCricketContextRequiresAcceptedTypedIdentityAndMatchingSquadFormatAndTeams() {

@@ -81,13 +81,7 @@ final class MatchListViewModel {
     private(set) var contentRevision = 0
     var isLoading = false
     private(set) var isRefreshing = false
-    var error: String?
-    private(set) var lastCatalogCheck: Date?
-    private(set) var catalogSource: String?
-    private(set) var isPartialCatalog = false
-    private(set) var refreshFailed = false
     private(set) var persistenceFailed = false
-    private(set) var identityConflicts: [EventReference] = []
     private(set) var cplScheduleCheckedAt: Date?
     private(set) var cplScheduleSourceStatus: CPLSchedule.SourceStatus = .lastKnownGood
     private(set) var cricketFixtureSnapshot: CricketFixtureCatalog.Snapshot? {
@@ -98,9 +92,8 @@ final class MatchListViewModel {
     }
     private(set) var fixtureCatalogRevision: UInt64 = 0
     @ObservationIgnored private var terminalAdmissionCache: [EventReference]?
-    @ObservationIgnored private var currentPrimaryCatalogRows: [EventReference] = []
     @ObservationIgnored private var browseCatalogCache: [EventReference]?
-    var playbackCatalog: [EventReference] { matches + identityConflicts }
+    var playbackCatalog: [EventReference] { matches }
 
     /// Channels are persistent navigation destinations, not fabricated matches
     /// or primary-feed rows. Keep their browsing inventory out of ingestion and
@@ -209,62 +202,15 @@ final class MatchListViewModel {
         }.prefix(256).map { $0 }
     }
 
-    /// Reuse the existing main-catalog receipt instead of making another set of
-    /// mirror requests for the shared index. A failed/old receipt is never a
-    /// new positive, even while its previous browsing rows remain visible.
-    func primarySourceCatalogEvidence(for requests: [StreamPlaybackRequest], at now: Date = .init())
-        -> (matches: [FixtureSourceCatalogMatch], failure: StreamFailureCategory?) {
-        guard !refreshFailed, let checked = lastCatalogCheck,
-              (0..<180).contains(now.timeIntervalSince(checked)) else { return ([], .manifestUnreachable) }
-        let sourceCodes = Set(CuratedStreamSourceCatalog.definition(forProviderCode: "streamex")?.catalogSourceCodes ?? [])
-        let catalog = currentPrimaryCatalogRows
-        return (requests.map { request in
-            switch CatalogPlaybackIdentity.selection(for: request, in: catalog) {
-            case .conflicting: return .init(matchID: request.matchID, outcome: .conflicting)
-            case .missing: return .init(matchID: request.matchID, outcome: .notListed)
-            case .matched(let event):
-                let source = (event.sources ?? []).first { sourceCodes.contains($0.source.lowercased()) && !$0.id.isEmpty }
-                return .init(matchID: request.matchID, outcome: source == nil ? .notListed : .listed,
-                             providerEventID: source?.id)
-            }
-        }, nil)
+    /// Home's one data notice: CPL times shown from a CPL schedule that is no
+    /// longer freshly verified. The schedules have no other refresh failure
+    /// that changes what is shown.
+    func catalogNotice(at now: Date = Date(), displaying visibleEvents: [EventReference]? = nil) -> String? {
+        catalogNotice(at: now, displaysCPLSchedule: (visibleEvents ?? matches).contains(where: \.isCPLFixture))
     }
 
-    func catalogNotice(at now: Date = Date(), displaying visibleEvents: [EventReference]? = nil,
-                       availabilityIndex: FixtureCatalogAvailabilityIndex? = nil) -> String? {
-        let displaysCPLSchedule = (visibleEvents ?? matches).contains(where: \.isCPLFixture)
-        let requests = (visibleEvents ?? matches).prefix(32).map { StreamPlaybackRequest(event: $0) }
-        let hasSourceEvidence = (availabilityIndex ?? .shared)
-            .hasRecentSuccessfulCatalogEvaluation(for: requests, at: now)
-        return catalogNotice(at: now, displaysCPLSchedule: displaysCPLSchedule,
-                             hasSourceCatalogEvidence: hasSourceEvidence)
-    }
-
-    /// A projection owner may reuse revision-checked fixture identity facts.
-    /// Freshness/error evaluation still runs against the current clock/receipt.
-    func catalogNotice(at now: Date, displaysCPLSchedule: Bool, hasSourceCatalogEvidence: Bool = false) -> String? {
-        // Starting a retry is not evidence that previously stale data is fresh.
-        // Keep known uncertainty visible until a successful receipt replaces it.
-        if refreshFailed && !hasSourceCatalogEvidence {
-            if displaysCPLSchedule, !isCPLScheduleFresh(at: now) {
-                return "Couldn't refresh. Broadcasts and CPL times may have changed."
-            }
-            return "Couldn't refresh. Broadcasts may have changed."
-        }
-        if displaysCPLSchedule,
-           !isCPLScheduleFresh(at: now) {
-            return "CPL start times may have changed."
-        }
-        if let lastCatalogCheck {
-            let age = now.timeIntervalSince(lastCatalogCheck)
-            if age < 0 { return "Broadcast listings may be out of date." }
-        }
-        // Routine aging and the initial cache read are handled silently by the
-        // foreground refresh. A partial response from redundant mirrors remains
-        // internal telemetry: it is not proof that a visible broadcast is
-        // missing. Only a failed check or unverified fixture authority should
-        // interrupt the user; starting a retry never clears those states.
-        return nil
+    func catalogNotice(at now: Date, displaysCPLSchedule: Bool) -> String? {
+        displaysCPLSchedule && !isCPLScheduleFresh(at: now) ? "CPL start times may have changed." : nil
     }
 
     /// When the schedule that covers a match was last verified, if that receipt
@@ -306,10 +252,6 @@ final class MatchListViewModel {
         return ordered
     }
 
-    /// Production has no catalog lane since the shared catalog closed; Home
-    /// publishes fixture lanes only. Tests may still inject provider rows.
-    typealias CatalogFetch = @MainActor () async throws -> LiveCatalogSnapshot
-    @ObservationIgnored private var fetchSnapshot: CatalogFetch?
     @ObservationIgnored private var refreshSchedule: @MainActor () async -> CPLSchedule.Snapshot? = { await CPLScheduleUpdater.shared.refresh() }
     @ObservationIgnored private var refreshCricket: @MainActor () async -> CricketFixtureCatalog.Snapshot? = { await CricketFixtureUpdater.shared.refresh() }
     @ObservationIgnored private var refreshSports: @MainActor () async -> SportsFixtureCatalog.Snapshot? = { await SportsFixtureUpdater.shared.refresh() }
@@ -352,14 +294,12 @@ final class MatchListViewModel {
     }
 
     /// Controlled async owner tests never contact providers or mutate shared reminders.
-    init(fetchSnapshot: CatalogFetch?,
-         refreshSchedule: @escaping @MainActor () async -> CPLSchedule.Snapshot? = { nil },
+    init(refreshSchedule: @escaping @MainActor () async -> CPLSchedule.Snapshot? = { nil },
          refreshCricket: @escaping @MainActor () async -> CricketFixtureCatalog.Snapshot? = { nil },
          refreshSports: @escaping @MainActor () async -> SportsFixtureCatalog.Snapshot? = { nil },
          now: @escaping () -> Date = Date.init,
          fixtures: [CPLSchedule.Fixture] = [],
          matchdayStore: MyMatchdayStore? = nil) {
-        self.fetchSnapshot = fetchSnapshot
         self.refreshSchedule = refreshSchedule
         self.refreshCricket = refreshCricket
         self.refreshSports = refreshSports
@@ -388,14 +328,10 @@ final class MatchListViewModel {
             // Test real notice rendering with explicit data states, rather than
             // hiding the notice in every automated view.
             let now = Date()
-            lastCatalogCheck = now
             cplScheduleCheckedAt = now
             cplScheduleSourceStatus = .verified
-            switch ProcessInfo.processInfo.environment["FOTTY_CATALOG_UI_STATE"] {
-            case "stale-cpl": cplScheduleCheckedAt = now.addingTimeInterval(-3 * 3600)
-            case "offline": refreshFailed = true
-            case "partial": isPartialCatalog = true
-            default: break
+            if ProcessInfo.processInfo.environment["FOTTY_CATALOG_UI_STATE"] == "stale-cpl" {
+                cplScheduleCheckedAt = now.addingTimeInterval(-3 * 3600)
             }
         }
         if AppRuntime.isAutomatedTesting,
@@ -413,7 +349,6 @@ final class MatchListViewModel {
                     fixture("cpl-2026-ui-tomorrow", sport: "cricket", title: "CPL · Guyana Amazon Warriors vs Saint Lucia Kings", hours: 25)
                 ]
                 cplScheduleCheckedAt = now
-                lastCatalogCheck = now
                 return
             }
             matches = [
@@ -483,8 +418,7 @@ final class MatchListViewModel {
         await refresh()
     }
 
-    private enum RefreshLaneResult {
-        case catalog(Result<LiveCatalogSnapshot, Error>)
+    private enum ScheduleLane {
         case cpl(CPLSchedule.Snapshot?)
         case cricket(CricketFixtureCatalog.Snapshot?)
         case sports(SportsFixtureCatalog.Snapshot?)
@@ -506,148 +440,43 @@ final class MatchListViewModel {
         if inFlightRefresh == task { inFlightRefresh = nil }
     }
 
+    /// Home's rows come from the CPL, cricket and sports schedules. Each lane
+    /// publishes as it lands; the first completion always rebuilds, so rows
+    /// restored from the on-disk cache are replaced by current schedules.
     private func performRefresh() async {
         guard !isRefreshing else { return }
         lastRefreshAttempt = currentDate()
         isRefreshing = true
         isLoading = matches.isEmpty
         defer { isRefreshing = false; isLoading = false }
-        let fetch = fetchSnapshot
         let cpl = refreshSchedule
         let cricket = refreshCricket
         let sports = refreshSports
-        await withTaskGroup(of: RefreshLaneResult.self) { group in
-            if let fetch {
-                group.addTask { @MainActor in
-                    do { return .catalog(.success(try await fetch())) }
-                    catch { return .catalog(.failure(error)) }
-                }
-            }
+        await withTaskGroup(of: ScheduleLane.self) { group in
             group.addTask { @MainActor in .cpl(await cpl()) }
             group.addTask { @MainActor in .cricket(await cricket()) }
             group.addTask { @MainActor in .sports(await sports()) }
-            // Without a catalog lane, fixture lanes publish as they complete.
-            var catalogCompleted = fetch == nil
-            var acceptedProvider: LiveCatalogSnapshot?
-            var pendingFixtures: [RefreshLaneResult] = []
-            for await result in group {
+            var rebuilt = false
+            for await lane in group {
                 guard !Task.isCancelled else {
                     lastRefreshAttempt = nil
                     group.cancelAll()
                     return
                 }
-                switch result {
-                case .catalog(let response):
-                    catalogCompleted = true
-                    switch response {
-                    case .success(let snapshot):
-                        // Fold only fixture lanes that already completed into
-                        // the first usable provider projection. Never wait for
-                        // a slower lane or republish once per queued receipt.
-                        if lastCatalogCheck.map({ snapshot.checkedAt >= $0 }) ?? true {
-                            for fixture in pendingFixtures {
-                                guard !Task.isCancelled else { group.cancelAll(); return }
-                                _ = acceptFixtureState(fixture)
-                            }
-                            pendingFixtures.removeAll()
-                            acceptedProvider = snapshot
-                            currentPrimaryCatalogRows = snapshot.events
-                            applyFreshMatches(snapshot)
-                            lastCatalogCheck = snapshot.checkedAt
-                            catalogSource = snapshot.source
-                            isPartialCatalog = snapshot.isPartial
-                            refreshFailed = false
-                            error = nil
-                            isLoading = false
-                            await reconcilePersonalState()
-                        }
-                    case .failure(let failure):
-                        guard !(failure is CancellationError),
-                              (failure as? URLError)?.code != .cancelled else {
-                            lastRefreshAttempt = nil
-                            group.cancelAll()
-                            return
-                        }
-                        refreshFailed = true
-                    }
-                    // A cancelled provider request never authorizes queued
-                    // fixture publication, even if its sibling already completed.
-                    for fixture in pendingFixtures {
-                        guard !Task.isCancelled else { group.cancelAll(); return }
-                        await applyCompletedFixtureLane(fixture, provider: acceptedProvider)
-                    }
-                    pendingFixtures.removeAll()
-                default:
-                    if catalogCompleted {
-                        await applyCompletedFixtureLane(result, provider: acceptedProvider)
-                    } else {
-                        pendingFixtures.append(result)
-                    }
-                }
-                if refreshFailed {
-                    error = matches.isEmpty ? "Live listings could not be checked. Check your connection and try again." : nil
-                }
+                guard accept(lane) || !rebuilt else { continue }
+                rebuilt = true
+                applySchedules()
+                if !matches.isEmpty { isLoading = false }
+                await reconcilePersonalState()
             }
         }
     }
 
-    private func applyCompletedFixtureLane(_ result: RefreshLaneResult, provider: LiveCatalogSnapshot?) async {
-        let changed: Bool
-        switch result {
-        case .cpl(let snapshot):
-            guard let snapshot else { return }
-            changed = acceptSchedule(snapshot)
-            if provider == nil { applyIndependentCPLSchedule() }
-        case .cricket(let snapshot):
-            guard let snapshot else { return }
-            changed = acceptCricket(snapshot)
-            if provider == nil {
-                matches = CricketFixtureCatalog.merging(into: matches,
-                    snapshot: cricketFixtureSnapshot, at: currentDate(), currentProviderEvents: [])
-            }
-        case .sports(let snapshot):
-            guard let snapshot else { return }
-            changed = acceptSports(snapshot)
-            if provider == nil {
-                matches = SportsFixtureCatalog.merging(into: matches,
-                    snapshot: sportsFixtureSnapshot, at: currentDate(), currentProviderEvents: [])
-            }
-        case .catalog:
-            return
-        }
-        // Only this refresh's accepted provider receipt may supply streams.
-        // Corrections still pass through the strict fixture identity join. A
-        // replayed/rejected fixture receipt supplies no new projection facts.
-        if let provider, changed { applyFreshMatches(provider) }
-        if !matches.isEmpty { isLoading = false }
-        await reconcilePersonalState()
-    }
-
-    /// Only the accepted schedule can advance when provider evidence is older
-    /// or unavailable. Keep other rows intact without lending their old streams.
-    private func applyIndependentCPLSchedule() {
-        let sourceFree = matches.map { event in
-            EventReference(id: event.id, title: event.title, category: event.category, date: event.date,
-                poster: event.poster, popular: event.popular, teams: event.teams, sources: [],
-                hasCatalogIdentityConflict: event.hasCatalogIdentityConflict,
-                cricketFixture: event.cricketFixture, sportsFixture: event.sportsFixture,
-                competitionID: event.competitionID)
-        }
-        let scheduledCPL = CPLSchedule.merging(into: sourceFree, fixtures: cplFixtures, at: currentDate())
-            .filter { CPLSchedule.isManagedFixtureID($0.id) }
-        matches = matches.filter { !CPLSchedule.isManagedFixtureID($0.id) && !$0.isCPLFixture } + scheduledCPL
-    }
-
-    private func acceptFixtureState(_ result: RefreshLaneResult) -> Bool {
-        switch result {
-        case .cpl(let snapshot):
-            return snapshot.map(acceptSchedule) ?? false
-        case .cricket(let snapshot):
-            return snapshot.map(acceptCricket) ?? false
-        case .sports(let snapshot):
-            return snapshot.map(acceptSports) ?? false
-        case .catalog:
-            return false
+    private func accept(_ lane: ScheduleLane) -> Bool {
+        switch lane {
+        case .cpl(let snapshot): return snapshot.map(acceptSchedule) ?? false
+        case .cricket(let snapshot): return snapshot.map(acceptCricket) ?? false
+        case .sports(let snapshot): return snapshot.map(acceptSports) ?? false
         }
     }
 
@@ -706,26 +535,20 @@ final class MatchListViewModel {
         }
     }
 
-    private func applyFreshMatches(_ snapshot: LiveCatalogSnapshot) {
-        let freshIDs = Set(snapshot.events.map(\.id))
-        identityConflicts = Array((snapshot.events.filter(\.hasCatalogIdentityConflict)
-            + identityConflicts.filter { !freshIDs.contains($0.id) }).prefix(500))
-        let retained = snapshot.isPartial ? matches.filter { !freshIDs.contains($0.id) } : []
+    /// Rebuild Home's near-term rows from the accepted schedules.
+    private func applySchedules() {
+        let now = currentDate()
         let nearTerm = SportsFixtureCatalog.merging(
             into: CricketFixtureCatalog.merging(
-                into: CPLSchedule.merging(
-                    into: snapshot.events + retained,
-                    fixtures: cplFixtures, at: currentDate()),
-                snapshot: cricketFixtureSnapshot, at: currentDate(), currentProviderEvents: snapshot.events,
-                currentProviderObservedAt: snapshot.checkedAt),
-            snapshot: sportsFixtureSnapshot, at: currentDate(), currentProviderEvents: snapshot.events,
-            currentProviderObservedAt: snapshot.checkedAt)
-            .filter { $0.passesNearTermLiveListWindow(at: currentDate()) }
+                into: CPLSchedule.merging(into: [], fixtures: cplFixtures, at: now),
+                snapshot: cricketFixtureSnapshot, at: now, currentProviderEvents: []),
+            snapshot: sportsFixtureSnapshot, at: now, currentProviderEvents: [])
+            .filter { $0.passesNearTermLiveListWindow(at: now) }
 
         recordIdentityDrift(in: nearTerm)
 
-        // A provider refresh can replace hundreds of rows. Global animation of
-        // that diff competes with an active scroll and provides no useful spatial
+        // A refresh can replace hundreds of rows. Global animation of that diff
+        // competes with an active scroll and provides no useful spatial
         // meaning; individual user actions retain their focused animations.
         self.matches = nearTerm
         scheduleCacheWrite(nearTerm)
@@ -747,7 +570,7 @@ final class MatchListViewModel {
                 outcome: .failure,
                 details: [
                     "reason_code": reasonCode,
-                    "source": "provider_catalog",
+                    "source": "fixture_schedule",
                 ]
             )
         }

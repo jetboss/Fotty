@@ -25,9 +25,7 @@ enum FixtureSourceCatalogCollector {
         case deadline
     }
 
-    static func lanes(primaryMatches: [FixtureSourceCatalogMatch],
-                      primaryFailure: StreamFailureCategory?,
-                      registrySnapshot: BroadcastRegistrySnapshot? = nil,
+    static func lanes(registrySnapshot: BroadcastRegistrySnapshot? = nil,
                       requests: [StreamPlaybackRequest] = [], at now: Date = Date()) -> [Lane] {
         // Cloud-owned current cohorts are collected once for the group. The
         // original on-device collectors remain a bounded fallback during a
@@ -79,11 +77,7 @@ enum FixtureSourceCatalogCollector {
             }
             return Lane(providerCode: definition.providerCode) { requests, now in
                 switch definition.dispatch {
-                case .sharedCatalog:
-                    if let primaryFailure {
-                        return requests.map { .init(matchID: $0.matchID, outcome: .failed(primaryFailure)) }
-                    }
-                    return primaryMatches
+                case .sharedCatalog: return [] // StreamEx is retired and excluded above
                 case .score808: return try await Score808CatalogClient.shared.catalogMatches(for: requests, now: now)
                 case .communitySports: return try await CommunitySportsAddonClient.shared.catalogMatches(for: requests, now: now)
                 case .plavioSports: return try await PlavioSportsAddonClient.shared.catalogMatches(for: requests, now: now)
@@ -217,17 +211,4 @@ enum FixtureSourceCatalogCollector {
         if let error = error as? CommunitySportsAddonError, error.isSecurityRejection { return .providerSecurityFailure }
         return .manifestInvalid
     }
-}
-
-/// Receipt/coverage of Fotty's bounded catalog lookup, not a provider uptime or
-/// programme claim. Providers do not supply a trustworthy upstream update time.
-@MainActor
-struct LiveCatalogSnapshot {
-    let events: [EventReference]
-    let checkedAt: Date
-    let source: String
-    let respondingFeeds: Int
-    let attemptedFeeds: Int
-    let isPartial: Bool
-
 }
