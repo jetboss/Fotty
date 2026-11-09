@@ -299,3 +299,9 @@ The new `ScheduleReceiptPolicy` and `MatchListViewModel.scheduleReceipt(category
 **Tests.** `SportsContinuityBridgeTests` now imports a synced plan through a current sports schedule, and covers each receipt rule: the covering schedule per sport, unverified, stale at 30 min + 1 s, and no schedule. `SportsHandoffTests` covers the new window boundaries. Full Catalyst suite: 2,652 run, 0 failures, 12 skips.
 
 **Jet (Release 3.0.0 (260)).** The 60 s launch hold passed. The Willow TV1 90 s native hold passed, with media advancing 91.83 s, which exercises the edited resolver. Sync and handoff between two devices were not tested on hardware.
+
+## Build 261: Home rebuilt from the schedules (9 Nov, 23:40 UTC)
+
+**Change (`84e9282`).** The Home catalog lane is removed. Home's rows come only from the CPL, cricket and sports schedules, and the first lane to finish each refresh rebuilds the list, so rows cached before the catalog closed are replaced. Also removed: the "Couldn't refresh" banner (the CPL stale notice remains), the dashboard's connection-error view, and the collector's primary-catalog inputs. Full Catalyst suite: 2,626 run, 0 failures.
+
+**Jet (Release 3.0.0 (261)).** The 60 s launch hold passed. Home showed the current schedules: Pakistan v Sri Lanka at Stumps, New Zealand v India, and four NHL games. The Browse grid no longer shows the Tennis, Golf, Motorsport, Rugby and American football tiles marked "Time TBC", which came from rows cached before the catalog closed. The Willow TV1 90 s native hold passed, with media advancing 91.90 s.
