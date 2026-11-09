@@ -198,3 +198,19 @@ Identities, saved settings, labels and health memory are kept. Cached Home rows 
 
 **Not established.** Settings was not opened on the device, so StreamEx's removal from the Sources list is covered by the unit test only. No live Watch ran, because nothing was live.
 
+
+## Build 254: player shrink slice 4a, `PlaybackAttempt` (9 Nov, 16:40 UTC)
+
+**Change.** New `Fotty/Features/Player/PlaybackAttempt.swift`: one value holding the load request plus an explicit scope (source, playback intent, audio intent), with a single `isCurrent(in:)`. The view model gains `currentAttemptIdentity`, `captureAttempt(_:)` and `isCurrent(_:)`. Converted:
+
+- the single-player network-recovery owner (request, source and playback intent);
+- the native item failure observation (request and source; item stays weak);
+- the stall-validation owner and its sample guards, and the soft-stall recovery guard;
+- the network-loss grace task (request only, as before);
+- the four audio paths: native start, handoff audio claim, resume preparation and PiP preparation (request, source and audio intent).
+
+Each conversion keeps the exact scope its inline check had. The active source can change without a new load request, so scopes were not unified; the differences still present are listed in `docs/PLAYER-SHRINK-PLAN.md`. Native item identity stays inline with `===`. `LivePlayerViewModel` is now 4816 lines. `xcodegen` added only the two new files.
+
+**Tests.** The new `PlaybackAttemptTests` cover request-only scope, each scope part in isolation, a captured nil source, identity equality, and on a real player model that source selection keeps a request-only fence current but ends a source fence, while cancelling the load ends both. Player suites (retry lifecycle, ownership, fullscreen): 170 run, 0 failures. Full Catalyst suite: 2,732 run, 0 failures, 12 skips.
+
+**Jet (Release 3.0.0 (254)).** Installed, and the 60 s launch hold passed. `testWillowWatchAcknowledgementAndNinetySecondNativeHold` passed in 124.4 s: Willow Cricket via TV1 kept the same native player, item and attempt for 90 s, with media advancing 91.85 s. This exercises the slice 3 progress thresholds and the slice 4a audio-start fences on a 24/7 channel. A live sports match is still pending, and so is the slice 3 hold on a match.

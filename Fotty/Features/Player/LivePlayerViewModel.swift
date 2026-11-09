@@ -98,8 +98,9 @@ private final class WebViewingAudioRevocation {
 @MainActor
 private final class NativeItemFailureObservation {
     weak var item: AVPlayerItem?
-    let sourceID: UUID
-    let requestID: UUID
+    /// The request and source this failure was observed for.
+    let attempt: PlaybackAttempt
+    var requestID: UUID { attempt.requestID }
     let reason: String
     let diagnosticDetails: [String: String]
     var mediaSecondAtObservation: Double
@@ -108,14 +109,20 @@ private final class NativeItemFailureObservation {
     init(item: AVPlayerItem, sourceID: UUID, requestID: UUID, reason: String,
          diagnosticDetails: [String: String], mediaSecondAtObservation: Double,
          awaitsForegroundRecovery: Bool) {
-        self.item = item; self.sourceID = sourceID; self.requestID = requestID
+        self.item = item; self.attempt = PlaybackAttempt(requestID: requestID, sourceID: sourceID)
         self.reason = reason; self.diagnosticDetails = diagnosticDetails
         self.mediaSecondAtObservation = mediaSecondAtObservation
         self.awaitsForegroundRecovery = awaitsForegroundRecovery
     }
 
-    func matches(item: AVPlayerItem?, sourceID: UUID?, requestID: UUID) -> Bool {
-        self.item != nil && self.item === item && self.sourceID == sourceID && self.requestID == requestID
+    /// Same live item, and the attempt is still the player's current one.
+    func matches(item: AVPlayerItem?, current: PlaybackAttempt.Current) -> Bool {
+        self.item != nil && self.item === item && attempt.isCurrent(in: current)
+    }
+
+    /// Same live item and the same caller-supplied attempt.
+    func matches(item: AVPlayerItem?, attempt: PlaybackAttempt) -> Bool {
+        self.item != nil && self.item === item && self.attempt == attempt
     }
 }
 
@@ -400,17 +407,23 @@ final class LivePlayerViewModel {
 
     var isNetworkReachable = true
     var pendingRetryAfterNetworkRestore = false
-    private struct SingleNetworkRecoveryOwner {
-        let sourceID: UUID
-        let requestID: UUID
-        let intentID: UUID
+    /// Current identity values that `PlaybackAttempt` fences compare against.
+    var currentAttemptIdentity: PlaybackAttempt.Current {
+        .init(requestID: loadRequestID, sourceID: activeSource?.id,
+              playbackIntent: playbackIntentRevision, audioIntent: audioIntentID)
     }
-    private var singleNetworkRecoveryOwner: SingleNetworkRecoveryOwner?
+    func captureAttempt(_ scope: PlaybackAttempt.Scope) -> PlaybackAttempt {
+        PlaybackAttempt(capturing: currentAttemptIdentity, scope: scope)
+    }
+    func isCurrent(_ attempt: PlaybackAttempt) -> Bool { attempt.isCurrent(in: currentAttemptIdentity) }
+
+    /// Source, request and playback intent that own single-player network recovery.
+    private var singleNetworkRecoveryOwner: PlaybackAttempt?
     private var networkLossTask: Task<Void, Never>?
 
     var loadTask: Task<Void, Never>?
     var hideTask: Task<Void, Never>?
-    private var stallValidationOwner: (attempt: UUID, item: ObjectIdentifier?, token: UUID)?
+    private var stallValidationOwner: (attempt: PlaybackAttempt, item: ObjectIdentifier?, token: UUID)?
     var stallValidationTask: Task<Void, Never>?
     var playbackWatchdogTask: Task<Void, Never>?
     var failoverBannerTask: Task<Void, Never>?
@@ -1639,7 +1652,7 @@ final class LivePlayerViewModel {
             let hasFatalItemFailure = viewingPlaybackContext == .single
                 && (player?.currentItem?.status == .failed
                     || nativeItemFailureObservation?.matches(item: player?.currentItem,
-                        sourceID: activeSource?.id, requestID: loadRequestID) == true)
+                        current: currentAttemptIdentity) == true)
             if isPictureInPictureActive, !hasFatalItemFailure { userWantsPlayback = false }
             transition(to: .paused(.native), phase: isAppBackgrounded ? "Paused (Background)" : "Paused")
             shouldResumeAfterForeground = userWantsPlayback && isAppBackgrounded && !isPictureInPictureActive
@@ -1784,13 +1797,12 @@ final class LivePlayerViewModel {
         guard isPlaybackSessionActive, !isPlaybackSessionRetired, error == nil,
               playbackState != .failed, userWantsPlayback else { return false }
         guard let owner = singleNetworkRecoveryOwner else { return true }
-        return owner.sourceID == activeSource?.id && owner.requestID == loadRequestID
-            && owner.intentID == playbackIntentRevision
+        return isCurrent(owner)
     }
 
     private func captureSingleNetworkRecovery() {
-        guard viewingPlaybackContext == .single, ownsSingleNetworkRecovery(), let source = activeSource else { return }
-        singleNetworkRecoveryOwner = .init(sourceID: source.id, requestID: loadRequestID, intentID: playbackIntentRevision)
+        guard viewingPlaybackContext == .single, ownsSingleNetworkRecovery(), activeSource != nil else { return }
+        singleNetworkRecoveryOwner = captureAttempt([.source, .playbackIntent])
     }
 
     /// Internal so the continuity policy can be regression-tested without
@@ -1808,7 +1820,7 @@ final class LivePlayerViewModel {
             cancelPendingWebRetry()
             guard was else { return }
             captureSingleNetworkRecovery()
-            let requestID = loadRequestID
+            let attempt = captureAttempt([])
             if singleRecovery { networkLossTask?.cancel() }
             let loss = Task {
                 do {
@@ -1816,7 +1828,7 @@ final class LivePlayerViewModel {
                     else { try await Task.sleep(for: PlaybackProgressPolicy.networkLossGrace) }
                 } catch { return }
                 guard !Task.isCancelled, self.isPlaybackSessionActive,
-                      self.loadRequestID == requestID, !self.isAppBackgrounded,
+                      self.isCurrent(attempt), !self.isAppBackgrounded,
                       self.userWantsPlayback,
                       !self.isWebPlaybackUserPaused,
                       !self.isNetworkReachable, !singleRecovery || self.ownsSingleNetworkRecovery() else { return }
@@ -2297,7 +2309,8 @@ final class LivePlayerViewModel {
     // Internal so delayed platform completion can be exercised without opening
     // a provider URL or making AVPlayer decode synthetic network media.
     func requestPlaybackStart(player: AVPlayer) async -> Bool {
-        let request = loadRequestID, source = activeSource?.id, intent = audioIntentID
+        let request = loadRequestID, source = activeSource?.id
+        let attempt = captureAttempt([.source, .audioIntent])
         let audioFocus = nativeAudioFocusGeneration
         let item = player.currentItem
         guard isPlaybackSessionActive, userWantsPlayback else { return false }
@@ -2316,8 +2329,7 @@ final class LivePlayerViewModel {
                 sourceID: source, requestID: request)
             let disconnected = isolation.request(disconnected: true)
             guard await disconnected.wait(), !Task.isCancelled, isPlaybackSessionActive,
-                  !isPlaybackSessionRetired, userWantsPlayback, audioIntentID == intent,
-                  loadRequestID == request, activeSource?.id == source,
+                  !isPlaybackSessionRetired, userWantsPlayback, isCurrent(attempt),
                   self.player === player, player.currentItem === item else {
                 isolation.request(disconnected: true)
                 return false
@@ -2330,15 +2342,14 @@ final class LivePlayerViewModel {
             preparation = await self.prepareOwnedNativeAudio(purpose: .nativeStart)
             return preparation
         }, isCurrent: {
-            isPlaybackSessionActive && userWantsPlayback && loadRequestID == request && activeSource?.id == source
-                && audioIntentID == intent && self.player === player && player.currentItem === item
+            isPlaybackSessionActive && userWantsPlayback && self.isCurrent(attempt)
+                && self.player === player && player.currentItem === item
                 && error == nil && playbackState != .failed
                 && (!isAppBackgrounded || shouldKeepPlaybackAliveForPictureInPicture)
         }) else { return false }
         guard await releaseNativeHandoffAudioMuteAfterActivation(for: player, result: preparation,
             focusGeneration: audioFocus, isCurrent: {
-                self.isPlaybackSessionActive && self.userWantsPlayback && self.loadRequestID == request
-                    && self.activeSource?.id == source && self.audioIntentID == intent
+                self.isPlaybackSessionActive && self.userWantsPlayback && self.isCurrent(attempt)
                     && self.player === player && player.currentItem === item && self.error == nil
                     && self.playbackState != .failed
                     && (!self.isAppBackgrounded || self.shouldKeepPlaybackAliveForPictureInPicture)
@@ -2407,7 +2418,7 @@ final class LivePlayerViewModel {
         nativeHandoffAudioMuteHeld = true
         applyViewingAudioState()
         let claim = nativeHandoffAudioClaimID, focus = nativeAudioFocusGeneration
-        let intent = audioIntentID, request = loadRequestID, source = activeSource?.id
+        let attempt = captureAttempt([.source, .audioIntent])
         nativeHandoffAudioClaimTask = Task { [weak self] in
             guard let self else { return }
             defer {
@@ -2419,7 +2430,7 @@ final class LivePlayerViewModel {
             }, isCurrent: {
                 self.isPlaybackSessionActive && !self.isPlaybackSessionRetired
                     && self.nativeHandoffAudioClaimID == claim && self.nativeAudioFocusGeneration == focus
-                    && self.audioIntentID == intent && self.loadRequestID == request && self.activeSource?.id == source
+                    && self.isCurrent(attempt)
                     && self.player === expectedPlayer && expectedPlayer.currentItem === item
                     && self.hasAdoptedNativeHandoff && !self.nativeHandoffAwaitingWebRetirement
                     && self.isViewingAudioEnabled && self.userWantsPlayback && self.error == nil
@@ -2428,8 +2439,7 @@ final class LivePlayerViewModel {
             }) else { return }
             _ = await self.releaseNativeHandoffAudioMuteAfterActivation(for: expectedPlayer,
                 result: .completed([]), focusGeneration: focus, isCurrent: {
-                    self.nativeHandoffAudioClaimID == claim && self.audioIntentID == intent
-                        && self.loadRequestID == request && self.activeSource?.id == source
+                    self.nativeHandoffAudioClaimID == claim && self.isCurrent(attempt)
                         && expectedPlayer.currentItem === item
                 })
             // This verified player is already running, or AVKit issued Play.
@@ -2497,7 +2507,8 @@ final class LivePlayerViewModel {
     private func queueAudioPreparation(for expectedPlayer: AVPlayer?,
                                       completion: @escaping @MainActor () -> Void) {
         cancelAudioPreparation()
-        let intent = audioIntentID, request = loadRequestID, source = activeSource?.id
+        let intent = audioIntentID
+        let attempt = captureAttempt([.source, .audioIntent])
         let audioFocus = nativeAudioFocusGeneration
         let item = expectedPlayer?.currentItem
         audioPreparationTask = Task { [weak self] in
@@ -2508,8 +2519,7 @@ final class LivePlayerViewModel {
                 preparation = await self.prepareOwnedNativeAudio(purpose: .nativeResume)
                 return preparation
             }, isCurrent: {
-                self.isPlaybackSessionActive && self.audioIntentID == intent && self.loadRequestID == request
-                    && self.activeSource?.id == source && self.player === expectedPlayer
+                self.isPlaybackSessionActive && self.isCurrent(attempt) && self.player === expectedPlayer
                     && self.player?.currentItem === item && self.userWantsPlayback
                     && self.error == nil && self.playbackState != .failed
                     && (!self.isAppBackgrounded || self.shouldKeepPlaybackAliveForPictureInPicture)
@@ -2517,8 +2527,7 @@ final class LivePlayerViewModel {
             if let expectedPlayer {
                 guard await self.releaseNativeHandoffAudioMuteAfterActivation(for: expectedPlayer, result: preparation,
                     focusGeneration: audioFocus, isCurrent: {
-                        self.isPlaybackSessionActive && self.audioIntentID == intent && self.loadRequestID == request
-                            && self.activeSource?.id == source && self.player === expectedPlayer
+                        self.isPlaybackSessionActive && self.isCurrent(attempt) && self.player === expectedPlayer
                             && expectedPlayer.currentItem === item && self.userWantsPlayback
                             && self.error == nil && self.playbackState != .failed
                             && (!self.isAppBackgrounded || self.shouldKeepPlaybackAliveForPictureInPicture)
@@ -2540,7 +2549,7 @@ final class LivePlayerViewModel {
         if reason == nil, pictureInPicturePreparationTask != nil { return }
         cancelPictureInPictureAudioPreparation()
         let preparationID = pictureInPicturePreparationID
-        let intent = audioIntentID, request = loadRequestID, source = activeSource?.id
+        let attempt = captureAttempt([.source, .audioIntent])
         let audioFocus = nativeAudioFocusGeneration
         let item = expectedPlayer.currentItem
         pictureInPicturePreparationTask = Task { [weak self] in
@@ -2555,8 +2564,7 @@ final class LivePlayerViewModel {
                 preparation = await self.prepareOwnedNativeAudio(purpose: .pictureInPicture)
                 return preparation
             }, isCurrent: {
-                self.isPlaybackSessionActive && self.audioIntentID == intent && self.loadRequestID == request
-                    && self.activeSource?.id == source && self.player === expectedPlayer
+                self.isPlaybackSessionActive && self.isCurrent(attempt) && self.player === expectedPlayer
                     && expectedPlayer.currentItem === item && !self.isUsingWebEmbed
                     && self.error == nil && self.playbackState != .failed
                     && (reason != nil || self.userWantsPlayback)
@@ -2566,8 +2574,7 @@ final class LivePlayerViewModel {
             }) else { return }
             guard await self.releaseNativeHandoffAudioMuteAfterActivation(for: expectedPlayer, result: preparation,
                 focusGeneration: audioFocus, isCurrent: {
-                    self.isPlaybackSessionActive && self.audioIntentID == intent && self.loadRequestID == request
-                        && self.activeSource?.id == source && self.player === expectedPlayer
+                    self.isPlaybackSessionActive && self.isCurrent(attempt) && self.player === expectedPlayer
                         && expectedPlayer.currentItem === item && !self.isUsingWebEmbed && self.error == nil
                         && self.playbackState != .failed && (reason != nil || self.userWantsPlayback)
                         && self.allowsViewingPiP && (self.isPictureInPictureAvailable || self.isPictureInPictureActive)
@@ -2951,9 +2958,10 @@ final class LivePlayerViewModel {
 
     func handleNativeItemFailure(_ item: AVPlayerItem, source: StreamSource, requestID: UUID,
                                  trigger: NativePlaybackDiagnosticTrigger, reportedError: Error? = nil) {
+        let attempt = PlaybackAttempt(requestID: requestID, sourceID: source.id)
         guard isPlaybackSessionActive, !isUsingWebEmbed,
               pendingSingleDiscoveryFailure == nil,
-              loadRequestID == requestID, activeSource?.id == source.id,
+              isCurrent(attempt),
               player?.currentItem === item else { return }
         // A late AVFoundation notification cannot resurrect an attempt that
         // already ended in the single-player error screen. Explicit Retry or
@@ -2965,7 +2973,7 @@ final class LivePlayerViewModel {
         // Notification, status KVO and an error-log callback may all report the
         // same background fatal item. One item/attempt owns one receipt/recovery.
         if let observation = nativeItemFailureObservation,
-           observation.matches(item: item, sourceID: source.id, requestID: requestID) {
+           observation.matches(item: item, attempt: attempt) {
             // Deduplicate persistence, not freshness. Brief progress between
             // two failures cannot count as recovery after the newer boundary.
             if isAppBackgrounded, observation.awaitsForegroundRecovery {
@@ -2998,8 +3006,8 @@ final class LivePlayerViewModel {
         guard let observation = nativeItemFailureObservation, observation.awaitsForegroundRecovery else { return false }
         observation.awaitsForegroundRecovery = false
         guard viewingPlaybackContext == .single, !isUsingWebEmbed,
-              observation.matches(item: player?.currentItem, sourceID: activeSource?.id,
-                                  requestID: loadRequestID), let source = activeSource else {
+              observation.matches(item: player?.currentItem, current: currentAttemptIdentity),
+              let source = activeSource else {
             nativeItemFailureObservation = nil
             return false
         }
@@ -3025,7 +3033,7 @@ final class LivePlayerViewModel {
     private func retireNativeFailureAfterDisplayedProgress(item: AVPlayerItem, sourceID: UUID,
                                                            requestID: UUID, currentSeconds: Double) -> Bool {
         guard viewingPlaybackContext == .single, let observation = nativeItemFailureObservation,
-              observation.matches(item: item, sourceID: sourceID, requestID: requestID),
+              observation.matches(item: item, attempt: PlaybackAttempt(requestID: requestID, sourceID: sourceID)),
               item.status == .readyToPlay,
               NativePlaybackVideoPolicy.hasDisplayedProgress(isReadyForDisplay: isVideoReadyForDisplay,
                   startSeconds: observation.mediaSecondAtObservation, currentSeconds: currentSeconds) else { return false }
@@ -4331,13 +4339,16 @@ final class LivePlayerViewModel {
             playbackIntervals.beginStall(identity, now: timing.monotonicNow())
         }
         let itemID = (expectedItem ?? player?.currentItem).map(ObjectIdentifier.init)
+        let attempt = PlaybackAttempt(requestID: expectedRequestID, sourceID: source.id)
+        // Deduplication keys on request and item, as before; the source is
+        // fenced by the samples below.
         if viewingPlaybackContext == .single, let owner = stallValidationOwner,
-           owner.attempt == expectedRequestID, owner.item == itemID, stallValidationTask?.isCancelled == false {
+           owner.attempt.requestID == expectedRequestID, owner.item == itemID, stallValidationTask?.isCancelled == false {
             return // Repeated stall/error notifications cannot restart the same observation window.
         }
         stallValidationTask?.cancel()
         let token = UUID()
-        stallValidationOwner = (expectedRequestID, itemID, token)
+        stallValidationOwner = (attempt, itemID, token)
         let start = player?.currentTime().seconds ?? 0
         stallValidationTask = Task {
             defer { if stallValidationOwner?.token == token { stallValidationOwner = nil } }
@@ -4349,8 +4360,7 @@ final class LivePlayerViewModel {
                 } catch { return }
                 guard !Task.isCancelled,
                       isPlaybackSessionActive, userWantsPlayback, !isAppBackgrounded,
-                      loadRequestID == expectedRequestID,
-                      activeSource?.id == source.id else { return }
+                      isCurrent(attempt) else { return }
                 if let expectedItem, player?.currentItem !== expectedItem { return }
                 if let p = player, PlaybackProgressPolicy.hasDecodedProgress(from: start, to: p.currentTime().seconds) {
                     recoverFromSoftStall(for: source, requestID: expectedRequestID, decodedProgress: true)
@@ -4358,8 +4368,7 @@ final class LivePlayerViewModel {
                 }
             }
             guard !Task.isCancelled, isPlaybackSessionActive, userWantsPlayback, !isAppBackgrounded,
-                  loadRequestID == expectedRequestID,
-                  activeSource?.id == source.id else { return }
+                  isCurrent(attempt) else { return }
             if let expectedItem, player?.currentItem !== expectedItem { return }
             if let player,
                (!single && player.timeControlStatus == .playing)
@@ -4382,7 +4391,7 @@ final class LivePlayerViewModel {
 
     private func recoverFromSoftStall(for source: StreamSource, requestID: UUID, decodedProgress: Bool) {
         guard isPlaybackSessionActive, userWantsPlayback, !isAppBackgrounded,
-              activeSource?.id == source.id, loadRequestID == requestID else { return }
+              isCurrent(PlaybackAttempt(requestID: requestID, sourceID: source.id)) else { return }
         if let identity = intervalIdentity {
             playbackIntervals.finishStall(identity, now: timing.monotonicNow(),
                 completion: decodedProgress ? .decodedProgress : .transportPlaying)?.record()
