@@ -37,11 +37,17 @@ Owner decision, 9 Nov 2026: shrink the existing player in place rather than buil
 | 4c | The remaining 34 continuation fences: web-embed callbacks, web PiP and background suspension, auto-hide, resume validation, URL preparation, item observers, the watchdog and continuity loop, backup refresh, wrong-match reports, Watch Two candidate preparation, audio retirement and diagnostics. Adds `isCurrent(requestID:sourceID:)` and `isCurrent(requestID:)` shorthands. Stored-record state checks (a saved request ID compared with the current one) and the startup observation-end classifier stay as they are. | Medium | **Done** (build 256) |
 | 5 | `PlaybackLifecyclePolicy.swift`: the PiP keep-alive rule, the web background action and the native resume-after-foreground rule, as pure tested functions. The orchestration stays in the view model (see the finding below). | Medium; Jet PiP check | **Done** (build 257); Jet PiP check pending a live match |
 | 6 | `NativeHandoff.swift`: the Watch Two preflight enums and the handoff diagnostic moved out of the view-model file, a `NativeHandoffCandidateLedger` (one key format and the cap of 12, previously written in two places), one shared item-status label (previously three copies) and the preflight receipt mapping. No controller: the transfer and Watch Two paths use 68 to 76 view-model members each, about half private. | Medium | **Done** (build 258) |
-| 7 | `RecoveryCoordinator`: `recoverSourceStartupFailure` and its helpers, built on slices 3–4. | High; Jet live failover check | |
+| 7 | Recovery decisions into `LivePlaybackRecoveryPolicy`: the offline-wait override, the one live-window stall retry and the fresh-delivery rule, with the two hard-failure lists named (they differ only by `lease_expired`, now documented). The action was already chosen by the policy; the 263-line executor stays, because it uses 81 members (37 private) and writes 17. | Medium; Jet live failover check | **Done** (build 259); live failover check pending a live match |
 | 8 | Route audio interruptions and route changes to the active player (audit §2.1-E). | Medium; device audio check | |
 | 9 | Decide `Fotty/Engine`: delete it, or reduce it to thin wrappers over the production matcher, relay and preparation. Do not keep a second copy of any rule. | Low | |
 
-**Target.** `LivePlayerViewModel` under about 1,500 lines, owning playback state, transitions and composition of the components above.
+**Target (revised 9 Nov after slices 5–7).** The original target was under about 1,500 lines. It is not reachable through clean extractions. Measured, each large block (lifecycle, Watch Two and transfer, the recovery executor) uses 68 to 107 view-model members, about half of them private, and writes many of them. What slices 1–7 achieved instead:
+
+- every playback decision lives in a tested policy (`BackupFreshnessPolicy`, `PlaybackProgressPolicy`, `PlaybackLifecyclePolicy`, `LivePlaybackRecoveryPolicy`, `NativeHandoffCandidateLedger`);
+- every delayed-work ownership check goes through one `PlaybackAttempt` fence;
+- one weakly-owned network observer.
+
+`LivePlayerViewModel` is 4762 lines of orchestration. Cutting the file further means extension files, which shorten it without making anything more independent, and widen about 55 private members. That is the owner's call.
 
 ## Slice 5 finding: lifecycle is not a clean controller seam
 

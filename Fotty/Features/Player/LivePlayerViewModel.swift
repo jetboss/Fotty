@@ -3063,33 +3063,10 @@ final class LivePlayerViewModel {
     private func canAwaitFreshSingleDelivery(failureKind: LivePlaybackFailureKind,
                                              structuredFailure: LivePlaybackStructuredFailure?,
                                              diagnosticDetails: [String: String]) -> Bool {
-        let reason = diagnosticDetails["preparation_reason"]
-        if ["unsafe_redirect", "descriptor_fixture_changed", "invalid_match_mapping", "unsafe_response"].contains(reason ?? "") {
-            return false
-        }
-        if structuredFailure?.httpStatus != nil { return true }
-        // Jet, 8 Nov: CS5 decoded for 55 min, stalled, and every remaining
-        // alternative came from the same hour-old discovery and failed within
-        // 35 s. The last one was classified `unknown`, which ended the session
-        // with no fresh lookup. Once this session has decoded, any non-hard
-        // failure earns the single exhausted-delivery lookup; the fresh
-        // resolver still owns identity and transport admission.
-        if playbackIntervals.hasDecodedDuringSession, !event.isBroadcastChannel,
-           structuredFailure?.disallowsAutomaticRetry != true,
-           ![.accessDenied, .unsupportedSource, .proxy].contains(failureKind) { return true }
-        if reason == PlaybackPreparationDiagnostic.Reason.leaseExpired.rawValue { return true }
-        if failureKind == .startupTimeout {
-            return diagnosticDetails["native_failure_trigger"] == NativePlaybackDiagnosticTrigger.readinessTimeout.rawValue
-                || (diagnosticDetails["preparation_stage"] == PlaybackPreparationDiagnostic.Stage.playbackStart.rawValue
-                    && reason == PlaybackPreparationDiagnostic.Reason.playbackStartTimeout.rawValue)
-        }
-        if structuredFailure?.category == .decode, reason == nil {
-            return [NativePlaybackDiagnosticTrigger.itemStatusFailed.rawValue,
-                    NativePlaybackDiagnosticTrigger.failedToPlayToEnd.rawValue]
-                .contains(diagnosticDetails["native_failure_trigger"] ?? "")
-        }
-        return structuredFailure?.category == .network && isNetworkReachable
-            && (reason == nil || reason == PlaybackPreparationDiagnostic.Reason.transportError.rawValue)
+        LivePlaybackRecoveryPolicy.canAwaitFreshDelivery(failureKind: failureKind,
+            structuredFailure: structuredFailure, diagnosticDetails: diagnosticDetails,
+            hasDecodedDuringSession: playbackIntervals.hasDecodedDuringSession,
+            isBroadcastChannel: event.isBroadcastChannel, isNetworkReachable: isNetworkReachable)
     }
 
     private func recoverSourceStartupFailure(
@@ -3127,35 +3104,37 @@ final class LivePlayerViewModel {
                 structuredFailure: structuredFailure
             )
         )
-        let hardPreparationFailure = ["unsafe_redirect", "descriptor_fixture_changed", "invalid_match_mapping", "unsafe_response", "lease_expired"]
-            .contains(diagnosticDetails["preparation_reason"] ?? "")
-        if viewingPlaybackContext == .single,
-           structuredFailure?.disallowsAutomaticRetry == true || hardPreparationFailure,
-           case .waitForNetwork = recoveryAction {
-            // A current typed denial/unsupported contract is not a device-route
-            // interruption. An offline flag must not authorize its replay.
-            recoveryAction = .exhaustSource(.classify(reason: reason, countsAsStall: countsAsStall,
-                isNetworkReachable: true, structuredFailure: structuredFailure))
+        let preparationReason = diagnosticDetails["preparation_reason"]
+        recoveryAction = LivePlaybackRecoveryPolicy.overridingOfflineWait(recoveryAction,
+            isSinglePlayer: viewingPlaybackContext == .single, structuredFailure: structuredFailure,
+            preparationReason: preparationReason, reason: reason, countsAsStall: countsAsStall)
+        // Spend the existing ONE native retry on a freshly resolved exact
+        // choice when this relay has a current live-window observation; the
+        // fresh resolver still owns delivery/identity admission.
+        let session = activeSession, binding = session?.eventBinding
+        let liveWindow = LivePlaybackRecoveryPolicy.LiveWindowStallInput(
+            isSingleRankedPlayer: usesSingleStreamRanking && viewingPlaybackContext == .single,
+            isSessionRetired: isPlaybackSessionRetired, isUsingWebEmbed: isUsingWebEmbed,
+            isPlaying: isPlaying, hasDecoded: playbackIntervals.hasDecoded, countsAsStall: countsAsStall,
+            nativeFailureTrigger: diagnosticDetails["native_failure_trigger"],
+            isNetworkReachable: isNetworkReachable, isForcedWebEmbed: isForcedWebEmbed, reason: reason,
+            structuredFailure: structuredFailure,
+            isDirectMedia: session?.playbackContract.endpoint == .directMedia,
+            boundProviderCode: binding?.providerCode,
+            hasCatalogIdentityConflict: event.hasCatalogIdentityConflict,
+            timingAllowsPlayback: MatchStartPolicy(event: event).timingAllowsPlayback,
+            bindingMatchesEvent: binding.map {
+                $0.matchesIdentity(request: StreamPlaybackRequest(event: event), providerCode: $0.providerCode)
+            } ?? false,
+            sessionCanRefresh: session?.canRefresh ?? false,
+            nativeStartupRetryCount: nativeStartupRetryAttemptsBySource[source.id, default: 0],
+            descriptorRefreshAttempted: descriptorRefreshAttempts.contains(source.id),
+            hasCurrentItem: player?.currentItem != nil, preparationReason: preparationReason)
+        let relayWindow = streamProxy.map { relay in
+            LivePlaybackRecoveryPolicy.RelayWindow(isNonAdvancing: { self.nativePlaylistIsNonAdvancing(relay) },
+                                                   isAdvancing: { self.nativePlaylistIsAdvancing(relay) })
         }
-        if case .exhaustSource = recoveryAction,
-           usesSingleStreamRanking, viewingPlaybackContext == .single,
-           !isPlaybackSessionRetired, !isUsingWebEmbed, isPlaying, playbackIntervals.hasDecoded,
-           countsAsStall, diagnosticDetails["native_failure_trigger"] == NativePlaybackDiagnosticTrigger.stallTimeout.rawValue,
-           isNetworkReachable, !isForcedWebEmbed, !LivePlaybackPolicy.isExplicitProviderRejection(reason),
-           structuredFailure?.disallowsAutomaticRetry != true,
-           let session = activeSession, session.playbackContract.endpoint == .directMedia,
-           let binding = session.eventBinding, ["communitysports", "plaviosports", "reviewedtv"].contains(binding.providerCode),
-           !event.hasCatalogIdentityConflict, MatchStartPolicy(event: event).timingAllowsPlayback,
-           binding.matchesIdentity(request: StreamPlaybackRequest(event: event), providerCode: binding.providerCode),
-           session.canRefresh, nativeStartupRetryAttemptsBySource[source.id, default: 0] < 1,
-           !descriptorRefreshAttempts.contains(source.id), player?.currentItem != nil,
-           let relay = streamProxy,
-           nativePlaylistIsNonAdvancing(relay)
-                || (diagnosticDetails["preparation_reason"] == nil && nativePlaylistIsAdvancing(relay)) {
-            // Spend the existing ONE native retry on a freshly resolved exact
-            // choice when this relay has a current live-window observation.
-            // Preparation failures cannot acquire advancing-window recovery;
-            // the fresh resolver still owns delivery/identity admission.
+        if LivePlaybackRecoveryPolicy.retriesLiveWindowStall(after: recoveryAction, liveWindow, relay: relayWindow) {
             requiredDescriptorRefreshSourceIDs.insert(source.id)
             recoveryAction = .retryNativeStartup(.stalled)
         }

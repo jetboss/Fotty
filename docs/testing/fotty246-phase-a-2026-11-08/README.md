@@ -271,3 +271,19 @@ The plan's `NativeWatchTwoController` was not built. Candidate preparation uses 
 
 **Jet (Release 3.0.0 (258)).** Installed, and the 60 s launch hold passed. `testWillowWatchAcknowledgementAndNinetySecondNativeHold` passed in 131.5 s: the same native player, item and attempt for 90 s, with media advancing 91.55 s. The web-to-native transfer and Watch Two were not exercised on the device: TV1 is native, and multiview work is paused.
 
+## Build 259: player shrink slice 7, recovery decisions into `LivePlaybackRecoveryPolicy` (9 Nov, 21:45 UTC)
+
+**Measurement first.** The recovery action was already chosen by `LivePlaybackRecoveryPolicy.action(for:)`. `recoverSourceStartupFailure` (263 lines) executes it, using 81 view-model members (37 private) and writing 17, so no `RecoveryCoordinator` was built. Next-source selection already delegates to the source and health policies.
+
+**Change.** Three decisions that were still inline moved into `LivePlaybackRecoveryPolicy` unchanged:
+
+- `overridingOfflineWait`: in the single player, a typed denial or a hard preparation failure turns a network wait into exhausting the source;
+- `retriesLiveWindowStall`: a decoded native stall from CS, AS or TV gets its one fresh retry when the relay shows a live window. The relay is read last, through two lazy checks, in the original order;
+- `canAwaitFreshDelivery`: the fresh-delivery rule, including the 8 Nov Jet change.
+
+The two hard-failure lists are now named. `unrecoverablePreparationReasons` and `offlineWaitRefusedReasons` differ only by `lease_expired`: an expired lease must not wait for the network, but a fresh delivery can replace it. `LivePlayerViewModel` is now 4762 lines.
+
+**Tests.** The new `LivePlaybackRecoveryOverridesTests` cover the list difference, every branch of the offline override, the live-window retry with each of its 20 blockers, the three providers, relay read order and laziness, and the fresh-delivery rule. Player and policy suites: 400 run, 0 failures, 1 skip. Full Catalyst suite: 2,744 run, 0 failures, 12 skips.
+
+**Jet (Release 3.0.0 (259)).** Installed, and the 60 s launch hold passed. `testWillowWatchAcknowledgementAndNinetySecondNativeHold` passed in 128.9 s, with media advancing 91.47 s on the same player, item and attempt. Failover, and therefore these recovery decisions, did not run on the device: Willow did not fail. A live failover check is still pending.
+

@@ -217,6 +217,7 @@
 		9BAC98BB71519427A35B35E4 /* PlaybackState.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA53C760AE3C10FC10DFDE73 /* PlaybackState.swift */; };
 		9BEB9F87853F53C7DA4F983E /* BetaUsabilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D2E1A0E86257DD9C5DB8333 /* BetaUsabilityTests.swift */; };
 		9D19F57EDFC38E0BFBA9182A /* SportsPersonalizationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E5756342CE6CFDDB18890B1 /* SportsPersonalizationPolicy.swift */; };
+		A0CA6C462A2CA6B7FD5C3B50 /* LivePlaybackRecoveryOverridesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E036FC72946463478B6611A /* LivePlaybackRecoveryOverridesTests.swift */; };
 		A13B299E99742F7ED688D75A /* HomeTerminalReconciliationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA0CE891AFC610ACDF3F52E /* HomeTerminalReconciliationTests.swift */; };
 		A176A2BB62753254C4584D39 /* LiveCatalogSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6490671312449481486B1A4A /* LiveCatalogSnapshot.swift */; };
 		A29E50639DAD93BE87B705B9 /* SettingsSportsContinuityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 915AEAADA49442EDF92EEB5B /* SettingsSportsContinuityView.swift */; };
@@ -418,6 +419,7 @@
 		0C7783D58426C468D907E353 /* SharedStreamDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedStreamDiscovery.swift; sourceTree = "<group>"; };
 		0CFDFCEB475C843E72D2A16D /* UCLReportedScoreView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UCLReportedScoreView.swift; sourceTree = "<group>"; };
 		0DC016AF01C49A24ACB7C7FB /* stadium_general.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = stadium_general.png; sourceTree = "<group>"; };
+		0E036FC72946463478B6611A /* LivePlaybackRecoveryOverridesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePlaybackRecoveryOverridesTests.swift; sourceTree = "<group>"; };
 		0E5756342CE6CFDDB18890B1 /* SportsPersonalizationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsPersonalizationPolicy.swift; sourceTree = "<group>"; };
 		0E747C30D569515452EB0C47 /* CurrentEventBroadcastPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CurrentEventBroadcastPolicy.swift; sourceTree = "<group>"; };
 		0EDA1075CD03A85FC2DD7DA4 /* LiveWebEmbedPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveWebEmbedPlayerView.swift; sourceTree = "<group>"; };
@@ -827,6 +829,7 @@
 				2707A1DE1F064A0F9F8E80CA /* InlineMotionTests.swift */,
 				0B5CB6E2FC3E8C69D6B25672 /* InlineReminderFeedbackTests.swift */,
 				6AB90B1B3D9621F8B7FA1A15 /* LastLiveMatchStoreTests.swift */,
+				0E036FC72946463478B6611A /* LivePlaybackRecoveryOverridesTests.swift */,
 				A567B850EE852F541DC23EAA /* LivePlayerRetryLifecycleTests.swift */,
 				46FBFFDC78DAE06BCDDBBF09 /* LiveSourceHealthScopeTests.swift */,
 				ACEC5F20FCC543D43196F967 /* LocalStreamProxyTests.swift */,
@@ -2106,6 +2109,7 @@
 				9981E81DF5FF7FB929B44605 /* InlineMotionTests.swift in Sources */,
 				5E573D423122F4F57A17F480 /* InlineReminderFeedbackTests.swift in Sources */,
 				AA7C926EA0220BF8B5E31B61 /* LastLiveMatchStoreTests.swift in Sources */,
+				A0CA6C462A2CA6B7FD5C3B50 /* LivePlaybackRecoveryOverridesTests.swift in Sources */,
 				AC1A8DE1AD0AA0A772C373A5 /* LivePlayerRetryLifecycleTests.swift in Sources */,
 				0CA7D8BB838881D3516C181F /* LiveSourceHealthScopeTests.swift in Sources */,
 				4C1C9010DC293DE182FE1F39 /* LocalStreamProxyTests.swift in Sources */,

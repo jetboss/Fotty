@@ -578,6 +578,129 @@ enum LivePlaybackRecoveryPolicy {
         }
         return .exhaustSource(failureKind)
     }
+
+    // MARK: Single-player overrides (player shrink slice 7, 9 Nov 2026)
+    //
+    // These three decisions were inline in LivePlayerViewModel's recovery
+    // executor. They are unchanged; the executor now supplies their facts.
+
+    /// Preparation reasons that neither a network wait nor a fresh delivery can fix.
+    static let unrecoverablePreparationReasons: Set<String> = [
+        "unsafe_redirect", "descriptor_fixture_changed", "invalid_match_mapping", "unsafe_response"
+    ]
+
+    /// Hard failures that must not wait for the network. An expired lease is
+    /// included: replaying it after the route returns cannot work. It is not in
+    /// `unrecoverablePreparationReasons`, because a fresh delivery replaces it
+    /// (`canAwaitFreshDelivery` returns true for it).
+    static let offlineWaitRefusedReasons: Set<String> =
+        unrecoverablePreparationReasons.union([PlaybackPreparationDiagnostic.Reason.leaseExpired.rawValue])
+
+    /// In the single player, a typed denial or a hard preparation failure is not
+    /// a device-route interruption: an offline flag must not authorize its replay,
+    /// so a network wait becomes exhausting the source.
+    static func overridingOfflineWait(_ action: Action, isSinglePlayer: Bool,
+                                      structuredFailure: LivePlaybackStructuredFailure?,
+                                      preparationReason: String?, reason: String,
+                                      countsAsStall: Bool) -> Action {
+        guard isSinglePlayer, case .waitForNetwork = action,
+              structuredFailure?.disallowsAutomaticRetry == true
+                || offlineWaitRefusedReasons.contains(preparationReason ?? "") else { return action }
+        return .exhaustSource(.classify(reason: reason, countsAsStall: countsAsStall,
+            isNetworkReachable: true, structuredFailure: structuredFailure))
+    }
+
+    /// Providers whose exact match binding can renew a live-window delivery.
+    static let liveWindowRetryProviders: Set<String> = ["communitysports", "plaviosports", "reviewedtv"]
+
+    /// Facts for spending the single native retry on a stalled live window.
+    struct LiveWindowStallInput {
+        var isSingleRankedPlayer: Bool
+        var isSessionRetired: Bool
+        var isUsingWebEmbed: Bool
+        var isPlaying: Bool
+        var hasDecoded: Bool
+        var countsAsStall: Bool
+        var nativeFailureTrigger: String?
+        var isNetworkReachable: Bool
+        var isForcedWebEmbed: Bool
+        var reason: String
+        var structuredFailure: LivePlaybackStructuredFailure?
+        var isDirectMedia: Bool
+        /// Provider code of the session's event binding, nil without one.
+        var boundProviderCode: String?
+        var hasCatalogIdentityConflict: Bool
+        var timingAllowsPlayback: Bool
+        var bindingMatchesEvent: Bool
+        var sessionCanRefresh: Bool
+        var nativeStartupRetryCount: Int
+        var descriptorRefreshAttempted: Bool
+        var hasCurrentItem: Bool
+        var preparationReason: String?
+    }
+
+    /// Lazy reads of the current relay's live window, in the original order.
+    struct RelayWindow {
+        let isNonAdvancing: () -> Bool
+        let isAdvancing: () -> Bool
+    }
+
+    /// Whether an exhausted, decoded native stall gets one freshly resolved
+    /// retry. The relay window is read last and only when everything else
+    /// holds; nil means there is no relay. A non-advancing window qualifies; an
+    /// advancing one qualifies only without a preparation failure, which can
+    /// never acquire advancing-window recovery.
+    static func retriesLiveWindowStall(after action: Action, _ input: LiveWindowStallInput,
+                                       relay: RelayWindow?) -> Bool {
+        guard case .exhaustSource = action,
+              input.isSingleRankedPlayer, !input.isSessionRetired, !input.isUsingWebEmbed,
+              input.isPlaying, input.hasDecoded, input.countsAsStall,
+              input.nativeFailureTrigger == NativePlaybackDiagnosticTrigger.stallTimeout.rawValue,
+              input.isNetworkReachable, !input.isForcedWebEmbed,
+              !LivePlaybackPolicy.isExplicitProviderRejection(input.reason),
+              input.structuredFailure?.disallowsAutomaticRetry != true,
+              input.isDirectMedia,
+              let provider = input.boundProviderCode, liveWindowRetryProviders.contains(provider),
+              !input.hasCatalogIdentityConflict, input.timingAllowsPlayback, input.bindingMatchesEvent,
+              input.sessionCanRefresh, input.nativeStartupRetryCount < 1,
+              !input.descriptorRefreshAttempted, input.hasCurrentItem,
+              let relay else { return false }
+        return relay.isNonAdvancing() || (input.preparationReason == nil && relay.isAdvancing())
+    }
+
+    /// Whether an exhausted single-player delivery may wait for one fresh
+    /// delivery from the original discovery before failing.
+    static func canAwaitFreshDelivery(failureKind: LivePlaybackFailureKind,
+                                      structuredFailure: LivePlaybackStructuredFailure?,
+                                      diagnosticDetails: [String: String],
+                                      hasDecodedDuringSession: Bool, isBroadcastChannel: Bool,
+                                      isNetworkReachable: Bool) -> Bool {
+        let reason = diagnosticDetails["preparation_reason"]
+        if unrecoverablePreparationReasons.contains(reason ?? "") { return false }
+        if structuredFailure?.httpStatus != nil { return true }
+        // Jet, 8 Nov: CS5 decoded for 55 min, stalled, and every remaining
+        // alternative came from the same hour-old discovery and failed within
+        // 35 s. The last one was classified `unknown`, which ended the session
+        // with no fresh lookup. Once this session has decoded, any non-hard
+        // failure earns the single exhausted-delivery lookup; the fresh
+        // resolver still owns identity and transport admission.
+        if hasDecodedDuringSession, !isBroadcastChannel,
+           structuredFailure?.disallowsAutomaticRetry != true,
+           ![.accessDenied, .unsupportedSource, .proxy].contains(failureKind) { return true }
+        if reason == PlaybackPreparationDiagnostic.Reason.leaseExpired.rawValue { return true }
+        if failureKind == .startupTimeout {
+            return diagnosticDetails["native_failure_trigger"] == NativePlaybackDiagnosticTrigger.readinessTimeout.rawValue
+                || (diagnosticDetails["preparation_stage"] == PlaybackPreparationDiagnostic.Stage.playbackStart.rawValue
+                    && reason == PlaybackPreparationDiagnostic.Reason.playbackStartTimeout.rawValue)
+        }
+        if structuredFailure?.category == .decode, reason == nil {
+            return [NativePlaybackDiagnosticTrigger.itemStatusFailed.rawValue,
+                    NativePlaybackDiagnosticTrigger.failedToPlayToEnd.rawValue]
+                .contains(diagnosticDetails["native_failure_trigger"] ?? "")
+        }
+        return structuredFailure?.category == .network && isNetworkReachable
+            && (reason == nil || reason == PlaybackPreparationDiagnostic.Reason.transportError.rawValue)
+    }
 }
 
 enum LivePlaybackSourcePolicy {
