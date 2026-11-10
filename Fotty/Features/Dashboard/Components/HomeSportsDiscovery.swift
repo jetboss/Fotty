@@ -129,13 +129,16 @@ struct HomeSportsDiscovery {
         let nextClub: Item?
         let upcoming: [Item]
         let awaitingStatus: [Item]
+        /// Cricket at stumps or a break today. It never takes the Live now
+        /// card; Home lists it under "Today so far".
+        var pausedToday: [Item] = []
+        /// The Live now card: the highest-priority current match that can be
+        /// watched now. Nothing paused, unconfirmed or upcoming takes it.
+        var spotlight: Item? = nil
 
-        var leadsWithUpcomingClub: Bool {
-            nextClub != nil && featuredLive.first?.hasConfirmedLiveStatus != true
-        }
-        var spotlight: Item? { leadsWithUpcomingClub ? nextClub : featuredLive.first }
-        var clubBelowSpotlight: Item? { leadsWithUpcomingClub ? nil : nextClub }
-        var remainingFeatured: ArraySlice<Item> { featuredLive.dropFirst(leadsWithUpcomingClub ? 0 : 1) }
+        /// A followed club's next match keeps its own row; it is not live.
+        var clubBelowSpotlight: Item? { nextClub }
+        var remainingFeatured: [Item] { featuredLive.filter { $0.id != spotlight?.id } }
     }
 
     struct DisplayRow: Identifiable {
@@ -407,7 +410,8 @@ struct HomeSportsDiscovery {
         featuredLiveLimit: Int,
         upcomingHorizon: TimeInterval = CatalogTimingPolicy.standardHomeUpcomingHorizon,
         upcomingLimit: Int = 3,
-        followedTeamKeys: Set<String> = []
+        followedTeamKeys: Set<String> = [],
+        canWatch: (Item) -> Bool = { _ in true }
     ) -> HomeSections {
         func followsClub(_ item: Item) -> Bool {
             guard !followedTeamKeys.isEmpty, item.sport == "football", !item.event.hasCatalogIdentityConflict else { return false }
@@ -421,10 +425,18 @@ struct HomeSportsDiscovery {
             if item.sport == "football" { return 1 }
             return item.sport == "cricket" ? 2 : 3
         }
-        let current = items.filter(\.isOnNow)
+        let onNow = items.filter(\.isOnNow)
+        let pausedToday = onNow.filter { $0.cricketActivity?.suppressesLiveBadge == true }
+        let current = onNow.filter { $0.cricketActivity?.suppressesLiveBadge != true }
         var live = current
         if let leader = current.indices.min(by: { priority(current[$0]) < priority(current[$1]) }), leader != 0 {
             live.insert(live.remove(at: leader), at: 0)
+        }
+        let spotlight = live.indices.filter { canWatch(live[$0]) }
+            .min { priority(live[$0]) < priority(live[$1]) || priority(live[$0]) == priority(live[$1]) && $0 < $1 }
+            .map { live[$0] }
+        if let spotlight, let index = live.firstIndex(where: { $0.id == spotlight.id }), index != 0 {
+            live.insert(live.remove(at: index), at: 0)
         }
         let nextClub = followedTeamKeys.isEmpty ? nil : items.filter {
             $0.phase == .upcoming && followsClub($0) && ($0.event.kickoffDate ?? .distantPast) > now
@@ -448,7 +460,9 @@ struct HomeSportsDiscovery {
                 guard $0.phase == .unconfirmed, $0.sport == "football",
                       let start = $0.event.kickoffDate else { return false }
                 return (0..<4 * 3600).contains(now.timeIntervalSince(start))
-            }
+            },
+            pausedToday: pausedToday,
+            spotlight: spotlight
         )
     }
 

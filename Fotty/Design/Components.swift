@@ -115,7 +115,13 @@ struct TeamBadgeWindow: View {
         "turkey": "tr", "romania": "ro", "hungary": "hu", "slovakia": "sk",
         "ukraine": "ua", "russia": "ru", "china": "cn", "india": "in",
         "new zealand": "nz", "paraguay": "py", "chile": "cl", "peru": "pe",
-        "venezuela": "ve", "bolivia": "bo", "honduras": "hn"
+        "venezuela": "ve", "bolivia": "bo", "honduras": "hn",
+        // Cricket nations. West Indies has no single national flag and keeps
+        // its colour monogram.
+        "pakistan": "pk", "sri lanka": "lk", "bangladesh": "bd", "afghanistan": "af",
+        "zimbabwe": "zw", "ireland": "ie", "nepal": "np", "oman": "om", "namibia": "na",
+        "united arab emirates": "ae", "uae": "ae", "hong kong": "hk", "kenya": "ke",
+        "uganda": "ug", "papua new guinea": "pg"
     ]
 
     private var displayName: String {

@@ -685,6 +685,10 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertEqual(TeamBadgeWindow.fallbackInitials(for: "Chelsea"), "CHE")
         XCTAssertEqual(TeamBadgeWindow.fallbackInitials(for: "Trinbago Knight Riders"), "TK")
         XCTAssertEqual(TeamBadgeWindow.countryFlagURL(for: "England")?.lastPathComponent, "gb-eng.png")
+        for (team, flag) in [("Pakistan", "pk.png"), ("Sri Lanka", "lk.png"), ("Afghanistan", "af.png"), ("United Arab Emirates", "ae.png")] {
+            XCTAssertEqual(TeamBadgeWindow.countryFlagURL(for: team)?.lastPathComponent, flag, team)
+        }
+        XCTAssertNil(TeamBadgeWindow.countryFlagURL(for: "West Indies"), "West Indies keeps its colour monogram")
         XCTAssertNil(TeamBadgeWindow.countryFlagURL(for: "New England Revolution"), "Club names must not be mistaken for national teams")
 
         let brokenProvider = URL(string: "https://provider.invalid/missing.webp")!
@@ -2332,13 +2336,48 @@ final class HomeDiscoveryTests: XCTestCase {
             XCTAssertEqual(during.clubBelowSpotlight?.id, tomorrow.id)
             let quiet = schedule.homeSections(from: [item(other, .listedNow), item(tomorrow, .upcoming)],
                 diverseUpcoming: false, featuredLiveLimit: limit, followedTeamKeys: keys)
-            XCTAssertEqual(quiet.spotlight?.id, tomorrow.id)
-            XCTAssertNil(quiet.clubBelowSpotlight)
-            XCTAssertEqual(quiet.remainingFeatured.map(\.id), [other.id])
+            // An upcoming club fixture keeps its own row; the Live now card
+            // belongs to something watchable now.
+            XCTAssertEqual(quiet.spotlight?.id, other.id)
+            XCTAssertEqual(quiet.clubBelowSpotlight?.id, tomorrow.id)
+            XCTAssertTrue(quiet.remainingFeatured.isEmpty)
+            let unwatchable = schedule.homeSections(from: [item(other, .listedNow), item(tomorrow, .upcoming)],
+                diverseUpcoming: false, featuredLiveLimit: limit, followedTeamKeys: keys, canWatch: { _ in false })
+            XCTAssertNil(unwatchable.spotlight)
+            XCTAssertEqual(unwatchable.clubBelowSpotlight?.id, tomorrow.id)
+            XCTAssertEqual(unwatchable.remainingFeatured.map(\.id), [other.id])
             let filtered = schedule.homeSections(from: [item(other, .live)], diverseUpcoming: false,
                 featuredLiveLimit: limit, followedTeamKeys: keys)
             XCTAssertNil(filtered.nextClub)
         }
+    }
+
+    func testLiveNowCardGoesOnlyToAWatchableMatchAndPausedCricketIsTodaySoFar() {
+        func item(_ event: AnalyticalDataEngine.EventReference, _ phase: HomeSportsDiscovery.Item.Phase) -> HomeSportsDiscovery.Item {
+            .init(event: event, phase: phase, officialStatus: nil, now: now)
+        }
+        let stumps = item(testCricket(phase: .stumps), .live)
+        let hockey = item(event("hockey", sport: "hockey", offset: -600, home: "Montreal Canadiens"), .live)
+        let football = item(event("football", offset: -600, home: "Arsenal"), .live)
+        let schedule = HomeSportsDiscovery(events: [], now: now)
+
+        let paused = schedule.homeSections(from: [stumps], diverseUpcoming: false, featuredLiveLimit: 3)
+        XCTAssertNil(paused.spotlight, "Stumps never takes the Live now card")
+        XCTAssertTrue(paused.featuredLive.isEmpty)
+        XCTAssertEqual(paused.pausedToday.map(\.id), [stumps.id])
+
+        // Football outranks hockey, but only hockey can be watched now.
+        let mixed = schedule.homeSections(from: [stumps, football, hockey], diverseUpcoming: false,
+            featuredLiveLimit: 3, canWatch: { $0.id == hockey.id })
+        XCTAssertEqual(mixed.spotlight?.id, hockey.id)
+        XCTAssertEqual(mixed.featuredLive.first?.id, hockey.id)
+        XCTAssertEqual(mixed.remainingFeatured.map(\.id), [football.id])
+        XCTAssertEqual(mixed.pausedToday.map(\.id), [stumps.id])
+
+        let none = schedule.homeSections(from: [football, hockey], diverseUpcoming: false,
+            featuredLiveLimit: 3, canWatch: { _ in false })
+        XCTAssertNil(none.spotlight)
+        XCTAssertEqual(Set(none.remainingFeatured.map(\.id)), [football.id, hockey.id])
     }
 
     func testHomeLiveSectionRespectsDeviceSpecificProminenceLimit() {

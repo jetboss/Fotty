@@ -69,6 +69,45 @@ enum CommentaryPreference: String, CaseIterable, Identifiable, Codable, Sendable
     }
 }
 
+extension SportsTVStation {
+    /// The TV tab and Home's "On air now" share this Watch decision.
+    @MainActor static func canWatchNow(_ station: SportsTVStation,
+                                       discoveryIndex: FixtureStreamDiscoveryIndex? = nil) -> Bool {
+        let index = discoveryIndex ?? .shared
+        if let channel = station.cricketChannel {
+            return (channel == .willow && index.enabledProviderCodes.contains(ReviewedTVPlaylistClient.providerCode))
+                || MatchStartPolicy(event: station.event, discoveryIndex: index).canAttemptPlayback
+        }
+        return SportsTVStation.canResolve(station.event, discoveryIndex: index)
+    }
+}
+
+/// Home's "On air now": channels that can open right now, in the TV tab's own
+/// order (favourites, recently watched, then cricket and other channels).
+/// A programme line appears only when the guide currently confirms it.
+enum HomeOnAirPolicy {
+    struct Entry: Identifiable, Equatable {
+        let station: SportsTVStation
+        let programme: String?
+        var id: String { station.id }
+    }
+
+    @MainActor static func entries(library: SportsTVLibrary, commentary: CommentaryPreference,
+                                   snapshot: BroadcastRegistrySnapshot?, sport: String?, at now: Date, limit: Int,
+                                   canWatch: (SportsTVStation) -> Bool) -> [Entry] {
+        guard limit > 0 else { return [] }
+        let ordered = library.sections(commentary: commentary).flatMap(\.stations)
+        var seen = Set<String>(), result: [Entry] = []
+        for station in ordered where seen.insert(station.id).inserted {
+            guard sport.map({ $0 == "cricket" ? station.isCricket : false }) ?? true, canWatch(station) else { continue }
+            let current = SportsTVGuidePolicy.entries(for: station, snapshot: snapshot, at: now).first { $0.isOnNow(at: now) }
+            result.append(.init(station: station, programme: current?.title))
+            if result.count == limit { break }
+        }
+        return result
+    }
+}
+
 enum SportsTVGuidePolicy {
     struct Entry: Identifiable, Equatable, Sendable {
         let id: String

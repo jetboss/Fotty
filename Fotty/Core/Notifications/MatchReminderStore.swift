@@ -94,7 +94,7 @@ struct MatchStartPolicy {
         }
         if let status, isStopped { return status.displayText }
         if hasUnconfirmedFixtureStart { return "Start unconfirmed" }
-        if let start = upcomingStart { return "Starts in \(Self.countdown(start.timeIntervalSince(now)))" }
+        if let start = upcomingStart { return Self.startLabel(start, now: now) }
         if SportsTVStation.canResolve(event, discoveryIndex: discoveryIndex) { return "Watch" }
         if CricketChannelPlaybackPolicy.canResolve(event, discoveryIndex: discoveryIndex) { return "Watch channel" }
         if !BroadcastRegistryWatchPolicy.matches(for: StreamPlaybackRequest(event: event),
@@ -102,6 +102,19 @@ struct MatchStartPolicy {
             discoveryIndex: discoveryIndex, at: now).isEmpty { return "Watch" }
         if hasFreshDiscoveredCandidate { return "Watch" }
         return event.kickoffDate == nil && !event.isBroadcastChannel ? "Time TBC" : "No stream listed"
+    }
+
+    /// A countdown only inside the last hour; otherwise the local clock time,
+    /// with the weekday (or date) when it is not today.
+    static func startLabel(_ start: Date, now: Date, calendar: Calendar = .current, locale: Locale = .current) -> String {
+        let interval = start.timeIntervalSince(now)
+        if interval <= 3600 { return "Starts in \(countdown(interval))" }
+        let time = Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone).hour().minute()
+        if calendar.isDate(start, inSameDayAs: now) { return "Starts \(start.formatted(time))" }
+        let day = interval < 6 * 86_400
+            ? Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone).weekday(.abbreviated)
+            : Date.FormatStyle(locale: locale, calendar: calendar, timeZone: calendar.timeZone).day().month(.abbreviated)
+        return "Starts \(start.formatted(day)) \(start.formatted(time))"
     }
 
     static func countdown(_ interval: TimeInterval) -> String {

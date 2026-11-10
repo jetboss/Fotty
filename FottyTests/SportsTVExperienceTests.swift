@@ -3,6 +3,31 @@ import XCTest
 
 @MainActor
 final class SportsTVExperienceTests: XCTestCase {
+
+    func testHomeOnAirListsOnlyChannelsThatOpenNowInTheTVTabOrder() throws {
+        let suite = "FottyTests.OnAir.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let library = SportsTVLibrary(defaults: defaults)
+        let ordered = library.sections(commentary: .english).flatMap(\.stations)
+        let watchable = Set(ordered.suffix(3).map(\.id))
+        let now = Date()
+        func entries(sport: String? = nil, limit: Int = 2, canWatch: @escaping (SportsTVStation) -> Bool) -> [HomeOnAirPolicy.Entry] {
+            HomeOnAirPolicy.entries(library: library, commentary: .english, snapshot: nil, sport: sport,
+                                    at: now, limit: limit, canWatch: canWatch)
+        }
+        let open = entries { watchable.contains($0.id) }
+        XCTAssertEqual(open.map(\.id), ordered.filter { watchable.contains($0.id) }.prefix(2).map(\.id),
+                       "Home follows the TV tab's order and limit")
+        XCTAssertTrue(open.allSatisfy { $0.programme == nil }, "No current guide means no programme claim")
+        XCTAssertTrue(entries(canWatch: { _ in false }).isEmpty, "A channel that cannot open is never offered")
+        let cricket = entries(sport: "cricket", limit: 20) { _ in true }
+        XCTAssertFalse(cricket.isEmpty)
+        XCTAssertTrue(cricket.allSatisfy(\.station.isCricket))
+        XCTAssertTrue(entries(sport: "hockey", limit: 20) { _ in true }.isEmpty)
+        XCTAssertTrue(entries(limit: 0) { _ in true }.isEmpty)
+    }
+
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
     private var defaults: UserDefaults!
     private var suite: String!

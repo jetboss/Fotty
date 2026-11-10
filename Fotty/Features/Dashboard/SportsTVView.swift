@@ -185,10 +185,7 @@ struct SportsTVView: View {
         .background(FottyTheme.surface, in: .rect(cornerRadius: 16))
     }
     private func canWatch(_ station: SportsTVStation) -> Bool {
-        if let channel = station.cricketChannel {
-            return (channel == .willow && enabled) || MatchStartPolicy(event: station.event).canAttemptPlayback
-        }
-        return SportsTVStation.canResolve(station.event, discoveryIndex: discovery)
+        SportsTVStation.canWatchNow(station, discoveryIndex: discovery)
     }
 }
 

@@ -528,14 +528,10 @@ struct HomeDiscoveryRow: View {
         VStack(alignment: .leading, spacing: 8) {
         MatchStartControls(event: item.event, status: item.officialStatus, now: now, onWatch: onOpen,
             alternateActionTitle: alternateActionTitle, onCheckStreams: onCheckStreams) {
-            HStack(alignment: .top, spacing: 4) {
-                eventInformation
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityAction(named: Text(saveTitle), onSave)
-                if !item.event.hasCatalogIdentityConflict || onDetails != nil {
-                    matchActions
-                }
-            }
+            eventInformation
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .modifier(HomeRowSecondaryActions(event: item.event, isSaved: isSaved, saveTitle: saveTitle,
+                    onSave: onSave, detailsExpanded: inlineContext.isExpanded(for: item.id), onDetails: inlineDetailsAction))
         }
         if inlineContext.isExpanded(for: item.id), let onDetails {
             CatalogInlineEventContext(event: item.event, status: item.officialStatus, now: now,
@@ -546,19 +542,18 @@ struct HomeDiscoveryRow: View {
         .contentShape(Rectangle())
         .onChange(of: item.id) { _, _ in inlineContext.reset() }
         .contextMenu {
-            Button(saveTitle, systemImage: isSaved ? "bookmark.slash" : "bookmark", action: onSave)
-                .accessibilityIdentifier("home-save-\(item.id)")
+            if let inlineDetailsAction {
+                Button(inlineContext.isExpanded(for: item.id) ? "Hide match details" : "Match details",
+                       systemImage: "info.circle", action: inlineDetailsAction)
+            }
+            if !item.event.hasCatalogIdentityConflict {
+                Button(saveTitle, systemImage: isSaved ? "bookmark.slash" : "bookmark", action: onSave)
+                    .accessibilityIdentifier("home-save-\(item.id)")
+            }
         }
     }
 
     private var saveTitle: String { isSaved ? "Remove from My Matchday" : "Save to My Matchday" }
-
-    private var matchActions: some View {
-        CatalogMatchActionsMenu(eventID: item.id, eventTitle: item.event.displayTitle,
-                                isSaved: isSaved, canSave: !item.event.hasCatalogIdentityConflict,
-                                onSave: onSave, onDetails: inlineDetailsAction,
-                                detailsExpanded: inlineContext.isExpanded(for: item.id))
-    }
 
     private var inlineDetailsAction: (() -> Void)? {
         guard onDetails != nil else { return nil }
@@ -575,19 +570,13 @@ struct HomeDiscoveryRow: View {
             }
             .buttonStyle(FottyPressButtonStyle())
             .accessibilityElement(children: .combine)
-            .accessibilityHint("Opens the listed broadcast. More options includes saving and match details.")
+            .accessibilityHint("Opens the broadcast. Touch and hold for match details and saving.")
             .accessibilityIdentifier(item.isOnNow ? "home-watch-now" : "home-event-\(item.id)")
             .disabled(streamLookupBusy)
         } else if let inlineDetailsAction {
             Button(action: inlineDetailsAction) {
-                HStack(spacing: 8) {
-                    eventText
-                    Image(systemName: inlineContext.isExpanded(for: item.id) ? "chevron.up" : "chevron.down")
-                        .font(FottyTheme.typeMeta)
-                        .foregroundStyle(FottyTheme.textTertiary)
-                        .accessibilityHidden(true)
-                }
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                eventText
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(FottyPressButtonStyle())
@@ -1035,14 +1024,11 @@ struct HomeScheduleRow: View {
             onCheckStreams: onCheckStreams,
             compact: true,
             minimumInformationWidth: minimumInformationWidth,
-            rowActions: (!item.event.hasCatalogIdentityConflict || onDetails != nil)
-                ? CatalogMatchActionsMenu(eventID: item.id, eventTitle: item.event.displayTitle,
-                                          isSaved: isSaved, canSave: !item.event.hasCatalogIdentityConflict,
-                                          onSave: onSave, onDetails: inlineDetailsAction,
-                                          detailsExpanded: inlineContext.isExpanded(for: item.id)) : nil
+            rowActions: Optional<CatalogMatchActionsMenu>.none
         ) {
             eventInformation
-                .accessibilityAction(named: Text(saveTitle), onSave)
+                .modifier(HomeRowSecondaryActions(event: item.event, isSaved: isSaved, saveTitle: saveTitle,
+                    onSave: onSave, detailsExpanded: inlineContext.isExpanded(for: item.id), onDetails: inlineDetailsAction))
         }
         if inlineContext.isExpanded(for: item.id), let onDetails {
             CatalogInlineEventContext(event: item.event, status: item.officialStatus, now: now,
@@ -1053,8 +1039,14 @@ struct HomeScheduleRow: View {
         .contentShape(Rectangle())
         .onChange(of: item.id) { _, _ in inlineContext.reset() }
         .contextMenu {
-            Button(saveTitle, systemImage: isSaved ? "bookmark.slash" : "bookmark", action: onSave)
-                .accessibilityIdentifier("home-save-\(item.id)")
+            if let inlineDetailsAction {
+                Button(inlineContext.isExpanded(for: item.id) ? "Hide match details" : "Match details",
+                       systemImage: "info.circle", action: inlineDetailsAction)
+            }
+            if !item.event.hasCatalogIdentityConflict {
+                Button(saveTitle, systemImage: isSaved ? "bookmark.slash" : "bookmark", action: onSave)
+                    .accessibilityIdentifier("home-save-\(item.id)")
+            }
         }
     }
 
@@ -1069,18 +1061,12 @@ struct HomeScheduleRow: View {
             Button(action: onOpen) { compactInformation }
                 .buttonStyle(FottyPressButtonStyle())
                 .disabled(streamLookupBusy)
-                .accessibilityHint("Opens the listed broadcast. More options includes saving and match details.")
+                .accessibilityHint("Opens the broadcast. Touch and hold for match details and saving.")
                 .accessibilityIdentifier(item.isOnNow ? "home-watch-now" : "home-event-\(item.id)")
         } else if let inlineDetailsAction {
             Button(action: inlineDetailsAction) {
-                HStack(spacing: 6) {
-                    compactInformation
-                    Image(systemName: inlineContext.isExpanded(for: item.id) ? "chevron.up" : "chevron.down")
-                        .font(FottyTheme.typeMeta)
-                        .foregroundStyle(FottyTheme.textTertiary)
-                        .accessibilityHidden(true)
-                }
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                compactInformation
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())
             }
             .buttonStyle(FottyPressButtonStyle())
@@ -1192,4 +1178,96 @@ struct HomeScheduleRow: View {
     }
 
     private var saveTitle: String { isSaved ? "Remove from My Matchday" : "Save to My Matchday" }
+}
+
+/// Home's "On air now": channels that open right now, each with its own
+/// Watch. Tapping Watch shows "Opening…" at once, like the TV tab.
+struct HomeOnAirSection: View {
+    let entries: [HomeOnAirPolicy.Entry]
+    let columns: Int
+    let pendingEventID: String?
+    let onWatch: (EventReference) -> Void
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    var body: some View {
+        let count = typeSize.isAccessibilitySize ? 1 : max(1, min(columns, entries.count))
+        VStack(alignment: .leading, spacing: 8) {
+            Text("On air now")
+                .font(FottyTheme.typeSectionTitle)
+                .foregroundStyle(FottyTheme.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("home-on-air-heading")
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: count),
+                      alignment: .leading, spacing: 12) {
+                ForEach(entries) { entry in card(entry) }
+            }
+        }
+        .accessibilityIdentifier("home-on-air")
+    }
+
+    private func card(_ entry: HomeOnAirPolicy.Entry) -> some View {
+        let event = entry.station.event
+        let opening = pendingEventID == event.id
+        return VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(entry.station.title)
+                    .font(.headline)
+                    .foregroundStyle(FottyTheme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                // Only a programme the guide currently confirms is named.
+                if let line = entry.programme.map({ "Now · \($0)" })
+                    ?? (entry.station.language == .any ? nil : entry.station.language.title) {
+                    Text(line)
+                        .font(.subheadline)
+                        .foregroundStyle(entry.programme == nil ? FottyTheme.textSecondary : FottyTheme.textPrimary)
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Button { onWatch(event) } label: {
+                Label {
+                    Text(opening ? "Opening…" : "Watch")
+                } icon: {
+                    if opening { ProgressView().controlSize(.small).tint(FottyTheme.textOnAccent) }
+                    else { Image(systemName: "play.fill") }
+                }
+                .font(FottyTheme.typeAction)
+                .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(FottyTheme.accent)
+            .foregroundStyle(FottyTheme.textOnAccent)
+            .disabled(pendingEventID != nil)
+            .accessibilityLabel("Watch \(entry.station.title)")
+            .accessibilityValue(opening ? "Opening broadcast" : (entry.programme ?? ""))
+            .accessibilityIdentifier("home-on-air-watch-\(entry.station.id)")
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(FottyTheme.surface, in: .rect(cornerRadius: FottyTheme.radiusLG))
+    }
+}
+
+
+/// Home rows show one visible action. Details and Save stay reachable through
+/// the row's long-press menu and these VoiceOver actions.
+private struct HomeRowSecondaryActions: ViewModifier {
+    let event: EventReference
+    let isSaved: Bool
+    let saveTitle: String
+    let onSave: () -> Void
+    let detailsExpanded: Bool
+    let onDetails: (() -> Void)?
+
+    func body(content: Content) -> some View {
+        content.accessibilityActions {
+            if let onDetails {
+                Button(detailsExpanded ? "Hide match details" : "Match details", action: onDetails)
+            }
+            if !event.hasCatalogIdentityConflict {
+                Button(saveTitle, action: onSave)
+            }
+        }
+    }
 }

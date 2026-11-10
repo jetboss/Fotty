@@ -73,7 +73,9 @@ final class MatchReminderTests: XCTestCase {
     }
 
     func testCountdownAndPlayBoundaries() {
-        for (seconds, canPlay, title) in [(7200.0, false, "Starts in 2h 0m"), (301, false, "Starts in 6m"),
+        for (seconds, canPlay, title) in [(7200.0, false, MatchStartPolicy.startLabel(now.addingTimeInterval(7200), now: now)),
+            (3601, false, MatchStartPolicy.startLabel(now.addingTimeInterval(3601), now: now)),
+            (3600, false, "Starts in 1h 0m"), (301, false, "Starts in 6m"),
             (300, false, "Starts in 5:00"), (121, false, "Starts in 2:01"), (120, true, "Starts in 2:00"),
             (1, true, "Starts in 0:01"), (0, true, "No stream listed")] {
             let policy = MatchStartPolicy(event: event(start: now.addingTimeInterval(seconds)), now: now)
@@ -82,6 +84,18 @@ final class MatchReminderTests: XCTestCase {
             XCTAssertEqual(policy.title, title)
         }
         XCTAssertEqual(MatchStartPolicy.countdown(86_400 + 7200), "1d 2h")
+        // Beyond the last hour, the clock time; other days add the weekday or date.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "America/Puerto_Rico")!
+        let locale = Locale(identifier: "en_US")
+        let base = ISO8601DateFormatter().date(from: "2026-11-10T16:00:00Z")! // 12:00 PM local
+        func label(_ hours: Double) -> String {
+            MatchStartPolicy.startLabel(base.addingTimeInterval(hours * 3600), now: base, calendar: calendar, locale: locale)
+        }
+        XCTAssertEqual(label(0.5), "Starts in 30m")
+        XCTAssertEqual(label(8), "Starts 8:00\u{202F}PM")
+        XCTAssertEqual(label(13), "Starts Wed 1:00\u{202F}AM")
+        XCTAssertEqual(label(24 * 7), "Starts Nov 17 12:00\u{202F}PM")
         XCTAssertEqual(MatchStartPolicy.countdown(0.01), "0:01")
     }
 

@@ -1,3 +1,7 @@
+## 2026-11-10: Approve the watch-first Home direction (concept only)
+
+Owner approved the Home concept: lead with what can be watched now (Live now card only for a watchable or confirmed-live match; On air now channels always available; Today so far for stumps/finished), one action per row (Watch, bell or none), clock times beyond the last hour, two independent iPad columns, and Settings moved to a gear. Contract: `docs/design/home-watch-first-contract.md`; concept canvas linked there (sample data). Approval is for direction only: no app code changed, and each of the five build slices needs its own tests and Jet visual check. Watch admission, source rules, PiP, reminders, artwork, FPL and Watch two are unchanged.
+
 ## 2026-11-10: Clear cricket stumps and break presentation on Jet265
 
 Stumps now says “Stumps · Play finished for today”; lunch, tea, innings breaks, paused, interrupted and delayed play have explicit labels. Home uses neutral moon/pause symbols and does not head a mixed paused-cricket group “Live now”. Shared copy reaches details and scorecards. Single-player match status uses admitted cricket phase instead of a generic Live broadcast fallback; the managed-audio/multi path stays unchanged. Existing lifecycle, source matching, Watch eligibility, freshness and transport guards are preserved.

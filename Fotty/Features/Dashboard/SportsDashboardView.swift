@@ -26,6 +26,9 @@ struct SportsDashboardView: View {
     @AppStorage(SportsInterestPreferences.storageKey) private var followedSportsRaw = "[]"
     @State private var projectionCoordinator = HomeProjectionCoordinator()
     @State private var showsMoreLive = false
+    @State private var tvLibrary = SportsTVLibrary.shared
+    @State private var tvRegistry = BroadcastRegistryClient.shared
+    @AppStorage(CommentaryPreference.storageKey) private var tvCommentary = CommentaryPreference.english.rawValue
     @State private var showsFullLineup = false
     @State private var showsAllSports = false
     @State private var allSportsAppliesHomeInterests = true
@@ -438,7 +441,8 @@ struct SportsDashboardView: View {
             featuredLiveLimit: personalizedUpcomingLimit,
             upcomingHorizon: HomeUpcomingPresentationPolicy.horizon(personalized: usesPersonalizedWindow),
             upcomingLimit: usesPersonalizedWindow ? personalizedUpcomingLimit : 3,
-            followedTeamKeys: personalization.selection.teamKeys
+            followedTeamKeys: personalization.selection.teamKeys,
+            canWatch: { canOpenBroadcast($0.event) }
         )
         let later = usesPersonalizedWindow
             ? (title: "", items: [HomeSportsDiscovery.Item]())
@@ -449,7 +453,12 @@ struct SportsDashboardView: View {
         let catalogNoticeDate = HomeSportsDiscovery.automatedClockDate ?? Date()
         // Read layout/state dependencies before entering the escaping lazy
         // content closure. The sequence itself must update on a width change.
-        let entries = homeEntries(sections: sections, later: later, items: items,
+        let onAir: [HomeOnAirPolicy.Entry] = isMultiSelectMode || showFollowedOnly
+            || ![HomeSportsDiscovery.allSports, "cricket"].contains(selectedSportTab) ? []
+            : HomeOnAirPolicy.entries(library: tvLibrary, commentary: CommentaryPreference(rawValue: tvCommentary) ?? .english,
+                snapshot: tvRegistry.snapshot, sport: selectedSportTab == HomeSportsDiscovery.allSports ? nil : "cricket",
+                at: discoveryDate, limit: usesWideLayout ? 3 : 2, canWatch: { SportsTVStation.canWatchNow($0) })
+        let entries = homeEntries(sections: sections, onAir: onAir, later: later, items: items,
                                   personalized: usesPersonalizedWindow, hasChannels: !schedule.channels.isEmpty, needsClub: personalization.selection.teamKeys.isEmpty,
                                   selectionIsEmpty: items.isEmpty && channelEvents(applyingHomeInterests: true).isEmpty,
                                   columns: usesWideLayout ? 2 : 1)
@@ -1012,12 +1021,13 @@ struct SportsDashboardView: View {
     }
 
     private enum HomeEntry: Identifiable {
-        enum Heading: Hashable { case live, upcoming, later, awaitingStatus }
+        enum Heading: Hashable { case live, upcoming, later, awaitingStatus, todaySoFar }
         enum ID: Hashable {
-            case heading(Heading), overview, spotlight(String), club(String), followClub, moreLive, browseSports, empty, selectionEmpty, fixture(HomeSportsDiscovery.DisplayRow.ID)
+            case heading(Heading), overview, onAir, spotlight(String), club(String), followClub, moreLive, browseSports, empty, selectionEmpty, fixture(HomeSportsDiscovery.DisplayRow.ID)
         }
         case heading(Heading, String)
-        case overview(HomeSportsDiscovery.HomeSections, emptyMessage: String)
+        case overview(HomeSportsDiscovery.HomeSections, emptyMessage: String, onAir: [HomeOnAirPolicy.Entry])
+        case onAir([HomeOnAirPolicy.Entry])
         case spotlight(HomeSportsDiscovery.Item)
         case club(HomeSportsDiscovery.Item)
         case followClub
@@ -1030,6 +1040,7 @@ struct SportsDashboardView: View {
             switch self {
             case .heading(let kind, _): return .heading(kind)
             case .overview: return .overview
+            case .onAir: return .onAir
             case .spotlight(let item): return .spotlight(item.id)
             case .club(let item): return .club(item.id)
             case .followClub: return .followClub
@@ -1046,7 +1057,7 @@ struct SportsDashboardView: View {
     /// conditional ForEach groups change their child counts when the first live
     /// section appears. Flatten headers and rows together before SwiftUI
     /// reconciles them; do not reset the scroll container to force a refresh.
-    private func homeEntries(sections: HomeSportsDiscovery.HomeSections,
+    private func homeEntries(sections: HomeSportsDiscovery.HomeSections, onAir: [HomeOnAirPolicy.Entry],
                              later: (title: String, items: [HomeSportsDiscovery.Item]),
                              items: [HomeSportsDiscovery.Item], personalized: Bool,
                              hasChannels: Bool, needsClub: Bool, selectionIsEmpty: Bool, columns: Int) -> [HomeEntry] {
@@ -1055,6 +1066,11 @@ struct SportsDashboardView: View {
             entries += HomeSportsDiscovery.displayRows(items, columns: columns, section: section)
                 .map { .fixture($0, elevated: elevated) }
         }
+        func appendPausedToday() {
+            guard !sections.pausedToday.isEmpty else { return }
+            entries.append(.heading(.todaySoFar, "Today so far"))
+            appendRows(sections.pausedToday, section: "today-so-far", elevated: false)
+        }
         func appendAwaitingStatus() {
             guard !sections.awaitingStatus.isEmpty else { return }
             entries.append(.heading(.awaitingStatus, "Awaiting match update"))
@@ -1062,11 +1078,11 @@ struct SportsDashboardView: View {
         }
         // Only the bounded featured/upcoming projection enters the overview.
         // Expanded current events and later fixtures stay independently lazy.
-        if columns > 1, !sections.featuredLive.isEmpty {
+        if columns > 1, !sections.featuredLive.isEmpty || !sections.pausedToday.isEmpty || !onAir.isEmpty {
             let activeSport = selectedSportTab == HomeSportsDiscovery.allSports
                 ? nil : AnalyticalDataEngine.categoryDisplayName(for: selectedSportTab)
             entries.append(.overview(sections, emptyMessage: HomeUpcomingPresentationPolicy.emptyMessage(
-                sport: activeSport, personalized: personalized, hasCurrentEvents: true)))
+                sport: activeSport, personalized: personalized, hasCurrentEvents: true), onAir: onAir))
             if needsClub { entries.append(.followClub) }
             if !sections.moreLive.isEmpty {
                 entries.append(.moreLive(sections.moreLive))
@@ -1082,10 +1098,21 @@ struct SportsDashboardView: View {
         if let spotlight = sections.spotlight {
             entries.append(.spotlight(spotlight))
             if let club = sections.clubBelowSpotlight { entries.append(.club(club)) }
+            if !onAir.isEmpty { entries.append(.onAir(onAir)) }
             if needsClub { entries.append(.followClub) }
             if !sections.remainingFeatured.isEmpty { entries.append(.heading(.live, CricketActivityPresentationPolicy.sectionTitle(for: Array(sections.remainingFeatured)))) }
             appendRows(Array(sections.remainingFeatured), section: "live", elevated: false)
+        } else if !onAir.isEmpty {
+            // Nothing watchable is live: channels that open now lead Home.
+            entries.append(.onAir(onAir))
         }
+        if sections.spotlight == nil, !sections.remainingFeatured.isEmpty {
+            // Live without a Watch action: listed, never the Live now card.
+            entries.append(.heading(.live, "On now"))
+            appendRows(sections.remainingFeatured, section: "live", elevated: false)
+        }
+        if sections.spotlight == nil, let club = sections.nextClub { entries.append(.club(club)) }
+        appendPausedToday()
         if !sections.moreLive.isEmpty {
             entries.append(.moreLive(sections.moreLive))
             if showsMoreLive { appendRows(sections.moreLive, section: "more-live", elevated: false) }
@@ -1128,8 +1155,10 @@ struct SportsDashboardView: View {
         switch entry {
         case .heading(let kind, let title):
             homeSectionHeading(kind, title: title)
-        case .overview(let sections, let emptyMessage):
-            wideHomeOverview(sections, emptyMessage: emptyMessage)
+        case .overview(let sections, let emptyMessage, let onAir):
+            wideHomeOverview(sections, emptyMessage: emptyMessage, onAir: onAir)
+        case .onAir(let onAir):
+            onAirSection(onAir, columns: 2)
         case .club(let item): clubNextRow(item)
         case .followClub:
             Button { presentModal { showsClubPicker = true } } label: {
@@ -1243,14 +1272,29 @@ struct SportsDashboardView: View {
         }
     }
 
-    private func wideHomeOverview(_ sections: HomeSportsDiscovery.HomeSections, emptyMessage: String) -> some View {
+    private func onAirSection(_ entries: [HomeOnAirPolicy.Entry], columns: Int) -> some View {
+        HomeOnAirSection(entries: entries, columns: columns,
+            pendingEventID: !isMultiSelectMode && !viewing.isTwo ? viewing.pendingSingleEvent?.id : nil) { event in
+            SportsTVWatchPolicy.watch(event, using: viewing,
+                currentCatalog: { MatchListViewModel.shared.playbackAdmissionCatalog })
+        }
+    }
+
+    private func wideHomeOverview(_ sections: HomeSportsDiscovery.HomeSections, emptyMessage: String,
+                                  onAir: [HomeOnAirPolicy.Entry]) -> some View {
         HomeOverviewLayout {
             VStack(alignment: .leading, spacing: 16) {
                 if let item = sections.spotlight { liveSpotlight(item) }
                 if let club = sections.clubBelowSpotlight { clubNextRow(club) }
+                if !onAir.isEmpty { onAirSection(onAir, columns: 3) }
                 if !sections.remainingFeatured.isEmpty {
-                    homeSectionHeading(.live, title: CricketActivityPresentationPolicy.sectionTitle(for: Array(sections.remainingFeatured)))
-                    overviewMatchGroup(Array(sections.remainingFeatured))
+                    homeSectionHeading(.live, title: sections.spotlight == nil ? "On now"
+                        : CricketActivityPresentationPolicy.sectionTitle(for: sections.remainingFeatured))
+                    overviewMatchGroup(sections.remainingFeatured)
+                }
+                if !sections.pausedToday.isEmpty {
+                    homeSectionHeading(.todaySoFar, title: "Today so far")
+                    overviewMatchGroup(sections.pausedToday)
                 }
             }
             VStack(alignment: .leading, spacing: 16) {
@@ -1673,6 +1717,8 @@ struct SportsDashboardView: View {
 
     private func rowSourceCheckAction(for event: EventReference) -> (() -> Void)? {
         guard !isMultiSelectMode, !viewing.isTwo else { return nil }
+        // "Today so far" rows (stumps, breaks) carry no action or lookup status.
+        if CricketActivityPresentationPolicy.activity(for: event, at: discoveryDate)?.suppressesLiveBadge == true { return nil }
         return { checkSources(for: event) }
     }
 
