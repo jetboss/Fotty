@@ -1083,7 +1083,7 @@ struct SportsDashboardView: View {
             entries.append(.spotlight(spotlight))
             if let club = sections.clubBelowSpotlight { entries.append(.club(club)) }
             if needsClub { entries.append(.followClub) }
-            if !sections.remainingFeatured.isEmpty { entries.append(.heading(.live, "Live now")) }
+            if !sections.remainingFeatured.isEmpty { entries.append(.heading(.live, CricketActivityPresentationPolicy.sectionTitle(for: Array(sections.remainingFeatured)))) }
             appendRows(Array(sections.remainingFeatured), section: "live", elevated: false)
         }
         if !sections.moreLive.isEmpty {
@@ -1249,7 +1249,7 @@ struct SportsDashboardView: View {
                 if let item = sections.spotlight { liveSpotlight(item) }
                 if let club = sections.clubBelowSpotlight { clubNextRow(club) }
                 if !sections.remainingFeatured.isEmpty {
-                    homeSectionHeading(.live, title: "Live now")
+                    homeSectionHeading(.live, title: CricketActivityPresentationPolicy.sectionTitle(for: Array(sections.remainingFeatured)))
                     overviewMatchGroup(Array(sections.remainingFeatured))
                 }
             }

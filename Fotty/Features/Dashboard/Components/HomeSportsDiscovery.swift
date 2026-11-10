@@ -93,7 +93,7 @@ struct HomeSportsDiscovery {
             if listed > 0 { return "\(listed) listed" }
             if starting > 0 { return "Starting" }
             if contextUnconfirmed > 0 { return "Status unconfirmed" }
-            if atStumps > 0, onBreak == 0 { return atStumps == 1 ? "Stumps" : "\(atStumps) at stumps" }
+            if atStumps > 0, onBreak == 0 { return atStumps == 1 ? "Play finished today" : "\(atStumps) finished for today" }
             if atStumps + onBreak > 0 { return atStumps + onBreak == 1 ? "On break" : "\(atStumps + onBreak) on break" }
             if let nextStart {
                 if calendar.isDate(nextStart, inSameDayAs: now) {

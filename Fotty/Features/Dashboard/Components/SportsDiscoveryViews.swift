@@ -697,7 +697,7 @@ struct HomeLiveSpotlight: View {
                 } icon: {
                     // Status words carry the meaning. The matching symbol is
                     // decorative, not a second VoiceOver stop for “Tv”.
-                    Image(systemName: item.hasConfirmedLiveStatus ? "circle.fill" : "tv")
+                    Image(systemName: item.cricketActivity?.symbol ?? (item.hasConfirmedLiveStatus ? "circle.fill" : "tv"))
                         .accessibilityHidden(true)
                 }
                     .accessibilityElement(children: .contain)

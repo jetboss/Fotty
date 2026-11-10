@@ -208,7 +208,7 @@ extension CatalogIncrementalPublicationTests {
         await FixtureSourceCatalogCollector.refresh(requests: requests, lanes: lanes, index: index,
             at: initial, clock: { clock.next() })
         XCTAssertEqual(Set(calls.values), Set(definitions.map(\.providerCode)))
-        XCTAssertEqual(index.summary(for: requests[0], at: clock.next())?.listedProviderCount, 5)
+        XCTAssertEqual(index.summary(for: requests[0], at: clock.next())?.listedProviderCount, definitions.count)
     }
 
     func testSharedSourceCatalogKeepsOfficialRowsAndEveryEnabledSiblingDuringPrimaryFailure() async {
@@ -233,7 +233,7 @@ extension CatalogIncrementalPublicationTests {
         }
         await FixtureSourceCatalogCollector.refresh(requests: requests, lanes: lanes, index: index, at: clock, clock: { clock })
         XCTAssertEqual(Set(calls.values), Set(definitions.map(\.providerCode)))
-        XCTAssertEqual(calls.values.count, 5)
+        XCTAssertEqual(calls.values.count, definitions.count)
         let event = requests.first { $0.category == "basketball" }!.preferredEvent!
         let summary = index.summary(for: StreamPlaybackRequest(event: event), at: clock)
         XCTAssertEqual(summary?.listedProviderCount, definitions.count - 1, "Only the failed sibling loses its listing")

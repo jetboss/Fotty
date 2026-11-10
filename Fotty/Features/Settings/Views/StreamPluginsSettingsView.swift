@@ -43,6 +43,27 @@ struct StreamPluginsSettingsView: View {
                 }
             }
 
+            Section {
+                ForEach(AccountSourceSetup.allCases) { source in
+                    NavigationLink {
+                        AccountSourceSetupView(source: source, didChange: { await loadPlugins() })
+                    } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(source.name).foregroundStyle(FottyTheme.textPrimary)
+                            Text("Set up your account")
+                                .font(FottyTheme.typeMeta)
+                                .foregroundStyle(FottyTheme.textSecondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .listRowBackground(FottyTheme.surface)
+                }
+            } header: {
+                Text("Sources requiring setup")
+            } footer: {
+                Text("Add your account to enable a supported source in Watch. Sources awaiting compatibility review are marked separately.")
+            }
+
             if loadState == .unavailable || loadState == .empty {
                 Section {
                     Text(unavailableDetail)
@@ -153,6 +174,94 @@ struct StreamPluginsSettingsView: View {
         Task {
             await StreamPluginRegistry.shared.setPluginEnabled(enabled, forId: plugin.id)
             await loadPlugins()
+        }
+    }
+}
+
+
+private struct AccountSourceSetupView: View {
+    let source: AccountSourceSetup
+    let didChange: () async -> Void
+    @State private var draft = ""
+    @State private var saved = false
+    @State private var status: String?
+    @State private var confirmsRemoval = false
+    @State private var saving = false
+    @State private var enabled = false
+    @State private var operation: Task<Void, Never>?
+    private let store = AccountSourceSetupStore()
+
+    var body: some View {
+        Form {
+            Section {
+                Text(source.instructions).fixedSize(horizontal: false, vertical: true)
+                Link("Open \(source.name) setup", destination: source.setupURL)
+                    .frame(minHeight: 44)
+            }
+            Section {
+                SecureField(source == .highfly ? "Manifest link or Highfly access code" : "Configured manifest link", text: $draft)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .keyboardType(.URL)
+                    .privacySensitive()
+                    .accessibilityIdentifier("source-setup-link")
+                Button { save() } label: {
+                    HStack {
+                        if saving { ProgressView() }
+                        Text(saving ? "Checking source…" : source.playbackProviderCode != nil
+                             ? (saved ? "Update and enable" : "Add source") : "Save for review")
+                    }
+                }
+                    .disabled(saving || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .frame(minHeight: 44)
+                if let status {
+                    Text(status).font(.footnote).fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("source-setup-status")
+                }
+            } header: {
+                Text("Private setup link")
+            } footer: {
+                Text(source.playbackProviderCode != nil ? "Your account is checked, saved securely on this device and enabled in Watch. Availability still depends on the match. You can turn this source off in Playback sources." : "Stored securely on this device only. This source is awaiting compatibility review and cannot be used in Watch yet.")
+            }
+            if saved {
+                Section {
+                    Label(source.playbackProviderCode != nil ? (enabled ? "Added · enabled" : "Added · turned off") : "Link saved · awaiting review", systemImage: "checkmark.circle")
+                    Button("Remove source", role: .destructive) { confirmsRemoval = true }.disabled(saving)
+                }
+            }
+        }
+        .navigationTitle(source.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await refresh() }
+        .onDisappear { operation?.cancel(); draft = "" }
+        .confirmationDialog("Remove this saved setup link?", isPresented: $confirmsRemoval, titleVisibility: .visible) {
+            Button("Remove link", role: .destructive) {
+                operation = Task {
+                    do { try await AccountSourceConnector(store: store).remove(source); saved = false; enabled = false; draft = ""; status = nil; await didChange() }
+                    catch { status = "The link couldn’t be removed. Try again after unlocking this device." }
+                }
+            }
+        }
+    }
+    private func refresh() async {
+        do { saved = try store.hasSavedLink(for: source) }
+        catch { status = "Secure storage is unavailable. Try again after unlocking this device." }
+        if let code = source.playbackProviderCode { enabled = await StreamPluginRegistry.shared.enabledProviderCodes().contains(code) }
+    }
+    private func save() {
+        guard !saving else { return }
+        let input = draft
+        saving = true; status = nil
+        operation = Task {
+            defer { saving = false }
+            do {
+                enabled = try await AccountSourceConnector(store: store).add(input, for: source)
+                draft = ""; saved = true
+                status = enabled ? "Added and enabled. This source will be checked when you tap Watch." : "Saved for review. This source cannot be used in Watch yet."
+                await didChange()
+            } catch is CancellationError { }
+            catch let error as AccountSourceSetupError { status = error.errorDescription }
+            catch { status = "The source couldn’t be added. Your previous setup is unchanged. Try again." }
         }
     }
 }

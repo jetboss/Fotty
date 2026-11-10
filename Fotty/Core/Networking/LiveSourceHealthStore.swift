@@ -336,6 +336,11 @@ enum LiveSourceHealthStore {
             guard sources.count > 1 else { return sources }
             let lastGood = contextKey.flatMap { loadLastGood()[$0] }
             return sources.sorted { lhs, rhs in
+                // The owner's own account source leads. A stream that fails is
+                // still skipped by failover, which excludes failed choices.
+                let la = accountProviderCodes.contains(providerFamily(for: lhs))
+                let ra = accountProviderCodes.contains(providerFamily(for: rhs))
+                if la != ra { return la }
                 let l = liveScore(
                     for: lhs,
                     snapshot: snapshots[sourceKey(for: lhs)] ?? Snapshot(),
@@ -355,6 +360,9 @@ enum LiveSourceHealthStore {
             }
         }
     }
+
+    /// Sources that play through the owner's own account (Highfly).
+    static let accountProviderCodes = Set(AccountSourceSetup.allCases.compactMap(\.playbackProviderCode))
 
     /// Lower = preferred default when measured health scores tie.
     private static func preferredFamilyRank(_ family: String) -> Int {

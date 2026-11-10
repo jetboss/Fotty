@@ -605,7 +605,7 @@ struct StreamEventBinding: Equatable, Sendable {
               Self.isReference(request.matchID, limit: 512),
               Self.isReference(providerEventID, limit: 4096),
               Self.isReference(streamID, limit: 4096),
-              resource == "stream", resourceType == "tv",
+              resource == "stream", (definition.provider == .highfly ? resourceType == "sport" : resourceType == "tv"),
               Self.isReference(manifestRevision, limit: 96),
               identity.map({ $0.kickoff.timeIntervalSince1970.isFinite }) ?? true,
               [verifiedAt, expiresAt, now].allSatisfy({ $0.timeIntervalSince1970.isFinite }),

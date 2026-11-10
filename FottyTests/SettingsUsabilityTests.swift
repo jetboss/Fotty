@@ -10,7 +10,8 @@ final class SettingsUsabilityTests: XCTestCase {
         "additional_sports_manifest": (id: "additional-sports-extension", provider: "plaviosports"),
         "cnc_sports_manifest": (id: "cnc-sports-extension", provider: "cncsports"),
         "flix_streams_manifest": (id: "flix-streams-extension", provider: "flixstreams"),
-        "reviewed_tv_manifest": (id: "reviewed-tv-extension", provider: "reviewedtv")
+        "reviewed_tv_manifest": (id: "reviewed-tv-extension", provider: "reviewedtv"),
+        "highfly_manifest": (id: "highfly-extension", provider: "highfly")
     ]
 
     private func manifest(named filename: String) throws -> (StreamPluginManifest, URL) {
@@ -63,7 +64,7 @@ final class SettingsUsabilityTests: XCTestCase {
         let choices = ["score808-extension": false,
                        "community-sports-extension": false, "additional-sports-extension": false,
                        "cnc-sports-extension": false, "flix-streams-extension": false,
-                       "reviewed-tv-extension": false]
+                       "reviewed-tv-extension": false, "highfly-extension": false]
         let missing = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
             if filename == "score808_manifest" { throw URLError(.fileDoesNotExist) }
             return try self.manifest(named: filename)
@@ -93,7 +94,7 @@ final class SettingsUsabilityTests: XCTestCase {
         let snapshot = StreamPluginRegistry.bundledCatalog(savedStates: [
             "score808-extension": false, "community-sports-extension": false,
             "additional-sports-extension": false, "cnc-sports-extension": false,
-            "flix-streams-extension": false, "reviewed-tv-extension": false
+            "flix-streams-extension": false, "reviewed-tv-extension": false, "highfly-extension": false
         ], loadManifest: manifest)
         XCTAssertTrue(snapshot.plugins.allSatisfy { !$0.isEnabled })
         XCTAssertEqual(PlaybackSourceSettingsState.resolved(availableSourceCount: snapshot.plugins.count,
@@ -106,7 +107,7 @@ final class SettingsUsabilityTests: XCTestCase {
             let choices = ["score808-extension": true,
                            "community-sports-extension": true, "additional-sports-extension": true,
                            "cnc-sports-extension": false, "flix-streams-extension": enabled,
-                           "reviewed-tv-extension": false]
+                           "reviewed-tv-extension": false, "highfly-extension": false]
             let unavailable = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
                 if filename == "flix_streams_manifest" { throw URLError(.fileDoesNotExist) }
                 return try self.manifest(named: filename)
@@ -185,5 +186,138 @@ final class SettingsUsabilityTests: XCTestCase {
         XCTAssertTrue(FottyFeedbackDelivery.copiedNotice.contains("not sent"))
         XCTAssertFalse(FottyFeedbackDelivery.testFlightSteps.contains("itms-beta"))
         XCTAssertFalse(FottyFeedbackDelivery.testFlightSteps.contains("https://"))
+    }
+}
+
+@MainActor
+final class AccountSourceSetupTests: XCTestCase {
+    func testAddVerifiesThenSavesAndEnablesWithoutSecondToggle() async throws {
+        var value: Data?, order: [String] = []
+        let store = AccountSourceSetupStore(read: { _ in value }, write: { _, next in order.append("save"); value = next })
+        let connector = AccountSourceConnector(store: store, verify: { provider, _ in
+            XCTAssertEqual(provider, .highfly); order.append("verify")
+        }, setEnabled: { code, enabled in
+            XCTAssertEqual(code, "highfly"); XCTAssertTrue(enabled); XCTAssertNotNil(value); order.append("enable")
+        })
+        let enabled = try await connector.add("https://premium.highfly.to/synthetic/manifest.json", for: .highfly)
+        XCTAssertTrue(enabled)
+        XCTAssertEqual(order, ["verify", "save", "enable"])
+    }
+
+    func testFailedAccessDoesNotReplaceAccountOrChangeEnablement() async throws {
+        let original = Data("https://premium.highfly.to/original-synthetic/manifest.json".utf8)
+        var value: Data? = original, changes = 0
+        let store = AccountSourceSetupStore(read: { _ in value }, write: { _, next in value = next })
+        let connector = AccountSourceConnector(store: store, verify: { _, _ in throw AccountSourceSetupError.accessUnavailable },
+            setEnabled: { _, _ in changes += 1 })
+        do { _ = try await connector.add("https://premium.highfly.to/replacement-synthetic/manifest.json", for: .highfly); XCTFail() }
+        catch { XCTAssertFalse(error.localizedDescription.contains("replacement-synthetic")) }
+        XCTAssertEqual(value, original); XCTAssertEqual(changes, 0)
+    }
+
+    func testFailedSecureSaveDoesNotEnableSource() async {
+        var changes = 0
+        let store = AccountSourceSetupStore(read: { _ in nil }, write: { _, _ in throw AccountSourceSetupError.storageUnavailable })
+        let connector = AccountSourceConnector(store: store, verify: { _, _ in }, setEnabled: { _, _ in changes += 1 })
+        do { _ = try await connector.add("https://premium.highfly.to/synthetic/manifest.json", for: .highfly); XCTFail() }
+        catch { }
+        XCTAssertEqual(changes, 0)
+    }
+
+    func testCancelledValidationDoesNotSaveOrEnable() async {
+        var writes = 0, changes = 0
+        let store = AccountSourceSetupStore(read: { _ in nil }, write: { _, _ in writes += 1 })
+        let connector = AccountSourceConnector(store: store, verify: { _, _ in throw CancellationError() }, setEnabled: { _, _ in changes += 1 })
+        do { _ = try await connector.add("https://premium.highfly.to/synthetic/manifest.json", for: .highfly); XCTFail() }
+        catch { XCTAssertTrue(error is CancellationError) }
+        XCTAssertEqual(writes, 0); XCTAssertEqual(changes, 0)
+    }
+
+    func testUnimplementedSourceIsSavedForReviewWithoutFalseActivation() async throws {
+        var writes = 0, changes = 0
+        let store = AccountSourceSetupStore(read: { _ in nil }, write: { _, _ in writes += 1 })
+        let connector = AccountSourceConnector(store: store, verify: { _, _ in XCTFail("Review-only configuration is not an adapter") }, setEnabled: { _, _ in changes += 1 })
+        let enabled = try await connector.add("https://pengu.uk/synthetic/manifest.json", for: .penguPlay)
+        XCTAssertFalse(enabled); XCTAssertEqual(writes, 1); XCTAssertEqual(changes, 0)
+    }
+
+    func testRemovingAddedSourceDisablesOnlyThatSourceAfterSecureRemoval() async throws {
+        var removed = false, changes: [String] = []
+        let store = AccountSourceSetupStore(read: { _ in nil }, write: { _, next in XCTAssertNil(next); removed = true })
+        let connector = AccountSourceConnector(store: store, verify: { _, _ in }, setEnabled: { code, enabled in
+            XCTAssertTrue(removed); XCTAssertFalse(enabled); changes.append(code)
+        })
+        try await connector.remove(.highfly)
+        XCTAssertEqual(changes, ["highfly"])
+    }
+
+    func testConfiguredLinksStayWithTheirNamedProvider() throws {
+        let samples: [(AccountSourceSetup, String)] = [
+            (.penguPlay, "https://pengu.uk/test-config/manifest.json"),
+            (.highfly, "stremio://sports.highfly.to/test-config/manifest.json"),
+            (.streamNexus, "https://sports.streamnexus.cc.cd/test-config/manifest.json")
+        ]
+        for (provider, value) in samples {
+            let accepted = try provider.validatedLink(value)
+            XCTAssertEqual(accepted.scheme, "https")
+            for other in AccountSourceSetup.allCases where other != provider {
+                XCTAssertThrowsError(try other.validatedLink(value))
+            }
+        }
+        let query = "https://pengu.uk/manifest.json?configuration=test-only"
+        XCTAssertEqual(try AccountSourceSetup.penguPlay.validatedLink(query).absoluteString, query)
+        XCTAssertEqual(try AccountSourceSetup.highfly.validatedLink("https://premium-eu1.highfly.to/test-account/test-profile/manifest.json").host,
+                       "premium-eu1.highfly.to")
+    }
+
+    func testUnsafeOrUnreviewedConfigurationAddressesAreNotStored() throws {
+        var writes = 0
+        let store = AccountSourceSetupStore(read: { _ in nil }, write: { _, _ in writes += 1 })
+        for value in ["", "not a link", "http://pengu.uk/a/manifest.json", "https://pengu.uk:8443/a/manifest.json",
+                      "https://pengu.uk.evil.example/a/manifest.json", "https://sub.pengu.uk/a/manifest.json",
+                      "https://user:password@pengu.uk/a/manifest.json", "https://127.0.0.1/a/manifest.json",
+                      "https://pengu.uk/configure", "https://pengu.uk/a/manifest.json#fragment",
+                      "https://pengu.uk/a/%2e%2e/manifest.json", "https://pengu.uk/a%5Cb/manifest.json",
+                      "https://pengu.uk/a\n/manifest.json", "https://pengu.uk/" + String(repeating: "a", count: 8192) + "/manifest.json"] {
+            XCTAssertThrowsError(try store.save(value, for: .penguPlay))
+        }
+        XCTAssertEqual(writes, 0)
+    }
+
+    func testPrivateStorageDoesNotInventAdaptersOrChangeOtherSavedLinks() throws {
+        var values: [AccountSourceSetup: Data] = [:]
+        let before = CuratedStreamSourceCatalog.all.map(\.providerCode)
+        let store = AccountSourceSetupStore(read: { values[$0] }, write: { values[$0] = $1 })
+        for provider in AccountSourceSetup.allCases {
+            XCTAssertFalse(try store.hasSavedLink(for: provider))
+            let host = provider.manifestHosts.sorted().first!
+            try store.save("https://\(host)/test-config/manifest.json", for: provider)
+            XCTAssertTrue(try store.hasSavedLink(for: provider))
+            if provider != .highfly { XCTAssertNil(CuratedStreamSourceCatalog.definition(forProviderCode: provider.rawValue)) }
+        }
+        XCTAssertEqual(CuratedStreamSourceCatalog.all.map(\.providerCode), before)
+        try store.remove(.highfly)
+        XCTAssertFalse(try store.hasSavedLink(for: .highfly))
+        XCTAssertTrue(try store.hasSavedLink(for: .penguPlay))
+        XCTAssertTrue(try store.hasSavedLink(for: .streamNexus))
+    }
+
+    func testRejectedReplacementPreservesExistingPrivateLinkAndErrorsDoNotEchoIt() throws {
+        let old = Data("https://pengu.uk/test-original/manifest.json".utf8)
+        var value: Data? = old
+        var unavailable = false
+        let store = AccountSourceSetupStore(read: { _ in
+            if unavailable { throw AccountSourceSetupError.storageUnavailable }; return value
+        }, write: { _, next in
+            if unavailable { throw AccountSourceSetupError.storageUnavailable }; value = next
+        })
+        XCTAssertThrowsError(try store.save("https://elsewhere.example/private-test/manifest.json", for: .penguPlay)) { error in
+            XCTAssertFalse(error.localizedDescription.contains("private-test"))
+        }
+        XCTAssertEqual(value, old)
+        unavailable = true
+        XCTAssertThrowsError(try store.save("https://pengu.uk/test-replacement/manifest.json", for: .penguPlay))
+        XCTAssertThrowsError(try store.hasSavedLink(for: .penguPlay))
+        XCTAssertEqual(value, old)
     }
 }

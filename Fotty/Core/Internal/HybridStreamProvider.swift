@@ -331,8 +331,11 @@ actor LiveStreamResolver {
         guard !sources.isEmpty else { return }
         var lanes: [StreamDiscoveryCoordinator.Lane] = []
         var tickets: [FixtureStreamDiscoveryIndex.Ticket] = []
-        let selectedCodes = preflightProviderSchedule.takeProviders(for: request.matchID,
-            available: sources.map(\.providerCode))
+        // The owner's account source is checked every time; the free sources
+        // share the remaining slot in rotation.
+        let account = sources.map(\.providerCode).filter(LiveSourceHealthStore.accountProviderCodes.contains)
+        let selectedCodes = account + preflightProviderSchedule.takeProviders(for: request.matchID,
+            available: sources.map(\.providerCode).filter { !account.contains($0) }, limit: max(0, 2 - account.count))
         for code in selectedCodes {
             guard let source = sources.first(where: { $0.providerCode == code }) else { continue }
             guard let ticket = await FixtureStreamDiscoveryIndex.shared.begin(
@@ -389,7 +392,7 @@ actor LiveStreamResolver {
     nonisolated static func supportsDescriptorRenewal(_ session: StreamSession) -> Bool {
         guard let provider = session.eventBinding?.providerCode else { return false }
         return provider == ReviewedTVPlaylistClient.providerCode || session.playbackContract.endpoint == .directMedia
-            && ["communitysports", "plaviosports", "cncsports", "flixstreams"].contains(provider)
+            && ["communitysports", "plaviosports", "cncsports", "flixstreams", "highfly"].contains(provider)
     }
 
     func refreshedDescriptor(for session: StreamSession, request: StreamPlaybackRequest) async -> StreamSession? {
@@ -439,6 +442,8 @@ actor LiveStreamResolver {
                         candidates = try await CommunitySportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
                     } else if binding.providerCode == "cncsports" {
                         candidates = try await CNCSportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
+                    } else if binding.providerCode == "highfly" {
+                        candidates = try await HighflySportsAddonClient.shared.resolve(for: metadataRequest)
                     } else if binding.providerCode == "flixstreams" {
                         candidates = try await FlixStreamsAddonClient.shared.resolve(for: metadataRequest)
                     } else {
@@ -565,7 +570,9 @@ actor LiveStreamResolver {
         // Explicit single-player Retry asks every enabled lane for current
         // metadata. It must not replay a still-leased descriptor that just
         // failed. Registry identity facts and provider limits remain intact.
-        let cachedCandidates = useDiscoveryIndex && preflightTicket == nil && !refreshOptionalSources
+        // Account-scoped sources re-read Keychain on every Watch/renewal. A
+        // retained discovery receipt must not outlive removal or replacement.
+        let cachedCandidates = useDiscoveryIndex && preflightTicket == nil && !refreshOptionalSources && source.dispatch != .highfly
             ? await FixtureStreamDiscoveryIndex.shared.cachedSessions(for: request, providerCode: providerCode)
             : nil
         let cached = cachedCandidates.flatMap { candidates -> [StreamSession]? in
@@ -788,6 +795,7 @@ actor LiveStreamResolver {
         request: StreamPlaybackRequest, forceRefresh: Bool,
         forceFreshMetadata: Bool = false) async throws -> [StreamSession] {
         switch source.dispatch {
+        case .highfly: return try await HighflySportsAddonClient.shared.resolve(for: request)
         case .reviewedTV: return try await ReviewedTVPlaylistClient.shared.resolve(for: request)
         case .cncSports: return try await CNCSportsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
         case .flixStreams: return try await FlixStreamsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)

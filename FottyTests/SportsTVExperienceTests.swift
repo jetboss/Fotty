@@ -13,8 +13,8 @@ final class SportsTVExperienceTests: XCTestCase {
         defaults.removePersistentDomain(forName: suite); defaults = nil; suite = nil; super.tearDown()
     }
     func testStationsRemainDistinctChannelsWithoutInventedMatchIdentity() throws {
-        XCTAssertEqual(SportsTVStation.all.count, 24)
-        XCTAssertEqual(SportsTVStation.configuredOriginCount, 10)
+        XCTAssertEqual(SportsTVStation.all.count, 25)
+        XCTAssertEqual(SportsTVStation.configuredOriginCount, 11)
         let index = FixtureStreamDiscoveryIndex(); index.updateEnabledProviders(["reviewedtv"], revision: 1)
         for station in SportsTVStation.all where station.cricketChannel == nil {
             let event = station.event, request = StreamPlaybackRequest(event: event)

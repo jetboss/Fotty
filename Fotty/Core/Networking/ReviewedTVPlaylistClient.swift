@@ -11,12 +11,13 @@ actor ReviewedTVPlaylistClient {
     nonisolated static let englishPlaylistURL = URL(string: "https://raw.githubusercontent.com/doms9/iptv/default/M3U8/base.m3u8")!
     nonisolated static let ukPlaylistURL = URL(string: "https://raw.githubusercontent.com/iptv-org/iptv/master/streams/uk.m3u")!
     nonisolated static let australianPlaylistURL = URL(string: "https://raw.githubusercontent.com/iptv-org/iptv/master/streams/au.m3u")!
+    nonisolated static let zillaLGPlaylistURL = URL(string: "https://raw.githubusercontent.com/abusaeeidx/IPTV-Scraper-Zilla/main/LGTV.m3u")!
     // Keep the established Willow names and TV1 binding compatible.
     nonisolated static let channelIdentifier = "Willow.us@SD"
     nonisolated static let providerEventID = "reviewed-tv:willow-main"
     nonisolated static let foxGuideStreamID = "reviewed-tv:fox-cricket-guide"
     nonisolated static let maximumBytes = 1_024 * 1_024
-    private static let revision = "tv-channels-m3u-6"
+    private static let revision = "tv-channels-m3u-7"
 
     struct ChannelDefinition: Equatable, Sendable {
         let playlistIdentifier: String
@@ -118,6 +119,11 @@ actor ReviewedTVPlaylistClient {
               sports: ["football", "baseball", "basketball"], markets: ["US"], playlistLabels: ["Fox Sports 1"]),
         tenies("Sky Sports Premier League", slug: "sky-sports-premier-league", provider: "TV25", pathID: "6add40ae2d4a99e07363c888"),
         tenies("TNT Sports 4", slug: "tnt-sports-4", provider: "TV26", pathID: "6add40ae2d4a99e07363c89b"),
+        .init(playlistIdentifier: "24.7.Dummy.us", playlistURL: zillaLGPlaylistURL,
+              deliveryPath: "/master/f36d25e7e52f1ba8d7e56eb859c636563214f541/TEdfRnVib1Nwb3J0c05ldHdvcmtfSExT/playlist.m3u8", playbackUserAgent: nil,
+              channelID: "sports-channel:fubo-sports", streamID: "reviewed-tv:fubo-sports", providerName: "TV27",
+              displayName: "Fubo Sports", commentaryLanguage: .english, allowedDeliveryHosts: ["ad993ce7.wurl.com"],
+              sports: ["other"], markets: ["US"], playlistLabels: ["460 Fubo Sports"]),
     ]
 
     private nonisolated static func tenies(_ name: String, slug: String, provider: String, pathID: String) -> ChannelDefinition {
@@ -205,7 +211,7 @@ actor ReviewedTVPlaylistClient {
 
     private func readPlaylist(from playlistURL: URL = ReviewedTVPlaylistClient.playlistURL, checkAuthorization: () async throws -> Void = {}) async throws -> Data {
         try Task.checkCancellation()
-        guard [Self.playlistURL, Self.englishPlaylistURL, Self.ukPlaylistURL, Self.australianPlaylistURL].contains(playlistURL) || Self.isTenies(playlistURL) else { throw CommunitySportsAddonError.unsafeResponse }
+        guard [Self.playlistURL, Self.englishPlaylistURL, Self.ukPlaylistURL, Self.australianPlaylistURL, Self.zillaLGPlaylistURL].contains(playlistURL) || Self.isTenies(playlistURL) else { throw CommunitySportsAddonError.unsafeResponse }
         try await validateDestination(playlistURL)
         var query = URLRequest(url: playlistURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
         query.httpShouldHandleCookies = false
@@ -549,6 +555,14 @@ actor ReviewedTVPlaylistClient {
             defer { pending = nil; hasInstructions = false; publishedAgentCount = 0 }
             guard let metadata = pending, let url = URL(string: line),
                   channel.allowedDeliveryHosts.contains(url.host?.lowercased() ?? "") else { continue }
+            // This publisher reuses one dummy tvg-id across its channels.
+            // Only this reviewed profile uses the exact published label as
+            // an additional selector; its ID, origin and path must still pass
+            // every check below. Never treat the dummy ID as channel authority.
+            if channel.playlistURL == zillaLGPlaylistURL {
+                guard let comma = metadata.lastIndex(of: ","),
+                      channel.playlistLabels.contains(String(metadata[metadata.index(after: comma)...]).trimmingCharacters(in: .whitespaces)) else { continue }
+            }
             let source = metadata as NSString
             let attributes = identifierPattern.matches(in: metadata, range: NSRange(location: 0, length: source.length))
                 .map { source.substring(with: $0.range(at: 1)) }

@@ -6,6 +6,67 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
     private let delivery = "https://tvsen5.aynaott.com/reviewed-willow/index.m3u8"
 
+    func testFuboDummyIDNeedsExactLabelOriginPathAndProvenance() throws {
+        let channel = try XCTUnwrap(ReviewedTVPlaylistClient.channel(forProviderName: "TV27"))
+        let target = "https://ad993ce7.wurl.com" + (try XCTUnwrap(channel.deliveryPath))
+        func row(id: String = "24.7.Dummy.us", label: String = "460 Fubo Sports", url: String? = nil, directive: String? = nil) -> Data {
+            playlist(id: id, label: label, url: url ?? target, directive: directive)
+        }
+        func parseFubo(_ data: Data) throws -> URL {
+            try ReviewedTVPlaylistClient.delivery(from: data, playlistURL: channel.playlistURL, channel: channel)
+        }
+        // The publisher reuses its dummy ID; an unrelated station must neither
+        // become Fubo nor prevent the exact reviewed Fubo entry from resolving.
+        let unrelated = row(label: "467 CBS Sports HQ", url: "https://ad993ce7.wurl.com/another/playlist.m3u8")
+        XCTAssertEqual(try parseFubo(combinedPlaylist([unrelated, row(), unrelated])).absoluteString, target)
+        for bad in [unrelated, row(id: "FuboSports.us"), row(label: "Fubo Sports"),
+                    row(label: "460 Fubo Sports 2"), row(url: "https://ad993ce7.wurl.com/another/playlist.m3u8"),
+                    row(url: target + "?token=unreviewed"), row(url: target.replacingOccurrences(of: "https:", with: "http:")),
+                    row(url: target.replacingOccurrences(of: "ad993ce7.wurl.com", with: "ad993ce7.wurl.com:8443")),
+                    row(url: target.replacingOccurrences(of: "ad993ce7.wurl.com", with: "other.wurl.com")),
+                    row(directive: "#EXTHTTP:{\"Authorization\":\"unreviewed\"}"),
+                    row(directive: "#KODIPROP:inputstream.adaptive.license_key=unreviewed")] {
+            XCTAssertThrowsError(try parseFubo(bad))
+        }
+        XCTAssertThrowsError(try ReviewedTVPlaylistClient.delivery(from: row(),
+            playlistURL: ReviewedTVPlaylistClient.playlistURL, channel: channel))
+    }
+
+    func testFuboResolvesAndRenewsThroughExistingGuardedStationPathOnly() async throws {
+        let channel = try XCTUnwrap(ReviewedTVPlaylistClient.channel(forProviderName: "TV27"))
+        let station = try XCTUnwrap(SportsTVStation.station(provider: "TV27"))
+        let target = "https://ad993ce7.wurl.com" + (try XCTUnwrap(channel.deliveryPath))
+        let data = playlist(id: "24.7.Dummy.us", label: "460 Fubo Sports", url: target)
+        let client = ReviewedTVPlaylistClient(fetch: { query in
+            XCTAssertEqual(query.url, ReviewedTVPlaylistClient.zillaLGPlaylistURL)
+            XCTAssertEqual(query.cachePolicy, .reloadIgnoringLocalCacheData)
+            return (data, HTTPURLResponse(url: query.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["Content-Type": "text/plain"])!)
+        }, validateDestination: { _ in })
+        let request = StreamPlaybackRequest(event: station.event)
+        let sessions = try await client.resolve(for: request, now: now, isEnabled: { true })
+        XCTAssertEqual(sessions.count, 1)
+        let session = try XCTUnwrap(sessions.first)
+        XCTAssertEqual(session.providerName, "TV27")
+        XCTAssertEqual(session.playableURL.absoluteString, target)
+        XCTAssertTrue(session.requiresGuardedRelay == true)
+        XCTAssertTrue(session.requiredHeaders.isEmpty)
+        XCTAssertNil(session.qualityLabel)
+        XCTAssertNil(station.event.teams)
+        XCTAssertNil(request.registryMatch)
+        XCTAssertEqual(session.eventBinding?.streamID, channel.streamID)
+        let later = now.addingTimeInterval(91)
+        let renewed = await client.refreshedDescriptor(for: session, request: request, now: later, isEnabled: { true })
+        XCTAssertEqual(renewed?.providerName, "TV27")
+        XCTAssertTrue(renewed?.eventBinding?.matches(request: request, providerCode: "reviewedtv", at: later) == true)
+        let disabled = await client.refreshedDescriptor(for: session, request: request, now: later, isEnabled: { false })
+        XCTAssertNil(disabled)
+        let football = EventReference(id: "football-fubo-unassigned", title: "Arsenal vs Chelsea", category: "football",
+            date: Int64(now.timeIntervalSince1970), poster: nil, popular: false,
+            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)))
+        XCTAssertFalse(ReviewedTVPlaylistClient.supports(.init(event: football), at: now))
+    }
+
     func testExactPlaylistAndMainWillowIdentityAreRequired() throws {
         let good = playlist()
         XCTAssertEqual(try ReviewedTVPlaylistClient.willowDelivery(from: good,
@@ -393,9 +454,9 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
 
     func testReviewedChannelDefinitionsKeepWillowStableAndESPNMarketsExplicit() throws {
         let definitions = ReviewedTVPlaylistClient.channels
-        XCTAssertEqual(definitions.map(\.providerName), ((1...15).map { "TV\($0)" } + ["TV17", "TV21", "TV22", "TV23", "TV24", "TV25", "TV26"]))
-        XCTAssertEqual(Set(definitions.map(\.playlistIdentifier)).count, 22)
-        XCTAssertEqual(Set(definitions.map(\.channelID)).count, 22)
+        XCTAssertEqual(definitions.map(\.providerName), ((1...15).map { "TV\($0)" } + ["TV17", "TV21", "TV22", "TV23", "TV24", "TV25", "TV26", "TV27"]))
+        XCTAssertEqual(Set(definitions.map(\.playlistIdentifier)).count, 23)
+        XCTAssertEqual(Set(definitions.map(\.channelID)).count, 23)
         XCTAssertEqual(definitions[0].playlistIdentifier, ReviewedTVPlaylistClient.channelIdentifier)
         XCTAssertEqual(definitions[0].streamID, ReviewedTVPlaylistClient.providerEventID)
         XCTAssertEqual(definitions[0].channelID, CricketBroadcastChannel.willow.canonicalID)

@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Security
 
 /// Represents metadata and configuration state for a stream provider plugin.
 struct StreamPlugin: Identifiable, Codable, Sendable, Hashable {
@@ -151,12 +152,13 @@ enum CuratedStreamSourceCatalog {
         case cncSports = "cncsports"
         case flixStreams = "flixstreams"
         case reviewedTV = "reviewedtv"
+        case highfly = "highfly"
     }
 
     /// Typed routing identity; it never carries an arbitrary URL or closure
     /// capable of bypassing the reviewed adapter's authority.
     enum Dispatch: CaseIterable, Equatable, Sendable {
-        case score808, communitySports, plavioSports, cncSports, flixStreams, reviewedTV
+        case score808, communitySports, plavioSports, cncSports, flixStreams, reviewedTV, highfly
     }
 
     struct Definition: Sendable, Equatable, Identifiable {
@@ -177,6 +179,7 @@ enum CuratedStreamSourceCatalog {
             case .cncSports: return .cncSports
             case .flixStreams: return .flixStreams
             case .reviewedTV: return .reviewedTV
+            case .highfly: return .highfly
             }
         }
         var isOptional: Bool { opaqueLabelPrefix != nil }
@@ -191,6 +194,7 @@ enum CuratedStreamSourceCatalog {
             case .plavioSports: return PlavioSportsAddonClient.supports(category: category)
             case .cncSports: return CNCSportsAddonClient.supports(category: category)
             case .flixStreams: return FlixStreamsAddonClient.supports(category: category)
+            case .highfly: return HighflySportsAddonClient.supports(category: category)
             }
         }
 
@@ -252,7 +256,9 @@ enum CuratedStreamSourceCatalog {
         .init(provider: .flixStreams, manifestFilename: "flix_streams_manifest", manifestID: "flix-streams-extension",
               defaultEnabled: false, opaqueLabelPrefix: "FS"),
         .init(provider: .reviewedTV, manifestFilename: "reviewed_tv_manifest", manifestID: "reviewed-tv-extension",
-              defaultEnabled: false, opaqueLabelPrefix: "TV")
+              defaultEnabled: false, opaqueLabelPrefix: "TV"),
+        .init(provider: .highfly, manifestFilename: "highfly_manifest", manifestID: "highfly-extension",
+              defaultEnabled: false, opaqueLabelPrefix: "HF")
     ]
 
     static var optionalSources: [Definition] { all.filter(\.isOptional) }
@@ -430,4 +436,157 @@ enum StreamPluginProviderMatching {
     static func opaqueProviderFamily(_ provider: String) -> String? {
         CuratedStreamSourceCatalog.opaqueDefinition(for: provider)?.providerCode
     }
+}
+
+// Account configuration is deliberately separate from the playback inventory.
+// A saved manifest is not an admitted adapter, source, fixture or media URL.
+enum AccountSourceSetup: String, CaseIterable, Identifiable, Sendable {
+    case penguPlay, highfly, streamNexus
+    var id: String { rawValue }
+    var playbackProviderCode: String? { self == .highfly ? "highfly" : nil }
+    var name: String {
+        switch self { case .penguPlay: return "PenguPlay"; case .highfly: return "Highfly"; case .streamNexus: return "StreamNexus" }
+    }
+    var setupURL: URL {
+        switch self {
+        case .penguPlay: return URL(string: "https://pengu.uk/")!
+        case .highfly: return URL(string: "https://sports.highfly.to/configure")!
+        case .streamNexus: return URL(string: "https://config.streamnexus.cc.cd/")!
+        }
+    }
+    var instructions: String {
+        switch self {
+        case .penguPlay: return "Sign in with PenguPlay, enable Live TV and your sports, then copy its configured add-on link."
+        case .highfly: return "Use your Highfly access code or configured manifest link. For free access, complete verification and copy the Install link. Premium profiles can use their own configured links."
+        case .streamNexus: return "Sign in on StreamNexus’s configuration page with your own access token, then copy its manifest link."
+        }
+    }
+    var manifestHosts: Set<String> {
+        switch self {
+        case .penguPlay: return ["pengu.uk"]
+        case .highfly:
+            return Set(["to", "dev"].flatMap { tld in
+                ["sports", "premium", "premium-us2", "premium-eu1"].map { "\($0).highfly.\(tld)" }
+            })
+        case .streamNexus: return ["sports.streamnexus.cc.cd"]
+        }
+    }
+    func validatedLink(_ input: String) throws -> URL {
+        var value = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        if self == .highfly, value.range(of: #"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}\.[a-fA-F0-9]{16}$"#, options: .regularExpression) != nil {
+            value = "https://sports.highfly.to/" + value + "/manifest.json"
+        }
+        if self == .highfly, value.range(of: #"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"#, options: .regularExpression) != nil {
+            value = "https://premium.highfly.to/" + value + "/manifest.json"
+        }
+        guard !value.isEmpty, value.utf8.count <= 8192,
+              !value.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }),
+              var parts = URLComponents(string: value) else { throw AccountSourceSetupError.invalidLink }
+        if parts.scheme?.lowercased() == "stremio" { parts.scheme = "https" }
+        guard parts.scheme?.lowercased() == "https", let host = parts.host?.lowercased(), manifestHosts.contains(host),
+              parts.port == nil || parts.port == 443, parts.user == nil, parts.password == nil, parts.fragment == nil,
+              parts.path.hasSuffix("/manifest.json"), !parts.path.contains("\\"),
+              !parts.path.split(separator: "/").contains(where: { $0 == "." || $0 == ".." }),
+              let url = parts.url else { throw AccountSourceSetupError.invalidLink }
+        return url
+    }
+}
+
+enum AccountSourceSetupError: Error, LocalizedError {
+    case invalidLink, storageUnavailable, accessUnavailable
+    var errorDescription: String? {
+        switch self {
+        case .invalidLink: return "Paste this provider’s complete configured manifest link. Its address must use a supported secure host and end in /manifest.json before any query."
+        case .storageUnavailable: return "The setup link couldn’t be saved securely. Your previous link has not been replaced. Try again after unlocking this device."
+        case .accessUnavailable: return "This source couldn’t be verified. Check your setup link and connection, then try again. Your previous setup is unchanged."
+        }
+    }
+}
+
+/// One explicit Add operation: verify access, commit private configuration, then
+/// enable its admitted adapter. Failures/cancellation before commit preserve the
+/// old account and opt-in. Unimplemented sources remain clearly review-only.
+@MainActor
+final class AccountSourceConnector {
+    private let store: AccountSourceSetupStore
+    private let verify: (AccountSourceSetup, URL) async throws -> Void
+    private let setEnabled: (String, Bool) async -> Void
+    init(store: AccountSourceSetupStore,
+         verify: @escaping (AccountSourceSetup, URL) async throws -> Void = { provider, url in
+             if provider == .highfly { try await HighflySportsAddonClient.validateConfiguration(url) }
+         },
+         setEnabled: @escaping (String, Bool) async -> Void = { code, enabled in
+             guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: code) else { return }
+             await StreamPluginRegistry.shared.setPluginEnabled(enabled, forId: definition.manifestID)
+         }) {
+        self.store = store; self.verify = verify; self.setEnabled = setEnabled
+    }
+    func add(_ input: String, for provider: AccountSourceSetup) async throws -> Bool {
+        let url = try provider.validatedLink(input)
+        if provider.playbackProviderCode != nil { try await verify(provider, url) }
+        try Task.checkCancellation()
+        try store.save(url.absoluteString, for: provider)
+        if let code = provider.playbackProviderCode { await setEnabled(code, true); return true }
+        return false
+    }
+    func remove(_ provider: AccountSourceSetup) async throws {
+        try store.remove(provider)
+        if let code = provider.playbackProviderCode { await setEnabled(code, false) }
+    }
+}
+
+/// No UserDefaults, iCloud, shared app group, analytics or diagnostic export.
+/// Injectable storage keeps unit tests away from the real Keychain.
+@MainActor
+final class AccountSourceSetupStore {
+    typealias Reader = (AccountSourceSetup) throws -> Data?
+    typealias Writer = (AccountSourceSetup, Data?) throws -> Void
+    private let read: Reader
+    private let write: Writer
+    init(read: @escaping Reader, write: @escaping Writer) { self.read = read; self.write = write }
+    convenience init() {
+        self.init(read: { provider in
+            var query = Self.keychainQuery(provider)
+            query[kSecReturnData as String] = true
+            query[kSecMatchLimit as String] = kSecMatchLimitOne
+            var result: CFTypeRef?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            if status == errSecItemNotFound { return nil }
+            guard status == errSecSuccess, let data = result as? Data else { throw AccountSourceSetupError.storageUnavailable }
+            return data
+        }, write: { provider, value in
+            let query = Self.keychainQuery(provider)
+            if let value {
+                let changes: [String: Any] = [kSecValueData as String: value]
+                let status = SecItemUpdate(query as CFDictionary, changes as CFDictionary)
+                if status == errSecItemNotFound {
+                    var item = query
+                    item[kSecValueData as String] = value
+                    item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+                    guard SecItemAdd(item as CFDictionary, nil) == errSecSuccess else { throw AccountSourceSetupError.storageUnavailable }
+                } else if status != errSecSuccess { throw AccountSourceSetupError.storageUnavailable }
+            } else {
+                let status = SecItemDelete(query as CFDictionary)
+                guard status == errSecSuccess || status == errSecItemNotFound else { throw AccountSourceSetupError.storageUnavailable }
+            }
+        })
+    }
+    private static func keychainQuery(_ provider: AccountSourceSetup) -> [String: Any] {
+        [kSecClass as String: kSecClassGenericPassword,
+         kSecAttrService as String: "com.fotty.account-source-setup",
+         kSecAttrAccount as String: provider.rawValue,
+         kSecAttrSynchronizable as String: false,
+         kSecUseDataProtectionKeychain as String: true]
+    }
+    func hasSavedLink(for provider: AccountSourceSetup) throws -> Bool { try savedLink(for: provider) != nil }
+    func savedLink(for provider: AccountSourceSetup) throws -> URL? {
+        guard let data = try read(provider) else { return nil }
+        guard let value = String(data: data, encoding: .utf8) else { throw AccountSourceSetupError.storageUnavailable }
+        return try provider.validatedLink(value)
+    }
+    func save(_ value: String, for provider: AccountSourceSetup) throws {
+        let url = try provider.validatedLink(value)
+        try write(provider, Data(url.absoluteString.utf8))
+    }
+    func remove(_ provider: AccountSourceSetup) throws { try write(provider, nil) }
 }

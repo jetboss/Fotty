@@ -34,8 +34,8 @@ final class CricketActivityPresentationTests: XCTestCase {
         XCTAssertEqual(item.phase, .live)
         XCTAssertTrue(item.isOnNow)
         XCTAssertFalse(item.hasConfirmedLiveStatus)
-        XCTAssertEqual(item.prominentStatusLabel, "Stumps")
-        XCTAssertEqual(item.statusLabel, "Stumps")
+        XCTAssertEqual(item.prominentStatusLabel, "Stumps · Play finished for today")
+        XCTAssertEqual(item.statusLabel, "Stumps · Play finished for today")
         XCTAssertEqual(item.event.cricketFixture, original.cricketFixture)
         XCTAssertEqual(MatchStartPolicy(event: item.event, now: now).timingAllowsPlayback, timing)
         XCTAssertNil(HomeDiscoveryRow.Presentation(item: item).liveDetail)
@@ -69,7 +69,7 @@ final class CricketActivityPresentationTests: XCTestCase {
     func testOnlyStumpsSummaryDoesNotInventLiveListedOrTomorrowStart() throws {
         let discovery = HomeSportsDiscovery(events: [event(1, phase: .stumps), event(2, phase: .stumps)], now: now)
         let activity = try XCTUnwrap(discovery.activities.first { $0.id == "cricket" })
-        XCTAssertEqual(activity.summary(at: now), "2 at stumps")
+        XCTAssertEqual(activity.summary(at: now), "2 finished for today")
         XCTAssertEqual(activity.confirmedLive, 0)
         XCTAssertNil(activity.nextStart)
         XCTAssertFalse(activity.summary(at: now).contains("listed"))
@@ -100,7 +100,7 @@ final class CricketActivityPresentationTests: XCTestCase {
             XCTAssertEqual(item.phase, .live)
             XCTAssertTrue(item.isOnNow)
             XCTAssertFalse(item.hasConfirmedLiveStatus)
-            XCTAssertEqual(item.statusLabel, "Test in progress")
+            XCTAssertEqual(item.statusLabel, "Play status unconfirmed")
             XCTAssertEqual(item.cricketActivity?.state, .ongoing)
             XCTAssertNil(HomeDiscoveryRow.Presentation(item: item).liveDetail)
             let activity = try XCTUnwrap(HomeSportsDiscovery(events: [event], now: now).activities.first { $0.id == "cricket" })
@@ -114,7 +114,7 @@ final class CricketActivityPresentationTests: XCTestCase {
                       event(2, phase: .stumps, format: .t20), event(3, phase: nil)] {
             let item = try item(event)
             XCTAssertFalse(item.hasConfirmedLiveStatus)
-            XCTAssertEqual(item.statusLabel, event.cricketFixture?.format == .test ? "Test in progress" : "Status unconfirmed")
+            XCTAssertEqual(item.statusLabel, event.cricketFixture?.format == .test ? "Play status unconfirmed" : "Status unconfirmed")
             XCTAssertEqual(CricketActivityPresentationPolicy.homePhaseRank(for: item), 1)
         }
     }
@@ -133,11 +133,42 @@ final class CricketActivityPresentationTests: XCTestCase {
         XCTAssertEqual(test.phase, .live)
         XCTAssertTrue(test.isOnNow)
         XCTAssertFalse(test.hasConfirmedLiveStatus)
-        XCTAssertEqual(test.prominentStatusLabel, "Test in progress")
+        XCTAssertEqual(test.prominentStatusLabel, "Play status unconfirmed")
         XCTAssertEqual(CricketActivityPresentationPolicy.homePhaseRank(for: test), 1)
         let shortFormat = try item(event(2, contextPresent: false, format: .t20))
         XCTAssertNil(shortFormat.cricketActivity)
         XCTAssertTrue(shortFormat.hasConfirmedLiveStatus)
+    }
+
+    func testBreakCopyExplainsPlayAndSectionDoesNotCallPausedMatchesLive() throws {
+        let expected: [(CricketMatchContext.Phase, String)] = [
+            (.stumps, "Stumps · Play finished for today"), (.lunch, "Lunch break"),
+            (.tea, "Tea break"), (.inningsBreak, "Innings break"),
+            (.matchBreak, "Play paused"), (.interrupted, "Play interrupted"), (.delayed, "Start delayed")
+        ]
+        for (phase, title) in expected {
+            let paused = event(1, phase: phase)
+            let row = try item(paused)
+            XCTAssertEqual(row.prominentStatusLabel, title)
+            XCTAssertEqual(CricketActivityPresentationPolicy.playerStatus(for: paused, at: now), title)
+            XCTAssertNotEqual(row.cricketActivity?.symbol, "circle.fill")
+            XCTAssertEqual(CricketActivityPresentationPolicy.sectionTitle(for: [row]), "Matches in progress")
+            XCTAssertEqual(CricketActivityPresentationPolicy.sectionTitle(for: [try item(event(2)), row]), "Matches in progress")
+        }
+        XCTAssertEqual(CricketActivityPresentationPolicy.sectionTitle(for: [try item(event(2))]), "Live now")
+    }
+
+    func testPhaseTransitionNeedsFreshExplicitInPlayBeforeRestoringLivePresentation() throws {
+        for phase in [CricketMatchContext.Phase.inPlay, .lunch, .inPlay, .stumps, .inPlay] {
+            let row = try item(event(1, phase: phase))
+            XCTAssertEqual(row.hasConfirmedLiveStatus, phase == .inPlay)
+            XCTAssertEqual(row.cricketActivity?.symbol == "circle.fill", phase == .inPlay)
+        }
+        let stale = event(1, phase: .inPlay, offset: -601)
+        XCTAssertEqual(CricketActivityPresentationPolicy.playerStatus(for: stale, at: now), "Play status unconfirmed")
+        XCTAssertFalse(try item(stale).hasConfirmedLiveStatus)
+        let expired = event(1, phase: .inPlay, offset: -86_400)
+        XCTAssertEqual(CricketActivityPresentationPolicy.playerStatus(for: expired, at: now), "Play status unconfirmed")
     }
 
     func testNonCricketAndFuturePresentationKeepTheirExistingRelativeOrder() {

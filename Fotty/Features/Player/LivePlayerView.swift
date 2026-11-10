@@ -1224,6 +1224,9 @@ struct LivePlayerView: View {
     }
 
     private var liveActivityMatchStatus: String {
+        if !usesManagedAudio, let status = CricketActivityPresentationPolicy.playerStatus(for: viewModel.event, at: Date()) {
+            return status
+        }
         if let score = scoreService.scoreForMatch(
             home: viewModel.event.homeName,
             away: viewModel.event.awayName,
@@ -1335,6 +1338,9 @@ struct LivePlayerView: View {
     }
 
     private var playerStatusText: String {
+        if !usesManagedAudio, let status = CricketActivityPresentationPolicy.playerStatus(for: viewModel.event, at: Date()) {
+            return status
+        }
         if let score = scoreService.scoreForMatch(
             home: viewModel.event.homeName,
             away: viewModel.event.awayName,

@@ -5,15 +5,15 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     func testCuratedCatalogOwnsItsRegistrationAndDispatchIdentities() {
         let definitions = CuratedStreamSourceCatalog.all
         XCTAssertEqual(definitions.map(\.providerCode),
-                       ["score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv"])
+                       ["score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv", "highfly"])
         XCTAssertEqual(Set(definitions.map(\.providerCode)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.manifestID)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.manifestFilename)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.provider)), Set(CuratedStreamSourceCatalog.Provider.allCases))
         XCTAssertEqual(definitions.map(\.dispatch),
-                       [.score808, .communitySports, .plavioSports, .cncSports, .flixStreams, .reviewedTV])
+                       [.score808, .communitySports, .plavioSports, .cncSports, .flixStreams, .reviewedTV, .highfly])
         XCTAssertEqual(StreamPluginProviderMatching.activePlayerProviderCodes, definitions.map(\.providerCode))
-        XCTAssertEqual(CuratedStreamSourceCatalog.optionalSources.map(\.discoveryName), ["CS", "AS", "LS", "FS", "TV"])
+        XCTAssertEqual(CuratedStreamSourceCatalog.optionalSources.map(\.discoveryName), ["CS", "AS", "LS", "FS", "TV", "HF"])
     }
 
     func testEveryCuratedDefinitionRequiresItsOwnBundledManifestAndProviderCode() throws {
@@ -54,7 +54,7 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     func testCuratedOpaqueLabelsHaveOneOwnerAndDoNotExpandLegacyLabelAdmission() throws {
         for definition in CuratedStreamSourceCatalog.optionalSources {
             let choices = definition.provider == .reviewedTV
-                ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 21, 22, 23, 24, 25, 26] : Array(1...6)
+                ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 21, 22, 23, 24, 25, 26, 27] : Array(1...6)
             let lastChoice = try XCTUnwrap(choices.last)
             for choice in choices {
                 let label = try XCTUnwrap(definition.sourceLabel(choice: choice))
@@ -94,11 +94,13 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
 
     func testCuratedDiscoveryScopesDelegateToExistingReviewedAdaptersWithoutBroadeningLanes() {
         let expected: [(String, [String])] = [
-            ("football", ["communitysports", "plaviosports", "flixstreams"]),
-            ("soccer", ["communitysports", "plaviosports", "flixstreams"]),
-            ("cricket", ["communitysports", "plaviosports", "cncsports", "flixstreams"]),
-            ("hockey", ["communitysports", "cncsports"]),
-            ("basketball", ["communitysports"]),
+            ("football", ["communitysports", "plaviosports", "flixstreams", "highfly"]),
+            ("soccer", ["communitysports", "plaviosports", "flixstreams", "highfly"]),
+            ("cricket", ["communitysports", "plaviosports", "cncsports", "flixstreams", "highfly"]),
+            ("hockey", ["communitysports", "cncsports", "highfly"]),
+            ("american-football", ["communitysports", "highfly"]),
+            ("basketball", ["communitysports", "highfly"]),
+            ("rugby", ["communitysports"]),
             ("unreviewed", ["communitysports"])
         ]
         for (category, providers) in expected {

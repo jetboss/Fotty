@@ -1954,11 +1954,11 @@ final class HomeDiscoveryTests: XCTestCase {
             observedAt: now.addingTimeInterval(-CricketMatchContextPolicy.freshness - 1))] {
             let activity = try XCTUnwrap(CricketActivityPresentationPolicy.activity(for: row, at: now))
             XCTAssertEqual(activity.state, .ongoing)
-            XCTAssertEqual(activity.title, "Test in progress")
+            XCTAssertEqual(activity.title, "Play status unconfirmed")
             XCTAssertTrue(activity.suppressesLiveBadge)
             let item = HomeSportsDiscovery.Item(event: row, phase: .live, officialStatus: nil, now: now)
             XCTAssertFalse(item.hasConfirmedLiveStatus)
-            XCTAssertEqual(item.prominentStatusLabel, "Test in progress")
+            XCTAssertEqual(item.prominentStatusLabel, "Play status unconfirmed")
             XCTAssertNil(HomeDiscoveryRow.Presentation(item: item).liveDetail)
         }
     }
