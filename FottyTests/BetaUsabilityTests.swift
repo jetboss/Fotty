@@ -2130,8 +2130,8 @@ final class HomeDiscoveryTests: XCTestCase {
         )
 
         XCTAssertEqual(activities.first { $0.id == "football" }?.summary(at: now), "1 live")
-        XCTAssertEqual(activities.first { $0.id == "cricket" }?.summary(at: now), "Nothing listed")
-        XCTAssertEqual(activities.first { $0.id == "baseball" }?.summary(at: now), "Nothing listed")
+        XCTAssertEqual(activities.first { $0.id == "cricket" }?.summary(at: now), "No fixtures soon")
+        XCTAssertEqual(activities.first { $0.id == "baseball" }?.summary(at: now), "No fixtures soon")
     }
 
     func testUnverifiedFutureCricketDoesNotAdvertiseAConfidentCountdown() throws {
@@ -2552,7 +2552,21 @@ final class HomeDiscoveryTests: XCTestCase {
         XCTAssertEqual(selected.count, 5)
         XCTAssertTrue(selected.contains { $0.id == "rugby" })
         let empty = HomeSportsDiscovery(events: [], now: now)
-        XCTAssertEqual(empty.activities.first?.summary(at: now), "Nothing listed")
+        XCTAssertEqual(empty.activities.first?.summary(at: now), "No fixtures soon")
+        // A tile with nothing in Home's window names its next verified fixture.
+        let metadata = SportsFixtureMetadata(fixtureID: "sports-fixture:premier-league:later", sport: "football",
+            competitionID: "premier-league", competitionName: "Premier League", eventKind: .match,
+            title: "Arsenal vs Chelsea", participants: [.init(id: "arsenal", name: "Arsenal"), .init(id: "chelsea", name: "Chelsea")],
+            squad: .init(gender: .men, ageGroup: "senior"), status: .scheduled, observedAt: now, verified: true)
+        let later = EventReference(id: metadata.fixtureID, title: metadata.title, category: "football",
+            date: Int64(now.addingTimeInterval(4 * 86_400).timeIntervalSince1970), poster: nil, popular: false,
+            teams: nil, sportsFixture: metadata, competitionID: metadata.competitionID)
+        var utc = Calendar(identifier: .gregorian); utc.timeZone = TimeZone(secondsFromGMT: 0)!
+        let enriched = HomeSportsDiscovery.SportActivity.addingLaterFixtures(
+            [HomeSportsDiscovery.SportActivity(id: "football", onNow: 0, confirmedLive: 0, nextStart: nil, channels: 0, unconfirmed: 0)],
+            from: [later], at: now)
+        XCTAssertEqual(enriched.first?.summary(at: now, calendar: utc),
+                       later.kickoffDate!.formatted(Date.FormatStyle(calendar: utc, timeZone: utc.timeZone).weekday(.abbreviated)) + " · Premier League")
         XCTAssertTrue(empty.items.isEmpty)
     }
 

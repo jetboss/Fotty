@@ -86,6 +86,10 @@ struct HomeSportsDiscovery {
         var onBreak = 0
         var contextUnconfirmed = 0
         var starting = 0
+        /// The next verified fixture beyond Home's window, for a tile that has
+        /// nothing nearer. Presentation only: it never adds a Home row or Watch.
+        var laterStart: Date? = nil
+        var laterCompetition: String? = nil
 
         func summary(at now: Date, calendar: Calendar = .current) -> String {
             if confirmedLive > 0 { return "\(confirmedLive) live" }
@@ -104,7 +108,33 @@ struct HomeSportsDiscovery {
                 return nextStart.formatted(.dateTime.month(.abbreviated).day())
             }
             if channels > 0 { return channels == 1 ? "1 channel" : "\(channels) channels" }
-            return unconfirmed > 0 ? "Time TBC" : "Nothing listed"
+            if unconfirmed > 0 { return "Time TBC" }
+            if let laterStart {
+                let day = laterStart.timeIntervalSince(now) < 6 * 86_400
+                    ? laterStart.formatted(Date.FormatStyle(calendar: calendar, timeZone: calendar.timeZone).weekday(.abbreviated))
+                    : laterStart.formatted(Date.FormatStyle(calendar: calendar, timeZone: calendar.timeZone).month(.abbreviated).day())
+                return [day, laterCompetition].compactMap { $0 }.joined(separator: " · ")
+            }
+            return "No fixtures soon"
+        }
+
+        var hasNearbyActivity: Bool { onNow > 0 || starting > 0 || nextStart != nil || channels > 0 || unconfirmed > 0 }
+
+        /// Fill `laterStart` from the verified two-week schedule for tiles with
+        /// nothing in Home's window. Order is unchanged: they stay last.
+        static func addingLaterFixtures(_ activities: [SportActivity], from schedule: [EventReference],
+                                        at now: Date) -> [SportActivity] {
+            activities.map { activity in
+                guard !activity.hasNearbyActivity else { return activity }
+                let next = schedule.filter { $0.normalizedCategory == activity.id && !$0.isBroadcastChannel
+                    && ($0.kickoffDate.map { $0 > now } ?? false) }
+                    .min { ($0.kickoffDate ?? .distantFuture) < ($1.kickoffDate ?? .distantFuture) }
+                guard let next else { return activity }
+                var updated = activity
+                updated.laterStart = next.kickoffDate
+                updated.laterCompetition = next.sportsFixture?.competitionName ?? next.cricketFixture?.competitionName
+                return updated
+            }
         }
     }
 
@@ -332,7 +362,7 @@ struct HomeSportsDiscovery {
 
     /// Rebuild the compact sport summaries from the same already-filtered rows
     /// the destination will show. Keep every catalog sport represented so a
-    /// restrictive preference says "Nothing listed" instead of hiding the way
+    /// restrictive preference says "No fixtures soon" instead of hiding the way
     /// back to that sport.
     func activities(
         scopedItems: [Item],

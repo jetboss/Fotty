@@ -923,7 +923,10 @@ struct SportsDashboardView: View {
     }
 
     private func browseSportsSection(_ schedule: HomeSportsDiscovery, compact: Bool = false) -> some View {
-        let scopedActivities = homeSportActivities ?? schedule.activities
+        let baseActivities = homeSportActivities ?? schedule.activities
+        let scopedActivities = baseActivities.allSatisfy(\.hasNearbyActivity) ? baseActivities
+            : HomeSportsDiscovery.SportActivity.addingLaterFixtures(baseActivities,
+                from: matchListViewModel?.searchSchedule(at: schedule.now) ?? [], at: schedule.now)
         let allSportsVisible = SportActivityGrid.showsAllSports(
             expanded: false,
             regularWidth: horizontalSizeClass == .regular,
