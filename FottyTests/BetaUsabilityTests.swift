@@ -66,7 +66,7 @@ final class SportsSearchDiscoveryTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         func event(_ id: String, title: String, sport: String) -> EventReference {
             .init(id: id, title: title, category: sport, date: Int64(now.addingTimeInterval(3_600).timeIntervalSince1970),
-                  poster: nil, popular: nil, teams: nil, sources: [])
+                  poster: nil, popular: nil, teams: nil)
         }
         let alias = event("senior-alias", title: "Man Utd vs Chelsea", sport: "football")
         let otherSport = event("other-sport", title: "Man Utd vs Chelsea", sport: "basketball")
@@ -83,7 +83,7 @@ final class SportsSearchDiscoveryTests: XCTestCase {
         func event(_ id: String, home: String, sport: String = "football") -> EventReference {
             .init(id: id, title: "\(home) vs Chelsea", category: sport,
                   date: Int64(now.addingTimeInterval(3_600).timeIntervalSince1970),
-                  poster: nil, popular: nil, teams: nil, sources: [])
+                  poster: nil, popular: nil, teams: nil)
         }
         let senior = event("senior-canonical", home: "Manchester United")
         let otherSport = event("basketball-canonical", home: "Manchester United", sport: "basketball")
@@ -105,7 +105,7 @@ final class SportsSearchDiscoveryTests: XCTestCase {
         func event(_ id: String, home: String, sport: String = "football", offset: TimeInterval = 3_600) -> EventReference {
             .init(id: id, title: "\(home) vs Chelsea", category: sport,
                   date: Int64(now.addingTimeInterval(offset).timeIntervalSince1970),
-                  poster: nil, popular: nil, teams: nil, sources: [])
+                  poster: nil, popular: nil, teams: nil)
         }
         let canonical = event("canonical", home: "Manchester United")
         let alias = event("literal", home: "Man Utd", offset: 7_200)
@@ -127,10 +127,10 @@ final class SportsSearchDiscoveryTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let senior = EventReference(id: "league-senior", title: "Manchester United vs Chelsea", category: "football",
                                     date: Int64(now.addingTimeInterval(3_600).timeIntervalSince1970),
-                                    poster: nil, popular: nil, teams: nil, sources: [])
+                                    poster: nil, popular: nil, teams: nil)
         let textOnly = EventReference(id: "league-title-only", title: "Premier League showcase", category: "football",
                                       date: Int64(now.addingTimeInterval(3_600).timeIntervalSince1970),
-                                      poster: nil, popular: nil, teams: nil, sources: [])
+                                      poster: nil, popular: nil, teams: nil)
         let index = HomeSportsSearch.prepare(in: .init(events: [senior, textOnly], now: now)) {
             $0.id == senior.id ? "Premier League" : "Champions League"
         }
@@ -158,8 +158,7 @@ final class SportsSearchDiscoveryTests: XCTestCase {
             return .init(id: id, title: metadata.title, category: sport,
                          date: Int64(now.addingTimeInterval(3 * 3_600).timeIntervalSince1970),
                          poster: nil, popular: nil,
-                         teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
-                         sources: [], sportsFixture: metadata, competitionID: "premier-league")
+                         teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sportsFixture: metadata, competitionID: "premier-league")
         }
         let senior = official("official-senior")
         let otherSport = official("official-other-sport", sport: "basketball")
@@ -362,8 +361,7 @@ final class SportLoadingTests: XCTestCase {
                        offset: Int64 = 0, home: String = "Arsenal") -> EventReference {
         .init(id: "motion-fixture", title: title, category: category, date: 1_800_000_000 + offset,
               poster: nil, popular: nil,
-              teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Real Madrid", badge: nil)),
-              sources: [])
+              teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Real Madrid", badge: nil)))
     }
 
     func testEachCatalogSportHasDistinctArtworkAndRugbyIsNotNFL() {
@@ -859,9 +857,7 @@ final class BetaUsabilityTests: XCTestCase {
             teams: .init(
                 home: .init(name: "Bulldogs", badge: nil),
                 away: .init(name: "Broncos", badge: nil)
-            ),
-            sources: nil
-        )
+            ))
         XCTAssertEqual(rugby.homeBadgeURL?.lastPathComponent, "ggzq4e1768487178.png")
         XCTAssertEqual(rugby.awayBadgeURL?.lastPathComponent, "yjgl741768487372.png")
         XCTAssertNil(
@@ -1468,7 +1464,7 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertTrue(cricketEvent(title: "CPL Final", date: nil).isCPLFixture)
         XCTAssertFalse(cricketEvent(title: "Trinbago Knight Riders news", date: nil).isCPLFixture)
         XCTAssertFalse(cricketEvent(title: "India vs Australia", date: nil).isCPLFixture)
-        let football = AnalyticalDataEngine.EventReference(id: "test-football", title: "CPL Final", category: "football", date: nil, poster: nil, popular: nil, teams: nil, sources: nil)
+        let football = AnalyticalDataEngine.EventReference(id: "test-football", title: "CPL Final", category: "football", date: nil, poster: nil, popular: nil, teams: nil)
         XCTAssertFalse(football.isCPLFixture)
     }
 
@@ -1537,8 +1533,7 @@ final class BetaUsabilityTests: XCTestCase {
                             away: input.away.map { .init(name: $0, badge: nil) }) : nil
                 let event = AnalyticalDataEngine.EventReference(
                     id: "legacy-cpl-\(index)", title: input.title, category: input.category,
-                    date: nil, poster: nil, popular: nil, teams: teams, sources: nil
-                )
+                    date: nil, poster: nil, popular: nil, teams: teams)
                 XCTAssertEqual(event.isCPLFixture, legacyIsCPLFixture(event), "Case \(index): \(input)")
             }
         }
@@ -1567,7 +1562,6 @@ final class BetaUsabilityTests: XCTestCase {
         let willow = cricketEvent(title: "Willow Cricket", date: -3_600_000)
         let store = MyMatchdayStore(defaults: defaults)
         store.save(willow)
-        store.pruneExpiredMatches(relativeTo: Date().addingTimeInterval(72 * 3600))
         XCTAssertTrue(store.contains(eventID: willow.id))
         XCTAssertTrue(MyMatchdayStore(defaults: defaults).contains(eventID: willow.id))
     }
@@ -1743,18 +1737,17 @@ final class BetaUsabilityTests: XCTestCase {
     @MainActor
     func testCPLScheduleNeverBorrowsWillowSourcesAndExpiresAfterSeason() {
         let fixture = CPLSchedule.fixtures[18]
-        let willow = cricketEvent(title: "Willow Cricket", date: nil, sources: [.init(source: "delta", id: "test-channel")])
+        let willow = cricketEvent(title: "Willow Cricket", date: nil)
         let schedule = CPLSchedule.merging(into: [willow], at: fixture.kickoff)
         XCTAssertTrue(schedule.contains { $0.id == willow.id })
-        XCTAssertTrue(schedule.filter { $0.isCPLFixture }.allSatisfy { $0.sources?.isEmpty != false })
         XCTAssertEqual(schedule.first { $0.id == fixture.id }?.broadcastTiming(at: fixture.kickoff), .available)
         let expired = CPLSchedule.merging(into: schedule, at: CPLSchedule.fixtures[38].kickoff.addingTimeInterval(48 * 3600))
         XCTAssertEqual(expired.map(\.id), [willow.id])
     }
 
     @MainActor
-    private func cricketEvent(title: String, date: Int64?, sources: [NexusASource]? = nil) -> AnalyticalDataEngine.EventReference {
-        .init(id: "test-\(title)", title: title, category: "cricket", date: date, poster: nil, popular: nil, teams: nil, sources: sources)
+    private func cricketEvent(title: String, date: Int64?) -> AnalyticalDataEngine.EventReference {
+        .init(id: "test-\(title)", title: title, category: "cricket", date: date, poster: nil, popular: nil, teams: nil)
     }
 
     private func legacyCPLAliases(for team: CPLTeam) -> [String] {
@@ -1910,11 +1903,11 @@ final class UsabilityPresentationTests: XCTestCase {
 
     func testFinishedMatchAndIdentityConflictCannotAdvertiseALiveBroadcast() {
         let stopped = CatalogEventDetailsPresentation.broadcast(for:
-            event(offset: -60, sources: [.init(source: "delta", id: "one")]), now: now, status: .finished)
+            event(offset: -60), now: now, status: .finished)
         XCTAssertEqual(stopped.title, "FT")
         XCTAssertEqual(stopped.symbol, "tv.slash")
         let quarantined = EventReference(id: "quarantined", title: "A vs B", category: "football", date: nil,
-            poster: nil, popular: false, teams: nil, sources: [.init(source: "delta", id: "one")],
+            poster: nil, popular: false, teams: nil,
             hasCatalogIdentityConflict: true)
         XCTAssertEqual(CatalogEventDetailsPresentation.broadcast(for: quarantined, now: now).title,
             "Listing needs an update")
@@ -1927,10 +1920,10 @@ final class UsabilityPresentationTests: XCTestCase {
         XCTAssertFalse(presentation.message.contains("closer to the scheduled start"))
     }
 
-    private func event(offset: TimeInterval?, sources: [NexusASource] = []) -> EventReference {
+    private func event(offset: TimeInterval?) -> EventReference {
         .init(id: "usability-fixture", title: "A vs B", category: "football",
             date: offset.map { Int64(now.addingTimeInterval($0).timeIntervalSince1970) },
-            poster: nil, popular: false, teams: nil, sources: sources)
+            poster: nil, popular: false, teams: nil)
     }
 }
 
@@ -2011,24 +2004,21 @@ final class HomeDiscoveryTests: XCTestCase {
             homeTeamID: home, awayTeamID: away)
         return .init(id: "cricket-fixture:icc:269792", title: "South Africa vs Australia", category: "cricket",
             date: Int64(now.addingTimeInterval(-3 * 86_400).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)),
-            sources: [], cricketFixture: metadata)
+            teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)), cricketFixture: metadata)
     }
 
-    private func event(_ id: String, sport: String = "football", offset: TimeInterval? = 0, home: String? = nil, away: String = "Visitors", sources: [NexusASource] = []) -> AnalyticalDataEngine.EventReference {
+    private func event(_ id: String, sport: String = "football", offset: TimeInterval? = 0, home: String? = nil, away: String = "Visitors") -> AnalyticalDataEngine.EventReference {
         .init(id: id, title: "\(home ?? id) vs \(away)", category: sport,
               date: offset.map { Int64(now.addingTimeInterval($0).timeIntervalSince1970) },
               poster: nil, popular: false,
-              teams: .init(home: .init(name: home ?? id, badge: nil), away: .init(name: away, badge: nil)), sources: sources)
+              teams: .init(home: .init(name: home ?? id, badge: nil), away: .init(name: away, badge: nil)))
     }
 
     private func cricketFixture(
         _ id: String,
         status: CricketFixtureCatalog.Status,
         verified: Bool,
-        offset: TimeInterval,
-        sources: [NexusASource] = []
-    ) -> AnalyticalDataEngine.EventReference {
+        offset: TimeInterval) -> AnalyticalDataEngine.EventReference {
         let metadata = CricketFixtureMetadata(
             fixtureID: id,
             competitionID: "west-indies",
@@ -2046,19 +2036,17 @@ final class HomeDiscoveryTests: XCTestCase {
             poster: nil,
             popular: false,
             teams: .init(home: .init(name: "India", badge: nil), away: .init(name: "West Indies", badge: nil)),
-            sources: sources,
             cricketFixture: metadata,
             competitionID: metadata.competitionID
         )
     }
 
     func testHomeCountsEventsNotSourceVariantsAndKeepsEveryRealSource() throws {
-        let first = event("a", offset: -60, home: "City", sources: [.init(source: "delta", id: "one"), .init(source: "golf", id: "two")])
-        let duplicate = event("b", offset: -60, home: " city ", sources: [.init(source: "delta", id: "one"), .init(source: "echo", id: "three")])
+        let first = event("a", offset: -60, home: "City")
+        let duplicate = event("b", offset: -60, home: " city ")
         let schedule = HomeSportsDiscovery(events: [duplicate, first], now: now, status: { _ in .inPlay })
         XCTAssertEqual(schedule.items.map(\.id), ["a"])
         XCTAssertEqual(schedule.activities.first { $0.id == "football" }?.onNow, 1)
-        XCTAssertEqual(schedule.items.first?.event.sources?.count, 3)
         XCTAssertEqual(HomeSportsDiscovery.uniqueEvents([first, duplicate]).map(\.id), ["a"])
     }
 
@@ -2083,9 +2071,7 @@ final class HomeDiscoveryTests: XCTestCase {
                         home: "Trinbago Knight Riders", away: "Barbados Tridents")
         let willow = AnalyticalDataEngine.EventReference(
             id: "willow", title: "Willow Cricket", category: "cricket", date: nil,
-            poster: nil, popular: false, teams: nil,
-            sources: [.init(source: "delta", id: "willow-channel")]
-        )
+            poster: nil, popular: false, teams: nil)
         let football = event("football-live", offset: -60, home: "Arsenal", away: "Chelsea")
         let schedule = HomeSportsDiscovery(events: [international, cpl, willow, football], now: now) {
             $0.id == football.id ? .inPlay : nil
@@ -2121,9 +2107,7 @@ final class HomeDiscoveryTests: XCTestCase {
                              home: "Yankees", away: "Mets")
         let willow = AnalyticalDataEngine.EventReference(
             id: "willow", title: "Willow Cricket", category: "cricket", date: nil,
-            poster: nil, popular: false, teams: nil,
-            sources: [.init(source: "delta", id: "willow-channel")]
-        )
+            poster: nil, popular: false, teams: nil)
         let schedule = HomeSportsDiscovery(events: [cricket, football, baseball, willow], now: now) {
             $0.id == football.id ? .inPlay : nil
         }
@@ -2159,7 +2143,7 @@ final class HomeDiscoveryTests: XCTestCase {
 
     func testHomeNonTeamEventsDoNotInventAnOpponent() {
         for (title, sport) in [("TNA Impact", "fight"), ("Grand Prix qualifying", "motorsports")] {
-            let event = AnalyticalDataEngine.EventReference(id: "single-event", title: title, category: sport, date: nil, poster: nil, popular: nil, teams: nil, sources: [])
+            let event = AnalyticalDataEngine.EventReference(id: "single-event", title: title, category: sport, date: nil, poster: nil, popular: nil, teams: nil)
             XCTAssertEqual(event.displayTitle, title)
         }
         XCTAssertEqual(event("fixture", home: "Arsenal", away: "Chelsea").displayTitle, "Arsenal vs Chelsea")
@@ -2213,9 +2197,7 @@ final class HomeDiscoveryTests: XCTestCase {
                         home: "Trinbago Knight Riders", away: "Barbados Royals")
         let willow = AnalyticalDataEngine.EventReference(
             id: "willow", title: "Willow Cricket", category: "cricket", date: nil,
-            poster: nil, popular: nil, teams: nil,
-            sources: [.init(source: "delta", id: "willow")]
-        )
+            poster: nil, popular: nil, teams: nil)
         let schedule = HomeSportsDiscovery(events: [chelsea, bogota, cpl, willow], now: now)
         let league: (AnalyticalDataEngine.EventReference) -> String? = {
             $0.id == chelsea.id ? "Premier League" : nil
@@ -2227,35 +2209,6 @@ final class HomeDiscoveryTests: XCTestCase {
         XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "CPL").map(\.id), [cpl.id])
         XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "channel").map(\.id), [willow.id])
         XCTAssertTrue(HomeSportsSearch.results(in: schedule, query: "   ").isEmpty)
-    }
-
-    func testGlobalSearchFindsReviewedNonFootballLeaguesFromProviderIdentity() {
-        let nhl = event(
-            "edmonton-oilers-vs-vancouver-canucks-2357029",
-            sport: "hockey",
-            home: "Edmonton Oilers",
-            away: "Vancouver Canucks",
-            sources: [.init(source: "delta", id: "live_nhl_oilers-canucks-live-streaming-1234929834")]
-        )
-        let mlb = event(
-            "san-diego-padres-vs-seattle-mariners-2387150",
-            sport: "baseball",
-            home: "San Diego Padres",
-            away: "Seattle Mariners",
-            sources: [.init(source: "delta", id: "live_mlb_padres-mariners-live-streaming-1200156642")]
-        )
-        let unrelatedHockey = event(
-            "international-hockey",
-            sport: "hockey",
-            home: "Finland",
-            away: "Sweden"
-        )
-        let schedule = HomeSportsDiscovery(events: [unrelatedHockey, mlb, nhl], now: now)
-
-        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "NHL").map(\.id), [nhl.id])
-        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "National Hockey League").map(\.id), [nhl.id])
-        XCTAssertEqual(HomeSportsSearch.results(in: schedule, query: "MLB").map(\.id), [mlb.id])
-        XCTAssertTrue(HomeSportsSearch.results(in: schedule, query: "NBA").isEmpty)
     }
 
     func testHomeDeduplicationPreservesDoubleheadersDifferentSportsAndUnknownTeams() {
@@ -2273,36 +2226,28 @@ final class HomeDiscoveryTests: XCTestCase {
             "provider-short",
             offset: -60,
             home: "Alaves",
-            away: "Osasuna",
-            sources: [.init(source: "delta", id: "short")]
-        )
+            away: "Osasuna")
         let official = event(
             "provider-official",
             offset: -60,
             home: "Deportivo Alavés",
-            away: "CA Osasuna",
-            sources: [.init(source: "echo", id: "official")]
-        )
+            away: "CA Osasuna")
         let similarlyNamedUnknown = event(
             "provider-unknown",
             offset: -60,
             home: "Deportivo Alaves B",
-            away: "Osasuna",
-            sources: [.init(source: "hotel", id: "reserve")]
-        )
+            away: "Osasuna")
 
         let events = HomeSportsDiscovery.uniqueEvents([short, official, similarlyNamedUnknown])
         XCTAssertEqual(events.count, 2)
-        let merged = try XCTUnwrap(events.first { ($0.sources ?? []).count == 2 })
-        XCTAssertEqual(Set((merged.sources ?? []).map(\.source)), ["delta", "echo"])
         XCTAssertTrue(events.contains { $0.id == similarlyNamedUnknown.id })
     }
 
     func testHomeChannelsAndUnknownStartsStayOffNowWhileTrustedCPLUsesItsListedStart() {
-        let willow = AnalyticalDataEngine.EventReference(id: "willow", title: "Willow Cricket", category: "cricket", date: -3_600_000, poster: nil, popular: nil, teams: nil, sources: [.init(source: "delta", id: "channel")])
+        let willow = AnalyticalDataEngine.EventReference(id: "willow", title: "Willow Cricket", category: "cricket", date: -3_600_000, poster: nil, popular: nil, teams: nil)
         let snapshot = event("cpl-2026-test", sport: "cricket", offset: -3600, home: "Trinbago Knight Riders", away: "Barbados Tridents")
-        let unknownCricket = event("test-match", sport: "cricket", offset: -3600, sources: [.init(source: "delta", id: "test")])
-        let unknownStart = event("undated", offset: nil, sources: [.init(source: "delta", id: "undated")])
+        let unknownCricket = event("test-match", sport: "cricket", offset: -3600)
+        let unknownStart = event("undated", offset: nil)
         let noSource = event("source-free", offset: -60)
         let schedule = HomeSportsDiscovery(events: [willow, snapshot, unknownCricket, unknownStart, noSource], now: now)
         XCTAssertEqual(schedule.channels.map(\.id), ["willow"])
@@ -2351,10 +2296,10 @@ final class HomeDiscoveryTests: XCTestCase {
 
     func testHomeKeepsLowerPriorityLiveEventsReachableUnderMoreLive() {
         let live = (1...5).map {
-            event("live-\($0)", offset: TimeInterval(-$0 * 60), sources: [.init(source: "delta", id: "live-\($0)")])
+            event("live-\($0)", offset: TimeInterval(-$0 * 60))
         }
         let upcoming = (1...5).map {
-            event("upcoming-\($0)", offset: TimeInterval($0 * 300), sources: [.init(source: "delta", id: "upcoming-\($0)")])
+            event("upcoming-\($0)", offset: TimeInterval($0 * 300))
         }
         let schedule = HomeSportsDiscovery(events: live + upcoming, now: now,
             status: { $0.id.hasPrefix("live-") ? .inPlay : nil })
@@ -2398,7 +2343,7 @@ final class HomeDiscoveryTests: XCTestCase {
 
     func testHomeLiveSectionRespectsDeviceSpecificProminenceLimit() {
         let live = (1...6).map {
-            event("live-\($0)", offset: TimeInterval(-$0 * 60), sources: [.init(source: "delta", id: "live-\($0)")])
+            event("live-\($0)", offset: TimeInterval(-$0 * 60))
         }
         let schedule = HomeSportsDiscovery(events: live, now: now, status: { _ in .inPlay })
 
@@ -2465,7 +2410,7 @@ final class HomeDiscoveryTests: XCTestCase {
 
     func testHomePriorityIsComputedOncePerItemOutsideTheSortComparator() {
         let events = (1...40).map {
-            event("rank-\($0)", offset: TimeInterval($0), sources: [.init(source: "delta", id: "rank-\($0)")])
+            event("rank-\($0)", offset: TimeInterval($0))
         }
         let items = HomeSportsDiscovery(events: events, now: now).items
         var evaluations = 0
@@ -2534,7 +2479,7 @@ final class HomeDiscoveryTests: XCTestCase {
         calendar.timeZone = TimeZone(secondsFromGMT: -4 * 3600)!
         let day = calendar.startOfDay(for: now).addingTimeInterval(18 * 3600)
         let futureEvents = (1...7).map { i in
-            AnalyticalDataEngine.EventReference(id: "later-\(i)", title: "Team \(i) vs Visitors", category: "football", date: Int64(day.addingTimeInterval(Double(i) * 3600).timeIntervalSince1970), poster: nil, popular: nil, teams: nil, sources: [])
+            AnalyticalDataEngine.EventReference(id: "later-\(i)", title: "Team \(i) vs Visitors", category: "football", date: Int64(day.addingTimeInterval(Double(i) * 3600).timeIntervalSince1970), poster: nil, popular: nil, teams: nil)
         }
         let schedule = HomeSportsDiscovery(events: futureEvents, now: day)
         let featured = schedule.featured(from: schedule.items, diverse: true)
@@ -2839,7 +2784,7 @@ final class HomeDiscoveryTests: XCTestCase {
     @MainActor
     func testHomeShowsTeamIdentityButDoesNotInventOpponentsForChannelsOrEvents() {
         func cricketEvent(title: String, date: Int64?) -> AnalyticalDataEngine.EventReference {
-            .init(id: title, title: title, category: "cricket", date: date, poster: nil, popular: nil, teams: nil, sources: [])
+            .init(id: title, title: title, category: "cricket", date: date, poster: nil, popular: nil, teams: nil)
         }
         XCTAssertTrue(HomeDiscoveryRow.showsTeamBadges(for: cricketEvent(title: "India vs Australia", date: nil)))
         XCTAssertTrue(HomeDiscoveryRow.showsTeamBadges(for: cricketEvent(title: "Trinbago Knight Riders vs Barbados Royals", date: nil)))
@@ -2849,7 +2794,7 @@ final class HomeDiscoveryTests: XCTestCase {
 
     func testHomeIdentityAndAppearanceRenderAtNarrowAndIPadWidths() throws {
         let schedule = HomeSportsDiscovery(events: [
-            event("football", sport: "football", offset: -60, home: "Home Test Club", away: "Visiting Test Club", sources: [.init(source: "delta", id: "fixture")]),
+            event("football", sport: "football", offset: -60, home: "Home Test Club", away: "Visiting Test Club"),
             event("basketball", sport: "basketball", offset: 300),
             event("baseball", sport: "baseball", offset: 600),
             event("cricket", sport: "cricket", offset: 900),

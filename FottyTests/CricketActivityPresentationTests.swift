@@ -19,8 +19,7 @@ final class CricketActivityPresentationTests: XCTestCase {
         return .init(id: CricketFixtureCatalog.fixtureIDPrefix + metadata.fixtureID,
             title: "Team \(number) A vs Team \(number) B", category: "cricket",
             date: Int64(now.addingTimeInterval(startOffset).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Team \(number) A", badge: nil), away: .init(name: "Team \(number) B", badge: nil)),
-            sources: source ? [.init(source: "delta", id: "route-\(number)")] : [], cricketFixture: metadata)
+            teams: .init(home: .init(name: "Team \(number) A", badge: nil), away: .init(name: "Team \(number) B", badge: nil)), cricketFixture: metadata)
     }
 
     private func item(_ event: EventReference) throws -> HomeSportsDiscovery.Item {
@@ -38,7 +37,6 @@ final class CricketActivityPresentationTests: XCTestCase {
         XCTAssertEqual(item.prominentStatusLabel, "Stumps")
         XCTAssertEqual(item.statusLabel, "Stumps")
         XCTAssertEqual(item.event.cricketFixture, original.cricketFixture)
-        XCTAssertEqual(item.event.sources?.map(\.id), original.sources?.map(\.id))
         XCTAssertEqual(MatchStartPolicy(event: item.event, now: now).timingAllowsPlayback, timing)
         XCTAssertNil(HomeDiscoveryRow.Presentation(item: item).liveDetail)
     }
@@ -144,7 +142,7 @@ final class CricketActivityPresentationTests: XCTestCase {
 
     func testNonCricketAndFuturePresentationKeepTheirExistingRelativeOrder() {
         let football = EventReference(id: "football", title: "Liverpool vs Chelsea", category: "football",
-            date: Int64(now.timeIntervalSince1970) + 600, poster: nil, popular: false, teams: nil, sources: [])
+            date: Int64(now.timeIntervalSince1970) + 600, poster: nil, popular: false, teams: nil)
         let live = HomeSportsDiscovery.Item(event: football, phase: .live, officialStatus: .inPlay, now: now)
         let future = HomeSportsDiscovery.Item(event: football, phase: .upcoming, officialStatus: nil, now: now)
         let held = HomeSportsDiscovery.Item(event: football, phase: .unconfirmed, officialStatus: nil, now: now)

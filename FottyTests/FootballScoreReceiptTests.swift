@@ -389,8 +389,7 @@ final class FootballScoreReceiptTests: XCTestCase {
         .init(id: "official-short-name-receipt-test", title: "Crystal Palace FC vs Nottingham Forest FC", category: "football",
             date: Int64(now.addingTimeInterval(-1_800).timeIntervalSince1970), poster: nil, popular: false,
             teams: .init(home: .init(name: "Crystal Palace FC", badge: "https://example.invalid/wrong-home.png"),
-                         away: .init(name: "Nottingham Forest FC", badge: "https://example.invalid/wrong-away.png")),
-            sources: [.init(source: "delta", id: "unit-only")], competitionID: "premier-league")
+                         away: .init(name: "Nottingham Forest FC", badge: "https://example.invalid/wrong-away.png")), competitionID: "premier-league")
     }
 
     private func badgeEvent(home: String = "Chelsea", kickoff: Date? = nil, conflict: Bool = false,
@@ -399,8 +398,7 @@ final class FootballScoreReceiptTests: XCTestCase {
         .init(id: "badge-receipt-test", title: title ?? "\(home) vs Bournemouth", category: "football",
             date: Int64((kickoff ?? now.addingTimeInterval(-7_200)).timeIntervalSince1970), poster: nil, popular: false,
             teams: .init(home: .init(name: home, badge: "https://example.invalid/wrong-home.png"),
-                         away: .init(name: "Bournemouth", badge: "https://example.invalid/wrong-away.png")),
-            sources: [], hasCatalogIdentityConflict: conflict, sportsFixture: fixture, competitionID: competition)
+                         away: .init(name: "Bournemouth", badge: "https://example.invalid/wrong-away.png")), hasCatalogIdentityConflict: conflict, sportsFixture: fixture, competitionID: competition)
     }
 
     private func service(clock: ReceiptClock, feed: ReceiptProvider, scheduled: MatchHubData? = nil) -> LiveScoreService {
@@ -428,8 +426,7 @@ final class FootballScoreReceiptTests: XCTestCase {
     }
     private func event() -> EventReference {
         .init(id: "receipt-test", title: "Chelsea vs Bournemouth", category: "football",
-            date: Int64(now.addingTimeInterval(-7_200).timeIntervalSince1970), poster: nil, popular: false, teams: nil,
-            sources: [.init(source: "delta", id: "unit-only")])
+            date: Int64(now.addingTimeInterval(-7_200).timeIntervalSince1970), poster: nil, popular: false, teams: nil)
     }
 }
 

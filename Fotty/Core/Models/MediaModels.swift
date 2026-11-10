@@ -103,7 +103,7 @@ extension AnalyticalDataEngine.EventReference {
             return .available
         }
         if kickoff > now { return .upcoming }
-        if CPLSchedule.isManagedFixtureID(id), sources?.isEmpty != false { return .available }
+        if CPLSchedule.isManagedFixtureID(id) { return .available }
         // Preserve the existing four-hour broadcast window for other sports,
         // without declaring them finished when their actual format is unknown.
         let duration = estimatedMatchDuration ?? ((category ?? "").lowercased() == "cricket" ? 0 : 4 * 3600)
@@ -1162,11 +1162,6 @@ struct NexusATeams: Codable, Sendable {
 struct NexusATeam: Codable, Sendable {
     let name: String?
     let badge: String?
-}
-
-struct NexusASource: Codable, Sendable {
-    let source: String    // "delta", "echo", "golf", "admin"
-    let id: String        // event-specific ID
 }
 
 /// Late discovery is an explicit-Watch policy, not a cross-provider ID mapping.

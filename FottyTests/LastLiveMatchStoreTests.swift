@@ -24,14 +24,13 @@ final class LastLiveMatchStoreTests: XCTestCase {
     private func event(id: String = "fixture", home: String = "Liverpool", away: String = "Chelsea",
                        category: String = "football", offset: TimeInterval = -900,
                        competition: String? = "premier-league", title: String? = nil,
-                       conflict: Bool = false, sources: [NexusASource]? = [.init(source: "admin", id: "private-route")],
+                       conflict: Bool = false,
                        cricket: CricketFixtureMetadata? = nil, sports: SportsFixtureMetadata? = nil) -> EventReference {
         .init(id: id, title: title ?? "\(home) vs \(away)", category: category,
               date: Int64(now.addingTimeInterval(offset).timeIntervalSince1970),
               poster: "https://example.test/private-artwork", popular: false,
               teams: .init(home: .init(name: home, badge: "https://example.test/home-badge"),
-                           away: .init(name: away, badge: "https://example.test/away-badge")),
-              sources: sources, hasCatalogIdentityConflict: conflict, cricketFixture: cricket,
+                           away: .init(name: away, badge: "https://example.test/away-badge")), hasCatalogIdentityConflict: conflict, cricketFixture: cricket,
               sportsFixture: sports, competitionID: competition)
     }
 
@@ -197,10 +196,9 @@ final class LastLiveMatchStoreTests: XCTestCase {
     func testFreshCurrentResultRetainsOnlyItsOwnDeliveryNotStoredSource() throws {
         let store = LastLiveMatchStore(defaults: try defaults(), now: { self.now })
         try confirm(event(), in: store)
-        let fresh = event(id: "fresh-catalog-id", sources: [.init(source: "hotel", id: "fresh-route")])
+        let fresh = event(id: "fresh-catalog-id")
         let current = try XCTUnwrap(store.eligibleEvent(in: [fresh], status: { _ in .inPlay }))
         XCTAssertEqual(current.id, "fresh-catalog-id")
-        XCTAssertEqual(current.sources?.first?.id, "fresh-route")
         XCTAssertEqual(store.record?.eventID, "fixture")
     }
 
@@ -251,7 +249,7 @@ final class LastLiveMatchStoreTests: XCTestCase {
     func testChannelsUndatedConflictingPlaceholderAndUnrelatedCategoriesAreNotRemembered() throws {
         let store = LastLiveMatchStore(defaults: try defaults(), now: { self.now })
         let undated = EventReference(id: "undated", title: "Liverpool vs Chelsea", category: "football", date: nil,
-            poster: nil, popular: nil, teams: event().teams, sources: event().sources)
+            poster: nil, popular: nil, teams: event().teams)
         for invalid in [undated, event(conflict: true), event(home: "Home", away: "Away"),
                         event(home: "Liverpool", away: "Liverpool"), event(category: "unrelated"),
                         event(category: "cricket", title: "Willow Cricket"), event(offset: 121),

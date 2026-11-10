@@ -710,7 +710,7 @@ final class FlixStreamsAddonTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: clock, verified: true)
         let event = EventReference(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sources: [],
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
             sportsFixture: metadata)
         let expiry = expiresAt ?? clock.addingTimeInterval(600)
         let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "a", count: 64), providerCode: "flixstreams",

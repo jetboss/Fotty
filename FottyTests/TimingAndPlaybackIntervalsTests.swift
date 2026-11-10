@@ -526,14 +526,14 @@ final class TimingAndPlaybackIntervalsTests: XCTestCase {
                   // production catalog correctly unions identical teams/start.
                   // Give each test rematch its own exact kickoff identity.
                   date: Int64(date.addingTimeInterval(3_600 + Double($0) * 60).timeIntervalSince1970),
-                  poster: nil, popular: false, teams: nil, sources: [])
+                  poster: nil, popular: false, teams: nil)
         }, now: date)
     }
 
     private func makeModel(web: Bool, clock: ManualOwnerClock,
                            controlsNeedAccessibilityVisibility: @escaping @MainActor () -> Bool = { false }) throws -> LivePlayerViewModel {
         let event = AnalyticalDataEngine.EventReference(id: "timing-player", title: "Timing test",
-            category: "football", date: 0, poster: nil, popular: false, teams: nil, sources: nil)
+            category: "football", date: 0, poster: nil, popular: false, teams: nil)
         let session = StreamSession(matchID: event.id,
             playableURL: try XCTUnwrap(URL(string: "https://example.invalid/timing\(web ? "/embed" : ".m3u8")")),
             streamType: web ? .unknown : .hls, providerName: "CS1",

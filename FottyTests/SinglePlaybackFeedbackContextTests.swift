@@ -7,7 +7,7 @@ final class SinglePlaybackFeedbackContextTests: XCTestCase {
     private func model(title: String = "Liverpool vs Chelsea", provider: String = "AS1",
                        web: Bool = false, single: Bool = true) -> LivePlayerViewModel {
         let event = EventReference(id: "report-fixture", title: title, category: "football",
-            date: Int64(Date().timeIntervalSince1970) - 60, poster: nil, popular: false, teams: nil, sources: [])
+            date: Int64(Date().timeIntervalSince1970) - 60, poster: nil, popular: false, teams: nil)
         let session = StreamSession(matchID: event.id,
             playableURL: URL(string: web ? "https://private.example/embed?token=private-secret" : "https://private.example/master.m3u8?token=private-secret")!,
             streamType: web ? .unknown : .hls, providerName: provider,

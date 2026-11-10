@@ -675,7 +675,7 @@ final class MediaAudioSessionOwnerTests: XCTestCase {
                                  withItem: Bool = false, singleRanking: Bool = false,
                                  validation: @escaping @MainActor (URL, [String: String]) async -> StreamContractValidator.ValidationResult = { _, _ in .valid }) throws -> (LivePlayerViewModel, AudioSpyPlayer) {
         let event = AnalyticalDataEngine.EventReference(id: "audio-owner-test", title: "Audio test",
-            category: "football", date: 0, poster: nil, popular: false, teams: nil, sources: nil)
+            category: "football", date: 0, poster: nil, popular: false, teams: nil)
         let session = StreamSession(matchID: event.id,
             playableURL: try XCTUnwrap(URL(string: "https://example.invalid/audio-test.m3u8")),
             streamType: .hls, providerName: "CS1", requiredHeaders: [:],

@@ -78,11 +78,11 @@ final class SportsContinuityBridgeTests: XCTestCase {
             EventReference(id: "widget-darts-\(index)", title: "Example A vs Example B", category: "darts",
                 date: Int64(now.addingTimeInterval(-86_400 + Double(index)).timeIntervalSince1970),
                 poster: nil, popular: nil,
-                teams: .init(home: .init(name: "Example A", badge: nil), away: .init(name: "Example B", badge: nil)), sources: [])
+                teams: .init(home: .init(name: "Example A", badge: nil), away: .init(name: "Example B", badge: nil)))
         }
         let invalid = EventReference(id: String(repeating: "x", count: 201), title: "Example C vs Example D", category: "football",
             date: Int64(now.addingTimeInterval(1800).timeIntervalSince1970), poster: nil, popular: nil,
-            teams: .init(home: .init(name: "Example C", badge: nil), away: .init(name: "Example D", badge: nil)), sources: [])
+            teams: .init(home: .init(name: "Example C", badge: nil), away: .init(name: "Example D", badge: nil)))
         let saved = darts + [invalid, football]
         let gate = try makeGate(initialSavedMatches: saved)
         let snapshot = try XCTUnwrap(gate.snapshots.last)
@@ -96,7 +96,7 @@ final class SportsContinuityBridgeTests: XCTestCase {
     func testAllUnsupportedSavedRowsPublishValidEmptyWidgetWithoutRemovingBookmarks() throws {
         let darts = EventReference(id: "widget-darts-only", title: "Example A vs Example B", category: "darts",
             date: Int64(Date().addingTimeInterval(3600).timeIntervalSince1970), poster: nil, popular: nil,
-            teams: .init(home: .init(name: "Example A", badge: nil), away: .init(name: "Example B", badge: nil)), sources: [])
+            teams: .init(home: .init(name: "Example A", badge: nil), away: .init(name: "Example B", badge: nil)))
         let gate = try makeGate(initialSavedMatches: [darts])
         let snapshot = try XCTUnwrap(gate.snapshots.last)
         XCTAssertTrue(snapshot.matches.isEmpty)
@@ -391,7 +391,6 @@ final class SportsContinuityBridgeTests: XCTestCase {
         await catalog.refresh()
         relaunched.refresh()
         XCTAssertEqual(restoredPlans.savedMatches.first?.id, event.id)
-        XCTAssertTrue(restoredPlans.savedMatches.first?.sources.isEmpty == true, "Only the current source-free fixture was saved")
         XCTAssertFalse(restoredSync.records.first { $0.intent.id == remote.intent.id }?.removed == true)
     }
 
@@ -566,8 +565,7 @@ final class SportsContinuityBridgeTests: XCTestCase {
     private func fixture(at date: Date) -> EventReference {
         EventReference(id: "fixture-liverpool-chelsea", title: "Liverpool vs Chelsea", category: "football",
             date: Int64(date.timeIntervalSince1970), poster: nil, popular: nil,
-            teams: .init(home: .init(name: "Liverpool", badge: nil), away: .init(name: "Chelsea", badge: nil)),
-            sources: [], competitionID: "premier-league")
+            teams: .init(home: .init(name: "Liverpool", badge: nil), away: .init(name: "Chelsea", badge: nil)), competitionID: "premier-league")
     }
 
     private func record(_ intent: SportsPreferenceSyncIntent, revision: Int64 = 100, removed: Bool = false) -> SportsPreferenceSyncRecord {

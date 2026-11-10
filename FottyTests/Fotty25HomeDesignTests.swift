@@ -127,8 +127,7 @@ final class Fotty25HomeDesignTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_790_000_000)
         let event = EventReference(id: "home-footer-layout-only", title: "Render Home vs Render Away", category: "cricket",
             date: Int64(now.addingTimeInterval(-1_800).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Render Home", badge: nil), away: .init(name: "Render Away", badge: nil)),
-            sources: [.init(source: "delta", id: "layout-only-no-fetch")])
+            teams: .init(home: .init(name: "Render Home", badge: nil), away: .init(name: "Render Away", badge: nil)))
         let item = try XCTUnwrap(HomeSportsDiscovery(events: [event], now: now).items.first)
         let image = try FottyHostedViewSnapshot.image(
             HomeLiveSpotlight(item: item, presentation: .init(item: item), now: now, isSaved: true,

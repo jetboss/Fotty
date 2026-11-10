@@ -15,8 +15,7 @@ final class WatchTapAcknowledgementTests: XCTestCase {
             status: status, observedAt: now, verified: true)
         return .init(id: fixtureID, title: metadata.title, category: "football",
             date: Int64(now.addingTimeInterval(-600).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)),
-            sources: [.init(source: "delta", id: "test-listed-choice")], hasCatalogIdentityConflict: conflict,
+            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), hasCatalogIdentityConflict: conflict,
             sportsFixture: metadata, competitionID: metadata.competitionID)
     }
 

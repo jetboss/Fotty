@@ -337,9 +337,8 @@ final class MatchListViewModel {
         if AppRuntime.isAutomatedTesting,
            ProcessInfo.processInfo.environment["FOTTY_HOME_UI_TESTING"] == "1" {
             let now = HomeSportsDiscovery.automatedClockStart ?? Date()
-            func fixture(_ id: String, sport: String, title: String, hours: Double, watchable: Bool = false) -> AnalyticalDataEngine.EventReference {
-                .init(id: id, title: title, category: sport, date: Int64(now.addingTimeInterval(hours * 3600).timeIntervalSince1970), poster: nil, popular: false, teams: nil,
-                      sources: watchable ? [.init(source: "delta", id: "ui-only-\(id)")] : [])
+            func fixture(_ id: String, sport: String, title: String, hours: Double) -> AnalyticalDataEngine.EventReference {
+                .init(id: id, title: title, category: sport, date: Int64(now.addingTimeInterval(hours * 3600).timeIntervalSince1970), poster: nil, popular: false, teams: nil)
             }
             // Network-free presentation data; never written to the cache.
             if HomeSportsDiscovery.automatedClockStart != nil {
@@ -352,8 +351,8 @@ final class MatchListViewModel {
                 return
             }
             matches = [
-                fixture("ui-football", sport: "football", title: "Arsenal vs Chelsea", hours: -0.5, watchable: true),
-                fixture("ui-basketball", sport: "basketball", title: "Lakers vs Warriors", hours: -0.25, watchable: true),
+                fixture("ui-football", sport: "football", title: "Arsenal vs Chelsea", hours: -0.5),
+                fixture("ui-basketball", sport: "basketball", title: "Lakers vs Warriors", hours: -0.25),
                 fixture("cpl-2026-ui-home", sport: "cricket", title: "Trinbago Knight Riders vs Guyana Amazon Warriors", hours: 1),
                 fixture("ui-baseball", sport: "baseball", title: "Yankees vs Red Sox", hours: 7),
                 fixture("ui-tennis", sport: "tennis", title: "Świątek vs Gauff", hours: 8),
@@ -365,8 +364,8 @@ final class MatchListViewModel {
         if AppRuntime.isAutomatedTesting,
            ProcessInfo.processInfo.environment["FOTTY_CRICKET_UI_TESTING"] == "1" {
             matches = [
-                .init(id: "ui-willow", title: "Willow Cricket", category: "cricket", date: -3_600_000, poster: nil, popular: false, teams: nil, sources: []),
-                .init(id: "cpl-2026-ui", title: "CPL · Trinbago Knight Riders vs Barbados Tridents", category: "cricket", date: Int64(Date().addingTimeInterval(3600).timeIntervalSince1970), poster: nil, popular: false, teams: nil, sources: [])
+                .init(id: "ui-willow", title: "Willow Cricket", category: "cricket", date: -3_600_000, poster: nil, popular: false, teams: nil),
+                .init(id: "cpl-2026-ui", title: "CPL · Trinbago Knight Riders vs Barbados Tridents", category: "cricket", date: Int64(Date().addingTimeInterval(3600).timeIntervalSince1970), poster: nil, popular: false, teams: nil)
             ]
             return
         }
@@ -385,8 +384,7 @@ final class MatchListViewModel {
                     teams: NexusATeams(
                         home: NexusATeam(name: item.homeName, badge: item.homeBadge),
                         away: NexusATeam(name: item.awayName, badge: item.awayBadge)
-                    ),
-                    sources: nil as [NexusASource]?
+                    )
                 )
             }.filter { $0.passesNearTermLiveListWindow() }
             // Accessibility/UI tests only need a representative first screen.

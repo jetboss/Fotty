@@ -92,7 +92,7 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
 
     private func event(id: String = "same", title: String, category: String = "football") -> EventReference {
         .init(id: id, title: title, category: category, date: 1_800_003_600,
-              poster: nil, popular: false, teams: nil, sources: [])
+              poster: nil, popular: false, teams: nil)
     }
 
     func testPreparedSearchNormalizesOnceAndPreservesLeagueDisambiguation() {
@@ -163,7 +163,7 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let rows = (0..<96).map { offset in
             EventReference(id: "typing-\(offset)", title: "Arsenal vs Chelsea", category: "football",
-                date: 1_800_003_600 + Int64(offset) * 60, poster: nil, popular: false, teams: nil, sources: [])
+                date: 1_800_003_600 + Int64(offset) * 60, poster: nil, popular: false, teams: nil)
         }
         let discovery = HomeSportsDiscovery(events: rows, now: now)
         XCTAssertEqual(discovery.items.count, 96)
@@ -213,7 +213,7 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let rows = (0..<32).map { offset in
             EventReference(id: "revoked-\(offset)", title: "Arsenal vs Chelsea", category: "football",
-                date: 1_800_003_600 + Int64(offset) * 60, poster: nil, popular: false, teams: nil, sources: [])
+                date: 1_800_003_600 + Int64(offset) * 60, poster: nil, popular: false, teams: nil)
         }
         let discovery = HomeSportsDiscovery(events: rows, now: now)
         let index = SportsSearchIndexKey(catalogRevision: 1, clockDate: now, scoreRevision: nil)
@@ -243,7 +243,7 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
             event(id: "cpl", title: "CPL · Trinbago Knight Riders vs Guyana Amazon Warriors", category: "cricket"),
             event(id: "basketball", title: "Internacional de Bogotá vs Example", category: "basketball"),
             .init(id: "willow", title: "Willow Cricket", category: "cricket", date: -3_600_000,
-                  poster: nil, popular: false, teams: nil, sources: [])
+                  poster: nil, popular: false, teams: nil)
         ], now: now)
         let league: (EventReference) -> String? = { $0.id == "football" ? "Premier League" : nil }
         let synchronous = HomeSportsSearch.prepare(in: discovery, leagueName: league)
@@ -442,8 +442,7 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
             let repeated = (0..<copiesPerFixture).flatMap { copy in
                 originals.map { row in
                     EventReference(id: row.id, title: row.title, category: row.category,
-                        date: row.date, poster: row.poster, popular: row.popular, teams: row.teams,
-                        sources: [.init(source: "delta", id: "synthetic-\(row.id)-\(copy)")])
+                        date: row.date, poster: row.poster, popular: row.popular, teams: row.teams)
                 }
             }
             let expectedIDs = originals.map(\.id)
@@ -458,8 +457,6 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
 
                 XCTAssertEqual(catalog.map(\.id), expectedIDs, "Repeated rows must retain the first accepted position")
                 XCTAssertTrue(catalog.allSatisfy { !$0.hasCatalogIdentityConflict })
-                XCTAssertTrue(catalog.allSatisfy { $0.sources?.count == copiesPerFixture },
-                              "Measurement cannot make distinct provider descriptors disappear")
                 XCTAssertEqual(discovery.items.count + discovery.channels.count, uniqueRows)
                 print(String(format: "[HomeDuplicateMicrobenchmark] input_rows=%d unique_rows=%d copies=%d iteration=%d dedup_ms=%.3f discovery_ms=%.3f",
                              repeated.count, uniqueRows, copiesPerFixture, iteration,
@@ -510,43 +507,34 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
     }
 
     func testIndexedCatalogDedupPreservesFirstPositionSourceOrderAndConflictQuarantine() {
-        func row(_ id: String, _ title: String = "Arsenal vs Chelsea", at date: Int64 = 1_800_003_600,
-                 sources: [NexusASource]? = nil) -> EventReference {
+        func row(_ id: String, _ title: String = "Arsenal vs Chelsea", at date: Int64 = 1_800_003_600) -> EventReference {
             .init(id: id, title: title, category: "football", date: date,
-                  poster: nil, popular: false, teams: nil, sources: sources)
+                  poster: nil, popular: false, teams: nil)
         }
-        let first = row("same", sources: [.init(source: "delta", id: "one")])
+        let first = row("same")
         let other = row("other", "Liverpool vs Everton")
-        let duplicate = row("same", sources: [.init(source: "delta", id: "one"), .init(source: "golf", id: "two")])
+        let duplicate = row("same")
         let merged = AnalyticalDataEngine.deduplicateMatches([first, other, duplicate])
         XCTAssertEqual(merged.map(\.id), ["same", "other"])
-        XCTAssertEqual(merged[0].sources?.map { "\($0.source)|\($0.id)" }, ["delta|one", "golf|two"])
-        XCTAssertNil(merged[1].sources, "Nil source metadata must not become invented descriptors")
 
         for conflict in [row("same", "Arsenal vs Liverpool"), row("same", at: 1_800_007_200)] {
             let quarantined = AnalyticalDataEngine.deduplicateMatches([first, other, conflict, duplicate])
             XCTAssertEqual(quarantined.map(\.id), ["same", "other"])
             XCTAssertTrue(quarantined[0].hasCatalogIdentityConflict)
-            XCTAssertTrue(quarantined[0].sources?.isEmpty == true,
-                          "A later duplicate cannot restore streams to a quarantined ID")
         }
     }
 
     func testIndexedCatalogDedupPreservesCrossProviderFixtureMergeAndRealRematches() {
-        func row(_ id: String, title: String = "Arsenal vs Chelsea", at date: Int64 = 1_800_003_600,
-                 source: String? = nil) -> EventReference {
+        func row(_ id: String, title: String = "Arsenal vs Chelsea", at date: Int64 = 1_800_003_600) -> EventReference {
             .init(id: id, title: title, category: "football", date: date,
-                  poster: nil, popular: false, teams: nil,
-                  sources: source.map { [.init(source: "delta", id: $0)] })
+                  poster: nil, popular: false, teams: nil)
         }
         let schedule = row("schedule")
-        let provider = row("provider", source: "stream")
-        let youth = row("youth-u19", title: "Arsenal U19 vs Chelsea U19", source: "youth")
-        let rematch = row("rematch", at: 1_800_010_800, source: "later")
+        let provider = row("provider")
+        let youth = row("youth-u19", title: "Arsenal U19 vs Chelsea U19")
+        let rematch = row("rematch", at: 1_800_010_800)
         let result = AnalyticalDataEngine.deduplicateMatches([schedule, youth, provider, rematch])
-        XCTAssertEqual(result.map(\.id), ["provider", "youth-u19", "rematch"])
-        XCTAssertEqual(result[0].sources?.map(\.id), ["stream"])
-        XCTAssertEqual(result[1].sources?.map(\.id), ["youth"])
+        XCTAssertEqual(result.map(\.id), ["schedule", "youth-u19", "rematch"])
         XCTAssertEqual(result[2].kickoffDate, rematch.kickoffDate)
     }
 

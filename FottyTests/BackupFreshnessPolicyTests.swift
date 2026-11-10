@@ -53,8 +53,7 @@ final class BackupFreshnessPolicyTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: Date(), verified: true)
         let event = EventReference(id: matchID, title: fixture.title, category: "football",
             date: Int64(Date().timeIntervalSince1970) - 600, poster: nil, popular: false,
-            teams: .init(home: .init(name: "Chelsea", badge: nil), away: .init(name: "Brighton", badge: nil)),
-            sources: [], sportsFixture: fixture, competitionID: "premier-league")
+            teams: .init(home: .init(name: "Chelsea", badge: nil), away: .init(name: "Brighton", badge: nil)), sportsFixture: fixture, competitionID: "premier-league")
         let old = Date().addingTimeInterval(-120)
         func binding(_ id: String, at time: Date) throws -> StreamEventBinding {
             try XCTUnwrap(StreamEventBinding(request: .init(event: event), providerCode: "communitysports",

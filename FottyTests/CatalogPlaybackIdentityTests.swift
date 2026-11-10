@@ -55,7 +55,7 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
             index.updateEnabledProviders([], revision: 3, invalidating: "communitysports")
             XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: [], at: kickoff, discoveryIndex: index))
             let willow2 = EventReference(id: "cricket-channel:willow2", title: "Willow 2", category: "cricket",
-                date: nil, poster: nil, popular: false, teams: nil, sources: [])
+                date: nil, poster: nil, popular: false, teams: nil)
             XCTAssertFalse(CricketChannelPlaybackPolicy.canResolve(willow2, discoveryIndex: index))
             XCTAssertNil(binding(for: .init(event: willow2)))
         }
@@ -148,7 +148,6 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
         XCTAssertEqual(conflict.count, 1)
         let quarantined = try XCTUnwrap(conflict.first)
         XCTAssertTrue(quarantined.hasCatalogIdentityConflict)
-        XCTAssertTrue(quarantined.sources?.isEmpty == true)
         XCTAssertFalse(quarantined.passesNearTermLiveListWindow(at: kickoff))
         XCTAssertNil(quarantined.homeBadgeURL)
         XCTAssertNil(quarantined.awayBadgeURL)
@@ -157,15 +156,12 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
         XCTAssertNil(CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: quarantined), in: [event()]))
         let restored = try JSONDecoder().decode(AnalyticalDataEngine.EventReference.self, from: JSONEncoder().encode(quarantined))
         XCTAssertTrue(restored.hasCatalogIdentityConflict)
-        XCTAssertTrue(restored.sources?.isEmpty == true)
         XCTAssertTrue(AnalyticalDataEngine.deduplicateMatches([restored, event()]).first?.hasCatalogIdentityConflict == true)
         let sourceA = event()
         let sourceB = AnalyticalDataEngine.EventReference(id: sourceA.id, title: sourceA.title,
-            category: sourceA.category, date: sourceA.date, poster: nil, popular: nil, teams: sourceA.teams,
-            sources: [NexusASource(source: "hotel", id: "another-provider-event")])
+            category: sourceA.category, date: sourceA.date, poster: nil, popular: nil, teams: sourceA.teams)
         let mirrors = AnalyticalDataEngine.deduplicateMatches([sourceA, sourceB, sourceA])
         XCTAssertEqual(mirrors.count, 1)
-        XCTAssertEqual(mirrors.first?.sources?.map(\.source), ["admin", "hotel"])
         XCTAssertNotNil(CatalogPlaybackIdentity.matchingEvent(for: request(id: "fixture"), in: mirrors))
     }
 
@@ -173,27 +169,21 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
         let schedule = AnalyticalDataEngine.EventReference(
             id: "2001", title: "Fenerbahçe SK vs AS Roma", category: "football",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: true,
-            teams: .init(home: .init(name: "Fenerbahçe SK", badge: nil), away: .init(name: "AS Roma", badge: nil)),
-            sources: []
-        )
+            teams: .init(home: .init(name: "Fenerbahçe SK", badge: nil), away: .init(name: "AS Roma", badge: nil)))
         let provider = AnalyticalDataEngine.EventReference(
             id: "ppv-fenerbahce-vs-roma", title: "Fenerbahce - Roma", category: "football",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: true,
-            teams: .init(home: .init(name: "Fenerbahce", badge: nil), away: .init(name: "Roma", badge: nil)),
-            sources: [.init(source: "golf", id: "1042")]
-        )
+            teams: .init(home: .init(name: "Fenerbahce", badge: nil), away: .init(name: "Roma", badge: nil)))
 
         let merged = AnalyticalDataEngine.deduplicateMatches([schedule, provider])
         let fixture = try XCTUnwrap(merged.first)
         XCTAssertEqual(merged.count, 1)
-        XCTAssertEqual(fixture.id, provider.id, "The source-backed provider row should remain the actionable representative")
-        XCTAssertEqual(fixture.sources?.map(\.id), ["1042"])
+        XCTAssertEqual(fixture.id, schedule.id, "The first row keeps its identity; a provider alias adds none")
 
         let later = AnalyticalDataEngine.EventReference(
             id: "later", title: provider.title, category: provider.category,
             date: Int64(kickoff.addingTimeInterval(3600).timeIntervalSince1970), poster: nil, popular: true,
-            teams: provider.teams, sources: provider.sources
-        )
+            teams: provider.teams)
         XCTAssertEqual(AnalyticalDataEngine.deduplicateMatches([schedule, later]).count, 2)
     }
 
@@ -202,8 +192,7 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
                  competition: String? = "premier-league", offset: Double = 0) -> EventReference {
             .init(id: id, title: title ?? "\(home) vs \(away)", category: "football",
                 date: Int64(kickoff.addingTimeInterval(offset).timeIntervalSince1970), poster: nil, popular: false,
-                teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
-                sources: [], competitionID: competition)
+                teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), competitionID: competition)
         }
         let short = row("short", home: "Arsenal", away: "Leeds United")
         let officialName = row("long", home: "Arsenal FC", away: "Leeds United FC")
@@ -250,7 +239,7 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
     func testExactIDPreservesSingleEventSportsWithoutUsingNameFallback() {
         let race = AnalyticalDataEngine.EventReference(id: "grand-prix", title: "Formula 1 Grand Prix",
             category: "motorsports", date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: nil,
-            teams: nil, sources: [NexusASource(source: "delta", id: "race")])
+            teams: nil)
         let raceRequest = StreamPlaybackRequest(event: race)
         XCTAssertEqual(CatalogPlaybackIdentity.matchingEvent(for: raceRequest, in: [race])?.id, "grand-prix")
         let unknownID = StreamPlaybackRequest(matchID: "unknown", displayTitle: raceRequest.displayTitle,
@@ -416,8 +405,7 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
         func preferred(_ competition: String, conflict: Bool = false) -> StreamPlaybackRequest {
             let row = EventReference(id: "official-fixture", title: "Ipswich Town vs Liverpool", category: "football",
                 date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-                teams: .init(home: .init(name: "Ipswich Town", badge: nil), away: .init(name: "Liverpool", badge: nil)),
-                sources: [], hasCatalogIdentityConflict: conflict, competitionID: competition)
+                teams: .init(home: .init(name: "Ipswich Town", badge: nil), away: .init(name: "Liverpool", badge: nil)), hasCatalogIdentityConflict: conflict, competitionID: competition)
             return StreamPlaybackRequest(event: row)
         }
         let bound = try XCTUnwrap(binding(for: preferred("premier-league")))
@@ -453,8 +441,7 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
     func testReviewedDiscoveryPlanDoesNotRequireMasterCatalogSources() {
         let row = EventReference(id: "official-fixture", title: "Ipswich Town vs Liverpool", category: "football",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Ipswich Town", badge: nil), away: .init(name: "Liverpool", badge: nil)),
-            sources: [])
+            teams: .init(home: .init(name: "Ipswich Town", badge: nil), away: .init(name: "Liverpool", badge: nil)))
         let plan = CuratedStreamSourceCatalog.discoveryPlan(for: StreamPlaybackRequest(event: row),
             enabledProviderCodes: ["communitysports", "plaviosports", "flixstreams", "arbitrary-addon"], at: kickoff)
         XCTAssertFalse(plan.score808SiteEligible)
@@ -694,8 +681,7 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
             title: "\(home) vs \(away)", participants: [.init(id: "home", name: home), .init(id: "away", name: away)],
             squad: .init(gender: women ? .women : .men, ageGroup: "senior"), status: status, observedAt: kickoff, verified: verified)
         return .init(id: metadata.fixtureID, title: metadata.title, category: "football", date: Int64(kickoff.timeIntervalSince1970),
-            poster: nil, popular: false, teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
-            sources: [], sportsFixture: metadata, competitionID: "premier-league")
+            poster: nil, popular: false, teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sportsFixture: metadata, competitionID: "premier-league")
     }
 
     private func registeredPrimaryAssociation(for event: EventReference, streamID: String = "registered-provider-event") -> BroadcastRegistryMatch {
@@ -747,8 +733,7 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
                        title: String? = nil, popular: Bool = false) -> AnalyticalDataEngine.EventReference {
         AnalyticalDataEngine.EventReference(id: id, title: title ?? "\(home) vs \(away)", category: category,
             date: undated ? nil : Int64((date ?? kickoff).timeIntervalSince1970), poster: nil, popular: popular,
-            teams: NexusATeams(home: NexusATeam(name: home, badge: nil), away: NexusATeam(name: away, badge: nil)),
-            sources: [NexusASource(source: "admin", id: "provider-event")])
+            teams: NexusATeams(home: NexusATeam(name: home, badge: nil), away: NexusATeam(name: away, badge: nil)))
     }
 
 }

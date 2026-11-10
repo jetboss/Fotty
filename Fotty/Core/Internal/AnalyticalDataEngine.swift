@@ -21,7 +21,6 @@ struct AnalyticalDataEngine {
         let poster: String?
         let popular: Bool?
         let teams: NexusATeams?
-        let sources: [NexusASource]?
         /// Fotty-owned ingestion metadata. Persist the quarantine in local
         /// caches, but never allow it to advertise or resolve a delivery route.
         let hasCatalogIdentityConflict: Bool
@@ -33,7 +32,7 @@ struct AnalyticalDataEngine {
         let competitionID: String?
 
         enum CodingKeys: String, CodingKey {
-            case id, title, category, date, poster, popular, teams, sources
+            case id, title, category, date, poster, popular, teams
             case hasCatalogIdentityConflict = "_fottyIdentityConflict"
             case cricketFixture = "_fottyCricketFixture"
             case sportsFixture = "_fottySportsFixture"
@@ -52,8 +51,6 @@ struct AnalyticalDataEngine {
             cricketFixture = try container.decodeIfPresent(CricketFixtureMetadata.self, forKey: .cricketFixture)
             sportsFixture = try container.decodeIfPresent(SportsFixtureMetadata.self, forKey: .sportsFixture)
             competitionID = try container.decodeIfPresent(String.self, forKey: .competitionID) ?? sportsFixture?.competitionID
-            let decodedSources = try container.decodeIfPresent([NexusASource].self, forKey: .sources)
-            sources = hasCatalogIdentityConflict ? [] : decodedSources
 
             if let decodedId = try container.decodeIfPresent(String.self, forKey: .id), !decodedId.isEmpty {
                 id = decodedId
@@ -71,7 +68,6 @@ struct AnalyticalDataEngine {
             poster: String?,
             popular: Bool?,
             teams: NexusATeams?,
-            sources: [NexusASource]?,
             hasCatalogIdentityConflict: Bool = false,
             cricketFixture: CricketFixtureMetadata? = nil,
             sportsFixture: SportsFixtureMetadata? = nil,
@@ -88,7 +84,6 @@ struct AnalyticalDataEngine {
             self.cricketFixture = cricketFixture
             self.sportsFixture = sportsFixture
             self.competitionID = competitionID ?? sportsFixture?.competitionID
-            self.sources = hasCatalogIdentityConflict ? [] : sources
         }
 
         nonisolated var kickoffDate: Date? {
@@ -194,9 +189,6 @@ struct AnalyticalDataEngine {
                 home: NexusATeam(name: match.homeTeam.displayName, badge: match.homeTeam.crest),
                 away: NexusATeam(name: match.awayTeam.displayName, badge: match.awayTeam.crest)
             )
-            // An official fixture is schedule truth, not evidence that a
-            // provider has published a playable route.
-            self.sources = []
             self.hasCatalogIdentityConflict = false
             self.cricketFixture = nil
             self.sportsFixture = nil
@@ -372,10 +364,7 @@ struct AnalyticalDataEngine {
             }
         }
 
-        let sourceIdentity = match.sources?
-            .map { "\($0.source) \($0.id)" }
-            .joined(separator: " ") ?? ""
-        let haystack = "\(match.id) \(match.title ?? "") \(sourceIdentity)".lowercased()
+        let haystack = "\(match.id) \(match.title ?? "")".lowercased()
         let isCurrentPair: (FootballCompetitionID) -> Bool = { competition in
             FootballCompetitionCatalog.containsBoth(
                 home: match.homeName,
@@ -535,19 +524,14 @@ struct AnalyticalDataEngine {
                 // Identifiable rows in UI and not a fabricated empty success.
                 matchesByID[index] = EventReference(id: existing.id, title: existing.title,
                     category: existing.category, date: existing.date, poster: existing.poster,
-                    popular: existing.popular, teams: existing.teams, sources: [],
+                    popular: existing.popular, teams: existing.teams,
                     hasCatalogIdentityConflict: true, cricketFixture: existing.cricketFixture,
                     sportsFixture: existing.sportsFixture, competitionID: existing.competitionID)
                 return
             }
-            var seenSources = Set<String>()
-            let sources = ((existing.sources ?? []) + (match.sources ?? [])).filter {
-                seenSources.insert("\($0.source)|\($0.id)").inserted
-            }
             matchesByID[index] = EventReference(id: existing.id, title: existing.title,
                 category: existing.category, date: existing.date, poster: existing.poster,
                 popular: existing.popular, teams: existing.teams,
-                sources: sources.isEmpty && existing.sources == nil && match.sources == nil ? nil : sources,
                 cricketFixture: existing.cricketFixture ?? match.cricketFixture,
                 sportsFixture: existing.sportsFixture ?? match.sportsFixture,
                 competitionID: existing.competitionID ?? match.competitionID)
@@ -577,19 +561,7 @@ struct AnalyticalDataEngine {
                 merged.append(event)
                 return
             }
-            let preferred: EventReference
-            let secondary: EventReference
-            if (existing.sources?.isEmpty ?? true), !(event.sources?.isEmpty ?? true) {
-                preferred = event
-                secondary = existing
-            } else {
-                preferred = existing
-                secondary = event
-            }
-            var seenSources = Set<String>()
-            let sources = ((preferred.sources ?? []) + (secondary.sources ?? [])).filter {
-                seenSources.insert("\($0.source)|\($0.id)").inserted
-            }
+            let preferred = existing, secondary = event
             merged[index] = EventReference(
                 id: preferred.id,
                 title: preferred.title ?? secondary.title,
@@ -598,7 +570,6 @@ struct AnalyticalDataEngine {
                 poster: preferred.poster ?? secondary.poster,
                 popular: preferred.popular ?? secondary.popular,
                 teams: preferred.teams ?? secondary.teams,
-                sources: sources,
                 cricketFixture: preferred.cricketFixture ?? secondary.cricketFixture,
                 sportsFixture: preferred.sportsFixture ?? secondary.sportsFixture,
                 competitionID: preferred.competitionID ?? secondary.competitionID

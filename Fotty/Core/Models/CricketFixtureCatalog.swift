@@ -362,8 +362,7 @@ enum CricketFixtureCatalog {
         .init(id: fixtureIDPrefix + fixture.id,
             title: "\(fixture.competitionName) · \(fixture.home.name) vs \(fixture.away.name)", category: "cricket",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: fixture.home.name, badge: nil), away: .init(name: fixture.away.name, badge: nil)),
-            sources: [], cricketFixture: metadata)
+            teams: .init(home: .init(name: fixture.home.name, badge: nil), away: .init(name: fixture.away.name, badge: nil)), cricketFixture: metadata)
     }
 
 }

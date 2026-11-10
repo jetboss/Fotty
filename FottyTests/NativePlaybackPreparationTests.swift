@@ -162,7 +162,7 @@ final class NativePlaybackPreparationTests: XCTestCase {
                 var event = fixture.event, session = fixture.old
                 if condition == "invalid_identity" {
                     event = EventReference(id: fixture.event.id, title: fixture.event.title, category: fixture.event.category,
-                        date: fixture.event.date.map { $0 + 60 }, poster: nil, popular: false, teams: fixture.event.teams, sources: [])
+                        date: fixture.event.date.map { $0 + 60 }, poster: nil, popular: false, teams: fixture.event.teams)
                 }
                 if condition == "finished" || condition == "cancelled" {
                     let registered = try registeredRecoveryFixture()
@@ -375,8 +375,7 @@ final class NativePlaybackPreparationTests: XCTestCase {
                 homeTeamID: "icc:1:7", awayTeamID: "icc:1:1")
             return .init(id: "cricket-fixture:icc:269792", title: "South Africa vs Australia", category: "cricket",
                 date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
-                teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)),
-                sources: [], cricketFixture: metadata)
+                teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)), cricketFixture: metadata)
         }
         let old = event(day: 4, observedAt: now.addingTimeInterval(-1_900)), request = StreamPlaybackRequest(event: old)
         XCTAssertNotNil(RegisteredDescriptorRecoveryPolicy.currentRequest(for: request,
@@ -418,8 +417,7 @@ final class NativePlaybackPreparationTests: XCTestCase {
             squad: .init(gender: gender, ageGroup: "senior"), status: status, observedAt: observedAt, verified: true,
             identityObservedAt: identityObservedAt)
         return .init(id: metadata.fixtureID, title: metadata.title, category: "football", date: Int64(kickoff.timeIntervalSince1970),
-            poster: nil, popular: false, teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Chelsea", badge: nil)),
-            sources: [], sportsFixture: metadata)
+            poster: nil, popular: false, teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: metadata)
     }
 
     private func registeredRecoveryFixture() throws -> (now: Date, oldEvent: EventReference, current: EventReference, old: StreamSession, fresh: StreamSession) {
@@ -500,7 +498,7 @@ final class NativePlaybackPreparationTests: XCTestCase {
 
     func testSingleHandoffValidatesTheCookieScopedRelayAndPreservesWebOwnerOnRejection() async throws {
         let event = EventReference(id: "cookie-scoped-handoff", title: "Test Home vs Test Away",
-            category: "football", date: 1_800_000_000, poster: nil, popular: false, teams: nil, sources: nil)
+            category: "football", date: 1_800_000_000, poster: nil, popular: false, teams: nil)
         let original = StreamSession(matchID: event.id, playableURL: URL(string: "https://embed.example/watch")!,
             streamType: .unknown, providerName: "Score808", requiredHeaders: ["X-Fotty-Web-Embed": "true"])
         var observedURL: URL?
@@ -1093,8 +1091,7 @@ final class NativePlaybackPreparationTests: XCTestCase {
         let event = EventReference(id: "descriptor-renewal-fixture", title: "Ipswich Town vs Liverpool",
             category: "football", date: Int64(now.addingTimeInterval(-600).timeIntervalSince1970),
             poster: nil, popular: false,
-            teams: .init(home: .init(name: "Ipswich Town", badge: nil), away: .init(name: "Liverpool", badge: nil)),
-            sources: [])
+            teams: .init(home: .init(name: "Ipswich Town", badge: nil), away: .init(name: "Liverpool", badge: nil)))
         let request = StreamPlaybackRequest(event: event)
         func binding(at time: Date) throws -> StreamEventBinding {
             try XCTUnwrap(StreamEventBinding(request: request, providerCode: "communitysports",

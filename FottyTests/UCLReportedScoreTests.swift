@@ -41,8 +41,7 @@ final class UCLReportedScoreTests: XCTestCase {
         let fixtureID = "sports-fixture:\(competition):575377"
         return .init(id: id ?? fixtureID, title: "Real Madrid CF vs Borussia Dortmund", category: "football",
             date: Int64(now.addingTimeInterval(-3_600).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: teams[0].name, badge: nil), away: .init(name: teams[1].name, badge: nil)),
-            sources: [], hasCatalogIdentityConflict: conflict,
+            teams: .init(home: .init(name: teams[0].name, badge: nil), away: .init(name: teams[1].name, badge: nil)), hasCatalogIdentityConflict: conflict,
             sportsFixture: .init(fixtureID: fixtureID, sport: "football", competitionID: competition,
                 competitionName: "UEFA Champions League", eventKind: .match, title: "Real Madrid CF vs Borussia Dortmund",
                 participants: participants ?? teams, squad: .init(gender: gender, ageGroup: ageGroup), status: status,
@@ -57,7 +56,6 @@ final class UCLReportedScoreTests: XCTestCase {
         XCTAssertEqual(UCLReportedScorePolicy.score(for: projected, at: now), score)
         XCTAssertEqual(projected.sportsFixture?.reportedScoreObservedAt, now)
         XCTAssertEqual(projected.sportsFixture?.reportedScore?.publisherDate, publisherDate)
-        XCTAssertTrue(projected.sources?.isEmpty == true)
         XCTAssertFalse(FootballDataPolicy.supportsLiveScores(competitionId: 2001, competitionName: "UEFA Champions League"))
         let restored = try JSONDecoder().decode(EventReference.self, from: JSONEncoder().encode(projected))
         XCTAssertEqual(restored.sportsFixture, projected.sportsFixture)
@@ -74,7 +72,6 @@ final class UCLReportedScoreTests: XCTestCase {
             in: model.matchContextCatalog, at: now))
         XCTAssertEqual(current.sportsFixture?.status, .finished)
         XCTAssertEqual(UCLReportedScorePolicy.score(for: current, at: now), final)
-        XCTAssertTrue(current.sources?.isEmpty == true)
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: current, in: model.playbackCatalog, at: now))
         XCTAssertTrue(model.playbackCatalog.isEmpty)
     }

@@ -111,7 +111,6 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
                 let terminal = try XCTUnwrap(CurrentEventBroadcastPolicy.currentEvent(for: original,
                     in: catalog.playbackAdmissionCatalog, at: official.now))
                 XCTAssertEqual(terminal.id, original.id)
-                XCTAssertTrue(terminal.sources?.isEmpty != false)
                 XCTAssertNil(CurrentEventBroadcastPolicy.action(for: original, in: catalog.playbackAdmissionCatalog,
                     at: official.now, status: .inPlay), "The old sheet cannot keep Watch even while another score poll is live")
                 XCTAssertEqual(CatalogEventDetailsPresentation.broadcast(for: terminal, now: official.now,
@@ -705,7 +704,6 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
               date: date, poster: nil, popular: false,
               teams: .init(home: .init(name: home ?? "\(id) home", badge: nil),
                            away: .init(name: away ?? "\(id) away", badge: nil)),
-              sources: [.init(source: "delta", id: "prepared-\(id)")],
               hasCatalogIdentityConflict: conflict, sportsFixture: fixture, competitionID: competition)
     }
 
@@ -1013,7 +1011,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         .init(id: id, title: "Zimbabwe vs Afghanistan", category: "cricket", date: date,
               poster: nil, popular: false,
               teams: .init(home: .init(name: "Zimbabwe", badge: nil),
-                           away: .init(name: "Afghanistan", badge: nil)), sources: [],
+                           away: .init(name: "Afghanistan", badge: nil)),
               hasCatalogIdentityConflict: conflict)
     }
 
@@ -1248,7 +1246,6 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(request.homeTeam, "Zimbabwe")
         XCTAssertEqual(request.awayTeam, "Afghanistan")
         XCTAssertEqual(request.kickoffDate, fixture.kickoffDate)
-        XCTAssertTrue(request.preferredEvent?.sources?.isEmpty == true)
         XCTAssertEqual(owner.primary?.model.sessions.map(\.id), [cs.id])
         XCTAssertNil(owner.resolutionMessage)
         XCTAssertNil(owner.resolutionError)
@@ -1447,7 +1444,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
                     if change == "rescheduled" { return self.sourceCheckFixture(event.id, date: 1_800_003_600) }
                     if change == "terminal" {
                         return EventReference(id: event.id, title: event.title, category: event.category, date: event.date,
-                            poster: nil, popular: false, teams: event.teams, sources: [],
+                            poster: nil, popular: false, teams: event.teams,
                             cricketFixture: .init(fixtureID: "terminal", competitionID: "icc", competitionName: "ICC",
                                 format: .odi, status: .finished, observedAt: Date(), verified: true))
                     }
@@ -2685,7 +2682,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let retained = pickerFixture("retained", at: now), valid = pickerFixture("valid", at: now)
         let duplicate = pickerFixture("duplicate", at: now), conflict = pickerFixture("duplicate", at: now, conflict: true)
         let missing = EventReference(id: "unavailable", title: "Unavailable vs Other", category: "football", date: date,
-            poster: nil, popular: false, teams: .init(home: .init(name: "Unavailable", badge: nil), away: .init(name: "Other", badge: nil)), sources: [])
+            poster: nil, popular: false, teams: .init(home: .init(name: "Unavailable", badge: nil), away: .init(name: "Other", badge: nil)))
         let rows = [retained, valid, duplicate, missing]
         let prepared = await ViewingMatchPickerPolicy.prepare(events: rows, catalog: rows + [conflict], excluding: [retained], now: now,
             discoveryIndex: pickerIndex())

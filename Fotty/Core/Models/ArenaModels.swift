@@ -125,7 +125,6 @@ struct SavedMatchRecord: Codable, Identifiable, Equatable {
     let awayName: String
     let homeBadge: String?
     let awayBadge: String?
-    let sources: [SavedMatchSource]
     let savedAt: Date
     /// Retained across relaunch so a reschedule remains visible to the owner.
     let previousDate: Int64?
@@ -135,9 +134,9 @@ struct SavedMatchRecord: Codable, Identifiable, Equatable {
     /// service. Keep the original receipt: saving must never refresh live facts.
     let cricketFixture: CricketFixtureMetadata?
 
-    struct SavedMatchSource: Codable, Equatable {
-        let source: String
-        let id: String
+    private enum CodingKeys: String, CodingKey {
+        case id, title, category, date, poster, popular, homeName, awayName, homeBadge, awayBadge
+        case sources, savedAt, previousDate, sportsFixture, competitionID, cricketFixture
     }
 
     init(
@@ -151,7 +150,6 @@ struct SavedMatchRecord: Codable, Identifiable, Equatable {
         awayName: String,
         homeBadge: String?,
         awayBadge: String?,
-        sources: [SavedMatchSource],
         savedAt: Date,
         previousDate: Int64? = nil,
         sportsFixture: SportsFixtureMetadata? = nil,
@@ -168,7 +166,6 @@ struct SavedMatchRecord: Codable, Identifiable, Equatable {
         self.awayName = awayName
         self.homeBadge = homeBadge
         self.awayBadge = awayBadge
-        self.sources = sources
         self.savedAt = savedAt
         self.previousDate = previousDate
         self.sportsFixture = sportsFixture
@@ -191,9 +188,6 @@ struct SavedMatchRecord: Codable, Identifiable, Equatable {
             ?? (previous?.id == event.id && previous?.homeName == event.homeName ? previous?.homeBadge : nil)
         awayBadge = event.teams?.away?.badge
             ?? (previous?.id == event.id && previous?.awayName == event.awayName ? previous?.awayBadge : nil)
-        sources = (event.sources ?? []).map {
-            SavedMatchSource(source: $0.source, id: $0.id)
-        }
         self.savedAt = savedAt
         self.previousDate = previousDate
         sportsFixture = event.sportsFixture
@@ -214,9 +208,49 @@ struct SavedMatchRecord: Codable, Identifiable, Equatable {
                 home: NexusATeam(name: homeName, badge: homeBadge),
                 away: NexusATeam(name: awayName, badge: awayBadge)
             ),
-            sources: sources.map { NexusASource(source: $0.source, id: $0.id) },
             cricketFixture: cricketFixture, sportsFixture: sportsFixture, competitionID: competitionID
         )
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        title = try c.decodeIfPresent(String.self, forKey: .title)
+        category = try c.decodeIfPresent(String.self, forKey: .category)
+        date = try c.decodeIfPresent(Int64.self, forKey: .date)
+        poster = try c.decodeIfPresent(String.self, forKey: .poster)
+        popular = try c.decodeIfPresent(Bool.self, forKey: .popular)
+        homeName = try c.decode(String.self, forKey: .homeName)
+        awayName = try c.decode(String.self, forKey: .awayName)
+        homeBadge = try c.decodeIfPresent(String.self, forKey: .homeBadge)
+        awayBadge = try c.decodeIfPresent(String.self, forKey: .awayBadge)
+        savedAt = try c.decode(Date.self, forKey: .savedAt)
+        previousDate = try c.decodeIfPresent(Int64.self, forKey: .previousDate)
+        sportsFixture = try c.decodeIfPresent(SportsFixtureMetadata.self, forKey: .sportsFixture)
+        competitionID = try c.decodeIfPresent(String.self, forKey: .competitionID)
+        cricketFixture = try c.decodeIfPresent(CricketFixtureMetadata.self, forKey: .cricketFixture)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encodeIfPresent(title, forKey: .title)
+        try c.encodeIfPresent(category, forKey: .category)
+        try c.encodeIfPresent(date, forKey: .date)
+        try c.encodeIfPresent(poster, forKey: .poster)
+        try c.encodeIfPresent(popular, forKey: .popular)
+        try c.encode(homeName, forKey: .homeName)
+        try c.encode(awayName, forKey: .awayName)
+        try c.encodeIfPresent(homeBadge, forKey: .homeBadge)
+        try c.encodeIfPresent(awayBadge, forKey: .awayBadge)
+        // Builds 261 and earlier require this key when decoding a saved match
+        // (sync, handoff and backup restore). Fotty no longer stores sources.
+        try c.encode([String](), forKey: .sources)
+        try c.encode(savedAt, forKey: .savedAt)
+        try c.encodeIfPresent(previousDate, forKey: .previousDate)
+        try c.encodeIfPresent(sportsFixture, forKey: .sportsFixture)
+        try c.encodeIfPresent(competitionID, forKey: .competitionID)
+        try c.encodeIfPresent(cricketFixture, forKey: .cricketFixture)
     }
 }
 
@@ -318,9 +352,6 @@ final class MyMatchdayStore {
         } else {
             savedMatches = []
         }
-        // An old kickoff is not cancellation evidence: a fresh schedule may
-        // reveal a postponement after a provider omitted the event for days.
-        clearExpiredSources()
     }
 
     func contains(eventID: String) -> Bool {
@@ -409,7 +440,6 @@ final class MyMatchdayStore {
                                     previousDate: changedDate ? record.date : record.previousDate,
                                     preservingArtworkFrom: verifiedTerminal ? record : nil)
         }
-        candidate = removingExpiredSources(from: candidate, relativeTo: now)
         if candidate != original { _ = commit(candidate) }
     }
 
@@ -428,52 +458,16 @@ final class MyMatchdayStore {
         return .removed
     }
 
-    /// Restore only already-validated, source-free snapshots. Existing match
+    /// Restore only already-validated snapshots. Existing match
     /// reminders are handled separately so a backup never re-enables alerts.
     @discardableResult
-    func replaceForRestore(_ records: [SavedMatchRecord], relativeTo now: Date = Date()) -> MutationResult {
+    func replaceForRestore(_ records: [SavedMatchRecord]) -> MutationResult {
         var seen = Set<String>()
-        let candidate = removingExpiredSources(from: records
+        let candidate = records
             .sorted { $0.savedAt > $1.savedAt }
-            .filter { seen.insert($0.id).inserted }, relativeTo: now)
+            .filter { seen.insert($0.id).inserted }
         guard candidate != savedMatches else { return .unchanged }
         return commit(candidate) ? .saved : .failed(persistenceErrorMessage ?? Self.saveFailure)
-    }
-
-    /// Keep completed selections long enough to make the matchday feel
-    /// continuous, while preventing old stream URLs from accumulating forever.
-    func pruneExpiredMatches(relativeTo now: Date = Date()) {
-        let expiry = now.addingTimeInterval(-36 * 3600)
-        let candidate = savedMatches.filter { record in
-            guard !record.event.isBroadcastChannel, let rawDate = record.date, rawDate > 0 else { return true }
-            let kickoff = rawDate > 10_000_000_000
-                ? Date(timeIntervalSince1970: Double(rawDate) / 1000)
-                : Date(timeIntervalSince1970: Double(rawDate))
-            return kickoff >= expiry
-        }
-        if candidate != savedMatches { _ = commit(candidate) }
-    }
-
-    private func clearExpiredSources(relativeTo now: Date = .init()) {
-        let candidate = removingExpiredSources(from: savedMatches, relativeTo: now)
-        if candidate != savedMatches { _ = commit(candidate) }
-    }
-
-    private func removingExpiredSources(
-        from records: [SavedMatchRecord], relativeTo now: Date
-    ) -> [SavedMatchRecord] {
-        let cutoff = now.addingTimeInterval(-36 * 3600)
-        return records.map { record in
-            guard !record.event.isBroadcastChannel, !record.sources.isEmpty,
-                  let start = record.event.kickoffDate, start < cutoff else { return record }
-            return SavedMatchRecord(id: record.id, title: record.title, category: record.category,
-                                    date: record.date, poster: record.poster, popular: record.popular,
-                                    homeName: record.homeName, awayName: record.awayName,
-                                    homeBadge: record.homeBadge, awayBadge: record.awayBadge,
-                                    sources: [], savedAt: record.savedAt, previousDate: record.previousDate,
-                                    sportsFixture: record.sportsFixture, competitionID: record.competitionID,
-                                    cricketFixture: record.cricketFixture)
-        }
     }
 
     private func commit(_ candidate: [SavedMatchRecord]) -> Bool {

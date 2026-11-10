@@ -23,8 +23,7 @@ final class HomeTerminalReconciliationTests: XCTestCase {
         )
         return .init(id: id, title: metadata.title, category: "football",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Chelsea", badge: nil), away: .init(name: "Bournemouth", badge: nil)),
-            sources: [.init(source: "delta", id: "current-provider")], sportsFixture: metadata,
+            teams: .init(home: .init(name: "Chelsea", badge: nil), away: .init(name: "Bournemouth", badge: nil)), sportsFixture: metadata,
             competitionID: metadata.competitionID)
     }
 
@@ -38,8 +37,7 @@ final class HomeTerminalReconciliationTests: XCTestCase {
             observedAt: observedAt ?? now, verified: verified)
         return .init(id: "cricket-fixture:icc:270273", title: "India vs West Indies", category: "cricket",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "India", badge: nil), away: .init(name: "West Indies", badge: nil)),
-            sources: [.init(source: "delta", id: "current-cricket-provider")], cricketFixture: metadata)
+            teams: .init(home: .init(name: "India", badge: nil), away: .init(name: "West Indies", badge: nil)), cricketFixture: metadata)
     }
 
     private func provider(
@@ -49,13 +47,10 @@ final class HomeTerminalReconciliationTests: XCTestCase {
         home: String = "Chelsea",
         away: String = "Bournemouth",
         competition: String? = nil,
-        conflict: Bool = false,
-        sources: [NexusASource] = [.init(source: "delta", id: "current-provider")]
-    ) -> EventReference {
+        conflict: Bool = false) -> EventReference {
         .init(id: id, title: title, category: "football",
             date: Int64((start ?? kickoff).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
-            sources: sources, hasCatalogIdentityConflict: conflict, competitionID: competition)
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), hasCatalogIdentityConflict: conflict, competitionID: competition)
     }
 
     private func terminalSnapshot(_ status: SportsFixtureCatalog.Status) -> SportsFixtureCatalog.Snapshot {
@@ -206,7 +201,7 @@ final class HomeTerminalReconciliationTests: XCTestCase {
             XCTAssertEqual(terminalEvents.count, 1)
             // Both an old provider list and source-free score synthesis can
             // arrive after terminal projection removed the original row.
-            for recreated in [raw, provider(id: "official-score-560595", competition: "premier-league", sources: [])] {
+            for recreated in [raw, provider(id: "official-score-560595", competition: "premier-league")] {
                 XCTAssertNil(recreated.sportsFixture)
                 XCTAssertEqual(HomeSportsDiscovery(events: [recreated], now: now) { _ in .inPlay }.items.count, 1)
                 let home = HomeSportsDiscovery(events: [recreated], now: now, terminalEvents: terminalEvents) { _ in .inPlay }
@@ -247,7 +242,7 @@ final class HomeTerminalReconciliationTests: XCTestCase {
         let home = HomeSportsDiscovery(events: [nonterminal], now: now, terminalEvents: [nonterminal]) { _ in .inPlay }
         XCTAssertEqual(try XCTUnwrap(home.items.first).phase, .live)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: nonterminal, at: now, status: .inPlay), .live)
-        let sourceFree = provider(id: "source-free", start: now.addingTimeInterval(3600), sources: [])
+        let sourceFree = provider(id: "source-free", start: now.addingTimeInterval(3600))
         let scheduled = try XCTUnwrap(HomeSportsDiscovery(events: [sourceFree], now: now, terminalEvents: [sportsEvent(.finished)]).items.first)
         XCTAssertEqual(scheduled.phase, .upcoming)
     }

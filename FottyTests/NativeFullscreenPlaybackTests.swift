@@ -1966,7 +1966,7 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
     ) -> LivePlayerViewModel {
         let event = AnalyticalDataEngine.EventReference(id: UUID().uuidString,
             title: "Fullscreen ownership test", category: "football", date: 0,
-            poster: nil, popular: false, teams: nil, sources: nil)
+            poster: nil, popular: false, teams: nil)
         let sessions = (1...2).map { index in
             StreamSession(matchID: event.id,
                 playableURL: URL(string: "https://example.invalid/fullscreen-\(index).m3u8")!,

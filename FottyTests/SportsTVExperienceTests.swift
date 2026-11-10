@@ -295,7 +295,7 @@ final class SportsTVExperienceTests: XCTestCase {
         XCTAssertNil(SportsTVStation.station(provider: "TV19"), "Refused Willow Sports media must not be offered")
         XCTAssertFalse(ReviewedTVPlaylistClient.supports(StreamPlaybackRequest(event:
             .init(id: "unassigned-cricket", title: "India vs Australia", category: "cricket", date: nil,
-                poster: nil, popular: false, teams: nil, sources: [])), at: now))
+                poster: nil, popular: false, teams: nil)), at: now))
     }
 
     func testCoreEnglishContractsRejectChannelSubstitutionTokenChangesAndHeaderInstructions() throws {
@@ -381,7 +381,7 @@ final class SportsTVExperienceTests: XCTestCase {
     func testSpoilerModeOnlySuppressesTheRetainedWatchedMatch() {
         let protection = WatchingSpoilerProtection()
         let event = EventReference(id: "privacy-match", title: "Arsenal vs Chelsea", category: "football", date: Int64(now.timeIntervalSince1970), poster: nil, popular: false,
-            teams: nil, sources: [])
+            teams: nil)
         protection.setActiveEvent(event); defaults.set(true, forKey: WatchingSpoilerProtection.preferenceKey)
         XCTAssertTrue(protection.protects(event, defaults: defaults))
         XCTAssertTrue(protection.suppressesGoal(home: "Arsenal", away: "Chelsea", kickoff: now, defaults: defaults))
@@ -450,11 +450,11 @@ final class SportsTVExperienceTests: XCTestCase {
         let channel = station.event
         XCTAssertEqual(SinglePlayerStationGuideProjection(event: channel, snapshot: nil, at: now)?.station.id, station.id)
         let fixture = EventReference(id: station.id, title: station.title, category: "cricket",
-            date: Int64(now.timeIntervalSince1970), poster: nil, popular: false, teams: nil, sources: [])
+            date: Int64(now.timeIntervalSince1970), poster: nil, popular: false, teams: nil)
         XCTAssertNil(SinglePlayerStationGuideProjection(event: fixture, snapshot: nil, at: now),
             "A dated fixture cannot borrow a station guide even when its title and ID resemble the station")
         let unrelated = EventReference(id: "unrelated-fixture", title: station.title, category: "cricket",
-            date: nil, poster: nil, popular: false, teams: nil, sources: [])
+            date: nil, poster: nil, popular: false, teams: nil)
         XCTAssertNil(SinglePlayerStationGuideProjection(event: unrelated, snapshot: nil, at: now))
     }
     func testSinglePlayerGuideKeepsExactStationNowNextAndOmitsStaleProgramme() throws {

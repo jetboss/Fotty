@@ -90,7 +90,7 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
             enabledProviderCodes: ["reviewedtv"], at: now).optionalSources.isEmpty)
         let fixture = EventReference(id: "cricket-fixture:icc:reviewed", title: "India vs Australia", category: "cricket",
             date: Int64(now.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "India", badge: nil), away: .init(name: "Australia", badge: nil)), sources: [])
+            teams: .init(home: .init(name: "India", badge: nil), away: .init(name: "Australia", badge: nil)))
         XCTAssertFalse(tv.supportsOptionalFixture(event: fixture))
         XCTAssertTrue(CuratedStreamSourceCatalog.discoveryPlan(for: .init(event: fixture),
             enabledProviderCodes: ["reviewedtv"], at: now).optionalSources.isEmpty)
@@ -619,7 +619,7 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
             status: .scheduled, observedAt: now, verified: true)
         let event = EventReference(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(now.addingTimeInterval(1800).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sources: [], sportsFixture: metadata)
+            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: metadata)
         let request = footballAssignment(at: now, fixture: event, lead: 1800), match = try XCTUnwrap(request.registryMatch)
         let snapshot = BroadcastRegistrySnapshot(schemaVersion: 1, revision: "early-coverage",
             generatedAt: now, providers: [match.provider], broadcasts: [match.broadcast], links: [try XCTUnwrap(match.link)])
@@ -651,7 +651,7 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
         let kickoff = now.addingTimeInterval(1_200), expiry = now.addingTimeInterval(600)
         let event = EventReference(id: metadata.fixtureID, title: metadata.title, category: sport,
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: names[0], badge: nil), away: .init(name: names[1], badge: nil)), sources: [], sportsFixture: metadata)
+            teams: .init(home: .init(name: names[0], badge: nil), away: .init(name: names[1], badge: nil)), sportsFixture: metadata)
         let broadcast = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "c", count: 64), providerCode: "reviewedtv",
             providerEventID: "reviewed-tv:assignment:" + String(repeating: "c", count: 64), streamID: channel.streamID,
             resourceType: "tv", scope: sport, kind: .event, sport: sport, title: metadata.title,
@@ -689,7 +689,7 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
             status: .live, observedAt: clock, verified: true)
         let event = fixture ?? EventReference(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(clock.addingTimeInterval(-1_800).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sources: [], sportsFixture: metadata)
+            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: metadata)
         let digit = String(providerName.dropFirst(2))
         let expiry = clock.addingTimeInterval(600)
         let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: digit, count: 64), providerCode: "reviewedtv",
@@ -726,7 +726,7 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
             homeTeamID: "icc:1:7", awayTeamID: "icc:1:1")
         let event = fixture ?? EventReference(id: "cricket-fixture:icc:269792", title: "South Africa vs Australia", category: "cricket",
             date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)), sources: [], cricketFixture: metadata)
+            teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)), cricketFixture: metadata)
         let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "a", count: 64), providerCode: "reviewedtv",
             providerEventID: "reviewed-tv:programme:" + String(repeating: "b", count: 64), streamID: ReviewedTVPlaylistClient.providerEventID,
             resourceType: "tv", scope: "cricket", kind: .programme, sport: "cricket", title: "South Africa vs Australia, 3rd Test Day 4",

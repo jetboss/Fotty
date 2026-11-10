@@ -123,7 +123,7 @@ final class Fotty25PlayerDesignTests: XCTestCase {
 
     private func identity(title: String) -> SinglePlayerMatchIdentity {
         let event = EventReference(id: "ui-only", title: title, category: "football", date: nil,
-                                   poster: nil, popular: nil, teams: nil, sources: nil)
+                                   poster: nil, popular: nil, teams: nil)
         return SinglePlayerMatchIdentity(event: event, status: "Playing", scoreText: "1–1")
     }
 }

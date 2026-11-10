@@ -24,7 +24,7 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
         category: String = "football", start: Date? = nil) -> EventReference {
         .init(id: id, title: title, category: category,
             date: Int64((start ?? now.addingTimeInterval(3_600)).timeIntervalSince1970),
-            poster: nil, popular: false, teams: nil, sources: [])
+            poster: nil, popular: false, teams: nil)
     }
 
     private func scope(_ base: HomeProjectionBase, sport: String? = nil) -> HomeProjectionScope {
@@ -234,7 +234,7 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
                            .init(id: "brighton", name: "Brighton", role: "away")],
             squad: .init(gender: .men, ageGroup: "senior"), status: .finished, observedAt: now, verified: true)
         let terminal = EventReference(id: metadata.fixtureID, title: metadata.title, category: "football",
-            date: Int64(start.timeIntervalSince1970), poster: nil, popular: false, teams: nil, sources: [],
+            date: Int64(start.timeIntervalSince1970), poster: nil, popular: false, teams: nil,
             sportsFixture: metadata, competitionID: metadata.competitionID)
         await rebuild(coordinator, input([provider], revision: 2, score: 2, terminal: [terminal]), status: { _ in .inPlay })
         gate.release()
@@ -259,12 +259,11 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
 
     private func dedupRow(_ id: String, home: String = "Arsenal", away: String = "Leeds United",
         title: String? = nil, category: String = "football", offset: Int64 = 0,
-        competition: String? = "premier-league", sources: [NexusASource]? = [],
+        competition: String? = "premier-league",
         conflict: Bool = false, fixture: SportsFixtureMetadata? = nil) -> EventReference {
         .init(id: id, title: title ?? "\(home) vs \(away)", category: category,
             date: Int64(now.timeIntervalSince1970) + offset, poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
-            sources: sources, hasCatalogIdentityConflict: conflict, sportsFixture: fixture,
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), hasCatalogIdentityConflict: conflict, sportsFixture: fixture,
             competitionID: competition)
     }
 
@@ -282,15 +281,13 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
     }
 
     func testCooperativeDedupMatchesSynchronousIdentityConflictsAliasesAndSourceMerges() async throws {
-        let first = dedupRow("first", sources: [.init(source: "delta", id: "one")])
-        let mirror = dedupRow("first", home: "Arsenal FC", away: "Leeds United FC",
-            sources: [.init(source: "hotel", id: "two"), .init(source: "delta", id: "one")])
-        let sourceBackedAlias = dedupRow("different-provider", home: "Arsenal FC", away: "Leeds United FC",
-            sources: [.init(source: "golf", id: "three")])
+        let first = dedupRow("first")
+        let mirror = dedupRow("first", home: "Arsenal FC", away: "Leeds United FC")
+        let sourceBackedAlias = dedupRow("different-provider", home: "Arsenal FC", away: "Leeds United FC")
         var scenarios: [[EventReference]] = [[], [first], [first, mirror, first],
             [dedupRow("schedule"), sourceBackedAlias], [sourceBackedAlias, dedupRow("schedule")],
-            [dedupRow("nil", sources: nil), dedupRow("nil", sources: nil)],
-            [dedupRow("empty", sources: nil), dedupRow("empty", sources: [])],
+            [dedupRow("nil"), dedupRow("nil")],
+            [dedupRow("empty"), dedupRow("empty")],
             [first, dedupRow(first.id, away: "Chelsea"), mirror],
             [first, dedupRow(first.id, offset: 1), mirror],
             [first, dedupRow(first.id, category: "basketball"), mirror],
@@ -310,8 +307,7 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
                                     ("baseball", "Yankees", "Red Sox"), ("hockey", "Rangers", "Panthers"),
                                     ("tennis", "Sinner", "Alcaraz")] {
             scenarios.append([dedupRow("\(sport)-schedule", home: home, away: away, category: sport, competition: nil),
-                dedupRow("\(sport)-provider", home: home, away: away, category: sport, competition: nil,
-                    sources: [.init(source: "delta", id: sport)])])
+                dedupRow("\(sport)-provider", home: home, away: away, category: sport, competition: nil)])
         }
         for rows in scenarios {
             _ = try await assertCooperativeDedupEquivalent(rows)
@@ -319,11 +315,9 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
         }
         let merged = try await assertCooperativeDedupEquivalent([first, mirror, first])
         XCTAssertEqual(merged.map(\.id), [first.id])
-        XCTAssertEqual(merged.first?.sources?.map(\.id), ["one", "two"])
         let quarantined = try await assertCooperativeDedupEquivalent([first, dedupRow(first.id, away: "Chelsea"), mirror])
         XCTAssertEqual(quarantined.count, 1)
         XCTAssertTrue(quarantined.first?.hasCatalogIdentityConflict == true)
-        XCTAssertTrue(quarantined.first?.sources?.isEmpty == true)
     }
 
     func testCooperativeDedupRetainsDistinctOfficialIDsAndAcceptedMetadata() async throws {
@@ -339,35 +333,25 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
         let separate = try await assertCooperativeDedupEquivalent([one, two])
         XCTAssertEqual(separate.map(\.id), [one.id, two.id])
         XCTAssertEqual(separate.compactMap { $0.sportsFixture?.fixtureID }, [accepted.fixtureID, distinct.fixtureID])
-        let provider = dedupRow("provider", sources: [.init(source: "delta", id: "provider")])
+        let provider = dedupRow("provider")
         let merged = try await assertCooperativeDedupEquivalent([one, provider])
-        XCTAssertEqual(merged.map(\.id), [provider.id])
+        XCTAssertEqual(merged.map(\.id), [one.id])
         XCTAssertEqual(merged.first?.sportsFixture?.fixtureID, accepted.fixtureID)
-        XCTAssertEqual(merged.first?.sources?.map(\.id), ["provider"])
     }
 
-    func testHomeAndProjectionRetainTitleOnlySquadsWithoutCombiningSources() async throws {
+    func testHomeAndProjectionRetainTitleOnlySquads() async throws {
         let rows = [
-            dedupRow("senior", offset: 3_600, sources: [.init(source: "delta", id: "senior-stream")]),
-            dedupRow("youth", title: "Arsenal vs Leeds United U19", offset: 3_600,
-                sources: [.init(source: "delta", id: "youth-stream")]),
-            dedupRow("women", title: "Arsenal vs Leeds United Women", offset: 3_600,
-                sources: [.init(source: "delta", id: "women-stream")]),
-            dedupRow("reserves", title: "Arsenal vs Leeds United Reserves", offset: 3_600,
-                sources: [.init(source: "delta", id: "reserve-stream")])
+            dedupRow("senior", offset: 3_600),
+            dedupRow("youth", title: "Arsenal vs Leeds United U19", offset: 3_600),
+            dedupRow("women", title: "Arsenal vs Leeds United Women", offset: 3_600),
+            dedupRow("reserves", title: "Arsenal vs Leeds United Reserves", offset: 3_600)
         ]
         let direct = HomeSportsDiscovery(events: rows, now: now)
         XCTAssertEqual(Set(direct.items.map(\.id)), Set(rows.map(\.id)))
-        for row in rows {
-            XCTAssertEqual(direct.items.first { $0.id == row.id }?.event.sources?.map(\.id), row.sources?.map(\.id))
-        }
         let coordinator = HomeProjectionCoordinator()
         await rebuild(coordinator, input(rows))
         let projected = try XCTUnwrap(coordinator.packet).base.discovery
         XCTAssertEqual(Set(projected.items.map(\.id)), Set(rows.map(\.id)))
-        for row in rows {
-            XCTAssertEqual(projected.items.first { $0.id == row.id }?.event.sources?.map(\.id), row.sources?.map(\.id))
-        }
     }
 
     func testHomeAndProjectionRetainDistinctOfficialFixtureIdentities() async throws {
@@ -378,44 +362,36 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
                 title: "Arsenal vs Leeds United", participants: [.init(id: "arsenal", name: "Arsenal"),
                     .init(id: "leeds", name: "Leeds United")], squad: .init(gender: .men, ageGroup: "senior"),
                 status: .scheduled, observedAt: now, verified: true)
-            return dedupRow(id, offset: 3_600, sources: [.init(source: "delta", id: nativeID)], fixture: metadata)
+            return dedupRow(id, offset: 3_600, fixture: metadata)
         }
         let rows = [official("one"), official("two")]
         let direct = HomeSportsDiscovery(events: rows, now: now)
         XCTAssertEqual(Set(direct.items.map(\.id)), Set(rows.map(\.id)))
         XCTAssertEqual(Set(direct.items.compactMap { $0.event.sportsFixture?.fixtureID }), Set(rows.map(\.id)))
-        XCTAssertTrue(direct.items.allSatisfy { $0.event.sources?.count == 1 })
         let coordinator = HomeProjectionCoordinator()
         await rebuild(coordinator, input(rows))
         let projected = try XCTUnwrap(coordinator.packet).base.discovery
         XCTAssertEqual(Set(projected.items.map(\.id)), Set(rows.map(\.id)))
         XCTAssertEqual(Set(projected.items.compactMap { $0.event.sportsFixture?.fixtureID }), Set(rows.map(\.id)))
-        XCTAssertTrue(projected.items.allSatisfy { $0.event.sources?.count == 1 })
     }
 
     func testHomeAndProjectionStillMergeReviewedProviderAliasesAndEveryUniqueSource() async throws {
-        let first = dedupRow("a", offset: 3_600,
-            sources: [.init(source: "delta", id: "one"), .init(source: "golf", id: "two")])
-        let alias = dedupRow("b", home: "Arsenal FC", away: "Leeds United FC", offset: 3_600,
-            sources: [.init(source: "delta", id: "one"), .init(source: "hotel", id: "three")])
+        let first = dedupRow("a", offset: 3_600)
+        let alias = dedupRow("b", home: "Arsenal FC", away: "Leeds United FC", offset: 3_600)
         let direct = HomeSportsDiscovery(events: [alias, first], now: now)
         XCTAssertEqual(direct.items.map(\.id), [first.id])
-        XCTAssertEqual(Set(direct.items.first?.event.sources?.map(\.id) ?? []), ["one", "two", "three"])
         let coordinator = HomeProjectionCoordinator()
         await rebuild(coordinator, input([first, alias]))
         let projected = try XCTUnwrap(coordinator.packet).base.discovery
         XCTAssertEqual(projected.items.map(\.id), [first.id])
-        XCTAssertEqual(Set(projected.items.first?.event.sources?.map(\.id) ?? []), ["one", "two", "three"])
     }
 
     func testHomeAndProjectionExcludeConflictingReusedIDWithoutDroppingQuarantine() async throws {
-        let first = dedupRow("reused", offset: 3_600, sources: [.init(source: "delta", id: "one")])
-        let changed = dedupRow(first.id, away: "Chelsea", offset: 3_600,
-            sources: [.init(source: "hotel", id: "two")])
+        let first = dedupRow("reused", offset: 3_600)
+        let changed = dedupRow(first.id, away: "Chelsea", offset: 3_600)
         let unique = HomeSportsDiscovery.uniqueEvents([first, changed])
         XCTAssertEqual(unique.count, 1)
         XCTAssertTrue(unique.first?.hasCatalogIdentityConflict == true)
-        XCTAssertTrue(unique.first?.sources?.isEmpty == true)
         XCTAssertTrue(HomeSportsDiscovery(events: [first, changed], now: now).items.isEmpty)
         let coordinator = HomeProjectionCoordinator()
         await rebuild(coordinator, input([first, changed]))
@@ -526,8 +502,7 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
         let repeated = (0..<4).flatMap { copy in
             originals.map { row in
                 EventReference(id: row.id, title: row.title, category: row.category, date: row.date,
-                    poster: row.poster, popular: row.popular, teams: row.teams,
-                    sources: [.init(source: "delta", id: "synthetic-\(row.id)-\(copy)")])
+                    poster: row.poster, popular: row.popular, teams: row.teams)
             }
         }
         let encoder = JSONEncoder()
@@ -551,7 +526,6 @@ final class HomeProjectionCoordinatorTests: XCTestCase {
             let catalog = try XCTUnwrap(result)
             XCTAssertEqual(try encoder.encode(catalog), expected)
             XCTAssertEqual(catalog.count, 1_000)
-            XCTAssertTrue(catalog.allSatisfy { $0.sources?.count == 4 })
             XCTAssertEqual(checkpointCount, 157)
             print(String(format: "[HomeCooperativeDedupMicrobenchmark] input_rows=4000 unique_rows=1000 copies=4 iteration=%d total_ms=%.3f checkpoints=%d max_work_between_checkpoints_ms=%.3f",
                 iteration, elapsed, checkpointCount, maxWorkMilliseconds))

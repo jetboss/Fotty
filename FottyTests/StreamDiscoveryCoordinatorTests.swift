@@ -213,8 +213,7 @@ final class FixtureStreamDiscoveryIndexTests: XCTestCase {
             return StreamPlaybackRequest(event: .init(id: "cricket-fixture:icc:269792", title: "South Africa vs Australia",
                 category: "cricket", date: Int64(now.addingTimeInterval(-3 * 86_400).timeIntervalSince1970),
                 poster: nil, popular: false,
-                teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)),
-                sources: [], cricketFixture: metadata, competitionID: "icc"))
+                teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)), cricketFixture: metadata, competitionID: "icc"))
         }
         let index = FixtureStreamDiscoveryIndex(), day3 = testRequest(day: 3), day4 = testRequest(day: 4)
         let original = try XCTUnwrap(index.begin(for: day3, providerCode: "communitysports", preflight: false, at: now))
@@ -438,8 +437,7 @@ final class FixtureStreamDiscoveryIndexTests: XCTestCase {
                 format: format, status: .live, observedAt: now, verified: true)
         }
         let event = EventReference(id: id, title: title, category: sport, date: Int64(start.timeIntervalSince1970),
-            poster: nil, popular: false, teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
-            sources: [], cricketFixture: cricket, sportsFixture: sports, competitionID: competition)
+            poster: nil, popular: false, teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), cricketFixture: cricket, sportsFixture: sports, competitionID: competition)
         return StreamPlaybackRequest(event: event)
     }
 
@@ -1228,7 +1226,7 @@ final class FixtureCatalogAvailabilityIndexTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: status, observedAt: observedAt ?? now, verified: verified)
         return .init(event: .init(id: fixtureID, title: metadata.title, category: "football",
             date: Int64((kickoff ?? now.addingTimeInterval(-600)).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Chelsea FC", badge: nil)), sources: [],
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Chelsea FC", badge: nil)),
             hasCatalogIdentityConflict: conflict, sportsFixture: metadata))
     }
 
@@ -1404,8 +1402,7 @@ final class FixtureCatalogAvailabilityIndexTests: XCTestCase {
         let cricket = StreamPlaybackRequest(event: .init(id: "cricket-fixture:icc:planning",
             title: "West Indies in India, 3 T20I Series · India vs West Indies", category: "cricket",
             date: Int64(now.addingTimeInterval(7 * 86400).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "India", badge: nil), away: .init(name: "West Indies", badge: nil)),
-            sources: [], cricketFixture: cricketFixture))
+            teams: .init(home: .init(name: "India", badge: nil), away: .init(name: "West Indies", badge: nil)), cricketFixture: cricketFixture))
         index.replaceFixtures([cricket], at: now)
         XCTAssertEqual(index.fixtureCount, 1, "Scheduled cricket uses the same existing planning receipt window")
     }

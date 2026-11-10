@@ -226,7 +226,7 @@ enum SportsPersonalizationPolicy {
                !(officialMatch.competition.name ?? "").localizedCaseInsensitiveContains("major league soccer"),
                officialMatch.competition.code?.uppercased() != "MLS" { return nil }
         }
-        let evidence = [event.id, event.title ?? "", event.category ?? ""] + (event.sources ?? []).map(\.id)
+        let evidence = [event.id, event.title ?? "", event.category ?? ""]
         let tokens = Set(SportsTeamIdentity.normalized(evidence.joined(separator: " ")).split(separator: " ").map(String.init))
         let matches = leagues.filter {
             $0.sportCategory == event.normalizedCategory && !$0.markers.isEmpty

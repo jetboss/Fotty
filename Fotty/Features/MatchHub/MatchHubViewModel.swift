@@ -318,9 +318,7 @@ class MatchHubViewModel: ObservableObject {
             teams: NexusATeams(
                 home: NexusATeam(name: data.homeTeam.displayName, badge: data.homeTeam.crestURL?.absoluteString),
                 away: NexusATeam(name: data.awayTeam.displayName, badge: data.awayTeam.crestURL?.absoluteString)
-            ),
-            sources: []
-        )
+            ))
     }
 
     static func catalogRouteRequest(fixtureID: String) -> StreamPlaybackRequest {

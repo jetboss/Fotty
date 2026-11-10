@@ -330,8 +330,7 @@ final class NativeWatchTwoTransitionTests: XCTestCase {
     ) throws -> LivePlayerViewModel {
         let event = EventReference(id: "native-watch-two-transition", title: "Test Home vs Test Away",
             category: "football", date: 1_800_000_000, poster: nil, popular: false,
-            teams: .init(home: .init(name: "Test Home", badge: nil), away: .init(name: "Test Away", badge: nil)),
-            sources: [.init(source: "admin", id: "native-watch-two-transition")])
+            teams: .init(home: .init(name: "Test Home", badge: nil), away: .init(name: "Test Away", badge: nil)))
         func session(_ index: Int) throws -> StreamSession {
             StreamSession(matchID: event.id, title: "Original Broadcast \(index)",
                 playableURL: try XCTUnwrap(URL(string: "https://www.score808live.tv/embed/admin/native-watch-two/\(index)")),

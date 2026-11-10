@@ -278,8 +278,7 @@ final class SportsPersonalizationTests: XCTestCase {
                            .init(id: "test-chelsea", name: "Chelsea", role: "away")],
             squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: Date(), verified: true)
         let fixture = EventReference(id: metadata.fixtureID, title: metadata.title, category: "football", date: 1_800_000_000,
-            poster: nil, popular: false, teams: .init(home: .init(name: "Liverpool", badge: nil), away: .init(name: "Chelsea", badge: nil)),
-            sources: [], sportsFixture: metadata, competitionID: cup.id)
+            poster: nil, popular: false, teams: .init(home: .init(name: "Liverpool", badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: metadata, competitionID: cup.id)
         let league = FollowedLeagueItem(id: cup.id, leagueName: cup.name, sportCategory: cup.sportCategory)
         let cupSelection = SportsPersonalizationPolicy.prepareSelection(teams: [], leagues: [league])
         let premier = FollowedLeagueItem(id: "premier-league", leagueName: "Premier League", sportCategory: "football")
@@ -845,7 +844,7 @@ final class SportsPersonalizationTests: XCTestCase {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         func fixture(_ id: String, status: CricketFixtureCatalog.Status, verified: Bool) -> AnalyticalDataEngine.EventReference {
             .init(id: id, title: "West Indies vs England", category: "cricket", date: 1_800_003_600,
-                  poster: nil, popular: false, teams: nil, sources: [],
+                  poster: nil, popular: false, teams: nil,
                   cricketFixture: .init(fixtureID: id, competitionID: "icc", competitionName: "International cricket",
                     format: .t20, status: status, observedAt: now, verified: verified))
         }
@@ -900,14 +899,13 @@ final class SportsPersonalizationTests: XCTestCase {
                                   title: String? = nil) -> AnalyticalDataEngine.EventReference {
         .init(id: "opaque-football-pair", title: title ?? "\(home) vs \(away)", category: "football",
               date: 1_800_000_000, poster: nil, popular: false,
-              teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
-              sources: [.init(source: "delta", id: "opaque-pair-source")])
+              teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)))
     }
 
     @MainActor
     private func event(_ id: String, _ title: String, _ category: String,
                        date: Int64? = 1_788_552_000, conflict: Bool = false) -> AnalyticalDataEngine.EventReference {
         .init(id: id, title: title, category: category, date: date, poster: nil, popular: false,
-              teams: nil, sources: [], hasCatalogIdentityConflict: conflict)
+              teams: nil, hasCatalogIdentityConflict: conflict)
     }
 }

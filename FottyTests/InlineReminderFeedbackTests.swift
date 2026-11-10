@@ -8,7 +8,7 @@ final class InlineReminderFeedbackTests: XCTestCase {
     private func record(_ eventID: String = "match", offset: TimeInterval = 0) throws -> MatchReminderRecord {
         let event = AnalyticalDataEngine.EventReference(id: eventID, title: "Home vs Away", category: "cricket",
             date: Int64(now.addingTimeInterval(7_200 + offset).timeIntervalSince1970),
-            poster: nil, popular: nil, teams: nil, sources: [])
+            poster: nil, popular: nil, teams: nil)
         return try XCTUnwrap(MatchReminderRecord.make(event: event, now: now))
     }
 
@@ -219,7 +219,6 @@ final class InlineReminderFeedbackTests: XCTestCase {
         return .init(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(now.addingTimeInterval(secondsUntilStart).timeIntervalSince1970),
             poster: nil, popular: nil,
-            teams: .init(home: .init(name: "Home Club", badge: nil), away: .init(name: away, badge: nil)),
-            sources: [], sportsFixture: metadata, competitionID: metadata.competitionID)
+            teams: .init(home: .init(name: "Home Club", badge: nil), away: .init(name: away, badge: nil)), sportsFixture: metadata, competitionID: metadata.competitionID)
     }
 }

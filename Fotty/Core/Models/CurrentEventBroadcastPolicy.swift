@@ -632,7 +632,7 @@ enum SavedMatchContinuityPolicy {
         }
         let current = candidate.id == saved.id ? candidate : EventReference(
             id: saved.id, title: candidate.title, category: candidate.category, date: candidate.date,
-            poster: candidate.poster, popular: candidate.popular, teams: candidate.teams, sources: candidate.sources,
+            poster: candidate.poster, popular: candidate.popular, teams: candidate.teams,
             cricketFixture: candidate.cricketFixture, sportsFixture: candidate.sportsFixture,
             competitionID: candidate.competitionID)
         let identity = StreamPlaybackRequest(

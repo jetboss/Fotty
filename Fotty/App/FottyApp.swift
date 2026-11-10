@@ -44,8 +44,7 @@ struct FottyApp: App {
             teams: NexusATeams(
                 home: NexusATeam(name: "Chelsea", badge: nil),
                 away: NexusATeam(name: "Fulham", badge: nil)
-            ),
-            sources: [NexusASource(source: "admin", id: "ui-test-source")]
+            )
         )
     }
     #endif

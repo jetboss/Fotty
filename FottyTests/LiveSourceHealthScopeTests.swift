@@ -90,7 +90,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         }
         record(.decoded, fast); record(.sustained, stable)
         let event = EventReference(id: fast.matchID, title: "A vs B", category: "football", date: nil,
-                                   poster: nil, popular: false, teams: nil, sources: [])
+                                   poster: nil, popular: false, teams: nil)
         let model = LivePlayerViewModel(event: event, providedSessions: [fast, stable], ownsRemoteCommands: false)
         defer { model.cleanup() }
         XCTAssertTrue(model.configureSingleStreamRanking())

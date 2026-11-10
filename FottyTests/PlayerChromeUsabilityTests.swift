@@ -193,6 +193,6 @@ final class PlayerChromeUsabilityTests: XCTestCase {
     @MainActor
     private func event(title: String) -> EventReference {
         EventReference(id: "chrome-test", title: title, category: "cricket", date: nil,
-            poster: nil, popular: nil, teams: nil, sources: nil)
+            poster: nil, popular: nil, teams: nil)
     }
 }

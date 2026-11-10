@@ -150,8 +150,7 @@ enum SportMotionContext {
             return match
         }
         let evidence = SportsTeamIdentity.normalized(
-            ([event.id, event.title ?? "", event.homeName, event.awayName]
-             + (event.sources ?? []).map(\.id)).joined(separator: " ")
+            [event.id, event.title ?? "", event.homeName, event.awayName].joined(separator: " ")
         )
         let exclusions = #"\b(women|womens|ladies|youth|academy|reserves?|u\s?\d{1,2}|under\s?\d{1,2}|(?:afc|concacaf|caf)\s+champions)\b"#
         guard evidence.range(of: exclusions, options: .regularExpression) == nil else { return nil }

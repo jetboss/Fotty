@@ -49,7 +49,7 @@ final class StreamPlaybackContractTests: XCTestCase {
         let now = Date()
         let event = EventReference(id: "picker-fixture", title: "One vs Two", category: "football",
             date: Int64(now.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "One", badge: nil), away: .init(name: "Two", badge: nil)), sources: [])
+            teams: .init(home: .init(name: "One", badge: nil), away: .init(name: "Two", badge: nil)))
         func session(_ name: String, _ url: String, match: String? = nil, expiry: Date? = nil) -> StreamSession {
             StreamSession(matchID: match ?? event.id, playableURL: URL(string: url)!, streamType: .hls,
                 providerName: name, expiryTime: expiry)
@@ -79,7 +79,7 @@ final class StreamPlaybackContractTests: XCTestCase {
         let now = Date()
         let event = EventReference(id: "switch-fixture", title: "One vs Two", category: "football",
             date: Int64(now.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "One", badge: nil), away: .init(name: "Two", badge: nil)), sources: [])
+            teams: .init(home: .init(name: "One", badge: nil), away: .init(name: "Two", badge: nil)))
         let request = StreamPlaybackRequest(event: event)
         func option(_ name: String, match: String, expiry: Date? = nil) -> StreamSession {
             .init(matchID: match, playableURL: URL(string: "https://unit.test/choice.m3u8")!,
@@ -307,7 +307,7 @@ final class StreamPlaybackContractTests: XCTestCase {
             "https://embed.example/opaque")), streamType: .unknown, providerName: "Fixture",
             declaredPlaybackEndpoint: .directMedia)
         let event = AnalyticalDataEngine.EventReference(id: "contract", title: "Fixture", category: "football",
-            date: 0, poster: nil, popular: false, teams: nil, sources: nil)
+            date: 0, poster: nil, popular: false, teams: nil)
         let slot = MultiLiveSlot(event: event, sessions: [session])
         XCTAssertEqual(slot.recoveryAction(for: session.legacySource, reason: "Failed to start",
             countsAsStall: false, isNetworkReachable: true, webStartupRetryCount: 0,

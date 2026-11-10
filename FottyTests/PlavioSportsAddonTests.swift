@@ -33,8 +33,7 @@ final class PlavioSportsAddonTests: XCTestCase {
             identityObservedAt: observed ?? roxieNow)
         let event = AnalyticalDataEngine.EventReference(id: fixture.id, title: fixture.title, category: "football",
             date: Int64(start.timeIntervalSince1970 * 1000), poster: nil, popular: false,
-            teams: .init(home: .init(name: fixture.participants[0].name, badge: nil), away: .init(name: fixture.participants[1].name, badge: nil)),
-            sources: [], sportsFixture: metadata, competitionID: competition)
+            teams: .init(home: .init(name: fixture.participants[0].name, badge: nil), away: .init(name: fixture.participants[1].name, badge: nil)), sportsFixture: metadata, competitionID: competition)
         return (.init(event: event), snapshot)
     }
     @MainActor func testRoxieUsesOfficialLiveIdentityWithoutConvertingItsSiteClock() throws {
@@ -689,8 +688,7 @@ final class PlavioSportsAddonTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: start, verified: true)
         let event = EventReference(id: fixture.fixtureID, title: name, category: "football",
             date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Liverpool", badge: nil), away: .init(name: "Chelsea", badge: nil)),
-            sources: [], sportsFixture: fixture, competitionID: "carabao-cup")
+            teams: .init(home: .init(name: "Liverpool", badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: fixture, competitionID: "carabao-cup")
         let metaPath = "/meta/tv/" + id + ".json", targetStream = "/stream/tv/" + id + ".json"
         PlavioFixtureProtocol.configure([
             "/manifest.json": try .json(manifestJSON(version: "1.9.82")),
@@ -1389,7 +1387,7 @@ final class PlavioSportsAddonTests: XCTestCase {
         XCTAssertEqual(PlavioSportsAddonClient.selectDLHDMatch(for: dlhdRequest(kickoff: dlhdKickoff.addingTimeInterval(901)),
             from: [dlhdEntry()], originals: originals), .missing)
         let event = EventReference(id: "official-cup-fixture", title: "Everton vs Newcastle United", category: "football",
-            date: Int64(dlhdKickoff.timeIntervalSince1970 * 1000), poster: nil, popular: false, teams: nil, sources: nil,
+            date: Int64(dlhdKickoff.timeIntervalSince1970 * 1000), poster: nil, popular: false, teams: nil,
             competitionID: "premier-league")
         let wrongCompetition = StreamPlaybackRequest(matchID: event.id, displayTitle: event.title!, homeTeam: "Everton",
             awayTeam: "Newcastle United", category: "football", kickoffDate: dlhdKickoff, preferredEvent: event)
@@ -1454,7 +1452,7 @@ final class PlavioSportsAddonTests: XCTestCase {
             let originals = try dlhdOriginals(dlhdHTML(title: label + " : Everton vs Newcastle United"))
             let base = dlhdRequest()
             let event = EventReference(id: base.matchID, title: "Everton vs Newcastle United", category: "football",
-                date: Int64(dlhdKickoff.timeIntervalSince1970 * 1000), poster: nil, popular: false, teams: nil, sources: nil,
+                date: Int64(dlhdKickoff.timeIntervalSince1970 * 1000), poster: nil, popular: false, teams: nil,
                 competitionID: competition)
             let request = StreamPlaybackRequest(matchID: event.id, displayTitle: event.title!, homeTeam: "Everton",
                 awayTeam: "Newcastle United", category: "football", kickoffDate: dlhdKickoff, preferredEvent: event)
@@ -1749,7 +1747,7 @@ final class PlavioSportsAddonTests: XCTestCase {
         let title = "\(competition) · \(home) vs \(away)"
         let event = EventReference(id: CricketFixtureCatalog.fixtureIDPrefix + receipt.fixtureID, title: title,
             category: "cricket", date: Int64(kickoff.timeIntervalSince1970 * 1000), poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sources: [],
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
             hasCatalogIdentityConflict: conflicted, cricketFixture: receipt)
         return .init(matchID: event.id, displayTitle: title, homeTeam: home, awayTeam: away, category: "cricket",
                      kickoffDate: kickoff, preferredEvent: event)

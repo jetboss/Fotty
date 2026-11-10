@@ -78,7 +78,6 @@ final class SportsSearchScheduleTests: XCTestCase {
         guard case .fixture(let item) = result else { return XCTFail("Expected a planning fixture") }
         XCTAssertEqual(item.event.id, row.id)
         XCTAssertEqual(item.phase, .upcoming)
-        XCTAssertTrue(item.event.sources?.isEmpty == true)
         XCTAssertFalse(MatchStartPolicy(event: item.event, now: now).canAttemptPlayback)
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: item.event, in: [], at: now))
         XCTAssertEqual(index.results(query: "Premier League").map(\.id), [row.id])
@@ -192,7 +191,6 @@ final class SportsSearchScheduleTests: XCTestCase {
             let events = SportsSearchSchedule.events(sports: nil, cricket: cricket, cpl: fixtures,
                 cplCheckedAt: now, cplSourceStatus: status, at: now)
             XCTAssertEqual(events.map(\.id), fixtures.map(\.id))
-            XCTAssertTrue(events.allSatisfy { $0.sources?.isEmpty == true })
         }
         XCTAssertTrue(SportsSearchSchedule.events(sports: nil, cricket: nil, cpl: fixtures,
             cplCheckedAt: now, cplSourceStatus: .lastKnownGood, at: now).isEmpty)
@@ -204,29 +202,24 @@ final class SportsSearchScheduleTests: XCTestCase {
         let row = sportsFixture(days: 1)
         let scheduled = try upcoming(row)
         let broadcast = EventReference(id: scheduled.id, title: scheduled.title, category: scheduled.category,
-            date: scheduled.date, poster: nil, popular: false, teams: scheduled.teams,
-            sources: [.init(source: "delta", id: "current-broadcast")], sportsFixture: scheduled.sportsFixture,
+            date: scheduled.date, poster: nil, popular: false, teams: scheduled.teams, sportsFixture: scheduled.sportsFixture,
             competitionID: scheduled.competitionID)
         let discovery = HomeSportsDiscovery(events: [broadcast], now: now)
         let index = HomeSportsSearch.prepare(in: discovery, scheduledEvents: [scheduled, scheduled])
         let results = index.results(query: "Arsenal")
         XCTAssertEqual(results.map(\.id), [broadcast.id])
-        XCTAssertEqual(results.first?.event.sources?.map(\.id), ["current-broadcast"])
         XCTAssertEqual(discovery.items.count, 1, "Search must not mutate Home's projection")
     }
 
-    func testSupplementRejectsSourcesChannelsAndConflictingIDs() throws {
+    func testSupplementRejectsChannelsAndConflictingIDs() throws {
         let row = try upcoming(sportsFixture())
-        let sourceBearing = EventReference(id: row.id, title: row.title, category: row.category, date: row.date,
-            poster: nil, popular: false, teams: row.teams, sources: [.init(source: "delta", id: "unreviewed")],
-            sportsFixture: row.sportsFixture, competitionID: row.competitionID)
         let quarantined = EventReference(id: row.id, title: row.title, category: row.category, date: row.date,
-            poster: nil, popular: false, teams: row.teams, sources: [], hasCatalogIdentityConflict: true,
+            poster: nil, popular: false, teams: row.teams, hasCatalogIdentityConflict: true,
             sportsFixture: row.sportsFixture, competitionID: row.competitionID)
         let channel = EventReference(id: "willow", title: "Willow Cricket", category: "cricket", date: -3_600_000,
-            poster: nil, popular: false, teams: nil, sources: [.init(source: "delta", id: "willow")])
+            poster: nil, popular: false, teams: nil)
         let index = HomeSportsSearch.prepare(in: .init(events: [], now: now),
-                                            scheduledEvents: [sourceBearing, quarantined, channel])
+                                            scheduledEvents: [quarantined, channel])
         XCTAssertTrue(index.results(query: "Arsenal").isEmpty)
         XCTAssertTrue(index.results(query: "Willow").isEmpty)
         let currentChannels = HomeSportsSearch.prepare(in: .init(events: [channel], now: now), scheduledEvents: [row])
@@ -250,7 +243,7 @@ final class SportsSearchScheduleTests: XCTestCase {
         let event = try upcoming(sportsFixture(days: 1))
         let score = EventReference(id: "score-123", title: "Arsenal FC vs Chelsea FC", category: "football",
             date: event.date, poster: nil, popular: false,
-            teams: .init(home: .init(name: "Arsenal FC", badge: nil), away: .init(name: "Chelsea FC", badge: nil)), sources: [])
+            teams: .init(home: .init(name: "Arsenal FC", badge: nil), away: .init(name: "Chelsea FC", badge: nil)))
         XCTAssertTrue(HomeSportsSearch.scoreIdentityMatches(event, score: score))
         for terminal in [FootballMatch.MatchStatus.cancelled, .finished] {
             let home = HomeSportsDiscovery(events: [event], now: now, status: { _ in terminal })
@@ -273,7 +266,7 @@ final class SportsSearchScheduleTests: XCTestCase {
             .init(id: "score-other", title: "\(home) vs \(away)", category: "football",
                   date: Int64(event.kickoffDate!.addingTimeInterval(offset).timeIntervalSince1970),
                   poster: nil, popular: false,
-                  teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sources: [])
+                  teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)))
         }
         XCTAssertTrue(HomeSportsSearch.scoreIdentityMatches(event, score: score(offset: 15 * 60)))
         for unrelated in [score(offset: 15 * 60 + 1), score(offset: 18 * 3600),

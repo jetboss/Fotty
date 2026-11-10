@@ -30,7 +30,6 @@ enum SportsSearchSchedule {
         let latest = now.addingTimeInterval(futureHorizon)
         return AnalyticalDataEngine.deduplicateMatches(result.sorted { $0.id < $1.id }).filter {
             !$0.hasCatalogIdentityConflict && !$0.isBroadcastChannel
-                && ($0.sources ?? []).isEmpty
                 && $0.kickoffDate.map { $0 > now && $0 <= latest } == true
         }.sorted {
             let left = $0.kickoffDate ?? .distantFuture, right = $1.kickoffDate ?? .distantFuture

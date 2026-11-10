@@ -77,7 +77,7 @@ final class SinglePlaybackQualityTests: XCTestCase {
     private func model(controller: SinglePlaybackQualityController, web: Bool = false,
                        configureSingle: Bool = true, alternatives: Bool = false) -> LivePlayerViewModel {
         let event = EventReference(id: "quality-test", title: "Liverpool vs Chelsea", category: "football",
-            date: Int64(Date().timeIntervalSince1970) - 60, poster: nil, popular: false, teams: nil, sources: [])
+            date: Int64(Date().timeIntervalSince1970) - 60, poster: nil, popular: false, teams: nil)
         let first = StreamSession(matchID: event.id,
             playableURL: URL(string: web ? "https://example.invalid/embed/quality" : "https://example.invalid/master.m3u8")!,
             streamType: web ? .unknown : .hls, providerName: "AS1",

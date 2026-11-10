@@ -368,8 +368,7 @@ final class NativePlaybackEvidenceTests: XCTestCase {
     private func makeEvent() -> AnalyticalDataEngine.EventReference {
         AnalyticalDataEngine.EventReference(
             id: "native-evidence", title: "Playback test", category: "football",
-            date: 0, poster: nil, popular: false, teams: nil, sources: nil
-        )
+            date: 0, poster: nil, popular: false, teams: nil)
     }
 }
 
@@ -441,8 +440,7 @@ final class NativePlaybackRetirementTests: XCTestCase {
     private func makeAdoptedCandidate() -> (LivePlayerViewModel, StreamSession, AVPlayer) {
         let event = AnalyticalDataEngine.EventReference(
             id: "native-retirement", title: "Playback test", category: "football",
-            date: 0, poster: nil, popular: false, teams: nil, sources: nil
-        )
+            date: 0, poster: nil, popular: false, teams: nil)
         let web = StreamSession(
             matchID: event.id, playableURL: URL(string: "https://example.invalid/embed/game")!,
             streamType: .unknown, providerName: "Score808",

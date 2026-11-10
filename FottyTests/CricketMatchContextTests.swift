@@ -45,7 +45,7 @@ final class CricketMatchContextTests: XCTestCase {
         .init(id: eventID ?? CricketFixtureCatalog.fixtureIDPrefix + fixtureID, title: title,
             category: category, date: Int64(now.addingTimeInterval(-3_600).timeIntervalSince1970),
             poster: nil, popular: false, teams: .init(home: .init(name: "Afghanistan", badge: nil),
-                away: .init(name: "Zimbabwe", badge: nil)), sources: [], hasCatalogIdentityConflict: conflict,
+                away: .init(name: "Zimbabwe", badge: nil)), hasCatalogIdentityConflict: conflict,
             cricketFixture: .init(fixtureID: fixtureID, competitionID: "icc", competitionName: "ICC",
                 format: format, status: status, observedAt: now.addingTimeInterval(receiptOffset), verified: verified,
                 context: context, homeTeamID: home, awayTeamID: away))
@@ -115,7 +115,6 @@ final class CricketMatchContextTests: XCTestCase {
             in: model.matchContextCatalog, at: now))
         XCTAssertEqual(current.cricketFixture?.status, .finished)
         XCTAssertEqual(current.cricketFixture?.context, final)
-        XCTAssertTrue(current.sources?.isEmpty == true)
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: current, in: model.playbackCatalog, at: now))
         XCTAssertTrue(model.playbackCatalog.isEmpty, "Reading context must be side-effect free")
 
@@ -131,9 +130,9 @@ final class CricketMatchContextTests: XCTestCase {
     func testCurrentCricketContextRequiresAcceptedTypedIdentityAndMatchingSquadFormatAndTeams() {
         let current = event(context: score)
         let untyped = EventReference(id: "untyped-cricket", title: current.title, category: "cricket", date: current.date,
-            poster: nil, popular: false, teams: current.teams, sources: [])
+            poster: nil, popular: false, teams: current.teams)
         let women = EventReference(id: "women-cricket", title: "Afghanistan Women vs Zimbabwe Women", category: "cricket",
-            date: current.date, poster: nil, popular: false, teams: current.teams, sources: [])
+            date: current.date, poster: nil, popular: false, teams: current.teams)
         for previous in [untyped, women, event(context: score, format: .odi),
                          event(context: score, home: awayID, away: homeID), event(context: score, home: nil),
                          event(context: score, title: "Afghanistan U19 vs Zimbabwe U19"),
@@ -155,7 +154,6 @@ final class CricketMatchContextTests: XCTestCase {
         let restored = try JSONDecoder().decode(EventReference.self, from: JSONEncoder().encode(projected))
         XCTAssertEqual(restored.cricketFixture, projected.cricketFixture)
         XCTAssertEqual(restored.cricketFixture?.observedAt, now)
-        XCTAssertTrue(restored.sources?.isEmpty == true, "Score context must not create a broadcast")
     }
 
     func testLegacyFixtureAndMetadataDecodeWithoutContextOrNewIdentityFields() throws {

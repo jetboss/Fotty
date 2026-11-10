@@ -146,7 +146,7 @@ enum CricketChannelCatalog {
 
     static func event(for channel: CricketBroadcastChannel, in events: [EventReference]) -> EventReference {
         .init(id: channel.canonicalID, title: channel.title, category: "cricket", date: nil,
-            poster: nil, popular: false, teams: nil, sources: [])
+            poster: nil, popular: false, teams: nil)
     }
 
     /// Explicit channel navigation is independent of fixture-team/date matching.
@@ -304,7 +304,7 @@ enum CPLSchedule {
         var kickoff: Date { ISO8601DateFormatter().date(from: start)! }
 
         @MainActor
-        func event(sources: [NexusASource] = []) -> AnalyticalDataEngine.EventReference {
+        func event() -> AnalyticalDataEngine.EventReference {
             let title: String
             let teams: NexusATeams?
             if let homeName, let awayName {
@@ -321,8 +321,7 @@ enum CPLSchedule {
             return .init(
                 id: id, title: title, category: "cricket",
                 date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-                teams: teams,
-                sources: sources
+                teams: teams
             )
         }
     }

@@ -354,7 +354,7 @@ enum SportsFixtureCatalog {
         let footballCompetitions: Set<String> = ["premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1"]
         let reviewedCup = fixture.sport == "football" && fixture.competitionID == "carabao-cup"
         let reviewedFootball = fixture.sport == "football" && (footballCompetitions.contains(fixture.competitionID) || reviewedCup)
-        let evidence = [event.id, event.title ?? "", event.category ?? ""] + (event.sources ?? []).map(\.id)
+        let evidence = [event.id, event.title ?? "", event.category ?? ""]
         let evidenceKey = nameKey(evidence.joined(separator: " "))
         if reviewedFootball {
             // Cup facts must not absorb a league broadcast (or vice versa).
@@ -407,7 +407,7 @@ enum SportsFixtureCatalog {
         guard participantKey(event.homeName) == participantKey(participants[0].name),
               participantKey(event.awayName) == participantKey(participants[1].name) else { return false }
         var squadEvidence = [event.homeName, event.awayName, event.title ?? ""]
-        if fixture.sport == "football" { squadEvidence += [event.id] + (event.sources ?? []).map(\.id) }
+        if fixture.sport == "football" { squadEvidence.append(event.id) }
         let text = nameKey(squadEvidence.joined(separator: " "))
         let hasWomen = text.range(of: #"\b(?:women|womens|ladies)\b"#, options: .regularExpression) != nil
         let hasMen = text.range(of: #"\b(?:men|mens)\b"#, options: .regularExpression) != nil
@@ -510,8 +510,7 @@ enum SportsFixtureCatalog {
             home: .init(name: participants[0].name, badge: nil),
             away: .init(name: participants[1].name, badge: nil)) : nil
         return .init(id: fixture.id, title: fixture.title, category: fixture.sport,
-            date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false, teams: teams,
-            sources: [], sportsFixture: metadata, competitionID: fixture.competitionId)
+            date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false, teams: teams, sportsFixture: metadata, competitionID: fixture.competitionId)
     }
 }
 

@@ -83,7 +83,7 @@ final class PlaybackAttemptTests: XCTestCase {
     func testPlayerSourceChangeAndCancellationRespectScope() throws {
         let event = AnalyticalDataEngine.EventReference(id: "attempt-\(UUID().uuidString)", title: "Attempt Test",
             category: "football", date: Int64(Date().timeIntervalSince1970), poster: nil, popular: false,
-            teams: nil, sources: nil)
+            teams: nil)
         let sessions = try (0..<2).map { index in
             StreamSession(matchID: event.id, title: "Attempt \(index)",
                 playableURL: try XCTUnwrap(URL(string: "https://example.com/attempt/\(index).m3u8")),

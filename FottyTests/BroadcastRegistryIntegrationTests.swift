@@ -218,7 +218,7 @@ final class BroadcastRegistryIntegrationTests: XCTestCase {
                 let event = EventReference(id: f.fixtureID, title: metadata.title, category: "football",
                     date: Int64(f.start.timeIntervalSince1970), poster: nil, popular: false,
                     teams: .init(home: .init(name: f.participants[0], badge: nil),
-                                 away: .init(name: f.participants[1], badge: nil)), sources: [], sportsFixture: metadata)
+                                 away: .init(name: f.participants[1], badge: nil)), sportsFixture: metadata)
                 let found = index.lookup(for: .init(event: event), enabledProviderCodes: ["reviewedtv", "communitysports"], at: clock)
                 XCTAssertEqual(found.map(\.broadcast.id), link.state == .listed ? [link.broadcastID] : [])
             }
@@ -388,7 +388,7 @@ final class BroadcastRegistryIntegrationTests: XCTestCase {
             let event = EventReference(id: CricketFixtureCatalog.fixtureIDPrefix + rawID,
                 title: "India vs England", category: "cricket", date: Int64(clock.timeIntervalSince1970) - 60,
                 poster: nil, popular: false, teams: .init(home: .init(name: "India", badge: nil),
-                    away: .init(name: "England", badge: nil)), sources: [], cricketFixture: metadata)
+                    away: .init(name: "England", badge: nil)), cricketFixture: metadata)
             let plan = CuratedStreamSourceCatalog.discoveryPlan(for: .init(event: event),
                 enabledProviderCodes: ["reviewedtv"], allowDeferredTVLookup: true, at: clock)
             XCTAssertEqual(plan.optionalSources.contains { $0.providerCode == "reviewedtv" }, verified && status == .live)
@@ -733,7 +733,7 @@ final class BroadcastRegistryIntegrationTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: clock, verified: true)
         let event = EventReference(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sources: [], sportsFixture: metadata)
+            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: metadata)
         let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: String(channelLabel.suffix(1)), count: 64),
             providerCode: "reviewedtv", providerEventID: "reviewed-tv:assignment:" + String(repeating: "d", count: 64),
             streamID: channel.streamID, resourceType: "tv", scope: "football", kind: .event, sport: "football",
@@ -756,7 +756,7 @@ final class BroadcastRegistryIntegrationTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: clock, verified: true)
         let event = EventReference(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sources: [], sportsFixture: metadata)
+            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: metadata)
         let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "a", count: 64), providerCode: provider,
             providerEventID: id, streamID: id, resourceType: "tv", scope: "football", kind: .event, sport: "football",
             title: metadata.title, participants: ["Arsenal", "Chelsea"], start: kickoff, observedAt: clock,

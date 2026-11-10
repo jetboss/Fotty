@@ -77,7 +77,6 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
         let owner = Task { await model.refresh() }
         await fulfillment(of: [slow.entered, published], timeout: 2)
         XCTAssertEqual(model.matches.map(\.id), [fixture.id])
-        XCTAssertTrue(model.matches.allSatisfy { $0.sources?.isEmpty != false })
         XCTAssertFalse(model.isLoading)
         XCTAssertTrue(model.isRefreshing)
         slow.release(nil)
@@ -112,7 +111,6 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
         XCTAssertEqual(model.matches.map(\.id), [fixture.id])
         XCTAssertEqual(event.sportsFixture?.status, .live)
         XCTAssertTrue(event.sportsFixture?.verified == true)
-        XCTAssertTrue(event.sources?.isEmpty != false)
         XCTAssertFalse(model.isLoading)
 
         let index = FixtureStreamDiscoveryIndex()
@@ -160,7 +158,6 @@ final class CatalogIncrementalPublicationTests: XCTestCase {
         XCTAssertEqual(fixtureFetches, 2)
         XCTAssertEqual(model.sportsFixtureSnapshot, accepted)
         XCTAssertEqual(retained.sportsFixture, event.sportsFixture)
-        XCTAssertTrue(retained.sources?.isEmpty != false)
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: retained, in: model.playbackCatalog,
             enabledProviderCodes: enabled, at: clock))
         XCTAssertEqual(FixtureSourceLookupPresentation.state(for: retained, at: clock, discoveryIndex: index), recheck)
@@ -619,8 +616,7 @@ extension CatalogIncrementalPublicationTests {
             squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: now, verified: true)
         return .init(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(now.addingTimeInterval(-3600).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)),
-            sources: [], sportsFixture: metadata)
+            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: metadata)
     }
 
 }

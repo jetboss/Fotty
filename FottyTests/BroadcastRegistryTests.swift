@@ -15,7 +15,7 @@ final class BroadcastRegistryTests: XCTestCase {
                 observedAt: now.addingTimeInterval(-age), verified: true, homeTeamID: "ca:96", awayTeamID: "ca:101", matchOrdinal: 9)
             return .init(id: "cricket-fixture:ca:40629", title: "\(home) vs \(away)", category: "cricket",
                 date: Int64(now.addingTimeInterval(-7200).timeIntervalSince1970), poster: nil, popular: false,
-                teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sources: [], cricketFixture: metadata)
+                teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), cricketFixture: metadata)
         }
         var programme = BroadcastRegistrySnapshot.Broadcast(id: broadcastID, providerCode: "reviewedtv",
             providerEventID: "reviewed-tv:programme:" + String(repeating: "d", count: 64), streamID: "reviewed-tv:willow-main",
@@ -159,7 +159,6 @@ final class BroadcastRegistryTests: XCTestCase {
             providerEventID: "source_event", streamID: "source_stream", at: now))
         XCTAssertFalse(match.matches(request: request, providerCode: "communitysports",
             providerEventID: "different_event", streamID: "source_stream", at: now))
-        XCTAssertTrue(event.sources?.isEmpty == true)
         XCTAssertNil(event.cricketFixture)
     }
 
@@ -190,8 +189,7 @@ final class BroadcastRegistryTests: XCTestCase {
                 format: format, status: .live, observedAt: now, verified: true, homeTeamID: "icc:pak", awayTeamID: "icc:sl")
             let event = EventReference(id: "cricket-fixture:icc:274148", title: "Pakistan vs Sri Lanka", category: "cricket",
                 date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
-                teams: .init(home: .init(name: "Pakistan", badge: nil), away: .init(name: "Sri Lanka", badge: nil)),
-                sources: [], cricketFixture: metadata)
+                teams: .init(home: .init(name: "Pakistan", badge: nil), away: .init(name: "Sri Lanka", badge: nil)), cricketFixture: metadata)
             for lead: TimeInterval in [901, 1_800, 3_600] {
                 let sourceStart = start.addingTimeInterval(-lead)
                 let record = BroadcastRegistrySnapshot.Broadcast(id: broadcastID, providerCode: "communitysports",
@@ -901,7 +899,7 @@ final class BroadcastRegistryTests: XCTestCase {
             squad: .init(gender: women ? .women : .men, ageGroup: "senior"), status: status, observedAt: now, verified: verified)
         return .init(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(now.addingTimeInterval(offset).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sources: [], sportsFixture: metadata)
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sportsFixture: metadata)
     }
 
     private func cricket(day: Int, ordinal: Int = 3, includesContext: Bool = true) -> EventReference {
@@ -913,8 +911,7 @@ final class BroadcastRegistryTests: XCTestCase {
             homeTeamID: "icc:1:7", awayTeamID: "icc:1:1")
         return .init(id: "cricket-fixture:icc:269792", title: "South Africa vs Australia", category: "cricket",
             date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)),
-            sources: [], cricketFixture: metadata)
+            teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)), cricketFixture: metadata)
     }
 
     private func limitedOversFixture(format: CricketFixtureCatalog.Format = .odi,
@@ -926,7 +923,7 @@ final class BroadcastRegistryTests: XCTestCase {
             homeTeamID: "icc:afg", awayTeamID: "icc:zim", matchOrdinal: ordinal)
         return .init(id: "cricket-fixture:icc:limited-overs", title: "\(home) vs \(away)", category: "cricket",
             date: Int64(now.addingTimeInterval(kickoffOffset).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sources: [], cricketFixture: metadata)
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), cricketFixture: metadata)
     }
 
     private func limitedOversProgrammeSnapshot(event: EventReference) throws -> BroadcastRegistrySnapshot {

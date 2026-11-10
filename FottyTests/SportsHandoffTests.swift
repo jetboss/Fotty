@@ -12,8 +12,7 @@ final class SportsHandoffTests: XCTestCase {
         EventReference(id: id, title: title ?? "\(home) vs \(away)", category: category,
             date: Int64(now.addingTimeInterval(offset).timeIntervalSince1970), poster: "https://example.test/poster",
             popular: false, teams: .init(home: .init(name: home, badge: "https://example.test/home"),
-                away: .init(name: away, badge: "https://example.test/away")),
-            sources: [.init(source: "admin", id: "private-route")], hasCatalogIdentityConflict: conflict,
+                away: .init(name: away, badge: "https://example.test/away")), hasCatalogIdentityConflict: conflict,
             competitionID: competition)
     }
 
@@ -57,13 +56,11 @@ final class SportsHandoffTests: XCTestCase {
         }
     }
 
-    func testReceiverRequiresCurrentScheduleReceiptAndKeepsCurrentSourceOnly() throws {
+    func testReceiverRequiresCurrentScheduleReceipt() throws {
         let identity = try SportsHandoffIdentity.make(event: event(), now: now)
         let current = EventReference(id: "fixture", title: "Liverpool vs Chelsea", category: "football",
-            date: event().date, poster: nil, popular: nil, teams: event().teams,
-            sources: [.init(source: "hotel", id: "fresh-route")])
-        let result = SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [current], scheduleCheckedAt: now, now: now)
-        XCTAssertEqual(result?.sources?.first?.id, "fresh-route")
+            date: event().date, poster: nil, popular: nil, teams: event().teams)
+        XCTAssertEqual(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [current], scheduleCheckedAt: now, now: now)?.id, current.id)
         // A schedule receipt is current for its 30 min status freshness, with
         // 5 min of clock skew; outside that window the handoff is refused.
         XCTAssertNotNil(SportsHandoffMatchPolicy.confirmationEvent(for: identity, in: [current],
@@ -99,7 +96,7 @@ final class SportsHandoffTests: XCTestCase {
 
     func testUndatedMatchAndConflictingPublisherAreRejected() {
         let undated = EventReference(id: "fixture", title: "Liverpool vs Chelsea", category: "football", date: nil,
-            poster: nil, popular: nil, teams: event().teams, sources: event().sources)
+            poster: nil, popular: nil, teams: event().teams)
         XCTAssertThrowsError(try SportsHandoffIdentity.make(event: undated, now: now))
         XCTAssertThrowsError(try SportsHandoffIdentity.make(event: event(conflict: true), now: now))
     }

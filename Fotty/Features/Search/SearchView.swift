@@ -254,7 +254,7 @@ enum HomeSportsSearch {
         let latest = discovery.now.addingTimeInterval(SportsSearchSchedule.futureHorizon)
         let additional = scheduledEvents.filter { event in
             guard !currentIDs.contains(event.id), !event.hasCatalogIdentityConflict,
-                  !event.isBroadcastChannel, (event.sources ?? []).isEmpty,
+                  !event.isBroadcastChannel,
                   let start = event.kickoffDate, start > discovery.now, start <= latest else { return false }
             if let fixture = event.sportsFixture { return fixture.verified && fixture.status == .scheduled }
             if let fixture = event.cricketFixture { return fixture.verified && fixture.status == .scheduled }
@@ -362,7 +362,6 @@ enum HomeSportsSearch {
             return []
         }
         let evidence = [event.id, event.title ?? "", event.category ?? ""]
-            + (event.sources ?? []).map(\.id)
         let tokens = Set(
             normalized(evidence.joined(separator: " "))
                 .split(separator: " ")
@@ -951,7 +950,7 @@ struct SearchView: View {
             title: "\(match.homeTeam.matchingName) vs \(match.awayTeam.matchingName)", category: "football",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
             teams: .init(home: .init(name: match.homeTeam.matchingName, badge: nil),
-                         away: .init(name: match.awayTeam.matchingName, badge: nil)), sources: [])
+                         away: .init(name: match.awayTeam.matchingName, badge: nil)))
         guard HomeSportsSearch.scoreIdentityMatches(event, score: score) else { return nil }
         return liveScoreService.currentStatus(for: match, at: Date())
     }

@@ -377,11 +377,10 @@ enum FottyPrivateBackupService {
                 awayName: value.awayName,
                 homeBadge: nil,
                 awayBadge: nil,
-                sources: [],
                 savedAt: value.savedAt
             )
         }
-        if let message = matchday.replaceForRestore(restoredMatches, relativeTo: now).errorMessage {
+        if let message = matchday.replaceForRestore(restoredMatches).errorMessage {
             throw FottyPrivateBackupError.invalidBackup("saved Matchday items could not be stored: \(message)")
         }
 
@@ -436,7 +435,7 @@ enum FottyPrivateBackupService {
             try modelContext.save()
         } catch {
             modelContext.rollback()
-            let rollback = matchday.replaceForRestore(previousMatches, relativeTo: now)
+            let rollback = matchday.replaceForRestore(previousMatches)
             if let message = rollback.errorMessage {
                 throw FottyPrivateBackupError.invalidBackup(
                     "followed teams or leagues could not be restored, and Matchday rollback failed: \(message)"

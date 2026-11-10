@@ -302,7 +302,6 @@ final class PlaybackPolicyTests: XCTestCase {
         XCTAssertEqual(row.homeName, "PAE AEK")
         XCTAssertEqual(row.awayName, "LASK Linz")
         XCTAssertEqual(row.kickoffDate, kickoff)
-        XCTAssertTrue(row.sources?.isEmpty == true)
         XCTAssertFalse(MatchStartPolicy(event: row, now: kickoff.addingTimeInterval(-60)).canAttemptPlayback)
     }
 
@@ -412,7 +411,6 @@ final class PlaybackPolicyTests: XCTestCase {
             let teams = try XCTUnwrap(event["teams"] as? [String: Any])
             let home = try XCTUnwrap((teams["home"] as? [String: Any])?["name"] as? String)
             let away = try XCTUnwrap((teams["away"] as? [String: Any])?["name"] as? String)
-            let sourceIDs = event["sourceIds"] as? [String] ?? []
             let reference = AnalyticalDataEngine.EventReference(
                 id: try XCTUnwrap(event["id"] as? String),
                 title: event["title"] as? String,
@@ -423,11 +421,7 @@ final class PlaybackPolicyTests: XCTestCase {
                 teams: NexusATeams(
                     home: NexusATeam(name: home, badge: nil),
                     away: NexusATeam(name: away, badge: nil)
-                ),
-                sources: sourceIDs.enumerated().map { index, id in
-                    NexusASource(source: "vector-\(index)", id: id)
-                }
-            )
+                ))
             let classification = AnalyticalDataEngine.footballLeagueClassification(for: reference)
             XCTAssertEqual(classification.tab.rawValue, vector["expectedCompetition"] as? String, name)
             XCTAssertEqual(classification.isIdentityConflict, vector["expectedIdentityConflict"] as? Bool, name)
@@ -517,9 +511,7 @@ final class PlaybackPolicyTests: XCTestCase {
             teams: NexusATeams(
                 home: NexusATeam(name: home, badge: nil),
                 away: NexusATeam(name: away, badge: nil)
-            ),
-            sources: []
-        )
+            ))
     }
 
     func testCanonicalFixtureIdentityIsIndependentOfDeviceTimeZone() {
@@ -1050,8 +1042,7 @@ final class PlaybackPolicyTests: XCTestCase {
 
         let event = AnalyticalDataEngine.EventReference(
             id: "routing", title: "CS routing test", category: "football",
-            date: 0, poster: nil, popular: false, teams: nil, sources: nil
-        )
+            date: 0, poster: nil, popular: false, teams: nil)
         let slot = MultiLiveSlot(event: event, sessions: [web, native])
         XCTAssertTrue(slot.isWebEmbed(web.legacySource))
         XCTAssertFalse(slot.isWebEmbed(native.legacySource))
@@ -3443,9 +3434,7 @@ final class PlaybackPolicyTests: XCTestCase {
             teams: NexusATeams(
                 home: NexusATeam(name: "Arsenal", badge: "https://example.com/arsenal.png"),
                 away: NexusATeam(name: "Liverpool", badge: "https://example.com/liverpool.png")
-            ),
-            sources: [NexusASource(source: "echo", id: "123")]
-        )
+            ))
 
         let store = MyMatchdayStore(defaults: defaults, storageKey: key)
         store.save(event)
@@ -3455,49 +3444,9 @@ final class PlaybackPolicyTests: XCTestCase {
         XCTAssertEqual(restored.id, event.id)
         XCTAssertEqual(restored.homeName, "Arsenal")
         XCTAssertEqual(restored.awayName, "Liverpool")
-        XCTAssertEqual(restored.sources?.first?.source, "echo")
-        XCTAssertEqual(restored.sources?.first?.id, "123")
 
         reloaded.remove(eventID: event.id)
         XCTAssertTrue(reloaded.savedMatches.isEmpty)
-    }
-
-    @MainActor
-    func testMyMatchdayPrunesOnlyMatchesOlderThanItsContinuityWindow() throws {
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: "FottyTests.MyMatchday.Prune"))
-        let key = "saved-match-pruning"
-        defaults.removeObject(forKey: key)
-        defer { defaults.removeObject(forKey: key) }
-
-        let store = MyMatchdayStore(defaults: defaults, storageKey: key)
-        let now = Date()
-        let old = AnalyticalDataEngine.EventReference(
-            id: "old",
-            title: "Old Match",
-            category: "football",
-            date: Int64(now.addingTimeInterval(-37 * 3600).timeIntervalSince1970),
-            poster: nil,
-            popular: false,
-            teams: nil,
-            sources: nil
-        )
-        let current = AnalyticalDataEngine.EventReference(
-            id: "current",
-            title: "Current Match",
-            category: "football",
-            date: Int64(now.addingTimeInterval(-35 * 3600).timeIntervalSince1970),
-            poster: nil,
-            popular: false,
-            teams: nil,
-            sources: nil
-        )
-        store.save(old)
-        store.save(current)
-
-        store.pruneExpiredMatches(relativeTo: now)
-
-        XCTAssertFalse(store.contains(eventID: "old"))
-        XCTAssertTrue(store.contains(eventID: "current"))
     }
 
     @MainActor
@@ -4351,9 +4300,7 @@ final class PlaybackPolicyTests: XCTestCase {
             date: Int64(Date().timeIntervalSince1970 * 1_000),
             poster: nil,
             popular: false,
-            teams: nil,
-            sources: nil
-        )
+            teams: nil)
     }
 
     @MainActor
@@ -4371,9 +4318,7 @@ final class PlaybackPolicyTests: XCTestCase {
             teams: NexusATeams(
                 home: NexusATeam(name: "Schedule Home \(id)", badge: nil),
                 away: NexusATeam(name: "Schedule Away \(id)", badge: nil)
-            ),
-            sources: nil
-        )
+            ))
     }
 }
 

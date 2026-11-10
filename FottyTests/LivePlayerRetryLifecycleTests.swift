@@ -972,8 +972,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: status, observedAt: Date(), verified: true)
         return EventReference(id: id, title: title, category: "football",
             date: date ?? Int64(Date().timeIntervalSince1970) - 60, poster: nil, popular: false,
-            teams: .init(home: .init(name: "Chelsea", badge: nil), away: .init(name: away, badge: nil)),
-            sources: [], hasCatalogIdentityConflict: conflict, sportsFixture: fixture, competitionID: "premier-league")
+            teams: .init(home: .init(name: "Chelsea", badge: nil), away: .init(name: away, badge: nil)), hasCatalogIdentityConflict: conflict, sportsFixture: fixture, competitionID: "premier-league")
     }
 
     private func singleDiscoverySession(event: EventReference, provider: String, suffix: String, web: Bool,
@@ -1443,8 +1442,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         let event = AnalyticalDataEngine.EventReference(
             id: "cs-lifecycle", title: "Playback test", category: "football",
             date: Int64(Date().timeIntervalSince1970), poster: nil, popular: false,
-            teams: nil, sources: nil
-        )
+            teams: nil)
         let model = LivePlayerViewModel(event: event, providedSessions: sessions,
                                        prepareAudioSession: { .completed([]) }, validateNativeSource: validation)
         model.didApplyLandscape = true
@@ -1775,8 +1773,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
             title: "Retry Lifecycle Test",
             category: "football",
             date: Int64(Date().timeIntervalSince1970),
-            poster: nil, popular: false, teams: nil, sources: nil
-        )
+            poster: nil, popular: false, teams: nil)
         let sessions = try (0..<sessionCount).map { index in
             StreamSession(
                 matchID: event.id,

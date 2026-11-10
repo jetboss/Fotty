@@ -25,8 +25,7 @@ final class SingleRetryDiscoveryTests: XCTestCase {
     private func event(_ id: String = "retry-fixture") -> EventReference {
         .init(id: id, title: "Home vs Away", category: "football",
             date: Int64(Date().addingTimeInterval(-600).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Home", badge: nil), away: .init(name: "Away", badge: nil)),
-            sources: [.init(source: "delta", id: "listed-" + id)])
+            teams: .init(home: .init(name: "Home", badge: nil), away: .init(name: "Away", badge: nil)))
     }
     private func session(_ event: EventReference, label: String = "Score808") -> StreamSession {
         .init(matchID: event.id, playableURL: URL(string: "https://example.invalid/\(label).m3u8")!,

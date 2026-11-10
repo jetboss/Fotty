@@ -14,8 +14,7 @@ final class SportsReminderBackgroundRefreshTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: status, observedAt: now, verified: verified)
         return .init(id: id, title: metadata.title, category: category,
             date: Int64(now.addingTimeInterval(hours * 3600).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)),
-            sources: [], sportsFixture: metadata, competitionID: metadata.competitionID)
+            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: metadata, competitionID: metadata.competitionID)
     }
 
     func testDefaultOffRegistersOnlyOnceAndNeverFetchesOrSchedules() throws {
@@ -99,10 +98,10 @@ final class SportsReminderBackgroundRefreshTests: XCTestCase {
 
     func testScopePlanningSeparatesCPLFromOtherCricketAndNeverInventsStreamWork() {
         let cricket = EventReference(id: "icc-one", title: "West Indies vs India", category: "cricket",
-            date: Int64(now.addingTimeInterval(3600).timeIntervalSince1970), poster: nil, popular: false, teams: nil, sources: [])
+            date: Int64(now.addingTimeInterval(3600).timeIntervalSince1970), poster: nil, popular: false, teams: nil)
         let cpl = CPLSchedule.Fixture(1, ISO8601DateFormatter().string(from: now.addingTimeInterval(3600)), .trinbago, .guyana).event()
         let channel = EventReference(id: "willow", title: "Willow Cricket", category: "cricket", date: -3_600_000,
-            poster: nil, popular: false, teams: nil, sources: [])
+            poster: nil, popular: false, teams: nil)
         XCTAssertEqual(SportsReminderBackgroundRefresh.scopes(for: [event(), cricket, cpl, channel]), [.sports, .cricket, .cpl])
         XCTAssertTrue(SportsReminderBackgroundRefresh.scopes(for: [channel]).isEmpty)
     }

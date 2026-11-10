@@ -514,8 +514,7 @@ final class VisualRegressionTests: XCTestCase {
         .init(id: id, title: "\(home) vs \(away)", category: sport,
             date: Int64(now.addingTimeInterval(offset).timeIntervalSince1970), poster: nil, popular: false,
             teams: .init(home: .init(name: home, badge: loaded ? loadedURL.absoluteString : nil),
-                         away: .init(name: away, badge: nil)),
-            sources: id == "visual-live" ? [.init(source: "delta", id: "visual-source")] : [])
+                         away: .init(name: away, badge: nil)))
     }
 
     private static var activities: [HomeSportsDiscovery.SportActivity] {

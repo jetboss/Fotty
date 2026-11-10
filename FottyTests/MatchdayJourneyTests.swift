@@ -141,14 +141,13 @@ final class MatchdayJourneyTests: XCTestCase {
         .init(id: id, title: "\(home) vs \(away)", category: "football",
               date: start.map { Int64($0.timeIntervalSince1970) }, poster: nil, popular: nil,
               teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
-              sources: source.map { [.init(source: $0, id: "\(id)-\($0)")] } ?? [],
               hasCatalogIdentityConflict: conflict)
     }
 
     private func channel(_ id: String, title: String, source: String = "delta",
                          conflict: Bool = false) -> AnalyticalDataEngine.EventReference {
         .init(id: id, title: title, category: "cricket", date: nil, poster: nil, popular: nil,
-              teams: nil, sources: [.init(source: source, id: id)], hasCatalogIdentityConflict: conflict)
+              teams: nil, hasCatalogIdentityConflict: conflict)
     }
 
     func testCardLiveLabelsRequireAcceptedRecentOfficialStatus() {
@@ -187,7 +186,7 @@ final class MatchdayJourneyTests: XCTestCase {
                 observedAt: observedAt ?? now, verified: verified)
             return .init(id: metadata.fixtureID, title: "Trinbago Knight Riders vs Barbados Royals", category: "cricket",
                          date: Int64(now.addingTimeInterval(-60).timeIntervalSince1970), poster: nil, popular: nil,
-                         teams: nil, sources: [.init(source: "delta", id: "cricket-card")], cricketFixture: metadata)
+                         teams: nil, cricketFixture: metadata)
         }
         let live = MatchdayEventStatePolicy.section(for: fixture(.live), at: now)
         XCTAssertEqual(live, .live)
@@ -300,7 +299,7 @@ final class MatchdayJourneyTests: XCTestCase {
 
     private func personalEvent(_ id: String, title: String, sport: String) -> AnalyticalDataEngine.EventReference {
         .init(id: id, title: title, category: sport, date: Int64(now.timeIntervalSince1970),
-              poster: nil, popular: nil, teams: nil, sources: [])
+              poster: nil, popular: nil, teams: nil)
     }
 
     func testMatchdayAdmissionIndexPreservesAliasConflictsAndSavedFallbackSearch() {
@@ -342,7 +341,7 @@ final class MatchdayJourneyTests: XCTestCase {
                 at: fixture.kickoff.addingTimeInterval(offset)), "\(offset)")
         }
         let lookalike = AnalyticalDataEngine.EventReference(id: "unreviewed-cpl-row", title: current.title,
-            category: current.category, date: current.date, poster: nil, popular: nil, teams: current.teams, sources: [])
+            category: current.category, date: current.date, poster: nil, popular: nil, teams: current.teams)
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: lookalike,
             in: [lookalike, fox], at: fixture.kickoff))
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: current,
@@ -361,7 +360,6 @@ final class MatchdayJourneyTests: XCTestCase {
         XCTAssertEqual(record.id, old.id)
         XCTAssertEqual(record.savedAt, savedAt)
         XCTAssertEqual(record.event.kickoffDate, old.kickoffDate)
-        XCTAssertTrue(record.sources.isEmpty)
     }
 
     func testReschedulePreservesSavedIdentityAndReminderRouteThroughRecreation() async throws {
@@ -399,8 +397,6 @@ final class MatchdayJourneyTests: XCTestCase {
         h.matchday.reconcile(events: [fresh], at: now)
         await h.reminders.reconcile(events: [fresh])
         let saved = try XCTUnwrap(h.matchday.savedMatches.first)
-        XCTAssertTrue(saved.sources.isEmpty)
-        XCTAssertTrue(try XCTUnwrap(h.reminders.records.first).snapshot.sources.isEmpty)
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: saved.event, in: [fresh],
             at: try XCTUnwrap(fresh.kickoffDate)))
         XCTAssertEqual(h.client.pending.count, 1, "A withdrawn source is not a withdrawn reminder opt-in")
@@ -440,7 +436,6 @@ final class MatchdayJourneyTests: XCTestCase {
         XCTAssertNotNil(h.client.delivered[request.identifier])
         XCTAssertTrue(h.client.pending.isEmpty)
         XCTAssertEqual(h.client.adds, 1)
-        XCTAssertEqual(h.matchday.savedMatches.first?.sources.first?.source, "echo")
     }
 
     func testRestoreCancelsReminderOptInStillAwaitingAuthorization() async throws {
@@ -464,6 +459,18 @@ final class MatchdayJourneyTests: XCTestCase {
         let decoded = try JSONDecoder().decode(SavedMatchRecord.self, from: legacy)
         XCTAssertEqual(decoded.id, record.id)
         XCTAssertNil(decoded.previousDate)
+    }
+
+    /// Builds 261 and earlier decode `sources` as a required key. Saved
+    /// matches reach them through sync, handoff and backup restore.
+    func testSavedSnapshotKeepsTheSourcesKeyOlderBuildsRequire() throws {
+        let record = SavedMatchRecord(event: event(at: now))
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(record)) as? [String: Any])
+        XCTAssertEqual((object["sources"] as? [Any])?.count, 0)
+        var old = object
+        old["sources"] = [["source": "delta", "id": "old-route"]]
+        let decoded = try JSONDecoder().decode(SavedMatchRecord.self, from: JSONSerialization.data(withJSONObject: old))
+        XCTAssertEqual(decoded, record, "A stored route from an old build is ignored, not an error")
     }
 
     func testFailedMatchdayWritesNeverPublishAFalseSaveOrRemoval() throws {

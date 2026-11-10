@@ -37,8 +37,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
                           hours: Double = 1, home: String = "Boston Celtics", title: String? = nil) -> EventReference {
         .init(id: id, title: title ?? "\(home) vs New York Knicks", category: sport,
             date: Int64(now.addingTimeInterval(hours * 3600).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: "New York Knicks", badge: nil)),
-            sources: [.init(source: "delta", id: id)], competitionID: competition)
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: "New York Knicks", badge: nil)), competitionID: competition)
     }
 
     func testValidatedReceiptAndOldJSONCompatibility() throws {
@@ -206,8 +205,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
                                   seconds: Double = 0, competition: String? = nil, title: String? = nil) -> EventReference {
         .init(id: id, title: title ?? row.title, category: row.sport,
             date: Int64(row.kickoff!.addingTimeInterval(seconds).timeIntervalSince1970 * 1000), poster: nil, popular: false,
-            teams: .init(home: .init(name: row.participants[0].name, badge: nil), away: .init(name: row.participants[1].name, badge: nil)),
-            sources: [.init(source: "delta", id: id)], competitionID: competition)
+            teams: .init(home: .init(name: row.participants[0].name, badge: nil), away: .init(name: row.participants[1].name, badge: nil)), competitionID: competition)
     }
 
     private func arsenalFixture(id: String = "560593", competition: String = "premier-league",
@@ -228,8 +226,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
                                  title: String = "Arsenal vs. Leeds United") -> EventReference {
         .init(id: id, title: title, category: "football",
             date: Int64(row.kickoff!.addingTimeInterval(seconds).timeIntervalSince1970 * 1000), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Leeds United", badge: nil)),
-            sources: [.init(source: "delta", id: id)], competitionID: competition)
+            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Leeds United", badge: nil)), competitionID: competition)
     }
 
     private func carabaoFixture(id: String = "test-liverpool-chelsea", competition: String = "carabao-cup",
@@ -256,19 +253,16 @@ final class SportsFixtureCatalogTests: XCTestCase {
                     unmarkedProvider(row, title: "Liverpool vs Chelsea U19")] {
             let joined = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row]), at: now)
             XCTAssertEqual(joined.count, 2, raw.id + (raw.title ?? ""))
-            XCTAssertTrue(joined.first { $0.id == row.id }?.sources?.isEmpty == true)
         }
         let raw = unmarkedProvider(row)
         let held = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row], status: .lastKnownGood), at: now)
         XCTAssertEqual(held.count, 2)
-        XCTAssertTrue(held.first { $0.id == row.id }?.sources?.isEmpty == true)
         for squad in [SportsFixtureCatalog.Squad(gender: .women, ageGroup: "senior"), .init(gender: .men, ageGroup: "u19")] {
             XCTAssertEqual(SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([carabaoFixture(squad: squad)]), at: now).count, 2)
         }
         let ambiguous = SportsFixtureCatalog.merging(into: [raw],
             snapshot: snapshot([row, carabaoFixture(id: "same-time-league", competition: "premier-league")]), at: now)
         XCTAssertEqual(ambiguous.count, 3)
-        XCTAssertTrue(ambiguous.filter { $0.sportsFixture != nil }.allSatisfy { $0.sources?.isEmpty == true })
     }
 
     func testUnmarkedFootballAdmissionRejectsConflictsHeldProofAndAmbiguousOfficialFixtures() {
@@ -283,7 +277,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
         for raw in invalid {
             let joined = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row]), at: now)
             XCTAssertEqual(joined.count, 2, raw.id + raw.title!)
-            XCTAssertTrue(joined.first { $0.id == row.id }?.sources?.isEmpty == true)
         }
         let raw = arsenalProvider(row)
         let held = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row], status: .partial,
@@ -313,13 +306,11 @@ final class SportsFixtureCatalogTests: XCTestCase {
                         unmarkedProvider(row, title: (league == "mlb" ? "NPB " : "KHL ") + row.title)] {
                 let catalog = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row]), at: now)
                 XCTAssertEqual(catalog.count, 2)
-                XCTAssertTrue(catalog.first { $0.id == row.id }?.sources?.isEmpty == true)
             }
             let raw = unmarkedProvider(row)
             let doubleheader = SportsFixtureCatalog.merging(into: [raw],
                 snapshot: snapshot([row, reviewedLeague(league, id: "second")]), at: now)
             XCTAssertEqual(doubleheader.count, 3)
-            XCTAssertTrue(doubleheader.filter { $0.sportsFixture != nil }.allSatisfy { $0.sources?.isEmpty == true })
             let held = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row], status: .partial, unavailable: [league]), at: now)
             XCTAssertEqual(held.count, 2, "A held official identity cannot authorize a new unmarked league join")
         }
@@ -339,8 +330,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
             competitionName: "ICC", format: .t20, status: .scheduled, observedAt: now, verified: false)
         let event = EventReference(id: metadata.fixtureID, title: "West Indies vs India", category: "cricket",
             date: Int64(now.addingTimeInterval(3600).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "West Indies", badge: nil), away: .init(name: "India", badge: nil)),
-            sources: [], cricketFixture: metadata)
+            teams: .init(home: .init(name: "West Indies", badge: nil), away: .init(name: "India", badge: nil)), cricketFixture: metadata)
         XCTAssertEqual(HomeSportsDiscovery(events: [event], now: now).items.first?.phase, .unconfirmed)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: event, at: now), .awaitingConfirmation)
         XCTAssertEqual(MatchdayEventStatePolicy.presentationLabel(for: event, at: now), "Start unconfirmed")
@@ -349,8 +339,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
     func testMotorsportNormalizedAliasesExposeReviewedSearchVocabulary() {
         for category in ["motorsport", "motor-sports", "motorsports", "f1"] {
             let event = EventReference(id: "f1-spanish-grand-prix", title: "Spanish Grand Prix", category: category,
-                date: Int64(now.addingTimeInterval(3600).timeIntervalSince1970), poster: nil, popular: false, teams: nil,
-                sources: [.init(source: "delta", id: "f1-spanish-grand-prix")])
+                date: Int64(now.addingTimeInterval(3600).timeIntervalSince1970), poster: nil, popular: false, teams: nil)
             let discovery = HomeSportsDiscovery(events: [event], now: now)
             XCTAssertEqual(HomeSportsSearch.results(in: discovery, query: "Formula One").map(\.id), [event.id], category)
             XCTAssertEqual(HomeSportsSearch.results(in: discovery, query: "Formula 1").map(\.id), [event.id], category)
@@ -566,7 +555,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
             let rows = SportsFixtureCatalog.merging(into: [candidate], snapshot: snapshot([fixture()]), at: now)
             let scheduled = try XCTUnwrap(rows.first { $0.sportsFixture != nil })
             XCTAssertEqual(rows.count, 2)
-            XCTAssertTrue(scheduled.sources?.isEmpty == true)
             XCTAssertNil(CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: scheduled), in: [candidate]))
         }
     }
@@ -583,8 +571,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
             .init(id: "ncaa-provider", title: title, category: "american-football",
                 date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
                 teams: .init(home: .init(name: "Alabama Crimson Tide", badge: nil),
-                             away: .init(name: "Georgia Bulldogs", badge: nil)),
-                sources: [.init(source: "delta", id: "ncaa-provider")], competitionID: competition)
+                             away: .init(name: "Georgia Bulldogs", badge: nil)), competitionID: competition)
         }
         for title in [metadata.title, "NCAA Football · \(metadata.title)"] {
             XCTAssertTrue(SportsFixtureCatalog.providerMatches(candidate(title: title), fixture: metadata, kickoff: start))
@@ -611,8 +598,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
             .init(id: "ncaa-women-provider", title: title, category: "basketball",
                 date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
                 teams: .init(home: .init(name: "UConn Huskies", badge: nil),
-                             away: .init(name: "South Carolina Gamecocks", badge: nil)),
-                sources: [.init(source: "delta", id: "ncaa-women-provider")], competitionID: competition)
+                             away: .init(name: "South Carolina Gamecocks", badge: nil)), competitionID: competition)
         }
         XCTAssertTrue(SportsFixtureCatalog.providerMatches(candidate(title: metadata.title), fixture: metadata, kickoff: start))
         for qualifier in ["Men", "Men's", "Under-19", "U19", "Youth", "Reserves"] {
@@ -675,7 +661,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
 
     func testGenericCatalogLeavesDedicatedCricketAuthorityAlone() {
         let cricket = EventReference(id: "cricket-fixture:india-wi", title: "India vs West Indies", category: "cricket",
-            date: Int64(now.timeIntervalSince1970), poster: nil, popular: false, teams: nil, sources: [])
+            date: Int64(now.timeIntervalSince1970), poster: nil, popular: false, teams: nil)
         let rows = SportsFixtureCatalog.merging(into: [cricket],
             snapshot: snapshot([fixture(sport: "cricket", competition: "icc")]), at: now)
         XCTAssertEqual(rows.map(\.id), [cricket.id])
@@ -718,7 +704,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
                 XCTAssertEqual(store.savedMatches.first?.savedAt, savedAt)
                 XCTAssertEqual(ended.teams?.home?.badge, live.teams?.home?.badge)
                 XCTAssertEqual(ended.teams?.away?.badge, live.teams?.away?.badge)
-                XCTAssertTrue(ended.sources?.isEmpty == true)
                 XCTAssertEqual(MatchdayEventStatePolicy.section(for: ended, at: clock), .recent)
                 XCTAssertNil(CurrentEventBroadcastPolicy.action(for: ended, in: model.playbackCatalog, at: clock))
                 XCTAssertEqual(MyMatchdayStore(defaults: defaults).savedMatches.first?.sportsFixture?.status, terminal)
@@ -746,18 +731,17 @@ final class SportsFixtureCatalogTests: XCTestCase {
         let row = try XCTUnwrap(SportsFixtureCatalog.terminalEvents(from: snapshot([fixture(status: .finished, hours: -1)])).first)
         let old = SavedMatchRecord(id: row.id, title: row.title, category: row.category, date: row.date,
             poster: nil, popular: false, homeName: row.homeName, awayName: row.awayName,
-            homeBadge: "old-home", awayBadge: "old-away", sources: [], savedAt: now)
+            homeBadge: "old-home", awayBadge: "old-away", savedAt: now)
         let carried = SavedMatchRecord(event: row, savedAt: now, preservingArtworkFrom: old)
         XCTAssertEqual(carried.homeBadge, "old-home")
         XCTAssertEqual(carried.awayBadge, "old-away")
         let explicit = EventReference(id: row.id, title: row.title, category: row.category, date: row.date,
             poster: nil, popular: false,
-            teams: .init(home: .init(name: row.homeName, badge: "new-home"), away: .init(name: row.awayName, badge: nil)),
-            sources: [], sportsFixture: row.sportsFixture, competitionID: row.competitionID)
+            teams: .init(home: .init(name: row.homeName, badge: "new-home"), away: .init(name: row.awayName, badge: nil)), sportsFixture: row.sportsFixture, competitionID: row.competitionID)
         XCTAssertEqual(SavedMatchRecord(event: explicit, savedAt: now, preservingArtworkFrom: old).homeBadge, "new-home")
         let different = SavedMatchRecord(id: row.id, title: row.title, category: row.category, date: row.date,
             poster: nil, popular: false, homeName: "Different team", awayName: "Another team",
-            homeBadge: "wrong-home", awayBadge: "wrong-away", sources: [], savedAt: now)
+            homeBadge: "wrong-home", awayBadge: "wrong-away", savedAt: now)
         let rejected = SavedMatchRecord(event: row, savedAt: now, preservingArtworkFrom: different)
         XCTAssertNil(rejected.homeBadge)
         XCTAssertNil(rejected.awayBadge)
@@ -782,7 +766,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
             XCTAssertEqual(MatchdayEventStatePolicy.section(for: ended, at: now), .recent)
         }
         let noTime = EventReference(id: "unknown-time", title: "Boston Celtics vs New York Knicks", category: "basketball",
-            date: nil, poster: nil, popular: false, teams: nil, sources: [])
+            date: nil, poster: nil, popular: false, teams: nil)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: noTime, at: now), .timeToBeConfirmed)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: provider(hours: -1), at: now), .awaitingConfirmation,
                        "Untyped provider timing is a broadcast listing, not verified live evidence")
@@ -798,8 +782,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
                 squad: .init(gender: .men, ageGroup: "senior"), status: status, observedAt: now, verified: verified)
             return .init(id: metadata.fixtureID, title: metadata.title, category: "football",
                 date: Int64(now.addingTimeInterval(-2 * 3600).timeIntervalSince1970), poster: nil, popular: false,
-                teams: .init(home: .init(name: "Bournemouth", badge: nil), away: .init(name: "Liverpool", badge: nil)),
-                sources: [], sportsFixture: metadata, competitionID: metadata.competitionID)
+                teams: .init(home: .init(name: "Bournemouth", badge: nil), away: .init(name: "Liverpool", badge: nil)), sportsFixture: metadata, competitionID: metadata.competitionID)
         }
         for terminal in [SportsFixtureCatalog.Status.finished, .cancelled] {
             for score: FootballMatch.MatchStatus in [.inPlay, .paused, .scheduled, .timed, .postponed, .suspended] {
@@ -873,7 +856,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
             snapshot: snapshot([fixture(status: .postponed, hours: -40)]), at: now).first)
         expired.save(postponed)
         expired.reconcile(events: [], at: now)
-        XCTAssertTrue(expired.savedMatches.first?.sources.isEmpty == true)
         XCTAssertEqual(expired.savedMatches.first?.sportsFixture?.status, .postponed)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: try XCTUnwrap(expired.savedMatches.first).event, at: now), .timeToBeConfirmed)
     }
@@ -893,7 +875,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
         model.matches = [provider()]
         await model.refresh()
         XCTAssertEqual(model.matches.count, 1)
-        XCTAssertTrue(model.matches.first?.sources?.isEmpty == true)
     }
 
     func testHTTP503PreservesReceiptAcrossRelaunchAndRetriesAfterFiveMinutes() async throws {
@@ -941,8 +922,7 @@ final class StartingFixturePresentationTests: XCTestCase {
             identityObservedAt: identity ?? now.addingTimeInterval(-240))
         return .init(id: id, title: metadata.title, category: "football",
             date: Int64((start ?? kickoff).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Juventus FC", badge: nil), away: .init(name: "SSC Napoli", badge: nil)),
-            sources: [], hasCatalogIdentityConflict: conflict, sportsFixture: metadata, competitionID: "serie-a")
+            teams: .init(home: .init(name: "Juventus FC", badge: nil), away: .init(name: "SSC Napoli", badge: nil)), hasCatalogIdentityConflict: conflict, sportsFixture: metadata, competitionID: "serie-a")
     }
 
     func testFreshScheduleWithOldPublisherUpdateRemainsStartingOnHomeWithoutInferringLive() throws {
@@ -985,7 +965,6 @@ final class StartingFixturePresentationTests: XCTestCase {
         let admitted = try XCTUnwrap(OptionalSourceLookupPolicy.event(for: row, in: [row],
             enabledProviderCodes: ["communitysports"], at: now))
         XCTAssertEqual(admitted.sportsFixture?.status, .scheduled)
-        XCTAssertTrue(admitted.sources?.isEmpty == true)
         XCTAssertFalse(admitted.sportsFixture?.isLive(at: now) ?? true)
         let index = FixtureStreamDiscoveryIndex()
         index.updateEnabledProviders(["communitysports"], revision: 1)

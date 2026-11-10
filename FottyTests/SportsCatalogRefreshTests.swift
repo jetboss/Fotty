@@ -8,7 +8,7 @@ final class SportsCatalogRefreshTests: XCTestCase {
     private func event(_ id: String, at date: Date? = nil) -> EventReference {
         .init(id: id, title: "\(id) Home vs \(id) Away", category: "football",
               date: Int64((date ?? now).timeIntervalSince1970), poster: nil, popular: false,
-              teams: nil, sources: [.init(source: "delta", id: id)])
+              teams: nil)
     }
 
     /// A current sports schedule whose one match starts within Home's window.
@@ -189,7 +189,6 @@ final class SportsCatalogRefreshTests: XCTestCase {
         let future = CPLSchedule.Fixture(2, formatter.string(from: now.addingTimeInterval(3600)), .antigua, .jamaica)
         let rows = CPLSchedule.merging(into: [], fixtures: [past, future], at: now)
         let elapsed = try XCTUnwrap(rows.first { $0.id == past.id })
-        XCTAssertTrue(elapsed.sources?.isEmpty == true)
         XCTAssertEqual(elapsed.broadcastTiming(at: now), .available)
         XCTAssertEqual(HomeSportsDiscovery(events: rows, now: now).items.first { $0.event.id == elapsed.id }?.phase, .listedNow)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: elapsed, at: now), .awaitingConfirmation)
@@ -198,15 +197,15 @@ final class SportsCatalogRefreshTests: XCTestCase {
 
         let provider = EventReference(id: "nfl-provider", title: "Seattle Seahawks vs Los Angeles Rams", category: "american-football",
             date: Int64(now.addingTimeInterval(-3600).timeIntervalSince1970), poster: nil, popular: false,
-            teams: nil, sources: [.init(source: "delta", id: "nfl-provider")])
+            teams: nil)
         XCTAssertEqual(provider.broadcastTiming(at: now), .live)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: provider, at: now), .awaitingConfirmation,
                        "A provider listing must not claim confirmed live play")
         let channel = EventReference(id: "willow", title: "Willow Cricket", category: "cricket", date: nil,
-            poster: nil, popular: false, teams: nil, sources: [.init(source: "delta", id: "willow")])
+            poster: nil, popular: false, teams: nil)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: channel, at: now), .channel)
         let unknownTime = EventReference(id: "unknown", title: "India vs West Indies", category: "cricket", date: nil,
-            poster: nil, popular: false, teams: nil, sources: [])
+            poster: nil, popular: false, teams: nil)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: unknownTime, at: now), .timeToBeConfirmed)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: event("official"), at: now, status: .inPlay), .live)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: event("official"), at: now, status: .scheduled), .awaitingConfirmation)
@@ -215,16 +214,15 @@ final class SportsCatalogRefreshTests: XCTestCase {
     func testVerifiedScheduleReplacesStaleProviderRows() async throws {
         let fixture = try XCTUnwrap(CPLSchedule.fixtures.first)
         let time = fixture.kickoff.addingTimeInterval(-1800)
-        let planned = fixture.event(sources: [])
+        let planned = fixture.event()
         let stale = EventReference(id: "old-provider", title: planned.title, category: "cricket", date: planned.date,
-            poster: nil, popular: false, teams: planned.teams, sources: [.init(source: "delta", id: "stale")])
+            poster: nil, popular: false, teams: planned.teams)
         let model = MatchListViewModel(refreshSchedule: {
                 self.cplSnapshot([fixture], checkedAt: time)
             }, now: { time })
         model.matches = [stale]
         await model.refresh()
         XCTAssertEqual(model.matches.map(\.id), [fixture.id])
-        XCTAssertTrue(model.matches.allSatisfy { $0.sources?.isEmpty != false })
     }
 
     func testReplayedScheduleCannotReplaceCPLWithOlderOrUnverifiedSchedule() async throws {
@@ -264,7 +262,7 @@ final class SportsCatalogRefreshTests: XCTestCase {
     func testRainDelayedCPLSharesEightHourDiscoveryAndExpiryWindow() {
         let row = EventReference(id: "cpl-2026-test", title: "Trinbago Knight Riders vs Guyana Amazon Warriors",
             category: "cricket", date: Int64(now.addingTimeInterval(-7 * 3600).timeIntervalSince1970),
-            poster: nil, popular: false, teams: nil, sources: [])
+            poster: nil, popular: false, teams: nil)
         XCTAssertEqual(row.estimatedMatchDuration, CatalogTimingPolicy.cplWindow)
         XCTAssertFalse(row.isPastEstimatedMatchWindow(at: now))
         XCTAssertEqual(HomeSportsDiscovery(events: [row], now: now).items.first?.phase, .listedNow)

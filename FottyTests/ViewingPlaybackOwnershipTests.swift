@@ -183,7 +183,7 @@ final class ViewingPlaybackOwnershipTests: XCTestCase {
     func testRevokedPendingPiPRequestCannotPublishAfterFocusReturns() async throws {
         let delay = ViewingPiPPreparationBarrier()
         let event = AnalyticalDataEngine.EventReference(id: UUID().uuidString, title: "Retained native pane",
-            category: "football", date: 0, poster: nil, popular: false, teams: nil, sources: nil)
+            category: "football", date: 0, poster: nil, popular: false, teams: nil)
         let model = LivePlayerViewModel(event: event, providedSessions: [], ownsRemoteCommands: false,
                                        prepareAudioSession: delay.wait)
         let item = AVPlayerItem(asset: AVMutableComposition())
@@ -259,7 +259,7 @@ final class ViewingPlaybackOwnershipTests: XCTestCase {
     private func makeModel(title: String = "Viewing session", ownsRemoteCommands: Bool = true,
                            web: Bool = false, native: Bool = false) -> LivePlayerViewModel {
         let event = AnalyticalDataEngine.EventReference(id: UUID().uuidString, title: title,
-            category: "football", date: 0, poster: nil, popular: false, teams: nil, sources: nil)
+            category: "football", date: 0, poster: nil, popular: false, teams: nil)
         let sessions: [StreamSession] = (web || native) ? [StreamSession(matchID: event.id,
             playableURL: URL(string: web ? "https://example.invalid/embed/game" : "https://example.invalid/game.m3u8")!,
             streamType: web ? .unknown : .hls, providerName: "Score808",

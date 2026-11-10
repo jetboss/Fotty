@@ -33,8 +33,7 @@ final class CricketFixtureCatalogTests: XCTestCase {
                           hours: Double = -5.5, sport: String = "cricket", title: String? = nil) -> EventReference {
         .init(id: id, title: title ?? "\(home) vs \(away)", category: sport,
               date: Int64(now.addingTimeInterval(hours * 3600).timeIntervalSince1970), poster: nil, popular: false,
-              teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
-              sources: [.init(source: "delta", id: id)])
+              teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)))
     }
 
     func testCompleteValidatedPayloadAndOldEventJSONCompatibility() throws {
@@ -165,7 +164,7 @@ final class CricketFixtureCatalogTests: XCTestCase {
                 competitionName: metadata.competitionName, format: metadata.format, status: metadata.status,
                 observedAt: metadata.observedAt, verified: false)
             let control = EventReference(id: event.id, title: event.title, category: event.category, date: event.date,
-                poster: nil, popular: false, teams: event.teams, sources: [], cricketFixture: unverified)
+                poster: nil, popular: false, teams: event.teams, cricketFixture: unverified)
             XCTAssertEqual(MatchdayEventStatePolicy.section(for: control, at: now, status: .inPlay), .live)
         }
         let live = try XCTUnwrap(CricketFixtureCatalog.merging(into: [], snapshot: snapshot([fixture()]), at: now).first)
@@ -223,7 +222,6 @@ final class CricketFixtureCatalogTests: XCTestCase {
             XCTAssertEqual(saved.savedAt, savedAt)
             XCTAssertEqual(saved.homeBadge, live.teams?.home?.badge)
             XCTAssertEqual(saved.awayBadge, live.teams?.away?.badge)
-            XCTAssertTrue(saved.sources.isEmpty)
             XCTAssertEqual(MatchdayEventStatePolicy.section(for: saved.event, at: clock), .recent)
             XCTAssertNil(CurrentEventBroadcastPolicy.action(for: saved.event, in: model.playbackCatalog, at: clock))
             XCTAssertEqual(MyMatchdayStore(defaults: defaults).savedMatches.first?.cricketFixture, saved.cricketFixture)
@@ -240,7 +238,6 @@ final class CricketFixtureCatalogTests: XCTestCase {
         XCTAssertEqual(store.save(postponed), .saved)
         store.reconcile(events: [], at: now)
         let saved = try XCTUnwrap(store.savedMatches.first)
-        XCTAssertTrue(saved.sources.isEmpty)
         XCTAssertEqual(saved.cricketFixture, postponed.cricketFixture)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: saved.event, at: now), .timeToBeConfirmed)
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: saved.event, in: [], at: now))
@@ -274,7 +271,7 @@ final class CricketFixtureCatalogTests: XCTestCase {
 
     func testGenericChannelRemainsSeparateAndDoesNotProveFixtureWatch() throws {
         let channel = EventReference(id: "willow", title: "Willow Cricket", category: "cricket", date: nil, poster: nil,
-            popular: false, teams: nil, sources: [.init(source: "delta", id: "willow")])
+            popular: false, teams: nil)
         let rows = CricketFixtureCatalog.merging(into: [channel], snapshot: snapshot([fixture()]), at: now)
         let official = try XCTUnwrap(rows.first { $0.cricketFixture != nil })
         XCTAssertEqual(rows.count, 2)
@@ -431,7 +428,6 @@ final class CricketFixtureCatalogTests: XCTestCase {
         model.matches = [provider()]
         await model.refresh()
         XCTAssertEqual(model.matches.count, 1)
-        XCTAssertTrue(model.matches.first?.sources?.isEmpty == true)
         XCTAssertEqual(HomeSportsDiscovery(events: model.matches, now: now).items.first?.phase, .live)
     }
 
@@ -736,7 +732,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             enabledProviderCodes: enabled, discoveryIndex: index))
         XCTAssertNotNil(MatchStartPolicy(event: upcoming, now: now, discoveryIndex: index).upcomingStart)
         let channel = EventReference(id: "willow", title: "Willow Cricket", category: "cricket", date: nil,
-            poster: nil, popular: false, teams: nil, sources: [.init(source: "delta", id: "willow-channel")])
+            poster: nil, popular: false, teams: nil)
         XCTAssertTrue(channel.isBroadcastChannel)
         XCTAssertNil(FixtureSourceLookupPresentation.state(for: channel, at: now,
             enabledProviderCodes: enabled, discoveryIndex: index))
@@ -753,7 +749,6 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         let admitted = try XCTUnwrap(check(row))
         XCTAssertEqual(admitted.id, row.id)
         XCTAssertEqual(admitted.cricketFixture, row.cricketFixture)
-        XCTAssertTrue(admitted.sources?.isEmpty == true)
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now))
         XCTAssertFalse(MatchStartPolicy(event: row, now: now).canAttemptPlayback)
         XCTAssertEqual(MatchStartPolicy(event: row, now: now).title, "No stream listed")
@@ -789,7 +784,6 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             enabledProviderCodes: codes, at: now))
         XCTAssertEqual(admitted.sportsFixture, row.sportsFixture)
         XCTAssertEqual(admitted.competitionID, "carabao-cup")
-        XCTAssertTrue(admitted.sources?.isEmpty == true)
         XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now,
             discoveryIndex: freshWatchIndex(codes), catalogIndex: FixtureCatalogAvailabilityIndex())?.evidence,
             .freshLookupOpportunity, "Watch runs the resolver; it never claims a listing")
@@ -842,7 +836,6 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: starting, in: [starting],
             enabledProviderCodes: ["score808"], at: now))
         XCTAssertFalse(starting.sportsFixture?.isLive(at: now) ?? true)
-        XCTAssertTrue(starting.sources?.isEmpty == true, "A starting lookup does not invent a broadcast")
     }
 
     func testScore808OnlyCupCheckRequiresUnchangedUniqueOfficialIdentity() {
@@ -872,10 +865,9 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
 
     func testScore808OnlyCupCompletionRechecksConsentAndCurrentReceipt() throws {
         let row = cup()
-        let refreshed = cup(sources: [.init(source: "score808", id: "current-primary")])
+        let refreshed = cup()
         let completion = try XCTUnwrap(OptionalSourceLookupPolicy.event(for: row, in: [refreshed],
             enabledProviderCodes: ["score808"], at: now, phase: .completion))
-        XCTAssertEqual(completion.sources?.map(\.id), ["current-primary"])
         XCTAssertEqual(completion.sportsFixture, row.sportsFixture)
         XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [refreshed],
             enabledProviderCodes: [], at: now, phase: .completion))
@@ -890,30 +882,26 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
     func testCompletionKeepsAnExactCSResultWhenPrimaryDescriptorArrivesDuringLookup() throws {
         let initial = cricket()
         XCTAssertNotNil(check(initial))
-        let refreshed = cricket(sources: [.init(source: "delta", id: "new-primary")])
+        let refreshed = cricket()
         let admitted = try XCTUnwrap(OptionalSourceLookupPolicy.event(for: initial, in: [refreshed],
             enabledProviderCodes: enabled, at: now, phase: .completion))
         XCTAssertEqual(admitted.id, initial.id)
         XCTAssertEqual(admitted.cricketFixture, initial.cricketFixture)
-        XCTAssertEqual(admitted.sources?.map(\.id), ["new-primary"],
-            "Completion returns the current row without manufacturing or erasing descriptors")
     }
 
     func testCompletionStillRejectsDisabledStaleConflictingAndStoppedFixtures() {
         let initial = cricket()
-        let source = NexusASource(source: "delta", id: "new-primary")
-        let refreshed = cricket(sources: [source])
+        let refreshed = cricket()
         XCTAssertNil(OptionalSourceLookupPolicy.event(for: initial, in: [refreshed],
             enabledProviderCodes: [], at: now, phase: .completion))
-        let stale = cricket(observedAt: now.addingTimeInterval(-CricketFixtureCatalog.statusFreshness - 1),
-            sources: [source])
-        let conflicting = cricket(sources: [source], conflict: true)
-        for current in [stale, conflicting, cricket(verified: false, sources: [source])] {
+        let stale = cricket(observedAt: now.addingTimeInterval(-CricketFixtureCatalog.statusFreshness - 1))
+        let conflicting = cricket(conflict: true)
+        for current in [stale, conflicting, cricket(verified: false)] {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: initial, in: [current],
                 enabledProviderCodes: enabled, at: now, phase: .completion))
         }
         for state: CricketFixtureCatalog.Status in [.finished, .cancelled, .postponed, .unknown] {
-            let current = cricket(status: state, sources: [source])
+            let current = cricket(status: state)
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: initial, in: [current],
                 enabledProviderCodes: enabled, at: now, status: .inPlay, phase: .completion))
         }
@@ -993,7 +981,6 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         let row = sports()
         let admitted = try XCTUnwrap(check(row))
         XCTAssertEqual(admitted.sportsFixture, row.sportsFixture)
-        XCTAssertTrue(admitted.sources?.isEmpty == true)
         XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now,
             discoveryIndex: freshWatchIndex(enabled), catalogIndex: FixtureCatalogAvailabilityIndex())?.evidence,
             .freshLookupOpportunity)
@@ -1097,7 +1084,6 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         category: String = "cricket",
         home: String = "Afghanistan",
         title: String? = nil,
-        sources: [NexusASource] = [],
         conflict: Bool = false,
         includeMetadata: Bool = true,
         format: CricketFixtureCatalog.Format = .odi
@@ -1108,8 +1094,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         return .init(id: id, title: title ?? "\(home) vs Zimbabwe", category: category,
             date: offset.map { Int64(now.addingTimeInterval($0).timeIntervalSince1970) },
             poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Zimbabwe", badge: nil)),
-            sources: sources, hasCatalogIdentityConflict: conflict,
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Zimbabwe", badge: nil)), hasCatalogIdentityConflict: conflict,
             cricketFixture: includeMetadata ? metadata : nil)
     }
 
@@ -1134,8 +1119,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             status: status, observedAt: observedAt ?? now, verified: verified)
         return .init(id: id, title: "Arsenal vs Chelsea", category: sport,
             date: offset.map { Int64(now.addingTimeInterval($0).timeIntervalSince1970) }, poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Chelsea", badge: nil)),
-            sources: [], sportsFixture: metadata, competitionID: competitionID)
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: metadata, competitionID: competitionID)
     }
 
     /// Explicit, order-independent enablement for Watch-gate assertions.
@@ -1155,7 +1139,6 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         home: String = "Liverpool",
         homeID: String = "liverpool",
         squad: SportsFixtureCatalog.Squad = .init(gender: .men, ageGroup: "senior"),
-        sources: [NexusASource] = [],
         conflict: Bool = false
     ) -> EventReference {
         let title = "\(home) vs Chelsea"
@@ -1165,8 +1148,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             squad: squad, status: status, observedAt: observedAt ?? now, verified: verified)
         return .init(id: id, title: title, category: "football",
             date: Int64(now.addingTimeInterval(offset).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Chelsea", badge: nil)),
-            sources: sources, hasCatalogIdentityConflict: conflict, sportsFixture: metadata,
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: "Chelsea", badge: nil)), hasCatalogIdentityConflict: conflict, sportsFixture: metadata,
             competitionID: "carabao-cup")
     }
 }
@@ -1185,7 +1167,6 @@ final class CricketChannelCatalogTests: XCTestCase {
             XCTAssertNil(event.cricketFixture)
             XCTAssertNil(event.sportsFixture)
             XCTAssertNil(event.competitionID)
-            XCTAssertTrue(event.sources?.isEmpty == true)
         }
         let discovery = HomeSportsDiscovery(events: inventory, now: now)
         XCTAssertTrue(discovery.items.isEmpty)
@@ -1204,9 +1185,6 @@ final class CricketChannelCatalogTests: XCTestCase {
             row(CricketBroadcastChannel.willow.canonicalID, "Fox Cricket"),
             row("other-category", "Willow Cricket", category: "football")
         ]
-        for channel in CricketBroadcastChannel.allCases {
-            XCTAssertTrue(CricketChannelCatalog.event(for: channel, in: rows).sources?.isEmpty == true)
-        }
         XCTAssertEqual(CricketChannelCatalog.merging(into: rows).filter(\.isBroadcastChannel).count, 2)
         for row in rows { XCTAssertNil(CricketChannelCatalog.canonicalEvent(for: row, in: rows)) }
     }
@@ -1230,11 +1208,10 @@ final class CricketChannelCatalogTests: XCTestCase {
     }
 
     private func row(_ id: String, _ title: String, category: String = "cricket",
-                     sources: [NexusASource] = [.init(source: "delta", id: "actual-provider-reference")],
                      conflict: Bool = false, metadata: CricketFixtureMetadata? = nil,
                      teams: NexusATeams? = nil) -> EventReference {
         .init(id: id, title: title, category: category, date: -3_600_000,
-            poster: nil, popular: false, teams: teams, sources: sources,
+            poster: nil, popular: false, teams: teams,
             hasCatalogIdentityConflict: conflict, cricketFixture: metadata)
     }
 }

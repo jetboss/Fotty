@@ -8,8 +8,7 @@ final class MatchReminderTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
     private func event(_ id: String = "match", start: Date?, source: Bool = true, channel: Bool = false) -> AnalyticalDataEngine.EventReference {
         .init(id: id, title: channel ? "Willow Cricket" : "Home Club vs Away Club", category: channel ? "cricket" : "football",
-              date: start.map { Int64($0.timeIntervalSince1970) }, poster: nil, popular: nil, teams: nil,
-              sources: source ? [.init(source: "delta", id: id)] : [])
+              date: start.map { Int64($0.timeIntervalSince1970) }, poster: nil, popular: nil, teams: nil)
     }
 
     private func harness() throws -> ReminderHarness { try ReminderHarness(now: now) }
@@ -47,7 +46,6 @@ final class MatchReminderTests: XCTestCase {
         return .init(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(now.addingTimeInterval(7200).timeIntervalSince1970), poster: nil, popular: false,
             teams: .init(home: .init(name: "Bournemouth", badge: nil), away: .init(name: "Liverpool", badge: nil)),
-            sources: status == .scheduled ? [.init(source: "delta", id: "provider-queued")] : [],
             sportsFixture: metadata, competitionID: metadata.competitionID)
     }
 
@@ -267,7 +265,6 @@ final class MatchReminderTests: XCTestCase {
             XCTAssertTrue(h.matchday.contains(eventID: scheduled.id), "Cancellation revokes the reminder, not its new bookmark")
             XCTAssertEqual(h.matchday.savedMatches.first?.sportsFixture?.status, .cancelled)
             XCTAssertEqual(h.matchday.savedMatches.first?.sportsFixture?.observedAt, now)
-            XCTAssertTrue(h.matchday.savedMatches.first?.sources.isEmpty == true)
         }
     }
 
@@ -281,8 +278,7 @@ final class MatchReminderTests: XCTestCase {
             let cancelled = queuedFootballFixture(.cancelled)
             let unrelated = EventReference(id: cancelled.id, title: "Different Club vs Another Club", category: "football",
                 date: cancelled.date, poster: nil, popular: false,
-                teams: .init(home: .init(name: "Different Club", badge: nil), away: .init(name: "Another Club", badge: nil)),
-                sources: [])
+                teams: .init(home: .init(name: "Different Club", badge: nil), away: .init(name: "Another Club", badge: nil)))
             let current = evidence == "missing" ? [] : [cancelled, unrelated]
             let enabling = Task { @MainActor in await h.store.enable(scheduled) }
             await fulfillment(of: [entered], timeout: 2)
@@ -380,8 +376,7 @@ final class MatchReminderTests: XCTestCase {
         func cricket(verified: Bool) -> EventReference {
             .init(id: "cricket-fixture:icc:reminded", title: "India U19 vs Australia U19", category: "cricket",
                 date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
-                teams: .init(home: .init(name: "India U19", badge: nil), away: .init(name: "Australia U19", badge: nil)),
-                sources: [], cricketFixture: .init(fixtureID: "icc:reminded", competitionID: "icc",
+                teams: .init(home: .init(name: "India U19", badge: nil), away: .init(name: "Australia U19", badge: nil)), cricketFixture: .init(fixtureID: "icc:reminded", competitionID: "icc",
                     competitionName: "U19 internationals", format: .odi, status: .scheduled,
                     observedAt: now, verified: verified))
         }
@@ -441,7 +436,6 @@ final class MatchReminderTests: XCTestCase {
                 XCTAssertEqual(h.client.requests.count, 1)
                 h.clock.now = now.addingTimeInterval(12 * 3600)
                 let ended = try XCTUnwrap(fixtureEvents(terminal).first)
-                XCTAssertTrue(ended.sources?.isEmpty == true)
                 // Production performs saved reconciliation first, then reminder reconciliation.
                 h.matchday.reconcile(events: [ended], at: h.clock.now)
                 await h.store.reconcile(events: [ended])
@@ -470,7 +464,6 @@ final class MatchReminderTests: XCTestCase {
                 return .init(id: metadata.fixtureID, title: metadata.title, category: "football",
                     date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
                     teams: .init(home: .init(name: "Bournemouth", badge: nil), away: .init(name: "Liverpool", badge: nil)),
-                    sources: status == .scheduled ? [.init(source: "delta", id: "provider-cancelled")] : [],
                     sportsFixture: metadata, competitionID: metadata.competitionID)
             }
             let scheduled = fixture(.scheduled)
@@ -513,8 +506,7 @@ final class MatchReminderTests: XCTestCase {
                 participants: [.init(id: "bournemouth", name: "Bournemouth"), .init(id: "liverpool", name: "Liverpool")],
                 squad: .init(gender: .men, ageGroup: "senior"), status: status, observedAt: now, verified: verified)
             return .init(id: metadata.fixtureID, title: metadata.title, category: "football",
-                date: Int64(start.timeIntervalSince1970), poster: nil, popular: false, teams: nil,
-                sources: [.init(source: "delta", id: "provider-ended")], sportsFixture: metadata, competitionID: metadata.competitionID)
+                date: Int64(start.timeIntervalSince1970), poster: nil, popular: false, teams: nil, sportsFixture: metadata, competitionID: metadata.competitionID)
         }
         for score: FootballMatch.MatchStatus in [.inPlay, .paused, .scheduled, .timed, .postponed, .suspended] {
             let ended = MatchStartPolicy(event: fixture(.finished), now: now, status: score)
@@ -534,8 +526,7 @@ final class MatchReminderTests: XCTestCase {
         let cricket = CricketFixtureMetadata(fixtureID: "wi-terminal", competitionID: "west-indies",
             competitionName: "West Indies ODI", format: .odi, status: .cancelled, observedAt: now, verified: true)
         let cancelledCricket = EventReference(id: "cricket-fixture:wi-terminal", title: "West Indies vs India", category: "cricket",
-            date: Int64(now.addingTimeInterval(7200).timeIntervalSince1970), poster: nil, popular: false, teams: nil,
-            sources: [], cricketFixture: cricket)
+            date: Int64(now.addingTimeInterval(7200).timeIntervalSince1970), poster: nil, popular: false, teams: nil, cricketFixture: cricket)
         XCTAssertTrue(MatchStartPolicy(event: cancelledCricket, now: now, status: .scheduled).isStopped)
         XCTAssertNil(MatchStartPolicy(event: cancelledCricket, now: now, status: .scheduled).upcomingStart)
         XCTAssertEqual(MatchStartPolicy(event: cancelledCricket, now: now, status: .scheduled).title, "Cancelled")
@@ -720,7 +711,7 @@ final class MatchReminderTests: XCTestCase {
             let longMatch = AnalyticalDataEngine.EventReference(id: "compact-cpl",
                 title: "St Kitts and Nevis Patriots vs Trinbago Knight Riders", category: "cricket",
                 date: Int64(Date().addingTimeInterval(7200).timeIntervalSince1970), poster: nil,
-                popular: nil, teams: nil, sources: [])
+                popular: nil, teams: nil)
             let content = VStack(spacing: 12) {
                 LiveEventCard(event: longMatch, onSaveTap: {})
                 LiveEventCard(event: event("channel", start: nil, channel: true), onWatchTap: {}, onSaveTap: {})
@@ -747,7 +738,7 @@ final class MatchReminderTests: XCTestCase {
             title: "Zimbabwe Women vs West Indies Women", category: "cricket",
             date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
             teams: .init(home: .init(name: "Zimbabwe Women", badge: nil),
-                         away: .init(name: "West Indies Women", badge: nil)), sources: [])
+                         away: .init(name: "West Indies Women", badge: nil)))
         let item = try XCTUnwrap(HomeSportsDiscovery(events: [match], now: now).items.first)
         for width in [320.0, 375, 430, 788] {
             for scheme: ColorScheme in [.light, .dark] {
@@ -772,7 +763,7 @@ final class MatchReminderTests: XCTestCase {
         let match = AnalyticalDataEngine.EventReference(id: "schedule-layout-cpl",
             title: "St Kitts and Nevis Patriots vs Trinbago Knight Riders", category: "cricket",
             date: Int64(now.addingTimeInterval(2 * 86400).timeIntervalSince1970), poster: nil,
-            popular: false, teams: nil, sources: [])
+            popular: false, teams: nil)
         let item = try XCTUnwrap(HomeSportsDiscovery(events: [match], now: now).items.first)
         for (width, size) in [(320.0, DynamicTypeSize.accessibility2), (430.0, .accessibility5), (788.0, .large)] {
             let content = HomeScheduleRow(item: item, presentation: .init(item: item),

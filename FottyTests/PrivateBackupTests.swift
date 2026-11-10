@@ -173,9 +173,7 @@ final class PrivateBackupTests: XCTestCase {
             teams: NexusATeams(
                 home: NexusATeam(name: "Arsenal", badge: "https://private.test/arsenal.png"),
                 away: NexusATeam(name: "Chelsea", badge: "https://private.test/chelsea.png")
-            ),
-            sources: [NexusASource(source: "SECRET_PROVIDER", id: "SECRET_ROUTE")]
-        )
+            ))
         fixture.matchday.save(event)
 
         let payload = try FottyPrivateBackupService.capture(
@@ -224,7 +222,6 @@ final class PrivateBackupTests: XCTestCase {
         XCTAssertEqual(teams.map(\.teamName), ["Arsenal"])
         XCTAssertNil(teams.first?.badgeURLString)
         XCTAssertEqual(fixture.matchday.savedMatches.map(\.id), ["match-1"])
-        XCTAssertTrue(fixture.matchday.savedMatches.allSatisfy(\.sources.isEmpty))
         XCTAssertEqual(fixture.defaults.string(forKey: FottyAppearance.storageKey), "light")
         XCTAssertTrue(fixture.defaults.bool(forKey: HomeInterestPreferences.onlyShowSelectedKey))
         XCTAssertTrue(MatchdayPreferences.showsKickoffClashes(in: fixture.defaults))

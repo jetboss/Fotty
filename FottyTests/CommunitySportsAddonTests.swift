@@ -911,7 +911,7 @@ final class CommunitySportsAddonTests: XCTestCase {
                 observedAt: receipt.observedAt, verified: change != "unverified")
             let event = EventReference(id: change == "noncanonical" ? "provider-unverified-id" : original.id,
                 title: original.title, category: original.category, date: original.date, poster: nil, popular: false,
-                teams: change == "missing-teams" ? nil : original.teams, sources: [],
+                teams: change == "missing-teams" ? nil : original.teams,
                 hasCatalogIdentityConflict: change == "conflict", cricketFixture: metadata)
             let request = StreamPlaybackRequest(matchID: change == "id" ? "other-request-id" : event.id,
                 displayTitle: try XCTUnwrap(original.title), homeTeam: change == "home" ? "India" : "Afghanistan",
@@ -938,7 +938,7 @@ final class CommunitySportsAddonTests: XCTestCase {
             observedAt: original.observedAt, verified: true)
         let conflicting = EventReference(id: event.id,
             title: "Women's international cricket · Afghanistan vs Zimbabwe", category: "cricket", date: event.date,
-            poster: nil, popular: false, teams: event.teams, sources: [], cricketFixture: metadata)
+            poster: nil, popular: false, teams: event.teams, cricketFixture: metadata)
         XCTAssertEqual(CommunitySportsAddonClient.selectMatch(
             for: StreamPlaybackRequest(event: conflicting), from: [entry]), .missing)
     }
@@ -2703,7 +2703,7 @@ final class CommunitySportsAddonTests: XCTestCase {
             format: .t20, status: .live, observedAt: kickoff, verified: true, matchOrdinal: 3)
         let event = EventReference(id: "cricket-fixture:" + fixtureID, title: home + " vs " + away, category: "cricket",
             date: Int64(kickoff.addingTimeInterval(-1_800).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sources: [], cricketFixture: metadata)
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), cricketFixture: metadata)
         let programme = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "a", count: 64), providerCode: "reviewedtv",
             providerEventID: (fox ? "reviewed-tv:fox-programme:" : "reviewed-tv:programme:") + String(repeating: "c", count: 64),
             streamID: fox ? ReviewedTVPlaylistClient.foxGuideStreamID : ReviewedTVPlaylistClient.providerEventID,
@@ -3044,7 +3044,7 @@ final class CommunitySportsAddonTests: XCTestCase {
             ageGroup: "senior"), status: scenario == "terminal" ? .finished : .live, observedAt: kickoff, verified: true)
         let event = EventReference(id: metadata.fixtureID, title: metadata.title, category: sport,
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: teams[0], badge: nil), away: .init(name: teams[1], badge: nil)), sources: [], sportsFixture: metadata)
+            teams: .init(home: .init(name: teams[0], badge: nil), away: .init(name: teams[1], badge: nil)), sportsFixture: metadata)
         let request = StreamPlaybackRequest(event: event)
         let end = kickoff.addingTimeInterval(scenario == "expired" ? 0 : 600)
         let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "1", count: 64), providerCode: "communitysports",
@@ -3266,7 +3266,7 @@ final class CommunitySportsAddonTests: XCTestCase {
             format: .odi, status: status, observedAt: now.addingTimeInterval(-observedAge), verified: true, matchOrdinal: 5)
         let event = EventReference(id: "cricket-fixture:icc:275415", title: "Namibia vs Ireland", category: "cricket",
             date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Namibia", badge: nil), away: .init(name: "Ireland", badge: nil)), sources: [], cricketFixture: metadata)
+            teams: .init(home: .init(name: "Namibia", badge: nil), away: .init(name: "Ireland", badge: nil)), cricketFixture: metadata)
         let id = try XCTUnwrap(currentCricketRow()["id"] as? String)
         let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "a", count: 64), providerCode: "communitysports",
             providerEventID: id, streamID: id, resourceType: "tv", scope: "cricket", kind: .event, sport: "cricket",
@@ -3291,7 +3291,7 @@ final class CommunitySportsAddonTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: kickoff, verified: true)
         let event = EventReference(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Chelsea", badge: nil), away: .init(name: "Brighton", badge: nil)), sources: [], sportsFixture: metadata)
+            teams: .init(home: .init(name: "Chelsea", badge: nil), away: .init(name: "Brighton", badge: nil)), sportsFixture: metadata)
         let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "a", count: 64), providerCode: "communitysports",
             providerEventID: "nuvio_sport_fixture", streamID: "nuvio_sport_fixture", resourceType: "tv", scope: "football", kind: .event,
             sport: "football", title: metadata.title, participants: ["Chelsea", "Brighton"], start: kickoff,

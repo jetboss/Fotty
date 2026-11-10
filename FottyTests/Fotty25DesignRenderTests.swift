@@ -251,8 +251,7 @@ final class Fotty25DesignRenderTests: XCTestCase {
             func event(_ id: String, _ home: String, _ away: String, _ sport: String, _ offset: TimeInterval, listed: Bool = false) -> EventReference {
                 .init(id: "root-render-" + id, title: "\(home) vs \(away)", category: sport,
                       date: Int64(now.addingTimeInterval(offset).timeIntervalSince1970), poster: nil, popular: false,
-                      teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
-                      sources: listed ? [.init(source: "delta", id: "root-render-only")] : [])
+                      teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)))
             }
             let events: [EventReference] = empty ? [] : [
                 event("football-now", "Render Alpha Club", "Render Visiting Club", "football", -1_800, listed: true),

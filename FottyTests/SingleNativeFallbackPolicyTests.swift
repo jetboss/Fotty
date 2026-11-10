@@ -59,7 +59,7 @@ final class SingleNativeFallbackPolicyTests: XCTestCase {
             fixtureEvent(id: id, kickoff: now.addingTimeInterval(-600), status: .cancelled, now: now),
             fixtureEvent(id: id, kickoff: now.addingTimeInterval(3_600), status: .scheduled, now: now),
             EventReference(id: original.id, title: original.title, category: original.category, date: original.date,
-                poster: nil, popular: false, teams: original.teams, sources: [], hasCatalogIdentityConflict: true,
+                poster: nil, popular: false, teams: original.teams, hasCatalogIdentityConflict: true,
                 sportsFixture: original.sportsFixture)] {
             XCTAssertTrue(LivePlaybackSourcePolicy.provenAlternativesBeforeNativeStartupRetry(in: [alternative],
                 for: event, after: UUID(), failureKind: .startupTimeout, hasDecoded: false, at: now,
@@ -199,8 +199,7 @@ final class SingleNativeFallbackPolicyTests: XCTestCase {
             participants: [.init(id: "arsenal", name: "Arsenal"), .init(id: "chelsea", name: "Chelsea")],
             squad: .init(gender: .men, ageGroup: "senior"), status: status, observedAt: now, verified: true)
         return .init(id: id, title: metadata.title, category: "football", date: Int64(kickoff.timeIntervalSince1970), poster: nil,
-            popular: false, teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)),
-            sources: [], sportsFixture: metadata)
+            popular: false, teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: "Chelsea", badge: nil)), sportsFixture: metadata)
     }
 
     private static var rejectedMedia: StreamContractValidator.ValidationResult {

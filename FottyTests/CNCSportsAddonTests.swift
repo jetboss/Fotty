@@ -94,8 +94,7 @@ final class CNCSportsAddonTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: start, verified: true)
         let event = EventReference(id: metadata.fixtureID, title: metadata.title, category: "hockey",
             date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: teams[0], badge: nil), away: .init(name: teams[1], badge: nil)),
-            sources: [], sportsFixture: metadata, competitionID: "nhl")
+            teams: .init(home: .init(name: teams[0], badge: nil), away: .init(name: teams[1], badge: nil)), sportsFixture: metadata, competitionID: "nhl")
         let request = StreamPlaybackRequest(event: event), expiry = start.addingTimeInterval(600)
         let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "c", count: 64),
             providerCode: "cncsports", providerEventID: fixtureID, streamID: fixtureID, resourceType: "tv",
@@ -361,7 +360,7 @@ final class CNCSportsAddonTests: XCTestCase {
         defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
         let base = request()
         let event = EventReference(id: base.matchID, title: base.displayTitle, category: "hockey",
-            date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false, teams: nil, sources: [], competitionID: "ahl")
+            date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false, teams: nil, competitionID: "ahl")
         let otherLeague = StreamPlaybackRequest(matchID: base.matchID, displayTitle: base.displayTitle,
             homeTeam: base.homeTeam, awayTeam: base.awayTeam, category: "hockey", kickoffDate: kickoff, preferredEvent: event)
         let client = CNCSportsAddonClient(session: session)
@@ -501,7 +500,7 @@ final class CNCSportsAddonTests: XCTestCase {
         let event = EventReference(id: CricketFixtureCatalog.fixtureIDPrefix + metadata.fixtureID,
             title: "\(competition) · \(home) vs \(away)", category: "cricket",
             date: Int64(start.timeIntervalSince1970 * 1000), poster: nil, popular: false,
-            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), sources: [],
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
             hasCatalogIdentityConflict: conflict, cricketFixture: metadata)
         return StreamPlaybackRequest(event: event)
     }
@@ -788,8 +787,7 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
             squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: start, verified: true)
         let event = EventReference(id: metadata.fixtureID, title: metadata.title, category: "football",
             date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: teams[0], badge: nil), away: .init(name: teams[1], badge: nil)),
-            sources: [], sportsFixture: metadata, competitionID: "premier-league")
+            teams: .init(home: .init(name: teams[0], badge: nil), away: .init(name: teams[1], badge: nil)), sportsFixture: metadata, competitionID: "premier-league")
         let request = StreamPlaybackRequest(event: event), expiry = start.addingTimeInterval(3600)
         let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "d", count: 64),
             providerCode: "communitysports", providerEventID: "cs-event", streamID: "cs-event", resourceType: "tv",

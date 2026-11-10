@@ -50,7 +50,7 @@ struct SportsTVStation: Identifiable, Equatable, Sendable {
     @MainActor var event: EventReference {
         if let cricketChannel { return CricketChannelCatalog.event(for: cricketChannel, in: []) }
         return .init(id: id, title: title, category: "other", date: nil, poster: nil,
-                     popular: false, teams: nil, sources: [])
+                     popular: false, teams: nil)
     }
 }
 
