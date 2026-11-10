@@ -39,14 +39,13 @@ enum CurrentEventBroadcastPolicy {
     /// competitor. Saved rows without an exact identity retain the full search.
     struct IndexedCatalog {
         let rows: [EventReference]
-        private var route = [String: [Int]](), providerAlias = [String: [Int]]()
+        private var route = [String: [Int]]()
         private var sportsTerminal = [String: [Int]](), cricketTerminal = [String: [Int]]()
 
         @MainActor init(_ rows: [EventReference], at now: Date) {
             self.rows = rows
             for (index, row) in rows.enumerated() {
                 for key in CatalogRouteIdentity.candidates(from: row.id) { route[key, default: []].append(index) }
-                for key in row.sportsFixture?.providerEventIDs ?? [] { providerAlias[key, default: []].append(index) }
                 guard VerifiedFixtureTerminalPolicy.state(for: row, at: now) != nil else { continue }
                 if let id = row.sportsFixture?.fixtureID { sportsTerminal[id, default: []].append(index) }
                 if let id = row.cricketFixture?.fixtureID { cricketTerminal[id, default: []].append(index) }
@@ -56,7 +55,7 @@ enum CurrentEventBroadcastPolicy {
         func candidates(for event: EventReference) -> [EventReference] {
             // Channel canonicalization joins all current editions by station identity.
             guard !event.isBroadcastChannel else { return rows }
-            var exact = Set(providerAlias[event.id] ?? [])
+            var exact = Set<Int>()
             for key in CatalogRouteIdentity.candidates(from: event.id) { exact.formUnion(route[key] ?? []) }
             guard !exact.isEmpty else { return rows }
             if let id = event.sportsFixture?.fixtureID { exact.formUnion(sportsTerminal[id] ?? []) }
@@ -102,12 +101,11 @@ enum CurrentEventBroadcastPolicy {
             }
             return terminal
         }
-        // An untyped terminal tombstone owns its stable fixture identity (or
-        // an explicit provider alias), never another similarly named fixture.
+        // An untyped terminal tombstone owns its stable fixture identity,
+        // never another similarly named fixture.
         let current = catalog.filter {
             VerifiedFixtureTerminalPolicy.state(for: $0, at: now) == nil
                 || CatalogRouteIdentity.matches(eventID: $0.id, requestedID: event.id)
-                || $0.sportsFixture?.providerEventIDs?.contains(event.id) == true
         }
         switch CatalogPlaybackIdentity.selection(for: StreamPlaybackRequest(event: event), in: current) {
         case .matched(let match): return match
@@ -576,7 +574,6 @@ enum MatchdayEventStatePolicy {
             if cricket.status == .postponed { return .timeToBeConfirmed }
             if cricket.isLive(at: now) { return .live }
             if !cricket.verified || cricket.status != .scheduled || event.kickoffDate.map({ $0 <= now }) == true {
-                if cricket.hasCurrentProviderListing(at: now), StreamPluginProviderMatching.hasActiveCatalogSource(event) { return .listedNow }
                 return event.kickoffDate == nil ? .timeToBeConfirmed : .awaitingConfirmation
             }
         } else if let fixture = event.sportsFixture {
@@ -584,7 +581,6 @@ enum MatchdayEventStatePolicy {
             if fixture.status == .postponed { return .timeToBeConfirmed }
             if fixture.isLive(at: now) { return .live }
             if !fixture.verified || fixture.status != .scheduled || event.kickoffDate.map({ $0 <= now }) == true {
-                if fixture.hasCurrentProviderListing(at: now), StreamPluginProviderMatching.hasActiveCatalogSource(event) { return .listedNow }
                 return event.kickoffDate == nil ? .timeToBeConfirmed : .awaitingConfirmation
             }
         }
@@ -637,28 +633,10 @@ enum SavedMatchContinuityPolicy {
         in events: [AnalyticalDataEngine.EventReference]
     ) -> AnalyticalDataEngine.EventReference? {
         let exact = events.filter {
-            $0.id == saved.id || $0.sportsFixture?.providerEventIDs?.contains(saved.id) == true
+            $0.id == saved.id
                 || (saved.sportsFixture != nil && $0.sportsFixture?.fixtureID == saved.sportsFixture?.fixtureID)
         }
         let old = saved.event
-        let exactProviderAlias = exact.count == 1 && exact[0].sportsFixture == nil
-            && saved.sportsFixture?.providerEventIDs?.contains(exact[0].id) == true
-        if exact.isEmpty || exactProviderAlias {
-            // A canonical saved row can temporarily be displayed through its
-            // recorded provider alias. This does not renew official facts or
-            // infer a reschedule from a provider: require the exact same start,
-            // a unique admitted alias and retain the accepted typed receipt.
-            let aliases = (exactProviderAlias ? exact : events).filter {
-                !$0.hasCatalogIdentityConflict && $0.sportsFixture == nil
-                    && saved.sportsFixture?.providerEventIDs?.contains($0.id) == true
-                    && old.kickoffDate != nil && $0.kickoffDate == old.kickoffDate
-                    && CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: old), in: [$0]) != nil
-            }
-            guard aliases.count == 1, let candidate = aliases.first else { return nil }
-            return EventReference(id: saved.id, title: old.title, category: old.category, date: old.date,
-                poster: old.poster, popular: old.popular, teams: old.teams, sources: candidate.sources,
-                cricketFixture: old.cricketFixture, sportsFixture: old.sportsFixture, competitionID: old.competitionID)
-        }
         guard exact.count == 1, let candidate = exact.first, !candidate.hasCatalogIdentityConflict else { return nil }
         if let fixture = old.cricketFixture {
             guard let current = candidate.cricketFixture,

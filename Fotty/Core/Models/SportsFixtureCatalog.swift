@@ -383,9 +383,9 @@ enum SportsFixtureCatalog {
                   fixture.squad == Squad(gender: .men, ageGroup: "senior"),
                   event.kickoffDate == kickoff else { return false }
             if reviewedFootball {
-                // Resolver recovery requires the merge's explicit alias receipt;
-                // only initial admission may establish a new unmarked alias.
-                guard admittingUnmarkedLeague || fixture.providerEventIDs?.contains(event.id) == true,
+                // Only an admitting caller may establish an unmarked football
+                // identity, and only between reviewed senior clubs.
+                guard admittingUnmarkedLeague,
                       FootballCompetitionCatalog.canonicalClubID(for: event.homeName) != nil,
                       FootballCompetitionCatalog.canonicalClubID(for: event.awayName) != nil,
                       fixture.participants.allSatisfy({ FootballCompetitionCatalog.canonicalClubID(for: $0.name) != nil }) else { return false }
@@ -449,7 +449,7 @@ enum SportsFixtureCatalog {
             // retain the stricter metadata clock used for current LIVE claims.
             guard metadata.verified,
                   SportsSearchSchedule.isFresh(date(fixture.source.observedAt), at: now) else { return nil }
-            return projectedEvent(for: fixture, metadata: metadata, kickoff: kickoff, sources: [], badgeEvent: nil)
+            return projectedEvent(for: fixture, metadata: metadata, kickoff: kickoff)
         }
     }
 
@@ -464,95 +464,28 @@ enum SportsFixtureCatalog {
             // An unavailable cohort cannot turn retained rows into new terminal
             // evidence. These facts reconcile saves, never advertise playback.
             guard metadata.verified else { return nil }
-            return projectedEvent(for: fixture, metadata: metadata, kickoff: kickoff, sources: [], badgeEvent: nil)
+            return projectedEvent(for: fixture, metadata: metadata, kickoff: kickoff)
         }
     }
 
     @MainActor
-    static func merging(into catalog: [EventReference], snapshot: Snapshot?, at now: Date = .init(),
-                        currentProviderEvents: [EventReference]? = nil,
-                        currentProviderObservedAt: Date? = nil) -> [EventReference] {
-        var remaining = catalog.filter { !$0.id.hasPrefix(fixtureIDPrefix) }
+    /// Home rows plus the schedule's current fixtures. Earlier projections of
+    /// this schedule are replaced; other rows (CPL, cricket) pass through.
+    static func merging(into catalog: [EventReference], snapshot: Snapshot?, at now: Date = .init()) -> [EventReference] {
+        let remaining = catalog.filter { !$0.id.hasPrefix(fixtureIDPrefix) }
         guard let snapshot else { return remaining }
-        var result: [EventReference] = []
-        let currentIDs = currentProviderEvents.map { Set($0.map(\.id)) }
-        var uniqueProviderJoins: [String: String] = [:]
-        // Receipt parsing/coverage verification is invariant within this merge.
-        // Do it once per row, not again for every provider/fixture candidate.
-        // This cache is local: another clock/receipt always recomputes the facts.
-        let prepared = snapshot.fixtures.map { fixture in
-            (fixture: fixture, kickoff: fixture.kickoff,
-             identity: fixtureMetadata(for: fixture, in: snapshot, at: now))
-        }
-        let reviewedBySport = Dictionary(grouping: prepared) {
-            AnalyticalDataEngine.normalizedCategoryKey($0.fixture.sport)
-        }
-        for event in remaining where event.sportsFixture == nil {
-            guard let start = event.kickoffDate else { continue }
-            let candidates = (reviewedBySport[event.normalizedCategory] ?? []).filter { row in
-                guard let officialStart = row.kickoff,
-                      abs(officialStart.timeIntervalSince(start)) <= kickoffTolerance else { return false }
-                return providerMatches(event, fixture: row.identity, kickoff: row.kickoff,
-                                allowUnmarkedLeague: true, admittingUnmarkedLeague: true)
-            }
-            guard candidates.count == 1, let candidate = candidates.first?.fixture else { continue }
-            if event.normalizedCategory == "football", event.competitionID == nil,
-               nameKey(event.category ?? "") == "football", !(event.title ?? "").contains(" · ") {
-                // A supported league must not absorb a same-time reviewed cup
-                // or other competition receipt just because that other lane is
-                // not eligible to establish a new unmarked provider alias.
-                let home = FootballCompetitionCatalog.canonicalClubID(for: event.homeName)
-                let away = FootballCompetitionCatalog.canonicalClubID(for: event.awayName)
-                let ambiguous = (reviewedBySport["football"] ?? []).contains { row in
-                    let peer = row.fixture
-                    guard peer.id != candidate.id, row.kickoff == start,
-                          peer.eventKind == .match, peer.participants.count == 2,
-                          peer.squad == Squad(gender: .men, ageGroup: "senior"),
-                          row.identity.verified,
-                          home != nil, away != nil else { return false }
-                    let participants = orderedParticipants(peer.participants)
-                    return home == FootballCompetitionCatalog.canonicalClubID(for: participants[0].name)
-                        && away == FootballCompetitionCatalog.canonicalClubID(for: participants[1].name)
-                }
-                guard !ambiguous else { continue }
-            }
-            uniqueProviderJoins[event.id] = candidate.id
-        }
-        for row in prepared where row.fixture.sport != "cricket" {
-            let fixture = row.fixture
-            guard let kickoff = row.kickoff,
-                  fixture.eventKind != .match || fixture.participants.count == 2 else { continue }
-            let identity = row.identity
-            // A held result is not authority to erase an independently current
-            // provider listing. Only admitted terminal facts may revoke it.
-            if fixture.status == .finished || fixture.status == .cancelled {
-                guard identity.verified else { continue }
-            }
-            let matching = remaining.filter {
-                $0.sportsFixture == nil
-                    ? uniqueProviderJoins[$0.id] == fixture.id
-                    : providerMatches($0, fixture: identity, kickoff: kickoff)
-            }
-            let matchedIDs = Set(matching.map(\.id))
-            remaining.removeAll { matchedIDs.contains($0.id) }
-            guard fixture.status != .finished, fixture.status != .cancelled,
+        let projected = snapshot.fixtures.compactMap { fixture -> EventReference? in
+            guard fixture.sport != "cricket", let kickoff = fixture.kickoff,
+                  fixture.eventKind != .match || fixture.participants.count == 2,
+                  fixture.status != .finished, fixture.status != .cancelled,
                   kickoff >= now.addingTimeInterval(-14 * 86400),
-                  kickoff <= now.addingTimeInterval(CatalogTimingPolicy.retentionFutureHorizon) else { continue }
-            var seen = Set<String>()
-            let sources = matching.filter { currentIDs?.contains($0.id) ?? true }.flatMap { $0.sources ?? [] }.filter {
-                StreamPluginProviderMatching.isActiveCatalogSource($0) && seen.insert("\($0.source)|\($0.id)").inserted
-            }
-            let metadata = fixtureMetadata(for: fixture, in: snapshot,
-                providerObservedAt: currentProviderEvents != nil && !sources.isEmpty ? currentProviderObservedAt : nil,
-                providerEventIDs: matching.filter { $0.sportsFixture == nil }.map(\.id), at: now)
-            result.append(projectedEvent(for: fixture, metadata: metadata, kickoff: kickoff,
-                sources: sources, badgeEvent: matching.first))
+                  kickoff <= now.addingTimeInterval(CatalogTimingPolicy.retentionFutureHorizon) else { return nil }
+            return projectedEvent(for: fixture, metadata: fixtureMetadata(for: fixture, in: snapshot, at: now), kickoff: kickoff)
         }
-        return remaining + result
+        return remaining + projected
     }
 
     private static func fixtureMetadata(for fixture: Fixture, in snapshot: Snapshot,
-                                        providerObservedAt: Date? = nil, providerEventIDs: [String]? = nil,
                                         at now: Date = .init()) -> SportsFixtureMetadata {
         let covered = snapshot.coverage.first { $0.competitionKey == fixture.competitionKey }?.status == .covered
         let identityObservedAt = date(fixture.source.observedAt) ?? .distantPast
@@ -565,22 +498,20 @@ enum SportsFixtureCatalog {
             eventKind: fixture.eventKind, title: fixture.title, participants: fixture.participants, squad: fixture.squad,
             status: fixture.status, observedAt: observedAt,
             verified: (verifiedRow || (fixture.source.verification == nil && covered))
-                && snapshot.sourceStatus.verifiesCurrentRows, providerObservedAt: providerObservedAt,
-            providerEventIDs: providerEventIDs, reportedScore: fixture.reportedScore,
+                && snapshot.sourceStatus.verifiesCurrentRows, reportedScore: fixture.reportedScore,
             reportedScoreObservedAt: fixture.reportedScore == nil ? nil : date(fixture.source.observedAt),
             identityObservedAt: identityObservedAt)
     }
 
     @MainActor
-    private static func projectedEvent(for fixture: Fixture, metadata: SportsFixtureMetadata, kickoff: Date,
-                                       sources: [NexusASource], badgeEvent: EventReference?) -> EventReference {
+    private static func projectedEvent(for fixture: Fixture, metadata: SportsFixtureMetadata, kickoff: Date) -> EventReference {
         let participants = orderedParticipants(fixture.participants)
         let teams: NexusATeams? = fixture.eventKind == .match ? .init(
-            home: .init(name: participants[0].name, badge: badgeEvent?.teams?.home?.badge),
-            away: .init(name: participants[1].name, badge: badgeEvent?.teams?.away?.badge)) : nil
+            home: .init(name: participants[0].name, badge: nil),
+            away: .init(name: participants[1].name, badge: nil)) : nil
         return .init(id: fixture.id, title: fixture.title, category: fixture.sport,
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false, teams: teams,
-            sources: sources, sportsFixture: metadata, competitionID: fixture.competitionId)
+            sources: [], sportsFixture: metadata, competitionID: fixture.competitionId)
     }
 }
 
@@ -596,10 +527,6 @@ struct SportsFixtureMetadata: Codable, Equatable, Sendable {
     let status: SportsFixtureCatalog.Status
     let observedAt: Date
     let verified: Bool
-    let providerObservedAt: Date?
-    /// Exact provider identities attached by the reviewed fixture merge, never
-    /// inferred by a consumer from team names or kickoff alone.
-    let providerEventIDs: [String]?
     let reportedScore: UCLReportedScore?
     let reportedScoreObservedAt: Date?
     /// Successful verification of fixture identity is independent of the
@@ -609,7 +536,7 @@ struct SportsFixtureMetadata: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case fixtureID, sport, competitionID, competitionName, eventKind, title, participants, squad, status
-        case observedAt, verified, providerObservedAt, providerEventIDs, reportedScore, reportedScoreObservedAt, identityObservedAt
+        case observedAt, verified, reportedScore, reportedScoreObservedAt, identityObservedAt
     }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -625,8 +552,6 @@ struct SportsFixtureMetadata: Codable, Equatable, Sendable {
         observedAt = try values.decode(Date.self, forKey: .observedAt)
         identityObservedAt = try values.decodeIfPresent(Date.self, forKey: .identityObservedAt)
         verified = try values.decode(Bool.self, forKey: .verified)
-        providerObservedAt = try values.decodeIfPresent(Date.self, forKey: .providerObservedAt)
-        providerEventIDs = try values.decodeIfPresent([String].self, forKey: .providerEventIDs)
         let candidate = try? values.decode(UCLReportedScore.self, forKey: .reportedScore)
         reportedScore = candidate?.isWellFormed == true ? candidate : nil
         reportedScoreObservedAt = try? values.decode(Date.self, forKey: .reportedScoreObservedAt)
@@ -635,12 +560,10 @@ struct SportsFixtureMetadata: Codable, Equatable, Sendable {
     init(fixtureID: String, sport: String, competitionID: String, competitionName: String,
          eventKind: SportsFixtureCatalog.EventKind, title: String, participants: [SportsFixtureCatalog.Participant],
          squad: SportsFixtureCatalog.Squad, status: SportsFixtureCatalog.Status, observedAt: Date, verified: Bool,
-         providerObservedAt: Date? = nil, providerEventIDs: [String]? = nil,
          reportedScore: UCLReportedScore? = nil, reportedScoreObservedAt: Date? = nil, identityObservedAt: Date? = nil) {
         self.fixtureID = fixtureID; self.sport = sport; self.competitionID = competitionID; self.competitionName = competitionName
         self.eventKind = eventKind; self.title = title; self.participants = participants; self.squad = squad
-        self.status = status; self.observedAt = observedAt; self.verified = verified; self.providerObservedAt = providerObservedAt
-        self.providerEventIDs = providerEventIDs
+        self.status = status; self.observedAt = observedAt; self.verified = verified
         self.reportedScore = reportedScore; self.reportedScoreObservedAt = reportedScoreObservedAt
         self.identityObservedAt = identityObservedAt
     }
@@ -660,10 +583,6 @@ struct SportsFixtureMetadata: Codable, Equatable, Sendable {
             && observedAt >= kickoff.addingTimeInterval(-300)
             && now.timeIntervalSince(observedAt) > SportsFixtureCatalog.statusFreshness
             && (0..<Self.unconfirmedLiveWindow).contains(now.timeIntervalSince(kickoff))
-    }
-    func hasCurrentProviderListing(at now: Date) -> Bool {
-        guard let providerObservedAt else { return false }
-        return (-300...SportsFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(providerObservedAt))
     }
 }
 

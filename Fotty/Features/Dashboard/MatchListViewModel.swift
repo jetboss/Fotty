@@ -392,13 +392,11 @@ final class MatchListViewModel {
             // Accessibility/UI tests only need a representative first screen.
             // Bounding the fixture tree keeps XCTest's audit analyzer below its
             // hard timeout without changing production data or layout behavior.
+            // Rows come from the cached schedules; cached rows from the closed
+            // shared catalog are not restored.
             self.matches = AppRuntime.isAutomatedTesting
                 ? Array(cachedMatches.prefix(40))
-                : SportsFixtureCatalog.merging(
-                    into: CricketFixtureCatalog.merging(
-                        into: CPLSchedule.merging(into: cachedMatches, fixtures: cplFixtures),
-                        snapshot: cricketFixtureSnapshot),
-                    snapshot: sportsFixtureSnapshot, currentProviderEvents: [])
+                : scheduleRows(at: Date())
             print("[MatchList] Loaded \(matches.count) items from SwiftData cache.")
         } catch {
             print("[MatchList] SwiftData fetch failed: \(error.localizedDescription)")
@@ -537,13 +535,7 @@ final class MatchListViewModel {
 
     /// Rebuild Home's near-term rows from the accepted schedules.
     private func applySchedules() {
-        let now = currentDate()
-        let nearTerm = SportsFixtureCatalog.merging(
-            into: CricketFixtureCatalog.merging(
-                into: CPLSchedule.merging(into: [], fixtures: cplFixtures, at: now),
-                snapshot: cricketFixtureSnapshot, at: now, currentProviderEvents: []),
-            snapshot: sportsFixtureSnapshot, at: now, currentProviderEvents: [])
-            .filter { $0.passesNearTermLiveListWindow(at: now) }
+        let nearTerm = scheduleRows(at: currentDate())
 
         recordIdentityDrift(in: nearTerm)
 
@@ -552,6 +544,16 @@ final class MatchListViewModel {
         // meaning; individual user actions retain their focused animations.
         self.matches = nearTerm
         scheduleCacheWrite(nearTerm)
+    }
+
+    /// Home's near-term rows from the accepted CPL, cricket and sports schedules.
+    private func scheduleRows(at now: Date) -> [EventReference] {
+        SportsFixtureCatalog.merging(
+            into: CricketFixtureCatalog.merging(
+                into: CPLSchedule.merging(into: [], fixtures: cplFixtures, at: now),
+                snapshot: cricketFixtureSnapshot, at: now),
+            snapshot: sportsFixtureSnapshot, at: now)
+            .filter { $0.passesNearTermLiveListWindow(at: now) }
     }
 
     private func recordIdentityDrift(in events: [AnalyticalDataEngine.EventReference]) {

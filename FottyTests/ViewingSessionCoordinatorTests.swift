@@ -291,7 +291,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
                     eventKind: .match, title: "Chelsea vs Brighton", participants: [
                         .init(id: "chelsea", name: "Chelsea"), .init(id: "brighton", name: "Brighton")],
                     squad: .init(gender: .men, ageGroup: "senior"), status: .finished,
-                    observedAt: now, verified: true, providerObservedAt: now, providerEventIDs: [match.id])
+                    observedAt: now, verified: true)
                 current = event(match.id, home: "Chelsea", away: "Brighton", date: kickoff,
                     competition: "premier-league", fixture: metadata)
                 XCTAssertTrue(MatchStartPolicy(event: current).isStopped)
@@ -481,7 +481,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
                 eventKind: .match, title: "Chelsea vs Brighton", participants: [
                     .init(id: "chelsea", name: "Chelsea"), .init(id: "brighton", name: "Brighton")],
                 squad: .init(gender: .men, ageGroup: "senior"), status: .finished,
-                observedAt: now, verified: true, providerObservedAt: now, providerEventIDs: [match.id])
+                observedAt: now, verified: true)
             let choice = session(for: match)
             var current = match
             let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
@@ -2640,47 +2640,6 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(result).results(query: "Chelsea Brighton").map(\.id), [premier.id])
     }
 
-    func testCanonicalProviderAliasIsDuplicateExclusionNotMediaOwnerReuse() async throws {
-        let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let date = Int64(now.addingTimeInterval(-60).timeIntervalSince1970)
-        let alias = event("plain-la-dodgers", home: "Atlanta Braves", away: "LA Dodgers", category: "baseball", date: date)
-        let metadata = SportsFixtureMetadata(fixtureID: "sports-fixture:mlb:reviewed", sport: "baseball",
-            competitionID: "mlb", competitionName: "MLB", eventKind: .match,
-            title: "Atlanta Braves vs Los Angeles Dodgers",
-            participants: [.init(id: "atlanta-braves", name: "Atlanta Braves"), .init(id: "los-angeles-dodgers", name: "Los Angeles Dodgers")],
-            squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: now, verified: true,
-            providerObservedAt: now, providerEventIDs: [alias.id])
-        let canonical = event(metadata.fixtureID, home: "Atlanta Braves", away: "Los Angeles Dodgers", category: "baseball",
-            date: date, competition: "mlb", fixture: metadata)
-        XCTAssertFalse(ViewingSessionCoordinator.canReuse(alias, for: canonical), "Owner reuse must retain its strict same-ID contract")
-        XCTAssertTrue(ViewingSessionCoordinator.representsSameFixture(alias, as: canonical))
-        XCTAssertTrue(ViewingSessionCoordinator.representsSameFixture(canonical, as: alias))
-        let tomorrow = event("tomorrow", home: alias.homeName, away: alias.awayName, category: "baseball", date: date + 86_400)
-        let women = event("women", home: "Atlanta Braves Women", away: "LA Dodgers Women", category: "baseball", date: date)
-        let wrongLeague = event("wrong-league", home: alias.homeName, away: alias.awayName, category: "baseball", date: date, competition: "npb")
-        XCTAssertFalse(ViewingSessionCoordinator.representsSameFixture(tomorrow, as: canonical))
-        XCTAssertFalse(ViewingSessionCoordinator.representsSameFixture(women, as: canonical))
-        XCTAssertFalse(ViewingSessionCoordinator.representsSameFixture(wrongLeague, as: canonical))
-        let other = event("other", category: "baseball", date: date)
-        let prepared = await ViewingMatchPickerPolicy.prepare(events: [canonical, other], catalog: [canonical, other], excluding: [alias], now: now)
-        XCTAssertEqual(try XCTUnwrap(prepared).events.map(\.id), [other.id])
-
-        let factory = ModelFactory()
-        var requests = 0
-        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
-            resolvePlayback: { _ in requests += 1; return self.outcome(for: canonical, sessions: [self.session(for: canonical)]) },
-            catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
-        defer { owner.stop() }
-        owner.open(event: alias, sessions: [session(for: alias)])
-        owner.showMatchPicker(); owner.chooseSecond(canonical)
-        XCTAssertEqual(requests, 0)
-        XCTAssertEqual(owner.panes.count, 1)
-        owner.openMulti(slots: [slot(alias), slot(other)])
-        XCTAssertFalse(owner.replacePreparedPane(owner.panes[1].id, preserving: owner.panes[0].id,
-            event: canonical, sessions: [session(for: canonical)]))
-        XCTAssertEqual(factory.models.count, 2)
-    }
-
     func testAcceptedTerminalReplacementCannotRetireCurrentTarget() {
         let factory = ModelFactory()
         let viewing = coordinator(factory: factory)
@@ -2693,8 +2652,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
                 competitionID: "mlb", competitionName: "MLB", eventKind: .match,
                 title: "Atlanta Braves vs Los Angeles Dodgers",
                 participants: [.init(id: "atlanta-braves", name: "Atlanta Braves"), .init(id: "los-angeles-dodgers", name: "Los Angeles Dodgers")],
-                squad: .init(gender: .men, ageGroup: "senior"), status: status, observedAt: now, verified: true,
-                providerObservedAt: now, providerEventIDs: ["stopped"])
+                squad: .init(gender: .men, ageGroup: "senior"), status: status, observedAt: now, verified: true)
             let stopped = event("stopped", home: "Atlanta Braves", away: "Los Angeles Dodgers", category: "baseball",
                 date: Int64(now.addingTimeInterval(-3_600).timeIntervalSince1970), competition: "mlb", fixture: metadata)
             XCTAssertTrue(MatchStartPolicy(event: stopped).isStopped)
@@ -3755,7 +3713,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
                 competitionID: "premier-league", competitionName: "Premier League", eventKind: .match,
                 title: "Liverpool vs \(away)", participants: [.init(id: "liverpool", name: "Liverpool"),
                     .init(id: away.lowercased(), name: away)], squad: .init(gender: .men, ageGroup: "senior"),
-                status: status, observedAt: now, verified: true, providerObservedAt: now, providerEventIDs: [id])
+                status: status, observedAt: now, verified: true)
         }
 
         for paused in [false, true] {

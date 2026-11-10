@@ -25,10 +25,6 @@ enum CPLTeam: String, CaseIterable, Sendable {
         }
     )
 
-    func matches(in text: String) -> Bool {
-        matches(normalizedHaystack: Self.normalizedHaystack(text))
-    }
-
     static func containsTwoDistinctTeams(in text: String) -> Bool {
         let haystack = normalizedHaystack(text)
         var foundTeam = false
@@ -549,9 +545,8 @@ enum CPLSchedule {
         fixtures scheduleFixtures: [Fixture] = fixtures,
         at now: Date = .init()
     ) -> [AnalyticalDataEngine.EventReference] {
-        // Drop our own cached rows first: only a fresh provider match may supply
-        // sources. The snapshot remains useful offline but cannot promise Watch.
-        var remaining = catalog.filter { !isManagedFixtureID($0.id) }
+        // Earlier projections of this schedule are replaced.
+        let remaining = catalog.filter { !isManagedFixtureID($0.id) }
         guard let firstFixture = scheduleFixtures.first,
               let lastFixture = scheduleFixtures.last else { return remaining }
         let start = firstFixture.kickoff.addingTimeInterval(-7 * 24 * 3600)
@@ -560,44 +555,14 @@ enum CPLSchedule {
 
         // T20 rows should not linger into the following day. Eight hours covers
         // rain delays and is shared by discovery, saved rows and channel actions.
-        let active = scheduleFixtures.filter { $0.kickoff > now.addingTimeInterval(-CatalogTimingPolicy.cplWindow) }
-        var events: [AnalyticalDataEngine.EventReference] = []
-        for fixture in active {
-            let matching = remaining.filter { matches($0, fixture: fixture) }
-            let matchedIDs = Set(matching.map(\.id))
-            remaining.removeAll { matchedIDs.contains($0.id) }
-            var seenSources = Set<String>()
-            let sources = matching.flatMap { $0.sources ?? [] }.filter {
-                StreamPluginProviderMatching.isActiveCatalogSource($0)
-                    && seenSources.insert("\($0.source)|\($0.id)").inserted
-            }
-            events.append(fixture.event(sources: sources))
-        }
-        // Within the verified season, a contradictory provider CPL time must
-        // not appear beside the trusted fixture as a second match. Other cricket
-        // competitions and standalone channels remain independent.
+        let events = scheduleFixtures
+            .filter { $0.kickoff > now.addingTimeInterval(-CatalogTimingPolicy.cplWindow) }
+            .map { $0.event() }
+        // Within the verified season, any other CPL row must not appear beside
+        // the trusted fixture as a second match.
         return remaining.filter { !$0.isCPLFixture } + events
     }
 
-    @MainActor
-    static func matches(_ event: AnalyticalDataEngine.EventReference, fixture: Fixture) -> Bool {
-        guard event.normalizedCategory == "cricket", !event.isBroadcastChannel,
-              let kickoff = event.kickoffDate, abs(kickoff.timeIntervalSince(fixture.kickoff)) <= 60 * 60,
-              let homeName = fixture.homeName, let awayName = fixture.awayName else { return false }
-        let homeMatchesEventHome = fixture.home?.matches(in: event.homeName) ?? namesMatch(homeName, event.homeName)
-        let awayMatchesEventAway = fixture.away?.matches(in: event.awayName) ?? namesMatch(awayName, event.awayName)
-        let awayMatchesEventHome = fixture.away?.matches(in: event.homeName) ?? namesMatch(awayName, event.homeName)
-        let homeMatchesEventAway = fixture.home?.matches(in: event.awayName) ?? namesMatch(homeName, event.awayName)
-        return (homeMatchesEventHome && awayMatchesEventAway)
-            || (awayMatchesEventHome && homeMatchesEventAway)
-    }
-
-    private static func namesMatch(_ expected: String, _ candidate: String) -> Bool {
-        expected.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            == candidate.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-    }
 }
 
 /// Retrieves the small reviewed manifest independently from the stream provider.

@@ -291,19 +291,10 @@ struct HomeSportsDiscovery {
                 if cricket.isLive(at: now) { phase = .live }
                 else if cricket.verified, cricket.status == .scheduled,
                         let kickoff = event.kickoffDate, kickoff > now { phase = .upcoming }
-                else if !cricket.status.stopsPlayback, cricket.hasCurrentProviderListing(at: now),
-                        StreamPluginProviderMatching.hasActiveCatalogSource(event) {
-                    // A fresh provider receipt makes the source discoverable,
-                    // but never upgrades held schedule data to official LIVE.
-                    phase = .listedNow
-                }
                 else { phase = .unconfirmed }
             } else if let fixture = event.sportsFixture, official == nil {
                 if fixture.isLive(at: now) { phase = .live }
                 else if fixture.verified, fixture.status == .scheduled, let kickoff = event.kickoffDate, kickoff > now { phase = .upcoming }
-                else if !fixture.status.stopsPlayback, fixture.hasCurrentProviderListing(at: now), StreamPluginProviderMatching.hasActiveCatalogSource(event) {
-                    phase = .listedNow
-                }
                 else if VerifiedFixtureStartingPolicy.contains(event, at: now) { phase = .upcoming }
                 else { phase = .unconfirmed }
             } else if official?.isLive == true {

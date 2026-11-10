@@ -196,11 +196,10 @@ final class HomeTerminalReconciliationTests: XCTestCase {
         }
     }
 
-    func testSeparateTerminalRegistryVetoesRowsRecreatedAfterPlayableCatalogRemovesProvider() throws {
+    func testSeparateTerminalRegistryVetoesRecreatedRows() throws {
         for terminal in [SportsFixtureCatalog.Status.finished, .cancelled] {
             let receipt = terminalSnapshot(terminal)
             let raw = provider()
-            XCTAssertTrue(SportsFixtureCatalog.merging(into: [raw], snapshot: receipt, at: now).isEmpty)
             let terminalEvents = SportsFixtureCatalog.terminalEvents(from: receipt)
             XCTAssertEqual(terminalEvents.count, 1)
             // Both an old provider list and source-free score synthesis can

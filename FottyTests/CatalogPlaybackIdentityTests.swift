@@ -61,74 +61,6 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
         }
     }
 
-    func testRegisteredPrimaryAssociationSelectsOnlyItsAdvertisedProviderRowAndKeepsRealSources() throws {
-        let official = registeredOfficialFixture(providerAlias: false), request = StreamPlaybackRequest(event: official)
-        let association = registeredPrimaryAssociation(for: official)
-        let selected = event(id: "registered-provider-event", home: "Chelsea")
-        let sibling = event(id: "unrelated-provider-event", home: "Chelsea")
-        guard case .matched(let result) = CatalogPlaybackIdentity.registeredSelection(for: request, in: [sibling, selected],
-            catalogObservedAt: kickoff, association: association, at: kickoff) else { return XCTFail("Expected the exact registered current provider row") }
-        XCTAssertEqual(result.id, selected.id)
-        XCTAssertEqual(result.sources?.map { $0.source + ":" + $0.id }, selected.sources?.map { $0.source + ":" + $0.id })
-        XCTAssertEqual(request.matchID, official.id)
-        XCTAssertEqual(request.kickoffDate, official.kickoffDate)
-        guard case .missing = CatalogPlaybackIdentity.selection(for: request, in: [selected]) else {
-            return XCTFail("Ordinary recovery still requires a previously accepted unmarked provider alias")
-        }
-        guard case .missing = CatalogPlaybackIdentity.registeredSelection(for: request, in: [sibling],
-            catalogObservedAt: kickoff, association: association, at: kickoff) else {
-            return XCTFail("An equivalent pair under another provider ID cannot replace the registered lookup")
-        }
-    }
-
-    func testRegisteredPrimaryAssociationRejectsChangedSourceClockSquadAndReusedID() {
-        let official = registeredOfficialFixture(), request = StreamPlaybackRequest(event: official)
-        let association = registeredPrimaryAssociation(for: official)
-        let good = event(id: "registered-provider-event", home: "Chelsea")
-        let quarantined = EventReference(id: good.id, title: good.title, category: good.category, date: good.date,
-            poster: good.poster, popular: good.popular, teams: good.teams, sources: good.sources, hasCatalogIdentityConflict: true)
-        let conflictingCompetition = EventReference(id: good.id, title: good.title, category: good.category, date: good.date,
-            poster: good.poster, popular: good.popular, teams: good.teams, sources: good.sources, competitionID: "champions-league")
-        let cases = [[event(id: good.id, home: "Chelsea", date: kickoff.addingTimeInterval(1))],
-                     [event(id: good.id, home: "Chelsea", away: "Arsenal")],
-                     [event(id: good.id, home: "Chelsea Women", away: "Liverpool Women")],
-                     [good, event(id: good.id, home: "Chelsea", away: "Arsenal")], [quarantined], [conflictingCompetition]]
-        for rows in cases {
-            guard case .conflicting = CatalogPlaybackIdentity.registeredSelection(for: request, in: rows,
-                catalogObservedAt: kickoff, association: association, at: kickoff) else {
-                return XCTFail("Registered ID must not hide a changed exact source identity or conflicting sibling")
-            }
-        }
-        let substitutedStream = registeredPrimaryAssociation(for: official, streamID: "different-stream")
-        guard case .conflicting = CatalogPlaybackIdentity.registeredSelection(for: request, in: [good],
-            catalogObservedAt: kickoff, association: substitutedStream, at: kickoff) else {
-            return XCTFail("A StreamEx event cannot manufacture a different advertised stream identity")
-        }
-    }
-
-    func testRegisteredPrimaryAssociationRequiresFreshCatalogAndCurrentCanonicalFixture() {
-        let official = registeredOfficialFixture(), association = registeredPrimaryAssociation(for: official)
-        let row = event(id: "registered-provider-event", home: "Chelsea")
-        for receipt in [kickoff.addingTimeInterval(-180), kickoff.addingTimeInterval(1)] {
-            guard case .conflicting = CatalogPlaybackIdentity.registeredSelection(for: .init(event: official), in: [row],
-                catalogObservedAt: receipt, association: association, at: kickoff) else {
-                return XCTFail("A stale or future primary-catalog receipt is not a fresh admitted lookup")
-            }
-        }
-        for changed in [registeredOfficialFixture(status: .finished), registeredOfficialFixture(verified: false),
-                        registeredOfficialFixture(women: true)] {
-            guard case .conflicting = CatalogPlaybackIdentity.registeredSelection(for: .init(event: changed), in: [row],
-                catalogObservedAt: kickoff, association: association, at: kickoff) else {
-                return XCTFail("The association must be rechecked against current terminal/squad/verification facts")
-            }
-        }
-        let later = kickoff.addingTimeInterval(601)
-        guard case .conflicting = CatalogPlaybackIdentity.registeredSelection(for: .init(event: official), in: [row],
-            catalogObservedAt: later, association: association, at: later) else {
-            return XCTFail("A newly read directory cannot renew expired registry source/link evidence")
-        }
-    }
-
     func testNamesCannotAdmitWrongOpponentDespitePopularityAndSources() {
         let wrong = event(away: "Chelsea", popular: true)
         XCTAssertNil(select([wrong]))
@@ -755,13 +687,12 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
     }
 
     private func registeredOfficialFixture(status: SportsFixtureCatalog.Status = .live, verified: Bool = true,
-                                           women: Bool = false, providerAlias: Bool = true) -> EventReference {
+                                           women: Bool = false) -> EventReference {
         let home = women ? "Chelsea Women" : "Chelsea", away = women ? "Liverpool Women" : "Liverpool"
         let metadata = SportsFixtureMetadata(fixtureID: "sports-fixture:premier-league:registered", sport: "football",
             competitionID: "premier-league", competitionName: "Premier League", eventKind: .match,
             title: "\(home) vs \(away)", participants: [.init(id: "home", name: home), .init(id: "away", name: away)],
-            squad: .init(gender: women ? .women : .men, ageGroup: "senior"), status: status, observedAt: kickoff, verified: verified,
-            providerEventIDs: providerAlias ? ["registered-provider-event"] : nil)
+            squad: .init(gender: women ? .women : .men, ageGroup: "senior"), status: status, observedAt: kickoff, verified: verified)
         return .init(id: metadata.fixtureID, title: metadata.title, category: "football", date: Int64(kickoff.timeIntervalSince1970),
             poster: nil, popular: false, teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
             sources: [], sportsFixture: metadata, competitionID: "premier-league")

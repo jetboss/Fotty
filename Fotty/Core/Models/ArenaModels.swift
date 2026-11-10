@@ -356,12 +356,10 @@ final class MyMatchdayStore {
             for saved in existing {
                 if let fixture = saved.sportsFixture {
                     reminderIDs.insert(fixture.fixtureID)
-                    reminderIDs.formUnion(fixture.providerEventIDs ?? [])
                 }
             }
             if let fixture = event.sportsFixture {
                 reminderIDs.insert(fixture.fixtureID)
-                reminderIDs.formUnion(fixture.providerEventIDs ?? [])
             }
             reminderIDs.forEach { onRemove?($0) }
             return .removed
@@ -425,7 +423,6 @@ final class MyMatchdayStore {
         var reminderIDs: Set<String> = [eventID]
         if let fixture = saved.sportsFixture {
             reminderIDs.insert(fixture.fixtureID)
-            reminderIDs.formUnion(fixture.providerEventIDs ?? [])
         }
         reminderIDs.forEach { onRemove?($0) }
         return .removed

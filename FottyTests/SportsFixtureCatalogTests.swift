@@ -193,115 +193,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
         }
     }
 
-    func testFreshProviderFallbackIsBoundedAndDoesNotRenewFromRetainedSources() throws {
-        let failed = snapshot([fixture(status: .live, hours: -1)], status: .partial, unavailable: ["nba"])
-        let source = provider(hours: -1)
-        let fresh = try XCTUnwrap(SportsFixtureCatalog.merging(into: [source], snapshot: failed, at: now,
-            currentProviderEvents: [source], currentProviderObservedAt: now).first)
-        XCTAssertEqual(HomeSportsDiscovery(events: [fresh], now: now).items.first?.phase, .listedNow)
-        XCTAssertEqual(MatchdayEventStatePolicy.presentationLabel(for: fresh, at: now), "Broadcast listed")
-        XCTAssertFalse(fresh.sportsFixture?.isLive(at: now) ?? true)
-        XCTAssertEqual(HomeSportsDiscovery(events: [fresh], now: now.addingTimeInterval(1801)).items.first?.phase, .unconfirmed)
-        let retained = try XCTUnwrap(SportsFixtureCatalog.merging(into: [source], snapshot: failed, at: now,
-            currentProviderEvents: [], currentProviderObservedAt: now).first)
-        XCTAssertNil(retained.sportsFixture?.providerObservedAt)
-        XCTAssertTrue(retained.sources?.isEmpty == true)
-        let noReceipt = try XCTUnwrap(SportsFixtureCatalog.merging(into: [source], snapshot: failed, at: now).first)
-        XCTAssertNil(noReceipt.sportsFixture?.providerObservedAt)
-        XCTAssertEqual(HomeSportsDiscovery(events: [noReceipt], now: now).items.first?.phase, .unconfirmed)
-    }
-
-    func testUnverifiedTerminalMergePreservesCurrentProviderThroughHomeAndWatchPolicy() throws {
-        let source = provider(hours: -1)
-        for terminal in [SportsFixtureCatalog.Status.finished, .cancelled] {
-            let candidates = [
-                snapshot([fixture(status: terminal, hours: -1, verification: .held)],
-                    status: .partial, unavailable: ["nba"]),
-                snapshot([fixture(status: terminal, hours: -1)], status: .partial, unavailable: ["nba"]),
-                snapshot([fixture(status: terminal, hours: -1)], status: .lastKnownGood)
-            ]
-            for candidate in candidates {
-                let accepted = try SportsFixtureCatalog.validatedSnapshot(from: JSONEncoder().encode(candidate), now: now)
-                let events = SportsFixtureCatalog.merging(into: [source], snapshot: accepted, at: now,
-                    currentProviderEvents: [source], currentProviderObservedAt: now)
-                XCTAssertEqual(events.map(\.id), [source.id])
-                let retained = try XCTUnwrap(events.first)
-                XCTAssertNil(retained.sportsFixture, "Held terminal metadata must not replace the independent listing")
-                XCTAssertEqual(retained.sources?.map(\.id), source.sources?.map(\.id))
-                let terminals = SportsFixtureCatalog.terminalEvents(from: accepted)
-                XCTAssertTrue(terminals.isEmpty)
-                let home = HomeSportsDiscovery(events: events, now: now, terminalEvents: terminals)
-                XCTAssertEqual(home.items.map(\.id), [source.id])
-                XCTAssertEqual(home.items.first?.phase, .listedNow)
-                XCTAssertFalse(home.items.contains(where: \.hasConfirmedLiveStatus), "A provider listing is not official LIVE proof")
-                let action = try XCTUnwrap(CurrentEventBroadcastPolicy.action(for: retained, in: events, at: now))
-                XCTAssertEqual(action.event.id, source.id)
-                XCTAssertEqual(action.event.sources?.map(\.id), source.sources?.map(\.id))
-            }
-        }
-    }
-
-    func testVerifiedTerminalMergeStillRevokesCurrentProviderThroughHomeAndWatchPolicy() throws {
-        let source = provider(hours: -1)
-        for terminal in [SportsFixtureCatalog.Status.finished, .cancelled] {
-            for candidate in [snapshot([fixture(status: terminal, hours: -1, verification: .verified)]),
-                              snapshot([fixture(status: terminal, hours: -1)])] {
-                let accepted = try SportsFixtureCatalog.validatedSnapshot(from: JSONEncoder().encode(candidate), now: now)
-                let events = SportsFixtureCatalog.merging(into: [source], snapshot: accepted, at: now,
-                    currentProviderEvents: [source], currentProviderObservedAt: now)
-                XCTAssertTrue(events.isEmpty)
-                let terminals = SportsFixtureCatalog.terminalEvents(from: accepted)
-                let fact = try XCTUnwrap(terminals.first)
-                XCTAssertEqual(terminals.count, 1)
-                XCTAssertTrue(HomeSportsDiscovery(events: events, now: now, terminalEvents: terminals).items.isEmpty)
-                XCTAssertNil(CurrentEventBroadcastPolicy.action(for: fact, in: events + terminals, at: now))
-            }
-        }
-    }
-
-    func testTerminalAdmissionKeepsStableIdentityAndExistingConflictFences() throws {
-        let source = provider(hours: -1)
-        let original = try XCTUnwrap(SportsFixtureCatalog.merging(into: [source],
-            snapshot: snapshot([fixture(status: .live, hours: -1)]), at: now,
-            currentProviderEvents: [source], currentProviderObservedAt: now).first)
-        let stopped = fixture(status: .finished, hours: -1)
-        let terminal = try XCTUnwrap(SportsFixtureCatalog.terminalEvents(from: snapshot([stopped])).first)
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: original, in: [terminal], at: now, status: .inPlay))
-        let legacy = EventReference(id: "saved-provider", title: original.title, category: original.category,
-            date: original.date, poster: nil, popular: false, teams: original.teams, sources: original.sources,
-            sportsFixture: original.sportsFixture)
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: legacy, in: [terminal], at: now, status: .inPlay))
-
-        // Equal teams/time do not transfer a terminal fact between stable
-        // fixture IDs (for example two differently classified cricket games).
-        let unrelated = try XCTUnwrap(SportsFixtureCatalog.terminalEvents(from: snapshot([
-            fixture("another-fixture", status: .finished, hours: -1)])).first)
-        XCTAssertEqual(CurrentEventBroadcastPolicy.currentEvent(for: original, in: [unrelated], at: now)?.id,
-            original.id)
-        XCTAssertNotNil(CurrentEventBroadcastPolicy.action(for: original, in: [unrelated], at: now))
-
-        let wrongDate = try XCTUnwrap(SportsFixtureCatalog.terminalEvents(from: snapshot([
-            fixture(status: .finished, hours: -2)])).first)
-        let wrongSquad = SportsFixtureCatalog.Fixture(id: stopped.id, sport: stopped.sport, start: stopped.start,
-            status: stopped.status, eventKind: stopped.eventKind, title: stopped.title,
-            competitionId: stopped.competitionId, competitionName: stopped.competitionName,
-            participants: stopped.participants, squad: .init(gender: .women, ageGroup: "senior"), source: stopped.source)
-        let wrongTeam = SportsFixtureCatalog.Fixture(id: stopped.id, sport: stopped.sport, start: stopped.start,
-            status: stopped.status, eventKind: stopped.eventKind, title: "Chicago Bulls vs New York Knicks",
-            competitionId: stopped.competitionId, competitionName: stopped.competitionName,
-            participants: [.init(id: "chicago", name: "Chicago Bulls"), stopped.participants[1]],
-            squad: stopped.squad, source: stopped.source)
-        for conflicting in [wrongDate] + SportsFixtureCatalog.terminalEvents(from: snapshot([wrongSquad]))
-            + SportsFixtureCatalog.terminalEvents(from: snapshot([wrongTeam])) {
-            XCTAssertNil(CurrentEventBroadcastPolicy.currentEvent(for: original, in: [conflicting], at: now))
-            XCTAssertNil(CurrentEventBroadcastPolicy.action(for: original, in: [conflicting], at: now))
-            XCTAssertNil(CurrentEventBroadcastPolicy.currentEvent(for: legacy, in: [conflicting], at: now),
-                "A legacy provider ID cannot turn a typed identity conflict into missing evidence")
-        }
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: original, in: [original, terminal], at: now),
-            "Contradictory duplicate IDs stay fail-closed; the registry must never pick the first row")
-    }
-
     private func reviewedLeague(_ league: String, id: String = "one", hours: Double = 1,
                                 status: SportsFixtureCatalog.Status = .scheduled) -> SportsFixtureCatalog.Fixture {
         let sport = league == "mlb" ? "baseball" : "hockey"
@@ -354,31 +245,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
                 observedAt: stamp(now), verification: .verified))
     }
 
-    func testVerifiedCarabaoReceiptJoinsExactLiverpoolChelseaProviderWithoutRelabelingPremierLeague() throws {
-        let row = carabaoFixture()
-        let receipt = try SportsFixtureCatalog.validatedSnapshot(from: JSONEncoder().encode(snapshot([row])), now: now)
-        for raw in [unmarkedProvider(row), unmarkedProvider(row, competition: "carabao-cup"),
-                    unmarkedProvider(row, title: "Carabao Cup · Liverpool vs Chelsea")] {
-            let joined = SportsFixtureCatalog.merging(into: [raw], snapshot: receipt, at: now,
-                currentProviderEvents: [raw], currentProviderObservedAt: now)
-            XCTAssertEqual(joined.count, 1)
-            let canonical = try XCTUnwrap(joined.first)
-            XCTAssertEqual(canonical.id, row.id)
-            XCTAssertEqual(canonical.competitionID, "carabao-cup")
-            XCTAssertEqual(canonical.sportsFixture?.competitionName, "Carabao Cup")
-            XCTAssertEqual(canonical.sources?.map(\.id), raw.sources?.map(\.id))
-            XCTAssertEqual(canonical.sportsFixture?.providerEventIDs, [raw.id])
-            XCTAssertEqual(AnalyticalDataEngine.footballLeagueTab(for: canonical), .other)
-            XCTAssertEqual(CatalogPlaybackIdentity.matchingEvent(for: .init(event: raw), in: joined)?.id, row.id)
-            XCTAssertEqual(CatalogPlaybackIdentity.matchingEvent(for: .init(event: canonical), in: [raw])?.id, raw.id)
-        }
-        let sourceFree = SportsFixtureCatalog.merging(into: [], snapshot: receipt, at: now)
-        let item = try XCTUnwrap(HomeSportsDiscovery(events: sourceFree, now: now).items.first)
-        XCTAssertEqual(item.phase, .live)
-        XCTAssertFalse(item.canWatch, "A current Cup status receipt must not invent a broadcast source")
-        XCTAssertTrue(item.event.sources?.isEmpty == true)
-    }
-
     func testCarabaoJoinRejectsWrongTimeSquadCompetitionHeldProofAndSamePairAmbiguity() {
         let row = carabaoFixture()
         for raw in [unmarkedProvider(row, seconds: 1), unmarkedProvider(row, seconds: 86_400),
@@ -404,68 +270,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
             snapshot: snapshot([row, carabaoFixture(id: "same-time-league", competition: "premier-league")]), at: now)
         XCTAssertEqual(ambiguous.count, 3)
         XCTAssertTrue(ambiguous.filter { $0.sportsFixture != nil }.allSatisfy { $0.sources?.isEmpty == true })
-    }
-
-    func testVerifiedArsenalLeedsReceiptJoinsTheActualUnmarkedProviderShape() throws {
-        let receipt = ISO8601DateFormatter().date(from: "2026-10-08T14:11:16Z")!
-        let start = ISO8601DateFormatter().date(from: "2026-10-10T11:30:00Z")!
-        let row = arsenalFixture(start: start, receipt: receipt)
-        let raw = arsenalProvider(row)
-        XCTAssertEqual(raw.date, 1_791_631_800_000)
-        let joined = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row], receipt: receipt), at: receipt,
-            currentProviderEvents: [raw], currentProviderObservedAt: receipt)
-        let official = try XCTUnwrap(joined.first)
-        XCTAssertEqual(joined.count, 1)
-        XCTAssertEqual(official.id, row.id)
-        XCTAssertEqual(official.sources?.map { "\($0.source)|\($0.id)" }, raw.sources?.map { "\($0.source)|\($0.id)" })
-        XCTAssertEqual(official.sportsFixture?.providerEventIDs, [raw.id])
-        XCTAssertEqual(AnalyticalDataEngine.deduplicateMatches(joined).count, 1)
-        XCTAssertEqual(CatalogPlaybackIdentity.matchingEvent(for: .init(event: raw), in: joined)?.id, official.id)
-        XCTAssertEqual(CatalogPlaybackIdentity.matchingEvent(for: .init(event: official), in: [raw])?.id, raw.id)
-        let withoutCurrentProvider = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row], receipt: receipt),
-            at: receipt, currentProviderEvents: [])
-        XCTAssertTrue(withoutCurrentProvider.first?.sources?.isEmpty == true)
-        XCTAssertNil(CatalogPlaybackIdentity.matchingEvent(for: .init(event: official), in: [raw, raw]))
-    }
-
-    func testReviewedLegalClubAliasesJoinOfficialFixturesWithoutRelaxingAdmission() throws {
-        for (competition, canonical, legal, officialAway, providerAway) in [
-            ("la-liga", "Real Sociedad", "Real Sociedad de Fútbol", "Levante UD", "Levante"),
-            ("serie-a", "Udinese", "Udinese Calcio", "AC Milan", "Milan")
-        ] {
-            let row = SportsFixtureCatalog.Fixture(id: "sports-fixture:\(competition):legal-name", sport: "football",
-                start: stamp(now.addingTimeInterval(3600)), status: .scheduled, eventKind: .match,
-                title: "\(legal) vs \(officialAway)", competitionId: competition, competitionName: competition.uppercased(),
-                participants: [.init(id: "home", name: legal, role: "home"),
-                               .init(id: "away", name: officialAway, role: "away")],
-                squad: .init(gender: .men, ageGroup: "senior"),
-                source: .init(name: "Official schedule", url: "https://www.football-data.org/", observedAt: stamp(now)))
-            func raw(seconds: Double = 0, league: String? = nil, qualifier: String = "") -> EventReference {
-                .init(id: "provider-\(competition)", title: "\(canonical) vs \(providerAway)\(qualifier)", category: "football",
-                    date: Int64(row.kickoff!.addingTimeInterval(seconds).timeIntervalSince1970), poster: nil, popular: false,
-                    teams: .init(home: .init(name: canonical, badge: nil), away: .init(name: providerAway, badge: nil)),
-                    sources: [.init(source: "delta", id: "provider-\(competition)")], competitionID: league)
-            }
-            let receipt = try SportsFixtureCatalog.validatedSnapshot(from: JSONEncoder().encode(snapshot([row])), now: now)
-            let source = raw()
-            let merged = SportsFixtureCatalog.merging(into: [source], snapshot: receipt, at: now,
-                currentProviderEvents: [source], currentProviderObservedAt: now)
-            XCTAssertEqual(merged.map(\.id), [row.id])
-            XCTAssertEqual(merged.first?.sportsFixture?.providerEventIDs, [source.id])
-            XCTAssertEqual(merged.first?.sources?.map(\.id), source.sources?.map(\.id))
-            XCTAssertEqual(HomeSportsDiscovery(events: merged, now: now).items.count, 1)
-            XCTAssertEqual(CatalogPlaybackIdentity.matchingEvent(for: .init(event: source), in: merged)?.id, row.id)
-            for rejected in [raw(seconds: 1), raw(seconds: 86_400), raw(league: "fa-cup"),
-                             raw(qualifier: " Women"), raw(qualifier: " U19")] {
-                let result = SportsFixtureCatalog.merging(into: [rejected], snapshot: receipt, at: now)
-                XCTAssertEqual(result.count, 2, "\(competition): legal names cannot weaken date, competition or squad admission")
-                XCTAssertTrue(result.first { $0.id == row.id }?.sources?.isEmpty == true)
-            }
-            let held = SportsFixtureCatalog.merging(into: [source], snapshot: snapshot([row],
-                status: .partial, unavailable: [competition]), at: now)
-            XCTAssertEqual(held.count, 2, "A reviewed name alone is not current fixture authority")
-            XCTAssertTrue(held.first { $0.id == row.id }?.sources?.isEmpty == true)
-        }
     }
 
     func testUnmarkedFootballAdmissionRejectsConflictsHeldProofAndAmbiguousOfficialFixtures() {
@@ -502,58 +306,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
         }
     }
 
-    func testCanonicalFootballSaveRecognitionPreservesOpaqueIDsAndRevokesOnlyOnExplicitRemoval() throws {
-        let row = arsenalFixture()
-        let raw = arsenalProvider(row)
-        let canonical = try XCTUnwrap(SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row]), at: now).first)
-        let suite = "SportsFixtureCatalogTests.football-continuity.\(UUID().uuidString)"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        var revoked: [String] = []
-        let store = MyMatchdayStore(defaults: defaults, onRemove: { revoked.append($0) })
-        XCTAssertEqual(store.save(raw), .saved)
-        XCTAssertTrue(store.contains(event: canonical))
-        XCTAssertEqual(store.record(for: canonical)?.id, raw.id)
-        XCTAssertEqual(store.save(canonical), .saved)
-        XCTAssertEqual(store.savedMatches.map(\.id), [raw.id])
-        XCTAssertEqual(store.savedMatches.first?.sportsFixture?.fixtureID, row.id)
-        XCTAssertTrue(store.contains(event: raw))
-        XCTAssertTrue(revoked.isEmpty)
-        XCTAssertEqual(store.toggle(canonical), .removed)
-        XCTAssertTrue(store.savedMatches.isEmpty)
-        XCTAssertEqual(Set(revoked), [raw.id, canonical.id])
-        XCTAssertEqual(store.save(canonical), .saved)
-        XCTAssertTrue(store.contains(event: raw), "Recorded aliases also recognize a canonical save from its provider row")
-    }
-
-    func testExactUniqueMLBNHLJoinsPlainProviderPayloadsAndPreservesIdentityContinuity() throws {
-        for league in ["mlb", "nhl"] {
-            let fixture = reviewedLeague(league)
-            let raw = unmarkedProvider(fixture)
-            let joined = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([fixture]), at: now,
-                currentProviderEvents: [raw], currentProviderObservedAt: now)
-            XCTAssertEqual(joined.count, 1, league)
-            let current = try XCTUnwrap(joined.first)
-            XCTAssertEqual(current.id, fixture.id)
-            XCTAssertEqual(current.sources?.map { "\($0.source)|\($0.id)" },
-                           raw.sources?.map { "\($0.source)|\($0.id)" })
-            XCTAssertEqual(current.sportsFixture?.providerEventIDs, [raw.id])
-            XCTAssertEqual(CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: raw), in: joined)?.id, fixture.id)
-            XCTAssertEqual(CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: current), in: [raw])?.id, raw.id,
-                           "Canonical selection must re-resolve the exact unique raw provider payload")
-            let legacySave = SavedMatchRecord(event: raw, savedAt: now)
-            let refreshed = try XCTUnwrap(SavedMatchContinuityPolicy.currentEvent(for: legacySave, in: joined))
-            XCTAssertEqual(refreshed.id, raw.id)
-            XCTAssertEqual(refreshed.sportsFixture?.fixtureID, fixture.id)
-            let saved = SavedMatchRecord(event: refreshed, savedAt: now)
-            let terminal = reviewedLeague(league, status: .finished)
-            let final = SportsFixtureCatalog.terminalEvents(from: snapshot([terminal]))
-            XCTAssertEqual(SavedMatchContinuityPolicy.currentEvent(for: saved, in: final)?.sportsFixture?.status, .finished)
-            XCTAssertEqual(SavedMatchContinuityPolicy.currentEvent(for: saved, in: final)?.id, raw.id)
-            XCTAssertNil(CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: raw), in: joined + joined))
-        }
-    }
-
     func testUnmarkedLeagueJoinRejectsWrongTimeExplicitLeagueQualifiersAndAmbiguity() {
         for league in ["mlb", "nhl"] {
             let row = reviewedLeague(league)
@@ -572,21 +324,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
             let held = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row], status: .partial, unavailable: [league]), at: now)
             XCTAssertEqual(held.count, 2, "A held official identity cannot authorize a new unmarked league join")
         }
-    }
-
-    func testReviewedMLBAliasResolvesBothDirectionsAndKeepsLegacySave() throws {
-        let row = reviewedLeague("mlb")
-        let alias = EventReference(id: "plain-la-dodgers", title: "Atlanta Braves vs LA Dodgers", category: "baseball",
-            date: Int64(row.kickoff!.timeIntervalSince1970 * 1000), poster: nil, popular: false,
-            teams: .init(home: .init(name: "Atlanta Braves", badge: nil), away: .init(name: "LA Dodgers", badge: nil)),
-            sources: [.init(source: "delta", id: "plain-la-dodgers")])
-        let joined = SportsFixtureCatalog.merging(into: [alias], snapshot: snapshot([row]), at: now)
-        let canonical = try XCTUnwrap(joined.first)
-        XCTAssertEqual(joined.count, 1)
-        XCTAssertEqual(CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: canonical), in: [alias])?.id, alias.id)
-        XCTAssertEqual(CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: alias), in: joined)?.id, canonical.id)
-        XCTAssertEqual(SavedMatchContinuityPolicy.currentEvent(for: SavedMatchRecord(event: alias, savedAt: now), in: joined)?.id, alias.id)
-        XCTAssertNil(CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: canonical), in: [alias, alias]))
     }
 
     func testProviderOnlyElapsedStartNeverBecomesVisibleLIVE() {
@@ -823,7 +560,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
         }
     }
 
-    func testMergeAndPlaybackFallbackRequireCompetitionParticipantsSquadAndStart() throws {
+    func testPlaybackFallbackRequiresCompetitionParticipantsSquadAndStart() throws {
         for candidate in [provider(competition: nil), provider(competition: "wnba"), provider(sport: "football"),
                           provider(hours: 2), provider(home: "Boston Celtics Women"),
                           provider(title: "NBA · Boston Celtics Under-19 vs New York Knicks Under-19")] {
@@ -833,11 +570,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
             XCTAssertTrue(scheduled.sources?.isEmpty == true)
             XCTAssertNil(CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: scheduled), in: [candidate]))
         }
-        let rows = SportsFixtureCatalog.merging(into: [provider()], snapshot: snapshot([fixture()]), at: now)
-        XCTAssertEqual(rows.count, 1)
-        XCTAssertEqual(rows.first?.sources?.first?.id, "provider")
-        let atBoundary = provider(hours: 1.25)
-        XCTAssertEqual(SportsFixtureCatalog.merging(into: [atBoundary], snapshot: snapshot([fixture()]), at: now).count, 1)
     }
 
     func testReviewedNCAAFootballMatchesBareTitleAndExactNCAAPrefix() throws {
@@ -919,7 +651,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
         let row = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: snapshot([stale]), at: now).first)
         XCTAssertEqual(row.broadcastTiming(at: now), .available)
         XCTAssertEqual(HomeSportsDiscovery(events: [row], now: now).items.first?.phase, .unconfirmed)
-        let postponed = try XCTUnwrap(SportsFixtureCatalog.merging(into: [provider(hours: -1)],
+        let postponed = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],
             snapshot: snapshot([fixture(status: .postponed, hours: -1)]), at: now).first)
         XCTAssertFalse(MatchStartPolicy(event: postponed, now: now).canAttemptPlayback)
         XCTAssertEqual(MatchStartPolicy(event: postponed, now: now).title, "Postponed")
@@ -1138,9 +870,8 @@ final class SportsFixtureCatalogTests: XCTestCase {
         XCTAssertEqual(row.sportsFixture?.status, .finished)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: row, at: now.addingTimeInterval(40 * 3600)), .recent)
 
-        let postponed = try XCTUnwrap(SportsFixtureCatalog.merging(into: [provider(hours: -40)],
+        let postponed = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],
             snapshot: snapshot([fixture(status: .postponed, hours: -40)]), at: now).first)
-        XCTAssertFalse(postponed.sources?.isEmpty ?? true)
         expired.save(postponed)
         expired.reconcile(events: [], at: now)
         XCTAssertTrue(expired.savedMatches.first?.sources.isEmpty == true)

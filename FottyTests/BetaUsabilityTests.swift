@@ -1494,10 +1494,6 @@ final class BetaUsabilityTests: XCTestCase {
 
         for _ in 0..<3 {
             for text in inputs {
-                for team in CPLTeam.allCases {
-                    XCTAssertEqual(team.matches(in: text), legacyCPLTeamMatches(team, in: text),
-                                   "\(team.rawValue): \(text)")
-                }
                 let legacyDistinctTeams = CPLTeam.allCases.filter { legacyCPLTeamMatches($0, in: text) }.count >= 2
                 XCTAssertEqual(CPLTeam.containsTwoDistinctTeams(in: text), legacyDistinctTeams, text)
             }
@@ -1770,21 +1766,6 @@ final class BetaUsabilityTests: XCTestCase {
         for (station, channel) in [(fox, CricketBroadcastChannel.foxCricket), (willow, .willow)] {
             XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: station, in: catalog, at: fixture.kickoff)?.event.id, channel.canonicalID)
         }
-    }
-
-    @MainActor
-    func testCPLSourceMatchingRequiresTeamsAndKickoffAndKeepsStableSavedIdentity() throws {
-        let fixture = CPLSchedule.fixtures[18]
-        let provider = cricketEvent(title: "Trinbago Knight Riders vs Barbados Royals", date: Int64(fixture.kickoff.timeIntervalSince1970), sources: [.init(source: "delta", id: "test-fixture")])
-        XCTAssertTrue(CPLSchedule.matches(provider, fixture: fixture))
-        let wrongDate = cricketEvent(title: provider.title!, date: Int64(fixture.kickoff.addingTimeInterval(24 * 3600).timeIntervalSince1970))
-        XCTAssertFalse(CPLSchedule.matches(wrongDate, fixture: fixture))
-        let merged = CPLSchedule.merging(into: [provider], at: fixture.kickoff)
-        let event = try XCTUnwrap(merged.first { $0.id == fixture.id })
-        XCTAssertEqual(event.sources?.map(\.id), ["test-fixture"])
-        XCTAssertFalse(merged.contains { $0.id == provider.id })
-        let refreshedWithoutProvider = CPLSchedule.merging(into: merged, at: fixture.kickoff)
-        XCTAssertTrue(refreshedWithoutProvider.first { $0.id == fixture.id }?.sources?.isEmpty == true)
     }
 
     @MainActor
@@ -2075,8 +2056,7 @@ final class HomeDiscoveryTests: XCTestCase {
         status: CricketFixtureCatalog.Status,
         verified: Bool,
         offset: TimeInterval,
-        sources: [NexusASource] = [],
-        providerObservedAt: Date? = nil
+        sources: [NexusASource] = []
     ) -> AnalyticalDataEngine.EventReference {
         let metadata = CricketFixtureMetadata(
             fixtureID: id,
@@ -2085,8 +2065,7 @@ final class HomeDiscoveryTests: XCTestCase {
             format: .odi,
             status: status,
             observedAt: now,
-            verified: verified,
-            providerObservedAt: providerObservedAt
+            verified: verified
         )
         return .init(
             id: "cricket-fixture:\(id)",
@@ -2226,49 +2205,6 @@ final class HomeDiscoveryTests: XCTestCase {
         XCTAssertEqual(item.statusLabel, "Start unconfirmed")
         XCTAssertEqual(schedule.activities.first { $0.id == "cricket" }?.summary(at: now), "Time TBC")
         XCTAssertTrue(schedule.homeSections(from: schedule.items, diverseUpcoming: false, featuredLiveLimit: 3).upcoming.isEmpty)
-    }
-
-    func testHeldCricketUsesOnlyAFreshIndependentProviderReceiptAsListedNow() throws {
-        let source = NexusASource(source: "delta", id: "current-cricket-provider")
-        let current = cricketFixture(
-            "held-current-provider",
-            status: .scheduled,
-            verified: false,
-            offset: 3600,
-            sources: [source],
-            providerObservedAt: now.addingTimeInterval(-60)
-        )
-        let stale = cricketFixture(
-            "held-stale-provider",
-            status: .scheduled,
-            verified: false,
-            offset: 3600,
-            sources: [source],
-            providerObservedAt: now.addingTimeInterval(-1801)
-        )
-        let missingReceipt = cricketFixture(
-            "held-replayed-provider",
-            status: .scheduled,
-            verified: false,
-            offset: 3600,
-            sources: [source]
-        )
-
-        let currentSchedule = HomeSportsDiscovery(events: [current], now: now)
-        let currentItem = try XCTUnwrap(currentSchedule.items.first)
-        XCTAssertEqual(currentItem.phase, .listedNow)
-        XCTAssertEqual(currentItem.prominentStatusLabel, "Broadcast listed")
-        XCTAssertFalse(currentItem.hasConfirmedLiveStatus)
-        XCTAssertEqual(currentSchedule.activities.first { $0.id == "cricket" }?.summary(at: now), "1 listed")
-        XCTAssertEqual(currentSchedule.homeSections(from: currentSchedule.items, diverseUpcoming: false,
-                                                    featuredLiveLimit: 3).featuredLive.map(\.id), [current.id])
-
-        for event in [stale, missingReceipt] {
-            let schedule = HomeSportsDiscovery(events: [event], now: now)
-            XCTAssertEqual(schedule.items.first?.phase, .unconfirmed)
-            XCTAssertTrue(schedule.homeSections(from: schedule.items, diverseUpcoming: false,
-                                                featuredLiveLimit: 3).featuredLive.isEmpty)
-        }
     }
 
     func testHomeNonTeamEventsDoNotInventAnOpponent() {

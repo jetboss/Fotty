@@ -21,59 +21,6 @@ enum CatalogPlaybackIdentity {
         return event
     }
 
-    /// An admitted registry link can select an advertised primary-directory
-    /// identity, never create its sources or substitute a sibling by name.
-    /// The caller supplies only its freshly admitted primary catalog here.
-    static func registeredSelection(
-        for request: StreamPlaybackRequest,
-        in events: [AnalyticalDataEngine.EventReference],
-        catalogObservedAt: Date,
-        association: BroadcastRegistryMatch,
-        at now: Date = Date()
-    ) -> Selection {
-        let broadcast = association.broadcast
-        guard (0..<180).contains(now.timeIntervalSince(catalogObservedAt)),
-              broadcast.providerCode == "streamex", broadcast.kind == .event,
-              association.matches(request: request, providerCode: "streamex",
-                providerEventID: broadcast.providerEventID, streamID: broadcast.streamID, at: now),
-              let sourceStart = broadcast.start else { return .conflicting }
-        let exact = events.filter { $0.id == broadcast.providerEventID }
-        guard !exact.isEmpty else { return .missing }
-        guard exact.count == 1, let source = exact.first,
-              !source.hasCatalogIdentityConflict,
-              VerifiedFixtureTerminalPolicy.state(for: source, at: now) == nil,
-              source.kickoffDate == sourceStart,
-              let identity = ReviewedSportsFixtureMatcher.requestIdentity(for: StreamPlaybackRequest(event: source)) else { return .conflicting }
-        let comparison: StreamPlaybackRequest
-        if association.link?.matchMethod == .testPeriod {
-            // The link separately verifies the original Test/day/ordinal/end.
-            // Only its literal, freshly repeated source occurrence is compared
-            // here; the canonical request and fixture remain unchanged.
-            comparison = .init(matchID: request.matchID, displayTitle: request.displayTitle,
-                homeTeam: request.homeTeam, awayTeam: request.awayTeam, category: request.category,
-                kickoffDate: sourceStart, preferredEvent: request.preferredEvent)
-        } else { comparison = request }
-        if let fixture = request.preferredEvent?.sportsFixture {
-            // The exact cloud link is initial alias admission, not recovery
-            // from a prior native merge. Keep the existing competition, full
-            // pair, senior squad, reviewed-club and exact-start checks without
-            // demanding that this new provider ID was already merged locally.
-            guard SportsFixtureCatalog.providerMatches(source, fixture: fixture,
-                kickoff: comparison.kickoffDate, allowUnmarkedLeague: true,
-                admittingUnmarkedLeague: true) else { return .conflicting }
-        } else {
-            guard case .matched = selection(for: comparison, in: [source]) else { return .conflicting }
-        }
-        let cricket = identity.sport == "cricket"
-            ? ReviewedSportsFixtureMatcher.cricketBroadcastContext(source.title ?? "") : nil
-        guard association.admitsFreshIdentity(sport: identity.sport, pair: identity.pair,
-                start: identity.kickoff, providerEventID: source.id, streamID: source.id,
-                format: cricket?.format, matchOrdinal: cricket?.ordinal, day: cricket?.day, at: now),
-              association.matches(request: request, providerCode: "streamex",
-                providerEventID: source.id, streamID: source.id, at: now) else { return .conflicting }
-        return .matched(source)
-    }
-
     static func selection(
         for request: StreamPlaybackRequest,
         in events: [AnalyticalDataEngine.EventReference]
@@ -81,7 +28,6 @@ enum CatalogPlaybackIdentity {
         guard request.preferredEvent?.hasCatalogIdentityConflict != true else { return .conflicting }
         let exact = events.filter {
             CatalogRouteIdentity.matches(eventID: $0.id, requestedID: request.matchID)
-                || $0.sportsFixture?.providerEventIDs?.contains(request.matchID) == true
         }
         if !exact.isEmpty {
             // Conflicting duplicate IDs are not made safe by taking the first
@@ -130,12 +76,6 @@ enum CatalogPlaybackIdentity {
                 // checks; a second generic raw-name check must not reject it.
                 return request.kickoffDate == nil || datesAgree(event.kickoffDate, request.kickoffDate)
             }
-        }
-        if let preferred = request.preferredEvent, preferred.sportsFixture == nil,
-           let fixture = event.sportsFixture, fixture.providerEventIDs?.contains(request.matchID) == true {
-            guard SportsFixtureCatalog.providerMatches(preferred, fixture: fixture, kickoff: event.kickoffDate,
-                                                       allowUnmarkedLeague: true) else { return false }
-            return request.kickoffDate == nil || datesAgree(event.kickoffDate, request.kickoffDate)
         }
         let home = normalizedName(request.homeTeam), away = normalizedName(request.awayTeam)
         if home.isEmpty && away.isEmpty {

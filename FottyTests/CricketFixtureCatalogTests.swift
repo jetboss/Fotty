@@ -154,65 +154,6 @@ final class CricketFixtureCatalogTests: XCTestCase {
         XCTAssertEqual(HomeSportsDiscovery(events: cached, now: now).items.first?.phase, .unconfirmed)
     }
 
-    func testCompletedCancelledAndPostponedBlockKnownProviderPlayback() throws {
-        for status in [CricketFixtureCatalog.Status.finished, .cancelled] {
-            XCTAssertTrue(CricketFixtureCatalog.merging(into: [provider()], snapshot: snapshot([fixture(status: status)]), at: now).isEmpty)
-        }
-        let events = CricketFixtureCatalog.merging(into: [provider()], snapshot: snapshot([fixture(status: .postponed)]), at: now)
-        let row = try XCTUnwrap(events.first)
-        XCTAssertFalse(MatchStartPolicy(event: row, now: now).canAttemptPlayback)
-        XCTAssertEqual(MatchStartPolicy(event: row, now: now).title, "Postponed")
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: events, at: now))
-    }
-
-    func testUnverifiedTerminalMergePreservesCurrentProviderThroughHomeAndWatchPolicy() throws {
-        let source = provider()
-        for terminal in [CricketFixtureCatalog.Status.finished, .cancelled] {
-            let candidates = [
-                snapshot([fixture(status: terminal, verification: .held)],
-                    status: .partial, unavailable: ["west-indies"]),
-                snapshot([fixture(status: terminal)], status: .partial, unavailable: ["west-indies"]),
-                snapshot([fixture(status: terminal)], status: .lastKnownGood)
-            ]
-            for candidate in candidates {
-                let accepted = try CricketFixtureCatalog.validatedSnapshot(from: JSONEncoder().encode(candidate), now: now)
-                let events = CricketFixtureCatalog.merging(into: [source], snapshot: accepted, at: now,
-                    currentProviderEvents: [source], currentProviderObservedAt: now)
-                XCTAssertEqual(events.map(\.id), [source.id])
-                let retained = try XCTUnwrap(events.first)
-                XCTAssertNil(retained.cricketFixture, "Held terminal metadata must not replace the independent listing")
-                XCTAssertEqual(retained.sources?.map(\.id), source.sources?.map(\.id))
-                let terminals = CricketFixtureCatalog.terminalEvents(from: accepted)
-                XCTAssertTrue(terminals.isEmpty)
-                let home = HomeSportsDiscovery(events: events, now: now, terminalEvents: terminals)
-                XCTAssertEqual(home.items.map(\.id), [source.id])
-                XCTAssertEqual(home.items.first?.phase, .unconfirmed, "An unknown cricket format is not a guessed live window")
-                XCTAssertFalse(home.items.contains(where: \.hasConfirmedLiveStatus))
-                let action = try XCTUnwrap(CurrentEventBroadcastPolicy.action(for: retained, in: events, at: now))
-                XCTAssertEqual(action.event.id, source.id)
-                XCTAssertEqual(action.event.sources?.map(\.id), source.sources?.map(\.id))
-            }
-        }
-    }
-
-    func testVerifiedTerminalMergeStillRevokesCurrentProviderThroughHomeAndWatchPolicy() throws {
-        let source = provider()
-        for terminal in [CricketFixtureCatalog.Status.finished, .cancelled] {
-            let current = fixture(status: terminal, verification: .verified)
-            for candidate in [snapshot([current]), snapshot([current], status: .partial, unavailable: ["west-indies"])] {
-                let accepted = try CricketFixtureCatalog.validatedSnapshot(from: JSONEncoder().encode(candidate), now: now)
-                let events = CricketFixtureCatalog.merging(into: [source], snapshot: accepted, at: now,
-                    currentProviderEvents: [source], currentProviderObservedAt: now)
-                XCTAssertTrue(events.isEmpty)
-                let terminals = CricketFixtureCatalog.terminalEvents(from: accepted)
-                let fact = try XCTUnwrap(terminals.first)
-                XCTAssertEqual(terminals.count, 1)
-                XCTAssertTrue(HomeSportsDiscovery(events: events, now: now, terminalEvents: terminals).items.isEmpty)
-                XCTAssertNil(CurrentEventBroadcastPolicy.action(for: fact, in: events + terminals, at: now))
-            }
-        }
-    }
-
     func testVerifiedCricketTerminalFactsHaveTheSameQualifiedPolicyPrecedence() throws {
         for terminal in [CricketFixtureCatalog.Status.finished, .cancelled] {
             let event = try XCTUnwrap(CricketFixtureCatalog.terminalEvents(from: snapshot([fixture(status: terminal)])).first)
@@ -294,9 +235,8 @@ final class CricketFixtureCatalogTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = MyMatchdayStore(defaults: defaults)
-        let postponed = try XCTUnwrap(CricketFixtureCatalog.merging(into: [provider(hours: -40)],
+        let postponed = try XCTUnwrap(CricketFixtureCatalog.merging(into: [],
             snapshot: snapshot([fixture(status: .postponed, format: .test, hours: -40)]), at: now).first)
-        XCTAssertFalse(postponed.sources?.isEmpty ?? true)
         XCTAssertEqual(store.save(postponed), .saved)
         store.reconcile(events: [], at: now)
         let saved = try XCTUnwrap(store.savedMatches.first)
@@ -332,21 +272,6 @@ final class CricketFixtureCatalogTests: XCTestCase {
         XCTAssertEqual(store.savedMatches, original, "Absence is not verified cancellation")
     }
 
-    func testIdentityRequiresBothTeamsSportKickoffAndSquad() throws {
-        XCTAssertEqual(CricketFixtureCatalog.teamKey("IND Under-19 Women"), "india u19 women")
-        XCTAssertNotEqual(CricketFixtureCatalog.teamKey("India Women"), CricketFixtureCatalog.teamKey("India"))
-        for event in [provider(home: "India A"), provider(away: "Pakistan"), provider(sport: "football"),
-                      provider(hours: -4), provider(title: "India Women vs West Indies Women")] {
-            let merged = CricketFixtureCatalog.merging(into: [event], snapshot: snapshot([fixture()]), at: now)
-            let official = try XCTUnwrap(merged.first { $0.cricketFixture != nil })
-            XCTAssertTrue(official.sources?.isEmpty == true)
-            XCTAssertEqual(merged.count, 2)
-        }
-        let merged = CricketFixtureCatalog.merging(into: [provider(home: "IND", away: "WI")], snapshot: snapshot([fixture()]), at: now)
-        XCTAssertEqual(merged.count, 1)
-        XCTAssertEqual(merged.first?.sources?.first?.id, "provider-india-wi")
-    }
-
     func testGenericChannelRemainsSeparateAndDoesNotProveFixtureWatch() throws {
         let channel = EventReference(id: "willow", title: "Willow Cricket", category: "cricket", date: nil, poster: nil,
             popular: false, teams: nil, sources: [.init(source: "delta", id: "willow")])
@@ -354,21 +279,6 @@ final class CricketFixtureCatalogTests: XCTestCase {
         let official = try XCTUnwrap(rows.first { $0.cricketFixture != nil })
         XCTAssertEqual(rows.count, 2)
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: official, in: rows, at: now))
-    }
-
-    func testReversedCricketPairKeepsCanonicalTeamsCorrectBadgesAndSourceIdentity() throws {
-        let reversed = EventReference(id: "provider-reversed", title: "West Indies vs India", category: "cricket",
-            date: Int64(now.addingTimeInterval(-5.5 * 3600).timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "West Indies", badge: "wi-badge"), away: .init(name: "India", badge: "india-badge")),
-            sources: [.init(source: "delta", id: "real-provider-match")])
-        let events = CricketFixtureCatalog.merging(into: [reversed], snapshot: snapshot([fixture()]), at: now)
-        let row = try XCTUnwrap(events.first)
-        XCTAssertEqual(events.count, 1)
-        XCTAssertEqual(row.homeName, "India")
-        XCTAssertEqual(row.awayName, "West Indies")
-        XCTAssertEqual(row.teams?.home?.badge, "india-badge")
-        XCTAssertEqual(row.teams?.away?.badge, "wi-badge")
-        XCTAssertEqual(row.sources?.first?.id, "real-provider-match")
     }
 
     func testPartialRetainsUnavailableCompetitionWithoutRefreshingItsLiveReceipt() throws {
@@ -417,31 +327,6 @@ final class CricketFixtureCatalogTests: XCTestCase {
         XCTAssertTrue(CricketFixtureCatalog.terminalEvents(from:
             snapshot([fixture(status: .finished, competition: "icc", verification: .held)], status: .partial,
                      unavailable: ["icc"])).isEmpty)
-    }
-
-    func testHeldKickoffCannotCreateCountdownReminderOrBlockCurrentMatchedProvider() throws {
-        let held = fixture(status: .scheduled, hours: 1, competition: "icc", verification: .held)
-        let manifest = snapshot([held], status: .partial, unavailable: ["icc"])
-        let noSource = try XCTUnwrap(CricketFixtureCatalog.merging(into: [], snapshot: manifest, at: now).first)
-        let unknown = MatchStartPolicy(event: noSource, now: now)
-        XCTAssertNil(unknown.upcomingStart)
-        XCTAssertFalse(unknown.canAttemptPlayback)
-        XCTAssertEqual(unknown.title, "Start unconfirmed")
-        XCTAssertNil(MatchReminderRecord.make(event: noSource, now: now))
-
-        let matched = provider(hours: 1)
-        let withSource = try XCTUnwrap(CricketFixtureCatalog.merging(into: [matched], snapshot: manifest, at: now,
-                                                                   currentProviderEvents: [matched]).first)
-        let available = MatchStartPolicy(event: withSource, now: now)
-        XCTAssertNil(available.upcomingStart)
-        XCTAssertTrue(available.canAttemptPlayback)
-        XCTAssertEqual(available.title, "Watch")
-        XCTAssertNil(MatchReminderRecord.make(event: withSource, now: now))
-        XCTAssertFalse(withSource.cricketFixture?.isLive(at: now) == true)
-
-        let staleProvider = try XCTUnwrap(CricketFixtureCatalog.merging(into: [matched], snapshot: manifest, at: now,
-                                                                      currentProviderEvents: []).first)
-        XCTAssertFalse(MatchStartPolicy(event: staleProvider, now: now).canAttemptPlayback)
     }
 
     func testUnknownVerificationAndContradictoryHeldCoverageAreRejectedButLegacyStillDecodes() throws {

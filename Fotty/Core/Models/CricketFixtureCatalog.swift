@@ -6,7 +6,6 @@ enum CricketFixtureCatalog {
     static let maximumPayloadBytes = 512 * 1024
     static let maximumFixtures = 500
     static let statusFreshness: TimeInterval = 30 * 60
-    static let kickoffTolerance: TimeInterval = 15 * 60
     static let fixtureIDPrefix = "cricket-fixture:"
 
     enum SourceStatus: String, Codable, Sendable {
@@ -308,7 +307,7 @@ enum CricketFixtureCatalog {
                   SportsSearchSchedule.isFresh(date(coverage.checkedAt), at: now) else { return nil }
             let metadata = fixtureMetadata(for: fixture, in: snapshot)
             guard metadata.verified, SportsSearchSchedule.isFresh(metadata.observedAt, at: now) else { return nil }
-            return projectedEvent(for: fixture, metadata: metadata, kickoff: kickoff, sources: [], badgeEvent: nil)
+            return projectedEvent(for: fixture, metadata: metadata, kickoff: kickoff)
         }
     }
 
@@ -321,54 +320,28 @@ enum CricketFixtureCatalog {
                   fixture.status == .finished || fixture.status == .cancelled, let start = fixture.kickoff else { return nil }
             let metadata = fixtureMetadata(for: fixture, in: snapshot)
             guard metadata.verified else { return nil }
-            return projectedEvent(for: fixture, metadata: metadata, kickoff: start, sources: [], badgeEvent: nil)
+            return projectedEvent(for: fixture, metadata: metadata, kickoff: start)
         }
     }
 
     @MainActor
-    static func merging(into catalog: [EventReference], snapshot: Snapshot?, at now: Date = .init(),
-                        currentProviderEvents: [EventReference]? = nil,
-                        currentProviderObservedAt: Date? = nil) -> [EventReference] {
-        var remaining = catalog.filter { !$0.id.hasPrefix(fixtureIDPrefix) }
+    /// Home rows plus the schedule's current fixtures. Earlier projections of
+    /// this schedule are replaced; CPL keeps its own schedule and other rows
+    /// pass through.
+    static func merging(into catalog: [EventReference], snapshot: Snapshot?, at now: Date = .init()) -> [EventReference] {
+        let remaining = catalog.filter { !$0.id.hasPrefix(fixtureIDPrefix) }
         guard let snapshot else { return remaining }
-        var result: [EventReference] = []
-        for fixture in snapshot.fixtures {
-            // CPL retains its separately reviewed authority and channel policy.
-            guard fixture.competitionId.lowercased() != "cpl", !fixture.competitionId.lowercased().hasPrefix("cpl-") else { continue }
-            guard let start = fixture.kickoff else { continue }
-            // Unverified retained results cannot remove current independent
-            // listings before discovery and playback policy can inspect them.
-            if fixture.status == .finished || fixture.status == .cancelled {
-                guard fixtureMetadata(for: fixture, in: snapshot).verified else { continue }
-            }
-            let matching = remaining.filter { event in
-                !event.hasCatalogIdentityConflict && !event.isBroadcastChannel && event.normalizedCategory == "cricket"
-                    && ((teamKey(event.homeName) == teamKey(fixture.home.name) && teamKey(event.awayName) == teamKey(fixture.away.name))
-                        || (teamKey(event.homeName) == teamKey(fixture.away.name) && teamKey(event.awayName) == teamKey(fixture.home.name)))
-                    && qualifierKey("\(event.homeName) \(event.awayName) \(event.title ?? "")")
-                        == qualifierKey("\(fixture.home.name) \(fixture.away.name) \(fixture.competitionName)")
-                    && event.kickoffDate.map { abs($0.timeIntervalSince(start)) <= kickoffTolerance } == true
-            }
-            let matchedIDs = Set(matching.map(\.id))
-            remaining.removeAll { matchedIDs.contains($0.id) }
-            guard fixture.status != .finished, fixture.status != .cancelled,
+        let projected = snapshot.fixtures.compactMap { fixture -> EventReference? in
+            guard fixture.competitionId.lowercased() != "cpl", !fixture.competitionId.lowercased().hasPrefix("cpl-"),
+                  let start = fixture.kickoff, fixture.status != .finished, fixture.status != .cancelled,
                   start <= now.addingTimeInterval(CatalogTimingPolicy.retentionFutureHorizon),
-                  start >= now.addingTimeInterval(-14 * 86400) else { continue }
-            var seen = Set<String>()
-            let currentIDs = currentProviderEvents.map { Set($0.map(\.id)) }
-            let sources = matching.filter { currentIDs?.contains($0.id) ?? true }.flatMap { $0.sources ?? [] }.filter {
-                StreamPluginProviderMatching.isActiveCatalogSource($0) && seen.insert("\($0.source)|\($0.id)").inserted
-            }
-            let metadata = fixtureMetadata(for: fixture, in: snapshot,
-                providerObservedAt: currentProviderEvents != nil && !sources.isEmpty ? currentProviderObservedAt : nil)
-            result.append(projectedEvent(for: fixture, metadata: metadata, kickoff: start,
-                sources: sources, badgeEvent: matching.first))
+                  start >= now.addingTimeInterval(-14 * 86400) else { return nil }
+            return projectedEvent(for: fixture, metadata: fixtureMetadata(for: fixture, in: snapshot), kickoff: start)
         }
-        return remaining + result
+        return remaining + projected
     }
 
-    private static func fixtureMetadata(for fixture: Fixture, in snapshot: Snapshot,
-                                        providerObservedAt: Date? = nil) -> CricketFixtureMetadata {
+    private static func fixtureMetadata(for fixture: Fixture, in snapshot: Snapshot) -> CricketFixtureMetadata {
         let covered = snapshot.coverage.first { $0.competitionId == fixture.competitionId }?.status == .covered
         let admitted: Bool
         switch fixture.source.verification {
@@ -380,32 +353,19 @@ enum CricketFixtureCatalog {
             competitionName: fixture.competitionName, format: fixture.format, status: fixture.status,
             observedAt: date(fixture.source.observedAt) ?? .distantPast,
             verified: admitted && snapshot.sourceStatus.verifiesCurrentRows,
-            providerObservedAt: providerObservedAt, context: fixture.context,
+            context: fixture.context,
             homeTeamID: fixture.home.id, awayTeamID: fixture.away.id, matchOrdinal: fixture.matchOrdinal)
     }
 
     @MainActor
-    private static func projectedEvent(for fixture: Fixture, metadata: CricketFixtureMetadata, kickoff: Date,
-                                       sources: [NexusASource], badgeEvent: EventReference?) -> EventReference {
-        let aligned = badgeEvent.map { teamKey($0.homeName) == teamKey(fixture.home.name) } ?? true
-        return .init(id: fixtureIDPrefix + fixture.id,
+    private static func projectedEvent(for fixture: Fixture, metadata: CricketFixtureMetadata, kickoff: Date) -> EventReference {
+        .init(id: fixtureIDPrefix + fixture.id,
             title: "\(fixture.competitionName) · \(fixture.home.name) vs \(fixture.away.name)", category: "cricket",
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: fixture.home.name, badge: aligned ? badgeEvent?.teams?.home?.badge : badgeEvent?.teams?.away?.badge),
-                         away: .init(name: fixture.away.name, badge: aligned ? badgeEvent?.teams?.away?.badge : badgeEvent?.teams?.home?.badge)),
-            sources: sources, cricketFixture: metadata)
+            teams: .init(home: .init(name: fixture.home.name, badge: nil), away: .init(name: fixture.away.name, badge: nil)),
+            sources: [], cricketFixture: metadata)
     }
 
-    private static func qualifierKey(_ value: String) -> Set<String> {
-        let text = teamKey(value)
-        let pattern = #"\b(?:women|womens|ladies|youth|academy|reserves?|u\s?\d{1,2}|under\s?\d{1,2})\b"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
-        let source = text as NSString
-        return Set(regex.matches(in: text, range: NSRange(location: 0, length: source.length)).map {
-            let word = source.substring(with: $0.range).replacingOccurrences(of: " ", with: "")
-            return ["women", "womens", "ladies"].contains(word) ? "women" : word.replacingOccurrences(of: "under", with: "u")
-        })
-    }
 }
 
 struct CricketFixtureMetadata: Codable, Equatable, Sendable {
@@ -416,9 +376,6 @@ struct CricketFixtureMetadata: Codable, Equatable, Sendable {
     let status: CricketFixtureCatalog.Status
     let observedAt: Date
     let verified: Bool
-    /// Independent provider-catalog evidence, never a claim of official LIVE.
-    /// Cache/failure/replayed refreshes do not renew this receipt.
-    let providerObservedAt: Date?
     /// Optional score facts and exact enclosing fixture team identities. Legacy
     /// caches decode without these fields; they cannot supply a scorecard.
     let context: CricketMatchContext?
@@ -434,7 +391,7 @@ struct CricketFixtureMetadata: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case fixtureID, competitionID, competitionName, format, status, observedAt, verified, providerObservedAt
+        case fixtureID, competitionID, competitionName, format, status, observedAt, verified
         case context, homeTeamID, awayTeamID, matchOrdinal
     }
 
@@ -447,7 +404,6 @@ struct CricketFixtureMetadata: Codable, Equatable, Sendable {
         status = try values.decode(CricketFixtureCatalog.Status.self, forKey: .status)
         observedAt = try values.decode(Date.self, forKey: .observedAt)
         verified = try values.decode(Bool.self, forKey: .verified)
-        providerObservedAt = try values.decodeIfPresent(Date.self, forKey: .providerObservedAt)
         homeTeamID = try? values.decode(String.self, forKey: .homeTeamID)
         awayTeamID = try? values.decode(String.self, forKey: .awayTeamID)
         let acceptsOrdinal = format == .odi || format == .t20
@@ -460,11 +416,10 @@ struct CricketFixtureMetadata: Codable, Equatable, Sendable {
 
     init(fixtureID: String, competitionID: String, competitionName: String,
          format: CricketFixtureCatalog.Format, status: CricketFixtureCatalog.Status,
-         observedAt: Date, verified: Bool, providerObservedAt: Date? = nil,
+         observedAt: Date, verified: Bool,
          context: CricketMatchContext? = nil, homeTeamID: String? = nil, awayTeamID: String? = nil, matchOrdinal: Int? = nil) {
         self.fixtureID = fixtureID; self.competitionID = competitionID; self.competitionName = competitionName
         self.format = format; self.status = status; self.observedAt = observedAt; self.verified = verified
-        self.providerObservedAt = providerObservedAt
         self.context = context; self.homeTeamID = homeTeamID; self.awayTeamID = awayTeamID
         self.matchOrdinal = matchOrdinal.flatMap { [CricketFixtureCatalog.Format.odi, .t20].contains(format) && (1...99).contains($0) ? $0 : nil }
     }
@@ -473,10 +428,6 @@ struct CricketFixtureMetadata: Codable, Equatable, Sendable {
         verified && status == .live && (-300...CricketFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(observedAt))
     }
 
-    func hasCurrentProviderListing(at now: Date) -> Bool {
-        guard let providerObservedAt else { return false }
-        return (-300...CricketFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(providerObservedAt))
-    }
 }
 
 @MainActor

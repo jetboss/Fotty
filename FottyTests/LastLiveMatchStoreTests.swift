@@ -40,8 +40,7 @@ final class LastLiveMatchStoreTests: XCTestCase {
                          label: String = "West Indies vs England · 1st T20I") -> EventReference {
         let metadata = CricketFixtureMetadata(fixtureID: "series-game-one", competitionID: "icc",
             competitionName: "ICC", format: format, status: status,
-            observedAt: now.addingTimeInterval(receiptOffset), verified: verified,
-            providerObservedAt: now)
+            observedAt: now.addingTimeInterval(receiptOffset), verified: verified)
         return event(id: CricketFixtureCatalog.fixtureIDPrefix + metadata.fixtureID,
             home: "West Indies", away: "England", category: "cricket", competition: "icc", title: label, cricket: metadata)
     }
@@ -56,8 +55,7 @@ final class LastLiveMatchStoreTests: XCTestCase {
             participants: [.init(id: "mets", name: "Mets", role: "home"),
                            .init(id: awayID, name: "Brewers", role: "away")],
             squad: .init(gender: gender, ageGroup: ageGroup), status: status,
-            observedAt: now.addingTimeInterval(receiptOffset), verified: verified,
-            providerObservedAt: now)
+            observedAt: now.addingTimeInterval(receiptOffset), verified: verified)
         return event(id: id, home: "Mets", away: "Brewers", category: "baseball", competition: "mlb", sports: metadata)
     }
 
