@@ -267,7 +267,6 @@ final class SourceConnectionToolTests: XCTestCase {
                 row.catalog = matches.first.map { String(describing: $0.outcome) } ?? "no_evidence"
             } catch {
                 row.catalog = "catalog_failed"
-                if definition.provider == .streamVix { row.contractChecks = try? await streamVixContract() }
             }
             let outcome = await LiveStreamResolver().inspectSourceConnection(definition, request: current)
             switch outcome {
@@ -379,26 +378,6 @@ final class SourceConnectionToolTests: XCTestCase {
     }
 
     #if FOTTY_SOURCE_CONNECTION_TOOL
-    private func streamVixContract() async throws -> [String: Bool] {
-        var request = URLRequest(url: StreamVixSportsAddonClient.manifestURL)
-        request.setValue("Fotty/2.0 Stremio-Compatible", forHTTPHeaderField: "User-Agent")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let transport = FottyBoundedHTTPClient(configuration: StreamVixSportsAddonClient.makeConfiguration())
-        let result = try await transport.fetch(request, maximumBytes: 128 * 1024, deadline: 9,
-            acceptedStatusCodes: [200], redirectPolicy: { _, _ in false })
-        let m = try JSONDecoder().decode(StreamVixSportsAddonClient.Manifest.self, from: result.data)
-        let catalogs = m.catalogs.filter { $0.id == StreamVixSportsAddonClient.catalogID && $0.type == "tv" }
-        return ["nativeValidationAccepted": (try? StreamVixSportsAddonClient.validateManifest(data: result.data)) != nil,
-            "id": m.id == "org.prisonmike.streamvix", "tv": m.types.contains("tv"),
-            "configuration": m.behaviorHints?.configurationRequired != true,
-            "catalogCount": m.catalogs.count <= 64 && catalogs.count == 1,
-            "resources": ["catalog", "meta", "stream"].allSatisfy { name in
-                m.resources.contains { $0.name == name && ($0.types?.contains("tv") ?? true) }
-            },
-            "genres": catalogs.first?.extra?.contains { $0.name == "genre" && $0.isRequired == true
-                && Set($0.options ?? []).isSuperset(of: ["Premier League", "Coppe"]) } == true]
-    }
-
     private static func scoreboardCompetition(_ id: String) -> (fixture: String, scoreboard: String)? {
         let parts = id.split(separator: ":", omittingEmptySubsequences: false)
         guard parts.count == 3, parts[0] == "sports-fixture",
@@ -474,7 +453,6 @@ final class SourceConnectionToolTests: XCTestCase {
         case .plavioSports: return try await PlavioSportsAddonClient.shared.catalogMatches(for: [request])
         case .cncSports: return try await CNCSportsAddonClient.shared.catalogMatches(for: [request])
         case .flixStreams: return try await FlixStreamsAddonClient.shared.catalogMatches(for: [request])
-        case .streamVix: return try await StreamVixSportsAddonClient.shared.catalogMatches(for: [request])
         case .reviewedTV:
             return [.init(matchID: request.matchID,
                 outcome: ReviewedTVPlaylistClient.programmeLookupRequests(for: request).isEmpty ? .notListed : .listed)]

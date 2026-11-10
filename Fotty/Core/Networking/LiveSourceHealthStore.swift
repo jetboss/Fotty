@@ -88,8 +88,7 @@ enum LiveSourceHealthStore {
             + transportFields(session.legacySource)
         var keys = [digest(base + ["renewed-row", session.id.uuidString])]
         let url = session.playableURL
-        let stableChannel = (binding.providerCode == "flixstreams" && FlixStreamsAddonClient.isAdmittedDelivery(url))
-            || (binding.providerCode == "streamvix" && StreamVixSportsAddonClient.isAdmittedDelivery(url, now: now))
+        let stableChannel = binding.providerCode == "flixstreams" && FlixStreamsAddonClient.isAdmittedDelivery(url)
         if stableChannel, let components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
             keys.append(digest(base + ["declared-channel", components.scheme ?? "", components.host ?? "",
                                        String(components.port ?? 443), components.percentEncodedPath]))

@@ -65,23 +65,6 @@ final class BroadcastRegistryIntegrationTests: XCTestCase {
         XCTAssertEqual(FlixStreamsAddonClient.selectMatch(for: request, from: [wrong]), .conflicting)
     }
 
-    func testRegisteredSVStillCorroboratesOriginalScheduleBeforeLiteralCatalogID() throws {
-        let clock = now, kickoff = clock.addingTimeInterval(-3_600)
-        let original = StreamVixOriginalFixture(dayHeader: text(kickoff, "EEEE d MMMM yyyy ' - Schedule Time UK GMT'").replacingOccurrences(of: "  -", with: " -"),
-            clock: text(kickoff, "HH:mm"), pairTitle: "Arsenal vs Chelsea", competition: "England - Premier League", kickoff: kickoff)
-        let published = try XCTUnwrap(original.publishedTitle(derived: kickoff))
-        let parts = try XCTUnwrap(original.displayParts(derived: kickoff))
-        let id = StreamVixSportsAddonClient.advertisedID(sourceTitle: published, derived: kickoff)
-        let request = try registered(provider: "streamvix", id: id, at: clock, kickoff: kickoff)
-        let json: [String: Any] = ["id": id, "type": "tv", "name": "Arsenal vs Chelsea ⏰ \(parts.clock) - \(parts.dayMonth)",
-            "description": "🔴 Inizio: \(parts.clock) - Arsenal vs Chelsea - Premier League - \(parts.dayMonth)",
-            "eventStart": ISO8601DateFormatter().string(from: kickoff), "category": "premierleague", "_dynamic": true, "_originalName": published]
-        let entry = try JSONDecoder().decode(StreamVixCatalogEntry.self, from: JSONSerialization.data(withJSONObject: json))
-        XCTAssertEqual(StreamVixSportsAddonClient.selectMatch(for: request, from: [entry], originals: [original]), .matched(entry),
-            "Corroborating original keys must not be mistaken for advertised Stremio IDs")
-        XCTAssertEqual(StreamVixSportsAddonClient.selectMatch(for: request, from: [entry], originals: []), .missing)
-    }
-
     func testCNCObservationHashIsNotAnExecutableCatalogID() throws {
         let clock = now, kickoff = clock.addingTimeInterval(-3_600)
         let request = try registered(provider: "cncsports", id: "cnc-observation:" + String(repeating: "a", count: 64), at: clock, kickoff: kickoff)

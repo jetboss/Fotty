@@ -211,7 +211,7 @@ extension CatalogIncrementalPublicationTests {
         await FixtureSourceCatalogCollector.refresh(requests: requests, lanes: lanes, index: index,
             at: initial, clock: { clock.next() })
         XCTAssertEqual(Set(calls.values), Set(definitions.map(\.providerCode)))
-        XCTAssertEqual(index.summary(for: requests[0], at: clock.next())?.listedProviderCount, 7)
+        XCTAssertEqual(index.summary(for: requests[0], at: clock.next())?.listedProviderCount, 6)
     }
 
     func testSharedSourceCatalogKeepsOfficialRowsAndEveryEnabledSiblingDuringPrimaryFailure() async {
@@ -236,10 +236,10 @@ extension CatalogIncrementalPublicationTests {
         }
         await FixtureSourceCatalogCollector.refresh(requests: requests, lanes: lanes, index: index, at: clock, clock: { clock })
         XCTAssertEqual(Set(calls.values), Set(definitions.map(\.providerCode)))
-        XCTAssertEqual(calls.values.count, 7)
+        XCTAssertEqual(calls.values.count, 6)
         let event = requests.first { $0.category == "basketball" }!.preferredEvent!
         let summary = index.summary(for: StreamPlaybackRequest(event: event), at: clock)
-        XCTAssertEqual(summary?.listedProviderCount, 6)
+        XCTAssertEqual(summary?.listedProviderCount, 5)
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: event, in: model.playbackAdmissionCatalog,
             at: clock, discoveryIndex: FixtureStreamDiscoveryIndex()))
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: event, in: model.playbackAdmissionCatalog,

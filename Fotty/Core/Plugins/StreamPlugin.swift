@@ -153,14 +153,13 @@ enum CuratedStreamSourceCatalog {
         case plavioSports = "plaviosports"
         case cncSports = "cncsports"
         case flixStreams = "flixstreams"
-        case streamVix = "streamvix"
         case reviewedTV = "reviewedtv"
     }
 
     /// Typed routing identity; it never carries an arbitrary URL or closure
     /// capable of bypassing the reviewed adapter's authority.
     enum Dispatch: CaseIterable, Equatable, Sendable {
-        case sharedCatalog, score808, communitySports, plavioSports, cncSports, flixStreams, streamVix, reviewedTV
+        case sharedCatalog, score808, communitySports, plavioSports, cncSports, flixStreams, reviewedTV
     }
 
     struct Definition: Sendable, Equatable, Identifiable {
@@ -182,7 +181,6 @@ enum CuratedStreamSourceCatalog {
             case .plavioSports: return .plavioSports
             case .cncSports: return .cncSports
             case .flixStreams: return .flixStreams
-            case .streamVix: return .streamVix
             case .reviewedTV: return .reviewedTV
             }
         }
@@ -201,7 +199,6 @@ enum CuratedStreamSourceCatalog {
             case .plavioSports: return PlavioSportsAddonClient.supports(category: category)
             case .cncSports: return CNCSportsAddonClient.supports(category: category)
             case .flixStreams: return FlixStreamsAddonClient.supports(category: category)
-            case .streamVix: return StreamVixSportsAddonClient.supports(category: category)
             }
         }
 
@@ -213,9 +210,6 @@ enum CuratedStreamSourceCatalog {
                 return CNCSportsAddonClient.supportsReviewedCricket(StreamPlaybackRequest(event: event))
             }
             if dispatch == .flixStreams { return FlixStreamsAddonClient.supports(event: event) }
-            if dispatch == .streamVix {
-                return StreamVixSportsAddonClient.supports(event: event)
-            }
             return isOptional && supportsDiscovery(category: event.normalizedCategory)
         }
 
@@ -267,8 +261,6 @@ enum CuratedStreamSourceCatalog {
               defaultEnabled: false, opaqueLabelPrefix: "LS", catalogSourceCodes: []),
         .init(provider: .flixStreams, manifestFilename: "flix_streams_manifest", manifestID: "flix-streams-extension",
               defaultEnabled: false, opaqueLabelPrefix: "FS", catalogSourceCodes: []),
-        .init(provider: .streamVix, manifestFilename: "streamvix_sports_manifest", manifestID: "streamvix-sports-extension",
-              defaultEnabled: false, opaqueLabelPrefix: "SV", catalogSourceCodes: []),
         .init(provider: .reviewedTV, manifestFilename: "reviewed_tv_manifest", manifestID: "reviewed-tv-extension",
               defaultEnabled: false, opaqueLabelPrefix: "TV", catalogSourceCodes: [])
     ]
@@ -328,7 +320,7 @@ enum CuratedStreamSourceCatalog {
             if definition.provider == .cncSports && ReviewedSportsFixtureMatcher.sportKey(request.category) == "cricket" {
                 return CNCSportsAddonClient.supportsReviewedCricket(request)
             }
-            if [Provider.streamVix, .flixStreams].contains(definition.provider), let event = request.preferredEvent {
+            if definition.provider == .flixStreams, let event = request.preferredEvent {
                 return definition.supportsOptionalFixture(event: event)
             }
             return true
@@ -378,7 +370,6 @@ enum StreamPluginProviderMatching {
     static let plavioSportsProviderCode = CuratedStreamSourceCatalog.Provider.plavioSports.rawValue
     static let cncSportsProviderCode = CuratedStreamSourceCatalog.Provider.cncSports.rawValue
     static let flixStreamsProviderCode = CuratedStreamSourceCatalog.Provider.flixStreams.rawValue
-    static let streamVixProviderCode = CuratedStreamSourceCatalog.Provider.streamVix.rawValue
     static let activePlayerProviderCodes = CuratedStreamSourceCatalog.all.map(\.providerCode)
     /// Provider catalog data is remote and therefore untrusted. Keep every
     /// shared embed inside the reviewed HTTPS origins that Fotty supports.

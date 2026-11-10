@@ -5,15 +5,15 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     func testCuratedCatalogOwnsSevenExistingAndOneChannelOnlyRegistrationAndDispatchIdentities() {
         let definitions = CuratedStreamSourceCatalog.all
         XCTAssertEqual(definitions.map(\.providerCode),
-                       ["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix", "reviewedtv"])
+                       ["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv"])
         XCTAssertEqual(Set(definitions.map(\.providerCode)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.manifestID)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.manifestFilename)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.provider)), Set(CuratedStreamSourceCatalog.Provider.allCases))
         XCTAssertEqual(definitions.map(\.dispatch),
-                       [.sharedCatalog, .score808, .communitySports, .plavioSports, .cncSports, .flixStreams, .streamVix, .reviewedTV])
+                       [.sharedCatalog, .score808, .communitySports, .plavioSports, .cncSports, .flixStreams, .reviewedTV])
         XCTAssertEqual(StreamPluginProviderMatching.activePlayerProviderCodes, definitions.map(\.providerCode))
-        XCTAssertEqual(CuratedStreamSourceCatalog.optionalSources.map(\.discoveryName), ["CS", "AS", "LS", "FS", "SV", "TV"])
+        XCTAssertEqual(CuratedStreamSourceCatalog.optionalSources.map(\.discoveryName), ["CS", "AS", "LS", "FS", "TV"])
     }
 
     func testEveryCuratedDefinitionRequiresItsOwnBundledManifestAndProviderCode() throws {
@@ -33,16 +33,16 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
             XCTAssertEqual(definition.defaultEnabled, ["streamex", "score808"].contains(definition.providerCode))
             XCTAssertEqual(StreamPluginRegistry.isEnabledByDefault(providerCode: definition.providerCode), definition.defaultEnabled)
         }
-        let sv = try XCTUnwrap(CuratedStreamSourceCatalog.definition(forProviderCode: "streamvix"))
-        let choices = Dictionary(uniqueKeysWithValues: definitions.map { ($0.manifestID, $0.provider == .streamVix) })
+        let fs = try XCTUnwrap(CuratedStreamSourceCatalog.definition(forProviderCode: "flixstreams"))
+        let choices = Dictionary(uniqueKeysWithValues: definitions.map { ($0.manifestID, $0.provider == .flixStreams) })
         let substituted = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
             let definition = try XCTUnwrap(definitions.first { $0.manifestFilename == filename })
-            return (self.catalogManifest(definition, providerCode: definition == sv ? "streamex" : nil),
+            return (self.catalogManifest(definition, providerCode: definition == fs ? "streamex" : nil),
                     URL(fileURLWithPath: "/test-bundle/\(filename).json"))
         }
         XCTAssertEqual(substituted.unavailableSourceCount, 1)
         XCTAssertEqual(substituted.plugins.count, definitions.count - 1)
-        XCTAssertFalse(substituted.plugins.contains { $0.id == sv.manifestID })
+        XCTAssertFalse(substituted.plugins.contains { $0.id == fs.manifestID })
         let restored = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
             let definition = try XCTUnwrap(definitions.first { $0.manifestFilename == filename })
             return (self.catalogManifest(definition), URL(fileURLWithPath: "/test-bundle/\(filename).json"))
@@ -94,15 +94,15 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
         for code in ["", "future", "CS1", "AS1", "LS1", "FS1", "SV1", "communitysports", "plaviosports"] {
             XCTAssertNil(StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: code), code)
         }
-        XCTAssertEqual(CuratedStreamSourceCatalog.definition(forProviderCode: " STREAMVIX ")?.providerCode, "streamvix")
+        XCTAssertEqual(CuratedStreamSourceCatalog.definition(forProviderCode: " FLIXSTREAMS ")?.providerCode, "flixstreams")
         XCTAssertNil(CuratedStreamSourceCatalog.definition(forProviderCode: "SV1"))
         XCTAssertNil(CuratedStreamSourceCatalog.definition(forProviderCode: "future"))
     }
 
     func testCuratedDiscoveryScopesDelegateToExistingReviewedAdaptersWithoutBroadeningLanes() {
         let expected: [(String, [String])] = [
-            ("football", ["communitysports", "plaviosports", "flixstreams", "streamvix"]),
-            ("soccer", ["communitysports", "plaviosports", "flixstreams", "streamvix"]),
+            ("football", ["communitysports", "plaviosports", "flixstreams"]),
+            ("soccer", ["communitysports", "plaviosports", "flixstreams"]),
             ("cricket", ["communitysports", "plaviosports", "cncsports", "flixstreams"]),
             ("hockey", ["communitysports", "cncsports"]),
             ("basketball", ["communitysports"]),
@@ -118,132 +118,10 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
         }
     }
 
-    @MainActor
-    func testCuratedOptionalFixtureScopeKeepsSVOwnedPLAndUCLButNotEveryFootballLeague() throws {
-        let sv = try XCTUnwrap(CuratedStreamSourceCatalog.definition(forProviderCode: "streamvix"))
-        for (sport, competition, supported) in [("football", "premier-league", true),
-                                               ("football", "champions-league", true),
-                                               ("football", "la-liga", false),
-                                               ("football", "unknown-league", false),
-                                               ("cricket", "icc", false), ("basketball", "nba", false)] {
-            let event = EventReference(id: "existing-fixture", title: "Chelsea vs Arsenal", category: sport,
-                date: 1_800_000_000, poster: nil, popular: false, teams: nil, sources: [], competitionID: competition)
-            XCTAssertEqual(sv.supportsOptionalFixture(event: event), supported, competition)
-            XCTAssertEqual(CuratedStreamSourceCatalog.hasOptionalFixtureSupport(event: event,
-                enabledProviderCodes: [" STREAMVIX "]), supported, competition)
-            XCTAssertFalse(CuratedStreamSourceCatalog.hasOptionalFixtureSupport(event: event, enabledProviderCodes: []))
-            XCTAssertFalse(CuratedStreamSourceCatalog.hasOptionalFixtureSupport(event: event, enabledProviderCodes: ["future"]))
-        }
-    }
-
     private func catalogManifest(_ definition: CuratedStreamSourceCatalog.Definition,
                                  providerCode: String? = nil) -> StreamPluginManifest {
         .init(id: definition.manifestID, name: definition.discoveryName, providerCode: providerCode ?? definition.providerCode,
               version: "1", author: "Test", description: "Reviewed source fixture", allowedDomains: [])
-    }
-
-    func testStreamVixLabelsOwnOnlyTheirReviewedFamilyDespiteRemoteProviderAliases() {
-        for number in 1...6 {
-            let source = StreamSource(title: "Streamed golf india admin community sports plaviosports cncsports flixstreams",
-                url: URL(string: "https://example.invalid/streamed/score808/communitysports/fixture.m3u8")!,
-                quality: "HD", provider: "SV\(number)")
-            XCTAssertTrue(StreamPluginProviderMatching.matches(source, code: "streamvix"))
-            XCTAssertEqual(StreamPluginProviderMatching.opaqueProviderFamily(source.provider), "streamvix")
-            XCTAssertEqual(LiveSourceHealthStore.providerFamily(for: source), "streamvix")
-            XCTAssertTrue(StreamPluginProviderMatching.isActivePlayerSource(source))
-            let otherFamilies = ["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams"]
-            for other in otherFamilies {
-                XCTAssertFalse(StreamPluginProviderMatching.matches(source, code: other), other)
-            }
-            let enabledWithoutStreamVix = StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes: otherFamilies)
-            XCTAssertFalse(enabledWithoutStreamVix.contains { StreamPluginProviderMatching.matches(source, code: $0) },
-                           "A disabled SV module must not borrow another enabled family")
-        }
-    }
-
-    func testUnreviewedStreamVixLabelsAndRemoteNamesCannotImpersonateSVOptions() {
-        for label in ["SV0", "SV7", "SV10", "SV1 extra", "StreamViX", "Broadcast"] {
-            let source = StreamSource(title: "SV1 streamvix",
-                url: URL(string: "https://example.invalid/streamvix/fixture.m3u8")!, quality: "HD", provider: label)
-            XCTAssertNil(StreamPluginProviderMatching.opaqueProviderFamily(label), label)
-            XCTAssertFalse(StreamPluginProviderMatching.matches(source, code: "streamvix"), label)
-            XCTAssertFalse(StreamPluginProviderMatching.isActivePlayerSource(source), label)
-        }
-    }
-
-    func testStreamVixOpaquePlaybackKeyRetainsFamilyAndRedactsPrivateDeliveryContext() throws {
-        let url = URL(string: "https://example.invalid/private/fixture.m3u8?token=synthetic-sv-owner-value&exp=1800000000")!
-        let source = StreamSource(url: url, quality: "HD", provider: "SV1")
-        let key = StreamVixSportsAddonClient.sourceKey(url: url)
-        XCTAssertNotNil(key.range(of: #"^sv_[a-f0-9]{24}$"#, options: .regularExpression))
-        XCTAssertEqual(key, StreamVixSportsAddonClient.sourceKey(url: url))
-        let details = FottyPlaybackQualityDetails.make(source: source, mode: "native", route: "single",
-            attemptID: UUID(), sourceKey: key)
-        XCTAssertEqual(details["source_family"], "streamvix")
-        XCTAssertEqual(details["source_key"], key)
-        XCTAssertFalse(details.values.contains { $0.contains("example.invalid") || $0.contains("synthetic-sv-owner-value") })
-
-        let suite = "SV-playback-integration-" + UUID().uuidString
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let store = FottyQualityStore(defaults: defaults)
-        store.record(category: .playback, name: "decoded_progress", outcome: .success,
-            details: details.merging(["private_url": url.absoluteString], uniquingKeysWith: { _, new in new }))
-        XCTAssertEqual(store.records().last?.details["source_family"], "streamvix")
-        XCTAssertEqual(store.records().last?.details["source_key"], key)
-        XCTAssertNil(store.records().last?.details["private_url"])
-        XCTAssertFalse(store.exportJSON().contains("example.invalid"))
-        XCTAssertFalse(store.exportJSON().contains("synthetic-sv-owner-value"))
-    }
-
-    func testStreamVixDiscoveryReceiptCoexistsWithEveryExistingOptionalFamily() throws {
-        var report = StreamDiscoveryCoordinator.Report()
-        report.attempts = [
-            .init(providerName: "CS", responseTimeMs: 10, resolvedStreamType: .hls, urlShape: "addon", requiredHeaders: true,
-                validationResult: "exact_match_admitted", manifestResult: "exact_fixture_match"),
-            .init(providerName: "AS", responseTimeMs: 20, resolvedStreamType: .unknown, urlShape: "addon", requiredHeaders: false,
-                validationResult: "failed", manifestResult: "stream_entries_empty", finalFailureCategory: .providerReturnedEmpty),
-            .init(providerName: "LS", responseTimeMs: 30, resolvedStreamType: .hls, urlShape: "addon", requiredHeaders: true,
-                validationResult: "exact_match_admitted", manifestResult: "exact_fixture_match"),
-            .init(providerName: "FS", responseTimeMs: 40, resolvedStreamType: .unknown, urlShape: "addon", requiredHeaders: false,
-                validationResult: "failed", manifestResult: "no_admitted_stream_delivery", finalFailureCategory: .providerReturnedEmpty),
-            .init(providerName: "SV", responseTimeMs: 50, resolvedStreamType: .hls, urlShape: "addon", requiredHeaders: false,
-                validationResult: "exact_match_admitted", manifestResult: "exact_fixture_match")
-        ]
-        let suite = "SV-discovery-integration-" + UUID().uuidString
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        let store = FottyQualityStore(defaults: defaults)
-        let attempt = UUID().uuidString
-        CommunitySportsDiscoveryQuality.record(report, attemptID: attempt, store: store)
-        AdditionalSportsDiscoveryQuality.record(report, attemptID: attempt, store: store)
-        CNCSportsDiscoveryQuality.record(report, attemptID: attempt, store: store)
-        FlixStreamsDiscoveryQuality.record(report, attemptID: attempt, store: store)
-        StreamVixSportsDiscoveryQuality.record(report, attemptID: attempt, store: store)
-
-        XCTAssertEqual(store.records().count, 5)
-        XCTAssertEqual(Set(store.records().map { $0.details["source_family"] ?? "" }),
-                       ["communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix"])
-        XCTAssertEqual(store.records().first { $0.details["source_family"] == "communitysports" }?.outcome, .success)
-        XCTAssertEqual(store.records().first { $0.details["source_family"] == "plaviosports" }?.outcome, .failure)
-        XCTAssertEqual(store.records().first { $0.details["source_family"] == "cncsports" }?.outcome, .success)
-        XCTAssertEqual(store.records().first { $0.details["source_family"] == "flixstreams" }?.outcome, .failure)
-        let sv = try XCTUnwrap(store.records().first { $0.details["source_family"] == "streamvix" })
-        XCTAssertEqual(sv.outcome, .success)
-        XCTAssertEqual(sv.durationMilliseconds, 50)
-        XCTAssertEqual(sv.details["result"], "exact_fixture_match")
-        XCTAssertEqual(sv.details["attempt_id"], attempt)
-        XCTAssertNil(sv.details["failure_kind"])
-    }
-
-    func testStreamVixFailureUsesOwnProviderAndGenericBoundedAdmissionCounts() {
-        let failure = LiveStreamResolver.communitySportsFailure(from: .streamAdmissionRejected(entryCount: 4), providerName: "SV")
-        XCTAssertEqual(failure.providerName, "SV")
-        XCTAssertEqual(failure.category, .providerReturnedEmpty)
-        XCTAssertEqual(failure.redactedMetadata["addon_stream_entry_count"], "4")
-        XCTAssertEqual(failure.redactedMetadata["addon_admission_rejected_count"], "4")
-        XCTAssertNil(failure.redactedMetadata["cs_stream_entry_count"])
-        XCTAssertNil(failure.redactedMetadata["cs_admission_rejected_count"])
     }
 
     func testFlixLabelsOwnOnlyTheirReviewedFamilyDespiteRemoteProviderAliases() {

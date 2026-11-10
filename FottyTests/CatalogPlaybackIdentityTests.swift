@@ -36,7 +36,7 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
         for channel in CricketBroadcastChannel.allCases {
             let row = CricketChannelCatalog.event(for: channel, in: [])
             let request = StreamPlaybackRequest(event: row)
-            let enabled: Set<String> = ["communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix", "score808"]
+            let enabled: Set<String> = ["communitysports", "plaviosports", "cncsports", "flixstreams", "score808"]
             let plan = CuratedStreamSourceCatalog.discoveryPlan(for: request, enabledProviderCodes: enabled, at: kickoff)
             XCTAssertEqual(plan.optionalSources.map(\.providerCode), ["communitysports"])
             XCTAssertFalse(plan.score808SiteEligible)
@@ -476,7 +476,7 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
             enabledProviderCodes: ["communitysports", "plaviosports"], at: kickoff)
         XCTAssertTrue(undated.optionalSources.isEmpty, "Dated exact optional lookup must not invent fixture authority")
         let cricket = CuratedStreamSourceCatalog.discoveryPlan(for: request(category: "cricket"),
-            enabledProviderCodes: ["cncsports", "streamvix", "score808"], at: kickoff)
+            enabledProviderCodes: ["cncsports", "score808"], at: kickoff)
         XCTAssertTrue(cricket.optionalSources.isEmpty)
         XCTAssertFalse(cricket.score808SiteEligible)
     }

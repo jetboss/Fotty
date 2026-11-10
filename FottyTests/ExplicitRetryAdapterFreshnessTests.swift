@@ -80,7 +80,7 @@ final class ExplicitRetryAdapterFreshnessTests: XCTestCase {
     }
 
     private enum Adapter: String, CaseIterable {
-        case flix, cnc, streamVix
+        case flix, cnc
         func resolver(_ session: URLSession) -> (StreamPlaybackRequest, Date, Bool) async throws -> [StreamSession] {
             switch self {
             case .flix:
@@ -88,9 +88,6 @@ final class ExplicitRetryAdapterFreshnessTests: XCTestCase {
                 return { try await client.resolve(for: $0, now: $1, forceRefresh: $2) }
             case .cnc:
                 let client = CNCSportsAddonClient(session: session)
-                return { try await client.resolve(for: $0, now: $1, forceRefresh: $2) }
-            case .streamVix:
-                let client = StreamVixSportsAddonClient(session: session)
                 return { try await client.resolve(for: $0, now: $1, forceRefresh: $2) }
             }
         }
@@ -103,20 +100,18 @@ final class ExplicitRetryAdapterFreshnessTests: XCTestCase {
         init(_ adapter: Adapter) { self.adapter = adapter }
         let now = ISO8601DateFormatter().date(from: "2026-10-24T15:00:00Z")!
         var host: String {
-            switch adapter { case .flix: "free.flixnest.app"; case .cnc: "cncverse.dpdns.org"; case .streamVix: "streamvix.hayd.uk" }
+            switch adapter { case .flix: "free.flixnest.app"; case .cnc: "cncverse.dpdns.org" }
         }
         var fixtureID: String {
             switch adapter {
             case .flix: "dlstreams:event:aaaaaaaaaaaa"
             case .cnc: "cnc:" + String(repeating: "A", count: 1218) + "=="
-            case .streamVix: "tv:16-30-chelsea-vs-tottenham-hotspur-premier-league-24-10-20261024"
             }
         }
         var delivery: String {
             switch adapter {
             case .flix: "https://free.flixnest.app/dlstreams/stream/dlstreams%3Achannel%3A870.m3u8?t=fresh-fixture-signature"
             case .cnc: "https://edgestream7.pro/hls/offline_fixture.m3u8"
-            case .streamVix: "https://p7.streamhostingcdn.top/stream/870/index.m3u8?token=fresh-fixture-signature&exp=1792864800"
             }
         }
         var request: StreamPlaybackRequest {
@@ -124,7 +119,6 @@ final class ExplicitRetryAdapterFreshnessTests: XCTestCase {
             switch adapter {
             case .flix: pair = ("Arsenal", "Everton", "football", "14:00")
             case .cnc: pair = ("Chicago Blackhawks", "Montreal Canadiens", "hockey", "00:00")
-            case .streamVix: pair = ("Chelsea", "Tottenham Hotspur", "football", "16:30")
             }
             return .init(matchID: "retry-freshness-fixture", displayTitle: "\(pair.0) vs \(pair.1)", homeTeam: pair.0,
                 awayTeam: pair.1, category: pair.2, kickoffDate: ISO8601DateFormatter().date(from: "2026-10-24T\(pair.3):00Z")!)
@@ -134,12 +128,10 @@ final class ExplicitRetryAdapterFreshnessTests: XCTestCase {
             switch adapter {
             case .flix: [0, 40, 80].map { "/catalog/tv/essential-live-events/genre=soccer" + ($0 == 0 ? "" : "&skip=\($0)") + ".json" }
             case .cnc: ["/catalog/tv/cnc_LivXowLiveEvents_tv.json"]
-            case .streamVix: ["/catalog/tv/streamvix_eventi/genre=Premier League.json"]
             }
         }
-        var originalKey: String { "raw.githubusercontent.com|/qwertyuiop8899/logo/main/daddyliveSchedule.json" }
         var cachedMetadataKeys: [String] {
-            [manifestKey] + (adapter == .streamVix ? [originalKey] : []) + catalogPaths.map { host + "|" + $0 }
+            [manifestKey] + catalogPaths.map { host + "|" + $0 }
         }
         func session(missing: Bool = false) throws -> URLSession {
             RetryFreshnessProtocol.reset()
@@ -174,21 +166,6 @@ final class ExplicitRetryAdapterFreshnessTests: XCTestCase {
                     "description": "📌 Hockey\n🏆 NHL\n🕐 Oct 24, 2026 00:00 UTC\n\n📡 Available Servers: 1"]]
                 stream = ["url": delivery, "name": "🎬LivXowProvider 😮‍💨 Auto • CNCVerse Bridge", "title": "Offline fixture • HLS",
                     "behaviorHints": ["proxyHeaders": ["request": CNCSportsAddonClient.reviewedHeaders]]]
-            case .streamVix:
-                manifest = ["id": "org.prisonmike.streamvix", "version": "1.0.0", "types": ["tv"], "resources": ["catalog", "meta", "stream"],
-                    "catalogs": [["id": "streamvix_eventi", "type": "tv", "extra": [["name": "genre", "isRequired": true,
-                        "options": ["Premier League", "Coppe"]]]]], "behaviorHints": ["configurationRequired": false]]
-                let pair = changedIdentity ? "Other vs Another" : "Chelsea vs Tottenham Hotspur"
-                row = ["id": fixtureID, "type": "tv", "name": "\(pair) ⏰ 16:30 - 24/10",
-                    "description": "🔴 Inizio: 16:30 - \(pair) - Premier League - 24/10", "eventStart": "2026-10-24T14:30:00Z",
-                    "category": "premierleague", "_dynamic": true, "_originalName": "⏰ 16:30 : \(pair) - Premier League 24/10"]
-                var meta = row; meta.removeValue(forKey: "_originalName")
-                meta["name"] = "Chelsea vs Tottenham Hotspur ⏰ 16:30 - 24/10"
-                meta["description"] = "🔴 Inizio: 16:30 - Chelsea vs Tottenham Hotspur - Premier League - 24/10"
-                result[host + "|/meta/tv/" + fixtureID + ".json"] = ["meta": meta]
-                result[originalKey] = ["Saturday 24th October 2026 - Schedule Time UK GMT": ["All Soccer Events ⚽": [
-                    ["event": "⚽ England - Premier League : Chelsea vs Tottenham Hotspur", "time": "16:30", "channels": []]]]]
-                stream = ["name": "StreamViX", "title": "HD", "url": delivery]
             }
             result[manifestKey] = manifest
             for (index, path) in catalogPaths.enumerated() { result[host + "|" + path] = ["metas": missing || index > 0 ? [] : [row]] }

@@ -801,7 +801,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
 
     func testScore808OnlyCupCheckRetainsProviderConsentAndFootballScope() {
         let row = cup()
-        for codes: Set<String> in [[], ["streamex"], ["streamvix"], ["future-provider"]] {
+        for codes: Set<String> in [[], ["streamex"], ["future-provider"]] {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row],
                 enabledProviderCodes: codes, at: now))
         }
@@ -886,44 +886,6 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [current],
                 enabledProviderCodes: ["score808"], at: now, phase: .completion))
         }
-    }
-
-    func testStreamVixOptInOffersOnlyItsReviewedFootballScopeWithoutInventingWatch() {
-        let football = sports()
-        XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: football, in: [football],
-            enabledProviderCodes: ["streamvix"], at: now))
-        XCTAssertNil(OptionalSourceLookupPolicy.event(for: football, in: [football],
-            enabledProviderCodes: [], at: now, phase: .completion))
-        let cricket = cricket()
-        XCTAssertNil(OptionalSourceLookupPolicy.event(for: cricket, in: [cricket],
-            enabledProviderCodes: ["streamvix"], at: now))
-        let action = CurrentEventBroadcastPolicy.action(for: football, in: [football], at: now,
-            discoveryIndex: freshWatchIndex(["streamvix"]), catalogIndex: FixtureCatalogAvailabilityIndex())
-        XCTAssertEqual(action?.evidence, .freshLookupOpportunity,
-                       "An opted-in optional lookup is a fresh Watch, not a listed or decoded broadcast")
-    }
-
-    func testStreamVixOfficialLookupRequiresReviewedPremierOrChampionsLeagueRatherThanAnyFootball() {
-        for (competitionID, competitionName) in [("premier-league", "Premier League"),
-                                                 ("champions-league", "UEFA Champions League")] {
-            let identity = "sports-fixture:\(competitionID):arsenal-chelsea"
-            let row = sports(id: identity, fixtureID: identity,
-                competitionID: competitionID, competitionName: competitionName)
-            XCTAssertTrue(StreamVixSportsAddonClient.supports(event: row), competitionID)
-            XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: row, in: [row],
-                enabledProviderCodes: ["streamvix"], at: now), competitionID)
-        }
-        for (competitionID, competitionName, sport) in [("la-liga", "La Liga", "football"),
-                                                       ("unknown-league", "Unreviewed league", "football"),
-                                                       ("nba", "NBA", "basketball")] {
-            let identity = "sports-fixture:\(competitionID):arsenal-chelsea"
-            let row = sports(id: identity, fixtureID: identity, sport: sport,
-                competitionID: competitionID, competitionName: competitionName)
-            XCTAssertFalse(StreamVixSportsAddonClient.supports(event: row), competitionID)
-            XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row],
-                enabledProviderCodes: ["streamvix"], at: now), competitionID)
-        }
-        XCTAssertFalse(StreamVixSportsAddonClient.supports(event: cricket()))
     }
 
     func testCompletionKeepsAnExactCSResultWhenPrimaryDescriptorArrivesDuringLookup() throws {

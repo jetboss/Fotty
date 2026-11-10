@@ -11,7 +11,6 @@ final class SettingsUsabilityTests: XCTestCase {
         "additional_sports_manifest": (id: "additional-sports-extension", provider: "plaviosports"),
         "cnc_sports_manifest": (id: "cnc-sports-extension", provider: "cncsports"),
         "flix_streams_manifest": (id: "flix-streams-extension", provider: "flixstreams"),
-        "streamvix_sports_manifest": (id: "streamvix-sports-extension", provider: "streamvix"),
         "reviewed_tv_manifest": (id: "reviewed-tv-extension", provider: "reviewedtv")
     ]
 
@@ -31,14 +30,13 @@ final class SettingsUsabilityTests: XCTestCase {
 
     func testBundledCatalogRetainsDisabledChoicesAndOptInDefault() {
         let snapshot = StreamPluginRegistry.bundledCatalog(savedStates: ["streamex-extension": false], loadManifest: manifest)
-        XCTAssertEqual(snapshot.plugins.count, 8)
+        XCTAssertEqual(snapshot.plugins.count, CuratedStreamSourceCatalog.all.count)
         XCTAssertEqual(snapshot.unavailableSourceCount, 0)
         XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "streamex" }!.isEnabled)
         XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "communitysports" }!.isEnabled)
         XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "plaviosports" }!.isEnabled)
         XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "cncsports" }!.isEnabled)
         XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "flixstreams" }!.isEnabled)
-        XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "streamvix" }!.isEnabled)
         XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "reviewedtv" }!.isEnabled)
         XCTAssertTrue(snapshot.plugins.first { $0.providerCode == "score808" }!.isEnabled)
     }
@@ -49,7 +47,7 @@ final class SettingsUsabilityTests: XCTestCase {
             return try self.manifest(named: filename)
         }
         XCTAssertEqual(snapshot.unavailableSourceCount, 1)
-        XCTAssertEqual(snapshot.plugins.count, 7)
+        XCTAssertEqual(snapshot.plugins.count, CuratedStreamSourceCatalog.all.count - 1)
         XCTAssertFalse(try XCTUnwrap(snapshot.plugins.first { $0.providerCode == "score808" }).isEnabled)
         XCTAssertEqual(PlaybackSourceSettingsState.resolved(availableSourceCount: snapshot.plugins.count,
                                                            unavailableSourceCount: snapshot.unavailableSourceCount), .unavailable)
@@ -58,7 +56,7 @@ final class SettingsUsabilityTests: XCTestCase {
     func testAllMissingSourcesYieldFailureInsteadOfAHealthyEmptyCatalog() {
         let snapshot = StreamPluginRegistry.bundledCatalog(savedStates: [:]) { _ in throw URLError(.fileDoesNotExist) }
         XCTAssertTrue(snapshot.plugins.isEmpty)
-        XCTAssertEqual(snapshot.unavailableSourceCount, 8)
+        XCTAssertEqual(snapshot.unavailableSourceCount, CuratedStreamSourceCatalog.all.count)
         XCTAssertEqual(PlaybackSourceSettingsState.resolved(availableSourceCount: 0,
                                                            unavailableSourceCount: snapshot.unavailableSourceCount), .unavailable)
     }
@@ -67,7 +65,7 @@ final class SettingsUsabilityTests: XCTestCase {
         let choices = ["streamex-extension": false, "score808-extension": true,
                        "community-sports-extension": false, "additional-sports-extension": false,
                        "cnc-sports-extension": false, "flix-streams-extension": false,
-                       "streamvix-sports-extension": false, "reviewed-tv-extension": false]
+                       "reviewed-tv-extension": false]
         let missing = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
             if filename == "streamex_manifest" { throw URLError(.fileDoesNotExist) }
             return try self.manifest(named: filename)
@@ -97,7 +95,7 @@ final class SettingsUsabilityTests: XCTestCase {
         let snapshot = StreamPluginRegistry.bundledCatalog(savedStates: [
             "streamex-extension": false, "score808-extension": false, "community-sports-extension": false,
             "additional-sports-extension": false, "cnc-sports-extension": false,
-            "flix-streams-extension": false, "streamvix-sports-extension": false, "reviewed-tv-extension": false
+            "flix-streams-extension": false, "reviewed-tv-extension": false
         ], loadManifest: manifest)
         XCTAssertTrue(snapshot.plugins.allSatisfy { !$0.isEnabled })
         XCTAssertEqual(PlaybackSourceSettingsState.resolved(availableSourceCount: snapshot.plugins.count,
@@ -110,38 +108,17 @@ final class SettingsUsabilityTests: XCTestCase {
             let choices = ["streamex-extension": false, "score808-extension": true,
                            "community-sports-extension": true, "additional-sports-extension": true,
                            "cnc-sports-extension": false, "flix-streams-extension": enabled,
-                           "streamvix-sports-extension": false, "reviewed-tv-extension": false]
+                           "reviewed-tv-extension": false]
             let unavailable = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
                 if filename == "flix_streams_manifest" { throw URLError(.fileDoesNotExist) }
                 return try self.manifest(named: filename)
             }
-            XCTAssertEqual(unavailable.plugins.count, 7)
+            XCTAssertEqual(unavailable.plugins.count, CuratedStreamSourceCatalog.all.count - 1)
             XCTAssertEqual(unavailable.unavailableSourceCount, 1)
             let recovered = StreamPluginRegistry.bundledCatalog(savedStates: choices, loadManifest: manifest)
-            XCTAssertEqual(recovered.plugins.count, 8)
+            XCTAssertEqual(recovered.plugins.count, CuratedStreamSourceCatalog.all.count)
             XCTAssertEqual(recovered.unavailableSourceCount, 0)
             XCTAssertEqual(try XCTUnwrap(recovered.plugins.first { $0.id == "flix-streams-extension" }).isEnabled, enabled)
-            for plugin in recovered.plugins { XCTAssertEqual(plugin.isEnabled, choices[plugin.id]) }
-        }
-    }
-
-    func testStreamVixOptInChoiceSurvivesBundledRetryWithoutChangingOtherSavedSources() throws {
-        XCTAssertFalse(StreamPluginRegistry.isEnabledByDefault(providerCode: "streamvix"))
-        for enabled in [false, true] {
-            let choices = ["streamex-extension": false, "score808-extension": true,
-                           "community-sports-extension": true, "additional-sports-extension": true,
-                           "cnc-sports-extension": false, "flix-streams-extension": false,
-                           "streamvix-sports-extension": enabled, "reviewed-tv-extension": false]
-            let unavailable = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
-                if filename == "streamvix_sports_manifest" { throw URLError(.fileDoesNotExist) }
-                return try self.manifest(named: filename)
-            }
-            XCTAssertEqual(unavailable.plugins.count, 7)
-            XCTAssertEqual(unavailable.unavailableSourceCount, 1)
-            let recovered = StreamPluginRegistry.bundledCatalog(savedStates: choices, loadManifest: manifest)
-            XCTAssertEqual(recovered.plugins.count, 8)
-            XCTAssertEqual(recovered.unavailableSourceCount, 0)
-            XCTAssertEqual(try XCTUnwrap(recovered.plugins.first { $0.id == "streamvix-sports-extension" }).isEnabled, enabled)
             for plugin in recovered.plugins { XCTAssertEqual(plugin.isEnabled, choices[plugin.id]) }
         }
     }

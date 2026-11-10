@@ -140,17 +140,6 @@ enum FlixStreamsDiscoveryQuality {
     }
 }
 
-/// Timing corroboration and discovery remain separate from decoded playback.
-enum StreamVixSportsDiscoveryQuality {
-    static func record(_ report: StreamDiscoveryCoordinator.Report, attemptID: String,
-                       store: FottyQualityStore = .shared) {
-        guard let receipt = CommunitySportsDiscoveryQuality.receipt(report, attemptID: attemptID,
-            providerName: "SV", sourceFamily: StreamPluginProviderMatching.streamVixProviderCode) else { return }
-        store.record(category: .playback, name: "source_discovery_result", outcome: receipt.outcome,
-                     durationMilliseconds: receipt.durationMilliseconds, details: receipt.details)
-    }
-}
-
 actor LiveStreamResolver {
     static let shared = LiveStreamResolver()
 
@@ -281,7 +270,6 @@ actor LiveStreamResolver {
         AdditionalSportsDiscoveryQuality.record(collected, attemptID: attemptID)
         CNCSportsDiscoveryQuality.record(collected, attemptID: attemptID)
         FlixStreamsDiscoveryQuality.record(collected, attemptID: attemptID)
-        StreamVixSportsDiscoveryQuality.record(collected, attemptID: attemptID)
         if Task.isCancelled {
             return cancelledOutcome(attemptID: attemptID, request: request,
                                     timeline: collected.timeline, providerAttempts: collected.attempts,
@@ -401,7 +389,7 @@ actor LiveStreamResolver {
     nonisolated static func supportsDescriptorRenewal(_ session: StreamSession) -> Bool {
         guard let provider = session.eventBinding?.providerCode else { return false }
         return provider == ReviewedTVPlaylistClient.providerCode || session.playbackContract.endpoint == .directMedia
-            && ["communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix"].contains(provider)
+            && ["communitysports", "plaviosports", "cncsports", "flixstreams"].contains(provider)
     }
 
     func refreshedDescriptor(for session: StreamSession, request: StreamPlaybackRequest) async -> StreamSession? {
@@ -453,8 +441,6 @@ actor LiveStreamResolver {
                         candidates = try await CNCSportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
                     } else if binding.providerCode == "flixstreams" {
                         candidates = try await FlixStreamsAddonClient.shared.resolve(for: metadataRequest)
-                    } else if binding.providerCode == "streamvix" {
-                        candidates = try await StreamVixSportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
                     } else {
                         candidates = try await PlavioSportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
                     }
@@ -807,7 +793,6 @@ actor LiveStreamResolver {
         forceFreshMetadata: Bool = false) async throws -> [StreamSession] {
         switch source.dispatch {
         case .reviewedTV: return try await ReviewedTVPlaylistClient.shared.resolve(for: request)
-        case .streamVix: return try await StreamVixSportsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
         case .cncSports: return try await CNCSportsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
         case .flixStreams: return try await FlixStreamsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
         case .plavioSports: return try await PlavioSportsAddonClient.shared.resolve(for: request, forceRefresh: forceRefresh)
