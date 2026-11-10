@@ -1,6 +1,6 @@
 # Fotty current state
 
-4 Nov late: private Jet **242** installed/verified. CNC PlayZTV WBBL staged in normal LS/Watch;112 native checks pass. Exact Adelaide–Brisbane and 90s live picture pending 5Nov04:40UTC. TENIES channel leads are not live passes; StremVerse/Nebula unqualified. [242 receipt](../testing/fotty242-new-sources/README.md). AS PR126/127 Workers deployed plaviolive-2,159 notices,117 AS rows; decoded AS gates pending. [241](../testing/fotty241-plaviolive/README.md). Dashboard only; no phone/FPL/multi/TF.
+10 Nov: normal Jet **265** installed; clear stumps/break labels, neutral icons and player status. 94 focused tests and signed Release pass; Home/details/scorecard stumps verified on Jet. Highfly Premium remains configured/enabled from264; live test pending resumed play and a fresh delivery (latest response Streams Unavailable). [Receipt](../testing/fotty-source-research-2026-11-10/jet265-cricket-status.json). Pengu/StreamNexus review-only. Preserve discovery/undeployed Worker edits. Phone/FPL/multi untouched; no TestFlight. Alerts dashboard-only. History below.
 
 ## Product and release baseline
 

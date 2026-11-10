@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-05T03:17:25.841547+00:00
-Source digest: daf20c484ba81e8197353401c5a90eea452fa7f6e69e8175f155474841557b46
+Generated: 2026-11-10T15:34:21.370153+00:00
+Source digest: d7a0c319a4a5522f15f7976cefa66cdf10732fbf78a5c93e318b33e79ac7e932
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,7 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-4 Nov late: private Jet **242** installed/verified. CNC PlayZTV WBBL staged in normal LS/Watch;112 native checks pass. Exact Adelaide–Brisbane and 90s live picture pending 5Nov04:40UTC. TENIES channel leads are not live passes; StremVerse/Nebula unqualified. [242 receipt](../testing/fotty242-new-sources/README.md). AS PR126/127 Workers deployed plaviolive-2,159 notices,117 AS rows; decoded AS gates pending. [241](../testing/fotty241-plaviolive/README.md). Dashboard only; no phone/FPL/multi/TF.
+10 Nov: normal Jet **265** installed; clear stumps/break labels, neutral icons and player status. 94 focused tests and signed Release pass; Home/details/scorecard stumps verified on Jet. Highfly Premium remains configured/enabled from264; live test pending resumed play and a fresh delivery (latest response Streams Unavailable). [Receipt](../testing/fotty-source-research-2026-11-10/jet265-cricket-status.json). Pengu/StreamNexus review-only. Preserve discovery/undeployed Worker edits. Phone/FPL/multi untouched; no TestFlight. Alerts dashboard-only. History below.
 
 ## Product and release baseline
 
@@ -882,6 +882,60 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-10: Clear cricket stumps and break presentation on Jet265
+
+Stumps now says “Stumps · Play finished for today”; lunch, tea, innings breaks, paused, interrupted and delayed play have explicit labels. Home uses neutral moon/pause symbols and does not head a mixed paused-cricket group “Live now”. Shared copy reaches details and scorecards. Single-player match status uses admitted cricket phase instead of a generic Live broadcast fallback; the managed-audio/multi path stays unchanged. Existing lifecycle, source matching, Watch eligibility, freshness and transport guards are preserved.
+
+94 focused Catalyst tests passed with no failure or skip (26.1 test-only deployment override, unsigned local test host); signed normal Release265 installed/launched on free Jet. Current Pakistan–Sri Lanka stumps label, cricket tile, details badge and scorecard were visually readable without LIVE styling. Jet left on normal Home; no source preference changes. No phone/FPL/multi/TestFlight/cloud work. Owned build/test output cleaned after verification.
+
+Highfly stays configured/enabled from264. Its native live programme/90-second hold/basic-control gate remains pending: ICC still reports Day2 stumps, and the latest provider response was Streams Unavailable. Do not substitute setup success, replay or yesterday's daily pin for resumed-play evidence. No automatic future test was scheduled. Receipt: `docs/testing/fotty-source-research-2026-11-10/jet265-cricket-status.json`.
+
+## 2026-11-10: Adding a supported account source enables it; configure Highfly on Jet264
+
+Owner authorized automatic enablement and using the supplied Highfly Premium link on Jet. Add now validates the configured manifest and one bounded catalog page, saves device-only Keychain data, then enables the exact supported provider and refreshes the parent switch. Cancellation, invalid access and storage failures preserve prior setup; unimplemented sources remain explicitly review-only. Removing one configured source disables only that source. No credential is bundled, logged, synchronized or stored in receipts.
+
+53 focused Catalyst tests passed without failure/skip; one consolidated signed Release264 installed. On Jet, Highfly was temporarily switched off, then the owner's configured link was added through masked entry. Validation/save succeeded, the parent switch became on, and reopening setup retained Added · enabled. All other settings preserved. Device Hub paste did not forward a valid link; keyboard entry succeeded. An invalid draft did not change saved state.
+
+Correct a Highfly Test-day join: verified day2 listing 10Nov05:00 UTC can correspond to the Test that originally began 9Nov04:30 UTC. Require exact teams/squad, format, ordinal, current calendar day and same-ID metadata; do not compare subsequent-day coverage hour to the original Test kickoff. Other format/time guards unchanged. Regression covered.
+
+Fresh premium stream response now supplies only Streams Unavailable, not HLS; official Pakistan–Sri Lanka is at Day2 stumps. Home/details remained broadcast unconfirmed without Watch. Setup/enablement passed; actual Highfly native picture/audio/90-second and normal Watch selection remain pending a fresh eligible delivery, not passed. No phone/FPL/multi-stream/cloud/TestFlight changes. Receipt: `docs/testing/fotty-source-research-2026-11-10/jet264-source-setup.json`.
+
+## 2026-11-10: Install source candidate 263 on Jet; next priority is UI polish
+
+Owner requested iPad installation and chose Home, Sports TV and player polish for the next planning discussion. One signed Release 3.0.0 (263), with matching widget version, installed successfully on free Jet after the 195-test source gate. Device inventory confirmed 263 and Home was visually observed after launch. No credential entry, opt-in changes, playback qualification, phone, FPL, multi-stream, cloud or TestFlight work. Highfly needs owner setup in Playback sources before Watch can use it. Discuss/preview the proposed UI hierarchy before implementing; preserve current playback behaviour. Receipt: `docs/testing/fotty-source-research-2026-11-10/jet263-install.json`.
+
+## 2026-11-10: Admit account-scoped Highfly through existing Watch, with qualification kept separate
+
+- Owner supplied configured Highfly free and premium access. Both manifests and the dated sport catalog/meta/stream contract responded. Stage a default-off Highfly adapter (HF1–HF6), secure setup, ordinary source dispatch, guarded HLS relay and descriptor renewal. No account configuration is bundled, logged, placed in cloud registry or written to these receipts.
+- Exact UTC participants/squad, same-ID metadata and official cricket format/ordinal/current Test day own matching. Generic channels and notification tips do not identify fixtures. Bounded searches use advertised pagination. Current fixture, enablement and configuration are rechecked; Watch bypasses discovery-session cache for this account-scoped adapter. One rejected destination cannot remove admitted siblings.
+- Free cricket and Sky PL channel samples returned HLS and three decoded frames in bounded in-memory preflight. Premium returned the same two named cricket options with a different signed query contract; HLS responds, but premium decode/native playback is unproven. Shared delivery hosting with AS is not publisher independence. No live programme, 90-second native hold, audio, PL/UCL coverage or outage qualification is claimed.
+- Pengu's original configured manifest had Live TV disabled. The published Live Sports option exposed sports catalogs in a read-only inspection. Sample cricket declares ClearKey and is not admitted; football descriptor timed out. StreamNexus still needs owner setup. Neither is a Watch adapter yet.
+- 195 focused Catalyst tests passed, zero failures/skips; compilation and diff checks passed. Initial test fixture inventories and deterministic session timestamps were corrected before the passing run. No device, phone, FPL, multi-stream, opt-in, publication, cloud or TestFlight changes. Receipt: `docs/testing/fotty-source-research-2026-11-10/highfly-configured.json`.
+
+## 2026-11-10: Prepare owner-configured source access without claiming playback integration
+
+Owner approved PenguPlay, Highfly and StreamNexus setup. Add a separate Playback sources setup section with reviewed public configuration links, masked entry and non-synchronizable device-only Keychain storage. Save validates only the address and preserves previous data on failure; Remove is scoped to one provider. No arbitrary manifest registration, network activation, Watch candidate or account sharing occurs. All three remain pending the owner's configured catalog/meta/stream responses and source-local matching/media qualification. Never label a saved link connected or working. 78 focused Catalyst checks pass with zero failures/skips. Native UI/Keychain interaction and authenticated playback remain untested. No accounts, purchases, device installs or TestFlight. Receipt: `docs/testing/fotty-source-research-2026-11-10/account-setup.json`.
+
+## 2026-11-10: Add only demonstrated new source supply through existing adapters
+
+- Fubo Sports TV27 is staged in the reviewed-TV adapter from the public IPTV-Scraper-Zilla LG catalog. Its shared dummy station ID is insufficient: require the exact published label, reviewed playlist provenance, HTTPS origin and path. Existing opt-in, guarded relay and station renewal remain the owners; no new playback pipeline or generic-channel match inference.
+- Fresh master/variant HLS and three decoded frames from a bounded in-memory segment prefix establish compatibility only. Native playback/audio, programme correctness and PL/UCL/cricket backup qualification remain pending.
+- TVPass DNS, Moveonjoy expired certificate and Pixelsports/Yupptv 403 results do not justify adding broken choices or weakening transport checks. Empty feeds remain pending. CBS Sports HQ's session/ad contract needs review; EXT-X-KEY alone is not proof of DRM.
+- PlavioLive 2.1.6 catalogs responded on a fresh check; HTTP 402 alone does not prove an account/paywall requirement. No AS defect was demonstrated in this task.
+- Preserve build 262's official-fixture and direct-discovery architecture and all earlier uncommitted Worker edits. No device, phone, FPL, multi-stream, source-setting, publication, cloud or TestFlight changes.
+- Verification: 60 focused Mac Catalyst tests pass, zero failures/skips; native source membership and diff checks pass. Owned build output removed. Evidence: `docs/testing/fotty-source-research-2026-11-10/qualification.json`.
+
+## 2026-11-08: Cloud registry is a live-window hint; retire legacy web stream routes; one owner per monitor
+
+- **Decision**: The cloud broadcast registry is a freshness hint, so its collector spends each provider's existing daily read ledger inside live windows instead of in uniform slices. Caps are unchanged (CS/AS 288, others 96, reviewed TV 576).
+- **Why**: Leeds–Tottenham (7 Nov, fotty244 handoff) showed a 75-minute CS gap across kickoff and half-time. `cadence()` forced an eight-read cycle to at least 40 minutes even while live, and kickoff checkpoints postponed the next cycle to repay their advance.
+- **Implementation**:
+  - `broadcast-registry.mjs`: a live window runs from 30 minutes before kickoff to the listed end, or an estimated duration (football 135 min, T20 4 h, ODI 9 h, Test 8 h), extended while official status is LIVE. Inside a window the cadence is the remaining-day live time × cycle cost ÷ (reads left − a quiet reserve), with a 5-minute floor. Outside windows it is 60 minutes in the 3 hours before a window and 4 hours otherwise. Kickoff checkpoints no longer create repayment debt. Legacy persisted debt is still honoured once, and the durable ledger still hard-stops reads.
+  - Removed `/api/live/streams` and `/api/embed/player` (now 404, no upstream fetch). Removed the health fields `catalogProviderCount`/`catalogCoverageMode` and the matching monitor probes. `audit-ucl-readiness --resolve` now counts `listed` links in `/api/live/broadcasts` for `sports-fixture:champions-league:<id>`.
+  - Workflows: dropped the `cpl-fixtures` job from `provider-monitor.yml` (it duplicated `cpl-fixtures.yml --update`) and moved the daily UCL look-ahead into `ucl-match-window.yml`. The watchdog observer still watches `provider-monitor.yml`. CPL and UCL failures no longer feed that observer receipt.
+  - Worker source `2026-11-08.live-window-registry-1`. **Not deployed.**
+- **Verification**: 647/647 web+Worker unit tests, including a Leeds regression (live CS gap ≤ 10 min) and a full four-kickoff PL day simulation (≤ 288 reads, every live gap ≤ 25 min, quiet morning ≤ 5 cycles). Wrangler dry-run bundle passes. No deployment, device or TestFlight action. Native Watch still uses direct fallback only when the registry is empty; making native treat the registry purely as a hint is not done here.
 
 ## 2026-11-04: Isolate CNC WBBL discovery and distinguish channel evidence from live acceptance
 

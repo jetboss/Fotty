@@ -1,0 +1,59 @@
+{
+  "recordedAt": "2026-11-10T15:09:00Z",
+  "build": "3.0.0 (264)",
+  "device": "Jet iPad",
+  "scope": "Explicit Add validates account, saves device-only Keychain configuration and enables supported provider; failures preserve prior setup.",
+  "verification": {
+    "focusedCatalystTests": 53,
+    "failures": 0,
+    "skips": 0,
+    "signedReleaseBuild": "passed",
+    "installation": "passed",
+    "normalUIBuildNumber": "264",
+    "addFromDisabledState": "passed",
+    "accountValidation": "passed",
+    "keychainSave": "passed",
+    "automaticEnablement": "passed",
+    "parentToggleRefresh": "passed",
+    "leaveAndReenterSetup": "Added \u00b7 enabled",
+    "inputClearedAfterSave": true
+  },
+  "physicalSequence": [
+    "Highfly originally enabled but no saved account",
+    "Temporarily disabled Highfly only",
+    "Entered owner-supplied premium manifest in masked field",
+    "Device Hub paste did not forward valid input; keyboard typing did; no invalid input was saved",
+    "Add source completed validation, save and enablement",
+    "Returned to parent: Highfly switch on",
+    "Reopened setup: Added \u00b7 enabled retained",
+    "Home and match details show Pakistan\u2013Sri Lanka at stumps with broadcast unconfirmed; no Watch action currently available",
+    "Left normal Fotty Home visible and restored Device Hub keyboard capture to off"
+  ],
+  "matchingRepair": {
+    "case": "Verified Test day 2 uses its UTC day, exact teams, format and ordinal instead of comparing daily coverage time to original Test kickoff hour",
+    "evidence": "Official Test began 9 Nov 04:30 UTC; Highfly current Day 2 listing is 10 Nov 05:00 UTC",
+    "guards": "Exact current day, ordinal, squad and same-ID meta retained; no fixed time shift or changes to ODI/T20/football fences"
+  },
+  "currentProviderEvidence": {
+    "premiumManifest": "accepted",
+    "catalogAndSameIDMeta": "accepted",
+    "streamResponseStatus": 200,
+    "streamResponse": "Streams Unavailable / Streams temporarily unavailable - try again shortly",
+    "compatibleStreamCount": 0,
+    "liveCatalogFootballCricketCount": 0,
+    "officialMatchPhase": "Test Day 2, stumps"
+  },
+  "limitations": [
+    "Native Highfly playback, correct programme, audio and 90-second advancing hold not verified: current provider returns unavailable placeholder and official match is at stumps.",
+    "Normal Watch-to-Highfly playback remains pending an eligible fresh delivery; setup success is not a playback pass."
+  ],
+  "preserved": [
+    "phone",
+    "FPL",
+    "multi-stream",
+    "other source opt-ins",
+    "cloud",
+    "TestFlight"
+  ],
+  "secrets": "No account links, tokens, media URLs or private device identifiers retained."
+}
