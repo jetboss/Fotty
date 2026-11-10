@@ -42,6 +42,11 @@ export const SPORTS_SOURCES = Object.freeze([
   espn("college-basketball-men", "NCAA Division I Men's Basketball", "basketball", "basketball/mens-college-basketball", "41", { group: "50", ageGroup: "college" }),
   espn("college-basketball-women", "NCAA Division I Women's Basketball", "basketball", "basketball/womens-college-basketball", "54", { group: "50", gender: "women", ageGroup: "college" }),
   espn("mls", "Major League Soccer", "football", "soccer/usa.1", "770"),
+  // National-team football. The same exact team/date admission applies;
+  // League IDs and slugs were read from ESPN's own scoreboard on 10 Nov 2026.
+  espn("uefa-nations-league", "UEFA Nations League", "football", "soccer/uefa.nations", "2395"),
+  espn("international-friendlies", "International Friendlies", "football", "soccer/fifa.friendly", "3922"),
+  espn("concacaf-nations-league", "Concacaf Nations League", "football", "soccer/concacaf.nations.league", "19267"),
 ]);
 
 function check(condition, message) { if (!condition) throw new Error(message); }

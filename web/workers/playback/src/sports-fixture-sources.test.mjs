@@ -298,8 +298,8 @@ test("provisional near-term MLB date is internal polling evidence, not an admitt
   assert.deepEqual(result.pendingByCompetition, { mlb: 1 });
 });
 
-test("remaining ESPN MLS descriptor retains explicit league identity and access gate", async () => {
-  for (const id of ["mls"]) {
+test("ESPN football descriptors (MLS and national teams) retain explicit league identity and access gate", async () => {
+  for (const id of ["mls", "uefa-nations-league", "international-friendlies", "concacaf-nations-league"]) {
     const descriptor = source(id);
     const result = await collect(id, espnFetch(id, [espnEvent("100", {}, descriptor)]));
     assert.equal(result.fixtures[0].sport, "football");
