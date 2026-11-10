@@ -56,7 +56,7 @@ final class Fotty25DesignRenderTests: XCTestCase {
     func testActualSourceSheetAtFixedShortAndAccessibleViewports() async throws {
         let fixture = try await RootFixture.make()
         defer { fixture.clean() }
-        let choices = ["StreamEx", "AS1", "AS2", "CS1"].map { provider in
+        let choices = ["Score808", "AS1", "AS2", "CS1"].map { provider in
             StreamSession(matchID: "design-source-only", playableURL: URL(string: "https://example.invalid/ui-only.m3u8")!,
                           streamType: .hls, providerName: provider)
         }

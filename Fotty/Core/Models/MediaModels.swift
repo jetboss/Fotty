@@ -690,7 +690,6 @@ struct StreamEventBinding: Equatable, Sendable {
     static func providerCode(forSessionProviderName name: String) -> String? {
         StreamPluginProviderMatching.opaqueProviderFamily(name)
             ?? CuratedStreamSourceCatalog.definition(forProviderCode: name)?.providerCode
-            ?? StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: name)
     }
 
     private static func isReference(_ value: String, limit: Int) -> Bool {

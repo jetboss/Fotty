@@ -807,7 +807,6 @@ final class SportsPersonalizationTests: XCTestCase {
             onlySelected: true, now: now)
         XCTAssertEqual(cricket.map(\.id), ["future-cricket"])
         XCTAssertEqual(cricket.first?.phase, .upcoming)
-        XCTAssertEqual(cricket.first?.canWatch, false)
         XCTAssertEqual(events.count, 4)
         XCTAssertTrue(events.first { $0.id == "conflicting-cricket" }?.hasCatalogIdentityConflict == true)
     }
@@ -863,7 +862,6 @@ final class SportsPersonalizationTests: XCTestCase {
             teams: [], leagues: [], sports: ["cricket"],
             onlySelected: true, now: now, limit: 10)
         XCTAssertEqual(rows.map(\.id), ["scheduled"])
-        XCTAssertEqual(rows.first?.canWatch, false)
         XCTAssertEqual(rows.first?.isOnNow, false)
     }
 

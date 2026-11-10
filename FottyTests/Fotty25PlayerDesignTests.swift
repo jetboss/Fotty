@@ -83,7 +83,7 @@ final class Fotty25PlayerDesignTests: XCTestCase {
     }
 
     func testSingleSourceSheetFitsMediumHeightWithAccessibleCheckingAndMultipleGroups() {
-        let sessions = ["StreamEx", "AS1", "AS2", "CS1", "CS2"].map {
+        let sessions = ["Score808", "AS1", "AS2", "CS1", "CS2"].map {
             StreamSession(matchID: "ui-only", playableURL: URL(string: "https://example.invalid/ui-only.m3u8")!,
                           streamType: .hls, providerName: $0)
         }

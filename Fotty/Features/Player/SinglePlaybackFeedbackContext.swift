@@ -42,7 +42,7 @@ struct SinglePlaybackFeedbackContext: Identifiable, Equatable {
         guard let value = proposed,
               value.count <= 40, !value.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else { return nil }
         if CuratedStreamSourceCatalog.all.contains(where: { $0.matchesOpaqueLabel(value) }) { return value }
-        guard value.range(of: #"^(?:StreamEx|Score808|VIPLeague|MethStreams|Cricfree|StrikeOut)(?:[ #]*[0-9]{1,3})?$"#,
+        guard value.range(of: #"^(?:Score808|VIPLeague|MethStreams|Cricfree|StrikeOut)(?:[ #]*[0-9]{1,3})?$"#,
                           options: [.regularExpression, .caseInsensitive]) != nil else { return nil }
         return value
     }

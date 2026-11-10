@@ -161,8 +161,9 @@ final class HomeTerminalReconciliationTests: XCTestCase {
             XCTAssertEqual(MatchdayEventStatePolicy.section(for: event, at: now, status: .inPlay), .live)
             let action = MatchStartPolicy(event: event, now: now, status: .inPlay)
             XCTAssertFalse(action.isStopped)
-            XCTAssertTrue(action.canAttemptPlayback)
-            XCTAssertEqual(action.title, "Watch", "Held cricket metadata cannot label a playable current score Finished or Cancelled")
+            XCTAssertTrue(action.timingAllowsPlayback)
+            XCTAssertFalse(["Finished", "Cancelled"].contains(action.title),
+                           "Held cricket metadata cannot label a playable current score Finished or Cancelled")
         }
     }
 
@@ -181,8 +182,9 @@ final class HomeTerminalReconciliationTests: XCTestCase {
             XCTAssertEqual(MatchdayEventStatePolicy.section(for: event, at: now, status: .inPlay), .live)
             let action = MatchStartPolicy(event: event, now: now, status: .inPlay)
             XCTAssertFalse(action.isStopped)
-            XCTAssertTrue(action.canAttemptPlayback)
-            XCTAssertEqual(action.title, "Watch", "A future cricket terminal receipt has no playback-label authority")
+            XCTAssertTrue(action.timingAllowsPlayback)
+            XCTAssertFalse(["Finished", "Cancelled"].contains(action.title),
+                           "A future cricket terminal receipt has no playback-label authority")
         }
     }
 
@@ -248,6 +250,5 @@ final class HomeTerminalReconciliationTests: XCTestCase {
         let sourceFree = provider(id: "source-free", start: now.addingTimeInterval(3600), sources: [])
         let scheduled = try XCTUnwrap(HomeSportsDiscovery(events: [sourceFree], now: now, terminalEvents: [sportsEvent(.finished)]).items.first)
         XCTAssertEqual(scheduled.phase, .upcoming)
-        XCTAssertFalse(scheduled.canWatch)
     }
 }

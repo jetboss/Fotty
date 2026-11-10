@@ -119,8 +119,6 @@ struct StreamPluginManifest: Codable, Sendable {
             providerCode = code
         } else if id.contains("score808") {
             providerCode = "score808"
-        } else if id.contains("streamex") {
-            providerCode = "streamex"
         } else if id.contains("vipleague") {
             providerCode = "echo"
         } else {
@@ -147,7 +145,6 @@ struct StreamPluginManifest: Codable, Sendable {
 /// adapter still owns its exact fixture schema, transport and admission checks.
 enum CuratedStreamSourceCatalog {
     enum Provider: String, CaseIterable, Sendable {
-        case streamEx = "streamex"
         case score808 = "score808"
         case communitySports = "communitysports"
         case plavioSports = "plaviosports"
@@ -159,7 +156,7 @@ enum CuratedStreamSourceCatalog {
     /// Typed routing identity; it never carries an arbitrary URL or closure
     /// capable of bypassing the reviewed adapter's authority.
     enum Dispatch: CaseIterable, Equatable, Sendable {
-        case sharedCatalog, score808, communitySports, plavioSports, cncSports, flixStreams, reviewedTV
+        case score808, communitySports, plavioSports, cncSports, flixStreams, reviewedTV
     }
 
     struct Definition: Sendable, Equatable, Identifiable {
@@ -168,14 +165,12 @@ enum CuratedStreamSourceCatalog {
         let manifestID: String
         let defaultEnabled: Bool
         let opaqueLabelPrefix: String?
-        let catalogSourceCodes: [String]
 
         var id: String { provider.rawValue }
         var providerCode: String { provider.rawValue }
         var discoveryName: String { opaqueLabelPrefix ?? providerCode }
         var dispatch: Dispatch {
             switch provider {
-            case .streamEx: return .sharedCatalog
             case .score808: return .score808
             case .communitySports: return .communitySports
             case .plavioSports: return .plavioSports
@@ -185,16 +180,13 @@ enum CuratedStreamSourceCatalog {
             }
         }
         var isOptional: Bool { opaqueLabelPrefix != nil }
-        /// A retired family keeps its identity (saved settings, health memory,
-        /// labels) but no refresh, discovery or collector lane calls it.
-        var isRetired: Bool { dispatch == .sharedCatalog && CuratedStreamSourceCatalog.isSharedCatalogRetired }
 
         /// These are the existing lane gates, not fixture or playback proof.
         /// CS keeps its reviewed Live fallback; other adapters keep their own
         /// existing category boundaries rather than a second copied sport list.
         func supportsDiscovery(category: String) -> Bool {
             switch dispatch {
-            case .sharedCatalog, .score808, .reviewedTV: return false
+            case .score808, .reviewedTV: return false
             case .communitySports: return true
             case .plavioSports: return PlavioSportsAddonClient.supports(category: category)
             case .cncSports: return CNCSportsAddonClient.supports(category: category)
@@ -249,35 +241,21 @@ enum CuratedStreamSourceCatalog {
     // Keep the established order, IDs, labels and default choices. Remote
     // manifests cannot append definitions or change any of these identities.
     static let all: [Definition] = [
-        .init(provider: .streamEx, manifestFilename: "streamex_manifest", manifestID: "streamex-extension",
-              defaultEnabled: true, opaqueLabelPrefix: nil, catalogSourceCodes: ["admin", "delta", "echo", "golf", "india"]),
         .init(provider: .score808, manifestFilename: "score808_manifest", manifestID: "score808-extension",
-              defaultEnabled: true, opaqueLabelPrefix: nil, catalogSourceCodes: ["hotel"]),
+              defaultEnabled: true, opaqueLabelPrefix: nil),
         .init(provider: .communitySports, manifestFilename: "community_sports_manifest", manifestID: "community-sports-extension",
-              defaultEnabled: false, opaqueLabelPrefix: "CS", catalogSourceCodes: []),
+              defaultEnabled: false, opaqueLabelPrefix: "CS"),
         .init(provider: .plavioSports, manifestFilename: "additional_sports_manifest", manifestID: "additional-sports-extension",
-              defaultEnabled: false, opaqueLabelPrefix: "AS", catalogSourceCodes: []),
+              defaultEnabled: false, opaqueLabelPrefix: "AS"),
         .init(provider: .cncSports, manifestFilename: "cnc_sports_manifest", manifestID: "cnc-sports-extension",
-              defaultEnabled: false, opaqueLabelPrefix: "LS", catalogSourceCodes: []),
+              defaultEnabled: false, opaqueLabelPrefix: "LS"),
         .init(provider: .flixStreams, manifestFilename: "flix_streams_manifest", manifestID: "flix-streams-extension",
-              defaultEnabled: false, opaqueLabelPrefix: "FS", catalogSourceCodes: []),
+              defaultEnabled: false, opaqueLabelPrefix: "FS"),
         .init(provider: .reviewedTV, manifestFilename: "reviewed_tv_manifest", manifestID: "reviewed-tv-extension",
-              defaultEnabled: false, opaqueLabelPrefix: "TV", catalogSourceCodes: [])
+              defaultEnabled: false, opaqueLabelPrefix: "TV")
     ]
 
     static var optionalSources: [Definition] { all.filter(\.isOptional) }
-
-    /// The shared catalog family (Streamed, also served as StreamEx) closed
-    /// upstream. Since 27 Oct 2026 its three catalog mirrors return a closure
-    /// page, its stream lookup is gone and its embed host no longer resolves;
-    /// the provider monitor has failed daily since then. Retired 9 Nov 2026:
-    /// Home no longer refreshes it, Watch no longer searches it, the source
-    /// collector no longer polls it and Settings no longer lists it. Score808's
-    /// own site lane is independent and unaffected.
-    static let isSharedCatalogRetired = true
-
-    /// Sources a person can switch on or off in Settings.
-    static var settingsProviderCodes: [String] { all.filter { !$0.isRetired }.map(\.providerCode) }
 
     struct DiscoveryPlan: Sendable, Equatable {
         let score808SiteEligible: Bool
@@ -374,8 +352,7 @@ enum StreamPluginProviderMatching {
     /// Provider catalog data is remote and therefore untrusted. Keep every
     /// shared embed inside the reviewed HTTPS origins that Fotty supports.
     static let approvedSharedPlaybackDomains = [
-        "embed.st", "embedhd.st", "exposestrat.com", "embedsports.top",
-        "streamex.net", "streamex.sh", "streamed.pk", "streamed.su",
+        "embedhd.st", "exposestrat.com", "embedsports.top",
         "pooembed.eu", "score808live.tv", "strmd.st"
     ]
 
@@ -391,19 +368,6 @@ enum StreamPluginProviderMatching {
 
     static func isActivePlayerSession(_ session: StreamSession) -> Bool {
         isActivePlayerSource(session.legacySource)
-    }
-
-    static func activeProviderCode(forCatalogSourceCode sourceCode: String) -> String? {
-        let normalized = sourceCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return CuratedStreamSourceCatalog.all.first { $0.catalogSourceCodes.contains(normalized) }?.providerCode
-    }
-
-    static func isActiveCatalogSource(_ source: NexusASource) -> Bool {
-        activeProviderCode(forCatalogSourceCode: source.source) != nil
-    }
-
-    static func hasActiveCatalogSource(_ event: AnalyticalDataEngine.EventReference) -> Bool {
-        event.sources?.contains(where: isActiveCatalogSource(_:)) == true
     }
 
     static func isApprovedSharedPlaybackHost(_ host: String) -> Bool {
@@ -441,20 +405,14 @@ enum StreamPluginProviderMatching {
             source.provider,
             source.quality,
             source.title ?? "",
-            source.headers["X-Fotty-Nexus-Source"] ?? "",
             source.url.host ?? "",
             source.url.absoluteString
         ].map { $0.lowercased() }
 
         let aliases: [String]
         switch needle {
-        case "score808", "hotel":
-            aliases = ["score808", "808", "score-808", "score808live", "hotel", "cricfree"]
-        case "streamex", "delta", "golf", "india", "admin":
-            aliases = [
-                "streamex", "streamed", "pooembed", "delta", "echo", "vipleague",
-                "golf", "india", "strikeout", "admin", "embed.st"
-            ]
+        case "score808":
+            aliases = ["score808", "808", "score-808", "score808live", "cricfree"]
         case communitySportsProviderCode:
             if CuratedStreamSourceCatalog.definition(forProviderCode: needle)?.matchesLegacyLabel(source.provider) == true {
                 return true

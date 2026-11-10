@@ -94,8 +94,7 @@ enum HomeMatchPriority {
         if let status = MatchStartPolicy.currentStatus(for: event, scores: scoreService, now: now) {
             return status.isLive
         }
-        // StreamEx/Nexus often lists club friendlies and smaller leagues that never match
-        // the scoreboard API. If kickoff has started and we're still inside the match window,
+        // CPL fixtures never match the scoreboard API. If kickoff has started and we're still inside the match window,
         // treat it as live so it pins to the Live rail instead of burying mid-list.
         if event.isCPLFixture, let kickoff = event.kickoffDate, kickoff <= now {
             return !event.isPastEstimatedMatchWindow(at: now)

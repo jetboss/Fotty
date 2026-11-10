@@ -39,9 +39,7 @@ struct MatchHubView: View {
                   VStack(spacing: 12) {
                     MatchHubHeader(
                         data: data,
-                        onWatchLive: viewModel.discoveredProviders.isEmpty
-                            ? nil
-                            : { viewModel.watchLive() }
+                        onWatchLive: viewModel.canWatchLive ? { viewModel.watchLive() } : nil
                     )
                     .padding(.top, 6)
 
@@ -58,7 +56,7 @@ struct MatchHubView: View {
                         Text(notice).font(FottyTheme.typeMeta)
                             .foregroundStyle(FottyTheme.textSecondary).padding(.horizontal)
                     }
-                    InsightsHubTab(data: data, providers: viewModel.discoveredProviders,
+                    InsightsHubTab(data: data,
                                    insights: viewModel.insights, isLoading: viewModel.isRefreshing,
                                    loadError: nil)
                   }
@@ -74,10 +72,7 @@ struct MatchHubView: View {
                 }
                 CatalogMatchHubView(
                     event: event,
-                    providers: viewModel.discoveredProviders,
-                    onWatchLive: viewModel.discoveredProviders.isEmpty
-                        ? nil
-                        : { viewModel.watchLive() }
+                    onWatchLive: nil
                 )
                 .refreshable { await viewModel.refresh() }
                 }
@@ -168,7 +163,6 @@ struct MatchHubView: View {
 
 private struct CatalogMatchHubView: View {
     let event: EventReference
-    let providers: [String]
     let onWatchLive: (() -> Void)?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(LiveScoreService.self) private var scoreService
@@ -236,11 +230,6 @@ private struct CatalogMatchHubView: View {
                         .foregroundStyle(FottyTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    if !providers.isEmpty {
-                        Text(providers.count == 1 ? "1 broadcast option" : "\(providers.count) broadcast options")
-                            .font(FottyTheme.typeCaption)
-                            .foregroundStyle(FottyTheme.accentText)
-                    }
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)

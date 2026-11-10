@@ -838,8 +838,7 @@ struct SportsDashboardView: View {
             available: HomeUpcomingPresentationPolicy.availabilityRank(
                 equalizeSelectedInterests: equalizeSelectedInterests,
                 isFollowed: followed,
-                isUpcoming: item.phase == .upcoming,
-                hasListedSource: item.canWatch
+                isUpcoming: item.phase == .upcoming
             )
         )
     }
@@ -1802,94 +1801,33 @@ struct SportsDashboardView: View {
             && TwoMatchSelectionPolicy.hasTwoCandidates(in: filteredEvents, where: isMultiViewCandidate(_:))
     }
 
+    /// A match can join "Watch two" when its normal Watch action is available
+    /// (stations, the registry, or a fresh lookup through enabled sources) and
+    /// its timing suits two-match viewing. Until 9 Nov this required a shared
+    /// catalog source, which no match has had since that catalog closed.
     private func isMultiViewCandidate(_ event: AnalyticalDataEngine.EventReference) -> Bool {
-        // Source-free schedule rows cannot be candidates; avoid their live/CPL
-        // classification before applying the unchanged current-time checks.
-        guard isPlaybackCandidate(event) else { return false }
-        guard !HomeMatchPriority.isFinished(event, scoreService: liveScoreService) else { return false }
-        return HomeMatchPriority.isMultiViewTimingEligible(event, scoreService: liveScoreService)
-    }
-
-    /// A Watch action is shown whenever the catalog advertises a supported
-    /// source. Recent provider failures may influence automatic ordering, but
-    /// must never hide a manual Watch attempt from a catalog-listed match.
-    private func isPlaybackCandidate(_ event: AnalyticalDataEngine.EventReference) -> Bool {
-        event.sources?.contains { source in
-            StreamPluginProviderMatching.isActiveCatalogSource(source)
-        } == true
+        guard !HomeMatchPriority.isFinished(event, scoreService: liveScoreService),
+              HomeMatchPriority.isMultiViewTimingEligible(event, scoreService: liveScoreService) else { return false }
+        return broadcastAction(for: event) != nil
     }
 
     private func cplChannelActionTitle(_ event: AnalyticalDataEngine.EventReference) -> String? {
-        // Ordinary rows and already sourced CPL fixtures never need the
-        // catalog-wide channel fallback search. Keeping that resolver in every
+        // Ordinary rows never need the catalog-wide channel fallback search. Keeping that resolver in every
         // lazy-row body made the first scroll pay O(rows × catalog) work.
-        guard event.isCPLFixture,
-              !StreamPluginProviderMatching.hasActiveCatalogSource(event) else { return nil }
+        guard event.isCPLFixture else { return nil }
         return broadcastAction(for: event)?.alternateActionTitle
     }
 
     private func canOpenBroadcast(_ event: AnalyticalDataEngine.EventReference) -> Bool {
-        if isMultiSelectMode && !StreamPluginProviderMatching.hasActiveCatalogSource(event) { return false }
+        if isMultiSelectMode { return isMultiViewCandidate(event) }
         return broadcastAction(for: event) != nil
     }
 
+    /// The normal Watch action. Two-match selection and replacement use the
+    /// same rule; they no longer depend on shared-catalog sources.
     private func broadcastAction(for event: EventReference) -> CurrentEventBroadcastPolicy.Action? {
-        let catalog = isMultiSelectMode || viewing.isTwo
-            ? matchListViewModel?.playbackCatalog ?? [] : matchListViewModel?.playbackAdmissionCatalog ?? []
-        return CurrentEventBroadcastPolicy.action(for: event, in: catalog, at: discoveryDate,
-                                          status: MatchStartPolicy.currentStatus(for: event, scores: liveScoreService, now: discoveryDate),
-                                          useDiscoveryIndex: !isMultiSelectMode && !viewing.isTwo)
-    }
-
-    private var carouselEvents: [AnalyticalDataEngine.EventReference] {
-        let personalization = personalizationContext
-        return HomeMatchPriority.carouselCandidates(
-            from: filteredEvents.filter(isPlaybackCandidate(_:)),
-            scoreService: liveScoreService,
-            isFollowed: { isEventFollowed($0, personalization: personalization) }
-        )
-    }
-
-    /// All sports — independent of the selected category filter.
-    private func onNowGlance(
-        from allMatches: [AnalyticalDataEngine.EventReference]
-    ) -> (
-        live: [AnalyticalDataEngine.EventReference],
-        soon: [AnalyticalDataEngine.EventReference],
-        surprise: AnalyticalDataEngine.EventReference?
-    ) {
-        // This legacy entry accepts raw caller events, not necessarily the
-        // current discovery snapshot. Reuse selection keys, not ID-only facts.
-        let selection = preparedPersonalizationSelection
-        let live = HomeMatchPriority.prioritized(
-            allMatches.filter {
-                isPlaybackCandidate($0)
-                    && HomeMatchPriority.isLive($0, scoreService: liveScoreService)
-            },
-            scoreService: liveScoreService,
-            isFollowed: { follows($0, selection: selection) }
-        )
-        let soon = HomeMatchPriority.prioritized(
-            allMatches.filter {
-                isPlaybackCandidate($0)
-                    && !HomeMatchPriority.isLive($0, scoreService: liveScoreService)
-                    && !HomeMatchPriority.isFinished($0, scoreService: liveScoreService)
-                    && HomeMatchPriority.isStartingSoon($0)
-            },
-            scoreService: liveScoreService,
-            isFollowed: { follows($0, selection: selection) }
-        )
-        // Surprise prefers live; falls back to soon. Followed teams already rank first.
-        let surprisePool = live.isEmpty ? soon : live
-        let surprise: AnalyticalDataEngine.EventReference?
-        if surprisePool.count <= 1 {
-            surprise = surprisePool.first
-        } else {
-            // Stable-ish pick that still rotates: day bucket + count.
-            let day = Calendar.current.ordinality(of: .day, in: .year, for: Date()) ?? 0
-            surprise = surprisePool[(day + surprisePool.count) % surprisePool.count]
-        }
-        return (live, soon, surprise)
+        CurrentEventBroadcastPolicy.action(for: event, in: matchListViewModel?.playbackAdmissionCatalog ?? [], at: discoveryDate,
+                                          status: MatchStartPolicy.currentStatus(for: event, scores: liveScoreService, now: discoveryDate))
     }
 
     private func liveEvents(excluding heroIDs: Set<String>) -> [AnalyticalDataEngine.EventReference] {
@@ -2066,7 +2004,7 @@ struct SportsDashboardView: View {
         if ProcessInfo.processInfo.environment["FOTTY_MULTIVIEW_UI_TESTING"] == "1" {
             let sessions = events.map { event in
                 (1...2).compactMap { index -> StreamSession? in
-                    guard let url = URL(string: "https://embed.st/embed/delta/fotty-ui-\(event.id)/\(index)") else {
+                    guard let url = URL(string: "https://www.score808live.tv/embed/fotty-ui-\(event.id)/\(index)") else {
                         return nil
                     }
                     return StreamSession(
@@ -2074,7 +2012,7 @@ struct SportsDashboardView: View {
                         title: "Source \(index)",
                         playableURL: url,
                         streamType: .unknown,
-                        providerName: "StreamEx",
+                        providerName: "Score808",
                         qualityLabel: "UI fixture"
                     )
                 }

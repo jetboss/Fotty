@@ -199,7 +199,6 @@ final class LiveSourceHealthScopeTests: XCTestCase {
                 in: [fixtureA.legacySource, fixtureB.legacySource], contextKey: "football|all")
             XCTAssertEqual(Set(candidates.map(\.id)), [fixtureA.id, fixtureB.id], reason)
             XCTAssertFalse(LiveSourceHealthStore.isTemporarilyUnavailable(fixtureB.legacySource), reason)
-            XCTAssertFalse(LiveSourceHealthStore.isProviderFamilyTemporarilyUnavailable("delta", host: "embed.example.test"), reason)
             XCTAssertNil(LiveSourceHealthStore.cooldownRemaining(for: fixtureB.legacySource), reason)
         }
     }
@@ -277,7 +276,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
 
     func testLegacyBroadCircuitsAreClearedWithoutDiscardingPositiveMemory() throws {
         let source = try session(matchID: "fixture-b", path: "fixture-b/1").legacySource
-        let key = "web|delta|embed.example.test"
+        let key = "web|communitysports|embed.example.test"
         let lastSuccess = Date().timeIntervalSince1970
         let legacy: [String: [String: Any]] = [key: [
             "successCount": 4, "failureCount": 8, "stallCount": 3,
@@ -286,11 +285,11 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         ]]
         UserDefaults.standard.set(try JSONSerialization.data(withJSONObject: legacy),
                                   forKey: "fotty.live.sourceHealth.v1")
-        UserDefaults.standard.set(["football|all": "delta"], forKey: "fotty.live.lastGoodProvider.v1")
+        UserDefaults.standard.set(["football|all": "communitysports"], forKey: "fotty.live.lastGoodProvider.v1")
 
         XCTAssertEqual(LiveSourceHealthStore.automaticCandidates(in: [source]).map(\.id), [source.id])
         XCTAssertFalse(LiveSourceHealthStore.isTemporarilyUnavailable(source))
-        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         let data = try XCTUnwrap(UserDefaults.standard.data(forKey: "fotty.live.sourceHealth.v1"))
         let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: [String: Any]])
         let migrated = try XCTUnwrap(saved[key])
@@ -304,11 +303,11 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         XCTAssertNil(migrated["lastFailureAt"])
         XCTAssertNil(migrated["lastFailureReason"])
         XCTAssertEqual(UserDefaults.standard.dictionary(forKey: "fotty.live.lastGoodProvider.v1") as? [String: String],
-                       ["football|all": "delta"])
+                       ["football|all": "communitysports"])
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 1)
         for _ in 0..<20 {
             XCTAssertFalse(LiveSourceHealthStore.isTemporarilyUnavailable(source))
-            XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+            XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         }
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 1,
                        "The migrated encoded payload must become the cached identity")
@@ -317,15 +316,14 @@ final class LiveSourceHealthScopeTests: XCTestCase {
     func testUnchangedPayloadDecodesOnceAcrossRankingAndSourcePickerReads() throws {
         let source = try session(matchID: "fixture-a", path: "fixture-a/1").legacySource
         let sibling = try session(matchID: "fixture-a", path: "fixture-a/2", family: "hotel").legacySource
-        let data = try healthPayload(family: "delta")
+        let data = try healthPayload(family: "communitysports")
         UserDefaults.standard.set(data, forKey: "fotty.live.sourceHealth.v1")
         for _ in 0..<20 {
             XCTAssertEqual(LiveSourceHealthStore.ranked([sibling, source]).first?.id, source.id)
             XCTAssertFalse(LiveSourceHealthStore.isTemporarilyUnavailable(source))
             XCTAssertNil(LiveSourceHealthStore.cooldownRemaining(for: source))
-            XCTAssertFalse(LiveSourceHealthStore.isProviderFamilyTemporarilyUnavailable("delta"))
             LiveSourceHealthStore.recordFailure(for: source, wasStall: true, reason: "Attempt-local stall")
-            XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+            XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
             _ = LiveSourceHealthStore.score(for: source)
         }
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 1)
@@ -338,18 +336,18 @@ final class LiveSourceHealthScopeTests: XCTestCase {
     func testDirectDefaultsReplacementAndRemovalInvalidateCachedSuccesses() throws {
         let source = try session(matchID: "fixture-a", path: "fixture-a/1").legacySource
         let sibling = try session(matchID: "fixture-a", path: "fixture-a/2", family: "hotel").legacySource
-        UserDefaults.standard.set(try healthPayload(family: "delta"), forKey: "fotty.live.sourceHealth.v1")
+        UserDefaults.standard.set(try healthPayload(family: "communitysports"), forKey: "fotty.live.sourceHealth.v1")
         XCTAssertEqual(LiveSourceHealthStore.ranked([sibling, source]).first?.id, source.id)
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 1)
 
         UserDefaults.standard.set(try healthPayload(family: "score808"), forKey: "fotty.live.sourceHealth.v1")
         XCTAssertEqual(LiveSourceHealthStore.ranked([source, sibling]).first?.id, sibling.id)
-        XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+        XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "hotel", host: "embed.example.test"))
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 2)
 
         UserDefaults.standard.removeObject(forKey: "fotty.live.sourceHealth.v1")
-        XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+        XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "hotel", host: "embed.example.test"))
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 2,
                        "Missing data invalidates the cache without invoking JSONDecoder")
@@ -361,57 +359,57 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         UserDefaults.standard.set(malformed, forKey: "fotty.live.sourceHealth.v1")
         for _ in 0..<20 {
             XCTAssertFalse(LiveSourceHealthStore.isTemporarilyUnavailable(source))
-            XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+            XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         }
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 1)
         XCTAssertEqual(UserDefaults.standard.data(forKey: "fotty.live.sourceHealth.v1"), malformed)
-        UserDefaults.standard.set(try healthPayload(family: "delta"), forKey: "fotty.live.sourceHealth.v1")
-        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+        UserDefaults.standard.set(try healthPayload(family: "communitysports"), forKey: "fotty.live.sourceHealth.v1")
+        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 2)
     }
 
     func testRecordedSuccessRefreshesCacheWithoutRedecodingPersistedWrites() throws {
         let source = try session(matchID: "fixture-a", path: "fixture-a/1").legacySource
         let sibling = try session(matchID: "fixture-a", path: "fixture-a/2", family: "hotel").legacySource
-        XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+        XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         for _ in 0..<4 {
             LiveSourceHealthStore.recordSuccess(for: source, startupLatencyMs: 3_000, contextKey: "football|all")
         }
         LiveSourceHealthStore.recordSuccess(for: sibling, startupLatencyMs: 3_000)
-        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "hotel", host: "embed.example.test"))
         XCTAssertEqual(LiveSourceHealthStore.ranked([sibling, source], contextKey: "football|all").first?.id, source.id)
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 0)
         let persisted = try XCTUnwrap(UserDefaults.standard.data(forKey: "fotty.live.sourceHealth.v1"))
         let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: persisted) as? [String: [String: Any]])
-        XCTAssertEqual(saved["web|delta|embed.example.test"]?["successCount"] as? Int, 4)
+        XCTAssertEqual(saved["web|communitysports|embed.example.test"]?["successCount"] as? Int, 4)
         XCTAssertEqual(saved["web|score808|embed.example.test"]?["successCount"] as? Int, 1)
     }
 
     func testResetClearsPayloadCacheAndDecodeCounter() throws {
-        let data = try healthPayload(family: "delta")
+        let data = try healthPayload(family: "communitysports")
         UserDefaults.standard.set(data, forKey: "fotty.live.sourceHealth.v1")
-        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 1)
         LiveSourceHealthStore.resetForTesting()
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 0)
-        XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+        XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         UserDefaults.standard.set(data, forKey: "fotty.live.sourceHealth.v1")
-        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 1)
     }
 
     func testConcurrentReadsShareOneQueueOwnedDecodedPayload() throws {
-        UserDefaults.standard.set(try healthPayload(family: "delta"), forKey: "fotty.live.sourceHealth.v1")
+        UserDefaults.standard.set(try healthPayload(family: "communitysports"), forKey: "fotty.live.sourceHealth.v1")
         DispatchQueue.concurrentPerform(iterations: 64) { _ in
-            _ = LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test")
+            _ = LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test")
         }
-        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "delta", host: "embed.example.test"))
+        XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "embed.example.test"))
         XCTAssertEqual(LiveSourceHealthStore.snapshotDecodeCountForTesting(), 1)
     }
 
     func testMeasuredSuccessStillRanksProviderWithoutFailurePenalties() throws {
-        let proven = try session(matchID: "fixture-a", path: "fixture-a/1", family: "delta")
+        let proven = try session(matchID: "fixture-a", path: "fixture-a/1", family: "communitysports")
         let preferredOnTie = try session(matchID: "fixture-b", path: "fixture-b/1", family: "hotel")
         for _ in 0..<4 {
             LiveSourceHealthStore.recordSuccess(for: proven, startupLatencyMs: 3_000)
@@ -425,10 +423,10 @@ final class LiveSourceHealthScopeTests: XCTestCase {
 
     func testSingleStreamFastASBeatsHundredSlowLegacySuccessesAndSlowLastGood() throws {
         let fast = try rankedSession(provider: "AS1", path: "fast.m3u8", native: true)
-        let slow = try rankedSession(provider: "StreamEx", path: "slow", native: false)
+        let slow = try rankedSession(provider: "Score808", path: "slow", native: false)
         let now = Date()
         try seedSnapshots([healthKey(slow): positiveSnapshot(count: 100, latency: 9_000, at: now)])
-        UserDefaults.standard.set(["football|all": "delta"], forKey: "fotty.live.lastGoodProvider.v1")
+        UserDefaults.standard.set(["football|all": "communitysports"], forKey: "fotty.live.lastGoodProvider.v1")
         LiveSourceHealthStore.recordSuccess(for: fast, startupLatencyMs: 1_000)
         let ranked = LiveSourceHealthStore.rankedSingleStreamSessions([slow, fast], contextKey: "football|all", at: Date())
         XCTAssertEqual(ranked.map(\.id), [fast.id, slow.id])
@@ -439,7 +437,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
     }
 
     func testSingleStreamConfidenceIsCappedAndOnlyBreaksSameStartupBucketTies() throws {
-        let popular = try rankedSession(provider: "StreamEx", path: "popular", native: false)
+        let popular = try rankedSession(provider: "Score808", path: "popular", native: false)
         let quick = try rankedSession(provider: "AS1", path: "quick", native: false)
         let now = Date()
         try seedSnapshots([
@@ -468,7 +466,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
 
     func testSingleStreamMedianIsNotDominatedByOneStartupOutlier() throws {
         let typical = try rankedSession(provider: "AS1", path: "typical", native: false)
-        let slower = try rankedSession(provider: "StreamEx", path: "slower", native: false)
+        let slower = try rankedSession(provider: "Score808", path: "slower", native: false)
         let now = Date()
         try seedSnapshots([
             healthKey(typical): positiveSnapshot(count: 3, latency: 31_000, at: now,
@@ -480,7 +478,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
     }
 
     func testSingleStreamStaleFutureAndCorruptHistoryCannotBoostUnknownWebAboveNative() throws {
-        let stale = try rankedSession(provider: "StreamEx", path: "stale", native: false)
+        let stale = try rankedSession(provider: "Score808", path: "stale", native: false)
         let native = try rankedSession(provider: "AS1", path: "unknown.m3u8", native: true)
         let now = Date()
         let old = now.addingTimeInterval(-7 * 24 * 60 * 60 - 1)
@@ -494,7 +492,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         for snapshot in [positiveSnapshot(count: 100, latency: 1, at: old),
                          positiveSnapshot(count: 100, latency: 1, at: future), corrupted] {
             try seedSnapshots([healthKey(stale): snapshot])
-            UserDefaults.standard.set(["football|all": "delta"], forKey: "fotty.live.lastGoodProvider.v1")
+            UserDefaults.standard.set(["football|all": "communitysports"], forKey: "fotty.live.lastGoodProvider.v1")
             XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([stale, native], contextKey: "football|all", at: now)
                 .map(\.id), [native.id, stale.id])
         }
@@ -509,7 +507,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
     }
 
     func testSingleStreamProvenFastWebBeatsUnknownNativeAndDoesNotFilterFailures() throws {
-        let web = try rankedSession(provider: "StreamEx", path: "proven", native: false)
+        let web = try rankedSession(provider: "Score808", path: "proven", native: false)
         let native = try rankedSession(provider: "AS1", path: "unknown.m3u8", native: true)
         LiveSourceHealthStore.recordSuccess(for: web, startupLatencyMs: 800)
         let before = LiveSourceHealthStore.rankedSingleStreamSessions([native, web]).map(\.id)
@@ -520,7 +518,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
     }
 
     func testSingleStreamEqualUnknownCandidatesKeepStableInputOrderWithoutFamilyPecking() throws {
-        let streamEx = try session(matchID: "a", path: "a", family: "delta")
+        let streamEx = try session(matchID: "a", path: "a", family: "communitysports")
         let score808 = try session(matchID: "b", path: "b", family: "hotel")
         for _ in 0..<10 {
             XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([streamEx, score808]).map(\.id), [streamEx.id, score808.id])
@@ -532,7 +530,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
 
     func testSingleStreamMissingLatencyIsWeakPositiveEvidenceNotInventedSpeed() throws {
         let measured = try rankedSession(provider: "AS1", path: "measured", native: false)
-        let unmeasured = try rankedSession(provider: "StreamEx", path: "decoded-no-timing", native: false)
+        let unmeasured = try rankedSession(provider: "Score808", path: "decoded-no-timing", native: false)
         let unknown = try rankedSession(provider: "CS1", path: "unknown", native: false)
         LiveSourceHealthStore.recordSuccess(for: unmeasured, startupLatencyMs: nil)
         LiveSourceHealthStore.recordSuccess(for: measured, startupLatencyMs: 8_000)
@@ -630,11 +628,11 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: recent, at: now.addingTimeInterval(120)), .sustained)
     }
 
-    private func session(matchID: String, path: String, family: String = "delta") throws -> StreamSession {
+    /// The main family is CS; "hotel" marks a Score808 sibling.
+    private func session(matchID: String, path: String, family: String = "communitysports") throws -> StreamSession {
         StreamSession(matchID: matchID,
             playableURL: try XCTUnwrap(URL(string: "https://embed.example.test/embed/\(family)/\(path)")),
-            streamType: .unknown, providerName: family == "hotel" ? "Score808" : "StreamEx",
-            requiredHeaders: ["X-Fotty-Nexus-Source": family])
+            streamType: .unknown, providerName: family == "hotel" ? "Score808" : "CS1")
     }
 
     private func healthPayload(family: String) throws -> Data {

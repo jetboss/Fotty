@@ -78,7 +78,6 @@ final class SportsSearchScheduleTests: XCTestCase {
         guard case .fixture(let item) = result else { return XCTFail("Expected a planning fixture") }
         XCTAssertEqual(item.event.id, row.id)
         XCTAssertEqual(item.phase, .upcoming)
-        XCTAssertFalse(item.canWatch)
         XCTAssertTrue(item.event.sources?.isEmpty == true)
         XCTAssertFalse(MatchStartPolicy(event: item.event, now: now).canAttemptPlayback)
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: item.event, in: [], at: now))

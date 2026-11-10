@@ -69,7 +69,7 @@ final class LivePlaybackRecoveryOverridesTests: XCTestCase {
             ("offline", { $0.isNetworkReachable = false }), ("forced web", { $0.isForcedWebEmbed = true }),
             ("denial", { $0.structuredFailure = LivePlaybackStructuredFailure(httpStatus: 403) }),
             ("not direct media", { $0.isDirectMedia = false }), ("unbound", { $0.boundProviderCode = nil }),
-            ("other provider", { $0.boundProviderCode = "streamex" }),
+            ("other provider", { $0.boundProviderCode = "score808" }),
             ("identity conflict", { $0.hasCatalogIdentityConflict = true }),
             ("timing", { $0.timingAllowsPlayback = false }), ("binding", { $0.bindingMatchesEvent = false }),
             ("cannot refresh", { $0.sessionCanRefresh = false }), ("retry spent", { $0.nativeStartupRetryCount = 1 }),

@@ -502,7 +502,7 @@ final class NativePlaybackPreparationTests: XCTestCase {
         let event = EventReference(id: "cookie-scoped-handoff", title: "Test Home vs Test Away",
             category: "football", date: 1_800_000_000, poster: nil, popular: false, teams: nil, sources: nil)
         let original = StreamSession(matchID: event.id, playableURL: URL(string: "https://embed.example/watch")!,
-            streamType: .unknown, providerName: "StreamEx", requiredHeaders: ["X-Fotty-Web-Embed": "true"])
+            streamType: .unknown, providerName: "Score808", requiredHeaders: ["X-Fotty-Web-Embed": "true"])
         var observedURL: URL?
         var observedHeaders: [String: String]?
         let model = LivePlayerViewModel(event: event, providedSessions: [original], ownsRemoteCommands: false,

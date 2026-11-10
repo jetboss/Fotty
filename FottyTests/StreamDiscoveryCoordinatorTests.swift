@@ -1035,7 +1035,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
             resolvedStreamType: .unknown, urlShape: "same_origin_addon", requiredHeaders: false,
             validationResult: "failed", manifestResult: failure.redactedMetadata["manifest_result"],
             finalFailureCategory: failure.category)
-        let ready = outcome([session("StreamEx")])
+        let ready = outcome([session("Score808")])
         let broken = outcome([], failure: failure)
         let report = await StreamDiscoveryCoordinator.collect(lanes: [
             { publish in

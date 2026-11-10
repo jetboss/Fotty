@@ -145,13 +145,8 @@ enum CricketChannelCatalog {
     }
 
     static func event(for channel: CricketBroadcastChannel, in events: [EventReference]) -> EventReference {
-        var seen = Set<String>()
-        let sources = events.filter { self.channel(for: $0) == channel }.flatMap { $0.sources ?? [] }.filter { source in
-            guard !source.id.isEmpty, StreamPluginProviderMatching.isActiveCatalogSource(source) else { return false }
-            return seen.insert(source.source + "\u{0}" + source.id).inserted
-        }
-        return .init(id: channel.canonicalID, title: channel.title, category: "cricket", date: nil,
-            poster: nil, popular: false, teams: nil, sources: sources)
+        .init(id: channel.canonicalID, title: channel.title, category: "cricket", date: nil,
+            poster: nil, popular: false, teams: nil, sources: [])
     }
 
     /// Explicit channel navigation is independent of fixture-team/date matching.

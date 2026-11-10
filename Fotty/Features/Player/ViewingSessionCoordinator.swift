@@ -1298,6 +1298,7 @@ enum ViewingMatchPickerPolicy {
                         excluding retained: [EventReference], now: Date = Date(),
                         status: (EventReference) -> FootballMatch.MatchStatus? = { _ in nil },
                         leagueName: ((EventReference) -> String?)? = nil,
+                        discoveryIndex: FixtureStreamDiscoveryIndex? = nil,
                         isCurrent: () -> Bool = { true },
                         checkpoint: () async -> Bool = { await HomeSportsSearch.checkpoint(isCurrent: { true }) }) async -> Prepared? {
         guard !Task.isCancelled, isCurrent(), await checkpoint(), isCurrent() else { return nil }
@@ -1306,7 +1307,8 @@ enum ViewingMatchPickerPolicy {
         for (index, event) in events.enumerated() {
             guard !Task.isCancelled, isCurrent() else { return nil }
             if !retained.contains(where: { $0.id == event.id || ViewingSessionCoordinator.representsSameFixture($0, as: event) }),
-               let action = CurrentEventBroadcastPolicy.action(for: event, in: catalog, at: now, status: status(event)),
+               let action = CurrentEventBroadcastPolicy.action(for: event, in: catalog, at: now, status: status(event),
+                   discoveryIndex: discoveryIndex),
                !action.isChannelFallback, seen.insert(action.event.id).inserted {
                 admitted.append(action.event)
             }

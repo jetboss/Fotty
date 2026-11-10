@@ -211,7 +211,7 @@ extension CatalogIncrementalPublicationTests {
         await FixtureSourceCatalogCollector.refresh(requests: requests, lanes: lanes, index: index,
             at: initial, clock: { clock.next() })
         XCTAssertEqual(Set(calls.values), Set(definitions.map(\.providerCode)))
-        XCTAssertEqual(index.summary(for: requests[0], at: clock.next())?.listedProviderCount, 6)
+        XCTAssertEqual(index.summary(for: requests[0], at: clock.next())?.listedProviderCount, 5)
     }
 
     func testSharedSourceCatalogKeepsOfficialRowsAndEveryEnabledSiblingDuringPrimaryFailure() async {
@@ -229,17 +229,17 @@ extension CatalogIncrementalPublicationTests {
         let lanes = definitions.map { definition in
             FixtureSourceCatalogCollector.Lane(providerCode: definition.providerCode) { requests, _ in
                 await MainActor.run { calls.values.append(definition.providerCode) }
-                if definition.providerCode == "streamex" { throw URLError(.cannotLoadFromNetwork) }
+                if definition.providerCode == "score808" { throw URLError(.cannotLoadFromNetwork) }
                 return requests.map { .init(matchID: $0.matchID, outcome: .listed,
                     providerEventID: definition.providerCode + "_" + $0.matchID) }
             }
         }
         await FixtureSourceCatalogCollector.refresh(requests: requests, lanes: lanes, index: index, at: clock, clock: { clock })
         XCTAssertEqual(Set(calls.values), Set(definitions.map(\.providerCode)))
-        XCTAssertEqual(calls.values.count, 6)
+        XCTAssertEqual(calls.values.count, 5)
         let event = requests.first { $0.category == "basketball" }!.preferredEvent!
         let summary = index.summary(for: StreamPlaybackRequest(event: event), at: clock)
-        XCTAssertEqual(summary?.listedProviderCount, 5)
+        XCTAssertEqual(summary?.listedProviderCount, definitions.count - 1, "Only the failed sibling loses its listing")
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: event, in: model.playbackAdmissionCatalog,
             at: clock, discoveryIndex: FixtureStreamDiscoveryIndex()))
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: event, in: model.playbackAdmissionCatalog,

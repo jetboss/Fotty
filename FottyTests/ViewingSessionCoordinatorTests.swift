@@ -709,6 +709,25 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
               hasCatalogIdentityConflict: conflict, sportsFixture: fixture, competitionID: competition)
     }
 
+    /// Watch Two admits a started, verified schedule fixture through the
+    /// fresh-Watch path. These rows have no provider listing.
+    private func pickerFixture(_ slug: String, home: String? = nil, away: String? = nil,
+                               category: String = "football", at now: Date, conflict: Bool = false) -> EventReference {
+        let home = home ?? "\(slug) home", away = away ?? "\(slug) away"
+        let metadata = SportsFixtureMetadata(fixtureID: "sports-fixture:test-cup:\(slug)", sport: category,
+            competitionID: "test-cup", competitionName: "Test Cup", eventKind: .match, title: "\(home) vs \(away)",
+            participants: [.init(id: "\(slug)-home", name: home), .init(id: "\(slug)-away", name: away)],
+            squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: now, verified: true)
+        return event(metadata.fixtureID, conflict: conflict, home: home, away: away, category: category,
+            date: Int64(now.addingTimeInterval(-60).timeIntervalSince1970), competition: "test-cup", fixture: metadata)
+    }
+
+    private func pickerIndex() -> FixtureStreamDiscoveryIndex {
+        let index = FixtureStreamDiscoveryIndex()
+        index.updateEnabledProviders(["communitysports"], revision: 1)
+        return index
+    }
+
     private func session(for event: EventReference, web: Bool = false) -> StreamSession {
         // A direct-media suffix deliberately takes precedence over embed headers
         // in the real classifier. Web fixtures must use an actual embed-shaped
@@ -716,7 +735,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let route = web ? "embed/prepared-\(event.id)" : "prepared-\(event.id).m3u8"
         return StreamSession(matchID: event.id, title: event.displayTitle,
             playableURL: URL(string: "https://example.invalid/\(route)")!,
-            streamType: web ? .unknown : .hls, providerName: "StreamEx",
+            streamType: web ? .unknown : .hls, providerName: "Score808",
             requiredHeaders: web ? ["X-Fotty-Web-Embed": "true"] : [:])
     }
 
@@ -1172,13 +1191,13 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         defer { MatchListViewModel.shared.matches = originalMatches }
         let choices = seedSlowLegacyAndFastSingleHistory(for: match)
         let exhausted = rankingSession(for: match, provider: "CS1", host: "exhausted-ranking.example.invalid")
-        let spare = rankingSession(for: match, provider: "StreamEx", host: "spare-ranking.example.invalid")
+        let spare = rankingSession(for: match, provider: "Score808", host: "spare-ranking.example.invalid")
         LiveSourceHealthStore.recordSuccess(for: exhausted, startupLatencyMs: 900)
         LiveSourceHealthStore.recordSuccess(for: spare, startupLatencyMs: 7_000)
         let model = LivePlayerViewModel(event: match,
             providedSessions: [choices.slow, choices.fast, exhausted, spare],
             ownsRemoteCommands: false, prepareAudioSession: { .completed([]) },
-            currentMatchProviders: { ["communitysports", "plaviosports", "streamex", "score808"] })
+            currentMatchProviders: { ["communitysports", "plaviosports", "score808"] })
         defer { model.cleanup() }
         XCTAssertTrue(model.configureSingleStreamRanking())
         XCTAssertEqual(model.activeSession?.id, exhausted.id)
@@ -1213,7 +1232,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             catalogEvent: { _ in primaryLookups += 1; return nil }, cancelPlayback: { _ in })
         defer { owner.stop() }
 
-        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex", "communitysports"] }) { current, phase in
+        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { current, phase in
             admissions += 1
             XCTAssertEqual(phase, admissions == 1 ? .offer : .completion)
             XCTAssertEqual(current.id, fixture.id)
@@ -1246,7 +1265,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         owner.open(event: retained, sessions: [session(for: retained)])
         let model = try XCTUnwrap(owner.primary?.model)
         let item = installPausedLocalItem(on: model)
-        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex", "communitysports"] }) { _, _ in nil })
+        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { _, _ in nil })
         await waitForSourceCheck { owner.resolutionError != nil }
         XCTAssertEqual(resolves, 0)
         XCTAssertTrue(owner.primary?.model === model)
@@ -1267,7 +1286,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             let item = installPausedLocalItem(on: model), attempt = model.loadRequestID
             let source = model.activeSession?.id
             owner.minimize()
-            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex", "communitysports"] }) { _, _ in fixture })
+            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { _, _ in fixture })
             await waitForSourceCheck { owner.resolutionError != nil }
             XCTAssertTrue(owner.primary?.model === model)
             XCTAssertTrue(model.player?.currentItem === item)
@@ -1287,8 +1306,8 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
                 resolvePlayback: { await gate.resolve($0) }, cancelPlayback: { _ in cancellations += 1 })
             defer { gate.completeAll(result); owner.stop() }
-            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex", "communitysports"] }) { _, _ in fixture })
-            XCTAssertFalse(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex", "communitysports"] }) { _, _ in fixture })
+            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { _, _ in fixture })
+            XCTAssertFalse(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { _, _ in fixture })
             await waitForSourceCheck { gate.requests.count == 1 }
             if stop { owner.stop() } else { owner.cancelOptionalSourceLookup() }
             gate.complete(result)
@@ -1308,7 +1327,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
                 resolvePlayback: { await gate.resolve($0) }, cancelPlayback: { _ in })
             defer { gate.completeAll(result); owner.stop() }
-            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex", "communitysports"] }) { _, _ in
+            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { _, _ in
                 admission += 1
                 if admission == 1 { return fixture }
                 if change == "missing" { return nil }
@@ -1349,7 +1368,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             resolvePlayback: { _ in XCTFail("Incremental Watch must use the supplied discovery lane"); return self.outcome(for: fixture, sessions: []) },
             cancelPlayback: { _ in })
         defer { gate.complete(outcome(for: fixture, sessions: [])); owner.stop() }
-        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex", "communitysports"] },
+        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] },
             discover: { await gate.resolve($0, publish: $1) }) { event, phase in
                 phases.append(phase)
                 return event
@@ -1396,7 +1415,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             let first = session(for: fixture)
             let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) }, cancelPlayback: { _ in })
             defer { gate.complete(outcome(for: fixture, sessions: [])); owner.stop() }
-            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex", "communitysports"] },
+            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] },
                 discover: { await gate.resolve($0, publish: $1) }, currentEvent: { event, _ in event }))
             await waitForSourceCheck { gate.publish != nil }
             await gate.publish?([first])
@@ -1421,7 +1440,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             var changed = false
             let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) }, cancelPlayback: { _ in })
             defer { gate.complete(outcome(for: fixture, sessions: [])); owner.stop() }
-            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex", "communitysports"] },
+            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] },
                 discover: { await gate.resolve($0, publish: $1) }) { event, phase in
                     guard changed, phase == .completion else { return event }
                     if change == "revoked" { return nil }
@@ -1454,7 +1473,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         var enabled = true, completions = 0
         let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) }, cancelPlayback: { _ in })
         defer { gate.complete(outcome(for: fixture, sessions: [])); owner.stop() }
-        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex", "communitysports"] },
+        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] },
             discover: { await gate.resolve($0, publish: $1) }) { event, phase in
                 if phase == .completion { completions += 1 }
                 return enabled ? event : nil
@@ -1481,7 +1500,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testIncrementalOptionalWatchFiltersRevokedFamilyAtCommitWhileEnabledSiblingCanPlay() async throws {
         let factory = ModelFactory(), gate = SingleDiscoveryGate(), fixture = sourceCheckFixture("optional-family-revoked")
-        var enabled: Set<String> = ["streamex", "communitysports"]
+        var enabled: Set<String> = ["score808", "communitysports"]
         var revokeOnCompletion = true
         let cs = StreamSession(matchID: fixture.id, playableURL: URL(string: "https://example.invalid/revoked-cs.m3u8")!,
             streamType: .hls, providerName: "CS1")
@@ -1503,7 +1522,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         await waitForSourceCheck { gate.publish != nil }
         await gate.publish?([cs])
         XCTAssertTrue(factory.models.isEmpty, "An opt-in revoked during the async current-event check must veto that family")
-        XCTAssertEqual(enabled, ["streamex"])
+        XCTAssertEqual(enabled, ["score808"])
         await gate.publish?([cs, ordinary])
         let pane = try XCTUnwrap(owner.primary)
         let item = installPausedLocalItem(on: pane.model), attempt = pane.model.loadRequestID
@@ -1517,35 +1536,6 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         XCTAssertEqual(factory.models.count, 1)
         XCTAssertEqual(pane.model.activeSession?.id, ordinary.id)
         XCTAssertFalse(pane.model.userWantsPlayback)
-        XCTAssertNil(owner.resolutionError)
-    }
-
-    func testIncrementalOptionalWatchAdmitsLegacyStreamExDisplayNameWithoutReenablingRevokedAddons() async throws {
-        let factory = ModelFactory(), gate = SingleDiscoveryGate(), fixture = sourceCheckFixture("legacy-catalog-display-name")
-        let streamEx = StreamSession(matchID: fixture.id,
-            playableURL: URL(string: "https://example.invalid/catalog-display-name.m3u8")!, streamType: .hls,
-            providerName: "StreamEx #1", requiredHeaders: ["X-Fotty-Nexus-Source": "delta"])
-        let revoked = ["CS1", "AS1"].map { label in
-            StreamSession(matchID: fixture.id, playableURL: URL(string: "https://example.invalid/\(label).m3u8")!,
-                streamType: .hls, providerName: label, requiredHeaders: ["X-Fotty-Nexus-Source": "delta"])
-        }
-        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) }, cancelPlayback: { _ in })
-        defer { gate.complete(outcome(for: fixture, sessions: [])); owner.stop() }
-        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["streamex"] },
-            discover: { await gate.resolve($0, publish: $1) }, currentEvent: { event, _ in event }))
-        await waitForSourceCheck { gate.publish != nil }
-        await gate.publish?(revoked + [streamEx])
-        let pane = try XCTUnwrap(owner.primary)
-        XCTAssertEqual(pane.model.sessions.map(\.id), [streamEx.id])
-        XCTAssertEqual(pane.model.activeSession?.providerName, "StreamEx #1")
-        XCTAssertEqual(pane.model.activeSession?.requiredHeaders["X-Fotty-Nexus-Source"], "delta")
-        let item = installPausedLocalItem(on: pane.model)
-        await gate.publish?(revoked + [streamEx])
-        gate.complete(outcome(for: fixture, sessions: revoked + [streamEx]))
-        await waitForSourceCheck { !pane.model.isCheckingAdditionalSources }
-        XCTAssertTrue(pane.model.player?.currentItem === item)
-        XCTAssertEqual(pane.model.sessions.map(\.id), [streamEx.id])
-        XCTAssertEqual(factory.models.count, 1)
         XCTAssertNil(owner.resolutionError)
     }
 
@@ -1820,7 +1810,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let selected = try XCTUnwrap(retained.model.activeSession)
         retained.model.nativeHandoffSession = StreamSession(id: selected.id, matchID: selected.matchID,
             playableURL: URL(string: "https://example.invalid/adopted.m3u8")!, streamType: .hls,
-            providerName: "StreamEx", requiredHeaders: [:])
+            providerName: "Score808", requiredHeaders: [:])
         retained.model.player = AVPlayer(playerItem: AVPlayerItem(asset: AVMutableComposition()))
         retained.model.transition(to: .playing(.native), phase: "Playing")
         let item = retained.model.player?.currentItem, attempt = retained.model.loadRequestID
@@ -2137,7 +2127,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             var firstSessions = [session(for: first, web: true)]
             firstSessions.append(StreamSession(matchID: first.id, title: "Other Web source",
                 playableURL: URL(string: "https://example.invalid/embed/atomic-other")!, streamType: .unknown,
-                providerName: "StreamEx", requiredHeaders: ["X-Fotty-Web-Embed": "true"]))
+                providerName: "Score808", requiredHeaders: ["X-Fotty-Web-Embed": "true"]))
             owner.openMulti(slots: [.init(event: first, sessions: firstSessions), slot(second, web: true)])
             let original = owner.panes
             original[0].model.transition(to: .playing(.webEmbed), phase: "Playing")
@@ -2617,10 +2607,10 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testFullCatalogPickerSearchFindsEventsBeyondOldLimitsAndFiltersSport() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let date = Int64(now.addingTimeInterval(-60).timeIntervalSince1970)
-        let rows = (0..<520).map { event("fixture-\($0)", date: date) }
-        let target = event("late-target", home: "Internacional de Bogotá", away: "New Example", category: "basketball", date: date)
-        let prepared = await ViewingMatchPickerPolicy.prepare(events: rows + [target], catalog: rows + [target], excluding: [], now: now)
+        let rows = (0..<520).map { pickerFixture("fixture-\($0)", at: now) }
+        let target = pickerFixture("late-target", home: "Internacional de Bogotá", away: "New Example", category: "basketball", at: now)
+        let prepared = await ViewingMatchPickerPolicy.prepare(events: rows + [target], catalog: rows + [target], excluding: [], now: now,
+            discoveryIndex: pickerIndex())
         let result = try XCTUnwrap(prepared)
         XCTAssertEqual(result.events.count, 521, "All eligible rows must remain discoverable, not just the first40 or first500")
         XCTAssertEqual(result.results(query: "Bogota").map(\.id), [target.id])
@@ -2631,11 +2621,11 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testPickerReusesExactFootballLeagueSearchClassification() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
-        let date = Int64(now.addingTimeInterval(-60).timeIntervalSince1970)
-        let premier = event("premier", home: "Chelsea", away: "Brighton", date: date)
-        let other = event("other", home: "Example United", away: "Different Example", date: date)
+        let premier = pickerFixture("premier", home: "Chelsea", away: "Brighton", at: now)
+        let other = pickerFixture("other", home: "Example United", away: "Different Example", at: now)
         let result = await ViewingMatchPickerPolicy.prepare(events: [premier, other], catalog: [premier, other], excluding: [], now: now,
-            leagueName: { $0.id == premier.id ? AnalyticalDataEngine.FootballLeagueTab.premierLeague.displayName : nil })
+            leagueName: { $0.id == premier.id ? AnalyticalDataEngine.FootballLeagueTab.premierLeague.displayName : nil },
+            discoveryIndex: pickerIndex())
         XCTAssertEqual(try XCTUnwrap(result).results(query: "Premier League").map(\.id), [premier.id])
         XCTAssertEqual(try XCTUnwrap(result).results(query: "Chelsea Brighton").map(\.id), [premier.id])
     }
@@ -2692,12 +2682,13 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testPickerExcludesRetainedConflictAndUnavailableRowsAndCannotPublishStaleWork() async throws {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let date = Int64(now.addingTimeInterval(-60).timeIntervalSince1970)
-        let retained = event("retained", date: date), valid = event("valid", date: date)
-        let duplicate = event("duplicate", date: date), conflict = event("duplicate", conflict: true, date: date)
+        let retained = pickerFixture("retained", at: now), valid = pickerFixture("valid", at: now)
+        let duplicate = pickerFixture("duplicate", at: now), conflict = pickerFixture("duplicate", at: now, conflict: true)
         let missing = EventReference(id: "unavailable", title: "Unavailable vs Other", category: "football", date: date,
             poster: nil, popular: false, teams: .init(home: .init(name: "Unavailable", badge: nil), away: .init(name: "Other", badge: nil)), sources: [])
         let rows = [retained, valid, duplicate, missing]
-        let prepared = await ViewingMatchPickerPolicy.prepare(events: rows, catalog: rows + [conflict], excluding: [retained], now: now)
+        let prepared = await ViewingMatchPickerPolicy.prepare(events: rows, catalog: rows + [conflict], excluding: [retained], now: now,
+            discoveryIndex: pickerIndex())
         XCTAssertEqual(try XCTUnwrap(prepared).events.map(\.id), [valid.id])
         var current = true, checkpoints = 0
         let stale = await ViewingMatchPickerPolicy.prepare(events: rows, catalog: rows, excluding: [], now: now,
@@ -3355,7 +3346,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         original.model.error = "The previous delivery failed."
         owner.minimize()
 
-        XCTAssertTrue(owner.checkOptionalSources(for: match, enabledProviders: { ["streamex", "communitysports"] }, currentEvent: { event, _ in event }))
+        XCTAssertTrue(owner.checkOptionalSources(for: match, enabledProviders: { ["score808", "communitysports"] }, currentEvent: { event, _ in event }))
         await waitForSourceCheck { resolutions == 1 && owner.resolutionMessage == nil }
 
         let replacement = try XCTUnwrap(owner.primary)

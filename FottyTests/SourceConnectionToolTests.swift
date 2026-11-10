@@ -445,9 +445,6 @@ final class SourceConnectionToolTests: XCTestCase {
     private func catalog(_ source: CuratedStreamSourceCatalog.Definition,
                          request: StreamPlaybackRequest) async throws -> [FixtureSourceCatalogMatch] {
         switch source.dispatch {
-        case .sharedCatalog:
-            let row = try await LiveStreamResolver().resolveCatalogEvent(for: request)
-            return [.init(matchID: request.matchID, outcome: row?.sources?.isEmpty == false ? .listed : .notListed)]
         case .score808: return try await Score808CatalogClient.shared.catalogMatches(for: [request])
         case .communitySports: return try await CommunitySportsAddonClient.shared.catalogMatches(for: [request])
         case .plavioSports: return try await PlavioSportsAddonClient.shared.catalogMatches(for: [request])

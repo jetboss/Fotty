@@ -92,7 +92,7 @@ final class Fotty25HomeDesignTests: XCTestCase {
     }
 
     func testNarrowSavedSpotlightKeepsAReadableNaturalWatchButton() throws {
-        let watch = try spotlightActionBounds(title: nil)
+        let watch = try spotlightActionBounds(title: "Watch")
         XCTAssertGreaterThanOrEqual(watch.width, 100, "Saved/time and More must not squeeze Watch into a vertical pill")
         XCTAssertGreaterThanOrEqual(watch.height, 40)
         XCTAssertLessThan(watch.height, 65, "An ordinary Watch label should remain a single readable line")
@@ -150,7 +150,7 @@ final class Fotty25HomeDesignTests: XCTestCase {
         }
         XCTAssertGreaterThanOrEqual(maxX, 0, "The genuine Watch button must be visible in the native component render")
         let attachment = XCTAttachment(image: image)
-        attachment.name = title == nil ? "home-footer-saved-time-narrow" : "home-footer-long-action-narrow"
+        attachment.name = title == "Watch" ? "home-footer-saved-time-narrow" : "home-footer-long-action-narrow"
         attachment.lifetime = .keepAlways
         add(attachment)
         return CGRect(x: CGFloat(minX), y: CGFloat(minY),

@@ -140,9 +140,6 @@ enum CurrentEventBroadcastPolicy {
         let timing = MatchStartPolicy(event: current, now: now, status: status, discoveryIndex: discoveryIndex, broadcastRegistry: registry)
         guard !current.hasCatalogIdentityConflict, timing.timingAllowsPlayback,
               status?.isLive == true || !current.isPastEstimatedMatchWindow(at: now) else { return nil }
-        if StreamPluginProviderMatching.hasActiveCatalogSource(current) {
-            return Action(event: current, isChannelFallback: false, evidence: current.isBroadcastChannel ? .explicitStation : .providerListing)
-        }
         guard useDiscoveryIndex else { return nil }
         if SportsTVStation.canResolve(current, discoveryIndex: discoveryIndex) || CricketChannelPlaybackPolicy.canResolve(current, discoveryIndex: discoveryIndex) {
             return Action(event: current, isChannelFallback: false, evidence: .explicitStation)
@@ -274,9 +271,6 @@ enum OptionalSourceLookupPolicy {
                 for: StreamPlaybackRequest(event: event), in: catalog),
               current.id == event.id, !current.hasCatalogIdentityConflict,
               !current.isBroadcastChannel,
-              // A newly attached primary descriptor hides a new optional
-              // offer; it must not discard an already resolved CS result.
-              phase != .offer || !StreamPluginProviderMatching.hasActiveCatalogSource(current),
               let kickoff = current.kickoffDate,
               CommunitySportsAddonClient.catalogID(for: current.normalizedCategory) != "nuvio_sports_live",
               hasNamedPair(current) else { return nil }
@@ -586,13 +580,6 @@ enum MatchdayEventStatePolicy {
         }
         if status == nil, event.cricketFixture == nil, event.sportsFixture == nil,
            event.isPastEstimatedMatchWindow(at: now) { return .recent }
-        if status == nil, event.cricketFixture == nil, event.sportsFixture == nil,
-           StreamPluginProviderMatching.hasActiveCatalogSource(event), event.broadcastTiming(at: now) == .live {
-            // An elapsed provider start and a supported source describe a
-            // listed broadcast, not independently confirmed in-play status.
-            // Keep its Watch admission separate from this presentation state.
-            return .listedNow
-        }
         guard let start = event.kickoffDate else { return .timeToBeConfirmed }
         // In particular, a CPL kickoff (with or without a channel/source) is
         // not an official in-play status. Keep Watch admission independent.

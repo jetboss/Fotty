@@ -831,7 +831,6 @@ final class BetaUsabilityTests: XCTestCase {
         let functionEnd = try XCTUnwrap(dashboard.range(of: "private func canOpenBroadcast", range: functionStart.upperBound..<dashboard.endIndex))
         let implementation = dashboard[functionStart.lowerBound..<functionEnd.lowerBound]
         XCTAssertTrue(implementation.contains("guard event.isCPLFixture"))
-        XCTAssertTrue(implementation.contains("!StreamPluginProviderMatching.hasActiveCatalogSource(event)"))
         XCTAssertTrue(implementation.contains("broadcastAction(for: event)"))
     }
 
@@ -1754,21 +1753,6 @@ final class BetaUsabilityTests: XCTestCase {
     }
 
     @MainActor
-    func testCPLFixtureAndExplicitTVTuningHaveIndependentWatchActions() throws {
-        let fixture = try XCTUnwrap(CPLSchedule.fixtures.first)
-        let scheduled = fixture.event()
-        let fox = cricketEvent(title: "Fox Cricket", date: nil,
-            sources: [.init(source: "delta", id: "fox-live")])
-        let willow = cricketEvent(title: "Willow Cricket", date: nil,
-            sources: [.init(source: "hotel", id: "willow-live")])
-        let catalog = [scheduled, fox, willow]
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: scheduled, in: catalog, at: fixture.kickoff))
-        for (station, channel) in [(fox, CricketBroadcastChannel.foxCricket), (willow, .willow)] {
-            XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: station, in: catalog, at: fixture.kickoff)?.event.id, channel.canonicalID)
-        }
-    }
-
-    @MainActor
     private func cricketEvent(title: String, date: Int64?, sources: [NexusASource]? = nil) -> AnalyticalDataEngine.EventReference {
         .init(id: "test-\(title)", title: title, category: "cricket", date: date, poster: nil, popular: nil, teams: nil, sources: sources)
     }
@@ -1905,29 +1889,6 @@ final class UsabilityPresentationTests: XCTestCase {
             hasCurrentEvents: true), "No other matches from your interests are scheduled in the next 3 days.")
     }
 
-    func testFutureDetailsDescribeAListedSourceWithoutClaimingItPlays() {
-        let event = event(offset: 3_600, sources: [.init(source: "delta", id: "one")])
-        let presentation = CatalogEventDetailsPresentation.broadcast(for: event, now: now)
-        XCTAssertEqual(presentation.title, "Broadcast listed")
-        XCTAssertTrue(presentation.message.contains("2 minutes before"))
-        XCTAssertTrue(presentation.message.contains("does not guarantee playback"))
-    }
-
-    func testCurrentSourceOffersExistingWatchEntryWithoutInventingASuccess() {
-        let event = event(offset: -60, sources: [.init(source: "delta", id: "one")])
-        let presentation = CatalogEventDetailsPresentation.broadcast(for: event, now: now)
-        XCTAssertEqual(presentation.title, "Broadcast listed")
-        XCTAssertTrue(presentation.message.contains("Choose Watch in the lineup to find and open the current broadcast"))
-    }
-
-    func testDetailsWithDirectWatchDoesNotSendTheUserBackToTheLineup() {
-        let presentation = CatalogEventDetailsPresentation.broadcast(for:
-            event(offset: -60, sources: [.init(source: "delta", id: "one")]), now: now, canWatchHere: true)
-        XCTAssertEqual(presentation.title, "Broadcast listed")
-        XCTAssertTrue(presentation.message.contains("Choose Watch to find and open the current broadcast"))
-        XCTAssertFalse(presentation.message.contains("Return to the lineup"))
-    }
-
     func testDetailsChannelFallbackKeepsProgrammeUnconfirmedAndTerminalVeto() {
         let presentation = CatalogEventDetailsPresentation.broadcast(for: event(offset: -60), now: now,
             canWatchHere: true, isChannelFallback: true)
@@ -2019,7 +1980,17 @@ final class HomeDiscoveryTests: XCTestCase {
             XCTAssertEqual(item.prominentStatusLabel, phase.title)
             XCTAssertFalse(item.hasConfirmedLiveStatus)
             XCTAssertNil(HomeDiscoveryRow.Presentation(item: item).liveDetail)
-            XCTAssertNotNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now),
+            // A cricket fixture's Watch comes from a found exact candidate.
+            let request = StreamPlaybackRequest(event: row), index = FixtureStreamDiscoveryIndex()
+            index.updateEnabledProviders(["communitysports"], revision: 1)
+            let binding = try XCTUnwrap(StreamEventBinding(request: request, providerCode: "communitysports",
+                providerEventID: "nuvio_sport_test", streamID: "nuvio_sport_test", manifestRevision: "1",
+                verifiedAt: now, expiresAt: now.addingTimeInterval(90), at: now))
+            let session = StreamSession(matchID: row.id, playableURL: URL(string: "https://media.example/test-break.m3u8")!,
+                streamType: .hls, providerName: "CS1", createdAt: now, eventBinding: binding)
+            let ticket = try XCTUnwrap(index.begin(for: request, providerCode: "communitysports", preflight: false, at: now))
+            index.complete(ticket, sessions: [session], at: now)
+            XCTAssertNotNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now, discoveryIndex: index),
                 "An interval must not revoke the listed broadcast or stop its mounted player")
         }
         let active = testCricket(phase: .inPlay)
@@ -2041,7 +2012,7 @@ final class HomeDiscoveryTests: XCTestCase {
         return .init(id: "cricket-fixture:icc:269792", title: "South Africa vs Australia", category: "cricket",
             date: Int64(now.addingTimeInterval(-3 * 86_400).timeIntervalSince1970), poster: nil, popular: false,
             teams: .init(home: .init(name: "South Africa", badge: nil), away: .init(name: "Australia", badge: nil)),
-            sources: [.init(source: "delta", id: "test-broadcast")], cricketFixture: metadata)
+            sources: [], cricketFixture: metadata)
     }
 
     private func event(_ id: String, sport: String = "football", offset: TimeInterval? = 0, home: String? = nil, away: String = "Visitors", sources: [NexusASource] = []) -> AnalyticalDataEngine.EventReference {
@@ -2084,7 +2055,7 @@ final class HomeDiscoveryTests: XCTestCase {
     func testHomeCountsEventsNotSourceVariantsAndKeepsEveryRealSource() throws {
         let first = event("a", offset: -60, home: "City", sources: [.init(source: "delta", id: "one"), .init(source: "golf", id: "two")])
         let duplicate = event("b", offset: -60, home: " city ", sources: [.init(source: "delta", id: "one"), .init(source: "echo", id: "three")])
-        let schedule = HomeSportsDiscovery(events: [duplicate, first], now: now)
+        let schedule = HomeSportsDiscovery(events: [duplicate, first], now: now, status: { _ in .inPlay })
         XCTAssertEqual(schedule.items.map(\.id), ["a"])
         XCTAssertEqual(schedule.activities.first { $0.id == "football" }?.onNow, 1)
         XCTAssertEqual(schedule.items.first?.event.sources?.count, 3)
@@ -2104,27 +2075,6 @@ final class HomeDiscoveryTests: XCTestCase {
         XCTAssertEqual(schedule.items.first?.statusLabel, cpl.kickoffDate?.arenaKickoffDetailLine())
         XCTAssertEqual(schedule.activities.first { $0.id == "cricket" }?.onNow, 1)
         XCTAssertEqual(schedule.activities.first { $0.id == "cricket" }?.summary(at: now), "1 listed")
-    }
-
-    func testProviderAvailabilityNeverClaimsConfirmedLivePlay() throws {
-        let listing = event("provider-baseball", sport: "baseball", offset: -3 * 3600,
-                            home: "Cleveland Guardians", away: "Chicago White Sox",
-                            sources: [.init(source: "golf", id: "listed-broadcast")])
-        let schedule = HomeSportsDiscovery(events: [listing], now: now)
-        let item = try XCTUnwrap(schedule.items.first)
-        XCTAssertEqual(item.phase, .listedNow)
-        XCTAssertTrue(item.canWatch, "A real listed source remains manually available")
-        XCTAssertFalse(item.hasConfirmedLiveStatus)
-        XCTAssertEqual(item.prominentStatusLabel, "Broadcast listed")
-        XCTAssertNil(HomeDiscoveryRow.Presentation(item: item).liveDetail)
-        XCTAssertEqual(schedule.activities.first { $0.id == "baseball" }?.summary(at: now), "1 listed")
-
-        let confirmed = HomeSportsDiscovery(events: [listing], now: now, status: { _ in .inPlay })
-        let live = try XCTUnwrap(confirmed.items.first)
-        XCTAssertTrue(live.hasConfirmedLiveStatus)
-        XCTAssertEqual(live.prominentStatusLabel, "LIVE")
-        XCTAssertEqual(confirmed.activities.first { $0.id == "baseball" }?.summary(at: now), "1 live")
-        XCTAssertTrue(HomeSportsDiscovery(events: [listing], now: now, status: { _ in .finished }).items.isEmpty)
     }
 
     func testSportActivityScopeKeepsCricketTileConsistentWithCPLAndChannels() throws {
@@ -2406,7 +2356,8 @@ final class HomeDiscoveryTests: XCTestCase {
         let upcoming = (1...5).map {
             event("upcoming-\($0)", offset: TimeInterval($0 * 300), sources: [.init(source: "delta", id: "upcoming-\($0)")])
         }
-        let schedule = HomeSportsDiscovery(events: live + upcoming, now: now)
+        let schedule = HomeSportsDiscovery(events: live + upcoming, now: now,
+            status: { $0.id.hasPrefix("live-") ? .inPlay : nil })
         let sections = schedule.homeSections(from: schedule.items, diverseUpcoming: false, featuredLiveLimit: 3)
 
         XCTAssertEqual(sections.featuredLive.map(\.id), ["live-5", "live-4", "live-3"])
@@ -2449,7 +2400,7 @@ final class HomeDiscoveryTests: XCTestCase {
         let live = (1...6).map {
             event("live-\($0)", offset: TimeInterval(-$0 * 60), sources: [.init(source: "delta", id: "live-\($0)")])
         }
-        let schedule = HomeSportsDiscovery(events: live, now: now)
+        let schedule = HomeSportsDiscovery(events: live, now: now, status: { _ in .inPlay })
 
         let phone = schedule.homeSections(from: schedule.items, diverseUpcoming: true, featuredLiveLimit: 3)
         let pad = schedule.homeSections(from: schedule.items, diverseUpcoming: true, featuredLiveLimit: 4)
@@ -2500,72 +2451,13 @@ final class HomeDiscoveryTests: XCTestCase {
         )
     }
 
-    func testPersonalizedUpcomingRanksSourceFreeWholeSportInterestBeforeLaterListedMatches() {
-        let premier = FollowedLeagueItem(id: "premier-league", leagueName: "Premier League", sportCategory: "football")
-        let selection = SportsPersonalizationPolicy.prepareSelection(teams: [], leagues: [premier], sports: ["cricket"])
-        func premierFixture(_ id: String, offset: TimeInterval, listed: Bool = true) -> EventReference {
-            .init(id: id, title: "Premier League · Everton vs Chelsea", category: "football",
-                  date: Int64(now.addingTimeInterval(offset).timeIntervalSince1970),
-                  poster: nil, popular: false,
-                  teams: .init(home: .init(name: "Everton", badge: nil), away: .init(name: "Chelsea", badge: nil)),
-                  sources: listed ? [.init(source: "delta", id: id)] : [])
-        }
-        let imminentCricket = event("imminent-cricket", sport: "cricket", offset: 24 * 60,
-            home: "India Women", away: "Zimbabwe Women")
-        let tomorrow = (1...4).map {
-            premierFixture("tomorrow-\($0)", offset: TimeInterval((21 + $0) * 3_600))
-        }
-        let listedLive = (1...5).map {
-            premierFixture("live-listed-\($0)", offset: TimeInterval(-$0 * 60))
-        }
-        let unlistedLive = premierFixture("live-unlisted", offset: -1_000, listed: false)
-        let schedule = HomeSportsDiscovery(events: tomorrow + [imminentCricket, unlistedLive] + listedLive,
-            now: now, status: { $0.id.hasPrefix("live-") ? .inPlay : nil })
-        XCTAssertEqual(schedule.items.count, 11)
-        XCTAssertTrue(schedule.items.allSatisfy {
-            SportsPersonalizationPolicy.isFollowed(event: $0.event, selection: selection)
-        }, "The existing Premier League choice and the whole-sport Cricket choice both admit their fixtures")
-        XCTAssertFalse(schedule.items.first { $0.id == imminentCricket.id }!.canWatch,
-            "The regression must use a countdown-only fixture, not a fabricated source")
-
-        // Exercise the production priority sort before section selection and
-        // device caps; passing the already chronological catalog alone misses
-        // the availability key that previously hid imminent cricket on Home.
-        let ranked = HomeSportsDiscovery.prioritized(schedule.items) { item in
-            let followed = SportsPersonalizationPolicy.isFollowed(event: item.event, selection: selection)
-            return .init(
-                phase: item.isOnNow ? 0 : (item.phase == .upcoming ? 1 : 2),
-                relevance: followed ? 0 : 10,
-                available: HomeUpcomingPresentationPolicy.availabilityRank(
-                    equalizeSelectedInterests: true, isFollowed: followed,
-                    isUpcoming: item.phase == .upcoming, hasListedSource: item.canWatch)
-            )
-        }
-        for limit in [3, 4] {
-            let sections = schedule.homeSections(from: ranked, diverseUpcoming: false,
-                featuredLiveLimit: limit, upcomingHorizon: CatalogTimingPolicy.personalizedHomeUpcomingHorizon,
-                upcomingLimit: limit)
-            XCTAssertEqual(sections.upcoming.map(\.id),
-                Array((["imminent-cricket"] + (1...4).map { "tomorrow-\($0)" }).prefix(limit)))
-            XCTAssertEqual(sections.featuredLive.map(\.id),
-                Array((1...5).reversed().map { "live-listed-\($0)" }.prefix(limit)),
-                "Only upcoming source priority is neutralized; live source prominence is unchanged")
-            XCTAssertEqual(sections.moreLive.count, 6 - limit)
-            XCTAssertEqual(sections.moreLive.last?.id, "live-unlisted")
-        }
-    }
-
     func testUpcomingAvailabilityEqualizationDoesNotChangeBroadLiveOrUnfollowedRanking() {
         for personalized in [false, true] {
             for followed in [false, true] {
                 for upcoming in [false, true] {
-                    for listed in [false, true] {
-                        let rank = HomeUpcomingPresentationPolicy.availabilityRank(
-                            equalizeSelectedInterests: personalized, isFollowed: followed,
-                            isUpcoming: upcoming, hasListedSource: listed)
-                        let expected = personalized && followed && upcoming ? 0 : (listed ? 0 : 1)
-                        XCTAssertEqual(rank, expected)
-                    }
+                    let rank = HomeUpcomingPresentationPolicy.availabilityRank(
+                        equalizeSelectedInterests: personalized, isFollowed: followed, isUpcoming: upcoming)
+                    XCTAssertEqual(rank, personalized && followed && upcoming ? 0 : 1)
                 }
             }
         }

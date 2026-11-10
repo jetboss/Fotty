@@ -445,14 +445,14 @@ final class NativePlaybackRetirementTests: XCTestCase {
         )
         let web = StreamSession(
             matchID: event.id, playableURL: URL(string: "https://example.invalid/embed/game")!,
-            streamType: .unknown, providerName: "StreamEx",
+            streamType: .unknown, providerName: "Score808",
             requiredHeaders: ["X-Fotty-Web-Embed": "true"]
         )
         let model = LivePlayerViewModel(event: event, providedSessions: [web],
             prepareAudioSession: { .completed([]) }, configureAudioSession: { .completed([]) })
         model.nativeHandoffSession = StreamSession(
             id: web.id, matchID: event.id, playableURL: URL(string: "https://example.invalid/video.m3u8")!,
-            streamType: .hls, providerName: "StreamEx"
+            streamType: .hls, providerName: "Score808"
         )
         let candidate = AVPlayer(playerItem: AVPlayerItem(asset: AVMutableComposition()))
         model.holdNativeHandoffAudioUntilWebRetirement()

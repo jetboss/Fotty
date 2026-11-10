@@ -334,8 +334,8 @@ final class NativeWatchTwoTransitionTests: XCTestCase {
             sources: [.init(source: "admin", id: "native-watch-two-transition")])
         func session(_ index: Int) throws -> StreamSession {
             StreamSession(matchID: event.id, title: "Original Broadcast \(index)",
-                playableURL: try XCTUnwrap(URL(string: "https://embed.st/embed/admin/native-watch-two/\(index)")),
-                streamType: .unknown, providerName: "StreamEx",
+                playableURL: try XCTUnwrap(URL(string: "https://www.score808live.tv/embed/admin/native-watch-two/\(index)")),
+                streamType: .unknown, providerName: "Score808",
                 requiredHeaders: ["X-Fotty-Nexus-Source":"admin", "X-Fotty-Web-Embed":"true"],
                 qualityLabel: "Source \(index)")
         }

@@ -77,9 +77,10 @@ final class MatchReminderTests: XCTestCase {
     func testCountdownAndPlayBoundaries() {
         for (seconds, canPlay, title) in [(7200.0, false, "Starts in 2h 0m"), (301, false, "Starts in 6m"),
             (300, false, "Starts in 5:00"), (121, false, "Starts in 2:01"), (120, true, "Starts in 2:00"),
-            (1, true, "Starts in 0:01"), (0, true, "Watch")] {
+            (1, true, "Starts in 0:01"), (0, true, "No stream listed")] {
             let policy = MatchStartPolicy(event: event(start: now.addingTimeInterval(seconds)), now: now)
-            XCTAssertEqual(policy.canAttemptPlayback, canPlay, "\(seconds)")
+            XCTAssertEqual(policy.timingAllowsPlayback, canPlay, "\(seconds)")
+            XCTAssertFalse(policy.canAttemptPlayback, "Timing alone never offers Watch without a resolvable source")
             XCTAssertEqual(policy.title, title)
         }
         XCTAssertEqual(MatchStartPolicy.countdown(86_400 + 7200), "1d 2h")
@@ -89,11 +90,11 @@ final class MatchReminderTests: XCTestCase {
     func testChannelsUnknownTimesAndSourceFreeSchedulesRemainHonest() {
         let channel = event(start: now.addingTimeInterval(7200), channel: true)
         XCTAssertNil(MatchStartPolicy(event: channel, now: now).upcomingStart)
-        XCTAssertTrue(MatchStartPolicy(event: channel, now: now).canAttemptPlayback)
+        XCTAssertTrue(MatchStartPolicy(event: channel, now: now).timingAllowsPlayback)
         XCTAssertNil(MatchReminderRecord.make(event: channel, now: now))
         let unknown = event(start: nil)
         XCTAssertNil(MatchStartPolicy(event: unknown, now: now).upcomingStart)
-        XCTAssertEqual(MatchStartPolicy(event: unknown, now: now).title, "Watch")
+        XCTAssertEqual(MatchStartPolicy(event: unknown, now: now).title, "Time TBC")
         XCTAssertNil(MatchReminderRecord.make(event: unknown, now: now))
         let noSource = event(start: now.addingTimeInterval(120), source: false)
         XCTAssertFalse(MatchStartPolicy(event: noSource, now: now).canAttemptPlayback)
@@ -105,10 +106,10 @@ final class MatchReminderTests: XCTestCase {
         for status: FootballMatch.MatchStatus in [.cancelled, .postponed, .suspended, .finished, .awarded] {
             let policy = MatchStartPolicy(event: match, now: now, status: status)
             XCTAssertNil(policy.upcomingStart)
-            XCTAssertFalse(policy.canAttemptPlayback)
+            XCTAssertFalse(policy.timingAllowsPlayback)
         }
         let live = MatchStartPolicy(event: match, now: now, status: .inPlay)
-        XCTAssertTrue(live.canAttemptPlayback)
+        XCTAssertTrue(live.timingAllowsPlayback)
         XCTAssertNil(live.upcomingStart)
     }
 
@@ -521,9 +522,10 @@ final class MatchReminderTests: XCTestCase {
             XCTAssertFalse(ended.canAttemptPlayback)
             XCTAssertEqual(ended.title, "Finished")
             let existingCanPlay = score.isUpcoming || score.isLive
-            XCTAssertEqual(MatchStartPolicy(event: fixture(.live), now: now, status: score).canAttemptPlayback, existingCanPlay)
-            XCTAssertEqual(MatchStartPolicy(event: fixture(.finished, verified: false), now: now, status: score).canAttemptPlayback, existingCanPlay)
-            XCTAssertEqual(MatchStartPolicy(event: fixture(.postponed), now: now, status: score).canAttemptPlayback, existingCanPlay,
+            XCTAssertEqual(MatchStartPolicy(event: fixture(.live), now: now, status: score).timingAllowsPlayback, existingCanPlay)
+            XCTAssertEqual(MatchStartPolicy(event: fixture(.finished, verified: false), now: now, status: score).timingAllowsPlayback, score.isLive,
+                           "An unverified start plays only on a live score, never on its listed time")
+            XCTAssertEqual(MatchStartPolicy(event: fixture(.postponed), now: now, status: score).timingAllowsPlayback, existingCanPlay,
                            "This terminal-only repair does not change postponed-only source ordering")
         }
         for score: FootballMatch.MatchStatus in [.finished, .awarded, .cancelled] {
@@ -681,9 +683,9 @@ final class MatchReminderTests: XCTestCase {
                 let match = event("compact-live", start: Date().addingTimeInterval(-10))
                 let item = try XCTUnwrap(HomeSportsDiscovery(events: [match]).items.first)
                 let rows = [
-                    AnyView(HomeDiscoveryRow(item: item, isSaved: false, onOpen: {}, onSave: {})),
-                    AnyView(LiveEventCard(event: match, onWatchTap: {}, onSaveTap: {})),
-                    AnyView(LiveEventCard(event: event("compact-channel", start: nil, channel: true), onWatchTap: {}, onSaveTap: {}))
+                    AnyView(HomeDiscoveryRow(item: item, isSaved: false, onOpen: {}, onSave: {}, alternateActionTitle: "Watch")),
+                    AnyView(LiveEventCard(event: match, onWatchTap: {}, alternateActionTitle: "Watch", onSaveTap: {})),
+                    AnyView(LiveEventCard(event: event("compact-channel", start: nil, channel: true), onWatchTap: {}, alternateActionTitle: "Watch", onSaveTap: {}))
                 ]
                 for (index, row) in rows.enumerated() {
                     let content = row.padding(.horizontal, 16).frame(width: width)
@@ -790,7 +792,7 @@ final class MatchReminderTests: XCTestCase {
 
     func testChannelRowUsesOneIdentityLineAndKeepsWatchBesideIt() throws {
         for width in [320.0, 375, 788] {
-            let row = LiveEventCard(event: event("channel-layout", start: nil, channel: true), onWatchTap: {})
+            let row = LiveEventCard(event: event("channel-layout", start: nil, channel: true), onWatchTap: {}, alternateActionTitle: "Watch")
             let renderer = ImageRenderer(content: row.padding(.horizontal, 16).frame(width: width)
                 .background(FottyTheme.background).environment(LiveScoreService.shared)
                 .environment(\.colorScheme, .dark).environment(\.dynamicTypeSize, .large))

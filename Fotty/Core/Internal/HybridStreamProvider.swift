@@ -775,10 +775,6 @@ actor LiveStreamResolver {
         request: StreamPlaybackRequest) async -> StreamResolutionOutcome {
         let id = UUID().uuidString
         switch source.dispatch {
-        case .sharedCatalog:
-            return .failure(cancelledFailure(.providerUnavailable, "The shared catalog is retired."),
-                makeDiagnostics(attemptID: id, request: request, finalState: .failed, timeline: [],
-                                providerAttempts: [], startedAt: Date()))
         case .score808:
             return await resolveScore808Site(for: request, attemptID: id, report: { _ in }, useRegistry: false)
         default:
@@ -797,7 +793,7 @@ actor LiveStreamResolver {
         case .flixStreams: return try await FlixStreamsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
         case .plavioSports: return try await PlavioSportsAddonClient.shared.resolve(for: request, forceRefresh: forceRefresh)
         case .communitySports: return try await CommunitySportsAddonClient.shared.resolve(for: request, forceRefresh: forceRefresh)
-        case .sharedCatalog, .score808: throw CommunitySportsAddonError.matchNotFound
+        case .score808: throw CommunitySportsAddonError.matchNotFound
         }
     }
 

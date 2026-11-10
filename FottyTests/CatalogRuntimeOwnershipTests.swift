@@ -366,7 +366,7 @@ final class CatalogRuntimeOwnershipTests: XCTestCase {
         ], now: now).items
         let ranked = HomeSportsDiscovery.prioritized(items) {
             .init(phase: $0.isOnNow ? 0 : 1, relevance: $0.sport == "cricket" ? 0 : 1,
-                  available: $0.canWatch ? 0 : 1)
+                  available: 1)
         }
         let selection = SportsPersonalizationPolicy.SelectionIdentity(teams: [], competitions: [])
         func scope(sport: String = "all-sports", league: String = "all", cricket: String = "all",

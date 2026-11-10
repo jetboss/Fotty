@@ -608,7 +608,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         let row = cricket(), index = FixtureStreamDiscoveryIndex()
         XCTAssertNil(FixtureSourceLookupPresentation.state(for: row, at: now, discoveryIndex: index))
         XCTAssertNil(FixtureSourceLookupPresentation.state(for: row, at: now,
-            enabledProviderCodes: ["streamex"], discoveryIndex: index))
+            enabledProviderCodes: ["future-provider"], discoveryIndex: index))
         let state = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row, at: now,
             enabledProviderCodes: enabled, discoveryIndex: index))
         XCTAssertEqual(state.title, "Broadcast unconfirmed")
@@ -740,8 +740,12 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         XCTAssertTrue(channel.isBroadcastChannel)
         XCTAssertNil(FixtureSourceLookupPresentation.state(for: channel, at: now,
             enabledProviderCodes: enabled, discoveryIndex: index))
-        XCTAssertNotNil(CurrentEventBroadcastPolicy.action(for: channel, in: [channel], at: now))
-        XCTAssertTrue(MatchStartPolicy(event: channel, now: now, discoveryIndex: index).canAttemptPlayback)
+        let channelIndex = FixtureStreamDiscoveryIndex()
+        channelIndex.updateEnabledProviders(enabled, revision: 1)
+        let channelAction = CurrentEventBroadcastPolicy.action(for: channel, in: [channel], at: now, discoveryIndex: channelIndex)
+        XCTAssertNotNil(channelAction)
+        XCTAssertTrue(channelAction.map { MatchStartPolicy(event: $0.event, now: now, discoveryIndex: channelIndex).canAttemptPlayback } == true,
+                      "The canonical channel the action opens is playable")
     }
 
     func testFreshSourceFreeOfficialCricketOffersCheckWithoutInventingWatch() throws {
@@ -758,12 +762,9 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
     func testCheckRequiresOptInAndDoesNotReplacePrimaryWatch() {
         let row = cricket()
         XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row], enabledProviderCodes: [], at: now))
-        XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row], enabledProviderCodes: ["streamex"], at: now))
+        XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row], enabledProviderCodes: ["future-provider"], at: now))
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: row, in: [row],
             enabledProviderCodes: [" COMMUNITYSPORTS "], at: now))
-        let listed = cricket(sources: [.init(source: "delta", id: "exact-primary")])
-        XCTAssertNil(check(listed))
-        XCTAssertNotNil(CurrentEventBroadcastPolicy.action(for: listed, in: [listed], at: now))
     }
 
     func testAdditionalOptInOffersItsReviewedFootballAndCricketScopes() {
@@ -801,7 +802,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
 
     func testScore808OnlyCupCheckRetainsProviderConsentAndFootballScope() {
         let row = cup()
-        for codes: Set<String> in [[], ["streamex"], ["future-provider"]] {
+        for codes: Set<String> in [[], ["future-provider"]] {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row],
                 enabledProviderCodes: codes, at: now))
         }
@@ -871,9 +872,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
 
     func testScore808OnlyCupCompletionRechecksConsentAndCurrentReceipt() throws {
         let row = cup()
-        let refreshed = cup(sources: [.init(source: "hotel", id: "current-primary")])
-        XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [refreshed],
-            enabledProviderCodes: ["score808"], at: now))
+        let refreshed = cup(sources: [.init(source: "score808", id: "current-primary")])
         let completion = try XCTUnwrap(OptionalSourceLookupPolicy.event(for: row, in: [refreshed],
             enabledProviderCodes: ["score808"], at: now, phase: .completion))
         XCTAssertEqual(completion.sources?.map(\.id), ["current-primary"])
@@ -892,8 +891,6 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         let initial = cricket()
         XCTAssertNotNil(check(initial))
         let refreshed = cricket(sources: [.init(source: "delta", id: "new-primary")])
-        XCTAssertNil(OptionalSourceLookupPolicy.event(for: initial, in: [refreshed],
-            enabledProviderCodes: enabled, at: now), "A new optional offer is no longer necessary")
         let admitted = try XCTUnwrap(OptionalSourceLookupPolicy.event(for: initial, in: [refreshed],
             enabledProviderCodes: enabled, at: now, phase: .completion))
         XCTAssertEqual(admitted.id, initial.id)
@@ -1197,29 +1194,6 @@ final class CricketChannelCatalogTests: XCTestCase {
         XCTAssertEqual(HomeSportsSearch.results(in: discovery, query: "Fox Cricket").map(\.id), [CricketBroadcastChannel.foxCricket.canonicalID])
     }
 
-    func testExistingChannelReferencesAreRetainedAndWillowTwoStaysSeparate() throws {
-        let willow = row("provider-willow", "Willow HD", sources: [.init(source: "delta", id: "willow-one")])
-        let duplicate = row("provider-willow-copy", "Willow Cricket", sources: [
-            .init(source: "delta", id: "willow-one"), .init(source: "echo", id: "willow-two"),
-            .init(source: "retired", id: "not-a-current-provider"), .init(source: "delta", id: "")])
-        let fox = row("provider-fox", "Fox Cricket HD", sources: [.init(source: "golf", id: "fox-one")])
-        let willow2 = row("provider-willow2", "Willow 2", sources: [.init(source: "delta", id: "separate-channel")])
-        let fixture = EventReference(id: "fixture", title: "India vs Zimbabwe", category: "cricket",
-            date: Int64(now.timeIntervalSince1970), poster: nil, popular: false,
-            teams: .init(home: .init(name: "India", badge: nil), away: .init(name: "Zimbabwe", badge: nil)),
-            sources: [.init(source: "delta", id: "fixture-source")])
-        let inventory = CricketChannelCatalog.merging(into: [willow, duplicate, fox, willow2, fixture])
-        XCTAssertEqual(inventory.map(\.id), [willow2.id, fixture.id] + CricketBroadcastChannel.allCases.map(\.canonicalID))
-        let main = try XCTUnwrap(inventory.first { $0.id == CricketBroadcastChannel.willow.canonicalID })
-        XCTAssertEqual(main.sources?.map(\.id), ["willow-one", "willow-two"])
-        XCTAssertEqual(inventory.first { $0.id == CricketBroadcastChannel.foxCricket.canonicalID }?.sources?.map(\.id), ["fox-one"])
-        XCTAssertEqual(inventory.first { $0.id == willow2.id }?.sources?.map(\.id), ["separate-channel"])
-        XCTAssertEqual(inventory.first { $0.id == fixture.id }?.sources?.map(\.id), ["fixture-source"])
-        XCTAssertEqual(CricketChannelCatalog.merging(into: inventory).map(\.id), inventory.map(\.id), "Canonicalization is idempotent")
-        XCTAssertEqual(CricketChannelCatalog.canonicalEvent(for: willow, in: [willow])?.id, main.id)
-        XCTAssertNil(CricketChannelCatalog.canonicalEvent(for: willow2, in: [willow2]))
-    }
-
     func testTaintedAndContradictoryChannelRowsCannotDonateSources() {
         let metadata = CricketFixtureMetadata(fixtureID: "fixture", competitionID: "icc", competitionName: "ICC",
             format: .test, status: .live, observedAt: now, verified: true)
@@ -1253,27 +1227,6 @@ final class CricketChannelCatalogTests: XCTestCase {
             .init(matchID: canonical.id, displayTitle: canonical.displayTitle, homeTeam: canonical.homeName, awayTeam: "", category: "cricket", kickoffDate: now),
             .init(event: row(canonical.id, canonical.displayTitle, conflict: true))
         ] { XCTAssertNil(CricketBroadcastChannel.identifying(request: request)) }
-    }
-
-    func testBrowseProjectionDoesNotMutateRawCatalogAndInvalidatesWithPublisherRows() throws {
-        let model = MatchListViewModel(refreshSchedule: { nil })
-        XCTAssertTrue(model.matches.isEmpty)
-        XCTAssertTrue(model.playbackCatalog.isEmpty)
-        XCTAssertEqual(model.browseCatalog.count, 2)
-        let original = row("provider-willow", "Willow Cricket", sources: [.init(source: "delta", id: "first")])
-        model.matches = [original]
-        let firstRevision = model.contentRevision
-        XCTAssertEqual(CricketChannelCatalog.event(for: .willow, in: model.browseCatalog).sources?.map(\.id), ["first"])
-        XCTAssertEqual(model.matches.map(\.id), [original.id])
-        XCTAssertEqual(model.playbackCatalog.map(\.id), [original.id])
-        _ = model.browseCatalog
-        XCTAssertEqual(model.contentRevision, firstRevision, "Reading the local inventory cannot publish a new catalog receipt")
-        model.matches = []
-        XCTAssertEqual(model.browseCatalog.count, 2)
-        XCTAssertTrue(CricketChannelCatalog.event(for: .willow, in: model.browseCatalog).sources?.isEmpty == true,
-            "A vanished current provider reference is not kept as a fake fallback")
-        XCTAssertTrue(model.matches.isEmpty)
-        XCTAssertTrue(model.playbackCatalog.isEmpty)
     }
 
     private func row(_ id: String, _ title: String, category: String = "cricket",

@@ -57,7 +57,7 @@ final class StreamPlaybackContractTests: XCTestCase {
         let options = [
             session("AS1", "https://as.test/a.m3u8"), session("AS2", "https://as.test/b.m3u8"),
             session("FS1", "https://as.test/a.m3u8"), session("CS1", "https://cs.test/c.m3u8"),
-            session("StreamEx", "https://third.test/d.m3u8"), session("CS2", "https://fourth.test/e.m3u8"),
+            session("Score808", "https://third.test/d.m3u8"), session("CS2", "https://fourth.test/e.m3u8"),
             session("FS2", "https://different.test/f.m3u8", match: "another-fixture"),
             session("FS3", "https://expired.test/g.m3u8", expiry: now),
             session("FS4", "https://unknown.test/h.m3u8"), session("FS5", "https://failed.test/i.m3u8")
@@ -89,15 +89,13 @@ final class StreamPlaybackContractTests: XCTestCase {
         XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("Score808", match: "other"), request: request, at: now))
         XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("Score808", match: event.id, expiry: now), request: request, at: now))
         XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("TV4", match: event.id), request: request, at: now))
-        XCTAssertEqual(LivePlaybackSourcePolicy.matchPublisher(for: option("StreamEx", match: event.id).legacySource),
-            LivePlaybackSourcePolicy.matchPublisher(for: option("delta", match: event.id).legacySource))
     }
     func testSourcePickerGroupsUseOnlyReviewedLabelsAndPreserveOrder() throws {
         func choice(_ provider: String) -> StreamSession {
             .init(matchID: "picker", playableURL: URL(string: "https://example.invalid/player.m3u8")!,
                   streamType: .hls, providerName: provider)
         }
-        XCTAssertEqual(BroadcastSourcePickerPolicy.groups(in: [choice("StreamEx"), choice("AS1"), choice("CS2"),
+        XCTAssertEqual(BroadcastSourcePickerPolicy.groups(in: [choice("Score808"), choice("AS1"), choice("CS2"),
             choice("AS2"), choice("Score808")]), ["Broadcasts", "AS", "CS"])
         for raw in ["https://private.invalid/token", "A source named AS1", "FS7", "AS01", "as1"] {
             XCTAssertEqual(BroadcastSourcePickerPolicy.group(for: choice(raw)), "Broadcasts")

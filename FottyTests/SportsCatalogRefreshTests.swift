@@ -200,7 +200,7 @@ final class SportsCatalogRefreshTests: XCTestCase {
             date: Int64(now.addingTimeInterval(-3600).timeIntervalSince1970), poster: nil, popular: false,
             teams: nil, sources: [.init(source: "delta", id: "nfl-provider")])
         XCTAssertEqual(provider.broadcastTiming(at: now), .live)
-        XCTAssertEqual(MatchdayEventStatePolicy.section(for: provider, at: now), .listedNow,
+        XCTAssertEqual(MatchdayEventStatePolicy.section(for: provider, at: now), .awaitingConfirmation,
                        "A provider listing must not claim confirmed live play")
         let channel = EventReference(id: "willow", title: "Willow Cricket", category: "cricket", date: nil,
             poster: nil, popular: false, teams: nil, sources: [.init(source: "delta", id: "willow")])

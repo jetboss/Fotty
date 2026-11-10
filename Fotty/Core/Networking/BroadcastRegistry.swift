@@ -12,7 +12,7 @@ struct BroadcastRegistrySnapshot: Codable, Equatable, Sendable {
     static let sourceLifetime: TimeInterval = 4 * 60 * 60
     static let programmeLifetime: TimeInterval = 10 * 60
     static let retention: TimeInterval = 24 * 60 * 60
-    static let providerCodes: Set<String> = ["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv"]
+    static let providerCodes: Set<String> = ["score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv"]
     static let scopes: Set<String> = ["football", "cricket", "basketball", "baseball", "hockey", "american-football", "rugby", "fight", "motorsport", "golf", "tennis", "darts", "college", "other", "live", "networks"]
     static let reasons: Set<String> = ["source-unavailable", "budget-exhausted", "invalid-collection", "incomplete-catalog", "catalog-conflict", "stale-source", "identity-conflict", "time-conflict", "squad-conflict", "competition-conflict", "format-conflict", "ordinal-conflict", "day-conflict", "missing-date", "missing-participants", "missing-programme", "unverified-fixture", "terminal-fixture", "missing-test-authority", "unsupported-scope", "capacity-exceeded"]
 

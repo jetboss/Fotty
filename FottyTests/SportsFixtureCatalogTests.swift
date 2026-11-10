@@ -85,7 +85,6 @@ final class SportsFixtureCatalogTests: XCTestCase {
             providerName: "CS1").recordingEventBinding(binding, for: request, at: now)
         let ticket = try XCTUnwrap(index.begin(for: request, providerCode: "communitysports", preflight: false, at: now))
         index.complete(ticket, sessions: [session], at: now)
-        XCTAssertFalse(StreamPluginProviderMatching.hasActiveCatalogSource(event))
         XCTAssertTrue(MatchStartPolicy(event: event, now: now, discoveryIndex: index).canAttemptPlayback)
         XCTAssertEqual(MatchStartPolicy(event: event, now: now, discoveryIndex: index).title, "Watch")
         XCTAssertNotNil(CurrentEventBroadcastPolicy.action(for: event, in: catalog, at: now, discoveryIndex: index))
@@ -329,8 +328,8 @@ final class SportsFixtureCatalogTests: XCTestCase {
     func testProviderOnlyElapsedStartNeverBecomesVisibleLIVE() {
         let raw = provider(competition: nil, sport: "baseball", hours: -1)
         XCTAssertEqual(raw.broadcastTiming(at: now), .live, "Internal broadcast-window heuristic is not live evidence")
-        XCTAssertEqual(MatchdayEventStatePolicy.section(for: raw, at: now), .listedNow)
-        XCTAssertEqual(MatchdayEventStatePolicy.presentationLabel(for: raw, at: now), "Broadcast listed")
+        XCTAssertEqual(MatchdayEventStatePolicy.section(for: raw, at: now), .awaitingConfirmation)
+        XCTAssertEqual(MatchdayEventStatePolicy.presentationLabel(for: raw, at: now), "Start unconfirmed")
         XCTAssertEqual(MatchdayEventStatePolicy.presentationLabel(for: raw, at: now.addingTimeInterval(24 * 3600)), "Start unconfirmed",
                        "An unknown baseball duration cannot establish an estimated final whistle")
     }
@@ -785,7 +784,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
         let noTime = EventReference(id: "unknown-time", title: "Boston Celtics vs New York Knicks", category: "basketball",
             date: nil, poster: nil, popular: false, teams: nil, sources: [])
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: noTime, at: now), .timeToBeConfirmed)
-        XCTAssertEqual(MatchdayEventStatePolicy.section(for: provider(hours: -1), at: now), .listedNow,
+        XCTAssertEqual(MatchdayEventStatePolicy.section(for: provider(hours: -1), at: now), .awaitingConfirmation,
                        "Untyped provider timing is a broadcast listing, not verified live evidence")
     }
 

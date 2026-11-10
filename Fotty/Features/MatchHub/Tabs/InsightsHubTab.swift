@@ -15,7 +15,6 @@ struct MatchHubLineupAvailabilityCopy: Equatable {
 
 struct InsightsHubTab: View {
     let data: MatchHubData
-    let providers: [String]
     let insights: MatchInsightsData?
     let isLoading: Bool
     let loadError: String?

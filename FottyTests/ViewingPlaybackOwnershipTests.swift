@@ -262,7 +262,7 @@ final class ViewingPlaybackOwnershipTests: XCTestCase {
             category: "football", date: 0, poster: nil, popular: false, teams: nil, sources: nil)
         let sessions: [StreamSession] = (web || native) ? [StreamSession(matchID: event.id,
             playableURL: URL(string: web ? "https://example.invalid/embed/game" : "https://example.invalid/game.m3u8")!,
-            streamType: web ? .unknown : .hls, providerName: "StreamEx",
+            streamType: web ? .unknown : .hls, providerName: "Score808",
             requiredHeaders: web ? ["X-Fotty-Web-Embed": "true"] : [:])] : []
         return LivePlayerViewModel(event: event, providedSessions: sessions,
                                    ownsRemoteCommands: ownsRemoteCommands)

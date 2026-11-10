@@ -9,17 +9,14 @@ enum HomeSportSelectionPolicy {
 }
 
 enum HomeUpcomingPresentationPolicy {
-    /// A personalized upcoming plan is ordered by start time, not whether a
-    /// provider has already listed a source for a later match. Live prominence
-    /// and broad discovery retain their existing source-availability signal.
+    /// A personalized upcoming plan puts followed upcoming matches first. No
+    /// match has carried a listed source since the shared catalog closed.
     static func availabilityRank(
         equalizeSelectedInterests: Bool,
         isFollowed: Bool,
-        isUpcoming: Bool,
-        hasListedSource: Bool
+        isUpcoming: Bool
     ) -> Int {
-        if equalizeSelectedInterests && isFollowed && isUpcoming { return 0 }
-        return hasListedSource ? 0 : 1
+        equalizeSelectedInterests && isFollowed && isUpcoming ? 0 : 1
     }
 
     static func horizon(personalized: Bool) -> TimeInterval {

@@ -789,10 +789,7 @@ enum LivePlaybackSourcePolicy {
     /// Multiple catalog aliases can expose the same dependency; their numbers
     /// are labels, not additional publisher families.
     static func matchPublisher(for source: StreamSource) -> String {
-        if let provider = StreamEventBinding.providerCode(forSessionProviderName: source.provider) { return provider }
-        if let alias = source.headers["X-Fotty-Nexus-Source"],
-           let provider = StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: alias) { return provider }
-        return StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: LiveSourceHealthStore.providerFamily(for: source))
+        StreamEventBinding.providerCode(forSessionProviderName: source.provider)
             ?? LiveSourceHealthStore.providerFamily(for: source)
     }
     static func preferredInitialIndex(

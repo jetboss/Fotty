@@ -123,7 +123,7 @@ final class SinglePlaybackFeedbackContextTests: XCTestCase {
     }
 
     func testAnActiveLegacyProviderCannotSmuggleCredentialsThroughItsDisplayLabel() throws {
-        let model = model(provider: "StreamEx Authorization owner-secret")
+        let model = model(provider: "Score808 Authorization owner-secret")
         defer { model.cleanup() }
         let context = try XCTUnwrap(SinglePlaybackFeedbackContext.make(model: model))
         XCTAssertTrue(context.actual.contains("Unknown source"))

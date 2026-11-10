@@ -327,7 +327,6 @@ struct MultiLivePlayerView: View {
             liveScoreService.releasePolling(owner: scorePollingOwner)
             audioSessionKeepAliveTask?.cancel()
             PlayerOrientationController.exitToPortrait()
-            ActiveWebViewManager.clear()
         }
     }
 

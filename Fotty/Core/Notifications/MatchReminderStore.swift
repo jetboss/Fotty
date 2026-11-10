@@ -51,19 +51,15 @@ struct MatchStartPolicy {
         guard !isStopped else { return false }
         if event.isBroadcastChannel || status?.isLive == true || event.cricketFixture?.isLive(at: now) == true
             || event.sportsFixture?.isLive(at: now) == true { return true }
-        if hasUnconfirmedFixtureStart {
-            // A disputed kickoff cannot hold an independently listed source
-            // behind a countdown, or invent availability without a descriptor.
-            return StreamPluginProviderMatching.hasActiveCatalogSource(event)
-        }
+        // A disputed kickoff cannot invent availability without a descriptor.
+        if hasUnconfirmedFixtureStart { return false }
         if hasStartedVerifiedCoverage { return true }
         guard let start = event.kickoffDate else { return true }
         return start.timeIntervalSince(now) <= Self.playbackLead
     }
 
     var canAttemptPlayback: Bool {
-        timingAllowsPlayback && (StreamPluginProviderMatching.hasActiveCatalogSource(event)
-            || SportsTVStation.canResolve(event, discoveryIndex: discoveryIndex)
+        timingAllowsPlayback && (SportsTVStation.canResolve(event, discoveryIndex: discoveryIndex)
             || CricketChannelPlaybackPolicy.canResolve(event, discoveryIndex: discoveryIndex)
             || !BroadcastRegistryWatchPolicy.matches(for: StreamPlaybackRequest(event: event),
                 enabledProviderCodes: (discoveryIndex ?? .shared).enabledProviderCodes,
@@ -97,9 +93,7 @@ struct MatchStartPolicy {
             }
         }
         if let status, isStopped { return status.displayText }
-        if hasUnconfirmedFixtureStart {
-            return StreamPluginProviderMatching.hasActiveCatalogSource(event) ? "Watch" : "Start unconfirmed"
-        }
+        if hasUnconfirmedFixtureStart { return "Start unconfirmed" }
         if let start = upcomingStart { return "Starts in \(Self.countdown(start.timeIntervalSince(now)))" }
         if SportsTVStation.canResolve(event, discoveryIndex: discoveryIndex) { return "Watch" }
         if CricketChannelPlaybackPolicy.canResolve(event, discoveryIndex: discoveryIndex) { return "Watch channel" }
@@ -107,11 +101,7 @@ struct MatchStartPolicy {
             enabledProviderCodes: (discoveryIndex ?? .shared).enabledProviderCodes,
             discoveryIndex: discoveryIndex, at: now).isEmpty { return "Watch" }
         if hasFreshDiscoveredCandidate { return "Watch" }
-        guard StreamPluginProviderMatching.hasActiveCatalogSource(event) else {
-            return event.kickoffDate == nil && !event.isBroadcastChannel ? "Time TBC" : "No stream listed"
-        }
-        if event.isBroadcastChannel { return "Watch channel" }
-        return "Watch"
+        return event.kickoffDate == nil && !event.isBroadcastChannel ? "Time TBC" : "No stream listed"
     }
 
     static func countdown(_ interval: TimeInterval) -> String {

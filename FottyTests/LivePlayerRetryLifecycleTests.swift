@@ -1149,12 +1149,12 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         return (event, old, try XCTUnwrap(old.renewingDelivery(from: delivered, for: request, at: now)))
     }
 
-    func testLateCSValidationCannotReplaceSelectedStreamExSource() async throws {
+    func testLateCSValidationCannotReplaceSelectedScore808Source() async throws {
         let delay = ControlledWebRetryDelay()
         let cs = csSession(web: false)
         let streamEx = StreamSession(
             matchID: "cs-lifecycle", playableURL: URL(string: "https://example.invalid/embed/game")!,
-            streamType: .unknown, providerName: "StreamEx",
+            streamType: .unknown, providerName: "Score808",
             requiredHeaders: ["X-Fotty-Web-Embed": "true"]
         )
         let model = makeSourcePlayer(sessions: [cs, streamEx]) { _, _ in
@@ -1372,7 +1372,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
     func testFallbackHasOnlyOneWebPlaybackOwner() async {
         let source = StreamSession(
             matchID: "cs-lifecycle", playableURL: URL(string: "https://example.invalid/player")!,
-            streamType: .unknown, providerName: "StreamEx"
+            streamType: .unknown, providerName: "Score808"
         )
         var validations = 0
         let model = makeSourcePlayer(sessions: [source]) { _, _ in
@@ -1781,10 +1781,10 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
             StreamSession(
                 matchID: event.id,
                 title: "Retry Test \(index)",
-                playableURL: try XCTUnwrap(URL(string: "https://embed.st/embed/admin/fotty-retry-test/\(index + 1)")),
+                playableURL: try XCTUnwrap(URL(string: "https://www.score808live.tv/embed/admin/fotty-retry-test/\(index + 1)")),
                 streamType: .unknown,
-                providerName: "StreamEx",
-                requiredHeaders: ["X-Fotty-Nexus-Source": "admin", "X-Fotty-Web-Embed": "true"],
+                providerName: "Score808",
+                requiredHeaders: ["X-Fotty-Web-Embed": "true"],
                 qualityLabel: "Web"
             )
         }

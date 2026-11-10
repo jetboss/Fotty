@@ -23,13 +23,6 @@ struct CatalogEventDetailsPresentation: Equatable {
             return .init(title: "Cricket channel available",
                          message: "Choose Watch to open a cricket channel. The programme on air is not confirmed.", symbol: "tv")
         }
-        if StreamPluginProviderMatching.hasActiveCatalogSource(event) {
-            let message = policy.timingAllowsPlayback
-                ? (canWatchHere ? "Choose Watch to find and open the current broadcast."
-                   : "Choose Watch in the lineup to find and open the current broadcast.")
-                : "Watch becomes available \(Int(MatchStartPolicy.playbackLead / 60)) minutes before the scheduled start. A listed source does not guarantee playback."
-            return .init(title: "Broadcast listed", message: message, symbol: "tv")
-        }
         if event.isBroadcastChannel, CricketChannelPlaybackPolicy.canResolve(event, discoveryIndex: discoveryIndex) {
             return .init(title: "Watch channel",
                          message: "Open the channel. Its current programme is not confirmed.", symbol: "tv")

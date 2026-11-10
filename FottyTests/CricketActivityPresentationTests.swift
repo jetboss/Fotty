@@ -34,7 +34,6 @@ final class CricketActivityPresentationTests: XCTestCase {
 
         XCTAssertEqual(item.phase, .live)
         XCTAssertTrue(item.isOnNow)
-        XCTAssertTrue(item.canWatch)
         XCTAssertFalse(item.hasConfirmedLiveStatus)
         XCTAssertEqual(item.prominentStatusLabel, "Stumps")
         XCTAssertEqual(item.statusLabel, "Stumps")

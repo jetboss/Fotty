@@ -2,16 +2,16 @@ import XCTest
 @testable import Fotty
 
 final class AdditionalSportsIntegrationTests: XCTestCase {
-    func testCuratedCatalogOwnsSevenExistingAndOneChannelOnlyRegistrationAndDispatchIdentities() {
+    func testCuratedCatalogOwnsItsRegistrationAndDispatchIdentities() {
         let definitions = CuratedStreamSourceCatalog.all
         XCTAssertEqual(definitions.map(\.providerCode),
-                       ["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv"])
+                       ["score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv"])
         XCTAssertEqual(Set(definitions.map(\.providerCode)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.manifestID)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.manifestFilename)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.provider)), Set(CuratedStreamSourceCatalog.Provider.allCases))
         XCTAssertEqual(definitions.map(\.dispatch),
-                       [.sharedCatalog, .score808, .communitySports, .plavioSports, .cncSports, .flixStreams, .reviewedTV])
+                       [.score808, .communitySports, .plavioSports, .cncSports, .flixStreams, .reviewedTV])
         XCTAssertEqual(StreamPluginProviderMatching.activePlayerProviderCodes, definitions.map(\.providerCode))
         XCTAssertEqual(CuratedStreamSourceCatalog.optionalSources.map(\.discoveryName), ["CS", "AS", "LS", "FS", "TV"])
     }
@@ -30,14 +30,14 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     func testCuratedCatalogRetainsExistingDefaultsAndDoesNotRegisterProviderCodeSubstitution() throws {
         let definitions = CuratedStreamSourceCatalog.all
         for definition in definitions {
-            XCTAssertEqual(definition.defaultEnabled, ["streamex", "score808"].contains(definition.providerCode))
+            XCTAssertEqual(definition.defaultEnabled, definition.providerCode == "score808")
             XCTAssertEqual(StreamPluginRegistry.isEnabledByDefault(providerCode: definition.providerCode), definition.defaultEnabled)
         }
         let fs = try XCTUnwrap(CuratedStreamSourceCatalog.definition(forProviderCode: "flixstreams"))
         let choices = Dictionary(uniqueKeysWithValues: definitions.map { ($0.manifestID, $0.provider == .flixStreams) })
         let substituted = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
             let definition = try XCTUnwrap(definitions.first { $0.manifestFilename == filename })
-            return (self.catalogManifest(definition, providerCode: definition == fs ? "streamex" : nil),
+            return (self.catalogManifest(definition, providerCode: definition == fs ? "score808" : nil),
                     URL(fileURLWithPath: "/test-bundle/\(filename).json"))
         }
         XCTAssertEqual(substituted.unavailableSourceCount, 1)
@@ -86,14 +86,7 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
         XCTAssertNil(CuratedStreamSourceCatalog.opaqueDefinition(for: "as1"))
     }
 
-    func testCuratedCatalogPreservesSharedSourceAliasesAndRejectsUnreviewedCatalogCodes() {
-        for code in ["admin", "delta", "echo", "golf", "india"] {
-            XCTAssertEqual(StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: " " + code.uppercased() + " "), "streamex")
-        }
-        XCTAssertEqual(StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: "hotel"), "score808")
-        for code in ["", "future", "CS1", "AS1", "LS1", "FS1", "SV1", "communitysports", "plaviosports"] {
-            XCTAssertNil(StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: code), code)
-        }
+    func testCuratedDefinitionsResolveOnlyReviewedProviderCodes() {
         XCTAssertEqual(CuratedStreamSourceCatalog.definition(forProviderCode: " FLIXSTREAMS ")?.providerCode, "flixstreams")
         XCTAssertNil(CuratedStreamSourceCatalog.definition(forProviderCode: "SV1"))
         XCTAssertNil(CuratedStreamSourceCatalog.definition(forProviderCode: "future"))
@@ -133,11 +126,11 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
             XCTAssertEqual(StreamPluginProviderMatching.opaqueProviderFamily(source.provider), "flixstreams")
             XCTAssertEqual(LiveSourceHealthStore.providerFamily(for: source), "flixstreams")
             XCTAssertTrue(StreamPluginProviderMatching.isActivePlayerSource(source))
-            for other in ["streamex", "score808", "communitysports", "plaviosports", "cncsports"] {
+            for other in ["score808", "communitysports", "plaviosports", "cncsports"] {
                 XCTAssertFalse(StreamPluginProviderMatching.matches(source, code: other), other)
             }
             let enabledWithoutFlix = StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes:
-                ["streamex", "score808", "communitysports", "plaviosports", "cncsports"])
+                ["score808", "communitysports", "plaviosports", "cncsports"])
             XCTAssertFalse(enabledWithoutFlix.contains { StreamPluginProviderMatching.matches(source, code: $0) },
                            "A disabled FS module must not borrow another enabled family")
         }
@@ -225,7 +218,7 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
             let source = StreamSource(title: "Streamed golf community sports", url: URL(string: "https://edgestream4.pro/hls/fixture.m3u8")!,
                 quality: "HD", provider: label)
             XCTAssertTrue(StreamPluginProviderMatching.matches(source, code: "cncsports"))
-            for other in ["streamex", "score808", "communitysports", "plaviosports"] {
+            for other in ["score808", "communitysports", "plaviosports"] {
                 XCTAssertFalse(StreamPluginProviderMatching.matches(source, code: other))
             }
             XCTAssertEqual(LiveSourceHealthStore.providerFamily(for: source), "cncsports")
@@ -271,14 +264,12 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
             let source = StreamSource(title: "Streamed golf india admin", url: URL(string: "https://papacito.cfd/streamed/golf/india.m3u8?ft=fixture")!,
                 quality: "HD", provider: label)
             XCTAssertTrue(StreamPluginProviderMatching.matches(source, code: "plaviosports"))
-            XCTAssertFalse(StreamPluginProviderMatching.matches(source, code: "streamex"))
             XCTAssertFalse(StreamPluginProviderMatching.matches(source, code: "communitysports"))
             XCTAssertEqual(LiveSourceHealthStore.providerFamily(for: source), "plaviosports")
         }
         let cs = StreamSource(url: URL(string: "https://example.com/streamed")!, quality: "HD", provider: "CS1")
         XCTAssertTrue(StreamPluginProviderMatching.matches(cs, code: "communitysports"))
         XCTAssertFalse(StreamPluginProviderMatching.matches(cs, code: "plaviosports"))
-        XCTAssertFalse(StreamPluginProviderMatching.matches(cs, code: "streamex"))
     }
 
     func testRemoteLabelsAndURLsCannotImpersonateAdditionalFamily() {

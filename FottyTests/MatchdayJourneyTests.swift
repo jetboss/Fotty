@@ -151,39 +151,6 @@ final class MatchdayJourneyTests: XCTestCase {
               teams: nil, sources: [.init(source: source, id: id)], hasCatalogIdentityConflict: conflict)
     }
 
-    func testProviderListedStartDoesNotClaimLiveAndKeepsWatchEligible() throws {
-        let provider = event("bare-villa-palace", at: now.addingTimeInterval(-60),
-                             home: "Aston Villa", away: "Crystal Palace")
-        XCTAssertEqual(provider.broadcastTiming(at: now), .live,
-                       "The existing source/timing eligibility estimate is unchanged")
-        let section = MatchdayEventStatePolicy.section(for: provider, at: now)
-        XCTAssertEqual(section, .listedNow)
-        XCTAssertEqual(LiveEventCard.prominentStatusLabel(for: section, broadcastAvailable: true), "Broadcast listed")
-        XCTAssertEqual(HomeSportsDiscovery(events: [provider], now: now).items.first?.phase, .listedNow)
-        XCTAssertTrue(MatchStartPolicy(event: provider, now: now).canAttemptPlayback)
-        let action = try XCTUnwrap(CurrentEventBroadcastPolicy.action(for: provider, in: [provider], at: now))
-        XCTAssertEqual(action.event.id, provider.id)
-        XCTAssertFalse(action.isChannelFallback)
-
-        let saved = SavedMatchRecord(event: provider, savedAt: now).event
-        XCTAssertEqual(MatchdayEventStatePolicy.section(for: saved, at: now), .listedNow)
-        XCTAssertNotNil(CurrentEventBroadcastPolicy.action(for: saved, in: [provider], at: now))
-
-        let sourceFree = event("source-free", at: provider.kickoffDate, source: nil)
-        let unsupported = event("unsupported", at: provider.kickoffDate, source: "retired")
-        for row in [sourceFree, unsupported] {
-            let state = MatchdayEventStatePolicy.section(for: row, at: now)
-            XCTAssertEqual(state, .awaitingConfirmation)
-            XCTAssertNil(LiveEventCard.prominentStatusLabel(for: state, broadcastAvailable: false))
-            XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now))
-        }
-        XCTAssertEqual(MatchdayEventStatePolicy.section(for: event("future", at: now.addingTimeInterval(600)), at: now), .upcoming)
-        XCTAssertEqual(MatchdayEventStatePolicy.section(for: event("unknown", at: nil), at: now), .timeToBeConfirmed)
-        let expiredAt = now.addingTimeInterval(2 * 3600)
-        XCTAssertEqual(MatchdayEventStatePolicy.section(for: provider, at: expiredAt), .recent)
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: provider, in: [provider], at: expiredAt))
-    }
-
     func testCardLiveLabelsRequireAcceptedRecentOfficialStatus() {
         let provider = event("official-status", at: now.addingTimeInterval(-60))
         let accepted = HomeSportsDiscovery.recentStatus(.inPlay, refreshedAt: now.addingTimeInterval(-60),
@@ -199,8 +166,8 @@ final class MatchdayJourneyTests: XCTestCase {
                                                         liveFeedAvailable: available, now: now)
             XCTAssertNil(stale)
             let section = MatchdayEventStatePolicy.section(for: provider, at: now, status: stale)
-            XCTAssertEqual(section, .listedNow)
-            XCTAssertEqual(LiveEventCard.prominentStatusLabel(for: section, broadcastAvailable: true), "Broadcast listed")
+            XCTAssertEqual(section, .awaitingConfirmation)
+            XCTAssertNil(LiveEventCard.prominentStatusLabel(for: section, broadcastAvailable: true))
         }
         for (status, expected) in [
             (FootballMatch.MatchStatus.scheduled, MatchdayEventStatePolicy.Section.awaitingConfirmation),
@@ -334,43 +301,6 @@ final class MatchdayJourneyTests: XCTestCase {
     private func personalEvent(_ id: String, title: String, sport: String) -> AnalyticalDataEngine.EventReference {
         .init(id: id, title: title, category: sport, date: Int64(now.timeIntervalSince1970),
               poster: nil, popular: nil, teams: nil, sources: [])
-    }
-
-    func testSavedAndRemindedCPLRetainsFixtureWithoutSubstitutingAStation() async throws {
-        let fixture = try XCTUnwrap(CPLSchedule.fixtures.first)
-        let h = try JourneyHarness(now: fixture.kickoff.addingTimeInterval(-900))
-        defer { h.clean() }
-        let scheduled = fixture.event()
-        let result = await h.reminders.enable(scheduled)
-        XCTAssertEqual(result, .scheduled)
-        let request = try XCTUnwrap(h.client.pending.values.first)
-        XCTAssertEqual(request.content.userInfo["matchID"] as? String, scheduled.id)
-        let navigation = MatchNavigationStore.shared
-        defer { navigation.pendingMatchID = nil; navigation.pendingReminderID = nil }
-        navigation.pendingMatchID = "old-match"
-        navigation.openReminder(eventID: scheduled.id)
-        XCTAssertEqual(navigation.pendingReminderID, h.matchday.savedMatches.first?.id)
-        XCTAssertNil(navigation.pendingMatchID)
-        XCTAssertNil(navigation.activeLivePlayerMatchID)
-
-        let fox = channel("fox", title: "Fox Cricket")
-        let willow = channel("willow", title: "Willow Cricket")
-        let catalog = [willow, scheduled, fox]
-        let saved = try XCTUnwrap(h.matchday.savedMatches.first?.event)
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: saved, in: catalog, at: fixture.kickoff))
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: scheduled, in: catalog, at: fixture.kickoff))
-        XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: fox, in: catalog, at: fixture.kickoff)?.event.id,
-                       CricketBroadcastChannel.foxCricket.canonicalID)
-    }
-
-    func testExactFixtureSourceWinsOverGenericChannel() throws {
-        let fixture = try XCTUnwrap(CPLSchedule.fixtures.first)
-        let exact = fixture.event(sources: [.init(source: "delta", id: "exact-fixture")])
-        let action = try XCTUnwrap(CurrentEventBroadcastPolicy.action(for: exact,
-            in: [channel("fox", title: "Fox Cricket"), exact], at: fixture.kickoff))
-        XCTAssertEqual(action.event.id, fixture.id)
-        XCTAssertFalse(action.isChannelFallback)
-        XCTAssertNil(action.alternateActionTitle)
     }
 
     func testMatchdayAdmissionIndexPreservesAliasConflictsAndSavedFallbackSearch() {

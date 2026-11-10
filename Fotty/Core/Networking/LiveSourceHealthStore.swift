@@ -347,7 +347,7 @@ enum LiveSourceHealthStore {
                     lastGoodProvider: lastGood
                 )
                 if abs(l - r) > 0.01 { return l > r }
-                // Prefer StreamEx before Score808 when scores tie (alpha put Score808 first).
+                // Prefer Score808 when measured scores tie.
                 let lf = preferredFamilyRank(providerFamily(for: lhs))
                 let rf = preferredFamilyRank(providerFamily(for: rhs))
                 if lf != rf { return lf < rf }
@@ -360,11 +360,6 @@ enum LiveSourceHealthStore {
     private static func preferredFamilyRank(_ family: String) -> Int {
         switch family {
         case "score808": return 0
-        case "delta": return 1
-        case "admin": return 2
-        case "golf": return 3
-        case "echo": return 4
-        case "india": return 5
         default: return 50
         }
     }
@@ -394,20 +389,9 @@ enum LiveSourceHealthStore {
         }
     }
 
-    static func isProviderFamilyTemporarilyUnavailable(
-        _ rawFamily: String,
-        host: String = "embed.st",
-        at date: Date = Date()
-    ) -> Bool {
-        return queue.sync {
-            _ = loadSnapshots()
-            return false
-        }
-    }
-
     static func hasRecentSuccess(
         forProviderFamily rawFamily: String,
-        host: String = "embed.st",
+        host: String,
         within interval: TimeInterval = 24 * 60 * 60,
         at date: Date = Date()
     ) -> Bool {
@@ -714,28 +698,18 @@ enum LiveSourceHealthStore {
         sourceKey(for: session.legacySource)
     }
 
-    /// Coarse provider family so “StreamEx #2” and “StreamEx #1” share last-good memory.
+    /// Coarse provider family so “CS2” and “CS1” share last-good memory.
     static func providerFamily(for source: StreamSource) -> String {
         if let family = StreamPluginProviderMatching.opaqueProviderFamily(source.provider) { return family }
-        let nexus = source.headers["X-Fotty-Nexus-Source"]?.lowercased()
-        if let nexus, !nexus.isEmpty {
-            return nexus == "hotel" ? "score808" : nexus
-        }
         let provider = source.provider.lowercased()
         let providerRange = NSRange(provider.startIndex..<provider.endIndex, in: provider)
         if let pattern = try? NSRegularExpression(pattern: #"^cs\d+$"#),
            pattern.firstMatch(in: provider, range: providerRange) != nil {
             return StreamPluginProviderMatching.communitySportsProviderCode
         }
-        if provider.contains("streamex") || provider.contains("delta") { return "delta" }
-        if provider.contains("vipleague") || provider.contains("echo") { return "echo" }
-        if provider.contains("methstreams") || provider.contains("golf") { return "golf" }
-        // Nexus `hotel` is the Score808 family (UI label Score808).
-        if provider.contains("score808") || provider.contains("808")
-            || provider.contains("cricfree") || provider.contains("hotel") {
+        if provider.contains("score808") || provider.contains("808") || provider.contains("cricfree") {
             return "score808"
         }
-        if provider.contains("strikeout") || provider.contains("india") { return "india" }
         return provider.components(separatedBy: " ").first ?? provider
     }
 

@@ -92,7 +92,7 @@ final class PlayerChromeUsabilityTests: XCTestCase {
             let sessions = (0..<count).map { index in
                 StreamSession(matchID: match.id,
                     playableURL: URL(string: "https://example.invalid/source-\(index).m3u8")!,
-                    streamType: .hls, providerName: "StreamEx")
+                    streamType: .hls, providerName: "Score808")
             }
             let model = LivePlayerViewModel(event: match, providedSessions: sessions, ownsRemoteCommands: false)
             defer { model.cleanup() }

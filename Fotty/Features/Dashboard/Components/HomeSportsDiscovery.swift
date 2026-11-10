@@ -40,7 +40,6 @@ struct HomeSportsDiscovery {
         var now = Date()
         nonisolated var id: String { event.id }
         var sport: String { event.normalizedCategory }
-        var canWatch: Bool { StreamPluginProviderMatching.hasActiveCatalogSource(event) }
         var isOnNow: Bool { phase == .live || phase == .listedNow }
         var isStarting: Bool { phase == .upcoming && VerifiedFixtureStartingPolicy.contains(event, at: now) }
         var cricketActivity: CricketActivityPresentationPolicy.Activity? {
@@ -51,7 +50,7 @@ struct HomeSportsDiscovery {
             if let activity = cricketActivity, activity.suppressesLiveBadge { return activity.title }
             switch phase {
             case .live: return "LIVE"
-            case .listedNow: return canWatch ? "Broadcast listed" : "Listed start"
+            case .listedNow: return "Listed start"
             case .upcoming: return isStarting ? "Starting" : "Upcoming"
             case .unconfirmed: return "Start unconfirmed"
             }
@@ -61,7 +60,7 @@ struct HomeSportsDiscovery {
         var statusLabel: String {
             if let activity = cricketActivity, activity.suppressesLiveBadge { return activity.title }
             switch phase {
-            case .live: return canWatch ? "Live" : "In play"
+            case .live: return "In play"
             // A provider listing or elapsed kickoff is not live-play evidence.
             // Keep the listed time; the spotlight separately names that status.
             case .listedNow: return event.kickoffDate?.arenaKickoffDetailLine() ?? "Scheduled"
@@ -312,13 +311,7 @@ struct HomeSportsDiscovery {
                 // discovery even when the stream provider exposes only a
                 // separate channel row. The status remains "listed start",
                 // not an invented official live result.
-                if event.isCPLFixture, event.kickoffDate.map({ $0 <= now }) == true {
-                    phase = .listedNow
-                } else {
-                    phase = official == nil
-                        && StreamPluginProviderMatching.hasActiveCatalogSource(event)
-                        && event.broadcastTiming(at: now) == .live ? .listedNow : .unconfirmed
-                }
+                phase = event.isCPLFixture && event.kickoffDate.map({ $0 <= now }) == true ? .listedNow : .unconfirmed
             }
             return Item(event: event, phase: phase, officialStatus: official, now: now)
         }.sorted(by: Self.precedes)

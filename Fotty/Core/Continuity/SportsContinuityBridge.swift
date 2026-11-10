@@ -433,7 +433,6 @@ final class SportsContinuityBridge {
                 if fixture.isLive(at: now) { phase = .live; observedAt = fixture.observedAt }
                 else if fixture.status == .scheduled, event.kickoffDate.map({ $0 > now }) == true { phase = .scheduled }
             } else if let start = event.kickoffDate, start > now { phase = .scheduled }
-            else if currentCatalogIsFresh, StreamPluginProviderMatching.hasActiveCatalogSource(event), !event.isPastEstimatedMatchWindow(at: now) { phase = .listed }
             let row = SportsWidgetSnapshot.Match(id: saved.id, homeName: event.homeName, awayName: event.awayName,
                 category: event.normalizedCategory, competition: event.cricketFixture?.competitionName ?? event.sportsFixture?.competitionName,
                 kickoff: event.kickoffDate, phase: phase, statusObservedAt: observedAt,

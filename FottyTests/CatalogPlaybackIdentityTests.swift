@@ -548,7 +548,7 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
             nativeOriginProfile: oldProfile, eventBinding: try XCTUnwrap(binding(for: expected)))
         XCTAssertEqual(old.nativeOriginProfile, oldProfile)
 
-        let freshHeaders = ["Referer": "https://embed.st/", "Origin": "https://embed.st",
+        let freshHeaders = ["Referer": "https://www.score808live.tv/", "Origin": "https://embed.st",
                             "User-Agent": "Fresh Fixture Player"]
         var freshComponents = URLComponents(string: "https://nuviosports.xyz/api/manifest.m3u8")!
         freshComponents.queryItems = [
@@ -700,15 +700,15 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
 
     private func registeredPrimaryAssociation(for event: EventReference, streamID: String = "registered-provider-event") -> BroadcastRegistryMatch {
         let id = "br:" + String(repeating: "c", count: 64)
-        let record = BroadcastRegistrySnapshot.Broadcast(id: id, providerCode: "streamex",
+        let record = BroadcastRegistrySnapshot.Broadcast(id: id, providerCode: "score808",
             providerEventID: "registered-provider-event", streamID: streamID, resourceType: "tv", scope: "football", kind: .event,
             sport: "football", title: event.displayTitle, participants: [event.homeName, event.awayName], start: event.kickoffDate,
             observedAt: kickoff, expiresAt: kickoff.addingTimeInterval(600), verification: .dated, issues: [])
         let fingerprint = BroadcastRegistrySnapshot.Fingerprint(fixtureID: event.id, sport: "football", start: event.kickoffDate!,
             participants: [event.homeName, event.awayName], competitionID: event.competitionID, squad: event.sportsFixture?.squad)
-        let link = BroadcastRegistrySnapshot.Link(fixtureID: event.id, broadcastID: id, providerCode: "streamex", state: .listed,
+        let link = BroadcastRegistrySnapshot.Link(fixtureID: event.id, broadcastID: id, providerCode: "score808", state: .listed,
             matchMethod: .exact, fixtureFingerprint: fingerprint, expiresAt: kickoff.addingTimeInterval(600))
-        let provider = BroadcastRegistrySnapshot.Provider(providerCode: "streamex", scope: "football", status: .available,
+        let provider = BroadcastRegistrySnapshot.Provider(providerCode: "score808", scope: "football", status: .available,
             observedAt: kickoff, expiresAt: kickoff.addingTimeInterval(600))
         return .init(broadcast: record, link: link, provider: provider)
     }

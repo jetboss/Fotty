@@ -350,7 +350,7 @@ final class LocalStreamProxyTests: XCTestCase {
             try reviewedCSWorker(target: "https://lb1.strmd.st/live/segment8.ts?e=124&st=unchanged"),
             try reviewedCSWorker(target: "https://lb1.strmd.st/live/segment8.ts?e=123&st=changed"),
             try reviewedCSWorker(target: "https://lb1.strmd.st/live/segment9.ts?e=123&st=unchanged"),
-            try reviewedCSWorker(target: "https://lb1.strmd.st/live/segment8.ts?e=123&st=unchanged", referer: "https://embed.st/other")
+            try reviewedCSWorker(target: "https://lb1.strmd.st/live/segment8.ts?e=123&st=unchanged", referer: "https://www.score808live.tv/other")
         ] {
             XCTAssertNotEqual(profile.stableSegmentKey(for: changed), firstKey)
         }
@@ -651,17 +651,17 @@ final class LocalStreamProxyTests: XCTestCase {
         let manifest = URL(string: "https://nuviosports.xyz/manifest.json")!
         var parts = URLComponents(string: "https://nuviosports.xyz/api/manifest")!
         parts.queryItems = [URLQueryItem(name: "url", value: "https://lb1.strmd.st/live/variant.m3u8?e=123&st=fixture"),
-                            URLQueryItem(name: "referer", value: "https://embed.st/"),
+                            URLQueryItem(name: "referer", value: "https://www.score808live.tv/"),
                             URLQueryItem(name: "origin", value: "https://embed.st")]
         let delivery = try XCTUnwrap(parts.url)
-        let headers = ["Referer": "https://embed.st/", "Origin": "https://embed.st", "User-Agent": "Fixture Player"]
+        let headers = ["Referer": "https://www.score808live.tv/", "Origin": "https://embed.st", "User-Agent": "Fixture Player"]
         let profile = try XCTUnwrap(LocalStreamProxyPlaylistProfile.communitySports(deliveryURL: delivery,
             manifestURL: manifest, sourceHint: "streamedpk", headers: headers))
         return (delivery, headers, profile)
     }
 
     private func reviewedCSWorker(host: String = "nuvio-proxy.odedararaj456.workers.dev", path: String = "/",
-                                  target: String, referer: String = "https://embed.st/") throws -> URL {
+                                  target: String, referer: String = "https://www.score808live.tv/") throws -> URL {
         var parts = URLComponents()
         parts.scheme = "https"
         parts.host = host

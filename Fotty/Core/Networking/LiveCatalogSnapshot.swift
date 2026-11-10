@@ -51,7 +51,7 @@ enum FixtureSourceCatalogCollector {
             return code
         })
         return CuratedStreamSourceCatalog.all.filter {
-            !$0.isRetired && ($0.provider != .reviewedTV || cloudOwned.contains($0.providerCode))
+            $0.provider != .reviewedTV || cloudOwned.contains($0.providerCode)
         }.map { definition in
             if cloudOwned.contains(definition.providerCode), let snapshot = registrySnapshot {
                 // This lane spends the same ticket/cadence as a local lookup but
@@ -77,7 +77,6 @@ enum FixtureSourceCatalogCollector {
             }
             return Lane(providerCode: definition.providerCode) { requests, now in
                 switch definition.dispatch {
-                case .sharedCatalog: return [] // StreamEx is retired and excluded above
                 case .score808: return try await Score808CatalogClient.shared.catalogMatches(for: requests, now: now)
                 case .communitySports: return try await CommunitySportsAddonClient.shared.catalogMatches(for: requests, now: now)
                 case .plavioSports: return try await PlavioSportsAddonClient.shared.catalogMatches(for: requests, now: now)

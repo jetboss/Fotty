@@ -7,7 +7,7 @@ final class MatchCacheItem {
     var title: String?
     var homeName: String
     var awayName: String
-    /// Raw StreamEx / Nexus badge token or absolute URL (same field as `NexusATeam.badge`).
+    /// Raw badge token or absolute URL (same field as `NexusATeam.badge`).
     var homeBadge: String?
     var awayBadge: String?
     var kickoffDate: Date?

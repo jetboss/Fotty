@@ -14,7 +14,6 @@ class MatchHubViewModel: ObservableObject {
     @Published var catalogEvent: EventReference?
     @Published var isLoading = true
     @Published var errorMessage: String?
-    @Published var discoveredProviders: [String] = []
     
     @Published var isFindingStream = false
     @Published var streamSessions: [StreamSession] = []
@@ -36,7 +35,6 @@ class MatchHubViewModel: ObservableObject {
     private var isFixtureOnly = false
     /// A retained catalog snapshot is readable after failure, not authority to
     /// retry a delivery route whose current identity could not be checked.
-    private(set) var catalogPlaybackAdmitted = false
     private var refreshTimer: Timer?
     
     init(fixtureId: String, repository: any MatchHubDataLoading = FootballRepository.shared,
@@ -57,10 +55,8 @@ class MatchHubViewModel: ObservableObject {
         self.fixtureId = testEvent.id
         self.repository = repository
         self.catalogEvent = testEvent
-        self.discoveredProviders = ["StreamEx"]
         self.isLoading = false
         self.isFixtureOnly = true
-        self.catalogPlaybackAdmitted = StreamPluginProviderMatching.hasActiveCatalogSource(testEvent)
     }
     #endif
     
@@ -93,7 +89,6 @@ class MatchHubViewModel: ObservableObject {
                 }
                 self.snapshot = snapshot
                 self.catalogEvent = nil
-                self.catalogPlaybackAdmitted = false
                 self.isLoading = false
                 self.errorMessage = nil
                 self.lastCheckedAt = self.currentDate()
@@ -103,9 +98,6 @@ class MatchHubViewModel: ObservableObject {
                     : (policy.allowsProviderEnrichment && previousDate == data.lastUpdated
                        ? "No newer match update was available. The last complete update is still shown." : nil)
 
-                if data.fixture.status.isLive {
-                    await self.discoverProviders(for: data, requestID: requestID)
-                } else { self.discoveredProviders = [] }
             } catch {
                 guard !Task.isCancelled, self.dataRequestID == requestID else { return }
 
@@ -127,8 +119,6 @@ class MatchHubViewModel: ObservableObject {
                 if let event = candidate, !event.hasCatalogIdentityConflict,
                    CatalogPlaybackIdentity.matchingEvent(for: routeRequest, in: [event]) != nil {
                     self.catalogEvent = event
-                    self.discoveredProviders = self.providerNames(for: event.sources ?? [])
-                    self.catalogPlaybackAdmitted = !self.discoveredProviders.isEmpty
                     self.errorMessage = nil
                     self.refreshNotice = nil
                     self.lastCheckedAt = self.currentDate()
@@ -137,8 +127,6 @@ class MatchHubViewModel: ObservableObject {
                 }
 
                 self.errorMessage = "Match details could not be refreshed. Check your connection and try again."
-                self.catalogPlaybackAdmitted = false
-                self.discoveredProviders = []
                 if self.isFindingStream { self.cancelStreamLookup() }
                 self.refreshNotice = oldCatalog == nil ? nil : "This listing could not be verified. Saved details remain, but Watch is paused until a successful refresh."
                 self.isLoading = false
@@ -200,12 +188,18 @@ class MatchHubViewModel: ObservableObject {
         if let data = hubData {
             let fallbackEvent = makeFallbackPlaybackEvent(from: data)
             watchEvent(fallbackEvent, hubData: data)
-            return
         }
+    }
 
-        if catalogPlaybackAdmitted, let catalogEvent {
-            watchEvent(catalogEvent, hubData: nil)
-        }
+    /// Watch is offered exactly when tapping it would start a lookup: the
+    /// fixture is live or about to start and its timing allows playback. Until
+    /// 9 Nov this needed shared-catalog providers, which no match had after
+    /// that catalog closed on 27 Oct.
+    var canWatchLive: Bool {
+        guard let data = hubData,
+              data.fixture.status.isLive || data.fixture.status == .scheduled || data.fixture.status == .preMatch else { return false }
+        let knownLive: FootballMatch.MatchStatus? = data.fixture.status.isLive ? .inPlay : nil
+        return MatchStartPolicy(event: makeFallbackPlaybackEvent(from: data), status: knownLive).timingAllowsPlayback
     }
     
     private func watchEvent(_ event: EventReference, hubData data: MatchHubData?) {
@@ -327,23 +321,6 @@ class MatchHubViewModel: ObservableObject {
             ),
             sources: []
         )
-    }
-
-    private func discoverProviders(for data: MatchHubData, requestID: UUID) async {
-        let request = makePlaybackRequest(from: data, preferredEvent: makeFallbackPlaybackEvent(from: data))
-        let catalogedEvent = await lookupCatalog(request)
-        guard !Task.isCancelled, dataRequestID == requestID else { return }
-        discoveredProviders = providerNames(for: catalogedEvent?.sources ?? [])
-    }
-
-    private func providerNames(for sources: [NexusASource]) -> [String] {
-        Set(sources.compactMap { source in
-            switch StreamPluginProviderMatching.activeProviderCode(forCatalogSourceCode: source.source) {
-            case "streamex": return "StreamEx"
-            case "score808": return "Score808"
-            default: return nil
-            }
-        }).sorted()
     }
 
     static func catalogRouteRequest(fixtureID: String) -> StreamPlaybackRequest {
