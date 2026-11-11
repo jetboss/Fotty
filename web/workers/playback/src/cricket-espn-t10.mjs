@@ -101,8 +101,15 @@ export async function collectT10(now, fetchImpl = fetch) {
   } finally { deadline.dispose(); }
 }
 
+function hasActiveFixture(fixtures, now) {
+  return (fixtures ?? []).some((f) => f.status === "live" || ["scheduled", "unknown"].includes(f.status)
+    && Date.parse(f.start) - +now <= 30 * MINUTE && +now - Date.parse(f.start) <= 4 * 60 * MINUTE);
+}
+
 export async function refreshT10(previous, now, collect = collectT10) {
-  if (Date.parse(previous?.nextAttemptAt) > +now) return previous;
+  // A stored quiet-day wait never outlives a match that has since started.
+  const overdue = hasActiveFixture(previous?.fixtures, now) && +now - Date.parse(previous?.lastAttemptAt) >= 2 * MINUTE;
+  if (Date.parse(previous?.nextAttemptAt) > +now && !overdue) return previous;
   try {
     const next = await collect(now);
     if (Date.parse(next.observedAt) < Date.parse(previous?.observedAt)) return fail("receipt-regressed");
@@ -121,7 +128,9 @@ export async function refreshT10(previous, now, collect = collectT10) {
     }
     // A live T10 lasts about 90 minutes and feeds Fox programme links whose
     // app-side freshness limit is 10 minutes, so refresh every 2 minutes then.
-    const cadence = next.fixtures.some((f) => f.status === "live") ? 2 * MINUTE : nextCricketRefresh(next.fixtures, now);
+    // A fixture at or just past its start can be "unknown" (ESPN still says
+    // pre) and must not wait for the 4-hour quiet cadence.
+    const cadence = hasActiveFixture(next.fixtures, now) ? 2 * MINUTE : nextCricketRefresh(next.fixtures, now);
     return { ...next, status: "covered", consecutiveFailures: 0, lastAttemptAt: now.toISOString(),
       nextAttemptAt: new Date(+now + cadence).toISOString() };
   } catch (error) {

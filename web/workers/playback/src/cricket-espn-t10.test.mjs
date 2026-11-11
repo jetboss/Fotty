@@ -71,6 +71,17 @@ test("T10 refresh keeps accepted rows on failure and refuses identity or status 
   const regressed = await refreshT10(accepted, later, async () => ({ observedAt: later.toISOString(),
     fixtures: [{ ...accepted.fixtures[0], status: "scheduled" }] }));
   assert.equal(regressed.failure, "status-regressed");
+  // Just past start, ESPN may still say "pre": keep the 2-minute cadence.
+  const atStart = new Date("2026-11-11T16:00:04Z");
+  const started = await refreshT10(undefined, atStart, async () => normalizeT10([payload([event({ id: "1561261",
+    date: "2026-11-11T16:00Z", status: { type: { state: "pre" } } })])], new Headers({ date: atStart.toUTCString() }), atStart));
+  assert.equal(started.fixtures[0].status, "unknown");
+  assert.equal(Date.parse(started.nextAttemptAt) - +atStart, 2 * 60_000);
+  const stalled = { ...started, nextAttemptAt: "2026-11-11T20:00:00.000Z" };
+  const resumedAt = new Date("2026-11-11T17:06:00Z");
+  const resumed = await refreshT10(stalled, resumedAt, async () => ({ observedAt: resumedAt.toISOString(),
+    fixtures: [{ ...started.fixtures[0], status: "live" }] }));
+  assert.equal(resumed.fixtures[0].status, "live", "A stored 4-hour wait cannot hide a match that has started");
   const off = await refreshT10(undefined, new Date("2026-12-02T00:00:00Z"));
   assert.equal(off.status, "offseason");
 });
