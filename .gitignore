@@ -8,6 +8,8 @@ data/devices.json
 
 # iOS
 .env.ios.local
+.env.asc.local
+*.p8
 .build/
 **/.build/
 .DerivedData/
