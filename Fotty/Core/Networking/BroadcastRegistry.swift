@@ -797,9 +797,15 @@ struct BroadcastRegistryMatch: Equatable, Sendable {
                       programmeStart >= start, programmeStart < end, programmeEnd <= end else { return false }
                 return true
             }
-            guard let cricket = event.cricketFixture, cricket.format == .odi || cricket.format == .t20,
+            // Fox's Abu Dhabi T10 listing has no ordinal; the unique current
+            // ESPN T10 fixture of the same pair and competition owns it.
+            let foxT10 = ReviewedTVPlaylistClient.isFoxProgramme(broadcast) && broadcast.competitionID == "abu-dhabi-t10"
+                && broadcast.format == .t10 && link.fixtureFingerprint.competitionID == "abu-dhabi-t10"
+                && event.id.range(of: #"^cricket-fixture:espn-cricket:\d+$"#, options: .regularExpression) != nil
+            guard let cricket = event.cricketFixture,
+                  cricket.format == .odi || cricket.format == .t20 || foxT10 && cricket.format == .t10,
                   (-300...600).contains(now.timeIntervalSince(cricket.observedAt)) else { return false }
-            let reviewedDomestic = (ReviewedTVPlaylistClient.isFoxProgramme(broadcast) || broadcast.providerCode == "reviewedtv"
+            let reviewedDomestic = foxT10 || (ReviewedTVPlaylistClient.isFoxProgramme(broadcast) || broadcast.providerCode == "reviewedtv"
                 && broadcast.channelID == CricketBroadcastChannel.willow.canonicalID
                 && broadcast.streamID == "reviewed-tv:willow-main"
                 && ReviewedTVPlaylistClient.isProgrammeID(broadcast.providerEventID))
@@ -812,7 +818,7 @@ struct BroadcastRegistryMatch: Equatable, Sendable {
                       link.fixtureFingerprint.matchOrdinal == ordinal else { return false }
             }
             let delta = programmeStart.timeIntervalSince(start)
-            let limit: TimeInterval = (cricket.format == .odi ? 12 : 6) * 3600
+            let limit: TimeInterval = (cricket.format == .odi ? 12 : cricket.format == .t10 ? 3 : 6) * 3600
             if cricket.status == .live {
                 return now >= start && now.timeIntervalSince(start) <= limit && (-3600...limit).contains(delta)
             }

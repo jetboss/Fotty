@@ -446,15 +446,22 @@ actor ReviewedTVPlaylistClient {
     /// Guide-only identity; Fox media still belongs to a separately enabled
     /// provider and must pass fresh exact-channel/market resolution.
     nonisolated static func isFoxProgramme(_ broadcast: BroadcastRegistrySnapshot.Broadcast) -> Bool {
-        let clubs: Set<String> = ["Adelaide Strikers Women", "Brisbane Heat Women", "Hobart Hurricanes Women",
+        let wbbl: Set<String> = ["Adelaide Strikers Women", "Brisbane Heat Women", "Hobart Hurricanes Women",
             "Melbourne Renegades Women", "Melbourne Stars Women", "Perth Scorchers Women", "Sydney Sixers Women", "Sydney Thunder Women"]
+        // Abu Dhabi T10 2026 franchises, exactly as the Worker's ESPN cohort names them.
+        let t10: Set<String> = ["Arabian Aces", "UAE Bulls", "Royal Desert Champions", "Emirates Eagles", "Yas Lions", "United Tigers"]
+        let clubs: Set<String>
+        switch (broadcast.competitionID, broadcast.format, broadcast.squad?.gender) {
+        case ("wbbl", .t20, .women): clubs = wbbl
+        case ("abu-dhabi-t10", .t10, .men): clubs = t10
+        default: return false
+        }
         return broadcast.providerCode == providerCode && broadcast.kind == .programme && broadcast.sport == "cricket"
             && broadcast.scope == "cricket" && broadcast.channelID == CricketBroadcastChannel.foxCricket.canonicalID
             && broadcast.streamID == foxGuideStreamID
             && broadcast.providerEventID.range(of: #"^reviewed-tv:fox-programme:[a-f0-9]{64}$"#, options: .regularExpression) != nil
-            && broadcast.competitionID == "wbbl" && broadcast.format == .t20
             && broadcast.matchOrdinal == nil && broadcast.day == nil && broadcast.stationMarket == nil
-            && broadcast.squad?.gender == .women && broadcast.squad?.ageGroup == "senior"
+            && broadcast.squad?.ageGroup == "senior"
             && broadcast.participants.count == 2 && Set(broadcast.participants).count == 2
             && broadcast.participants.allSatisfy(clubs.contains)
     }

@@ -325,7 +325,7 @@ enum CuratedStreamSourceCatalog {
               !event.hasCatalogIdentityConflict, !event.isBroadcastChannel else { return false }
         if let cricket = event.cricketFixture {
             return request.category == "cricket" && CricketFixtureCatalog.fixtureIDPrefix + cricket.fixtureID == event.id && cricket.verified
-                && !cricket.status.stopsPlayback && [.test, .odi, .t20].contains(cricket.format)
+                && !cricket.status.stopsPlayback && [.test, .odi, .t20, .t10].contains(cricket.format)
         }
         guard let sports = event.sportsFixture, sports.fixtureID == event.id, sports.verified,
               sports.eventKind == .match, sports.sport == request.category, !sports.status.stopsPlayback else { return false }
