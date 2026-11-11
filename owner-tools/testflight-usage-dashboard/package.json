@@ -29,7 +29,7 @@
     "recharts": "^3.8.1"
   },
   "devDependencies": {
-    "vite": "^8.0.8",
+    "vite": "^8.3.8",
     "vite-plugin-singlefile": "^2.3.3"
   }
 }
