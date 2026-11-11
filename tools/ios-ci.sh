@@ -29,6 +29,29 @@ if [[ -n "${FOTTY_CATALYST_DEPLOYMENT_TARGET:-}" ]]; then
   )
 fi
 
+# A hung test fails on its own instead of consuming the whole job timeout.
+TEST_TIMEOUT_FLAGS=(
+  -test-timeouts-enabled YES
+  -default-test-execution-time-allowance 300
+  -maximum-test-execution-time-allowance 600
+)
+
+# Result bundles are opt-in so local runs leave no extra Xcode output. CI sets
+# FOTTY_CI_RESULT_DIR to an empty runner-temp folder and uploads it on failure.
+VISUAL_RESULT_FLAGS=("-quiet")
+UNIT_RESULT_FLAGS=("-quiet")
+if [[ -n "${FOTTY_CI_RESULT_DIR:-}" ]]; then
+  mkdir -p "$FOTTY_CI_RESULT_DIR"
+  for bundle in VisualRegressionTests.xcresult FottyTests.xcresult; do
+    if [[ -e "$FOTTY_CI_RESULT_DIR/$bundle" ]]; then
+      echo "Result bundle already exists: $FOTTY_CI_RESULT_DIR/$bundle" >&2
+      exit 2
+    fi
+  done
+  VISUAL_RESULT_FLAGS+=(-resultBundlePath "$FOTTY_CI_RESULT_DIR/VisualRegressionTests.xcresult")
+  UNIT_RESULT_FLAGS+=(-resultBundlePath "$FOTTY_CI_RESULT_DIR/FottyTests.xcresult")
+fi
+
 if [[ -n "${FOTTY_CI_DERIVED_DATA:-}" ]]; then
   DERIVED_DATA="$FOTTY_CI_DERIVED_DATA"
 else
@@ -106,7 +129,7 @@ xcodebuild build-for-testing \
 # synthetic loaded badge with a placeholder. All visual assertions remain
 # mandatory; the second invocation covers every other unit test exactly once.
 xcodebuild test-without-building \
-  -quiet \
+  "${VISUAL_RESULT_FLAGS[@]}" \
   -project Fotty.xcodeproj \
   -scheme Fotty \
   -configuration Debug \
@@ -114,12 +137,13 @@ xcodebuild test-without-building \
   -derivedDataPath "$DERIVED_DATA" \
   -jobs "$XCODE_JOBS" \
   -parallel-testing-enabled NO \
+  "${TEST_TIMEOUT_FLAGS[@]}" \
   CODE_SIGNING_ALLOWED=NO \
   "${CATALYST_BUILD_SETTINGS[@]}" \
   -only-testing:FottyTests/VisualRegressionTests
 
 xcodebuild test-without-building \
-  -quiet \
+  "${UNIT_RESULT_FLAGS[@]}" \
   -project Fotty.xcodeproj \
   -scheme Fotty \
   -configuration Debug \
@@ -127,6 +151,7 @@ xcodebuild test-without-building \
   -derivedDataPath "$DERIVED_DATA" \
   -jobs "$XCODE_JOBS" \
   -parallel-testing-enabled NO \
+  "${TEST_TIMEOUT_FLAGS[@]}" \
   CODE_SIGNING_ALLOWED=NO \
   "${CATALYST_BUILD_SETTINGS[@]}" \
   -only-testing:FottyTests \
