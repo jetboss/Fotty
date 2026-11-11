@@ -119,8 +119,11 @@ export async function refreshT10(previous, now, collect = collectT10) {
       if (old.status === "finished" && row.status !== "finished"
         || old.status === "live" && ["scheduled", "unknown"].includes(row.status)) return fail("status-regressed");
     }
+    // A live T10 lasts about 90 minutes and feeds Fox programme links whose
+    // app-side freshness limit is 10 minutes, so refresh every 2 minutes then.
+    const cadence = next.fixtures.some((f) => f.status === "live") ? 2 * MINUTE : nextCricketRefresh(next.fixtures, now);
     return { ...next, status: "covered", consecutiveFailures: 0, lastAttemptAt: now.toISOString(),
-      nextAttemptAt: new Date(+now + nextCricketRefresh(next.fixtures, now)).toISOString() };
+      nextAttemptAt: new Date(+now + cadence).toISOString() };
   } catch (error) {
     const allowed = new Set(["publisher-stale", "source-incomplete", "season-review-required", "invalid-fixture",
       "identity-conflict", "unsupported-round", "status-conflict", "upstream-unavailable", "receipt-regressed",

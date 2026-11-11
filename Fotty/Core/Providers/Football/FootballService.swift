@@ -1324,6 +1324,22 @@ class TeamBrandService: ObservableObject {
             if let url = URL(string: rawURL) { badges[name] = url }
         }
 
+        // Abu Dhabi T10 2026 franchises: the official abudhabit10.com team crests
+        // (its Framer CDN), verified 11 Nov 2026. ESPN's cricket logo URLs for
+        // these teams return 404 and TheSportsDB has no entries.
+        let t10 = "https://framerusercontent.com/images/"
+        let abuDhabiT10: [String: String] = [
+            "arabian aces": t10 + "mOd0GOc2GZiIn7FDN43NvEUoE.png?scale-down-to=512",
+            "emirates eagles": t10 + "jEvpbgJ8Nx7bcbs2GNyQIfnBNOU.png?scale-down-to=512",
+            "royal desert champions": t10 + "C4t372HEQV4hkX6KsaxVJqK26q4.png?scale-down-to=512",
+            "uae bulls": t10 + "JgkMFay3SA07yQaNh6RRdsSy5w.png?scale-down-to=512",
+            "united tigers": t10 + "HTULjcQJV11Cjjfi7ofUmlgk10.png?scale-down-to=512",
+            "yas lions": t10 + "W7CHpOcrZDI4cGbVA8d5lemMRLE.png?scale-down-to=512"
+        ]
+        for (name, rawURL) in abuDhabiT10 {
+            if let url = URL(string: rawURL) { badges[name] = url }
+        }
+
         let cfl: [String: String] = [
             "bc lions": "https://r2.thesportsdb.com/images/media/team/badge/ysxssy1424732039.png",
             "calgary stampeders": "https://r2.thesportsdb.com/images/media/team/badge/lksemj1565196917.png",
