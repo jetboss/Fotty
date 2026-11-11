@@ -21,7 +21,7 @@ comes second to that promise.
 | Work | Done when |
 | --- | --- |
 | Private Watch outcome record in the app (tap → first picture time, source used, failover, failure reason; no URLs or credentials) | Each Watch tap writes one record; Settings can export a summary |
-| Cloud playback probe for PL, UCL and cricket windows (does each source still return playable HLS) | A daily report per competition and source |
+| Cloud playback probe for PL, UCL and cricket windows (does each source still return playable HLS) | A daily report per competition and source (built 11 Nov: `tools/playback-probe.mjs`, runs once on `main`) |
 | Phone parity: Home, Watch, player and Settings on iPhone | One physical iPhone pass recorded |
 | Release gates green: unsigned Release, provider audit, web checks, PR to `main` | Checklist in `docs/notebooklm/Workflow.md` all ticked |
 | Weekly internal TestFlight | First upload since build 206, owner-approved |

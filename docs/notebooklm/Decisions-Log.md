@@ -1,3 +1,9 @@
+## 2026-11-11: Cloud playback probe and green watchdog check (Month 1 roadmap)
+
+New `tools/playback-probe.mjs` and the `Cloud Playback Probe` workflow. For each Premier League, Champions League and cricket match the live registry lists, the probe asks the public add-on source (CS, AS, CNC, FS) for its stream descriptor and checks the HLS playlist is playable (media playlist with segments, or a master whose first variant is). Segments are never downloaded, and only Origin/Referer/User-Agent are sent. Highfly and guide rows are not probed from the cloud. Hourly 10:12-23:12 UTC, plus a 23:55 UTC daily report per competition and source (checks, playable share, median time to playlist, other outcomes). The repository is public, so reports carry no URLs, IDs, headers or titles. Scheduled runs start only once the branch reaches `main`. First live run, 16:33 UTC: cricket/CS 1 of 1 playable in 6.6 s. Commit 7941985.
+
+Separately, the `observation-policy` (Watchdog CI) failure was a stale test: its fake network answered Plavio at hd.plavio.site, while the observer, the app and the Worker use addon.plavio.site with id community.plaviohd.private. Test fixed in 165127f; observer unchanged. The watchdog still probes the retired StreamEx sites; removing them belongs with the Month 2 dormant-source cleanup.
+
 ## 2026-11-11: Internal TestFlight 3.0.0 (283)
 
 Owner approved. The build carries the steady live-cricket cadence (2-minute polling while live), the official T10 crests on dark plates, the 6 pt badge spacing and the T10 Fox programme links. Pre-build snapshot `backups/release-source/3.0.0-283` (commit dae0876, source 9d5fc538…6445f5); the compare passed before upload. Signatures verify and both dSYMs are present. Uploaded with `tools/testflight-upload.sh` (Xcode account signing). The API key set "Bug fixes" and added 283 to Fotty Internal Smoke, notifying testers, with no export-compliance prompt. Archive kept in Xcode Organizer.
