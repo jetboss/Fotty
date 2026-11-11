@@ -78,46 +78,9 @@ struct LastLiveMatchCard: View {
     }
 }
 
-/// Saving is secondary to Watch, but it must not require discovering a
-/// long-press. Keep this native menu separate from the row's playback button.
-struct CatalogMatchActionsMenu: View {
-    let eventID: String
-    let eventTitle: String
-    let isSaved: Bool
-    let canSave: Bool
-    let onSave: () -> Void
-    var onDetails: (() -> Void)? = nil
-    var detailsExpanded: Bool? = nil
-
-    var body: some View {
-        Menu {
-            if let onDetails {
-                Button(detailsExpanded == true ? "Hide match details" : "Match details",
-                       systemImage: "info.circle", action: onDetails)
-            }
-            if canSave {
-                Button(isSaved ? "Remove from My Matchday" : "Save to My Matchday",
-                       systemImage: isSaved ? "bookmark.slash" : "bookmark", action: onSave)
-                    .accessibilityIdentifier("home-save-\(eventID)")
-            }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(FottyTheme.textSecondary)
-                .frame(width: 44, height: 44)
-                .contentShape(Rectangle())
-        }
-        // The secondary menu must not inherit Watch's amber tint or add a
-        // platform menu chevron beside the explicit ellipsis.
-        .tint(FottyTheme.textSecondary)
-        .menuIndicator(.hidden)
-        .accessibilityLabel("More options for \(eventTitle)")
-        .accessibilityValue(isSaved ? "Saved in My Matchday" : "Not saved")
-        .accessibilityIdentifier("match-more-\(eventID)")
-    }
-}
-
-private struct CatalogSavedStateLabel: View {
+/// The visible saved-state cue on rows whose Save/Remove lives in the
+/// long-press menu and VoiceOver actions.
+struct CatalogSavedStateLabel: View {
     let eventID: String
     var body: some View {
         Label("Saved", systemImage: "checkmark.circle")
@@ -701,30 +664,32 @@ struct HomeLiveSpotlight: View {
                     .multilineTextAlignment(.trailing)
             }
 
-            if let fixture = item.event.sportsFixture, fixture.eventKind != .match {
-                Label(item.event.displayTitle, systemImage: SportIdentity.symbol(for: item.sport))
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(FottyTheme.textPrimary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if typeSize.isAccessibilitySize {
-                VStack(spacing: 12) {
-                    team(name: item.event.homeName, badge: presentation.homeBadgeURL,
-                         brand: presentation.homeBrandURL)
-                    scoreLockup
-                    team(name: item.event.awayName, badge: presentation.awayBadgeURL,
-                         brand: presentation.awayBrandURL)
-                }
-                .frame(maxWidth: .infinity)
-            } else {
-                HStack(alignment: .center, spacing: 12) {
-                    team(name: item.event.homeName, badge: presentation.homeBadgeURL,
-                         brand: presentation.homeBrandURL)
-                        .frame(maxWidth: .infinity)
-                    scoreLockup
-                        .frame(minWidth: 74)
-                    team(name: item.event.awayName, badge: presentation.awayBadgeURL,
-                         brand: presentation.awayBrandURL)
-                        .frame(maxWidth: .infinity)
+            detailsTapTarget {
+                if let fixture = item.event.sportsFixture, fixture.eventKind != .match {
+                    Label(item.event.displayTitle, systemImage: SportIdentity.symbol(for: item.sport))
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(FottyTheme.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else if typeSize.isAccessibilitySize {
+                    VStack(spacing: 12) {
+                        team(name: item.event.homeName, badge: presentation.homeBadgeURL,
+                             brand: presentation.homeBrandURL)
+                        scoreLockup
+                        team(name: item.event.awayName, badge: presentation.awayBadgeURL,
+                             brand: presentation.awayBrandURL)
+                    }
+                    .frame(maxWidth: .infinity)
+                } else {
+                    HStack(alignment: .center, spacing: 12) {
+                        team(name: item.event.homeName, badge: presentation.homeBadgeURL,
+                             brand: presentation.homeBrandURL)
+                            .frame(maxWidth: .infinity)
+                        scoreLockup
+                            .frame(minWidth: 74)
+                        team(name: item.event.awayName, badge: presentation.awayBadgeURL,
+                             brand: presentation.awayBrandURL)
+                            .frame(maxWidth: .infinity)
+                    }
                 }
             }
 
@@ -757,8 +722,13 @@ struct HomeLiveSpotlight: View {
         .shadow(color: Color.black.opacity(0.10), radius: 16, y: 8)
         .contentShape(RoundedRectangle(cornerRadius: FottyTheme.radiusXL, style: .continuous))
         .contextMenu {
-            Button(saveTitle, systemImage: isSaved ? "bookmark.slash" : "bookmark", action: onSave)
-                .accessibilityIdentifier("home-save-\(item.id)")
+            if let onDetails {
+                Button("Match details", systemImage: "info.circle", action: onDetails)
+            }
+            if !item.event.hasCatalogIdentityConflict {
+                Button(saveTitle, systemImage: isSaved ? "bookmark.slash" : "bookmark", action: onSave)
+                    .accessibilityIdentifier("home-save-\(item.id)")
+            }
         }
         .environment(\.colorScheme, .dark)
         .accessibilityIdentifier(item.isOnNow ? "home-watch-now" : "home-event-\(item.id)")
@@ -785,25 +755,31 @@ struct HomeLiveSpotlight: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// One visible action: Watch (or the source check that stands in for it).
+    /// Details and Save/Remove are on a tap of the teams, the long-press menu
+    /// and VoiceOver actions, matching Home's schedule rows.
     private var footerActions: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 6) {
-                footerMenu.fixedSize(horizontal: true, vertical: true)
-                footerWatchButton.fixedSize(horizontal: true, vertical: true)
-            }
-            VStack(alignment: .leading, spacing: 6) {
-                footerMenu
-                footerWatchButton
-            }
-        }
+        footerWatchButton
     }
 
+    /// A tap on the teams opens match details; it never starts playback.
     @ViewBuilder
-    private var footerMenu: some View {
-        if !item.event.hasCatalogIdentityConflict || onDetails != nil {
-            CatalogMatchActionsMenu(eventID: item.id, eventTitle: item.event.displayTitle,
-                                    isSaved: isSaved, canSave: !item.event.hasCatalogIdentityConflict,
-                                    onSave: onSave, onDetails: onDetails)
+    private func detailsTapTarget<Content: View>(@ViewBuilder content: () -> Content) -> some View {
+        if let onDetails {
+            Button(action: onDetails) {
+                content().contentShape(Rectangle())
+            }
+            .buttonStyle(FottyPressButtonStyle())
+            .accessibilityElement(children: .combine)
+            .accessibilityHint("Opens match details. Touch and hold to save.")
+            .accessibilityIdentifier("home-live-details-\(item.id)")
+            .modifier(HomeRowSecondaryActions(event: item.event, isSaved: isSaved, saveTitle: saveTitle,
+                onSave: onSave, detailsExpanded: false, onDetails: nil))
+        } else {
+            content()
+                .accessibilityElement(children: .combine)
+                .modifier(HomeRowSecondaryActions(event: item.event, isSaved: isSaved, saveTitle: saveTitle,
+                    onSave: onSave, detailsExpanded: false, onDetails: nil))
         }
     }
 
@@ -1023,8 +999,7 @@ struct HomeScheduleRow: View {
             alternateActionTitle: alternateActionTitle,
             onCheckStreams: onCheckStreams,
             compact: true,
-            minimumInformationWidth: minimumInformationWidth,
-            rowActions: Optional<CatalogMatchActionsMenu>.none
+            minimumInformationWidth: minimumInformationWidth
         ) {
             eventInformation
                 .modifier(HomeRowSecondaryActions(event: item.event, isSaved: isSaved, saveTitle: saveTitle,

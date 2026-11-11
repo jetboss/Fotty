@@ -279,7 +279,6 @@ struct MatchStartControls<Information: View>: View {
     var showsReminder = true
     var compact = false
     var minimumInformationWidth: CGFloat? = nil
-    private let rowActions: CatalogMatchActionsMenu?
     private let information: Information
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -300,7 +299,6 @@ struct MatchStartControls<Information: View>: View {
          onCheckStreams: (() -> Void)? = nil,
          showsReminder: Bool = true, compact: Bool = false,
          minimumInformationWidth: CGFloat? = nil,
-         rowActions: CatalogMatchActionsMenu? = nil,
          @ViewBuilder information: () -> Information) {
         self.event = event
         self.status = status
@@ -311,7 +309,6 @@ struct MatchStartControls<Information: View>: View {
         self.showsReminder = showsReminder
         self.compact = compact
         self.minimumInformationWidth = minimumInformationWidth
-        self.rowActions = rowActions
         self.information = information()
     }
 
@@ -351,14 +348,7 @@ struct MatchStartControls<Information: View>: View {
                 MatchRowLayout(minimumInformationWidth: inlineStatus ? min(minimumInformationWidth ?? defaultMinimumInformationWidth, defaultMinimumInformationWidth + 50) : (minimumInformationWidth ?? defaultMinimumInformationWidth),
                                forceStack: typeSize.isAccessibilitySize) {
                     VStack(alignment: .leading, spacing: 5) {
-                        if let rowActions, !inlineStatus {
-                            HStack(alignment: .top, spacing: 4) {
-                                information.frame(maxWidth: .infinity, alignment: .leading)
-                                rowActions
-                            }
-                        } else {
-                            information
-                        }
+                        information
                         if inlineStatus {
                             statusInformation(policy: policy)
                         }
@@ -371,12 +361,6 @@ struct MatchStartControls<Information: View>: View {
                         VStack(alignment: typeSize.isAccessibilitySize ? .leading : .trailing, spacing: 4) {
                             actions(policy: policy)
                         }
-                    }
-                    if inlineStatus, let rowActions {
-                        // The layout keeps wide rows unchanged, but at narrow
-                        // widths shares a trailing column with the one existing
-                        // reminder control instead of squeezing team names.
-                        rowActions
                     }
                 }
             } else if typeSize.isAccessibilitySize {

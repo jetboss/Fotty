@@ -197,14 +197,16 @@ final class PlaybackPerformanceUITests: XCTestCase {
     /// Only an originally unsaved future row is edited: removing a previously
     /// saved match could cancel the owner's reminder, which is out of scope.
     func testPhysicalHomeMoreDetailsSaveAndRemoveRestoresOriginalState() throws {
-        try selectTab("tab-home", surface: "Home real match More menu")
-        let menus = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "match-more-"))
-        _ = menus.firstMatch.waitForExistence(timeout: 20)
+        try selectTab("tab-home", surface: "Home real match long-press menu")
+        // Rows show one action; Details and Save live in the row's long-press
+        // menu. The visible "Saved" cue (match-saved-<id>) reports saved state.
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "home-event-"))
+        _ = rows.firstMatch.waitForExistence(timeout: 20)
         var chosenID: String?
         for _ in 0..<6 {
-            for menu in menus.allElementsBoundByIndex.prefix(12)
-                where menu.isHittable && menu.value as? String == "Not saved" {
-                let eventID = String(menu.identifier.dropFirst("match-more-".count))
+            for row in rows.allElementsBoundByIndex.prefix(12) where row.isHittable {
+                let eventID = String(row.identifier.dropFirst("home-event-".count))
+                guard !isSavedOnHome(eventID) else { continue }
                 let countdown = app.descendants(matching: .any).matching(identifier: "match-start-countdown-\(eventID)").firstMatch
                 guard countdown.exists else { continue }
                 let label = countdown.label.lowercased()
@@ -224,8 +226,8 @@ final class PlaybackPerformanceUITests: XCTestCase {
             captureEvidence(surface: "Home More-details gate: no suitable real unsaved future row in six bounded viewports")
             throw XCTSkip("No real unsaved dated fixture at least five minutes away was reachable in the bounded Home scan; existing saved matches and reminders were left untouched.")
         }
-        let menu = app.buttons["match-more-\(eventID)"]
-        XCTAssertEqual(menu.value as? String, "Not saved")
+        let menu = app.buttons["home-event-\(eventID)"]
+        XCTAssertFalse(isSavedOnHome(eventID))
         var mayNeedRestore = false
         defer {
             if mayNeedRestore {
@@ -237,9 +239,9 @@ final class PlaybackPerformanceUITests: XCTestCase {
             }
         }
 
-        tap(menu)
+        menu.press(forDuration: 1.0)
         let detailsAction = app.buttons["Match details"].firstMatch
-        XCTAssertTrue(detailsAction.waitForExistence(timeout: 5), "The visible More menu must expose Match details")
+        XCTAssertTrue(detailsAction.waitForExistence(timeout: 5), "The row's long-press menu must expose Match details")
         tap(detailsAction)
         let save = app.buttons["match-details-save"]
         XCTAssertTrue(save.waitForExistence(timeout: 5))
@@ -253,12 +255,12 @@ final class PlaybackPerformanceUITests: XCTestCase {
         let close = app.navigationBars["Match details"].buttons["Close"].firstMatch
         XCTAssertTrue(close.waitForExistence(timeout: 5))
         tap(close)
-        XCTAssertTrue(waitUntil(timeout: 5) { !save.exists && menu.value as? String == "Saved in My Matchday" })
+        XCTAssertTrue(waitUntil(timeout: 5) { !save.exists && self.isSavedOnHome(eventID) })
         XCTAssertTrue(app.descendants(matching: .any)["match-saved-\(eventID)"].firstMatch.exists,
                       "Home must show the actual saved-state cue after details closes")
 
         try reveal(menu)
-        tap(menu)
+        menu.press(forDuration: 1.0)
         XCTAssertTrue(detailsAction.waitForExistence(timeout: 5))
         tap(detailsAction)
         XCTAssertTrue(save.waitForExistence(timeout: 5))
@@ -268,7 +270,7 @@ final class PlaybackPerformanceUITests: XCTestCase {
         XCTAssertTrue(waitUntil(timeout: 5) { save.label == "Save to My Matchday" })
         XCTAssertFalse(app.alerts["Couldn't update My Matchday"].exists)
         tap(close)
-        XCTAssertTrue(waitUntil(timeout: 5) { !save.exists && menu.value as? String == "Not saved" })
+        XCTAssertTrue(waitUntil(timeout: 5) { !save.exists && !self.isSavedOnHome(eventID) })
         XCTAssertFalse(app.descendants(matching: .any)["match-saved-\(eventID)"].firstMatch.exists)
         mayNeedRestore = false
         XCTAssertTrue(tabControl("tab-home").isSelected)
@@ -285,14 +287,14 @@ final class PlaybackPerformanceUITests: XCTestCase {
         }
         let save = app.buttons["match-details-save"]
         if !save.exists {
-            let menu = app.buttons["match-more-\(eventID)"]
+            let menu = app.buttons["home-event-\(eventID)"]
             try reveal(menu)
-            if menu.value as? String == "Not saved" { return }
-            guard menu.value as? String == "Saved in My Matchday" else {
+            guard menu.exists else {
                 throw NSError(domain: "Fotty.HomeDetailsUITest", code: 2,
                               userInfo: [NSLocalizedDescriptionKey: "Original fixture state cannot be identified"])
             }
-            tap(menu)
+            if !isSavedOnHome(eventID) { return }
+            menu.press(forDuration: 1.0)
             let details = app.buttons["Match details"].firstMatch
             XCTAssertTrue(details.waitForExistence(timeout: 5))
             tap(details)
@@ -305,8 +307,12 @@ final class PlaybackPerformanceUITests: XCTestCase {
         XCTAssertTrue(close.waitForExistence(timeout: 5))
         tap(close)
         XCTAssertTrue(waitUntil(timeout: 5) {
-            !save.exists && self.app.buttons["match-more-\(eventID)"].value as? String == "Not saved"
+            !save.exists && !self.isSavedOnHome(eventID)
         })
+    }
+
+    private func isSavedOnHome(_ eventID: String) -> Bool {
+        app.descendants(matching: .any)["match-saved-\(eventID)"].firstMatch.exists
     }
 
     private func openHomeInterestEditor() throws {
@@ -2330,7 +2336,8 @@ final class PlaybackPerformanceUITests: XCTestCase {
                 ?? nativeControl(id: "match-start-play-\(fixtureID)", exactLabel: watchLabel)
         }
         var direct = directOutageGate ? directSourceControl() : nil
-        var menu = nativeControl(id: "match-more-\(fixtureID)", exactLabel: optionsLabel)
+        // Rows show one action; the fixture's details are in its long-press menu.
+        var menu = nativeControl(id: "home-event-\(fixtureID)", exactLabel: nil)
         if directOutageGate {
             for _ in 0..<7 where direct == nil {
                 let more = app.buttons["home-more-live"]
@@ -2357,14 +2364,14 @@ final class PlaybackPerformanceUITests: XCTestCase {
                 tap(more); expandedMore = true
             } else if visibleContentScroll.exists { visibleContentScroll.swipeUp() }
             else { break }
-            menu = nativeControl(id: "match-more-\(fixtureID)", exactLabel: optionsLabel)
+            menu = nativeControl(id: "home-event-\(fixtureID)", exactLabel: nil)
         }
         guard let menu else {
             captureEvidence(surface: "Reviewed official fixture no longer visible in the current Home lineup")
             throw XCTSkip("The reviewed fixture route is absent or ambiguous in this current Home scope; no fixture, interest or source setting was injected.")
         }
         navigationTimings.append("Existing fixture route retained the reviewed public ID and selected one unique native menu. Exact semantic fallback, when the leaf ID is absent, is an accessibility test route only; normal fixture/source admission remains authoritative.")
-        tap(menu)
+        menu.press(forDuration: 1.0)
         tap(app.buttons["Match details"].firstMatch)
         let check = app.buttons["match-details-check-streams"]
         guard check.waitForExistence(timeout: 6) else {

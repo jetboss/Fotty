@@ -61,6 +61,20 @@ final class Fotty25HomeDesignTests: XCTestCase {
         XCTAssertFalse(schedule.contains(".truncationMode(.middle)"))
     }
 
+    func testLiveNowCardShowsOneActionWithDetailsAndSaveInMenus() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let rows = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Dashboard/Components/SportsDiscoveryViews.swift"), encoding: .utf8)
+        let start = try XCTUnwrap(rows.range(of: "struct HomeLiveSpotlight: View"))
+        let end = try XCTUnwrap(rows.range(of: "private var spotlightBackground", range: start.upperBound..<rows.endIndex))
+        let spotlight = rows[start.lowerBound..<end.lowerBound]
+        XCTAssertFalse(spotlight.contains("CatalogMatchActionsMenu"), "No ⋯ beside Watch on the Live now card")
+        XCTAssertFalse(spotlight.contains("footerMenu"))
+        XCTAssertTrue(spotlight.contains("Button(\"Match details\", systemImage: \"info.circle\", action: onDetails)"))
+        XCTAssertTrue(spotlight.contains("Button(action: onDetails)"), "A tap on the teams opens details, never playback")
+        XCTAssertTrue(spotlight.contains("HomeRowSecondaryActions("))
+        XCTAssertTrue(spotlight.contains("match-start-play-\\(item.id)"))
+    }
+
     func testViewingDurationFallsBackForActualNarrowCardWidthWithoutChangingChoices() {
         // A320pt phone's card leaves256pt after screen/card16pt side insets.
         XCTAssertTrue(MatchdayDurationControl.usesMenu(width: 256, wideLayout: false, accessibilitySize: false))
