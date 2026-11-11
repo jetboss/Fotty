@@ -698,6 +698,11 @@ final class BetaUsabilityTests: XCTestCase {
             XCTAssertEqual(TeamBadgeWindow.countryFlagURL(for: team)?.lastPathComponent, flag, team)
         }
         XCTAssertNil(TeamBadgeWindow.countryFlagURL(for: "West Indies"), "West Indies keeps its colour monogram")
+        for (team, flag) in [("Uganda Women", "ug.png"), ("Namibia Women", "na.png"), ("India U19", "in.png"),
+                             ("Pakistan A", "pk.png"), ("England Women's", "gb-eng.png")] {
+            XCTAssertEqual(TeamBadgeWindow.countryFlagURL(for: team)?.lastPathComponent, flag, team)
+        }
+        XCTAssertNil(TeamBadgeWindow.countryFlagURL(for: "Melbourne Stars Women"), "A women's club is not a nation")
         XCTAssertNil(TeamBadgeWindow.countryFlagURL(for: "New England Revolution"), "Club names must not be mistaken for national teams")
 
         let brokenProvider = URL(string: "https://provider.invalid/missing.webp")!
@@ -2012,6 +2017,13 @@ final class HomeDiscoveryTests: XCTestCase {
         XCTAssertEqual(CricketActivityPresentationPolicy.activity(for: active, at: now)?.state, .inPlay)
         XCTAssertTrue(HomeSportsDiscovery.Item(event: active, phase: .live, officialStatus: nil, now: now).hasConfirmedLiveStatus)
         XCTAssertNil(CricketActivityPresentationPolicy.activity(for: testCricket(phase: .stumps, status: .finished), at: now))
+    }
+
+    func testPausedCricketSaysWhenPlayResumesInsteadOfNoStream() {
+        XCTAssertEqual(MatchStartPolicy(event: testCricket(phase: .stumps), now: now).title, "Resumes next day")
+        XCTAssertEqual(MatchStartPolicy(event: testCricket(phase: .tea), now: now).title, "Resumes after the break")
+        XCTAssertEqual(MatchStartPolicy(event: testCricket(phase: .interrupted), now: now).title, "Waiting for play")
+        XCTAssertEqual(MatchStartPolicy(event: testCricket(phase: .inPlay), now: now).title, "No stream listed")
     }
 
     private func testCricket(phase: CricketMatchContext.Phase?, observedAt: Date? = nil,

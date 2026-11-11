@@ -191,6 +191,12 @@ final class WatchOutcomeRecordTests: XCTestCase {
 
         XCTAssertEqual(WatchOutcomeSummaryText.value(for: pl), "5 taps · 80% picture · 4.0 s")
         XCTAssertEqual(WatchOutcomeSummaryText.value(for: summary.rows[2]), "1 tap · 0% picture")
+        let export = WatchOutcomeSummaryText.export(summary, at: Date(timeIntervalSince1970: 1_794_000_000),
+                                                    version: "3.0.0", build: "283")
+        XCTAssertTrue(export.hasPrefix("Fotty Watch outcomes · 3.0.0 (283) · "))
+        XCTAssertTrue(export.contains("8 Watch taps on this device"))
+        XCTAssertTrue(export.contains(": 5 taps · 80% picture · 4.0 s · 1 with a source change"))
+        XCTAssertFalse(export.contains("http"), "Export carries totals only")
         XCTAssertEqual(WatchOutcomeSummary.summarize([]).rows, [])
         XCTAssertEqual(WatchOutcomeSummary.median([5]), 5)
         XCTAssertEqual(WatchOutcomeSummary.median([9, 1, 5]), 5)

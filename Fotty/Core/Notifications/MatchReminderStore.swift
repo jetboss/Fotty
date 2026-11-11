@@ -101,6 +101,13 @@ struct MatchStartPolicy {
             enabledProviderCodes: (discoveryIndex ?? .shared).enabledProviderCodes,
             discoveryIndex: discoveryIndex, at: now).isEmpty { return "Watch" }
         if hasFreshDiscoveredCandidate { return "Watch" }
+        // A paused match is waiting for play, not missing a stream.
+        switch event.cricketFixture?.context?.phase {
+        case .stumps: return "Resumes next day"
+        case .lunch, .tea, .inningsBreak, .matchBreak: return "Resumes after the break"
+        case .interrupted, .delayed: return "Waiting for play"
+        default: break
+        }
         return event.kickoffDate == nil && !event.isBroadcastChannel ? "Time TBC" : "No stream listed"
     }
 

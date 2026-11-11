@@ -477,6 +477,16 @@ struct FottyOwnerStatusView: View {
                         statusRow(WatchOutcomeCompetition.displayName(row.competition),
                                   value: WatchOutcomeSummaryText.value(for: row))
                     }
+                    if !watchOutcomes.rows.isEmpty {
+                        SettingsDivider()
+                        // Totals only: no fixture, source, URL or account detail.
+                        ShareLink(item: WatchOutcomeSummaryText.export(watchOutcomes, at: Date())) {
+                            Label("Export summary…", systemImage: "square.and.arrow.up")
+                        }
+                        .foregroundStyle(FottyTheme.accentText)
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .accessibilityIdentifier("owner-status-watch-outcomes-export")
+                    }
                 }
                 .accessibilityIdentifier("owner-status-watch-outcomes")
 
@@ -570,6 +580,20 @@ struct FottyOwnerStatusView: View {
 
 /// Read-only text for one competition's private Watch outcomes.
 enum WatchOutcomeSummaryText {
+    /// Plain-text export of the per-competition totals shown above.
+    static func export(_ summary: WatchOutcomeSummary, at date: Date,
+                       version: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?",
+                       build: String = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?") -> String {
+        let stamp = date.formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false))
+        var lines = ["Fotty Watch outcomes · \(version) (\(build)) · \(stamp)",
+                     "\(summary.totalTaps) Watch taps on this device", ""]
+        for row in summary.rows {
+            lines.append("\(WatchOutcomeCompetition.displayName(row.competition)): \(value(for: row))"
+                + (row.failovers > 0 ? " · \(row.failovers) with a source change" : ""))
+        }
+        return lines.joined(separator: "\n")
+    }
+
     static func value(for row: WatchOutcomeSummary.Row) -> String {
         let taps = row.taps == 1 ? "1 tap" : "\(row.taps) taps"
         let share = "\(Int((row.pictureShare * 100).rounded()))% picture"

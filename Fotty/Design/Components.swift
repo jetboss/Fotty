@@ -158,11 +158,16 @@ struct TeamBadgeWindow: View {
     }
 
     static func countryFlagURL(for teamName: String) -> URL? {
-        let normalized = displayName(for: teamName)
+        let lowered = displayName(for: teamName)
             .lowercased()
             .replacingOccurrences(of: " national team", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let code = countryCodes[normalized] else { return nil }
+        // A national side keeps its flag whatever the squad: "Uganda Women",
+        // "India U19", "Pakistan A". Clubs never match a country name.
+        let normalized = lowered.replacingOccurrences(
+            of: #"\s+(?:women|women's|womens|w|ladies|u-?\d{2}|under[- ]\d{2}|a|xi)$"#,
+            with: "", options: .regularExpression)
+        guard let code = countryCodes[normalized] ?? countryCodes[lowered] else { return nil }
         return URL(string: "https://flagcdn.com/w160/\(code).png")
     }
 
