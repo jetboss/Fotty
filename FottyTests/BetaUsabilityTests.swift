@@ -199,8 +199,11 @@ final class SportsSearchDiscoveryTests: XCTestCase {
             "Fotty/Features/Search/SearchView.swift"), encoding: .utf8)
         let details = try String(contentsOf: root.appendingPathComponent(
             "Fotty/Features/Dashboard/CatalogEventDetailsView.swift"), encoding: .utf8)
-        XCTAssertTrue(rows.contains("struct CatalogMatchActionsMenu: View"))
-        XCTAssertTrue(rows.contains(".accessibilityIdentifier(\"match-more-"))
+        // One row, one action: no visible ⋯ menu; Details and Save live in
+        // the long-press menu and VoiceOver actions.
+        XCTAssertFalse(rows.contains("struct CatalogMatchActionsMenu: View"))
+        XCTAssertFalse(rows.contains(".accessibilityIdentifier(\"match-more-"))
+        XCTAssertTrue(rows.contains("private struct HomeRowSecondaryActions: ViewModifier"))
         XCTAssertTrue(rows.contains("Label(\"Saved\", systemImage: \"checkmark.circle\")"))
         XCTAssertTrue(rows.contains("onWatch: onOpen"), "More must not become a compulsory detour before Watch")
         XCTAssertTrue(search.contains(".onSubmit(of: .search) { rememberQuery() }"))
@@ -1864,10 +1867,19 @@ final class UsabilityPresentationTests: XCTestCase {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let card = try String(contentsOf: root.appendingPathComponent(
             "Fotty/Features/Dashboard/Components/LiveEventCard.swift"), encoding: .utf8)
-        XCTAssertTrue(card.contains("rowActions: visibleMatchActions"))
-        XCTAssertTrue(card.contains("guard onDetailsTap != nil else { return nil }"))
-        XCTAssertTrue(card.contains("canSave: onSaveTap != nil && !event.hasCatalogIdentityConflict"))
-        XCTAssertTrue(card.contains("onSave: { onSaveTap?() }"))
+        // One row, one action: no ⋯ menu or visible Details control. Details
+        // and Save/Remove move to the row tap, long-press menu and VoiceOver.
+        XCTAssertFalse(card.contains("CatalogMatchActionsMenu"))
+        XCTAssertFalse(card.contains("rowActions:"))
+        XCTAssertFalse(card.contains("Label(\"Details\""))
+        XCTAssertFalse(card.contains("Text(\"Details\")"))
+        XCTAssertTrue(card.contains("guard onDetailsTap != nil else { return nil }"),
+                      "Passive and multi-select cards must not become buttons")
+        XCTAssertTrue(card.contains("if let onSaveTap, !event.hasCatalogIdentityConflict"))
+        XCTAssertTrue(card.contains(".accessibilityActions {"))
+        XCTAssertTrue(card.contains(".contextMenu {"))
+        XCTAssertTrue(card.contains("CatalogSavedStateLabel(eventID: event.id)"))
+        XCTAssertTrue(card.contains("onWatch: onWatchTap"), "Watch keeps its own trailing button")
         XCTAssertTrue(card.contains(".onChange(of: event.id) { _, _ in inlineContext.reset() }"))
         let matchday = try String(contentsOf: root.appendingPathComponent(
             "Fotty/Features/Social/ArenaDiscoveryView.swift"), encoding: .utf8)

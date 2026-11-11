@@ -42,11 +42,15 @@ struct LiveEventCard: View {
             ?? (event.normalizedCategory == "football" ? TeamBrandService.shared.badgeURL(for: event.awayName, triggerSearch: false) : nil)
 
         VStack(alignment: .leading, spacing: 8) {
+        // One row, one action: Watch, the reminder bell or nothing stays
+        // trailing. Details and Save/Remove live in a tap on the row, the
+        // long-press menu and VoiceOver actions, never a chevron or ⋯.
         MatchStartControls(event: event,
             status: status,
             onWatch: onWatchTap, alternateActionTitle: alternateActionTitle,
             onCheckStreams: onCheckStreams,
-            showsReminder: onSaveTap != nil, rowActions: visibleMatchActions) {
+            showsReminder: onSaveTap != nil) {
+            rowInformation(matchedFootball: matchedFootball) {
             VStack(alignment: .leading, spacing: 7) {
                 // The surrounding dashboard already identifies the sport. Only
                 // show a more useful competition name; repeating "Football" on
@@ -75,45 +79,25 @@ struct LiveEventCard: View {
                     teamRow(name: event.homeName, crest: homeCrest)
                     teamRow(name: event.awayName, crest: awayCrest)
                 }
-                if !event.isBroadcastChannel || (onWatchTap == nil && onDetailsTap != nil) {
-                    HStack(alignment: .center, spacing: 8) {
-                        if !event.isBroadcastChannel {
-                            VStack(alignment: .leading, spacing: 3) {
-                                scoreColumn(score: score, section: section,
-                                    scoreCoverageAvailable: scoreCoverageAvailable, broadcastAvailable: onWatchTap != nil)
-                            }
-                        }
-                        Spacer(minLength: 0)
-                        if onWatchTap == nil, onDetailsTap != nil {
-                            Button { inlineContext.toggle(for: event.id) } label: {
-                                Label("Details", systemImage: inlineContext.isExpanded(for: event.id) ? "chevron.up" : "chevron.down")
-                                    .labelStyle(.titleAndIcon)
-                                    .font(FottyTheme.typeMeta)
-                                    .foregroundStyle(FottyTheme.textSecondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .frame(minWidth: 44, minHeight: 44)
-                            }
-                            .buttonStyle(FottyPressButtonStyle())
-                            .accessibilityValue(inlineContext.isExpanded(for: event.id) ? "Expanded" : "Collapsed")
-                            .accessibilityHint("Shows or hides schedule and broadcast information in this list")
-                        } else if matchedFootball != nil, onInfoTap != nil {
-                            Button {
-                                if let match = matchedFootball { onInfoTap?(match) }
-                            } label: {
-                                Text("Details")
-                                    .font(FottyTheme.typeMeta)
-                                    .foregroundStyle(FottyTheme.textSecondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .frame(minWidth: 44, minHeight: 44)
-                            }
-                            .buttonStyle(FottyPressButtonStyle())
-                        }
+                if !event.isBroadcastChannel {
+                    VStack(alignment: .leading, spacing: 3) {
+                        scoreColumn(score: score, section: section,
+                            scoreCoverageAvailable: scoreCoverageAvailable, broadcastAvailable: onWatchTap != nil)
                     }
                 }
+                // With the ⋯ menu gone, the row itself shows the saved state.
+                if isSaved, onSaveTap != nil { CatalogSavedStateLabel(eventID: event.id) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            }
             .accessibilityActions {
-                if let onSaveTap {
+                if let detailsAction = inlineDetailsAction {
+                    Button(detailsTitle, action: detailsAction)
+                }
+                if let infoAction = matchCentreAction(matchedFootball) {
+                    Button("Match centre", action: infoAction)
+                }
+                if let onSaveTap, !event.hasCatalogIdentityConflict {
                     Button(saveTitle, action: onSaveTap)
                 }
             }
@@ -128,10 +112,17 @@ struct LiveEventCard: View {
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: 76, alignment: .center)
+        .contentShape(Rectangle())
         .onChange(of: event.id) { _, _ in inlineContext.reset() }
         .if(!grouped) { $0.bentoSurface(cornerRadius: FottyTheme.radiusMD) }
         .contextMenu {
-            if let onSaveTap {
+            if let detailsAction = inlineDetailsAction {
+                Button(detailsTitle, systemImage: "info.circle", action: detailsAction)
+            }
+            if let infoAction = matchCentreAction(matchedFootball) {
+                Button("Match centre", systemImage: "sportscourt", action: infoAction)
+            }
+            if let onSaveTap, !event.hasCatalogIdentityConflict {
                 Button(saveTitle, systemImage: isSaved ? "bookmark.slash" : "bookmark", action: onSaveTap)
                     .accessibilityIdentifier("match-save-\(event.id)")
             }
@@ -146,15 +137,52 @@ struct LiveEventCard: View {
 
     private var saveTitle: String { isSaved ? "Remove from My Matchday" : "Save to My Matchday" }
 
-    private var visibleMatchActions: CatalogMatchActionsMenu? {
-        // Passive cards and one-action multi-select consumers supply no Details
-        // callback. Keep them unchanged; active Matchday/channel rows already
-        // provide the existing Details and Save/Remove operations.
+    private var detailsTitle: String {
+        inlineContext.isExpanded(for: event.id) ? "Hide match details" : "Match details"
+    }
+
+    /// Active Matchday/Search/channel rows disclose schedule and broadcast
+    /// context in place. Passive and multi-select cards supply no Details
+    /// callback and stay non-interactive, so they never nest a second button.
+    private var inlineDetailsAction: (() -> Void)? {
         guard onDetailsTap != nil else { return nil }
-        return CatalogMatchActionsMenu(eventID: event.id, eventTitle: event.displayTitle,
-            isSaved: isSaved, canSave: onSaveTap != nil && !event.hasCatalogIdentityConflict,
-            onSave: { onSaveTap?() }, onDetails: { inlineContext.toggle(for: event.id) },
-            detailsExpanded: inlineContext.isExpanded(for: event.id))
+        return { inlineContext.toggle(for: event.id) }
+    }
+
+    private func matchCentreAction(_ match: FootballMatch?) -> (() -> Void)? {
+        guard let match, let onInfoTap else { return nil }
+        return { onInfoTap(match) }
+    }
+
+    /// The row's tap opens details, never playback: Watch keeps its own
+    /// trailing button and its existing admission checks.
+    @ViewBuilder
+    private func rowInformation<Content: View>(
+        matchedFootball: FootballMatch?,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        if let detailsAction = inlineDetailsAction {
+            Button(action: detailsAction) {
+                content()
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(FottyPressButtonStyle())
+            .accessibilityValue(inlineContext.isExpanded(for: event.id) ? "Expanded" : "Collapsed")
+            .accessibilityHint("Shows or hides schedule and broadcast information in this list. Touch and hold for more options.")
+            .accessibilityIdentifier("match-row-\(event.id)")
+        } else if let infoAction = matchCentreAction(matchedFootball) {
+            Button(action: infoAction) {
+                content()
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(FottyPressButtonStyle())
+            .accessibilityHint("Opens the match centre. Touch and hold for more options.")
+            .accessibilityIdentifier("match-row-\(event.id)")
+        } else {
+            content()
+        }
     }
 
     private func teamRow(name: String, crest: URL?) -> some View {

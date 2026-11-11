@@ -1184,9 +1184,11 @@ final class Fotty25PhysicalUIJourneyTests: XCTestCase {
     func testPhysicalCatalogDetailsWithoutSavingOrStartingPlayback() throws {
         let app = try launchNormalHome()
         defer { app.terminate() }
-        let more = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "match-more-")).firstMatch
-        XCTAssertTrue(more.waitForExistence(timeout: 20))
-        more.tap()
+        // Rows show one action; Details lives in the row's long-press menu.
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "home-event-")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 20))
+        row.press(forDuration: 1.0)
         let details = app.buttons["Match details"].firstMatch
         XCTAssertTrue(details.waitForExistence(timeout: 4)); details.tap()
         let close = app.buttons["Close"].firstMatch
