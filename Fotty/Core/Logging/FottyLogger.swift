@@ -472,10 +472,15 @@ final class FottyQualityStore {
         "preparation_stage", "preparation_reason", "preparation_error_domain", "preparation_error_code",
         "preparation_underlying_domain", "preparation_underlying_code", "preparation_error_depth", "preparation_http_status",
         "diagnostic_phase", "diagnostic_purpose", "diagnostic_result", "handoff_phase", "audio_job_id",
-        "diagnostic_operation_id", "audio_enabled", "playback_intent", "candidate_count"
+        "diagnostic_operation_id", "audio_enabled", "playback_intent", "candidate_count",
+        "competition", "sport", "terminal_outcome", "failover_family", "failover_count"
     ]
     private static let retentionInterval: TimeInterval = 14 * 24 * 60 * 60
     private static let maximumRecords = 250
+    /// One `watch_outcome` per tap is the per-competition reliability record.
+    /// Playback cohorts are large, so the newest outcomes keep a bounded share
+    /// of the same 250-record buffer instead of a parallel store.
+    static let reservedWatchOutcomes = 100
     static let routineRefreshNames: Set<String> = ["live_refresh", "schedule_refresh"]
     static let maximumRoutineRefreshSuccesses = 40
 
@@ -731,10 +736,13 @@ final class FottyQualityStore {
             ($0.map(\.timestamp).max() ?? .distantPast) > ($1.map(\.timestamp).max() ?? .distantPast)
         }
 
-        var selected: [FottyQualityRecord] = []
-        for cohort in cohorts {
-            if selected.isEmpty, cohort.count > maximumRecords {
-                selected.append(contentsOf: cohort.sorted { $0.timestamp < $1.timestamp }.suffix(maximumRecords))
+        let reserved = Set(retained.filter { $0.category == .playback && $0.name == WatchOutcomeRecorder.recordName }
+            .prefix(reservedWatchOutcomes).map(\.id))
+        var selected = retained.filter { reserved.contains($0.id) }
+        for cohort in cohorts where !cohort.contains(where: { reserved.contains($0.id) }) {
+            if selected.count == reserved.count, cohort.count > maximumRecords - reserved.count {
+                selected.append(contentsOf: cohort.sorted { $0.timestamp < $1.timestamp }
+                    .suffix(maximumRecords - reserved.count))
                 break
             }
             guard selected.count + cohort.count <= maximumRecords else { continue }
@@ -831,6 +839,10 @@ final class FottyQualityStore {
             return ["minimize_stalls", "evaluating_buffer", "no_item", "none", "other"].contains(value)
         case "native_buffer_empty", "native_buffer_full", "native_likely_to_keep_up":
             return ["true", "false"].contains(value)
+        case "terminal_outcome": return WatchOutcomeTerminal(rawValue: value) != nil
+        case "failover_count": return Int(value).map { (0...12).contains($0) } ?? false
+        case "competition", "sport": return WatchOutcomeCompetition.token(value) == value
+        case "failover_family": return WatchOutcomeRecorder.family(value) == value
         case "watch_session_id", "previous_attempt_id", "source_id":
             return UUID(uuidString: value) != nil
         case "variant_key":

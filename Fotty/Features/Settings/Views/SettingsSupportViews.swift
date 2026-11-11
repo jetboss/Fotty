@@ -415,6 +415,7 @@ struct FottyFeedbackSheet: View {
 struct FottyOwnerStatusView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var snapshot = FottyQualityStore.shared.ownerStatusSnapshot()
+    @State private var watchOutcomes = FottyQualityStore.shared.watchOutcomeSummary()
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -467,6 +468,18 @@ struct FottyOwnerStatusView: View {
                     statusRow("Median time to video", value: startupLabel)
                 }
 
+                SettingsSection(title: "Watch outcomes on this device") {
+                    if watchOutcomes.rows.isEmpty {
+                        statusRow("Watch taps", value: "None yet")
+                    }
+                    ForEach(Array(watchOutcomes.rows.enumerated()), id: \.element.id) { index, row in
+                        if index > 0 { SettingsDivider() }
+                        statusRow(WatchOutcomeCompetition.displayName(row.competition),
+                                  value: WatchOutcomeSummaryText.value(for: row))
+                    }
+                }
+                .accessibilityIdentifier("owner-status-watch-outcomes")
+
                 SettingsSection(title: "Data and FPL on this build") {
                     statusRow("Football refresh failures", value: "\(snapshot.currentBuildSummary.footballDataRefreshFailures)")
                     SettingsDivider()
@@ -516,6 +529,7 @@ struct FottyOwnerStatusView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     snapshot = FottyQualityStore.shared.ownerStatusSnapshot()
+                    watchOutcomes = FottyQualityStore.shared.watchOutcomeSummary()
                 } label: {
                     Image(systemName: "arrow.clockwise")
                 }
@@ -551,5 +565,15 @@ struct FottyOwnerStatusView: View {
             value: value,
             showChevron: false
         )
+    }
+}
+
+/// Read-only text for one competition's private Watch outcomes.
+enum WatchOutcomeSummaryText {
+    static func value(for row: WatchOutcomeSummary.Row) -> String {
+        let taps = row.taps == 1 ? "1 tap" : "\(row.taps) taps"
+        let share = "\(Int((row.pictureShare * 100).rounded()))% picture"
+        guard let median = row.medianMillisecondsToPicture else { return "\(taps) · \(share)" }
+        return "\(taps) · \(share) · \(String(format: "%.1f s", Double(median) / 1_000))"
     }
 }
