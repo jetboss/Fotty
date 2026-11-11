@@ -1,0 +1,79 @@
+name: Cloud Playback Probe
+
+# Watch-first roadmap, Month 1: does each source still return a playable HLS
+# playlist for the Premier League, Champions League and cricket matches the
+# live registry lists? Hourly during match windows, plus one daily report.
+# Public repository: reports contain only competition, source family, outcome
+# and timing (see tools/playback-probe.mjs).
+
+on:
+  schedule:
+    - cron: "12 10-23 * * *"   # hourly probe during European/Asian/Caribbean windows
+    - cron: "55 23 * * *"      # daily report from today's probe runs
+  pull_request:
+    paths: ["tools/playback-probe*.mjs", ".github/workflows/playback-probe.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: playback-probe-${{ github.event.schedule || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    if: github.event_name != 'schedule' || github.event.schedule == '12 10-23 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Probe policy tests
+        run: node --test tools/playback-probe.test.mjs
+      - name: Probe listed matches
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p "$RUNNER_TEMP/probe"
+          node tools/playback-probe.mjs --out "$RUNNER_TEMP/probe/probe-${GITHUB_RUN_ID}.json" --summary >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name != 'pull_request'
+        with:
+          name: playback-probe-${{ github.run_id }}
+          path: ${{ runner.temp }}/probe/
+          retention-days: 7
+
+  daily:
+    if: github.event_name == 'schedule' && github.event.schedule == '55 23 * * *'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+      - name: Collect today's probe reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/today"
+          today="$(date -u +%Y-%m-%d)"
+          for id in $(gh run list --workflow playback-probe.yml --event schedule --created "$today" \
+              --status success --limit 50 --json databaseId --jq '.[].databaseId'); do
+            gh run download "$id" --pattern 'playback-probe-*' --dir "$RUNNER_TEMP/today/$id" 2>/dev/null || true
+          done
+          find "$RUNNER_TEMP/today" -name '*.json' -exec cp {} "$RUNNER_TEMP/today/" \;
+      - name: Daily report
+        run: |
+          node tools/playback-probe.mjs --daily "$RUNNER_TEMP/today" \
+            --out "$RUNNER_TEMP/daily-playback-report.json" --summary >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: daily-playback-report-${{ github.run_id }}
+          path: ${{ runner.temp }}/daily-playback-report.json
+          retention-days: 90
