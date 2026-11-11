@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Read-only selection of real XCTest scenarios. This never builds, launches,
 // installs or contacts a provider; the owner runs the selected physical gate.
-import { readFile, lstat } from "node:fs/promises";
+import { constants, open } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -81,9 +81,16 @@ export async function checkLab(root, scenarios = playbackLab) {
     const [, suite, method] = selector.split("/");
     if (!sources.has(suite)) {
       const filename = path.join(root, "FottyTests", `${suite}.swift`);
-      const info = await lstat(filename);
-      if (!info.isFile() || info.isSymbolicLink() || info.size > 512 * 1024) throw new Error(`Unsafe or oversized test source: ${suite}`);
-      sources.set(suite, await readFile(filename, "utf8"));
+      // One handle for the check and the read; O_NOFOLLOW refuses a symbolic link.
+      const handle = await open(filename, constants.O_RDONLY | constants.O_NOFOLLOW)
+        .catch(() => { throw new Error(`Unsafe or oversized test source: ${suite}`); });
+      try {
+        const info = await handle.stat();
+        if (!info.isFile() || info.size > 512 * 1024) throw new Error(`Unsafe or oversized test source: ${suite}`);
+        sources.set(suite, await handle.readFile("utf8"));
+      } finally {
+        await handle.close();
+      }
     }
     const source = sources.get(suite);
     if (!new RegExp(`\\bclass\\s+${suite}\\s*:`).test(source)

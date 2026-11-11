@@ -5,7 +5,7 @@
 // guessed from display strings. New collector schemas require explicit review.
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { lstat, readFile } from "node:fs/promises";
+import { constants, lstat, open } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -318,12 +318,24 @@ export function summarizeEvidence({ scope = primaryScope, binding, evidence }) {
 
 export async function readBoundedJSON(file, maximumBytes = MAX_INPUT) {
   requireValue(path.isAbsolute(file), "Evidence must use an absolute local path");
-  const attributes = await lstat(file);
-  requireValue(attributes.isFile() && !attributes.isSymbolicLink() && attributes.size > 0
-    && attributes.size <= maximumBytes, "Evidence file is not a bounded regular file");
-  const bytes = await readFile(file);
-  requireValue(bytes.length <= maximumBytes, "Evidence grew beyond the input bound");
-  return JSON.parse(bytes.toString("utf8"));
+  // Check and read through one handle so the file cannot be swapped in between;
+  // O_NOFOLLOW refuses a symbolic link.
+  let handle;
+  try {
+    handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch {
+    requireValue(false, "Evidence file is not a bounded regular file");
+  }
+  try {
+    const attributes = await handle.stat();
+    requireValue(attributes.isFile() && attributes.size > 0
+      && attributes.size <= maximumBytes, "Evidence file is not a bounded regular file");
+    const bytes = await handle.readFile();
+    requireValue(bytes.length <= maximumBytes, "Evidence grew beyond the input bound");
+    return JSON.parse(bytes.toString("utf8"));
+  } finally {
+    await handle.close();
+  }
 }
 
 async function xcresultJSON(bundle, command, testID) {

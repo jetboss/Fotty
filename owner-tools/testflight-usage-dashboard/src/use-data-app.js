@@ -312,7 +312,7 @@ export function useDataApp(snapshot, {
       && (!Array.isArray(filters[id]) || filters[id].length > 0))
     .map(({ id, field, label, queryIds }) => ({
       field, label, value: typeof filters[id] === "string"
-        ? filters[id].replace("..", " – ") : filters[id],
+        ? filters[id].replaceAll("..", " – ") : filters[id],
       ...(Array.isArray(queryIds) ? { queryIds } : {}),
     }));
 

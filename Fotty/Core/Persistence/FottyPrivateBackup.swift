@@ -508,7 +508,8 @@ enum FottyPrivateBackupService {
         }
         for match in payload.savedMatches {
             guard isSafe(match.id, maximum: 300), isSafe(match.homeName, maximum: 160),
-                  isSafe(match.awayName, maximum: 160),
+                  // Channels and non-match events have no opposing team.
+                  isSafe(match.awayName, maximum: 160, allowsEmpty: true),
                   match.title.map({ isSafe($0, maximum: 320) }) ?? true,
                   match.category.map({ isSafe($0, maximum: 120) }) ?? true else {
                 throw FottyPrivateBackupError.invalidBackup("a saved match is not valid")
@@ -618,9 +619,9 @@ enum FottyPrivateBackupService {
 
     nonisolated private static func unique(_ values: [String]) -> Bool { Set(values).count == values.count }
 
-    nonisolated private static func isSafe(_ value: String, maximum: Int) -> Bool {
+    nonisolated private static func isSafe(_ value: String, maximum: Int, allowsEmpty: Bool = false) -> Bool {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmed.isEmpty && trimmed.count <= maximum && !trimmed.contains("\0")
+        return (allowsEmpty || !trimmed.isEmpty) && trimmed.count <= maximum && !trimmed.contains("\0")
     }
 }
 

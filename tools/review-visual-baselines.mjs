@@ -2,7 +2,7 @@
 // Explicit reviewed artifact promotion, not a recorder or automatic blessing.
 // No network, image transformation, Xcode invocation or production data.
 import { createHash } from "node:crypto";
-import { lstat, readFile, readdir, mkdir, writeFile, copyFile, realpath } from "node:fs/promises";
+import { constants, lstat, open, readdir, mkdir, writeFile, copyFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -110,10 +110,24 @@ export function pngDimensions(bytes) {
 }
 
 async function regularFile(file, maximumBytes) {
-  const attributes = await lstat(file);
-  requireValue(attributes.isFile() && !attributes.isSymbolicLink() && attributes.size > 0
-    && attributes.size <= maximumBytes, `Unsafe or oversized file: ${path.basename(file)}`);
-  return readFile(file);
+  // Check and read through one handle so the file cannot be swapped in between;
+  // O_NOFOLLOW refuses a symbolic link.
+  const unsafe = `Unsafe or oversized file: ${path.basename(file)}`;
+  let handle;
+  try {
+    handle = await open(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch {
+    requireValue(false, unsafe);
+  }
+  try {
+    const attributes = await handle.stat();
+    requireValue(attributes.isFile() && attributes.size > 0 && attributes.size <= maximumBytes, unsafe);
+    const bytes = await handle.readFile();
+    requireValue(bytes.length <= maximumBytes, unsafe);
+    return bytes;
+  } finally {
+    await handle.close();
+  }
 }
 
 export async function inspectCandidates(directory) {

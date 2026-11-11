@@ -194,6 +194,41 @@ final class PrivateBackupTests: XCTestCase {
     }
 
     @MainActor
+    func testSavedChannelWithoutOpposingTeamBacksUpAndRestores() throws {
+        let fixture = try makeFixture()
+        let channel = AnalyticalDataEngine.EventReference(
+            id: "channel-willow",
+            title: "Willow Cricket",
+            category: "cricket",
+            date: nil,
+            poster: nil,
+            popular: false,
+            teams: nil)
+        fixture.matchday.save(channel)
+        let savedAway = try XCTUnwrap(fixture.matchday.savedMatches.first?.awayName)
+        XCTAssertTrue(savedAway.isEmpty, "Fixture should save a channel with no opposing team")
+
+        let payload = try FottyPrivateBackupService.capture(
+            modelContext: fixture.context,
+            defaults: fixture.defaults,
+            matchday: fixture.matchday,
+            bundle: .main
+        )
+        XCTAssertEqual(payload.savedMatches.map(\.id), ["channel-willow"])
+
+        let restoreFixture = try makeFixture()
+        try FottyPrivateBackupService.restore(
+            payload,
+            modelContext: restoreFixture.context,
+            defaults: restoreFixture.defaults,
+            matchday: restoreFixture.matchday,
+            reminderStore: nil,
+            now: payload.createdAt
+        )
+        XCTAssertEqual(restoreFixture.matchday.savedMatches.map(\.id), ["channel-willow"])
+    }
+
+    @MainActor
     func testRestoreReplacesValidatedLocalStateAndRevokesAIConsent() throws {
         let fixture = try makeFixture()
         fixture.context.insert(FollowedTeamItem(
