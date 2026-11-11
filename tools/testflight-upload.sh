@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Uploads a signed archive to internal TestFlight with the App Store Connect
-# API key, sets its "What to Test" note and adds it to the internal group
+# Xcode account, sets its "What to Test" note (API key) and adds it to the internal group
 # (TESTFLIGHT_GROUP, default "Fotty Internal Smoke"), which notifies its
 # testers. Each upload still needs the
 # owner's explicit go-ahead (docs/notebooklm/Workflow.md).
@@ -59,6 +59,14 @@ fi
 EXPORT_DIR="$(mktemp -d "${TMPDIR:-/private/tmp}/FottyExport.XXXXXX")"
 trap 'find "$EXPORT_DIR" -depth -delete' EXIT
 
+# Distribution signing uses the Apple Account signed in to Xcode (cloud
+# signing): Xcode reports this API key's role as unsupported for signing.
+# Set TESTFLIGHT_SIGN_WITH_KEY=1 to try the key instead.
+SIGNING_AUTH=()
+if [[ "${TESTFLIGHT_SIGN_WITH_KEY:-0}" == "1" ]]; then
+  SIGNING_AUTH=(-authenticationKeyPath "$KEY_FILE" -authenticationKeyID "$KEY_ID"
+    -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID")
+fi
 echo "Uploading $BUNDLE_ID $VERSION ($BUILD) to internal TestFlight..."
 set +e
 xcodebuild -exportArchive \
@@ -66,9 +74,7 @@ xcodebuild -exportArchive \
   -exportOptionsPlist "$ROOT_DIR/ExportOptions-TestFlightInternal.plist" \
   -exportPath "$EXPORT_DIR" \
   -allowProvisioningUpdates \
-  -authenticationKeyPath "$KEY_FILE" \
-  -authenticationKeyID "$KEY_ID" \
-  -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID" \
+  ${SIGNING_AUTH[@]+"${SIGNING_AUTH[@]}"} \
   > "$EXPORT_DIR/export.log" 2>&1
 STATUS=$?
 set -e
