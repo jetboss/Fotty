@@ -302,12 +302,13 @@ export class CricketFixtureRegistry {
     if (!current) current = await this.enqueue(() => this.refresh());
     else if (Date.parse(current.nextAttemptAt) <= Date.now()) this.state.waitUntil(this.enqueue(() => this.refresh()));
     const domestic = this.env.CRICKET_WBBL_ENABLED === "true" ? await this.state.storage.get(CA_STORAGE_ENTRY) : undefined;
-    if (!current?.snapshot && domestic?.status !== "covered") return Response.json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable",
+    const t10 = this.env.CRICKET_T10_ENABLED === "true" ? await this.state.storage.get(T10_STORAGE_ENTRY) : undefined;
+    // Either healthy additive cohort may supply the fallback snapshot.
+    if (!current?.snapshot && domestic?.status !== "covered" && t10?.status !== "covered") return Response.json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable",
       sync: { consecutiveFailures: current?.consecutiveFailures || 0, cohorts: current?.cohorts,
         ...(current?.failure ? { failure: current.failure } : {}), lastAttemptAt: current?.lastAttemptAt } }, { status: 503 });
     // Optional context remains additive on the schema1 route. Older clients
     // ignore the new fixture key; the original fixture count/receipts survive.
-    const t10 = this.env.CRICKET_T10_ENABLED === "true" ? await this.state.storage.get(T10_STORAGE_ENTRY) : undefined;
     if ((this.env.CRICKET_WBBL_ENABLED === "true" && (!domestic || Date.parse(domestic.nextAttemptAt) <= Date.now()))
       || (this.env.CRICKET_T10_ENABLED === "true" && (!t10 || Date.parse(t10.nextAttemptAt) <= Date.now())))
       this.state.waitUntil(this.enqueue(() => this.refresh()));

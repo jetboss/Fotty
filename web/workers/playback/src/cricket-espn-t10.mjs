@@ -146,8 +146,12 @@ export function appendT10(snapshot, cohort) {
     revision: `${snapshot.revision}|t10:${cohort.lastAttemptAt}`,
     sourceStatus: snapshot.sourceStatus === "verified" && cohort.status !== "unavailable" ? "verified" : "partial",
     fixtures: [...snapshot.fixtures, ...rows],
+    // Offseason is a fresh, honest fact about this attempt, not the last
+    // publisher receipt: an expired receipt on a non-unavailable row would make
+    // the app reject the whole cricket snapshot (30-day coverage receipt rule).
     coverage: [...snapshot.coverage, { competitionId: S.competitionID, competitionName: S.name,
-      checkedAt: cohort.observedAt, status: cohort.status, fixtureCount: rows.length, expectedFixtureCount: rows.length }],
+      checkedAt: cohort.status === "offseason" ? cohort.lastAttemptAt : cohort.observedAt,
+      status: cohort.status, fixtureCount: rows.length, expectedFixtureCount: rows.length }],
     sync: { ...snapshot.sync, cohorts: { ...snapshot.sync?.cohorts, [S.competitionID]: {
       lastAttemptAt: cohort.lastAttemptAt,
       ...(cohort.observedAt !== "1970-01-01T00:00:00.000Z" ? { lastSuccessAt: cohort.observedAt } : {}),

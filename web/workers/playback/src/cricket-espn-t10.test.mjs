@@ -87,8 +87,13 @@ test("T10 appends one coverage row with an exact count and keeps other cohorts i
   assert.equal(coverage.status, "covered");
   assert.equal(merged.sourceStatus, "verified");
   assert.equal(merged.sync.cohorts["abu-dhabi-t10"].consecutiveFailures, 0);
-  const off = appendT10(base, { ...cohort, status: "offseason" });
+  const off = appendT10(base, { ...cohort, status: "offseason", observedAt: "2026-11-20T10:00:00.000Z",
+    lastAttemptAt: "2027-02-01T00:00:00.000Z" });
   assert.equal(off.coverage.at(-1).fixtureCount, 0);
+  assert.equal(off.coverage.at(-1).checkedAt, "2027-02-01T00:00:00.000Z",
+    "Offseason publishes a fresh receipt, never an expired season receipt the app would reject");
+  const empty = appendT10(base, await refreshT10(undefined, new Date("2026-12-02T00:00:00Z")));
+  assert.equal(empty.coverage.at(-1).checkedAt, "2026-12-02T00:00:00.000Z", "No epoch receipt for empty offseason storage");
   assert.equal(off.fixtures.length, 1, "Offseason publishes no rows");
   assert.equal(appendT10(base, undefined), base);
 });

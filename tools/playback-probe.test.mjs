@@ -43,14 +43,27 @@ test("stream requests keep https and only Origin, Referer and User-Agent", () =>
   for (const url of ["http://cdn.example/a.m3u8", "https://user:pw@cdn.example/a.m3u8", "not a url", undefined]) assert.equal(streamRequest({ url }), null);
 });
 
-function fakeFetch(routes, calls = []) {
+function fakeFetch(routes, calls = [], redirects = {}) {
   return async (url) => {
-    const key = String(url); calls.push(key);
+    let key = String(url); calls.push(key);
+    const finalURL = redirects[key]; if (finalURL) key = finalURL;
     const route = routes[key];
     if (route === undefined) return new Response("missing", { status: 404 });
-    return new Response(typeof route === "string" ? route : JSON.stringify(route), { status: 200 });
+    const response = new Response(typeof route === "string" ? route : JSON.stringify(route), { status: 200 });
+    if (finalURL) Object.defineProperty(response, "url", { value: finalURL });
+    return response;
   };
 }
+
+test("relative variants resolve against the master's final (redirected) URL", async () => {
+  const fetchImpl = fakeFetch({
+    "https://nuviosports.xyz/stream/tv/cs-2.json": { streams: [{ url: "https://cdn.example/start.m3u8" }] },
+    "https://edge.example/live/master.m3u8": "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1\nhd/index.m3u8\n",
+    "https://edge.example/live/hd/index.m3u8": "#EXTM3U\n#EXTINF:4,\ns.ts\n",
+  }, [], { "https://cdn.example/start.m3u8": "https://edge.example/live/master.m3u8" });
+  const result = await probeTarget({ competition: "cricket", providerCode: "communitysports", streamID: "cs-2" }, { fetchImpl });
+  assert.equal(result.outcome, "playable");
+});
 
 test("a master playlist with a reachable media playlist is playable; reports carry no URLs", async () => {
   let t = 0; const now = () => (t += 500);

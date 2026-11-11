@@ -102,7 +102,10 @@ async function boundedText(response, maximum) {
 async function get(url, { headers = {}, maximum, fetchImpl = fetch }) {
   const response = await fetchImpl(url, { headers, redirect: "follow", signal: AbortSignal.timeout(LIMITS.timeoutMs) });
   if (!response.ok) throw Object.assign(new Error("http"), { status: response.status });
-  return boundedText(response, maximum);
+  // Relative playlist entries resolve against the final (post-redirect) URL.
+  let finalURL = new URL(url);
+  try { if (response.url) finalURL = new URL(response.url); } catch {}
+  return { text: await boundedText(response, maximum), url: finalURL };
 }
 
 /** Probes one target; returns an outcome with no URLs or identifiers. */
@@ -113,7 +116,7 @@ export async function probeTarget(target, { fetchImpl = fetch, now = () => Date.
   const started = now();
   let streams;
   try {
-    const text = await get(`${origin}/stream/tv/${encodeURIComponent(target.streamID)}.json`,
+    const { text } = await get(`${origin}/stream/tv/${encodeURIComponent(target.streamID)}.json`,
       { maximum: LIMITS.descriptorBytes, fetchImpl });
     streams = JSON.parse(text)?.streams;
   } catch { return { ...base, outcome: "descriptor-failed" }; }
@@ -122,10 +125,12 @@ export async function probeTarget(target, { fetchImpl = fetch, now = () => Date.
   let last = "playlist-failed";
   for (const { url, headers } of requests) {
     try {
-      const playlist = inspectPlaylist(await get(url, { headers, maximum: LIMITS.playlistBytes, fetchImpl }));
+      const master = await get(url, { headers, maximum: LIMITS.playlistBytes, fetchImpl });
+      const playlist = inspectPlaylist(master.text);
       if (playlist.kind === "media") return { ...base, outcome: "playable", ms: now() - started };
       if (playlist.kind === "master") {
-        const media = inspectPlaylist(await get(new URL(playlist.firstVariant, url), { headers, maximum: LIMITS.playlistBytes, fetchImpl }));
+        const media = inspectPlaylist((await get(new URL(playlist.firstVariant, master.url),
+          { headers, maximum: LIMITS.playlistBytes, fetchImpl })).text);
         if (media.kind === "media") return { ...base, outcome: "playable", ms: now() - started };
       }
       last = "playlist-invalid";
