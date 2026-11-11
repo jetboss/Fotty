@@ -77,6 +77,7 @@ struct FottyApp: App {
                     if !didClearOrphanedLiveActivities {
                         didClearOrphanedLiveActivities = true
                         FottyLiveActivityController.shared.endAllOrphanedActivities()
+                        AccountSourceSetupStore.removeRetiredSetups()
                     }
                     guard !didConfigureMediaAudioSession else { return }
                     didConfigureMediaAudioSession = true

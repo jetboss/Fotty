@@ -243,14 +243,6 @@ final class AccountSourceSetupTests: XCTestCase {
         XCTAssertEqual(writes, 0); XCTAssertEqual(changes, 0)
     }
 
-    func testUnimplementedSourceIsSavedForReviewWithoutFalseActivation() async throws {
-        var writes = 0, changes = 0
-        let store = AccountSourceSetupStore(read: { _ in nil }, write: { _, _ in writes += 1 })
-        let connector = AccountSourceConnector(store: store, verify: { _, _ in XCTFail("Review-only configuration is not an adapter") }, setEnabled: { _, _ in changes += 1 })
-        let enabled = try await connector.add("https://pengu.uk/synthetic/manifest.json", for: .penguPlay)
-        XCTAssertFalse(enabled); XCTAssertEqual(writes, 1); XCTAssertEqual(changes, 0)
-    }
-
     func testRemovingAddedSourceDisablesOnlyThatSourceAfterSecureRemoval() async throws {
         var removed = false, changes: [String] = []
         let store = AccountSourceSetupStore(read: { _ in nil }, write: { _, next in XCTAssertNil(next); removed = true })
@@ -262,20 +254,13 @@ final class AccountSourceSetupTests: XCTestCase {
     }
 
     func testConfiguredLinksStayWithTheirNamedProvider() throws {
-        let samples: [(AccountSourceSetup, String)] = [
-            (.penguPlay, "https://pengu.uk/test-config/manifest.json"),
-            (.highfly, "stremio://sports.highfly.to/test-config/manifest.json"),
-            (.streamNexus, "https://sports.streamnexus.cc.cd/test-config/manifest.json")
-        ]
-        for (provider, value) in samples {
-            let accepted = try provider.validatedLink(value)
-            XCTAssertEqual(accepted.scheme, "https")
-            for other in AccountSourceSetup.allCases where other != provider {
-                XCTAssertThrowsError(try other.validatedLink(value))
-            }
+        XCTAssertEqual(AccountSourceSetup.allCases, [.highfly], "Retired review-only entries stay removed")
+        XCTAssertEqual(try AccountSourceSetup.highfly.validatedLink("stremio://sports.highfly.to/test-config/manifest.json").scheme, "https")
+        for other in ["https://pengu.uk/test-config/manifest.json", "https://sports.streamnexus.cc.cd/test-config/manifest.json"] {
+            XCTAssertThrowsError(try AccountSourceSetup.highfly.validatedLink(other))
         }
-        let query = "https://pengu.uk/manifest.json?configuration=test-only"
-        XCTAssertEqual(try AccountSourceSetup.penguPlay.validatedLink(query).absoluteString, query)
+        let query = "https://sports.highfly.to/manifest.json?configuration=test-only"
+        XCTAssertEqual(try AccountSourceSetup.highfly.validatedLink(query).absoluteString, query)
         XCTAssertEqual(try AccountSourceSetup.highfly.validatedLink("https://premium-eu1.highfly.to/test-account/test-profile/manifest.json").host,
                        "premium-eu1.highfly.to")
     }
@@ -283,13 +268,15 @@ final class AccountSourceSetupTests: XCTestCase {
     func testUnsafeOrUnreviewedConfigurationAddressesAreNotStored() throws {
         var writes = 0
         let store = AccountSourceSetupStore(read: { _ in nil }, write: { _, _ in writes += 1 })
-        for value in ["", "not a link", "http://pengu.uk/a/manifest.json", "https://pengu.uk:8443/a/manifest.json",
-                      "https://pengu.uk.evil.example/a/manifest.json", "https://sub.pengu.uk/a/manifest.json",
-                      "https://user:password@pengu.uk/a/manifest.json", "https://127.0.0.1/a/manifest.json",
-                      "https://pengu.uk/configure", "https://pengu.uk/a/manifest.json#fragment",
-                      "https://pengu.uk/a/%2e%2e/manifest.json", "https://pengu.uk/a%5Cb/manifest.json",
-                      "https://pengu.uk/a\n/manifest.json", "https://pengu.uk/" + String(repeating: "a", count: 8192) + "/manifest.json"] {
-            XCTAssertThrowsError(try store.save(value, for: .penguPlay))
+        let h = "sports.highfly.to"
+        for value in ["", "not a link", "http://\(h)/a/manifest.json", "https://\(h):8443/a/manifest.json",
+                      "https://\(h).evil.example/a/manifest.json", "https://sub.\(h)/a/manifest.json",
+                      "https://user:password@\(h)/a/manifest.json", "https://127.0.0.1/a/manifest.json",
+                      "https://\(h)/configure", "https://\(h)/a/manifest.json#fragment",
+                      "https://\(h)/a/%2e%2e/manifest.json", "https://\(h)/a%5Cb/manifest.json",
+                      "https://\(h)/a\n/manifest.json", "https://\(h)/" + String(repeating: "a", count: 8192) + "/manifest.json",
+                      "https://pengu.uk/a/manifest.json"] {
+            XCTAssertThrowsError(try store.save(value, for: .highfly))
         }
         XCTAssertEqual(writes, 0)
     }
@@ -303,17 +290,14 @@ final class AccountSourceSetupTests: XCTestCase {
             let host = provider.manifestHosts.sorted().first!
             try store.save("https://\(host)/test-config/manifest.json", for: provider)
             XCTAssertTrue(try store.hasSavedLink(for: provider))
-            if provider != .highfly { XCTAssertNil(CuratedStreamSourceCatalog.definition(forProviderCode: provider.rawValue)) }
         }
         XCTAssertEqual(CuratedStreamSourceCatalog.all.map(\.providerCode), before)
         try store.remove(.highfly)
         XCTAssertFalse(try store.hasSavedLink(for: .highfly))
-        XCTAssertTrue(try store.hasSavedLink(for: .penguPlay))
-        XCTAssertTrue(try store.hasSavedLink(for: .streamNexus))
     }
 
     func testRejectedReplacementPreservesExistingPrivateLinkAndErrorsDoNotEchoIt() throws {
-        let old = Data("https://pengu.uk/test-original/manifest.json".utf8)
+        let old = Data("https://sports.highfly.to/test-original/manifest.json".utf8)
         var value: Data? = old
         var unavailable = false
         let store = AccountSourceSetupStore(read: { _ in
@@ -321,13 +305,13 @@ final class AccountSourceSetupTests: XCTestCase {
         }, write: { _, next in
             if unavailable { throw AccountSourceSetupError.storageUnavailable }; value = next
         })
-        XCTAssertThrowsError(try store.save("https://elsewhere.example/private-test/manifest.json", for: .penguPlay)) { error in
+        XCTAssertThrowsError(try store.save("https://elsewhere.example/private-test/manifest.json", for: .highfly)) { error in
             XCTAssertFalse(error.localizedDescription.contains("private-test"))
         }
         XCTAssertEqual(value, old)
         unavailable = true
-        XCTAssertThrowsError(try store.save("https://pengu.uk/test-replacement/manifest.json", for: .penguPlay))
-        XCTAssertThrowsError(try store.hasSavedLink(for: .penguPlay))
+        XCTAssertThrowsError(try store.save("https://sports.highfly.to/test-replacement/manifest.json", for: .highfly))
+        XCTAssertThrowsError(try store.hasSavedLink(for: .highfly))
         XCTAssertEqual(value, old)
     }
 }

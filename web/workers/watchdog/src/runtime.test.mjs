@@ -21,7 +21,7 @@ function synthetic(request, mode = "valid") {
   assert.ok(!/\.m3u8|\.ts|\/stream\//.test(url.pathname), "no media or unbound stream probe");
   if (url.pathname === "/health") return Response.json({ service: "fotty-playback", sourceVersion: EXPECTED_VERSIONS.deploymentRevision,
     sportsFixtureServiceEnabled: false, cricketFixtureRegistryConfigured: false });
-  if (mode === "redirect" && url.hostname === "www.streamex.net") return new Response(null, { status: 302, headers: { Location: "https://not-reviewed.invalid/feed" } });
+  if (mode === "redirect" && url.hostname === "www.score808live.tv") return new Response(null, { status: 302, headers: { Location: "https://not-reviewed.invalid/feed" } });
   if (mode === "failure" && url.hostname === "nuviosports.xyz") return new Response(null, { status: 530 });
   if (url.hostname === "addon.plavio.site") return Response.json(url.pathname === "/manifest.json"
     ? { id: "community.plaviohd.private", version: "1.9.62", types: ["tv"], resources: ["catalog", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }],
@@ -86,7 +86,7 @@ test("actual workerd: overlapping scheduler calls acquire one durable collector 
   const { miniflare, stub, requests } = await runtime(t);
   const runs = await Promise.all(Array.from({ length: 4 }, () => stub.fetch("https://internal.invalid/run", { method: "POST" }).then((result) => result.json())));
   assert.equal(runs.filter((result) => result.committed).length, 1);
-  assert.equal(requests.length, 10);
+  assert.equal(requests.length, 7);
   assert.equal(requests.filter((host) => host === "addon.plavio.site").length, 3);
   const status = await (await miniflare.dispatchFetch("https://test.invalid/status")).json();
   assert.ok(status.lastAttemptedAt && status.lastCompletedAt);
@@ -98,8 +98,8 @@ test("actual workerd: unreviewed redirect rejected without following and sibling
   const { stub, requests } = await runtime(t, "redirect");
   await stub.fetch("https://internal.invalid/run", { method: "POST" });
   const status = await (await stub.fetch("https://internal.invalid/status")).json();
-  assert.ok(status.incidents.some((row) => row.source === "streamex-primary" && row.failureClass === "redirect-rejected"));
-  assert.ok(requests.includes("streamed.pk"));
+  assert.ok(status.incidents.some((row) => row.source === "score808" && row.failureClass === "redirect-rejected"));
+  assert.ok(requests.includes("addon.plavio.site"));
   assert.equal(requests.includes("not-reviewed.invalid"), false);
 });
 test("actual workerd: historical confirmed ledger remains readable without erasing incidents or notices", { timeout: 20000 }, async (t) => {
@@ -164,7 +164,7 @@ test("cadence upgrade preserves durable evidence and collects once at15minutes i
     assert.deepEqual(fake.read().runtime, { ...seed.runtime, nextAt: completed + COLLECTION_INTERVAL_MS });
     clock = completed + COLLECTION_INTERVAL_MS;
     assert.equal((await (await worker.run()).json()).committed, true);
-    assert.equal(requests.length, 10); assert.equal(requests.filter((path) => path === "/health").length, 1);
+    assert.equal(requests.length, 7); assert.equal(requests.filter((path) => path === "/health").length, 1);
     assert.equal(fake.read().runtime.lastCompletedAt, clock); assert.equal(fake.read().runtime.lastAttemptedAt, clock);
     assert.equal(fake.read().runtime.nextAt, clock + COLLECTION_INTERVAL_MS); assert.equal(fake.read().runtime.fence, 8);
     assert.equal(fake.read().runtime.budget.counts.cs, 25); assert.equal(fake.read().runtime.budget.counts.as, 20);
@@ -172,7 +172,7 @@ test("cadence upgrade preserves durable evidence and collects once at15minutes i
     assert.ok(fake.read().ledger.incidents[Object.keys(seed.ledger.incidents)[0]]);
     const afterCollection = structuredClone(fake.read());
     assert.deepEqual(await (await worker.run()).json(), { due: false });
-    assert.equal(requests.length, 10); assert.deepEqual(fake.read(), afterCollection);
+    assert.equal(requests.length, 7); assert.deepEqual(fake.read(), afterCollection);
   } finally { globalThis.fetch = oldFetch; Date.now = oldNow; }
 });
 test("cadence upgrade cannot steal an active durable collector lease", async () => {

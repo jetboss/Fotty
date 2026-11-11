@@ -42,34 +42,6 @@ function parsedJSON(result) {
   if (!/(?:application\/(?:[a-z.+-]*\+)?json)\b/i.test(result.contentType)) return { failure: "non-json" };
   try { return { body: JSON.parse(result.text) }; } catch { return { failure: "invalid-json" }; }
 }
-export function isPublishedStreamedClosure(text) {
-  if (typeof text !== "string" || text.length > STAGE_LIMITS.catalog) return false;
-  // The admitted API can return a JSON-encoded HTML document. Decode one string,
-  // never nested objects/scripts, and require both reviewed literal markers.
-  try { const body = JSON.parse(text); if (typeof body === "string") text = body; } catch { /* literal HTML */ }
-  // Scan raw sections once instead of a repeated unclosed-script regex over an
-  // untrusted document. This recognizer does not render or repair malformed HTML.
-  const lower = text.toLowerCase(), chunks = []; let cursor = 0, offset = 0;
-  while ((offset = lower.indexOf("<", cursor)) !== -1) {
-    let end;
-    if (lower.startsWith("<!--", offset)) {
-      end = lower.indexOf("-->", offset + 4); if (end === -1) return false; end += 3;
-    } else {
-      const raw = ["script", "style"].find((name) => lower.startsWith(`<${name}`, offset)
-        && /[\s>]/.test(lower[offset + name.length + 1] || ""));
-      if (!raw) { chunks.push(text.slice(cursor, offset + 1)); cursor = offset + 1; continue; }
-      const openEnd = lower.indexOf(">", offset), close = lower.indexOf(`</${raw}`, openEnd + 1);
-      if (openEnd === -1 || close === -1) return false;
-      end = lower.indexOf(">", close); if (end === -1) return false; end++;
-    }
-    chunks.push(text.slice(cursor, offset), " "); cursor = end;
-  }
-  chunks.push(text.slice(cursor)); const markup = chunks.join("");
-  const titles = [...markup.matchAll(/<title\b[^>]*>([^<>]*)<\/title\s*>/gi)];
-  if (titles.length !== 1 || titles[0][1].trim().replace(/\s+/g, " ").toLowerCase() !== "streamed closure") return false;
-  const visible = markup.replace(/<[^<>]*>/g, " ").replace(/\s+/g, " ").trim();
-  return visible.includes("We are no longer operating Streamed.");
-}
 export function validateCSManifest(body) {
   return body && body.id === "community.nuvio.live-sports" && typeof body.version === "string" && body.version.length > 0 && body.version.length <= 80
     && strings(body.resources) && body.resources.includes("catalog") && body.resources.includes("stream")
@@ -128,15 +100,6 @@ export function validateASCatalog(body) {
     && body.metas.every((row) => object(row) && string(row.id) && row.id.length > 0
       && row.type === "tv" && string(row.name) && row.name.length > 0
       && string(row.description) && strings(row.genres) && !Object.hasOwn(row, "behaviorHints"));
-}
-export function validateStreamExCatalog(body) {
-  const rows = Array.isArray(body) ? body : body?.matches;
-  if (!Array.isArray(rows) || rows.length > 2000) return false;
-  const seen = new Set();
-  return rows.every((row) => row && safeID(row.id) && !seen.has(row.id) && seen.add(row.id)
-    && typeof row.title === "string" && row.title.trim().length > 0 && row.title.length <= 512
-    && Array.isArray(row.sources) && row.sources.length <= 100
-    && row.sources.every((source) => source && safeID(source.source) && safeID(source.id)));
 }
 export function validateScore808Listing(text) {
   // Extract a narrow metadata contract; never sanitize or render HTML. Only a
@@ -308,7 +271,6 @@ export async function probeProvider(descriptor, { request = fetch, now = Date.no
         : descriptor.kind === "cs" && currentStage === "catalog" ? CS_CATALOG_BYTES : STAGE_LIMITS[currentStage];
       const result = await readMetadata(new URL(path, descriptor.origin), { request, maxBytes,
         accept: json ? "application/json" : "text/html" });
-      if (!result.failure && descriptor.kind === "streamex" && isPublishedStreamedClosure(result.text)) return { failure: "published-closure" };
       return json ? parsedJSON(result) : result;
     } catch (error) { return { failure: error?.name === "TimeoutError" || error?.name === "AbortError" ? "deadline" : "transport" }; }
   }
@@ -322,10 +284,8 @@ export async function probeProvider(descriptor, { request = fetch, now = Date.no
   const first = await read(descriptor.path, stage, descriptor.kind !== "score808");
   const valid = !first.failure && (descriptor.kind === "cs" ? validateCSManifest(first.body)
     : descriptor.kind === "as" ? validateASManifest(first.body)
-    : descriptor.kind === "score808" ? validateScore808Listing(first.text) : validateStreamExCatalog(first.body));
-  const publisherRows = Array.isArray(first.body) ? first.body : first.body?.matches;
-  record(first, stage, valid, { empty: descriptor.kind === "streamex" && valid
-    && (publisherRows.length === 0 || publisherRows.every((row) => row.sources.length === 0)) });
+    : descriptor.kind === "score808" && validateScore808Listing(first.text));
+  record(first, stage, valid);
   if (descriptor.kind === "cs" && valid) {
     const catalog = await read("/catalog/tv/nuvio_sports_live.json", "catalog");
     const catalogValid = !catalog.failure && validateCSCatalog(catalog.body);

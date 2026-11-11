@@ -441,42 +441,29 @@ enum StreamPluginProviderMatching {
 // Account configuration is deliberately separate from the playback inventory.
 // A saved manifest is not an admitted adapter, source, fixture or media URL.
 enum AccountSourceSetup: String, CaseIterable, Identifiable, Sendable {
-    case penguPlay, highfly, streamNexus
+    // PenguPlay and StreamNexus were review-only setup entries with no adapter;
+    // removed in Month 2 of the watch-first roadmap (11 Nov 2026).
+    case highfly
+    /// Keychain accounts of retired setup entries, deleted once at launch.
+    static let retiredRawValues = ["penguPlay", "streamNexus"]
     var id: String { rawValue }
-    var playbackProviderCode: String? { self == .highfly ? "highfly" : nil }
-    var name: String {
-        switch self { case .penguPlay: return "PenguPlay"; case .highfly: return "Highfly"; case .streamNexus: return "StreamNexus" }
-    }
-    var setupURL: URL {
-        switch self {
-        case .penguPlay: return URL(string: "https://pengu.uk/")!
-        case .highfly: return URL(string: "https://sports.highfly.to/configure")!
-        case .streamNexus: return URL(string: "https://config.streamnexus.cc.cd/")!
-        }
-    }
+    var playbackProviderCode: String? { "highfly" }
+    var name: String { "Highfly" }
+    var setupURL: URL { URL(string: "https://sports.highfly.to/configure")! }
     var instructions: String {
-        switch self {
-        case .penguPlay: return "Sign in with PenguPlay, enable Live TV and your sports, then copy its configured add-on link."
-        case .highfly: return "Use your Highfly access code or configured manifest link. For free access, complete verification and copy the Install link. Premium profiles can use their own configured links."
-        case .streamNexus: return "Sign in on StreamNexus’s configuration page with your own access token, then copy its manifest link."
-        }
+        "Use your Highfly access code or configured manifest link. For free access, complete verification and copy the Install link. Premium profiles can use their own configured links."
     }
     var manifestHosts: Set<String> {
-        switch self {
-        case .penguPlay: return ["pengu.uk"]
-        case .highfly:
-            return Set(["to", "dev"].flatMap { tld in
-                ["sports", "premium", "premium-us2", "premium-eu1"].map { "\($0).highfly.\(tld)" }
-            })
-        case .streamNexus: return ["sports.streamnexus.cc.cd"]
-        }
+        Set(["to", "dev"].flatMap { tld in
+            ["sports", "premium", "premium-us2", "premium-eu1"].map { "\($0).highfly.\(tld)" }
+        })
     }
     func validatedLink(_ input: String) throws -> URL {
         var value = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        if self == .highfly, value.range(of: #"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}\.[a-fA-F0-9]{16}$"#, options: .regularExpression) != nil {
+        if value.range(of: #"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}\.[a-fA-F0-9]{16}$"#, options: .regularExpression) != nil {
             value = "https://sports.highfly.to/" + value + "/manifest.json"
         }
-        if self == .highfly, value.range(of: #"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"#, options: .regularExpression) != nil {
+        if value.range(of: #"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"#, options: .regularExpression) != nil {
             value = "https://premium.highfly.to/" + value + "/manifest.json"
         }
         guard !value.isEmpty, value.utf8.count <= 8192,
@@ -572,11 +559,21 @@ final class AccountSourceSetupStore {
         })
     }
     private static func keychainQuery(_ provider: AccountSourceSetup) -> [String: Any] {
+        keychainQuery(account: provider.rawValue)
+    }
+    private static func keychainQuery(account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
          kSecAttrService as String: "com.fotty.account-source-setup",
-         kSecAttrAccount as String: provider.rawValue,
+         kSecAttrAccount as String: account,
          kSecAttrSynchronizable as String: false,
          kSecUseDataProtectionKeychain as String: true]
+    }
+    /// Deletes any private link a retired setup entry left in the keychain.
+    /// Best effort and idempotent; never touches the Highfly link.
+    static func removeRetiredSetups() {
+        for account in AccountSourceSetup.retiredRawValues {
+            _ = SecItemDelete(keychainQuery(account: account) as CFDictionary)
+        }
     }
     func hasSavedLink(for provider: AccountSourceSetup) throws -> Bool { try savedLink(for: provider) != nil }
     func savedLink(for provider: AccountSourceSetup) throws -> URL? {

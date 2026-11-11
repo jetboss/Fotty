@@ -108,7 +108,7 @@ final class HighflySportsAddonTests: XCTestCase {
         let code = "00000000-0000-0000-0000-000000000000"
         XCTAssertEqual(try AccountSourceSetup.highfly.validatedLink(code).host, "premium.highfly.to")
         XCTAssertEqual(try AccountSourceSetup.highfly.validatedLink(code + ".0000000000000000").host, "sports.highfly.to")
-        XCTAssertThrowsError(try AccountSourceSetup.penguPlay.validatedLink(code))
+        XCTAssertThrowsError(try AccountSourceSetup.highfly.validatedLink("https://pengu.uk/" + code + "/manifest.json"))
         XCTAssertThrowsError(try AccountSourceSetup.highfly.validatedLink("https://premium.highfly.to.evil.example/manifest.json"))
     }
 

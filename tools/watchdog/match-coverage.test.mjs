@@ -278,6 +278,6 @@ test("collector callbacks reuse exactly existing metadata requests and contain n
   let returnedCricket;
   await collectFixtureReceipts({ request, now: NOW, onCricketSnapshot: (v) => { returnedCricket = v; } });
   await probeSources({ request, now: NOW, onCatalog: (p) => packets.push(p) });
-  assert.deepEqual(returnedCricket, cricketBody); assert.equal(calls.length, 12);
+  assert.deepEqual(returnedCricket, cricketBody); assert.equal(calls.length, 9);
   assert.deepEqual(packets.map((p) => [p.source, p.scope]), [["cs", "mixed"], ["as", "football"], ["as", "cricket"]]);
 });
