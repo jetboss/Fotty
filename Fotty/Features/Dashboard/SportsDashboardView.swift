@@ -62,6 +62,7 @@ struct SportsDashboardView: View {
     @State private var pendingDetailsSourceCheck: AnalyticalDataEngine.EventReference?
     @Environment(LiveScoreService.self) private var liveScoreService
     @Environment(ViewingSessionCoordinator.self) private var viewing
+    @Environment(\.fottyOpenSettings) private var openSettings
     @State private var scorePollingOwner = UUID()
     @State private var selectedHighlightsMatch: FootballMatch? = nil
     @Environment(\.scenePhase) private var scenePhase
@@ -1533,6 +1534,21 @@ struct SportsDashboardView: View {
             .accessibilityLabel("Search sports")
             .accessibilityHint("Searches every sport, team, league, match, and channel in the Home lineup")
             .accessibilityIdentifier("home-search")
+
+            if let openSettings {
+                Button(action: openSettings) {
+                    Image(systemName: "gearshape")
+                        .font(.fottyScaled(size: 15, weight: .bold))
+                        .foregroundStyle(FottyTheme.textPrimary)
+                        .frame(width: 44, height: 44)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .overlay { Circle().strokeBorder(FottyTheme.borderStrong, lineWidth: 0.5) }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull))
+                .accessibilityLabel("Settings")
+                .accessibilityIdentifier("home-settings")
+            }
 
             if canOfferMultiView {
                 Button(action: beginMultiSelectMode) {

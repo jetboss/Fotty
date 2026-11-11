@@ -86,7 +86,7 @@ final class FottyNavigationUITests: XCTestCase {
         switch initialTab {
         case "Arena": initialTabID = "tab-arena"
         case "FPL": initialTabID = "tab-fpl"
-        case "Settings": initialTabID = "tab-settings"
+        case "Settings": initialTabID = "tab-home"
         default: initialTabID = "tab-home"
         }
         let initialTabButton = app.buttons[initialTabID]
@@ -97,6 +97,8 @@ final class FottyNavigationUITests: XCTestCase {
             // FPL loading work out of unrelated accessibility measurements.
             tapBetaControl(initialTabButton)
         }
+        // Settings is a sheet opened from Home's gear, not a tab.
+        if initialTab == "Settings" { openSettingsFromHome() }
     }
 
     override func tearDownWithError() throws {
@@ -154,7 +156,7 @@ final class FottyNavigationUITests: XCTestCase {
 
             tapBetaControl(app.buttons["tab-arena"])
             captureSurface("\(appearance)-Matchday-sample")
-            tapBetaControl(app.buttons["tab-settings"])
+            openSettingsFromHome()
             let appearanceRow = app.buttons["settings-appearance"]
             reveal(appearanceRow)
             captureSurface("\(appearance)-Settings")
@@ -187,7 +189,7 @@ final class FottyNavigationUITests: XCTestCase {
         let lastCaptain = app.descendants(matching: .any)["fpl-captain-card-5"].firstMatch
         reveal(lastCaptain)
         let previousY = lastCaptain.frame.minY
-        tapBetaControl(app.buttons["tab-settings"])
+        openSettingsFromHome()
         tapBetaControl(app.buttons["tab-fpl"])
         XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5), "Leaving FPL must not reset the selected tool")
         XCTAssertTrue(app.staticTexts["Captain"].exists)
@@ -242,7 +244,7 @@ final class FottyNavigationUITests: XCTestCase {
         reveal(captain)
         tapBetaControl(captain)
         XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5))
-        tapBetaControl(app.buttons["tab-settings"])
+        openSettingsFromHome()
         XCTAssertLessThan(app.buttons["settings-appearance"].frame.maxX, app.buttons["settings-backup"].frame.minX,
                           "Wide Settings groups must use both columns")
         captureSurface("Wide-Settings-current-build")
@@ -318,7 +320,7 @@ final class FottyNavigationUITests: XCTestCase {
         }
         reveal(updated)
         XCTAssertTrue(updated.label.contains("Replacement Defender"), "The replacement control exposed the wrong player")
-        tapBetaControl(app.buttons["tab-settings"])
+        openSettingsFromHome()
         tapBetaControl(app.buttons["tab-fpl"])
         XCTAssertTrue(updated.waitForExistence(timeout: 5), "Accepted replacement did not survive the tab switch")
     }
@@ -366,7 +368,7 @@ final class FottyNavigationUITests: XCTestCase {
         XCTAssertTrue(next.label.contains("25m"), "The surviving upcoming row must use the current clock: \(next.label)")
         XCTAssertEqual(app.staticTexts.matching(identifier: nextID).count, 1, "An upcoming card cannot remain duplicated under Live now")
         XCTAssertGreaterThan(next.frame.minY, today.frame.minY)
-        tapBetaControl(app.buttons["tab-settings"])
+        openSettingsFromHome()
         tapBetaControl(app.buttons["tab-home"])
         app.activate()
         reveal(next)
@@ -469,7 +471,7 @@ final class FottyNavigationUITests: XCTestCase {
         reveal(toggle)
         let originalValue = try XCTUnwrap(toggle.value as? String)
         defer {
-            tapBetaControl(app.buttons["tab-settings"])
+            openSettingsFromHome()
             reveal(toggle)
             if toggle.value as? String != originalValue { tapBetaControl(toggle) }
         }
@@ -478,13 +480,13 @@ final class FottyNavigationUITests: XCTestCase {
         XCTAssertEqual(toggle.value as? String, "0")
         tapBetaControl(app.buttons["tab-arena"])
         XCTAssertFalse(app.descendants(matching: .any)["matchday-clash-details"].exists)
-        tapBetaControl(app.buttons["tab-settings"])
+        openSettingsFromHome()
         reveal(toggle)
         XCTAssertEqual(toggle.value as? String, "0")
         tapBetaControl(toggle)
         XCTAssertEqual(toggle.value as? String, "1")
         tapBetaControl(app.buttons["tab-arena"])
-        tapBetaControl(app.buttons["tab-settings"])
+        openSettingsFromHome()
         reveal(toggle)
         XCTAssertEqual(toggle.value as? String, "1", "The opt-in should survive leaving Settings")
     }
@@ -663,7 +665,27 @@ final class FottyNavigationUITests: XCTestCase {
         return ready
     }
 
+    /// Settings opens as a sheet from Home's gear button.
+    private func openSettingsFromHome() {
+        guard !app.buttons["settings-done"].exists else { return }
+        let home = app.buttons["tab-home"]
+        if home.exists { tapBetaControl(home) }
+        let gear = app.buttons["home-settings"].firstMatch
+        XCTAssertTrue(gear.waitForExistence(timeout: 10), "Home's Settings gear is missing")
+        tapBetaControl(gear)
+        XCTAssertTrue(app.buttons["settings-done"].waitForExistence(timeout: 5), "Settings sheet did not open")
+    }
+
     private func tapBetaControl(_ element: XCUIElement) {
+        // A tab is behind an open Settings sheet; close it first, as a person
+        // would: Back out of any page pushed inside Settings, then Done.
+        if element.identifier.hasPrefix("tab-"), !element.isHittable {
+            let done = app.buttons["settings-done"]
+            if !done.exists, let back = app.navigationBars.buttons.allElementsBoundByIndex.first(where: \.isHittable) {
+                back.tap()
+            }
+            if done.waitForExistence(timeout: 3) { done.tap() }
+        }
         guard activateBetaWindow() else { return }
         #if targetEnvironment(macCatalyst)
         // Catalyst uses mouse events; a synthesized touch tap can move the
@@ -675,7 +697,7 @@ final class FottyNavigationUITests: XCTestCase {
     }
 
     func testRapidTabSwitchingAndForegroundRecovery() {
-        let tabIDs = ["tab-arena", "tab-fpl", "tab-settings", "tab-home"]
+        let tabIDs = ["tab-arena", "tab-fpl", "tab-home"]
 
         for _ in 0..<3 {
             for id in tabIDs {
@@ -701,7 +723,7 @@ final class FottyNavigationUITests: XCTestCase {
         tapBetaControl(cricket)
         XCTAssertTrue(cricket.wait(for: \.isSelected, toEqual: true, timeout: 3))
 
-        tapBetaControl(app.buttons["tab-settings"])
+        openSettingsFromHome()
         tapBetaControl(app.buttons["tab-home"])
 
         let restoredCricket = app.buttons["home-sport-cricket"]
@@ -822,7 +844,7 @@ final class FottyNavigationUITests: XCTestCase {
     func testSettingsDynamicTypeAccessibilityAudit() throws {
         try performSurfaceDynamicTypeAudit(
             surface: "Settings",
-            dockTop: app.buttons["tab-settings"].frame.minY
+            dockTop: app.buttons["tab-home"].frame.minY
         )
     }
 
@@ -1205,7 +1227,9 @@ final class Fotty25PhysicalUIJourneyTests: XCTestCase {
         app.buttons["tab-arena"].firstMatch.tap()
         XCTAssertTrue(app.descendants(matching: .any)["matchday-view-mode"].firstMatch.waitForExistence(timeout: 5))
         captureDisplay("physical-Matchday-landscape-display")
-        app.buttons["tab-settings"].firstMatch.tap()
+        app.buttons["tab-home"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["home-settings"].firstMatch.waitForExistence(timeout: 8))
+        app.buttons["home-settings"].firstMatch.tap()
         XCTAssertTrue(app.buttons["settings-appearance"].waitForExistence(timeout: 5))
         captureDisplay("physical-Settings-landscape-display")
         let displayObservation = expectation(description: "Bounded physical display observation")
@@ -1244,7 +1268,9 @@ final class Fotty25PhysicalUIJourneyTests: XCTestCase {
         XCTAssertTrue(done.isHittable, "Search dismissal must remain usable with the keyboard open")
         done.tap()
         XCTAssertTrue(searchButton.waitForExistence(timeout: 5))
-        app.buttons["tab-settings"].firstMatch.tap()
+        app.buttons["tab-home"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["home-settings"].firstMatch.waitForExistence(timeout: 8))
+        app.buttons["home-settings"].firstMatch.tap()
         let appearance = app.buttons["settings-appearance"]
         XCTAssertTrue(appearance.waitForExistence(timeout: 5))
         capture(app, "physical-Settings-normal-preferences")

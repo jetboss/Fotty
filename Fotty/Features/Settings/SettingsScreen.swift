@@ -9,6 +9,8 @@ struct SettingsScreen: View {
     @AppStorage(MatchdayPreferences.showKickoffClashesKey)
     private var showKickoffClashes = MatchdayPreferences.defaultShowKickoffClashes
     var onOpenFPL: (() -> Void)? = nil
+    /// Settings opens as a sheet from Home's gear; Done closes it.
+    var onClose: (() -> Void)? = nil
     @StateObject private var viewModel = SettingsViewModel()
     @State private var showsOwnerStatus = false
     @AppStorage(SportsReminderBackgroundRefresh.preferenceKey) private var refreshRemindersInBackground = false
@@ -25,11 +27,21 @@ struct SettingsScreen: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(alignment: .leading, spacing: FottyTheme.spacingLG) {
-                        Text("Settings")
-                            .font(.title.weight(.semibold))
-                            .foregroundStyle(FottyTheme.textPrimary)
-                            .frame(minHeight: 44, alignment: .leading)
-                            .accessibilityAddTraits(.isHeader)
+                        HStack(alignment: .center) {
+                            Text("Settings")
+                                .font(.title.weight(.semibold))
+                                .foregroundStyle(FottyTheme.textPrimary)
+                                .frame(minHeight: 44, alignment: .leading)
+                                .accessibilityAddTraits(.isHeader)
+                            Spacer(minLength: 8)
+                            if let onClose {
+                                Button("Done", action: onClose)
+                                    .font(FottyTheme.typeAction)
+                                    .foregroundStyle(FottyTheme.accentText)
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .accessibilityIdentifier("settings-done")
+                            }
+                        }
                         // Main Sections
                         VStack(spacing: FottyTheme.spacingLG) {
                             if LocalDataStore.shared.isUsingVolatileFallback {

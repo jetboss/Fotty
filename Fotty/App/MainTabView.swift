@@ -49,7 +49,6 @@ struct MainTabView: View {
         // Keep the persisted raw value so existing installs retain their selected tab.
         case social = "Arena"
         case fpl = "FPL"
-        case settings = "Settings"
         
         var displayName: String {
             switch self {
@@ -57,7 +56,6 @@ struct MainTabView: View {
             case .tv: return "TV"
             case .social: return "Matchday"
             case .fpl: return "FPL"
-            case .settings: return "Settings"
             }
         }
         
@@ -67,7 +65,6 @@ struct MainTabView: View {
             case .tv: return "tv"
             case .social: return "calendar"
             case .fpl: return "chart.line.uptrend.xyaxis"
-            case .settings: return "gearshape"
             }
         }
         
@@ -78,6 +75,7 @@ struct MainTabView: View {
     @Query private var followedTeams: [FollowedTeamItem]
     @Query private var followedLeagues: [FollowedLeagueItem]
     @State private var isTabBarVisible = true
+    @State private var showsSettings = false
 
     private var followedAlertSignature: String {
         followedTeams
@@ -324,15 +322,16 @@ struct MainTabView: View {
                 }
                 .tag(Tab.fpl)
 
-            SettingsView {
+        }
+        // Settings is not a place to watch sport: Home's gear opens it here.
+        .environment(\.fottyOpenSettings, { showsSettings = true })
+        .sheet(isPresented: $showsSettings) {
+            SettingsView(onOpenFPL: {
+                showsSettings = false
                 fplSession.workspace = .gameweek
                 selectedTab = .fpl
-            }
-            .tabItem {
-                Label(Tab.settings.displayName, systemImage: Tab.settings.icon)
-                    .accessibilityIdentifier("tab-settings")
-            }
-            .tag(Tab.settings)
+            }, onClose: { showsSettings = false })
+            .presentationDetents([.large])
         }
         // These are real destinations, so let the system own their Liquid Glass
         // navigation surface. A separate custom dock plus an empty TabView was
@@ -358,4 +357,17 @@ struct MainTabView: View {
         selectedTab = .fpl
     }
     
+}
+
+
+private struct FottyOpenSettingsKey: EnvironmentKey {
+    static let defaultValue: (() -> Void)? = nil
+}
+
+extension EnvironmentValues {
+    /// Opens Settings as a sheet. Home's gear button uses it.
+    var fottyOpenSettings: (() -> Void)? {
+        get { self[FottyOpenSettingsKey.self] }
+        set { self[FottyOpenSettingsKey.self] = newValue }
+    }
 }

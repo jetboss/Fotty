@@ -2946,7 +2946,8 @@ final class HomeDiscoveryTests: XCTestCase {
     }
 
     func testNativeTabBarIncludesSportsTVAlongsideHomeAndMatchday() {
-        XCTAssertEqual(MainTabView.Tab.allCases.map(\.displayName), ["Home", "TV", "Matchday", "FPL", "Settings"])
+        XCTAssertEqual(MainTabView.Tab.allCases.map(\.displayName), ["Home", "TV", "Matchday", "FPL"],
+                       "Settings is not a place to watch sport; Home's gear opens it as a sheet")
     }
 
     func testIncreasedContrastImprovesSecondaryInkAndBorderVisibility() {

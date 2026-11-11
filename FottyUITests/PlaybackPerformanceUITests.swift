@@ -956,7 +956,7 @@ final class PlaybackPerformanceUITests: XCTestCase {
         // exists reports raw XCTest hierarchy membership, not VoiceOver focus.
         // Keep retained owners mounted; qualify touch isolation here and retain
         // a separate real assistive-navigation gate for the modal region.
-        for identifier in ["home-search", "tab-home", "tab-arena", "tab-settings"] {
+        for identifier in ["home-search", "home-settings", "tab-home", "tab-arena"] {
             let background = app.buttons[identifier].firstMatch
             if background.exists {
                 XCTAssertFalse(background.isHittable,
@@ -3305,7 +3305,28 @@ final class PlaybackPerformanceUITests: XCTestCase {
     }
 
     private func selectTab(_ identifier: String, surface: String) throws {
+        let done = app.buttons["settings-done"]
+        if identifier == "tab-settings" {
+            // Settings is a sheet opened from Home's gear button.
+            if !done.exists {
+                try selectTab("tab-home", surface: "Home before \(surface)")
+                let gear = app.buttons["home-settings"].firstMatch
+                XCTAssertTrue(gear.waitForExistence(timeout: 10), "Home's Settings gear is missing")
+                tap(gear)
+                XCTAssertTrue(done.waitForExistence(timeout: 5), "Settings sheet did not open")
+            }
+            endSurface = surface
+            return
+        }
         let tab = tabControl(identifier)
+        if !(tab.exists && tab.isHittable) {
+            // Settings is open over the tabs. A page pushed inside it (e.g.
+            // Sports continuity) goes Back first, then Done closes Settings.
+            if !done.exists, let back = app.navigationBars.buttons.allElementsBoundByIndex.first(where: \.isHittable) {
+                back.tap()
+            }
+            if done.waitForExistence(timeout: 3) { tap(done) }
+        }
         XCTAssertTrue(tab.waitForExistence(timeout: 5))
         let started = Date()
         tap(tab)
