@@ -1,3 +1,7 @@
+## 2026-11-11: Internal TestFlight 3.0.0 (285)
+
+Owner approved. The build carries the Watch outcome export, flags for women's and age-group national sides, paused-cricket wording, finished-today rows under Today so far, and everything in 283. The visual gate passed on the pinned Xcode 27B52 first. Pre-build snapshot `backups/release-source/3.0.0-285` (commit and source 766aa8f cf348996…833413); the compare passed before upload. App and widget are both 285, signatures verify, and both dSYMs are present. Uploaded with `tools/testflight-upload.sh`; "Bug fixes" set and 285 added to Fotty Internal Smoke, notifying testers. Archive kept in Xcode Organizer.
+
 ## 2026-11-11: Watch outcome export, women's flags, paused-cricket wording, finished-today rows, T10 start cadence (Jet 284)
 
 - Owner Status "Export summary…" shares per-competition Watch totals as plain text (no fixture, source, URL or account detail). This completes the Month 1 outcome-record item.
