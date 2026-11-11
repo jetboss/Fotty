@@ -4,6 +4,16 @@ import XCTest
 
 @MainActor
 final class SettingsUsabilityTests: XCTestCase {
+
+    func testSettingsOffersOnlyAccountSourcesThatCanPlay() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let view = try String(contentsOf: root.appendingPathComponent(
+            "Fotty/Features/Settings/Views/StreamPluginsSettingsView.swift"), encoding: .utf8)
+        XCTAssertTrue(view.contains("AccountSourceSetup.allCases.filter { $0.playbackProviderCode != nil }"),
+                      "Review-only account sources must not appear in Settings")
+        XCTAssertEqual(AccountSourceSetup.allCases.filter { $0.playbackProviderCode != nil }, [.highfly])
+    }
+
     private let catalogDefinitions = [
         "score808_manifest": (id: "score808-extension", provider: "score808"),
         "community_sports_manifest": (id: "community-sports-extension", provider: "communitysports"),

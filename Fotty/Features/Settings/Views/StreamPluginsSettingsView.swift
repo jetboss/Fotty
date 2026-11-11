@@ -44,7 +44,8 @@ struct StreamPluginsSettingsView: View {
             }
 
             Section {
-                ForEach(AccountSourceSetup.allCases) { source in
+                // Only account sources that can play in Watch are offered.
+                ForEach(AccountSourceSetup.allCases.filter { $0.playbackProviderCode != nil }) { source in
                     NavigationLink {
                         AccountSourceSetupView(source: source, didChange: { await loadPlugins() })
                     } label: {
@@ -61,7 +62,7 @@ struct StreamPluginsSettingsView: View {
             } header: {
                 Text("Sources requiring setup")
             } footer: {
-                Text("Add your account to enable a supported source in Watch. Sources awaiting compatibility review are marked separately.")
+                Text("Add your account to enable a supported source in Watch.")
             }
 
             if loadState == .unavailable || loadState == .empty {
