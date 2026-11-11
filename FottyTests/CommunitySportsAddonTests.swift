@@ -2650,6 +2650,17 @@ final class CommunitySportsAddonTests: XCTestCase {
     }
 
     @MainActor
+    func testFoxAbuDhabiT10ProgrammeLinksOnlyToItsCurrentESPNFixture() throws {
+        let (snapshot, canonical) = try programmeChannelFixture(t10: true)
+        let matches = snapshot.lookup(for: canonical, enabledProviderCodes: ["communitysports", "reviewedtv"], at: kickoff)
+        XCTAssertEqual(matches.count, 1)
+        XCTAssertEqual(try XCTUnwrap(matches.first).decisionReceipt(at: kickoff).provenance, .foxProgramme)
+        // Outside the T10 window (3 hours after start) the listing no longer links.
+        XCTAssertTrue(snapshot.lookup(for: canonical, enabledProviderCodes: ["communitysports", "reviewedtv"],
+            at: kickoff.addingTimeInterval(3 * 3600 + 60)).isEmpty)
+    }
+
+    @MainActor
     func testFoxGuideRejectsUnknownMarketAndChangedFreshMetaBeforeRequestingMedia() async throws {
         let (snapshot, canonical) = try programmeChannelFixture(fox: true)
         let association = try XCTUnwrap(snapshot.lookup(for: canonical, enabledProviderCodes: ["communitysports"], at: kickoff).first)
@@ -2694,13 +2705,17 @@ final class CommunitySportsAddonTests: XCTestCase {
     }
 
     @MainActor
-    private func programmeChannelFixture(guideLifetime: TimeInterval = 600, fox: Bool = false) throws -> (BroadcastRegistrySnapshot, StreamPlaybackRequest) {
-        let home = fox ? "Adelaide Strikers Women" : "India", away = fox ? "Brisbane Heat Women" : "Australia"
-        let competition = fox ? "wbbl" : "icc", fixtureID = fox ? "ca:40630" : "icc:programme-fixture"
+    private func programmeChannelFixture(guideLifetime: TimeInterval = 600, fox: Bool = false, t10: Bool = false) throws -> (BroadcastRegistrySnapshot, StreamPlaybackRequest) {
+        let fox = fox || t10
+        let home = t10 ? "Royal Desert Champions" : fox ? "Adelaide Strikers Women" : "India"
+        let away = t10 ? "UAE Bulls" : fox ? "Brisbane Heat Women" : "Australia"
+        let competition = t10 ? "abu-dhabi-t10" : fox ? "wbbl" : "icc"
+        let fixtureID = t10 ? "espn-cricket:1561260" : fox ? "ca:40630" : "icc:programme-fixture"
+        let format: CricketFixtureCatalog.Format = t10 ? .t10 : .t20, ordinal: Int? = t10 ? nil : 3
         let station: CricketBroadcastChannel = fox ? .foxCricket : .willow
         let channelID = fox ? "nuvio_sport_fox_au" : "nuvio_sport_willow_main"
         let metadata = CricketFixtureMetadata(fixtureID: fixtureID, competitionID: competition, competitionName: "ICC",
-            format: .t20, status: .live, observedAt: kickoff, verified: true, matchOrdinal: 3)
+            format: format, status: .live, observedAt: kickoff, verified: true, matchOrdinal: ordinal)
         let event = EventReference(id: "cricket-fixture:" + fixtureID, title: home + " vs " + away, category: "cricket",
             date: Int64(kickoff.addingTimeInterval(-1_800).timeIntervalSince1970), poster: nil, popular: false,
             teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)), cricketFixture: metadata)
@@ -2708,8 +2723,9 @@ final class CommunitySportsAddonTests: XCTestCase {
             providerEventID: (fox ? "reviewed-tv:fox-programme:" : "reviewed-tv:programme:") + String(repeating: "c", count: 64),
             streamID: fox ? ReviewedTVPlaylistClient.foxGuideStreamID : ReviewedTVPlaylistClient.providerEventID,
             resourceType: "tv", scope: "cricket", kind: .programme, sport: "cricket", title: "India vs Australia T20",
-            participants: [home, away], start: event.kickoffDate!, end: kickoff.addingTimeInterval(3_600), competitionID: competition, squad: fox ? .init(gender: .women, ageGroup: "senior") : nil,
-            format: .t20, matchOrdinal: fox ? nil : 3, channelID: station.canonicalID, observedAt: kickoff,
+            participants: [home, away], start: event.kickoffDate!, end: kickoff.addingTimeInterval(3_600), competitionID: competition,
+            squad: fox ? .init(gender: t10 ? .men : .women, ageGroup: "senior") : nil,
+            format: format, matchOrdinal: fox ? nil : 3, channelID: station.canonicalID, observedAt: kickoff,
             expiresAt: kickoff.addingTimeInterval(guideLifetime), verification: .dated, issues: [])
         let channel = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "b", count: 64), providerCode: "communitysports",
             providerEventID: channelID, streamID: channelID, resourceType: "tv", scope: "networks",
@@ -2718,7 +2734,7 @@ final class CommunitySportsAddonTests: XCTestCase {
         let link = BroadcastRegistrySnapshot.Link(fixtureID: event.id, broadcastID: programme.id, providerCode: "reviewedtv",
             state: .listed, matchMethod: .programme, fixtureFingerprint: .init(fixtureID: event.id, sport: "cricket", start: event.kickoffDate!,
                 participants: [home, away], competitionID: competition, squad: nil,
-                format: .t20, matchOrdinal: 3), expiresAt: programme.expiresAt)
+                format: format, matchOrdinal: ordinal), expiresAt: programme.expiresAt)
         let providers = [BroadcastRegistrySnapshot.Provider(providerCode: "reviewedtv", scope: "cricket", status: .available,
             observedAt: kickoff, expiresAt: programme.expiresAt), .init(providerCode: "communitysports", scope: "networks", status: .available,
             observedAt: channel.observedAt, expiresAt: channel.expiresAt)]

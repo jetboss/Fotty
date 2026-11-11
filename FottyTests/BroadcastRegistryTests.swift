@@ -326,6 +326,21 @@ final class BroadcastRegistryTests: XCTestCase {
         XCTAssertThrowsError(try BroadcastRegistrySnapshot.validated(from: Data(repeating: 32, count: BroadcastRegistrySnapshot.maximumBytes + 1), at: now))
     }
 
+    func testRetiredSourceCoverageIsDroppedWithoutRejectingTheRegistry() throws {
+        // The Worker still published StreamEx/StreamVix coverage after the app
+        // retired both (9 Nov), which made every refresh fail validation.
+        var value = try object(try validated())
+        var providers = value["providers"] as! [[String: Any]]
+        for (code, scope) in [("streamex", "live"), ("streamvix", "football"), ("streamvix", "live")] {
+            var retired = providers[0]; retired["providerCode"] = code; retired["scope"] = scope
+            providers.append(retired)
+        }
+        value["providers"] = providers
+        let snapshot = try BroadcastRegistrySnapshot.validated(from: bytes(value), at: now)
+        XCTAssertFalse(snapshot.providers.contains { ["streamex", "streamvix"].contains($0.providerCode) })
+        XCTAssertEqual(snapshot.lookup(for: .init(event: football()), enabledProviderCodes: ["communitysports"], at: now).count, 1)
+    }
+
     func testFailedCoverageAndUnverifiedLinksDoNotHideHealthySiblingOrGrantWatch() throws {
         let accepted = try validated()
         for state in ["needsVerification", "conflicting"] {

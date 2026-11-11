@@ -674,6 +674,12 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertEqual(seed["barbados tridents"], seed["barbados royals"])
         XCTAssertEqual(seed["bc lions"]?.host, "r2.thesportsdb.com")
         XCTAssertEqual(seed["hamilton tiger cats"], seed["hamilton tiger-cats"])
+        let t10 = ["arabian aces", "emirates eagles", "royal desert champions", "uae bulls", "united tigers", "yas lions"]
+        XCTAssertEqual(Set(t10.compactMap { seed[$0] }).count, 6, "Each Abu Dhabi T10 franchise has its own official crest")
+        XCTAssertTrue(t10.allSatisfy { seed[$0]?.host == "framerusercontent.com" })
+        XCTAssertTrue(t10.allSatisfy { seed[$0].map(TeamBrandService.darkPlateBadgeURLs.contains) == true },
+            "Light-on-transparent T10 crests keep a dark plate on light rows")
+        XCTAssertFalse(TeamBrandService.darkPlateBadgeURLs.contains(try XCTUnwrap(seed["new york yankees"])))
         let cached = ["chelsea": "https://example.test/chelsea.png", "new york yankees": "not-a-web-url", "houston astros": "file:///private/badge.png"]
         let merged = TeamBrandService.mergingBadgeCache(cached, into: seed)
         XCTAssertEqual(merged["new york yankees"], seed["new york yankees"])

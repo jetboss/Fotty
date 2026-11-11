@@ -235,12 +235,14 @@ enum ReviewedSportsFixtureMatcher {
         guard !normalized.isEmpty else { return "" }
         let canonical: String
         if sport == "football" {
-            // Use the same unique, reviewed club identity as the main catalog.
-            // No unreviewed legal-name alias or one-team match is introduced.
+            // Use the same unique, reviewed club identity as the main catalog,
+            // then the reviewed whole-name national-team spellings
+            // (Türkiye/Turkey). Never token overlap or one-team matching.
             canonical = FootballCompetitionCatalog.canonicalClubID(for: normalized)
-                .map { "football|\($0)" } ?? normalized
+                .map { "football|\($0)" } ?? NationalTeamAliases.canonical(normalized, sport: sport)
         } else {
-            canonical = SportsTeamIdentity.known(name: normalized, category: sport)?.id ?? normalized
+            canonical = SportsTeamIdentity.known(name: normalized, category: sport)?.id
+                ?? NationalTeamAliases.canonical(normalized, sport: sport)
         }
         let qualifiers = squadQualifiers(raw).sorted().joined(separator: ",")
         return qualifiers.isEmpty ? canonical : "\(canonical)|\(qualifiers)"

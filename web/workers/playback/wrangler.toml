@@ -51,6 +51,9 @@ FOTTY_SPORTS_WNBA_ENABLED = "0"
 # Reviewed CA WBBL metadata activated with owner approval on 4 November 2026.
 # One bounded request per five-minute due window, isolated durable state.
 CRICKET_WBBL_ENABLED = "true"
+# ESPN public Abu Dhabi T10 schedule (league 18522), owner-approved 11 Nov 2026.
+# Isolated cohort; season-gated to November 2026.
+CRICKET_T10_ENABLED = "true"
 # New automatic metadata registry is staged until its reviewed activation gate.
 # Provider opt-ins on each device still filter these public lookup records.
 FOTTY_BROADCAST_REGISTRY_ENABLED = "1"

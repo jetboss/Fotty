@@ -198,7 +198,7 @@ struct TeamBadgeWindow: View {
         .frame(width: size, height: size)
         .background(
             RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
-                .fill(FottyTheme.surfaceElevated)
+                .fill(usesDarkPlate ? Self.darkPlate : FottyTheme.surfaceElevated)
         )
         .clipShape(RoundedRectangle(cornerRadius: size * 0.22, style: .continuous))
         .overlay {
@@ -211,6 +211,13 @@ struct TeamBadgeWindow: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(displayName) badge")
     }
+
+    /// Light-on-transparent crests (Abu Dhabi T10) need a dark plate on light
+    /// rows; the same plate is used in dark mode so the badge looks identical.
+    private var usesDarkPlate: Bool {
+        resolvedURLs.contains { TeamBrandService.darkPlateBadgeURLs.contains($0) }
+    }
+    private static let darkPlate = Color(red: 0.10, green: 0.11, blue: 0.14)
 
     private func initialsFallback(color: Color) -> some View {
         ZStack {

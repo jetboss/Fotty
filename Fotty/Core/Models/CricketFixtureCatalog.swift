@@ -239,6 +239,9 @@ enum CricketFixtureCatalog {
 
     static func pollingInterval(snapshot: Snapshot?, now: Date) -> TimeInterval {
         guard let snapshot else { return 5 * 60 }
+        // A live fixture's official receipt must stay under the 10-minute
+        // programme-link freshness limit; the Worker adds its own refresh age.
+        if snapshot.fixtures.contains(where: { $0.status == .live }) { return 2 * 60 }
         if !snapshot.sourceStatus.verifiesCurrentRows || snapshot.coverage.contains(where: { $0.status == .unavailable }) {
             return 5 * 60
         }
@@ -473,7 +476,8 @@ final class CricketFixtureUpdater {
             // be checked. Retry independently of the cached quiet-day cadence.
             let rejectedCandidate = cached.map { accepted == $0 && candidate != $0 } ?? false
             retryAt = !candidate.sourceStatus.verifiesCurrentRows || rejectedCandidate
-                || accepted.coverage.contains(where: { $0.status == .unavailable }) ? now.addingTimeInterval(5 * 60) : nil
+                || accepted.coverage.contains(where: { $0.status == .unavailable })
+                ? now.addingTimeInterval(min(5 * 60, CricketFixtureCatalog.pollingInterval(snapshot: accepted, now: now))) : nil
             defaults.set(try JSONEncoder().encode(accepted), forKey: Self.cacheKey)
             return accepted
         } catch {

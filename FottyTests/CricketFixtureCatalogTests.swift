@@ -455,6 +455,8 @@ final class CricketFixtureCatalogTests: XCTestCase {
         XCTAssertEqual(CricketFixtureCatalog.pollingInterval(snapshot: snapshot([fixture(status: .scheduled, hours: 30)]), now: now), 4 * 3600)
         XCTAssertEqual(CricketFixtureCatalog.pollingInterval(snapshot: snapshot([fixture(status: .scheduled, hours: 2)]), now: now), 15 * 60)
         XCTAssertEqual(CricketFixtureCatalog.pollingInterval(snapshot: snapshot([fixture(status: .scheduled, hours: 0.25)]), now: now), 5 * 60)
+        // Live fixtures keep programme-link receipts fresh (10-minute app limit).
+        XCTAssertEqual(CricketFixtureCatalog.pollingInterval(snapshot: snapshot([fixture(status: .live, hours: -0.5)]), now: now), 2 * 60)
         let events = CricketFixtureCatalog.merging(into: [], snapshot: snapshot([fixture(status: .scheduled)]), at: now)
         XCTAssertEqual(HomeSportsDiscovery(events: events, now: now).items.first?.phase, .unconfirmed)
     }

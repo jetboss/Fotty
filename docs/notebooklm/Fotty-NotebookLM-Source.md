@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-10T15:34:21.370153+00:00
-Source digest: d7a0c319a4a5522f15f7976cefa66cdf10732fbf78a5c93e318b33e79ac7e932
+Generated: 2026-11-11T10:47:41.365286+00:00
+Source digest: 5808dfb7b72a9e70253102beef6fb29ed189fb46282d748eeacf0e0531b3de29
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -882,6 +882,28 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-11: Internal TestFlight 3.0.0 (276), first upload since 206
+
+Owner approved. Release 3.0.0 (276) archived from a pre-build source snapshot (`backups/release-source/3.0.0-276`, commit cd626b8, source SHA-256 93a00678…3e6792); the compare passed before each upload attempt. The app and widget signatures verify, and dSYMs uploaded. The build replaces 275 (archived but never uploaded) because it adds the PR 129 backup fix: a saved channel or non-match event (empty away team) no longer makes private backup fail. Internal-only export (`ExportOptions-TestFlightInternal.plist`). The first attempts failed until the owner signed in to Xcode Accounts again. Release note to set in App Store Connect: "Bug fixes". PR 129 was squash-merged to `main` as b55b059 before the build. Its `ios` and `observation-policy` checks had not finished at merge time; `observation-policy` was already failing (watchdog request count).
+
+## 2026-11-10: Matchday, Search and the Live now card follow Home's one-action rows (source only)
+
+Follow-up to Home slice 3 in the owner-approved watch-first contract. `LiveEventCard` and `HomeLiveSpotlight` keep one trailing action (Watch, bell or none). Details, Match centre and Save/Remove move to a tap on the row (which never starts playback), the long-press menu and VoiceOver actions, and saved rows show the "Saved" cue. The ⋯ `CatalogMatchActionsMenu` and the `MatchStartControls.rowActions` slot are removed. Watch admission and playback are unchanged. Catalyst `FottyTests`: 2,551 run, 12 skipped, 5 failures, all Home visual baselines that already failed on the base commit (stale since the Home slices); they need a reviewed re-record. Not installed or checked on device.
+## 2026-11-10: Private Watch outcome record (Month 1, watch-first roadmap)
+
+Each single-player Watch tap (`watchSingle` / optional-source lookup, so Home, Matchday, Search, TV and On air now) now writes exactly one `watch_outcome` record to the existing `FottyQualityStore`: competition and sport buckets, the opaque source family that played or last failed, tap-to-first-decoded-picture milliseconds (playing only), automatic failover count and target family, and the terminal outcome (playing, no_stream_found, failed, cancelled) with its failure category. `WatchOutcomeRecorder` keys pending taps by the scene Watch ID already bound to the player's `playbackCorrelation`; the coordinator owns outcomes until a player mounts, then the player reports picture, failure or cancel. The record has no watch/attempt/source IDs, fixture names, URLs, headers or account data, and new detail keys are validated by the store allowlist. The newest 100 outcomes keep a reserved share of the 250-record buffer so large playback cohorts cannot evict them. Owner Status (Settings, hidden diagnostics) shows a read-only per-competition summary: taps, share reaching a picture, median time to picture. No network, analytics or admission/ranking/playback change.
+## 2026-11-10: Fotty is watch-first; adopt the 90-day roadmap
+
+Owner approved a watch-first direction and a 90-day plan (`docs/roadmap-watch-first-90-days.md`): Month 1 makes Watch reliable and measured (private Watch outcome record, cloud playback probe), reaches phone parity, clears the release gates and resumes a weekly internal TestFlight; Month 2 cuts review-only/dormant sources and features, polishes bring-your-own-source setup (Highfly first), fixes national-team name matching and moves the Catalyst suite to CI; Month 3 adds kickoff-to-Watch alerts, a score Live Activity and the match page as the single hub. Each TestFlight upload still needs the owner's explicit go-ahead.
+
+## 2026-11-10: Carry national-team football for the November break (Worker deployed)
+
+Owner approved adding international football and enabling its source. UEFA Nations League, international friendlies and the Concacaf Nations League now come from the existing ESPN adapter under the same exact team/date/status admission, behind a new narrow switch (`FOTTY_SPORTS_INTERNATIONAL_FOOTBALL_ENABLED`); the general public-feed switch stays off, so NBA, NFL, college, MLS, tennis and golf remain off. Deployed as `2026-11-10.international-football-1` from a clean copy of the last commit plus only this change; the other session's uncommitted Worker edits were not deployed. Live schedule covered 52 + 41 + 27 fixtures; 522 Worker tests passed. No app change is required. Highfly may spell some nations differently (Turkey/Türkiye), so its matches may be missing for those until name matching covers them.
+
+## 2026-11-10: Approve the watch-first Home direction (concept only)
+
+Owner approved the Home concept: lead with what can be watched now (Live now card only for a watchable or confirmed-live match; On air now channels always available; Today so far for stumps/finished), one action per row (Watch, bell or none), clock times beyond the last hour, two independent iPad columns, and Settings moved to a gear. Contract: `docs/design/home-watch-first-contract.md`; concept canvas linked there (sample data). Approval is for direction only: no app code changed, and each of the five build slices needs its own tests and Jet visual check. Watch admission, source rules, PiP, reminders, artwork, FPL and Watch two are unchanged.
 
 ## 2026-11-10: Clear cricket stumps and break presentation on Jet265
 

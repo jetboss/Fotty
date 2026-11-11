@@ -6,7 +6,7 @@
       "file": "home-phone-dark.png",
       "height": 777,
       "id": "home-phone-dark",
-      "sha256": "a50e130005a752cf91b3b18981542606b943cee12089783f29f837ead436a83b",
+      "sha256": "a06cf09790ecb1beb6ea28a7731fc3ea405b1383ede207550215622a0e19119a",
       "surface": "home",
       "textSize": "large",
       "width": 375
@@ -16,7 +16,7 @@
       "file": "home-phone-light.png",
       "height": 777,
       "id": "home-phone-light",
-      "sha256": "e420f71114c46989a60b8415fcb142cc25e250db368d2310ea62ff531d8aea42",
+      "sha256": "f4f6578baf1ec505212c24d86e16e60e94d75378f27371c162e205b7e02a739e",
       "surface": "home",
       "textSize": "large",
       "width": 375
@@ -26,7 +26,7 @@
       "file": "home-phone-large-text.png",
       "height": 1311,
       "id": "home-phone-large-text",
-      "sha256": "fd116309616f243d9b1c4a579b22c9de13ad01ff89d07465b8c098af97411e0a",
+      "sha256": "0479746134cd016b33badbf52f33cfaf7664a06e677211cda6a9a5e8e939b701",
       "surface": "home",
       "textSize": "accessibility2",
       "width": 375
@@ -36,7 +36,7 @@
       "file": "home-ipad-landscape.png",
       "height": 676,
       "id": "home-ipad-landscape",
-      "sha256": "46b9da71a20996f964ae848aa06b2890e35c9df2564a0bdf44f28bab6b4bb30d",
+      "sha256": "921a069b8d03eb6f956f776146f5c136f30ed056e1c2f064281d15daf25bcbb5",
       "surface": "home",
       "textSize": "large",
       "width": 1180
@@ -46,7 +46,7 @@
       "file": "home-ipad-narrow.png",
       "height": 803,
       "id": "home-ipad-narrow",
-      "sha256": "f8c8e379216147f1ca2d4a0a3a908936f7017bfcb6e4f6570bd44bb5563e4d21",
+      "sha256": "e22cbaad166a09f9b2ccc1a3307a954f3428c5399056b6ac19d6b9c8c9f29860",
       "surface": "home",
       "textSize": "large",
       "width": 650
@@ -118,7 +118,7 @@
     "xcode": "27B52"
   },
   "schema": 1,
-  "reviewedBy": "Claude for the owner (delegated 11 Nov 2026): watch-first Home redesign",
-  "reviewedAt": "2026-11-11T02:46:31.457Z",
-  "sourceReceipt": "94731663451c8b6732892b8661e596fd7fe9619fb5d794c3be884d1efe6f912d"
+  "reviewedBy": "Claude for the owner (delegated 11 Nov 2026): T10 crest plate and 6 pt badge spacing on Home rows",
+  "reviewedAt": "2026-11-11T15:45:48.028Z",
+  "sourceReceipt": "0cdf1d7dce5cb8bd5d48b9229f3bc2a551f19a3b41e5a5ccfd8ec7ce92a4e080"
 }

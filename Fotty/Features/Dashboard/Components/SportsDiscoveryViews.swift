@@ -51,7 +51,7 @@ struct LastLiveMatchCard: View {
             if event.awayName.isEmpty || event.sportsFixture.map({ $0.eventKind != .match }) == true {
                 SportEmblem(category: event.normalizedCategory, size: 32).accessibilityHidden(true)
             } else {
-                HStack(spacing: 3) {
+                HStack(spacing: 6) {
                     TeamBadgeWindow(teamName: event.homeName, badgeURL: event.homeBadgeURL, size: 32, triggerSearch: true)
                     TeamBadgeWindow(teamName: event.awayName, badgeURL: event.awayBadgeURL, size: 32, triggerSearch: true)
                 }
@@ -1124,7 +1124,7 @@ struct HomeScheduleRow: View {
     @ViewBuilder
     private var identityArtwork: some View {
         if HomeDiscoveryRow.showsTeamBadges(for: item.event) {
-            HStack(spacing: 2) {
+            HStack(spacing: 6) {
                 pairedBadge(name: item.event.homeName, badge: presentation.homeBadgeURL,
                             brand: presentation.homeBrandURL)
                 pairedBadge(name: item.event.awayName, badge: presentation.awayBadgeURL,

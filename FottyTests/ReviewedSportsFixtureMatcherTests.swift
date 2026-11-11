@@ -33,6 +33,40 @@ final class ReviewedSportsFixtureMatcherTests: XCTestCase {
         XCTAssertEqual(Matcher.select(for: request(), from: [row]), .matched(0))
     }
 
+    func testReviewedNationalTeamSpellingsMatchAcrossSources() {
+        // Catalog spelling on the left, a source's spelling on the right.
+        let football: [(String, String, String, String)] = [
+            ("Turkey", "Wales", "Türkiye", "Wales"),
+            ("Czech Republic", "Ivory Coast", "Czechia", "Côte d'Ivoire"),
+            ("USA", "Korea Republic", "United States", "South Korea"),
+            ("Republic of Ireland", "Bosnia & Herzegovina", "Ireland", "Bosnia and Herzegovina"),
+            ("Iran", "DR Congo", "IR Iran", "Congo DR"),
+            ("Turkey Women", "Wales Women", "Türkiye Women", "Wales Women"),
+        ]
+        for (home, away, sourceHome, sourceAway) in football {
+            let row = candidate(cast: [sourceHome, sourceAway])
+            XCTAssertEqual(Matcher.select(for: request(home: home, away: away), from: [row]), .matched(0),
+                           "\(sourceHome) v \(sourceAway)")
+        }
+        let cricket = candidate(cast: ["United Arab Emirates", "United States of America"], sport: "cricket")
+        XCTAssertEqual(Matcher.select(for: request(home: "UAE", away: "USA", sport: "cricket"), from: [cricket]),
+                       .matched(0))
+    }
+
+    func testNationalTeamSpellingsKeepSquadAndUnrelatedTeamsApart() {
+        let women = candidate(cast: ["Türkiye Women", "Wales Women"])
+        XCTAssertEqual(Matcher.select(for: request(home: "Turkey", away: "Wales"), from: [women]), .missing)
+        let otherSide = candidate(cast: ["Northern Ireland", "Wales"])
+        XCTAssertEqual(Matcher.select(for: request(home: "Republic of Ireland", away: "Wales"), from: [otherSide]),
+                       .missing)
+        // Cricket's all-island Ireland is not football's Republic of Ireland alias.
+        let cricketIreland = candidate(cast: ["Republic of Ireland", "Scotland"], sport: "cricket")
+        XCTAssertEqual(Matcher.select(for: request(home: "Ireland", away: "Scotland", sport: "cricket"),
+                                      from: [cricketIreland]), .missing)
+        let partial = candidate(cast: ["Turkey U21", "Wales U21"])
+        XCTAssertEqual(Matcher.select(for: request(home: "Türkiye", away: "Wales"), from: [partial]), .missing)
+    }
+
     func testRequestRequiresAnExplicitDateRecognizedSportAndCompleteDistinctPair() {
         let undated = StreamPlaybackRequest(matchID: "fixture", displayTitle: "Hull City vs Everton",
             homeTeam: "Hull City", awayTeam: "Everton", category: "football")

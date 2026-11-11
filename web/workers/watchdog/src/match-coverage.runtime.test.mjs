@@ -32,7 +32,7 @@ async function runtime(t) {
     export default handler;
     let clock=${NOW}, mode='gap'; Date.now=()=>clock;
     const source=${JSON.stringify(base)};
-    const hosts=new Set(['fotty-playback-v3.adaptive-rhubarb.workers.dev','nuviosports.xyz','hd.plavio.site','www.streamex.net','streamex.sh','streamed.pk','www.score808live.tv']);
+    const hosts=new Set(['fotty-playback-v3.adaptive-rhubarb.workers.dev','nuviosports.xyz','addon.plavio.site','www.streamex.net','streamex.sh','streamed.pk','www.score808live.tv']);
     let requests=[];
     globalThis.fetch=async(raw)=>{
       const u=new URL(raw);if(!hosts.has(u.hostname)||/\\.m3u8|\\.ts$/.test(u.pathname))throw new Error('Unreviewed request');
@@ -49,7 +49,7 @@ async function runtime(t) {
         if(u.pathname.startsWith('/stream/'))return Response.json({streams:[]});
         return Response.json({metas:mode==='matched'?[{id:'nuvio_sport_current',type:'tv',name:'LIVE: Liverpool vs Chelsea',genres:['FOOTBALL'],cast:['Liverpool','Chelsea'],released:source.fixtures[0].start}]:[]});
       }
-      if(u.hostname==='hd.plavio.site')return Response.json(u.pathname==='/manifest.json'?{id:'community.plaviohd',version:'1.9.98',types:['tv'],resources:['catalog',{name:'stream',types:['tv'],idPrefixes:['plaviohdtv-']}],catalogs:[{id:'plaviohd-football',type:'tv'},{id:'plaviohd-cricket',type:'tv'}]}:{metas:[]});
+      if(u.hostname==='addon.plavio.site')return Response.json(u.pathname==='/manifest.json'?{id:'community.plaviohd.private',version:'1.9.98',types:['tv'],resources:['catalog',{name:'stream',types:['tv'],idPrefixes:['plaviohdtv-']}],catalogs:[{id:'plaviohd-football',type:'tv'},{id:'plaviohd-cricket',type:'tv'}]}:{metas:[]});
       if(u.hostname==='www.score808live.tv')return new Response('<div class="elfsight-app-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"></div>',{headers:{'Content-Type':'text/html'}});
       return Response.json([]);
     };
@@ -89,7 +89,7 @@ test("real SQLite: catalog-only aggregate commits separately with original compl
   assert.equal(first.main.runtime.lastCompletedAt, NOW); assert.equal(first.coverage.checkedAt, NOW);
   assert.equal(first.coverage.competitions[0].outcome, "failure"); assert.equal(first.requests.length, 11);
   assert.equal(first.requests.filter((p) => p.startsWith("nuviosports.xyz")).length, 2);
-  assert.equal(first.requests.filter((p) => p.startsWith("hd.plavio.site")).length, 3);
+  assert.equal(first.requests.filter((p) => p.startsWith("addon.plavio.site")).length, 3);
   assert.equal(first.main.ledger.outbox.length, 0, "One observation cannot confirm a coverage gap");
   const status = await (await call("status")).json();
   assert.deepEqual(status.matchCoverage, first.coverage);
