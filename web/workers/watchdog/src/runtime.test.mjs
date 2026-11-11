@@ -119,6 +119,29 @@ test("actual workerd: historical confirmed ledger remains readable without erasi
   assert.deepEqual(await (await stub.fetch('https://internal.invalid/__test_read')).json(), seed);
 });
 
+test("actual workerd: a ledger with confirmed incidents from retired StreamEx sources stays readable", { timeout: 20000 }, async (t) => {
+  const options = observerPolicyOptions(), expected = { ...EXPECTED_VERSIONS, configurationRevision: '2026-10-29.native-catalog-parity-1' };
+  // The previous configuration probed StreamEx as active sources.
+  const admittedSources = options.admittedSources.map((entry) => ['streamex-primary', 'streamex-mirror', 'streamed-backup'].includes(entry.source)
+    ? { ...entry, activation: 'active', immediateFailureClasses: ['published-closure'], expected } : { ...entry, expected });
+  const oldPolicy = createPolicy({ ...options, admittedSources, failureWindows: 2 });
+  let ledger = emptyLedger(oldPolicy); const start = Date.now() - 30 * 60_000;
+  for (let n = 0; n < 2; n++) { const at = start + n * 15 * 60_000; ledger = applyObservation(ledger,
+    { environment: 'production', source: 'streamex-primary', stage: 'catalog', failureClass: 'redirect-rejected', facts: {}, outcome: 'failure', observedAt: at, versions: expected }, oldPolicy, at).state; }
+  assert.equal(Object.values(ledger.incidents)[0].state, 'confirmed');
+  // Same-day request counts recorded while StreamEx was still probed (the
+  // live 1101 on 11 Nov came from these, not from the ledger).
+  const day = new Date(Date.now()).toISOString().slice(0, 10);
+  const seed = { ledger, runtime: { fence: 0, lease: null, nextAt: 0, lastAttemptedAt: start, lastCompletedAt: start,
+    budget: { day, counts: { cs: 40, as: 30, 'streamex-primary': 60, 'streamex-mirror': 60, 'streamed-backup': 60, score808: 20 } } } };
+  const { miniflare, stub } = await runtime(t, 'valid', '1', new Date(start - 60_000).toISOString(), seed);
+  await stub.fetch('https://internal.invalid/__test_seed', { method: 'POST' });
+  const response = await miniflare.dispatchFetch('https://test.invalid/status');
+  const body = await response.text();
+  assert.equal(response.status, 200, body.slice(0, 300));
+  assert.ok(JSON.parse(body).incidents.some((row) => row.source === 'streamex-primary'));
+});
+
 // Deterministic storage failure/clock tests complement the real deployment
 // runtime. No secrets, files, upstream requests or repair actions are involved.
 function fakeState(initial) {
