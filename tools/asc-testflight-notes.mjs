@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Finds a TestFlight build with an App Store Connect API key and, unless
-// --check is given, sets its "What to Test" note (en-US).
+// --check is given, sets its "What to Test" note (API field whatsNew; this
+// app's notes use the en-GB localization).
 //
 //   node tools/asc-testflight-notes.mjs --bundle-id com.jelani.Fotty \
 //     --version 3.0.0 --build 276 [--notes "Bug fixes"] [--check] [--wait 1800]
@@ -124,20 +125,21 @@ async function main() {
   if (!build) fail(`build ${options.version} (${options.build}) is not listed yet`);
   const state = build.attributes.processingState;
   const localizations = await request(auth(), "GET", `/builds/${build.id}/betaBuildLocalizations?limit=50`);
-  const english = localizations.data?.find((item) => item.attributes?.locale === "en-US");
-  console.log(`Build ${options.version} (${options.build}): ${state}; What to Test: ${JSON.stringify(english?.attributes?.whatToTest ?? null)}`);
+  const english = localizations.data?.find((item) => item.attributes?.locale === "en-GB")
+    ?? localizations.data?.find((item) => item.attributes?.locale?.startsWith("en"));
+  console.log(`Build ${options.version} (${options.build}): ${state}; What to Test: ${JSON.stringify(english?.attributes?.whatsNew ?? null)}`);
   if (options.check) return;
   if (state !== "VALID") fail(`build is ${state}; the note can be set once processing finishes`);
 
   if (english) {
     await request(auth(), "PATCH", `/betaBuildLocalizations/${english.id}`, {
-      data: { type: "betaBuildLocalizations", id: english.id, attributes: { whatToTest: options.notes } },
+      data: { type: "betaBuildLocalizations", id: english.id, attributes: { whatsNew: options.notes } },
     });
   } else {
     await request(auth(), "POST", "/betaBuildLocalizations", {
       data: {
         type: "betaBuildLocalizations",
-        attributes: { locale: "en-US", whatToTest: options.notes },
+        attributes: { locale: "en-GB", whatsNew: options.notes },
         relationships: { build: { data: { type: "builds", id: build.id } } },
       },
     });
