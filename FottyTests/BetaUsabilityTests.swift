@@ -699,7 +699,8 @@ final class BetaUsabilityTests: XCTestCase {
         }
         XCTAssertNil(TeamBadgeWindow.countryFlagURL(for: "West Indies"), "West Indies keeps its colour monogram")
         for (team, flag) in [("Uganda Women", "ug.png"), ("Namibia Women", "na.png"), ("India U19", "in.png"),
-                             ("Pakistan A", "pk.png"), ("England Women's", "gb-eng.png")] {
+                             ("Pakistan A", "pk.png"), ("England Women's", "gb-eng.png"),
+                             ("Rwanda Women", "rw.png"), ("Vietnam", "vn.png"), ("Faroe Islands", "fo.png")] {
             XCTAssertEqual(TeamBadgeWindow.countryFlagURL(for: team)?.lastPathComponent, flag, team)
         }
         XCTAssertNil(TeamBadgeWindow.countryFlagURL(for: "Melbourne Stars Women"), "A women's club is not a nation")

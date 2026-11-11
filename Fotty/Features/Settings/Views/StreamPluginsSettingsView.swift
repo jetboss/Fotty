@@ -195,22 +195,38 @@ private struct AccountSourceSetupView: View {
     var body: some View {
         Form {
             Section {
-                Text(source.instructions).fixedSize(horizontal: false, vertical: true)
-                Link("Open \(source.name) setup", destination: source.setupURL)
+                setupStep(1, "Open \(source.name)", detail: "Sign in or complete verification, then copy your Install link or access code.") {
+                    Link(destination: source.setupURL) { Label("Open \(source.name)", systemImage: "arrow.up.right.square") }
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("source-setup-open")
+                }
+                setupStep(2, "Paste it here", detail: "Fotty checks the link with \(source.name), saves it securely on this device and turns the source on.") {
+                    // The system paste control needs no paste-permission prompt.
+                    PasteButton(payloadType: String.self) { strings in
+                        guard let value = strings.first else { return }
+                        Task { @MainActor in draft = value; save() }
+                    }
+                    .labelStyle(.titleAndIcon)
+                    .disabled(saving)
                     .frame(minHeight: 44)
+                    .accessibilityIdentifier("source-setup-paste")
+                }
+            } header: {
+                Text("Add \(source.name) in two steps")
             }
             Section {
-                SecureField(source == .highfly ? "Manifest link or Highfly access code" : "Configured manifest link", text: $draft)
+                SecureField("Manifest link or \(source.name) access code", text: $draft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.URL)
                     .privacySensitive()
+                    .submitLabel(.done)
+                    .onSubmit { save() }
                     .accessibilityIdentifier("source-setup-link")
                 Button { save() } label: {
                     HStack {
                         if saving { ProgressView() }
-                        Text(saving ? "Checking source…" : source.playbackProviderCode != nil
-                             ? (saved ? "Update and enable" : "Add source") : "Save for review")
+                        Text(saving ? "Checking source…" : saved ? "Update and enable" : "Add source")
                     }
                 }
                     .disabled(saving || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
@@ -220,13 +236,17 @@ private struct AccountSourceSetupView: View {
                         .accessibilityIdentifier("source-setup-status")
                 }
             } header: {
-                Text("Private setup link")
+                Text("Or type it")
             } footer: {
-                Text(source.playbackProviderCode != nil ? "Your account is checked, saved securely on this device and enabled in Watch. Availability still depends on the match. You can turn this source off in Playback sources." : "Stored securely on this device only. This source is awaiting compatibility review and cannot be used in Watch yet.")
+                Text("Saved securely on this device only. Availability still depends on the match. You can turn this source off in Playback sources.")
             }
             if saved {
                 Section {
-                    Label(source.playbackProviderCode != nil ? (enabled ? "Added · enabled" : "Added · turned off") : "Link saved · awaiting review", systemImage: "checkmark.circle")
+                    Label(enabled ? "Added · enabled" : "Added · turned off", systemImage: "checkmark.circle")
+                    if enabled {
+                        Text("Try it: open a live match and tap Watch.").font(.footnote)
+                            .foregroundStyle(FottyTheme.textSecondary)
+                    }
                     Button("Remove source", role: .destructive) { confirmsRemoval = true }.disabled(saving)
                 }
             }
@@ -244,6 +264,24 @@ private struct AccountSourceSetupView: View {
             }
         }
     }
+    private func setupStep<Action: View>(_ number: Int, _ title: String, detail: String,
+                                         @ViewBuilder action: () -> Action) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: "\(number).circle.fill")
+                .font(.title3)
+                .foregroundStyle(FottyTheme.accentText)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.headline)
+                Text(detail).font(.footnote).foregroundStyle(FottyTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                action()
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Step \(number): \(title)")
+    }
+
     private func refresh() async {
         do { saved = try store.hasSavedLink(for: source) }
         catch { status = "Secure storage is unavailable. Try again after unlocking this device." }
@@ -258,7 +296,7 @@ private struct AccountSourceSetupView: View {
             do {
                 enabled = try await AccountSourceConnector(store: store).add(input, for: source)
                 draft = ""; saved = true
-                status = enabled ? "Added and enabled. This source will be checked when you tap Watch." : "Saved for review. This source cannot be used in Watch yet."
+                status = enabled ? "Added and enabled. It is checked whenever you tap Watch." : "Added, but turned off in Playback sources."
                 await didChange()
             } catch is CancellationError { }
             catch let error as AccountSourceSetupError { status = error.errorDescription }

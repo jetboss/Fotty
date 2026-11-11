@@ -121,7 +121,22 @@ struct TeamBadgeWindow: View {
         "pakistan": "pk", "sri lanka": "lk", "bangladesh": "bd", "afghanistan": "af",
         "zimbabwe": "zw", "ireland": "ie", "nepal": "np", "oman": "om", "namibia": "na",
         "united arab emirates": "ae", "uae": "ae", "hong kong": "hk", "kenya": "ke",
-        "uganda": "ug", "papua new guinea": "pg"
+        "uganda": "ug", "papua new guinea": "pg",
+        // Associate cricket and smaller football nations seen in current feeds.
+        "rwanda": "rw", "tanzania": "tz", "botswana": "bw", "malawi": "mw", "mozambique": "mz",
+        "sierra leone": "sl", "zambia": "zm", "thailand": "th", "malaysia": "my", "indonesia": "id",
+        "singapore": "sg", "vietnam": "vn", "philippines": "ph", "bhutan": "bt", "maldives": "mv",
+        "kuwait": "kw", "bahrain": "bh", "jersey": "je", "guernsey": "gg", "cayman islands": "ky",
+        "bermuda": "bm", "fiji": "fj", "samoa": "ws", "vanuatu": "vu", "greece": "gr", "cyprus": "cy",
+        "malta": "mt", "gibraltar": "gi", "estonia": "ee", "luxembourg": "lu", "bulgaria": "bg",
+        "slovenia": "si", "iceland": "is", "lithuania": "lt", "latvia": "lv", "armenia": "am",
+        "albania": "al", "montenegro": "me", "belarus": "by", "kazakhstan": "kz", "moldova": "md",
+        "azerbaijan": "az", "andorra": "ad", "liechtenstein": "li", "san marino": "sm",
+        "faroe islands": "fo", "north macedonia": "mk", "uzbekistan": "uz", "iraq": "iq", "lebanon": "lb",
+        "syria": "sy", "yemen": "ye", "suriname": "sr", "guyana": "gy", "barbados": "bb", "cuba": "cu",
+        "puerto rico": "pr", "dominica": "dm", "grenada": "gd", "nicaragua": "ni", "el salvador": "sv",
+        "guatemala": "gt", "trinidad and tobago": "tt", "antigua and barbuda": "ag", "curacao": "cw",
+        "aruba": "aw", "martinique": "mq", "guadeloupe": "gp", "montserrat": "ms"
     ]
 
     private var displayName: String {

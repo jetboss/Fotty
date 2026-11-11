@@ -656,6 +656,30 @@ final class PlaybackPerformanceUITests: XCTestCase {
         capturedFocusedEnd = true
     }
 
+    /// Read-only: the Highfly setup journey shows its two steps and the system
+    /// Paste control. Nothing is pasted, saved, enabled or removed.
+    func testPhysicalHighflySetupShowsTwoStepsWithPaste() throws {
+        try selectTab("tab-settings", surface: "Settings")
+        let sources = app.buttons.matching(NSPredicate(format: "label BEGINSWITH[c] %@", "Playback sources")).firstMatch
+        try reveal(sources)
+        tap(sources)
+        let highfly = app.buttons.matching(NSPredicate(format: "label BEGINSWITH[c] %@", "Highfly")).firstMatch
+        try reveal(highfly)
+        captureEvidence(surface: "Playback sources with Highfly setup row")
+        tap(highfly)
+        XCTAssertTrue(app.links["source-setup-open"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["source-setup-paste"].exists || app.otherElements["source-setup-paste"].exists)
+        XCTAssertTrue(app.secureTextFields["source-setup-link"].exists)
+        captureEvidence(surface: "Highfly setup: two steps, Paste and typed fallback")
+        // Settings is a sheet over Home: leave through its own navigation.
+        let back = app.navigationBars.buttons.element(boundBy: 0)
+        if back.exists { tap(back) }
+        let done = app.buttons["Done"]
+        if done.waitForExistence(timeout: 3) { tap(done) }
+        XCTAssertTrue(app.buttons["tab-home"].waitForExistence(timeout: 5))
+        capturedFocusedEnd = true
+    }
+
     /// Explicit owner-authorized, single-iPad opt-in check. A queued status is
     /// not proof of delivery to another device. Always restore sync to off;
     /// no preference, saved match, journal or account is reset to pass this.
