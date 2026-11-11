@@ -130,19 +130,7 @@ enum CatalogPlaybackIdentity {
             return "club:\(club)"
         }
         let normalized = normalizedName(name)
-        guard category == "football" else { return normalized }
-        // Whole-name international aliases only; never token overlap. Unknown
-        // teams preserve reserve, youth, women's and other identity qualifiers.
-        switch normalized {
-        case "turkiye", "turkey": return "turkey"
-        case "cape verde islands", "cape verde": return "cape verde"
-        case "cote d ivoire", "ivory coast": return "ivory coast"
-        case "dr congo", "congo dr", "democratic republic of congo": return "congo dr"
-        case "bosnia and herzegovina", "bosnia herzegovina": return "bosnia herzegovina"
-        case "usa", "united states": return "united states"
-        case "korea republic", "south korea": return "south korea"
-        default: return normalized
-        }
+        return NationalTeamAliases.canonical(normalized, sport: category)
     }
 
     private static func normalizedName(_ name: String) -> String {
@@ -199,5 +187,73 @@ struct StreamDeliveryIdentity: Hashable {
         self.url = url.absoluteString
         self.headers = headers.map { Header(name: $0.key, value: $0.value) }
             .sorted { $0.name < $1.name }
+    }
+}
+
+/// Reviewed whole-name spellings of the same national side, shared by catalog
+/// admission and every reviewed source adapter (Highfly, CS, CNC, Plavio).
+/// Input must already be normalized (lowercase, diacritics folded, words
+/// separated by single spaces). Never token overlap or prefix matching; squad
+/// qualifiers (women, U21…) are handled by callers and stay part of identity.
+enum NationalTeamAliases {
+    nonisolated static func canonical(_ normalized: String, sport: String) -> String {
+        if let name = shared[normalized] { return name }
+        if sport == "football", let name = football[normalized] { return name }
+        return normalized
+    }
+
+    private static let shared: [String: String] = groups([
+        "united states": ["usa", "united states", "united states of america"],
+        "united arab emirates": ["uae", "united arab emirates"],
+        "south korea": ["korea republic", "south korea", "republic of korea"],
+        "north korea": ["korea dpr", "dpr korea", "north korea"],
+        "hong kong": ["hong kong", "hong kong china"],
+        "papua new guinea": ["papua new guinea", "png"],
+    ])
+
+    /// Football-only: in cricket "Ireland" is a different (all-island) side.
+    private static let football: [String: String] = groups([
+        "turkey": ["turkiye", "turkey"],
+        "czech republic": ["czechia", "czech republic"],
+        "iran": ["iran", "ir iran", "islamic republic of iran"],
+        "ivory coast": ["cote d ivoire", "ivory coast"],
+        "cape verde": ["cape verde islands", "cape verde", "cabo verde"],
+        "congo dr": ["dr congo", "congo dr", "democratic republic of congo",
+                     "democratic republic of the congo"],
+        "bosnia herzegovina": ["bosnia and herzegovina", "bosnia herzegovina", "bosnia"],
+        "republic of ireland": ["republic of ireland", "ireland"],
+        "north macedonia": ["north macedonia", "macedonia", "fyr macedonia"],
+        "netherlands": ["netherlands", "holland"],
+        "china": ["china", "china pr"],
+        "chinese taipei": ["chinese taipei", "taiwan"],
+        "eswatini": ["eswatini", "swaziland"],
+        "kyrgyzstan": ["kyrgyzstan", "kyrgyz republic"],
+        "gambia": ["gambia", "the gambia"],
+        "trinidad and tobago": ["trinidad and tobago", "trinidad tobago"],
+        "saint kitts and nevis": ["saint kitts and nevis", "st kitts and nevis", "st kitts nevis"],
+        "saint lucia": ["saint lucia", "st lucia"],
+        "saint vincent and the grenadines": ["saint vincent and the grenadines",
+                                             "st vincent and the grenadines", "st vincent grenadines"],
+        "sao tome and principe": ["sao tome and principe", "sao tome e principe"],
+        "antigua and barbuda": ["antigua and barbuda", "antigua barbuda"],
+        "brunei": ["brunei", "brunei darussalam"],
+        "laos": ["laos", "lao pdr", "lao"],
+        "syria": ["syria", "syrian arab republic"],
+        "russia": ["russia", "russian federation"],
+        "moldova": ["moldova", "republic of moldova"],
+        "palestine": ["palestine", "state of palestine"],
+        "timor leste": ["timor leste", "east timor"],
+        "vietnam": ["vietnam", "viet nam"],
+            ])
+
+    private static func groups(_ table: [String: [String]]) -> [String: String] {
+        var result: [String: String] = [:]
+        for (name, spellings) in table {
+            for spelling in spellings {
+                precondition(result[spelling] == nil, "duplicate national-team spelling \(spelling)")
+                result[spelling] = name
+            }
+        }
+        return result
     }
 }
