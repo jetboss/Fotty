@@ -310,6 +310,30 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         }
     }
 
+    func testWatchTapThatFindsNoStreamWritesOnePrivateOutcomeRecord() async throws {
+        let started = Date()
+        let match = event("watch-outcome-none", home: "Chelsea", away: "Brighton",
+            date: Int64(Date().timeIntervalSince1970) - 60, competition: "premier-league")
+        let owner = ViewingSessionCoordinator(discoverSinglePlayback: { _, _ in
+            self.discoveryFailure(for: match, category: .noProviderAvailable, retryable: false)
+        }, currentSingleEvent: { $0 }, catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
+        owner.watchSingle(match)
+        await waitForSourceCheck { owner.resolutionError != nil }
+        owner.stop() // A later cancellation cannot add a second record.
+
+        let records = FottyQualityStore.shared.records().filter {
+            $0.name == WatchOutcomeRecorder.recordName && $0.timestamp >= started
+        }
+        XCTAssertEqual(records.count, 1)
+        let details = try XCTUnwrap(records.first?.details)
+        XCTAssertEqual(details["terminal_outcome"], "no_stream_found")
+        XCTAssertEqual(details["failure_kind"], "no_provider_available")
+        XCTAssertEqual(details["competition"], "premier-league")
+        XCTAssertEqual(details["sport"], "football")
+        XCTAssertNil(details["watch_session_id"])
+        XCTAssertNil(records.first?.durationMilliseconds)
+    }
+
     func testSingleDiscoveryRecoveryClearsOnDismissalAndEveryReplacementIncludingEqualMessage() async throws {
         let match = event("clear-discovery-recovery", date: Int64(Date().timeIntervalSince1970) - 60)
         let owner = ViewingSessionCoordinator(discoverSinglePlayback: { _, _ in

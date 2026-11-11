@@ -898,6 +898,7 @@ final class ViewingSessionCoordinator {
         cancelResolution()
         let generation = UUID()
         resolutionGeneration = generation
+        WatchOutcomeRecorder.shared.begin(watchID: generation, event: event)
         singleSourceDiscoveryGeneration = generation
         singleSourceDiscoveryEventID = event.id
         pendingSingleEvent = event
@@ -933,6 +934,7 @@ final class ViewingSessionCoordinator {
                 guard !Task.isCancelled, self.resolutionGeneration == generation else { return }
                 guard let admitted else {
                     self.resolutionError = "This broadcast changed or is no longer available. Refresh the lineup before watching."
+                    WatchOutcomeRecorder.shared.finish(watchID: generation, .failed, failureKind: "fixture_changed")
                     return
                 }
                 requested = admitted
@@ -941,6 +943,7 @@ final class ViewingSessionCoordinator {
             guard !Task.isCancelled, self.resolutionGeneration == generation else { return }
             guard let matched else {
                 self.resolutionError = "This broadcast changed or is no longer available. Refresh the lineup before watching."
+                WatchOutcomeRecorder.shared.finish(watchID: generation, .failed, failureKind: "fixture_changed")
                 return
             }
             guard !Task.isCancelled, self.resolutionGeneration == generation,
@@ -949,6 +952,7 @@ final class ViewingSessionCoordinator {
                   MatchStartPolicy(event: matched).timingAllowsPlayback else {
                 if !Task.isCancelled, self.resolutionGeneration == generation {
                     self.resolutionError = "This broadcast is no longer ready to watch. Refresh the lineup before watching."
+                    WatchOutcomeRecorder.shared.finish(watchID: generation, .failed, failureKind: "fixture_not_ready")
                 }
                 return
             }
@@ -975,13 +979,20 @@ final class ViewingSessionCoordinator {
                         ? "No supported stream is available for this channel right now."
                         : "No supported stream is available for this match right now."
                     MatchPlaybackFeedback.shared.notReady(event.id)
+                    WatchOutcomeRecorder.shared.finish(watchID: generation, .noStreamFound, failureKind: "no_admitted_stream")
                 }
             case .failure(let failure, let diagnostics):
                 // An unrelated slow/failed lane cannot interrupt a source that
                 // was already admitted. Diagnostics still record the failure.
                 guard ![StreamFailureCategory.navigationCancelled, .duplicateRequestCancelled,
-                        .userCancelled, .backgroundedDuringResolution].contains(failure.category) else { return }
+                        .userCancelled, .backgroundedDuringResolution].contains(failure.category) else {
+                    if self.singleSourceDiscoveryPaneID == nil {
+                        WatchOutcomeRecorder.shared.finish(watchID: generation, resolutionFailure: failure.category)
+                    }
+                    return
+                }
                 if self.singleSourceDiscoveryPaneID == nil {
+                    WatchOutcomeRecorder.shared.finish(watchID: generation, resolutionFailure: failure.category)
                     self.resolutionError = failure.userMessage
                     self.singleDiscoveryRecovery = .init(event: matched, category: failure.category,
                         retryable: failure.retryable)
@@ -1047,6 +1058,7 @@ final class ViewingSessionCoordinator {
         cancelResolution()
         let generation = UUID()
         resolutionGeneration = generation
+        WatchOutcomeRecorder.shared.begin(watchID: generation, event: event)
         optionalSourceLookupGeneration = generation
         pendingSingleEvent = event
         resolutionMessage = "Opening broadcast…"
@@ -1076,6 +1088,7 @@ final class ViewingSessionCoordinator {
                   !admitted.hasCatalogIdentityConflict, !MatchStartPolicy(event: admitted).isStopped else {
                 guard !Task.isCancelled, self.resolutionGeneration == generation else { return }
                 self.resolutionError = "This fixture could not be confirmed. Refresh the lineup before watching."
+                WatchOutcomeRecorder.shared.finish(watchID: generation, .failed, failureKind: "fixture_changed")
                 return
             }
             guard !Task.isCancelled, self.resolutionGeneration == generation, !self.isTwo else { return }
@@ -1105,10 +1118,16 @@ final class ViewingSessionCoordinator {
                     self.resolutionError = acceptance == .changed
                         ? "This fixture changed. Refresh the lineup before watching."
                         : "No supported stream is available for this match right now."
+                    if acceptance == .changed {
+                        WatchOutcomeRecorder.shared.finish(watchID: generation, .failed, failureKind: "fixture_changed")
+                    } else {
+                        WatchOutcomeRecorder.shared.finish(watchID: generation, .noStreamFound, failureKind: "no_admitted_stream")
+                    }
                 }
             case .failure(let failure, let diagnostic):
                 if self.optionalSourceLookupPaneID == nil {
                     self.resolutionError = failure.userMessage
+                    WatchOutcomeRecorder.shared.finish(watchID: generation, resolutionFailure: failure.category)
                     FottyQualityStore.shared.record(category: .playback, name: "resolution_failure", outcome: .failure,
                         details: ["watch_session_id": generation.uuidString, "attempt_id": diagnostic.attemptID,
                                   "route": "optional_single", "failure_kind": failure.category.rawValue])
@@ -1121,6 +1140,9 @@ final class ViewingSessionCoordinator {
     /// Reopening existing video links this tap to its current attempt without replacing the owner.
     private func recordRetainedWatch(_ watchID: UUID) {
         guard let model = primary?.model else { return }
+        // The tap reopened a picture this scene already owns.
+        WatchOutcomeRecorder.shared.finish(watchID: watchID, model.didStartPlayback ? .playing : .cancelled,
+            family: WatchOutcomeRecorder.family(for: model.activeSource))
         var details = model.playbackQualityDetails()
         details["watch_session_id"] = watchID.uuidString
         FottyQualityStore.shared.record(category: .playback, name: "watch_reopened_existing_attempt", outcome: .success, details: details)
@@ -1234,6 +1256,11 @@ final class ViewingSessionCoordinator {
     }
 
     func cancelResolution() {
+        // Before a player mounts, this coordinator owns the tap's outcome.
+        // A mounted player reports its own picture, failure or cancellation.
+        if singleSourceDiscoveryPaneID == nil, optionalSourceLookupPaneID == nil {
+            WatchOutcomeRecorder.shared.finish(watchID: resolutionGeneration, .cancelled)
+        }
         cancelNativePairTransfer()
         if let pane = panes.first(where: { $0.id == optionalSourceLookupPaneID }) {
             pane.model.setSingleSourceDiscoveryActive(false, completed: false)

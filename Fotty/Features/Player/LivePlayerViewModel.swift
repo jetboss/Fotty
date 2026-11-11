@@ -639,6 +639,7 @@ final class LivePlayerViewModel {
         autoFailoverCount += 1
         FottyQualityStore.shared.record(category: .playback, name: "automatic_failover", outcome: .failure,
             details: pending.qualityDetails)
+        recordWatchFailover(to: next)
         currentSourceIndex = index
         showPlaybackBanner("Switching to another source")
         loadCurrentSource()
@@ -675,6 +676,7 @@ final class LivePlayerViewModel {
     private func finishSingleDiscoveryFailure(_ pending: PendingSingleDiscoveryFailure) {
         FottyQualityStore.shared.record(category: .playback, name: "terminal_failure", outcome: .failure,
             details: pending.qualityDetails)
+        recordWatchTerminal(.failed, failureKind: pending.failureKind)
         errorTitle = pending.failureKind.title
         error = pending.failureKind.terminalMessage
         showControls = true
@@ -1053,6 +1055,7 @@ final class LivePlayerViewModel {
     }
 
     func cancelLoading() {
+        recordWatchTerminal(.cancelled)
         disarmSingleDiscoveryContinuation()
         pausedDescriptorNegotiationSourceID = nil
         if usesSingleStreamRanking, viewingPlaybackContext == .single { shouldResumeAfterForeground = false }
@@ -2645,6 +2648,8 @@ final class LivePlayerViewModel {
             )
         }
         if receipt == .initialStartup, viewingPlaybackContext == .single {
+            WatchOutcomeRecorder.shared.picture(watchID: playbackCorrelation.sessionID,
+                                                family: WatchOutcomeRecorder.family(for: source))
             recordMatchOutcome(.decoded, for: source)
             if let station = SportsTVStation.station(id: event.id) { SportsTVLibrary.shared.recordPlayed(station.id) }
             observeSingleContinuity(source)
@@ -3218,6 +3223,7 @@ final class LivePlayerViewModel {
                     autoFailoverCount += 1
                     FottyQualityStore.shared.record(category: .playback, name: "automatic_failover", outcome: .failure,
                         details: playbackQualityDetails(["failure_kind": failureKind.rawValue]))
+                    recordWatchFailover(to: next)
                     currentSourceIndex = index
                     prefetchDescriptorRenewals(after: next)
                     showPlaybackBanner("Switching to another source")
@@ -3272,6 +3278,7 @@ final class LivePlayerViewModel {
                 outcome: .failure,
                 details: playbackQualityDetails(["failure_kind": failureKind.rawValue])
             )
+            recordWatchFailover(to: next)
             currentSourceIndex = idx
             prefetchDescriptorRenewals(after: next)
             showPlaybackBanner("Switching to another source")
@@ -3327,6 +3334,7 @@ final class LivePlayerViewModel {
                 outcome: .failure,
                 details: playbackQualityDetails(["failure_kind": failureKind.rawValue])
             )
+            recordWatchTerminal(.failed, failureKind: failureKind)
             errorTitle = failureKind.title
             error = failureKind.terminalMessage
             showControls = true
@@ -4711,6 +4719,21 @@ final class LivePlayerViewModel {
                                                  subtitle: subtitle, isPlaying: isPlaying)
     }
 
+    /// The private per-tap outcome record. Single Watch only; it is written
+    /// once and never feeds back into source choice or recovery.
+    private func recordWatchFailover(to next: StreamSource) {
+        guard viewingPlaybackContext == .single else { return }
+        WatchOutcomeRecorder.shared.failover(watchID: playbackCorrelation.sessionID,
+                                             toFamily: WatchOutcomeRecorder.family(for: next))
+    }
+
+    private func recordWatchTerminal(_ terminal: WatchOutcomeTerminal, failureKind: LivePlaybackFailureKind? = nil) {
+        guard viewingPlaybackContext == .single else { return }
+        WatchOutcomeRecorder.shared.finish(watchID: playbackCorrelation.sessionID, terminal,
+                                           failureKind: failureKind?.rawValue,
+                                           family: WatchOutcomeRecorder.family(for: activeSource))
+    }
+
     func cleanup() {
         guard !isPlaybackSessionRetired else { return }
         disarmSingleDiscoveryContinuation()
@@ -4731,6 +4754,7 @@ final class LivePlayerViewModel {
             FottyQualityStore.shared.record(category: .playback, name: "session_closed",
                                            outcome: .info, details: playbackQualityDetails())
         }
+        recordWatchTerminal(.cancelled)
         playbackCorrelation = FottyPlaybackCorrelation()
         isPlaybackSessionActive = false
         userWantsPlayback = false
