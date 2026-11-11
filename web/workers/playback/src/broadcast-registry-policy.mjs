@@ -302,7 +302,7 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
     && same(pair(f.participants, "cricket"), pair(fixture.participants, "cricket"))
     && stamp(f.start) !== null && Math.abs(Date.parse(f.start) - Date.parse(fixture.start)) < day).length === 1;
   const limitedOversRelation = (fixture, start) => {
-    const limit = fixture.format === "ODI" ? 12 * 60 * minute : 6 * 60 * minute;
+    const limit = fixture.format === "ODI" ? 12 * 60 * minute : fixture.format === "T10" ? 3 * 60 * minute : 6 * 60 * minute;
     const delta = start - Date.parse(fixture.start);
     return time - Date.parse(fixture.observedAt) <= 10 * minute && uniqueCurrentOwner(fixture)
       && (fixture.status === "live" && Date.parse(fixture.start) <= time && time - Date.parse(fixture.start) <= limit
@@ -361,7 +361,8 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
       if (currentListing) {
         if (fixture.status !== "live" || !["ODI", "T20"].includes(fixture.format)
           || !limitedOversRelation(fixture, time)) fail("needsVerification", "unverified-fixture");
-      } else if (broadcast.kind === "programme" && ["ODI", "T20"].includes(fixture.format)) {
+      } else if (broadcast.kind === "programme" && (["ODI", "T20"].includes(fixture.format)
+        || fixture.format === "T10" && isFoxCricketProgramme(broadcast))) {
         if (!limitedOversRelation(fixture, Date.parse(broadcast.start))) fail("conflicting", "time-conflict");
         const reviewedDomestic = (isFoxCricketProgramme(broadcast)
           || broadcast.providerCode === "reviewedtv" && broadcast.channelID === "cricket-channel:willow"
@@ -369,7 +370,12 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
           && broadcast.competitionID === "wbbl" && fixture.competitionID === "wbbl"
           && /^cricket-fixture:ca:\d+$/u.test(fixture.fixtureID) && fixture.format === "T20"
           && broadcast.squad?.gender === "women" && broadcast.squad?.ageGroup === "senior"
-          && broadcast.participants.every((v) => /\bWomen$/u.test(v)) && broadcast.matchOrdinal === undefined;
+          && broadcast.participants.every((v) => /\bWomen$/u.test(v)) && broadcast.matchOrdinal === undefined
+          // Fox's Abu Dhabi T10 listing has no ordinal; the unique current ESPN
+          // fixture of the same pair, format and competition owns it.
+          || isFoxCricketProgramme(broadcast) && broadcast.competitionID === "abu-dhabi-t10"
+          && fixture.competitionID === "abu-dhabi-t10" && /^cricket-fixture:espn-cricket:\d+$/u.test(fixture.fixtureID)
+          && fixture.format === "T10" && broadcast.format === "T10" && broadcast.matchOrdinal === undefined;
         // The unique current official occurrence above can replace only the
         // absent ordinal in this reviewed domestic programme contract.
         if (!reviewedDomestic) {
