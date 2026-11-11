@@ -4,7 +4,12 @@
 // app's notes use the en-GB localization).
 //
 //   node tools/asc-testflight-notes.mjs --bundle-id com.jelani.Fotty \
-//     --version 3.0.0 --build 276 [--notes "Bug fixes"] [--check] [--wait 1800]
+//     --version 3.0.0 --build 276 [--notes "Bug fixes"] [--group "Fotty Internal Smoke"]
+//     [--check] [--wait 1800]
+//
+// --group adds the build to that TestFlight group after the note is set, which
+// emails and notifies its testers (the group does not take new builds
+// automatically).
 //
 // Uses the same variables as owner-tools/testflight-usage-sync:
 // APP_STORE_CONNECT_ISSUER_ID (required), APP_STORE_CONNECT_KEY_ID and
@@ -38,6 +43,7 @@ function parseArgs(argv) {
     else if (flag === "--build") options.build = value;
     else if (flag === "--notes") options.notes = value;
     else if (flag === "--wait") options.wait = Number(value);
+    else if (flag === "--group") options.group = value;
     else fail(`unknown option ${flag}`);
   }
   if (!options.bundleId || !options.version || !options.build) fail("--bundle-id, --version and --build are required");
@@ -145,6 +151,16 @@ async function main() {
     });
   }
   console.log(`Set What to Test for ${options.version} (${options.build}).`);
+
+  if (options.group) {
+    const groups = await request(auth(), "GET", `/apps/${app.id}/betaGroups?limit=50`);
+    const group = groups.data?.find((item) => item.attributes?.name === options.group);
+    if (!group) fail(`no TestFlight group named ${JSON.stringify(options.group)}`);
+    await request(auth(), "POST", `/betaGroups/${group.id}/relationships/builds`, {
+      data: [{ type: "builds", id: build.id }],
+    });
+    console.log(`Added ${options.version} (${options.build}) to ${options.group}; its testers are notified.`);
+  }
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

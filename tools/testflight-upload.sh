@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Uploads a signed archive to internal TestFlight with the App Store Connect
-# API key, then sets its "What to Test" note. Each upload still needs the
+# API key, sets its "What to Test" note and adds it to the internal group
+# (TESTFLIGHT_GROUP, default "Fotty Internal Smoke"), which notifies its
+# testers. Each upload still needs the
 # owner's explicit go-ahead (docs/notebooklm/Workflow.md).
 #
 #   tools/testflight-upload.sh <path/to/Fotty.xcarchive> "Bug fixes"
@@ -74,4 +76,4 @@ grep -E "error:|Upload succeeded|EXPORT (SUCCEEDED|FAILED)" "$EXPORT_DIR/export.
 [[ "$STATUS" -eq 0 ]] || { echo "Upload failed." >&2; exit 1; }
 
 # Apple processes a new build for roughly 5–30 minutes before notes can be set.
-"${NOTES_TOOL[@]}" --notes "$NOTES" --wait 2700
+"${NOTES_TOOL[@]}" --notes "$NOTES" --group "${TESTFLIGHT_GROUP:-Fotty Internal Smoke}" --wait 2700
