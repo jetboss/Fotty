@@ -1,0 +1,693 @@
+--- a/web/package.json
++++ b/web/package.json
+@@ -19,7 +19,7 @@
+     "smoke": "node ./scripts/smoke-web.mjs",
+     "env:local": "node ./scripts/write-env-local.mjs",
+     "worker:check": "wrangler deploy --dry-run --config workers/playback/wrangler.toml",
+-    "test:unit": "node --test --test-concurrency=1 src/lib/football-competition-catalog.test.mjs src/lib/playback-controller.test.mjs src/lib/match-clock.test.mjs src/lib/watch-player-source-contract.test.mjs src/lib/stream-guide/rank.test.mjs src/lib/stream-guide/embed-url.test.mjs src/lib/watch-session.test.mjs src/lib/match-feed-signature.test.mjs src/lib/watch-event-sources.test.mjs src/lib/v2/watch-related-matches.test.mjs src/lib/v2/preview.test.mjs src/lib/route-segment-config.test.mjs src/lib/server/football-data-matches.test.mjs src/lib/watch-event-recovery.test.mjs workers/playback/src/coach-contract.test.mjs workers/playback/src/cpl-fixture-policy.test.mjs workers/playback/src/fpl-scoring.test.mjs workers/playback/src/coach-safety.test.mjs workers/playback/src/coach-evidence.test.mjs workers/playback/src/coach-transfers.test.mjs workers/playback/src/playback-catalog.test.mjs workers/playback/src/cricket-fixture-policy.test.mjs ../tools/audit-cricket-fixtures.test.mjs workers/playback/src/sports-fixture-policy.test.mjs workers/playback/src/sports-fixture-sources.test.mjs workers/playback/src/sports-fixture-event-sources.test.mjs workers/playback/src/sports-fixture-worker.test.mjs ../tools/audit-sports-fixtures.test.mjs ../tools/sports-fixture-crosscheck.test.mjs workers/playback/src/sports-fixture-runtime.test.mjs",
++    "test:unit": "node --test --test-concurrency=1 src/lib/football-competition-catalog.test.mjs src/lib/playback-controller.test.mjs src/lib/match-clock.test.mjs src/lib/watch-player-source-contract.test.mjs src/lib/stream-guide/rank.test.mjs src/lib/stream-guide/embed-url.test.mjs src/lib/watch-session.test.mjs src/lib/match-feed-signature.test.mjs src/lib/watch-event-sources.test.mjs src/lib/v2/watch-related-matches.test.mjs src/lib/v2/preview.test.mjs src/lib/route-segment-config.test.mjs src/lib/server/football-data-matches.test.mjs src/lib/watch-event-recovery.test.mjs workers/playback/src/coach-contract.test.mjs workers/playback/src/cpl-fixture-policy.test.mjs workers/playback/src/fpl-scoring.test.mjs workers/playback/src/coach-safety.test.mjs workers/playback/src/coach-evidence.test.mjs workers/playback/src/coach-transfers.test.mjs workers/playback/src/playback-catalog.test.mjs workers/playback/src/cricket-fixture-policy.test.mjs ../tools/audit-cricket-fixtures.test.mjs workers/playback/src/sports-fixture-policy.test.mjs workers/playback/src/sports-fixture-sources.test.mjs workers/playback/src/sports-fixture-event-sources.test.mjs workers/playback/src/sports-fixture-worker.test.mjs ../tools/audit-sports-fixtures.test.mjs ../tools/sports-fixture-crosscheck.test.mjs workers/playback/src/sports-fixture-runtime.test.mjs workers/playback/src/ucl-reported-score-policy.test.mjs",
+     "test:e2e": "playwright test",
+     "test:e2e:install": "playwright install chromium webkit",
+     "test:sports-crosscheck": "node --test ../tools/sports-fixture-crosscheck.test.mjs"
+--- /dev/null
++++ b/web/workers/playback/src/cricket-context-policy.mjs
+@@ -0,0 +1,149 @@
++// Optional score context from the already admitted ICC schedule response.
++// This never supplies fixture identity, status, a broadcast or extra collection.
++const CONTEXT_BYTES = 64 * 1024;
++const SNAPSHOT_BYTES = 512 * 1024;
++const PHASES = new Set(["in-play", "break", "innings-break", "stumps", "lunch", "tea", "interrupted",
++  "delayed", "finished", "cancelled", "postponed", "scheduled"]);
++const KEYS = new Set(["innings", "currentInnings", "battingTeamID", "bowlingTeamID", "day", "session", "phase", "message", "target"]);
++const INNINGS_KEYS = new Set(["number", "teamID", "runs", "wickets", "overs"]);
++const MAX_OVERS = { T10: 10, T20: 20, ODI: 50, Test: 500 };
++
++function object(value) { return value && typeof value === "object" && !Array.isArray(value); }
++function optionalRaw(value) { return value === undefined || value === null || value === ""; }
++function integer(value, minimum, maximum) {
++  if (!((typeof value === "string" && /^(0|[1-9]\d*)$/.test(value)) || Number.isSafeInteger(value))) throw new Error("Invalid cricket score integer");
++  const number = Number(value);
++  if (!Number.isSafeInteger(number) || number < minimum || number > maximum) throw new Error("Invalid cricket score integer");
++  return number;
++}
++function inningsLimit(format) { return format === "Test" ? 4 : ["T10", "T20", "ODI"].includes(format) ? 2 : 0; }
++function overs(value, format) {
++  if (typeof value !== "string" || !/^(0|[1-9]\d{0,2})(?:\.[0-5])?$/.test(value)) throw new Error("Invalid cricket overs");
++  const [whole, balls = "0"] = value.split(".");
++  if (Number(whole) > MAX_OVERS[format] || (Number(whole) === MAX_OVERS[format] && balls !== "0")) throw new Error("Invalid cricket overs");
++  return value;
++}
++function message(value) {
++  if (typeof value !== "string" || value.length > 200 || /[\u0000-\u001f<>]/.test(value) || !value.trim()) throw new Error("Invalid cricket context message");
++  return value.trim();
++}
++function withoutContext(fixture) {
++  const copy = { ...fixture };
++  delete copy.context;
++  return copy;
++}
++function phase(row, fixture) {
++  if (["finished", "cancelled", "postponed", "scheduled"].includes(fixture.status)) return fixture.status;
++  const labels = [row.match_status, row.match_display_status].filter((value) => typeof value === "string")
++    .map((value) => value.trim().toLowerCase());
++  // Breaks override a generic Live display marker; score presence does not.
++  const explicit = [["stumps", "stumps"], ["lunch", "lunch"], ["tea", "tea"],
++    ["innings break", "innings-break"], ["inningsbreak", "innings-break"],
++    ["delayed", "delayed"], ["play delayed", "delayed"], ["interrupted", "interrupted"]];
++  for (const [label, result] of explicit) if (labels.includes(label)) return result;
++  if (row.is_match_interrupted === true) return "interrupted";
++  if (row.is_match_on_break === true) return "break";
++  if (fixture.status === "live" && labels.some((label) => ["play in progress", "live"].includes(label))) return "in-play";
++  return undefined;
++}
++
++export function validCricketContext(context, fixture) {
++  try {
++    const limit = inningsLimit(fixture.format);
++    if (!limit || !["live", "finished"].includes(fixture.status) || !object(context) || Object.keys(context).some((key) => !KEYS.has(key))
++      || !Array.isArray(context.innings) || !context.innings.length || context.innings.length > limit) return false;
++    const teams = new Set([fixture.home.id, fixture.away.id]);
++    const numbers = new Set();
++    const counts = new Map();
++    for (const inning of context.innings) {
++      if (!object(inning) || Object.keys(inning).some((key) => !INNINGS_KEYS.has(key))
++        || !Number.isSafeInteger(inning.number) || !Number.isSafeInteger(inning.runs) || !Number.isSafeInteger(inning.wickets)
++        || !teams.has(inning.teamID) || numbers.has(inning.number)) return false;
++      integer(inning.number, 1, limit); integer(inning.runs, 0, 2000); integer(inning.wickets, 0, 10);
++      if (inning.overs !== undefined) overs(inning.overs, fixture.format);
++      numbers.add(inning.number);
++      counts.set(inning.teamID, (counts.get(inning.teamID) || 0) + 1);
++    }
++    if ([...numbers].sort((a, b) => a - b).some((number, index) => number !== index + 1)
++      || [...counts.values()].some((count) => count > (fixture.format === "Test" ? 2 : 1))) return false;
++    if (context.currentInnings !== undefined && (!Number.isSafeInteger(context.currentInnings)
++      || context.currentInnings !== Math.max(...numbers))) return false;
++    for (const key of ["battingTeamID", "bowlingTeamID"]) if (context[key] !== undefined && !teams.has(context[key])) return false;
++    if (context.battingTeamID !== undefined && context.battingTeamID === context.bowlingTeamID) return false;
++    const current = context.innings.find((inning) => inning.number === context.currentInnings);
++    if (current && context.battingTeamID !== undefined && current.teamID !== context.battingTeamID) return false;
++    for (const [key, maximum] of [["day", 6], ["session", 3]]) {
++      if (context[key] !== undefined) {
++        if (fixture.format !== "Test" || !Number.isSafeInteger(context[key])) return false;
++        integer(context[key], 1, maximum);
++      }
++    }
++    if (context.phase !== undefined && (!PHASES.has(context.phase)
++      || (["stumps", "lunch", "tea"].includes(context.phase) && fixture.format !== "Test"))) return false;
++    if (context.message !== undefined) message(context.message);
++    if (context.target !== undefined) {
++      if (!current || !Number.isSafeInteger(context.target)) return false;
++      integer(context.target, 1, 5000);
++    }
++    return true;
++  } catch { return false; }
++}
++
++export function normalizeICCContext(row, fixture) {
++  try {
++    const limit = inningsLimit(fixture.format);
++    if (!limit || !["live", "finished"].includes(fixture.status) || row.has_super_over === true
++      || !Array.isArray(row.scores) || !row.scores.length || row.scores.length > limit) return undefined;
++    const group = String(row.league_id);
++    const canonical = (value) => {
++      if (!/^\d{1,12}$/.test(String(value))) throw new Error("Invalid cricket context team");
++      const id = `icc:${group}:${value}`;
++      if (id !== fixture.home.id && id !== fixture.away.id) throw new Error("Foreign cricket context team");
++      return id;
++    };
++    // Bind against the enclosing admitted fixture, never a name or a channel.
++    if (canonical(row.teama_id) !== fixture.home.id || canonical(row.teamb_id) !== fixture.away.id) return undefined;
++    const innings = row.scores.map((score) => {
++      if (!object(score)) throw new Error("Invalid cricket innings");
++      return { number: integer(score.inning_no, 1, limit), teamID: canonical(score.team_id),
++        runs: integer(score.team_runs, 0, 2000), wickets: integer(score.team_wickets, 0, 10),
++        ...(optionalRaw(score.team_overs) ? {} : { overs: overs(score.team_overs, fixture.format) }) };
++    }).sort((a, b) => a.number - b.number);
++    const context = { innings };
++    if (!optionalRaw(row.current_innings) && row.current_innings !== "0" && row.current_innings !== 0) context.currentInnings = integer(row.current_innings, 1, limit);
++    for (const [raw, key] of [["current_batting_team_id", "battingTeamID"], ["current_bowling_team_id", "bowlingTeamID"]]) {
++      if (!optionalRaw(row[raw]) && row[raw] !== "0" && row[raw] !== 0) context[key] = canonical(row[raw]);
++    }
++    for (const [key, maximum] of [["day", 6], ["session", 3]]) {
++      if (!optionalRaw(row[key]) && row[key] !== "0" && row[key] !== 0) context[key] = integer(row[key], 1, maximum);
++    }
++    const observedPhase = phase(row, fixture);
++    if (observedPhase !== undefined) context.phase = observedPhase;
++    if (!optionalRaw(row.current_status_message)) context.message = message(row.current_status_message);
++    const current = row.scores.find((score) => Number(score.inning_no) === context.currentInnings);
++    if (current && !optionalRaw(current.target)) context.target = integer(current.target, 1, 5000);
++    return validCricketContext(context, fixture) ? context : undefined;
++  } catch { return undefined; }
++}
++
++/// Bound only additive optional context. Never truncate the accepted fixture
++/// registry or make a malformed score erase its schedule/status authority.
++export function boundedCricketContexts(snapshot) {
++  const fixtures = snapshot.fixtures.map((fixture) => {
++    if (fixture.context === undefined || validCricketContext(fixture.context, fixture)) return fixture;
++    return withoutContext(fixture);
++  });
++  const base = fixtures.map(withoutContext);
++  const baseBytes = new TextEncoder().encode(JSON.stringify({ ...snapshot, fixtures: base })).length;
++  let budget = Math.min(CONTEXT_BYTES, Math.max(0, SNAPSHOT_BYTES - baseBytes));
++  const included = new Set();
++  const priority = fixtures.map((fixture, index) => ({ fixture, index })).sort((a, b) =>
++    Number(b.fixture.status === "live") - Number(a.fixture.status === "live") || a.index - b.index);
++  for (const { fixture, index } of priority) {
++    if (fixture.context === undefined) continue;
++    const size = new TextEncoder().encode(JSON.stringify(fixture)).length
++      - new TextEncoder().encode(JSON.stringify(base[index])).length;
++    if (size <= budget) { budget -= size; included.add(index); }
++  }
++  return { ...snapshot, fixtures: fixtures.map((fixture, index) => included.has(index) ? fixture : base[index]) };
++}
+--- a/web/workers/playback/src/cricket-fixture-policy.mjs
++++ b/web/workers/playback/src/cricket-fixture-policy.mjs
+@@ -1,6 +1,7 @@
+ // Official international-cricket fixtures, separate from broadcast availability.
+ // A successful HTTP response is not enough: completeness and source time matter.
+ import { hasReviewedICCKickoffCorrection } from "./icc-kickoff-corrections.mjs";
++import { boundedCricketContexts, normalizeICCContext } from "./cricket-context-policy.mjs";
+ 
+ export const CRICKET_COMPETITIONS = Object.freeze([
+   { id: "cpl", name: "Caribbean Premier League" },
+@@ -128,12 +129,15 @@
+     const westIndies = /\bWest Indies\b/i.test(home.name) || /\bWest Indies\b/i.test(away.name);
+     const rawFormat = String(row.match_type).replace(/^Youth\s+/i, "").toUpperCase().replace(/^T20I$/, "T20");
+     const format = rawFormat === "TEST" ? "Test" : FORMATS.has(rawFormat) ? rawFormat : "unknown";
+-    fixtures.push({ id, start: start.toISOString(), format, status: fixtureStatus(row),
++    const fixture = { id, start: start.toISOString(), format, status: fixtureStatus(row),
+       competitionId: westIndies ? "west-indies" : "icc", competitionName: safeLabel(row.series_name), home, away,
+       source: { name: "ICC", url: `https://www.icc-cricket.com/matches/${identifier(row.match_id)}`, observedAt },
+       // Internal admission evidence; stripped from the public contract below.
+       revised: row.is_revised === true,
+-      ...(row.series_id === undefined ? {} : { publisherSeriesId: identifier(row.series_id) }) });
++      ...(row.series_id === undefined ? {} : { publisherSeriesId: identifier(row.series_id) }) };
++    const context = normalizeICCContext(row, fixture);
++    if (context !== undefined) fixture.context = context;
++    fixtures.push(fixture);
+   }
+   return { fixtures, observedAt, pendingByCompetition };
+ }
+@@ -237,5 +241,5 @@
+     if (coverage.length !== 1 || !["covered", "offseason", "unavailable"].includes(coverage[0].status)
+       || coverage[0].fixtureCount !== snapshot.fixtures.filter((f) => f.competitionId === comp.id).length) throw new Error("Invalid cricket coverage");
+   }
+-  return snapshot;
+-}
++  return boundedCricketContexts(snapshot);
++}
+--- a/web/workers/playback/src/cricket-fixture-policy.test.mjs
++++ b/web/workers/playback/src/cricket-fixture-policy.test.mjs
+@@ -3,6 +3,7 @@
+ import worker from "./index.js";
+ import { admitICC, admitICCIsolated, cricketWindow, iccScheduleURL, iccSourceTime, nextCricketRefresh, normalizeICC, parseICCPage, validateCricketSnapshot } from "./cricket-fixture-policy.mjs";
+ import { collectICC, CricketFixtureRegistry, refreshCricketState } from "./cricket-fixture-registry.mjs";
++import { boundedCricketContexts, normalizeICCContext, validCricketContext } from "./cricket-context-policy.mjs";
+ import { auditCricketSnapshot } from "../../../../tools/audit-cricket-fixtures-policy.mjs";
+ import cplFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
+ 
+@@ -889,3 +890,225 @@
+   assert.ok(response.headers.get("X-Fotty-Worker-Version"));
+   assert.equal((await worker.fetch(new Request("https://worker/api/cricket/fixtures", { method: "POST" }), env)).status, 405);
+ });
++
++// Public score fields redacted from the already admitted ICC schedule receipt
++// at2026-10-29T17:21:44.453Z (59/59 rows). Replay them in the existing fixed
++// fixture/date harness: these are contract regressions, not current-live proof.
++const testScoreRow = (overrides = {}) => row({ match_id: "274665", teama: "Bangladesh", teama_id: "2",
++  teamb: "West Indies", teamb_id: "9", match_type: "Test", current_innings: "2", day: "2", session: "3",
++  match_status: "Stumps", match_display_status: "Stumps",
++  current_status_message: "Stumps, Day 2 - West Indies trail by 138 runs",
++  scores: [{ inning_no: "1", team_id: "2", team_runs: "272", team_wickets: "10", team_overs: "97.4" },
++    { inning_no: "2", team_id: "9", team_runs: "134", team_wickets: "4", team_overs: "48.0" }], ...overrides });
++const t20ScoreRow = (overrides = {}) => row({ match_id: "274661", teama: "Afghanistan", teama_id: "1188",
++  teamb: "Zimbabwe", teamb_id: "10", match_type: "T20", current_innings: "2",
++  match_status: "Play In Progress", match_display_status: "Live",
++  current_status_message: "Second Innings : Zimbabwe need 134 runs in 54 balls at 14.88 rpo",
++  scores: [{ inning_no: "1", team_id: "1188", team_runs: "221", team_wickets: "7", team_overs: "20.0", allotted_overs: "20" },
++    { inning_no: "2", team_id: "10", team_runs: "88", team_wickets: "5", team_overs: "11.0", target: "222", allotted_overs: "20" }], ...overrides });
++
++test("ICC optional Test context keeps exact innings scores and explicit Stumps without changing live authority", () => {
++  const fixture = normalized([testScoreRow()]).fixtures[0];
++  assert.equal(fixture.id, "icc:274665");
++  assert.equal(fixture.status, "live");
++  assert.equal(fixture.source.observedAt, now.toISOString());
++  assert.deepEqual(fixture.context, { innings: [
++    { number: 1, teamID: "icc:1:2", runs: 272, wickets: 10, overs: "97.4" },
++    { number: 2, teamID: "icc:1:9", runs: 134, wickets: 4, overs: "48.0" }],
++  currentInnings: 2, day: 2, session: 3, phase: "stumps", message: "Stumps, Day 2 - West Indies trail by 138 runs" });
++  assert.equal(fixture.sources, undefined, "A score is not a stream");
++});
++
++test("ICC Test context preserves repeated batting teams rather than collapsing innings by team", () => {
++  const fixture = normalized([testScoreRow({ match_id: "269792", teama: "South Africa", teama_id: "7",
++    teamb: "Australia", teamb_id: "1", current_innings: "3", day: "3",
++    current_status_message: "Stumps, Day 3 - South Africa lead by 40 runs",
++    scores: [{ inning_no: "1", team_id: "7", team_runs: "329", team_wickets: "10", team_overs: "82.3" },
++      { inning_no: "2", team_id: "1", team_runs: "429", team_wickets: "10", team_overs: "125.1" },
++      { inning_no: "3", team_id: "7", team_runs: "140", team_wickets: "4", team_overs: "47.0" }] })]).fixtures[0];
++  assert.deepEqual(fixture.context.innings.map((inning) => [inning.number, inning.teamID, inning.overs]),
++    [[1, "icc:1:7", "82.3"], [2, "icc:1:1", "125.1"], [3, "icc:1:7", "47.0"]]);
++  assert.equal(fixture.context.currentInnings, 3);
++});
++
++test("ICC T20 target comes from the exact current innings and overs remain strings", () => {
++  const fixture = normalized([t20ScoreRow()]).fixtures[0];
++  assert.equal(fixture.context.target, 222);
++  assert.equal(fixture.context.phase, "in-play");
++  assert.equal(fixture.context.innings[1].overs, "11.0");
++  const first = normalized([t20ScoreRow({ current_innings: "1", scores: [t20ScoreRow().scores[0]] })]).fixtures[0];
++  assert.equal(first.context.target, undefined, "Never borrow a later innings target");
++});
++
++test("score context uses exact canonical squad/team IDs and validates explicit batting identity", () => {
++  const women = normalized([t20ScoreRow({ league_id: "10" })]).fixtures[0];
++  assert.deepEqual(women.context.innings.map((inning) => inning.teamID), ["icc:10:1188", "icc:10:10"]);
++  const youth = normalized([t20ScoreRow({ league_id: "35" })]).fixtures[0];
++  assert.equal(youth.context.innings[0].teamID, "icc:35:1188");
++  const exact = normalized([t20ScoreRow({ current_batting_team_id: "10", current_bowling_team_id: "1188" })]).fixtures[0];
++  assert.equal(exact.context.battingTeamID, exact.away.id);
++  assert.equal(exact.context.bowlingTeamID, exact.home.id);
++  for (const mismatch of [{ current_batting_team_id: "1188" }, { current_bowling_team_id: "9999" },
++    { current_batting_team_id: "10", current_bowling_team_id: "10" }]) {
++    const fixture = normalized([t20ScoreRow(mismatch)]).fixtures[0];
++    assert.equal(fixture.context, undefined);
++    assert.equal(fixture.status, "live");
++  }
++});
++
++test("optional scores cannot manufacture live from a scheduled/unknown fixture or override terminal status", () => {
++  for (const flags of [{ live: false, upcoming: true }, { live: false, upcoming: false },
++    { is_match_abandoned: true }, { match_status: "Postponed" }]) {
++    const fixture = normalized([t20ScoreRow(flags)]).fixtures[0];
++    assert.equal(fixture.context, undefined);
++    assert.notEqual(fixture.status, "live");
++  }
++  const finished = normalized([t20ScoreRow({ is_match_ended: true })]).fixtures[0];
++  assert.equal(finished.status, "finished");
++  assert.equal(finished.context.phase, "finished");
++});
++
++test("explicit break/interrupt/Stumps evidence overrides a generic Live label", () => {
++  for (const [flags, expected] of [[{ is_match_on_break: true }, "break"],
++    [{ is_match_interrupted: true }, "interrupted"], [{ match_status: "Innings Break" }, "innings-break"],
++    [{ match_status: "Delayed" }, "delayed"]]) {
++    assert.equal(normalized([t20ScoreRow(flags)]).fixtures[0].context.phase, expected);
++  }
++  for (const [label, expected] of [["Stumps", "stumps"], ["Lunch", "lunch"], ["Tea", "tea"]]) {
++    assert.equal(normalized([testScoreRow({ match_status: label, match_display_status: "Live" })]).fixtures[0].context.phase, expected);
++  }
++  const unknown = normalized([t20ScoreRow({ match_status: "Unreviewed state", match_display_status: "Unreviewed state" })]).fixtures[0];
++  assert.equal(unknown.context.phase, undefined, "Score progress must not fill in an unknown phase");
++});
++
++test("malformed optional scores are omitted whole without dropping any fixture or sibling", () => {
++  const valid = t20ScoreRow().scores;
++  const invalid = [null, {}, [], [...valid, { ...valid[0], inning_no: "3" }],
++    [{ ...valid[0], team_runs: undefined }], [{ ...valid[0], team_wickets: null }],
++    [{ ...valid[0], team_runs: "1e2" }], [{ ...valid[0], team_runs: "-1" }],
++    [{ ...valid[0], team_runs: "2001" }], [{ ...valid[0], team_wickets: "11" }],
++    [{ ...valid[0], inning_no: "0" }], [{ ...valid[0], inning_no: "1.5" }],
++    [{ ...valid[0], team_id: "9999" }], [valid[0], { ...valid[1], inning_no: "1" }],
++    [valid[1]], [valid[0], { ...valid[1], team_id: valid[0].team_id }]];
++  for (const scores of invalid) {
++    const result = normalized([t20ScoreRow({ scores }), row({ match_id: "999999" })]);
++    assert.equal(result.fixtures.length, 2);
++    assert.equal(result.fixtures[0].context, undefined);
++    assert.equal(result.fixtures[0].status, "live");
++  }
++});
++
++test("Test follow-on can repeat a team while missing/future innings receipts stay unavailable", () => {
++  const raw = testScoreRow({ current_innings: "3" });
++  raw.scores.push({ inning_no: "3", team_id: "9", team_runs: "20", team_wickets: "1", team_overs: "10.0" });
++  assert.equal(normalized([raw]).fixtures[0].context.innings[2].teamID, "icc:1:9");
++  assert.equal(normalized([testScoreRow({ current_innings: "1" })]).fixtures[0].context, undefined);
++  const missing = structuredClone(raw); missing.scores.splice(1, 1);
++  assert.equal(normalized([missing]).fixtures[0].context, undefined);
++  const repeated = structuredClone(raw); repeated.scores[0].team_id = "9";
++  assert.equal(normalized([repeated]).fixtures[0].context, undefined);
++});
++
++test("cricket overs use balls0 through5 and format bounds rather than decimal arithmetic", () => {
++  const fixture = normalized([t20ScoreRow()]).fixtures[0];
++  for (const team_overs of ["19.5", "20.0", "0", "0.0"]) {
++    const raw = t20ScoreRow(); raw.scores[1].team_overs = team_overs;
++    assert.equal(normalizeICCContext(raw, fixture).innings[1].overs, team_overs);
++  }
++  for (const team_overs of ["11.6", "11.9", "20.1", "500.0", "01.0", "1e1", 11.1, "11.05"]) {
++    const raw = t20ScoreRow(); raw.scores[1].team_overs = team_overs;
++    assert.equal(normalizeICCContext(raw, fixture), undefined);
++  }
++});
++
++test("unsupported formats/superovers and malformed optional context metadata stay unavailable", () => {
++  for (const changes of [{ match_type: "Unknown" }, { has_super_over: true }, { current_innings: "3" },
++    { day: "2" }, { current_status_message: "<script>bad</script>" }, { current_status_message: "x".repeat(201) },
++    { current_status_message: "bad\nmessage" }, { match_status: "Stumps" }]) {
++    assert.equal(normalized([t20ScoreRow(changes)]).fixtures[0].context, undefined);
++  }
++  assert.equal(normalized([testScoreRow({ session: "4" })]).fixtures[0].context, undefined);
++  assert.equal(normalized([testScoreRow({ day: "7" })]).fixtures[0].context, undefined);
++  const valid = normalized([testScoreRow()]).fixtures[0];
++  for (const context of [null, { ...valid.context, extra: true }, { ...valid.context, currentInnings: null },
++    { ...valid.context, target: 0 }, { ...valid.context, phase: "invented" }]) {
++    assert.equal(validCricketContext(context, valid), false);
++  }
++});
++
++test("score-only changes advance revision while identity/status/fixture count remain unchanged", async () => {
++  const before = normalized([t20ScoreRow()]);
++  const first = await refreshCricketState(null, now, async () => before);
++  const next = t20ScoreRow(); next.scores[1].team_runs = "89";
++  const candidate = withReceipt(normalized([next]), new Date(now.getTime() + 5 * 60_000));
++  const second = await refreshCricketState(first, new Date(now.getTime() + 5 * 60_000), async () => candidate);
++  assert.notEqual(first.snapshot.revision, second.snapshot.revision);
++  assert.equal(second.snapshot.fixtures[0].context.innings[1].runs, 89);
++  for (const key of ["id", "start", "status", "format", "home", "away"]) assert.deepEqual(first.snapshot.fixtures[0][key], second.snapshot.fixtures[0][key]);
++});
++
++test("fresh same-fixture receipts without usable scores cannot renew or inherit previous context", async () => {
++  const first = await refreshCricketState(null, now, async () => normalized([t20ScoreRow()]));
++  const later = new Date(now.getTime() + 5 * 60_000);
++  for (const scores of [undefined, [], [{ inning_no: "2", team_id: "10", team_runs: "bad", team_wickets: "5" }]]) {
++    const next = withReceipt(normalized([t20ScoreRow({ scores })]), later);
++    const refreshed = await refreshCricketState(first, later, async () => next);
++    assert.equal(refreshed.snapshot.sourceStatus, "verified");
++    assert.equal(refreshed.snapshot.fixtures[0].id, first.snapshot.fixtures[0].id);
++    assert.equal(refreshed.snapshot.fixtures[0].source.observedAt, later.toISOString());
++    assert.equal(refreshed.snapshot.fixtures[0].context, undefined, "No old score may acquire a new observation");
++  }
++});
++
++test("failed collection and isolated identity conflict retain original score context and observation", async () => {
++  const original = normalized([testScoreRow()]);
++  const first = await refreshCricketState(null, now, async () => original);
++  const later = new Date(now.getTime() + 5 * 60_000);
++  const failed = await refreshCricketState(first, later, async () => { throw new Error("ICC upstream unavailable"); });
++  assert.deepEqual(failed.snapshot.fixtures[0].context, first.snapshot.fixtures[0].context);
++  assert.equal(failed.snapshot.fixtures[0].source.observedAt, now.toISOString());
++  assert.equal(failed.snapshot.sourceStatus, "last-known-good");
++  const changed = withReceipt(normalized([testScoreRow({ teamb_id: "99" })]), later);
++  const held = await refreshCricketState(first, later, async () => changed);
++  assert.equal(held.snapshot.fixtures[0].source.verification, "held");
++  assert.deepEqual(held.snapshot.fixtures[0].context, first.snapshot.fixtures[0].context);
++  assert.equal(held.snapshot.fixtures[0].source.observedAt, now.toISOString());
++});
++
++test("optional context budget preserves every accepted fixture and prioritizes current rows", () => {
++  const template = normalized([testScoreRow()]).fixtures[0];
++  const fixtures = Array.from({ length: 400 }, (_, index) => ({ ...template, id: `icc:${900000 + index}`,
++    status: index === 399 ? "live" : "finished", context: { ...template.context, phase: index === 399 ? "stumps" : "finished",
++      message: "x".repeat(200) } }));
++  const snapshot = { schemaVersion: 1, complete: true, fixtures, coverage: [] };
++  const bounded = boundedCricketContexts(snapshot);
++  assert.equal(bounded.fixtures.length, 400);
++  assert.deepEqual(bounded.fixtures.map((fixture) => fixture.id), fixtures.map((fixture) => fixture.id));
++  assert.ok(bounded.fixtures.filter((fixture) => fixture.context).length < 400);
++  assert.ok(bounded.fixtures[399].context);
++  const base = boundedCricketContexts({ ...snapshot, fixtures: fixtures.map((fixture) => ({ ...fixture, context: null })) });
++  assert.ok(Buffer.byteLength(JSON.stringify(bounded)) - Buffer.byteLength(JSON.stringify(base)) <= 64 * 1024);
++  const nearPayloadLimit = boundedCricketContexts({ ...snapshot, padding: "p".repeat(512 * 1024 - Buffer.byteLength(JSON.stringify(base)) - 100) });
++  assert.ok(Buffer.byteLength(JSON.stringify(nearPayloadLimit)) <= 512 * 1024);
++  assert.equal(nearPayloadLimit.fixtures.length, 400);
++  assert.ok(fixtures.every((fixture) => fixture.context), "Budget projection must not mutate accepted input");
++});
++
++test("legacy schema1 response keeps its old contract and strips malformed optional context without new collection", async () => {
++  const initial = await refreshCricketState(null, now, async () => normalized([testScoreRow()]));
++  initial.nextAttemptAt = "2100-01-01T00:00:00Z";
++  const storage = new Map([["cricket-registry-v1", initial]]);
++  let collections = 0;
++  const registry = new CricketFixtureRegistry({ storage: { get: async (key) => storage.get(key) }, waitUntil: () => {} }, {},
++    { collectICC: async () => { collections++; return normalized(); } });
++  const result = await (await registry.fetch(new Request("https://internal/fixtures"))).json();
++  assert.equal(result.schemaVersion, 1);
++  assert.equal(result.complete, true);
++  assert.equal(result.fixtures[0].context.phase, "stumps");
++  assert.deepEqual(auditCricketSnapshot(result, { now: now.getTime() }).findings, []);
++  storage.get("cricket-registry-v1").snapshot.fixtures[0].context = { innings: [{ number: 1, teamID: "foreign", runs: 1, wickets: 0 }] };
++  const malformed = await (await registry.fetch(new Request("https://internal/fixtures"))).json();
++  assert.equal(malformed.fixtures.length, 1);
++  assert.equal(malformed.fixtures[0].context, undefined);
++  assert.equal(collections, 0);
++});
+--- a/web/workers/playback/src/cricket-fixture-registry.mjs
++++ b/web/workers/playback/src/cricket-fixture-registry.mjs
+@@ -3,6 +3,7 @@
+   parseICCPage, validateCricketSnapshot } from "./cricket-fixture-policy.mjs";
+ import cplFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
+ import { validateCPLManifest } from "./cpl-fixture-policy.mjs";
++import { boundedCricketContexts } from "./cricket-context-policy.mjs";
+ 
+ const STATE_KEY = "cricket-registry-v1";
+ const MINUTE = 60_000;
+@@ -284,6 +285,8 @@
+     if (!current?.snapshot) return Response.json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable",
+       sync: { consecutiveFailures: current?.consecutiveFailures || 0, cohorts: current?.cohorts,
+         ...(current?.failure ? { failure: current.failure } : {}), lastAttemptAt: current?.lastAttemptAt } }, { status: 503 });
+-    return Response.json(current.snapshot);
+-  }
+-}
++    // Optional context remains additive on the schema1 route. Older clients
++    // ignore the new fixture key; the original fixture count/receipts survive.
++    return Response.json(boundedCricketContexts(current.snapshot));
++  }
++}
+--- a/web/workers/playback/src/sports-fixture-registry.mjs
++++ b/web/workers/playback/src/sports-fixture-registry.mjs
+@@ -1,4 +1,5 @@
+ import { admitSportsCollection, descriptorCompetitions, nextSportsRefresh, sportsRevision, SPORTS_FIXTURE_MAX_ROWS } from "./sports-fixture-policy.mjs";
++import { boundedUCLReportedScores } from "./ucl-reported-score-policy.mjs";
+ 
+ const STATE_KEY = "sports-source-v1";
+ const RETRY_MS = 5 * 60_000;
+@@ -131,9 +132,9 @@
+   if (fixtures.length > SPORTS_FIXTURE_MAX_ROWS) throw new Error("Aggregate fixture limit exceeded");
+   const receipts = coverage.map((row) => row.checkedAt).filter(Boolean).sort();
+   const available = coverage.filter((row) => row.status !== "unsupported");
+-  return { schemaVersion: 1, complete: true, checkedAt: receipts.at(-1) || now.toISOString(),
+-    revision: await sportsRevision(fixtures, coverage), sourceStatus: available.every((row) => row.status === "covered") && available.length ? "verified" : "partial",
+-    fixtures, coverage };
++  const snapshot = boundedUCLReportedScores({ schemaVersion: 1, complete: true, checkedAt: receipts.at(-1) || now.toISOString(),
++    sourceStatus: available.every((row) => row.status === "covered") && available.length ? "verified" : "partial", fixtures, coverage });
++  return { ...snapshot, revision: await sportsRevision(snapshot.fixtures, coverage) };
+ }
+ 
+ // One object per reviewed source group. Its own serialized requests cannot
+--- a/web/workers/playback/src/sports-fixture-sources.mjs
++++ b/web/workers/playback/src/sports-fixture-sources.mjs
+@@ -1,4 +1,5 @@
+ import { abortable, boundedJSON, coachDeadline } from "./coach-safety.mjs";
++import { normalizeUCLReportedScore } from "./ucl-reported-score-policy.mjs";
+ 
+ const DAY = 86_400_000;
+ const MAX_BYTES = 2_000_000;
+@@ -192,10 +193,12 @@
+     const updatedAt = row.lastUpdated === undefined ? undefined : utc(row.lastUpdated);
+     if (updatedAt) check(Date.parse(updatedAt) <= context.now.getTime() + 15 * 60_000, "Football update timestamp invalid");
+     // SCHEDULED means a rough date; TIMED means a confirmed kickoff in v4.
+-    return { fixture: row.status === "SCHEDULED" ? null : normalize(descriptor, row.id, row.utcDate, status,
++    const fixture = row.status === "SCHEDULED" ? null : normalize(descriptor, row.id, row.utcDate, status,
+       [participant("football-data", row.homeTeam?.id, row.homeTeam?.name, "home"),
+-        participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, url.href, updatedAt, compID),
+-      start: row.utcDate, competitionId: compID };
++        participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, url.href, updatedAt, compID);
++    const reportedScore = fixture ? normalizeUCLReportedScore(row, fixture) : undefined;
++    if (reportedScore) fixture.reportedScore = reportedScore;
++    return { fixture, start: row.utcDate, competitionId: compID };
+   });
+ }
+ 
+--- a/web/workers/playback/src/sports-fixture-sources.test.mjs
++++ b/web/workers/playback/src/sports-fixture-sources.test.mjs
+@@ -422,3 +422,17 @@
+   await assert.rejects(() => collect("mlb", async (_url, init) => { signal = init.signal; return new Promise(() => {}); }), /Deadline/);
+   assert.equal(signal.aborted, true);
+ });
++
++test("existing six-league request adds delayed reported goals only to explicit regular-time CL rows", async () => {
++  const rows = [footballRow({ id: 1001, competition: { code: "CL" }, status: "IN_PLAY", lastUpdated: now.toISOString(),
++    score: { duration: "REGULAR", fullTime: { home: 2, away: 0 } } }),
++  footballRow({ id: 1002, competition: { code: "PL" }, status: "IN_PLAY", lastUpdated: now.toISOString(),
++    score: { duration: "REGULAR", fullTime: { home: 2, away: 0 } } }),
++  footballRow({ id: 1003, competition: { code: "CL" }, status: "TIMED", score: { duration: "REGULAR", fullTime: { home: null, away: null } } })];
++  let calls = 0;
++  const result = await collect("football-data", async (url) => { calls++; return footballFetch(rows)(url); }, { FOOTBALL_DATA_API_KEY: "test-secret" });
++  assert.equal(calls, 1);
++  assert.deepEqual(result.fixtures[0].reportedScore, { home: 2, away: 0, publisherUpdatedAt: now.toISOString() });
++  assert.equal(result.fixtures[1].reportedScore, undefined);
++  assert.equal(result.fixtures[2].reportedScore, undefined);
++});
+--- /dev/null
++++ b/web/workers/playback/src/ucl-reported-score-policy.mjs
+@@ -0,0 +1,61 @@
++// Optional delayed reporting from the already admitted football-data CL rows.
++// No requests, live-score authority, fixture/status changes or PL/FPL changes.
++const MAX_SCORE_BYTES = 32 * 1024;
++const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
++const SCORE_KEYS = new Set(["home", "away", "publisherUpdatedAt"]);
++const scoreInteger = (value) => Number.isSafeInteger(value) && value >= 0 && value <= 99;
++function utc(value) {
++  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(value)) return undefined;
++  const date = new Date(value);
++  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 19) === value.slice(0, 19)
++    ? date.toISOString() : undefined;
++}
++function scope(fixture) {
++  return fixture?.sport === "football" && fixture.competitionId === "champions-league"
++    && /^sports-fixture:champions-league:[1-9]\d{0,11}$/.test(fixture.id)
++    && fixture.eventKind === "match" && fixture.squad?.gender === "men" && fixture.squad?.ageGroup === "senior"
++    && ["live", "finished"].includes(fixture.status) && fixture.source?.name === "football-data.org"
++    && Array.isArray(fixture.participants) && fixture.participants.length === 2
++    && fixture.participants.filter((team) => team.role === "home").length === 1
++    && fixture.participants.filter((team) => team.role === "away").length === 1
++    && fixture.participants.every((team) => /^football-data:[1-9]\d{0,11}$/.test(team.id))
++    && fixture.participants[0].id !== fixture.participants[1].id;
++}
++export function validUCLReportedScore(score, fixture) {
++  return scope(fixture) && score && typeof score === "object" && !Array.isArray(score)
++    && Object.keys(score).every((key) => SCORE_KEYS.has(key))
++    && scoreInteger(score.home) && scoreInteger(score.away)
++    && utc(score.publisherUpdatedAt) !== undefined
++    && utc(score.publisherUpdatedAt) === utc(fixture.source.updatedAt);
++}
++export function normalizeUCLReportedScore(row, fixture) {
++  if (!scope(fixture) || row?.competition?.code !== "CL" || String(row.id) !== fixture.id.split(":").at(-1)
++    || !["IN_PLAY", "PAUSED", "FINISHED", "AWARDED"].includes(row.status)
++    || fixture.status !== (["IN_PLAY", "PAUSED"].includes(row.status) ? "live" : "finished")
++    || row.score?.duration !== "REGULAR") return undefined;
++  const home = fixture.participants.find((team) => team.role === "home");
++  const away = fixture.participants.find((team) => team.role === "away");
++  if (home.id !== `football-data:${row.homeTeam?.id}` || away.id !== `football-data:${row.awayTeam?.id}`) return undefined;
++  const publisherUpdatedAt = utc(row.lastUpdated);
++  const score = { home: row.score?.fullTime?.home, away: row.score?.fullTime?.away, publisherUpdatedAt };
++  return validUCLReportedScore(score, fixture) ? score : undefined;
++}
++const withoutScore = (fixture) => {
++  if (fixture.reportedScore === undefined) return fixture;
++  const copy = { ...fixture }; delete copy.reportedScore; return copy;
++};
++export function boundedUCLReportedScores(snapshot) {
++  const fixtures = snapshot.fixtures.map((fixture) => fixture.reportedScore === undefined
++    || validUCLReportedScore(fixture.reportedScore, fixture) ? fixture : withoutScore(fixture));
++  const base = fixtures.map(withoutScore);
++  // Reserve the fixed SHA256 revision's wire size before the caller hashes it.
++  const baseBytes = new TextEncoder().encode(JSON.stringify({ ...snapshot, revision: "0".repeat(64), fixtures: base })).length;
++  let budget = Math.min(MAX_SCORE_BYTES, Math.max(0, MAX_SNAPSHOT_BYTES - baseBytes));
++  return { ...snapshot, fixtures: fixtures.map((fixture, index) => {
++    if (fixture.reportedScore === undefined) return fixture;
++    const bytes = new TextEncoder().encode(JSON.stringify(fixture)).length
++      - new TextEncoder().encode(JSON.stringify(base[index])).length;
++    if (bytes > budget) return base[index];
++    budget -= bytes; return fixture;
++  }) };
++}
+--- /dev/null
++++ b/web/workers/playback/src/ucl-reported-score-policy.test.mjs
+@@ -0,0 +1,97 @@
++import assert from "node:assert/strict";
++import test from "node:test";
++import { boundedUCLReportedScores, normalizeUCLReportedScore, validUCLReportedScore } from "./ucl-reported-score-policy.mjs";
++import { assembleSportsSnapshot, refreshSportsSource } from "./sports-fixture-registry.mjs";
++import { SPORTS_SOURCES } from "./sports-fixture-sources.mjs";
++
++const updatedAt = "2026-10-29T17:00:00.000Z";
++const fixture = (overrides = {}) => ({ id: "sports-fixture:champions-league:575377", sport: "football",
++  competitionId: "champions-league", eventKind: "match", status: "live",
++  participants: [{ id: "football-data:100", name: "Home", role: "home" }, { id: "football-data:200", name: "Away", role: "away" }],
++  squad: { gender: "men", ageGroup: "senior" }, source: { name: "football-data.org", updatedAt }, ...overrides });
++const row = (overrides = {}) => ({ id: 575377, competition: { code: "CL" }, status: "IN_PLAY", lastUpdated: updatedAt,
++  homeTeam: { id: 100 }, awayTeam: { id: 200 }, score: { duration: "REGULAR", fullTime: { home: 2, away: 0 } }, ...overrides });
++const score = { home: 2, away: 0, publisherUpdatedAt: updatedAt };
++
++test("UCL optional reported score preserves explicit zero and real publisher timestamp", () => {
++  assert.deepEqual(normalizeUCLReportedScore(row(), fixture()), score);
++  assert.equal(validUCLReportedScore(score, fixture()), true);
++  const before = fixture(); normalizeUCLReportedScore(row(), before);
++  assert.equal(before.status, "live"); assert.equal(before.reportedScore, undefined);
++});
++test("prematch real nullable UCL vector never becomes zero-zero or current-live authority", () => {
++  const pending = row({ status: "TIMED", score: { winner: null, duration: "REGULAR", fullTime: { home: null, away: null }, halfTime: { home: null, away: null } } });
++  assert.equal(normalizeUCLReportedScore(pending, fixture({ status: "scheduled" })), undefined);
++  assert.equal(normalizeUCLReportedScore(row({ score: { duration: "REGULAR", fullTime: { home: null, away: 0 } } }), fixture()), undefined);
++});
++test("wrong competition squad identity source or raw status cannot borrow CL reported score", () => {
++  for (const changed of [fixture({ competitionId: "premier-league" }), fixture({ sport: "cricket" }),
++    fixture({ eventKind: "session" }), fixture({ squad: { gender: "women", ageGroup: "senior" } }),
++    fixture({ squad: { gender: "men", ageGroup: "u19" } }), fixture({ source: { name: "Other", updatedAt } })]) {
++    assert.equal(normalizeUCLReportedScore(row(), changed), undefined);
++  }
++  for (const changed of [row({ competition: { code: "PL" } }), row({ id: 1 }), row({ homeTeam: { id: 900 } }),
++    row({ status: "FINISHED" }), row({ score: { duration: "PENALTY_SHOOTOUT", fullTime: { home: 5, away: 4 } } })]) {
++    assert.equal(normalizeUCLReportedScore(changed, fixture()), undefined);
++  }
++});
++test("malformed null strings negative goals and absent or mismatched timestamps omit score only", () => {
++  for (const value of [null, undefined, "0", -1, 100, 1.2, NaN]) {
++    assert.equal(normalizeUCLReportedScore(row({ score: { duration: "REGULAR", fullTime: { home: value, away: 0 } } }), fixture()), undefined);
++  }
++  for (const lastUpdated of [undefined, null, "2026-10-29T17:00:00", "2026-10-30T17:00:00Z"]) {
++    assert.equal(normalizeUCLReportedScore(row({ lastUpdated }), fixture()), undefined);
++  }
++});
++test("fresh same-ID nullable result has no optional score to renew previous goals", () => {
++  const previous = { ...fixture(), reportedScore: normalizeUCLReportedScore(row(), fixture()) };
++  const fresh = fixture();
++  const missing = normalizeUCLReportedScore(row({ score: { duration: "REGULAR", fullTime: { home: null, away: null } } }), fresh);
++  if (missing) fresh.reportedScore = missing;
++  assert.ok(previous.reportedScore); assert.equal(fresh.reportedScore, undefined);
++});
++test("budget stripping preserves every fixture and non-score field and ignores malformed optional score", () => {
++  const legacy = { ...fixture({ competitionId: "premier-league" }), reportedScore: score };
++  const snapshot = { schemaVersion: 1, complete: true, fixtures: [{ ...fixture(), reportedScore: score }, legacy], coverage: [] };
++  const output = boundedUCLReportedScores(snapshot);
++  assert.equal(output.fixtures.length, 2); assert.deepEqual(output.fixtures[0].reportedScore, score);
++  assert.equal(output.fixtures[1].reportedScore, undefined); assert.equal(output.fixtures[1].competitionId, "premier-league");
++  const full = boundedUCLReportedScores({ ...snapshot, padding: "x".repeat(2 * 1024 * 1024), fixtures: snapshot.fixtures });
++  assert.equal(full.fixtures.length, 2); assert.equal(full.fixtures[0].reportedScore, undefined);
++  assert.equal(full.padding.length, 2 * 1024 * 1024, "Existing base data is never erased or truncated for scores");
++});
++
++// End-to-end optional-field transport through the unchanged deployed admission
++// baseline. No per-record isolation or source/polling changes are required.
++test("admitted CL optional score survives registry assembly and changes only its content revision", async () => {
++  const descriptor = SPORTS_SOURCES.find((item) => item.id === "football-data");
++  const at = new Date(updatedAt);
++  const record = { ...fixture(), start: "2026-10-29T16:30:00.000Z", competitionName: "UEFA Champions League",
++    title: "Home vs Away", source: { name: "football-data.org", url: descriptor.sourceURL,
++      observedAt: updatedAt, updatedAt }, reportedScore: score };
++  const collection = (value, observedAt = updatedAt) => ({ fixtures: [value], observedAt,
++    pendingFixtureCount: 0, pendingByCompetition: Object.fromEntries(descriptor.competitions.map(({ id }) => [id, 0])) });
++  const state = await refreshSportsSource(null, descriptor, at, async () => collection(record));
++  assert.equal(state.consecutiveFailures, 0);
++  const snapshot = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, state]]), at);
++  assert.equal(snapshot.schemaVersion, 1); assert.equal(snapshot.complete, true);
++  assert.equal(snapshot.sourceStatus, "verified"); assert.equal(snapshot.fixtures.length, 1);
++  assert.deepEqual(snapshot.fixtures[0].reportedScore, score);
++  const later = new Date(at.getTime() + 5 * 60_000);
++  const changed = { ...record, source: { ...record.source, observedAt: later.toISOString(), updatedAt: later.toISOString() },
++    reportedScore: { home: 3, away: 0, publisherUpdatedAt: later.toISOString() } };
++  const nextState = await refreshSportsSource(state, descriptor, later, async () => collection(changed, later.toISOString()));
++  const next = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, nextState]]), later);
++  assert.equal(next.fixtures[0].id, record.id); assert.equal(next.fixtures[0].status, "live");
++  assert.equal(next.fixtures[0].reportedScore.home, 3); assert.notEqual(next.revision, snapshot.revision);
++  const noScore = { ...changed }; delete noScore.reportedScore;
++  const clearedState = await refreshSportsSource(nextState, descriptor, later, async () => collection(noScore, later.toISOString()));
++  const cleared = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, clearedState]]), later);
++  assert.equal(cleared.fixtures[0].reportedScore, undefined); assert.equal(cleared.fixtures[0].status, "live");
++  const failedState = await refreshSportsSource(nextState, descriptor, later, async () => { throw new Error("synthetic unavailable"); });
++  const retained = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, failedState]]), later);
++  assert.equal(retained.sourceStatus, "partial");
++  assert.deepEqual(retained.fixtures[0].reportedScore, changed.reportedScore);
++  assert.equal(retained.fixtures[0].source.observedAt, changed.source.observedAt);
++  assert.ok(retained.coverage.every((item) => item.status === "unavailable"));
++});
+--- a/web/workers/playback/src/worker-version.mjs
++++ b/web/workers/playback/src/worker-version.mjs
+@@ -1,3 +1,3 @@
+ // Release identity shared by the Worker and its production contract monitor.
+ // Bump this for every deployed source revision.
+-export const WORKER_SOURCE_VERSION = "2026-10-28.efl-cup-1";
++export const WORKER_SOURCE_VERSION = "2026-10-29.sports-context-1";

@@ -86,7 +86,7 @@ test("CS rejects typed metadata drift that prevents native decoding, without req
 
 test("AS native manifest contract rejects unsupported typed resources/configuration and catalog drift", () => {
   assert.equal(validateASManifest(asManifest), true);
-  for (const change of [{ id: "other" }, { version: "invalid version" }, { types: ["unknown"] },
+  for (const change of [{ id: "other" }, { id: "community.plaviohd" }, { version: "invalid version" }, { types: ["unknown"] },
     { behaviorHints: { configurationRequired: true } },
     { resources: ["catalog", "stream"] },
     { resources: ["catalog", { name: "stream", types: ["tv"], idPrefixes: ["wrong-"] }] },
@@ -484,4 +484,10 @@ test("malformed or script-only Score808 listing records a contract failure, not 
     assert.equal(leaves(rows).length, 1); assert.equal(rows[0].outcome, "failure"); assert.equal(rows[0].failureClass, "schema");
     assert.equal(JSON.stringify(rows).includes(calendarID), false);
   }
+});
+
+ test("PlavioLive observed TV-only manifest and migrated metadata origin are accepted", () => {
+  const observed = { ...asManifest, version: "2.1.5", resources: ["catalog", "meta", "stream"].map(name => ({ name, types: ["tv"], idPrefixes: ["plaviohdtv-"] })), behaviorHints: { configurable: true } };
+  assert.equal(validateASManifest(observed), true);
+  assert.equal(validateASManifest({ ...observed, id: "community.plaviohd", catalogs: [] }), false);
 });

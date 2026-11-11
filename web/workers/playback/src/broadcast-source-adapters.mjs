@@ -756,9 +756,15 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
           return await cohort(scope, async () => { advertised(m, name); return safeRows(await read(ORIGINS[providerCode] + "/catalog/tv/" + name + ".json", 700 * KiB), 600); },
             (row) => csRow(row, scope, now), false);
         };
-        for (const scope of ["live", "networks", "football", "cricket"]) await readScope(scope);
+        // Live freshness: a live fixture reads only the live scope plus its own
+        // sport cohort (~2-3 reads), so the cadence can drop from 40 to ~15
+        // minutes within the daily budget instead of waiting through a live half.
+        // Quiet/soon periods keep the full set and the extra searches.
+        const liveSports = new Set(hints.filter((f) => f.status === "live").map((f) => f.sport));
+        const livePriority = liveSports.size > 0;
+        for (const scope of livePriority ? ["live", ...liveSports] : ["live", "networks", "football", "cricket"]) await readScope(scope);
         let channelSearchRead = false;
-        if (!broadcasts.some((row) => row.kind === "channel" && row.channelID === "cricket-channel:willow" && row.stationMarket === "US")) {
+        if (!livePriority && !broadcasts.some((row) => row.kind === "channel" && row.channelID === "cricket-channel:willow" && row.stationMarket === "US")) {
           const key = searchableCatalog(m, "networks");
           if (key && read.count() < 8) {
             channelSearchRead = true;
@@ -767,7 +773,7 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
             (row) => csRow(row, "networks", now), false);
           }
         }
-        const uncovered = hints.filter((f) => searchableCatalog(m, f.sport) && !broadcasts.some((b) => b.kind !== "channel" && b.verification === "dated"
+        const uncovered = livePriority ? [] : hints.filter((f) => searchableCatalog(m, f.sport) && !broadcasts.some((b) => b.kind !== "channel" && b.verification === "dated"
           && b.sport === f.sport && samePair(b.participants, f.participants, f.sport)
           && (f.format === "Test" ? b.format === "Test" && b.matchOrdinal === f.matchOrdinal && b.day === f.day && b.start >= f.start && f.end && b.start < f.end
             : Math.abs(Date.parse(b.start) - Date.parse(f.start)) <= 15 * 60_000)));
@@ -784,7 +790,7 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
             if (ok) hintAdvanced = 1;
           }
         }
-        for (let n = 0; n < Math.min(3, rotating.length) && read.count() < 8; n++) if (await readScope(rotating[(offset + n) % rotating.length])) advanced++;
+        if (!livePriority) for (let n = 0; n < Math.min(3, rotating.length) && read.count() < 8; n++) if (await readScope(rotating[(offset + n) % rotating.length])) advanced++;
         cursor = (((safeCursor >>> 8) + hintAdvanced) % 256) * 256 + (rotating.length ? (offset + advanced) % rotating.length : 0);
       } else if (providerCode === "plaviosports") {
         let originals = [], originalRead = false; const rawRows = [];

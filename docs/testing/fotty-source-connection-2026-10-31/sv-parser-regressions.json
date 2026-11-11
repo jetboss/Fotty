@@ -1,0 +1,7 @@
+{
+  "tests": 38,
+  "failures": 0,
+  "skips": 0,
+  "scope": "StreamVixSportsAddonTests including category-growth and Simulcast regressions",
+  "physicalDevice": "Jet iPad"
+}

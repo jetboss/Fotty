@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "label": "fotty181-cs-score808",
+  "purpose": "pre-build",
+  "capturedAt": "2026-10-28T21:20:22.911300+00:00",
+  "provenance": "working-tree capture; not proof of a previously built binary",
+  "commit": "2ff52cd001977151c9153c07cf7e9a003ce24d2e",
+  "sourceSHA256": "962142083e3c42516cb1f9758bfb4126552cf7a95ccec3ee6e90fd54d17c861b",
+  "bundleSHA256": "708351855d444179d52cee196de9fcd900da88ecdcf26b0a4c58b3d2e8b546f6"
+}

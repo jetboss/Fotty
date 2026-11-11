@@ -1,0 +1,25 @@
+{
+  "build": "204",
+  "fixtureID": "sports-fixture:premier-league:560628",
+  "programme": "Aston Villa vs Fulham; 1-0; Sky Sports",
+  "observations": [
+    {
+      "source": "FS1",
+      "utcWindow": "20:41\u201320:42",
+      "result": "correct_programme_then_failed_over_before_90_second_proof"
+    },
+    {
+      "source": "FS2",
+      "utcWindow": "20:43\u201320:45",
+      "result": "correct_native_programme_visually_advancing_over_90_seconds_same_selected_label",
+      "automatedFrameCounter": false,
+      "sameAttemptIdentityInstrumented": false
+    },
+    {
+      "source": "Score808",
+      "label": "Broadcast7",
+      "utcWindow": "20:47\u201320:48",
+      "result": "normal_web_player_did_not_start_after_automatic_retry; no decoded programme; app remained open"
+    }
+  ]
+}

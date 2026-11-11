@@ -37,6 +37,9 @@ import { SportsFixtureRegistry as BaseSportsFixtureRegistry, assembleSportsSnaps
 
 const ALL_SPORTS_SOURCES = [...SPORTS_SOURCES, ...SPORTS_EVENT_SOURCES];
 const PRIMARY_SPORTS_SOURCE_IDS = new Set(SPORTS_SOURCES.map((source) => source.id));
+// National-team football has its own switch so it can run without opening
+// every public website feed (NBA, NFL, college, MLS, tennis, golf...).
+export const INTERNATIONAL_FOOTBALL_SOURCE_IDS = new Set(["uefa-nations-league", "international-friendlies", "concacaf-nations-league"]);
 function effectiveSportsSources(env) {
   return ALL_SPORTS_SOURCES.map((source) => {
     if (source.id === "efl-carabao-cup" && env.FOTTY_SPORTS_EFL_ENABLED !== "1") {
@@ -45,7 +48,8 @@ function effectiveSportsSources(env) {
     if (source.id === "wnba" && env.FOTTY_SPORTS_WNBA_ENABLED !== "1") {
       return { ...source, supported: false, reason: "The league CDN does not return structured data to the cloud fixture service; activation requires verified source access." };
     }
-    return source.publicUndocumented && env.FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED !== "1"
+    const internationalAllowed = INTERNATIONAL_FOOTBALL_SOURCE_IDS.has(source.id) && env.FOTTY_SPORTS_INTERNATIONAL_FOOTBALL_ENABLED === "1";
+    return source.publicUndocumented && env.FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED !== "1" && !internationalAllowed
       ? { ...source, supported: false, reason: "This public website feed is awaiting separate source-access review." } : source;
   });
 }

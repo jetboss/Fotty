@@ -1,0 +1,13 @@
+{
+  "build": "2.0.1(184)",
+  "configuration": "iOS Release",
+  "buildExitCode": 0,
+  "strictDeepSignature": "passed",
+  "mainAndWidgetVersionMatch": true,
+  "candidateInputsVerified": 314,
+  "protectedFeatureFilesUnchanged": 43,
+  "executableSHA256": "c9a6f18879902f940c181bd874213c1263d35018d9c83ae42ebd3636cc8fba5b",
+  "physicalGate": "installed without launch; live playback/fullscreen/PiP deferred by owner",
+  "noPhoneInteraction": true,
+  "noTestFlight": true
+}

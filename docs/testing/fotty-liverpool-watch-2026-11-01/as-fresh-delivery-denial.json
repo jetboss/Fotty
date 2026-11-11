@@ -1,0 +1,15 @@
+{
+  "checkedAtUTC": "2026-11-01T17:19:35.477Z",
+  "provider": "AS",
+  "match": "Liverpool\u2013Arsenal",
+  "reads": 2,
+  "descriptorHTTP": 200,
+  "descriptorDeliveries": 3,
+  "selectedAdvertisedChoice": 1,
+  "deliveryContract": "reviewed HTTPS443 host, one HLSleaf, no query or required headers",
+  "freshAdvertisedRootHTTP": 403,
+  "freshAdvertisedRootIsHLS": false,
+  "responseContentType": "text/html",
+  "interpretation": "Freshly advertised AS1 denied from Mac as well; old native metadata lease expiry alone cannot explain this result",
+  "limits": "Single Mac request, not global outage or decoded playback proof. No alternate headers/cookies/path/query/access workaround attempted."
+}

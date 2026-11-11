@@ -1,13 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Play, Radio } from "lucide-react";
 import type { ScrapedMatch } from "@/lib/api";
 import { buildWatchHref, formatKickoff } from "@/lib/live";
 import { fixtureDisplayTitle } from "@/lib/fixture-normalization";
-import { isOptimizedImageSrc } from "@/lib/image-hosts";
 import {
   eventSportLabel,
   fixtureCardBadgeLabel,
@@ -34,15 +31,12 @@ export function EventPosterCard({
 }: EventPosterCardProps) {
   const watchReturnTo = returnTo ?? v2HomePath();
   const title = fixtureDisplayTitle(match);
-  const poster = match.poster?.trim();
   const phase = fixtureCardPhase(match);
   const isLive = phase === "live";
   const isClickable = fixtureCardIsClickable(match);
   const badgeLabel = fixtureCardBadgeLabel(phase);
   const sportLabel = eventSportLabel(match);
   const kickoff = formatKickoff(match.startsAt);
-
-  const [posterError, setPosterError] = useState(false);
 
   const card = (
     <article

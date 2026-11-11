@@ -1,0 +1,51 @@
+{
+  "checkedAt": "2026-10-29T00:24:12.885922Z",
+  "purpose": "General native playback gate; not football or cricket qualification",
+  "fixture": {
+    "officialID": "nhl:2026020199",
+    "teams": [
+      "Washington Capitals",
+      "Philadelphia Flyers"
+    ],
+    "kickoffUTC": "2026-10-28T23:30:00Z"
+  },
+  "requests": [
+    {
+      "stage": "manifest",
+      "httpStatus": 200,
+      "bytes": 10736,
+      "sha256": "ff7aed20d412a2a7134ab3529b6396068852b2972e9deed472ccb3d8c3a2f92c"
+    },
+    {
+      "stage": "reviewed_catalog",
+      "httpStatus": 200,
+      "bytes": 304550,
+      "sha256": "6602670e02753ed1dae0f8e30921ab2d23d34f31c50baf6156ba15935b838769"
+    },
+    {
+      "stage": "exact_metadata",
+      "httpStatus": 200,
+      "bytes": 1699,
+      "sha256": "ea04983894f962e1552d7823a25906a0be2864753eacc4fd1456e32a8b75b050"
+    }
+  ],
+  "status": "exact_metadata_match_present",
+  "manifest": {
+    "version": "2.16.30",
+    "reviewedContract": true
+  },
+  "catalog": {
+    "rowCount": 85,
+    "exactPairRows": 1,
+    "exactRowsSatisfyIdentityContract": true,
+    "uniqueCandidateCount": 1
+  },
+  "metadata": {
+    "candidateIDHash": "5fc544aa25ca33fd20ee19a2",
+    "sameAdvertisedID": true,
+    "sameExactPair": true,
+    "explicitReviewedUTCShape": true,
+    "kickoffUTC": "2026-10-28T23:30:00Z",
+    "sameOfficialKickoff": true
+  }
+}

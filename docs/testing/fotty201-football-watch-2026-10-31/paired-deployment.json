@@ -1,0 +1,23 @@
+{
+  "ok": true,
+  "problems": [],
+  "notificationCount": 129,
+  "workers": [
+    {
+      "worker": "fotty-playback-v3",
+      "version": "07650a86-59c0-4187-ab79-92554ec247e5",
+      "createdAt": "2026-10-31T15:09:40.577773Z",
+      "bindingCount": 21,
+      "allBindingsPreserved": true
+    },
+    {
+      "worker": "fotty-watchdog",
+      "version": "f8ec2d9e-15d1-4266-b39c-fefc5a458665",
+      "createdAt": "2026-10-31T15:09:47.896669Z",
+      "bindingCount": 3,
+      "allBindingsPreserved": true
+    }
+  ],
+  "deployedAt": "2026-10-31T15:09:47.896669Z",
+  "lastCompletedAt": "2026-10-31T15:21:02.881Z"
+}

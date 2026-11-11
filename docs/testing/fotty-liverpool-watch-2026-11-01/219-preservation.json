@@ -1,0 +1,14 @@
+{
+  "checkedAt": "2026-11-01T20:35:33.607012+00:00",
+  "protectedSourcePaths": 45,
+  "unchangedSourcePaths": 45,
+  "protectedPreferenceKeys": 16,
+  "unchangedProtectedPreferences": 15,
+  "changedProtectedPreferenceCount": 1,
+  "changedKeysAreOnlyPlaybackHealth": true,
+  "sourceEnablementKeysCount": 1,
+  "sourceEnablementUnchanged": true,
+  "phoneInteractedWith": false,
+  "FPLOrMultiSourceChanges": false,
+  "TestFlightChanges": false
+}

@@ -1,0 +1,19 @@
+{
+  "tests": 333,
+  "failures": 0,
+  "runtime": "Mac Catalyst policy/unit tests; no simulator, no physical playback claim",
+  "sourceSHA256": {
+    "Fotty/Core/Networking/ReviewedTVPlaylistClient.swift": "ef2ca4855ac500a1e51c3d58237ca00de4a91e8fe40897466d7c18293cf5ac7b",
+    "FottyTests/ReviewedTVPlaylistClientTests.swift": "cd18c756c9c396a194c4077fab6a017b720758b191004cd66a04b52b5ecf63e5",
+    "FottyTests/SportsTVExperienceTests.swift": "9d35689096acc8ddd40a1ca7a94740f2966af9b13da9ae25c90aacbf202b996f"
+  },
+  "regressions": [
+    "Exact original station metadata/provenance",
+    "Fresh descriptor renewal keeps selected channel",
+    "Opt-out preserved",
+    "Wrong station/path/header/provenance rejected",
+    "New US stations cannot borrow Uruguay guide",
+    "Willow Sports is separate from Willow Cricket",
+    "Existing Sky CS and native recovery suites retained"
+  ]
+}

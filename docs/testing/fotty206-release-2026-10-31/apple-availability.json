@@ -1,0 +1,26 @@
+{
+  "version": "2.0.1",
+  "build": "206",
+  "processing": "VALID",
+  "audience": "INTERNAL_ONLY",
+  "usesNonExemptEncryption": false,
+  "betaDetail": {
+    "autoNotifyEnabled": true,
+    "internalBuildState": "IN_BETA_TESTING",
+    "externalBuildState": "NOT_APPLICABLE"
+  },
+  "groups": [
+    {
+      "id": "bc092013-dea0-4b9c-b986-76e095ecf143",
+      "name": "Fotty Internal Smoke",
+      "isInternalGroup": true
+    }
+  ],
+  "notes": [
+    {
+      "locale": "en-GB",
+      "whatsNew": "Bug fixes"
+    }
+  ],
+  "testerCountObservedInUI": 13
+}

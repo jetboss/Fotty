@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 
 struct DashboardPresentationLayers: ViewModifier {
+    @Environment(ViewingSessionCoordinator.self) private var viewing
     @Binding var selectedHighlightsMatch: FootballMatch?
     @Binding var showPlayer: Bool
     @Binding var showMultiPlayer: Bool
@@ -11,32 +12,24 @@ struct DashboardPresentationLayers: ViewModifier {
     let multiViewSlots: [MultiLiveSlot]
     
     let liveScoreService: LiveScoreService
-    let socialCloudStore: SocialCloudStore
+    let onMultiPlaybackUnavailable: (String) -> Void
     
     func body(content: Content) -> some View {
         content
-            .fullScreenCover(isPresented: $showPlayer) {
-                if let event = streamEvent {
-                    LivePlayerView(
-                        event: event,
-                        providedSessions: streamSessions
-                    )
-                    .environment(liveScoreService)
-                    .environmentObject(socialCloudStore)
-                }
+            .onChange(of: showPlayer) { _, show in
+                guard show else { return }
+                if let event = streamEvent { viewing.open(event: event, sessions: streamSessions) }
+                showPlayer = false
             }
-            .fullScreenCover(isPresented: $showMultiPlayer) {
-                if !multiViewSlots.isEmpty {
-                    MultiLivePlayerView(slots: multiViewSlots)
-                    .environment(liveScoreService)
-                    .environmentObject(socialCloudStore)
-                }
+            .onChange(of: showMultiPlayer) { _, show in
+                guard show else { return }
+                viewing.openMulti(slots: multiViewSlots)
+                showMultiPlayer = false
             }
             .fullScreenCover(item: $selectedHighlightsMatch) { match in
                 NavigationStack {
                     MatchHubView(fixtureId: String(match.id), showModalDismissButton: true)
                         .environment(liveScoreService)
-                        .environmentObject(socialCloudStore)
                 }
             }
     }
@@ -51,7 +44,7 @@ extension View {
         streamSessions: [StreamSession],
         multiViewSlots: [MultiLiveSlot],
         liveScoreService: LiveScoreService,
-        socialCloudStore: SocialCloudStore
+        onMultiPlaybackUnavailable: @escaping (String) -> Void
     ) -> some View {
         self.modifier(DashboardPresentationLayers(
             selectedHighlightsMatch: selectedHighlightsMatch,
@@ -61,7 +54,7 @@ extension View {
             streamSessions: streamSessions,
             multiViewSlots: multiViewSlots,
             liveScoreService: liveScoreService,
-            socialCloudStore: socialCloudStore
+            onMultiPlaybackUnavailable: onMultiPlaybackUnavailable
         ))
     }
 }

@@ -1,10 +1,7 @@
-import { fottyFeedLabel } from "@/lib/watch-stream-display";
 import { eventSourceDisplayName } from "./feed-label";
 import { healthScoreFromHeatTier, healthStateFromScore } from "./health";
-import { p2pHealthToScore, p2pHealthToStatus } from "./p2p-health";
 import type {
   EventStreamVariantWithSignals,
-  P2PGuideSignals,
   RankedStreamGuide,
   StreamGuideGroup,
   StreamSource,
@@ -82,7 +79,6 @@ function eventVariantToSource(
     healthScore,
     isRecommended: rankIndex === 0,
     isBackup: rankIndex > 0,
-    requiresP2P: false,
     priority: 100 - rankIndex,
     diagnosticsSafeId: `embed-${variant.streamNo}`,
     whyThis:
@@ -166,91 +162,6 @@ export function rankEventStreamGuide(
   }
 
   return { recommended, backups, groups, all };
-}
-
-export function buildP2PStreamGuide(signals: P2PGuideSignals): RankedStreamGuide {
-  const { telemetry, isWarming, isActive, cid, matchId, p2pHealth } = signals;
-  const hasPeers = telemetry.peerCount > 0;
-  const hasSegments = telemetry.readySegmentCount > 0 || telemetry.firstSegmentReady;
-  const hasSpeed = telemetry.downloadSpeedKbps > 0;
-  const probeScore = p2pHealthToScore(p2pHealth);
-  const probeStatus = p2pHealth ? p2pHealthToStatus(p2pHealth) : null;
-
-  let healthScore: number | null = probeScore;
-  let status = probeStatus ?? healthStateFromScore(null);
-  let inferredHealth = !p2pHealth;
-
-  if (isWarming) {
-    status = "checking";
-    healthScore = probeScore;
-    inferredHealth = true;
-  } else if (probeStatus === "offline" && !hasPeers && !hasSegments) {
-    status = "offline";
-    healthScore = probeScore ?? 15;
-    inferredHealth = Boolean(p2pHealth);
-  } else if (isActive && hasSegments && hasSpeed) {
-    const liveScore = Math.min(98, 75 + Math.min(telemetry.peerCount, 12) * 2);
-    healthScore = probeScore !== null ? Math.round((probeScore + liveScore) / 2) : liveScore;
-    status = healthStateFromScore(healthScore);
-    inferredHealth = probeScore === null;
-  } else if (hasPeers || hasSegments) {
-    healthScore = probeScore !== null ? Math.max(probeScore, 62) : 62;
-    status = healthStateFromScore(healthScore);
-    inferredHealth = probeScore === null;
-  } else if (telemetry.error) {
-    status = probeStatus && probeStatus !== "checking" ? probeStatus : "unstable";
-    healthScore = probeScore ?? 40;
-    inferredHealth = !p2pHealth;
-  } else if (!p2pHealth) {
-    status = "checking";
-    healthScore = null;
-    inferredHealth = true;
-  }
-
-  const whyParts: string[] = [];
-  if (isWarming) {
-    whyParts.push("P2P streams may take a few seconds to stabilize while peers connect.");
-  } else {
-    whyParts.push("Primary P2P feed for this channel from the Live Board.");
-  }
-  if (p2pHealth?.latencyMs) {
-    whyParts.push(`Last probe ${p2pHealth.latencyMs}ms.`);
-  }
-
-  const source: StreamSource = {
-    id: `p2p-${cid}`,
-    matchId,
-    displayName: "Best Stream",
-    providerType: "p2p",
-    streamType: "p2p",
-    quality: "Auto",
-    status,
-    healthScore,
-    lastCheckedAt: p2pHealth?.checkedAt,
-    latencyMs: p2pHealth?.latencyMs,
-    isRecommended: true,
-    isBackup: false,
-    requiresP2P: true,
-    peerStrength: telemetry.peerCount,
-    priority: 100,
-    diagnosticsSafeId: `p2p-${cid.slice(0, 8)}`,
-    whyThis: whyParts.join(" "),
-    inferredHealth,
-  };
-
-  return {
-    recommended: source,
-    backups: [],
-    groups: [
-      {
-        id: "p2p",
-        title: "P2P source",
-        description: "Use Live Board to switch channels for this match.",
-        sources: [source],
-      },
-    ],
-    all: [source],
-  };
 }
 
 export function pickBackupAfterFailure(

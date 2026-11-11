@@ -1,0 +1,114 @@
+{
+  "evidence_id": "ev_2be32faac81950a1fd37679b81766dc55d9b722484321d88d6aba03f2080f46c",
+  "subject": {
+    "name": "Stremio",
+    "digest": {
+      "sha256": "7ace606680feb99b9797925832fc5b3c60dda81b8d1d72faa060037e52f9e3f6"
+    },
+    "format": "mach-o",
+    "architecture": "arm64",
+    "local_path": "/private/tmp/Fotty25REA.m4tURB/Extracted/Stremio.app/Contents/MacOS/Stremio"
+  },
+  "provider": {
+    "id": "native-macos",
+    "name": "macOS native inspection utilities",
+    "version": null
+  },
+  "analysis_profile": null,
+  "predicate_type": "rea.analysis",
+  "operation": "inspect_plist",
+  "parameters": {
+    "path": "Contents/Frameworks/KSPlayer.framework/Versions/A/Resources/Info.plist"
+  },
+  "raw_result": null,
+  "normalized_result": {
+    "format": "xml",
+    "value": {
+      "CFBundleName": "KSPlayer",
+      "DTXcode": "2650",
+      "DTSDKName": "macosx26.5",
+      "DTSDKBuild": "25F70",
+      "CFBundleDevelopmentRegion": "en",
+      "CFBundleVersion": "1",
+      "BuildMachineOSBuild": "25F84",
+      "DTPlatformName": "macosx",
+      "CFBundlePackageType": "FMWK",
+      "CFBundleShortVersionString": "1.0",
+      "CFBundleSupportedPlatforms": [
+        "MacOSX"
+      ],
+      "CFBundleInfoDictionaryVersion": "6.0",
+      "CFBundleExecutable": "KSPlayer",
+      "DTCompiler": "com.apple.compilers.llvm.clang.1_0",
+      "UIDeviceFamily": [
+        2,
+        6
+      ],
+      "CFBundleIdentifier": "ksplayer.KSPlayer",
+      "DTPlatformVersion": "26.5",
+      "DTXcodeBuild": "17F42",
+      "LSMinimumSystemVersion": "10.15",
+      "DTPlatformBuild": "25F70"
+    },
+    "bundle": {
+      "identifier": "ksplayer.KSPlayer",
+      "executable": "KSPlayer",
+      "name": "KSPlayer",
+      "version": "1",
+      "short_version": "1.0"
+    },
+    "source_path": "/private/tmp/Fotty25REA.m4tURB/Extracted/Stremio.app/Contents/Frameworks/KSPlayer.framework/Versions/A/Resources/Info.plist",
+    "provenance": [
+      {
+        "tool": "file",
+        "command": [
+          "/usr/bin/file",
+          "-b",
+          "$PLIST"
+        ],
+        "tool_version": null,
+        "version_reason": "Tool exposes no uniform stable version flag; executable SHA-256 is a prelaunch file sample and does not prove atomic OS image binding.",
+        "executable_sha256": "8014815e1028410f48966f1880f99c842a5678cf2fcaa010e8d7e9e498f651d0",
+        "exit": {
+          "code": 0,
+          "signal": null
+        },
+        "stdout_bytes": 34,
+        "stderr_bytes": 0
+      },
+      {
+        "tool": "plutil",
+        "command": [
+          "/usr/bin/plutil",
+          "-convert",
+          "json",
+          "-o",
+          "-",
+          "--",
+          "$PLIST"
+        ],
+        "tool_version": null,
+        "version_reason": "Tool exposes no uniform stable version flag; executable SHA-256 is a prelaunch file sample and does not prove atomic OS image binding.",
+        "executable_sha256": "5ec63ed0506b7676b30fe69d00ae48c689daf1badc1e786a18166b01b615e8ac",
+        "exit": {
+          "code": 0,
+          "signal": null
+        },
+        "stdout_bytes": 598,
+        "stderr_bytes": 0
+      }
+    ],
+    "limitations": []
+  },
+  "confidence": "observed",
+  "authority": "shipped-artifact",
+  "environment": null,
+  "limitations": [],
+  "locations": [
+    {
+      "kind": "artifact-path",
+      "path": "/private/tmp/Fotty25REA.m4tURB/Extracted/Stremio.app/Contents/Frameworks/KSPlayer.framework/Versions/A/Resources/Info.plist"
+    }
+  ],
+  "evidence_links": []
+}

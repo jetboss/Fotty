@@ -28,7 +28,7 @@ export function fixtureReceipts(body, { kind, now = Date.now(), environment = "p
   return receipts;
 }
 
-export async function collectFixtureReceipts({ request = fetch, now = Date.now(), environment = "production", onSportsSnapshot } = {}) {
+export async function collectFixtureReceipts({ request = fetch, now = Date.now(), environment = "production", onSportsSnapshot, onCricketSnapshot } = {}) {
   const results = [];
   let healthBody;
   try {
@@ -57,6 +57,7 @@ export async function collectFixtureReceipts({ request = fetch, now = Date.now()
       // a bounded metadata canary. Individual verified/live/fresh fixture admission
       // remains the canary selector's job; no additional snapshot fetch is needed.
       if (kind === "sports" && typeof onSportsSnapshot === "function") onSportsSnapshot(body);
+      if (kind === "cricket" && typeof onCricketSnapshot === "function") onCricketSnapshot(body);
     } catch { results.push(observation("fixtures-service", "integrity", "failure", "invalid-contract", now, environment, { scope: kind })); }
   }
   return results;

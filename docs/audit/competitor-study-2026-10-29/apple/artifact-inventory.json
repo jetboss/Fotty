@@ -1,0 +1,11 @@
+[
+  {
+    "app": "apple",
+    "url": "https://tv.apple.com/assets/main~Brxe4_UoZn.js",
+    "finalURL": "https://tv.apple.com/assets/main~Brxe4_UoZn.js",
+    "status": 200,
+    "bytes": 2065834,
+    "sha256": "2ec7bd510d97f1029f3cc640b14ec444c864e563e01c2aae4244e2b24c3b9b08",
+    "contentType": "application/javascript"
+  }
+]

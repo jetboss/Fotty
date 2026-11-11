@@ -1,0 +1,17 @@
+{
+  "build": 232,
+  "target": "Jet iPad",
+  "fixture": "New Zealand\u2013India first ODI",
+  "faultTapUTC": "2026-11-04T08:54:39.966Z",
+  "pictureObservedUTC": "2026-11-04T08:54:57Z",
+  "recoveryObservationUpperBoundSeconds": 18,
+  "fault": "Private local AVPlayerItemFailedToPlayToEndTime CannotDecodeContentData; failed route re-signalled if selected again",
+  "primary": "CS1, Broadcast 2",
+  "replacement": "CS1, Broadcast 3, renewed delivery",
+  "independentPublisherProven": false,
+  "observation": "Willow-branded New Zealand\u2013India pictures on both deliveries; earlier programme identified rain interruption; does not establish contemporaneous on-field play. No user source switch after fault.",
+  "hold": "failed before 90 seconds",
+  "limits": "Manual screen samples bound recovery; synthetic session intentionally does not persist real viewing diagnostics.",
+  "terminalObservedUTC": "2026-11-04T08:56:09Z",
+  "terminal": "Stream Stalled; no remaining automatic recovery"
+}

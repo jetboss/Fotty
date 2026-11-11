@@ -44,20 +44,36 @@ public enum FPLAlertScheduler {
             ]
         )
         for reminder in plan {
-            let content = UNMutableNotificationContent()
-            content.title = reminder.title
-            content.body = reminder.body
-            content.sound = .default
-            let components = Calendar.current.dateComponents(
-                [.year, .month, .day, .hour, .minute],
-                from: reminder.fireDate
-            )
-            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-            try await center.add(
-                UNNotificationRequest(identifier: reminder.id, content: content, trigger: trigger)
-            )
+            try await center.add(notificationRequest(for: reminder))
         }
         return plan.count
+    }
+
+    /// An absolute UTC trigger survives device time-zone and daylight-saving
+    /// changes. The typed route returns a delivered reminder to FPL instead of
+    /// whichever tab happened to be open previously.
+    static func notificationRequest(for reminder: FPLDeadlineReminder) -> UNNotificationRequest {
+        let content = UNMutableNotificationContent()
+        content.title = reminder.title
+        content.body = reminder.body
+        content.sound = .default
+        content.userInfo = [
+            "route": "fpl-deadline",
+            "fireDate": reminder.fireDate.timeIntervalSince1970
+        ]
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        var components = calendar.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second],
+            from: reminder.fireDate
+        )
+        components.calendar = calendar
+        components.timeZone = calendar.timeZone
+        return UNNotificationRequest(
+            identifier: reminder.id,
+            content: content,
+            trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        )
     }
 }
 

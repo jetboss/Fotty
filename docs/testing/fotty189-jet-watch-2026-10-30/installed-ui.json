@@ -1,0 +1,24 @@
+{
+  "build": 189,
+  "namedTarget": "Jet iPad",
+  "installedBuildConfirmed": true,
+  "appWidgetVersionParity": true,
+  "strictSignatureChecks": true,
+  "JetProvisionedInBothProfiles": true,
+  "profileTeamAndExpiryValid": true,
+  "nativeSourceFingerprintMatchesTestedPhone189": true,
+  "priorFocusedTestCount": 124,
+  "noTestFlight": true,
+  "atUTC": "2026-10-30T11:00:52.946589+00:00",
+  "physicalUI": {
+    "HomeLiveHeroAndRows": "Watch verified",
+    "MatchdayFutureRows": "countdowns/reminders preserved; no Check action",
+    "Search": "original query restored; full-query remote typing was partial, not marked passed",
+    "InlineMatchDetails": "Watch this match verified",
+    "FullMatchDetails": "Watch primary control verified",
+    "WatchTap": "One normal Details Watch tap starts lookup; no intermediate Check action. Result Broadcast not ready; no player/video observed."
+  },
+  "normalLaunchWithoutTestingFlags": true,
+  "sourceCodeChangedThisGate": false,
+  "physicalPlaybackAndPiP": "Pending; not a pass"
+}

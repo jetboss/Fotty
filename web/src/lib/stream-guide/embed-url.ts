@@ -14,24 +14,8 @@ export function buildDirectEmbedUrl(source: string, id: string, streamNo = 1, or
  * Keep direct embed.st (StreamEx works with referrerPolicy=no-referrer).
  * data: host-frames do not give score808live.tv origin — leave Safari-parity to iOS WKWebView.
  */
-export function resolveEventEmbedIframeSrc(
-  embedUrl: string,
-  _source?: string | null
-): string {
+export function resolveEventEmbedIframeSrc(embedUrl: string): string {
   return embedUrl.trim();
-}
-
-/**
- * Same-origin PHP player on getfotty.com — fetches embed.st server-side, injects unmute + HLS proxy.
- * Prefer this for in-page Watch iframes (Cloudflare Workers get stub HTML from embed.st).
- */
-export function buildSameOriginEventPlayerUrl(source: string, id: string, streamNo = 1) {
-  const params = new URLSearchParams({
-    source: source.trim(),
-    id: id.trim(),
-    streamNo: String(Math.max(1, streamNo)),
-  });
-  return `/playback/player.php?${params.toString()}`;
 }
 
 export function synthesizeEventStreamVariants(
@@ -51,11 +35,6 @@ export function synthesizeEventStreamVariants(
     provider: "Fotty Live",
     heatTier: "synthesized",
   }));
-}
-
-export function isSynthesizedEventStream(stream?: Pick<EventStreamVariant, "heatTier" | "provider"> | null) {
-  if (!stream) return false;
-  return stream.heatTier === "synthesized" || stream.provider === "Fotty direct";
 }
 
 export function firstPlayableEventStream(streams: EventStreamVariant[]) {

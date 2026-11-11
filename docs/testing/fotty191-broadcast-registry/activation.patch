@@ -1,0 +1,2341 @@
+diff --git a/web/workers/playback/src/broadcast-registry-policy.mjs b/web/workers/playback/src/broadcast-registry-policy.mjs
+new file mode 100644
+index 0000000..616e4d4
+--- /dev/null
++++ b/web/workers/playback/src/broadcast-registry-policy.mjs
+@@ -0,0 +1,263 @@
++// Shared, metadata-only broadcast association. This module performs no I/O,
++// selects no upstream and never carries media locations or credentials.
++import { canonicalFootballClubId } from "../../../src/lib/football-competition-catalog.generated.ts";
++export const BROADCAST_REGISTRY_SCHEMA = 1;
++export const BROADCAST_REGISTRY_LIMITS = Object.freeze({ collectionRecords: 1500, collectionBytes: 1024 * 1024,
++  records: 4000, links: 4000, snapshotBytes: 4 * 1024 * 1024, sourceLifetime: 4 * 60 * 60_000,
++  programmeLifetime: 10 * 60_000, retention: 24 * 60 * 60_000 });
++export const BROADCAST_PROVIDER_CODES = Object.freeze(["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix"]);
++export const BROADCAST_SCOPES = Object.freeze(["football", "cricket", "basketball", "baseball", "hockey", "american-football", "rugby", "fight", "motorsport", "golf", "tennis", "darts", "college", "other", "live", "networks"]);
++export const BROADCAST_REASONS = Object.freeze(["source-unavailable", "budget-exhausted", "invalid-collection", "incomplete-catalog", "catalog-conflict", "stale-source", "identity-conflict", "time-conflict", "squad-conflict", "competition-conflict", "format-conflict", "ordinal-conflict", "day-conflict", "missing-date", "missing-participants", "missing-programme", "unverified-fixture", "terminal-fixture", "missing-test-authority", "unsupported-scope", "capacity-exceeded"]);
++const providers = new Set(BROADCAST_PROVIDER_CODES), scopes = new Set(BROADCAST_SCOPES), reasons = new Set(BROADCAST_REASONS);
++const kinds = new Set(["event", "channel", "programme"]), formats = new Set(["Test", "T20", "ODI", "T10"]);
++const channels = new Set(["cricket-channel:willow", "cricket-channel:fox-cricket"]);
++const minute = 60_000, day = 86_400_000;
++const object = (v) => v && typeof v === "object" && !Array.isArray(v);
++const bytes = (v) => new TextEncoder().encode(JSON.stringify(v)).length;
++function text(v, max = 512) { return typeof v === "string" && v.length > 0 && v.length <= max
++  && v === v.trim() && !/[\p{Cc}\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069<>]/u.test(v) && !v.includes("://"); }
++function reference(v, max = 4096) { return text(v, max) && /^[\p{L}\p{N}_.:~=\-]+$/u.test(v)
++  && !/^(?:https?|file|data|javascript):/iu.test(v); }
++function stamp(v) {
++  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/.test(v)) return null;
++  const n = Date.parse(v), date = v.slice(0, 10);
++  return Number.isFinite(n) && new Date(n).toISOString().slice(0, 10) === date
++    && Number(v.slice(11, 13)) < 24 && Number(v.slice(14, 16)) < 60 && Number(v.slice(17, 19)) < 60 ? n : null;
++}
++const iso = (n) => new Date(n).toISOString();
++const normal = (v) => v.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/&/g, " and ")
++  .replace(/[^\p{L}\p{N}]+/gu, " ").trim().replace(/\s+/g, " ");
++const placeholders = new Set(["home", "away", "tbd", "tbc", "unknown", "teams to be confirmed"]);
++const squadPattern = /\b(?:women|womens|ladies|youth|academy|reserves?|u\s?\d{1,2}|under\s?\d{1,2}|w)\b/gu;
++function teamKey(value, sport) {
++  const normalized = normal(value);
++  // Reviewed club aliases and squad identity are independent. Resolve only
++  // literal aliases of the base club, then restore every explicit qualifier.
++  const qualifiers = [...new Set([...normalized.matchAll(squadPattern)].map(([token]) => {
++    const compact = token.replace(/ /g, "");
++    return ["women", "womens", "ladies", "w"].includes(compact) ? "women"
++      : ["reserve", "reserves"].includes(compact) ? "reserves" : compact.replace(/^under/u, "u");
++  }))].sort();
++  const base = normalized.replace(squadPattern, " ").trim().replace(/\s+/g, " ");
++  if (!base || placeholders.has(base)) return null;
++  const reviewedClub = sport === "football" ? canonicalFootballClubId(base) : undefined;
++  const canonical = reviewedClub ? `football|${reviewedClub}` : base;
++  return qualifiers.length ? `${canonical}|${qualifiers.join(",")}` : canonical;
++}
++function pair(v, sport) {
++  if (!Array.isArray(v) || v.length !== 2 || !v.every((x) => text(x, 256))) return null;
++  const keys = v.map((name) => teamKey(name, sport));
++  return keys.every(Boolean) && keys[0] !== keys[1] ? keys.sort() : null;
++}
++const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
++function squad(v) { return object(v) && ["men", "women", "mixed", "unknown"].includes(v.gender)
++  && text(v.ageGroup, 32) ? { gender: v.gender, ageGroup: v.ageGroup } : null; }
++function ordinal(v, max) { return Number.isSafeInteger(v) && v >= 1 && v <= max; }
++export async function broadcastRegistryHash(value) {
++  return [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(JSON.stringify(value))))]
++    .map((v) => v.toString(16).padStart(2, "0")).join("");
++}
++
++/// The same advertised event may appear in a sport and Live cohort. Equivalent
++/// identity facts are one record; contradictory current facts remain a veto.
++export function mergeBroadcastRecords(records, at = new Date(), coverage = []) {
++  const now = Number(at), statuses = new Map(coverage.map((r) => [r.providerCode + ":" + r.scope, r.status]));
++  const groups = new Map();
++  for (const row of records) groups.set(row.id, [...(groups.get(row.id) ?? []), row]);
++  const identity = (r) => ({ providerCode: r.providerCode, providerEventID: r.providerEventID, streamID: r.streamID,
++    kind: r.kind, sport: r.sport, participants: pair(r.participants, r.sport), start: r.start, end: r.end,
++    competitionID: r.competitionID, squad: r.squad, format: r.format, matchOrdinal: r.matchOrdinal,
++    day: r.day, channelID: r.channelID, verification: r.verification });
++  return [...groups.values()].map((rows) => {
++    const current = rows.filter((r) => Date.parse(r.expiresAt) > now), eligible = current.length ? current : rows;
++    eligible.sort((a, b) => Number(["available", "partial"].includes(statuses.get(b.providerCode + ":" + b.scope)))
++      - Number(["available", "partial"].includes(statuses.get(a.providerCode + ":" + a.scope)))
++      || Date.parse(b.observedAt) - Date.parse(a.observedAt) || a.scope.localeCompare(b.scope));
++    const first = eligible[0];
++    if (eligible.some((r) => !same(identity(r), identity(first)))) return { ...first, verification: "conflicting",
++      issues: [...new Set([...first.issues, "catalog-conflict"])].sort() };
++    return first;
++  });
++}
++
++export async function normalizeBroadcastCollection(providerCode, input, at = new Date()) {
++  const now = Number(at), observed = stamp(input?.observedAt);
++  if (!providers.has(providerCode) || !object(input) || input.providerCode !== providerCode || !Number.isFinite(now)
++    || !Array.isArray(input.broadcasts) || input.broadcasts.length > BROADCAST_REGISTRY_LIMITS.collectionRecords
++    || bytes(input) > BROADCAST_REGISTRY_LIMITS.collectionBytes || observed === null || observed > now + 5 * minute
++    || observed < now - day || !Array.isArray(input.scopes) || input.scopes.length > BROADCAST_SCOPES.length) throw new Error("invalid-collection");
++  const coverage = [], seenScopes = new Set();
++  for (const scope of input.scopes) {
++    if (!object(scope) || !scopes.has(scope.scope) || seenScopes.has(scope.scope)
++      || !["available", "partial", "empty", "failed", "unsupported"].includes(scope.status)
++      || typeof scope.complete !== "boolean" || scope.failure !== undefined && !reasons.has(scope.failure)
++      || ["available", "empty"].includes(scope.status) && !scope.complete) throw new Error("invalid-collection");
++    seenScopes.add(scope.scope);
++    const scopeObserved = stamp(scope.observedAt ?? input.observedAt);
++    if (scopeObserved === null || scopeObserved > observed + 5 * minute || scopeObserved < now - day) throw new Error("invalid-collection");
++    coverage.push({ providerCode, scope: scope.scope, status: scope.status, complete: scope.complete,
++      observedAt: iso(scopeObserved), ...(scope.failure ? { failure: scope.failure } : {}) });
++  }
++  const records = [];
++  for (const row of input.broadcasts) {
++    if (!object(row) || !seenScopes.has(row.scope) || !reference(row.providerEventID) || !reference(row.streamID ?? row.providerEventID)
++      || row.resourceType !== "tv" || !kinds.has(row.kind) || !text(row.title)
++      || ![...BROADCAST_SCOPES.filter((s) => !["live", "networks"].includes(s)), "unknown"].includes(row.sport)
++      || !Array.isArray(row.participants) || row.participants.length > 2 || row.participants.some((p) => !text(p, 256))) throw new Error("invalid-collection");
++    const receipt = stamp(row.observedAt ?? input.observedAt), expiry = stamp(row.expiresAt);
++    const lifetime = row.kind === "programme" ? BROADCAST_REGISTRY_LIMITS.programmeLifetime : BROADCAST_REGISTRY_LIMITS.sourceLifetime;
++    if (receipt === null || expiry === null || receipt > now + 5 * minute || receipt > observed + 5 * minute
++      || receipt < now - day || expiry <= receipt || expiry - receipt > lifetime) throw new Error("invalid-collection");
++    const issues = new Set(Array.isArray(row.issues) ? row.issues.filter((r) => reasons.has(r)) : []);
++    let verification = ["dated", "undated", "conflicting"].includes(row.verification) ? row.verification : "undated";
++    const record = { id: "br:" + await broadcastRegistryHash([providerCode, row.providerEventID, row.streamID ?? row.providerEventID]),
++      providerCode, providerEventID: row.providerEventID, streamID: row.streamID ?? row.providerEventID,
++      resourceType: "tv", scope: row.scope, kind: row.kind, sport: row.sport, title: row.title,
++      participants: row.participants, observedAt: iso(receipt), expiresAt: iso(expiry) };
++    for (const key of ["start", "end"]) if (row[key] !== undefined) {
++      const time = stamp(row[key]);
++      if (time === null) { verification = "conflicting"; issues.add("time-conflict"); }
++      else record[key] = iso(time);
++    }
++    if (record.end && record.start && record.end <= record.start) { verification = "conflicting"; issues.add("time-conflict"); }
++    if (row.competitionID !== undefined) {
++      if (!reference(row.competitionID, 128)) throw new Error("invalid-collection");
++      record.competitionID = row.competitionID;
++    }
++    if (row.squad !== undefined) {
++      const value = squad(row.squad);
++      if (!value) { verification = "conflicting"; issues.add("squad-conflict"); }
++      else record.squad = value;
++    }
++    if (row.format !== undefined) {
++      if (!formats.has(row.format)) { verification = "conflicting"; issues.add("format-conflict"); }
++      else record.format = row.format;
++    }
++    for (const [key, max, reason] of [["matchOrdinal", 99, "ordinal-conflict"], ["day", 6, "day-conflict"]]) {
++      if (row[key] === undefined) continue;
++      if (!ordinal(row[key], max) || key === "day" && row.format !== "Test"
++        || key === "matchOrdinal" && !formats.has(row.format)) { verification = "conflicting"; issues.add(reason); }
++      else record[key] = row[key];
++    }
++    if (row.channelID !== undefined) {
++      if (!channels.has(row.channelID) || row.sport !== "cricket") { verification = "conflicting"; issues.add("identity-conflict"); }
++      else record.channelID = row.channelID;
++    }
++    if (row.kind === "channel" && (!record.channelID || row.participants.length || record.start || record.end)) {
++      verification = "conflicting"; issues.add("identity-conflict");
++    }
++    if (row.kind !== "channel" && !pair(record.participants, record.sport)) { verification = "conflicting"; issues.add("missing-participants"); }
++    if (verification === "dated" && !record.start) { verification = "undated"; issues.add("missing-date"); }
++    if (row.kind === "programme" && (!record.channelID || !record.start || !record.end)) {
++      verification = "conflicting"; issues.add("missing-programme");
++    }
++    record.verification = verification;
++    record.issues = [...issues].sort();
++    records.push(record);
++  }
++  const broadcasts = mergeBroadcastRecords(records, at, coverage);
++  for (const scope of coverage) {
++    if (["failed", "unsupported", "empty"].includes(scope.status) && broadcasts.some((b) => b.scope === scope.scope)) throw new Error("invalid-collection");
++  }
++  return { providerCode, observedAt: iso(observed), complete: input.complete === true, scopes: coverage,
++    broadcasts, ...(ordinal(input.cursor, 65535) || input.cursor === 0 ? { cursor: input.cursor } : {}) };
++}
++
++export function normalizeRegistryFixtures(rows, at = new Date()) {
++  const now = Number(at);
++  if (!Array.isArray(rows) || rows.length > 3000 || !Number.isFinite(now)) throw new Error("invalid-fixtures");
++  const result = [], duplicates = new Set(), seen = new Set();
++  for (const row of rows) { if (seen.has(row.fixtureID)) duplicates.add(row.fixtureID); seen.add(row.fixtureID); }
++  for (const row of rows) {
++    if (!object(row) || duplicates.has(row.fixtureID) || !reference(row.fixtureID, 512) || !pair(row.participants, row.sport)
++      || !BROADCAST_SCOPES.includes(row.sport) || ["live", "networks"].includes(row.sport)
++      || row.verified !== true || !["live", "scheduled"].includes(row.status)) continue;
++    const start = stamp(row.start), observed = stamp(row.observedAt);
++    if (start === null || observed === null || observed > now + 5 * minute || start > now + 14 * day
++      || now - observed > (row.status === "scheduled" && start >= now ? day : 30 * minute)) continue;
++    const fingerprint = { fixtureID: row.fixtureID, sport: row.sport, start: iso(start), participants: row.participants };
++    if (row.competitionID !== undefined) { if (!reference(row.competitionID, 128)) continue; fingerprint.competitionID = row.competitionID; }
++    if (row.squad !== undefined) { const value = squad(row.squad); if (!value) continue; fingerprint.squad = value; }
++    if (row.format !== undefined) { if (!formats.has(row.format)) continue; fingerprint.format = row.format; }
++    if (row.matchOrdinal !== undefined) { if (row.format !== "Test" || !ordinal(row.matchOrdinal, 99)) continue; fingerprint.matchOrdinal = row.matchOrdinal; }
++    if (row.day !== undefined) { if (row.format !== "Test" || !ordinal(row.day, 6)) continue; fingerprint.day = row.day; }
++    if (row.end !== undefined) {
++      const end = stamp(row.end);
++      if (end === null || end <= start || row.format === "Test" && end - start > 6 * day) continue;
++      fingerprint.end = iso(end);
++    }
++    if (row.status === "live" && fingerprint.end && Date.parse(fingerprint.end) <= now) continue;
++    result.push({ ...fingerprint, status: row.status, observedAt: iso(observed), verified: true });
++  }
++  return result;
++}
++
++export function associateBroadcasts({ fixtures, broadcasts, providers: coverage = [], now = new Date() }) {
++  const time = Number(now), admitted = normalizeRegistryFixtures(fixtures, now), links = [];
++  if (!Array.isArray(broadcasts) || broadcasts.length > BROADCAST_REGISTRY_LIMITS.records) throw new Error("capacity-exceeded");
++  const scopeState = new Map(coverage.map((r) => [r.providerCode + ":" + r.scope, r]));
++  // The reviewed alias resolver scans a finite generated catalog. Normalize
++  // each broadcast once, not once for every fixture in this bounded batch.
++  const broadcastPairs = new Map(broadcasts.map((row) => [row, pair(row.participants, row.sport)]));
++  for (const fixture of admitted) {
++    const expected = pair(fixture.participants, fixture.sport);
++    const fingerprint = { ...fixture }; delete fingerprint.status; delete fingerprint.observedAt; delete fingerprint.verified;
++    for (const broadcast of broadcasts) {
++      if (broadcast.kind === "channel" || broadcast.sport !== fixture.sport || !same(broadcastPairs.get(broadcast), expected)) continue;
++      let state = "listed", reason, method = broadcast.kind === "programme" ? "programme" : "exact";
++      const fail = (next, value) => { if (state === "listed" || next === "conflicting") { state = next; reason = value; } };
++      if (!providers.has(broadcast.providerCode) || stamp(broadcast.observedAt) === null || stamp(broadcast.expiresAt) === null) continue;
++      if (broadcast.verification === "conflicting") fail("conflicting", broadcast.issues?.[0] ?? "catalog-conflict");
++      const scope = scopeState.get(broadcast.providerCode + ":" + broadcast.scope);
++      // A failed catalog refresh cannot revoke an unexpired accepted listing.
++      // It permits only a fresh same-ID descriptor check, never old media reuse.
++      const retained = scope?.status === "failed" && stamp(scope.lastSuccessAt) !== null
++        && scope.lastSuccessAt === scope.observedAt && stamp(scope.expiresAt) !== null
++        && Date.parse(scope.expiresAt) > time && time - Date.parse(scope.observedAt) <= BROADCAST_REGISTRY_LIMITS.sourceLifetime;
++      if (!["available", "partial"].includes(scope?.status) && !retained) fail("needsVerification", "source-unavailable");
++      if (Date.parse(broadcast.expiresAt) <= time || Date.parse(broadcast.observedAt) > time + 5 * minute) fail("needsVerification", "stale-source");
++      if (broadcast.verification !== "dated" || !broadcast.start) fail("needsVerification", "missing-date");
++      if (broadcast.competitionID && fixture.competitionID && broadcast.competitionID !== fixture.competitionID) fail("conflicting", "competition-conflict");
++      if (broadcast.squad && fixture.squad && !same(broadcast.squad, fixture.squad)) fail("conflicting", "squad-conflict");
++      if (fixture.sport === "cricket") {
++        if (!broadcast.format || !fixture.format) fail("needsVerification", "format-conflict");
++        else if (broadcast.format !== fixture.format) fail("conflicting", "format-conflict");
++      }
++      if (fixture.format === "Test") {
++        if (!fixture.matchOrdinal || !fixture.day || !fixture.end || !broadcast.matchOrdinal || !broadcast.day) fail("needsVerification", "missing-test-authority");
++        else if (fixture.matchOrdinal !== broadcast.matchOrdinal) fail("conflicting", "ordinal-conflict");
++        else if (fixture.day !== broadcast.day) fail("conflicting", "day-conflict");
++        else if (!broadcast.start || broadcast.start < fixture.start || broadcast.start >= fixture.end
++          || broadcast.end && broadcast.end > fixture.end) fail("conflicting", "time-conflict");
++        else if (broadcast.kind !== "programme") method = "test-period";
++      } else if (broadcast.start && Math.abs(Date.parse(broadcast.start) - Date.parse(fixture.start)) > 15 * minute) fail("conflicting", "time-conflict");
++      if (broadcast.kind === "programme" && (!channels.has(broadcast.channelID) || !broadcast.end
++        || Date.parse(broadcast.end) <= time || Date.parse(broadcast.start) > time + 15 * minute)) fail("needsVerification", "missing-programme");
++      const expiry = Math.min(Date.parse(broadcast.expiresAt), Date.parse(fixture.observedAt) + (fixture.status === "scheduled" && Date.parse(fixture.start) >= time ? day : 30 * minute),
++        broadcast.kind === "programme" && broadcast.end ? Date.parse(broadcast.end) : Infinity);
++      links.push({ fixtureID: fixture.fixtureID, broadcastID: broadcast.id, providerCode: broadcast.providerCode,
++        state, matchMethod: method, fixtureFingerprint: fingerprint, expiresAt: iso(expiry), ...(reason ? { reason } : {}) });
++      if (links.length > BROADCAST_REGISTRY_LIMITS.links) throw new Error("capacity-exceeded");
++    }
++  }
++  const owners = new Map();
++  for (const link of links) if (link.state === "listed") {
++    const ids = owners.get(link.broadcastID) ?? new Set(); ids.add(link.fixtureID); owners.set(link.broadcastID, ids);
++  }
++  for (const link of links) if (link.state === "listed" && owners.get(link.broadcastID)?.size > 1) {
++    link.state = "conflicting"; link.reason = "catalog-conflict";
++  }
++  return links;
++}
++
++export async function buildBroadcastSnapshot({ providers: coverage, broadcasts, links, now = new Date() }) {
++  if (!Array.isArray(coverage) || coverage.length > BROADCAST_PROVIDER_CODES.length * BROADCAST_SCOPES.length
++    || !Array.isArray(broadcasts) || broadcasts.length > BROADCAST_REGISTRY_LIMITS.records
++    || !Array.isArray(links) || links.length > BROADCAST_REGISTRY_LIMITS.links) throw new Error("capacity-exceeded");
++  const stable = { providers: [...coverage].sort((a, b) => (a.providerCode + a.scope).localeCompare(b.providerCode + b.scope)),
++    broadcasts: [...broadcasts].sort((a, b) => a.id.localeCompare(b.id)),
++    links: [...links].sort((a, b) => (a.fixtureID + a.broadcastID).localeCompare(b.fixtureID + b.broadcastID)) };
++  const snapshot = { schemaVersion: 1, revision: await broadcastRegistryHash(stable), generatedAt: new Date(now).toISOString(), ...stable };
++  if (bytes(snapshot) > BROADCAST_REGISTRY_LIMITS.snapshotBytes) throw new Error("capacity-exceeded");
++  return snapshot;
++}
+diff --git a/web/workers/playback/src/broadcast-registry-policy.test.mjs b/web/workers/playback/src/broadcast-registry-policy.test.mjs
+new file mode 100644
+index 0000000..814ea7f
+--- /dev/null
++++ b/web/workers/playback/src/broadcast-registry-policy.test.mjs
+@@ -0,0 +1,209 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { normalizeBroadcastCollection, normalizeRegistryFixtures, associateBroadcasts, buildBroadcastSnapshot,
++  BROADCAST_REGISTRY_LIMITS } from "./broadcast-registry-policy.mjs";
++
++const now = new Date("2026-10-30T11:30:00.000Z"), stamp = (offset = 0) => new Date(+now + offset).toISOString();
++const fixture = (changes = {}) => ({ fixtureID: "sports-fixture:premier-league:123", sport: "football",
++  participants: ["Liverpool", "Chelsea"], start: stamp(-30 * 60_000), competitionID: "premier-league",
++  squad: { gender: "men", ageGroup: "senior" }, status: "live", observedAt: stamp(), verified: true, ...changes });
++const row = (changes = {}) => ({ providerEventID: "nuvio_sport_match", streamID: "nuvio_sport_match", resourceType: "tv",
++  scope: "football", kind: "event", sport: "football", title: "Liverpool vs Chelsea", participants: ["Liverpool", "Chelsea"],
++  start: stamp(-30 * 60_000), verification: "dated", observedAt: stamp(), expiresAt: stamp(20 * 60_000), ...changes });
++const collection = (rows = [row()], changes = {}) => ({ providerCode: "communitysports", observedAt: stamp(), complete: true,
++  scopes: [{ scope: "football", status: "available", complete: true }], broadcasts: rows, ...changes });
++async function joined(rows = [row()], fixtures = [fixture()], changes = {}) {
++  const source = await normalizeBroadcastCollection("communitysports", collection(rows, changes), now);
++  return { source, links: associateBroadcasts({ fixtures, broadcasts: source.broadcasts, providers: source.scopes, now }) };
++}
++
++test("wire text retains171-char participants and harmlessZWJ/tagemoji while C1/bidi never enter a snapshot", async () => {
++  const england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}";
++  const source = await normalizeBroadcastCollection("communitysports", collection([
++    row(), row({ providerEventID: "long_name", streamID: "long_name", participants: ["A".repeat(171), "Other Team"] }),
++    row({ providerEventID: "zwj", streamID: "zwj", title: "Family 👨\u200D👩\u200D👧\u200D👦" }),
++    row({ providerEventID: "tag", streamID: "tag", title: "England " + england }),
++  ]), now);
++  assert.equal(source.broadcasts.length, 4);
++  assert.ok(source.broadcasts.some((r) => r.participants[0].length === 171));
++  assert.ok(source.broadcasts.some((r) => r.title === "England " + england));
++  for (const scalar of ["\u0085", "\u061c", "\u200e", "\u200f", "\u202a", "\u202e", "\u2066", "\u2069"])
++    await assert.rejects(normalizeBroadcastCollection("communitysports", collection([row({ title: "Fixture" + scalar + "Title" })]), now), /invalid-collection/u);
++  for (const scalar of ["\u0085", "\u200d", "\u{E0067}"])
++    await assert.rejects(normalizeBroadcastCollection("communitysports", collection([row({ providerEventID: "source" + scalar + "event" })]), now), /invalid-collection/u);
++});
++
++test("normalized registry retains bounded identity facts and strips every unrelated raw location/credential", async () => {
++  const { source, links } = await joined([row({ url: "https://private.example/media?token=secret", headers: { Authorization: "secret" },
++    description: "https://another.example/private", token: "secret" })]);
++  assert.equal(source.broadcasts[0].id.length, 67);
++  assert.match(source.broadcasts[0].id, /^br:[a-f0-9]{64}$/);
++  assert.equal(links[0].state, "listed");
++  assert.equal(links[0].matchMethod, "exact");
++  assert.equal(links[0].fixtureFingerprint.start, fixture().start);
++  const text = JSON.stringify(source);
++  assert.equal(text.includes("https://"), false); assert.equal(text.includes("secret"), false);
++  await assert.rejects(normalizeBroadcastCollection("communitysports", collection([row({ providerEventID: "https://private.example/token" })]), now), /invalid-collection/);
++});
++
++test("exact pairing, scope, squad and date conflicts never become listed broadcasts", async () => {
++  assert.equal((await joined([row({ participants: ["Liverpool", "Arsenal"] })])).links.length, 0);
++  for (const [changes, reason] of [[{ start: stamp(-46 * 60_000) }, "time-conflict"],
++    [{ competitionID: "champions-league" }, "competition-conflict"],
++    [{ squad: { gender: "women", ageGroup: "senior" } }, "squad-conflict"]]) {
++    const { links } = await joined([row(changes)]);
++    assert.equal(links[0].state, "conflicting"); assert.equal(links[0].reason, reason);
++  }
++  const missing = (await joined([row({ start: undefined, verification: "undated" })])).links[0];
++  assert.equal(missing.state, "needsVerification"); assert.equal(missing.reason, "missing-date");
++});
++
++test("reviewed football club aliases preserve exact pairs and explicit squad identity", async () => {
++  for (const [official, published] of [
++    [["Brighton & Hove Albion", "Manchester United"], ["Brighton", "Man Utd"]],
++    [["Wolverhampton Wanderers", "Tottenham Hotspur"], ["Wolves", "Tottenham"]],
++    [["Manchester United Women", "Brighton & Hove Albion Women"], ["Man Utd Ladies", "Brighton W"]],
++    [["Manchester United Under-19", "Brighton & Hove Albion U19"], ["Man Utd U 19", "Brighton Under 19"]],
++  ]) {
++    const women = official.some((name) => /\bWomen\b/u.test(name)), youth = official.some((name) => /(?:Under-19|U19)/u.test(name));
++    const result = await joined([row({ participants: published })], [fixture({ participants: official,
++      squad: { gender: women ? "women" : "men", ageGroup: youth ? "u19" : "senior" } })]);
++    assert.equal(result.links[0]?.state, "listed", published.join(" / "));
++    assert.deepEqual(result.links[0].fixtureFingerprint.participants, official, "Fingerprint keeps the actual official names");
++  }
++  for (const published of [["Brighton Women", "Man Utd Women"], ["Brighton U19", "Man Utd Under-19"],
++    ["Brighton Reserves", "Man Utd Reserve"], ["Brighton Academy", "Man Utd Academy"],
++    ["Brighton", "Manchester City"], ["Brighton Albion B", "Man Utd"]]) {
++    assert.equal((await joined([row({ participants: published })],
++      [fixture({ participants: ["Brighton & Hove Albion", "Manchester United"] })])).links.length, 0, published.join(" / "));
++  }
++  assert.deepEqual(normalizeRegistryFixtures([fixture({ participants: ["Man Utd", "Manchester United"] })], now), [],
++    "Two aliases for one club are not two opponents");
++});
++
++test("football aliases do not cross sports or conceal conflicting duplicate squads", async () => {
++  const source = await joined([row(), row({ scope: "live", participants: ["Liverpool Women", "Chelsea Women"] })], [fixture()],
++    { scopes: [{ scope: "football", status: "available", complete: true }, { scope: "live", status: "available", complete: true }] });
++  assert.equal(source.source.broadcasts[0].verification, "conflicting");
++  assert.notEqual(source.links[0]?.state, "listed");
++  const cricket = fixture({ fixtureID: "cricket-fixture:icc:alias", sport: "cricket", competitionID: "icc", squad: undefined,
++    format: "T20", participants: ["West Indies", "Australia"] });
++  const opts = { scopes: [{ scope: "cricket", status: "available", complete: true }] };
++  const common = row({ scope: "cricket", sport: "cricket", format: "T20", competitionID: "icc" });
++  assert.equal((await joined([{ ...common, participants: cricket.participants }], [cricket], opts)).links[0]?.state, "listed");
++  assert.equal((await joined([{ ...common, participants: ["West Indies Women", "Australia Women"] }], [cricket], opts)).links.length, 0);
++  assert.equal((await joined([{ ...common, participants: ["WI", "Australia"] }], [cricket], opts)).links.length, 0,
++    "No new country alias is invented when no reviewed shared JavaScript country table exists");
++});
++
++test("malformed or conflicting duplicate observations remain vetoes rather than first-row positives", async () => {
++  const { source, links } = await joined([row(), row({ start: stamp(-2 * 60 * 60_000) })]);
++  assert.equal(source.broadcasts.length, 1);
++  assert.equal(source.broadcasts[0].verification, "conflicting");
++  assert.equal(links[0].state, "conflicting");
++  const malformed = await joined([row({ start: "2026-02-30T11:00:00Z" })]);
++  assert.equal(malformed.source.broadcasts[0].verification, "conflicting");
++  assert.notEqual(malformed.links[0].state, "listed");
++});
++
++test("terminal, unverified, stale and contradictory official facts cannot lend fixture authority", async () => {
++  for (const changes of [{ status: "finished" }, { status: "cancelled" }, { status: "postponed" }, { verified: false },
++    { observedAt: stamp(-31 * 60_000) }]) assert.equal((await joined([row()], [fixture(changes)])).links.length, 0);
++  assert.deepEqual(normalizeRegistryFixtures([fixture(), fixture({ start: stamp(-29 * 60_000) })], now), []);
++  const stale = await joined([row({ observedAt: stamp(-25 * 60_000), expiresAt: stamp(-5 * 60_000) })]);
++  assert.equal(stale.links[0].state, "needsVerification"); assert.equal(stale.links[0].reason, "stale-source");
++});
++
++test("Test occurrence joins explicit source UTC with official same day, ordinal and canonical period only", async () => {
++  const official = fixture({ fixtureID: "cricket-fixture:icc:269792", sport: "cricket", participants: ["South Africa", "Australia"],
++    competitionID: "icc", squad: undefined, format: "Test", matchOrdinal: 3, day: 4,
++    start: "2026-10-27T08:30:00.000Z", end: "2026-10-31T15:30:00.000Z" });
++  const broadcast = row({ scope: "cricket", sport: "cricket", title: "South Africa vs Australia, 3rd Test Day 4",
++    participants: official.participants, format: "Test", matchOrdinal: 3, day: 4, start: "2026-10-30T08:00:00.000Z" });
++  const opts = { scopes: [{ scope: "cricket", status: "available", complete: true }] };
++  const { links } = await joined([broadcast], [official], opts);
++  assert.equal(links[0].state, "listed"); assert.equal(links[0].matchMethod, "test-period");
++  assert.equal(links[0].fixtureFingerprint.start, official.start);
++  for (const [changes, reason] of [[{ day: 3 }, "day-conflict"], [{ matchOrdinal: 2 }, "ordinal-conflict"],
++    [{ start: "2026-11-01T08:00:00.000Z" }, "time-conflict"], [{ format: "T20", day: undefined, matchOrdinal: undefined }, "format-conflict"]]) {
++    const wrong = await joined([{ ...broadcast, ...changes }], [official], opts);
++    assert.equal(wrong.links[0].state, "conflicting"); assert.equal(wrong.links[0].reason, reason);
++  }
++  const noEnd = await joined([broadcast], [{ ...official, end: undefined }], opts);
++  assert.equal(noEnd.links[0].state, "needsVerification"); assert.equal(noEnd.links[0].reason, "missing-test-authority");
++  assert.equal("dailyStart" in links[0].fixtureFingerprint, false);
++});
++
++test("generic channels never prove a fixture but an explicitly dated exact programme may link", async () => {
++  const official = fixture({ fixtureID: "cricket-fixture:icc:123", sport: "cricket", participants: ["India", "England"],
++    competitionID: "icc", squad: undefined, format: "T20" });
++  const channel = row({ scope: "networks", kind: "channel", sport: "cricket", title: "Willow Cricket",
++    participants: [], start: undefined, verification: "undated", channelID: "cricket-channel:willow" });
++  const opts = { scopes: [{ scope: "networks", status: "available", complete: true }] };
++  assert.equal((await joined([channel], [official], opts)).links.length, 0);
++  const programme = { ...channel, providerEventID: "programme1", streamID: "programme1", kind: "programme", title: "India vs England",
++    participants: official.participants, start: official.start, end: stamp(60 * 60_000), format: "T20", verification: "dated", expiresAt: stamp(10 * 60_000) };
++  const admitted = (await joined([programme], [official], opts)).links[0];
++  assert.equal(admitted.state, "listed"); assert.equal(admitted.matchMethod, "programme");
++  for (const changed of [{ ...programme, channelID: undefined }, { ...programme, participants: [] }]) {
++    assert.equal((await joined([changed], [official], opts)).links.some((link) => link.state === "listed"), false);
++  }
++});
++
++test("partial positive cohorts remain useful while held source failure never renews them", async () => {
++  const partial = await joined([row()], [fixture()], { complete: false, scopes: [{ scope: "football", status: "partial", complete: false }] });
++  assert.equal(partial.links[0].state, "listed");
++  const held = associateBroadcasts({ fixtures: [fixture()], broadcasts: partial.source.broadcasts,
++    providers: [{ providerCode: "communitysports", scope: "football", status: "failed" }], now });
++  assert.equal(held[0].state, "needsVerification"); assert.equal(held[0].reason, "source-unavailable");
++  const retainedScope = { providerCode: "communitysports", scope: "football", status: "failed",
++    observedAt: stamp(), lastSuccessAt: stamp(), expiresAt: stamp(20 * 60_000), failure: "source-unavailable" };
++  const retained = associateBroadcasts({ fixtures: [fixture()], broadcasts: partial.source.broadcasts,
++    providers: [retainedScope], now });
++  assert.equal(retained[0].state, "listed", "Catalog failure alone must not erase an accepted exact source identity");
++  assert.equal(retained[0].expiresAt, partial.source.broadcasts[0].expiresAt, "Failure never renews original listing expiry");
++  assert.equal(associateBroadcasts({ fixtures: [fixture()], broadcasts: partial.source.broadcasts,
++    providers: [{ ...retainedScope, expiresAt: stamp(-1) }], now })[0].state, "needsVerification");
++});
++
++test("one unmarked broadcast cannot belong to two competing canonical fixtures", async () => {
++  const other = fixture({ fixtureID: "sports-fixture:champions-league:other", competitionID: "champions-league" });
++  const ambiguous = await joined([row()], [fixture(), other]);
++  assert.equal(ambiguous.links.length, 2);
++  assert.ok(ambiguous.links.every((link) => link.state === "conflicting" && link.reason === "catalog-conflict"));
++  const explicit = await joined([row({ competitionID: "premier-league" })], [fixture(), other]);
++  assert.equal(explicit.links.filter((link) => link.state === "listed").length, 1);
++  assert.equal(explicit.links.find((link) => link.state === "listed").fixtureID, fixture().fixtureID);
++});
++
++test("equivalent sport and Live source entries share one identity without losing contradiction vetoes", async () => {
++  const scopes = [{ scope: "football", status: "available", complete: true }, { scope: "live", status: "available", complete: true }];
++  const equivalent = await joined([row(), row({ scope: "live", title: "Live: Liverpool vs Chelsea" })], [fixture()], { scopes });
++  assert.equal(equivalent.source.broadcasts.length, 1);
++  assert.equal(equivalent.links[0].state, "listed");
++  const contradiction = await joined([row(), row({ scope: "live", participants: ["Liverpool", "Arsenal"] })], [fixture()], { scopes });
++  assert.equal(contradiction.source.broadcasts.length, 1);
++  assert.equal(contradiction.source.broadcasts[0].verification, "conflicting");
++  assert.notEqual(contradiction.links[0]?.state, "listed");
++});
++
++test("stable event lookup facts have four-hour ceiling while programme currentness remains ten minutes", async () => {
++  const stable = await joined([row({ expiresAt: stamp(4 * 60 * 60_000) })]);
++  assert.equal(stable.links[0].state, "listed");
++  assert.equal(stable.links[0].expiresAt, stamp(30 * 60_000), "Fresh official LIVE authority remains the shorter fence");
++  await assert.rejects(normalizeBroadcastCollection("communitysports", collection([row({ expiresAt: stamp(4 * 60 * 60_000 + 1) })]), now), /invalid-collection/);
++  const programme = row({ kind: "programme", sport: "cricket", scope: "networks", channelID: "cricket-channel:willow",
++    end: stamp(60 * 60_000), expiresAt: stamp(10 * 60_000 + 1) });
++  await assert.rejects(normalizeBroadcastCollection("communitysports", collection([programme],
++    { scopes: [{ scope: "networks", status: "available", complete: true }] }), now), /invalid-collection/);
++});
++
++test("content revision is deterministic without renewing source observations and caps never truncate identities", async () => {
++  const { source, links } = await joined();
++  const first = await buildBroadcastSnapshot({ providers: source.scopes, broadcasts: source.broadcasts, links, now });
++  const second = await buildBroadcastSnapshot({ providers: source.scopes, broadcasts: source.broadcasts, links, now: new Date(+now + 1000) });
++  assert.equal(first.revision, second.revision); assert.notEqual(first.generatedAt, second.generatedAt);
++  assert.equal(second.broadcasts[0].observedAt, stamp());
++  await assert.rejects(buildBroadcastSnapshot({ providers: [], broadcasts: Array(BROADCAST_REGISTRY_LIMITS.records + 1).fill(source.broadcasts[0]), links: [], now }), /capacity-exceeded/);
++  await assert.rejects(normalizeBroadcastCollection("communitysports", collection(Array(1501).fill(row())), now), /invalid-collection/);
++});
+diff --git a/web/workers/playback/src/broadcast-registry-worker.test.mjs b/web/workers/playback/src/broadcast-registry-worker.test.mjs
+new file mode 100644
+index 0000000..41fade6
+--- /dev/null
++++ b/web/workers/playback/src/broadcast-registry-worker.test.mjs
+@@ -0,0 +1,140 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { readFile } from "node:fs/promises";
++import worker, { BroadcastRegistry, enabledBroadcastProviders, broadcastRegistryEnabled,
++  loadBroadcastRegistryFixtures } from "./index.js";
++import { SPORTS_SOURCES } from "./sports-fixture-sources.mjs";
++import { refreshSportsSource } from "./sports-fixture-registry.mjs";
++
++const origin = "https://test.invalid", route = "/api/live/broadcasts";
++function binding(reply = { schemaVersion: 1, revision: "accepted", generatedAt: new Date().toISOString(), providers: [], broadcasts: [], links: [] }) {
++  const calls = [];
++  return { calls, idFromName(name) { assert.equal(name, "shared-broadcast-registry-v1"); return name; },
++    get() { return { async fetch(request) { calls.push(request instanceof Request ? { url: request.url, method: request.method }
++      : { url: String(request), method: "GET" }); return Response.json(reply); } }; } };
++}
++const envFor = (registry, extra = {}) => ({ BROADCAST_REGISTRY: registry, FOTTY_BROADCAST_REGISTRY_ENABLED: "1",
++  FOTTY_BROADCAST_REGISTRY_SOURCES: "communitysports", ...extra });
++async function withoutOutbound(operation) {
++  const original = globalThis.fetch; let attempts = 0;
++  globalThis.fetch = async () => { attempts++; throw new Error("Unexpected external HTTP"); };
++  try { const result = await operation(); assert.equal(attempts, 0); return result; }
++  finally { globalThis.fetch = original; }
++}
++
++test("registry OFF, missing binding and invalid source inventory cannot access its DO or any upstream", async () => withoutOutbound(async () => {
++  for (const extra of [{ FOTTY_BROADCAST_REGISTRY_ENABLED: "0" }, { FOTTY_BROADCAST_REGISTRY_ENABLED: true },
++    { FOTTY_BROADCAST_REGISTRY_SOURCES: "" }, { FOTTY_BROADCAST_REGISTRY_SOURCES: "communitysports,communitysports" },
++    { FOTTY_BROADCAST_REGISTRY_SOURCES: "communitysports,https://unreviewed.example" },
++    { FOTTY_BROADCAST_REGISTRY_SOURCES: "not-a-reviewed-source" }, { FOTTY_BROADCAST_REGISTRY_SOURCES: null },
++    { BROADCAST_REGISTRY: undefined }]) {
++    const stub = binding(), env = envFor(stub, extra);
++    const response = await worker.fetch(new Request(origin + route), env);
++    assert.equal(response.status, 503); assert.equal((await response.json()).activation, "pending");
++    assert.equal(stub.calls.length, 0); assert.equal(broadcastRegistryEnabled(env), false);
++  }
++}));
++
++test("public registry GET is a bounded read, rejects queries/POST and preserves schema/CORS headers", async () => withoutOutbound(async () => {
++  const stub = binding(), env = envFor(stub);
++  const response = await worker.fetch(new Request(origin + route), env);
++  assert.equal(response.status, 200); assert.equal(response.headers.get("Access-Control-Allow-Origin"), "*");
++  assert.equal(response.headers.get("X-Fotty-Broadcast-Registry-Schema"), "1");
++  assert.equal(response.headers.get("Cache-Control"), "public, max-age=30");
++  assert.ok(response.headers.get("X-Fotty-Worker-Version"));
++  assert.deepEqual(stub.calls.map((call) => call.method), ["GET"]);
++  assert.equal(new URL(stub.calls[0].url).pathname, "/snapshot");
++  for (const query of ["?source=communitysports", "?refresh=1", "?url=https://unreviewed.example"]) {
++    assert.equal((await worker.fetch(new Request(origin + route + query), env)).status, 400);
++  }
++  assert.equal((await worker.fetch(new Request(origin + route, { method: "POST" }), env)).status, 405);
++  assert.equal(stub.calls.length, 1, "Neither query strings nor public POST can invoke refresh");
++}));
++
++test("cloud scheduler admits only explicit reviewed registry activation and does not replace existing fixture cron", async () => withoutOutbound(async () => {
++  for (const enabled of [false, true]) {
++    const registry = binding(), waits = [], cricketCalls = [];
++    const env = envFor(registry, { FOTTY_BROADCAST_REGISTRY_ENABLED: enabled ? "1" : "0",
++      CRICKET_FIXTURES: { idFromName: (name) => name, get: () => ({ async fetch(request) {
++        cricketCalls.push(request.method); return Response.json({ ok: true });
++      } }) } });
++    await worker.scheduled({}, env, { waitUntil: (promise) => waits.push(promise) });
++    await Promise.all(waits);
++    assert.deepEqual(cricketCalls, ["POST"]);
++    assert.equal(registry.calls.length, enabled ? 1 : 0);
++    if (enabled) { assert.equal(registry.calls[0].method, "POST"); assert.equal(new URL(registry.calls[0].url).pathname, "/refresh"); }
++  }
++}));
++
++test("Worker DO wrapper checks current activation even for a previously scheduled alarm", async () => withoutOutbound(async () => {
++  let deletions = 0, reads = 0;
++  const env = envFor(binding());
++  const registry = new BroadcastRegistry({ storage: { get: async () => { reads++; }, put: async () => {},
++    deleteAlarm: async () => { deletions++; } } }, env);
++  assert.equal(registry.enabled(), true);
++  env.FOTTY_BROADCAST_REGISTRY_ENABLED = "0";
++  assert.equal(registry.enabled(), false);
++  await registry.alarm(); assert.equal(reads, 0); assert.ok(deletions >= 1);
++  env.FOTTY_BROADCAST_REGISTRY_ENABLED = "1"; env.FOTTY_BROADCAST_REGISTRY_SOURCES = "unreviewed";
++  assert.equal(registry.enabled(), false);
++}));
++
++async function admittedSportsFixture() {
++  const descriptor = SPORTS_SOURCES.find((s) => s.id === "mlb"), now = new Date();
++  const row = { id: "sports-fixture:mlb:fixture", sport: "baseball", competitionId: "mlb", competitionName: descriptor.competitions[0].name,
++    title: "Alpha vs Beta", eventKind: "match", start: new Date(+now - 600_000).toISOString(), status: "live",
++    squad: { gender: "men", ageGroup: "senior" }, participants: [{ id: "home", name: "Alpha", role: "home" }, { id: "away", name: "Beta", role: "away" }],
++    source: { name: descriptor.sourceName, url: descriptor.sourceURL + "?sportId=1", observedAt: now.toISOString() } };
++  const accepted = await refreshSportsSource(null, descriptor, now, async () => ({ fixtures: [row], observedAt: now.toISOString(),
++    pendingFixtureCount: 0, pendingByCompetition: { mlb: 0 } }));
++  return { accepted, now };
++}
++function fixturesEnv(sportsState, cricketFixture) {
++  return { FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "0", FOTTY_SPORTS_WNBA_ENABLED: "0", FOTTY_SPORTS_EFL_ENABLED: "0",
++    SPORTS_FIXTURES: { idFromName: (name) => name, get: (name) => ({ async fetch() {
++      return Response.json(name.endsWith(":mlb") ? sportsState : { consecutiveFailures: 1 });
++    } }) },
++    CRICKET_FIXTURES: { idFromName: (name) => name, get: () => ({ async fetch() { return Response.json({ schemaVersion: 1,
++      sourceStatus: "verified", fixtures: cricketFixture ? [cricketFixture] : [], coverage: [{ competitionId: "icc", status: "covered" }] }); } }) } };
++}
++
++test("official mapping accepts genuine legacy covered sports receipts without manufacturing verification", async () => withoutOutbound(async () => {
++  const { accepted } = await admittedSportsFixture();
++  assert.equal(accepted.accepted.fixtures[0].source.verification, undefined);
++  const rows = await loadBroadcastRegistryFixtures(fixturesEnv(accepted));
++  assert.equal(rows.length, 1); assert.equal(rows[0].fixtureID, "sports-fixture:mlb:fixture");
++  assert.deepEqual(rows[0].participants, ["Alpha", "Beta"]); assert.equal(rows[0].verified, true);
++  assert.equal(rows[0].observedAt, accepted.accepted.fixtures[0].source.observedAt);
++  for (const value of ["held", null, false, "unverified"]) {
++    const changed = structuredClone(accepted); changed.accepted.fixtures[0].source.verification = value;
++    assert.deepEqual(await loadBroadcastRegistryFixtures(fixturesEnv(changed)), [], "An explicit marker cannot fall back to legacy coverage admission");
++  }
++}));
++
++test("failed sports scope cannot erase a separately verified cricket record and Test bounds remain explicit", async () => withoutOutbound(async () => {
++  const { accepted, now } = await admittedSportsFixture();
++  const cricket = { id: "icc:fixture", competitionId: "icc", format: "Test", status: "live",
++    start: new Date(+now - 3 * 86_400_000).toISOString(), home: { name: "South Africa" }, away: { name: "Australia" },
++    source: { verification: "verified", observedAt: now.toISOString() },
++    context: { day: 4, matchOrdinal: 3, matchEndsAt: new Date(+now + 86_400_000).toISOString() } };
++  const corrupted = structuredClone(accepted); corrupted.accepted.fixtures[0].source.verification = "held";
++  const rows = await loadBroadcastRegistryFixtures(fixturesEnv(corrupted, cricket));
++  assert.equal(rows.length, 1); assert.equal(rows[0].fixtureID, "cricket-fixture:icc:fixture");
++  assert.equal(rows[0].day, 4); assert.equal(rows[0].matchOrdinal, 3); assert.equal(rows[0].end, cricket.context.matchEndsAt);
++  assert.equal(rows[0].start, cricket.start, "Never substitute a daily date for canonical Test kickoff");
++  for (const verification of ["held", null, false, "unverified"]) {
++    assert.deepEqual(await loadBroadcastRegistryFixtures(fixturesEnv(corrupted, { ...cricket, source: { ...cricket.source, verification } })), []);
++  }
++  const noContext = { ...cricket }; delete noContext.context;
++  const missing = (await loadBroadcastRegistryFixtures(fixturesEnv(corrupted, noContext)))[0];
++  assert.equal(missing.day, undefined); assert.equal(missing.end, undefined); assert.equal(missing.matchOrdinal, undefined);
++}));
++
++test("staged deployment configuration is explicitly OFF and gives the new registry its own binding/migration", async () => {
++  const config = await readFile(new URL("../wrangler.toml", import.meta.url), "utf8");
++  assert.match(config, /^FOTTY_BROADCAST_REGISTRY_ENABLED = "0"$/m);
++  assert.match(config, /name = "BROADCAST_REGISTRY"\s+class_name = "BroadcastRegistry"/);
++  assert.match(config, /tag = "broadcast-registry-v1"\s+new_sqlite_classes = \[ "BroadcastRegistry" \]/);
++  const providers = enabledBroadcastProviders({ FOTTY_BROADCAST_REGISTRY_SOURCES: "communitysports,plaviosports,score808" });
++  assert.deepEqual(providers.map((p) => [p.providerCode, p.maxRequestsPerDay]), [["score808", 96], ["communitysports", 288], ["plaviosports", 288]]);
++});
+diff --git a/web/workers/playback/src/broadcast-registry.mjs b/web/workers/playback/src/broadcast-registry.mjs
+new file mode 100644
+index 0000000..c7dffbb
+--- /dev/null
++++ b/web/workers/playback/src/broadcast-registry.mjs
+@@ -0,0 +1,215 @@
++import { associateBroadcasts, buildBroadcastSnapshot, normalizeBroadcastCollection,
++  normalizeRegistryFixtures, mergeBroadcastRecords, BROADCAST_PROVIDER_CODES, BROADCAST_SCOPES, BROADCAST_REGISTRY_LIMITS,
++  BROADCAST_REASONS } from "./broadcast-registry-policy.mjs";
++
++const KEY = "shared-broadcast-registry-v1", minute = 60_000, day = 86_400_000;
++export const DEFAULT_BROADCAST_REGISTRY_PROVIDERS = Object.freeze(BROADCAST_PROVIDER_CODES.map((providerCode) => Object.freeze({
++  providerCode, maxRequestsPerDay: ["communitysports", "plaviosports"].includes(providerCode) ? 288 : 96,
++})));
++const blank = () => ({ version: 1, providers: {}, budgets: {}, cursor: 0 });
++const failure = (error) => BROADCAST_REASONS.includes(error?.message) ? error.message : "source-unavailable";
++const iso = (n) => new Date(n).toISOString();
++const RECORD_KEYS = new Set(["id", "providerCode", "providerEventID", "streamID", "resourceType", "scope", "kind", "sport", "title", "participants",
++  "start", "end", "competitionID", "squad", "format", "matchOrdinal", "day", "channelID", "observedAt", "expiresAt", "verification", "issues"]);
++
++function validateState(state) {
++  if (!state || state.version !== 1 || !state.providers || !state.budgets || !Number.isSafeInteger(state.cursor)
++    || Object.keys(state.providers).some((code) => !BROADCAST_PROVIDER_CODES.includes(code))
++    || Object.keys(state.budgets).some((code) => !BROADCAST_PROVIDER_CODES.includes(code))) throw new Error("invalid-registry-state");
++  for (const budget of Object.values(state.budgets)) {
++    if (!/^\d{4}-\d{2}-\d{2}$/.test(budget.day) || !Number.isSafeInteger(budget.count) || budget.count < 0
++      || !Number.isFinite(budget.lastAt)) throw new Error("invalid-registry-state");
++  }
++  let count = 0;
++  for (const [code, source] of Object.entries(state.providers)) {
++    if (!source || !source.scopes || !Array.isArray(source.records) || !Number.isSafeInteger(source.failures)
++      || source.failures < 0 || !Number.isSafeInteger(source.cursor) || source.cursor < 0 || source.cursor > 65535) throw new Error("invalid-registry-state");
++    count += source.records.length;
++    for (const [id, scope] of Object.entries(source.scopes)) {
++      if (!BROADCAST_SCOPES.includes(id) || scope.scope !== id || scope.providerCode !== code
++        || !["available", "partial", "empty", "failed", "unsupported"].includes(scope.status)
++        || scope.failure !== undefined && !BROADCAST_REASONS.includes(scope.failure)) throw new Error("invalid-registry-state");
++    }
++    for (const row of source.records) {
++      if (!row || Object.keys(row).some((key) => !RECORD_KEYS.has(key)) || row.providerCode !== code || !BROADCAST_SCOPES.includes(row.scope)
++        || !/^br:[a-f0-9]{64}$/.test(row.id) || !Number.isFinite(Date.parse(row.observedAt)) || !Number.isFinite(Date.parse(row.expiresAt))
++        || JSON.stringify(row).includes("://")) throw new Error("invalid-registry-state");
++    }
++  }
++  if (count > BROADCAST_REGISTRY_LIMITS.records || new TextEncoder().encode(JSON.stringify(state)).length > BROADCAST_REGISTRY_LIMITS.snapshotBytes) throw new Error("capacity-exceeded");
++  return state;
++}
++
++function cadence(fixtures, now, cost, cap) {
++  const active = fixtures.some((f) => f.status === "live" || Date.parse(f.start) <= now + 30 * minute && Date.parse(f.start) >= now - 30 * minute);
++  const soon = fixtures.some((f) => Date.parse(f.start) > now && Date.parse(f.start) <= now + day);
++  // Spend actual reads, not logical batches. A three-request source cannot
++  // silently acquire one-request cadence or borrow the observer's allowance.
++  return Math.max(active ? 5 * minute : soon ? 15 * minute : 4 * 60 * minute,
++    Math.ceil(day * Math.max(1, cost) / cap));
++}
++
++export class BroadcastRegistry {
++  constructor(state, env, options = {}) {
++    this.state = state; this.env = env; this.options = options; this.queue = Promise.resolve(); this.budgetQueue = Promise.resolve();
++    this.providers = options.providers ?? DEFAULT_BROADCAST_REGISTRY_PROVIDERS;
++    if (!Array.isArray(this.providers) || this.providers.length > 7 || new Set(this.providers.map((p) => p.providerCode)).size !== this.providers.length
++      || this.providers.some((p) => !BROADCAST_PROVIDER_CODES.includes(p.providerCode) || !Number.isSafeInteger(p.maxRequestsPerDay)
++        || p.maxRequestsPerDay < 1 || p.maxRequestsPerDay > 288)) throw new Error("invalid-registry-configuration");
++  }
++  now() { const n = Number(this.options.clock?.() ?? new Date()); if (!Number.isFinite(n)) throw new Error("invalid-registry-clock"); return n; }
++  enabled() { return this.options.enabled?.() !== false; }
++  enqueue(operation) { const result = this.queue.then(operation); this.queue = result.then(() => undefined, () => undefined); return result; }
++  async stored() { const state = await this.state.storage.get(KEY); return state ? validateState(state) : blank(); }
++  async reserve(stored, descriptor, cycle) {
++    const operation = async () => {
++      const now = this.now(), date = iso(now).slice(0, 10), prior = stored.budgets[descriptor.providerCode];
++      if (!this.enabled() || cycle.reads >= 8 || prior && now < prior.lastAt) return false;
++      const budget = prior && date <= prior.day ? { ...prior } : { day: date, count: 0, lastAt: now };
++      if (budget.day !== date || budget.count >= descriptor.maxRequestsPerDay) return false;
++      budget.count++; budget.lastAt = now; stored.budgets[descriptor.providerCode] = budget;
++      // Persist the reservation before any HTTP request. A failed write rejects
++      // the read; cancellation/restart/re-enable cannot refund spent requests.
++      await this.state.storage.put(KEY, stored);
++      cycle.reads++;
++      return true;
++    };
++    const result = this.budgetQueue.then(operation);
++    this.budgetQueue = result.then(() => undefined, () => undefined);
++    return result;
++  }
++  async snapshot(stored, fixtures, now) {
++    const providers = [], broadcasts = [];
++    for (const descriptor of this.providers) {
++      const state = stored.providers[descriptor.providerCode];
++      if (!state) continue;
++      for (const scope of Object.values(state.scopes ?? {})) providers.push({ ...scope,
++        ...(state.nextAttemptAt ? { nextAttemptAt: state.nextAttemptAt } : {}) });
++      for (const record of state.records ?? []) {
++        if (now - Date.parse(record.observedAt) <= BROADCAST_REGISTRY_LIMITS.retention) broadcasts.push(record);
++      }
++    }
++    const merged = mergeBroadcastRecords(broadcasts, new Date(now), providers);
++    const links = associateBroadcasts({ fixtures, broadcasts: merged, providers, now: new Date(now) });
++    return buildBroadcastSnapshot({ providers, broadcasts: merged, links, now: new Date(now) });
++  }
++  async fixtures() {
++    if (typeof this.options.loadFixtures !== "function") throw new Error("official-fixtures-unavailable");
++    return normalizeRegistryFixtures(await this.options.loadFixtures(), new Date(this.now()));
++  }
++  eligible(descriptor, stored, now) {
++    const source = stored.providers[descriptor.providerCode], budget = stored.budgets[descriptor.providerCode];
++    if (Date.parse(source?.nextAttemptAt ?? "1970-01-01T00:00:00Z") > now) return false;
++    if (budget && (now < budget.lastAt || budget.day === iso(now).slice(0, 10) && budget.count >= descriptor.maxRequestsPerDay)) return false;
++    return true;
++  }
++  async continueIfDue(stored, now) {
++    if (this.enabled() && this.providers.some((p) => this.eligible(p, stored, now))) {
++      // One bounded continuation drains at most two more due providers. Repeated
++      // cron/alarm delivery uses the same due times and persisted read ledger.
++      await this.state.storage.setAlarm?.(now + 15_000);
++    } else { await this.state.storage.deleteAlarm?.(); }
++  }
++  async refresh() {
++    if (!this.enabled()) { await this.state.storage.deleteAlarm?.(); throw new Error("registry-disabled"); }
++    if (typeof this.options.collect !== "function") throw new Error("collector-unavailable");
++    const stored = await this.stored(), now = this.now(), fixtures = await this.fixtures();
++    const accepted = structuredClone(stored.providers);
++    const ordered = this.providers.map((_, i) => this.providers[(stored.cursor + i) % this.providers.length]);
++    const selected = ordered.filter((p) => this.eligible(p, stored, now)).slice(0, 2);
++    const results = await Promise.all(selected.map(async (descriptor) => {
++      const cycle = { reads: 0 }, previous = stored.providers[descriptor.providerCode];
++      const signal = AbortSignal.timeout(20_000);
++      try {
++        const raw = await this.options.collect(descriptor.providerCode, { now: new Date(now), signal,
++          cursor: previous?.cursor ?? 0, fixtures: structuredClone(fixtures),
++          reserveRequest: () => this.reserve(stored, descriptor, cycle) });
++        if (signal.aborted) throw new Error("source-unavailable");
++        const collection = await normalizeBroadcastCollection(descriptor.providerCode, raw, new Date(this.now()));
++        return { descriptor, cycle, collection };
++      } catch (error) { return { descriptor, cycle, error: failure(error) }; }
++    }));
++    for (const { descriptor, cycle, collection, error } of results) {
++      const code = descriptor.providerCode, previous = stored.providers[code] ?? { scopes: {}, records: [], failures: 0, cursor: 0 };
++      const state = { ...previous, scopes: { ...previous.scopes }, records: [...previous.records], lastAttemptAt: iso(now) };
++      if (collection) {
++        for (const scope of collection.scopes) {
++          const old = state.scopes[scope.scope];
++          if (["available", "partial", "empty"].includes(scope.status)) {
++            const incoming = collection.broadcasts.filter((r) => r.scope === scope.scope), ids = new Set(incoming.map((r) => r.id));
++            if (scope.complete) state.records = state.records.filter((r) => r.scope !== scope.scope);
++            else state.records = state.records.filter((r) => r.scope !== scope.scope || !ids.has(r.id));
++            state.records.push(...incoming);
++            state.scopes[scope.scope] = { ...scope, lastSuccessAt: scope.observedAt,
++              expiresAt: iso(Date.parse(scope.observedAt) + BROADCAST_REGISTRY_LIMITS.sourceLifetime) };
++          } else {
++            state.scopes[scope.scope] = { ...(old ?? { providerCode: code, scope: scope.scope }),
++              status: scope.status, complete: scope.complete,
++              ...(scope.failure ? { failure: scope.failure } : {}), lastAttemptAt: iso(now) };
++          }
++        }
++        state.failures = collection.scopes.some((s) => s.status === "failed") ? previous.failures + 1 : 0;
++        state.cursor = collection.cursor ?? previous.cursor;
++      } else {
++        for (const scope of Object.keys(state.scopes)) state.scopes[scope] = { ...state.scopes[scope],
++          status: "failed", complete: false, failure: error, lastAttemptAt: iso(now) };
++        if (!Object.keys(state.scopes).length) state.scopes.live = { providerCode: code, scope: "live", status: "failed", complete: false,
++          failure: error, lastAttemptAt: iso(now) };
++        state.failures = previous.failures + 1;
++      }
++      state.records = state.records.filter((r) => now - Date.parse(r.observedAt) <= BROADCAST_REGISTRY_LIMITS.retention);
++      const delay = cadence(fixtures, now, Math.max(cycle.reads, 1), descriptor.maxRequestsPerDay);
++      state.nextAttemptAt = iso(now + (state.failures ? Math.max(delay, Math.min(60 * minute, 5 * minute * 2 ** Math.min(4, state.failures - 1))) : delay));
++      stored.providers[code] = state;
++    }
++    if (selected.length && this.providers.length) {
++      const last = this.providers.findIndex((p) => p.providerCode === selected.at(-1).providerCode);
++      stored.cursor = (last + 1) % this.providers.length;
++    }
++    // Validate the entire candidate before one durable commit. A capacity or
++    // shape failure preserves accepted records while reservations stay spent.
++    let snapshot;
++    try {
++      validateState(stored);
++      snapshot = await this.snapshot(stored, fixtures, this.now());
++    } catch (error) {
++      // A capacity/invalid candidate cannot erase accepted sibling records.
++      // Keep the independently persisted request ledger and expose a finite
++      // source failure instead of publishing a truncated positive inventory.
++      stored.providers = accepted;
++      for (const { descriptor } of results) {
++        const code = descriptor.providerCode;
++        const old = stored.providers[code] ?? { scopes: {}, records: [], failures: 0, cursor: 0 };
++        const held = { ...old, scopes: { ...old.scopes }, failures: old.failures + 1,
++          lastAttemptAt: iso(now), nextAttemptAt: iso(now + 60 * minute) };
++        if (!Object.keys(held.scopes).length) held.scopes.live = { providerCode: code, scope: "live" };
++        for (const scope of Object.keys(held.scopes)) held.scopes[scope] = { ...held.scopes[scope], status: "failed", complete: false,
++          failure: error?.message === "capacity-exceeded" ? "capacity-exceeded" : "invalid-collection", lastAttemptAt: iso(now) };
++        stored.providers[code] = held;
++      }
++      snapshot = await this.snapshot(stored, fixtures, this.now());
++    }
++    await this.state.storage.put(KEY, stored);
++    await this.continueIfDue(stored, this.now());
++    return snapshot;
++  }
++  async alarm() {
++    try { await this.enqueue(() => this.refresh()); }
++    catch {
++      // Official-registry/storage failure is retried by the existing cloud
++      // cron. Do not create an unbounded alarm retry loop or probe providers.
++      await this.state.storage.deleteAlarm?.();
++    }
++  }
++  async fetch(request) {
++    const path = new URL(request.url).pathname;
++    try {
++      if (request.method === "POST" && path === "/refresh") return Response.json(await this.enqueue(() => this.refresh()));
++      if (request.method === "GET" && path === "/snapshot") return Response.json(await this.enqueue(async () => this.snapshot(await this.stored(), await this.fixtures(), this.now())));
++      return Response.json({ error: "Not found" }, { status: 404 });
++    } catch (error) {
++      return Response.json({ schemaVersion: 1, complete: false,
++        error: BROADCAST_REASONS.includes(error?.message) ? error.message : "source-unavailable" }, { status: 503 });
++    }
++  }
++}
+diff --git a/web/workers/playback/src/broadcast-registry.test.mjs b/web/workers/playback/src/broadcast-registry.test.mjs
+new file mode 100644
+index 0000000..31d441a
+--- /dev/null
++++ b/web/workers/playback/src/broadcast-registry.test.mjs
+@@ -0,0 +1,181 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { BroadcastRegistry, DEFAULT_BROADCAST_REGISTRY_PROVIDERS } from "./broadcast-registry.mjs";
++
++const initial = Date.parse("2026-10-30T11:30:00.000Z"), key = "shared-broadcast-registry-v1";
++function harness({ providers = DEFAULT_BROADCAST_REGISTRY_PROVIDERS.slice(0, 2), collect, failWrites = false } = {}) {
++  let now = initial, alarm = null, reads = 0, enabled = true;
++  const values = new Map(), calls = [];
++  const storage = { get: async (id) => structuredClone(values.get(id)), put: async (id, value) => {
++    if (failWrites) throw new Error("write-failed"); values.set(id, structuredClone(value));
++  }, setAlarm: async (at) => { alarm = at; }, deleteAlarm: async () => { alarm = null; } };
++  const fixtures = () => [{ fixtureID: "sports-fixture:premier-league:123", sport: "football", participants: ["Liverpool", "Chelsea"],
++    start: new Date(now - 30 * 60_000).toISOString(), status: "live", observedAt: new Date(now).toISOString(), verified: true }];
++  const reply = (code, changes = {}) => ({ providerCode: code, observedAt: new Date(now).toISOString(), complete: true,
++    scopes: [{ scope: "football", status: "available", complete: true }], cursor: 1,
++    broadcasts: [{ providerEventID: code + "_one", streamID: code + "_one", resourceType: "tv", scope: "football", kind: "event", sport: "football",
++      title: "Liverpool vs Chelsea", participants: ["Liverpool", "Chelsea"], start: fixtures()[0].start,
++      verification: "dated", observedAt: new Date(now).toISOString(), expiresAt: new Date(now + 30 * 60_000).toISOString() }], ...changes });
++  const options = { providers, enabled: () => enabled, clock: () => new Date(now), loadFixtures: async () => fixtures(),
++    collect: async (code, context) => {
++      calls.push(code);
++      assert.equal(context.fixtures[0].fixtureID, "sports-fixture:premier-league:123");
++      assert.deepEqual(context.fixtures[0].participants, ["Liverpool", "Chelsea"]);
++      assert.equal(context.fixtures[0].verified, true);
++      if (collect) return collect(code, context, { reply, values, read: () => { reads++; }, now: () => now });
++      assert.equal(await context.reserveRequest(), true);
++      assert.ok(values.get(key).budgets[code].count >= 1, "The durable reservation precedes its HTTP read");
++      reads++;
++      return reply(code);
++    } };
++  const create = () => new BroadcastRegistry({ storage }, {}, options);
++  return { create, values, calls, reply, get now() { return now; }, set now(value) { now = value; },
++    get alarm() { return alarm; }, get reads() { return reads; }, set enabled(value) { enabled = value; } };
++}
++
++test("durable refresh serializes duplicate owners and reads never start before durable budget reservation", async () => {
++  const h = harness(), registry = h.create();
++  const [first, second] = await Promise.all([registry.fetch(new Request("https://internal/refresh", { method: "POST" })),
++    registry.fetch(new Request("https://internal/refresh", { method: "POST" }))]);
++  assert.equal(first.status, 200); assert.equal(second.status, 200);
++  assert.equal(h.reads, 2); assert.equal(h.calls.length, 2);
++  const snapshot = await first.json(); assert.equal(snapshot.links.length, 2);
++  assert.ok(snapshot.links.every((l) => l.state === "listed"));
++  assert.equal(h.values.get(key).providers.streamex.cursor, 1);
++  const before = h.reads;
++  const read = await registry.fetch(new Request("https://internal/snapshot"));
++  assert.equal(read.status, 200); assert.equal(h.reads, before, "Snapshot GET never initiates provider HTTP collection");
++});
++
++test("bounded alarm continuation covers seven providers without duplicate collection or a busy loop", async () => {
++  const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS }), registry = h.create();
++  await registry.refresh(); assert.equal(h.calls.length, 2); assert.equal(h.alarm, h.now + 15_000);
++  for (const count of [4, 6, 7]) {
++    h.now = h.alarm;
++    await registry.alarm(); assert.equal(h.calls.length, count);
++  }
++  assert.equal(h.alarm, null);
++  await registry.alarm(); assert.equal(h.calls.length, 7);
++  assert.equal(new Set(h.calls).size, 7);
++  for (const budget of Object.values(h.values.get(key).budgets)) assert.equal(budget.count, 1);
++});
++
++test("actual HTTP caps survive restart, failed collection and duplicate alarms", async () => {
++  const h = harness({ providers: [{ providerCode: "communitysports", maxRequestsPerDay: 1 }],
++    collect: async (_code, context, state) => {
++      assert.equal(await context.reserveRequest(), true); state.read();
++      assert.equal(await context.reserveRequest(), false);
++      throw new Error("budget-exhausted");
++    } });
++  await h.create().refresh(); assert.equal(h.reads, 1);
++  const record = h.values.get(key).providers.communitysports;
++  assert.equal(record.scopes.live.failure, "budget-exhausted");
++  await h.create().alarm(); assert.equal(h.reads, 1); assert.equal(h.alarm, null);
++  h.now += 24 * 60 * 60_000;
++  await h.create().refresh(); assert.equal(h.reads, 2);
++  assert.equal(h.values.get(key).budgets.communitysports.count, 1);
++});
++
++test("one failed provider preserves accepted records and healthy independent sibling progress", async () => {
++  let failing = false;
++  const h = harness({ providers: [{ providerCode: "communitysports", maxRequestsPerDay: 288 }, { providerCode: "plaviosports", maxRequestsPerDay: 288 }],
++    collect: async (code, context, state) => {
++      assert.equal(await context.reserveRequest(), true); state.read();
++      if (failing && code === "communitysports") throw new Error("source-unavailable");
++      return state.reply(code);
++    } });
++  const first = await h.create().refresh(), original = first.broadcasts.find((b) => b.providerCode === "communitysports");
++  failing = true; h.now += 5 * 60_000;
++  const next = await h.create().refresh();
++  const kept = next.broadcasts.find((b) => b.providerCode === "communitysports");
++  assert.deepEqual(kept, original);
++  assert.equal(next.providers.find((p) => p.providerCode === "communitysports").failure, "source-unavailable");
++  const retainedLink = next.links.find((p) => p.providerCode === "communitysports");
++  assert.equal(retainedLink.state, "listed", "A catalog failure alone does not revoke a still-current accepted identity");
++  assert.ok(Date.parse(retainedLink.expiresAt) <= Date.parse(original.expiresAt), "No old listing receipt is renewed");
++  assert.equal(next.links.find((p) => p.providerCode === "plaviosports").state, "listed");
++  assert.notEqual(next.broadcasts.find((b) => b.providerCode === "plaviosports").observedAt, original.observedAt);
++});
++
++test("partial catalogs refresh only observed IDs and never infer disappearance or renew unobserved rows", async () => {
++  let partial = false;
++  const h = harness({ providers: [{ providerCode: "communitysports", maxRequestsPerDay: 288 }],
++    collect: async (code, context, state) => {
++      assert.equal(await context.reserveRequest(), true); state.read();
++      const response = state.reply(code), sibling = { ...response.broadcasts[0], providerEventID: "second", streamID: "second" };
++      if (partial) return { ...response, complete: false, scopes: [{ scope: "football", status: "partial", complete: false }] };
++      return { ...response, broadcasts: [...response.broadcasts, sibling] };
++    } });
++  const first = await h.create().refresh(), sibling = first.broadcasts.find((b) => b.providerEventID === "second");
++  partial = true; h.now += 5 * 60_000;
++  const next = await h.create().refresh();
++  assert.equal(next.broadcasts.length, 2);
++  assert.equal(next.providers[0].status, "partial");
++  assert.deepEqual(next.broadcasts.find((b) => b.providerEventID === "second"), sibling);
++  assert.ok(next.links.every((l) => l.state === "listed"));
++});
++
++test("failed reservation writes fence all upstream reads and corrupt budget state fails closed", async () => {
++  const h = harness({ failWrites: true });
++  const response = await h.create().fetch(new Request("https://internal/refresh", { method: "POST" }));
++  assert.equal(response.status, 503); assert.equal(h.reads, 0);
++  const bad = harness();
++  bad.values.set(key, { version: 1, cursor: 0, providers: {}, budgets: { communitysports: { day: "bad", count: 0, lastAt: initial } } });
++  assert.equal((await bad.create().fetch(new Request("https://internal/snapshot"))).status, 503);
++  assert.equal(bad.reads, 0);
++  const poisoned = harness();
++  await poisoned.create().refresh();
++  const state = poisoned.values.get(key);
++  state.providers.streamex.records[0].url = "https://private.example/media?token=secret";
++  poisoned.values.set(key, state);
++  const response2 = await poisoned.create().fetch(new Request("https://internal/snapshot"));
++  assert.equal(response2.status, 503);
++  assert.equal((await response2.text()).includes("private.example"), false, "Unexpected stored media fields never reach a public snapshot");
++});
++
++test("clock rollback never resets daily allowances or schedules repeated immediate retries", async () => {
++  const h = harness({ providers: [{ providerCode: "communitysports", maxRequestsPerDay: 288 }] });
++  await h.create().refresh(); const before = structuredClone(h.values.get(key).budgets);
++  h.now -= 60_000;
++  await h.create().alarm();
++  assert.equal(h.reads, 1); assert.deepEqual(h.values.get(key).budgets, before); assert.equal(h.alarm, null);
++});
++
++test("capacity rejection preserves accepted siblings, reports the rejected source and keeps spent reads", async () => {
++  const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS.slice(0, 3),
++    collect: async (code, context, state) => {
++      assert.equal(await context.reserveRequest(), true); state.read();
++      const response = state.reply(code), template = response.broadcasts[0];
++      return { ...response, broadcasts: Array.from({ length: 1500 }, (_, index) => ({ ...template,
++        providerEventID: `${code}_${index}`, streamID: `${code}_${index}` })) };
++    } });
++  const first = await h.create().refresh();
++  assert.equal(first.broadcasts.length, 3000);
++  h.now += 15_000;
++  const next = await h.create().refresh();
++  assert.equal(next.broadcasts.length, 3000);
++  assert.deepEqual(next.broadcasts, first.broadcasts);
++  const rejected = next.providers.find((p) => p.providerCode === "communitysports");
++  assert.equal(rejected.failure, "capacity-exceeded"); assert.equal(rejected.status, "failed");
++  assert.equal(h.values.get(key).budgets.communitysports.count, 1);
++  assert.equal(h.values.get(key).providers.communitysports.records.length, 0);
++});
++
++test("each source cycle has an independent eight-read ceiling before its daily allowance", async () => {
++  const h = harness({ providers: [{ providerCode: "communitysports", maxRequestsPerDay: 288 }],
++    collect: async (code, context, state) => {
++      for (let index = 0; index < 8; index++) { assert.equal(await context.reserveRequest(), true); state.read(); }
++      assert.equal(await context.reserveRequest(), false);
++      return state.reply(code);
++    } });
++  await h.create().refresh(); assert.equal(h.reads, 8); assert.equal(h.values.get(key).budgets.communitysports.count, 8);
++});
++
++test("disabling collection fences a pending alarm without erasing accepted records or budgets", async () => {
++  const h = harness({ providers: DEFAULT_BROADCAST_REGISTRY_PROVIDERS }), registry = h.create();
++  await registry.refresh(); assert.equal(h.reads, 2); assert.ok(h.alarm);
++  const before = structuredClone(h.values.get(key));
++  h.enabled = false; h.now += 15_000;
++  await registry.alarm();
++  assert.equal(h.reads, 2); assert.equal(h.alarm, null); assert.deepEqual(h.values.get(key), before);
++});
+diff --git a/web/workers/playback/src/broadcast-source-adapters.mjs b/web/workers/playback/src/broadcast-source-adapters.mjs
+new file mode 100644
+index 0000000..d18cda7
+--- /dev/null
++++ b/web/workers/playback/src/broadcast-source-adapters.mjs
+@@ -0,0 +1,853 @@
++// Metadata-only producers for the fixed, already-reviewed native source lanes.
++// A retained observation is not a playable URL, current programme or LIVE fact.
++import { canonicalFootballClubId } from "../../../src/lib/football-competition-catalog.generated.ts";
++export const BROADCAST_SOURCE_CODES = Object.freeze([
++  "streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix",
++]);
++const KiB = 1024, MAX_RECORDS = 1500, MAX_BYTES = 1024 * KiB, LIFETIME = 4 * 3600_000;
++const STAGE_LIMITS = { catalog: MAX_BYTES };
++const own = (o, k) => Object.hasOwn(o, k);
++const object = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
++const str = (v, n = 512) => typeof v === "string" && v.trim().length > 0 && v.length <= n && !/[\p{Cc}\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069<>]/u.test(v) && !v.includes("://");
++const id = (v) => str(v, 240) && /^[A-Za-z0-9][A-Za-z0-9._:~-]*$/u.test(v) && !/^(?:https?|data|file|javascript):/iu.test(v);
++const strings = (v) => Array.isArray(v) && v.length <= 32 && v.every((s) => str(s, 256));
++const version = (v) => str(v, 24) && /^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(v);
++const resources = (m) => (m.resources ?? []).map((r) => typeof r === "string" ? r : r?.name);
++const sport = (v) => ({ soccer: "football", football: "football", cricket: "cricket", nba: "basketball", basketball: "basketball",
++  baseball: "baseball", mlb: "baseball", hockey: "hockey", "ice hockey": "hockey", nhl: "hockey", nfl: "american-football",
++  "american football": "american-football", "american-football": "american-football", rugby: "rugby", mma: "fight", fight: "fight",
++  motorsport: "motorsport", golf: "golf", tennis: "tennis", darts: "darts", college: "college", other: "other" })[String(v).toLowerCase()] ?? "unknown";
++const CS_SCOPES = Object.freeze(["football", "cricket", "basketball", "baseball", "hockey", "american-football", "rugby", "fight", "motorsport", "golf", "tennis", "darts", "college", "other"]);
++const CS_SUFFIX = (s) => s === "american-football" ? "american_football" : s === "fight" ? "mma" : s;
++const ORIGINS = Object.freeze({ communitysports: "https://nuviosports.xyz", plaviosports: "https://hd.plavio.site",
++  cncsports: "https://cncverse.dpdns.org", flixstreams: "https://free.flixnest.app", streamvix: "https://streamvix.hayd.uk" });
++const SCORE_LISTING = "https://www.score808live.tv/score808-live-football-scores-real-time-match-updates-results/";
++const SV_ORIGINAL = "https://raw.githubusercontent.com/qwertyuiop8899/logo/main/daddyliveSchedule.json";
++const AS_ORIGINAL = "https://thedaddy.pk/";
++const flags = new Set(("🇿🇦 🇮🇹 🇨🇦 🇺🇸 🇬🇧 🇪🇸 🇫🇷 🇩🇪 🇵🇹 🇳🇱 🇧🇪 🇹🇷 🇨🇿 🇸🇰 🇦🇹 🇨🇭 🇭🇷 🇷🇸 🇩🇰 🇳🇴 🇸🇪 🇫🇮 🇵🇱 🇬🇷 🇷🇴 🇭🇺 🇺🇦 🇨🇾 🇦🇿 🇮🇱 🇮🇪 🇮🇸 🇯🇲 🇹🇹 🇧🇧 🇬🇾 🇱🇨 🇦🇬 🇰🇳 🇻🇨 🇬🇩 🇩🇲 🇳🇿 🇮🇳 🇵🇰 🇧🇩 🇱🇰 🇦🇫 🇿🇼 🇳🇦 🇳🇵 🇦🇪 🇭🇰 🇴🇲 🇵🇬 🇦🇺 🇰🇪 🇺🇬 🇸🇦 🇶🇦 🇲🇽 🇧🇷 🇦🇷 🇨🇱").split(" "));
++for (const tail of ["eng", "sct", "wls"]) flags.add("\u{1F3F4}" + [...("gb" + tail)].map((c) => String.fromCodePoint(0xe0000 + c.charCodeAt(0))).join("") + "\u{E007F}");
++function cleanFlags(value) {
++  if (!str(value, 1024)) return null;
++  const result = value.split(/\s+/u).filter((t) => !flags.has(t)).join(" ");
++  return /[\p{Regional_Indicator}\p{Cf}]/u.test(result) ? null : result;
++}
++function pair(value) {
++  const clean = cleanFlags(value); if (!clean) return [];
++  const parts = clean.replace(/^(?:🔴\s*)?(?:LIVE|UPCOMING):\s*/iu, "").split(/\s+(?:vs\.?|v\.?|versus)\s+/iu);
++  return parts.length === 2 && parts.every((s) => str(s, 256)) && parts[0].toLowerCase() !== parts[1].toLowerCase() ? parts.map((s) => s.trim()) : [];
++}
++function utc(value) {
++  if (typeof value !== "string" || !/^20\d{2}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,3})?Z$/u.test(value)) return null;
++  const d = new Date(value); if (!Number.isFinite(+d)) return null;
++  return d.toISOString().replace(/\.000Z$/u, "Z") === value.replace(/\.0{1,3}Z$/u, "Z")
++    || d.toISOString() === value ? d.toISOString() : null;
++}
++function dateParts(year, month, day, hour, minute) {
++  const d = new Date(Date.UTC(year, month - 1, day, hour, minute));
++  return d.getUTCFullYear() === year && d.getUTCMonth() === month - 1 && d.getUTCDate() === day && d.getUTCHours() === hour
++    && d.getUTCMinutes() === minute ? d.toISOString() : null;
++}
++function englishUTC(value) {
++  const m = typeof value === "string" && value.match(/^(\d{1,2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (20\d{2}) · ((?:[01]\d|2[0-3])):([0-5]\d) UTC$/u);
++  return m ? dateParts(+m[3], "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ").indexOf(m[2]) + 1, +m[1], +m[4], +m[5]) : null;
++}
++function cricketLabel(value) {
++  const m = typeof value === "string" && value.match(/^([1-9]\d?)(st|nd|rd|th) (Test|T20I|T20|ODI|T10)(?:[ -]day[ -]([1-5]))?$/iu);
++  if (!m) return {};
++  const n = +m[1], suffix = n % 100 >= 11 && n % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" })[n % 10] ?? "th";
++  if (m[2].toLowerCase() !== suffix || m[4] && m[3].toLowerCase() !== "test") return {};
++  return { format: /^test$/iu.test(m[3]) ? "Test" : m[3].toUpperCase().replace("T20I", "T20"), matchOrdinal: n, ...(m[4] ? { day: +m[4] } : {}) };
++}
++function squadTokens(value) {
++  return new Set((String(value).toLowerCase().match(/\b(?:women|womens|ladies|youth|academy|reserves?|u\s?\d{1,2}|under\s?\d{1,2}|w)\b/gu) ?? [])
++    .map((v) => ["women", "womens", "ladies", "w"].includes(v) ? "women" : v.replace(/\s/gu, "").replace(/^under/u, "u").replace(/^reserve$/u, "reserves")));
++}
++const normalizedName = (value) => String(value).normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().replace(/\s+/gu, " ");
++function teamKey(value, category = "football") {
++  const normalized = normalizedName(value), qualifiers = [...squadTokens(normalized)].sort();
++  const base = normalized.replace(/\b(?:women|womens|ladies|youth|academy|reserves?|u\s?\d{1,2}|under\s?\d{1,2}|w)\b/gu, " ").trim().replace(/\s+/gu, " ");
++  const club = category === "football" ? canonicalFootballClubId(base) : undefined;
++  return (club ?? base) + "|" + qualifiers.join(",");
++}
++function sourceTitleParts(value) {
++  if (!str(value, 512)) return [];
++  const parts = value.split(":"); return parts.length === 2 && parts.every((p) => p.trim()) ? parts.map((p) => p.trim()) : [];
++}
++function canonicalChannel(title) {
++  if (!str(title, 128)) return null;
++  const name = title.toLowerCase().replace(/[^a-z0-9]/gu, "");
++  if (["willow", "willowtv", "willowcricket", "willowhd", "willowcrickethd", "willowcricket247"].includes(name)) return "cricket-channel:willow";
++  return ["foxcricket", "foxcrickethd"].includes(name) ? "cricket-channel:fox-cricket" : null;
++}
++function record(providerCode, row, scope, now, facts = {}, issues = []) {
++  if (!object(row) || !id(row.id)) return null;
++  const title = row.name ?? row.title;
++  if (!str(title, 512)) issues.push("identity-conflict");
++  const streamID = row.behaviorHints?.defaultVideoId ?? row.id;
++  if (!id(streamID)) issues.push("identity-conflict");
++  const start = facts.start ? utc(facts.start) : null, end = facts.end ? utc(facts.end) : null;
++  if (facts.start && !start || facts.end && !end) issues.push("time-conflict");
++  const participants = facts.participants ?? [];
++  if (!Array.isArray(participants) || participants.length !== 0 && (participants.length !== 2 || !participants.every((s) => str(s, 256)))) return null;
++  if (facts.kind !== "channel" && participants.length !== 2) issues.push("missing-participants");
++  if (!start && facts.kind !== "channel") issues.push("missing-date");
++  return { providerEventID: row.id, streamID: id(streamID) ? streamID : row.id, resourceType: "tv", scope,
++    kind: facts.kind ?? "event", sport: facts.sport ?? "unknown", title: str(title, 512) ? title.trim() : "Unverified source entry", participants: participants.map((p) => p.trim()),
++    ...(start ? { start } : {}), ...(end ? { end } : {}),
++    ...Object.fromEntries(["competitionID", "format", "matchOrdinal", "day", "channelID"].filter((k) => facts[k] != null).map((k) => [k, facts[k]])),
++    verification: issues.some((i) => i.endsWith("conflict")) ? "conflicting" : start && !issues.includes("unverified-fixture") && !issues.includes("unsupported-scope") ? "dated" : "undated",
++    issues: [...new Set(issues)], observedAt: now.toISOString(), expiresAt: new Date(+now + LIFETIME).toISOString() };
++}
++function safeRows(body, maximum) {
++  if (!object(body) || !Array.isArray(body.metas) || body.metas.length > maximum) throw new Error("invalid-collection");
++  return body.metas;
++}
++function manifest(m, code) {
++  const expected = { communitysports: "community.nuvio.live-sports", plaviosports: "community.plaviohd",
++    cncsports: "com.cncverse.stremiobridge", flixstreams: "org.flixstreams.free", streamvix: "org.prisonmike.streamvix" }[code];
++  if (!object(m) || m.id !== expected || !version(m.version) || m.behaviorHints?.configurationRequired === true
++    || !Array.isArray(m.catalogs) || m.catalogs.length > (code === "communitysports" ? 600 : 64)
++    || !Array.isArray(m.resources) || !["catalog", "stream"].every((v) => resources(m).includes(v))) throw new Error("invalid-collection");
++  const r = resources(m), unique = (a) => new Set(a).size === a.length;
++  if (code === "communitysports") {
++    if (!m.resources.every((v) => typeof v === "string") || !m.catalogs.some((c) => c?.id === "nuvio_sports_live" && c.type === "tv")) throw new Error("invalid-collection");
++  } else if (code === "plaviosports") {
++    const allowedTypes = ["movie", "series", "tv"], allowedResources = ["catalog", "meta", "stream", "subtitles"];
++    if (!strings(m.types) || !m.types.includes("tv") || !m.types.every((v) => allowedTypes.includes(v)) || !unique(r) || r.length > 16
++      || !m.resources.every((v) => typeof v === "string" ? allowedResources.includes(v) : object(v) && allowedResources.includes(v.name)
++        && strings(v.types) && unique(v.types) && v.types.length > 0 && v.types.every((t) => allowedTypes.includes(t))
++        && strings(v.idPrefixes) && unique(v.idPrefixes) && v.idPrefixes.length > 0 && v.idPrefixes.every((p) => /^[A-Za-z0-9][A-Za-z0-9:_-]{0,127}$/u.test(p)))
++      || !m.resources.some((v) => object(v) && v.name === "stream" && v.types?.includes("tv") && v.idPrefixes?.includes("plaviohdtv-"))) throw new Error("invalid-collection");
++    for (const key of ["plaviohd-football", "plaviohd-live-sports", "plaviohd-cricket"]) {
++      const rows = m.catalogs.filter((c) => c?.id === key);
++      if (rows.length > 1 || rows.some((c) => c.type !== "tv")) throw new Error("invalid-collection");
++    }
++    if (!m.catalogs.some((c) => ["plaviohd-football", "plaviohd-live-sports"].includes(c?.id) && c.type === "tv")) throw new Error("invalid-collection");
++  } else if (code === "cncsports") {
++    if (!m.resources.every((v) => typeof v === "string") || !unique(r) || !["catalog", "meta", "stream"].every((v) => r.includes(v))
++      || !r.every((v) => ["catalog", "meta", "stream", "subtitles"].includes(v)) || !strings(m.types) || !unique(m.types)
++      || !m.types.includes("tv") || !m.types.every((t) => ["movie", "series", "other", "tv"].includes(t))) throw new Error("invalid-collection");
++  } else if (code === "flixstreams") {
++    if (r.length !== 3 || !unique(r) || !["catalog", "meta", "stream"].every((v) => r.includes(v))
++      || !m.resources.every((v) => typeof v === "string") || m.types != null && (!strings(m.types) || !m.types.includes("tv")) || m.catalogs.length > 16) throw new Error("invalid-collection");
++    const rows = m.catalogs.filter((c) => c?.id === "essential-live-events" && c.type === "tv"), extras = rows[0]?.extra;
++    if (rows.length !== 1 || !Array.isArray(extras) || extras.length > 8 || !unique(extras.map((v) => v?.name)) || extras.some((v) => v?.isRequired === true)) throw new Error("invalid-collection");
++  } else if (code === "streamvix") {
++    if (!strings(m.types) || !m.types.includes("tv") || !["catalog", "meta", "stream"].every((name) => m.resources.some((v) => v === name || v?.name === name && (v.types == null || v.types.includes("tv"))))) throw new Error("invalid-collection");
++  }
++  return m;
++}
++function advertised(m, catalogID, extraCheck = () => true) {
++  const rows = m.catalogs.filter((c) => c?.id === catalogID);
++  if (rows.length !== 1 || rows[0].type !== "tv" || !extraCheck(rows[0])) throw new Error("unsupported-scope");
++  return rows[0];
++}
++
++// Body, request inventory and final URL are independently bounded. The caller's
++// provider-bound reservation owns durable spending/cadence; no read bypasses it.
++function reader(code, { fetcher, reserveRequest, signal }) {
++  let count = 0;
++  const read = async (url, maxBytes = 512 * KiB, html = false) => {
++    if (signal?.aborted) throw signal.reason ?? new DOMException("Cancelled", "AbortError");
++    if (++count > 8 || await reserveRequest() !== true) throw new Error("budget-exhausted");
++    const controller = new AbortController(), cancel = () => controller.abort(signal.reason);
++    signal?.addEventListener("abort", cancel, { once: true });
++    const timer = setTimeout(() => controller.abort(), code === "score808" ? 6000 : 9000);
++    try {
++      const response = await fetcher(url, { method: "GET", redirect: "manual", signal: controller.signal,
++        headers: { Accept: html ? "text/html" : "application/json", "User-Agent": "Fotty metadata collector/1.0" } });
++      if (response.status !== 200 || response.url && response.url !== url) { await response.body?.cancel(); throw new Error("source-unavailable"); }
++      const declared = Number(response.headers.get("content-length"));
++      if (declared > maxBytes || !response.body) { await response.body?.cancel(); throw new Error("capacity-exceeded"); }
++      const type = response.headers.get("content-type") ?? "";
++      if (!html && !/(?:application\/(?:[a-z.+-]*\+)?json)\b/iu.test(type)) { await response.body.cancel(); throw new Error("invalid-collection"); }
++      const stream = response.body.getReader(), chunks = []; let bytes = 0;
++      try {
++        for (;;) { const { done, value } = await stream.read(); if (done) break;
++          bytes += value.byteLength; if (bytes > maxBytes) { await stream.cancel(); throw new Error("capacity-exceeded"); } chunks.push(value); }
++      } finally { stream.releaseLock(); }
++      if (signal?.aborted) throw signal.reason ?? new DOMException("Cancelled", "AbortError");
++      const body = new Uint8Array(bytes); let offset = 0; for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.byteLength; }
++      const text = new TextDecoder("utf-8", { fatal: true }).decode(body);
++      if (html) return text;
++      try { return JSON.parse(text); } catch { throw new Error("invalid-collection"); }
++    } catch (error) {
++      if (signal?.aborted) throw signal.reason ?? error;
++      if (controller.signal.aborted) throw new Error("source-unavailable");
++      throw error;
++    } finally { clearTimeout(timer); signal?.removeEventListener("abort", cancel); }
++  };
++  read.count = () => count;
++  return read;
++}
++
++function csRow(row, scope, now) {
++  if (!object(row) || typeof row.id !== "string") return null;
++  const category = row.genres?.[0], isChannel = scope === "networks" && category === "NETWORKS" && row.released == null;
++  const facts = { kind: isChannel ? "channel" : "event", sport: sport(category), participants: [], ...(row.released ? { start: row.released } : {}) };
++  if (isChannel && canonicalChannel(row.name)) { facts.channelID = canonicalChannel(row.name); facts.sport = "cricket"; }
++  const issues = [];
++  if (row.type != null && row.type !== "tv" || !row.id?.startsWith("nuvio_sport_")) issues.push("identity-conflict");
++  if (isChannel && (row.type !== "tv" || row.genres.length !== 1 || row.cast != null && (!Array.isArray(row.cast) || row.cast.length > 0)
++    || ["released", "date", "startTime", "kickoff", "videos"].some((k) => own(row, k)))) issues.push("identity-conflict");
++  if (!isChannel) {
++    const named = pair(row.name), cast = strings(row.cast) && row.cast.length === 2 ? row.cast.map(cleanFlags) : [];
++    facts.participants = cast.length === 2 && cast.every(Boolean) ? cast : named;
++    if (named.length === 2 && cast.length === 2 && named.map((x) => x.toLowerCase()).sort().join("|") !== cast.map((x) => x?.toLowerCase()).sort().join("|")) issues.push("identity-conflict");
++  }
++  if (!isChannel && facts.sport === "cricket" && typeof row.description === "string") {
++    const label = row.description.split("\n").find((line) => line.startsWith("🏆 League: "))?.slice("🏆 League: ".length);
++    Object.assign(facts, cricketLabel(label));
++  }
++  return record("communitysports", row, scope, now, facts, issues);
++}
++function asRow(row, scope, now, originals = []) {
++  if (!object(row) || typeof row.id !== "string") return null;
++  const observationScope = scope;
++  if (scope === "live" && pair(row.name).length === 2 && /^plaviohdtv-sfly-streamed:[A-Za-z0-9][A-Za-z0-9_-]*$/u.test(row.id) && JSON.stringify(row.genres) === '["Sports"]') scope = "football";
++  const name = typeof row.name === "string" ? row.name : "";
++  const issues = [], facts = { sport: scope === "football" || scope === "cricket" ? scope : "unknown", participants: [] };
++  if (row.type !== "tv" || !row.id?.startsWith("plaviohdtv-") || !strings(row.genres)) issues.push("identity-conflict");
++  if (["released", "releaseInfo", "date", "startTime", "kickoff", "videos", "behaviorHints"].some((k) => own(row, k))) issues.push("identity-conflict");
++  const lines = typeof row.description === "string" ? row.description.split("\n") : [];
++  if (scope === "cricket") {
++    if (JSON.stringify(row.genres) !== '["Cricket"]') issues.push("identity-conflict");
++    if (lines.length === 2 && name.startsWith(lines[0] + " - ")) {
++      facts.participants = pair(lines[0]); Object.assign(facts, cricketLabel(row.name.slice((lines[0] + " - ").length)));
++      facts.start = englishUTC(lines[1]);
++      if (!facts.format || facts.format === "Test" && !facts.day) issues.push("format-conflict");
++      if (!/^plaviohdtv-sfly-streamed:cricket-[a-z0-9][a-z0-9-]*$/u.test(row.id ?? "")) issues.push("unverified-fixture");
++    } else { // Retain the changed clock-only envelope; never derive its date.
++      const split = sourceTitleParts(row.name);
++      if (split.length === 2) { Object.assign(facts, cricketLabel(split[0])); facts.participants = pair(split[1]); }
++      issues.push("missing-date");
++    }
++  } else if (scope === "football") {
++    facts.participants = pair(row.name);
++    if (lines.length === 2 && lines[0] === row.name && JSON.stringify(row.genres) === '["Sports"]'
++      && /^plaviohdtv-sfly-streamed:football-[a-z0-9][a-z0-9-]*$/u.test(row.id ?? "")) facts.start = englishUTC(lines[1]);
++    if (!facts.start && /^plaviohdtv-dlhd-ev-[a-z0-9]{1,32}$/u.test(row.id ?? "")) {
++      if (JSON.stringify(row.genres) !== '["Football"]') issues.push("identity-conflict");
++      const title = sourceTitleParts(row.name);
++      const clock = typeof row.description === "string" && row.description.match(/^Starts ((?:[01]\d|2[0-3]):[0-5]\d) \(UK time\) · [1-9]\d{0,2} channels$/u)?.[1];
++      if (title?.length === 2 && clock) {
++        facts.participants = pair(title[1]);
++        const matches = originals.filter((o) => normalizedName(o.competition) === normalizedName(title[0]) && samePair(o.participants, facts.participants));
++        facts.competitionID = ({ "england premier league": "premier-league", "uefa champions league": "champions-league", "england league cup": "carabao-cup" })[normalizedName(title[0])];
++        if (matches.length === 1 && matches[0].start && matches[0].clock === clock) {
++          const london = wallParts(+new Date(matches[0].start), "Europe/London"), localClock = `${String(london.hour).padStart(2, "0")}:${String(london.minute).padStart(2, "0")}`;
++          if (localClock === clock) facts.start = matches[0].start; else issues.push("time-conflict");
++        }
++        else if (matches.length > 1) issues.push("time-conflict");
++      }
++    }
++  } else { facts.participants = pair(row.name); facts.kind = facts.participants.length ? "event" : "channel";
++    if (facts.kind === "channel" && canonicalChannel(row.name)) { facts.channelID = canonicalChannel(row.name); facts.sport = "cricket"; } }
++  return record("plaviosports", row, observationScope, now, facts, issues);
++}
++const samePair = (a, b, category = "football") => a.length === 2 && b.length === 2 && a.map((v) => teamKey(v, category)).sort().join("\n") === b.map((v) => teamKey(v, category)).sort().join("\n");
++function fsRow(row, scope, now) {
++  if (!object(row)) return null;
++  const issues = [], lines = typeof row.description === "string" ? row.description.split("\n") : [];
++  const category = scope === "football" ? "All Soccer Events ⚽" : "Cricket 🏏", prefix = scope === "football" ? "⚽ " : "🏏 ";
++  const title = cleanFlags(row.name), parts = title?.startsWith(prefix) ? title.slice(prefix.length).split(" : ") : [];
++  const facts = { sport: scope, participants: parts?.length === 2 ? pair(parts[1]) : [] };
++  if (row.type !== "tv" || !/^dlstreams:event:[a-f0-9]{12}$/u.test(row.id ?? "") || JSON.stringify(row.genres) !== JSON.stringify(["Live TV", "Sports", category])) issues.push("identity-conflict");
++  if (parts?.length === 2) facts.competitionID = ({ "England - Premier League": "premier-league", "UEFA Champions League": "champions-league", "Europe - UEFA Champions League": "champions-league", "Italy - Serie A": "serie-a" })[parts[0]];
++  if (scope === "football" && !facts.competitionID) issues.push("unsupported-scope");
++  if (title && /\b(?:xtra\s*time|extra\s*time|watch\s*along|watchalong|preview|highlights?|replays?|simulcast|multicast)\b/iu.test(title)) issues.push("unverified-fixture");
++  if (parts?.length === 2 && [...squadTokens(parts[0])].some((q) => !facts.participants.every((p) => squadTokens(p).has(q)))) issues.push("squad-conflict");
++  if (lines.length === 4 && lines[0] === "Category: " + category && /^Date: 20\d{2}-\d{2}-\d{2} \(UTC\)$/u.test(lines[1])
++    && /^Time: (?:[01]\d|2[0-3]):[0-5]\d$/u.test(lines[2]) && /^Channels: .+/u.test(lines[3])) facts.start = lines[1].slice(6, 16) + "T" + lines[2].slice(6) + ":00Z";
++  if (["released", "releaseInfo", "cast"].some((k) => own(row, k))) issues.push("identity-conflict");
++  if (own(row, "behaviorHints") && (!object(row.behaviorHints) || Object.keys(row.behaviorHints).join() !== "defaultVideoId" || row.behaviorHints.defaultVideoId !== row.id)) issues.push("identity-conflict");
++  if (own(row, "videos")) {
++    const v = row.videos?.[0];
++    if (!Array.isArray(row.videos) || row.videos.length !== 1 || !object(v) || Object.keys(v).sort().join() !== "episode,id,released,season,title"
++      || v.id !== row.id || v.title !== "Live Stream" || !Number.isInteger(v.season) || !Number.isInteger(v.episode)
++      || !facts.start || utc(v.released) !== utc(facts.start)) issues.push("time-conflict");
++  }
++  return record("flixstreams", row, scope, now, facts, issues);
++}
++async function cncRow(row, now) {
++  if (!object(row)) return null;
++  if (typeof row.id !== "string" || row.id.length > 4096 || !/^cnc:[A-Za-z0-9_-]+={0,2}$/u.test(row.id)) return null;
++  const issues = [], participants = pair(typeof row.name === "string" ? row.name.replace(/^(?:🔴|🔜|✅) /u, "") : ""), hints = row.behaviorHints;
++  if (row.type !== "tv" || !object(hints) || Object.keys(hints).join() !== "defaultVideoId" || hints.defaultVideoId !== row.id) issues.push("identity-conflict");
++  // CNC's advertised identifier encodes a provider object. Persist only an
++  // observation fingerprint, never that embedded payload or executable route.
++  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(row.id)));
++  const reference = "cnc-observation:" + [...hash].map((b) => b.toString(16).padStart(2, "0")).join("");
++  return record("cncsports", { id: reference, name: row.name }, "hockey", now, { sport: "hockey", participants, competitionID: "nhl" }, issues);
++}
++
++const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
++function gmtDay(header, clock, as = false) {
++  const match = typeof header === "string" && header.length <= 128 && header.match(as
++    ? /^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) ([1-9]|[12]\d|3[01])(?:st|nd|rd|th|h) ([A-Za-z]+) (20\d{2}) - Schedule Time UK GMTT?$/u
++    : /^(Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) (\d{1,2})(st|nd|rd|th)? ([A-Za-z]+) (20\d{2}) - Schedule Time UK GMT$/u);
++  if (!match || typeof clock !== "string" || !/^(?:[01]\d|2[0-3]):[0-5]\d$/u.test(clock) || as && +clock.slice(0, 2) < 6) return null;
++  const day = +match[2], monthText = as ? match[3] : match[4], year = +(as ? match[4] : match[5]);
++  const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
++  const month = monthNames.findIndex((m) => m === monthText || m.slice(0, 3) === monthText || m === "September" && monthText === "Sept") + 1;
++  if (!as && match[3]) { const suffix = day % 100 >= 11 && day % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" })[day % 10] ?? "th"; if (match[3] !== suffix) return null; }
++  const result = dateParts(year, month, day, +clock.slice(0, 2), +clock.slice(3));
++  return result && weekdays[new Date(result).getUTCDay()] === match[1] ? result : null;
++}
++function wallParts(ms, zone) {
++  const formatter = new Intl.DateTimeFormat("en-GB", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
++  return Object.fromEntries(formatter.formatToParts(new Date(ms)).filter((p) => p.type !== "literal").map((p) => [p.type, +p.value]));
++}
++function zonedDate(day, clock, zone) {
++  if (typeof zone !== "string" || zone.length > 80 || !/^20\d{2}-\d{2}-\d{2}$/u.test(day ?? "") || !/^(?:[01]\d|2[0-3]):[0-5]\d$/u.test(clock ?? "")) return null;
++  const [year, month, date] = day.split("-").map(Number), [hour, minute] = clock.split(":").map(Number);
++  const literal = dateParts(year, month, date, hour, minute); if (!literal) return null;
++  const base = +new Date(literal), candidates = new Set();
++  try {
++    // Both sides of a clock transition supply possible offsets; round-tripping
++    // rejects nonexistent or ambiguous local instants instead of guessing DST.
++    for (const delta of [-86400_000, 0, 86400_000]) {
++      const sample = base + delta, p = wallParts(sample, zone), offset = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - sample;
++      const candidate = base - offset, actual = wallParts(candidate, zone);
++      if (actual.year === year && actual.month === month && actual.day === date && actual.hour === hour && actual.minute === minute) candidates.add(candidate);
++    }
++  } catch { return null; }
++  return candidates.size === 1 ? new Date([...candidates][0]).toISOString() : null;
++}
++function svOriginals(body) {
++  if (!object(body) || Object.keys(body).length > 8) throw new Error("invalid-collection");
++  const result = [];
++  for (const [header, groups] of Object.entries(body)) {
++    if (!object(groups) || Object.keys(groups).length > 64) throw new Error("invalid-collection");
++    if (!own(groups, "All Soccer Events ⚽")) continue;
++    const rows = groups["All Soccer Events ⚽"];
++    if (!Array.isArray(rows) || rows.length > 600) throw new Error("invalid-collection");
++    for (const row of rows) {
++      if (!object(row) || !str(row.event, 1024)) throw new Error("invalid-collection");
++      for (const competition of ["England - Premier League", "UEFA Champions League"]) {
++        const prefix = "⚽ " + competition + " : "; if (!row.event.startsWith(prefix)) continue;
++        if (!gmtDay(header, "00:00")) throw new Error("invalid-collection");
++        const pairTitle = row.event.slice(prefix.length), participants = pair(pairTitle);
++        result.push({ competition, participants, pairTitle, start: gmtDay(header, row.time), category: competition.startsWith("England") ? "premierleague" : "coppe" });
++      }
++    }
++  }
++  return result;
++}
++function svRow(row, genre, now, originals) {
++  if (!object(row)) return null;
++  const category = genre === "Premier League" ? "premierleague" : "coppe", issues = [];
++  const clean = cleanFlags(row.name), titlePair = clean?.replace(/ ⏰ \d{2}:\d{2} - \d{2}\/\d{2}$/u, "");
++  const participants = pair(titlePair), derived = utc(row.eventStart);
++  const facts = { sport: "football", participants, competitionID: category === "premierleague" ? "premier-league" : "champions-league", ...(derived ? { start: derived } : {}) };
++  if (row.type !== "tv" || row.category !== category || row._dynamic !== true || !id(row.id)
++    || ["behaviorHints", "videos", "released", "startTime", "eventstart"].some((k) => own(row, k))
++    || ["genre", "genres"].some((k) => own(row, k) && JSON.stringify(row[k]) !== JSON.stringify([category]))) issues.push("identity-conflict");
++  const candidates = originals.filter((o) => o.category === category && samePair(o.participants, participants));
++  const matched = [];
++  for (const original of candidates) {
++    if (!derived || !original.start) continue;
++        const rome = zonedDate(original.start.slice(0, 10), original.start.slice(11, 16), "Europe/Rome");
++    if (derived !== original.start && derived !== rome) continue;
++    const display = wallParts(+new Date(derived), "Europe/Rome"), clock = `${String(display.hour).padStart(2, "0")}:${String(display.minute).padStart(2, "0")}`;
++    const dm = `${String(display.day).padStart(2, "0")}/${String(display.month).padStart(2, "0")}`;
++    const sourceTitle = `⏰ ${clock} : ${original.pairTitle} - ${genre === "Premier League" ? "Premier League" : "UEFA Champions League"} ${dm}`;
++    const slug = sourceTitle.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "").slice(0, 60);
++    const target = "tv:" + slug + "-" + derived.slice(0, 10).replaceAll("-", "");
++    const expectedName = `${cleanFlags(original.pairTitle)} ⏰ ${clock} - ${dm}`;
++    const expectedDescription = `🔴 Inizio: ${clock} - ${cleanFlags(original.pairTitle)} - ${genre === "Premier League" ? "Premier League" : "UEFA Champions League"} - ${dm}`;
++    if (row.id === target && clean === expectedName && cleanFlags(row.description) === expectedDescription
++      && (!own(row, "_originalName") || cleanFlags(row._originalName) === cleanFlags(sourceTitle))) matched.push(original.start);
++  }
++  const unique = [...new Set(matched)];
++  if (unique.length === 1) {
++    for (const other of originals) {
++      if (!other.start) continue;
++      const possibilities = [other.start, zonedDate(other.start.slice(0, 10), other.start.slice(11, 16), "Europe/Rome")].filter(Boolean);
++      for (const date of possibilities) {
++        const d = wallParts(+new Date(date), "Europe/Rome"), clock = `${String(d.hour).padStart(2, "0")}:${String(d.minute).padStart(2, "0")}`;
++        const dm = `${String(d.day).padStart(2, "0")}/${String(d.month).padStart(2, "0")}`;
++        const title = `⏰ ${clock} : ${other.pairTitle} - ${other.category === "premierleague" ? "Premier League" : "UEFA Champions League"} ${dm}`;
++        const target = "tv:" + title.toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-|-$/gu, "").slice(0, 60) + "-" + date.slice(0, 10).replaceAll("-", "");
++        if (target === row.id && (other.start !== unique[0] || other.category !== category || !samePair(other.participants, participants))) issues.push("identity-conflict");
++      }
++    }
++  }
++  if (unique.length === 1 && issues.length === 0) facts.start = unique[0]; else issues.push(candidates.length ? "time-conflict" : "unverified-fixture");
++  return record("streamvix", row, "football", now, facts, issues);
++}
++
++// Port of the native Daddy schedule's balanced visibility scopes. Script,
++// template, hidden descendants and malformed paired rows cannot supply dates.
++function htmlNodes(raw) {
++  const html = raw.replace(/<(script|style)\b[^>]*>.*?<\/\1\s*>|<!--[\s\S]*?(?:-->|$)/gisu, "");
++  const nodes = [], stack = [], tags = [...html.matchAll(/<(\/?)([A-Za-z][A-Za-z0-9]*)\b([^<>]{0,4096})>/gu)];
++  if (tags.length > 24000) throw new Error("capacity-exceeded");
++  const voids = new Set("area base br col embed hr img input link meta param source track wbr".split(" "));
++  let skip = 0;
++  for (const match of tags) {
++    if (match.index < skip) continue;
++    const tag = match[2].toLowerCase();
++    if (match[1]) {
++      const position = stack.findLastIndex((i) => nodes[i].tag === tag); if (position < 0) continue;
++      if (position !== stack.length - 1) for (const i of stack) nodes[i].valid = false;
++      const node = nodes[stack[position]]; node.contentEnd = match.index; node.closeEnd = match.index + match[0].length; stack.splice(position); continue;
++    }
++    const attrs = match[3], classes = new Set((attrs.match(/(?:^|\s)class\s*=\s*(["'])([^"']*)\1/iu)?.[2] ?? "").split(/\s+/u));
++    const hidden = stack.length > 0 && nodes[stack.at(-1)].hidden || ["template", "noscript", "textarea", "script", "style"].includes(tag)
++      || /(?:^|\s)(?:hidden|inert)(?=\s|=|\/|$)|(?:^|\s)aria-hidden\s*=\s*(?:["']true["']|true(?:\s|$))|(?:^|\s)style\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse))/iu.test(attrs);
++    const node = { tag, classes, start: match.index, end: match.index + match[0].length, parent: stack.at(-1), hidden, valid: true }; nodes.push(node); const index = nodes.length - 1;
++    if (classes.has("schedule__day") && stack.some((i) => nodes[i].classes.has("schedule__day"))) { node.valid = false; for (const i of stack) nodes[i].valid = false; }
++    if (["noscript", "textarea", "script", "style"].includes(tag)) {
++      const close = new RegExp("</" + tag + "\\s*>", "iu").exec(html.slice(node.end));
++      if (close) { node.contentEnd = node.end + close.index; node.closeEnd = node.contentEnd + close[0].length; skip = node.closeEnd; }
++      else { node.valid = false; skip = html.length; }
++    } else if (voids.has(tag) || /\/\s*$/u.test(attrs)) { node.contentEnd = node.end; node.closeEnd = node.end; }
++    else { if (stack.length >= 96) throw new Error("capacity-exceeded"); stack.push(index); }
++  }
++  const classNodes = new Map(), ancestry = new Map();
++  for (let i = 0; i < nodes.length; i++) for (const klass of nodes[i].classes) {
++    if (!classNodes.has(klass)) classNodes.set(klass, []); classNodes.get(klass).push(i);
++  }
++  const ancestor = (index, klass) => {
++    const key = index + ":" + klass; if (ancestry.has(key)) return ancestry.get(key);
++    for (let p = nodes[index].parent; p != null; p = nodes[p].parent) if (nodes[p].classes.has(klass)) { ancestry.set(key, p); return p; }
++    ancestry.set(key, null); return null;
++  };
++  const hiddenRoots = nodes.filter((n) => n.hidden && (n.parent == null || !nodes[n.parent].hidden));
++  const text = (index) => {
++    const node = nodes[index]; if (node.hidden || !node.valid || node.contentEnd == null) return null;
++    let value = html.slice(node.end, node.contentEnd);
++    let lo = 0, hi = hiddenRoots.length;
++    while (lo < hi) { const mid = (lo + hi) >>> 1; if (hiddenRoots[mid].start < node.end) lo = mid + 1; else hi = mid; }
++    const hidden = []; for (let i = lo; i < hiddenRoots.length && hiddenRoots[i].start < node.contentEnd; i++) if (hiddenRoots[i].closeEnd <= node.contentEnd) hidden.push(hiddenRoots[i]);
++    for (const child of hidden.reverse())
++      value = value.slice(0, child.start - node.end) + value.slice(child.closeEnd - node.end);
++    if (value.length > 4096) return null;
++    value = value.replace(/<[^>]*>/gu, " ");
++    for (const [from, to] of [["&amp;", "&"], ["&nbsp;", " "], ["&#039;", "'"], ["&#39;", "'"], ["&quot;", '"']]) value = value.replaceAll(from, to);
++    if (/&(?:#[0-9A-Za-z]+|[A-Za-z][A-Za-z0-9]+);/u.test(value)) return null;
++    return value.trim().replace(/\s+/gu, " ");
++  };
++  return { nodes, classNodes, ancestor, text };
++}
++function dlhdOriginals(raw) {
++  const { nodes, classNodes, ancestor, text } = htmlNodes(raw), days = nodes.filter((n) => n.classes.has("schedule__day") && !n.hidden);
++  if (!days.length || days.length > 16) throw new Error("invalid-collection");
++  const fields = new Map();
++  for (const [klass, scope] of [["schedule__eventTitle", "schedule__event"], ["schedule__time", "schedule__event"], ["schedule__dayTitle", "schedule__day"], ["card__meta", "schedule__category"]]) {
++    for (const index of classNodes.get(klass) ?? []) {
++      if (nodes[index].hidden) continue;
++      const key = klass + ":" + ancestor(index, scope); if (!fields.has(key)) fields.set(key, []); fields.get(key).push(index);
++    }
++  }
++  const field = (klass, owner) => { const found = fields.get(klass + ":" + owner) ?? []; return found.length === 1 ? text(found[0]) : null; };
++  const result = [];
++  for (let index = 0; index < nodes.length; index++) {
++    const n = nodes[index]; if (n.hidden || !n.classes.has("schedule__event")) continue;
++    const day = ancestor(index, "schedule__day"), category = ancestor(index, "schedule__category");
++    if (day == null || category == null || ancestor(category, "schedule__day") !== day) continue;
++    if (result.length >= 2000) throw new Error("capacity-exceeded");
++    const title = field("schedule__eventTitle", index, "schedule__event"), clock = field("schedule__time", index, "schedule__event");
++    const parts = title?.split(":").map((v) => v.trim()), header = field("schedule__dayTitle", day, "schedule__day");
++    const visible = [n, nodes[day], nodes[category]].every((v) => v.valid && v.contentEnd != null && !v.hidden);
++    result.push({ competition: parts?.length === 2 ? parts[0] : "", participants: parts?.length === 2 ? pair(parts[1]) : [], clock,
++      start: visible && field("card__meta", category, "schedule__category")?.toLowerCase() === "all soccer events" ? gmtDay(header, clock, true) : null });
++  }
++  return result;
++}
++
++async function collectScore808({ read, now, cohort }) {
++  await cohort("football", async () => {
++    const listing = await read(SCORE_LISTING, MAX_BYTES, true), widget = score808WidgetID(listing);
++    if (typeof widget !== "string") throw new Error("invalid-collection");
++    const boot = new URL("https://core.service.elfsight.com/p/boot/"); boot.searchParams.set("w", widget); boot.searchParams.set("page", SCORE_LISTING);
++    const body = await read(boot.href, MAX_BYTES), selected = body?.data?.widgets?.[widget];
++    const settings = selected?.data?.settings;
++    if (body?.status !== 1 || selected?.status !== 1 || settings?.selectedEventsProvider !== "manual" || !Array.isArray(settings.events) || settings.events.length > 1000) throw new Error("invalid-collection");
++    const rows = settings.events.map((e) => ({ ...e, _widget: widget }));
++    for (const row of rows) {
++      const pages = Array.isArray(row.actions) && row.actions.length <= 10 ? row.actions.filter((a) => a?.type === "link" && a.primary === true
++        && a.text?.trim().toLowerCase() === "watch now" && a.link?.type === "url" && safeScorePage(a.link.value)).map((a) => a.link.value) : [];
++      if (pages.length !== 1) continue;
++      const key = new URL(pages[0]).pathname.replace(/^\/+|\/+$/gu, "");
++      const start = zonedDate(row.start?.date, row.start?.time, row.timeZone), end = zonedDate(row.end?.date, row.end?.time, row.timeZone);
++      row._pageKey = key; row._start = start; row._end = end;
++    }
++    for (const row of rows) row._pageConflict = row._pageKey != null && rows.some((other) => other !== row && other._pageKey === row._pageKey
++      && row._start && row._end && other._start && other._end && row._start < other._end && other._start < row._end);
++    return rows;
++  }, (row) => {
++    if (!object(row) || !id(row.id) || !str(row.name, 256)) return null;
++    const issues = [], start = row.start?.type === "datetime" ? zonedDate(row.start.date, row.start.time, row.timeZone) : null;
++    const end = row.end?.type === "datetime" ? zonedDate(row.end.date, row.end.time, row.timeZone) : null;
++    const visible = !own(row, "visible") || row.visible === true;
++    if (!visible || row.repeatPeriod !== "noRepeat" || !start || !end || +new Date(end) <= +new Date(start) || +new Date(end) - +new Date(start) > 4 * 3600_000) issues.push("time-conflict");
++    const actions = Array.isArray(row.actions) && row.actions.length <= 10 ? row.actions.filter((a) => a?.type === "link" && a.primary === true && a.text?.trim().toLowerCase() === "watch now" && a.link?.type === "url") : [];
++    if (actions.length !== 1 || !safeScorePage(actions[0]?.link?.value) || row._pageConflict) issues.push("identity-conflict");
++    return record("score808", { id: "score808:" + row._widget + ":" + row.id, name: row.name }, "football", now,
++      { sport: "football", participants: pair(row.name), ...(start ? { start } : {}), ...(end ? { end } : {}) }, issues);
++  });
++}
++function safeScorePage(value) {
++  try { const u = new URL(value); return u.protocol === "https:" && ["score808live.tv", "www.score808live.tv"].includes(u.hostname)
++    && !u.port && !u.username && !u.password && !u.search && !u.hash && u.pathname !== "/"; } catch { return false; }
++}
++
++export const broadcastSourceParsers = Object.freeze({ csRow, asRow, fsRow, cncRow, svRow, svOriginals, dlhdOriginals, zonedDate });
++
++function scopeResult(scope, records, complete, failure) {
++  return { scope, status: failure ? "failed" : complete ? records.length ? "available" : "empty" : "partial", complete,
++    ...(failure ? { failure } : {}) };
++}
++const reason = (error) => ["budget-exhausted", "unsupported-scope", "capacity-exceeded", "invalid-collection"].includes(error?.message) ? error.message : "source-unavailable";
++
++function retrievalHints(fixtures, now) {
++  if (!Array.isArray(fixtures) || fixtures.length > 3000) return [];
++  const rank = (f) => ["premier-league", "champions-league"].includes(f.competitionID) ? 0 : f.sport === "cricket" ? 1 : 2;
++  return fixtures.filter((f) => object(f) && f.verified === true && CS_SCOPES.includes(f.sport)
++    && Array.isArray(f.participants) && f.participants.length === 2 && f.participants.every((p) => str(p, 256))
++    && utc(f.observedAt) && +now - Date.parse(f.observedAt) >= -300_000 && +now - Date.parse(f.observedAt) <= 30 * 60_000
++    && utc(f.start) && (f.status === "live" || f.status === "scheduled" && Math.abs(Date.parse(f.start) - +now) <= 30 * 60_000))
++    .sort((a, b) => rank(a) - rank(b) || Number(b.status === "live") - Number(a.status === "live")
++      || Math.abs(Date.parse(a.start) - +now) - Math.abs(Date.parse(b.start) - +now));
++}
++function asEnriched(row, scope, meta, now, originals) {
++  const base = asRow(row, scope, now, originals);
++  if (!base) return null;
++  const conflict = () => ({ ...base, verification: "conflicting", issues: [...new Set([...base.issues, "identity-conflict"])] });
++  if (!object(meta) || meta.id !== row.id || meta.type !== "tv" || !str(meta.name, 512) || typeof meta.description !== "string"
++    || meta.description.length > 1024 || own(meta, "genres") && JSON.stringify(meta.genres) !== JSON.stringify(row.genres)
++    || ["released", "releaseInfo", "date", "startTime", "kickoff", "videos", "behaviorHints"].some((k) => own(meta, k))) return conflict();
++  if (/^plaviohdtv-dlhd-ev-/u.test(row.id) && (meta.name !== row.name || meta.description !== row.description)) return conflict();
++  const candidate = asRow({ ...row, name: meta.name, description: meta.description }, scope, now, originals);
++  if (!candidate || !samePair(base.participants, candidate.participants, base.sport)
++    || ["format", "matchOrdinal", "day"].some((k) => base[k] != null && candidate[k] != null && base[k] !== candidate[k])) return conflict();
++  // The already-reviewed Sfly Live meta route can add its explicit dated
++  // description. The official fixture was only a retrieval hint, never a date.
++  if (base.sport === "football" && /^plaviohdtv-sfly-streamed:[A-Za-z0-9][A-Za-z0-9_-]*$/u.test(row.id)) {
++    const lines = meta.description.split("\n"), published = lines.length === 2 && lines[0] === meta.name ? englishUTC(lines[1]) : null;
++    if (published && candidate.verification !== "conflicting") return { ...candidate, start: published, verification: "dated",
++      issues: candidate.issues.filter((i) => !["missing-date", "unverified-fixture"].includes(i)) };
++  }
++  return candidate;
++}
++function searchableCatalog(m, scope) {
++  for (const key of ["nuvio_sports_" + CS_SUFFIX(scope), "nuvio_sports_live"]) {
++    const rows = m.catalogs.filter((r) => r?.id === key);
++    if (rows.length === 1 && rows[0].type === "tv" && rows[0].extra?.some((e) => e?.name === "search")) return key;
++  }
++  return null;
++}
++function searchHint(name, category) {
++  if (!str(name, 96)) return null;
++  let entered = name.trim().replace(/\s+/gu, " ");
++  if (category === "football") {
++    const shorter = entered.split(" ").filter((t) => !["fc", "afc", "cf"].includes(t.toLowerCase())).join(" ");
++    if (shorter !== entered && canonicalFootballClubId(shorter)) entered = shorter;
++  }
++  return encodeURIComponent(entered).replace(/[!'()*]/gu, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
++}
++
++export async function collectBroadcastSource(providerCode, { now = new Date(), reserveRequest = async () => false,
++  fetcher = fetch, signal, cursor = 0, fixtures = [] } = {}) {
++  if (!BROADCAST_SOURCE_CODES.includes(providerCode) || !Number.isFinite(+new Date(now))) throw new Error("invalid-collection");
++  now = new Date(now);
++  const read = reader(providerCode, { fetcher, reserveRequest, signal }), broadcasts = [], scopes = [], hints = retrievalHints(fixtures, now);
++  const cohort = async (scope, load, parse, complete = true) => {
++    try {
++      const rows = await load(), parsed = (await Promise.all(rows.map(parse))).filter(Boolean);
++      const valid = parsed.length === rows.length;
++      if (broadcasts.length + parsed.length > MAX_RECORDS) throw new Error("capacity-exceeded");
++      broadcasts.push(...parsed); scopes.push(scopeResult(scope, parsed, complete && valid));
++      return true;
++    } catch (error) {
++      if (signal?.aborted || error?.name === "AbortError") throw error;
++      const failure = reason(error); scopes.push(failure === "unsupported-scope" ? { scope, status: "unsupported", complete: false, failure } : scopeResult(scope, [], false, failure));
++      return false;
++    }
++  };
++  try {
++    if (providerCode === "streamex") {
++      const profiles = [["https://www.streamex.net", "/api/live/matches"], ["https://streamex.sh", "/api/live/matches"], ["https://streamed.pk", "/api/matches"]];
++      for (const [origin, prefix] of profiles) {
++        const ok = await cohort("live", async () => {
++          const body = await read(origin + prefix + "/all", 4 * MAX_BYTES); const rows = Array.isArray(body) ? body : body?.matches;
++          if (!Array.isArray(rows) || rows.length > 2000) throw new Error("invalid-collection"); return rows;
++        }, (row) => {
++          if (!object(row)) return null;
++          const ms = Number.isSafeInteger(row.date) ? row.date > 10_000_000_000 ? row.date : row.date * 1000 : NaN;
++          const validDate = Number.isFinite(ms) && ms >= 946684800_000 && ms <= 4102444800_000;
++          return record(providerCode, row, "live", now, { sport: sport(row.category), participants: row.teams?.home?.name && row.teams?.away?.name
++            ? [row.teams.home.name, row.teams.away.name] : pair(row.title), ...(validDate ? { start: new Date(ms).toISOString() } : {}) },
++            row.date != null && !validDate ? ["time-conflict"] : []);
++        });
++        if (ok) break;
++      }
++    } else if (providerCode === "score808") {
++      await collectScore808({ read, now, cohort });
++    } else {
++      const m = manifest(await read(ORIGINS[providerCode] + "/manifest.json", 128 * KiB), providerCode);
++      if (providerCode === "communitysports") {
++        const rotating = CS_SCOPES.slice(2).filter((scope) => m.catalogs.some((c) => c?.id === "nuvio_sports_" + CS_SUFFIX(scope) && c.type === "tv"));
++        const safeCursor = Number.isInteger(cursor) && cursor >= 0 && cursor <= 65535 ? cursor : 0;
++        const offset = rotating.length ? (safeCursor & 255) % rotating.length : 0;
++        for (const scope of CS_SCOPES.slice(2).filter((s) => !rotating.includes(s))) scopes.push({ scope, status: "unsupported", complete: false, failure: "unsupported-scope" });
++        let advanced = 0;
++        const readScope = async (scope) => {
++          const name = "nuvio_sports_" + CS_SUFFIX(scope);
++          return await cohort(scope, async () => { advertised(m, name); return safeRows(await read(ORIGINS[providerCode] + "/catalog/tv/" + name + ".json", 700 * KiB), 600); },
++            (row) => csRow(row, scope, now), false);
++        };
++        for (const scope of ["live", "networks", "football", "cricket"]) await readScope(scope);
++        const uncovered = hints.filter((f) => searchableCatalog(m, f.sport) && !broadcasts.some((b) => b.kind !== "channel" && b.verification === "dated"
++          && b.sport === f.sport && samePair(b.participants, f.participants, f.sport)
++          && (f.format === "Test" ? b.format === "Test" && b.matchOrdinal === f.matchOrdinal && b.day === f.day && b.start >= f.start && f.end && b.start < f.end
++            : Math.abs(Date.parse(b.start) - Date.parse(f.start)) <= 15 * 60_000)));
++        let hintAdvanced = 0;
++        if (uncovered.length) {
++          const target = uncovered[(safeCursor >>> 8) % uncovered.length], key = searchableCatalog(m, target.sport);
++          for (const participant of target.participants) {
++            if (read.count() >= 8) break;
++            const query = searchHint(participant, target.sport); if (!query) continue;
++            const ok = await cohort(target.sport, async () => safeRows(await read(ORIGINS[providerCode] + "/catalog/tv/" + key + "/search=" + query + ".json", 700 * KiB), 600),
++              (row) => csRow(row, target.sport, now), false);
++            if (ok) hintAdvanced = 1;
++          }
++        }
++        for (let n = 0; n < Math.min(3, rotating.length) && read.count() < 8; n++) if (await readScope(rotating[(offset + n) % rotating.length])) advanced++;
++        cursor = (((safeCursor >>> 8) + hintAdvanced) % 256) * 256 + (rotating.length ? (offset + advanced) % rotating.length : 0);
++      } else if (providerCode === "plaviosports") {
++        let originals = [], originalRead = false; const rawRows = [];
++        for (const scope of ["football", "cricket", "live"]) {
++          const name = scope === "football" ? m.catalogs.some((c) => c.id === "plaviohd-football") ? "plaviohd-football" : "plaviohd-live-sports"
++            : scope === "cricket" ? "plaviohd-cricket" : "plaviohd-live-sports";
++          await cohort(scope, async () => {
++            advertised(m, name); const rows = safeRows(await read(ORIGINS[providerCode] + "/catalog/tv/" + name + ".json", 512 * KiB), 600);
++            rawRows.push(...rows.map((row) => ({ row, scope })));
++            if (scope === "football" && rows.some((r) => /^plaviohdtv-dlhd-ev-/u.test(r?.id ?? "")) && !originalRead) {
++              originalRead = true;
++              try { originals = dlhdOriginals(await read(AS_ORIGINAL, MAX_BYTES, true)); }
++              catch (error) { if (signal?.aborted || error?.name === "AbortError") throw error; scopes.push(scopeResult("football", [], false, reason(error))); }
++            }
++            return rows;
++          }, (row) => asRow(row, scope, now, originals), false);
++        }
++        const candidates = [];
++        for (const { row, scope } of rawRows) {
++          if (!id(row?.id) || candidates.some((c) => c.row.id === row.id)) continue;
++          const base = asRow(row, scope, now, originals);
++          if (!base || base.verification !== "undated" || base.kind !== "event" || !hints.some((f) => f.sport === base.sport && samePair(f.participants, base.participants, f.sport))) continue;
++          const knownID = /^plaviohdtv-(?:dlhd-ev-[a-z0-9]{1,32}|sfly-streamed:[A-Za-z0-9][A-Za-z0-9_-]*)$/u.test(row.id);
++          if (!knownID || !m.resources.some((r) => object(r) && r.name === "meta" && r.types?.includes("tv") && r.idPrefixes?.some((p) => row.id.startsWith(p)))) continue;
++          const identity = (r) => JSON.stringify([r.type, r.name, r.description, r.genres, ["released", "releaseInfo", "date", "startTime", "kickoff", "videos", "behaviorHints"].filter((k) => own(r, k))]);
++          const siblings = rawRows.filter((s) => s.row?.id === row.id);
++          if (siblings.some((s) => identity(s.row) !== identity(row))) {
++            for (let i = 0; i < broadcasts.length; i++) if (broadcasts[i].providerEventID === row.id) broadcasts[i] = { ...broadcasts[i], verification: "conflicting", issues: [...new Set([...broadcasts[i].issues, "identity-conflict"])] };
++            continue;
++          }
++          candidates.push({ row, scope, siblings });
++        }
++        const offset = candidates.length && Number.isInteger(cursor) && cursor >= 0 ? cursor % candidates.length : 0;
++        let advanced = 0;
++        for (let n = 0; n < Math.min(2, candidates.length) && read.count() < 8; n++) {
++          const candidate = candidates[(offset + n) % candidates.length];
++          try {
++            const document = await read(ORIGINS[providerCode] + "/meta/tv/" + encodeURIComponent(candidate.row.id) + ".json", 512 * KiB);
++            for (const sibling of candidate.siblings) {
++              const enriched = asEnriched(sibling.row, sibling.scope, document?.meta, now, originals);
++              if (enriched) for (let i = 0; i < broadcasts.length; i++) if (broadcasts[i].providerEventID === sibling.row.id && broadcasts[i].scope === sibling.scope) broadcasts[i] = enriched;
++            }
++            advanced++;
++          } catch (error) { if (signal?.aborted || error?.name === "AbortError") throw error; scopes.push(scopeResult(candidate.scope, [], false, reason(error))); }
++        }
++        cursor = candidates.length ? (offset + advanced) % candidates.length : 0;
++      } else if (providerCode === "cncsports") {
++        await cohort("hockey", async () => { advertised(m, "cnc_LivXowLiveEvents_tv"); return safeRows(await read(ORIGINS[providerCode] + "/catalog/tv/cnc_LivXowLiveEvents_tv.json", 512 * KiB), 600); }, (row) => cncRow(row, now), false);
++      } else if (providerCode === "flixstreams") {
++        advertised(m, "essential-live-events", (c) => c.extra?.some((e) => e.name === "skip" && e.isRequired !== true)
++          && c.extra?.some((e) => e.name === "genre" && e.isRequired !== true && e.options?.includes("soccer") && e.options?.includes("cricket")));
++        for (const scope of ["football", "cricket"]) await cohort(scope, async () => {
++          const rows = [];
++          for (const skip of [0, 40, 80]) rows.push(...safeRows(await read(ORIGINS[providerCode] + "/catalog/tv/essential-live-events/genre="
++            + (scope === "football" ? "soccer" : "cricket") + (skip ? "&skip=" + skip : "") + ".json", 512 * KiB), 40));
++          return rows;
++        }, (row) => fsRow(row, scope, now), false);
++      } else if (providerCode === "streamvix") {
++        advertised(m, "streamvix_eventi", (c) => c.extra?.some((e) => e.name === "genre" && e.isRequired === true
++          && e.options?.includes("Premier League") && e.options?.includes("Coppe")));
++        let originals = [];
++        try { originals = svOriginals(await read(SV_ORIGINAL, MAX_BYTES)); }
++        catch (error) { if (signal?.aborted || error?.name === "AbortError") throw error; scopes.push(scopeResult("football", [], false, reason(error))); }
++        for (const genre of ["Premier League", "Coppe"]) await cohort("football", async () => safeRows(await read(ORIGINS[providerCode]
++          + "/catalog/tv/streamvix_eventi/genre=" + encodeURIComponent(genre) + ".json", 512 * KiB), 200), (row) => svRow(row, genre, now, originals), false);
++      }
++    }
++  } catch (error) {
++    if (signal?.aborted || error?.name === "AbortError") throw error;
++    scopes.push(scopeResult("live", [], false, reason(error)));
++  }
++  // Several fixed profiles/genres can share a logical cohort. A healthy
++  // sibling stays positive, while an incomplete/failed sibling forbids absence.
++  const combinedScopes = [...new Set(scopes.map((s) => s.scope))].map((scope) => {
++    const entries = scopes.filter((s) => s.scope === scope), complete = entries.every((s) => s.complete);
++    const rows = broadcasts.filter((b) => b.scope === scope), healthy = entries.some((s) => ["available", "empty", "partial"].includes(s.status));
++    if (entries.every((s) => s.status === "unsupported")) return entries[0];
++    const failure = entries.find((s) => s.failure)?.failure;
++    return { scope, complete, status: complete ? rows.length ? "available" : "empty" : healthy ? "partial" : "failed", ...(failure ? { failure } : {}) };
++  });
++  const result = { providerCode, observedAt: now.toISOString(), complete: combinedScopes.length > 0 && combinedScopes.every((s) => s.complete), scopes: combinedScopes, broadcasts,
++    ...(["communitysports", "plaviosports"].includes(providerCode) ? { cursor } : {}) };
++  if (new TextEncoder().encode(JSON.stringify(result)).byteLength > MAX_BYTES) return { providerCode, observedAt: now.toISOString(), complete: false,
++    scopes: scopes.map((s) => scopeResult(s.scope, [], false, "capacity-exceeded")), broadcasts: [] };
++  return result;
++}
++
++function score808WidgetID(text) {
++  // Extract a narrow metadata contract; never sanitize or render HTML. Only a
++  // literal widget class on a div outside prohibited/explicitly hidden markup
++  // is evidence. This is not proof of browser/CSS visibility or stream delivery.
++  // Unsupported, malformed or ambiguous HTML fails closed instead of being
++  // repaired like a browser document. Limits are also enforced for direct calls.
++  if (typeof text !== "string" || text.length > STAGE_LIMITS.catalog || text.includes("\0")
++    || new TextEncoder().encode(text).byteLength > STAGE_LIMITS.catalog) return false;
++  const space = (char) => char === " " || char === "\t" || char === "\n" || char === "\r" || char === "\f";
++  const letter = (char) => char !== undefined && /[a-z]/i.test(char);
++  const nameChar = (char) => char !== undefined && /[a-z0-9:-]/i.test(char);
++  const boundary = (char) => char === ">" || char === "/" || space(char);
++  const voidTags = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source", "track", "wbr"]);
++  const rawTags = new Set(["script", "style", "title", "textarea", "xmp", "iframe", "noembed", "noframes"]);
++  const prohibited = new Set(["head", "template", "noscript", "svg", "math", "select", "datalist", "option", "optgroup",
++    "canvas", "audio", "video", "object", "frameset", ...rawTags]);
++  const closesParagraph = new Set(["address", "article", "aside", "blockquote", "details", "dialog", "div", "dl", "fieldset", "figcaption", "figure",
++    "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "header", "hgroup", "hr", "main", "menu", "nav", "ol", "p", "pre", "search", "section", "table", "ul"]);
++  const retainsParagraph = new Set(["a", "audio", "del", "ins", "map", "noscript", "video"]);
++  const stack = [], ids = new Set(); let offset = 0, tokens = 0;
++
++  function tagAt(start) {
++    let index = start + 1, closing = false;
++    if (text[index] === "/") { closing = true; index++; }
++    if (!letter(text[index])) return null;
++    const nameStart = index++;
++    while (nameChar(text[index])) index++;
++    const name = text.slice(nameStart, index).toLowerCase(), attributes = new Map();
++    if (!boundary(text[index])) return null;
++    while (index < text.length) {
++      const beforeSpace = index;
++      while (space(text[index])) index++;
++      if (text[index] === ">") return { name, closing, attributes, end: index + 1, selfClosing: false };
++      if (text[index] === "/" && text[index + 1] === ">") {
++        // HTML ignores non-void self-closing flags; treating them as closed can
++        // expose a candidate that is actually still inside script/hidden markup.
++        if (closing || !voidTags.has(name)) return null;
++        return { name, closing, attributes, end: index + 2, selfClosing: true };
++      }
++      if (closing || beforeSpace === index || attributes.size >= 128) return null;
++      const attributeStart = index;
++      while (index < text.length && !space(text[index]) && !["=", "/", ">"].includes(text[index])) {
++        if (["<", "\"", "'", "`"].includes(text[index])) return null;
++        index++;
++      }
++      if (index === attributeStart) return null;
++      const attribute = text.slice(attributeStart, index).toLowerCase();
++      if (attributes.has(attribute)) return null;
++      const attributeEnd = index;
++      while (space(text[index])) index++;
++      let value = "";
++      if (text[index] === "=") {
++        index++; while (space(text[index])) index++;
++        const quote = text[index] === "\"" || text[index] === "'" ? text[index++] : null;
++        const valueStart = index;
++        if (quote) {
++          while (index < text.length && text[index] !== quote) index++;
++          if (index === text.length) return null;
++          value = text.slice(valueStart, index++);
++          if (!space(text[index]) && text[index] !== ">" && !(text[index] === "/" && text[index + 1] === ">")) return null;
++        } else {
++          while (index < text.length && !space(text[index]) && text[index] !== ">") {
++            if (["<", "\"", "'", "`", "="].includes(text[index])) return null;
++            index++;
++          }
++          if (index === valueStart) return null;
++          value = text.slice(valueStart, index);
++        }
++      } else index = attributeEnd;
++      attributes.set(attribute, value);
++    }
++    return null;
++  }
++
++  function rawEnd(name, start) {
++    const endPrefix = `</${name}`, startPrefix = `<${name}`;
++    for (let index = text.indexOf("<", start); index !== -1; index = text.indexOf("<", index + 1)) {
++      // Script escaped/double-escaped states require browser tokenization.
++      // Reject that unsupported grammar, rather than ending raw text too soon.
++      if (name === "script" && (text.startsWith("<!--", index)
++        || text.slice(index, index + startPrefix.length).toLowerCase() === startPrefix && boundary(text[index + startPrefix.length]))) return null;
++      if (text.slice(index, index + endPrefix.length).toLowerCase() !== endPrefix || !boundary(text[index + endPrefix.length])) continue;
++      const end = tagAt(index);
++      return end?.closing && end.name === name ? end : null;
++    }
++    return null;
++  }
++
++  while (offset < text.length) {
++    const next = text.indexOf("<", offset);
++    if (next === -1) break;
++    if (++tokens > 50_000) return false;
++    if (text.startsWith("<!--", next)) {
++      const end = text.indexOf("-->", next + 4);
++      if (end === -1) return false;
++      // Nested/alternate comment delimiters are not repaired or re-scanned.
++      const comment = text.slice(next + 4, end);
++      if (comment.includes("<!--") || comment.includes("--!>")) return false;
++      offset = end + 3; continue;
++    }
++    if (text.slice(next, next + 9).toLowerCase() === "<!doctype") {
++      const end = text.indexOf(">", next + 9);
++      if (end === -1 || text.slice(next + 9, end).trim().toLowerCase() !== "html" || stack.length) return false;
++      offset = end + 1; continue;
++    }
++    const tag = tagAt(next);
++    if (!tag || tag.name === "plaintext") return false;
++    offset = tag.end;
++    if (tag.closing) {
++      // The reviewed listing omits </p> immediately before its parent closes.
++      // This limited optional-end-tag case is defined by the HTML standard;
++      // other misnesting is still unsupported, never repaired speculatively.
++      if (stack.at(-1)?.name === "p" && stack.at(-2)?.name === tag.name
++        && !retainsParagraph.has(tag.name) && !tag.name.includes("-")) stack.pop();
++      if (voidTags.has(tag.name) || stack.at(-1)?.name !== tag.name) return false;
++      stack.pop(); continue;
++    }
++    if (stack.at(-1)?.name === "p" && closesParagraph.has(tag.name)) stack.pop();
++    const attributes = tag.attributes, classes = attributes.get("class") || "", style = attributes.get("style") || "";
++    const ariaHidden = attributes.get("aria-hidden") || "";
++    // Entity/escape/comment spellings can change class or inline visibility in
++    // the browser. They are outside this literal reviewed listing contract.
++    if (classes.includes("&") || ariaHidden.includes("&") || style.includes("\\") || style.includes("/*") || style.includes("&")) return false;
++    const hidden = stack.at(-1)?.hidden || prohibited.has(tag.name) || attributes.has("hidden") || attributes.has("inert")
++      || ariaHidden.trim().toLowerCase() === "true"
++      // Recognize simple CSS zero spellings (including percentages/exponents),
++      // not calc(), variables or computed CSS. Unit-bearing/unfinished tokens
++      // are invalid opacity values and must not be mistaken for numeric zero.
++      || /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*(?:hidden|collapse)|opacity\s*:\s*[+-]?(?:0+(?:\.0+)?|\.0+)(?:e[+-]?[0-9]+)?%?)\s*(?:!\s*important\s*)?(?:;|$)/i.test(style);
++    if (tag.name === "div" && !hidden) {
++      for (const token of classes.split(/[\t\n\r\f ]+/)) {
++        if (!token.toLowerCase().startsWith("elfsight-app-")) continue;
++        if (!/^elfsight-app-[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i.test(token)) return false;
++        ids.add(token.slice("elfsight-app-".length).toLowerCase());
++      }
++    }
++    if (rawTags.has(tag.name)) {
++      const end = rawEnd(tag.name, offset);
++      if (!end) return false;
++      offset = end.end;
++    } else if (!voidTags.has(tag.name)) {
++      if (stack.length >= 256) return false;
++      stack.push({ name: tag.name, hidden });
++    }
++  }
++  return stack.length === 0 && ids.size === 1 ? [...ids][0] : null;
++}
++
+diff --git a/web/workers/playback/src/broadcast-source-adapters.test.mjs b/web/workers/playback/src/broadcast-source-adapters.test.mjs
+new file mode 100644
+index 0000000..fb18096
+--- /dev/null
++++ b/web/workers/playback/src/broadcast-source-adapters.test.mjs
+@@ -0,0 +1,281 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { BROADCAST_SOURCE_CODES, collectBroadcastSource as collect, broadcastSourceParsers as parse } from "./broadcast-source-adapters.mjs";
++import { normalizeBroadcastCollection } from "./broadcast-registry-policy.mjs";
++
++const now = new Date("2026-10-30T12:00:00Z");
++const json = (v, status = 200) => new Response(JSON.stringify(v), { status, headers: { "content-type": "application/json" } });
++const html = (v) => new Response(v, { headers: { "content-type": "text/html" } });
++const catalog = (id, extra) => ({ id, type: "tv", ...(extra ? { extra } : {}) });
++const csCatalogs = ["live", "networks", "football", "cricket", "basketball", "baseball", "hockey", "american_football", "rugby", "mma", "motorsport", "golf", "tennis", "darts", "college", "other"];
++const manifests = {
++  communitysports: { id: "community.nuvio.live-sports", version: "3.1.3", resources: ["catalog", "meta", "stream"], catalogs: csCatalogs.map((s) => catalog("nuvio_sports_" + s)) },
++  plaviosports: { id: "community.plaviohd", version: "1.9.110", types: ["tv"], resources: ["catalog", "meta", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }], catalogs: ["plaviohd-football", "plaviohd-cricket", "plaviohd-live-sports"].map((s) => catalog(s)) },
++  cncsports: { id: "com.cncverse.stremiobridge", version: "1.0.0", types: ["tv"], resources: ["catalog", "meta", "stream"], catalogs: [catalog("cnc_LivXowLiveEvents_tv")] },
++  flixstreams: { id: "org.flixstreams.free", version: "1.0.0", types: ["tv"], resources: ["catalog", "meta", "stream"], catalogs: [catalog("essential-live-events", [{ name: "skip" }, { name: "genre", options: ["soccer", "cricket"] }])] },
++  streamvix: { id: "org.prisonmike.streamvix", version: "1.0.0", types: ["tv"], resources: ["catalog", "meta", "stream"], catalogs: [catalog("streamvix_eventi", [{ name: "genre", isRequired: true, options: ["Premier League", "Coppe"] }])] },
++};
++const cs = (changes = {}) => ({ id: "nuvio_sport_sa_aus", type: "tv", name: "🔴 LIVE: South Africa vs Australia", released: "2026-10-30T08:00:00.000Z", genres: ["CRICKET"], cast: ["South Africa", "Australia"], behaviorHints: { defaultVideoId: "nuvio_sport_sa_aus" }, description: "🏆 League: 3rd Test day-3\n📅 Category: CRICKET\n⏰ Status: 🔴 LIVE NOW", ...changes });
++function harness(code, response, limit = 8, { allowMeta = false, manifestOverride } = {}) {
++  const calls = []; let reserved = 0;
++  return { calls, count: () => reserved, run: (options = {}) => collect(code, { now,
++    reserveRequest: async () => ++reserved <= limit,
++    fetcher: async (url, init) => {
++      calls.push({ url, init });
++      assert.equal(init.redirect, "manual"); assert.equal(new URL(url).protocol, "https:");
++      assert.ok(!new URL(url).pathname.includes("/stream/"), "No descriptors");
++      if (!allowMeta) assert.ok(!new URL(url).pathname.includes("/meta/"), "No unrequested meta fan-out");
++      if (new URL(url).pathname === "/manifest.json") return json(manifestOverride ?? manifests[code]);
++      return await response(url, init);
++    }, ...options }) };
++}
++
++test("all seven reviewed families are registered; unknown input never fetches", async () => {
++  assert.deepEqual(BROADCAST_SOURCE_CODES, ["streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix"]);
++  await assert.rejects(collect("unreviewed", { fetcher: () => assert.fail("No network") }), /invalid-collection/u);
++});
++
++test("CS retains unmatched events, actual Test qualifiers and standalone channels within eight actual reads", async () => {
++  const h = harness("communitysports", async (url) => {
++    const p = new URL(url).pathname;
++    return json({ metas: p.includes("_cricket.") ? [cs()] : p.includes("_networks.") ? [cs({ id: "nuvio_sport_willow", name: "📺 Willow Cricket", genres: ["NETWORKS"], released: undefined, cast: undefined, behaviorHints: { defaultVideoId: "nuvio_sport_willow" } })]
++      : p.includes("_football.") ? [cs({ id: "nuvio_sport_unmatched", name: "Unmatched Home vs Unmatched Away", genres: ["FOOTBALL"], cast: ["Unmatched Home", "Unmatched Away"], behaviorHints: { defaultVideoId: "nuvio_sport_unmatched" } })] : [] });
++  });
++  const result = await h.run();
++  assert.equal(h.calls.length, 8); assert.equal(h.count(), 8); assert.equal(result.cursor, 3);
++  const cricket = result.broadcasts.find((r) => r.sport === "cricket" && r.kind === "event");
++  assert.equal(cricket.format, "Test"); assert.equal(cricket.matchOrdinal, 3); assert.equal(cricket.day, 3);
++  assert.equal(cricket.start, "2026-10-30T08:00:00.000Z");
++  assert.ok(result.broadcasts.some((r) => r.title === "Unmatched Home vs Unmatched Away"));
++  assert.equal(result.broadcasts.find((r) => r.kind === "channel").start, undefined);
++  assert.equal(result.broadcasts.find((r) => r.kind === "channel").channelID, "cricket-channel:willow");
++  assert.equal(result.scopes.find((s) => s.scope === "cricket").complete, false, "No invented absence from truncated catalog");
++  assert.ok(!JSON.stringify(result).includes("https://"));
++  const normalized = await normalizeBroadcastCollection("communitysports", result, now);
++  assert.equal(normalized.broadcasts.find((r) => r.kind === "channel").verification, "undated");
++});
++
++test("CS rotates only the finite reviewed sports and preserves an incomplete transport cohort", async () => {
++  const h = harness("communitysports", async (url) => new URL(url).pathname.includes("_baseball.") ? json({}, 503) : json({ metas: [] }));
++  const result = await h.run({ cursor: 3 });
++  assert.ok(h.calls.some((r) => r.url.includes("_american_football.json")));
++  assert.ok(!h.calls.some((r) => r.url.includes("_basketball.json")));
++  assert.ok(result.scopes.every((r) => ["partial", "failed", "unsupported"].includes(r.status)));
++});
++
++test("budget failure prevents HTTP rather than fabricating an empty catalog", async () => {
++  const h = harness("communitysports", async () => json({ metas: [] }), 3);
++  const result = await h.run();
++  assert.equal(h.calls.length, 3);
++  assert.ok(result.scopes.some((s) => s.failure === "budget-exhausted"));
++  assert.ok(!result.scopes.some((s) => s.status === "empty"));
++});
++
++test("CS malformed same-ID sibling is retained as conflict evidence", () => {
++  const good = parse.csRow(cs(), "cricket", now), wrong = parse.csRow(cs({ name: undefined, type: "movie" }), "cricket", now);
++  assert.equal(good.providerEventID, wrong.providerEventID);
++  assert.equal(wrong.verification, "conflicting"); assert.ok(wrong.issues.includes("identity-conflict"));
++  assert.equal(parse.csRow(cs({ id: "https://private.invalid/token" }), "cricket", now), null);
++});
++test("malformed scalar row fields do not discard independent accepted siblings", async () => {
++  const h = harness("communitysports", async (url) => json({ metas: url.includes("_cricket.json") ? [cs(), { id: 12, name: 42 }] : [] }));
++  const result = await h.run(); assert.equal(result.broadcasts.length, 1);
++  assert.equal(result.scopes.find((s) => s.scope === "cricket").status, "partial");
++  assert.equal(parse.asRow({ id: "plaviohdtv-unknown", name: 42, description: "n/a", genres: [] }, "cricket", now).verification, "conflicting");
++});
++test("channel identity never ignores explicit fixture participants or competing date authority", () => {
++  const row = cs({ id: "nuvio_sport_willow", name: "📺 Willow Cricket", genres: ["NETWORKS"], released: undefined, behaviorHints: { defaultVideoId: "nuvio_sport_willow" } });
++  assert.equal(parse.csRow(row, "networks", now).verification, "conflicting");
++});
++test("a standalone NETWORKS channel never acquires fixture format, ordinal or day from description copy", () => {
++  const raw = cs({ id: "nuvio_sport_willow", name: "📺 Willow Cricket", genres: ["NETWORKS"], released: undefined, cast: undefined,
++    behaviorHints: { defaultVideoId: "nuvio_sport_willow" }, description: "🏆 League: 3rd Test day-3\n📅 Category: NETWORKS\n⏰ Status: 24/7 Live Network" });
++  const row = parse.csRow(JSON.parse(JSON.stringify(raw)), "networks", now);
++  assert.equal(row.kind, "channel"); assert.equal(row.verification, "undated");
++  assert.equal(row.format, undefined); assert.equal(row.matchOrdinal, undefined); assert.equal(row.day, undefined);
++});
++
++test("AS retains clock-only cricket as undated instead of inventing today or rewriting the Test day", () => {
++  const row = parse.asRow({ id: "plaviohdtv-cricket-sa-aus", type: "tv", genres: ["Cricket"], name: "3rd Test day-3 : South Africa 🇿🇦 vs Australia 🇦🇺", description: "Starts 08:00 (UK time) · 6 channels" }, "cricket", now);
++  assert.equal(row.format, "Test"); assert.equal(row.day, 3); assert.equal(row.verification, "undated");
++  assert.equal(row.start, undefined); assert.deepEqual(row.participants, ["South Africa", "Australia"]);
++});
++
++const dayHTML = (content, hidden = "") => `<section class="schedule__day" ${hidden}><h3 class="schedule__dayTitle">Friday 30th October 2026 - Schedule Time UK GMT</h3><div class="schedule__category"><span class="card__meta">All Soccer Events</span>${content}</div></section>`;
++const eventHTML = (clock = "16:30") => `<div class="schedule__event"><span class="schedule__eventTitle">England - Premier League : Chelsea vs Tottenham Hotspur</span><span class="schedule__time">${clock}</span></div>`;
++test("AS native-equivalent original GMT scope supplies dates; hidden/script/template schedules cannot", () => {
++  const original = parse.dlhdOriginals(dayHTML(eventHTML()) + dayHTML(eventHTML("17:30"), "hidden"));
++  assert.equal(original.length, 1); assert.equal(original[0].start, "2026-10-30T16:30:00.000Z");
++  const row = parse.asRow({ id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"], name: "England - Premier League : Chelsea vs Tottenham Hotspur", description: "Starts 16:30 (UK time) · 6 channels" }, "football", now, original);
++  assert.equal(row.verification, "dated"); assert.equal(row.start, "2026-10-30T16:30:00.000Z");
++  for (const markup of [`<template>${dayHTML(eventHTML())}</template>`, `<script>${dayHTML(eventHTML())}`, `<!-- ${dayHTML(eventHTML())}`]) assert.throws(() => parse.dlhdOriginals(markup), /invalid-collection/u);
++});
++test("AS original duplicate dates and London/GMT conflicts are not concealed by a matching clock", () => {
++  const template = { id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"], name: "England - Premier League : Chelsea vs Tottenham Hotspur", description: "Starts 16:30 (UK time) · 6 channels" };
++  const originals = parse.dlhdOriginals(dayHTML(eventHTML()));
++  assert.equal(parse.asRow(template, "football", now, [...originals, { ...originals[0], clock: "17:30", start: "2026-10-31T17:30:00.000Z" }]).verification, "conflicting");
++  const summer = [{ ...originals[0], start: "2026-10-24T16:30:00.000Z" }];
++  assert.equal(parse.asRow(template, "football", now, summer).verification, "conflicting");
++});
++
++test("AS reads its original schedule once and retains unaffected cricket/channel cohorts", async () => {
++  const h = harness("plaviosports", async (url) => url === "https://thedaddy.pk/" ? html(dayHTML(eventHTML())) : json({ metas: url.includes("plaviohd-football") ? [{ id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"], name: "England - Premier League : Chelsea vs Tottenham Hotspur", description: "Starts 16:30 (UK time) · 6 channels" }] : [] }));
++  const result = await h.run();
++  assert.equal(h.calls.filter((r) => r.url === "https://thedaddy.pk/").length, 1);
++  assert.equal(result.broadcasts[0].verification, "dated"); assert.equal(h.calls.length, 5);
++});
++const hintedFixture = (changes = {}) => ({ fixtureID: "sports-fixture:premier-league:synthetic", sport: "football", competitionID: "premier-league", participants: ["Chelsea", "Tottenham Hotspur"], start: "2026-10-30T12:00:00.000Z", status: "live", observedAt: now.toISOString(), verified: true, ...changes });
++const asLiveRow = (changes = {}) => ({ id: "plaviohdtv-sfly-streamed:football-chelsea-tottenham-1", type: "tv", name: "Chelsea vs Tottenham Hotspur", description: "Chelsea vs Tottenham Hotspur\nLIVE NOW", genres: ["Sports"], ...changes });
++const asMetadataManifest = { ...manifests.plaviosports, resources: ["catalog", { name: "meta", types: ["tv"], idPrefixes: ["plaviohdtv-"] }, { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }] };
++test("AS bounds same-ID meta enrichment by fresh whole-fixture hints and uses only the publisher's dated description", async () => {
++  const row = asLiveRow();
++  const h = harness("plaviosports", async (url) => url.includes("/meta/tv/")
++    ? json({ meta: { ...row, description: "Chelsea vs Tottenham Hotspur\n30 Oct 2026 · 12:00 UTC" } })
++    : json({ metas: url.includes("plaviohd-cricket") ? [] : [row] }), 8, { allowMeta: true, manifestOverride: asMetadataManifest });
++  const result = await h.run({ fixtures: [hintedFixture()] });
++  assert.equal(h.calls.filter((r) => r.url.includes("/meta/tv/")).length, 1);
++  assert.equal(h.calls.length, 5); assert.equal(result.broadcasts.length, 2);
++  assert.ok(result.broadcasts.every((r) => r.verification === "dated" && r.start === "2026-10-30T12:00:00.000Z"));
++  const normalized = await normalizeBroadcastCollection("plaviosports", result, now);
++  assert.equal(normalized.broadcasts.length, 1); assert.equal(normalized.broadcasts[0].verification, "dated", "Equivalent Live/sport rows upgrade together");
++});
++test("AS no/stale/squad-mismatched hints cannot trigger metadata lookups", async () => {
++  for (const fixtures of [[], [hintedFixture({ observedAt: "2026-10-30T11:29:00.000Z" })], [hintedFixture({ participants: ["Chelsea Women", "Tottenham Hotspur Women"] })]]) {
++    const h = harness("plaviosports", async () => json({ metas: [asLiveRow()] }), 8, { allowMeta: true, manifestOverride: asMetadataManifest });
++    const result = await h.run({ fixtures });
++    assert.equal(h.calls.filter((r) => r.url.includes("/meta/tv/")).length, 0);
++    assert.ok(!result.broadcasts.some((r) => r.verification === "dated"));
++  }
++});
++test("AS same-ID metadata cannot change the pair or hide a contradictory catalog sibling", async () => {
++  for (const siblingConflict of [false, true]) {
++    const h = harness("plaviosports", async (url) => url.includes("/meta/tv/")
++      ? json({ meta: { ...asLiveRow(), name: "Arsenal vs Everton", description: "Arsenal vs Everton\n30 Oct 2026 · 12:00 UTC" } })
++      : json({ metas: url.includes("plaviohd-cricket") ? [] : [asLiveRow(siblingConflict && url.includes("plaviohd-live-sports") ? { name: "Chelsea Women vs Tottenham Hotspur Women" } : {})] }),
++    8, { allowMeta: true, manifestOverride: asMetadataManifest });
++    const result = await h.run({ fixtures: [hintedFixture()] });
++    assert.ok(result.broadcasts.filter((r) => r.providerEventID === asLiveRow().id).every((r) => r.verification === "conflicting"));
++    assert.equal(h.calls.filter((r) => r.url.includes("/meta/tv/")).length, siblingConflict ? 0 : 1);
++  }
++});
++test("AS first-colon and competition punctuation normalization matches the native original-schedule join", () => {
++  const original = parse.dlhdOriginals(dayHTML(eventHTML()));
++  const row = parse.asRow({ id: "plaviohdtv-dlhd-ev-abc", type: "tv", genres: ["Football"], name: "England Premier League:Chelsea vs Tottenham Hotspur", description: "Starts 16:30 (UK time) · 6 channels" }, "football", now, original);
++  assert.equal(row.verification, "dated"); assert.equal(row.start, "2026-10-30T16:30:00.000Z");
++});
++test("CS uses at most two advertised searches for a fresh missing fixture before spending remaining rotation reads", async () => {
++  const m = structuredClone(manifests.communitysports); m.catalogs.find((c) => c.id === "nuvio_sports_football").extra = [{ name: "search" }];
++  const h = harness("communitysports", async (url) => json({ metas: url.includes("/search=Chelsea.json") ? [cs({ id: "nuvio_sport_chelsea", name: "Chelsea vs Tottenham Hotspur", cast: ["Chelsea", "Tottenham Hotspur"], genres: ["FOOTBALL"], released: "2026-10-30T12:00:00.000Z", behaviorHints: { defaultVideoId: "nuvio_sport_chelsea" } })] : [] }),
++    8, { manifestOverride: m });
++  const result = await h.run({ fixtures: [hintedFixture()] });
++  assert.equal(h.calls.length, 8); assert.equal(h.calls.filter((r) => r.url.includes("/search=")).length, 2);
++  assert.equal(result.broadcasts.find((r) => r.providerEventID === "nuvio_sport_chelsea").verification, "dated");
++  assert.equal(result.cursor, 257);
++});
++test("CS never guesses an unadvertised search or uses a stale fixture as a query hint", async () => {
++  for (const fixture of [hintedFixture(), hintedFixture({ observedAt: "2026-10-30T11:29:00.000Z" })]) {
++    const h = harness("communitysports", async () => json({ metas: [] }));
++    await h.run({ fixtures: [fixture] });
++    assert.equal(h.calls.filter((r) => r.url.includes("/search=")).length, 0);
++  }
++});
++
++test("CNC hashes encoded IDs and retains exact undated NHL hints without fetching metadata", async () => {
++  const rawID = "cnc:" + "A".repeat(1218) + "==";
++  const h = harness("cncsports", async () => json({ metas: [{ id: rawID, type: "tv", name: "Washington Capitals vs Philadelphia Flyers", behaviorHints: { defaultVideoId: rawID } }] }));
++  const result = await h.run(), row = result.broadcasts[0];
++  assert.match(row.providerEventID, /^cnc-observation:[a-f0-9]{64}$/u); assert.equal(row.streamID, row.providerEventID);
++  assert.equal(row.verification, "undated"); assert.ok(!JSON.stringify(result).includes(rawID)); assert.equal(h.calls.length, 2);
++});
++
++const fsRow = (scope = "football") => ({ id: "dlstreams:event:aaaaaaaaaaaa", type: "tv", name: scope === "football" ? "⚽ England - Premier League : Chelsea vs Tottenham Hotspur" : "🏏 International : India vs New Zealand",
++  description: `Category: ${scope === "football" ? "All Soccer Events ⚽" : "Cricket 🏏"}\nDate: 2026-10-30 (UTC)\nTime: 16:30\nChannels: 2`, genres: ["Live TV", "Sports", scope === "football" ? "All Soccer Events ⚽" : "Cricket 🏏"] });
++test("FS retains healthy complete page cohort while a sibling genre page fails", async () => {
++  const h = harness("flixstreams", async (url) => url.includes("genre=cricket&skip=40") ? json({}, 503) : json({ metas: url.includes("genre=soccer.json") ? [fsRow()] : [] }));
++  const result = await h.run();
++  assert.ok(result.broadcasts.some((r) => r.sport === "football" && r.verification === "dated"));
++  assert.ok(!result.broadcasts.some((r) => r.sport === "cricket"));
++  assert.equal(result.scopes.find((s) => s.scope === "cricket").status, "failed"); assert.ok(h.calls.length <= 7);
++});
++test("FS rejects competing timestamp/hint/video authority while retaining the identifiable row", () => {
++  const row = parse.fsRow({ ...fsRow(), videos: [{ id: "dlstreams:event:aaaaaaaaaaaa", released: "2026-10-31T16:30:00.000Z", title: "Live Stream", season: 1, episode: 1 }] }, "football", now);
++  assert.equal(row.verification, "conflicting"); assert.ok(row.issues.includes("time-conflict"));
++});
++
++const svDay = "Saturday 24th October 2026 - Schedule Time UK GMT";
++const svOriginal = { [svDay]: { "All Soccer Events ⚽": [{ event: "⚽ England - Premier League : Chelsea vs Tottenham Hotspur", time: "16:30" }] } };
++const svEntry = { id: "tv:16-30-chelsea-vs-tottenham-hotspur-premier-league-24-10-20261024", type: "tv", name: "Chelsea vs Tottenham Hotspur ⏰ 16:30 - 24/10", description: "🔴 Inizio: 16:30 - Chelsea vs Tottenham Hotspur - Premier League - 24/10", eventStart: "2026-10-24T14:30:00Z", category: "premierleague", _dynamic: true, _originalName: "⏰ 16:30 : Chelsea vs Tottenham Hotspur - Premier League 24/10" };
++test("SV original GMT and actual advertised ID corroborate its unique Rome conversion, not an offset guess", () => {
++  const originals = parse.svOriginals(svOriginal), row = parse.svRow(svEntry, "Premier League", now, originals);
++  assert.equal(row.verification, "dated"); assert.equal(row.start, "2026-10-24T16:30:00.000Z");
++  assert.equal(parse.svRow({ ...svEntry, eventStart: "2026-10-24T15:30:00Z" }, "Premier League", now, originals).verification, "conflicting");
++  assert.equal(parse.svRow({ ...svEntry, id: "tv:unadvertised" }, "Premier League", now, originals).verification, "conflicting");
++});
++test("SV failed UCL catalog cannot erase a healthy Premier League observation", async () => {
++  const h = harness("streamvix", async (url) => url.includes("raw.githubusercontent.com") ? json(svOriginal)
++    : url.includes("genre=Coppe") ? json({}, 503) : json({ metas: [svEntry] }));
++  const result = await h.run(); assert.equal(result.broadcasts.length, 1); assert.equal(result.broadcasts[0].verification, "dated");
++  assert.equal(result.scopes.length, 1); assert.equal(result.scopes[0].status, "partial"); assert.equal(h.calls.length, 4);
++});
++test("SV original-schedule failure retains advertised catalog rows as unverified, not an empty catalog", async () => {
++  const h = harness("streamvix", async (url) => url.includes("raw.githubusercontent.com") ? json({}, 503) : json({ metas: url.includes("genre=Coppe") ? [] : [svEntry] }));
++  const result = await h.run();
++  assert.equal(result.broadcasts.length, 1); assert.equal(result.broadcasts[0].verification, "undated");
++  assert.ok(result.broadcasts[0].issues.includes("unverified-fixture")); assert.equal(result.scopes[0].status, "partial");
++});
++test("SV source slug collision with a different full match remains a veto", () => {
++  const long = "A".repeat(70), name = `${long} Club vs Away`, other = `${long} Rovers vs Away`;
++  const originals = parse.svOriginals({ [svDay]: { "All Soccer Events ⚽": [{ event: "⚽ England - Premier League : " + name, time: "16:30" }, { event: "⚽ England - Premier League : " + other, time: "16:30" }] } });
++  const row = { ...svEntry, id: "tv:" + ("16-30-" + "a".repeat(70) + "-club-vs-away-premier-league-24-10").slice(0, 60) + "-20261024",
++    name: name + " ⏰ 16:30 - 24/10", description: `🔴 Inizio: 16:30 - ${name} - Premier League - 24/10`, _originalName: `⏰ 16:30 : ${name} - Premier League 24/10` };
++  assert.equal(parse.svRow(row, "Premier League", now, originals).verification, "conflicting");
++});
++
++const widget = "12345678-1234-1234-1234-123456789abc";
++const listing = `<html><body><div class="elfsight-app-${widget}"></div></body></html>`;
++const scoreEvent = (changes = {}) => ({ id: "test-event", name: "Liverpool vs Chelsea", start: { type: "datetime", date: "2026-10-29", time: "01:00" }, end: { type: "datetime", date: "2026-10-29", time: "03:00" }, timeZone: "Asia/Karachi", repeatPeriod: "noRepeat", actions: [{ type: "link", text: "Watch Now", primary: true, link: { type: "url", value: "https://www.score808live.tv/liverpool-live/" } }], ...changes });
++const boot = (events) => ({ status: 1, data: { widgets: { [widget]: { status: 1, data: { settings: { selectedEventsProvider: "manual", events } } } } } });
++test("Score808 reads one visible widget and fixed boot, preserving literal zoned dates without article URLs", async () => {
++  const h = harness("score808", async (url) => url.includes("core.service.elfsight.com") ? json(boot([scoreEvent()])) : html(listing));
++  const result = await h.run(); assert.equal(h.calls.length, 2); const row = result.broadcasts[0];
++  assert.equal(row.start, "2026-10-28T20:00:00.000Z"); assert.equal(row.end, "2026-10-28T22:00:00.000Z"); assert.equal(row.verification, "dated");
++  assert.ok(!JSON.stringify(result).includes("liverpool-live")); assert.equal(result.scopes[0].complete, true);
++  const normalized = await normalizeBroadcastCollection("score808", result, now); assert.equal(normalized.broadcasts[0].verification, "dated");
++});
++test("Score808 actual whitespace decoration cannot poison the whole collection", async () => {
++  const h = harness("score808", async (url) => url.includes("core.service.elfsight.com") ? json(boot([scoreEvent({ name: " Liverpool vs Chelsea " })])) : html(listing));
++  const normalized = await normalizeBroadcastCollection("score808", await h.run(), now);
++  assert.equal(normalized.broadcasts[0].title, "Liverpool vs Chelsea");
++});
++test("Score808 repeated current article, malformed/duplicate widget and hidden scripts fail closed", async () => {
++  const h = harness("score808", async (url) => url.includes("core.service.elfsight.com") ? json(boot([scoreEvent(), scoreEvent({ id: "second", name: "Arsenal vs Everton" })])) : html(listing));
++  const result = await h.run(); assert.ok(result.broadcasts.every((r) => r.verification === "conflicting"));
++  for (const bad of [`<script>${listing}</script>`, `<div hidden>${listing}</div>`, listing.replace("</body>", '<div class="elfsight-app-aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"></div></body>')]) {
++    const x = harness("score808", async () => html(bad)); const denied = await x.run(); assert.equal(x.calls.length, 1); assert.equal(denied.broadcasts.length, 0);
++  }
++});
++test("local calendar conversion rejects DST gaps/duplicates and invalid civil dates", () => {
++  assert.equal(parse.zonedDate("2026-03-29", "02:30", "Europe/Rome"), null);
++  assert.equal(parse.zonedDate("2026-10-25", "02:30", "Europe/Rome"), null);
++  assert.equal(parse.zonedDate("2026-02-30", "12:00", "UTC"), null);
++});
++
++test("StreamEx fallback profiles remain one family and retain unmatched dated catalog entries", async () => {
++  const h = harness("streamex", async (url) => url.includes("www.streamex.net") ? json({}, 503) : json([{ id: "cup-home-away", title: "Home vs Away", category: "football", date: Date.parse("2026-10-30T18:00:00Z"), sources: [{ source: "alpha", id: "opaque" }] }]));
++  const result = await h.run(); assert.equal(h.calls.length, 2); assert.equal(result.providerCode, "streamex"); assert.equal(result.broadcasts.length, 1);
++  assert.equal(result.broadcasts[0].verification, "dated"); assert.equal(result.scopes[0].status, "partial");
++});
++test("redirects, non-JSON and oversize metadata never produce a fresh positive", async () => {
++  for (const response of [new Response(null, { status: 302, headers: { location: "http://127.0.0.1/" } }),
++    new Response("<html>not JSON</html>", { headers: { "content-type": "text/html" } }),
++    new Response("{}", { headers: { "content-type": "application/json", "content-length": String(129 * 1024) } })]) {
++    let calls = 0; const result = await collect("communitysports", { now, reserveRequest: async () => true, fetcher: async () => { calls++; return response; } });
++    assert.equal(calls, 1); assert.equal(result.broadcasts.length, 0); assert.equal(result.complete, false);
++  }
++});
++test("cancellation stops collection rather than publishing a partial fresh receipt", async () => {
++  const controller = new AbortController(); let calls = 0;
++  await assert.rejects(collect("communitysports", { now, signal: controller.signal, reserveRequest: async () => true,
++    fetcher: async () => { calls++; controller.abort(new DOMException("Cancelled", "AbortError")); return json(manifests.communitysports); } }), { name: "AbortError" });
++  assert.equal(calls, 1);
++});
+diff --git a/web/workers/playback/src/index.js b/web/workers/playback/src/index.js
+index 8de9d26..f8ee271 100644
+--- a/web/workers/playback/src/index.js
++++ b/web/workers/playback/src/index.js
+@@ -24,6 +24,8 @@ import { resolveCoachPlayers, coachPlayerClarification, collectCoachPlayerHistor
+ import { coachTransferContext, validateCoachTransfers } from "./coach-transfers.mjs";
+ import { WORKER_SOURCE_VERSION } from "./worker-version.mjs";
+ import { collectBroadcastCatalog } from "./broadcast-catalog.mjs";
++import { BroadcastRegistry as BaseBroadcastRegistry, DEFAULT_BROADCAST_REGISTRY_PROVIDERS } from "./broadcast-registry.mjs";
++import { collectBroadcastSource } from "./broadcast-source-adapters.mjs";
+ export { CoachQuotaBudget } from "./coach-safety.mjs";
+ import cplFixtureFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
+ import { cplFixtureSources, resolveCPLManifest, validateCPLManifest } from "./cpl-fixture-policy.mjs";
+@@ -117,6 +119,81 @@ async function handleCricketFixtures(env) {
+   }
+ }
+ 
++export function enabledBroadcastProviders(env) {
++  const raw = env.FOTTY_BROADCAST_REGISTRY_SOURCES;
++  if (typeof raw !== "string" || raw.length > 256) return [];
++  const codes = raw.split(",").map((value) => value.trim()).filter(Boolean);
++  if (new Set(codes).size !== codes.length
++    || codes.some((code) => !DEFAULT_BROADCAST_REGISTRY_PROVIDERS.some((source) => source.providerCode === code))) return [];
++  return DEFAULT_BROADCAST_REGISTRY_PROVIDERS.filter((source) => codes.includes(source.providerCode));
++}
++
++export function broadcastRegistryEnabled(env) {
++  return Boolean(env.BROADCAST_REGISTRY) && env.FOTTY_BROADCAST_REGISTRY_ENABLED === "1"
++    && enabledBroadcastProviders(env).length > 0;
++}
++
++// Reuse already accepted official snapshots. Broadcast collection never makes
++// a new fixture or turns provider programme copy into official LIVE status.
++export async function loadBroadcastRegistryFixtures(env) {
++  const fixtures = [];
++  const responses = await Promise.allSettled([handleSportsFixtures(env), handleCricketFixtures(env)]);
++  for (let index = 0; index < responses.length; index++) {
++    const result = responses[index];
++    if (result.status !== "fulfilled" || !result.value.ok) continue;
++    const body = await boundedJSON(result.value, 2 * 1024 * 1024);
++    if (body.schemaVersion !== 1 || !Array.isArray(body.fixtures) || body.fixtures.length > 3000) continue;
++    for (const row of body.fixtures) {
++      const explicitVerification = Object.prototype.hasOwnProperty.call(row.source ?? {}, "verification");
++      const covered = ["verified", "partial"].includes(body.sourceStatus)
++        && body.coverage?.some((scope) => scope.competitionId === row.competitionId && scope.status === "covered");
++      if (!(explicitVerification ? row.source.verification === "verified" : covered)
++        || !["scheduled", "live"].includes(row.status)) continue;
++      if (index === 0) {
++        if (row.eventKind !== "match" || !Array.isArray(row.participants) || row.participants.length !== 2) continue;
++        fixtures.push({ fixtureID: row.id, sport: row.sport, title: row.title,
++          participants: row.participants.map((p) => p.name), start: row.start,
++          competitionID: row.competitionId, ...(row.squad ? { squad: row.squad } : {}),
++          status: row.status, observedAt: row.source.observedAt, verified: true });
++      } else {
++        fixtures.push({ fixtureID: `cricket-fixture:${row.id}`, sport: "cricket",
++          participants: [row.home?.name, row.away?.name], start: row.start,
++          competitionID: row.competitionId, format: row.format,
++          ...(row.format === "Test" && row.context ? {
++            ...(row.context.matchOrdinal ? { matchOrdinal: row.context.matchOrdinal } : {}),
++            ...(row.context.day ? { day: row.context.day } : {}),
++            ...(row.context.matchEndsAt ? { end: row.context.matchEndsAt } : {}),
++          } : {}), status: row.status, observedAt: row.source.observedAt, verified: true });
++      }
++    }
++  }
++  return fixtures;
++}
++
++export class BroadcastRegistry extends BaseBroadcastRegistry {
++  constructor(state, env) {
++    super(state, env, { providers: enabledBroadcastProviders(env),
++      enabled: () => broadcastRegistryEnabled(env),
++      collect: (providerCode, options) => collectBroadcastSource(providerCode, options),
++      loadFixtures: () => loadBroadcastRegistryFixtures(env) });
++  }
++}
++
++function broadcastRegistryStub(env) {
++  return env.BROADCAST_REGISTRY.get(env.BROADCAST_REGISTRY.idFromName("shared-broadcast-registry-v1"));
++}
++
++async function handleBroadcastRegistry(url, env) {
++  if (url.search) return json({ error: "Unsupported registry query" }, 400);
++  if (!broadcastRegistryEnabled(env)) return json({ schemaVersion: 1, activation: "pending" }, 503);
++  try {
++    const response = await broadcastRegistryStub(env).fetch("https://broadcast-registry.invalid/snapshot");
++    return new Response(response.body, { status: response.status,
++      headers: corsHeaders({ "Content-Type": "application/json", "Cache-Control": "public, max-age=30",
++        "X-Fotty-Broadcast-Registry-Schema": "1" }) });
++  } catch { return json({ schemaVersion: 1, activation: "unavailable" }, 503); }
++}
++
+ const IOS_SAFARI_USER_AGENT =
+   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+ 
+@@ -675,6 +752,8 @@ async function handleHealth(env) {
+     catalogProviderCount: STREAM_PROVIDERS.length,
+     broadcastCatalogSchema: 1,
+     broadcastCatalogFamilyCount: 1,
++    broadcastRegistrySchema: 1,
++    broadcastRegistryEnabled: broadcastRegistryEnabled(env),
+     catalogCoverageMode: "parallel-with-direct-fallback",
+     cplFallbackRevision: cplFixtureFallback.revision,
+     cricketFixtureRegistryConfigured: Boolean(env.CRICKET_FIXTURES),
+@@ -1354,6 +1433,9 @@ async function handleFplCoachWithinDeadline(request, env, signal) {
+ 
+ const worker = {
+   async scheduled(_controller, env, ctx) {
++    if (broadcastRegistryEnabled(env)) ctx.waitUntil(broadcastRegistryStub(env).fetch(
++      new Request("https://broadcast-registry.invalid/refresh", { method: "POST" }))
++      .then((response) => { if (!response.ok) throw new Error("Broadcast registry refresh failed"); }));
+     if (env.CRICKET_FIXTURES) ctx.waitUntil(cricketRegistryStub(env).fetch(new Request("https://cricket-registry.invalid/refresh", { method: "POST" }))
+       .then((response) => { if (!response.ok) throw new Error("Cricket scheduled refresh failed"); }));
+     if (sportsFixturesEnabled(env)) ctx.waitUntil(mapSportsSources(async (source) => {
+@@ -1405,6 +1487,7 @@ const worker = {
+       }
+       return result;
+     }
++    if (url.pathname === "/api/live/broadcasts") return handleBroadcastRegistry(url, env);
+     if (url.pathname === "/api/live/streams") return handleStreams(url);
+     if (url.pathname === "/api/embed/player") return handlePlayer(url);
+     return json({ error: "Not found" }, 404);
+diff --git a/web/workers/playback/src/worker-version.mjs b/web/workers/playback/src/worker-version.mjs
+index 1329260..41bc272 100644
+--- a/web/workers/playback/src/worker-version.mjs
++++ b/web/workers/playback/src/worker-version.mjs
+@@ -1,3 +1,3 @@
+ // Release identity shared by the Worker and its production contract monitor.
+ // Bump this for every deployed source revision.
+-export const WORKER_SOURCE_VERSION = "2026-10-29.broadcast-catalog-1";
++export const WORKER_SOURCE_VERSION = "2026-10-30.shared-broadcast-registry-1";
+diff --git a/web/workers/playback/wrangler.toml b/web/workers/playback/wrangler.toml
+index b3dac98..7617121 100644
+--- a/web/workers/playback/wrangler.toml
++++ b/web/workers/playback/wrangler.toml
+@@ -45,6 +45,9 @@ FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED = "0"
+ # Cloudflare receives HTML rather than the canonical WNBA schedule JSON.
+ # Keep this source deferred until edge access is verified; do not widen admission.
+ FOTTY_SPORTS_WNBA_ENABLED = "0"
++# Staged automatic metadata registry; activation remains a separate reviewed gate.
++FOTTY_BROADCAST_REGISTRY_ENABLED = "0"
++FOTTY_BROADCAST_REGISTRY_SOURCES = "streamex,score808,communitysports,plaviosports,cncsports,flixstreams,streamvix"
+ # Secret FPL_COACH_ACCESS_SHA256: JSON array of SHA-256 digests of individual
+ # random 32-byte hex invitation codes. Never place plaintext codes in this file.
+ 
+@@ -95,3 +98,11 @@ namespace_id = "2026082202"
+   [ratelimits.simple]
+   limit = 120
+   period = 60
++
++[[durable_objects.bindings]]
++name = "BROADCAST_REGISTRY"
++class_name = "BroadcastRegistry"
++
++[[migrations]]
++tag = "broadcast-registry-v1"
++new_sqlite_classes = [ "BroadcastRegistry" ]

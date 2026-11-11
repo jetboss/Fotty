@@ -1,0 +1,12 @@
+{
+  "environmentDescription": "Fotty \u00b7 Built with macOS 27.0.1",
+  "failedTests": 0,
+  "finishTime": 1793484888.022,
+  "passedTests": 82,
+  "result": "Passed",
+  "skippedTests": 0,
+  "startTime": 1793484871.168,
+  "testFailures": [],
+  "title": "Test - Fotty",
+  "totalTestCount": 82
+}

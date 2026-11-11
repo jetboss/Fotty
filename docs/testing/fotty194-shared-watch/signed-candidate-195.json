@@ -1,0 +1,12 @@
+{
+  "build": 195,
+  "marketingVersion": "2.0.1",
+  "sdk": "iphoneos27.2",
+  "deepStrictSignatureVerified": true,
+  "installedOnJet": true,
+  "sourceClosureSHA256": "b4a3556b186f4db4f8fac40fdc63723b2cf80a88c900481ce5cc6c7daf54d4b6",
+  "sourceFiles": 206,
+  "normalApp": true,
+  "phoneInstalled": false,
+  "testFlight": false
+}

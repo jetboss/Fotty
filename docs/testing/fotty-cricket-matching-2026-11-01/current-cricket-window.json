@@ -1,0 +1,17 @@
+{
+  "checkedAtUTC": "2026-11-01T13:36:38.802Z",
+  "officialObservedAtUTC": "2026-11-01T13:36:38.802Z",
+  "fixtures": [
+    {
+      "home": "Afghanistan",
+      "away": "Zimbabwe",
+      "startUTC": "2026-11-01T14:30:00.000Z",
+      "status": "scheduled",
+      "format": "T20",
+      "matchOrdinal": 3,
+      "competition": "Afghanistan and Zimbabwe in UAE, 3 T20I Series, 2026",
+      "sourceURL": "https://www.icc-cricket.com/matches/274662"
+    }
+  ],
+  "scope": "current LIVE plus next three hours; original official ICC schedule; no media"
+}

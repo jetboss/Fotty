@@ -1,0 +1,15 @@
+{
+  "checkedAtUTC": "2026-11-01T13:59:26.282075+00:00",
+  "source": "TV1",
+  "attempts": 1,
+  "decodedStarts": 1,
+  "failureOrFailoverRecords": 0,
+  "manualSourceSwitches": 0,
+  "observedProgramme": "Willow branded cricket; final graphic explicitly SECOND T20I, not the upcoming third match",
+  "finalSurface": "Sports TV, portrait",
+  "liveFixtureMatchingPass": false,
+  "audioListeningClaim": false,
+  "decodedStartUTC": "2026-11-01T13:48:56.866022+00:00",
+  "sessionClosedUTC": "2026-11-01T13:57:29.743653+00:00",
+  "decodedToCloseWallSeconds": 512.878
+}

@@ -1,0 +1,78 @@
+{
+  "date": "2026-11-01",
+  "scope": "Bounded metadata/HLS qualification only; no native decoder or programme observation",
+  "source": {
+    "manifest": "https://free.flixnest.app/manifest.json",
+    "manifestID": "org.flixstreams.free",
+    "version": "1.0.0",
+    "advertisedCatalogID": "dlstreams-live",
+    "advertisedSearch": "Fox Cricket",
+    "channelID": "dlstreams:channel:369",
+    "name": "Fox Cricket",
+    "catalogAndSameIDMetaCorroborated": true,
+    "description": "Live TV; Theme: Entertainment; Channel ID: 369",
+    "marketOrLanguageExplicitInMetadata": false,
+    "fixtureOrProgrammeAuthority": false
+  },
+  "deliveryContract": {
+    "scheme": "https",
+    "origin": "https://free.flixnest.app",
+    "path": "/dlstreams/stream/dlstreams%3Achannel%3A369.m3u8",
+    "queryKeys": [
+      "t"
+    ],
+    "queryValue": "[opaque advertised capability; not retained]",
+    "descriptorFields": [
+      "filename",
+      "name",
+      "title",
+      "url"
+    ],
+    "requiredHeaders": [],
+    "existingNativeDeliveryGuardAdmitsContract": true,
+    "allResolvedAddressesPublic": true,
+    "advertisedURLUnmodified": true
+  },
+  "probes": [
+    {
+      "scope": "Initial temporary probe",
+      "hlsRequested": false,
+      "result": "Skipped by an over-strict temporary no-query check; existing native guard already supports sole opaque t. Corrected before qualification."
+    },
+    {
+      "descriptorObservedUTC": "2026-11-01T14:11:38.388Z",
+      "descriptorHTTP": 200,
+      "descriptorBytes": 588,
+      "hlsDeadlineMilliseconds": 12000,
+      "hlsResult": "TimeoutError",
+      "hlsHTTPStatusObserved": null,
+      "playbackPass": false
+    },
+    {
+      "descriptorObservedUTC": "2026-11-01T14:13:39.275Z",
+      "descriptorHTTP": 200,
+      "descriptorBytes": 588,
+      "descriptorElapsedMilliseconds": 582,
+      "hlsObservedUTC": "2026-11-01T14:13:52.217Z",
+      "hlsDeadlineMilliseconds": 30000,
+      "hlsElapsedMilliseconds": 12940,
+      "hlsHTTP": 502,
+      "hlsMIME": "application/json",
+      "hlsBytes": 52,
+      "hlsHeaderPresent": false,
+      "playbackPass": false
+    }
+  ],
+  "safety": {
+    "automaticRedirects": false,
+    "byteCap": 131072,
+    "leafRequests": 0,
+    "mediaSegmentsRequested": 0,
+    "keysOrLicenseRequests": 0,
+    "accountsOrCredentialsUsed": false,
+    "admissionOrTransportExceptions": false
+  },
+  "result": "Real channel catalogue/meta lead; current advertised HLS returned a provider 502. No compatible playable replacement established; no code or source setting changed.",
+  "remainingGate": "A responding compatible HLS delivery, then real adapter/guarded-relay decoding and normal Watch acceptance on Jet iPad.",
+  "redaction": "No opaque query values, raw media URLs, private identifiers or response bodies retained."
+}

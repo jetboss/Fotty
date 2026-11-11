@@ -1,0 +1,11 @@
+{
+  "id": "cnc-sports-extension",
+  "name": "LS sources",
+  "providerCode": "cncsports",
+  "version": "1.0.0",
+  "author": "Fotty Core",
+  "description": "Optional additional hockey and WBBL cricket deliveries for exactly matched fixtures. Off by default.",
+  "iconName": "rectangle.stack.badge.play.fill",
+  "resolutionMode": "native",
+  "allowedDomains": ["cncverse.dpdns.org", "edgestream7.pro", "bl.rutube.ru"]
+}

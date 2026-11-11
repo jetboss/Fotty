@@ -1,7 +1,6 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
-import { STREAM_GUIDE_COPY } from "@/lib/stream-guide/copy";
 import type { StreamSource } from "@/lib/stream-guide/types";
 
 export function PlaybackErrorPanel({
@@ -17,7 +16,7 @@ export function PlaybackErrorPanel({
 }) {
   return (
     <div className="rounded-xl border border-orange-400/20 bg-orange-500/10 px-4 py-3">
-      <p className="text-sm font-black text-text-primary">{STREAM_GUIDE_COPY.playbackFailed}</p>
+      <p className="text-sm font-black text-text-primary">This stream stopped</p>
       <p className="mt-1 text-xs font-medium leading-5 text-text-secondary">
         {message || "Try a backup stream or wait a moment while Fotty rechecks this feed."}
       </p>
@@ -43,7 +42,7 @@ export function PlaybackErrorPanel({
             onClick={onTryBackup}
             className="inline-flex items-center gap-2 rounded-full bg-accent px-3 py-2 text-xs font-bold text-white"
           >
-            {STREAM_GUIDE_COPY.tryBackup}
+            Try backup
           </button>
         ) : null}
       </div>

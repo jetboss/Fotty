@@ -1,0 +1,18 @@
+{
+  "checkedAtUTC": "2026-10-29T23:14:05.665908+00:00",
+  "privateOwnerDestinationVerified": true,
+  "verificationTimestampUTC": "2026-10-29T23:06:34.008279Z",
+  "senderDomainOnboarded": false,
+  "projectDomainLookup": "neither proposed project domain found in connected Cloudflare account",
+  "sendingDomainList": "Unauthorized; eligibility not established",
+  "directEmailActivated": false,
+  "realAlertSent": false,
+  "dnsChanged": false,
+  "credentialsChanged": false,
+  "providerChatBridge": "previous named automation missing; recreated ACTIVE as fotty-provider-failure-alerts with15minute interval and exact prior-visible WD acknowledgement safeguards",
+  "bridgeCreationDoesNotProveNotificationDelivery": true,
+  "directEmailCandidateTests": 214,
+  "candidatePatchRetainedLocally": true,
+  "candidatePublished": false,
+  "candidateDeployed": false
+}

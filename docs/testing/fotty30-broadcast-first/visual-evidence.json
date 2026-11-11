@@ -1,0 +1,32 @@
+[
+  {
+    "file": "evidence/jet-home-dark.png",
+    "sha256": "d16bd0a355943e338fdfdba2eccd4e05a8fb7df29773f0f6edab3bbc1f3d3750",
+    "provenance": "Physical Jet 229 Debug XCUIScreen capture"
+  },
+  {
+    "file": "evidence/jet-home-light.png",
+    "sha256": "90e3e06ec39e04d7b52df6754c110afb9531d1818170c05bda5d6e51a56ffbb1",
+    "provenance": "Physical Jet 229 Debug XCUIScreen capture"
+  },
+  {
+    "file": "evidence/jet-sports-tv.png",
+    "sha256": "8df6f2b7be592c63d7241aa53ba2ee28257b1d7eb3562da8804b81794f00e2f9",
+    "provenance": "Physical Jet 229 Debug XCUIScreen capture"
+  },
+  {
+    "file": "evidence/jet-live-tv4.png",
+    "sha256": "ce9a7aae3ba97a8897ceb2ffc9ab7f539edf774cb3c187f8ae6410404c2a1dc0",
+    "provenance": "Physical Jet 229 Debug XCUIScreen capture"
+  },
+  {
+    "file": "evidence/jet-sources.png",
+    "sha256": "0caaddd1105b0335ac43db610d902118f4d7e40c574ced94728b94c9c7844ef1",
+    "provenance": "Physical Jet 229 Debug XCUIScreen capture"
+  },
+  {
+    "file": "evidence/source-sheet-short-accessibility.png",
+    "sha256": "1b4ffbc3dbf41d00cdc4bbd7a1a01baa36ec4cdadaf459e0f9f6ae367479937d",
+    "provenance": "Production SwiftUI component rendered on Jet at 320x320; not a whole-device interaction capture"
+  }
+]

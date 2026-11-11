@@ -1,31 +1,23 @@
 import SwiftUI
 import SwiftData
-import PhotosUI
 
 struct SettingsScreen: View {
+    @AppStorage(SportsInterestPreferences.storageKey) private var followedSportsRaw = SportsInterestPreferences.emptyValue
+    @Environment(\.fottyWideLayout) private var usesWideLayout
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage(FottyAppearance.storageKey) private var appearance = FottyAppearance.dark.rawValue
+    @AppStorage(MatchdayPreferences.showKickoffClashesKey)
+    private var showKickoffClashes = MatchdayPreferences.defaultShowKickoffClashes
     var onOpenFPL: (() -> Void)? = nil
+    /// Settings opens as a sheet from Home's gear; Done closes it.
+    var onClose: (() -> Void)? = nil
     @StateObject private var viewModel = SettingsViewModel()
-    @Environment(\.modelContext) private var modelContext
+    @State private var showsOwnerStatus = false
+    @AppStorage(SportsReminderBackgroundRefresh.preferenceKey) private var refreshRemindersInBackground = false
+    @State private var reminderRefresh = SportsReminderBackgroundRefresh.shared
 
-    @Query(sort: \UserProfile.createdAt, order: .forward) private var profiles: [UserProfile]
     @Query(sort: \FollowedTeamItem.createdAt, order: .forward) private var followedTeams: [FollowedTeamItem]
-
-    @State private var isShowingEditProfile = false
-
-    private var activeProfile: UserProfile? {
-        profiles.first(where: { $0.id == "local-profile" }) ?? profiles.first
-    }
-
-    private var profileDisplayName: String {
-        let value = activeProfile?.displayName.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return value.isEmpty ? "Football Fan" : value
-    }
-
-    private var profileUsername: String {
-        let value = activeProfile?.username?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return value.isEmpty ? "fan" : value
-    }
+    @Query(sort: \FollowedLeagueItem.createdAt, order: .forward) private var followedLeagues: [FollowedLeagueItem]
 
     var body: some View {
         NavigationStack {
@@ -33,157 +25,229 @@ struct SettingsScreen: View {
                 // Background
                 FottyTheme.background.ignoresSafeArea()
 
-                // Animated background pattern
-                PitchPattern()
-                    .opacity(0.08)
-                    .ignoresSafeArea()
-
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: FottyTheme.spacingLG) {
+                    VStack(alignment: .leading, spacing: FottyTheme.spacingLG) {
+                        HStack(alignment: .center) {
+                            Text("Settings")
+                                .font(.title.weight(.semibold))
+                                .foregroundStyle(FottyTheme.textPrimary)
+                                .frame(minHeight: 44, alignment: .leading)
+                                .accessibilityAddTraits(.isHeader)
+                            Spacer(minLength: 8)
+                            if let onClose {
+                                Button("Done", action: onClose)
+                                    .font(FottyTheme.typeAction)
+                                    .foregroundStyle(FottyTheme.accentText)
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .accessibilityIdentifier("settings-done")
+                            }
+                        }
                         // Main Sections
                         VStack(spacing: FottyTheme.spacingLG) {
-                            footballPreferencesSection
-                            streamPluginsSection
-                            notificationsSection
-                            deadlineNotificationsSection
-                            privacySection
-                            supportSection
-                            localProfileSection
+                            if LocalDataStore.shared.isUsingVolatileFallback {
+                                LocalPersistenceWarning(
+                                    detail: "Favorite teams, leagues and cached fixtures can't be saved right now. Matchday bookmarks are unaffected. Restart Fotty, then report the problem if it returns."
+                                )
+                            }
+                            settingsColumns {
+                                VStack(spacing: FottyTheme.spacingLG) {
+                                    appearanceSection
+                                    homePreferencesSection
+                                    streamPluginsSection
+                                }
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                                VStack(spacing: FottyTheme.spacingLG) {
+                                    privacySection
+                                    supportSection
+                                }
+                                .frame(maxWidth: .infinity, alignment: .topLeading)
+                            }
                         }
                     }
                     .padding(FottyTheme.spacingMD)
                     .padding(.bottom, 24)
+                    .frame(maxWidth: .infinity)
                 }
 
             }
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .tint(FottyTheme.accentText)
-            .sheet(isPresented: $isShowingEditProfile) {
-                Group {
-                    if let profile = activeProfile {
-                        SettingsProfileEditView(profile: profile)
-                    } else {
-                        // Fallback for when no profile exists yet
-                        NavigationStack {
-                            ZStack {
-                                FottyTheme.background.ignoresSafeArea()
-                                VStack(spacing: 20) {
-                                    Image(systemName: "person.crop.circle.badge.plus")
-                                        .font(.system(size: 60))
-                                        .foregroundStyle(FottyTheme.accentText)
-                                    Text("No Profile Found")
-                                        .font(.headline)
-                                        .foregroundStyle(FottyTheme.textPrimary)
-                                    Button("Create Local Profile") {
-                                        let newProfile = UserProfile(id: "local-profile")
-                                        modelContext.insert(newProfile)
-                                        try? modelContext.save()
-                                    }
-                                    .buttonStyle(.borderedProminent)
-                                    .tint(FottyTheme.accentText)
-                                }
-                            }
-                            .navigationTitle("Edit Profile")
-                            .navigationBarTitleDisplayMode(.inline)
-                            .toolbar {
-                                ToolbarItem(placement: .cancellationAction) {
-                                    Button("Cancel") { isShowingEditProfile = false }
-                                }
-                            }
-                        }
-                    }
-                }
-                .fottyStandardSheetChrome()
+            .onAppear { NotificationManager.shared.checkPermissionStatus() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active { NotificationManager.shared.checkPermissionStatus() }
             }
-            .onAppear {
-                ensureProfileExists()
+            .sheet(isPresented: $showsOwnerStatus) {
+                NavigationStack { FottyOwnerStatusView() }
+                    .fottyStandardSheetChrome()
             }
-        }
-    }
-
-    private func ensureProfileExists() {
-        if profiles.isEmpty {
-            let newProfile = UserProfile(id: "local-profile")
-            modelContext.insert(newProfile)
-            try? modelContext.save()
         }
     }
 
     // MARK: - Sections
 
-    private var localProfileSection: some View {
-        SettingsSection(title: "On this device") {
-            SettingsRow(
-                icon: "person.crop.circle",
-                iconColor: FottyTheme.accentText,
-                title: "Local profile",
-                subtitle: "Optional name and avatar. Separate from your connected FPL team."
-            ) { isShowingEditProfile = true }
-        }
+    // Changing only the layout preserves the same controls and destination state.
+    private var settingsColumns: AnyLayout {
+        usesWideLayout
+            ? AnyLayout(HStackLayout(alignment: .top, spacing: 24))
+            : AnyLayout(VStackLayout(alignment: .leading, spacing: FottyTheme.spacingLG))
     }
 
-    private var footballPreferencesSection: some View {
-        SettingsSection(title: "Preferences") {
+    private var appearanceSection: some View {
+        SettingsSection(title: "Appearance") {
             NavigationLink {
                 SettingsAppearanceView()
+                    .toolbar(.visible, for: .navigationBar)
             } label: {
                 SettingsRow(
                     icon: "circle.lefthalf.filled",
                     iconColor: FottyTheme.accentText,
                     title: "Appearance",
-                    subtitle: "Choose light, dark or your device setting",
                     value: FottyAppearance.saved(appearance).title
                 )
             }
+            .buttonStyle(SettingsRowButtonStyle())
             .accessibilityIdentifier("settings-appearance")
-            SettingsDivider()
-            NavigationLink {
-                SettingsManageFollowsView()
-            } label: {
-                SettingsRow(
-                    icon: "star.fill",
-                    iconColor: FottyTheme.accentText,
-                    title: "Favorite Teams",
-                    value: followedTeams.count == 1 ? "1 team" : "\(followedTeams.count) teams"
-                )
-            }
-            SettingsDivider()
-            NavigationLink {
-                SettingsManageLeaguesView()
-            } label: {
-                SettingsRow(icon: "trophy.fill", iconColor: FottyTheme.accentText, title: "Favorite Leagues")
-            }
         }
     }
 
+    private var homePreferencesSection: some View {
+        SettingsSection(title: "Home & Matchday") {
+            NavigationLink {
+                SettingsManageLeaguesView()
+                    .toolbar(.visible, for: .navigationBar)
+            } label: {
+                SettingsRow(
+                    icon: "trophy.fill",
+                    iconColor: FottyTheme.accentText,
+                    title: "Home interests",
+                    value: interestSelectionSummary
+                )
+            }
+            .buttonStyle(SettingsRowButtonStyle())
+            .accessibilityIdentifier("settings-interests")
+            SettingsDivider()
+            SettingsToggleRow(
+                icon: "calendar.badge.exclamationmark",
+                iconColor: FottyTheme.accentText,
+                title: "Show kickoff clashes",
+                subtitle: "Flag overlapping matches in My Matchday",
+                isOn: $showKickoffClashes
+            )
+        }
+    }
+
+    private var notificationPermissionSummary: String {
+        switch NotificationManager.shared.permissionStatus {
+        case .authorized: return "Allowed"
+        case .provisional: return "Quiet delivery"
+        case .ephemeral: return "Temporary"
+        case .denied: return "Off in Settings"
+        case .notDetermined: return "Not enabled"
+        @unknown default: return "Review"
+        }
+    }
+
+    private var notificationPreferences: some View {
+        ScrollView {
+            settingsColumns {
+              VStack(spacing: FottyTheme.spacingLG) {
+                SettingsSection(title: "System permission") {
+                    SettingsRow(icon: "bell.badge.fill", iconColor: FottyTheme.accentText,
+                                title: notificationPermissionSummary,
+                                value: NotificationManager.shared.permissionStatus == .notDetermined ? "Enable" : "Manage",
+                                valueRole: .action) {
+                        if NotificationManager.shared.permissionStatus == .notDetermined {
+                            Task { _ = await NotificationManager.shared.requestPermission() }
+                        } else if let url = URL(string: UIApplication.openSettingsURLString) {
+                            UIApplication.shared.open(url)
+                        }
+                    }
+                }
+              }
+              .frame(maxWidth: .infinity, alignment: .topLeading)
+              VStack(spacing: FottyTheme.spacingLG) {
+                notificationsSection
+                SettingsSection(title: "Match reminders") {
+                    SettingsToggleRow(icon: "clock.arrow.circlepath", iconColor: FottyTheme.accentText,
+                        title: "Update reminders in background",
+                        subtitle: "Check for changed or cancelled fixtures when iOS allows",
+                        isOn: Binding(get: { refreshRemindersInBackground }, set: {
+                            refreshRemindersInBackground = $0
+                            reminderRefresh.setEnabled($0)
+                        }))
+                        .accessibilityIdentifier("sports-reminder-background-toggle")
+                    if refreshRemindersInBackground {
+                        Text(SportsReminderBackgroundRefresh.disclosure)
+                            .font(.footnote).foregroundStyle(FottyTheme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(FottyTheme.spacingMD)
+                        if reminderRefresh.schedulingUnavailable {
+                            Text("Background checks aren’t available right now. Opening Fotty still updates your reminders.")
+                                .font(.subheadline).padding(FottyTheme.spacingMD)
+                                .accessibilityIdentifier("sports-reminder-background-unavailable")
+                        }
+                    }
+                }
+                Text(FottyHelpContent.scheduledMatchReminders)
+                    .font(FottyTheme.typeMeta)
+                    .foregroundStyle(FottyTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if let onOpenFPL {
+                    SettingsSection(title: "FPL deadline reminders") {
+                        SettingsRow(icon: "calendar.badge.clock", iconColor: FottyTheme.accentText,
+                                    title: "Manage in FPL", action: onOpenFPL)
+                    }
+                }
+              }
+              .frame(maxWidth: .infinity, alignment: .topLeading)
+            }
+            .padding(FottyTheme.spacingMD)
+            .frame(maxWidth: .infinity)
+        }
+        .background(FottyTheme.background.ignoresSafeArea())
+        .navigationTitle("Notifications")
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("settings-notifications-screen")
+    }
+
     private var streamPluginsSection: some View {
-        SettingsSection(title: "Playback") {
+        SettingsSection(title: "Playback & alerts") {
+            NavigationLink { SportsPlaybackPreferencesView().toolbar(.visible, for: .navigationBar) } label: {
+                SettingsRow(icon: "play.rectangle", iconColor: FottyTheme.accentText,
+                    title: "Playback preferences", keepsDisclosureInline: true)
+            }
+            .buttonStyle(SettingsRowButtonStyle())
+            SettingsDivider()
             NavigationLink {
                 StreamPluginsSettingsView()
+                    .toolbar(.visible, for: .navigationBar)
             } label: {
                 SettingsRow(
                     icon: "puzzlepiece.extension.fill",
                     iconColor: FottyTheme.accentText,
-                    title: "Broadcast Sources",
-                    subtitle: "Manage the sources Fotty can use for playback"
+                    title: "Playback sources",
+                    keepsDisclosureInline: true
                 )
             }
+            .buttonStyle(SettingsRowButtonStyle())
+            SettingsDivider()
+            NavigationLink {
+                notificationPreferences
+                    .toolbar(.visible, for: .navigationBar)
+            } label: {
+                SettingsRow(icon: "bell.fill", iconColor: FottyTheme.accentText,
+                            title: "Notifications", value: notificationPermissionSummary)
+            }
+            .buttonStyle(SettingsRowButtonStyle())
+            .accessibilityIdentifier("settings-notifications")
         }
     }
 
     private var notificationsSection: some View {
-        SettingsSection(title: "Match updates") {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("While using Fotty").font(.headline)
-                Text("Updates for followed Premier League teams while Home or Matchday is open. Not background alerts.")
-                DisclosureGroup("How match updates work") { Text(FottyHelpContent.matchAlerts) }
-            }
-            .font(.callout)
-            .foregroundStyle(FottyTheme.textSecondary)
-            .fixedSize(horizontal: false, vertical: true)
-            .padding(FottyTheme.spacingMD)
-            SettingsDivider()
+        SettingsSection(title: "In-app match updates") {
             SettingsToggleRow(icon: "flag.fill", iconColor: FottyTheme.success, title: "Kickoff Updates", isOn: $viewModel.notifKickoff)
             SettingsDivider()
             SettingsToggleRow(icon: "soccerball", iconColor: .red, title: "Goal Updates", isOn: $viewModel.notifGoals)
@@ -197,61 +261,46 @@ struct SettingsScreen: View {
                 subtitle: "Hide scores and result details in notifications",
                 isOn: $viewModel.notificationSpoilerProtection
             )
-        }
-    }
-
-    private var deadlineNotificationsSection: some View {
-        SettingsSection(title: "FPL deadline reminders") {
-            Text("Scheduled on this device, even when Fotty is closed. Enable them from your FPL plan.")
-                .font(.callout)
+            Text(FottyHelpContent.matchAlertSettingsScope)
+                .font(FottyTheme.typeMeta)
                 .foregroundStyle(FottyTheme.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(FottyTheme.spacingMD)
-            if let onOpenFPL {
-                SettingsRow(icon: "calendar.badge.clock", iconColor: FottyTheme.accentText, title: "Open FPL plan", subtitle: "Team, squad and deadline reminders", action: onOpenFPL)
-            }
-            if NotificationManager.shared.permissionStatus == .notDetermined {
-                SettingsRow(
-                    icon: "bell.badge.fill",
-                    iconColor: FottyTheme.accentText,
-                    title: "Enable System Notifications",
-                    value: "Optional",
-                    showChevron: false
-                ) {
-                    Task {
-                        _ = await NotificationManager.shared.requestPermission()
-                    }
-                }
-                SettingsDivider()
-            } else if NotificationManager.shared.permissionStatus == .denied {
-                SettingsRow(
-                    icon: "exclamationmark.triangle.fill",
-                    iconColor: .red,
-                    title: "Notifications Denied",
-                    value: "Fix in Settings",
-                    showChevron: false
-                ) {
-                    if let url = URL(string: UIApplication.openSettingsURLString) {
-                        UIApplication.shared.open(url)
-                    }
-                }
-                SettingsDivider()
-            }
-
         }
     }
 
     private var privacySection: some View {
-        SettingsSection(title: "Privacy & Security") {
+        SettingsSection(title: "Your data") {
+            NavigationLink { SettingsSportsContinuityView() } label: {
+                SettingsRow(icon: "ipad.and.iphone", iconColor: FottyTheme.accentText,
+                            title: "Sports continuity", keepsDisclosureInline: true)
+            }
+            .buttonStyle(SettingsRowButtonStyle())
+            .accessibilityIdentifier("settings-sports-continuity")
+            SettingsDivider()
+            NavigationLink {
+                SettingsPrivateBackupView()
+                    .toolbar(.visible, for: .navigationBar)
+            } label: {
+                SettingsRow(icon: "lock.doc.fill", iconColor: FottyTheme.accentText,
+                            title: "Backup & restore", keepsDisclosureInline: true)
+            }
+            .buttonStyle(SettingsRowButtonStyle())
+            .accessibilityIdentifier("settings-backup")
+            SettingsDivider()
             NavigationLink {
                 SettingsPrivacyView()
+                    .toolbar(.visible, for: .navigationBar)
             } label: {
                 SettingsRow(
                     icon: "hand.raised.fill",
                     iconColor: FottyTheme.success,
-                    title: "Privacy & Local Data",
-                    subtitle: "What stays on this device and what uses the network"
+                    title: "Privacy",
+                    keepsDisclosureInline: true
                 )
             }
+            .buttonStyle(SettingsRowButtonStyle())
         }
     }
 
@@ -259,26 +308,33 @@ struct SettingsScreen: View {
         SettingsSection(title: "Support & About") {
             NavigationLink {
                 FottyHelpView()
+                    .toolbar(.visible, for: .navigationBar)
             } label: {
-                SettingsRow(icon: "questionmark.circle.fill", iconColor: .gray, title: "Fotty Help", subtitle: "How watching, Matchday, FPL and alerts work")
+                SettingsRow(icon: "questionmark.circle.fill", iconColor: .gray, title: "Fotty Help",
+                            keepsDisclosureInline: true)
             }
+            .buttonStyle(SettingsRowButtonStyle())
             .accessibilityIdentifier("settings-help")
             SettingsDivider()
             NavigationLink {
                 FottyFeedbackView()
+                    .toolbar(.visible, for: .navigationBar)
             } label: {
-                SettingsRow(icon: "megaphone.fill", iconColor: .blue, title: "Report a problem", subtitle: "Prepare a report for TestFlight or share it")
+                SettingsRow(icon: "megaphone.fill", iconColor: .blue, title: "Report a Problem",
+                            keepsDisclosureInline: true)
             }
+            .buttonStyle(SettingsRowButtonStyle())
             .accessibilityIdentifier("settings-feedback")
             SettingsDivider()
             SettingsRow(
                 icon: "info.circle.fill",
                 iconColor: .gray,
-                title: "App Version",
+                title: FottyBrand.displayName,
                 value: appVersionDisplay,
                 showChevron: false,
                 action: nil
             )
+            .onTapGesture(count: 7) { showsOwnerStatus = true }
         }
     }
 
@@ -286,6 +342,11 @@ struct SettingsScreen: View {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
         return "v\(version) (\(build))"
+    }
+
+    private var interestSelectionSummary: String {
+        let count = followedTeams.count + followedLeagues.count + SportsInterestPreferences.canonicalIDs(from: followedSportsRaw).count
+        return count == 1 ? "1 selected" : "\(count) selected"
     }
 
 }
@@ -313,20 +374,21 @@ struct SettingsAppearanceOptions: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            Text("Choose how Fotty looks")
-                .font(FottyTheme.typeSectionTitle)
-                .foregroundStyle(FottyTheme.textPrimary)
-
-            VStack(spacing: 12) {
+            VStack(spacing: 0) {
                 ForEach(FottyAppearance.allCases) { option in
+                    if option != FottyAppearance.allCases.first {
+                        Divider().overlay(FottyTheme.border).padding(.leading, 64)
+                    }
                     appearanceChoice(option)
                 }
             }
-
-            Text("Your choice is saved on this device. The video player and football pitch keep their dark background in every mode.")
-                .font(FottyTheme.typeBody)
-                .foregroundStyle(FottyTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            .background(FottyTheme.surface, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .strokeBorder(FottyTheme.border, lineWidth: 0.5)
+                    .allowsHitTesting(false)
+            }
         }
         .padding(FottyTheme.spacingMD)
         .frame(maxWidth: 620)
@@ -340,142 +402,26 @@ struct SettingsAppearanceOptions: View {
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: option == .dark ? "moon.fill" : (option == .light ? "sun.max.fill" : "circle.lefthalf.filled"))
-                    .font(.title2)
+                    .font(.body)
                     .foregroundStyle(FottyTheme.accentText)
-                    .frame(width: 36)
+                    .frame(width: 32)
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(option.title)
-                        .font(FottyTheme.typeModuleTitle)
-                        .foregroundStyle(FottyTheme.textPrimary)
-                    Text(option == .dark ? "Fotty’s default appearance" : (option == .light ? "Warm, light surfaces" : "Follow your device’s light or dark setting"))
-                        .font(FottyTheme.typeBody)
-                        .foregroundStyle(FottyTheme.textSecondary)
-                }
-                .fixedSize(horizontal: false, vertical: true)
+                Text(option.title)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(FottyTheme.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
-                    .font(.title2)
+                    .font(.body)
                     .foregroundStyle(selected ? FottyTheme.accentText : FottyTheme.textTertiary)
                     .accessibilityHidden(true)
             }
             .padding(16)
-            .frame(minHeight: 68)
-            .background(FottyTheme.surface)
-            .clipShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD))
-            .overlay {
-                RoundedRectangle(cornerRadius: FottyTheme.radiusMD)
-                    .strokeBorder(selected ? FottyTheme.accentText : FottyTheme.borderStrong, lineWidth: selected ? 2 : 1)
-            }
+            .frame(minHeight: 56)
             .contentShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD))
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusMD))
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(selected ? .isSelected : [])
         .accessibilityIdentifier("appearance-\(option.rawValue)")
-    }
-}
-
-// MARK: - Dedicated Profile Edit View
-struct SettingsProfileEditView: View {
-    @Bindable var profile: UserProfile
-    @Environment(\.dismiss) var dismiss
-    @Environment(\.modelContext) var modelContext
-
-    @State private var displayName: String = ""
-    @State private var username: String = ""
-    @State private var bio: String = ""
-    @State private var selectedItem: PhotosPickerItem?
-    @State private var selectedImageData: Data?
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                FottyTheme.background.ignoresSafeArea()
-
-                Form {
-                    Section {
-                        HStack {
-                            Spacer()
-                            VStack(spacing: 12) {
-                                if let data = selectedImageData ?? profile.avatarImageData, let uiImage = UIImage(data: data) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFill()
-                                        .frame(width: 100, height: 100)
-                                        .clipShape(Circle())
-                                } else {
-                                    Image(systemName: profile.avatarSymbol ?? "person.crop.circle.fill")
-                                        .resizable()
-                                        .frame(width: 100, height: 100)
-                                        .foregroundStyle(FottyTheme.textTertiary)
-                                }
-
-                                PhotosPicker(selection: $selectedItem, matching: .images) {
-                                    Text("Change Photo")
-                                        .font(.system(size: 14, weight: .bold))
-                                        .foregroundStyle(FottyTheme.accentText)
-                                }
-                            }
-                            Spacer()
-                        }
-                        .listRowBackground(Color.clear)
-                        .padding(.vertical, 10)
-                    }
-
-                    Section {
-                        TextField("Display Name", text: $displayName)
-                            .foregroundStyle(FottyTheme.textPrimary)
-                        TextField("Username", text: $username)
-                            .foregroundStyle(FottyTheme.textPrimary)
-                            .textInputAutocapitalization(.never)
-                        TextField("Bio", text: $bio, axis: .vertical)
-                            .foregroundStyle(FottyTheme.textPrimary)
-                            .lineLimit(3...5)
-                    } header: {
-                        Text("Personal Information")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(FottyTheme.textSecondary)
-                    }
-                    .listRowBackground(FottyTheme.surface.opacity(0.5))
-                }
-                .scrollContentBackground(.hidden)
-            }
-            .navigationTitle("Edit Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        profile.displayName = displayName.isEmpty ? "Football Fan" : displayName
-                        profile.username = username.isEmpty ? nil : username
-                        profile.bio = bio.isEmpty ? nil : bio
-                        if let selectedImageData {
-                            profile.avatarImageData = selectedImageData
-                            profile.avatarImageUpdatedAt = Date()
-                        }
-                        try? modelContext.save()
-                        dismiss()
-                    }
-                    .fontWeight(.bold)
-                    .foregroundStyle(FottyTheme.accentText)
-                }
-            }
-            .onAppear {
-                displayName = profile.displayName
-                username = profile.username ?? ""
-                bio = profile.bio ?? ""
-            }
-            .onChange(of: selectedItem) { _, newItem in
-                Task {
-                    if let data = try? await newItem?.loadTransferable(type: Data.self) {
-                        selectedImageData = data
-                    }
-                }
-            }
-        }
-        .fottyStandardSheetChrome()
     }
 }

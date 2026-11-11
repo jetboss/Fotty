@@ -1,0 +1,297 @@
+{
+  "observedAtUTC": "2026-10-31T22:44:07.937Z",
+  "httpStatus": 200,
+  "collectionObservedAt": "2026-10-31T22:40:22.893Z",
+  "freshAssignments": 40,
+  "listedLinks": 29,
+  "competitions": {
+    "bundesliga": 2,
+    "champions-league": 18,
+    "la-liga": 3,
+    "premier-league": 2,
+    "serie-a": 4
+  },
+  "priorityAssignments": [
+    {
+      "fixtureID": "sports-fixture:champions-league:575377",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Shakhtar",
+        "Sporting CP"
+      ],
+      "sourceCoverageStartUTC": "2026-11-03T17:30:00.000Z",
+      "officialKickoffUTC": "2026-11-03T17:45:00.000Z",
+      "channelID": "sports-channel:espn5-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575378",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Galatasaray",
+        "Stuttgart"
+      ],
+      "sourceCoverageStartUTC": "2026-11-03T17:30:00.000Z",
+      "officialKickoffUTC": "2026-11-03T17:45:00.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575379",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Feyenoord",
+        "Inter"
+      ],
+      "sourceCoverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-03T20:00:00.000Z",
+      "channelID": "sports-channel:espn7-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575380",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Barcelona",
+        "Aston Villa"
+      ],
+      "sourceCoverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-03T20:00:00.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575381",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Atlético de Madrid",
+        "Bayern Munich"
+      ],
+      "sourceCoverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-03T20:00:00.000Z",
+      "channelID": "sports-channel:espn2-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575382",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Villarreal",
+        "PSG"
+      ],
+      "sourceCoverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-03T20:00:00.000Z",
+      "channelID": "sports-channel:espn5-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575383",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Manchester United",
+        "Roma"
+      ],
+      "sourceCoverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-03T20:00:00.000Z",
+      "channelID": "sports-channel:espn3-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575384",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Bodo/Glimt",
+        "Lille"
+      ],
+      "sourceCoverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-03T20:00:00.000Z",
+      "channelID": "sports-channel:espn4-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575385",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "LASK Linz",
+        "Slovan Bratislava"
+      ],
+      "sourceCoverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-03T20:00:00.000Z",
+      "channelID": "sports-channel:espn6-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575386",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "AEK Athens",
+        "Real Madrid"
+      ],
+      "sourceCoverageStartUTC": "2026-11-04T17:30:00.000Z",
+      "officialKickoffUTC": "2026-11-04T17:45:00.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575387",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Fenerbahce",
+        "Liverpool"
+      ],
+      "sourceCoverageStartUTC": "2026-11-04T17:30:00.000Z",
+      "officialKickoffUTC": "2026-11-04T17:45:00.000Z",
+      "channelID": "sports-channel:espn2-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575388",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "RB Leipzig",
+        "Manchester City"
+      ],
+      "sourceCoverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-04T20:00:00.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575389",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Slavia Praha",
+        "Arsenal"
+      ],
+      "sourceCoverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-04T20:00:00.000Z",
+      "channelID": "sports-channel:espn5-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575390",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "PSV",
+        "Club Brugge"
+      ],
+      "sourceCoverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-04T20:00:00.000Z",
+      "channelID": "sports-channel:espn4-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575391",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Borussia Dortmund",
+        "Real Betis"
+      ],
+      "sourceCoverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-04T20:00:00.000Z",
+      "channelID": "sports-channel:espn2-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575392",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Porto",
+        "Napoli"
+      ],
+      "sourceCoverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-04T20:00:00.000Z",
+      "channelID": "sports-channel:espn7-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575393",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Lens",
+        "Como"
+      ],
+      "sourceCoverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-04T20:00:00.000Z",
+      "channelID": "sports-channel:espn3-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575394",
+      "competitionID": "champions-league",
+      "sourceParticipants": [
+        "Viking",
+        "Sabah"
+      ],
+      "sourceCoverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "officialKickoffUTC": "2026-11-04T20:00:00.000Z",
+      "channelID": "sports-channel:espn6-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:premier-league:560622",
+      "competitionID": "premier-league",
+      "sourceParticipants": [
+        "Newcastle United",
+        "Everton"
+      ],
+      "sourceCoverageStartUTC": "2026-11-02T20:00:00.000Z",
+      "officialKickoffUTC": "2026-11-02T20:00:00.000Z",
+      "channelID": "sports-channel:espn5-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    },
+    {
+      "fixtureID": "sports-fixture:premier-league:560631",
+      "competitionID": "premier-league",
+      "sourceParticipants": [
+        "Liverpool",
+        "Arsenal"
+      ],
+      "sourceCoverageStartUTC": "2026-11-01T16:30:00.000Z",
+      "officialKickoffUTC": "2026-11-01T16:30:00.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "method": "channel-assignment",
+      "expiresAt": "2026-10-31T22:50:22.893Z"
+    }
+  ],
+  "physicalLiveMatchQualified": false
+}

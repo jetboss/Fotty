@@ -1,0 +1,104 @@
+[
+  {
+    "sample": 0,
+    "sequence": 36,
+    "overlap": 0,
+    "upstreamURIChanges": 0,
+    "referenceCount": 6,
+    "upstreamEndlist": false,
+    "mediaDurations": [
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000"
+    ],
+    "firstReferenceHash": "a31600777510"
+  },
+  {
+    "sample": 1,
+    "sequence": 36,
+    "overlap": 6,
+    "upstreamURIChanges": 0,
+    "referenceCount": 6,
+    "upstreamEndlist": false,
+    "mediaDurations": [
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000"
+    ],
+    "firstReferenceHash": "a31600777510"
+  },
+  {
+    "sample": 2,
+    "sequence": 36,
+    "overlap": 6,
+    "upstreamURIChanges": 0,
+    "referenceCount": 6,
+    "upstreamEndlist": false,
+    "mediaDurations": [
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000"
+    ],
+    "firstReferenceHash": "a31600777510"
+  },
+  {
+    "sample": 3,
+    "sequence": 37,
+    "overlap": 5,
+    "upstreamURIChanges": 0,
+    "referenceCount": 6,
+    "upstreamEndlist": false,
+    "mediaDurations": [
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000"
+    ],
+    "firstReferenceHash": "a7d70083836d"
+  },
+  {
+    "sample": 4,
+    "sequence": 37,
+    "overlap": 6,
+    "upstreamURIChanges": 0,
+    "referenceCount": 6,
+    "upstreamEndlist": false,
+    "mediaDurations": [
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000"
+    ],
+    "firstReferenceHash": "a7d70083836d"
+  },
+  {
+    "sample": 5,
+    "sequence": 39,
+    "overlap": 4,
+    "upstreamURIChanges": 0,
+    "referenceCount": 6,
+    "upstreamEndlist": false,
+    "mediaDurations": [
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000",
+      "10.000000"
+    ],
+    "firstReferenceHash": "f33d4d9c5a0b"
+  }
+]

@@ -14,12 +14,6 @@ function v2SearchPath(env) {
   return isV2Enabled(env) ? "/search" : "/next/search";
 }
 
-function v2CanonicalFromNextPath(pathname) {
-  if (!pathname.startsWith("/next")) return null;
-  const suffix = pathname.slice("/next".length) || "/";
-  return suffix === "/" ? "/" : suffix;
-}
-
 test("production v2 flag enables canonical search path", () => {
   assert.equal(
     v2SearchPath({ NODE_ENV: "production", NEXT_PUBLIC_FOTTY_V2_ENABLED: "true" }),
@@ -35,9 +29,4 @@ test("local preview enables canonical search path", () => {
     }),
     "/search"
   );
-});
-
-test("legacy /next routes map to canonical paths", () => {
-  assert.equal(v2CanonicalFromNextPath("/next/search"), "/search");
-  assert.equal(v2CanonicalFromNextPath("/next"), "/");
 });

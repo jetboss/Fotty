@@ -9,7 +9,7 @@ export type FootballMatchesQuery = {
   season?: string;
 };
 
-export function isSafeFootballQueryValue(value: string) {
+function isSafeFootballQueryValue(value: string) {
   return /^[A-Za-z0-9_,.-]+$/.test(value);
 }
 

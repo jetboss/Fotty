@@ -9,7 +9,10 @@ export function useMatchFeedPoll(
 ) {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const onPollRef = useRef(onPoll);
-  onPollRef.current = onPoll;
+
+  useEffect(() => {
+    onPollRef.current = onPoll;
+  }, [onPoll]);
 
   const markUpdated = useCallback(() => {
     setLastUpdated(new Date());

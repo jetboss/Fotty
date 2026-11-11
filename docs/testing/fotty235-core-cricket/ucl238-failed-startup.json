@@ -1,0 +1,31 @@
+{
+  "verifiedAt": "2026-11-04T17:51:45.286Z",
+  "fixture": "sports-fixture:champions-league:575386",
+  "title": "PAE AEK vs Real Madrid CF",
+  "officialSource": "https://match.uefa.com/v5/matches/2049622",
+  "officialTeams": [
+    "AEK Athens",
+    "Real Madrid"
+  ],
+  "officialStatus": "LIVE",
+  "officialPhase": "FIRST_HALF",
+  "officialMinute": {
+    "normal": 5
+  },
+  "start": "2026-11-04T17:45:00.000Z",
+  "registryStatus": "scheduled",
+  "registrySourceObservedAt": "2026-11-04T17:50:04.784Z",
+  "note": "Only test pin uses independently observed UEFA live status; no fixture or app data changed.",
+  "build": 238,
+  "result": "failed-before-primary-hold",
+  "firstTapToAdvancingPicture": null,
+  "startupDeadlineSeconds": 100,
+  "forcedOutageExercised": false,
+  "normalBuildRestored": true,
+  "recoveryTrace": "Recovery trace: CS1 startupTimeout stall=false decoded=false reachable=true ; current fixture unavailable; CS1 unknown stall=false decoded=false reachable=true descriptor_fixture_changed; current fixture unavailable",
+  "confirmedDefect": "Scheduled fixture Watch uses fresh identityReceipt; registered descriptor recovery incorrectly required freshness of the older status-change observedAt.",
+  "repair": "Use fresh identityReceipt for scheduled sports fixtures only; retain existing live-status freshness and all identity/terminal fences.",
+  "repairBuild": 239,
+  "repairValidation": "Release unit test target could not compile Debug-only helpers; Debug test build cancelled before tests/install at owner request to watch Liverpool.",
+  "ownerPlayback": "At 18:03 UTC, read-only Device Hub view showed Fenerbahce\u2013Liverpool fullscreen, TNT Sports 1, clock14:03. Agent did not select this source. Preserve owner playback; no install/test takeover."
+}

@@ -15,6 +15,7 @@ export const sportsAuditFindingMessages = Object.freeze({
   "quiet-source-stale": "A source has not refreshed within its four-hour quiet-period allowance.",
   "same-upstream-current-omission": "A newly fetched league schedule contains a current or imminent fixture missing from accepted coverage.",
   "same-upstream-fixture-disagreement": "The accepted fixture and a newly fetched league schedule disagree on identity, time or status; repeat verification is required.",
+  "same-upstream-refresh-required": "A fresh league schedule has current match evidence that an old accepted snapshot cannot verify; a source refresh is required before classifying an omission or correction.",
   "comparison-source-unavailable": "The bounded league-schedule comparison could not obtain complete source evidence.",
   "comparison-receipt-stale": "The league-schedule comparison returned stale evidence; it cannot establish an omission.",
 });
@@ -52,7 +53,7 @@ export function auditSportsSnapshot(body, { now = Date.now(), descriptors = [] }
   for (const descriptor of descriptors) for (const competition of descriptorCompetitions(descriptor)) {
     if (!coverage.has(competition.id)) add("missing-coverage", true, competition.id);
   }
-  const ids = new Set(); let liveCount = 0;
+  const ids = new Set(); let liveCount = 0; let verifiedFixtureCount = 0; let heldFixtureCount = 0; let freshVerifiedLiveCount = 0;
   for (const fixture of body.fixtures) {
     requireValue(fixture && typeof fixture.id === "string" && fixture.id.startsWith(`sports-fixture:${fixture.competitionId}:`) && !ids.has(fixture.id)
       && allowedStatuses.has(fixture.status) && ["match", "session", "tournament", "card"].includes(fixture.eventKind));
@@ -64,9 +65,24 @@ export function auditSportsSnapshot(body, { now = Date.now(), descriptors = [] }
       && typeof participant.name === "string" && participant.name.length > 0));
     requireValue(new Set(fixture.participants.map((participant) => participant.id)).size === fixture.participants.length);
     const start = fixtureInstant(fixture.start), observedAt = fixtureInstant(fixture.source?.observedAt);
-    requireValue(observedAt <= now + 5 * MINUTE && row.checkedAt && observedAt === fixtureInstant(row.checkedAt));
+    const hasVerification = Object.hasOwn(fixture.source, "verification");
+    const verification = fixture.source.verification;
+    requireValue(!hasVerification || ["verified", "held"].includes(verification));
+    requireValue(verification !== "held" || row.status === "unavailable");
+    // Explicit isolation markers admit row receipts independently while the
+    // unavailable cohort retains its last complete acceptance watermark.
+    requireValue(observedAt <= now + 5 * MINUTE && observedAt <= fixtureInstant(body.checkedAt) && row.checkedAt
+      && (row.status === "unavailable" && hasVerification || observedAt === fixtureInstant(row.checkedAt)));
+    const verified = ["verified", "partial"].includes(body.sourceStatus)
+      && (verification === "verified" || !hasVerification && row.status === "covered");
+    if (verified) verifiedFixtureCount++;
+    if (verification === "held") heldFixtureCount++;
     const active = fixture.status === "live" || fixture.status === "scheduled" && start >= now - 4 * 60 * MINUTE && start <= now + 30 * MINUTE;
-    if (fixture.status === "live") liveCount++;
+    if (fixture.status === "live") {
+      liveCount++;
+      if (verified && now - observedAt <= 30 * MINUTE
+        && (!fixture.source.updatedAt || now - fixtureInstant(fixture.source.updatedAt) <= 30 * MINUTE)) freshVerifiedLiveCount++;
+    }
     if (active && now - observedAt > 30 * MINUTE) add("stale-live-evidence", true, fixture.competitionId);
     if (fixture.source.updatedAt && fixture.status === "live" && now - fixtureInstant(fixture.source.updatedAt) > 30 * MINUTE) add("stale-live-evidence", true, fixture.competitionId);
     row.actualCount++;
@@ -74,7 +90,7 @@ export function auditSportsSnapshot(body, { now = Date.now(), descriptors = [] }
   for (const row of coverage.values()) requireValue(row.actualCount === row.fixtureCount);
   const values = [...findings.values()];
   return { version: 1, checkedAt: new Date(now).toISOString(), failed: values.length > 0, actionable: values.some((finding) => finding.actionable),
-    fixtureCount: body.fixtures.length, competitionCount: coverage.size, liveCount,
+    fixtureCount: body.fixtures.length, competitionCount: coverage.size, liveCount, verifiedFixtureCount, heldFixtureCount, freshVerifiedLiveCount,
     unsupportedCount: body.coverage.filter((row) => row.status === "unsupported").length, findings: values };
 }
 

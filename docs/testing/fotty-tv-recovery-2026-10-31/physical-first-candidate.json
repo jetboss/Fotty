@@ -1,0 +1,20 @@
+{
+  "build": "210-before-cold-selection-correction",
+  "sky": {
+    "initialWatch": "failed on original TV11 delivery; CS1 available in normal picker",
+    "selected": "CS1",
+    "selectionUTC": "2026-11-01T04:12:27.782Z",
+    "firstVideoObservationUTC": "2026-11-01T04:12:48.180Z",
+    "endObservationUTC": "2026-11-01T04:14:53.118Z",
+    "advancingVideoObservationSeconds": 124.938,
+    "programme": "Sky Sports Football watermark; Bradford–Swansea archive at 41:54, continuing through halftime adverts",
+    "manualRetryAfterCSSelection": false,
+    "attribution": "CS1 checked as Native player; TV11 retained as separate option"
+  },
+  "tnt": {
+    "selectionUTC": "2026-11-01T04:16:11.974Z",
+    "firstVideoObservationUTC": "2026-11-01T04:16:42.151Z",
+    "programme": "TNT Sports 2 watermark; Moto3 Malaysian GP lap 6 of 15",
+    "manualRetry": false
+  }
+}

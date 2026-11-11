@@ -1,0 +1,15 @@
+{
+  "productionFilesCompared": 205,
+  "changed": [
+    "Fotty/Core/Networking/StreamVixSportsAddonClient.swift",
+    "Fotty/Core/Networking/CommunitySportsAddonClient.swift",
+    "Fotty/Core/Internal/HybridStreamProvider.swift"
+  ],
+  "webPlayerRestoredToBaseline": true,
+  "phoneTouched": false,
+  "fplSourceChanged": false,
+  "multiStreamSourceChanged": false,
+  "watchRoutingReconnected": false,
+  "testFlight": false,
+  "physicalAcceptanceComplete": false
+}

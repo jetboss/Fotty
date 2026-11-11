@@ -123,12 +123,13 @@ test("actual workerd: historical confirmed ledger remains readable without erasi
 // runtime. No secrets, files, upstream requests or repair actions are involved.
 function fakeState(initial) {
   let stored = structuredClone(initial), writes = 0, failAt = Infinity, failWhen = () => false, queue = Promise.resolve();
-  return { state: { storage: { get: async () => structuredClone(stored), transaction: (change) => {
+  return { state: { storage: { get: async (key) => key === "watchdog-observation-v1" ? structuredClone(stored) : undefined, transaction: (change) => {
     // Match durable transaction serialization when parallel providers reserve
     // their existing budgets; the fake must not lose one reservation's write.
     const pending = queue.then(async () => {
       let staged = structuredClone(stored);
-      const result = await change({ get: async () => structuredClone(staged), put: async (_key, value) => { staged = structuredClone(value); } });
+      const result = await change({ get: async (key) => key === "watchdog-observation-v1" ? structuredClone(staged) : undefined,
+        put: async (key, value) => { if (key === "watchdog-observation-v1") staged = structuredClone(value); } });
       if (++writes === failAt || failWhen(staged)) throw new Error("synthetic write failure");
       stored = staged; return result;
     });

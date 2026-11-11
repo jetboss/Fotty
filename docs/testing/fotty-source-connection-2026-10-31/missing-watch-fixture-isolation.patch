@@ -1,0 +1,1044 @@
+diff --git a/tools/sports-fixture-crosscheck.test.mjs b/tools/sports-fixture-crosscheck.test.mjs
+index 0f8ba7f..58be7f3 100644
+--- a/tools/sports-fixture-crosscheck.test.mjs
++++ b/tools/sports-fixture-crosscheck.test.mjs
+@@ -55,7 +55,11 @@ test("matching live and next-24-hour fixtures are same-upstream reconciliation,
+ test("finished, cancelled, postponed, unknown, elapsed scheduled and exact 24-hour boundary rows do not establish expected omissions", async () => {
+   const rows = [fixture("mlb", "100", { status: "finished" }), fixture("mlb", "101", { status: "cancelled" }),
+     fixture("mlb", "102", { status: "postponed" }), fixture("mlb", "103", { status: "unknown" }),
+-    fixture("mlb", "104", { status: "scheduled" }), fixture("mlb", "105", { status: "scheduled", start: iso(now + 24 * 60 * MINUTE) })];
++    fixture("mlb", "104", { status: "scheduled" }), fixture("mlb", "105", { status: "scheduled", start: iso(now + 24 * 60 * MINUTE) })]
++    // These are independent fixtures, not six contradictory opaque IDs for
++    // the same teams/start. Duplicate semantic records remain inadmissible.
++    .map((row, index) => ({ ...row, participants: row.participants.map((team, side) => ({
++      ...team, id: `mlb:${index * 2 + side + 1}`, name: `${team.name} ${index}` })) }));
+   const report = await reconcile(snapshot(), { mlb: collection(rows, { pendingFixtureCount: 3 }) });
+   assert.equal(report.lanes[0].expectedCount, 0);
+   assert.equal(report.lanes[0].pendingFixtureCount, 3);
+diff --git a/web/workers/playback/src/sports-fixture-policy.mjs b/web/workers/playback/src/sports-fixture-policy.mjs
+index 635e0b6..4311ca0 100644
+--- a/web/workers/playback/src/sports-fixture-policy.mjs
++++ b/web/workers/playback/src/sports-fixture-policy.mjs
+@@ -62,6 +62,8 @@ export function validateSportsFixture(fixture, now, descriptor) {
+     participantIDs.add(participant.id);
+   }
+   requireValue(fixture.source && boundedString(fixture.source.name, 100), "Fixture provenance missing");
++  // Verification is admission output, never a collector-supplied authority.
++  requireValue(fixture.source.verification === undefined, "Collector verification marker invalid");
+   const url = new URL(fixture.source.url);
+   requireValue(url.protocol === "https:" && !url.username && !url.password && !url.hash && fixture.source.url.length <= 1500, "Fixture source link invalid");
+   const observedAt = fixtureInstant(fixture.source.observedAt);
+@@ -81,14 +83,75 @@ function identity(fixture) {
+     fixture.participants.map((row) => [row.id, row.role || null]).sort((a, b) => a[0].localeCompare(b[0]))]);
+ }
+ 
++function snapshotNameKey(value) {
++  return value.normalize("NFKD").toLowerCase().replace(/\p{M}/gu, "").replace(/ß/g, "ss")
++    .replace(/&/g, " and ").split(/[^\p{L}\p{N}]+/u).filter(Boolean).join(" ");
++}
++
++// Match native snapshot duplicate admission, not opaque publisher IDs. Keep
++// participant order and omit a match's display title just as the consumer does.
++export function sportsSnapshotIdentity(fixture) {
++  return `${fixture.sport}|${fixture.competitionId}|${fixture.eventKind}|${fixtureInstant(fixture.start) / 1000}|`
++    + `${fixture.participants.map((row) => row.id).join(",")}|${fixture.squad.gender}|${fixture.squad.ageGroup}|`
++    + (fixture.eventKind === "match" ? "" : snapshotNameKey(fixture.title));
++}
++
++function footballPublisherID(fixture, descriptor) {
++  // Other providers may reuse numeric IDs between leagues. Only this reviewed
++  // adapter promises globally unique match IDs across its competition scope.
++  if (descriptor.id !== "football-data" || descriptor.adapter !== "football-data") return null;
++  const value = fixture.id.slice(`sports-fixture:${fixture.competitionId}:`.length);
++  return /^[1-9][0-9]*$/.test(value) ? value : null;
++}
++
++function movedPublisherRows(candidate, previous, descriptor) {
++  const oldByPublisherID = new Map();
++  for (const old of previous?.fixtures || []) {
++    const key = footballPublisherID(old, descriptor);
++    if (key) oldByPublisherID.set(key, [...(oldByPublisherID.get(key) || []), old]);
++  }
++  return candidate.fixtures.flatMap((fixture) => {
++    const key = footballPublisherID(fixture, descriptor);
++    const prior = key ? oldByPublisherID.get(key) || [] : [];
++    return prior.some((old) => old.competitionId !== fixture.competitionId) ? [{ fixture, prior }] : [];
++  });
++}
++
++function resurrectedTerminalRows(candidate, previous) {
++  const terminals = new Map();
++  for (const old of previous?.fixtures || []) {
++    if (!TERMINAL.has(old.status)) continue;
++    const key = sportsSnapshotIdentity(old);
++    terminals.set(key, [...(terminals.get(key) || []), old]);
++  }
++  return candidate.fixtures.flatMap((fixture) => {
++    if (TERMINAL.has(fixture.status)) return [];
++    const prior = (terminals.get(sportsSnapshotIdentity(fixture)) || []).filter((old) => old.id !== fixture.id);
++    return prior.length ? [{ fixture, prior }] : [];
++  });
++}
++
+ // A real correction needs a repeat current-source observation. On the first
+ // contradictory observation retain the accepted receipt and alert the monitor.
+-export function admitSportsCollection(collection, previous, descriptor, now, priorConflict) {
++function validatedCollection(collection, previous, descriptor, now) {
+   requireValue(collection && Array.isArray(collection.fixtures) && collection.fixtures.length <= 500, "Source fixture count invalid");
+   const observedAt = fixtureInstant(collection.observedAt);
+   requireValue(observedAt <= now.getTime() + 5 * MINUTE && observedAt >= now.getTime() - 10 * MINUTE, "Source receipt invalid");
+   requireValue(Number.isInteger(collection.pendingFixtureCount) && collection.pendingFixtureCount >= 0 && collection.pendingFixtureCount <= 10000,
+     "Pending count invalid");
++  requireValue(descriptorCompetitions(descriptor).length === 1 || collection.pendingByCompetition !== undefined,
++    "Pending competition scope invalid");
++  if (collection.pendingStartsByCompetition !== undefined) {
++    const pending = collection.pendingStartsByCompetition;
++    const competitions = descriptorCompetitions(descriptor);
++    const window = fixtureWindow(now);
++    requireValue(pending !== null && typeof pending === "object" && !Array.isArray(pending)
++      && collection.pendingByCompetition !== undefined && Object.keys(pending).length === competitions.length
++      && competitions.every(({ id }) => Object.hasOwn(pending, id) && Array.isArray(pending[id])
++        && pending[id].length <= collection.pendingByCompetition[id]
++        && pending[id].every((start) => { const time = fixtureInstant(start); return time >= window.start && time < window.end; })),
++    "Pending timing scope invalid");
++  }
+   if (collection.pendingByCompetition !== undefined) {
+     const pending = collection.pendingByCompetition;
+     const competitions = descriptorCompetitions(descriptor);
+@@ -99,51 +162,181 @@ export function admitSportsCollection(collection, previous, descriptor, now, pri
+     requireValue(competitions.reduce((total, { id }) => total + pending[id], 0) === collection.pendingFixtureCount,
+       "Pending competition count mismatch");
+   }
+-  const ids = new Set();
++  const ids = new Set(), identities = new Set(), publisherIDs = new Set();
+   const fixtures = collection.fixtures.map((fixture) => {
+     validateSportsFixture(fixture, now, descriptor);
+     requireValue(fixture.source.observedAt === collection.observedAt && !ids.has(fixture.id), "Source duplicate/receipt mismatch");
+     ids.add(fixture.id);
++    const semantic = sportsSnapshotIdentity(fixture), publisherID = footballPublisherID(fixture, descriptor);
++    requireValue(!identities.has(semantic), "Source duplicate semantic fixture identity");
++    requireValue(!publisherID || !publisherIDs.has(publisherID), "Source duplicate publisher fixture identity");
++    identities.add(semantic);
++    if (publisherID) publisherIDs.add(publisherID);
+     return fixture;
+   }).sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
+-  const byID = new Map(fixtures.map((fixture) => [fixture.id, fixture]));
+-  let needsConfirmation = false;
++  const priorReceipts = [previous?.observedAt, ...(previous?.fixtures || []).map((fixture) => fixture.source.observedAt)]
++    .filter(Boolean).map(fixtureInstant);
++  const watermark = Math.max(-Infinity, ...priorReceipts);
++  requireValue(observedAt >= watermark, "Source receipt regressed");
++  return { ...collection, fixtures };
++}
++
++function activeInWindow(fixture, now) {
++  const window = fixtureWindow(now);
++  const boundary = fixture.status === "live" && fixture.eventKind !== "match" ? window.start - 6 * DAY : window.start;
++  return Date.parse(fixture.start) >= boundary && Date.parse(fixture.start) < window.end && !TERMINAL.has(fixture.status);
++}
++
++function correctionFacts(fixture, old) {
++  return JSON.stringify({ id: fixture.id, identity: identity(fixture), start: fixture.start,
++    liveRollback: old?.status === "live" && fixture.status === "scheduled" });
++}
++
++function priorCorrections(priorConflict) {
++  if (priorConflict?.fixtures && typeof priorConflict.fixtures === "object") return priorConflict.fixtures;
++  // Preserve an in-flight legacy confirmation when upgrading the durable state.
++  try {
++    const rows = JSON.parse(priorConflict?.content);
++    if (Array.isArray(rows)) return Object.fromEntries(rows.map((row) => [row.id,
++      { content: JSON.stringify(row), observedAt: priorConflict.observedAt }]));
++  } catch { /* No reviewed prior correction evidence. */ }
++  return {};
++}
++
++function admitRecord(fixture, old, observedAt, priorCorrection) {
++  if (!old) return { fixture };
++  requireValue(!(TERMINAL.has(old.status) && !TERMINAL.has(fixture.status)), "Terminal fixture status regressed");
++  const changed = identity(old) !== identity(fixture) || old.start !== fixture.start
++    || old.status === "live" && fixture.status === "scheduled";
++  if (changed) {
++    const content = correctionFacts(fixture, old);
++    if (!(priorCorrection?.content === content && Date.parse(observedAt) > Date.parse(priorCorrection.observedAt) + 4 * MINUTE)) {
++      return { conflict: { content, observedAt } };
++    }
++  }
++  const confirmation = changed ? observedAt : old.source.correctionConfirmedAt;
++  return { fixture: confirmation ? { ...fixture, source: { ...fixture.source, correctionConfirmedAt: confirmation } } : fixture };
++}
++
++export function admitSportsCollection(collection, previous, descriptor, now, priorConflict) {
++  const candidate = validatedCollection(collection, previous, descriptor, now);
++  requireValue(!movedPublisherRows(candidate, previous, descriptor).length, "Publisher fixture competition changed");
++  requireValue(!resurrectedTerminalRows(candidate, previous).length, "Terminal fixture status regressed");
++  const byID = new Map(candidate.fixtures.map((fixture) => [fixture.id, fixture]));
+   for (const old of previous?.fixtures || []) {
+     const current = byID.get(old.id);
+-    const oldStart = Date.parse(old.start);
+-    const previousWindow = fixtureWindow(now);
+-    const oldPastBoundary = old.status === "live" && old.eventKind !== "match" ? previousWindow.start - 6 * DAY : previousWindow.start;
+-    const inWindow = oldStart >= oldPastBoundary && oldStart < previousWindow.end;
+-    if (!current && inWindow && !TERMINAL.has(old.status)) throw new Error("Accepted fixture disappeared without cancellation evidence");
+-    if (!current) continue;
+-    requireValue(!(TERMINAL.has(old.status) && !TERMINAL.has(current.status)), "Terminal fixture status regressed");
+-    if (identity(old) !== identity(current) || old.start !== current.start || old.status === "live" && current.status === "scheduled") needsConfirmation = true;
++    if (!current && activeInWindow(old, now)) throw new Error("Accepted fixture disappeared without cancellation evidence");
+   }
+-  const correction = JSON.stringify(fixtures.map((fixture) => ({ id: fixture.id, identity: identity(fixture), start: fixture.start,
+-    liveRollback: (previous?.fixtures || []).some((old) => old.id === fixture.id && old.status === "live" && fixture.status === "scheduled") })));
+-  if (needsConfirmation && !(priorConflict?.content === correction && observedAt > Date.parse(priorConflict.observedAt) + 4 * MINUTE)) {
+-    return { conflict: { content: correction, observedAt: collection.observedAt } };
++  const oldByID = new Map((previous?.fixtures || []).map((fixture) => [fixture.id, fixture]));
++  const prior = priorCorrections(priorConflict), conflicts = {}, fixtures = [];
++  for (const fixture of candidate.fixtures) {
++    const result = admitRecord(fixture, oldByID.get(fixture.id), candidate.observedAt, prior[fixture.id]);
++    if (result.conflict) conflicts[fixture.id] = result.conflict;
++    else fixtures.push(result.fixture);
+   }
++  if (Object.keys(conflicts).length) return { conflict: { observedAt: candidate.observedAt, fixtures: conflicts } };
++  return { accepted: { ...candidate, fixtures } };
++}
++
++// Strictly validate the complete source before isolating known record conflicts.
++// Missing/contradictory facts are retained, never silently cancelled or renewed.
++export function admitSportsCollectionIsolated(collection, previous, descriptor, now, priorConflict) {
++  const candidate = validatedCollection(collection, previous, descriptor, now);
+   const oldByID = new Map((previous?.fixtures || []).map((fixture) => [fixture.id, fixture]));
+-  const admitted = fixtures.map((fixture) => {
++  const currentIDs = new Set(candidate.fixtures.map((fixture) => fixture.id));
++  const prior = priorCorrections(priorConflict), conflicts = {}, issues = new Map(), held = new Map(), fresh = new Map();
++  const markIssue = (competitionId, issue) => {
++    const previousIssue = issues.get(competitionId);
++    issues.set(competitionId, { ...previousIssue, ...issue,
++      conflict: Boolean(previousIssue?.conflict || issue.conflict) });
++  };
++  const retain = (old, issue) => {
++    held.set(old.id, { ...old, source: { ...old.source, verification: "held" } });
++    markIssue(old.competitionId, issue);
++  };
++  const moved = movedPublisherRows(candidate, previous, descriptor), blocked = new Set();
++  for (const { fixture, prior: oldRows } of moved) {
++    const issue = { failure: new Error("Publisher fixture competition changed") };
++    blocked.add(fixture.id);
++    markIssue(fixture.competitionId, issue);
++    for (const old of oldRows) retain(old, issue);
++  }
++  // Terminal disappearance is ordinarily valid. A different opaque ID cannot
++  // use that rule to resurrect the exact accepted event as active, however.
++  // This is only an exact semantic contradiction, never an ID alias or a
++  // same-team heuristic (different starts/squads/titles stay independent).
++  for (const { fixture, prior: oldRows } of resurrectedTerminalRows(candidate, previous)) {
++    const issue = { failure: new Error("Terminal fixture status regressed") };
++    blocked.add(fixture.id);
++    for (const old of oldRows) retain(old, issue);
++    const displaced = oldByID.get(fixture.id);
++    if (displaced) retain(displaced, issue);
++  }
++  for (const fixture of candidate.fixtures) {
++    if (blocked.has(fixture.id)) continue;
+     const old = oldByID.get(fixture.id);
+-    const changed = old && (identity(old) !== identity(fixture) || old.start !== fixture.start || old.status === "live" && fixture.status === "scheduled");
+-    const confirmation = changed ? collection.observedAt : old?.source.correctionConfirmedAt;
+-    return confirmation ? { ...fixture, source: { ...fixture.source, correctionConfirmedAt: confirmation } } : fixture;
+-  });
+-  return { accepted: { ...collection, fixtures: admitted } };
++    try {
++      const result = admitRecord(fixture, old, candidate.observedAt, prior[fixture.id]);
++      if (result.conflict) {
++        conflicts[fixture.id] = result.conflict;
++        retain(old, { conflict: true });
++      } else fresh.set(fixture.id, result.fixture);
++    } catch (error) {
++      if (error.message !== "Terminal fixture status regressed") throw error;
++      retain(old, { failure: error });
++    }
++  }
++  for (const old of previous?.fixtures || []) {
++    if (!currentIDs.has(old.id) && !held.has(old.id) && activeInWindow(old, now)) {
++      retain(old, { failure: new Error("Accepted fixture disappeared without cancellation evidence") });
++    }
++  }
++  // A publisher can replace an opaque ID without resolving the old record's
++  // disappearance. The mixed output must not contain two native identities:
++  // keep accepted facts held and withhold ambiguous replacements, never alias.
++  // Retaining a displaced existing row can expose another collision. A bounded
++  // queue visits each retained/fresh identity once, including those cascades.
++  const pendingHeld = [...held.values()];
++  const freshByIdentity = new Map([...fresh.values()].map((fixture) => [sportsSnapshotIdentity(fixture), fixture]));
++  for (let index = 0; index < pendingHeld.length; index++) {
++    const key = sportsSnapshotIdentity(pendingHeld[index]), fixture = freshByIdentity.get(key);
++    if (!fixture) continue;
++    fresh.delete(fixture.id);
++    freshByIdentity.delete(key);
++    delete conflicts[fixture.id];
++    const issue = { failure: new Error("Accepted fixture identity became ambiguous") };
++    markIssue(fixture.competitionId, issue);
++    const old = oldByID.get(fixture.id);
++    if (old && !held.has(old.id)) {
++      retain(old, issue);
++      pendingHeld.push(old);
++    }
++  }
++  requireValue(fresh.size + held.size <= 500, "Source fixture count invalid");
++  const fixtures = issues.size ? [...fresh.values()].map((fixture) => ({ ...fixture, source: { ...fixture.source, verification: "verified" } }))
++    .concat([...held.values()]) : [...fresh.values()];
++  fixtures.sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
++  // This internal envelope is also the completed-collection replay fence.
++  // Held row and cohort receipts remain original; empty success must still
++  // advance the fence so an older response cannot resurrect erased records.
++  return { accepted: { ...candidate, fixtures }, issues,
++    ...(Object.keys(conflicts).length ? { conflict: { observedAt: candidate.observedAt, fixtures: conflicts } } : {}) };
+ }
+ 
+-export function nextSportsRefresh(fixtures, now) {
++export function nextSportsRefresh(fixtures, now, pendingStarts = [], pendingFixtureCount = 0) {
+   if (fixtures.some((fixture) => fixture.status === "live" || (fixture.status === "scheduled"
+-    && Date.parse(fixture.start) >= now.getTime() - 15 * MINUTE && Date.parse(fixture.start) <= now.getTime() + 30 * MINUTE))) return 5 * MINUTE;
++    && Date.parse(fixture.start) >= now.getTime() - 15 * MINUTE && Date.parse(fixture.start) <= now.getTime() + 30 * MINUTE))
++    || pendingStarts.some((start) => Date.parse(start) >= now.getTime() - DAY && Date.parse(start) <= now.getTime() + 30 * MINUTE)) return 5 * MINUTE;
+   if (fixtures.some((fixture) => fixture.status === "scheduled" && Date.parse(fixture.start) > now.getTime()
+-    && Date.parse(fixture.start) <= now.getTime() + DAY)) return 15 * MINUTE;
++    && Date.parse(fixture.start) <= now.getTime() + DAY)
++    || pendingStarts.some((start) => Date.parse(start) > now.getTime() && Date.parse(start) <= now.getTime() + DAY)
++    || pendingFixtureCount > pendingStarts.length) return 15 * MINUTE;
+   return 4 * 60 * MINUTE;
+ }
+ 
+ export async function sportsRevision(fixtures, coverage = []) {
+-  const content = fixtures.map(({ source, ...fixture }) => ({ ...fixture, source: { name: source.name, url: source.url } }));
++  const content = fixtures.map(({ source, ...fixture }) => ({ ...fixture, source: { name: source.name, url: source.url,
++    ...(source.verification === undefined ? {} : { verification: source.verification }) } }));
+   // Unsupported/failed coverage changes must propagate even if fixture content
+   // does not. Successful check times alone must not churn the app's catalog.
+   const states = coverage.map(({ competitionId, status, pendingFixtureCount }) => ({ competitionId, status, pendingFixtureCount }));
+diff --git a/web/workers/playback/src/sports-fixture-policy.test.mjs b/web/workers/playback/src/sports-fixture-policy.test.mjs
+index 0a00d56..b68491e 100644
+--- a/web/workers/playback/src/sports-fixture-policy.test.mjs
++++ b/web/workers/playback/src/sports-fixture-policy.test.mjs
+@@ -1,18 +1,20 @@
+ import test from "node:test";
+ import assert from "node:assert/strict";
+-import { admitSportsCollection, fixtureInstant, nextSportsRefresh, sportsRevision } from "./sports-fixture-policy.mjs";
++import { admitSportsCollection, admitSportsCollectionIsolated, fixtureInstant, nextSportsRefresh, sportsRevision,
++  sportsSnapshotIdentity } from "./sports-fixture-policy.mjs";
+ import { assembleSportsSnapshot, refreshSportsSource, sourceCoverage, SportsFixtureRegistry, sportsFailureInfo } from "./sports-fixture-registry.mjs";
+ 
+ const now = new Date("2026-09-30T22:00:00.000Z");
+ const descriptor = { id: "nba", sport: "basketball", supported: true, competitions: [{ id: "nba", name: "NBA" }] };
+ function fixture(changes = {}, at = now) {
++  const participantPrefix = changes.id || "nba";
+   return { id: "sports-fixture:nba:1", sport: "basketball", start: "2026-09-30T23:00:00.000Z", status: "scheduled",
+     eventKind: "match", title: "Alpha vs Beta", competitionId: "nba", competitionName: "NBA",
+-    participants: [{ id: "nba:1", name: "Alpha", role: "home" }, { id: "nba:2", name: "Beta", role: "away" }],
++    participants: [{ id: `${participantPrefix}:1`, name: "Alpha", role: "home" }, { id: `${participantPrefix}:2`, name: "Beta", role: "away" }],
+     squad: { gender: "men", ageGroup: "senior" }, source: { name: "ESPN", url: "https://www.espn.com/nba/scoreboard", observedAt: at.toISOString() }, ...changes };
+ }
+ function collection(fixtures = [fixture()], at = now) { return { fixtures, pendingFixtureCount: 0, observedAt: at.toISOString() }; }
+-const footballDescriptor = { id: "football-data", sport: "football", supported: true,
++const footballDescriptor = { id: "football-data", adapter: "football-data", sport: "football", supported: true,
+   competitions: [
+     { id: "premier-league", name: "Premier League" },
+     { id: "champions-league", name: "UEFA Champions League" },
+@@ -27,6 +29,13 @@ function footballCollection(source, fixtures = [], at = now, pending = {}) {
+   return { fixtures, pendingByCompetition, pendingFixtureCount: Object.values(pendingByCompetition).reduce((total, count) => total + count, 0),
+     observedAt: at.toISOString() };
+ }
++function footballFixture(competitionId, id, changes = {}, at = now) {
++  return fixture({ id: `sports-fixture:${competitionId}:${id}`, sport: "football", competitionId,
++    competitionName: footballDescriptor.competitions.find((row) => row.id === competitionId).name, ...changes }, at);
++}
++function heldCollection(value) {
++  return { ...value, fixtures: value.fixtures.map((row) => ({ ...row, source: { ...row.source, verification: "held" } })) };
++}
+ 
+ test("valid match collection requires real identities and UTC", () => {
+   assert.equal(admitSportsCollection(collection(), null, descriptor, now).accepted.fixtures.length, 1);
+@@ -49,6 +58,7 @@ test("explicit pending receipts require every scoped competition and matching no
+     assert.throws(() => admitSportsCollection({ ...valid, pendingByCompetition }, null, footballDescriptor, now), /Pending competition scope/);
+   }
+   assert.throws(() => admitSportsCollection({ ...valid, pendingFixtureCount: 4 }, null, footballDescriptor, now), /Pending competition count/);
++  assert.throws(() => admitSportsCollection({ ...valid, pendingByCompetition: undefined }, null, footballDescriptor, now), /Pending competition scope/);
+   assert.equal(admitSportsCollection({ ...collection(), pendingFixtureCount: 2 }, null, descriptor, now).accepted.pendingFixtureCount, 2);
+ });
+ test("old PL/CL receipts leave added football lanes unverified until a complete six-league receipt", async () => {
+@@ -88,7 +98,7 @@ test("failed scope admission preserves the original two-league receipt", async (
+     { "premier-league": 1, "champions-league": 2 }));
+   const later = new Date(now.getTime() + 60_000);
+   const failed = await refreshSportsSource(previous, footballDescriptor, later, async () => footballCollection(oldFootballDescriptor, [], later));
+-  assert.deepEqual(failed.accepted, previous.accepted);
++  assert.deepEqual(failed.accepted, heldCollection(previous.accepted));
+   assert.equal(failed.failure.stage, "admission");
+   assert.equal(failed.failure.code, "scope-mismatch");
+   assert.equal(failed.consecutiveFailures, 1);
+@@ -231,18 +241,397 @@ test("scope migration attempts immediately once and failed retries retain data w
+   assert.equal((await response.json()).ok, false);
+   assert.equal(calls, 1);
+   const failed = data.get("sports-source-v1");
+-  assert.deepEqual(failed.accepted, previous.accepted);
++  assert.deepEqual(failed.accepted, heldCollection(previous.accepted));
+   assert.equal(Date.parse(failed.nextAttemptAt) - Date.parse(failed.lastAttemptAt), 300_000);
+   await Promise.all([registry.fetch(request()), registry.fetch(request())]);
+   const restarted = new SportsFixtureRegistry(state, {}, options);
+   await restarted.fetch(request());
+   const cached = await restarted.fetch(new Request("https://sports-registry.invalid/fixtures?source=football-data"));
+-  assert.deepEqual((await cached.json()).accepted, previous.accepted);
++  assert.deepEqual((await cached.json()).accepted, heldCollection(previous.accepted));
+   assert.equal(calls, 1);
+   assert.equal(waits.length, 0);
+   assert.equal(data.get("sports-source-v1").lastAttemptAt, failed.lastAttemptAt);
+   data.set("sports-source-v1", { ...failed, nextAttemptAt: new Date(Date.now() - 1).toISOString() });
+   await restarted.fetch(request());
+   assert.equal(calls, 2);
+-  assert.deepEqual(data.get("sports-source-v1").accepted, previous.accepted);
++  assert.deepEqual(data.get("sports-source-v1").accepted, heldCollection(previous.accepted));
++});
++
++test("one missing Ligue 1 fixture cannot stop current PL/CL updates or renew disputed receipts", async () => {
++  const pl = footballFixture("premier-league", "1", { status: "live", start: "2026-09-30T21:00:00.000Z" });
++  const disputed = footballFixture("ligue-1", "2", { start: "2026-10-02T20:00:00.000Z" });
++  const old = await refreshSportsSource(null, footballDescriptor, now,
++    async () => footballCollection(footballDescriptor, [pl, disputed]));
++  const later = new Date(now.getTime() + 5 * 60_000);
++  const cl = footballFixture("champions-league", "3", { status: "live", start: now.toISOString() }, later);
++  const result = await refreshSportsSource(old, footballDescriptor, later, async () => footballCollection(footballDescriptor,
++    [footballFixture("premier-league", "1", { status: "finished", start: pl.start }, later), cl], later));
++  const byId = new Map(result.accepted.fixtures.map((row) => [row.id, row]));
++  assert.equal(byId.get(pl.id).status, "finished");
++  assert.equal(byId.get(cl.id).source.verification, "verified");
++  assert.deepEqual(byId.get(disputed.id), heldCollection({ fixtures: [disputed] }).fixtures[0]);
++  assert.equal(result.failure.code, "accepted-fixture-missing");
++  assert.equal(result.consecutiveFailures, 1);
++  const body = await assembleSportsSnapshot([footballDescriptor], new Map([[footballDescriptor.id, result]]), later);
++  assert.equal(body.sourceStatus, "partial");
++  assert.equal(body.checkedAt, later.toISOString());
++  assert.deepEqual(body.coverage.filter((row) => row.status === "unavailable").map((row) => row.competitionId), ["ligue-1"]);
++  assert.equal(body.coverage.find((row) => row.competitionId === "ligue-1").checkedAt, now.toISOString());
++  assert.equal(body.coverage.find((row) => row.competitionId === "premier-league").checkedAt, later.toISOString());
++});
++
++test("same-cohort terminal rollback is held while another live record advances", async () => {
++  const oldRow = fixture({ status: "finished", start: "2026-09-30T21:00:00.000Z" });
++  const old = await refreshSportsSource(null, descriptor, now, async () => collection([oldRow]));
++  const later = new Date(now.getTime() + 5 * 60_000);
++  const live = fixture({ id: "sports-fixture:nba:2", status: "live", start: now.toISOString() }, later);
++  const result = await refreshSportsSource(old, descriptor, later, async () => collection([
++    fixture({ status: "scheduled", start: oldRow.start }, later), live], later));
++  assert.deepEqual(result.accepted.fixtures.find((row) => row.id === oldRow.id), heldCollection({ fixtures: [oldRow] }).fixtures[0]);
++  assert.equal(result.accepted.fixtures.find((row) => row.id === live.id).source.verification, "verified");
++  assert.equal(result.failure.code, "terminal-rollback");
++  const body = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, result]]), later);
++  assert.equal(body.coverage[0].status, "unavailable");
++  assert.equal(body.coverage[0].checkedAt, now.toISOString());
++  assert.equal(body.checkedAt, later.toISOString());
++});
++
++test("a changed opaque ID cannot resurrect exact finished/cancelled facts as scheduled/live", async () => {
++  for (const oldStatus of ["finished", "cancelled"]) for (const newStatus of ["scheduled", "live"]) {
++    const original = fixture({ id: "sports-fixture:nba:123", status: oldStatus, start: "2026-09-30T21:00:00.000Z" });
++    const other = fixture({ id: "sports-fixture:nba:7", status: "live", start: now.toISOString() });
++    const old = await refreshSportsSource(null, descriptor, now, async () => collection([original, other]));
++    const later = new Date(now.getTime() + 300_000);
++    const replacement = fixture({ id: "sports-fixture:nba:456", status: newStatus, start: original.start,
++      participants: original.participants }, later);
++    const rows = [replacement, fixture({ id: other.id, status: "live", start: other.start }, later)];
++    assert.throws(() => admitSportsCollection(collection(rows, later), old.accepted, descriptor, later), /Terminal fixture status regressed/);
++    const result = await refreshSportsSource(old, descriptor, later, async () => collection(rows, later));
++    assert.deepEqual(result.accepted.fixtures.find((row) => row.id === original.id), heldCollection({ fixtures: [original] }).fixtures[0]);
++    assert.equal(result.accepted.fixtures.some((row) => row.id === replacement.id), false);
++    assert.equal(result.accepted.fixtures.find((row) => row.id === other.id).source.verification, "verified");
++    assert.equal(result.failure.code, "terminal-rollback");
++    assert.equal(result.cohorts.nba.observedAt, now.toISOString());
++    assert.equal(Date.parse(result.nextAttemptAt) - later.getTime(), 300_000);
++    const body = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, result]]), later);
++    assert.equal(body.checkedAt, later.toISOString());
++    assert.equal(body.coverage[0].status, "unavailable");
++    const repeatedAt = new Date(later.getTime() + 300_000);
++    const repeated = await refreshSportsSource(result, descriptor, repeatedAt, async () => collection(rows.map((row) => ({ ...row,
++      source: { ...row.source, observedAt: repeatedAt.toISOString() } })), repeatedAt));
++    assert.deepEqual(repeated.accepted.fixtures.find((row) => row.id === original.id), heldCollection({ fixtures: [original] }).fixtures[0]);
++    assert.equal(repeated.accepted.fixtures.some((row) => row.id === replacement.id), false);
++  }
++});
++
++test("terminal semantic fencing does not merge separate starts, participant order or squads", async () => {
++  const original = fixture({ id: "sports-fixture:nba:123", status: "finished", start: "2026-09-30T21:00:00.000Z" });
++  const old = await refreshSportsSource(null, descriptor, now, async () => collection([original]));
++  const later = new Date(now.getTime() + 300_000);
++  for (const changes of [{ start: "2026-10-01T00:00:00.000Z" }, { participants: [...original.participants].reverse() },
++    { squad: { gender: "women", ageGroup: "senior" } }]) {
++    const current = fixture({ id: "sports-fixture:nba:456", status: "scheduled", start: original.start,
++      participants: original.participants, ...changes }, later);
++    const result = await refreshSportsSource(old, descriptor, later, async () => collection([current], later));
++    assert.equal(result.consecutiveFailures, 0);
++    assert.deepEqual(result.accepted.fixtures, [current]);
++  }
++});
++
++test("a terminal collision caused by changing an existing second record preserves both originals", async () => {
++  const terminal = fixture({ status: "finished", start: "2026-09-30T21:00:00.000Z" });
++  const second = fixture({ id: "sports-fixture:nba:2", start: "2026-10-01T01:00:00.000Z" });
++  const old = await refreshSportsSource(null, descriptor, now, async () => collection([terminal, second]));
++  const later = new Date(now.getTime() + 300_000);
++  const current = fixture({ id: second.id, start: terminal.start, participants: terminal.participants }, later);
++  const result = await refreshSportsSource(old, descriptor, later, async () => collection([current], later));
++  assert.deepEqual(result.accepted.fixtures, heldCollection(old.accepted).fixtures);
++  assert.equal(result.failure.code, "terminal-rollback");
++  const body = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, result]]), later);
++  assert.equal(body.fixtures.length, 2);
++});
++
++test("opaque ID replacement cannot duplicate retained native identity or stop independent rows", async () => {
++  const original = footballFixture("premier-league", "123");
++  const other = footballFixture("premier-league", "7", { status: "live", start: "2026-09-30T21:00:00.000Z" });
++  const cl = footballFixture("champions-league", "8", { status: "live", start: "2026-09-30T21:00:00.000Z" });
++  const old = await refreshSportsSource(null, footballDescriptor, now,
++    async () => footballCollection(footballDescriptor, [original, other, cl]));
++  const later = new Date(now.getTime() + 300_000);
++  const replacement = footballFixture("premier-league", "456", { participants: original.participants, title: "New display title" }, later);
++  const currentOther = footballFixture("premier-league", "7", { status: "finished", start: other.start }, later);
++  const currentCL = footballFixture("champions-league", "8", { status: "finished", start: cl.start }, later);
++  const result = await refreshSportsSource(old, footballDescriptor, later,
++    async () => footballCollection(footballDescriptor, [replacement, currentOther, currentCL], later));
++  assert.deepEqual(result.accepted.fixtures.find((row) => row.id === original.id), heldCollection({ fixtures: [original] }).fixtures[0]);
++  assert.equal(result.accepted.fixtures.some((row) => row.id === replacement.id), false);
++  assert.equal(result.accepted.fixtures.find((row) => row.id === other.id).status, "finished");
++  assert.equal(result.accepted.fixtures.find((row) => row.id === cl.id).source.verification, "verified");
++  assert.equal(result.failure.code, "fixture-identity-conflict");
++  assert.equal(Date.parse(result.nextAttemptAt) - later.getTime(), 300_000);
++  const body = await assembleSportsSnapshot([footballDescriptor], new Map([[footballDescriptor.id, result]]), later);
++  assert.equal(new Set(body.fixtures.map(sportsSnapshotIdentity)).size, body.fixtures.length);
++  assert.deepEqual(body.coverage.filter((row) => row.status === "unavailable").map((row) => row.competitionId), ["premier-league"]);
++  assert.equal(body.coverage.find((row) => row.competitionId === "premier-league").checkedAt, now.toISOString());
++  assert.equal(body.coverage.find((row) => row.competitionId === "champions-league").checkedAt, later.toISOString());
++  const repeatedAt = new Date(later.getTime() + 300_000);
++  const repeated = await refreshSportsSource(JSON.parse(JSON.stringify(result)), footballDescriptor, repeatedAt,
++    async () => footballCollection(footballDescriptor, [footballFixture("premier-league", "456", { participants: original.participants }, repeatedAt)], repeatedAt));
++  assert.deepEqual(repeated.accepted.fixtures.find((row) => row.id === original.id), heldCollection({ fixtures: [original] }).fixtures[0]);
++  assert.equal(repeated.accepted.fixtures.some((row) => row.id === replacement.id), false, "repetition is not authority to alias opaque IDs");
++  const recoveredAt = new Date(repeatedAt.getTime() + 300_000);
++  const recovered = await refreshSportsSource(repeated, footballDescriptor, recoveredAt,
++    async () => footballCollection(footballDescriptor, [footballFixture("premier-league", "123", {}, recoveredAt)], recoveredAt));
++  assert.equal(recovered.consecutiveFailures, 0);
++  assert.equal(recovered.accepted.fixtures.length, 1);
++  assert.equal(recovered.accepted.fixtures[0].source.verification, undefined);
++});
++
++test("confirmed correction colliding with a held record is withheld transitively without deleting original facts", async () => {
++  const a = fixture(), b = fixture({ id: "sports-fixture:nba:2", start: "2026-10-01T01:00:00.000Z" });
++  const old = await refreshSportsSource(null, descriptor, now, async () => collection([a, b]));
++  const firstAt = new Date(now.getTime() + 300_000), secondAt = new Date(now.getTime() + 600_000);
++  const changed = (at) => fixture({ start: b.start, participants: b.participants }, at);
++  const first = await refreshSportsSource(old, descriptor, firstAt, async () => collection([changed(firstAt)], firstAt));
++  const replacement = fixture({ id: "sports-fixture:nba:3", participants: a.participants }, secondAt);
++  const second = await refreshSportsSource(first, descriptor, secondAt,
++    async () => collection([changed(secondAt), replacement], secondAt));
++  assert.deepEqual(second.accepted.fixtures, heldCollection(old.accepted).fixtures);
++  assert.equal(second.failure.code, "fixture-identity-conflict");
++  assert.equal(second.accepted.fixtures.some((row) => row.id === replacement.id), false);
++  const body = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, second]]), secondAt);
++  assert.equal(new Set(body.fixtures.map(sportsSnapshotIdentity)).size, 2);
++});
++
++test("raw duplicate semantic fixtures remain a complete source barrier rather than partial authority", async () => {
++  const original = footballFixture("premier-league", "123");
++  const duplicate = footballFixture("premier-league", "456", { participants: original.participants, title: "Another title", start: "2026-09-30T23:00:00Z" });
++  assert.throws(() => admitSportsCollection(footballCollection(footballDescriptor, [original, duplicate]), null, footballDescriptor, now),
++    /duplicate semantic/);
++  const old = await refreshSportsSource(null, footballDescriptor, now,
++    async () => footballCollection(footballDescriptor, [original]));
++  const later = new Date(now.getTime() + 300_000);
++  const rows = [original, duplicate, footballFixture("champions-league", "8")].map((row) => ({ ...row,
++    source: { ...row.source, observedAt: later.toISOString() } }));
++  const result = await refreshSportsSource(old, footballDescriptor, later,
++    async () => footballCollection(footballDescriptor, rows, later));
++  assert.deepEqual(result.accepted, heldCollection(old.accepted));
++  assert.equal(result.failure.code, "duplicate-fixture-identity");
++  assert.ok(sourceCoverage(footballDescriptor, result, later).every((row) => row.status === "unavailable"));
++});
++
++test("native semantic identities retain participant order, squad and normalized non-match titles", () => {
++  const row = fixture();
++  assert.equal(sportsSnapshotIdentity(row), sportsSnapshotIdentity(fixture({ title: "Different match label", start: "2026-09-30T23:00:00Z" })));
++  assert.notEqual(sportsSnapshotIdentity(row), sportsSnapshotIdentity(fixture({ participants: [...row.participants].reverse() })));
++  assert.notEqual(sportsSnapshotIdentity(row), sportsSnapshotIdentity(fixture({ squad: { gender: "women", ageGroup: "senior" } })));
++  const tournament = fixture({ eventKind: "tournament", title: "Café & Tour", participants: [] });
++  assert.equal(sportsSnapshotIdentity(tournament), sportsSnapshotIdentity({ ...tournament, title: "ＣＡＦＥ and tour" }));
++  assert.notEqual(sportsSnapshotIdentity(tournament), sportsSnapshotIdentity({ ...tournament, title: "A different tour" }));
++});
++
++test("snapshot assembly fails closed on persisted semantic duplicate rows even when opaque IDs differ", async () => {
++  const original = fixture(), duplicate = fixture({ id: "sports-fixture:nba:2", participants: original.participants });
++  const legacy = { accepted: collection([original, duplicate]), consecutiveFailures: 0 };
++  await assert.rejects(assembleSportsSnapshot([descriptor], new Map([[descriptor.id, legacy]]), now), /Duplicate cross-source semantic/);
++});
++
++test("mixed legacy UTC serialization cannot place the snapshot receipt before a newly admitted row", async () => {
++  const original = fixture({ source: { ...fixture().source, observedAt: "2026-09-30T22:00:00Z" } });
++  const accepted = { ...collection([original]), observedAt: original.source.observedAt };
++  const later = new Date(now.getTime() + 500);
++  const result = await refreshSportsSource({ accepted, consecutiveFailures: 0 }, descriptor, later,
++    async () => collection([fixture({ id: "sports-fixture:nba:2" }, later)], later));
++  const body = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, result]]), later);
++  assert.equal(body.checkedAt, later.toISOString());
++  assert.equal(body.coverage[0].checkedAt, original.source.observedAt);
++  assert.ok(body.fixtures.every((row) => Date.parse(row.source.observedAt) <= Date.parse(body.checkedAt)));
++});
++
++test("globally unique football publisher ID cannot migrate competitions or bypass original held receipts", async () => {
++  for (const status of ["scheduled", "finished"]) {
++    const original = footballFixture("premier-league", "123", { status, start: "2026-09-30T21:00:00.000Z" });
++    const pl = footballFixture("premier-league", "7", { status: "live", start: now.toISOString() });
++    const cl = footballFixture("champions-league", "8", { status: "live", start: now.toISOString() });
++    const old = await refreshSportsSource(null, footballDescriptor, now,
++      async () => footballCollection(footballDescriptor, [original, pl, cl]));
++    const later = new Date(now.getTime() + 300_000);
++    const moved = footballFixture("champions-league", "123", { status, start: original.start, participants: original.participants }, later);
++    const rows = [moved, footballFixture("premier-league", "7", { status: "finished", start: pl.start }, later),
++      footballFixture("champions-league", "8", { status: "finished", start: cl.start }, later),
++      footballFixture("la-liga", "9", { status: "live", start: now.toISOString() }, later)];
++    assert.throws(() => admitSportsCollection(footballCollection(footballDescriptor, rows, later), old.accepted, footballDescriptor, later),
++      /Publisher fixture competition changed/);
++    const result = await refreshSportsSource(old, footballDescriptor, later,
++      async () => footballCollection(footballDescriptor, rows, later));
++    assert.deepEqual(result.accepted.fixtures.find((row) => row.id === original.id), heldCollection({ fixtures: [original] }).fixtures[0]);
++    assert.equal(result.accepted.fixtures.some((row) => row.id === moved.id), false);
++    assert.equal(result.accepted.fixtures.find((row) => row.id === pl.id).status, "finished");
++    assert.equal(result.accepted.fixtures.find((row) => row.id === cl.id).source.verification, "verified");
++    assert.equal(result.failure.code, "publisher-competition-conflict");
++    assert.equal(Date.parse(result.nextAttemptAt) - later.getTime(), 300_000);
++    const body = await assembleSportsSnapshot([footballDescriptor], new Map([[footballDescriptor.id, result]]), later);
++    assert.deepEqual(body.coverage.filter((row) => row.status === "unavailable").map((row) => row.competitionId), ["premier-league", "champions-league"]);
++    assert.ok(body.coverage.filter((row) => row.status === "unavailable").every((row) => row.checkedAt === now.toISOString()));
++    assert.equal(body.coverage.find((row) => row.competitionId === "la-liga").checkedAt, later.toISOString());
++    const repeatedAt = new Date(later.getTime() + 300_000);
++    const repeated = await refreshSportsSource(result, footballDescriptor, repeatedAt,
++      async () => footballCollection(footballDescriptor, rows.map((row) => ({ ...row,
++        source: { ...row.source, observedAt: repeatedAt.toISOString() } })), repeatedAt));
++    assert.deepEqual(repeated.accepted.fixtures.find((row) => row.id === original.id), heldCollection({ fixtures: [original] }).fixtures[0]);
++    assert.equal(repeated.accepted.fixtures.some((row) => row.id === moved.id), false);
++  }
++});
++
++test("canonical football publisher ID uniqueness is a raw collection barrier only for the reviewed group", () => {
++  const pl = footballFixture("premier-league", "123"), cl = footballFixture("champions-league", "123");
++  assert.throws(() => admitSportsCollection(footballCollection(footballDescriptor, [pl, cl]), null, footballDescriptor, now), /duplicate publisher/);
++  for (const source of [{ ...footballDescriptor, id: "generic-football" }, { ...footballDescriptor, adapter: "espn" }]) {
++    assert.equal(admitSportsCollection(footballCollection(source, [pl, cl]), null, source, now).accepted.fixtures.length, 2);
++    const old = footballCollection(source, [pl]);
++    const isolated = admitSportsCollectionIsolated(footballCollection(source, [cl]), old, source, now);
++    assert.equal(isolated.accepted.fixtures.find((row) => row.id === cl.id).source.verification, "verified");
++    assert.deepEqual([...isolated.issues.keys()], ["premier-league"], "no global numeric-ID assumptions across generic leagues");
++  }
++});
++
++test("per-fixture corrections confirm despite unrelated additions and survive durable restart", async () => {
++  const disputed = footballFixture("ligue-1", "2");
++  const old = await refreshSportsSource(null, footballDescriptor, now, async () => footballCollection(footballDescriptor, [disputed]));
++  const firstAt = new Date(now.getTime() + 5 * 60_000), repeatedAt = new Date(now.getTime() + 10 * 60_000);
++  const moved = (at) => footballFixture("ligue-1", "2", { start: "2026-10-01T00:00:00.000Z" }, at);
++  const first = await refreshSportsSource(old, footballDescriptor, firstAt,
++    async () => footballCollection(footballDescriptor, [moved(firstAt)], firstAt));
++  assert.equal(first.accepted.fixtures[0].start, disputed.start);
++  assert.ok(first.conflict.fixtures[disputed.id]);
++  const restarted = JSON.parse(JSON.stringify(first));
++  const result = await refreshSportsSource(restarted, footballDescriptor, repeatedAt, async () => footballCollection(footballDescriptor,
++    [moved(repeatedAt), footballFixture("champions-league", "3", {}, repeatedAt)], repeatedAt));
++  assert.equal(result.accepted.fixtures.find((row) => row.id === disputed.id).start, moved(repeatedAt).start);
++  assert.equal(result.accepted.fixtures.find((row) => row.id === disputed.id).source.correctionConfirmedAt, repeatedAt.toISOString());
++  assert.equal(result.consecutiveFailures, 0);
++  assert.equal(result.conflict, undefined);
++  assert.ok(sourceCoverage(footballDescriptor, result, repeatedAt).every((row) => row.status === "covered"));
++});
++
++test("changing one correction does not reset a separately repeated correction", () => {
++  const old = collection([fixture(), fixture({ id: "sports-fixture:nba:2" })]);
++  const firstAt = new Date(now.getTime() + 5 * 60_000), later = new Date(now.getTime() + 10 * 60_000);
++  const a = (at) => fixture({ start: "2026-10-01T00:00:00.000Z" }, at);
++  const first = admitSportsCollectionIsolated(collection([a(firstAt), fixture({ id: "sports-fixture:nba:2",
++    start: "2026-10-01T01:00:00.000Z" }, firstAt)], firstAt), old, descriptor, firstAt);
++  const second = admitSportsCollectionIsolated(collection([a(later), fixture({ id: "sports-fixture:nba:2",
++    start: "2026-10-01T02:00:00.000Z" }, later)], later), first.accepted, descriptor, later, first.conflict);
++  assert.equal(second.accepted.fixtures.find((row) => row.id === a(later).id).start, a(later).start);
++  assert.equal(second.accepted.fixtures.find((row) => row.id.endsWith(":2")).source.verification, "held");
++  assert.equal(Object.keys(second.conflict.fixtures).length, 1);
++});
++
++test("legacy whole-collection correction receipt can confirm the same per-record correction", () => {
++  const old = collection(), firstAt = new Date(now.getTime() + 5 * 60_000), later = new Date(now.getTime() + 10 * 60_000);
++  const changed = (at) => collection([fixture({ start: "2026-10-01T00:00:00.000Z" }, at)], at);
++  const first = admitSportsCollection(changed(firstAt), old, descriptor, firstAt);
++  const legacy = { content: JSON.stringify(Object.values(first.conflict.fixtures).map((row) => JSON.parse(row.content))), observedAt: firstAt.toISOString() };
++  assert.equal(admitSportsCollection(changed(later), old, descriptor, later, legacy).accepted.fixtures[0].start, changed(later).fixtures[0].start);
++});
++
++test("partial admission followed by collection failure downgrades every current marker without changing facts", async () => {
++  const old = await refreshSportsSource(null, descriptor, now, async () => collection());
++  const later = new Date(now.getTime() + 5 * 60_000), failedAt = new Date(now.getTime() + 10 * 60_000);
++  const partial = await refreshSportsSource(old, descriptor, later, async () => collection([
++    fixture({ id: "sports-fixture:nba:2", status: "live", start: now.toISOString() }, later)], later));
++  assert.ok(partial.accepted.fixtures.some((row) => row.source.verification === "verified"));
++  const failed = await refreshSportsSource(partial, descriptor, failedAt, async () => { throw new Error("source transport failed"); });
++  assert.deepEqual(failed.accepted, heldCollection(partial.accepted));
++  assert.equal(failed.consecutiveFailures, 2);
++  assert.equal(sourceCoverage(descriptor, failed, failedAt)[0].sync.consecutiveFailures, 2);
++  assert.equal(sourceCoverage(descriptor, failed, failedAt)[0].checkedAt, now.toISOString());
++  const body = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, failed]]), failedAt);
++  assert.ok(body.fixtures.every((row) => row.source.verification === "held"));
++});
++
++test("source replay and malformed complete collection remain whole-source barriers", async () => {
++  const old = await refreshSportsSource(null, descriptor, now, async () => collection());
++  const later = new Date(now.getTime() + 5 * 60_000);
++  const successful = await refreshSportsSource(old, descriptor, later, async () => collection([fixture({}, later)], later));
++  const replay = await refreshSportsSource(successful, descriptor, new Date(now.getTime() + 6 * 60_000), async () => collection());
++  assert.equal(replay.failure.code, "receipt-regressed");
++  assert.deepEqual(replay.accepted, heldCollection(successful.accepted));
++  const malformed = await refreshSportsSource(successful, descriptor, later, async () => collection([fixture({}, later), fixture({}, later)], later));
++  assert.deepEqual(malformed.accepted, heldCollection(successful.accepted));
++  for (const marker of [null, "held", "verified", "unknown"]) {
++    assert.throws(() => admitSportsCollection(collection([fixture({ source: { ...fixture().source, verification: marker } })]), null, descriptor, now), /verification/);
++  }
++  const legacy = collection([fixture({ source: { ...fixture().source, observedAt: "2026-09-30T22:00:00Z" } })]);
++  legacy.observedAt = "2026-09-30T22:00:00Z";
++  assert.equal(admitSportsCollection(collection(), legacy, descriptor, now).accepted.observedAt, now.toISOString(),
++    "equivalent UTC serialization does not regress a receipt");
++});
++
++test("isolation cannot overflow the original source limit or erase accepted rows", async () => {
++  const rows = (offset, at) => Array.from({ length: 500 }, (_, index) => fixture({ id: `sports-fixture:nba:${offset + index}` }, at));
++  const old = await refreshSportsSource(null, descriptor, now, async () => collection(rows(1, now)));
++  const later = new Date(now.getTime() + 5 * 60_000);
++  const result = await refreshSportsSource(old, descriptor, later, async () => collection(rows(501, later), later));
++  assert.equal(result.failure.stage, "admission");
++  assert.deepEqual(result.accepted, heldCollection(old.accepted));
++  assert.equal(result.accepted.fixtures.length, 500);
++});
++
++test("pending timing drives bounded refresh but never creates fixtures or confirmed starts", async () => {
++  const pending = (starts) => ({ ...collection([]), pendingFixtureCount: 1, pendingByCompetition: { nba: 1 },
++    pendingStartsByCompetition: { nba: starts } });
++  const near = await refreshSportsSource(null, descriptor, now, async () => pending(["2026-09-30T22:05:00.000Z"]));
++  assert.equal(Date.parse(near.nextAttemptAt) - now.getTime(), 300_000);
++  const unknown = await refreshSportsSource(null, descriptor, now, async () => ({ ...collection([]), pendingFixtureCount: 1 }));
++  assert.equal(Date.parse(unknown.nextAttemptAt) - now.getTime(), 900_000);
++  const future = await refreshSportsSource(null, descriptor, now, async () => pending(["2026-10-02T22:00:00.000Z"]));
++  assert.equal(Date.parse(future.nextAttemptAt) - now.getTime(), 14_400_000);
++  assert.equal(nextSportsRefresh([], now, ["2026-09-30T00:00:00.000Z"], 1), 300_000);
++  assert.equal(nextSportsRefresh([], now, ["2026-10-01T10:00:00.000Z"], 1), 900_000);
++  const body = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, near]]), now);
++  assert.deepEqual(body.fixtures, []);
++  assert.equal(body.coverage[0].nextStart, undefined);
++  assert.equal(body.pendingStartsByCompetition, undefined);
++  for (const starts of [null, [], { nba: ["2026-10-08T22:00:00.000Z"] }, { nba: ["not UTC"] }, { nba: [now.toISOString(), now.toISOString()] }, { wnba: [] }]) {
++    assert.throws(() => admitSportsCollection({ ...pending([]), pendingStartsByCompetition: starts }, null, descriptor, now));
++  }
++});
++
++test("verification markers change revisions while healthy receipt-only updates remain stable", async () => {
++  const row = fixture();
++  const verified = { ...row, source: { ...row.source, verification: "verified" } };
++  const held = { ...row, source: { ...row.source, verification: "held" } };
++  assert.notEqual(await sportsRevision([verified]), await sportsRevision([held]));
++  assert.equal(await sportsRevision([row]), await sportsRevision([fixture({}, new Date(now.getTime() + 300_000))]));
++});
++
++test("expired isolated rows lose verification without changing original observations", async () => {
++  const old = await refreshSportsSource(null, descriptor, now, async () => collection());
++  const later = new Date(now.getTime() + 300_000);
++  const result = await refreshSportsSource(old, descriptor, later, async () => collection([
++    fixture({ id: "sports-fixture:nba:2", start: "2026-10-03T22:00:00.000Z" }, later)], later));
++  const fresh = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, result]]), later);
++  assert.equal(fresh.fixtures.find((row) => row.id.endsWith(":2")).source.verification, "verified");
++  const stale = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, result]]), new Date(later.getTime() + 31 * 60_000));
++  assert.ok(stale.fixtures.every((row) => row.source.verification === "held"));
++  assert.equal(stale.fixtures.find((row) => row.id.endsWith(":2")).source.observedAt, later.toISOString());
++  assert.equal(result.accepted.fixtures.find((row) => row.id.endsWith(":2")).source.verification, "verified", "projection does not mutate durable records");
++});
++
++test("pending near-term collection does not remain stuck on the quiet GET deadline", async () => {
++  const oldAt = new Date(Date.now() - 20 * 60_000);
++  const make = (at) => ({ fixtures: [], pendingFixtureCount: 1, pendingByCompetition: { nba: 1 },
++    pendingStartsByCompetition: { nba: [new Date(at.getTime() + 5 * 60_000).toISOString()] }, observedAt: at.toISOString() });
++  const previous = await refreshSportsSource(null, descriptor, oldAt, async () => make(oldAt));
++  const data = new Map([["sports-source-v1", previous]]), waits = []; let calls = 0;
++  const registry = new SportsFixtureRegistry({ storage: { async get(key) { return data.get(key); }, async put(key, value) { data.set(key, value); } },
++    waitUntil(value) { waits.push(value); } }, {}, { descriptors: [descriptor], collect: async (_source, at) => { calls++; return make(at); } });
++  await registry.fetch(new Request("https://sports-registry.invalid/fixtures?source=nba"));
++  await Promise.all(waits);
++  assert.equal(calls, 1);
++  assert.equal(waits.length, 1);
++  assert.equal(data.get("sports-source-v1").consecutiveFailures, 0);
++  assert.ok(Date.parse(data.get("sports-source-v1").accepted.observedAt) > oldAt.getTime());
++  assert.deepEqual(data.get("sports-source-v1").accepted.fixtures, []);
+ });
+diff --git a/web/workers/playback/src/sports-fixture-registry.mjs b/web/workers/playback/src/sports-fixture-registry.mjs
+index 26085e7..aca0036 100644
+--- a/web/workers/playback/src/sports-fixture-registry.mjs
++++ b/web/workers/playback/src/sports-fixture-registry.mjs
+@@ -1,4 +1,5 @@
+-import { admitSportsCollection, descriptorCompetitions, nextSportsRefresh, sportsRevision, SPORTS_FIXTURE_MAX_ROWS } from "./sports-fixture-policy.mjs";
++import { admitSportsCollectionIsolated, descriptorCompetitions, fixtureInstant, nextSportsRefresh, sportsRevision, sportsSnapshotIdentity,
++  validateSportsFixture, SPORTS_FIXTURE_MAX_ROWS } from "./sports-fixture-policy.mjs";
+ 
+ const STATE_KEY = "sports-source-v1";
+ const RETRY_MS = 5 * 60_000;
+@@ -18,9 +19,15 @@ const FAILURE_CODES = new Map([
+   ["Pending competition scope invalid", "scope-mismatch"],
+   ["Pending competition count mismatch", "source-incomplete"],
+   ["Accepted fixture disappeared without cancellation evidence", "accepted-fixture-missing"],
++  ["Accepted fixture identity became ambiguous", "fixture-identity-conflict"],
++  ["Publisher fixture competition changed", "publisher-competition-conflict"],
++  ["Source duplicate semantic fixture identity", "duplicate-fixture-identity"],
++  ["Source duplicate publisher fixture identity", "duplicate-fixture-identity"],
+   ["Terminal fixture status regressed", "terminal-rollback"],
+   ["Collector receipt invalid", "receipt-invalid"],
+   ["Source receipt invalid", "receipt-invalid"],
++  ["Source receipt regressed", "receipt-regressed"],
++  ["Pending timing scope invalid", "scope-mismatch"],
+   ["Fixture competition mismatch", "scope-mismatch"],
+   ["Publisher live evidence stale", "publisher-stale"],
+ ]);
+@@ -75,26 +82,46 @@ export function sourceCoverage(descriptor, state, now = new Date()) {
+   return descriptorCompetitions(descriptor).map((competition) => {
+     const scoped = hasCompetitionReceipt(descriptor, state?.accepted, competition.id);
+     const fixtures = (state?.accepted?.fixtures || []).filter((row) => row.competitionId === competition.id);
+-    const receipt = scoped ? state?.accepted?.observedAt : null;
++    const cohort = state?.cohorts?.[competition.id];
++    const receipt = scoped ? cohort?.observedAt ?? state?.accepted?.observedAt : null;
+     const observed = Date.parse(receipt);
+-    const interval = nextSportsRefresh(fixtures, Number.isFinite(observed) ? new Date(observed) : now);
++    const pending = scoped ? cohort?.pendingFixtureCount ?? state?.accepted?.pendingByCompetition?.[competition.id]
++      ?? (descriptorCompetitions(descriptor).length === 1 ? state?.accepted?.pendingFixtureCount : 0) : 0;
++    const starts = cohort?.pendingStarts ?? state?.accepted?.pendingStartsByCompetition?.[competition.id] ?? [];
++    const interval = nextSportsRefresh(fixtures, Number.isFinite(observed) ? new Date(observed) : now, starts, pending);
+     const allowedAge = interval <= 15 * 60_000 ? 30 * 60_000 : interval + 30 * 60_000;
+     const fresh = Number.isFinite(observed) && observed <= now.getTime() + 5 * 60_000 && now.getTime() - observed <= allowedAge;
+-    const status = descriptor.supported === false ? "unsupported" : state?.accepted && !state.consecutiveFailures && fresh ? "covered" : "unavailable";
+-    const pending = scoped ? state?.accepted?.pendingByCompetition?.[competition.id]
+-      ?? (descriptorCompetitions(descriptor).length === 1 ? state?.accepted?.pendingFixtureCount : 0) : 0;
++    const failures = cohort?.consecutiveFailures ?? state?.consecutiveFailures ?? 0;
++    const status = descriptor.supported === false ? "unsupported" : state?.accepted && !failures && fresh ? "covered" : "unavailable";
+     return { sport: competition.sport || descriptor.sport, competitionId: competition.id, competitionName: competition.name,
+       status, checkedAt: receipt || null, fixtureCount: fixtures.length,
+       pendingFixtureCount: Number.isInteger(pending) && pending >= 0 && pending <= 10000 ? pending : 0,
+       ...(fixtures.filter((fixture) => fixture.status === "scheduled").map((fixture) => fixture.start).sort()[0]
+         ? { nextStart: fixtures.filter((fixture) => fixture.status === "scheduled").map((fixture) => fixture.start).sort()[0] } : {}),
+       ...(status === "unsupported" && descriptor.reason ? { reason: descriptor.reason } : {}),
+-      sync: { consecutiveFailures: state?.consecutiveFailures || 0, lastAttemptAt: state?.lastAttemptAt || null,
+-        lastSuccessAt: receipt || null, conflict: Boolean(state?.conflict),
+-        ...(state?.failure ? { failure: state.failure } : {}) } };
++      sync: { consecutiveFailures: failures, lastAttemptAt: state?.lastAttemptAt || null,
++        lastSuccessAt: receipt || null, conflict: cohort ? Boolean(cohort.conflict) : Boolean(state?.conflict),
++        ...(cohort?.failure || !cohort && state?.failure ? { failure: cohort?.failure || state.failure } : {}) } };
+   });
+ }
+ 
++function previousCohort(previous, descriptor, competitionId) {
++  const cohort = previous?.cohorts?.[competitionId];
++  if (cohort) return cohort;
++  const scoped = hasCompetitionReceipt(descriptor, previous?.accepted, competitionId);
++  return { observedAt: scoped ? previous.accepted.observedAt : null,
++    consecutiveFailures: previous?.consecutiveFailures || 0, conflict: Boolean(previous?.conflict),
++    pendingFixtureCount: scoped ? previous.accepted.pendingByCompetition?.[competitionId]
++      ?? (descriptorCompetitions(descriptor).length === 1 ? previous.accepted.pendingFixtureCount : 0) : 0,
++    pendingStarts: previous?.accepted?.pendingStartsByCompetition?.[competitionId] || [],
++    ...(previous?.failure ? { failure: previous.failure } : {}) };
++}
++
++function retainedAccepted(accepted, preserveAdmission = false) {
++  return accepted && { ...accepted, fixtures: accepted.fixtures.map((fixture) => ({ ...fixture,
++    source: { ...fixture.source, verification: preserveAdmission && fixture.source.verification !== "held" ? fixture.source.verification : "held" } })) };
++}
++
+ export async function refreshSportsSource(previous, descriptor, now, collect) {
+   if (descriptor.supported === false) return previous || { consecutiveFailures: 0 };
+   const attempt = { lastAttemptAt: now.toISOString(), lastAttemptScope: competitionScope(descriptor) };
+@@ -102,15 +129,35 @@ export async function refreshSportsSource(previous, descriptor, now, collect) {
+   try {
+     const collection = await collect(descriptor, now);
+     stage = "admission";
+-    const result = admitSportsCollection(collection, previous?.accepted, descriptor, now, previous?.conflict);
+-    if (result.conflict) return { ...previous, failure: null, consecutiveFailures: (previous?.consecutiveFailures || 0) + 1, conflict: result.conflict,
+-      ...attempt, nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
+-    return { accepted: result.accepted, consecutiveFailures: 0, ...attempt,
+-      nextAttemptAt: new Date(now.getTime() + nextSportsRefresh(result.accepted.fixtures, now)).toISOString() };
++    const result = admitSportsCollectionIsolated(collection, previous?.accepted, descriptor, now, previous?.conflict);
++    const cohorts = Object.fromEntries(descriptorCompetitions(descriptor).map(({ id }) => {
++      const issue = result.issues.get(id), old = previousCohort(previous, descriptor, id);
++      return [id, issue ? { ...old, consecutiveFailures: old.consecutiveFailures + 1, conflict: Boolean(issue.conflict),
++        ...(issue.failure ? { failure: sportsFailureInfo(issue.failure, "admission") } : { failure: null }) }
++        : { observedAt: collection.observedAt, consecutiveFailures: 0, conflict: false,
++          pendingFixtureCount: collection.pendingByCompetition?.[id] ?? collection.pendingFixtureCount,
++          pendingStarts: collection.pendingStartsByCompetition?.[id] || [] }];
++    }));
++    const issueFailure = [...result.issues.values()].find((issue) => issue.failure)?.failure;
++    const partial = result.issues.size > 0;
++    const pendingStarts = Object.values(collection.pendingStartsByCompetition || {}).flat();
++    return { accepted: result.accepted, cohorts, consecutiveFailures: partial ? (previous?.consecutiveFailures || 0) + 1 : 0,
++      ...(partial ? { failure: issueFailure ? sportsFailureInfo(issueFailure, "admission") : null } : {}),
++      ...(result.conflict ? { conflict: result.conflict } : {}), ...attempt,
++      nextAttemptAt: new Date(now.getTime() + (partial ? RETRY_MS
++        : nextSportsRefresh(result.accepted.fixtures, now, pendingStarts, collection.pendingFixtureCount))).toISOString() };
+   } catch (error) {
+     // No exception/body/credential reaches public snapshots or operational logs.
+-    return { ...previous, consecutiveFailures: (previous?.consecutiveFailures || 0) + 1,
+-      failure: sportsFailureInfo(error, stage), ...attempt, nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
++    const failure = sportsFailureInfo(error, stage);
++    const cohorts = Object.fromEntries(descriptorCompetitions(descriptor).map(({ id }) => {
++      const old = previousCohort(previous, descriptor, id);
++      return [id, { ...old, consecutiveFailures: old.consecutiveFailures + 1, failure }];
++    }));
++    return { ...previous, ...(previous?.accepted ? { accepted: retainedAccepted(previous.accepted, stage === "collection"
++      && (["TimeoutError", "AbortError"].includes(failure.kind) || failure.code === "upstream-unavailable"
++        && ([408, 429].includes(failure.httpStatus) || failure.httpStatus >= 500))) } : {}), cohorts,
++      consecutiveFailures: (previous?.consecutiveFailures || 0) + 1, failure, ...attempt,
++      nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
+   }
+ }
+ 
+@@ -132,23 +179,60 @@ export function retainedSportsFixture(fixture, descriptor, state, now) {
+ export async function assembleSportsSnapshot(descriptors, states, now) {
+   const fixtures = [];
+   const coverage = [];
+-  const seen = new Set();
++  const seen = new Set(), identities = new Set();
+   for (const descriptor of descriptors) {
+     const state = states.get(descriptor.id);
+-    coverage.push(...sourceCoverage(descriptor, state, now));
++    const sourceLanes = sourceCoverage(descriptor, state, now);
++    coverage.push(...sourceLanes);
+     for (const fixture of state?.accepted?.fixtures || []) {
+       if (seen.has(fixture.id)) throw new Error("Duplicate cross-source fixture identity");
++      const lane = sourceLanes.find((row) => row.competitionId === fixture.competitionId);
++      const marker = fixture.source?.verification;
++      if (!lane || marker !== undefined && !["verified", "held"].includes(marker)
++        || marker === "held" && lane.status !== "unavailable"
++        || marker === "verified" && (!state.cohorts?.[fixture.competitionId]
++          || fixture.source.observedAt !== state.accepted.observedAt)
++        || marker === undefined && fixture.source.observedAt !== lane.checkedAt
++        || lane.status === "covered" && fixture.source.observedAt !== lane.checkedAt) throw new Error("Invalid sports admission provenance");
++      const source = { ...fixture.source };
++      delete source.verification;
++      // Retained records validate at their original collection instant, never
++      // by substituting today's time or trusting a verification bit alone.
++      validateSportsFixture({ ...fixture, source }, new Date(fixtureInstant(source.observedAt)), descriptor);
++      const semantic = sportsSnapshotIdentity(fixture);
++      if (identities.has(semantic)) throw new Error("Duplicate cross-source semantic fixture identity");
++      identities.add(semantic);
++      if (descriptor.sourceName && source.name !== descriptor.sourceName) throw new Error("Invalid sports admission provenance");
++      if (descriptor.sourceURL) {
++        const actual = new URL(source.url), expected = new URL(descriptor.sourceURL);
++        const pathMatches = descriptor.adapter === "nhl"
++          ? actual.pathname.startsWith(`${expected.pathname}/`) && /^\d{4}-\d{2}-\d{2}$/.test(actual.pathname.slice(expected.pathname.length + 1))
++          : actual.pathname === expected.pathname;
++        if (actual.origin !== expected.origin || !pathMatches) throw new Error("Invalid sports admission provenance");
++      }
+       seen.add(fixture.id);
+-      fixtures.push(retainedSportsFixture(fixture, descriptor, state, now));
++      const age = now.getTime() - fixtureInstant(fixture.source.observedAt);
++      // A per-record override only represents a recent partial admission.
++      // Quiet whole-cohort freshness must not renew an unavailable cohort's
++      // stale verified row when the cron has stopped advancing it.
++      fixtures.push(marker === "verified" && lane.status === "unavailable" && (age > 30 * 60_000 || age < -5 * 60_000)
++        ? { ...fixture, source: { ...fixture.source, verification: "held" } }
++        : retainedSportsFixture(fixture, descriptor, state, now));
+     }
+   }
+   fixtures.sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
+   if (fixtures.length > SPORTS_FIXTURE_MAX_ROWS) throw new Error("Aggregate fixture limit exceeded");
+-  const receipts = coverage.map((row) => row.checkedAt).filter(Boolean).sort();
++  const receipts = [...coverage.map((row) => row.checkedAt), ...fixtures.map((row) => row.source.observedAt)].filter(Boolean);
++  // Legacy UTC without fractions can sort after a newer fractional receipt in
++  // the same second. Compare instants; never let the envelope predate its rows.
++  const latestReceipt = receipts.reduce((latest, receipt) => {
++    const time = fixtureInstant(receipt);
++    return time > latest.time ? { time, receipt } : latest;
++  }, { time: -Infinity, receipt: null }).receipt;
+   const available = coverage.filter((row) => row.status !== "unsupported");
+-  return { schemaVersion: 1, complete: true, checkedAt: receipts.at(-1) || now.toISOString(),
+-    revision: await sportsRevision(fixtures, coverage), sourceStatus: available.every((row) => row.status === "covered") && available.length ? "verified" : "partial",
+-    fixtures, coverage };
++  const snapshot = { schemaVersion: 1, complete: true, checkedAt: latestReceipt || now.toISOString(),
++    sourceStatus: available.every((row) => row.status === "covered") && available.length ? "verified" : "partial", fixtures, coverage };
++  return { ...snapshot, revision: await sportsRevision(snapshot.fixtures, coverage) };
+ }
+ 
+ // One object per reviewed source group. Its own serialized requests cannot
+diff --git a/web/workers/playback/src/sports-fixture-worker.test.mjs b/web/workers/playback/src/sports-fixture-worker.test.mjs
+index 3351ab4..07e7484 100644
+--- a/web/workers/playback/src/sports-fixture-worker.test.mjs
++++ b/web/workers/playback/src/sports-fixture-worker.test.mjs
+@@ -2,8 +2,8 @@ import test from "node:test";
+ import assert from "node:assert/strict";
+ import worker from "./index.js";
+ import { SPORTS_SOURCES, collectSportsSource } from "./sports-fixture-sources.mjs";
+-import { refreshSportsSource, assembleSportsSnapshot } from "./sports-fixture-registry.mjs";
+ import { SPORTS_EVENT_SOURCES } from "./sports-fixture-event-sources.mjs";
++import { refreshSportsSource, assembleSportsSnapshot } from "./sports-fixture-registry.mjs";
+ 
+ test("staged service returns pending and cannot collect without explicit activation", async () => {
+   let calls = 0;
+@@ -73,7 +73,7 @@ test("EFL uses existing durable admission and preserves accepted Cup facts after
+   const failed = await refreshSportsSource(admitted, descriptor, later, async () => { throw new Error("Sports schedule upstream unavailable"); });
+   const retained = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, failed]]), later);
+   assert.equal(retained.coverage[0].status, "unavailable");
+-  assert.notEqual(retained.fixtures[0].source.verification, "verified", "Unavailable legacy cohorts and explicit held rows cannot renew authority");
++  assert.equal(retained.fixtures[0].source.verification, "held");
+   assert.equal(retained.fixtures[0].source.observedAt, now.toISOString());
+   assert.equal(retained.fixtures[0].start, current.fixtures[0].start);
+   assert.equal(retained.fixtures[0].competitionId, "carabao-cup");
+@@ -97,3 +97,44 @@ test("a hung registry GET expires while other source receipts remain available",
+   assert.equal(body.coverage.find((row) => row.competitionId === "wnba").status, "unsupported");
+   assert.equal(calls.length, 3);
+ });
++
++test("a wholly partial service exposes validated fresh rows without masking held conflicts", async () => {
++  const source = SPORTS_SOURCES.find((row) => row.id === "mlb");
++  const now = new Date(), oldAt = new Date(now.getTime() - 300_000);
++  const make = (id, at) => ({ id: `sports-fixture:mlb:${id}`, sport: "baseball", competitionId: "mlb",
++    competitionName: source.competitions[0].name, title: "Alpha vs Beta", eventKind: "match",
++    start: new Date(now.getTime() - 600_000).toISOString(), status: "live", squad: { gender: "men", ageGroup: "senior" },
++    participants: [{ id: `mlb:${id}1`, name: "Alpha", role: "home" }, { id: `mlb:${id}2`, name: "Beta", role: "away" }],
++    source: { name: source.sourceName, url: `${source.sourceURL}?sportId=1`, observedAt: at.toISOString() } });
++  const collection = (rows, at) => ({ fixtures: rows, observedAt: at.toISOString(), pendingFixtureCount: 0, pendingByCompetition: { mlb: 0 } });
++  const previous = await refreshSportsSource(null, source, oldAt, async () => collection([make(1, oldAt)], oldAt));
++  const partial = await refreshSportsSource(previous, source, now, async () => collection([make(2, now)], now));
++  const responseFor = (state) => worker.fetch(new Request("https://test.invalid/api/sports/fixtures"), {
++    FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "0",
++    SPORTS_FIXTURES: { idFromName(name) { return name; }, get(name) { return { async fetch() {
++      return Response.json(name.endsWith(":mlb") ? state : { consecutiveFailures: 1 });
++    } }; } },
++  });
++  const response = await responseFor(partial);
++  assert.equal(response.status, 200);
++  const body = await response.json();
++  assert.equal(body.sourceStatus, "partial");
++  assert.ok(body.coverage.every((row) => row.status !== "covered"));
++  assert.equal(body.fixtures.find((row) => row.id.endsWith(":1")).source.verification, "held");
++  assert.equal(body.fixtures.find((row) => row.id.endsWith(":2")).source.verification, "verified");
++  assert.equal(body.coverage.find((row) => row.competitionId === "mlb").sync.consecutiveFailures, 1);
++  assert.equal(body.checkedAt, now.toISOString());
++  for (const corrupt of [
++    (state) => { state.accepted.fixtures[0].source.verification = null; },
++    (state) => { state.accepted.fixtures[0].participants[0].name = "TBD"; },
++    (state) => { state.accepted.fixtures[0].source.url = "https://unreviewed.example/schedule"; },
++    (state) => { state.accepted.fixtures[0].source.name = "Unreviewed publisher"; },
++    (state) => { state.accepted.fixtures.find((row) => row.source.verification === "verified").source.observedAt = oldAt.toISOString(); },
++    (state) => { delete state.cohorts; },
++  ]) {
++    const state = structuredClone(partial); corrupt(state);
++    assert.equal((await responseFor(state)).status, 503, "a marker alone cannot bypass complete admitted provenance");
++  }
++  const heldOnly = await refreshSportsSource(partial, source, now, async () => { throw new Error("publisher unavailable"); });
++  assert.equal((await responseFor(heldOnly)).status, 503);
++});
+diff --git a/web/workers/playback/src/worker-version.mjs b/web/workers/playback/src/worker-version.mjs
+index 548ce0d..112a19a 100644
+--- a/web/workers/playback/src/worker-version.mjs
++++ b/web/workers/playback/src/worker-version.mjs
+@@ -1,3 +1,3 @@
+ // Release identity shared by the Worker and its production contract monitor.
+ // Bump this for every deployed source revision.
+-export const WORKER_SOURCE_VERSION = "2026-10-31.broadcast-matching-1";
++export const WORKER_SOURCE_VERSION = "2026-10-31.fixture-isolation-1";

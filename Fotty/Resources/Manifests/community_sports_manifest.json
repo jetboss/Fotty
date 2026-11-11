@@ -1,0 +1,11 @@
+{
+  "id": "community-sports-extension",
+  "name": "CS sources",
+  "providerCode": "communitysports",
+  "version": "1.0.0",
+  "author": "Fotty Core",
+  "description": "Optional additional live sports sources. Off by default.",
+  "iconName": "rectangle.stack.badge.play.fill",
+  "resolutionMode": "native",
+  "allowedDomains": ["nuviosports.xyz"]
+}

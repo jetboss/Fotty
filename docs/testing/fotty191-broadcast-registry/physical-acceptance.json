@@ -1,0 +1,37 @@
+{
+  "build": 191,
+  "target": "Jet iPad",
+  "installed": true,
+  "normalLaunch": true,
+  "registryActivation": "pending-owner-approval",
+  "phoneTouched": false,
+  "FPLTouched": false,
+  "multiStreamTouched": false,
+  "watch": {
+    "entry": "normal Home/Cricket Willow channel Watch",
+    "firstDecodedProgrammeObservedAtUTC": "2026-10-30T14:34:16Z",
+    "programme": "South Africa v Australia Test",
+    "score": "SA319/5, Rickleton98, Mulder56",
+    "channelBrand": "Willow Live",
+    "fixtureAssociationProven": false,
+    "ninetySecondHold": "FAILED: two decoded starts followed by stall timeouts after about28 and46seconds",
+    "failureEvidence": "willow-failed-hold.json",
+    "cause": "unresolved; HTTP200 does not prove playlist advance; first native log contained-12888"
+  },
+  "fullscreen": "Fox visual pass: native system controls, fullscreen, system PiP restore to fullscreen and return inline; no terminal failure observed",
+  "pictureInPicture": "Fox visual pass: actual window visible before Home; observed on Home14:57:13Z and14:58:39Z with advancing video; system Restore from Home14:59:14Z without prior app.activate, continued same programme",
+  "fox": {
+    "entry": "normal Home/Cricket Fox Watch",
+    "firstDecodedProgrammeObservedAtUTC": "2026-10-30T14:50:02Z",
+    "programme": "South Africa v Australia Test",
+    "channelBrand": "Fox501HD LIVE",
+    "score": "SA340/6, Jansen0, Mulder74",
+    "ninetySecondHold": "Passed visually: same channel/programme observed14:50:02Z through14:52:01Z; overs120.3to121 and changing decoded frames, no intervening input",
+    "fixtureAssociationProven": false,
+    "lastScore": "SA340/6, Mulder74off170",
+    "endedObservationAtUTC": "2026-10-30T14:52:01Z",
+    "finalProgrammeObservation": "SA343/7, Mulder76, Harmer0; continuing inline after native restore"
+  },
+  "continuityLimit": "One player attempt_started, same source/watch identities and retained presentation callbacks; AVPlayer/AVPlayerItem object identity was not independently instrumented",
+  "leftOnDevice": "Normal191, Fox Cricket playing; no phone/FPL/multi/TestFlight operations"
+}

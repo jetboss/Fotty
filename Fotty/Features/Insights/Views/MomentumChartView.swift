@@ -12,9 +12,10 @@ struct MomentumChartView: View {
             HStack {
                 Image(systemName: "waveform.path.ecg")
                     .foregroundStyle(FottyTheme.accentText)
-                Text("MATCH MOMENTUM")
-                    .font(.system(size: 12, weight: .black))
-                    .tracking(1)
+                Text("Match momentum")
+                    .font(FottyTheme.typeModuleTitle)
+                    .foregroundStyle(FottyTheme.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
             }
             
             ZStack {
@@ -25,7 +26,7 @@ struct MomentumChartView: View {
                 
                 if momentum.isEmpty {
                     Text("Momentum data will update shortly")
-                        .font(.system(size: 10))
+                        .font(FottyTheme.typeMeta)
                         .foregroundStyle(FottyTheme.textTertiary)
                 } else {
                     // Simple path representation

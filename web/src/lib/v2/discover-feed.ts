@@ -1,5 +1,5 @@
 import type { ScrapedMatch } from "@/lib/api";
-import { canOpenBroadcast, matchKey } from "@/lib/live";
+import { matchKey } from "@/lib/live";
 import { fixtureCardPhase } from "@/lib/v2/fixture-display";
 import { fixtureDisplayPriority, isMatchLive, sortFixturesForDisplay } from "@/lib/v2/match-priority";
 import { isKnockoutBracketTbd, isEventFixture } from "@/lib/fixture-normalization";
@@ -17,7 +17,7 @@ function isFinishedFixture(match: ScrapedMatch) {
   return fixtureCardPhase(match) === "finished";
 }
 
-export function discoverSportLabel(match: ScrapedMatch) {
+function discoverSportLabel(match: ScrapedMatch) {
   if (isEventFixture(match)) return eventSportLabel(match);
   const sport = match.sport?.trim();
   if (sport && sport.toLowerCase() !== "other") return sport;
@@ -122,23 +122,6 @@ export function discoverUpcomingRail(
   return diversifyRail(candidates, 12, 3);
 }
 
-export function discoverChannelRail(matches: ScrapedMatch[]) {
-  return matches
-    .filter((match) => match.kind !== "fixture" && canOpenBroadcast(match))
-    .sort((left, right) => {
-      const leftLive = left.status === "Live" ? 0 : 1;
-      const rightLive = right.status === "Live" ? 0 : 1;
-      if (leftLive !== rightLive) return leftLive - rightLive;
-      return (right.rank || 0) - (left.rank || 0);
-    })
-    .slice(0, 16);
-}
-
-export interface SportRail {
-  sport: string;
-  matches: ScrapedMatch[];
-}
-
 export function discoverSportRails(
   matches: ScrapedMatch[],
   excludeKeys: Set<string> = new Set(),
@@ -167,44 +150,6 @@ export function discoverSportRails(
         fixtureDisplayPriority(left.matches[0]) - fixtureDisplayPriority(right.matches[0]);
       if (priority !== 0) return priority;
       return right.matches.length - left.matches.length;
-    })
-    .slice(0, maxSports);
-}
-
-export interface ChannelSportRail {
-  sport: string;
-  channels: ScrapedMatch[];
-}
-
-export function discoverChannelSportRails(matches: ScrapedMatch[], maxSports = 4) {
-  const bySport = new Map<string, ScrapedMatch[]>();
-
-  for (const match of matches) {
-    if (match.kind === "fixture" || !canOpenBroadcast(match)) continue;
-    const label = match.sport?.trim() || "Live TV";
-    const bucket = bySport.get(label) || [];
-    bucket.push(match);
-    bySport.set(label, bucket);
-  }
-
-  return [...bySport.entries()]
-    .map(([sport, channels]) => ({
-      sport,
-      channels: channels
-        .sort((left, right) => {
-          const leftLive = left.status === "Live" ? 0 : 1;
-          const rightLive = right.status === "Live" ? 0 : 1;
-          if (leftLive !== rightLive) return leftLive - rightLive;
-          return (right.rank || 0) - (left.rank || 0);
-        })
-        .slice(0, 10),
-    }))
-    .filter((rail) => rail.channels.length > 0)
-    .sort((left, right) => {
-      const leftLive = left.channels.some((channel) => channel.status === "Live") ? 0 : 1;
-      const rightLive = right.channels.some((channel) => channel.status === "Live") ? 0 : 1;
-      if (leftLive !== rightLive) return leftLive - rightLive;
-      return right.channels.length - left.channels.length;
     })
     .slice(0, maxSports);
 }

@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "source": "Public AS advertised configure page, fetched2026-10-29T23:22:48.240Z",
+  "htmlBytes": 250588,
+  "htmlSHA256": "31ef74ec5380d0b379ee2bdb04e50deff03164d6bcc7d2fe9ab5ea59519a7c17",
+  "scriptBytes": 98956,
+  "scriptSHA256": "701e9ed73176f09e37fb3df5b5db5814ade6bb7a9265a05a242f2e94715a5197",
+  "parentEvidence": "ev_b2c6e9c673deaf15ed94925f9ca9f8ec75f915f093ed487c0e1efbfd25c6dc4d",
+  "summaryEvidence": "ev_78f355dbac3e49e70c4574bd4fc3fcd19e797dbb032a3d1073da8962e23aa3e3",
+  "rootArtifactSHA256": "ebe0cb96386674a81b17dfd6cf185b303675e269da1d60e04012eb7396e9cccc",
+  "statistics": {
+    "relevant_files": 1,
+    "nested_asar_containers": 0,
+    "text_bytes_read": 98956,
+    "invalid_utf8_files": 0,
+    "parsed_javascript_files": 1,
+    "visited_ast_nodes": 14773,
+    "findings": 2,
+    "modules": 0,
+    "parse_failures": 0
+  },
+  "coverage": {
+    "application": {
+      "status": "complete",
+      "truncated": false,
+      "omitted_count": 0,
+      "limits": []
+    },
+    "semantic": {
+      "status": "unknown",
+      "truncated": false,
+      "omitted_nodes": 0,
+      "omitted_relations": 0,
+      "limits": [],
+      "families": [
+        {
+          "family": "boundary",
+          "status": "partial",
+          "retained_relations": 67,
+          "omitted_relations": 0,
+          "unknown_count": 0
+        },
+        {
+          "family": "call-flow",
+          "status": "partial",
+          "retained_relations": 1641,
+          "omitted_relations": 0,
+          "unknown_count": 769
+        },
+        {
+          "family": "child-process",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": 0,
+          "unknown_count": 0
+        },
+        {
+          "family": "closure",
+          "status": "partial",
+          "retained_relations": 672,
+          "omitted_relations": 0,
+          "unknown_count": 0
+        },
+        {
+          "family": "configuration",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": 0,
+          "unknown_count": 0
+        },
+        {
+          "family": "data-flow",
+          "status": "partial",
+          "retained_relations": 6684,
+          "omitted_relations": 0,
+          "unknown_count": 942
+        },
+        {
+          "family": "event",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": 0,
+          "unknown_count": 0
+        },
+        {
+          "family": "object-flow",
+          "status": "partial",
+          "retained_relations": 983,
+          "omitted_relations": 0,
+          "unknown_count": 1370
+        },
+        {
+          "family": "promise-ownership",
+          "status": "partial",
+          "retained_relations": 10,
+          "omitted_relations": 0,
+          "unknown_count": 6
+        },
+        {
+          "family": "request",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": 0,
+          "unknown_count": 0
+        },
+        {
+          "family": "resource-lifecycle",
+          "status": "partial",
+          "retained_relations": 0,
+          "omitted_relations": 0,
+          "unknown_count": 0
+        },
+        {
+          "family": "timer",
+          "status": "partial",
+          "retained_relations": 3,
+          "omitted_relations": 0,
+          "unknown_count": 0
+        }
+      ]
+    },
+    "application_unknowns": 0,
+    "semantic_unknowns": 3087
+  },
+  "conclusion": "The shipped client config serializes liveSources(dlhd,roxie,cnc) into a generated manifest URL. It does not contain backend sports schedule source code or recover missing event date/timezone authority.",
+  "limits": [
+    "Inert static analysis, no execution.",
+    "Application inventory complete within this one98KBscript; semantic coverage unknown with3087unknowns.",
+    "No claim about protected backend implementation or decoded media."
+  ]
+}

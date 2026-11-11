@@ -2,6 +2,7 @@
 import { WORKER_SOURCE_VERSION } from "../../web/workers/playback/src/worker-version.mjs";
 
 export const OBSERVER_REVISION = "2026-10-11.watchdog-1";
+// Match the active collector. The prepared coverage candidate is not deployed.
 export const CONFIGURATION_REVISION = "2026-10-29.native-catalog-parity-1";
 export const COLLECTION_INTERVAL_MS = 15 * 60_000;
 export const CONFIRMATION_WINDOWS = 2;
@@ -36,5 +37,6 @@ export function observerPolicyOptions(environment = "production") {
     { source: "worker", stages: ["identity"], activation: "active", expected: EXPECTED_VERSIONS },
     { source: "fixtures-service", stages: ["integrity"], activation: "active", expected: EXPECTED_VERSIONS },
     { source: "observer", stages: ["liveness"], activation: "active", expected: EXPECTED_VERSIONS },
+    { source: "match-coverage", stages: ["catalog-match"], activation: "active", expected: EXPECTED_VERSIONS },
   ] };
 }

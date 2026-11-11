@@ -1,0 +1,269 @@
+{
+  "schemaVersion": 1,
+  "gate": "Mac-side fixed-route metadata transport and consumer contract only",
+  "startedAt": "2026-10-30T13:40:54.671Z",
+  "completedAt": "2026-10-30T13:41:02.109Z",
+  "maxConcurrentFamilies": 2,
+  "maximumActualReadsPerFamily": 8,
+  "noMediaOrDescriptorRequests": true,
+  "noCloudOrDecodedPlaybackClaim": true,
+  "totalActualReads": 31,
+  "providers": [
+    {
+      "providerCode": "streamex",
+      "actualReads": 3,
+      "scopes": [
+        {
+          "scope": "live",
+          "status": "failed",
+          "complete": false,
+          "failure": "source-unavailable"
+        }
+      ],
+      "observationCount": 0,
+      "normalizedCount": 0,
+      "complete": false,
+      "kindCounts": {},
+      "verificationCounts": {},
+      "issueCounts": {},
+      "normalization": "accepted",
+      "httpStatusCounts": {
+        "301": 1,
+        "302": 2
+      },
+      "durationMilliseconds": 619
+    },
+    {
+      "providerCode": "score808",
+      "actualReads": 2,
+      "scopes": [
+        {
+          "scope": "football",
+          "status": "failed",
+          "complete": false,
+          "failure": "invalid-collection"
+        }
+      ],
+      "observationCount": 0,
+      "normalizedCount": 0,
+      "complete": false,
+      "kindCounts": {},
+      "verificationCounts": {},
+      "issueCounts": {},
+      "normalization": "accepted",
+      "httpStatusCounts": {
+        "200": 2
+      },
+      "durationMilliseconds": 376
+    },
+    {
+      "providerCode": "communitysports",
+      "actualReads": 8,
+      "scopes": [
+        {
+          "scope": "live",
+          "status": "partial",
+          "complete": false
+        },
+        {
+          "scope": "networks",
+          "status": "partial",
+          "complete": false
+        },
+        {
+          "scope": "football",
+          "status": "partial",
+          "complete": false
+        },
+        {
+          "scope": "cricket",
+          "status": "partial",
+          "complete": false
+        },
+        {
+          "scope": "basketball",
+          "status": "partial",
+          "complete": false
+        },
+        {
+          "scope": "baseball",
+          "status": "partial",
+          "complete": false
+        },
+        {
+          "scope": "hockey",
+          "status": "partial",
+          "complete": false
+        }
+      ],
+      "observationCount": 409,
+      "normalizedCount": 336,
+      "complete": false,
+      "kindCounts": {
+        "event": 309,
+        "channel": 100
+      },
+      "verificationCounts": {
+        "undated": 277,
+        "dated": 53,
+        "conflicting": 79
+      },
+      "issueCounts": {
+        "missing-date": 177,
+        "missing-participants": 175,
+        "identity-conflict": 79
+      },
+      "normalization": "accepted",
+      "httpStatusCounts": {
+        "200": 8
+      },
+      "durationMilliseconds": 2594
+    },
+    {
+      "providerCode": "plaviosports",
+      "actualReads": 5,
+      "scopes": [
+        {
+          "scope": "football",
+          "status": "partial",
+          "complete": false
+        },
+        {
+          "scope": "cricket",
+          "status": "partial",
+          "complete": false
+        },
+        {
+          "scope": "live",
+          "status": "partial",
+          "complete": false
+        }
+      ],
+      "observationCount": 347,
+      "normalizedCount": 347,
+      "complete": false,
+      "kindCounts": {
+        "event": 167,
+        "channel": 180
+      },
+      "verificationCounts": {
+        "undated": 347
+      },
+      "issueCounts": {
+        "missing-participants": 57,
+        "missing-date": 167
+      },
+      "normalization": "accepted",
+      "httpStatusCounts": {
+        "200": 5
+      },
+      "durationMilliseconds": 2982
+    },
+    {
+      "providerCode": "cncsports",
+      "actualReads": 2,
+      "scopes": [
+        {
+          "scope": "hockey",
+          "status": "partial",
+          "complete": false
+        }
+      ],
+      "observationCount": 35,
+      "normalizedCount": 35,
+      "complete": false,
+      "kindCounts": {
+        "event": 35
+      },
+      "verificationCounts": {
+        "undated": 35
+      },
+      "issueCounts": {
+        "missing-date": 35,
+        "missing-participants": 11
+      },
+      "normalization": "accepted",
+      "httpStatusCounts": {
+        "200": 2
+      },
+      "durationMilliseconds": 3423
+    },
+    {
+      "providerCode": "flixstreams",
+      "actualReads": 7,
+      "scopes": [
+        {
+          "scope": "football",
+          "status": "partial",
+          "complete": false
+        },
+        {
+          "scope": "cricket",
+          "status": "partial",
+          "complete": false
+        }
+      ],
+      "observationCount": 59,
+      "normalizedCount": 59,
+      "complete": false,
+      "kindCounts": {
+        "event": 59
+      },
+      "verificationCounts": {
+        "conflicting": 2,
+        "undated": 54,
+        "dated": 3
+      },
+      "issueCounts": {
+        "unsupported-scope": 56,
+        "squad-conflict": 1,
+        "missing-participants": 10,
+        "unverified-fixture": 2,
+        "identity-conflict": 1,
+        "time-conflict": 1,
+        "missing-date": 1
+      },
+      "normalization": "accepted",
+      "httpStatusCounts": {
+        "200": 7
+      },
+      "durationMilliseconds": 2417
+    },
+    {
+      "providerCode": "streamvix",
+      "actualReads": 4,
+      "scopes": [
+        {
+          "scope": "football",
+          "status": "partial",
+          "complete": false,
+          "failure": "invalid-collection"
+        }
+      ],
+      "observationCount": 2,
+      "normalizedCount": 2,
+      "complete": false,
+      "kindCounts": {
+        "event": 2
+      },
+      "verificationCounts": {
+        "undated": 1,
+        "conflicting": 1
+      },
+      "issueCounts": {
+        "unverified-fixture": 2,
+        "missing-participants": 2,
+        "identity-conflict": 1,
+        "missing-date": 1
+      },
+      "normalization": "accepted",
+      "httpStatusCounts": {
+        "200": 4
+      },
+      "durationMilliseconds": 1414
+    }
+  ],
+  "linkCheck": {
+    "status": "official-input-unavailable-or-invalid"
+  }
+}

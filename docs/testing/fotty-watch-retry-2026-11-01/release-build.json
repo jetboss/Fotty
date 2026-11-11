@@ -1,0 +1,15 @@
+{
+  "checkedAtUTC": "2026-11-01T23:33:03.618440+00:00",
+  "build": "220",
+  "version": "2.0.1",
+  "widgetBuilds": [
+    "220"
+  ],
+  "signedRelease": "passed",
+  "strictCodeSignature": "passed",
+  "ATSExceptions": 0,
+  "target": "Jet iPad only",
+  "installed": true,
+  "normalAppLaunched": true,
+  "installedAtUTC": "2026-11-01T23:33:28.822907+00:00"
+}

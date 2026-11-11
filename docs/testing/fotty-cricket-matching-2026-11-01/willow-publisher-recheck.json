@@ -1,0 +1,31 @@
+{
+  "scope": "Bounded original TV1 playlist/manifest advancement; no media segments or playback pass",
+  "reads": 4,
+  "originalPlaylist": "https://github.com/iptv-org/iptv/blob/master/streams/us.m3u",
+  "stationID": "Willow.us@SD",
+  "reviewedDeliveryProfileMatched": true,
+  "qualityVariants": 1,
+  "advertisedVideo": "720p59.94 AVC/AAC",
+  "leafObservations": [
+    {
+      "atUTC": "2026-11-01T13:40:02.674Z",
+      "http": 200,
+      "responseMilliseconds": 349,
+      "sequence": 218547,
+      "segments": 6,
+      "targetSeconds": 10,
+      "endList": false
+    },
+    {
+      "atUTC": "2026-11-01T13:40:21.778Z",
+      "http": 200,
+      "responseMilliseconds": 1099,
+      "sequence": 218549,
+      "segments": 6,
+      "targetSeconds": 10,
+      "endList": false
+    }
+  ],
+  "finding": "Fresh playlist advanced after18seconds. Does not disprove earlier30second upstream timeout, establish a local player bug, or qualify media playback.",
+  "mediaURLsOrTokensRetained": false
+}

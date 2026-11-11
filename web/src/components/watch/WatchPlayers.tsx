@@ -153,7 +153,7 @@ export const DirectEventPlayer = forwardRef<DirectEventPlayerHandle, {
     );
   }
 
-  const iframeSrc = resolveEventEmbedIframeSrc(embedURL, eventSource?.source);
+  const iframeSrc = resolveEventEmbedIframeSrc(embedURL);
 
   return (
     <div className="absolute inset-0 isolate overflow-hidden bg-black">

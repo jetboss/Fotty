@@ -1,0 +1,88 @@
+{
+  "checkedAtUTC": "2026-11-01T19:34:20.748Z",
+  "httpStatus": 200,
+  "httpDate": "Sun, 01 Nov 2026 19:34:20 GMT",
+  "cacheControl": "public, max-age=60",
+  "age": null,
+  "snapshotCheckedAt": "2026-11-01T19:33:47.093Z",
+  "snapshotRevision": "e786d6b8bc5ead341a8def62b3455a38be8ea26f072f9b0cbc1a75564b861d90",
+  "sourceStatus": "partial",
+  "fixture": {
+    "id": "sports-fixture:la-liga:564728",
+    "sport": "football",
+    "start": "2026-11-01T17:30:00.000Z",
+    "status": "finished",
+    "eventKind": "match",
+    "title": "Elche CF vs Valencia CF",
+    "competitionId": "la-liga",
+    "competitionName": "La Liga",
+    "participants": [
+      {
+        "id": "football-data:285",
+        "name": "Elche CF",
+        "role": "home"
+      },
+      {
+        "id": "football-data:95",
+        "name": "Valencia CF",
+        "role": "away"
+      }
+    ],
+    "squad": {
+      "gender": "men",
+      "ageGroup": "senior"
+    },
+    "source": {
+      "name": "football-data.org",
+      "url": "https://api.football-data.org/v4/matches?competitions=PL%2CCL%2CPD%2CSA%2CBL1%2CFL1&limit=500&dateFrom=2026-10-31&dateTo=2026-11-09",
+      "observedAt": "2026-11-01T19:33:47.093Z",
+      "updatedAt": "2026-11-01T19:31:31.000Z"
+    }
+  },
+  "coverage": [
+    {
+      "sport": "football",
+      "competitionId": "la-liga",
+      "competitionName": "La Liga",
+      "status": "covered",
+      "checkedAt": "2026-11-01T19:33:47.093Z",
+      "fixtureCount": 19,
+      "pendingFixtureCount": 0,
+      "nextStart": "2026-11-01T20:00:00.000Z",
+      "sync": {
+        "consecutiveFailures": 0,
+        "lastAttemptAt": "2026-11-01T19:33:47.093Z",
+        "lastSuccessAt": "2026-11-01T19:33:47.093Z",
+        "conflict": false
+      }
+    }
+  ],
+  "priorNativeCache": {
+    "checkedAtUTC": "2026-11-01T19:22:43.388Z",
+    "status": "live",
+    "publisherUpdatedAtUTC": "2026-11-01T19:21:23.000Z",
+    "scheduleRefreshUTC": "2026-11-01T19:28:19.338191Z",
+    "evidenceFiles": [
+      "218-first-native.plist",
+      "218-watch-native.plist"
+    ]
+  },
+  "independentLaterStatus": {
+    "observedAtUTC": "2026-11-01T19:32:18.337Z",
+    "publisher": "ESPN",
+    "status": "FT",
+    "completed": true
+  },
+  "interpretation": "The19:28\u201319:31nativeLIVE observation and19:32ESPNFTreceipt are not concurrent contradictory source states. Freshfootball-databackend19:34reportsfinished withpublisherupdated19:31:31andcollection19:33:47.093. Normalpublisher/poll/cachelagisplausible; no newly proved status-mapping or terminal-admission regression.",
+  "polling": {
+    "cloudLiveSourceSeconds": 300,
+    "nativeSportsUpdaterSeconds": 300,
+    "publicResponseMaxAgeSeconds": 60
+  },
+  "primaryDocumentation": {
+    "url": "https://www.football-data.org/pricing",
+    "checkedOn": "2026-11-01",
+    "fact": "OfficialFreeplantablesaysscoresandschedulesdelayed;paidlivescoresplanexists. Actualconfiguredaccounttierwasnotinspected,andthisdoesnotestablishcausalityfortheobservedmatch."
+  },
+  "changes": "Read-only;oneboundedfixturemetadatarequest;twoofficialdocumentationwebcalls;nocode/devicechanges."
+}

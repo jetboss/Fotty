@@ -1,0 +1,37 @@
+{
+  "appearance" : "light",
+  "automatedHomeClockUTC" : "not enabled",
+  "captureUTC" : "2026-10-25T12:44:16Z",
+  "catalogAfter" : 7,
+  "catalogBefore" : 7,
+  "catalogContentRevision" : 2,
+  "catalogReceiptUTC" : "2026-10-25T12:43:58Z",
+  "clockQualification" : "Fixtures are pinned to this run's captured clock; production controls retain their current Date clock. Not a deterministic golden baseline.",
+  "deduplicatedAfter" : 7,
+  "deduplicatedBefore" : 7,
+  "discoveryItemsAtCapture" : 7,
+  "fixtureClockUTC" : "2026-10-25T12:43:58Z",
+  "height" : 820,
+  "hostUserInterfaceIdiomRawValue" : 1,
+  "kind" : "production-root-static-native-host",
+  "limitations" : [
+    "Not a physical phone\/iPad screenshot",
+    "No physical keyboard\/touch\/VoiceOver or native playback proof",
+    "Host safe areas and glyph\/material behavior differ from iOS",
+    "Synthetic identities test missing-art layout, not crest fidelity"
+  ],
+  "platform" : "Fresh test host; operator records actual build\/OS\/executable provenance separately",
+  "renderer" : "UIHostingController.drawHierarchy.fixedViewport.v1",
+  "root" : "SportsDashboardView",
+  "safeAreaInsets" : {
+    "bottom" : 0,
+    "left" : 0,
+    "right" : 0,
+    "top" : 67
+  },
+  "scenario" : "Current listed broadcast and upcoming mixed sports; synthetic missing-art identities; real Home scope and Search controls",
+  "schemaVersion" : 1,
+  "textSize" : "large",
+  "viewportQualification" : "Phone-width profiles constrain the native host window, not UIDevice idiom; they are not physical phone evidence.",
+  "width" : 1180
+}

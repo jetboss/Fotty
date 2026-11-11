@@ -1,0 +1,34 @@
+{
+  "result": "passed",
+  "tests": 331,
+  "failures": 0,
+  "suites": [
+    "CommunitySportsAddonTests",
+    "SportsTVExperienceTests",
+    "ReviewedTVPlaylistClientTests",
+    "NativePlaybackPreparationTests",
+    "NativePlaybackEvidenceTests",
+    "LocalStreamProxyTests",
+    "LiveSourceHealthScopeTests"
+  ],
+  "runtime": "Mac Catalyst unit runner, no simulator; not physical UI proof",
+  "regressions": [
+    "Exact Sky UK catalog/meta linkage and CS attribution",
+    "Country/station/meta/duplicate conflict rejection",
+    "CS opt-out preserved",
+    "Verified station language and proven CS startup ranking",
+    "Frozen reviewed-TV selected-station descriptor renewal once",
+    "Late fatal event cannot restart terminal single-player attempt",
+    "Cold exact Sky CS tie preferred; expired binding cannot inherit preference",
+    "Single-stream station success cannot make another TV station on the same CDN proven; legacy aggregate retained"
+  ],
+  "protected_files": 43,
+  "protected_changes": 0,
+  "source_sha256": {
+    "Fotty/Core/Networking/CommunitySportsAddonClient.swift": "af0006cc6a7bc70c427ac60ee1a3904e539829549d6a8c79b2deab0feac51c68",
+    "Fotty/Core/Models/MediaModels.swift": "e19a4f2d8e2d7281299180018adf3297550cc3da54d5d9fcd16cc86365cc88c7",
+    "Fotty/Core/Plugins/StreamPlugin.swift": "bad47e5243c44f65f8197a268e5a5eaa89c44fe10e660eddc22ea40eab6aae78",
+    "Fotty/Core/Networking/LiveSourceHealthStore.swift": "deaac5bb210a8e2882a8165f2b5074cf7c3c3154138fe0843f61c7b90f2c77df",
+    "Fotty/Features/Player/LivePlayerViewModel.swift": "5fb6d1d197d821fd9b4f3a06fcb979dfbc42db290b057525e1ffe08b9d52b7c6"
+  }
+}

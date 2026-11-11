@@ -1,5 +1,6 @@
 import { admitSportsCollectionIsolated, descriptorCompetitions, fixtureInstant, nextSportsRefresh, sportsRevision, sportsSnapshotIdentity,
   validateSportsFixture, SPORTS_FIXTURE_MAX_ROWS } from "./sports-fixture-policy.mjs";
+import { boundedUCLReportedScores } from "./ucl-reported-score-policy.mjs";
 
 const STATE_KEY = "sports-source-v1";
 const RETRY_MS = 5 * 60_000;
@@ -230,8 +231,8 @@ export async function assembleSportsSnapshot(descriptors, states, now) {
     return time > latest.time ? { time, receipt } : latest;
   }, { time: -Infinity, receipt: null }).receipt;
   const available = coverage.filter((row) => row.status !== "unsupported");
-  const snapshot = { schemaVersion: 1, complete: true, checkedAt: latestReceipt || now.toISOString(),
-    sourceStatus: available.every((row) => row.status === "covered") && available.length ? "verified" : "partial", fixtures, coverage };
+  const snapshot = boundedUCLReportedScores({ schemaVersion: 1, complete: true, checkedAt: latestReceipt || now.toISOString(),
+    sourceStatus: available.every((row) => row.status === "covered") && available.length ? "verified" : "partial", fixtures, coverage });
   return { ...snapshot, revision: await sportsRevision(snapshot.fixtures, coverage) };
 }
 

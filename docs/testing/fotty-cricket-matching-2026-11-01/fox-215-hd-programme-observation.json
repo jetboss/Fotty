@@ -1,0 +1,77 @@
+{
+  "startedUTC": "2026-11-01T16:06:45.811Z",
+  "scope": "Independently advertised Fox HD capability: one manifest and one segment, offline codec/one-frame observation only",
+  "requests": [
+    {
+      "stage": "original-metadata",
+      "http": 200,
+      "originHost": "raw.githubusercontent.com",
+      "port": 443,
+      "socketPinned": true,
+      "contentType": "text/plain; charset=utf-8",
+      "contentLength": 159715,
+      "contentRange": null,
+      "responseEnded": true,
+      "bytes": 159715,
+      "elapsedMilliseconds": 378
+    },
+    {
+      "stage": "HD-manifest",
+      "http": 200,
+      "originHost": "ee0c5e74.akadatel.com",
+      "port": 80,
+      "socketPinned": true,
+      "contentType": "application/x-mpegURL",
+      "contentLength": 498,
+      "contentRange": null,
+      "responseEnded": true,
+      "bytes": 498,
+      "elapsedMilliseconds": 376
+    },
+    {
+      "stage": "segment",
+      "http": 200,
+      "originHost": "77.72.23.4",
+      "port": 80,
+      "socketPinned": true,
+      "contentType": "video/mp2t",
+      "contentLength": 324864,
+      "contentRange": null,
+      "responseEnded": true,
+      "bytes": 324864,
+      "elapsedMilliseconds": 989
+    }
+  ],
+  "noRedirects": true,
+  "noCookies": true,
+  "noAuth": true,
+  "noKeyRequests": true,
+  "manifest": {
+    "sequence": "214655",
+    "targetDuration": "10",
+    "segmentCount": 4,
+    "noEncryptionKey": true
+  },
+  "streams": [
+    {
+      "codec_name": "h264",
+      "codec_type": "video",
+      "width": 1920,
+      "height": 1080,
+      "pix_fmt": "yuv420p"
+    }
+  ],
+  "completeSegment": true,
+  "outcome": "confirmed-subscription-gate-stop",
+  "rawSegmentRemoved": true,
+  "completedUTC": "2026-11-01T16:06:49.658Z",
+  "redaction": "No stream URLs, opaque capabilities, numeric channel paths, segment names, query values or private identifiers retained.",
+  "programmeObservation": {
+    "method": "One frame extracted offline from the single bounded advertised HD segment",
+    "visibleEnglishMessage": "You need to pay for a subscription",
+    "foxProgrammeObserved": false,
+    "furtherMediaRequests": 0,
+    "nativePlaybackQualified": false
+  },
+  "temporaryFrameRemoved": true
+}

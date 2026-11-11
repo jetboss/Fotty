@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-10-29T22:28:25.508Z",
+  "activation": "active",
+  "configuration": "2026-10-29.native-catalog-parity-1",
+  "originalActivatedAtPreserved": true,
+  "allPriorNoticeIDsPreserved": true,
+  "notifications": 121,
+  "overflow": false,
+  "lastCompletedAt": 1793312459469,
+  "realPostDeployCronCompleted": true,
+  "nextAt": 1793313358010
+}

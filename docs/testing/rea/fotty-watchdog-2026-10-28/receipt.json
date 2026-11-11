@@ -1,0 +1,167 @@
+{
+  "schema": 1,
+  "task": "read-only provider resilience research",
+  "retrievedAt": "2026-10-28T22:43:31.923Z",
+  "deployedArtifact": {
+    "script": "fotty-watchdog",
+    "activeVersion": "4316bd15-eada-44f4-9b10-071d78f61440",
+    "allocationPercent": 100,
+    "unchangedDeploymentInventoryBeforeAfter": true,
+    "file": "index.js",
+    "bytes": 126714,
+    "sha256": "532b2550b7aa95d48a31ce98c2f5211e3eae47f13e677cb30d5412daf3683b74"
+  },
+  "rea": {
+    "parentEvidence": "ev_6449666f93580d51d8322a863cfba6dbe67af5fe126b2a58be8bf7de6b72676e",
+    "summaryEvidence": "ev_cdc7194be096f4bfdd99c6991435b5eddfd605a206bf241a746f0fc716594433",
+    "rootArtifactSHA256": "21777edcbd7999a23c605501b4b5f65b56f3aafca77c793df2160c3d754db8ee",
+    "statistics": {
+      "relevant_files": 1,
+      "nested_asar_containers": 0,
+      "text_bytes_read": 126714,
+      "invalid_utf8_files": 0,
+      "parsed_javascript_files": 1,
+      "visited_ast_nodes": 19316,
+      "findings": 14,
+      "modules": 0,
+      "parse_failures": 0
+    },
+    "coverage": {
+      "application": {
+        "status": "complete",
+        "truncated": false,
+        "omitted_count": 0,
+        "limits": []
+      },
+      "semantic": {
+        "status": "unknown",
+        "truncated": false,
+        "omitted_nodes": 0,
+        "omitted_relations": 0,
+        "limits": [],
+        "families": [
+          {
+            "family": "boundary",
+            "status": "partial",
+            "retained_relations": 22,
+            "omitted_relations": 0,
+            "unknown_count": 5
+          },
+          {
+            "family": "call-flow",
+            "status": "partial",
+            "retained_relations": 1492,
+            "omitted_relations": 0,
+            "unknown_count": 1000
+          },
+          {
+            "family": "child-process",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "closure",
+            "status": "partial",
+            "retained_relations": 608,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "configuration",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "data-flow",
+            "status": "partial",
+            "retained_relations": 7848,
+            "omitted_relations": 0,
+            "unknown_count": 858
+          },
+          {
+            "family": "event",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "object-flow",
+            "status": "partial",
+            "retained_relations": 1386,
+            "omitted_relations": 0,
+            "unknown_count": 1977
+          },
+          {
+            "family": "promise-ownership",
+            "status": "partial",
+            "retained_relations": 32,
+            "omitted_relations": 0,
+            "unknown_count": 30
+          },
+          {
+            "family": "request",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "resource-lifecycle",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "timer",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          }
+        ]
+      },
+      "application_unknowns": 0,
+      "semantic_unknowns": 3870
+    },
+    "exportEvidence": "ev_102185ad1326cfb415fe7123ca0252a6cbbe6f555539d647613ea270083ef532",
+    "exports": [
+      "WatchdogState",
+      "default"
+    ],
+    "assetEvidence": "ev_512fb1a5d5a8c3286fd1afc22146d4ff6fc23c2b7c6e535730737da02110247b",
+    "inputFormat": "directory",
+    "maxHeapMiB": 384,
+    "analysisTimeoutMs": 60000
+  },
+  "offlineProbes": [
+    {
+      "name": "previously-active-retained-state-now-pending",
+      "result": "all six observations inactive; zero cloud notices returned",
+      "basis": "pure imported statusObservations/cloudNotifications with matching revisions and historical activation/completion times"
+    },
+    {
+      "name": "native-valid-tilde-CS-ID",
+      "input": "nuvio_sport_example~variant",
+      "watchdogAccepts": false
+    },
+    {
+      "name": "cross-competition-recovery",
+      "basis": "delegated offline synthetic sequence; no network or app/source edits",
+      "result": "two Cup delivery-contract failures confirmed; two healthy PL samples resolved the same football-scoped incident; simultaneous PL/Cup selection favored PL"
+    }
+  ],
+  "limits": [
+    "Static shipped-JavaScript analysis; not runtime, bindings, media or delivery proof.",
+    "REA semantic coverage partial/unknown; 3870 semantic unknowns.",
+    "Literal feature trace returned no-match; no feature-absence claim made.",
+    "GitHub observer findings are from its separate source and offline functions, not from the deployed Worker artifact.",
+    "No provider/media requests, builds, app/device changes, deployment or publication in this audit.",
+    "Temporary script/auth metadata removed; no credentials retained."
+  ]
+}

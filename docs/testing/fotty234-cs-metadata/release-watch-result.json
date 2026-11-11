@@ -1,0 +1,101 @@
+[
+  {
+    "atUTC": "2026-11-04T10:58:57.146684+00:00",
+    "name": "attempt_started",
+    "outcome": "info",
+    "details": {
+      "source_count": "1",
+      "source": "CS1"
+    }
+  },
+  {
+    "atUTC": "2026-11-04T10:58:58.929142+00:00",
+    "name": "source_failure",
+    "outcome": "failure",
+    "details": {
+      "source_count": "1",
+      "native_error_code": "-1102",
+      "native_underlying_code": "-12660",
+      "relay_failure_kind": "http_status",
+      "native_access_stalls": "0",
+      "source": "CS1",
+      "relay_failure_resource_category": "manifest",
+      "failure_kind": "sourceFailure",
+      "relay_playlist_upstream_kind": "master",
+      "relay_request_http_status": "403",
+      "relay_http_status": "403",
+      "native_access_bytes": "0",
+      "native_error_domain": "url",
+      "relay_failure_stage": "upstream_response"
+    }
+  },
+  {
+    "atUTC": "2026-11-04T10:58:58.952147+00:00",
+    "name": "attempt_started",
+    "outcome": "info",
+    "details": {
+      "source_count": "1",
+      "source": "CS1"
+    }
+  },
+  {
+    "atUTC": "2026-11-04T10:59:00.276440+00:00",
+    "name": "source_failure",
+    "outcome": "failure",
+    "details": {
+      "native_error_code": "-1102",
+      "source_count": "1",
+      "native_underlying_code": "-12660",
+      "relay_failure_kind": "http_status",
+      "native_access_stalls": "0",
+      "relay_failure_resource_category": "manifest",
+      "failure_kind": "sourceFailure",
+      "source": "CS1",
+      "relay_playlist_upstream_kind": "master",
+      "relay_request_http_status": "403",
+      "relay_http_status": "403",
+      "native_access_bytes": "0",
+      "native_error_domain": "url",
+      "relay_failure_stage": "upstream_response"
+    }
+  },
+  {
+    "atUTC": "2026-11-04T10:59:00.301876+00:00",
+    "name": "terminal_failure",
+    "outcome": "failure",
+    "details": {
+      "source_count": "1",
+      "failure_kind": "sourceFailure",
+      "source": "CS1"
+    }
+  },
+  {
+    "atUTC": "2026-11-04T10:59:01.773085+00:00",
+    "name": "source_discovery_result",
+    "outcome": "success",
+    "details": {
+      "stage": "preparing",
+      "result": "exact_fixture_match"
+    }
+  },
+  {
+    "atUTC": "2026-11-04T10:59:01.790726+00:00",
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "details": {
+      "result": "no_exact_fixture_match",
+      "stage": "preparing",
+      "failure_kind": "provider_returned_empty"
+    }
+  },
+  {
+    "atUTC": "2026-11-04T10:59:01.842528+00:00",
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "details": {
+      "result": "catalog_http_failure",
+      "stage": "preparing",
+      "failure_kind": "manifest_unreachable"
+    }
+  }
+]

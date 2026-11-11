@@ -1,0 +1,8 @@
+{
+  "build": 192,
+  "nativeFiles": 342,
+  "sourceSHA256": "35cad12f73c7fde907d59cc2c6f0fbaab5de43faa861d33fd1d817381cc2bd33",
+  "isolatedSourceBeforeBuild": true,
+  "sourceGate": "private-owner-device",
+  "sharedPublication": "backend PR105 only"
+}

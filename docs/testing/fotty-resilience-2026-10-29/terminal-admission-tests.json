@@ -1,0 +1,10 @@
+{
+  "result": "Passed",
+  "totalTestCount": 111,
+  "passedTests": 111,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "expectedFailures": 0,
+  "scope": "Current-source Mac Catalyst test host. No physical playback inference; FPL/multi-stream not executed.",
+  "sourceRevision": "Owned frozen source input snapshot at terminal-admission repair; hashes retained during gate."
+}

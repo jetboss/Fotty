@@ -1,0 +1,94 @@
+{
+  "startedUTC": "2026-11-01T15:52:07.165Z",
+  "scope": "One fresh Fox SD manifest and one bounded segment for offline audio/container probe; correct reviewed 16-character segment filename includes .ts",
+  "requests": [
+    {
+      "stage": "original-metadata",
+      "originHost": "raw.githubusercontent.com",
+      "port": 443,
+      "socketAddressPinned": true,
+      "connectionUsedValidatedAddress": true,
+      "http": 200,
+      "contentType": "text/plain; charset=utf-8",
+      "contentLength": 159715,
+      "contentRange": null,
+      "observedUTC": "2026-11-01T15:52:07.492Z",
+      "elapsedMilliseconds": 447,
+      "bytes": 159715,
+      "responseEnded": true,
+      "byteCapReached": false
+    },
+    {
+      "stage": "selected-manifest",
+      "originHost": "y3fqd48g.megatv.fun",
+      "port": 80,
+      "socketAddressPinned": true,
+      "connectionUsedValidatedAddress": true,
+      "http": 200,
+      "contentType": "application/x-mpegURL",
+      "contentLength": 501,
+      "contentRange": null,
+      "observedUTC": "2026-11-01T15:52:09.342Z",
+      "elapsedMilliseconds": 380,
+      "bytes": 501,
+      "responseEnded": true,
+      "byteCapReached": false
+    },
+    {
+      "stage": "segment",
+      "originHost": "77.72.22.219",
+      "port": 80,
+      "socketAddressPinned": true,
+      "connectionUsedValidatedAddress": true,
+      "http": 200,
+      "contentType": "video/mp2t",
+      "contentLength": 324864,
+      "contentRange": null,
+      "observedUTC": "2026-11-01T15:52:09.662Z",
+      "elapsedMilliseconds": 955,
+      "bytes": 324864,
+      "responseEnded": true,
+      "byteCapReached": false
+    }
+  ],
+  "noRedirects": true,
+  "noCookies": true,
+  "noAuthHeaders": true,
+  "noKeyRequests": true,
+  "noAppChanges": true,
+  "manifest": {
+    "sequence": "214567",
+    "targetDuration": "10"
+  },
+  "childPathShape": {
+    "componentCount": 4,
+    "segmentFilenameTotalLength": 16,
+    "segmentStemLength": 13,
+    "extension": ".ts",
+    "lexicalClass": "ASCII alphanumeric/hyphen/underscore plus .ts",
+    "sameRootCapability": true,
+    "queryKeys": [
+      "md5"
+    ]
+  },
+  "streams": [
+    {
+      "codec_name": "h264",
+      "codec_type": "video",
+      "width": 1920,
+      "height": 1080,
+      "pix_fmt": "yuv420p"
+    }
+  ],
+  "segmentComplete": true,
+  "outcome": "offline-container-probed",
+  "notProof": [
+    "Native decoded playback",
+    "Audible audio",
+    "Correct programme",
+    "Sustained playback"
+  ],
+  "temporaryMediaRemoved": true,
+  "completedUTC": "2026-11-01T15:52:10.572Z",
+  "redaction": "No media URLs, capabilities, numeric resource paths, segment names, MD5 values or private identifiers retained."
+}

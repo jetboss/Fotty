@@ -42,17 +42,19 @@ FOTTY_SPORTS_EFL_ENABLED = "1"
 # Publicly reachable ESPN website feeds are not a licensed API. Leave gated
 # until source access is resolved separately; general activation cannot enable it.
 FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED = "0"
+# National-team football only (UEFA/Concacaf Nations League, friendlies) via the
+# same ESPN feed. Separate owner decision; leaves every other public feed off.
+FOTTY_SPORTS_INTERNATIONAL_FOOTBALL_ENABLED = "1"
 # Cloudflare receives HTML rather than the canonical WNBA schedule JSON.
 # Keep this source deferred until edge access is verified; do not widen admission.
 FOTTY_SPORTS_WNBA_ENABLED = "0"
-# Reviewed WBBL cohort; one bounded request per due window (at most every 5 minutes).
+# Reviewed CA WBBL metadata activated with owner approval on 4 November 2026.
+# One bounded request per five-minute due window, isolated durable state.
 CRICKET_WBBL_ENABLED = "true"
-# Owner-approved 30 October: seven source families plus fixed reviewed Willow programme metadata.
-# Reviewed programme metadata reserves at most576 actual HTML reads/day, covering
-# the UTC/selected-guide-date edge with at most2 reads per5-minute active cycle.
-# Existing seven provider limits and eight-read cycle ceiling are unchanged.
+# New automatic metadata registry is staged until its reviewed activation gate.
+# Provider opt-ins on each device still filter these public lookup records.
 FOTTY_BROADCAST_REGISTRY_ENABLED = "1"
-# Owner-approved 4 November: original Fox WBBL programme metadata; existing TV budget.
+# Owner-approved original Fox WBBL programme matching; existing request budget.
 FOTTY_FOX_PROGRAMMES_ENABLED = "1"
 FOTTY_BROADCAST_REGISTRY_SOURCES = "streamex,score808,communitysports,plaviosports,cncsports,flixstreams,streamvix,reviewedtv"
 # Secret FPL_COACH_ACCESS_SHA256: JSON array of SHA-256 digests of individual
@@ -90,6 +92,14 @@ new_sqlite_classes = [ "CricketFixtureRegistry" ]
 tag = "sports-fixtures-v1"
 new_sqlite_classes = [ "SportsFixtureRegistry" ]
 
+[[durable_objects.bindings]]
+name = "BROADCAST_REGISTRY"
+class_name = "BroadcastRegistry"
+
+[[migrations]]
+tag = "broadcast-registry-v1"
+new_sqlite_classes = [ "BroadcastRegistry" ]
+
 [[ratelimits]]
 name = "FPL_COACH_RATE_LIMITER"
 namespace_id = "2026082201"
@@ -105,11 +115,3 @@ namespace_id = "2026082202"
   [ratelimits.simple]
   limit = 120
   period = 60
-
-[[durable_objects.bindings]]
-name = "BROADCAST_REGISTRY"
-class_name = "BroadcastRegistry"
-
-[[migrations]]
-tag = "broadcast-registry-v1"
-new_sqlite_classes = [ "BroadcastRegistry" ]

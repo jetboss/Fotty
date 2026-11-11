@@ -1,0 +1,115 @@
+{
+  "date": "2026-10-28",
+  "scope": "Watchdog detection and owner delivery only; no native or device changes",
+  "pullRequests": [
+    "https://github.com/jetboss/Fotty/pull/92",
+    "https://github.com/jetboss/Fotty/pull/95"
+  ],
+  "protectedMain": "70e8b10d23d16d132e8f16559eb80d9b82441c43",
+  "initialMain": "eb1c2834ad8220c81dc608f9d648f006db4cdccf",
+  "configuration": "2026-10-28.admitted-metadata-2",
+  "wireNamespaceUnchanged": "2026-10-11.watchdog-1",
+  "watchdogDeploymentID": "4316bd15-eada-44f4-9b10-071d78f61440",
+  "previousCompatibilityDeploymentID": "d8c5e8cf-8de8-4321-9b04-43772349a0d0",
+  "intermediateDeploymentID": "f30af843-c638-4512-8060-ad14f5928a45",
+  "activationPreserved": "2026-10-11T11:14:52.000Z",
+  "retainedOriginalNotificationIDs": 114,
+  "storageReadCompatibilityVerified": true,
+  "legacyCountersAcceptedWithoutMutation": true,
+  "tests": {
+    "offlinePassed": 165,
+    "runtimePassed": 16,
+    "skipped": 0,
+    "failed": 0,
+    "protectedCIPassed": true,
+    "dryRunPassed": true,
+    "testCountOverlapWithPriorGate": true
+  },
+  "botDeliveryCanary": {
+    "workflow": "https://github.com/jetboss/Fotty/actions/runs/40778349200",
+    "head": "eb1c2834ad8220c81dc608f9d648f006db4cdccf",
+    "issue": "https://github.com/jetboss/Fotty/issues/93",
+    "comment": "https://github.com/jetboss/Fotty/issues/93#issuecomment-6482021343",
+    "botAuthor": "github-actions[bot]",
+    "assignee": "jetboss",
+    "commentMentionsVerifiedOwner": true,
+    "firstDelivered": 1,
+    "repeatSameWorkflowDelivered": 0,
+    "commentCountAfterReplay": 1,
+    "productionLedgerUnchangedByCanary": true,
+    "chatReceipt": "WD-a78a583c69b1338ded7c9937",
+    "chatMessageReadBackVerified": true,
+    "chatAppendAcknowledged": true,
+    "subsequentReaderQuiet": true,
+    "issueClosedAfterQualification": true,
+    "humanReadingEmailPushVerified": false
+  },
+  "normalObserverInitial": {
+    "workflow": "https://github.com/jetboss/Fotty/actions/runs/40778605662",
+    "conclusion": "success",
+    "delivered": 0,
+    "pending": 0,
+    "legacyBacklogNotReplayed": true
+  },
+  "normalObserverFinal": {
+    "workflow": "https://github.com/jetboss/Fotty/actions/runs/40778983593",
+    "conclusion": "success",
+    "head": "70e8b10d23d16d132e8f16559eb80d9b82441c43",
+    "delivered": 0,
+    "pending": 0
+  },
+  "chatBridge": {
+    "automationID": "fotty-provider-failure-alerts",
+    "status": "ACTIVE",
+    "intervalMinutes": 15,
+    "notificationPolicy": "normal/default",
+    "targetChatVerified": true,
+    "scheduledExecutionVerified": false,
+    "manualReaderAndChatAppendVerified": true,
+    "localMacAndAppRequired": true
+  },
+  "limits": {
+    "providerReadsPerDay": 960,
+    "healthAndFixtureReadsPerDay": 288,
+    "metadataDeadlineSeconds": 10,
+    "deliveryURLsFetched": false,
+    "decodedPlaybackProof": false,
+    "mediaNotFetched": true,
+    "noNewCredentialsOrNotificationPermissions": true
+  },
+  "preservation": {
+    "app181InputsUnchanged": 313,
+    "FPLChanged": false,
+    "multiStreamChanged": false,
+    "devicesTouched": false,
+    "TestFlightReleased": false
+  },
+  "actualNewCronCompletion": {
+    "attemptedAtUTC": "2026-10-28T22:30:36.405Z",
+    "completedAtUTC": "2026-10-28T22:30:38.028Z",
+    "nextAtUTC": "2026-10-28T22:45:36.405Z",
+    "actualScheduleObserved": true,
+    "retainedOriginalNoticeIDs": 114,
+    "totalNotices": 114,
+    "incidentCount": 55,
+    "overflow": false
+  },
+  "cleanupPending": false,
+  "cadenceCarryOver": {
+    "realCronAppliedDueTimeClamp": true,
+    "previousNextAtUTC": "2026-10-28T22:40:36.389Z",
+    "newNextAtUTC": "2026-10-28T22:25:37.221Z",
+    "lastCompletedAtUnchangedByClamp": "2026-10-28T22:10:37.221Z",
+    "firstFullNewCollectionPending": false
+  },
+  "sourceMatchesProtectedCheckout": true,
+  "finalOwnerReaderQuiet": true,
+  "memoryExportAndPrivacyChecksPassed": true,
+  "cleanup": {
+    "ownedTemporaryCheckoutLogsRuntimeRemoved": true,
+    "ownedTemporarySizeMiB": 25,
+    "ownedKeepAwakeStoppedAfterCompletion": true,
+    "unrelatedArtifactsOrCachesDeleted": false,
+    "durableOwnerAlertStatePreserved": true
+  }
+}

@@ -307,7 +307,7 @@ test("CS uses only one advertised channel search inside its existing eight-read 
   m.catalogs.find((c) => c.id === "nuvio_sports_football").extra = [{ name: "search" }];
   const withFixture = harness("communitysports", async (url) => json({ metas: url.endsWith("/search=Willow%20Cricket.json") ? [willowNetwork()] : [] }),
     8, { manifestOverride: m });
-  await withFixture.run({ fixtures: [hintedFixture()] });
+  await withFixture.run({ fixtures: [hintedFixture({ status: "scheduled" })] });
   assert.equal(withFixture.calls.length, 8);
   assert.equal(withFixture.calls.filter((r) => r.url.includes("/search=")).length, 2, "The channel hint replaces one fixture hint");
   assert.ok(withFixture.calls.some((r) => r.url.endsWith("nuvio_sports_basketball.json")), "The finite other-sport rotation still progresses");
@@ -451,7 +451,7 @@ test("CS uses at most two advertised searches for a fresh missing fixture before
   const m = structuredClone(manifests.communitysports); m.catalogs.find((c) => c.id === "nuvio_sports_football").extra = [{ name: "search" }];
   const h = harness("communitysports", async (url) => json({ metas: url.includes("/search=Chelsea.json") ? [cs({ id: "nuvio_sport_chelsea", name: "Chelsea vs Tottenham Hotspur", cast: ["Chelsea", "Tottenham Hotspur"], genres: ["FOOTBALL"], released: "2026-10-30T12:00:00.000Z", behaviorHints: { defaultVideoId: "nuvio_sport_chelsea" } })] : [] }),
     8, { manifestOverride: m });
-  const result = await h.run({ fixtures: [hintedFixture()] });
+  const result = await h.run({ fixtures: [hintedFixture({ status: "scheduled" })] });
   assert.equal(h.calls.length, 8); assert.equal(h.calls.filter((r) => r.url.includes("/search=")).length, 2);
   assert.equal(result.broadcasts.find((r) => r.providerEventID === "nuvio_sport_chelsea").verification, "dated");
   assert.equal(result.cursor, 257);

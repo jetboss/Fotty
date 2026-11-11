@@ -286,7 +286,7 @@ export function validateScore808Listing(text) {
   return stack.length === 0 && ids.size === 1;
 }
 
-export async function probeProvider(descriptor, { request = fetch, now = Date.now(), environment = "production", reserve = async () => true, sportsSnapshot } = {}) {
+export async function probeProvider(descriptor, { request = fetch, now = Date.now(), environment = "production", reserve = async () => true, sportsSnapshot, onCatalog } = {}) {
   // Only static, reviewed descriptors can authorize network reads.
   const reviewed = PROVIDERS.find((row) => row.source === descriptor?.source);
   if (!reviewed || JSON.stringify(descriptor) !== JSON.stringify(reviewed)) throw new Error("Unreviewed metadata source");
@@ -330,6 +330,8 @@ export async function probeProvider(descriptor, { request = fetch, now = Date.no
     const catalog = await read("/catalog/tv/nuvio_sports_live.json", "catalog");
     const catalogValid = !catalog.failure && validateCSCatalog(catalog.body);
     record(catalog, "catalog", catalogValid, { empty: catalog.body?.metas?.length === 0 });
+    if (catalogValid && typeof onCatalog === "function") onCatalog({ source: "cs", scope: "mixed",
+      checkedAt: now, manifest: first.body, catalog: catalog.body });
     if (catalogValid) observations.push(...await probeCSDeliveryContract({ sportsSnapshot, catalog: catalog.body,
       manifest: first.body, now, environment, read }));
   }
@@ -340,8 +342,11 @@ export async function probeProvider(descriptor, { request = fetch, now = Date.no
       else if (catalogID === null) record({}, "catalog", false, { facts: { scope } });
       else {
         const catalog = await read(`/catalog/tv/${catalogID}.json`, "catalog");
-        record(catalog, "catalog", !catalog.failure && validateASCatalog(catalog.body),
+        const catalogValid = !catalog.failure && validateASCatalog(catalog.body);
+        record(catalog, "catalog", catalogValid,
           { empty: catalog.body?.metas?.length === 0, facts: { scope } });
+        if (catalogValid && typeof onCatalog === "function") onCatalog({ source: "as", scope,
+          checkedAt: now, manifest: first.body, catalog: catalog.body });
       }
     }
   }

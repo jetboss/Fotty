@@ -98,6 +98,7 @@ function coreURL(source, suffix = "") { return new URL(`/v2/sports/${source.path
 function resultBuilder(source, now, window) {
   const fixtures = new Map();
   const pending = new Set();
+  const pendingStarts = new Map();
   const observedAt = now.toISOString();
   return {
     add(nativeId, row, eventKind, title, participants, url) {
@@ -111,7 +112,10 @@ function resultBuilder(source, now, window) {
         if (eventKind === "match" || start.getTime() < window.from.getTime() - 6 * DAY || sportsEventStatus(row.status) !== "live") return;
       }
       if (!start || row.timeValid === false || (eventKind === "match" && (!participants || participants.length !== 2))) {
-        if (!fixtures.has(id)) pending.add(id);
+        if (!fixtures.has(id)) {
+          pending.add(id);
+          if (start && start >= window.from) pendingStarts.set(id, start.toISOString());
+        }
         if (fixtures.size + pending.size > MAX_FIXTURES) throw new Error("Sports event count exceeded bound");
         return;
       }
@@ -125,11 +129,14 @@ function resultBuilder(source, now, window) {
       if (old && (old.start !== fixture.start || JSON.stringify(old.participants) !== JSON.stringify(fixture.participants))) throw new Error("Conflicting sports event identity");
       if (old && ["finished", "cancelled"].includes(old.status) && ["scheduled", "live"].includes(status)) throw new Error("Sports event terminal status regressed during collection");
       pending.delete(id);
+      pendingStarts.delete(id);
       fixtures.set(id, fixture);
       if (fixtures.size + pending.size > MAX_FIXTURES) throw new Error("Sports event count exceeded bound");
     },
     finish() { return { fixtures: [...fixtures.values()].sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id)),
-      pendingFixtureCount: pending.size, observedAt, windowStart: window.from.toISOString(), windowEnd: window.to.toISOString() }; },
+      pendingFixtureCount: pending.size, pendingByCompetition: { [source.competitionId]: pending.size },
+      pendingStartsByCompetition: { [source.competitionId]: [...pendingStarts.values()].sort() },
+      observedAt, windowStart: window.from.toISOString(), windowEnd: window.to.toISOString() }; },
   };
 }
 

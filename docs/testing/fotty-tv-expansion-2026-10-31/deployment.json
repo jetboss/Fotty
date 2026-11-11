@@ -1,0 +1,45 @@
+{
+  "sourceVersion": "2026-10-31.tv-football-1",
+  "services": {
+    "fotty-playback-v3": {
+      "exitCode": 0,
+      "versionID": "21d7abe1-a001-467b-8ed8-19a02ca92720"
+    },
+    "fotty-watchdog": {
+      "exitCode": 0,
+      "versionID": "1a3d08f2-222b-4182-9548-cf2750bfbbe3"
+    }
+  },
+  "approved": true,
+  "startedAtUTC": "2026-10-31T22:36:38.124586+00:00",
+  "before": {
+    "sourceVersion": "2026-10-31.fixture-isolation-1",
+    "watchdogExpectedRevision": "2026-10-31.fixture-isolation-1",
+    "activation": "active",
+    "activatedAt": "2026-10-11T11:14:52.000Z",
+    "configurationRevision": "2026-10-29.native-catalog-parity-1",
+    "notificationCount": 130,
+    "incidentCount": 61
+  },
+  "commit": "7d74c40289a23be5443f0d6ed72ea36112c71510",
+  "after": {
+    "sourceVersion": "2026-10-31.tv-football-1",
+    "watchdogExpectedRevision": "2026-10-31.tv-football-1",
+    "activation": "active",
+    "activatedAt": "2026-10-11T11:14:52.000Z",
+    "configurationRevision": "2026-10-29.native-catalog-parity-1",
+    "notificationCount": 130,
+    "incidentCount": 61,
+    "retainedPriorNotifications": true,
+    "originalActivationPreserved": true,
+    "configurationRevisionPreserved": true,
+    "allExistingBindingsUnchanged": true,
+    "bindingCounts": {
+      "fotty-playback-v3": 21,
+      "fotty-watchdog": 3
+    }
+  },
+  "completedAtUTC": "2026-10-31T22:37:46.083272+00:00",
+  "ownedDeploymentOutputRemoved": true,
+  "keepAwakeStopped": true
+}

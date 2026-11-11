@@ -1,0 +1,14 @@
+{
+  "device": "Jet iPad",
+  "build": "2.0.1(184)",
+  "strictSignature": "passed",
+  "profileContainsJet": true,
+  "installedReadback": true,
+  "configurationSlotsBeforeLaunch": 34,
+  "configurationSlotsUnchanged": 34,
+  "phoneInteraction": false,
+  "testFlightRelease": false,
+  "launchedAfterInstall": false,
+  "physicalPlaybackTests": "deferred by owner",
+  "localSignedExecutableSHA256": "c9a6f18879902f940c181bd874213c1263d35018d9c83ae42ebd3636cc8fba5b"
+}

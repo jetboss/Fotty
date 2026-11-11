@@ -1,0 +1,109 @@
+{
+  "startedUTC": "2026-11-01T16:46:35.798023+00:00",
+  "scope": "One owner-approved Flix Fox369 recovery recheck, metadata plus one literal HLS root; at most one advertised segment/offline frame if clear media works",
+  "previousReceipt": "fox-flix-channel369-probes.json",
+  "priorRootFailureUTC": "2026-11-01T14:13:52.217Z",
+  "priorRootHTTP": 502,
+  "steps": [
+    {
+      "stage": "manifest",
+      "atUTC": "2026-11-01T16:46:35.848441+00:00",
+      "publicDNSAddresses": 1,
+      "connectionAddressPinned": true,
+      "TLSValidated": true,
+      "redirectsFollowed": 0,
+      "http": 200,
+      "mime": "application/json",
+      "bytes": 1278,
+      "elapsedMilliseconds": 693
+    },
+    {
+      "stage": "catalog",
+      "atUTC": "2026-11-01T16:46:36.504673+00:00",
+      "publicDNSAddresses": 1,
+      "connectionAddressPinned": true,
+      "TLSValidated": true,
+      "redirectsFollowed": 0,
+      "http": 200,
+      "mime": "application/json",
+      "bytes": 615,
+      "elapsedMilliseconds": 663
+    },
+    {
+      "stage": "same-ID metadata",
+      "atUTC": "2026-11-01T16:46:37.167972+00:00",
+      "publicDNSAddresses": 1,
+      "connectionAddressPinned": true,
+      "TLSValidated": true,
+      "redirectsFollowed": 0,
+      "http": 200,
+      "mime": "application/json",
+      "bytes": 628,
+      "elapsedMilliseconds": 656
+    },
+    {
+      "stage": "descriptor",
+      "atUTC": "2026-11-01T16:46:37.826652+00:00",
+      "publicDNSAddresses": 1,
+      "connectionAddressPinned": true,
+      "TLSValidated": true,
+      "redirectsFollowed": 0,
+      "http": 200,
+      "mime": "application/json",
+      "bytes": 588,
+      "elapsedMilliseconds": 660
+    },
+    {
+      "stage": "HLS root",
+      "atUTC": "2026-11-01T16:46:38.488345+00:00",
+      "publicDNSAddresses": 1,
+      "connectionAddressPinned": true,
+      "TLSValidated": true,
+      "redirectsFollowed": 0,
+      "http": 504,
+      "mime": "application/json",
+      "bytes": 56,
+      "elapsedMilliseconds": 15658
+    }
+  ],
+  "metadataRequests": 4,
+  "hlsRootRequests": 1,
+  "segmentRequests": 0,
+  "nativePlaybackPass": false,
+  "codeOrSettingsChanged": false,
+  "devicesTouched": false,
+  "rawMediaRetained": false,
+  "manifest": {
+    "id": "org.flixstreams.free",
+    "version": "1.0.0"
+  },
+  "channel": {
+    "id": "dlstreams:channel:369",
+    "name": "Fox Cricket",
+    "catalogAndMetaCorroborated": true,
+    "programmeAuthority": false
+  },
+  "deliveryContract": {
+    "scheme": "https",
+    "origin": "https://free.flixnest.app",
+    "path": "/dlstreams/stream/dlstreams%3Achannel%3A369.m3u8",
+    "queryKeys": [
+      "t"
+    ],
+    "queryUnmodified": true,
+    "requiredHeaders": []
+  },
+  "result": "HLS root remains unavailable in this bounded recheck",
+  "remainingGate": "A real responding compatible Fox delivery; no segment or native test performed",
+  "stopReason": "root HTTP 504",
+  "completedUTC": "2026-11-01T16:46:54.138016+00:00",
+  "cleanup": {
+    "rawURLsNeverWritten": true,
+    "ownedMediaDeleted": true,
+    "frameTemporarilyPendingReview": false
+  },
+  "limitations": [
+    "No native decoded hold, normal Watch, audio or reliability pass",
+    "No account/payment/challenge/DRM workaround; no arbitrary upstream or redirect requested"
+  ]
+}

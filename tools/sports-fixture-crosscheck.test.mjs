@@ -5,6 +5,7 @@ import { SPORTS_CROSSCHECK_SOURCE_IDS, collectSportsFixtureCrosscheck, reconcile
 
 const now = Date.parse("2026-09-30T16:00:00.000Z");
 const MINUTE = 60_000;
+const DAY = 24 * 60 * MINUTE;
 const iso = (time) => new Date(time).toISOString();
 const source = (id) => SPORTS_SOURCES.find((descriptor) => descriptor.id === id);
 const url = (id) => id === "mlb" ? `${source(id).sourceURL}?sportId=1&startDate=2026-09-29&endDate=2026-10-07`
@@ -56,10 +57,8 @@ test("finished, cancelled, postponed, unknown, elapsed scheduled and exact 24-ho
   const rows = [fixture("mlb", "100", { status: "finished" }), fixture("mlb", "101", { status: "cancelled" }),
     fixture("mlb", "102", { status: "postponed" }), fixture("mlb", "103", { status: "unknown" }),
     fixture("mlb", "104", { status: "scheduled" }), fixture("mlb", "105", { status: "scheduled", start: iso(now + 24 * 60 * MINUTE) })]
-    // These are independent fixtures, not six contradictory opaque IDs for
-    // the same teams/start. Duplicate semantic records remain inadmissible.
-    .map((row, index) => ({ ...row, participants: row.participants.map((team, side) => ({
-      ...team, id: `mlb:${index * 2 + side + 1}`, name: `${team.name} ${index}` })) }));
+    .map((row, index) => ({ ...row, participants: row.participants.map((participant, participantIndex) => ({ ...participant,
+      id: `mlb:${1000 + index * 2 + participantIndex}` })) }));
   const report = await reconcile(snapshot(), { mlb: collection(rows, { pendingFixtureCount: 3 }) });
   assert.equal(report.lanes[0].expectedCount, 0);
   assert.equal(report.lanes[0].pendingFixtureCount, 3);
@@ -70,7 +69,7 @@ test("an exact missing live or imminent identity after ten-minute grace is actio
   for (const row of [fixture(), fixture("mlb", "100", { status: "scheduled", start: iso(now + 30 * MINUTE) })]) {
     const report = await reconcile(snapshot(), { mlb: collection([row]) });
     assert.equal(report.lanes[0].omittedCount, 1);
-    assert.deepEqual(report.findings.map(({ evidenceKey, ...finding }) => finding),
+    assert.deepEqual(report.findings.map((finding) => { const fields = { ...finding }; delete fields.evidenceKey; return fields; }),
       [{ code: "same-upstream-current-omission", competitionId: "mlb", actionable: true }]);
     assert.match(report.findings[0].evidenceKey, /^[a-f0-9]{64}$/);
     assert.equal(JSON.stringify(report).includes("Alpha"), false);
@@ -113,14 +112,107 @@ test("continuously renewed same-ID disagreements remain non-actionable repeat fi
   assert.equal(first.findings[0].evidenceKey, repeated.findings[0].evidenceKey);
 });
 
-test("old accepted quiet-lane receipts cannot establish actionable omissions or disagreements", async () => {
+test("old quiet-lane receipts require a refresh for fresh current evidence, not an omission or correction claim", async () => {
   const old = await reconcile(snapshot({ mlb: [] }, 31 * MINUTE), { mlb: collection([fixture()]) });
-  assert.equal(old.lanes[0].status, "comparison-stale");
-  assert.deepEqual(old.findings, []);
+  assert.equal(old.lanes[0].status, "refresh-required");
+  assert.equal(old.findings[0].code, "same-upstream-refresh-required");
+  assert.equal(old.findings[0].actionable, false);
+  assert.match(old.findings[0].evidenceKey, /^[a-f0-9]{64}$/);
   const accepted = fixture(); accepted.start = iso(now - 2 * 60 * MINUTE);
   const disagreement = await reconcile(snapshot({ mlb: [accepted] }, 4 * 60 * MINUTE), { mlb: collection([fixture()]) });
   assert.equal(disagreement.lanes[0].disagreementCount, 1);
-  assert.deepEqual(disagreement.findings, []);
+  assert.equal(disagreement.findings[0].code, "same-upstream-refresh-required");
+  assert.equal(disagreement.findings[0].actionable, false);
+  const future = fixture("mlb", "101", { status: "scheduled", start: iso(now + 31 * MINUTE) });
+  const quiet = await reconcile(snapshot({ mlb: [] }, 4 * 60 * MINUTE), { mlb: collection([future]) });
+  assert.equal(quiet.lanes[0].status, "comparison-stale");
+  assert.deepEqual(quiet.findings, []);
+});
+
+test("fresh resolved source rows contradict accepted active records without becoming expected omissions", async () => {
+  for (const id of ["mlb", "nhl", "wnba"]) for (const oldStatus of ["live", "scheduled"]) {
+    for (const status of ["finished", "cancelled", "postponed"]) {
+      const old = fixture(id, "100", { status: oldStatus });
+      const current = fixture(id, "100", { status });
+      const body = snapshot({ [id]: [old] });
+      const before = JSON.stringify(body);
+      const report = await reconcile(body, { [id]: collection([current]) });
+      assert.equal(report.lanes[0].expectedCount, 0);
+      assert.equal(report.lanes[0].statusComparisonCount, 1);
+      assert.equal(report.lanes[0].omittedCount, 0);
+      assert.equal(report.lanes[0].disagreementCount, 1);
+      assert.equal(report.findings[0].code, "same-upstream-fixture-disagreement");
+      assert.equal(report.findings[0].actionable, false);
+      assert.match(report.findings[0].evidenceKey, /^[a-f0-9]{64}$/);
+      assert.equal(JSON.stringify(body), before);
+      assert.equal(JSON.stringify(report).includes("Alpha"), false);
+    }
+  }
+});
+
+test("terminal transitions retain grace and identical fact keys, then disappear on accepted recovery", async () => {
+  const old = fixture();
+  const current = fixture("mlb", "100", { status: "finished" });
+  const first = await reconcile(snapshot({ mlb: [old] }, 5 * MINUTE), { mlb: collection([current]) });
+  const repeat = await reconcile(snapshot({ mlb: [old] }, MINUTE), { mlb: collection([current]) });
+  assert.equal(first.lanes[0].status, "comparison-pending");
+  assert.equal(first.findings[0].actionable, false);
+  assert.equal(first.findings[0].evidenceKey, repeat.findings[0].evidenceKey);
+  const changed = await reconcile(snapshot({ mlb: [old] }, MINUTE), { mlb: collection([{ ...current, status: "cancelled" }]) });
+  assert.notEqual(first.findings[0].evidenceKey, changed.findings[0].evidenceKey);
+  const recovered = await reconcile(snapshot({ mlb: [current] }, MINUTE), { mlb: collection([current]) });
+  assert.equal(recovered.lanes[0].statusComparisonCount, 0);
+  assert.deepEqual(recovered.findings, []);
+});
+
+test("a next-day cancellation is compared, but farther-future and historical scheduled claims are not current evidence", async () => {
+  const current = fixture("mlb", "100", { status: "cancelled", start: iso(now + 2 * 60 * MINUTE) });
+  const near = await reconcile(snapshot({ mlb: [{ ...current, status: "scheduled" }] }), { mlb: collection([current]) });
+  assert.equal(near.lanes[0].statusComparisonCount, 1);
+  assert.equal(near.findings[0].code, "same-upstream-fixture-disagreement");
+  for (const start of [iso(now + 2 * DAY), iso(now - 5 * 60 * MINUTE)]) {
+    const row = { ...current, start };
+    const outside = await reconcile(snapshot({ mlb: [{ ...row, status: "scheduled" }] }), { mlb: collection([row]) });
+    assert.equal(outside.lanes[0].statusComparisonCount, 0);
+    assert.deepEqual(outside.findings, []);
+  }
+});
+
+test("refresh-required evidence ignores receipt age but distinguishes fresh source facts and clears on recovery", async () => {
+  const row = fixture();
+  const first = await reconcile(snapshot({ mlb: [] }, 31 * MINUTE), { mlb: collection([row]) });
+  const repeat = await reconcile(snapshot({ mlb: [] }, 4 * 60 * MINUTE), { mlb: collection([row]) });
+  assert.equal(first.findings[0].evidenceKey, repeat.findings[0].evidenceKey);
+  const changed = await reconcile(snapshot({ mlb: [] }, 4 * 60 * MINUTE), { mlb: collection([fixture("mlb", "101")]) });
+  assert.notEqual(first.findings[0].evidenceKey, changed.findings[0].evidenceKey);
+  const recovered = await reconcile(snapshot({ mlb: [row] }, MINUTE), { mlb: collection([row]) });
+  assert.deepEqual(recovered.findings, []);
+  assert.equal(JSON.stringify(first).includes("https://"), false);
+});
+
+test("old active receipts versus fresh resolved evidence require refresh rather than silently dropping the transition", async () => {
+  const report = await reconcile(snapshot({ mlb: [fixture()] }, 4 * 60 * MINUTE),
+    { mlb: collection([fixture("mlb", "100", { status: "finished" })]) });
+  assert.equal(report.lanes[0].statusComparisonCount, 1);
+  assert.equal(report.lanes[0].status, "refresh-required");
+  assert.equal(report.findings[0].code, "same-upstream-refresh-required");
+  assert.equal(report.findings[0].actionable, false);
+});
+
+test("isolated admitted rows use their fresh receipt without claiming a complete cohort or collecting held-only lanes", async () => {
+  const body = snapshot({ mlb: [fixture()] }, 4 * 60 * MINUTE);
+  body.sourceStatus = "partial"; body.coverage[0].status = "unavailable";
+  body.checkedAt = iso(now);
+  body.coverage[0].sync.consecutiveFailures = 2;
+  body.fixtures[0].source = { ...body.fixtures[0].source, observedAt: iso(now), verification: "verified" };
+  const report = await reconcile(body, { mlb: collection([fixture()]) });
+  assert.equal(report.lanes[0].status, "matched");
+  assert.deepEqual(report.findings, []);
+  body.fixtures[0].source.verification = "held";
+  let calls = 0;
+  const heldOnly = await collectSportsFixtureCrosscheck(body, { now, collect: async () => { calls++; return collection(); } });
+  assert.equal(calls, 0);
+  assert.deepEqual(heldOnly.lanes, []);
 });
 
 test("a changed team, UTC, squad, source origin or status for the same event is a non-actionable disagreement, never an omission", async () => {
@@ -202,7 +294,7 @@ test("an old publisher artifact on an imminent fixture is stale even with a new 
   assert.equal(report.findings[0].actionable, false);
 });
 
-test("only covered MLB/NHL/WNBA lanes are fetched; ESPN and football-data remain excluded", async () => {
+test("only admitted MLB/NHL/WNBA lanes are fetched; unactivated, ESPN and football-data lanes remain excluded", async () => {
   assert.deepEqual(SPORTS_CROSSCHECK_SOURCE_IDS, ["mlb", "nhl", "wnba"]);
   const body = snapshot({ mlb: [], nba: [], nhl: [], wnba: [] });
   body.coverage.find((row) => row.competitionId === "nhl").status = "unsupported";

@@ -1,29 +1,31 @@
 # Automatic sports fixtures
 
-Status, 1 October 2026: production source3 covers PL/CL, MLB and NHL. The owner
-approved protected publication/deployment of candidate source4: six-league
-football-data coverage, receipt migration and cricket cohort safety. Do not call
-the candidate deployed until its exact-version checks and fresh receipts pass.
-WNBA remains deferred after its verified Cloudflare access failure. Cricket
-retains its existing registry. Website
-feeds stay disabled; no TestFlight, new subscription or paid-policy change is authorized.
+Status, 1 October 2026: the cleared cloud subset is deployed and its hosted
+monitor is healthy. Six football leagues, MLB and NHL have accepted production receipts.
+WNBA is explicitly deferred after a verified Cloudflare access failure.
+Cricket retains its existing registry. Website feeds stay disabled; no
+TestFlight, new subscription or paid-policy change is authorized.
+The six-league football expansion and cricket conflict isolation are now deployed
+through protected PR35; source `2026-10-01.cricket-corrections-1` / PR36 now
+preserves that coverage/configuration and recovers the verified ICC corrections.
+Current hosted sports monitor36916809058 passes. See the historical receipt below
+and `Cricket-Fixture-Service.md` for the superseding Worker identity/recovery.
 This backend PR does not reconcile the older remote native app with the locally
 qualified consumer. The owner iPad gate uses a separate immutable source receipt.
 
 ## Coverage is explicit, not a promise of every event
 
-The source4 manifest defines 26 source groups and 31 competition scopes. Of these,
+The deployed manifest defines 26 source groups and 31 competition scopes. Of these,
 24 groups have bounded adapters; boxing and PDC darts remain unsupported.
-It expands football-data to PL/CL, La Liga, Serie A, Bundesliga and Ligue 1 in
-one existing-account bulk request. Along with MLB/NHL, eight scopes are eligible;
-23 remain deferred/unsupported, including WNBA. An eligible scope needs its own
-fresh deployed receipt; older PL/CL-only state cannot prove new leagues empty.
-See [the per-competition source-access ledger](Sports-Fixture-Source-Gaps.md).
+Production covers six European leagues through the existing football-data group,
+MLB and NHL: eight accepted competition scopes, with 23 deferred/unsupported
+source gaps. Successful empty receipts qualify transport/schema in this window,
+not independent proof of every league's fixture completeness.
 Cricket retains its separate CPL / West Indies / ICC integration and monitor.
 
 | Lane | Staged competitions | Source boundary |
 | --- | --- | --- |
-| Football | PL, Champions League, La Liga, Serie A, Bundesliga, Ligue 1, MLS | Six-code football-data bulk adapter uses the existing credential; MLS remains gated. |
+| Football | PL, Champions League, La Liga, Serie A, Bundesliga, Ligue 1, MLS | Deployed six-league football-data bulk adapter uses the existing credential; MLS remains a gated website adapter. |
 | Baseball / hockey | MLB, NHL | League-owned structured schedule routes. |
 | Basketball | WNBA, NBA, men's/women's NCAA Division I | WNBA cloud access deferred; NBA/NCAA website adapters gated. |
 | American football | NFL, NCAA FBS/FCS | Gated website adapters; agreeing interdivision duplicates are unioned, conflicts rejected. |
@@ -72,11 +74,6 @@ at least four minutes. Confirmed correction receipts persist so an offline
 native client can accept them later. Failed refreshes retain the original
 accepted facts and original timestamps; partial is not a healthy empty league.
 
-Source4 migration triggers one immediate scope attempt, persisting its exact
-attempted scope so a failed expansion still respects five-minute retry across
-GET/POST/restart. Per-competition pending counts must reconcile with both the
-requested scope and total; invalid scope/count retains accepted observations.
-
 ## Native consumer
 
 `SportsFixtureCatalog.swift` validates/caches responses and merges into the
@@ -96,6 +93,39 @@ One native update is required to introduce this consumer. After cloud activation
 and that installation, routine admitted fixture/status corrections do not need
 an app rebuild. Publisher schema/access changes can still require adapter work;
 no automation guarantees a publisher will never omit or correct a fixture.
+
+## Local repair follow-up (6 October 2026; source-only)
+
+This follow-up is staged, not the deployed service described above. No source
+activation, publication, deployment, device installation or TestFlight release
+has occurred in this repair pass.
+
+- Schema1 accepts optional `source.verification: "verified" | "held"`; legacy
+  absent markers remain valid, null/unknown values do not. Held rows retain
+  their original facts and source receipt; affected competition coverage stays
+  unavailable. Unaffected rows/competitions can advance independently. Whole
+  source schema/scope/transport failure still holds all its retained records.
+- Corrections require repeated per-record facts, not a whole-collection hash.
+  Ambiguous replacement IDs with identical match facts and football-data IDs
+  moving competition are held/withheld, never guessed into aliases or migrations.
+- Provisional pending dates/counts are internal, scoped polling evidence: near
+  starts keep five-minute polling; unknown timing keeps15-minute polling. They
+  are not public fixtures, countdowns or reminder eligibility.
+- A wholly partial HTTP200 needs validated fresh verified rows. Unavailable
+  row overrides expire after30minutes; receipt/provenance failures cannot bypass
+  admission. Native failures/caches preserve watermarks and remove held reminders
+  without deleting bookmarks. Installed clients do not gain these changes until
+  the separately approved native installation gate.
+- Native MLB/NHL stream joins may admit one exact dated two-participant match
+  from a plain category, only for verified senior men's fixtures with no contrary
+  league/squad evidence. Ambiguity/doubleheaders are rejected. Explicit local
+  provider-ID aliases preserve saved and playback continuity; generic channels
+  remain programme-unconfirmed.
+- Fresh same-publisher finished/cancelled/postponed evidence is compared with
+  accepted active records. Fresh current evidence against an old quiet snapshot
+  requires refresh, not a definitive omission claim. Only identical consecutive
+  fact evidence escalates after grace; collection remains bounded and limited
+  to admitted publisher lanes. This is not independent-publisher corroboration.
 
 ## Monitor and its limits
 
@@ -135,9 +165,10 @@ cross-publisher coverage remains a source-selection gap, not a completed gate.
   The existing proxy strips bulk competition parameters and is not proof of scope.
 - Publish through a protected PR after source-access review and current gates.
   Reconcile remote native/backend state; do not assume the older remote client
-  equals this working tree. The candidate `worker-version.mjs` is
-  `2026-10-01.sports-fixtures-4`; do not call it deployed until the deployed
-  version, binding and registered cron match the protected source receipt.
+  equals this working tree. Production `worker-version.mjs` is
+  `2026-10-01.sports-fixtures-4`, deployed from exact merged main `3742b96`.
+  Recheck current version before health assertions; older dated receipts below
+  describe prior deployments, not the present baseline.
 - Confirm the registered cron, deployed flags/binding, warmed per-source
   receipts and a published monitor run. Observe a scheduled run separately.
 - Install only on the explicitly approved device, then verify retained interests,
@@ -153,14 +184,82 @@ error is resolved; style warnings remain, not a claimed zero-warning Swift gate.
 These checks are not physical playback or production activation evidence.
 Owned Xcode/dry-run/actionlint output is removed; about 48 GiB remains free.
 
-Source4 local qualification passes 317 primary-checkout backend tests and
-TypeScript/focused ESLint/dry-run/redacted scans. Publication requalifies the
-exact clean checkout under Node24 and protected CI; its older web/native graph
-is not replaced by unrelated local changes. Native valid-empty schedule fixes,
-owner-device installation and TestFlight are outside this backend release.
-The six-code account check proves scope/window/count transport, not independent
-completeness of every league. Required attribution remains
-`Football data provided by the Football-Data.org API.`
+## Local expansion and qualification, 1 October
+
+The existing football-data credential returned an exact six-code scope/window
+with matching zero count in one bounded request. PL/CL, La Liga, Serie A,
+Bundesliga and Ligue 1 now share that adapter, replacing four gated duplicate
+website descriptors. This uses the existing account, not a new subscription;
+it proves transport/schema, not independent completeness or production coverage.
+The required Football-Data.org attribution is included in native privacy and
+web terms source. The [source-access ledger](Sports-Fixture-Source-Gaps.md)
+records every remaining competition and distinguishes data rights from code
+licences. No provider account, purchase, access bypass or new paid call occurred.
+
+Older PL/CL-only durable receipts cannot mark the four added leagues covered.
+New scope triggers one immediate refresh and persists its attempted scope;
+failed migration respects five-minute backoff after GET/POST/restart. Per-scope
+pending counts must exactly reconcile with the requested lanes and total.
+Malformed scope/count receipts preserve accepted rows and timestamps.
+
+The existing local heartbeat was updated in place, retaining its six-hour
+cadence and ID `fotty-cricket-fixture-supervision`, under the name **Fotty
+all-sport fixture supervision**. It runs both bounded audits, checks published
+monitors and investigates new actionable source/native failures independently.
+It treats deferred/offseason lanes as expected gaps, not incidents, and cannot
+edit, publish, deploy or replace the cloud collector. Local supervision still
+requires the Mac/app available; the Worker cron does not.
+
+Fresh simulator-free qualification passes 652 Catalyst tests with two skipped
+and the generic unsigned iOS Release compile, including eight legacy-football
+regressions. This is freshly compiled source, not an old installed Mac app.
+The source-only native correction is not installed and no TestFlight build was
+uploaded. Owned Xcode output was removed; pre-existing caches are preserved.
+The full backend suite passes 317 tests, including actual-workerd primary-source
+contracts and cricket cohort/boundary regressions. TypeScript, zero-warning
+focused ESLint, Worker dry-run and redacted targeted source scans pass. Existing
+SwiftLint file-length/style errors remain; this is not a clean app-wide SwiftLint
+claim. About 46 GiB remains free. No cloud/GitHub publication occurred.
+
+Independent bounded research supports an expected empty PL/CL window for UTC
+1 October through 8 October exclusive: the Premier League's
+[published season list](https://www.premierleague.com/en/news/4675097) and
+[25 September return notice](https://www.premierleague.com/en/news/4726845/when-does-the-premier-league-return)
+resume on 10 October, while UEFA's
+[published league-phase calendar](https://www.uefa.com/uefachampionsleague/news/02a8-2174c9e9019d-f909a77bd77a-1000--2026-27-champions-league-all-the-league-phase-fixtures/)
+places the next matchday on 13–14 October. Dynamic calendar rows and subsequent
+rearrangements were not independently readable. This corroborates published
+expected emptiness for PL/CL only, not current completeness of all six leagues.
+
+## Expanded cleared-source rollout, 1 October 2026
+
+- Owner chose backend publication/deployment only, not TestFlight or new feeds.
+  Protected [PR35](https://github.com/jetboss/Fotty/pull/35) merged as
+  `3742b96f08d02e4dce722073f818c3b3f7a4a43d`. Only nine fixture Worker
+  source/test files and three operations documents changed; playback, Coach,
+  credentials, config and native code were excluded. The reused clean checkout
+  was detached at that exact merged commit before deployment.
+- Node24 qualification: all 321 units, typecheck, focused zero-warning ESLint,
+  dry-run, redacted scans and diff checks pass. Full-repository lint has 48
+  existing warnings, zero errors. Hosted Web CI36883227752 (including build),
+  quality36883227772 and CodeQL36883227802 pass; no local app/simulator build.
+- Worker `d1cdb4e4-abb5-48a5-b024-2b276ddc23c8` carries source
+  `2026-10-01.sports-fixtures-4` at 100% traffic. Existing four Durable Object
+  bindings, website0/WNBA0, Coach disabled/50 and four secret-name/type receipts
+  are retained. The quota-consuming football-live route was not called.
+- The registered `*/5 * * * *` handler was independently observed on that exact
+  version at 15:30:45 UTC, outcome ok, zero exceptions. Only finite timing,
+  version/outcome/count metadata was retained; the bounded tail stopped.
+- Fresh production receipts at 15:25:46 UTC accept all six football scopes
+  with zero rows/pending in this window, plus MLB13 (eight separately pending)
+  and NHL57. Eight covered /23 explicit unsupported scopes; no enabled-lane
+  failures or conflicts. [Hosted sports monitor36884399877](https://github.com/jetboss/Fotty/actions/runs/36884399877)
+  passes live contracts and same-publisher reconciliation on merged main.
+  Manual dispatch does not establish hourly GitHub scheduler timing.
+- Cricket remains partial: healthy WI9 advances, while conflicted ICC58 retains
+  exact 13:00:46 facts and source receipts. Its full monitor still flags the
+  unresolved kickoff changes; see cricket operations. CPL39, health/embed and
+  all three catalog providers pass. No shared release or new device install.
 
 ## Production runtime correction
 
@@ -178,4 +277,51 @@ Protected PR32 deployed `5befcc6e-540d-41db-be0c-6171d9ccd250`, source version
 The correction adds actual edge-runtime regressions and finite redacted
 failure-stage/code/status receipts; raw exceptions/bodies/URLs are never logged.
 The initial manual monitor run 36842326870 failed during cold/failed activation;
-the final cleared-source monitor and owner-device gate still have to pass.
+the final cleared-source monitor has passed. Owner-device acceptance remains open.
+
+## Cleared activation receipts, 1 October 2026
+
+- Protected [PR33](https://github.com/jetboss/Fotty/pull/33) merged as
+  `7eb401cf00dd06331f4ec5991c989f3c3377b0f2`. Its source tree matches the deployed
+  clean checkout. Web CI 36846612572, quality 36846612567 and CodeQL 36846612478
+  pass; all302 clean JavaScript units and focused local gates pass.
+- Worker version `dc563c36-0137-41d5-b2bf-d292634902e7`, source
+  `2026-10-01.sports-fixtures-3`, has the registry binding, general activation1,
+  website0/WNBA0 and registered `*/5 * * * *` trigger. Health header/body agree.
+- A bounded read-only tail observed that exact version's scheduled handler at
+  10:10:45 UTC with outcome `ok`, independent of a manual GET or monitor dispatch.
+  Only cron/time/version/outcome fields were retained; the tail process ended.
+- `/api/sports/fixtures` returns HTTP200, verified, 70 fixtures: MLB13/NHL57;
+  PL/CL have successful empty receipts in this window. Four scopes are covered,
+  27 deferred/unsupported. Zero collection failures/conflicts in cleared lanes.
+  Eight MLB provisional events are separately pending, not fabricated reminders.
+- [Hosted monitor 36847037463](https://github.com/jetboss/Fotty/actions/runs/36847037463)
+  passes its contracts, live audit and same-publisher MLB/NHL comparison. This
+  manually dispatched recovery is not proof of hourly GitHub scheduler timing.
+- Cricket independently validates67 fixtures/three scopes; CPL verifies39;
+  health/embed and all3 catalog providers pass. Paid Coach remains disabled at50,
+  secrets/budget identities unchanged and football-live quota route not called.
+
+## Owner iPad consumer receipt
+
+Private2.0.1(112) app/extension installed and launched on exact Jet iPad
+`00008101-001954E20AC0001E` after strict signatures, profile/device/team,
+empty embedded provider-key checks and an immutable pre-build source compare.
+Native last-known-good cache validates70 fixtures/31 lanes and revision
+`38d7b01dedac3eded81080ef407c6a7b19afb9cba33648d23c963266c1ed00df`;
+its successful receipt is10:15:46 UTC. Original manager/Home-curation values
+are retained (fingerprints compared privately, values never exported).
+Actual landscape Home renders and installed process remains alive beyond60s.
+This is reception/retention/launch evidence, not reminder or decoded-playback proof.
+
+Owner112 also shows a separate legacy football-verification warning. Bounded PL/CL
+legacy probes return200 and empty current-season windows. The legacy repository
+escalates empty results into an unconfigured full-season premium fallback;
+proxy cooldown can also cause local no-key failures. Both are concrete paths,
+but the exact observed device error was not captured. Local source now treats
+valid empty schedules as successful cached results, avoids unconfigured premium
+and per-league fanout, preserves real proxy errors across cooldown and propagates
+cancellation without poisoning the cache. Malformed 200 bodies are decoded
+before success caching. Eight injected-session/repository regressions qualify
+these concrete paths, not the exact old device error. Install/accept the new
+source separately before calling that warning resolved; real errors stay visible.

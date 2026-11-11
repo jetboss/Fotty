@@ -159,19 +159,11 @@ final class FottyLiveActivityController {
             scoreText: sanitized(scoreText, fallback: "—"),
             providerName: sanitized(source?.provider, fallback: "Fotty"),
             isPlaying: true,
-            isP2P: isP2PSource(source),
+            // Retained in the activity schema so an activity created by an older
+            // private build can still decode while the app migrates to web-only playback.
+            isP2P: false,
             updatedAt: Date()
         )
-    }
-
-    private func isP2PSource(_ source: StreamSource?) -> Bool {
-        guard let source else { return false }
-        let url = source.url.absoluteString.lowercased()
-        let provider = source.provider.lowercased()
-        return provider.contains("p2p")
-            || url.contains("acestream")
-            || url.contains("p2p.pixel-invoice.com")
-            || source.headers["X-Fotty-P2P"] == "true"
     }
 
     private func sanitized(_ value: String?, fallback: String) -> String {

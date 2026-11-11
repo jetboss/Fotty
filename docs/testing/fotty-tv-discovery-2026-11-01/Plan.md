@@ -1,0 +1,13 @@
+# English sports TV discovery gate
+
+Owner approved using LiveTVCollector as a discovery directory, tracing leads to original publishers, and adding genuinely compatible channels through Fotty's existing TV/registry architecture. Private Jet-only qualification; phone, FPL, multi-stream, existing source choices, Git/cloud publication and TestFlight are excluded.
+
+Candidates: CBS Sports Golazo Network, beIN SPORTS XTRA, Fubo Sports Network and Willow Sports. Willow Sports is a separate FAST station, never a substitute identity or guide authority for main Willow Cricket. No claim of full Premier League or Champions League coverage follows from a channel name. Registry links still require current typed programme facts.
+
+Use exact original iptv-org station metadata, not the lossy LiveTVCollector export. The fresh generated US playlist advertises the working Fubo CloudFront contract while the current source-file Tubi delivery returns404. Preserve that distinction; do not invent or transform a replacement URL. Other Willow Amagi contracts returned403 and are excluded from this private candidate without repeated probing or geographic workarounds.
+
+Implementation is four finite stations in the existing reviewed-TV adapter, with exact identifiers/labels/source URLs/HTTPS hosts/paths, no credentials or additional headers, and the unchanged selected-channel90second renewal/relay guards. Existing stations and toggles remain. New English stations cannot borrow Uruguay guide assignments, main Willow programme records or fabricate fixtures.
+
+Run focused metadata/identity/renewal/opt-out regressions, one signed private211 build, then ordinary TV Watch on free Jet. Require correct-station picture and advancing native video for at least90seconds per accepted new channel; retain failures separately. Check basic selected-source controls once, do not repeat unrelated PiP/Watch Two suites. Remove unqualified candidates before leaving the normal private app installed. Preserve private preferences and clear only test-created recents. Use one owned output directory, no simulators or concurrent heavy builds, and clean all owned output/keep-awake processes on exit.
+
+Qualification update: beIN SPORTS XTRA passes actual native picture/progression. CBS and Willow Sports return403 for actual media through the relay. Fubo also returns403 for a current advertised media segment after the descriptor MIME discrepancy was identified. Final212 retains only beIN (stable TV17) and original TV1–15. The provisional Fubo/MIME repair was removed; no new playlist origin or transport/parser exception remains. Final affected44tests pass.

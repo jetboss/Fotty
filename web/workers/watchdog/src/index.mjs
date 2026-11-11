@@ -3,6 +3,8 @@ import { applyObservationBatch } from "../../../../tools/watchdog/observation-ba
 import { observerPolicyOptions, PROVIDERS, OBSERVER_REVISION, CONFIGURATION_REVISION, EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS, CONFIRMATION_WINDOWS } from "../../../../tools/watchdog/manifest.mjs";
 import { probeSources } from "../../../../tools/watchdog/source-probes.mjs";
 import { collectFixtureReceipts } from "../../../../tools/watchdog/fixture-receipts.mjs";
+import { OwnerEmailDelivery } from "./owner-email.mjs";
+import { MATCH_COVERAGE_KEY, matchCoverageReceipt, matchCoverageObservations, validateMatchCoverageReceipt } from "../../../../tools/watchdog/match-coverage.mjs";
 
 const KEY = "watchdog-observation-v1", INTERVAL = COLLECTION_INTERVAL_MS, LEASE = 4 * 60_000;
 function activationTime(env, now = Date.now()) {
@@ -53,8 +55,22 @@ function validateRuntime(runtime) {
   } else if (Object.keys(budget).length) throw new Error("Missing budget day");
 }
 export class WatchdogState {
-  constructor(state, env) { this.state = state; this.env = env; }
-  async transact(change) {
+  constructor(state, env) { this.state = state; this.env = env; this.ownerEmail = new OwnerEmailDelivery(state.storage, env); }
+  async drainOwnerEmail(now = Date.now()) {
+    if (this.env.FOTTY_OWNER_EMAIL_ENABLED === "0") return;
+    try {
+      if (this.env.FOTTY_OWNER_EMAIL_ENABLED !== "1") {
+        const diagnostic = await this.ownerEmail.status(now);
+        return diagnostic.enabled ? diagnostic : undefined;
+      }
+      const stored = await this.state.storage.get(KEY);
+      if (!stored) return;
+      validateLedger(stored.ledger, policy);
+      // Read only the durable outbox, never the uncommitted collector result.
+      return await this.ownerEmail.drain(listNotifications(stored.ledger, policy), now);
+    } catch { return { enabled: true, state: "state-unavailable" }; }
+  }
+  async transact(change, matchCoverage) {
     return this.state.storage.transaction(async (transaction) => {
       const stored = await transaction.get(KEY) || { ledger: emptyLedger(policy), runtime: { fence: 0, lease: null, nextAt: 0, budget: {} } };
       validateLedger(stored.ledger, policy);
@@ -63,7 +79,14 @@ export class WatchdogState {
       validateLedger(stored.ledger, policy);
       validateRuntime(stored.runtime);
       if (new TextEncoder().encode(JSON.stringify(stored)).length > 1024 * 1024) throw new Error("Watchdog storage bound");
-      await transaction.put(KEY, stored); return result;
+      await transaction.put(KEY, stored);
+      // A separate bounded projection commits in the SAME transaction as the
+      // owned collector completion. Failed/expired commits retain the old one.
+      if (matchCoverage && result?.committed === true) {
+        validateMatchCoverageReceipt(matchCoverage);
+        await transaction.put(MATCH_COVERAGE_KEY, matchCoverage);
+      }
+      return result;
     });
   }
   async run(now = Date.now()) {
@@ -79,7 +102,10 @@ export class WatchdogState {
       runtime.fence++; runtime.lease = { fence: runtime.fence, expiresAt: now + LEASE };
       runtime.lastAttemptedAt = now; return runtime.fence;
     });
-    if (fence === null) return response({ due: false });
+    if (fence === null) {
+      const ownerEmail = await this.drainOwnerEmail(now);
+      return response({ due: false, ...(ownerEmail ? { ownerEmail } : {}) });
+    }
     const reserve = (source) => this.transact((stored) => {
       if (stored.runtime.lease?.fence !== fence || stored.runtime.lease.expiresAt <= Date.now()) return false;
       const day = new Date(Date.now()).toISOString().slice(0, 10), bound = PROVIDERS.find((row) => row.source === source)?.maxRequestsPerDay;
@@ -90,24 +116,33 @@ export class WatchdogState {
       stored.runtime.budget.counts[source] = used + 1; return true;
     });
     try {
-      let sportsSnapshot;
-      const fixtureReceipts = await collectFixtureReceipts({ now, onSportsSnapshot: (body) => { sportsSnapshot = body; } });
-      const receipts = [...await probeSources({ now, reserve, sportsSnapshot }), ...fixtureReceipts];
+      let sportsSnapshot, cricketSnapshot;
+      const catalogs = [];
+      const fixtureReceipts = await collectFixtureReceipts({ now,
+        onSportsSnapshot: (body) => { sportsSnapshot = body; },
+        onCricketSnapshot: (body) => { cricketSnapshot = body; } });
+      const sourceReceipts = await probeSources({ now, reserve, sportsSnapshot,
+        onCatalog: (packet) => { catalogs.push(packet); } });
+      const matchCoverage = matchCoverageReceipt({ sportsSnapshot, cricketSnapshot, catalogs, now });
+      const receipts = [...sourceReceipts, ...fixtureReceipts, ...matchCoverageObservations(matchCoverage)];
       const committed = await this.transact((stored) => {
         if (stored.runtime.lease?.fence !== fence || stored.runtime.lease.expiresAt <= Date.now()) return { committed: false, events: [] };
         const result = applyObservationBatch(stored.ledger, receipts, policy, Date.now());
         result.state.revision = stored.ledger.revision + 1; stored.ledger = result.state;
         stored.runtime.lastCompletedAt = Date.now(); stored.runtime.nextAt = now + INTERVAL; stored.runtime.lease = null;
         return { committed: true, events: result.events };
-      });
+      }, matchCoverage);
       // A failed storage commit must never announce a transition. Delivery is
       // separately retried from durable history by the independent observer.
       for (const event of committed.events) console.log(JSON.stringify({ category: "watchdog", type: event.type, generation: event.generation || null }));
-      return response({ committed: committed.committed, changes: committed.events.length }, committed.committed ? 200 : 409);
+      const ownerEmail = committed.committed ? await this.drainOwnerEmail() : undefined;
+      return response({ committed: committed.committed, changes: committed.events.length,
+        ...(ownerEmail ? { ownerEmail } : {}) }, committed.committed ? 200 : 409);
     } catch {
       // No success heartbeat and no accepted-fixture mutation on store/probe
       // failure. The independent observer will detect the missed completion.
-      return response({ committed: false, failure: "observer-check-failed" }, 503);
+      const ownerEmail = await this.drainOwnerEmail();
+      return response({ committed: false, failure: "observer-check-failed", ...(ownerEmail ? { ownerEmail } : {}) }, 503);
     }
   }
   async fetch(request) {
@@ -116,6 +151,8 @@ export class WatchdogState {
     if (request.method !== "GET" || url.pathname !== "/status") return response({ error: "not-found" }, 404);
     const stored = await this.state.storage.get(KEY);
     if (stored) { validateLedger(stored.ledger, policy); validateRuntime(stored.runtime); }
+    const matchCoverage = await this.state.storage.get(MATCH_COVERAGE_KEY);
+    if (matchCoverage != null) validateMatchCoverageReceipt(matchCoverage);
     const activatedAt = activationTime(this.env);
     return response({ schema: 1, observerRevision: OBSERVER_REVISION, configurationRevision: CONFIGURATION_REVISION,
       expectedDeploymentRevision: EXPECTED_VERSIONS.deploymentRevision, activation: activatedAt === null ? "pending" : "active",
@@ -123,6 +160,8 @@ export class WatchdogState {
       intervalMs: INTERVAL, nativeEvidence: "private-device-canary-only", streamDelivery: "not-probed",
       lastAttemptedAt: stored?.runtime.lastAttemptedAt || null, lastCompletedAt: stored?.runtime.lastCompletedAt || null,
       nextAt: stored?.runtime.nextAt || null, overflow: Boolean(stored?.ledger.overflow),
+      matchCoverage: matchCoverage || null,
+      ownerEmail: await this.ownerEmail.status(),
       notifications: stored ? await Promise.all(listNotifications(stored.ledger, policy).map(publicNotification)) : [],
       incidents: Object.values(stored?.ledger.incidents || {}).map(({ source, stage, failureClass, state, facts, generation }) =>
         ({ source, stage, failureClass, state, generation, scope: facts.scope || null })) });

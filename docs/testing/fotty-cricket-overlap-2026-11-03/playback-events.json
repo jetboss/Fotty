@@ -1,0 +1,413 @@
+[
+  {
+    "at": "2026-11-04T03:02:45.766824+00:00",
+    "name": "watch_requested",
+    "outcome": "info",
+    "duration": null,
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T03:02:45.785070+00:00",
+    "name": "watch_discovery_started",
+    "outcome": "info",
+    "duration": null,
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T03:02:47.997333+00:00",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "duration": null,
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T03:02:48.196815+00:00",
+    "name": "attempt_started",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "source": "CS1",
+      "source_family": "communitysports",
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T03:02:48.757398+00:00",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "handoff_phase": "none",
+      "audio_enabled": "true",
+      "diagnostic_purpose": "native_start",
+      "source": "CS1",
+      "diagnostic_phase": "audio_preparation_requested",
+      "source_family": "communitysports",
+      "diagnostic_result": "began",
+      "playback_intent": "true",
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T03:02:48.779779+00:00",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "diagnostic_purpose": "platform_activation",
+      "diagnostic_phase": "audio_activation_requested",
+      "diagnostic_result": "began"
+    }
+  },
+  {
+    "at": "2026-11-04T03:02:49.043154+00:00",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "diagnostic_purpose": "platform_activation",
+      "diagnostic_phase": "audio_activation_finished",
+      "diagnostic_result": "completed"
+    }
+  },
+  {
+    "at": "2026-11-04T03:02:49.253210+00:00",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "handoff_phase": "none",
+      "audio_enabled": "true",
+      "diagnostic_purpose": "native_start",
+      "source": "CS1",
+      "diagnostic_phase": "audio_preparation_finished",
+      "source_family": "communitysports",
+      "diagnostic_result": "completed",
+      "playback_intent": "true",
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T03:02:49.263579+00:00",
+    "name": "audio_preparation_duration",
+    "outcome": "info",
+    "duration": 485,
+    "details": {
+      "mode": "native",
+      "source_family": "communitysports",
+      "source": "CS1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:02:49.735512+00:00",
+    "name": "source_discovery_result",
+    "outcome": "success",
+    "duration": 3720,
+    "details": {
+      "mode": "source_discovery",
+      "source_family": "communitysports"
+    }
+  },
+  {
+    "at": "2026-11-04T03:02:49.861693+00:00",
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "duration": 212,
+    "details": {
+      "mode": "source_discovery",
+      "source_family": "plaviosports"
+    }
+  },
+  {
+    "at": "2026-11-04T03:02:49.956776+00:00",
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "duration": 271,
+    "details": {
+      "source_family": "flixstreams",
+      "mode": "source_discovery"
+    }
+  },
+  {
+    "at": "2026-11-04T03:02:51.446621+00:00",
+    "name": "playback_stage",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "mode": "native",
+      "source_family": "communitysports",
+      "source": "CS1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:02:51.462628+00:00",
+    "name": "decoded_progress",
+    "outcome": "success",
+    "duration": 3257,
+    "details": {
+      "mode": "native",
+      "source_family": "communitysports",
+      "source": "CS1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:04:22.473565+00:00",
+    "name": "native_continuity_90s",
+    "outcome": "success",
+    "duration": 91006,
+    "details": {
+      "source_family": "communitysports",
+      "mode": "native",
+      "source": "CS1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:03.918643+00:00",
+    "name": "stall_observed_duration",
+    "outcome": "info",
+    "duration": 182,
+    "details": {
+      "mode": "native",
+      "source_family": "communitysports",
+      "source": "CS1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:27.149675+00:00",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "diagnostic_purpose": "native_resume",
+      "diagnostic_phase": "audio_preparation_requested",
+      "audio_enabled": "true",
+      "mode": "native",
+      "source_family": "communitysports",
+      "playback_intent": "true",
+      "source": "CS1",
+      "diagnostic_result": "began",
+      "handoff_phase": "none"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:27.165512+00:00",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "diagnostic_purpose": "platform_activation",
+      "diagnostic_result": "began",
+      "diagnostic_phase": "audio_activation_requested"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:27.384559+00:00",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "diagnostic_purpose": "platform_activation",
+      "diagnostic_phase": "audio_activation_finished",
+      "diagnostic_result": "completed"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:27.471300+00:00",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "audio_enabled": "true",
+      "diagnostic_phase": "audio_preparation_finished",
+      "mode": "native",
+      "diagnostic_purpose": "native_resume",
+      "source_family": "communitysports",
+      "playback_intent": "true",
+      "source": "CS1",
+      "diagnostic_result": "completed",
+      "handoff_phase": "none"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:27.476914+00:00",
+    "name": "audio_preparation_duration",
+    "outcome": "info",
+    "duration": 315,
+    "details": {
+      "mode": "native",
+      "source_family": "communitysports",
+      "source": "CS1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:54.431064+00:00",
+    "name": "source_failure",
+    "outcome": "failure",
+    "duration": 186219,
+    "details": {
+      "source_family": "communitysports",
+      "mode": "native",
+      "source": "CS1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:54.470019+00:00",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "duration": null,
+    "details": {}
+  },
+  {
+    "at": "2026-11-04T03:05:54.484618+00:00",
+    "name": "automatic_failover",
+    "outcome": "failure",
+    "duration": null,
+    "details": {
+      "mode": "native",
+      "source_family": "communitysports",
+      "source": "CS1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:54.558958+00:00",
+    "name": "stall_observed_duration",
+    "outcome": "info",
+    "duration": 26980,
+    "details": {
+      "mode": "native",
+      "source_family": "communitysports",
+      "source": "CS1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:54.569250+00:00",
+    "name": "attempt_started",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "mode": "native",
+      "source_family": "reviewedtv",
+      "source": "TV1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:56.051103+00:00",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "mode": "native",
+      "diagnostic_result": "began",
+      "diagnostic_phase": "audio_preparation_requested",
+      "diagnostic_purpose": "native_start",
+      "source": "TV1",
+      "handoff_phase": "none",
+      "source_family": "reviewedtv",
+      "audio_enabled": "true",
+      "playback_intent": "true"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:56.076967+00:00",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "diagnostic_purpose": "platform_activation",
+      "diagnostic_phase": "audio_activation_requested",
+      "diagnostic_result": "began"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:56.154337+00:00",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "diagnostic_purpose": "platform_activation",
+      "diagnostic_result": "completed",
+      "diagnostic_phase": "audio_activation_finished"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:56.372892+00:00",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "mode": "native",
+      "diagnostic_result": "completed",
+      "diagnostic_phase": "audio_preparation_finished",
+      "diagnostic_purpose": "native_start",
+      "handoff_phase": "none",
+      "source_family": "reviewedtv",
+      "audio_enabled": "true",
+      "playback_intent": "true",
+      "source": "TV1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:05:56.383253+00:00",
+    "name": "audio_preparation_duration",
+    "outcome": "info",
+    "duration": 307,
+    "details": {
+      "mode": "native",
+      "source": "TV1",
+      "source_family": "reviewedtv"
+    }
+  },
+  {
+    "at": "2026-11-04T03:06:00.001149+00:00",
+    "name": "playback_stage",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "mode": "native",
+      "source": "TV1",
+      "source_family": "reviewedtv"
+    }
+  },
+  {
+    "at": "2026-11-04T03:06:00.039370+00:00",
+    "name": "decoded_progress",
+    "outcome": "success",
+    "duration": 5465,
+    "details": {
+      "mode": "native",
+      "source": "TV1",
+      "source_family": "reviewedtv"
+    }
+  },
+  {
+    "at": "2026-11-04T03:06:20.301259+00:00",
+    "name": "native_presentation",
+    "outcome": "info",
+    "duration": null,
+    "details": {
+      "mode": "native"
+    }
+  },
+  {
+    "at": "2026-11-04T03:07:31.950481+00:00",
+    "name": "native_continuity_90s",
+    "outcome": "success",
+    "duration": 91900,
+    "details": {
+      "source_family": "reviewedtv",
+      "mode": "native",
+      "source": "TV1"
+    }
+  },
+  {
+    "at": "2026-11-04T03:10:25.745715+00:00",
+    "name": "stall_observed_duration",
+    "outcome": "info",
+    "duration": 962,
+    "details": {
+      "mode": "native",
+      "source": "TV1",
+      "source_family": "reviewedtv"
+    }
+  }
+]

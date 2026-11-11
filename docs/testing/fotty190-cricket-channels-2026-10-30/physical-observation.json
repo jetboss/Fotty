@@ -1,0 +1,16 @@
+{
+  "device": "Jet iPad",
+  "normalBuild": 190,
+  "channelRowsVisible": [
+    "Willow Cricket",
+    "Fox Cricket"
+  ],
+  "normalWillowWatchDisplayedVideo": true,
+  "observationUTC": "2026-10-30T12:21:00Z",
+  "observedProgramme": "South Africa vs Australia Test; Willow Live logo; SA257/5",
+  "ninetySecondAdvancingHoldPassed": false,
+  "foxPlaybackTested": false,
+  "fullscreenTested": false,
+  "pictureInPictureTested": false,
+  "sameMatchCardBroadcastLinkImplemented": false
+}

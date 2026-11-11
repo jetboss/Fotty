@@ -110,6 +110,59 @@ test("EFL spring fixtures retain the prior calendar season and do not assume Pre
   await assert.rejects(() => collect("efl-carabao-cup", eflFetch([eflRow({ competitionID: 10 })]), eflEnv), /identity/);
 });
 
+const eflNoMatches = { errors: [{ detail: "No matches found", title: "Not Found", status: "404" }] };
+
+test("EFL's verified no-matches 404 is an empty exact Cup window, not a source outage", async () => {
+  const november = new Date("2026-11-01T19:02:44Z");
+  let calls = 0;
+  const result = await collectSportsSource(source("efl-carabao-cup"), november, eflEnv, async (url, init) => {
+    calls++;
+    assert.equal(url.origin, "https://multi-club-matches.webapi.gc.eflservices.co.uk");
+    assert.equal(url.pathname, "/v2/matches");
+    assert.equal(url.searchParams.get("competitionID"), "2");
+    assert.equal(url.searchParams.get("seasonID"), "2026");
+    assert.equal(url.searchParams.get("from"), "2026-10-31 00:00:00Z");
+    assert.equal(url.searchParams.get("to"), "2026-11-08 23:59:59Z");
+    assert.equal(init.redirect, "manual");
+    return Response.json(eflNoMatches, { status: 404, headers: { Date: november.toUTCString() } });
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(result.fixtures, []);
+  assert.equal(result.pendingFixtureCount, 0);
+  assert.deepEqual(result.pendingByCompetition, { "carabao-cup": 0 });
+  assert.equal(result.observedAt, november.toISOString());
+});
+
+test("EFL empty-window handling rejects other 404 bodies, statuses and source lanes", async () => {
+  for (const body of [null, {}, { errors: [] }, { errors: [{ ...eflNoMatches.errors[0], detail: "Route not found" }] },
+    { errors: [{ ...eflNoMatches.errors[0], status: 404 }] }, { errors: [{ ...eflNoMatches.errors[0], title: "Unavailable" }] },
+    { ...eflNoMatches, data: [] }, { errors: [eflNoMatches.errors[0], eflNoMatches.errors[0]] }]) {
+    await assert.rejects(() => collect("efl-carabao-cup", async () => Response.json(body,
+      { status: 404, headers: { Date: now.toUTCString() } }), eflEnv));
+  }
+  for (const status of [400, 401, 403, 429, 500, 503]) {
+    await assert.rejects(() => collect("efl-carabao-cup", async () => Response.json(eflNoMatches,
+      { status, headers: { Date: now.toUTCString() } }), eflEnv), /unavailable/);
+  }
+  await assert.rejects(() => collect("mlb", async () => Response.json(eflNoMatches,
+    { status: 404, headers: { Date: now.toUTCString() } })), /unavailable/);
+});
+
+test("EFL no-matches evidence still requires JSON, a current artifact and no redirect", async () => {
+  for (const headers of [{}, { Date: "invalid" }, { Date: "Wed, 30 Sep 2026 09:59:59 GMT" },
+    { Date: "Wed, 30 Sep 2026 16:10:00 GMT" }, { Date: now.toUTCString(), Age: "invalid" }]) {
+    await assert.rejects(() => collect("efl-carabao-cup", async () => Response.json(eflNoMatches,
+      { status: 404, headers }), eflEnv));
+  }
+  await assert.rejects(() => collect("efl-carabao-cup", async () => new Response(JSON.stringify(eflNoMatches),
+    { status: 404, headers: { Date: now.toUTCString(), "Content-Type": "text/html" } }), eflEnv), /not JSON/);
+  await assert.rejects(() => collect("efl-carabao-cup", async () => {
+    const response = Response.json(eflNoMatches, { status: 404, headers: { Date: now.toUTCString() } });
+    Object.defineProperty(response, "redirected", { value: true });
+    return response;
+  }, eflEnv), /unavailable/);
+});
+
 test("EFL statuses are explicit publisher periods, including a past PreMatch remaining scheduled", async () => {
   for (const [matchPeriod, status] of [["PreMatch", "scheduled"], ["FirstHalf", "live"], ["HalfTime", "live"],
     ["SecondHalf", "live"], ["ExtraFirstHalf", "live"], ["ExtraSecondHalf", "live"], ["ShootOut", "live"],
@@ -233,10 +286,20 @@ test("ESPN unknown teams and TBD synthetic midnight count as pending without rem
   assert.equal(result.fixtures.length, 0);
   assert.equal(result.pendingFixtureCount, 2);
   assert.equal(result.pendingByCompetition.nba, 2);
+  assert.deepEqual(result.pendingStartsByCompetition.nba, ["2026-09-30T17:00:00.000Z", "2026-09-30T17:00:00.000Z"]);
 });
 
-test("remaining ESPN MLS descriptor retains explicit league identity and access gate", async () => {
-  for (const id of ["mls"]) {
+test("provisional near-term MLB date is internal polling evidence, not an admitted start", async () => {
+  const pending = mlbRow(); pending.status.startTimeTBD = true;
+  const result = await collect("mlb", async () => json(mlbPayload([pending])));
+  assert.deepEqual(result.fixtures, []);
+  assert.equal(result.pendingFixtureCount, 1);
+  assert.deepEqual(result.pendingStartsByCompetition, { mlb: ["2026-09-30T17:00:00.000Z"] });
+  assert.deepEqual(result.pendingByCompetition, { mlb: 1 });
+});
+
+test("ESPN football descriptors (MLS and national teams) retain explicit league identity and access gate", async () => {
+  for (const id of ["mls", "uefa-nations-league", "international-friendlies", "concacaf-nations-league"]) {
     const descriptor = source(id);
     const result = await collect(id, espnFetch(id, [espnEvent("100", {}, descriptor)]));
     assert.equal(result.fixtures[0].sport, "football");
@@ -365,6 +428,20 @@ test("football reuses one credentialed six-league bulk request with exclusive en
   assert.equal(result.fixtures[0].competitionId, "premier-league");
   assert.equal(result.fixtures[0].source.updatedAt, "2026-09-29T12:00:00.000Z");
   assert.ok(!JSON.stringify(result).includes("test-secret"));
+});
+
+test("existing six-league request adds delayed reported goals only to explicit regular-time CL rows", async () => {
+  const rows = [footballRow({ id: 1001, competition: { code: "CL" }, status: "IN_PLAY", lastUpdated: now.toISOString(),
+    score: { duration: "REGULAR", fullTime: { home: 2, away: 0 } } }),
+  footballRow({ id: 1002, competition: { code: "PL" }, status: "IN_PLAY", lastUpdated: now.toISOString(),
+    score: { duration: "REGULAR", fullTime: { home: 2, away: 0 } } }),
+  footballRow({ id: 1003, competition: { code: "CL" }, status: "TIMED", score: { duration: "REGULAR", fullTime: { home: null, away: null } } })];
+  let calls = 0;
+  const result = await collect("football-data", async (url) => { calls++; return footballFetch(rows)(url); }, { FOOTBALL_DATA_API_KEY: "test-secret" });
+  assert.equal(calls, 1);
+  assert.deepEqual(result.fixtures[0].reportedScore, { home: 2, away: 0, publisherUpdatedAt: now.toISOString() });
+  assert.equal(result.fixtures[1].reportedScore, undefined);
+  assert.equal(result.fixtures[2].reportedScore, undefined);
 });
 
 test("six licensed football scopes share one request and never use duplicate website adapters", async () => {

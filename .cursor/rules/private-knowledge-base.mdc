@@ -9,17 +9,17 @@ You are an agent working on **Fotty**. This project uses a modular, private proj
 
 ## 1. Context Requirement
 Before answering architecture questions or proposing major changes:
-- Check `docs/notebooklm/Project-Memory.md` for the current roadmap and pillars.
-- Check `docs/notebooklm/Decisions-Log.md` for recent fixes and logic changes.
-- Check `docs/notebooklm/Architecture-Map.md` to understand where components live.
+- Read `docs/notebooklm/Current-State.md` for the baseline, boundaries and open gates.
+- Retrieve relevant Project-Memory, Decisions-Log and Architecture-Map sections;
+  do not read the entire historical corpus for every task. Verify current source.
 - Run `./tools/agent-start.sh "Describe the task"` before broad refactors, release decisions, and unfamiliar debugging.
 
 ## 2. Maintenance Lifecycle
-When completing a significant task:
-1. **Log the Decision**: Append a summary to `docs/notebooklm/Decisions-Log.md`.
+When completing significant implementation (not a read-only audit):
+1. **Log the Decision**: Prepend a dated summary after the title in `docs/notebooklm/Decisions-Log.md` (newest first).
 2. **Update Memory**: If pillars or navigation changed, update the relevant `.md` files.
 3. **Refresh Source**: Run `./tools/notebooklm-refresh.sh` from the root.
-4. **Verify**: Run `./tools/brain-doctor.sh`.
+4. **Verify**: Run `./tools/brain-doctor.sh --export`. Update Current-State.md in place when its baseline or open gates change.
 
 Or use the guided wrapper:
 

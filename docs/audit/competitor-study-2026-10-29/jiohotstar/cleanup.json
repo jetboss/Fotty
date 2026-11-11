@@ -1,0 +1,12 @@
+{
+  "ownedTemporaryBytesRemoved": 350194,
+  "ownedTemporaryDirectoryRemoved": true,
+  "consumerArtifactsAvailableForREA": 0,
+  "REAExecuted": false,
+  "reason": "territory-unavailable response has no advertised executable JavaScript",
+  "browserScreenshotsInspected": "published App Store iPhone carousel; not native runtime",
+  "nativeRuntimeInspected": false,
+  "mediaFetched": false,
+  "appEdits": false,
+  "FPLOrMultiStreamWork": false
+}

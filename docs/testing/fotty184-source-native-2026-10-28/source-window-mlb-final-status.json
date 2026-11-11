@@ -1,0 +1,49 @@
+{
+  "checkedAtUTC": "2026-10-29T01:36:24.293890+00:00",
+  "fixture": "Tampa Bay Rays–Milwaukee Brewers, 2026-10-29T00:00:00Z",
+  "reads": [
+    {
+      "stage": "official_mlb_schedule",
+      "httpStatus": 200,
+      "bytes": 1659,
+      "bodySHA256": "5edb2988ede34979be86295cd8eebd2ec765b0f292845ff7d8d112eab8057a00",
+      "cacheEvidence": {
+        "Date": "Thu, 29 Oct 2026 01:36:25 GMT",
+        "Age": "6",
+        "Cache-Control": "max-age=20, public, stale-while-revalidate=30, stale-if-error=86400"
+      }
+    },
+    {
+      "stage": "deployed_native_fixture_snapshot",
+      "httpStatus": 200,
+      "bytes": 95948,
+      "bodySHA256": "ee19668af157ef75683363901981dd756df2758248fa7bfda6e43869e9e336c0",
+      "cacheEvidence": {
+        "Date": "Thu, 29 Oct 2026 01:36:25 GMT",
+        "Cache-Control": "public, max-age=60"
+      }
+    }
+  ],
+  "mediaFetched": false,
+  "deviceTouched": false,
+  "official": {
+    "exactTeamsDateCorroborated": true,
+    "abstractState": "Live",
+    "detailedState": "In Progress",
+    "code": "I",
+    "actuallyInProgress": true
+  },
+  "deployed": {
+    "matchingFixtureCount": 1,
+    "status": "live",
+    "snapshotGeneratedAt": null,
+    "snapshotCheckedAt": "2026-10-29T01:36:24.395Z"
+  },
+  "status": "still_in_progress",
+  "retention": {
+    "redactedCopy": true,
+    "sourceFile": "source-window-mlb-final-status.json",
+    "omittedFieldCount": 0,
+    "scope": "Metadata and bounded HLS-master observations only; no decoded-playback qualification."
+  }
+}

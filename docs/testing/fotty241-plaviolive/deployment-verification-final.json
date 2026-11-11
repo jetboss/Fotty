@@ -1,0 +1,9 @@
+{
+  "ok": false,
+  "problems": [
+    "post-deployment-real-collector-completion-missing"
+  ],
+  "notificationCount": 159,
+  "at": "2026-11-05T02:16:46.621Z",
+  "lastCompletedAt": "2026-11-05T02:15:59.926Z"
+}

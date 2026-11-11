@@ -1,0 +1,12 @@
+{
+  "ownedTemporaryGateRemoved": true,
+  "ownedDependencyFanoutRemoved": true,
+  "ownedKeepAwakeStopped": true,
+  "rawPreferencesMetadataSigningAndAPKAnalysisRemoved": true,
+  "userDownloadedAPKPreserved": true,
+  "originalDependenciesAndUserCachesPreserved": true,
+  "freeGiBBefore": 11.61,
+  "freeGiBAfter": 12.88,
+  "deviceBuild195LeftInstalled": true,
+  "devicePlaybackLeftRunning": true
+}

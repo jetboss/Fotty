@@ -8,6 +8,8 @@ The owner approved **phone-first validation for small scoped changes** on 2026-0
 
 Use **internal TestFlight for deliberately batched shared fixes and larger changes**, with the normal `Fotty` scheme and `Release` configuration. Small validated fixes still belong in the next shared release; urgent blocking/data-loss fixes may justify an earlier release. Direct-device acceptance does not certify the later TestFlight artifact. Do not change tester groups, notification settings or other devices as part of a phone-only request. This supersedes the former TestFlight-first rule for owner-approved small fixes.
 
+Do not upload every small correction to TestFlight. Use uniquely numbered private owner-iPhone builds as the pre-test lane, accumulate validated fixes and improvements over several days, and create a shared TestFlight build only when the batch is meaningfully different enough to justify a new tester round and focused What to Test notes. Calendar time alone is not the gate: the batch needs coherent user-visible value or a substantial reliability/quality milestone. An urgent blocker may still ship earlier with an explicit owner decision. Once a private build number is installed, a changed shared candidate must use a higher number.
+
 Keep the existing internal group and tester access unchanged unless separately authorized. Uploading an internal beta is not approval for external testing, App Store submission, or Git publication. Fotty now has one product graph; do not add distribution-dependent labels, substitute feature implementations, or launch-time unlock gates.
 
 `ExportOptions-TestFlightInternal.plist` uses automatic signing, uploads symbols, keeps the source-controlled build number, and marks the upload internal-only. It cannot later be promoted to external TestFlight or the App Store; that would require a separately authorized eligible build. The older `ExportOptions.plist` is for development export, not this workflow.
@@ -33,6 +35,7 @@ Check the latest live App Store Connect build first; a local project number can 
 1. Add intended changes under `CHANGELOG.md` → `Unreleased`.
 2. Check App Store Connect, allocate the next unused build, and run `tools/set-version.sh`. Preserve the current marketing version while iterating the same beta release scope.
 3. Run generated football catalog freshness plus `node tools/audit-provider-football-identity.mjs --live`, then the full unit/policy suites on Mac Catalyst and the relevant accessibility/interaction audits on an unlocked Mac. The metadata audit must reach at least one feed and find no unresolved top-flight marker/team pair; it never probes video. Record exact-source recent passing evidence when reusing it; a version-only change does not invalidate it. Run web/Worker tests and the production web build when their code or contract changed.
+   For scrolling/startup work, install the optimized graph with `tools/ios-performance-gate.sh --device <explicit owner iPhone UUID>`. Compare cold and warm gestures; add `--trace-device <xctrace device name>` only while someone can perform the exact gesture. The script's trace and build root are deliberately disposable.
 4. Compile the single generic-iOS Release configuration. Archive that same Release app for `generic/platform=iOS`, with automatic signing and two build jobs.
 5. Verify the archive's app/extension versions, bundle identifiers, strict signatures, deployment targets, and production configuration. Validate/upload using `ExportOptions-TestFlightInternal.plist`; no direct device install is part of this step.
 6. Distinguish upload accepted, Apple processing complete, and available to the existing internal group. Record the exact version/build and concise What to Test notes; do not call a processing build available.
@@ -43,6 +46,19 @@ Check the latest live App Store Connect build first; a local project number can 
 11. Only when source publication is separately authorized, replay changes onto clean ancestry, review/test that snapshot, commit and tag. Never publish or tag this dirty old-ancestry checkout.
 
 Use one owned temporary root for the entire archive/upload attempt, with an exit/interrupt cleanup trap. Do not create a DerivedData directory per configuration or device. Build sequentially with `-jobs 2`. Do not leave a large archive behind while waiting for account access; resolve sign-in before building. Upload symbols so TestFlight crash reporting can use them.
+
+Before archiving, select an Apple-supported public/RC Xcode explicitly with
+`DEVELOPER_DIR`; do not inherit an active beta toolchain merely because it can
+build or install on the owner's beta-OS device. Confirm the toolchain exposes
+`generic/platform=iOS` before creating the archive. A lightweight Xcode install
+may contain the SDK but still require its matching iOS platform component for
+asset compilation. Install only the Apple-silicon component when needed, never
+boot a simulator for the release gate, and record the reusable component's disk
+impact separately from disposable DerivedData/archive/export output. Check
+[Apple's current release list](https://developer.apple.com/news/releases/) and
+[supported upload versions](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)
+at release time because App Store Connect can stop accepting an older beta
+between Fotty uploads.
 
 ## Minimum internal-upload gates
 
@@ -63,6 +79,13 @@ Use one owned temporary root for the entire archive/upload attempt, with an exit
 - One clearly labeled test feedback report is received under the correct build; copying or sharing inside Fotty is not delivery proof.
 - A provider-side failure window is recorded honestly but does not substitute for an independently decoded physical playback acceptance.
 - `CHANGELOG.md`, Roadmap, Risks, Architecture Map, Project Memory, Decisions Log, and the completion report agree on the release scope and remaining limitations.
+
+After these gates pass, use
+[`docs/beta/PRIVATE-QUALIFICATION-2.0.md`](beta/PRIVATE-QUALIFICATION-2.0.md)
+for a seven-day, 3–5-person daily-use qualification. Do not expand the group
+during that week, and do not treat more tester invitations as a substitute for
+closing a known blocker. A changed candidate normally restarts the seven-day
+clock.
 
 TestFlight builds expire after 90 days, and new uploads need Apple processing time. Keep automatic updates enabled in TestFlight where desired; this is a beta channel, not a permanent production distribution substitute. See Apple's [TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview) and [internal testing guidance](https://developer.apple.com/help/app-store-connect/test-a-beta-version/add-internal-testers/).
 

@@ -1,0 +1,230 @@
+{
+  "at": "2026-10-29T00:41:52.123Z",
+  "requestCount": 4,
+  "as": {
+    "manifestVersion": "1.9.82",
+    "manifestValid": true,
+    "reviewedFootballAdvertised": true,
+    "reviewedCricketAdvertised": true,
+    "catalogs": [
+      {
+        "catalog": "plaviohd-football",
+        "count": 5,
+        "samples": [
+          {
+            "idHash": "ec3a4610847b",
+            "name": "(FHD) : SKY SPORTS PREMIER LEAGUE",
+            "genres": [
+              "Football"
+            ],
+            "description": "Live IPTV Recording\nLive on NOW-34334\nLIVE NOW"
+          },
+          {
+            "idHash": "52b39a796dfa",
+            "name": "Vancouver Whitecaps vs San Diego FC",
+            "genres": [
+              "Football"
+            ],
+            "description": "Vancouver Whitecaps vs San Diego FC\n29 Oct 2026 · 02:30 UTC"
+          },
+          {
+            "idHash": "b36d5e852abb",
+            "name": "Seattle Sounders vs Houston Dynamo",
+            "genres": [
+              "Football"
+            ],
+            "description": "Seattle Sounders vs Houston Dynamo\n29 Oct 2026 · 02:30 UTC"
+          },
+          {
+            "idHash": "380dc7d70ebb",
+            "name": "San Jose Earthquakes vs Colorado Rapids",
+            "genres": [
+              "Football"
+            ],
+            "description": "San Jose Earthquakes vs Colorado Rapids\n29 Oct 2026 · 02:30 UTC"
+          }
+        ]
+      },
+      {
+        "catalog": "plaviohd-cricket",
+        "count": 20,
+        "samples": [
+          {
+            "idHash": "a1f9302e4106",
+            "name": "(FHD) : SKY SPORTS CRICKET",
+            "genres": [
+              "Cricket"
+            ],
+            "description": "Live IPTV Recording\nLive on NOW-SKY3434\nLIVE NOW"
+          },
+          {
+            "idHash": "6d40ca5d1ceb",
+            "name": "Bangladesh vs West Indies - 1st Test Day 2",
+            "genres": [
+              "Cricket"
+            ],
+            "description": "Bangladesh vs West Indies\n29 Oct 2026 · 04:00 UTC"
+          },
+          {
+            "idHash": "31e186a83983",
+            "name": "South Africa vs Australia - 3rd Test Day 3",
+            "genres": [
+              "Cricket"
+            ],
+            "description": "South Africa vs Australia\n29 Oct 2026 · 07:30 UTC"
+          },
+          {
+            "idHash": "9c869b75cb5d",
+            "name": "Sri Lanka vs England",
+            "genres": [
+              "Cricket"
+            ],
+            "description": "Sri Lanka vs England\n29 Oct 2026 · 08:00 UTC"
+          }
+        ]
+      }
+    ],
+    "footballCompleteRefresh": {
+      "at": "2026-10-29T00:43:10.792Z",
+      "additionalRequests": 1,
+      "count": 5,
+      "projectionComplete": true,
+      "entries": [
+        {
+          "name": "(FHD) : SKY SPORTS PREMIER LEAGUE",
+          "type": "tv",
+          "genres": [
+            "Football"
+          ],
+          "explicitReleased": null,
+          "explicitDescriptionUTC": null,
+          "competition": null,
+          "genericRecording": true,
+          "reviewedIDPrefix": true,
+          "hasDefaultVideoID": false,
+          "defaultVideoIDMatchesMetadataID": null
+        },
+        {
+          "name": "Vancouver Whitecaps vs San Diego FC",
+          "type": "tv",
+          "genres": [
+            "Football"
+          ],
+          "explicitReleased": null,
+          "explicitDescriptionUTC": "2026-10-29T02:30:00.000Z",
+          "competition": null,
+          "genericRecording": false,
+          "reviewedIDPrefix": true,
+          "hasDefaultVideoID": false,
+          "defaultVideoIDMatchesMetadataID": null
+        },
+        {
+          "name": "Seattle Sounders vs Houston Dynamo",
+          "type": "tv",
+          "genres": [
+            "Football"
+          ],
+          "explicitReleased": null,
+          "explicitDescriptionUTC": "2026-10-29T02:30:00.000Z",
+          "competition": null,
+          "genericRecording": false,
+          "reviewedIDPrefix": true,
+          "hasDefaultVideoID": false,
+          "defaultVideoIDMatchesMetadataID": null
+        },
+        {
+          "name": "San Jose Earthquakes vs Colorado Rapids",
+          "type": "tv",
+          "genres": [
+            "Football"
+          ],
+          "explicitReleased": null,
+          "explicitDescriptionUTC": "2026-10-29T02:30:00.000Z",
+          "competition": null,
+          "genericRecording": false,
+          "reviewedIDPrefix": true,
+          "hasDefaultVideoID": false,
+          "defaultVideoIDMatchesMetadataID": null
+        },
+        {
+          "name": "Aarhus Fremad vs FC Copenhagen",
+          "type": "tv",
+          "genres": [
+            "Football"
+          ],
+          "explicitReleased": null,
+          "explicitDescriptionUTC": "2026-10-29T12:30:00.000Z",
+          "competition": null,
+          "genericRecording": false,
+          "reviewedIDPrefix": true,
+          "hasDefaultVideoID": false,
+          "defaultVideoIDMatchesMetadataID": null
+        }
+      ]
+    }
+  },
+  "icc": {
+    "observedAt": "2026-10-29T00:41:52.123Z",
+    "count": 59,
+    "pageRows": 59,
+    "liveFlagRows": [
+      {
+        "teams": [
+          "South Africa",
+          "Australia"
+        ],
+        "series": "Australia in South Africa, 3 Test Series, 2026",
+        "format": "Test",
+        "start": "2026-10-27T08:30:00Z",
+        "live": true,
+        "ended": false,
+        "status": "Stumps"
+      },
+      {
+        "teams": [
+          "Bangladesh",
+          "West Indies"
+        ],
+        "series": "West Indies in Bangladesh, 2 Test Series, 2026",
+        "format": "Test",
+        "start": "2026-10-28T03:30:00Z",
+        "live": true,
+        "ended": false,
+        "status": "Stumps"
+      }
+    ],
+    "next24h": [
+      {
+        "teams": [
+          "United Arab Emirates",
+          "Oman"
+        ],
+        "series": "ICC CWC League 2, 2023-27",
+        "format": "ODI",
+        "start": "2026-10-29T05:30:00Z",
+        "status": "Match begins at 11:00 IST (05:30 GMT)"
+      },
+      {
+        "teams": [
+          "Sri Lanka",
+          "England"
+        ],
+        "series": "ODI Tri-Series in Pakistan, 2026",
+        "format": "ODI",
+        "start": "2026-10-29T08:00:00Z",
+        "status": "Match begins at 13:30 IST (08:00 GMT)"
+      },
+      {
+        "teams": [
+          "Afghanistan",
+          "Zimbabwe"
+        ],
+        "series": "Afghanistan and Zimbabwe in UAE, 3 T20I Series, 2026",
+        "format": "T20",
+        "start": "2026-10-29T14:30:00Z",
+        "status": "Match begins at 20:00 IST (14:30 GMT)"
+      }
+    ]
+  },
+  "totalMetadataRequests": 5
+}

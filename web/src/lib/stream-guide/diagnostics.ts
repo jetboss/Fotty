@@ -22,7 +22,7 @@ export interface StreamDiagnosticPayload extends FottyEventPayload {
   healthState?: string;
   healthScore?: number;
   reason?: string;
-  playbackMode?: "event" | "p2p";
+  playbackMode?: "event";
 }
 
 const EVENT_MAP: Partial<Record<StreamDiagnosticEvent, FottyEventName>> = {

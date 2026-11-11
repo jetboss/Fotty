@@ -1,0 +1,132 @@
+{
+  "at": "2026-10-31T16:40:05.322Z",
+  "reads": 7,
+  "manifestVersion": "1.9.130",
+  "fixture": {
+    "title": "Manchester City FC vs Brighton & Hove Albion FC",
+    "start": "2026-10-31T15:00:00.000Z",
+    "status": "live",
+    "observedAt": "2026-10-31T16:38:33.424Z",
+    "publisher": "football-data.org"
+  },
+  "contract": {
+    "scheme": "https:",
+    "host": "admin2.formaturamaxi.com.br",
+    "port": "443(default)",
+    "pathSegmentCount": 1,
+    "pathExtension": "m3u8",
+    "queryNames": [],
+    "queryCount": 0,
+    "fragmentPresent": false,
+    "userInfoPresent": false,
+    "hasPercentPath": false,
+    "pathUnsafeSegments": false,
+    "behaviorHints": {
+      "keys": [
+        "notWebReady"
+      ],
+      "notWebReady": false,
+      "proxyHeadersPresent": false
+    },
+    "entryKeys": [
+      "name",
+      "title",
+      "url",
+      "behaviorHints"
+    ]
+  },
+  "playlist": {
+    "master": false,
+    "startsExtM3U": true
+  },
+  "sample": {
+    "status": 206,
+    "bytes": 4096,
+    "mpegTSSync": true,
+    "isoBMFFTag": "\u0000Bp%",
+    "hasExtInf": true,
+    "targetDurationPresent": true,
+    "mediaSequencePresent": true,
+    "encryptionTags": false
+  },
+  "receipts": [
+    {
+      "stage": "manifest",
+      "at": "2026-10-31T16:40:04.688Z",
+      "http": 200,
+      "bytes": 4870,
+      "contentType": "application/json; charset=utf-8",
+      "host": "hd.plavio.site",
+      "publicDNS": true,
+      "tlsDefaultValidation": true,
+      "redirectFollowed": false
+    },
+    {
+      "stage": "football-catalog",
+      "at": "2026-10-31T16:40:04.722Z",
+      "http": 200,
+      "bytes": 17061,
+      "contentType": "application/json; charset=utf-8",
+      "host": "hd.plavio.site",
+      "publicDNS": true,
+      "tlsDefaultValidation": true,
+      "redirectFollowed": false
+    },
+    {
+      "stage": "same-id-meta",
+      "at": "2026-10-31T16:40:04.754Z",
+      "http": 200,
+      "bytes": 596,
+      "contentType": "application/json; charset=utf-8",
+      "host": "hd.plavio.site",
+      "publicDNS": true,
+      "tlsDefaultValidation": true,
+      "redirectFollowed": false
+    },
+    {
+      "stage": "same-id-stream",
+      "at": "2026-10-31T16:40:04.929Z",
+      "http": 200,
+      "bytes": 188,
+      "contentType": "application/json; charset=utf-8",
+      "host": "hd.plavio.site",
+      "publicDNS": true,
+      "tlsDefaultValidation": true,
+      "redirectFollowed": false
+    },
+    {
+      "stage": "official-status",
+      "at": "2026-10-31T16:40:05.105Z",
+      "http": 200,
+      "bytes": 104765,
+      "contentType": "application/json",
+      "host": "fotty-playback-v3.adaptive-rhubarb.workers.dev",
+      "publicDNS": true,
+      "tlsDefaultValidation": true,
+      "redirectFollowed": false
+    },
+    {
+      "stage": "playlist",
+      "at": "2026-10-31T16:40:05.168Z",
+      "http": 200,
+      "bytes": 262,
+      "contentType": "application/vnd.apple.mpegurl",
+      "host": "admin2.formaturamaxi.com.br",
+      "publicDNS": true,
+      "tlsDefaultValidation": true,
+      "redirectFollowed": false
+    },
+    {
+      "stage": "advertised-media-sample",
+      "at": "2026-10-31T16:40:05.321Z",
+      "http": 206,
+      "bytes": 4096,
+      "contentType": "text/javascript",
+      "host": "admin2.formaturamaxi.com.br",
+      "publicDNS": true,
+      "tlsDefaultValidation": true,
+      "redirectFollowed": false
+    }
+  ],
+  "limits": "No decoded playback; DNS preflight is not address pinning; no redirects or credentials added"
+}

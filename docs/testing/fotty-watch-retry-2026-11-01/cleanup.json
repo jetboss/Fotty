@@ -1,0 +1,10 @@
+{
+  "observedAtUTC": "2026-11-01T23:54:51.106756+00:00",
+  "ownedTemporaryGateRemoved": true,
+  "ownedKeepAwakeStopped": true,
+  "freeBytesBefore": 7595483136,
+  "freeBytesAfter": 8671997952,
+  "memoryValidation": "passed",
+  "exportPrivacyChecks": "passed",
+  "physicalAcceptance": "pending_on_device_automation_approval"
+}

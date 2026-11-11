@@ -1,0 +1,12 @@
+{
+  "sourceURL": "https://a.espncdn.com/redesign/0.799.1/js/espn-critical.js",
+  "parentSHA256": "a2266b32fd9e0d23a9e9b2b4c1d6cf3c5318880e7a1dd41602f6f94fdedc955d",
+  "parentBytes": 455874,
+  "rangeConvention": "zero-based start-inclusive/end-exclusive bytes",
+  "start": 174081,
+  "end": 174173,
+  "fragmentBytes": 92,
+  "fragmentSHA256": "b2e44a170078fb4a1744f2d62177cf7c9228efc89055d2ae8069045f3f302c3c",
+  "transformation": "none; exact unmodified contiguous assignment; no execution",
+  "scope": "external espn global values are unknown; gate syntax only"
+}

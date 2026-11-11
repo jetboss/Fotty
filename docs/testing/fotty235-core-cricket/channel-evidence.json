@@ -1,0 +1,217 @@
+[
+  {
+    "time": "2026-11-04T13:26:21.905194+00:00",
+    "event": "watch_requested",
+    "build": "234",
+    "durationMs": null,
+    "details": {
+      "route": "single"
+    }
+  },
+  {
+    "time": "2026-11-04T13:26:28.809566+00:00",
+    "event": "attempt_started",
+    "build": "234",
+    "durationMs": null,
+    "details": {
+      "source_index": "1",
+      "source_count": "1",
+      "mode": "native",
+      "source": "CS1",
+      "last_observed_stage": "preparing",
+      "route": "single",
+      "source_family": "communitysports"
+    }
+  },
+  {
+    "time": "2026-11-04T13:26:31.691509+00:00",
+    "event": "decoded_progress",
+    "build": "234",
+    "durationMs": 2880,
+    "details": {
+      "last_observed_stage": "decoded",
+      "route": "single",
+      "source_index": "1",
+      "source_count": "3",
+      "mode": "native",
+      "source": "CS1",
+      "source_family": "communitysports"
+    }
+  },
+  {
+    "time": "2026-11-04T13:28:04.894549+00:00",
+    "event": "native_continuity_90s",
+    "build": "234",
+    "durationMs": 93190,
+    "details": {
+      "mode": "native",
+      "native_presentation_width": "1920",
+      "source": "CS1",
+      "native_presentation_height": "1080",
+      "native_continuity_stalls": "0",
+      "source_family": "communitysports",
+      "source_index": "1",
+      "native_continuity_media_advance_ms": "93190",
+      "source_count": "3",
+      "last_observed_stage": "decoded",
+      "route": "single",
+      "native_continuity_elapsed_ms": "93190"
+    }
+  },
+  {
+    "time": "2026-11-04T13:29:54.364528+00:00",
+    "event": "stall_observed_duration",
+    "build": "234",
+    "durationMs": 3100,
+    "details": {
+      "source_index": "1",
+      "source_count": "3",
+      "mode": "native",
+      "reason_code": "transport_playing",
+      "source": "CS1",
+      "last_observed_stage": "decoded",
+      "route": "single",
+      "source_family": "communitysports"
+    }
+  },
+  {
+    "time": "2026-11-04T13:29:57.552159+00:00",
+    "event": "source_failure",
+    "build": "234",
+    "durationMs": 208729,
+    "details": {
+      "mode": "native",
+      "route": "single",
+      "source_family": "communitysports",
+      "native_failure_trigger": "stall_timeout",
+      "source_count": "3",
+      "last_observed_stage": "decoded",
+      "source": "CS1",
+      "source_index": "1"
+    }
+  },
+  {
+    "time": "2026-11-04T13:29:57.569633+00:00",
+    "event": "automatic_failover",
+    "build": "234",
+    "durationMs": null,
+    "details": {
+      "source_index": "1",
+      "source_count": "3",
+      "mode": "native",
+      "source": "CS1",
+      "last_observed_stage": "decoded",
+      "route": "single",
+      "source_family": "communitysports"
+    }
+  },
+  {
+    "time": "2026-11-04T13:29:57.636776+00:00",
+    "event": "attempt_started",
+    "build": "234",
+    "durationMs": null,
+    "details": {
+      "source_index": "3",
+      "source_count": "3",
+      "mode": "native",
+      "source": "CS3",
+      "last_observed_stage": "preparing",
+      "route": "single",
+      "source_family": "communitysports"
+    }
+  },
+  {
+    "time": "2026-11-04T13:30:14.699321+00:00",
+    "event": "decoded_progress",
+    "build": "234",
+    "durationMs": 17060,
+    "details": {
+      "source_family": "communitysports",
+      "source_index": "3",
+      "route": "single",
+      "source_count": "3",
+      "mode": "native",
+      "source": "CS3",
+      "last_observed_stage": "decoded"
+    }
+  },
+  {
+    "time": "2026-11-04T13:31:46.644856+00:00",
+    "event": "native_continuity_90s",
+    "build": "234",
+    "durationMs": 91937,
+    "details": {
+      "mode": "native",
+      "native_presentation_width": "960",
+      "source": "CS3",
+      "native_presentation_height": "540",
+      "native_continuity_stalls": "0",
+      "source_family": "communitysports",
+      "source_index": "3",
+      "native_continuity_media_advance_ms": "91936",
+      "source_count": "3",
+      "last_observed_stage": "decoded",
+      "route": "single",
+      "native_continuity_elapsed_ms": "91937"
+    }
+  },
+  {
+    "time": "2026-11-04T13:59:41.132766+00:00",
+    "event": "watch_requested",
+    "build": "235",
+    "durationMs": null,
+    "details": {
+      "route": "single"
+    }
+  },
+  {
+    "time": "2026-11-04T13:59:41.770379+00:00",
+    "event": "attempt_started",
+    "build": "235",
+    "durationMs": null,
+    "details": {
+      "source_index": "1",
+      "source_count": "1",
+      "mode": "native",
+      "source": "TV1",
+      "last_observed_stage": "preparing",
+      "route": "single",
+      "source_family": "reviewedtv"
+    }
+  },
+  {
+    "time": "2026-11-04T13:59:47.073635+00:00",
+    "event": "decoded_progress",
+    "build": "235",
+    "durationMs": 5301,
+    "details": {
+      "source_index": "1",
+      "source_family": "reviewedtv",
+      "source_count": "1",
+      "mode": "native",
+      "source": "TV1",
+      "last_observed_stage": "decoded",
+      "route": "single"
+    }
+  },
+  {
+    "time": "2026-11-04T14:01:19.044053+00:00",
+    "event": "native_continuity_90s",
+    "build": "235",
+    "durationMs": 91960,
+    "details": {
+      "native_continuity_elapsed_ms": "91960",
+      "mode": "native",
+      "source": "TV1",
+      "native_presentation_width": "1280",
+      "native_presentation_height": "720",
+      "native_continuity_stalls": "0",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "native_continuity_media_advance_ms": "91960",
+      "source_count": "2",
+      "route": "single",
+      "last_observed_stage": "decoded"
+    }
+  }
+]

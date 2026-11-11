@@ -73,6 +73,50 @@ test("conflicting reviewed assignment siblings retain diagnosis without suppress
   assert.equal(source.broadcasts.length, 2); assert.ok(source.broadcasts.every((b) => b.stationMarket === "UY"));
   const links = associateBroadcasts({ fixtures: [fixture()], broadcasts: source.broadcasts, providers: source.scopes, now });
   assert.deepEqual(links.map((l) => l.state).sort(), ["conflicting", "listed"]);
+  assert.ok(links.every((link) => link.startRelation === "channel-coverage"));
+});
+
+test("twenty stale TV assignments retain their legacy-reader shape alongside five listed match sources", async () => {
+  const fixtures = Array.from({ length: 25 }, (_, i) => fixture({
+    fixtureID: `sports-fixture:premier-league:${i}`, participants: [`Home ${i}`, `Away ${i}`],
+  }));
+  const tv = await normalizeBroadcastCollection("reviewedtv", collection(fixtures.slice(0, 20).map((f, i) =>
+    tvAssignment({ providerEventID: "reviewed-tv:assignment:" + i.toString(16).padStart(64, "0"),
+      participants: f.participants, observedAt: stamp(-600_001), expiresAt: stamp(-1) })),
+    { providerCode: "reviewedtv", scopes: [{ scope: "football", status: "partial", complete: false }] }), now);
+  const cs = await normalizeBroadcastCollection("communitysports", collection(fixtures.slice(20).map((f, i) =>
+    row({ providerEventID: `cs_${i}`, streamID: `cs_${i}`, participants: f.participants }))), now);
+  const broadcasts = [...tv.broadcasts, ...cs.broadcasts], providers = [...tv.scopes, ...cs.scopes];
+  const links = associateBroadcasts({ fixtures, broadcasts, providers, now });
+  const wire = await buildBroadcastSnapshot({ providers, broadcasts, links, now });
+  const assignments = wire.links.filter((link) => link.matchMethod === "channel-assignment");
+  assert.equal(assignments.length, 20);
+  assert.ok(assignments.every((link) => link.startRelation === "channel-coverage"
+    && link.state === "needsVerification" && link.reason === "stale-source" && Date.parse(link.expiresAt) < +now));
+  assert.deepEqual(wire.links.filter((link) => link.state === "listed").map((link) => link.fixtureID).sort(),
+    fixtures.slice(20).map((f) => f.fixtureID).sort());
+});
+
+test("edition-specific access decisions gate old and new readers without treating a guide market as an audience grant", async () => {
+  const { source } = await tvJoined();
+  const f = fixture(), channel = source.broadcasts[0].channelID;
+  const reviewed = { entitlement: "cleared", use: "event-playback", territory: "worldwide", reviewID: "test-contract",
+    expiresAt: stamp(120_000) };
+  function linkFor(policy) {
+    return associateBroadcasts({ fixtures: [f], broadcasts: source.broadcasts, providers: source.scopes, now,
+      programmePolicies: new Map([[JSON.stringify([channel, f.fixtureID]), policy]]) })[0];
+  }
+  for (const change of [{ entitlement: "denied" }, { entitlement: "blackout" }, { use: "station-only" },
+    { territory: "restricted" }, { territory: "unknown" }, { expiresAt: stamp() }, { reviewID: undefined }]) {
+    const link = linkFor({ ...reviewed, ...change });
+    assert.deepEqual([link.state, link.reason, link.startRelation], ["needsVerification", "unsupported-scope", "channel-coverage"]);
+    assert.ok(link.access);
+  }
+  assert.equal(linkFor(reviewed).state, "listed");
+  assert.equal(linkFor(reviewed).expiresAt, reviewed.expiresAt);
+  const normal = await tvJoined({ access: reviewed });
+  assert.equal(normal.links[0].state, "listed");
+  assert.equal(normal.links[0].access, undefined, "A scraped policy cannot upgrade unknown historical scope");
 });
 
 test("wire text retains171-char participants and harmlessZWJ/tagemoji while C1/bidi never enter a snapshot", async () => {

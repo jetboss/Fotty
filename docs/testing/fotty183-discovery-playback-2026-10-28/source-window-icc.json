@@ -1,0 +1,85 @@
+{
+  "at": "2026-10-29T00:08:08.087Z",
+  "source": "ICC official international schedule",
+  "count": 59,
+  "pageRows": 59,
+  "observedAt": "2026-10-29T00:08:06.628Z",
+  "selectedCount": 5,
+  "events": [
+    {
+      "teams": [
+        "South Africa",
+        "Australia"
+      ],
+      "series": "Australia in South Africa, 3 Test Series, 2026",
+      "format": "Test",
+      "start": "2026-10-27T08:30:00Z",
+      "live": true,
+      "ended": false,
+      "recent": false,
+      "upcoming": false,
+      "status": "Stumps",
+      "league": "1"
+    },
+    {
+      "teams": [
+        "Bangladesh",
+        "West Indies"
+      ],
+      "series": "West Indies in Bangladesh, 2 Test Series, 2026",
+      "format": "Test",
+      "start": "2026-10-28T03:30:00Z",
+      "live": true,
+      "ended": false,
+      "recent": false,
+      "upcoming": false,
+      "status": "Stumps",
+      "league": "1"
+    },
+    {
+      "teams": [
+        "United Arab Emirates",
+        "Oman"
+      ],
+      "series": "ICC CWC League 2, 2023-27",
+      "format": "ODI",
+      "start": "2026-10-29T05:30:00Z",
+      "live": false,
+      "ended": false,
+      "recent": false,
+      "upcoming": true,
+      "status": "Match begins at 11:00 IST (05:30 GMT)",
+      "league": "1"
+    },
+    {
+      "teams": [
+        "Sri Lanka",
+        "England"
+      ],
+      "series": "ODI Tri-Series in Pakistan, 2026",
+      "format": "ODI",
+      "start": "2026-10-29T08:00:00Z",
+      "live": false,
+      "ended": false,
+      "recent": false,
+      "upcoming": true,
+      "status": "Match begins at 13:30 IST (08:00 GMT)",
+      "league": "1"
+    },
+    {
+      "teams": [
+        "Afghanistan",
+        "Zimbabwe"
+      ],
+      "series": "Afghanistan and Zimbabwe in UAE, 3 T20I Series, 2026",
+      "format": "T20",
+      "start": "2026-10-29T14:30:00Z",
+      "live": false,
+      "ended": false,
+      "recent": false,
+      "upcoming": true,
+      "status": "Match begins at 20:00 IST (14:30 GMT)",
+      "league": "1"
+    }
+  ]
+}

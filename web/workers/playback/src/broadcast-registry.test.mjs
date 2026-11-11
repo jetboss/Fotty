@@ -622,15 +622,15 @@ test("a late published football listing is found at the grouped pre-kickoff chec
   const source = h.values.get(key).providers.plaviosports;
   assert.equal(source.kickoffCheckpoint.start, kickoff);
   assert.equal(source.kickoffCheckpoint.takenAt, h.now);
-  assert.equal(Date.parse(source.nextAttemptAt), initial + 60 * 60_000,
-    "The old30-minute slot is skipped to repay the one early cycle");
+  assert.equal(Date.parse(source.nextAttemptAt), initial + 26 * 60_000,
+    "A pre-kickoff checkpoint refreshes shortly after kickoff instead of repaying into the live half");
   h.now += 60_000;
   await Promise.all([h.create().refresh(), h.create().fetch(new Request("https://internal/snapshot"))]);
   assert.equal(h.reads, 12, "Restart and duplicate delivery do not repeat either match's grouped checkpoint");
   h.now = initial + 30 * 60_000;
-  await h.create().refresh(); assert.equal(h.reads, 12, "There is no extra collection in the moved background slot");
+  await h.create().refresh(); assert.equal(h.reads, 18, "The kickoff+5-minute refresh collects the late-listed match");
   h.now = initial + 60 * 60_000;
-  await h.create().refresh(); assert.equal(h.reads, 18, "At the next ordinary slot the total equals three original cycles");
+  await h.create().refresh(); assert.equal(h.reads, 24, "The ordinary cadence continues after the kickoff refresh");
 });
 
 test("a live cricket Test does not accelerate football-only, UCL-only or NHL-only provider collection", async () => {
@@ -686,7 +686,7 @@ test("checkpoint debt survives failed collection, restart, clock rollback and di
   fail = true; h.now = kickoff - 5 * 60_000;
   await h.create().refresh(); assert.equal(h.reads, 16);
   const spent = structuredClone(h.values.get(key));
-  assert.equal(Date.parse(spent.providers.communitysports.nextAttemptAt), initial + 80 * 60_000);
+  assert.equal(Date.parse(spent.providers.communitysports.nextAttemptAt), initial + 26 * 60_000);
   h.now -= 60_000;
   await h.create().alarm(); assert.equal(h.reads, 16); assert.equal(h.alarm, null);
   assert.deepEqual(h.values.get(key).budgets, spent.budgets);
@@ -708,7 +708,7 @@ test("an ordinary due collection in the checkpoint window consumes that group wi
   await h.create().refresh();
   h.now += 60_000; await h.create().refresh();
   assert.equal(h.reads, 8, "First admission must not create a second pre-kickoff read");
-  assert.equal(Date.parse(h.values.get(key).providers.communitysports.nextAttemptAt), initial + 40 * 60_000);
+  assert.equal(Date.parse(h.values.get(key).providers.communitysports.nextAttemptAt), initial + 10 * 60_000);
 });
 
 test("checkpoint repayment uses its actual HTTP cost when enrichment grows and ordinary cadence resumes after repayment", async () => {
@@ -726,13 +726,13 @@ test("checkpoint repayment uses its actual HTTP cost when enrichment grows and o
     } });
   await h.create().refresh();
   h.now = kickoff - 5 * 60_000; await h.create().refresh(); assert.equal(h.reads, 14);
-  assert.equal(Date.parse(h.values.get(key).providers.plaviosports.nextAttemptAt), initial + 70 * 60_000,
-    "The new eight-read cost repays from the original30-minute slot, not the old six-read interval");
-  h.now = initial + 60 * 60_000; await h.create().refresh(); assert.equal(h.reads, 14);
+  assert.equal(Date.parse(h.values.get(key).providers.plaviosports.nextAttemptAt), initial + 26 * 60_000,
+    "A pre-kickoff checkpoint refreshes shortly after kickoff instead of repaying into the live half");
+  h.now = initial + 60 * 60_000; await h.create().refresh(); assert.equal(h.reads, 22);
   officialStatus = "live"; // A separately refreshed official status, never a registry kickoff inference.
   h.now = initial + 70 * 60_000; await h.create().refresh(); assert.equal(h.reads, 22);
-  assert.equal(Date.parse(h.values.get(key).providers.plaviosports.nextAttemptAt), initial + 110 * 60_000,
-    "After repayment, the ordinary40-minute cadence resumes without perpetual debt");
+  assert.equal(Date.parse(h.values.get(key).providers.plaviosports.nextAttemptAt), initial + 300 * 60_000,
+    "A still-scheduled past-kickoff fixture returns to the quiet cadence until its live status arrives");
   assert.equal(h.values.get(key).budgets.plaviosports.count, 22);
 });
 

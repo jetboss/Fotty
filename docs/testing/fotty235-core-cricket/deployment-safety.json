@@ -1,0 +1,18 @@
+{
+  "ok": true,
+  "problems": [],
+  "notificationCount": 141,
+  "normalCollectorCompletedAt": "2026-11-04T14:30:59.738Z",
+  "bindingsPreserved": [
+    {
+      "worker": "fotty-playback-v3",
+      "unchanged": true,
+      "bindingCount": 22
+    },
+    {
+      "worker": "fotty-watchdog",
+      "unchanged": true,
+      "bindingCount": 3
+    }
+  ]
+}

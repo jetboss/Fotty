@@ -1,0 +1,63 @@
+{
+  "observedAtUTC": "2026-10-31T22:40:35.327Z",
+  "profiles": [
+    {
+      "profile": "v2",
+      "status": 200,
+      "generatedAt": "2026-10-31T22:40:12.643Z",
+      "vary": "X-Fotty-Broadcast-Capabilities, X-Fotty-Broadcast-Assignments",
+      "totalRecords": 2569,
+      "reviewedTVRecords": 0,
+      "footballAssignments": 0,
+      "willowProgrammes": 0,
+      "providers": [
+        {
+          "providerCode": "reviewedtv",
+          "scope": "cricket",
+          "status": "empty",
+          "complete": true,
+          "observedAt": "2026-10-31T22:20:20.206Z",
+          "lastSuccessAt": "2026-10-31T22:20:20.206Z",
+          "expiresAt": "2026-11-01T02:20:20.206Z",
+          "nextAttemptAt": "2026-10-31T22:35:20.206Z"
+        }
+      ],
+      "listedTVLinks": []
+    },
+    {
+      "profile": "v1",
+      "status": 200,
+      "generatedAt": "2026-10-31T22:40:17.677Z",
+      "vary": "X-Fotty-Broadcast-Capabilities, X-Fotty-Broadcast-Assignments",
+      "totalRecords": 2569,
+      "reviewedTVRecords": 0,
+      "footballAssignments": 0,
+      "willowProgrammes": 0,
+      "providers": [
+        {
+          "providerCode": "reviewedtv",
+          "scope": "cricket",
+          "status": "empty",
+          "complete": true,
+          "observedAt": "2026-10-31T22:20:20.206Z",
+          "lastSuccessAt": "2026-10-31T22:20:20.206Z",
+          "expiresAt": "2026-11-01T02:20:20.206Z",
+          "nextAttemptAt": "2026-10-31T22:35:20.206Z"
+        }
+      ],
+      "listedTVLinks": []
+    },
+    {
+      "profile": "legacy",
+      "status": 200,
+      "generatedAt": "2026-10-31T22:40:30.182Z",
+      "vary": "X-Fotty-Broadcast-Capabilities, X-Fotty-Broadcast-Assignments",
+      "totalRecords": 2576,
+      "reviewedTVRecords": 0,
+      "footballAssignments": 0,
+      "willowProgrammes": 0,
+      "providers": [],
+      "listedTVLinks": []
+    }
+  ]
+}

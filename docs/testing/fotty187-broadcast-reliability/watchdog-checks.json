@@ -1,0 +1,99 @@
+{
+  "schema": 1,
+  "recordedAtUTC": "2026-10-29T20:35:50.997473+00:00",
+  "scope": "Offline source verification only; no provider/media/device probes, publication or deployment.",
+  "playbackVersionAtGate": "2026-10-29.broadcast-catalog-1",
+  "watchdogConfigurationRevision": "2026-10-29.native-catalog-parity-1",
+  "nodeVersion": "25.5.0",
+  "testCommand": "node --test --test-concurrency=1 --test-reporter=spec tools/watchdog/*.test.mjs web/workers/watchdog/src/runtime.test.mjs",
+  "tests": {
+    "tests": 186,
+    "pass": 186,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "includesRealWorkerAndTransactionalDurableObjectRuntime": true,
+  "eslint": {
+    "profile": "ESLint recommended; Node/browser globals; source/test files only",
+    "errors": 0,
+    "warnings": 0
+  },
+  "workflow": {
+    "yamlParsed": true,
+    "validator": "Ruby Psych safe_load plus explicit structural assertions; not actionlint",
+    "schedule": "7,22,37,52 * * * *",
+    "completionTriggers": {
+      "workflows": [
+        "Sports Fixture Monitor",
+        "Cricket Fixture Monitor",
+        "Provider Metadata Monitor"
+      ],
+      "types": [
+        "completed"
+      ],
+      "branches": [
+        "main"
+      ]
+    },
+    "sameRepositoryMainScheduledOrDispatchedRunsOnly": true,
+    "checkoutRef": "refs/heads/main",
+    "permissions": {
+      "contents": "read",
+      "actions": "read",
+      "issues": "write"
+    },
+    "concurrency": {
+      "group": "independent-watchdog-observer-production",
+      "cancel-in-progress": false
+    },
+    "actionlint": "Not available in this local gate; required protected workflow gate remains separate."
+  },
+  "cleanSavedBaselinePatchApplyAndWhitespaceCheck": true,
+  "patchOnlyGitleaks": {
+    "passed": true,
+    "leaksFound": 0
+  },
+  "patchSHA256": "7570f547c3b3a7773f236df0bcfdf915ac55a0679ceb261476c09557192d1e7b",
+  "files": [
+    {
+      "path": "tools/watchdog/source-probes.mjs",
+      "additions": 17,
+      "deletions": 6,
+      "sha256": "8717d4c3d1004593d9bc740bab28f4a9131cb821680cc60dc168c466d097ff3c"
+    },
+    {
+      "path": "tools/watchdog/source-probes.test.mjs",
+      "additions": 80,
+      "deletions": 0,
+      "sha256": "f8090131e3e627df013d4d2a2921ffb84da4325d10c9984f62f8154aa6f4c30e"
+    },
+    {
+      "path": "tools/watchdog/manifest.mjs",
+      "additions": 1,
+      "deletions": 1,
+      "sha256": "838cf09006d81c49a290baf7c50a58c4893af9e268189c6f71eee8a138825e52"
+    },
+    {
+      "path": "tools/watchdog/owner-alert.test.mjs",
+      "additions": 17,
+      "deletions": 0,
+      "sha256": "5ff225d5fc0336f75564c219fef679a9569e7718f3db2c8396c09bfecc802255"
+    },
+    {
+      "path": ".github/workflows/watchdog-observer.yml",
+      "additions": 17,
+      "deletions": 1,
+      "sha256": "ecca088455c4de4ebbb2bedc19f32a98d2410d9c14818f12a4df8b2052eb0016"
+    },
+    {
+      "path": "docs/operations/Watchdog-Owner-Alerts.md",
+      "additions": 46,
+      "deletions": 0,
+      "sha256": "d135a2827ca187c2d6b72c6b7b1fe60b213f927cd9a21aef98edd89f9e56c695"
+    }
+  ],
+  "deliveryEvidenceBoundary": "Additional GitHub completion triggers are not independent always-on delivery. No alert-arrival, email, push or human-receipt qualification is claimed.",
+  "cleanup": "Owned preparation directory/logs removed after verifying the root-owned patch copy; other gates untouched."
+}

@@ -1,6 +1,6 @@
 # Carabao Cup fixture source
 
-Status: owner approved focused activation on 28 October 2026; protected CI and production verification pending.
+Status: owner-approved activation deployed and production-verified on28October2026 via protected PR91.
 The six existing football-data scopes and separate cricket registries are unchanged.
 
 The competition contract is `carabao-cup` / `Carabao Cup`; the isolated source group
@@ -51,3 +51,17 @@ Before activation, review the focused source patch, run the source/registry/work
 tests, then verify the exact deployed version and warm the new dedicated source.
 The production receipt must show this Cup scope covered and the actual current
 fixture; local code, an HTTP response or a passing unit test is not activation.
+
+## Deployed receipt — 28 October 2026
+
+Protected [PR91](https://github.com/jetboss/Fotty/pull/91) merged as
+`c3ebfa018689bbcdfba02ab4c3ae4d897aa52dc9`. Source version
+`2026-10-28.efl-cup-1`, Cloudflare version
+`b3ff08d7-fe97-4ff4-87d8-eaad28792ad4`, reports eight covered Cup fixtures and the
+actual Liverpool–Chelsea row. Isolated focused67 tests, ESLint/dry-run and
+protected CI pass. Existing bindings/secrets/cron and unrelated flags retained.
+
+The independently fetched21:30:03UTC official match receipt reports1–1,
+SecondHalf68′ for `g2687775`. This is publisher status metadata, not a stream
+promise. Native181's separate CS2 programme/decoder/picker/control receipt is in
+`docs/testing/fotty181-playback-recovery-2026-10-28/`.

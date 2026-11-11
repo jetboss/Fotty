@@ -1,0 +1,78 @@
+[
+  {
+    "station": "beINSPORTSXTRA.us@SD",
+    "intervalSeconds": 23.4,
+    "before": {
+      "sequence": 256064,
+      "segments": 10,
+      "endList": false,
+      "hasMap": false
+    },
+    "after": {
+      "sequence": 256068,
+      "segments": 10,
+      "endList": false,
+      "hasMap": false
+    },
+    "mediaSequenceAdvance": 4,
+    "windowChanged": true,
+    "nativePlaybackQualified": false
+  },
+  {
+    "station": "WillowSports.us@HD",
+    "intervalSeconds": 23.3,
+    "before": {
+      "sequence": 4431151,
+      "segments": 10,
+      "endList": false,
+      "hasMap": false
+    },
+    "after": {
+      "sequence": 4431155,
+      "segments": 10,
+      "endList": false,
+      "hasMap": false
+    },
+    "mediaSequenceAdvance": 4,
+    "windowChanged": true,
+    "nativePlaybackQualified": false
+  },
+  {
+    "station": "CBSSportsGolazoNetwork.us@SD",
+    "intervalSeconds": 22.5,
+    "before": {
+      "sequence": 447934952,
+      "segments": 15,
+      "endList": false,
+      "hasMap": false
+    },
+    "after": {
+      "sequence": 447934958,
+      "segments": 15,
+      "endList": false,
+      "hasMap": false
+    },
+    "mediaSequenceAdvance": 6,
+    "windowChanged": true,
+    "nativePlaybackQualified": false
+  },
+  {
+    "station": "FuboSportsNetwork.us@SD",
+    "intervalSeconds": 22.2,
+    "before": {
+      "sequence": 298625123,
+      "segments": 6,
+      "endList": false,
+      "hasMap": false
+    },
+    "after": {
+      "sequence": 298625127,
+      "segments": 6,
+      "endList": false,
+      "hasMap": false
+    },
+    "mediaSequenceAdvance": 4,
+    "windowChanged": true,
+    "nativePlaybackQualified": false
+  }
+]

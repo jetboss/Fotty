@@ -1,0 +1,266 @@
+.tfu-dashboard {
+  min-width: 0;
+}
+
+.tfu-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.tfu-intro h2 {
+  max-width: 720px;
+  margin: 2px 0 6px;
+  font-size: clamp(28px, 4vw, 46px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.tfu-intro p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--secondary);
+  line-height: 1.55;
+}
+
+.tfu-eyebrow {
+  color: var(--accent) !important;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tfu-freshness {
+  display: grid;
+  flex: 0 0 auto;
+  gap: 3px;
+  padding-bottom: 4px;
+  text-align: right;
+}
+
+.tfu-freshness span {
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+.tfu-freshness strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tfu-source-state {
+  display: flex;
+  align-items: center;
+  gap: 10px 14px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  font-size: 13px;
+}
+
+.tfu-source-state strong {
+  flex: 0 0 auto;
+}
+
+.tfu-source-state span {
+  color: var(--secondary);
+}
+
+.tfu-source-preview strong {
+  color: var(--warning, var(--chart-3));
+}
+
+.tfu-source-live strong {
+  color: var(--positive);
+}
+
+.tfu-participation-breakdown {
+  display: grid;
+  gap: 18px;
+  padding: 4px 0 2px;
+}
+
+.tfu-participation-row {
+  display: grid;
+  gap: 7px;
+}
+
+.tfu-participation-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.tfu-participation-label strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.tfu-participation-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.tfu-participation-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.tfu-participation-track span[data-participation="Used this month"] {
+  background: var(--chart-2);
+}
+
+.tfu-participation-track span[data-participation="No recent sessions"] {
+  background: var(--chart-3);
+}
+
+.tfu-participation-track span[data-participation="Not installed"],
+.tfu-participation-track span[data-participation="Revoked"] {
+  background: var(--negative);
+}
+
+.tfu-empty-copy {
+  margin: 8px 0;
+  color: var(--secondary);
+}
+
+.tfu-roster-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+}
+
+.tfu-roster-table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.tfu-roster-table th,
+.tfu-roster-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.tfu-roster-table th {
+  color: var(--secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tfu-roster-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tfu-roster-table tbody tr:hover {
+  background: color-mix(in srgb, var(--accent) 4%, transparent);
+}
+
+.tfu-roster-table .tfu-numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tfu-tester-identity {
+  display: grid;
+  gap: 3px;
+  min-width: 190px;
+}
+
+.tfu-tester-identity strong {
+  font-weight: 650;
+}
+
+.tfu-tester-identity span {
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+.tfu-status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.tfu-status-pill[data-participation="Used this month"] {
+  background: color-mix(in srgb, var(--chart-2) 14%, transparent);
+}
+
+.tfu-status-pill[data-participation="No recent sessions"] {
+  background: color-mix(in srgb, var(--chart-3) 14%, transparent);
+}
+
+.tfu-status-pill[data-participation="Not installed"],
+.tfu-status-pill[data-participation="Revoked"] {
+  background: color-mix(in srgb, var(--negative) 13%, transparent);
+}
+
+.tfu-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tfu-measurement-limit {
+  margin-top: 24px;
+  padding: 16px 18px;
+  border-left: 3px solid var(--accent);
+  color: var(--secondary);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  line-height: 1.5;
+}
+
+.tfu-measurement-limit strong {
+  color: var(--text);
+}
+
+.tfu-measurement-limit p {
+  margin: 4px 0 8px;
+}
+
+.tfu-measurement-limit span {
+  font-size: 12px;
+}
+
+@media (max-width: 720px) {
+  .tfu-intro {
+    display: grid;
+  }
+
+  .tfu-freshness {
+    text-align: left;
+  }
+
+  .tfu-source-state {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

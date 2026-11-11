@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-24",
+  "scope": "Local source qualification only; no device interactions or installation, publication or TestFlight",
+  "milestone": "Fotty 2.5",
+  "sourceVersion": "2.0.1 (175)",
+  "devices": "Existing owner iPhone and Jet iPad signed build175 deliberately unchanged",
+  "reference": "rea/stremio-2.0.7-2026-10-24/README.md",
+  "host": {
+    "hardware": "MacBook Air",
+    "architecture": "arm64",
+    "os": "macOS 27.0.1",
+    "xcode": "27.0 (27A266a)",
+    "developerDirectory": "/Applications/Xcode.app/Contents/Developer",
+    "jobs": 1,
+    "simulators": false
+  },
+  "builds": {
+    "catalystBuildForTestingExit": 0,
+    "unsignedGenericIOSReleaseExit": 0,
+    "signingAllowed": false
+  },
+  "tests": {
+    "destination": "macOS, Mac Catalyst",
+    "passed": 579,
+    "failed": 0,
+    "skipped": 3,
+    "total": 582,
+    "physicalSkips": [
+      {
+        "test": "FlixStreamsAddonTests/testPhysicalFlixDecodedVideoCanary()",
+        "result": "Skipped"
+      },
+      {
+        "test": "FlixStreamsAddonTests/testPhysicalFlixSecondDecodedVideoCanary()",
+        "result": "Skipped"
+      },
+      {
+        "test": "PlavioSportsAddonTests/testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice()",
+        "result": "Skipped"
+      }
+    ]
+  },
+  "source": {
+    "scope": "296 rg-listed application/test/extension files; excludes ignored files and is NOT a distribution source receipt",
+    "digestAlgorithm": "SHA256 of sorted shasum output",
+    "sha256": "839472a0c19204acd1a7954a9e5e69cab29bfc3ef7c33859325377a6f277e163",
+    "fplAndMultistreamProtectedFiles": 51,
+    "protectedFilesChanged": 0
+  },
+  "baseline": {
+    "passed": 387,
+    "failed": 1,
+    "skipped": 2,
+    "failure": "Obsolete feedback-owner source assertion, corrected to follow scene ownership and both callers"
+  },
+  "baselineMeasurements": [
+    "[CatalogMicrobenchmark] case=typical rows=250 bytes=30078 iteration=1 decode_ms=1.541 dedup_ms=15.453 discovery_ms=16.764 search_ms=17.501 discovery_search_ms=49.719",
+    "[CatalogMicrobenchmark] case=typical rows=250 bytes=30078 iteration=2 decode_ms=0.846 dedup_ms=8.104 discovery_ms=13.328 search_ms=15.314 discovery_search_ms=36.746",
+    "[CatalogMicrobenchmark] case=typical rows=250 bytes=30078 iteration=3 decode_ms=0.791 dedup_ms=7.713 discovery_ms=13.088 search_ms=15.713 discovery_search_ms=36.514",
+    "[CatalogMicrobenchmark] case=near_ingestion_limit rows=9500 bytes=3891359 iteration=1 decode_ms=32.750 dedup_ms=290.673 discovery_ms=445.740 search_ms=581.921 discovery_search_ms=1318.337",
+    "[CatalogMicrobenchmark] case=near_ingestion_limit rows=9500 bytes=3891359 iteration=2 decode_ms=32.486 dedup_ms=301.146 discovery_ms=454.413 search_ms=581.615 discovery_search_ms=1337.178",
+    "[CatalogMicrobenchmark] case=near_ingestion_limit rows=9500 bytes=3891359 iteration=3 decode_ms=32.556 dedup_ms=293.778 discovery_ms=440.600 search_ms=571.411 discovery_search_ms=1305.791",
+    "[SearchIndexMicrobenchmark] rows=250 queries=12 iteration=1 classifications=250 cold_index_ms=16.344 warm_queries_total_ms=6.314 result_count=710",
+    "[SearchIndexMicrobenchmark] rows=250 queries=12 iteration=2 classifications=250 cold_index_ms=19.487 warm_queries_total_ms=5.887 result_count=710",
+    "[SearchIndexMicrobenchmark] rows=250 queries=12 iteration=3 classifications=250 cold_index_ms=15.804 warm_queries_total_ms=5.857 result_count=710",
+    "[SearchIndexMicrobenchmark] rows=1000 queries=12 iteration=1 classifications=1000 cold_index_ms=62.882 warm_queries_total_ms=23.129 result_count=2835",
+    "[SearchIndexMicrobenchmark] rows=1000 queries=12 iteration=2 classifications=1000 cold_index_ms=64.215 warm_queries_total_ms=23.908 result_count=2835",
+    "[SearchIndexMicrobenchmark] rows=1000 queries=12 iteration=3 classifications=1000 cold_index_ms=64.499 warm_queries_total_ms=23.348 result_count=2835",
+    "[HomeDuplicateMicrobenchmark] input_rows=1000 unique_rows=250 copies=4 iteration=1 dedup_ms=54.655 discovery_ms=13.849",
+    "[HomeDuplicateMicrobenchmark] input_rows=1000 unique_rows=250 copies=4 iteration=2 dedup_ms=52.537 discovery_ms=13.534",
+    "[HomeDuplicateMicrobenchmark] input_rows=1000 unique_rows=250 copies=4 iteration=3 dedup_ms=52.390 discovery_ms=13.437",
+    "[HomeDuplicateMicrobenchmark] input_rows=4000 unique_rows=1000 copies=4 iteration=1 dedup_ms=205.751 discovery_ms=48.871",
+    "[HomeDuplicateMicrobenchmark] input_rows=4000 unique_rows=1000 copies=4 iteration=2 dedup_ms=207.135 discovery_ms=49.107",
+    "[HomeDuplicateMicrobenchmark] input_rows=4000 unique_rows=1000 copies=4 iteration=3 dedup_ms=218.620 discovery_ms=51.093",
+    "[BadgeFallbackMicrobenchmark] recreations=32 accepted_fallbacks=32 preferred_requests=32 fallback_requests=0 immediate_failure_total_ms=1.133"
+  ],
+  "finalMeasurements": [
+    "[CatalogMicrobenchmark] case=typical rows=250 bytes=30078 iteration=1 decode_ms=1.379 dedup_ms=13.183 discovery_ms=17.380 search_ms=17.844 discovery_search_ms=48.407",
+    "[CatalogMicrobenchmark] case=typical rows=250 bytes=30078 iteration=2 decode_ms=0.865 dedup_ms=8.322 discovery_ms=13.123 search_ms=15.137 discovery_search_ms=36.582",
+    "[CatalogMicrobenchmark] case=typical rows=250 bytes=30078 iteration=3 decode_ms=0.771 dedup_ms=7.646 discovery_ms=12.811 search_ms=14.987 discovery_search_ms=35.443",
+    "[CatalogMicrobenchmark] case=near_ingestion_limit rows=9500 bytes=3891359 iteration=1 decode_ms=33.564 dedup_ms=293.730 discovery_ms=440.696 search_ms=577.597 discovery_search_ms=1312.024",
+    "[CatalogMicrobenchmark] case=near_ingestion_limit rows=9500 bytes=3891359 iteration=2 decode_ms=32.122 dedup_ms=291.352 discovery_ms=439.438 search_ms=583.226 discovery_search_ms=1314.020",
+    "[CatalogMicrobenchmark] case=near_ingestion_limit rows=9500 bytes=3891359 iteration=3 decode_ms=30.891 dedup_ms=299.876 discovery_ms=437.977 search_ms=591.221 discovery_search_ms=1329.080",
+    "[SearchIndexMicrobenchmark] rows=250 queries=12 iteration=1 classifications=250 cold_index_ms=14.877 warm_queries_total_ms=5.607 result_count=710",
+    "[SearchIndexMicrobenchmark] rows=250 queries=12 iteration=2 classifications=250 cold_index_ms=15.345 warm_queries_total_ms=5.520 result_count=710",
+    "[SearchIndexMicrobenchmark] rows=250 queries=12 iteration=3 classifications=250 cold_index_ms=14.860 warm_queries_total_ms=5.557 result_count=710",
+    "[SearchIndexMicrobenchmark] rows=1000 queries=12 iteration=1 classifications=1000 cold_index_ms=58.366 warm_queries_total_ms=21.657 result_count=2835",
+    "[SearchIndexMicrobenchmark] rows=1000 queries=12 iteration=2 classifications=1000 cold_index_ms=58.161 warm_queries_total_ms=21.590 result_count=2835",
+    "[SearchIndexMicrobenchmark] rows=1000 queries=12 iteration=3 classifications=1000 cold_index_ms=58.283 warm_queries_total_ms=21.667 result_count=2835",
+    "[HomeDuplicateMicrobenchmark] input_rows=1000 unique_rows=250 copies=4 iteration=1 dedup_ms=62.424 discovery_ms=13.494",
+    "[HomeDuplicateMicrobenchmark] input_rows=1000 unique_rows=250 copies=4 iteration=2 dedup_ms=51.394 discovery_ms=13.302",
+    "[HomeDuplicateMicrobenchmark] input_rows=1000 unique_rows=250 copies=4 iteration=3 dedup_ms=51.278 discovery_ms=13.279",
+    "[HomeDuplicateMicrobenchmark] input_rows=4000 unique_rows=1000 copies=4 iteration=1 dedup_ms=205.356 discovery_ms=48.883",
+    "[HomeDuplicateMicrobenchmark] input_rows=4000 unique_rows=1000 copies=4 iteration=2 dedup_ms=205.433 discovery_ms=48.820",
+    "[HomeDuplicateMicrobenchmark] input_rows=4000 unique_rows=1000 copies=4 iteration=3 dedup_ms=204.969 discovery_ms=48.435",
+    "[SearchOwnerWork] rows=96 query_edits=2 legacy_attempts=3 legacy_rows=128 retained_attempts=1 retained_rows=96 avoided_rows=32",
+    "[HomeCooperativeDedupMicrobenchmark] input_rows=4000 unique_rows=1000 copies=4 iteration=1 total_ms=212.628 checkpoints=157 max_work_between_checkpoints_ms=2.006",
+    "[HomeCooperativeDedupMicrobenchmark] input_rows=4000 unique_rows=1000 copies=4 iteration=2 total_ms=215.140 checkpoints=157 max_work_between_checkpoints_ms=1.990",
+    "[HomeCooperativeDedupMicrobenchmark] input_rows=4000 unique_rows=1000 copies=4 iteration=3 total_ms=211.559 checkpoints=157 max_work_between_checkpoints_ms=2.013",
+    "[BadgeFallbackMicrobenchmark] recreations=32 accepted_fallbacks=32 preferred_requests=1 fallback_requests=0 immediate_failure_total_ms=1.503"
+  ],
+  "caveats": [
+    "Synthetic Debug Catalyst work/counts, not device responsiveness or decoded-media proof",
+    "Home benchmark uses yield-only injected checkpoints; production uses existing one-millisecond checkpoint",
+    "Independent AS-cricket, CS, FS and SV live programme/decoded qualification remains open",
+    "Native iPhone/iPad visual, fullscreen/PiP and performance gates deferred by explicit device175 hold"
+  ],
+  "cleanup": "Verified: owned 1.5 GiB build/result/diagnostic gate removed and task-scoped keep-awake helper stopped; about 10 GiB free afterward. No raw diagnostics or media retained. Generated builds can be recreated."
+}

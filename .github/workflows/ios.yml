@@ -1,7 +1,26 @@
 name: iOS CI
 
 on:
+  # Pull requests to main (including the protected release PR) and pushes to
+  # wip/** run the Catalyst suite here, so the 8 GB development Mac only needs
+  # to run device checks.
   push:
+    branches: [main, "wip/**"]
+    paths:
+      - "Fotty/**"
+      - "FottyLiveActivityExtension/**"
+      - "FottyTests/**"
+      - "shared/reference-data/**"
+      - "tools/generate-football-competition-catalog.mjs"
+      - "tools/audit-provider-football-identity.mjs"
+      - "tools/audit-cpl-fixtures.mjs"
+      - "tools/ios-ci.sh"
+      - "tools/check_native_source_membership.py"
+      - "tools/tests/test_native_source_membership.py"
+      - "project.yml"
+      - "Fotty.xcodeproj/**"
+      - ".github/workflows/ios.yml"
+  pull_request:
     branches: [main]
     paths:
       - "Fotty/**"
@@ -12,19 +31,8 @@ on:
       - "tools/audit-provider-football-identity.mjs"
       - "tools/audit-cpl-fixtures.mjs"
       - "tools/ios-ci.sh"
-      - "project.yml"
-      - "Fotty.xcodeproj/**"
-      - ".github/workflows/ios.yml"
-  pull_request:
-    paths:
-      - "Fotty/**"
-      - "FottyLiveActivityExtension/**"
-      - "FottyTests/**"
-      - "shared/reference-data/**"
-      - "tools/generate-football-competition-catalog.mjs"
-      - "tools/audit-provider-football-identity.mjs"
-      - "tools/audit-cpl-fixtures.mjs"
-      - "tools/ios-ci.sh"
+      - "tools/check_native_source_membership.py"
+      - "tools/tests/test_native_source_membership.py"
       - "project.yml"
       - "Fotty.xcodeproj/**"
       - ".github/workflows/ios.yml"
@@ -49,4 +57,14 @@ jobs:
         run: ./tools/ios-ci.sh
         env:
           FOTTY_XCODE_JOBS: "2"
-          FOTTY_CATALYST_DEPLOYMENT_TARGET: "26.0"
+          FOTTY_CI_RESULT_DIR: ${{ runner.temp }}/FottyResults
+          FOTTY_CATALYST_DEPLOYMENT_TARGET: "26.1"
+      # The unit suite needs no secrets: provider API keys are empty in tests.
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fotty-xcresult-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/FottyResults
+          if-no-files-found: ignore
+          retention-days: 7

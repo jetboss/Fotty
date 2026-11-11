@@ -1,0 +1,241 @@
+{
+  "date": "2026-11-04",
+  "installedBuild": 239,
+  "fixture": "Fenerbahce\u2013Liverpool",
+  "normalApp": true,
+  "recoveryRepair": "Scheduled recovery uses fresh identity receipt; status/terminal/team guards retained.",
+  "cs4Observation": {
+    "picture": "TNT Sports 1, FEN 1\u20131 LIV; observed advancing from 33:38 through 35:39",
+    "audio": "Owner confirmed silent; native diagnostics audio_enabled=false",
+    "qualification": "Failed audible playback; not a pass"
+  },
+  "restoredRoute": {
+    "entry": "Normal Sports TV \u2192 TNT Sports 1 \u2192 Watch",
+    "source": "TV12",
+    "pictureObserved": "FEN 1\u20131 LIV, 41:28",
+    "ownerConfirmedAudio": true,
+    "note": "A startup timeout and decoded stall occurred before later native decoded progress. Do not call this uninterrupted or an independent-backup pass."
+  },
+  "qualityEvidence": [
+    {
+      "at": "2026-11-04T18:30:42.039482+00:00",
+      "event": "playback_causal_evidence",
+      "details": {
+        "source": "TV12",
+        "audio_enabled": "true",
+        "last_observed_stage": "preparing",
+        "source_family": "reviewedtv",
+        "diagnostic_result": "began"
+      }
+    },
+    {
+      "at": "2026-11-04T18:30:42.329031+00:00",
+      "event": "playback_causal_evidence",
+      "details": {
+        "source": "TV12",
+        "last_observed_stage": "preparing",
+        "audio_enabled": "true",
+        "source_family": "reviewedtv",
+        "diagnostic_result": "completed"
+      }
+    },
+    {
+      "at": "2026-11-04T18:31:02.454313+00:00",
+      "event": "source_failure",
+      "details": {
+        "source": "TV12",
+        "failure_kind": "startupTimeout",
+        "last_observed_stage": "preparing",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-04T18:31:03.341283+00:00",
+      "event": "playback_causal_evidence",
+      "details": {
+        "diagnostic_result": "began",
+        "source": "TV12",
+        "source_family": "reviewedtv",
+        "audio_enabled": "true",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "at": "2026-11-04T18:31:03.502483+00:00",
+      "event": "playback_causal_evidence",
+      "details": {
+        "diagnostic_result": "completed",
+        "source": "TV12",
+        "source_family": "reviewedtv",
+        "last_observed_stage": "preparing",
+        "audio_enabled": "true"
+      }
+    },
+    {
+      "at": "2026-11-04T18:31:08.180931+00:00",
+      "event": "decoded_progress",
+      "details": {
+        "source": "TV12",
+        "source_family": "reviewedtv",
+        "last_observed_stage": "decoded"
+      }
+    },
+    {
+      "at": "2026-11-04T18:31:23.777396+00:00",
+      "event": "source_failure",
+      "details": {
+        "source": "TV12",
+        "failure_kind": "stalled",
+        "last_observed_stage": "decoded",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-04T18:31:23.807421+00:00",
+      "event": "terminal_failure",
+      "details": {
+        "source": "TV12",
+        "source_family": "reviewedtv",
+        "failure_kind": "stalled",
+        "last_observed_stage": "decoded"
+      }
+    },
+    {
+      "at": "2026-11-04T18:31:26.931668+00:00",
+      "event": "session_closed",
+      "details": {
+        "last_observed_stage": "decoded",
+        "source_family": "reviewedtv",
+        "source": "TV12"
+      }
+    },
+    {
+      "at": "2026-11-04T18:31:27.927317+00:00",
+      "event": "playback_causal_evidence",
+      "details": {
+        "audio_enabled": "true",
+        "diagnostic_result": "began",
+        "source_family": "reviewedtv",
+        "source": "TV12",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "at": "2026-11-04T18:31:28.228787+00:00",
+      "event": "playback_causal_evidence",
+      "details": {
+        "last_observed_stage": "preparing",
+        "audio_enabled": "true",
+        "diagnostic_result": "completed",
+        "source_family": "reviewedtv",
+        "source": "TV12"
+      }
+    },
+    {
+      "at": "2026-11-04T18:31:40.174592+00:00",
+      "event": "decoded_progress",
+      "details": {
+        "last_observed_stage": "decoded",
+        "source_family": "reviewedtv",
+        "source": "TV12"
+      }
+    }
+  ],
+  "additionalObservation": "After clean restart, Home omitted Liverpool and Search showed Start unconfirmed; listing issue remains separate from audio. A bounded Mac sports-fixtures request returned HTTP 403; no causal attribution to the iPad response established.",
+  "localAudioRepair": "Tracks mounted Web owners, retains exact teardown callback owner, retries single audio focus after actual late retirement, adds single Retry audio action and bounded diagnostic outcome. Not installed during owner viewing.",
+  "verification": {
+    "platform": "Current-source Mac Catalyst unit tests, mocked transports; no simulator or physical device interaction",
+    "finalFocusedTests": {
+      "result": "Passed",
+      "totalTestCount": 15,
+      "passedTests": 15,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "startTime": 1793817508.725,
+      "finishTime": 1793817609.62
+    },
+    "initialFocusedTests": {
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0
+    },
+    "physicalAudioRepair": "Not installed or verified; owner is watching Liverpool on normal239."
+  },
+  "constraints": "No phone/FPL/multi-stream feature work, Git/cloud deployment or TestFlight.",
+  "localCandidateSourceHashes": {
+    "Fotty/Core/Internal/HybridStreamProvider.swift": "ad3904639a9a4f3f5fa1af7d2a388492b82dd0bf25a602f74cc1cde4d8bc88c4",
+    "Fotty/Features/Player/LivePlayerViewModel.swift": "ff713b3a3777f164dcc6404bf3fa17bf64123f09102e890ef4629878b5c05a10",
+    "Fotty/Features/Player/LivePlayerView.swift": "e56b214f1e66acab388fa1c51917fcb80346113d6f41c0c773f2dee6cc4bf07a",
+    "Fotty/Features/Player/ViewingSessionCoordinator.swift": "1ec42c9135abe0ee1a0c99aae6ec4cdc6b26505b5e34079f67e8ebea017a138b",
+    "Fotty/Features/Player/ViewingSessionShell.swift": "ef8bfdc1f706e9b3c0f435f78d2fe97599da909a1d392905787246cae27e529a",
+    "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift": "2a28dec022dbd1c4c9373f75bc02c08dd78ef16179681bc54bfcc360483f7dc5",
+    "FottyTests/NativePlaybackPreparationTests.swift": "4aefd0044fa22b098f4c2a33bc84bc03a372b83ac20197260169f93013e08d33",
+    "FottyTests/PlaybackPolicyTests.swift": "b2a736b8f01d9e1f0e1b19bbb1ff45fdd35f5610a49e31067138230a1c567981",
+    "FottyTests/ViewingSessionCoordinatorTests.swift": "3b90b518d9b3058a49483a58fc28755f96d78804d674a35c647d6170a750bbbd"
+  },
+  "protectedSourceHashesUnchanged": 42,
+  "normalInstalledArtifactVerification": {
+    "build": "239",
+    "version": "3.0.0",
+    "signatureVerificationPassed": true
+  },
+  "localHomeRepair": {
+    "confirmedDefect": "Home retained unconfirmed items in its catalog and Search but omitted them from all rendered Home sections after live-status evidence was lost.",
+    "change": "Both Home layouts retain current unconfirmed football fixtures in a neutral Awaiting match update section for four hours from listed start. Existing terminal/conflict and source guards remain; no LIVE inference or Watch eligibility change.",
+    "upstreamStatusCause": "Not proven by this presentation repair. The earlier Mac HTTP403 does not establish the iPad response.",
+    "regressions": [
+      "Expired live receipt after refresh and cold projection",
+      "Fresh live recovery without duplicates",
+      "Accepted terminal evidence removes neutral retained row",
+      "Future and expired retention boundaries"
+    ],
+    "tests": {
+      "result": "Passed",
+      "totalTestCount": 41,
+      "passedTests": 41,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "startTime": 1793819376.308,
+      "finishTime": 1793819498.596
+    },
+    "earlierRuns": [
+      {
+        "result": "Failed",
+        "totalTestCount": 41,
+        "passedTests": 40,
+        "failedTests": 1,
+        "skippedTests": 0,
+        "startTime": 1793818961.229,
+        "finishTime": 1793819103.697
+      },
+      {
+        "result": "Failed",
+        "totalTestCount": 41,
+        "passedTests": 40,
+        "failedTests": 1,
+        "skippedTests": 0,
+        "startTime": 1793819176.315,
+        "finishTime": 1793819327.785
+      }
+    ],
+    "earlierFailures": "Existing source-shape test had two stale assumptions: unconditional Up Next branch and old More broadcasts label. Corrected to prior existing next-club condition and More events; no associated production behavior changed.",
+    "physicalStatus": "Deferred until official Fenerbahce\u2013Liverpool full time; no device interaction during this work.",
+    "sourceHashes": {
+      "Fotty/Features/Dashboard/Components/HomeSportsDiscovery.swift": "d9f238facf87cb44397de806e89806fcd487fa60b620bcaf6003c60c5036809c",
+      "Fotty/Features/Dashboard/SportsDashboardView.swift": "6354fd31a376a1512bafe5820ed33fdd1e8648a5e913c3e2f7b3efe2ddd6dc41",
+      "FottyTests/HomeTerminalReconciliationTests.swift": "a909e336d4a0a06b8d531a8ccaa36ef16ad82d52b0193389857db7e29b834c96",
+      "FottyTests/Fotty25HomeDesignTests.swift": "5d64f531b9fd7ad7489a9ce6788011170e583e87f175e8e595d6a0426f0272e6"
+    }
+  },
+  "postMatchFollowup": {
+    "checkedAt": "2026-11-04T20:00:59Z",
+    "deviceObservation": "Read-only Device Hub view: normal Fotty TNT Sports1 surface showed Stream Stalled / Source unavailable. No advancing programme, no input or installation performed.",
+    "officialGate": {
+      "fixture": "Fenerbahce\u2013Liverpool",
+      "uefaMatchID": "2049620",
+      "fixturePage": "https://www.uefa.com/uefachampionsleague/match/2049620--fenerbahce-vs-liverpool/",
+      "result": "Final status not verified. Exact UEFA API and Liverpool official match centre returned HTTP403; public UEFA page did not expose final status. Nearby UEFA2049622 was FINISHED but identified AEK\u2013Real Madrid and was rejected as evidence for Liverpool."
+    },
+    "action": "Installation and physical testing deferred; do not infer full time from kickoff or another fixture. Staged local Home/audio passes unchanged. No rebuild, no device interaction, no source settings or phone/FPL/multi/TestFlight changes. One-time follow-up closed with blocker reported."
+  }
+}

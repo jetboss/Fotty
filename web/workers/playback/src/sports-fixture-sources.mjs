@@ -1,4 +1,5 @@
 import { abortable, boundedJSON, coachDeadline } from "./coach-safety.mjs";
+import { normalizeUCLReportedScore } from "./ucl-reported-score-policy.mjs";
 
 const DAY = 86_400_000;
 const MAX_BYTES = 2_000_000;
@@ -41,6 +42,11 @@ export const SPORTS_SOURCES = Object.freeze([
   espn("college-basketball-men", "NCAA Division I Men's Basketball", "basketball", "basketball/mens-college-basketball", "41", { group: "50", ageGroup: "college" }),
   espn("college-basketball-women", "NCAA Division I Women's Basketball", "basketball", "basketball/womens-college-basketball", "54", { group: "50", gender: "women", ageGroup: "college" }),
   espn("mls", "Major League Soccer", "football", "soccer/usa.1", "770"),
+  // National-team football. The same exact team/date admission applies;
+  // League IDs and slugs were read from ESPN's own scoreboard on 10 Nov 2026.
+  espn("uefa-nations-league", "UEFA Nations League", "football", "soccer/uefa.nations", "2395"),
+  espn("international-friendlies", "International Friendlies", "football", "soccer/fifa.friendly", "3922"),
+  espn("concacaf-nations-league", "Concacaf Nations League", "football", "soccer/concacaf.nations.league", "19267"),
 ]);
 
 function check(condition, message) { if (!condition) throw new Error(message); }
@@ -85,12 +91,17 @@ export function sportsFixtureWindow(now) {
   return { windowStart: new Date(today - DAY).toISOString(), windowEnd: new Date(today + 8 * DAY).toISOString() };
 }
 
-async function requestJSON(url, deadline, fetchImpl, headers = {}, withHeaders = false) {
+async function requestJSON(url, deadline, fetchImpl, headers = {}, withHeaders = false, allowEFLEmpty = false) {
   // Workers supports manual/follow, not the Node fetch "error" mode. Never
   // follow a redirect with a credential or accept an alternate publisher.
   const response = await abortable(() => fetchImpl(url, { signal: deadline.signal, redirect: "manual",
     headers: { Accept: "application/json", ...headers }, cf: { cacheEverything: true, cacheTtl: 60 } }), deadline.signal);
-  if (!response.ok || response.redirected || response.status >= 300 && response.status < 400) {
+  // EFL's published Match Centre API returns this exact JSON error, rather
+  // than a 200 empty list, when the requested Cup window has no matches. This
+  // exception belongs only to that exact activated adapter and request route.
+  const eflEmptyResponse = allowEFLEmpty && withHeaders && response.status === 404
+    && url.origin === "https://multi-club-matches.webapi.gc.eflservices.co.uk" && url.pathname === "/v2/matches";
+  if ((!response.ok && !eflEmptyResponse) || response.redirected || response.status >= 300 && response.status < 400) {
     throw Object.assign(new Error("Sports schedule upstream unavailable"), { fixtureHTTPStatus: response.status });
   }
   const contentType = response.headers.get("content-type") || "";
@@ -99,8 +110,16 @@ async function requestJSON(url, deadline, fetchImpl, headers = {}, withHeaders =
   const wnbaText = String(url) === "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json" && /^text\/plain(?:\s*;|$)/i.test(contentType);
   check(wnbaText || /(?:^|\/)json(?:\s*;|$)|\+json(?:\s*;|$)/i.test(contentType), "Sports schedule is not JSON");
   const data = await boundedJSON(response, MAX_BYTES, deadline.signal);
+  if (eflEmptyResponse) {
+    const error = data?.errors?.[0];
+    check(data && !Array.isArray(data) && Object.keys(data).length === 1
+      && Array.isArray(data.errors) && data.errors.length === 1
+      && error && !Array.isArray(error) && Object.keys(error).length === 3
+      && error.detail === "No matches found" && error.title === "Not Found" && error.status === "404",
+    "EFL empty-window response unrecognized");
+  }
   return withHeaders ? { data, lastModified: response.headers.get("last-modified"), age: response.headers.get("age"),
-    date: response.headers.get("date") } : data;
+    date: response.headers.get("date"), ...(eflEmptyResponse ? { emptyEFLWindow: true } : {}) } : data;
 }
 
 async function efl(descriptor, context) {
@@ -114,7 +133,16 @@ async function efl(descriptor, context) {
   url.search = new URLSearchParams({ from: date(new Date(windowStart)),
     to: date(new Date(Date.parse(windowEnd) - 1000)), competitionID: descriptor.publisherCompetitionID,
     seasonID: String(season), "page.size": "100" });
-  const { data, date: responseDate, age } = await getWithHeaders(url);
+  const { data, date: responseDate, age, emptyEFLWindow } = await getWithHeaders(url);
+  const generated = new Date(responseDate);
+  check(typeof responseDate === "string" && generated.toUTCString() === responseDate
+    && generated.getTime() <= now.getTime() + 300_000
+    && now.getTime() - generated.getTime() <= 6 * 3600_000, "EFL publisher receipt invalid");
+  check(age === null || /^\d+$/.test(age) && Number.isSafeInteger(Number(age)), "EFL response age invalid");
+  // No fixture, synthetic self-link or kickoff is manufactured from the error.
+  // Durable admission still protects a previously accepted active fixture from
+  // disappearing merely because a later publisher response is empty.
+  if (emptyEFLWindow) return [];
   check(Array.isArray(data.data) && data.data.length < 100 && count(data.meta?.totalCount)
     && data.meta.totalCount === data.meta.count && data.meta.count === data.data.length, "EFL schedule incomplete");
   const self = typeof data.links?.self === "string" ? new URL(data.links.self) : null;
@@ -124,11 +152,6 @@ async function efl(descriptor, context) {
       && self.searchParams.get(key) === value)
     && [...self.searchParams.keys()].every((key) => url.searchParams.has(key))
     && !data.links.next && !data.links.prev, "EFL schedule scope mismatch");
-  const generated = new Date(responseDate);
-  check(typeof responseDate === "string" && generated.toUTCString() === responseDate
-    && generated.getTime() <= now.getTime() + 300_000
-    && now.getTime() - generated.getTime() <= 6 * 3600_000, "EFL publisher receipt invalid");
-  check(age === null || /^\d+$/.test(age) && Number.isSafeInteger(Number(age)), "EFL response age invalid");
   unique(data.data, (row) => row.id);
   const periods = { PreMatch: "scheduled", FirstHalf: "live", HalfTime: "live", SecondHalf: "live",
     ExtraFirstHalf: "live", ExtraHalfTime: "live", ExtraSecondHalf: "live", ShootOut: "live", Penalties: "live",
@@ -192,9 +215,12 @@ async function football(descriptor, context) {
     const updatedAt = row.lastUpdated === undefined ? undefined : utc(row.lastUpdated);
     if (updatedAt) check(Date.parse(updatedAt) <= context.now.getTime() + 15 * 60_000, "Football update timestamp invalid");
     // SCHEDULED means a rough date; TIMED means a confirmed kickoff in v4.
-    return { fixture: row.status === "SCHEDULED" ? null : normalize(descriptor, row.id, row.utcDate, status,
+    const fixture = row.status === "SCHEDULED" ? null : normalize(descriptor, row.id, row.utcDate, status,
       [participant("football-data", row.homeTeam?.id, row.homeTeam?.name, "home"),
-        participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, url.href, updatedAt, compID),
+        participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, url.href, updatedAt, compID);
+    const reportedScore = fixture ? normalizeUCLReportedScore(row, fixture) : undefined;
+    if (reportedScore) fixture.reportedScore = reportedScore;
+    return { fixture,
       start: row.utcDate, competitionId: compID };
   });
 }
@@ -388,13 +414,21 @@ export async function collectSportsSource(descriptor, now, env = {}, fetchImpl =
   try {
     const context = { ...window, observedAt, now, env,
       get: (url, headers) => requestJSON(url, deadline, fetchImpl, headers),
-      getWithHeaders: (url) => requestJSON(url, deadline, fetchImpl, {}, true) };
+      getWithHeaders: (url) => requestJSON(url, deadline, fetchImpl, {}, true, known.id === "efl-carabao-cup") };
     const adapters = { "football-data": football, efl, mlb, nhl, wnba, espn: espnDaily };
     const rows = await abortable(() => adapters[known.adapter](known, context), deadline.signal);
     const relevant = rows.filter((row) => Date.parse(row.start) >= Date.parse(window.windowStart) && Date.parse(row.start) < Date.parse(window.windowEnd));
     const fixtures = relevant.flatMap((row) => row.fixture ? [row.fixture] : []).sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
     const pendingByCompetition = Object.fromEntries(known.competitions.map((item) => [item.id, 0]));
-    for (const row of relevant) if (!row.fixture) pendingByCompetition[row.competitionId || known.competitions[0].id]++;
-    return { fixtures, pendingFixtureCount: relevant.length - fixtures.length, pendingByCompetition, observedAt, ...window };
+    const pendingStartsByCompetition = Object.fromEntries(known.competitions.map((item) => [item.id, []]));
+    for (const row of relevant) if (!row.fixture) {
+      const id = row.competitionId || known.competitions[0].id;
+      pendingByCompetition[id]++;
+      // A provisional publisher date is internal polling evidence only. It
+      // does not become a fixture, confirmed kickoff, countdown or reminder.
+      pendingStartsByCompetition[id].push(new Date(row.start).toISOString());
+    }
+    return { fixtures, pendingFixtureCount: relevant.length - fixtures.length, pendingByCompetition,
+      pendingStartsByCompetition, observedAt, ...window };
   } finally { deadline.dispose(); }
 }

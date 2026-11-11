@@ -8,15 +8,16 @@ struct MatchTimelineView: View {
             HStack {
                 Image(systemName: "clock.fill")
                     .foregroundStyle(FottyTheme.accentText)
-                Text("MATCH TIMELINE")
-                    .font(.system(size: 12, weight: .black))
-                    .tracking(1)
+                Text("Match timeline")
+                    .font(FottyTheme.typeModuleTitle)
+                    .foregroundStyle(FottyTheme.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
             }
             
             VStack(spacing: 0) {
                 if events.isEmpty {
                     Text("Timeline will update with match events")
-                        .font(.system(size: 12))
+                        .font(FottyTheme.typeMeta)
                         .foregroundStyle(FottyTheme.textTertiary)
                         .padding()
                 } else {
@@ -33,13 +34,14 @@ struct MatchTimelineView: View {
 
 struct TimelineEventRow: View {
     let event: FottyMatchEvent
+    @ScaledMetric(relativeTo: .caption) private var minuteWidth: CGFloat = 32
     
     var body: some View {
         HStack(spacing: 16) {
             Text("\(event.minute)'")
-                .font(.system(size: 12, weight: .black, design: .monospaced))
+                .font(.caption.weight(.semibold).monospacedDigit())
                 .foregroundStyle(FottyTheme.textSecondary)
-                .frame(width: 32)
+                .frame(width: minuteWidth)
             
             Circle()
                 .fill(eventColor)
@@ -48,24 +50,29 @@ struct TimelineEventRow: View {
                     Circle()
                         .stroke(FottyTheme.border, lineWidth: 1)
                 )
+                .accessibilityHidden(true)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(event.player ?? "Action")
-                    .font(.system(size: 14, weight: .bold))
+                    .font(FottyTheme.typeModuleTitle)
+                    .foregroundStyle(FottyTheme.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
                 
                 if let detail = event.detail {
                     Text(detail)
-                        .font(.system(size: 12))
+                        .font(FottyTheme.typeMeta)
                         .foregroundStyle(FottyTheme.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
             
             Spacer()
             
             Text(eventIcon)
-                .font(.system(size: 16))
+                .font(.body)
         }
         .padding()
+        .accessibilityElement(children: .combine)
     }
     
     private var eventColor: Color {

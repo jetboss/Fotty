@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { getMatchFeed } from "@/lib/server/match-feed";
 import { HomeViewV2 } from "@/components/v2/HomeViewV2";
+import { FOTTY_DEFAULTS } from "@/lib/fotty-config";
 
 export const revalidate = 45;
 
 export const metadata: Metadata = {
-  title: "FOTTY | Live Sports, Match Day, and Channels",
-  description: "Browse live sports, follow match day fixtures, and install Fotty for a fast app-like viewing experience.",
+  title: `${FOTTY_DEFAULTS.brandName} | Live Sports, Match Day, and Channels`,
+  description: `Browse live sports, follow match day fixtures, and install ${FOTTY_DEFAULTS.brandName} for a fast app-like viewing experience.`,
 };
 
 export default async function Home() {

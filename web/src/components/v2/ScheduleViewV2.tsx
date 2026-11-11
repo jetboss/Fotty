@@ -53,7 +53,8 @@ export function ScheduleViewV2({ initialMatches = [] }: { initialMatches?: Scrap
 
   useEffect(() => {
     if (initialMatches.length > 0) return;
-    void reload();
+    const initialLoad = window.setTimeout(() => void reload(), 0);
+    return () => window.clearTimeout(initialLoad);
   }, [initialMatches.length, reload]);
 
   const boardMatches = useMemo(() => {
@@ -74,17 +75,14 @@ export function ScheduleViewV2({ initialMatches = [] }: { initialMatches?: Scrap
     [filteredMatches]
   );
 
-  useEffect(() => {
-    if (selectedKey && bucketByKey.has(selectedKey)) return;
+  const effectiveSelectedKey = useMemo(() => {
+    if (selectedKey && bucketByKey.has(selectedKey)) return selectedKey;
     const today = todayKey();
-    if (bucketByKey.has(today)) {
-      setSelectedKey(today);
-      return;
-    }
-    if (dayBuckets[0]) setSelectedKey(dayBuckets[0].key);
+    if (bucketByKey.has(today)) return today;
+    return dayBuckets[0]?.key ?? null;
   }, [bucketByKey, dayBuckets, selectedKey]);
 
-  const selectedDay = selectedKey ? bucketByKey.get(selectedKey) : undefined;
+  const selectedDay = effectiveSelectedKey ? bucketByKey.get(effectiveSelectedKey) : undefined;
   const dayMatches = useMemo(
     () => (selectedDay ? sortFixturesForDisplay(selectedDay.matches) : []),
     [selectedDay]
@@ -118,7 +116,7 @@ export function ScheduleViewV2({ initialMatches = [] }: { initialMatches?: Scrap
             <section className="space-y-3">
               <div className="no-scrollbar flex gap-2 overflow-x-auto pb-1">
                 {dayBuckets.map((bucket) => {
-                  const active = bucket.key === selectedKey;
+                  const active = bucket.key === effectiveSelectedKey;
                   return (
                     <button
                       key={bucket.key}

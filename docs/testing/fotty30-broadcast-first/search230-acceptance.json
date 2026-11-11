@@ -1,0 +1,112 @@
+{
+  "dateLocal": "2026-11-03",
+  "timezone": "America/Port_of_Spain",
+  "version": "3.0.0",
+  "build": {
+    "configuration": "Release",
+    "number": "230",
+    "signatureVerified": true,
+    "binarySHA256": "73a173efd94a59ee2228f334e58241f2b5cff712d59a792397b499b18c3995c5",
+    "installedOnJet": true,
+    "normalLaunchWithoutTestArguments": true,
+    "temporaryUITestOnlyScheme": "Used because existing Release unit test target imports a module without enable-testing; owned scheme removed after the gate. No fresh unit pass claimed."
+  },
+  "scope": "Global Search input and restoration only; phone, FPL, multi-stream, cloud and TestFlight excluded",
+  "baseline229": {
+    "inputMethod": "Device Hub captured keyboard, one complete string after native field focus",
+    "globalSearch": [
+      {
+        "sent": "football",
+        "observed": "Foot",
+        "timeLocal": "22:19:50"
+      },
+      {
+        "sent": "cricket",
+        "observed": "Cric",
+        "timeLocal": "22:20:53"
+      }
+    ],
+    "sportsTVControl": {
+      "sent": "cricket",
+      "observed": "Cricket",
+      "timeLocal": "22:21:42"
+    },
+    "caveat": "Observed lost letters; not proof of the internal Apple framework mechanism."
+  },
+  "repair": "Bind searchable to local State; restore once from SceneStorage, checkpoint on dismissal, submit and inactive scene. Result/index tasks and matching unchanged.",
+  "failedRun": {
+    "tests": 2,
+    "failed": 2,
+    "skipped": 0,
+    "stage": "Software keyboard precondition before typing while Device Hub mirroring was attached",
+    "supersededBy": "Same compiled tests rerun after quitting Device Hub; no assertions weakened and no app rebuild between runs"
+  },
+  "candidateManual": {
+    "football": "complete",
+    "cricket": "complete after native Clear and refocus",
+    "dismissReopen": "retained complete cricket",
+    "suffixRepair": false
+  },
+  "passedRun": {
+    "tests": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 92.52,
+    "endedLocal": "2026-11-03T22:39:20-04:00",
+    "names": [
+      "testPhysical186SearchNativeKeysCommitAndSettleACompleteCricketQuery",
+      "testPhysicalSearchClearRetypeAndReopenPreservesExactInput"
+    ],
+    "completeQuerySequence": [
+      "football",
+      "cricket",
+      "zz",
+      "cricket"
+    ],
+    "assertions": [
+      "Actual seven software keys commit cricket",
+      "Native Clear then one complete typeText per query",
+      "Exact committed text",
+      "Current results settle",
+      "Dismiss and reopen retains exact query"
+    ],
+    "mirroring": "Device Hub quit before run to release virtual hardware keyboard"
+  },
+  "preservation": {
+    "excludedSourceFilesCompared": 42,
+    "changed": 0,
+    "protectedPreferenceKeysCompared": 11,
+    "preferencesChanged": 0,
+    "recentSearchHistoryUnchanged": true,
+    "sourceSettingsUnchanged": true,
+    "normalLaunchQuery": "blank",
+    "phoneOperations": false
+  },
+  "limits": [
+    "Not a frame-time measurement",
+    "Existing broadcast-refresh warning remains visible and is not resolved by Search repair",
+    "No new PL/UCL source qualification",
+    "No claim that all Fotty3.0 release gates are closed"
+  ],
+  "evidence": [
+    {
+      "path": "evidence/jet230-search-native-keys.png",
+      "sha256": "dc432961109ef4742b57f4702ce5500a211e1bca403eadb050e5973bd61d78c3",
+      "origin": "Physical Jet Release230 XCTest attachment; unedited"
+    },
+    {
+      "path": "evidence/jet230-search-reopened.png",
+      "sha256": "459d62f314499075290088e5a153642a77029cc79100a9c2ce1ed7d2ef3deb61",
+      "origin": "Physical Jet Release230 XCTest attachment; unedited"
+    }
+  ],
+  "cleanup": {
+    "ownedBuildGateRemoved": true,
+    "temporarySchemeRemoved": true,
+    "jetUITestRunnerRemoved": true,
+    "ownedKeepAwakeStopped": true,
+    "ownedScreenshotsRemoved": 4,
+    "freeDiskGiB": 30.88
+  }
+}

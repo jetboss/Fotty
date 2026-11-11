@@ -1,0 +1,20 @@
+{
+  "checkedAtUTC": "2026-11-01T18:30:00Z",
+  "LiverpoolArsenal": {
+    "officialSource": "ESPN current scoreboard",
+    "dateUTC": "2026-11-01T16:30:00Z",
+    "status": "FULL_TIME",
+    "completed": true,
+    "score": "Liverpool0\u20131Arsenal",
+    "post217LiveAcceptance": "not reused after official completion"
+  },
+  "nextEligibleFootball": {
+    "id": "sports-fixture:la-liga:564728",
+    "teams": "Elche CF vs Valencia CF",
+    "dateUTC": "2026-11-01T17:30:00Z",
+    "status": "live",
+    "source": "football-data.org via deployed fixture service",
+    "observedAtUTC": "2026-11-01T18:24:32.522Z"
+  },
+  "phone": "215 unavailable; no playback result received from owner"
+}

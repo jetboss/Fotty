@@ -3,8 +3,15 @@ import SwiftUI
 /// The user-facing Rival Race Centre. The legacy type name remains so existing
 /// navigation call sites do not fork another rival surface.
 public struct FPLRivalMatrixView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var metricMinimumWidth: CGFloat = 118
     @ObservedObject private var viewModel: FPLAdvisorViewModel
     let onOpenLeagues: (() -> Void)?
+    private var rivalRowLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 10))
+    }
 
     public init(viewModel: FPLAdvisorViewModel, onOpenLeagues: (() -> Void)? = nil) {
         self.viewModel = viewModel
@@ -23,10 +30,10 @@ public struct FPLRivalMatrixView: View {
 
             if viewModel.gameweekPhase == .planning {
                 preDeadlineState
-            } else if viewModel.isRivalLoading {
-                loadingState
             } else if let gap = viewModel.rivalGapAnalysis {
                 raceContent(gap)
+            } else if viewModel.isRivalLoading {
+                loadingState
             } else {
                 rivalPicker
             }
@@ -56,29 +63,25 @@ public struct FPLRivalMatrixView: View {
                 Label("RIVAL RACE CENTRE", systemImage: "flag.checkered.2.crossed")
                     .font(FottyTheme.typeSectionTitle)
                     .foregroundStyle(FottyTheme.textPrimary)
-                Text("One published rival, the actual league gap, and the players who can still swing it.")
+                Text("Compare one rival using the same gameweek scoring data as your team.")
                     .font(FottyTheme.typeMeta)
                     .foregroundStyle(FottyTheme.textSecondary)
             }
             Spacer(minLength: 8)
-            Text(phaseLabel)
-                .font(FottyTheme.typeCaption)
-                .foregroundStyle(FottyTheme.textOnAccent)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(FottyTheme.accent)
-                .clipShape(Capsule())
+            TimelineView(.periodic(from: .now, by: 30)) { _ in
+                Text(phaseLabel)
+                    .font(FottyTheme.typeCaption)
+                    .foregroundStyle(FottyTheme.textOnAccent)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(FottyTheme.accent)
+                    .clipShape(Capsule())
+            }
         }
     }
 
     private var phaseLabel: String {
-        switch viewModel.gameweekPhase {
-        case .planning: return "PRE-DEADLINE"
-        case .locked: return "TEAMS LOCKED"
-        case .live: return "LIVE"
-        case .review: return "REVIEW"
-        case .unavailable: return "WAITING"
-        }
+        viewModel.gameweekPhase == .planning ? "PRE-DEADLINE" : viewModel.rivalComparisonStatus
     }
 
     private var preDeadlineState: some View {
@@ -131,32 +134,34 @@ public struct FPLRivalMatrixView: View {
                     Button {
                         Task { await viewModel.inspectRival(entry: entry) }
                     } label: {
-                        HStack(spacing: 10) {
+                        rivalRowLayout {
                             Text("#\(entry.rank)")
                                 .font(FottyTheme.typeAction)
                                 .foregroundStyle(FottyTheme.accentText)
-                                .frame(width: 48, alignment: .leading)
+                                .frame(minWidth: dynamicTypeSize.isAccessibilitySize ? 0 : 48, alignment: .leading)
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(entry.entryName)
                                     .font(FottyTheme.typeModuleTitle)
                                     .foregroundStyle(FottyTheme.textPrimary)
-                                    .lineLimit(1)
+                                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                                 Text("\(entry.managerName) • \(entry.total) pts")
                                     .font(FottyTheme.typeMeta)
                                     .foregroundStyle(FottyTheme.textSecondary)
-                                    .lineLimit(1)
+                                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                             }
-                            Spacer()
+                            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                             Image(systemName: "chevron.right")
                                 .foregroundStyle(FottyTheme.textTertiary)
                                 .accessibilityHidden(true)
                         }
                         .frame(minHeight: 52)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                         .background(FottyTheme.surfaceElevated)
                         .clipShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD))
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusMD))
                     .accessibilityLabel("Compare with \(entry.entryName), managed by \(entry.managerName), rank \(entry.rank), \(entry.total) points")
                 }
             }
@@ -165,6 +170,12 @@ public struct FPLRivalMatrixView: View {
 
     private func raceContent(_ gap: RivalGapAnalysis) -> some View {
         VStack(alignment: .leading, spacing: 14) {
+            if viewModel.isRivalLoading {
+                HStack(spacing: 8) {
+                    ProgressView().tint(FottyTheme.accentText)
+                    Text("Updating both sides of this comparison…").font(FottyTheme.typeMeta)
+                }
+            }
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(gap.rivalName)
@@ -191,14 +202,25 @@ public struct FPLRivalMatrixView: View {
                 .accessibilityHint("Choose another manager from the loaded league page")
             }
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 118), spacing: 8)], spacing: 8) {
-                metric("OVERALL GAP", signedGap(gap.pointDeficit), gapDetail(gap.pointDeficit))
-                metric("GW GAP", signedGap(gap.gameweekDeficit), "official standings")
-                metric("PLAYERS LEFT", "\(gap.myPlayersRemaining)–\(gap.rivalPlayersRemaining)", "you–rival")
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: metricMinimumWidth), spacing: 8)], spacing: 8) {
+                metric("STANDINGS GAP", signedGap(gap.pointDeficit), "last loaded · \(gapDetail(gap.pointDeficit))")
+                metric("GW \(gap.gameweek) GAP", signedGap(gap.gameweekDeficit), "you \(gap.myGameweekPoints) · rival \(gap.rivalGameweekPoints)")
+                metric("PLAYERS LEFT", "\(gap.myPlayersRemaining)–\(gap.rivalPlayersRemaining)", "you–rival · active players, not fixtures")
                 metric("SHARED", "\(gap.sharedPlayers.count)", "squad players")
             }
 
-            Text(gap.tacticalAdvice)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(gap.scoringLabel)
+                Text("GW totals include transfer hits: you −\(gap.myTransferCost), rival −\(gap.rivalTransferCost).")
+                if let checkedAt = gap.checkedAt {
+                    Text("Scoring evidence checked \(checkedAt.formatted(date: .abbreviated, time: .shortened)).")
+                }
+                Text("The standings gap is a separately loaded league snapshot, not a live overall rank.")
+            }
+            .font(FottyTheme.typeCaption)
+            .foregroundStyle(FottyTheme.textSecondary)
+
+            Text("Based on the last loaded standings: \(gap.tacticalAdvice)")
                 .font(FottyTheme.typeBody)
                 .foregroundStyle(FottyTheme.textPrimary)
                 .padding(12)
@@ -214,21 +236,21 @@ public struct FPLRivalMatrixView: View {
 
             playerSection(
                 title: "Your unique players",
-                subtitle: "Points only you can gain in this head-to-head",
+                subtitle: "Players in your published squad only; bench players may not score",
                 players: gap.myDifferentials,
                 color: FottyTheme.success,
                 empty: "No unique players in the two published squads."
             )
             playerSection(
                 title: "Rival threats",
-                subtitle: "Players who can reduce your relative position",
+                subtitle: "Players in the rival's published squad only; bench players may not score",
                 players: gap.rivalThreats,
                 color: FottyTheme.accentText,
                 empty: "The rival has no unique players in this comparison."
             )
 
             Label(
-                "Published squads and official event-live points only. Fotty does not estimate effective ownership or live rank.",
+                "Both squads use one gameweek snapshot and the same substitution, captaincy and transfer-hit rules. Projections are labeled; Fotty does not estimate effective ownership or live rank.",
                 systemImage: "checkmark.shield.fill"
             )
             .font(FottyTheme.typeCaption)
@@ -262,20 +284,18 @@ public struct FPLRivalMatrixView: View {
                 .foregroundStyle(FottyTheme.accentText)
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 10) {
-                    captain("YOU", gap.myCaptainName ?? "Unknown", FottyTheme.success)
+                    captain("YOU", gap.myCaptainName ?? "No scoring captain", FottyTheme.success)
                     Image(systemName: gap.myCaptainName == gap.rivalCaptainName ? "equal.circle.fill" : "arrow.left.arrow.right.circle.fill")
                         .foregroundStyle(FottyTheme.textTertiary)
                         .accessibilityHidden(true)
-                    captain("RIVAL", gap.rivalCaptainName ?? "Unknown", FottyTheme.accentText)
+                    captain("RIVAL", gap.rivalCaptainName ?? "No scoring captain", FottyTheme.accentText)
                 }
                 VStack(spacing: 8) {
-                    captain("YOU", gap.myCaptainName ?? "Unknown", FottyTheme.success)
-                    captain("RIVAL", gap.rivalCaptainName ?? "Unknown", FottyTheme.accentText)
+                    captain("YOU", gap.myCaptainName ?? "No scoring captain", FottyTheme.success)
+                    captain("RIVAL", gap.rivalCaptainName ?? "No scoring captain", FottyTheme.accentText)
                 }
             }
-            Text(gap.myCaptainName == gap.rivalCaptainName
-                 ? "Captaincy is neutral between these published squads."
-                 : "Different captains create a direct relative swing from official points.")
+            Text("Scoring multipliers: you ×\(gap.myCaptainMultiplier), rival ×\(gap.rivalCaptainMultiplier). \(gap.pointsAreProjected ? "Includes projected captain replacement." : "From the published scoring lineup.")")
                 .font(FottyTheme.typeMeta)
                 .foregroundStyle(FottyTheme.textSecondary)
         }
@@ -304,10 +324,10 @@ public struct FPLRivalMatrixView: View {
                 .foregroundStyle(FottyTheme.accentText)
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text("UNIQUE-PLAYER LIVE SWING")
+                Text("UNIQUE-PLAYER POINTS SWING")
                     .font(FottyTheme.typeMeta)
                     .foregroundStyle(FottyTheme.textPrimary)
-                Text("You \(gap.myUniqueLivePoints) • Rival \(gap.rivalUniqueLivePoints) official points")
+                Text("You \(gap.myUniqueLivePoints) • Rival \(gap.rivalUniqueLivePoints) points. Excludes shared players and transfer hits; this is not the full GW gap.")
                     .font(FottyTheme.typeMeta)
                     .foregroundStyle(FottyTheme.textSecondary)
             }
@@ -347,9 +367,18 @@ public struct FPLRivalMatrixView: View {
                             Text(player.player.webName)
                                 .font(FottyTheme.typeAction)
                                 .foregroundStyle(FottyTheme.textPrimary)
-                            Text("\(player.team.shortName) • \(player.player.positionName) • \(player.player.formattedCost)")
-                                .font(FottyTheme.typeCaption)
-                                .foregroundStyle(FottyTheme.textSecondary)
+                            HStack(spacing: 4) {
+                                TeamIdentityLabel(
+                                    teamName: player.team.shortName,
+                                    badgeURL: player.team.badgeURL,
+                                    badgeSize: 18,
+                                    font: FottyTheme.typeCaption,
+                                    foregroundColor: FottyTheme.textSecondary
+                                )
+                                Text("• \(player.player.positionName) • \(player.player.formattedCost)")
+                                    .font(FottyTheme.typeCaption)
+                                    .foregroundStyle(FottyTheme.textSecondary)
+                            }
                         }
                         Spacer()
                         Text(player.player.selectedByPercent + "%")

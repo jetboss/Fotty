@@ -1,0 +1,57 @@
+{
+  "checkedAtUTC": "2026-11-01T19:02:44.864Z",
+  "results": [
+    {
+      "request": 5,
+      "name": "known-nonempty-historical",
+      "status": 200,
+      "contentType": "application/json",
+      "date": "Sun, 01 Nov 2026 19:02:44 GMT",
+      "age": null,
+      "bytes": 1196,
+      "body": {
+        "keys": [
+          "data",
+          "meta",
+          "links"
+        ],
+        "meta": {
+          "totalCount": 1,
+          "count": 1
+        },
+        "links": {
+          "self": "https://multi-club-matches.webapi.gc.eflservices.co.uk/v2/matches?competitionID=2&from=2026-10-29+00%3A00%3A00Z&page.size=100&seasonID=2026&to=2026-11-06+23%3A59%3A59Z"
+        },
+        "rows": [
+          {
+            "id": "g2687773",
+            "competitionID": 2,
+            "kickOffDateUTC": "2026-10-29 19:45:00",
+            "matchPeriod": "FullTime"
+          }
+        ]
+      }
+    },
+    {
+      "request": 6,
+      "name": "current-rolling",
+      "status": 404,
+      "contentType": "application/json",
+      "date": "Sun, 01 Nov 2026 19:02:44 GMT",
+      "age": null,
+      "bytes": 77,
+      "body": {
+        "keys": [
+          "errors"
+        ],
+        "errors": [
+          {
+            "detail": "No matches found",
+            "title": "Not Found",
+            "status": "404"
+          }
+        ]
+      }
+    }
+  ]
+}

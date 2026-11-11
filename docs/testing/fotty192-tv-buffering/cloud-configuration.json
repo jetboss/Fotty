@@ -1,0 +1,14 @@
+{
+  "fotty-playback-v3": {
+    "existingBindingsPreserved": true,
+    "addedNames": [
+      "BROADCAST_REGISTRY",
+      "FOTTY_BROADCAST_REGISTRY_ENABLED",
+      "FOTTY_BROADCAST_REGISTRY_SOURCES"
+    ]
+  },
+  "fotty-watchdog": {
+    "existingBindingsPreserved": true,
+    "addedNames": []
+  }
+}

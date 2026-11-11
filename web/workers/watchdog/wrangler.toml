@@ -9,6 +9,13 @@ crons = [ "*/5 * * * *" ]
 [vars]
 # Activation is an owner gate, not a side effect of compiling or dry-running.
 FOTTY_WATCHDOG_ENABLED = "0"
+# Disabled source preparation only. Recipient verification, an onboarded sender
+# domain and a fixed-destination binding are separate factual activation gates.
+FOTTY_OWNER_EMAIL_ENABLED = "0"
+# After those gates, use a private config with FOTTY_OWNER_EMAIL_ACTIVATED_AT,
+# FOTTY_OWNER_EMAIL_RECIPIENT, FOTTY_OWNER_EMAIL_SENDER=watchdog@getfotty.com
+# and [[send_email]] name=FOTTY_OWNER_EMAIL, destination_address=<verified owner>.
+# Do not add an unrestricted binding or real owner address to this source file.
 [[durable_objects.bindings]]
 name = "WATCHDOG_STATE"
 class_name = "WatchdogState"

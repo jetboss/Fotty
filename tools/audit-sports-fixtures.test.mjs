@@ -18,6 +18,48 @@ test("healthy receipts are quiet and count coverage exactly", async () => {
   body.coverage[0].fixtureCount++;
   assert.throws(() => auditSportsSnapshot(body, { now }));
 });
+test("isolated sports receipts retain cohort failures while counting only admitted fresh live rows", async () => {
+  const body = await snapshot();
+  body.sourceStatus = "partial";
+  body.coverage[0].status = "unavailable";
+  body.coverage[0].checkedAt = new Date(now - 4 * 60 * 60_000).toISOString();
+  body.coverage[0].sync = { consecutiveFailures: 2, conflict: true };
+  body.fixtures[0].source.verification = "verified";
+  const report = auditSportsSnapshot(body, { now });
+  assert.equal(report.verifiedFixtureCount, 1);
+  assert.equal(report.heldFixtureCount, 0);
+  assert.equal(report.freshVerifiedLiveCount, 1);
+  assert.deepEqual(new Set(report.findings.map((row) => row.code)), new Set(["repeated-source-failure", "unconfirmed-correction"]));
+  body.fixtures[0].source.verification = "held";
+  body.fixtures[0].source.observedAt = body.coverage[0].checkedAt;
+  const held = auditSportsSnapshot(body, { now });
+  assert.equal(held.verifiedFixtureCount, 0);
+  assert.equal(held.heldFixtureCount, 1);
+  assert.equal(held.freshVerifiedLiveCount, 0);
+  assert.ok(held.findings.some((finding) => finding.code === "stale-live-evidence"));
+});
+test("sports marker validation rejects null, unknown and covered holds while keeping legacy receipts compatible", async () => {
+  const body = await snapshot();
+  assert.equal(auditSportsSnapshot(body, { now }).verifiedFixtureCount, 1);
+  for (const marker of [null, "unknown", "held"]) {
+    body.fixtures[0].source.verification = marker;
+    assert.throws(() => auditSportsSnapshot(body, { now }));
+  }
+  body.fixtures[0].source.verification = "verified";
+  assert.equal(auditSportsSnapshot(body, { now }).freshVerifiedLiveCount, 1);
+  body.sourceStatus = "last-known-good";
+  assert.equal(auditSportsSnapshot(body, { now }).freshVerifiedLiveCount, 0);
+  assert.equal(auditSportsSnapshot(body, { now }).verifiedFixtureCount, 0);
+  body.sourceStatus = "partial"; body.coverage[0].status = "unavailable";
+  body.fixtures[0].source.verification = "verified";
+  body.checkedAt = new Date(now - 60_000).toISOString();
+  assert.throws(() => auditSportsSnapshot(body, { now }));
+  body.checkedAt = new Date(now).toISOString();
+  delete body.fixtures[0].source.verification;
+  assert.equal(auditSportsSnapshot(body, { now }).verifiedFixtureCount, 0);
+  body.coverage[0].checkedAt = new Date(now - 60_000).toISOString();
+  assert.throws(() => auditSportsSnapshot(body, { now }));
+});
 test("stale live evidence, repeated failures and conflicts are actionable", async () => {
   const body = await snapshot();
   const old = new Date(now - 31 * 60_000).toISOString();
@@ -51,7 +93,29 @@ test("comparison repetition requires the same validated event facts, not only th
   assert.equal(keys.includes(sportsFindingKey({ ...finding, evidenceKey: "b".repeat(64) })), false);
   assert.throws(() => sportsFindingKey({ ...finding, evidenceKey: "unsafe value" }));
   assert.throws(() => sportsFindingKey({ code: "same-upstream-current-omission", competitionId: "mlb" }));
+  assert.throws(() => sportsFindingKey({ code: "same-upstream-refresh-required", competitionId: "mlb" }));
   assert.deepEqual(previousSportsFindingKeys([{ steps: [{ name: `Record an unhealthy sports audit: ${key}:extra`, conclusion: "failure" }] }]), []);
+});
+test("refresh-required alerts escalate only an identical immediately preceding fact digest", async () => {
+  const finding = { code: "same-upstream-refresh-required", competitionId: "mlb", actionable: false, evidenceKey: "a".repeat(64) };
+  const key = sportsFindingKey(finding);
+  const report = { version: 1, checkedAt: new Date(now).toISOString(), failed: true, actionable: false, findings: [finding] };
+  const context = { report, repository: "jetboss/Fotty", token: "synthetic", runId: "123", runNumber: "2", branch: "main" };
+  for (const previousKey of [key, sportsFindingKey({ ...finding, evidenceKey: "b".repeat(64) })]) {
+    const methods = [];
+    const result = await reportSportsAuditToGitHub({ ...context, request: async (url, init) => {
+      methods.push(init.method);
+      if (url.includes("/actions/workflows/")) return Response.json({ workflow_runs: [{ id: 122, run_number: 1 }] });
+      if (url.includes("/actions/runs/122/jobs")) return Response.json({ jobs: [{ steps: [
+        { name: `Record an unhealthy sports audit: ${previousKey}`, conclusion: "failure" },
+      ] }] });
+      if (init.method === "GET" && url.includes("/issues?")) return Response.json([]);
+      if (init.method === "POST" && url.endsWith("/issues")) return Response.json({ number: 1 });
+      throw new Error("Unexpected offline request");
+    } });
+    assert.equal(result.notified, previousKey === key);
+    assert.equal(methods.includes("POST"), previousKey === key);
+  }
 });
 test("issue body accepts fixed findings only and keeps private text out", () => {
   const report = failedSportsAudit("endpoint-unavailable", now);

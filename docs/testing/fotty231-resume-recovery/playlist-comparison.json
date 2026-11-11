@@ -1,0 +1,42 @@
+{
+  "source": "CS reviewed DaddyLive delivery",
+  "sequences": [
+    358310,
+    358311
+  ],
+  "overlap": [
+    {
+      "sameURL": false,
+      "sameOrigin": true,
+      "samePath": true,
+      "queryKeys": [
+        "token"
+      ],
+      "changedQueryKeys": [
+        "token"
+      ]
+    },
+    {
+      "sameURL": false,
+      "sameOrigin": true,
+      "samePath": true,
+      "queryKeys": [
+        "token"
+      ],
+      "changedQueryKeys": [
+        "token"
+      ]
+    },
+    {
+      "sameURL": false,
+      "sameOrigin": true,
+      "samePath": true,
+      "queryKeys": [
+        "token"
+      ],
+      "changedQueryKeys": [
+        "token"
+      ]
+    }
+  ]
+}

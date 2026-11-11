@@ -1,0 +1,40 @@
+{
+  "build": 203,
+  "installedOnJet": true,
+  "normalSourceChoicesPreserved": true,
+  "currentEligibleFixture": {
+    "title": "Tottenham Hotspur\u2013Crystal Palace",
+    "kickoffUTC": "2026-10-31T17:30:00Z",
+    "at": "2026-10-31T18:49:38Z",
+    "publisherStatus": "second-half 61 minutes",
+    "officialFixtureStatus": "live",
+    "officialSnapshotCheckedAt": "2026-10-31T18:45:04.910Z"
+  },
+  "ASCurrentContract": {
+    "at": "2026-10-31T18:53:02Z",
+    "sameIDMeta": true,
+    "descriptors": 2,
+    "reviewedHTTPSHLSShape": true,
+    "hasUnsupportedMetaAuthority": false
+  },
+  "deviceDiagnosticEvidence": {
+    "at": "2026-10-31T17:17:07Z",
+    "source": "AS1",
+    "appBuild": "203",
+    "event": "decoded_progress",
+    "observedByAgentVisually": false,
+    "programmeAnd90SecondHoldQualified": false
+  },
+  "remainingGates": [
+    "Normal picker AS selection with correct-programme observation",
+    "90-second advancing hold",
+    "Native fullscreen and PiP on the AS delivery"
+  ],
+  "blocker": "Mac access recovered, but Jet now reports passcodeRequired. Manual owner unlock requested; never unlock the device or treat a black screen as a playback failure.",
+  "notClaimed": [
+    "All advertised deliveries work",
+    "Live UCL qualified",
+    "Full task completed",
+    "TestFlight ready"
+  ]
+}

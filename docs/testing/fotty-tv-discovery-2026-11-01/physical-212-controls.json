@@ -1,0 +1,11 @@
+{
+  "build": 212,
+  "channel": "beIN SPORTS XTRA",
+  "pausedObservedUTC": "2026-11-01T11:44:26.445Z",
+  "pauseEvidence": "System fullscreen Play glyph with stationary footvolley picture score13–7",
+  "resumedObservedUTC": "2026-11-01T11:45:53.159Z",
+  "resumeEvidence": "Native Pause glyph after Play, then moving footvolley programme score13–7 to13–9",
+  "normalWatchReopen": "passed",
+  "nativeFullscreen": "passed",
+  "pausePlay": "passed"
+}

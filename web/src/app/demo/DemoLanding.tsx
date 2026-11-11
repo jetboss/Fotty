@@ -70,12 +70,6 @@ const FIXTURES = [
    ───────────────────────────────────────────── */
 
 export function DemoLanding() {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   return (
     <div className="relative flex min-h-[100dvh] flex-col overflow-hidden bg-[#060810]">
       {/* ── Ambient stadium glow ── */}
@@ -111,7 +105,7 @@ export function DemoLanding() {
           <div className="max-w-xl">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
-              animate={mounted ? { opacity: 1, y: 0 } : {}}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] as const }}
             >
               <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/8 px-3.5 py-1.5">
@@ -125,7 +119,7 @@ export function DemoLanding() {
 
             <motion.h1
               initial={{ opacity: 0, y: 24 }}
-              animate={mounted ? { opacity: 1, y: 0 } : {}}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, delay: 0.2, ease: [0.25, 0.46, 0.45, 0.94] as const }}
               className="text-[clamp(2.5rem,6vw,4.5rem)] font-black leading-[0.92] tracking-tight text-white"
             >
@@ -136,7 +130,7 @@ export function DemoLanding() {
 
             <motion.p
               initial={{ opacity: 0, y: 20 }}
-              animate={mounted ? { opacity: 1, y: 0 } : {}}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as const }}
               className="mt-5 max-w-md text-[15px] font-medium leading-7 text-[#8a919e]"
             >
@@ -145,7 +139,7 @@ export function DemoLanding() {
 
             <motion.div
               initial={{ opacity: 0, y: 16 }}
-              animate={mounted ? { opacity: 1, y: 0 } : {}}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as const }}
               className="mt-8 flex items-center gap-4"
             >
@@ -171,7 +165,7 @@ export function DemoLanding() {
           {/* Right: live ticker card */}
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 12 }}
-            animate={mounted ? { opacity: 1, scale: 1, y: 0 } : {}}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.4, ease: [0.25, 0.46, 0.45, 0.94] as const }}
             className="hidden lg:block"
           >
@@ -183,7 +177,7 @@ export function DemoLanding() {
       {/* ── Mobile ticker (below hero text on small screens) ── */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
-        animate={mounted ? { opacity: 1, y: 0 } : {}}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, delay: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as const }}
         className="relative z-10 px-6 pb-8 lg:hidden"
       >

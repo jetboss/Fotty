@@ -1,0 +1,33 @@
+{
+  "observedUTC": "2026-10-29T13:32:14.392713+00:00",
+  "product": "JioHotstar",
+  "artifact": "official public sports route territory-unavailable response",
+  "requestedURL": "https://www.hotstar.com/in/sports",
+  "status": 200,
+  "bytes": 174176,
+  "sha256": "e6c308d460e216864b91850eaab76ec8b1701bbcb07dbce344be0fee56f78e72",
+  "scriptTagCount": 0,
+  "inlineScriptCharacters": 0,
+  "anchorCount": 0,
+  "visibleRestriction": "We're not available in this location, thank you for your love!",
+  "helpRoute": {
+    "requested": "https://help.jiohotstar.com/",
+    "final": "https://www.hotstar.com/faq",
+    "sameBodySHA256": true
+  },
+  "REA": {
+    "analysisPerformed": false,
+    "reason": "No consumer JavaScript advertised in fetched restricted shell; no native package supplied. A zero-code CSS/HTML graph would not establish sports behavior. Root agreed not to manufacture a behavior pass.",
+    "nativeRuntime": "unobserved",
+    "accountPlayback": "unobserved",
+    "territoryBypass": false
+  },
+  "boundaries": {
+    "authentication": false,
+    "accountsCreated": false,
+    "payments": false,
+    "mediaRequested": false,
+    "devicesTouched": false,
+    "FottySourceChanged": false
+  }
+}

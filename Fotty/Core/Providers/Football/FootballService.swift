@@ -4,7 +4,7 @@ import Foundation
 private let serviceLogger = Logger(subsystem: "com.jelani.Fotty", category: "FootballService")
 
 // MARK: - Football Schedule Service
-// Uses football-data.org v4 API (free tier: 10 req/min, PL + CL included)
+// Uses football-data.org v4 API (free tier: 10 req/min, six European leagues).
 
 actor FootballService {
     
@@ -12,6 +12,9 @@ actor FootballService {
     
     private let session: URLSession
     private let decoder: JSONDecoder
+    private let apiKey: String
+    private let proxyBaseURL: URL?
+    private let prefersProxy: Bool
     private let baseURL = "https://api.football-data.org/v4"
     
     // Cache
@@ -28,16 +31,25 @@ actor FootballService {
     /// Time until which we should stop making requests due to rate limiting
     private var cooldownUntil: Date?
     private var footballProxyCooldownUntil: Date?
+    private var footballProxyFailure: Error?
     
-    private init() {
+    init(
+        session: URLSession? = nil,
+        apiKey: String = Config.footballAPIKey,
+        proxyBaseURL: URL? = Config.footballProxyBaseURL,
+        prefersProxy: Bool = Config.prefersFootballDataProxy
+    ) {
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 10
         config.httpAdditionalHeaders = [
-            "X-Auth-Token": Config.footballAPIKey,
+            "X-Auth-Token": apiKey,
             "Accept": "application/json"
         ]
-        self.session = URLSession(configuration: config)
+        self.session = session ?? URLSession(configuration: config)
         self.decoder = JSONDecoder()
+        self.apiKey = apiKey
+        self.proxyBaseURL = proxyBaseURL
+        self.prefersProxy = prefersProxy
     }
     
     // MARK: - Matches
@@ -66,11 +78,18 @@ actor FootballService {
 
         do {
             let response: FootballMatchesResponse = try await request(path: "/matches", query: query)
-            if !response.matches.isEmpty {
-                return response.matches
-            }
+            // An empty verified window is valid, not a reason to fan out six
+            // additional requests or try an unconfigured premium provider.
+            return response.matches
         } catch {
-            serviceLogger.error("Global /matches failed (\(error.localizedDescription, privacy: .public)); using per-competition fallback.")
+            try Task.checkCancellation()
+            if error is CancellationError || (error as? URLError)?.code == .cancelled {
+                throw error
+            }
+            // Keyless installations have no independent direct transport. A
+            // proxy outage must retain its real error, not become noAPIKey.
+            guard !apiKey.isEmpty else { throw error }
+            serviceLogger.error("Global /matches failed; using configured per-competition fallback.")
         }
 
         return try await fetchMatchesAcrossCompetitions(from: from, to: to, statuses: statuses, limit: limit)
@@ -104,6 +123,7 @@ actor FootballService {
     ) async throws -> [FootballMatch] {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
         var collected: [FootballMatch] = []
         for league in leagues {
             var query: [String: String] = [
@@ -153,6 +173,7 @@ actor FootballService {
     func matches(league: League, from: Date, to: Date) async throws -> [FootballMatch] {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone(identifier: "UTC")
         
         let response: FootballMatchesResponse = try await request(
             path: "/competitions/\(league.rawValue)/matches",
@@ -508,21 +529,30 @@ actor FootballService {
     // MARK: - Networking
     
     private func request<T: Decodable>(path: String, query: [String: String] = [:]) async throws -> T {
-        if Config.prefersFootballDataProxy,
-           footballProxyCooldownUntil.map({ Date() >= $0 }) ?? true {
-            do {
-                let proxied: T = try await requestViaFootballProxy(path: path, query: query)
-                footballProxyCooldownUntil = nil
-                return proxied
-            } catch {
-                footballProxyCooldownUntil = Date().addingTimeInterval(60)
-                if Config.footballAPIKey.isEmpty {
-                    throw error
+        if prefersProxy {
+            if let until = footballProxyCooldownUntil, Date() < until {
+                if apiKey.isEmpty { throw footballProxyFailure ?? FootballError.invalidResponse }
+            } else {
+                do {
+                    let proxied: T = try await requestViaFootballProxy(path: path, query: query)
+                    footballProxyCooldownUntil = nil
+                    footballProxyFailure = nil
+                    return proxied
+                } catch {
+                    try Task.checkCancellation()
+                    if error is CancellationError || (error as? URLError)?.code == .cancelled {
+                        throw error
+                    }
+                    footballProxyCooldownUntil = Date().addingTimeInterval(60)
+                    footballProxyFailure = error
+                    if apiKey.isEmpty {
+                        throw error
+                    }
                 }
             }
         }
 
-        guard !Config.footballAPIKey.isEmpty else {
+        guard !apiKey.isEmpty else {
             throw FootballError.noAPIKey
         }
 
@@ -531,7 +561,7 @@ actor FootballService {
         }
         
         if !query.isEmpty {
-            components.queryItems = query.map { URLQueryItem(name: $0.key, value: $0.value) }
+            components.queryItems = query.keys.sorted().map { URLQueryItem(name: $0, value: query[$0]) }
         }
         
         guard let url = components.url else {
@@ -552,7 +582,9 @@ actor FootballService {
             return try decoder.decode(T.self, from: cached.data)
         }
         
-        let (data, response) = try await session.data(from: url)
+        var request = URLRequest(url: url)
+        request.setValue(apiKey, forHTTPHeaderField: "X-Auth-Token")
+        let (data, response) = try await session.data(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw FootballError.invalidResponse
@@ -568,10 +600,9 @@ actor FootballService {
             throw FootballError.httpError(httpResponse.statusCode)
         }
         
-        // Update cache
+        let decoded = try decoder.decode(T.self, from: data)
         cache[cacheKey] = (data, Date())
-        
-        return try decoder.decode(T.self, from: data)
+        return decoded
     }
 
     /// Routes football-data.org match feeds through Fotty Web so the API key stays server-side.
@@ -580,7 +611,7 @@ actor FootballService {
               path.hasSuffix("/matches") || path == "/matches" else {
             throw FootballError.invalidURL
         }
-        guard let base = Config.footballProxyBaseURL else {
+        guard let base = proxyBaseURL else {
             throw FootballError.invalidURL
         }
 
@@ -595,7 +626,7 @@ actor FootballService {
 
         var components = URLComponents(url: base.appendingPathComponent("api/football/matches/"), resolvingAgainstBaseURL: false)
         if !proxyQuery.isEmpty {
-            components?.queryItems = proxyQuery.map { URLQueryItem(name: $0.key, value: $0.value) }
+            components?.queryItems = proxyQuery.keys.sorted().map { URLQueryItem(name: $0, value: proxyQuery[$0]) }
         }
         guard let url = components?.url else {
             throw FootballError.invalidURL
@@ -617,8 +648,9 @@ actor FootballService {
             throw FootballError.httpError(httpResponse.statusCode)
         }
 
+        let decoded = try decoder.decode(T.self, from: data)
         cache[cacheKey] = (data, Date())
-        return try decoder.decode(T.self, from: data)
+        return decoded
     }
 
     // MARK: - API-Football Deep Analytics (Data Fortress)
@@ -1172,23 +1204,54 @@ class TeamBrandService: ObservableObject {
     @Published private(set) var isLoading = false
     
     private let cacheKey = "fotty.cache.teamBadges"
+    private let refreshDateKey = "fotty.cache.teamBadges.lastRefresh"
+    private let badgeRefreshFreshnessInterval: TimeInterval = 24 * 60 * 60
     private var hasBootstrapped = false
+    private var lastBootstrapAttempt: Date?
+    private let bootstrapRetryInterval: TimeInterval = 120
+    private let badgeDefaults: UserDefaults
+    private let badgeNow: () -> Date
+    private let bootstrapRefresh: (@MainActor () async -> Int)?
     
-    private var sportsDBLeagues: [String] = [
-        "English Premier League", "Spanish La Liga", "Italian Serie A", "German Bundesliga", "French Ligue 1",
-        "NBA", "WNBA", "MLB", "Argentinian LNB", "IPL Cricket"
+    /// The free SportsDB catalog is intentionally limited to leagues that do
+    /// not have a complete bundled/league-level source. Sending one request
+    /// per football club caused cold-start 429s and incomplete badge grids.
+    private let sportsDBLeagues: [String] = [
+        "Argentinian LNB", "Caribbean Premier League", "Indian Premier League"
+    ]
+
+    /// One metadata request per league returns the complete current badge
+    /// catalog. Source-controlled aliases below keep provider naming exact.
+    private let espnBadgeLeagues: [(sport: String, league: String)] = [
+        ("soccer", "eng.1"), ("soccer", "esp.1"), ("soccer", "ita.1"),
+        ("soccer", "ger.1"), ("soccer", "fra.1"),
+        ("soccer", "eng.2"), ("soccer", "esp.2"), ("soccer", "ita.2"),
+        ("soccer", "ger.2"), ("soccer", "fra.2"),
+        ("soccer", "usa.1"), ("soccer", "mex.1"),
+        ("soccer", "uefa.champions"), ("soccer", "uefa.europa"),
+        ("soccer", "aut.1"), ("soccer", "nor.1"), ("soccer", "isr.1"),
+        ("football", "nfl"), ("football", "college-football"), ("football", "cfl")
     ]
     
     private var inFlightResolutions: [String: Task<URL?, Error>] = [:]
     
-    private init() {
+    private convenience init() {
+        self.init(defaults: .standard, now: Date.init)
+    }
+
+    /// Tests isolate preferences, time and transport without touching providers.
+    init(defaults: UserDefaults, now: @escaping () -> Date,
+         bootstrapRefresh: (@MainActor () async -> Int)? = nil) {
+        badgeDefaults = defaults
+        badgeNow = now
+        self.bootstrapRefresh = bootstrapRefresh
         seedSafetyNet()
         loadFromPersistentCache()
     }
 
     /// Exact current names/artwork from ESPN's existing NBA/MLB image catalog,
     /// verified 2026-08-27. Static fallbacks: no new runtime catalog API request.
-    static let majorLeagueBadgeURLs: [String: URL] = {
+    nonisolated static let majorLeagueBadgeURLs: [String: URL] = {
         let leagues: [String: [String: String]] = [
             "nba": [
                 "atlanta hawks": "atl", "boston celtics": "bos", "brooklyn nets": "bkn",
@@ -1213,6 +1276,26 @@ class TeamBrandService: ObservableObject {
                 "pittsburgh pirates": "pit", "san diego padres": "sd", "san francisco giants": "sf",
                 "seattle mariners": "sea", "st louis cardinals": "stl", "tampa bay rays": "tb",
                 "texas rangers": "tex", "toronto blue jays": "tor", "washington nationals": "wsh"
+            ],
+            "wnba": [
+                "atlanta dream": "atl", "chicago sky": "chi", "connecticut sun": "con",
+                "dallas wings": "dal", "golden state valkyries": "gs", "indiana fever": "ind",
+                "las vegas aces": "lv", "los angeles sparks": "la", "minnesota lynx": "min",
+                "new york liberty": "ny", "phoenix mercury": "phx", "portland fire": "por",
+                "seattle storm": "sea", "toronto tempo": "tor", "washington mystics": "wsh"
+            ],
+            "nhl": [
+                "anaheim ducks": "ana", "boston bruins": "bos", "buffalo sabres": "buf",
+                "calgary flames": "cgy", "carolina hurricanes": "car", "chicago blackhawks": "chi",
+                "colorado avalanche": "col", "columbus blue jackets": "cbj", "dallas stars": "dal",
+                "detroit red wings": "det", "edmonton oilers": "edm", "florida panthers": "fla",
+                "los angeles kings": "la", "minnesota wild": "min", "montreal canadiens": "mtl",
+                "nashville predators": "nsh", "new jersey devils": "nj", "new york islanders": "nyi",
+                "new york rangers": "nyr", "ottawa senators": "ott", "philadelphia flyers": "phi",
+                "pittsburgh penguins": "pit", "san jose sharks": "sj", "seattle kraken": "sea",
+                "st louis blues": "stl", "st. louis blues": "stl", "tampa bay lightning": "tb",
+                "toronto maple leafs": "tor", "utah mammoth": "utah", "vancouver canucks": "van",
+                "vegas golden knights": "vgk", "washington capitals": "wsh", "winnipeg jets": "wpg"
             ]
         ]
         var badges: [String: URL] = [:]
@@ -1221,8 +1304,77 @@ class TeamBrandService: ObservableObject {
                 badges[name] = URL(string: "https://a.espncdn.com/i/teamlogos/\(league)/500/\(code).png")
             }
         }
+
+        // Current CPL names used by the source-controlled 2026 schedule. Keep
+        // ampersand/provider wording aliases exact rather than fuzzy-matching.
+        let cpl: [String: String] = [
+            "antigua & barbuda falcons": "https://r2.thesportsdb.com/images/media/team/badge/fwozcu1752736011.png",
+            "antigua and barbuda falcons": "https://r2.thesportsdb.com/images/media/team/badge/fwozcu1752736011.png",
+            "barbados tridents": "https://r2.thesportsdb.com/images/media/team/badge/kg9ypo1786962015.png",
+            "barbados royals": "https://r2.thesportsdb.com/images/media/team/badge/kg9ypo1786962015.png",
+            "guyana amazon warriors": "https://r2.thesportsdb.com/images/media/team/badge/amct1d1641785128.png",
+            "jamaica kingsmen": "https://r2.thesportsdb.com/images/media/team/badge/7a48ht1786962002.png",
+            "saint lucia kings": "https://r2.thesportsdb.com/images/media/team/badge/981c6z1752736461.png",
+            "st lucia kings": "https://r2.thesportsdb.com/images/media/team/badge/981c6z1752736461.png",
+            "st kitts & nevis patriots": "https://r2.thesportsdb.com/images/media/team/badge/t2zoaz1641785142.png",
+            "st kitts and nevis patriots": "https://r2.thesportsdb.com/images/media/team/badge/t2zoaz1641785142.png",
+            "trinbago knight riders": "https://r2.thesportsdb.com/images/media/team/badge/c8zwd61641785158.png"
+        ]
+        for (name, rawURL) in cpl {
+            if let url = URL(string: rawURL) { badges[name] = url }
+        }
+
+        let cfl: [String: String] = [
+            "bc lions": "https://r2.thesportsdb.com/images/media/team/badge/ysxssy1424732039.png",
+            "calgary stampeders": "https://r2.thesportsdb.com/images/media/team/badge/lksemj1565196917.png",
+            "edmonton elks": "https://r2.thesportsdb.com/images/media/team/badge/ehy8wx1770834697.png",
+            "hamilton tiger-cats": "https://r2.thesportsdb.com/images/media/team/badge/qtwsuq1424727420.png",
+            "hamilton tiger cats": "https://r2.thesportsdb.com/images/media/team/badge/qtwsuq1424727420.png",
+            "montreal alouettes": "https://r2.thesportsdb.com/images/media/team/badge/8m9v4n1770835125.png",
+            "ottawa redblacks": "https://r2.thesportsdb.com/images/media/team/badge/k8wjz71546002654.png",
+            "ottawa red blacks": "https://r2.thesportsdb.com/images/media/team/badge/k8wjz71546002654.png",
+            "saskatchewan roughriders": "https://r2.thesportsdb.com/images/media/team/badge/xrdull1630952245.png",
+            "toronto argonauts": "https://r2.thesportsdb.com/images/media/team/badge/5a57ou1628555372.png",
+            "winnipeg blue bombers": "https://r2.thesportsdb.com/images/media/team/badge/4bo4wj1561667273.png"
+        ]
+        for (name, rawURL) in cfl {
+            if let url = URL(string: rawURL) { badges[name] = url }
+        }
         return badges
     }()
+
+    /// Short provider names such as "Bulldogs" are ambiguous outside their
+    /// sport. Keep these event-only fallbacks scoped by category rather than
+    /// putting them in the global team-name dictionary.
+    private static let sportSpecificBadgeURLs: [String: [String: URL]] = {
+        let rugby: [String: String] = [
+            "bulldogs": "https://r2.thesportsdb.com/images/media/team/badge/ggzq4e1768487178.png",
+            "broncos": "https://r2.thesportsdb.com/images/media/team/badge/yjgl741768487372.png",
+            "titans": "https://r2.thesportsdb.com/images/media/team/badge/4qqmp81646347724.png",
+            "dolphins": "https://r2.thesportsdb.com/images/media/team/badge/tyoy421672068536.png",
+            "rabbitohs": "https://r2.thesportsdb.com/images/media/team/badge/0m4unp1552072677.png",
+            "roosters": "https://r2.thesportsdb.com/images/media/team/badge/by299w1646347883.png",
+            "warriors": "https://r2.thesportsdb.com/images/media/team/badge/w8b9kw1646347767.png",
+            "sea eagles": "https://r2.thesportsdb.com/images/media/team/badge/oke63j1768508683.png",
+            "cowboys": "https://r2.thesportsdb.com/images/media/team/badge/q6xu7c1646347820.png",
+            "raiders": "https://r2.thesportsdb.com/images/media/team/badge/54ebov1768508580.png",
+            "sharks": "https://r2.thesportsdb.com/images/media/team/badge/qn3n5r1552073088.png",
+            "storm": "https://r2.thesportsdb.com/images/media/team/badge/hpdn401646347751.png",
+            "dragons": "https://r2.thesportsdb.com/images/media/team/badge/2dcs6y1646347870.png",
+            "eels": "https://r2.thesportsdb.com/images/media/team/badge/5tvma21646347846.png",
+            "panthers": "https://r2.thesportsdb.com/images/media/team/badge/zjh0jo1771495164.png",
+            "wests tigers": "https://r2.thesportsdb.com/images/media/team/badge/cs6i6f1646347894.png"
+        ]
+        return [
+            "rugby": rugby.compactMapValues { URL(string: $0) }
+        ]
+    }()
+
+    static func sportSpecificBadgeURL(for teamName: String, category: String) -> URL? {
+        let sportKey = category.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        let teamKey = teamName.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        return sportSpecificBadgeURLs[sportKey]?[teamKey]
+    }
 
     static func mergingBadgeCache(_ cached: [String: String], into seed: [String: URL]) -> [String: URL] {
         var lookup = seed
@@ -1234,7 +1386,7 @@ class TeamBrandService: ObservableObject {
         return lookup
     }
     
-    private func seedSafetyNet() {
+    private nonisolated static var safetyNetBadgeURLs: [String: URL] {
         // High-priority safety net for major teams to ensure instant branding after cache purges
         let nba = "https://a.espncdn.com/combiner/i?img=/i/teamlogos/nba/500/"
         let wnba = "https://a.espncdn.com/combiner/i?img=/i/teamlogos/wnba/500/"
@@ -1252,23 +1404,55 @@ class TeamBrandService: ObservableObject {
             "portland fire": l, "toronto tempo": wnba + "tor.png"
         ]
         
+        var lookup: [String: URL] = [:]
         for (name, urlStr) in safety {
             if let url = URL(string: urlStr) {
-                teamBadgeURLsByLookup[name] = url
+                lookup[name] = url
             }
         }
-        teamBadgeURLsByLookup.merge(Self.majorLeagueBadgeURLs) { _, bundled in bundled }
+        lookup.merge(Self.majorLeagueBadgeURLs) { _, bundled in bundled }
+        return lookup
+    }
+
+    private func seedSafetyNet() {
+        teamBadgeURLsByLookup = Self.safetyNetBadgeURLs
+    }
+
+    /// Fresh remote entries replace older remote cache entries. Publisher
+    /// priority follows the configured order, never task completion order.
+    /// Source-controlled safety nets remain intentional overrides; a missing or
+    /// failed remote league must not erase previously accepted branding.
+    nonisolated static func refreshedBadgeCache(
+        existing: [String: URL], publishers: [[String: URL]], protected: [String: URL]
+    ) -> [String: URL] {
+        var result = existing
+        var refreshedKeys = Set<String>()
+        for publisher in publishers {
+            for (key, url) in publisher {
+                guard ["http", "https"].contains(url.scheme?.lowercased() ?? ""), url.host != nil,
+                      refreshedKeys.insert(key).inserted else { continue }
+                result[key] = url
+            }
+        }
+        result.merge(protected) { _, intentionalOverride in intentionalOverride }
+        return result
+    }
+
+    nonisolated static func validatedBadgeEntries(_ entries: [String: URL]) -> [String: URL] {
+        entries.filter { _, url in
+            ["http", "https"].contains(url.scheme?.lowercased() ?? "") && url.host != nil
+        }
     }
     
     func badgeURL(for teamName: String, triggerSearch: Bool = false) -> URL? {
-        let key = normalizedKey(teamName)
+        let key = Self.normalizedKey(teamName)
         guard !key.isEmpty else { return nil }
 
         if let url = teamBadgeURLsByLookup[key] {
             return url
         }
         
-        let stripped = stripTeamNameSuffixes(key)
+        let stripped = Self.stripTeamNameSuffixes(key)
         if let url = teamBadgeURLsByLookup[stripped] {
             return url
         }
@@ -1284,7 +1468,7 @@ class TeamBrandService: ObservableObject {
     }
     
     func resolveBadgeURL(for teamName: String) async -> URL? {
-        let key = normalizedKey(teamName)
+        let key = Self.normalizedKey(teamName)
         guard !key.isEmpty else { return nil }
         
         if let url = badgeURL(for: teamName) { return url }
@@ -1309,46 +1493,78 @@ class TeamBrandService: ObservableObject {
     }
     
     func bootstrapIfNeeded() async {
-        guard !hasBootstrapped else { return }
-        await forceRefresh()
-        hasBootstrapped = true
+        let now = badgeNow()
+        if let refreshedAt = badgeDefaults.object(forKey: refreshDateKey) as? Date,
+           (0..<badgeRefreshFreshnessInterval).contains(now.timeIntervalSince(refreshedAt)) {
+            hasBootstrapped = true
+            return
+        }
+        if let lastBootstrapAttempt,
+           (0..<bootstrapRetryInterval).contains(now.timeIntervalSince(lastBootstrapAttempt)) {
+            return
+        }
+        lastBootstrapAttempt = now
+        let count: Int
+        if let bootstrapRefresh { count = await bootstrapRefresh() }
+        else { count = await refreshAll() }
+        hasBootstrapped = count > 0
+        if count > 0 { badgeDefaults.set(badgeNow(), forKey: refreshDateKey) }
     }
     
     func forceRefresh() async {
-        // High-priority bootstrap for critical leagues to avoid "Cold Start"
-        let priorityLeagues = ["NBA", "WNBA", "MLB", "English Premier League"]
-        for league in priorityLeagues {
-            _ = await fetchLeagueCatalog(leagueName: league)
-        }
-        
-        await refreshAll()
+        _ = await refreshAll()
     }
     
-    func refreshAll() async {
+    @discardableResult
+    func refreshAll() async -> Int {
         isLoading = true
         defer { isLoading = false }
         
-        var allLookups: [String: URL] = teamBadgeURLsByLookup
-        await withTaskGroup(of: [String: URL].self) { group in
-            for league in sportsDBLeagues {
-                group.addTask { await self.fetchLeagueBadges(leagueName: league) }
+        let sportsDBLeagues = sportsDBLeagues
+        let espnBadgeLeagues = espnBadgeLeagues
+        let publishers = await withTaskGroup(of: (Int, [String: URL]).self,
+                                             returning: [[String: URL]].self) { group in
+            var publishers = Array(repeating: [String: URL](), count: sportsDBLeagues.count + espnBadgeLeagues.count)
+            for (index, league) in sportsDBLeagues.enumerated() {
+                group.addTask { (index, await Self.fetchLeagueBadges(leagueName: league)) }
             }
-            for await leagueLookup in group {
-                for (key, url) in leagueLookup {
-                    if allLookups[key] == nil { allLookups[key] = url }
+            for (index, league) in espnBadgeLeagues.enumerated() {
+                group.addTask {
+                    (sportsDBLeagues.count + index, await Self.fetchESPNLeagueBadges(sport: league.sport, league: league.league))
                 }
             }
+            for await leagueLookup in group {
+                publishers[leagueLookup.0] = Self.validatedBadgeEntries(leagueLookup.1)
+            }
+            return publishers
         }
+        let remoteResolvedCount = publishers.reduce(0) { $0 + $1.count }
+        // A one-off search may have resolved another club during the await.
+        // Merge into current state, not the pre-request snapshot, so that useful
+        // independently completed work cannot be lost by this publication.
+        let allLookups = Self.refreshedBadgeCache(existing: teamBadgeURLsByLookup, publishers: publishers,
+                                                protected: Self.safetyNetBadgeURLs)
+        // The existing bundled/persisted snapshot remains available while this
+        // refresh runs. Publish once so dozens of league completions cannot
+        // repeatedly invalidate every badge consumer during the first scroll.
         self.teamBadgeURLsByLookup = allLookups
         saveToPersistentCache()
+        if remoteResolvedCount > 0 {
+            badgeDefaults.set(badgeNow(), forKey: refreshDateKey)
+        }
+        return remoteResolvedCount
     }
     
     // MARK: - Onboarding Helpers
     
     struct CatalogTeam: Identifiable {
-        let id: String
         let displayName: String
+        let sportCategory: String
         let badgeURL: URL?
+        var identity: SportsTeamIdentity {
+            .init(displayName: displayName, sportCategory: sportCategory, badgeURL: badgeURL)
+        }
+        var id: String { identity.id }
     }
     
     // MARK: - League Bootstrapping
@@ -1358,94 +1574,97 @@ class TeamBrandService: ObservableObject {
 
     func fetchLeagueCatalog(leagueName: String) async -> [CatalogTeam] {
         if let bootstrappedNames = leagueBootstrap[leagueName] {
-            var results: [CatalogTeam] = []
-            
-            // Fetch in parallel to avoid sequential delay
-            await withTaskGroup(of: CatalogTeam?.self) { group in
-                for name in bootstrappedNames {
-                    group.addTask {
-                        if let url = await self.resolveBadgeURL(for: name) {
-                            return CatalogTeam(id: url.absoluteString, displayName: name, badgeURL: url)
-                        }
-                        let leagueKey = FootballDataPolicy.normalizedTeamMatchKey(leagueName)
-                        let teamKey = FootballDataPolicy.normalizedTeamMatchKey(name)
-                        return CatalogTeam(
-                            id: "competition:\(leagueKey):\(teamKey)",
-                            displayName: name,
-                            badgeURL: nil
-                        )
-                    }
-                }
-                
-                for await team in group {
-                    if let team = team { results.append(team) }
-                }
+            if !hasBootstrapped { await bootstrapIfNeeded() }
+            return bootstrappedNames.map { name in
+                CatalogTeam(displayName: name, sportCategory: "football", badgeURL: badgeURL(for: name))
             }
-            
-            if !results.isEmpty {
-                return results.sorted { $0.displayName < $1.displayName }
-            }
+            .sorted { $0.displayName < $1.displayName }
         }
-        
-        // Fallback to the generic search (limited to 10 by API)
-        let lookup = await fetchLeagueBadges(leagueName: leagueName)
-        
-        // Deduplicate by URL: If multiple names point to the same badge, they are aliases.
-        var uniqueTeamsByURL: [URL: CatalogTeam] = [:]
-        
-        for (name, url) in lookup {
-            // Favor the longest name as the "official" display name (e.g., "Arsenal" over "Ars")
-            if let existing = uniqueTeamsByURL[url] {
-                if name.count > existing.displayName.count {
-                    uniqueTeamsByURL[url] = CatalogTeam(id: url.absoluteString, displayName: name.capitalized, badgeURL: url)
-                }
-            } else {
-                uniqueTeamsByURL[url] = CatalogTeam(id: url.absoluteString, displayName: name.capitalized, badgeURL: url)
-            }
+        if leagueName == "Caribbean Premier League" {
+            return CPLTeam.allCases.map {
+                CatalogTeam(displayName: $0.rawValue, sportCategory: "cricket", badgeURL: badgeURL(for: $0.rawValue))
+            }.sorted { $0.displayName < $1.displayName }
         }
-        
-        return uniqueTeamsByURL.values.sorted { $0.displayName < $1.displayName }
+        let majorTeams = SportsTeamIdentity.majorTeams.filter { $0.league == leagueName.lowercased() }
+        if !majorTeams.isEmpty {
+            return majorTeams.map { .init(displayName: $0.identity.displayName,
+                                         sportCategory: $0.identity.sportCategory, badgeURL: $0.identity.badgeURL) }
+        }
+        return await fetchFollowableTeams(endpoint: "search_all_teams.php", query: .init(name: "l", value: leagueName))
     }
     
     func searchCatalog(query: String) async -> [CatalogTeam] {
         guard query.count >= 2 else { return [] }
-        let normalizedQuery = normalizedKey(query)
-        let cachedMatches = teamBadgeURLsByLookup.filter { $0.key.contains(normalizedQuery) }
-        
-        var uniqueResults: [URL: CatalogTeam] = [:]
-        
-        for (name, url) in cachedMatches {
-            if let existing = uniqueResults[url] {
-                if name.count > existing.displayName.count {
-                    uniqueResults[url] = CatalogTeam(id: url.absoluteString, displayName: name.capitalized, badgeURL: url)
-                }
-            } else {
-                uniqueResults[url] = CatalogTeam(id: url.absoluteString, displayName: name.capitalized, badgeURL: url)
-            }
+        let local = Self.followableCatalogSearch(query: query, badges: teamBadgeURLsByLookup)
+        if !local.isEmpty { return local }
+        // Provider results carry their own name and sport. A badge lookup alone
+        // cannot establish the identity of the query or distinguish shared logos.
+        return await fetchFollowableTeams(endpoint: "searchteams.php", query: .init(name: "t", value: query))
+    }
+
+    static func followableCatalogSearch(query: String, badges: [String: URL]) -> [CatalogTeam] {
+        let terms = SportsTeamIdentity.normalized(query).split(separator: " ")
+        guard !terms.isEmpty else { return [] }
+        let football = FootballCompetitionCatalog.snapshots.values.flatMap(\.clubs)
+            + FootballCompetitionCatalog.additionalClubIdentities
+        let names = football.flatMap { [$0.name] + $0.aliases }
+            + CPLTeam.allCases.flatMap(SportsTeamIdentity.cplNames)
+            + SportsTeamIdentity.majorTeams.flatMap(\.aliases)
+        var results: [String: CatalogTeam] = [:]
+        for name in names {
+            let normalized = SportsTeamIdentity.normalized(name)
+            guard terms.allSatisfy({ normalized.contains($0) }),
+                  let identity = SportsTeamIdentity.known(name: name) else { continue }
+            let badge = badges[identity.displayName.lowercased()] ?? badges[name.lowercased()] ?? identity.badgeURL
+            results[identity.id] = .init(displayName: identity.displayName,
+                                         sportCategory: identity.sportCategory, badgeURL: badge)
         }
-        
-        if !uniqueResults.isEmpty {
-            return uniqueResults.values.sorted { $0.displayName < $1.displayName }
+        return results.values.sorted { $0.displayName < $1.displayName }
+    }
+
+    static func followableTeams(from data: Data) throws -> [CatalogTeam] {
+        let payload = try JSONDecoder().decode(SportsDBResponse.self, from: data)
+        var results: [String: CatalogTeam] = [:]
+        for team in payload.teams ?? [] {
+            guard let name = team.strTeam?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty,
+                  !["home", "away", "tbd", "tbc", "unknown"].contains(SportsTeamIdentity.normalized(name)),
+                  let rawSport = team.strSport, let sport = SportsTeamIdentity.sport(rawSport) else { continue }
+            let known = SportsTeamIdentity.known(name: name, category: sport)
+            let badge = team.strBadge.flatMap(URL.init(string:)).flatMap { ["http", "https"].contains($0.scheme ?? "") ? $0 : nil }
+            let result = CatalogTeam(displayName: known?.displayName ?? name, sportCategory: sport, badgeURL: badge ?? known?.badgeURL)
+            results[result.id] = result
         }
-        
-        // If not in cache, trigger a remote search
-        if let url = await resolveBadgeURL(for: query) {
-            return [CatalogTeam(id: url.absoluteString, displayName: query.capitalized, badgeURL: url)]
-        }
-        
-        return []
+        return results.values.sorted { $0.displayName < $1.displayName }
+    }
+
+    private func fetchFollowableTeams(endpoint: String, query: URLQueryItem) async -> [CatalogTeam] {
+        guard var components = URLComponents(string: "https://www.thesportsdb.com/api/v1/json/3/\(endpoint)") else { return [] }
+        components.queryItems = [query]
+        guard let url = components.url else { return [] }
+        do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 8
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard !Task.isCancelled, let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode), data.count <= 2_000_000 else { return [] }
+            return try Self.followableTeams(from: data)
+        } catch { return [] }
     }
     
-    private func fetchLeagueBadges(leagueName: String) async -> [String: URL] {
+    private nonisolated static func fetchLeagueBadges(leagueName: String) async -> [String: URL] {
         var lookup: [String: URL] = [:]
         guard var components = URLComponents(string: "https://www.thesportsdb.com/api/v1/json/3/search_all_teams.php") else { return lookup }
         components.queryItems = [URLQueryItem(name: "l", value: leagueName)]
         guard let url = components.url else { return lookup }
         
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let response = try JSONDecoder().decode(SportsDBResponse.self, from: data)
-            guard let teams = response.teams else { return lookup }
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 8
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode) else { return lookup }
+            let payload = try JSONDecoder().decode(SportsDBResponse.self, from: data)
+            guard let teams = payload.teams else { return lookup }
             
             for team in teams {
                 guard let badgeStr = team.strBadge, let badgeURL = URL(string: badgeStr) else { continue }
@@ -1460,6 +1679,54 @@ class TeamBrandService: ObservableObject {
             return lookup
         }
     }
+
+    private nonisolated static func fetchESPNLeagueBadges(sport: String, league: String) async -> [String: URL] {
+        guard let url = URL(string: "https://site.api.espn.com/apis/site/v2/sports/\(sport)/\(league)/teams?limit=1000") else {
+            return [:]
+        }
+
+        do {
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 8
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else { return [:] }
+            let payload = try JSONDecoder().decode(ESPNTeamCatalogResponse.self, from: data)
+            let teams = payload.sports?.first?.leagues?.first?.teams ?? []
+            var lookup: [String: URL] = [:]
+
+            for wrapped in teams {
+                guard let badgeString = wrapped.team.logos?.first?.href,
+                      let badgeURL = URL(string: badgeString) else { continue }
+                let names = [
+                    wrapped.team.displayName,
+                    wrapped.team.shortDisplayName,
+                    wrapped.team.abbreviation
+                ]
+                .compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
+                for name in names {
+                    let key = normalizedKey(name)
+                    if !key.isEmpty { lookup[key] = badgeURL }
+                }
+            }
+
+            // Expand an exact provider hit to every source-controlled spelling
+            // of that club. We deliberately do not use fuzzy substring matches.
+            for snapshot in FootballCompetitionCatalog.snapshots.values {
+                for club in snapshot.clubs {
+                    let names = [club.name] + club.aliases
+                    guard let badgeURL = names.lazy.compactMap({ lookup[normalizedKey($0)] }).first else { continue }
+                    for name in names {
+                        let key = normalizedKey(name)
+                        if !key.isEmpty { lookup[key] = badgeURL }
+                    }
+                }
+            }
+
+            return lookup
+        } catch {
+            return [:]
+        }
+    }
     
     private func searchTeamBadge(teamName: String) async -> URL? {
         guard var components = URLComponents(string: "https://www.thesportsdb.com/api/v1/json/3/searchteams.php") else { return nil }
@@ -1467,9 +1734,13 @@ class TeamBrandService: ObservableObject {
         guard let url = components.url else { return nil }
         
         do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let response = try JSONDecoder().decode(SportsDBResponse.self, from: data)
-            guard let teams = response.teams else { return nil }
+            var request = URLRequest(url: url)
+            request.timeoutInterval = 8
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode) else { return nil }
+            let payload = try JSONDecoder().decode(SportsDBResponse.self, from: data)
+            guard let teams = payload.teams else { return nil }
             guard let team = teams.first(where: {
                 looksLikeSameTeam(
                     search: teamName,
@@ -1479,12 +1750,12 @@ class TeamBrandService: ObservableObject {
             }) else { return nil }
             
             if let badgeStr = team.strBadge, let badgeURL = URL(string: badgeStr) {
-                let mainKey = normalizedKey(team.strTeam ?? teamName)
+                let mainKey = Self.normalizedKey(team.strTeam ?? teamName)
                 var updated = teamBadgeURLsByLookup
                 updated[mainKey] = badgeURL
                 let candidates = [team.strTeam, team.strTeamShort, team.strTeamAlternate].compactMap { $0?.trimmingCharacters(in: .whitespacesAndNewlines) }
                 for name in candidates {
-                    let key = normalizedKey(name)
+                    let key = Self.normalizedKey(name)
                     if !key.isEmpty { updated[key] = badgeURL }
                 }
                 self.teamBadgeURLsByLookup = updated
@@ -1497,12 +1768,12 @@ class TeamBrandService: ObservableObject {
 
     /// True when `search` plausibly refers to the same club as `primaryName` / alternates (not Parma for "Partick Thistle").
     private func looksLikeSameTeam(search: String, primaryName: String, alternateNames: [String?]) -> Bool {
-        let q = normalizedKey(search)
+        let q = Self.normalizedKey(search)
         guard !q.isEmpty else { return false }
-        let primary = normalizedKey(primaryName)
+        let primary = Self.normalizedKey(primaryName)
         guard !primary.isEmpty else { return false }
         if q == primary { return true }
-        let extras = alternateNames.compactMap { $0 }.map { normalizedKey($0) }.filter { !$0.isEmpty }
+        let extras = alternateNames.compactMap { $0 }.map { Self.normalizedKey($0) }.filter { !$0.isEmpty }
         if extras.contains(q) { return true }
         let spacedPrimary = " \(primary) "
         for ex in extras where ex.count >= 3 {
@@ -1520,39 +1791,46 @@ class TeamBrandService: ObservableObject {
         return primary == w || extras.contains(w)
     }
     
-    private func stripTeamNameSuffixes(_ name: String) -> String {
-        name.replacingOccurrences(of: "\\b(fc|cf|afc|ac|sc|united|city|rovers|town|athletic|wanderers)\\b", with: " ", options: [.regularExpression, .caseInsensitive])
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    private nonisolated static func stripTeamNameSuffixes(_ name: String) -> String {
+        let suffixes: Set<Substring> = ["fc", "cf", "afc", "ac", "sc", "united", "city", "rovers", "town", "athletic", "wanderers"]
+        return name.split(whereSeparator: \.isWhitespace)
+            .filter { !suffixes.contains($0) }
+            .joined(separator: " ")
     }
 
-    private func normalizedKey(_ rawValue: String) -> String {
+    private nonisolated static func normalizedKey(_ rawValue: String) -> String {
         rawValue.lowercased()
             .replacingOccurrences(of: "...", with: "")
             .replacingOccurrences(of: ".", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
     }
 
     private func saveToPersistentCache() {
         let stringMap = teamBadgeURLsByLookup.reduce(into: [String: String]()) { acc, pair in
             acc[pair.key] = pair.value.absoluteString
         }
-        UserDefaults.standard.set(stringMap, forKey: cacheKey)
+        badgeDefaults.set(stringMap, forKey: cacheKey)
     }
     
     private func loadFromPersistentCache() {
         // One-time purge of potentially corrupted/stale 1.5 cache
         let purgeKey = "fotty.cache.purge.v1.6.01"
-        if !UserDefaults.standard.bool(forKey: purgeKey) {
-            UserDefaults.standard.removeObject(forKey: cacheKey)
-            UserDefaults.standard.set(true, forKey: purgeKey)
+        if !badgeDefaults.bool(forKey: purgeKey) {
+            badgeDefaults.removeObject(forKey: cacheKey)
+            badgeDefaults.set(true, forKey: purgeKey)
             serviceLogger.info("Performed one-time legacy cache purge.")
         }
 
-        guard let stringMap = UserDefaults.standard.dictionary(forKey: cacheKey) as? [String: String] else { return }
+        guard let stringMap = badgeDefaults.dictionary(forKey: cacheKey) as? [String: String] else { return }
         // A sparse persisted cache must not erase freshly bundled safety nets.
         self.teamBadgeURLsByLookup = Self.mergingBadgeCache(stringMap, into: teamBadgeURLsByLookup)
+        // Existing valid cache predates the freshness key. Treat it as fresh
+        // once so an app upgrade does not perform a multi-league bootstrap
+        // while the owner is making the first catalog gesture.
+        if badgeDefaults.object(forKey: refreshDateKey) == nil, !stringMap.isEmpty {
+            badgeDefaults.set(badgeNow(), forKey: refreshDateKey)
+        }
     }
 }
 
@@ -1565,6 +1843,27 @@ private struct SportsDBTeam: Decodable {
     let strTeamShort: String?
     let strTeamAlternate: String?
     let strBadge: String?
+    let strSport: String?
+}
+
+private struct ESPNTeamCatalogResponse: Decodable {
+    struct Sport: Decodable {
+        struct League: Decodable {
+            struct WrappedTeam: Decodable {
+                struct Team: Decodable {
+                    struct Logo: Decodable { let href: String? }
+                    let displayName: String?
+                    let shortDisplayName: String?
+                    let abbreviation: String?
+                    let logos: [Logo]?
+                }
+                let team: Team
+            }
+            let teams: [WrappedTeam]?
+        }
+        let leagues: [League]?
+    }
+    let sports: [Sport]?
 }
 
 // MARK: - API-Football Models

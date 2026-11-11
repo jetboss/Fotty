@@ -19,6 +19,17 @@ struct FootballResultSet: Codable {
     let played: Int?
 }
 
+enum FootballMatchAlertTransitionPolicy {
+    /// Only the real pre-match transition is kickoff. Returning from halftime,
+    /// suspension or a provider correction must not announce another start.
+    static func shouldAnnounceKickoff(
+        from oldStatus: FootballMatch.MatchStatus,
+        to newStatus: FootballMatch.MatchStatus
+    ) -> Bool {
+        oldStatus.isUpcoming && newStatus == .inPlay
+    }
+}
+
 struct FootballMatch: Codable, Identifiable {
     let id: Int
     /// API-Football fixture id when the row came from API-Football or was merged from live.
@@ -110,6 +121,21 @@ struct FootballTeam: Codable, Identifiable {
     
     var displayName: String {
         shortName ?? name ?? "Unknown Team"
+    }
+
+    /// Display abbreviations are not cross-provider identities (for example,
+    /// CRY/NFO cannot match Crystal Palace/Nottingham Forest in the catalog).
+    var matchingName: String {
+        Self.matchingName(name: name, shortName: shortName)
+    }
+
+    static func matchingName(name: String?, shortName: String?) -> String {
+        for candidate in [name, shortName] {
+            if let name = candidate?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty {
+                return name
+            }
+        }
+        return ""
     }
 }
 
@@ -300,6 +326,60 @@ enum League: String, CaseIterable, Identifiable {
 
 // MARK: - Live Score Service
 
+enum FootballScheduleFreshnessPolicy {
+    static let maximumAge: TimeInterval = 30 * 60
+
+    static func isFresh(lastVerifiedAt: Date?, now: Date) -> Bool {
+        guard let lastVerifiedAt else { return false }
+        let age = now.timeIntervalSince(lastVerifiedAt)
+        return age >= -5 * 60 && age <= maximumAge
+    }
+
+    static func showsRefreshProgress(isCheckingSchedule: Bool, lastVerifiedAt: Date?,
+                                     refreshFailed: Bool, now: Date) -> Bool {
+        isCheckingSchedule && (refreshFailed || !isFresh(lastVerifiedAt: lastVerifiedAt, now: now))
+    }
+}
+
+/// Demand is owned by a visible surface, not by whichever tab disappears last.
+/// Releasing one owner must never cancel another visible consumer's polling.
+struct LiveScorePollingDemand {
+    private(set) var owners: Set<UUID> = []
+    var isNeeded: Bool { !owners.isEmpty }
+
+    mutating func update(owner: UUID, isActive: Bool) {
+        if isActive { owners.insert(owner) } else { owners.remove(owner) }
+    }
+}
+
+/// The score index owns a bounded set of immutable provider date strings.
+/// Retain valid and malformed results while a string remains in that index,
+/// rather than creating ISO8601 formatters for every presentation lookup.
+struct FootballKickoffDateIndex {
+    private enum Entry { case valid(Date), invalid }
+    private var entries: [String: Entry] = [:]
+
+    mutating func replace(dates: [String], parse: (String) -> Date? = FootballNormalizer.parseISO8601Date) {
+        var next: [String: Entry] = [:]
+        next.reserveCapacity(dates.count)
+        for raw in Set(dates) {
+            if let existing = entries[raw] {
+                next[raw] = existing
+            } else if let date = parse(raw) {
+                next[raw] = .valid(date)
+            } else {
+                next[raw] = .invalid
+            }
+        }
+        entries = next
+    }
+
+    func date(for raw: String) -> Date? {
+        guard case .valid(let date) = entries[raw] else { return nil }
+        return date
+    }
+}
+
 @MainActor
 @Observable
 class LiveScoreService {
@@ -322,20 +402,57 @@ class LiveScoreService {
     @ObservationIgnored private var cleanKeyIndex: [String: FootballMatch] = [:]
     @ObservationIgnored private var matchLookupCache: [String: FootballMatch] = [:]
     @ObservationIgnored private var unmatchedLookupKeys: Set<String> = []
+    @ObservationIgnored private var kickoffDateIndex = FootballKickoffDateIndex()
     private(set) var analysisMatches: [FootballMatch] = []
     private(set) var lastRefresh: Date?
+    /// Original accepted observation, never the time of a retry/cache read.
+    private(set) var liveObservedAt: Date?
+    @ObservationIgnored private var liveObservationByIdentity: [String: Date] = [:]
+    @ObservationIgnored private var acceptedTerminalRows: [String: MatchHubData] = [:]
+    private struct AlertBaseline {
+        let score: LiveScore
+        let kickoff: Date
+    }
+    @ObservationIgnored private var alertBaselineByIdentity: [String: AlertBaseline] = [:]
+    @ObservationIgnored private let repository: FootballRepository
+    @ObservationIgnored private let currentDate: () -> Date
+    private(set) var scheduleLastVerifiedAt: Date?
+    private var isCheckingSchedule = false
+    private(set) var scheduleRefreshFailed = false
     private(set) var isRefreshing = false
     private(set) var feedMode: LiveScoreFeedMode = .inactive
     var hasQuotaError: Bool { feedMode.isQuotaReserved }
     var isUsingDelayedScoreFallback: Bool { feedMode.usesDelayedData }
     var scoreStatusQualifier: String? { feedMode.statusQualifier }
     var shouldShowScoreFeedNotice: Bool { feedMode.usesDelayedData || feedMode == .unavailable }
+
+    func showsFootballFixtureRefresh(at now: Date = Date()) -> Bool {
+        FootballScheduleFreshnessPolicy.showsRefreshProgress(
+            isCheckingSchedule: isCheckingSchedule,
+            lastVerifiedAt: scheduleLastVerifiedAt,
+            refreshFailed: scheduleRefreshFailed,
+            now: now
+        )
+    }
     
     private var refreshTask: Task<Void, Never>?
+    @ObservationIgnored private var pollingDemand = LiveScorePollingDemand()
     
-    private init() {}
+    init(repository: FootballRepository = .shared, now: @escaping () -> Date = Date.init) {
+        self.repository = repository
+        self.currentDate = now
+    }
     
-    func startPolling() {
+    func updatePollingDemand(owner: UUID, isActive: Bool) {
+        pollingDemand.update(owner: owner, isActive: isActive)
+        if pollingDemand.isNeeded { startPolling() } else { stopPolling() }
+    }
+
+    func releasePolling(owner: UUID) {
+        updatePollingDemand(owner: owner, isActive: false)
+    }
+
+    private func startPolling() {
         guard !AppRuntime.isAutomatedTesting else { return }
         guard refreshTask == nil else { return }
         refreshTask = Task {
@@ -351,7 +468,7 @@ class LiveScoreService {
         }
     }
     
-    func stopPolling() {
+    private func stopPolling() {
         refreshTask?.cancel()
         refreshTask = nil
     }
@@ -359,60 +476,65 @@ class LiveScoreService {
     func refresh(force: Bool = false) async {
         guard !isRefreshing else { return }
         if force {
-            await FootballRepository.shared.invalidateLiveListCache()
-            await FootballRepository.shared.invalidateScheduleListCache()
+            await repository.invalidateLiveListCache()
+            await repository.invalidateScheduleListCache()
         }
         isRefreshing = true
         defer { isRefreshing = false }
         
-        let now = Date()
+        let now = currentDate()
 
         let calendar = Calendar.current
         let startDate = calendar.date(byAdding: .day, value: -3, to: now) ?? now
         let endDate = calendar.date(byAdding: .day, value: 4, to: now) ?? now
 
-        var allMatches: [FootballMatch] = []
-        var allAnalysisMatches: [FootballMatch] = []
-        var refreshedMinuteByKey = self.liveMinuteByKey
+        var analysisData: [MatchHubData] = []
+        var liveSnapshot: FootballLiveSnapshot?
 
         // Fetch/cache the schedule first so the repository can avoid a live API
         // request entirely when no covered competition is near kickoff.
         do {
-            let analysisData = try await FootballRepository.shared.getScheduleFixtures(dateRange: startDate...endDate)
-            allAnalysisMatches = analysisData.map { mapToLegacyFootballMatch($0) }
-            // Schedule remains broad, but only the explicit score-coverage
-            // competitions may feed score/minute UI or notifications.
-            let scoreSupportedSchedule = analysisData.filter {
-                FootballDataPolicy.supportsLiveScores(competition: $0.fixture.competition)
-            }
-            refreshedMinuteByKey.merge(Self.minuteLabels(from: scoreSupportedSchedule)) { _, scheduleLabel in
-                scheduleLabel
-            }
+            isCheckingSchedule = true
+            defer { isCheckingSchedule = false }
+            let snapshot = try await repository.getScheduleSnapshot(dateRange: startDate...endDate)
+            guard !Task.isCancelled else { return }
+            analysisData = snapshot.matches
+            scheduleLastVerifiedAt = snapshot.observedAt
+            scheduleRefreshFailed = false
         } catch {
             if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
             print("[LiveScoreService] Failed to fetch schedule data: \(error)")
             if isRateLimited(error) {
                 feedMode = .quotaFallback
             }
-            allAnalysisMatches = self.analysisMatches
+            // Never let an old schedule keep acting as current official evidence.
+            // The independently refreshed stream catalog can remain visible.
+            scheduleRefreshFailed = true
         }
 
         do {
-            let liveData = try await FootballRepository.shared.getLiveMatches()
-            feedMode = await FootballRepository.shared.currentLiveFeedMode()
-            allMatches = liveData.map { mapToLegacyFootballMatch($0) }
-            refreshedMinuteByKey.merge(Self.minuteLabels(from: liveData)) { _, liveLabel in
-                liveLabel
-            }
+            liveSnapshot = try await repository.getLiveSnapshot()
+            guard !Task.isCancelled else { return }
+            feedMode = liveSnapshot?.mode ?? .unavailable
         } catch {
             if error is CancellationError || (error as? URLError)?.code == .cancelled { return }
             print("[LiveScoreService] Failed to fetch live data: \(error)")
             feedMode = isRateLimited(error) ? .quotaFallback : .unavailable
-            allMatches = self.cachedMatches
         }
 
+        // A source stamps its receipt after fetching. Comparing that receipt
+        // with the request-start clock would reject every uncached live poll.
+        let publicationDate = currentDate()
+        let accepted = FootballScoreSnapshotPolicy.project(schedule: analysisData,
+            live: liveSnapshot, retainedTerminal: acceptedTerminalRows, at: publicationDate)
+        acceptedTerminalRows = accepted.terminal
+        liveObservationByIdentity = accepted.liveObservations
+        liveObservedAt = liveSnapshot?.observedAt
+        let allAnalysisMatches = accepted.schedule.map { mapToLegacyFootballMatch($0.data, status: $0.status) }
+        let allMatches = accepted.scores.map { mapToLegacyFootballMatch($0.data, status: $0.status) }
+        let refreshedMinuteByKey = Self.minuteLabels(from: accepted.scores.filter { $0.status.isLive }.map(\.data))
+
         // 3. Update State & Notify
-        let oldScores = self.scores
         self.cachedMatches = allMatches
         self.analysisMatches = allAnalysisMatches
         self.liveMinuteByKey = refreshedMinuteByKey
@@ -421,23 +543,27 @@ class LiveScoreService {
         // Index the schedule response as a scoreboard fallback, then let the
         // dedicated live response win when both contain the same fixture.
         self.rebuildMatchIndices(from: allAnalysisMatches + allMatches)
-        self.lastRefresh = now
+        self.lastRefresh = publicationDate
 
         // Keep scheduled/recently-finished schedule rows in the comparison set.
         // Otherwise a provider that removes a fixture from its `live` endpoint at
         // the final whistle can never produce Fotty's full-time notification.
-        var notificationMatchesByKey: [String: FootballMatch] = [:]
-        for match in allAnalysisMatches where FootballDataPolicy.supportsLiveScores(competition: match.competition) {
-            let key = makeKey(home: match.homeTeam.displayName, away: match.awayTeam.displayName)
-            notificationMatchesByKey[key] = match
+        let rows = accepted.schedule + accepted.scores
+        // A temporarily empty feed is not a new fixture identity or a reset of
+        // its alert history. Bound retention by the same dated analysis window.
+        alertBaselineByIdentity = alertBaselineByIdentity.filter {
+            (-3 * 86_400...4 * 86_400).contains($0.value.kickoff.timeIntervalSince(publicationDate))
         }
-        for match in allMatches {
-            let key = makeKey(home: match.homeTeam.displayName, away: match.awayTeam.displayName)
-            notificationMatchesByKey[key] = match
+        var notificationRowsByIdentity: [String: FootballScoreSnapshotPolicy.Row] = [:]
+        for row in rows where row.status != .unknown
+            && FootballDataPolicy.supportsLiveScores(competition: row.data.fixture.competition) {
+            notificationRowsByIdentity[FootballScoreSnapshotPolicy.key(row.data)] = row
         }
 
         var newScores: [String: LiveScore] = [:]
-        for (key, match) in notificationMatchesByKey {
+        for (identity, row) in notificationRowsByIdentity {
+            let match = mapToLegacyFootballMatch(row.data, status: row.status)
+            let key = makeKey(home: match.homeTeam.matchingName, away: match.awayTeam.matchingName)
             let homeGoals = match.score.fullTime?.home ?? 0
             let awayGoals = match.score.fullTime?.away ?? 0
 
@@ -449,13 +575,21 @@ class LiveScoreService {
             )
 
             // --- Notification Logic ---
-            if let old = oldScores[key] {
+            if let baseline = alertBaselineByIdentity[identity] {
+                let old = baseline.score
+                // A cached pre-kickoff schedule can outlast a healthy empty or
+                // failed live poll. It must not turn an observed match back into
+                // a new kickoff/zero-goal notification baseline on recovery.
+                if match.status.isUpcoming && !old.status.isUpcoming { continue }
                 handleNotificationDiff(
                     for: match,
                     oldScore: old,
                     newHome: homeGoals,
                     newAway: awayGoals
                 )
+            }
+            if let score = newScores[key] {
+                alertBaselineByIdentity[identity] = AlertBaseline(score: score, kickoff: row.data.fixture.utcDate)
             }
         }
         self.scores = newScores
@@ -471,13 +605,13 @@ class LiveScoreService {
         return false
     }
     
-    private func mapToLegacyFootballMatch(_ data: MatchHubData) -> FootballMatch {
+    private func mapToLegacyFootballMatch(_ data: MatchHubData, status: FottyMatchStatus? = nil) -> FootballMatch {
         let fixture = data.fixture
         return FootballMatch(
             id: Int(fixture.id) ?? 0,
             apiFootballFixtureId: fixture.apiFootballFixtureId.flatMap(Int.init),
             utcDate: ISO8601DateFormatter().string(from: fixture.utcDate),
-            status: mapMatchStatus(fixture.status),
+            status: mapMatchStatus(status ?? fixture.status),
             matchday: fixture.matchday,
             stage: nil,
             group: nil,
@@ -549,7 +683,9 @@ class LiveScoreService {
         ) else { return }
 
         // --- 1. Goal Alerts ---
-        if UserDefaults.standard.bool(forKey: "settings.notif.goals") {
+        if UserDefaults.standard.bool(forKey: "settings.notif.goals"),
+           !WatchingSpoilerProtection.shared.suppressesGoal(home: match.homeTeam.displayName,
+               away: match.awayTeam.displayName, kickoff: match.matchDate) {
             if newHome > oldScore.homeGoals || newAway > oldScore.awayGoals {
                 let isSpoiler = UserDefaults.standard.bool(forKey: "settings.spoiler.protection")
                 let content = MatchAlertContent.make(
@@ -570,7 +706,10 @@ class LiveScoreService {
         
         // --- 2. Kickoff Alerts ---
         if UserDefaults.standard.bool(forKey: "settings.notif.kickoff") {
-            if match.status == .inPlay && oldScore.status != .inPlay {
+            if FootballMatchAlertTransitionPolicy.shouldAnnounceKickoff(
+                from: oldScore.status,
+                to: match.status
+            ) {
                 let content = MatchAlertContent.make(
                     kind: .kickoff,
                     homeTeam: match.homeTeam.displayName,
@@ -631,17 +770,16 @@ class LiveScoreService {
         var direct: [String: FootballMatch] = [:]
         var clean: [String: FootballMatch] = [:]
         for match in matches {
-            let directKey = makeKey(home: match.homeTeam.displayName, away: match.awayTeam.displayName)
+            let cleanHome = cleanName(match.homeTeam.matchingName)
+            let cleanAway = cleanName(match.awayTeam.matchingName)
+            guard !cleanHome.isEmpty && !cleanAway.isEmpty else { continue }
+            let directKey = makeKey(home: match.homeTeam.matchingName, away: match.awayTeam.matchingName)
             direct[directKey] = match
-
-            let cleanHome = cleanName(match.homeTeam.displayName)
-            let cleanAway = cleanName(match.awayTeam.displayName)
-            if !cleanHome.isEmpty && !cleanAway.isEmpty {
-                clean["\(cleanHome)|\(cleanAway)"] = match
-            }
+            clean["\(cleanHome)|\(cleanAway)"] = match
         }
         self.directKeyIndex = direct
         self.cleanKeyIndex = clean
+        kickoffDateIndex.replace(dates: matches.map(\.utcDate))
     }
     
     private func makeKey(home: String, away: String) -> String {
@@ -671,8 +809,11 @@ class LiveScoreService {
             return cleanMatch
         }
 
-        // Fast fallback: substring match on clean tokens without regex
+        // A partial-name fallback must still identify the same squad; a youth
+        // or women's name containing the senior club key cannot borrow its score.
         if cleanHome.count >= 4 && cleanAway.count >= 4 {
+            let homeSquad = CatalogPlaybackIdentity.footballSquadIdentity(teamName: home)
+            let awaySquad = CatalogPlaybackIdentity.footballSquadIdentity(teamName: away)
             for (indexedKey, match) in cleanKeyIndex {
                 let parts = indexedKey.split(separator: "|")
                 if parts.count == 2 {
@@ -680,6 +821,10 @@ class LiveScoreService {
                     let idxAway = String(parts[1])
                     if (idxHome.contains(cleanHome) || cleanHome.contains(idxHome)) &&
                        (idxAway.contains(cleanAway) || cleanAway.contains(idxAway)) {
+                        guard homeSquad == CatalogPlaybackIdentity.footballSquadIdentity(teamName: match.homeTeam.matchingName),
+                              awaySquad == CatalogPlaybackIdentity.footballSquadIdentity(teamName: match.awayTeam.matchingName) else {
+                            continue
+                        }
                         matchLookupCache[key] = match
                         return match
                     }
@@ -702,11 +847,21 @@ class LiveScoreService {
     ) -> FootballMatch? {
         guard let kickoff,
               let match = findMatch(home: home, away: away),
-              let matchKickoff = FootballNormalizer.parseISO8601Date(match.utcDate),
+              let matchKickoff = kickoffDateIndex.date(for: match.utcDate),
               abs(matchKickoff.timeIntervalSince(kickoff)) <= maximumKickoffDelta else {
             return nil
         }
         return match
+    }
+
+    func currentStatus(for match: FootballMatch, at now: Date = Date()) -> FootballMatch.MatchStatus? {
+        guard match.status.isLive else { return match.status }
+        guard let kickoff = kickoffDateIndex.date(for: match.utcDate),
+              FootballDataPolicy.supportsLiveScores(competition: match.competition) else { return nil }
+        let key = "premier-league|" + FootballDataPolicy.canonicalFixtureMatchKey(
+            homeTeam: match.homeTeam.matchingName, awayTeam: match.awayTeam.matchingName, kickoff: kickoff)
+        return HomeSportsDiscovery.recentStatus(match.status, refreshedAt: liveObservationByIdentity[key],
+            liveFeedAvailable: feedMode != .unavailable && feedMode != .inactive, now: now)
     }
     
     func scoreForMatch(home: String, away: String) -> LiveScore? {
@@ -718,9 +873,10 @@ class LiveScoreService {
             guard match.status.isLive || match.status.isFinished || match.status == .suspended else {
                 return nil
             }
+            guard currentStatus(for: match, at: currentDate()) != nil else { return nil }
             let matchedKey = makeKey(
-                home: match.homeTeam.displayName,
-                away: match.awayTeam.displayName
+                home: match.homeTeam.matchingName,
+                away: match.awayTeam.matchingName
             )
             return LiveScore(
                 homeGoals: match.score.fullTime?.home ?? 0,
@@ -729,8 +885,8 @@ class LiveScoreService {
                 minute: liveMinuteByKey[matchedKey] ?? liveMinuteByKey[key]
             )
         }
-        guard let score = scores[key],
-              score.status.isLive || score.status.isFinished || score.status == .suspended else {
+        guard let score = scores[key], !score.status.isLive,
+              score.status.isFinished || score.status == .suspended else {
             return nil
         }
         return score
@@ -742,9 +898,10 @@ class LiveScoreService {
               match.status.isLive || match.status.isFinished || match.status == .suspended else {
             return nil
         }
+        guard currentStatus(for: match, at: currentDate()) != nil else { return nil }
         let matchedKey = makeKey(
-            home: match.homeTeam.displayName,
-            away: match.awayTeam.displayName
+            home: match.homeTeam.matchingName,
+            away: match.awayTeam.matchingName
         )
         return LiveScore(
             homeGoals: match.score.fullTime?.home ?? 0,
@@ -758,7 +915,9 @@ class LiveScoreService {
         var labels: [String: String] = [:]
         for hub in hubs {
             guard hub.fixture.status.isLive else { continue }
-            let key = "\(hub.homeTeam.name.lowercased().trimmingCharacters(in: .whitespaces))|\(hub.awayTeam.name.lowercased().trimmingCharacters(in: .whitespaces))"
+            let home = FootballTeam.matchingName(name: hub.homeTeam.name, shortName: hub.homeTeam.shortName)
+            let away = FootballTeam.matchingName(name: hub.awayTeam.name, shortName: hub.awayTeam.shortName)
+            let key = "\(home.lowercased())|\(away.lowercased())"
             if let label = formatLiveMinute(elapsed: hub.fixture.elapsedMinutes, extra: hub.fixture.extraMinutes) {
                 labels[key] = label
             }
@@ -782,11 +941,31 @@ class LiveScoreService {
         stopPolling()
         cachedMatches = matches
         analysisMatches = []
+        scheduleLastVerifiedAt = nil
+        scheduleRefreshFailed = false
+        liveObservedAt = currentDate()
+        feedMode = matches.isEmpty ? .inactive : .officialFPL
+        acceptedTerminalRows = [:]
+        alertBaselineByIdentity = [:]
+        liveObservationByIdentity = [:]
+        for match in matches where match.status.isLive && FootballDataPolicy.supportsLiveScores(competition: match.competition) {
+            if let kickoff = CatalogISO8601DateParser.date(match.utcDate) {
+                let key = "premier-league|" + FootballDataPolicy.canonicalFixtureMatchKey(
+                    homeTeam: match.homeTeam.matchingName, awayTeam: match.awayTeam.matchingName, kickoff: kickoff)
+                liveObservationByIdentity[key] = currentDate()
+            }
+        }
         liveMinuteByKey = minuteLabels
         scores = [:]
         matchLookupCache.removeAll(keepingCapacity: true)
         unmatchedLookupKeys.removeAll(keepingCapacity: true)
         rebuildMatchIndices(from: matches)
+    }
+
+    func alertBaselineForTesting(home: String, away: String, kickoff: Date) -> LiveScore? {
+        let key = "premier-league|" + FootballDataPolicy.canonicalFixtureMatchKey(
+            homeTeam: home, awayTeam: away, kickoff: kickoff)
+        return alertBaselineByIdentity[key]?.score
     }
     #endif
 }

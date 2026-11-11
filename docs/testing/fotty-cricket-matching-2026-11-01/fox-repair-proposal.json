@@ -1,0 +1,41 @@
+{
+  "recordedUTC": "2026-11-01T14:59:17.370325+00:00",
+  "status": "Prepared and unapplied; Fox-only HTTP decision pending",
+  "sourceFacts": {
+    "originalMetadata": "https://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/playlist.m3u",
+    "selectedIdentity": "foxcricket.in / CR | Fox Cricket 501",
+    "freshHTTPHLSObserved": true,
+    "sequenceAdvancementObserved": true,
+    "offlineBoundedVideoCodec": "H.264 1920x1080 yuv420p",
+    "nativeDecodedProgrammeAudioAnd90SecondHold": "Not yet tested"
+  },
+  "proposedChange": {
+    "profile": "TV20; canonical Fox Cricket channel; no new fixture/programme claim",
+    "metadata": "Fresh exact original HTTPS playlist only; existing 90-second session binding and opt-in retained",
+    "transport": "Runtime-only selected-root grant, exact two advertised public segment addresses and registered media paths",
+    "ATS": "Only the SD root and two exact public segment IPv4 entries; no wildcard, HD profile or global HTTP allowance",
+    "guards": "Existing public-IP/DNS preflight, redirect, header, root binding and non-persistence remain"
+  },
+  "verification": {
+    "patchAppliesCleanly": true,
+    "SwiftSyntaxParse": "Passed; not a typecheck or app compile",
+    "plistParseAndExactScope": "Passed",
+    "independentStaticReview": "No confirmed integration defects; no execution",
+    "authoredRegressionTests": 9,
+    "unitTestsExecuted": false,
+    "nativePlaybackQualified": false
+  },
+  "nativeAppChangesApplied": false,
+  "ATSChanged": false,
+  "devicesTouchedInResumedRepair": false,
+  "preservedScope": [
+    "Phone",
+    "FPL",
+    "multi-stream",
+    "TestFlight",
+    "existing source settings"
+  ],
+  "patch": "Fox-Repair-Proposal.patch",
+  "patchSHA256": "72b776997ab0937baccd7f871ef815990d298b4fc8cfd5c5db162bebeeff941a",
+  "redaction": "No actual media URLs, opaque capabilities, signatures, headers or private identifiers. Patch URLs are fixed public metadata and synthetic unit fixtures."
+}

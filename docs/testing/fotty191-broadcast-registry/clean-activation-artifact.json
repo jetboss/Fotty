@@ -1,0 +1,371 @@
+{
+  "schemaVersion": 1,
+  "preparedAt": "2026-10-30T14:35:04.782131+00:00",
+  "baseCommit": "83b1a44c0e6d14e9032e61a8c5169190d22f8a27",
+  "stagedDirectory": "/private/tmp/fotty-registry191-es2s9a21/CloudActivation",
+  "plannedSourceVersion": "2026-10-30.shared-broadcast-registry-1",
+  "registryEnabled": "0",
+  "dependencyClosure": {
+    "fileCount": 21,
+    "files": [
+      {
+        "path": "web/public/data/cpl-2026-fixtures.json",
+        "baselineSha256": "0d3ad871461d0068036838cd1b41f925d37a528411666037c8fdd3cad7d74e2f",
+        "stagedSha256": "0d3ad871461d0068036838cd1b41f925d37a528411666037c8fdd3cad7d74e2f",
+        "changed": false
+      },
+      {
+        "path": "web/src/lib/football-competition-catalog.generated.ts",
+        "baselineSha256": "6c0d28abbbfe9bdb7d988f44284a2b0e372fcd579aade24668db3eeb9259c105",
+        "stagedSha256": "6c0d28abbbfe9bdb7d988f44284a2b0e372fcd579aade24668db3eeb9259c105",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/broadcast-catalog.mjs",
+        "baselineSha256": "721186ccc684c193f8d41431e5467018e3dda1bbbd010e585ec40c012ee926da",
+        "stagedSha256": "721186ccc684c193f8d41431e5467018e3dda1bbbd010e585ec40c012ee926da",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/broadcast-registry-policy.mjs",
+        "baselineSha256": null,
+        "stagedSha256": "92af4eeb9d236ed13e6abbed932bb0d0c7fe28fb6070bf90985df6b7f0a0a78b",
+        "changed": true
+      },
+      {
+        "path": "web/workers/playback/src/broadcast-registry.mjs",
+        "baselineSha256": null,
+        "stagedSha256": "68911123fe84936a6cf6732e8cc3ac27647f1f8e34c0468b49320d012b047400",
+        "changed": true
+      },
+      {
+        "path": "web/workers/playback/src/broadcast-source-adapters.mjs",
+        "baselineSha256": null,
+        "stagedSha256": "c8ce9c12f94d6f13877689fa08ef24db09440db2d0b6bfbd7eec0af3e8c346fb",
+        "changed": true
+      },
+      {
+        "path": "web/workers/playback/src/coach-evidence.mjs",
+        "baselineSha256": "778e3485c8abc7d445da8710c7592e98543c58ea70cc35eb30abd6be20cc8d29",
+        "stagedSha256": "778e3485c8abc7d445da8710c7592e98543c58ea70cc35eb30abd6be20cc8d29",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/coach-request.mjs",
+        "baselineSha256": "97edcf917fe5df2d6115333302a5374a3504a512d88e50f8358a9f6d1aa641c9",
+        "stagedSha256": "97edcf917fe5df2d6115333302a5374a3504a512d88e50f8358a9f6d1aa641c9",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/coach-safety.mjs",
+        "baselineSha256": "104a95ec8e9d31e8e9d5e9f41fa05d45522f92028011e06f31375c79e2178795",
+        "stagedSha256": "104a95ec8e9d31e8e9d5e9f41fa05d45522f92028011e06f31375c79e2178795",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/coach-transfers.mjs",
+        "baselineSha256": "839fb66d2600716c7a41f1ab34ddbb5acd7be24bfe1bcfa25f39b7cec7b6126d",
+        "stagedSha256": "839fb66d2600716c7a41f1ab34ddbb5acd7be24bfe1bcfa25f39b7cec7b6126d",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/cpl-fixture-policy.mjs",
+        "baselineSha256": "72a1fafecf03d89353b9755e12fe63d5924aa6595f2b8a7822f4e47b7118f2ed",
+        "stagedSha256": "72a1fafecf03d89353b9755e12fe63d5924aa6595f2b8a7822f4e47b7118f2ed",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/cricket-fixture-policy.mjs",
+        "baselineSha256": "db270b297b1ce20be0ce5f0af3a807792f2fd246064e33b0a66799f324e847c7",
+        "stagedSha256": "db270b297b1ce20be0ce5f0af3a807792f2fd246064e33b0a66799f324e847c7",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/cricket-fixture-registry.mjs",
+        "baselineSha256": "966d87f7827fbe86fe3bb952cf57bbb2e324cb00a150588cbae36de225243bb9",
+        "stagedSha256": "966d87f7827fbe86fe3bb952cf57bbb2e324cb00a150588cbae36de225243bb9",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/fpl-scoring.mjs",
+        "baselineSha256": "7a6ebffebbb95a285cd9702e2d3eaf97a72bd5ff762d98b13dd24b2533ef3331",
+        "stagedSha256": "7a6ebffebbb95a285cd9702e2d3eaf97a72bd5ff762d98b13dd24b2533ef3331",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/icc-kickoff-corrections.mjs",
+        "baselineSha256": "27005dcb158448deff3b9c2c5e7558883247fb55a7459e8669fc2979eb748e83",
+        "stagedSha256": "27005dcb158448deff3b9c2c5e7558883247fb55a7459e8669fc2979eb748e83",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/index.js",
+        "baselineSha256": "08154d3fb24ba808301d734af9473c4cf19d5c0c5b901c6f9240822ed7fbd620",
+        "stagedSha256": "7145d442f61c0e2c0af1ed9dcf007b43c697736b8e9fb6de369c34cd6572996b",
+        "changed": true
+      },
+      {
+        "path": "web/workers/playback/src/sports-fixture-event-sources.mjs",
+        "baselineSha256": "3a62c604c4bd16ec3dc2d773abdfb643458c065679f1c6a2dfc158dc812a51f5",
+        "stagedSha256": "3a62c604c4bd16ec3dc2d773abdfb643458c065679f1c6a2dfc158dc812a51f5",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/sports-fixture-policy.mjs",
+        "baselineSha256": "26354769c148e74cd6520bd3c22d040a0d2091572336b7c52c3718dbe0bb311e",
+        "stagedSha256": "26354769c148e74cd6520bd3c22d040a0d2091572336b7c52c3718dbe0bb311e",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/sports-fixture-registry.mjs",
+        "baselineSha256": "4da2150b04b19aee863e75e672241b5c343de081c2ddbc28701e4ca861e98d8e",
+        "stagedSha256": "4da2150b04b19aee863e75e672241b5c343de081c2ddbc28701e4ca861e98d8e",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/sports-fixture-sources.mjs",
+        "baselineSha256": "10f972bb0af9bb653d03a35da99f22ae7255d12bc635f86352289eb1a84d6c69",
+        "stagedSha256": "10f972bb0af9bb653d03a35da99f22ae7255d12bc635f86352289eb1a84d6c69",
+        "changed": false
+      },
+      {
+        "path": "web/workers/playback/src/worker-version.mjs",
+        "baselineSha256": "c84ecce54cdcbb7f0835a58218197110eed44fe7e0256ab7ec36dd5736390de9",
+        "stagedSha256": "bc560ce79afe52faf5556fa6c339042e97dced2e3ea06dda5f5904582ed47f77",
+        "changed": true
+      }
+    ],
+    "edges": [
+      {
+        "from": "web/workers/playback/src/broadcast-catalog.mjs",
+        "to": "web/workers/playback/src/coach-safety.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/broadcast-registry-policy.mjs",
+        "to": "web/src/lib/football-competition-catalog.generated.ts"
+      },
+      {
+        "from": "web/workers/playback/src/broadcast-registry.mjs",
+        "to": "web/workers/playback/src/broadcast-registry-policy.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/broadcast-source-adapters.mjs",
+        "to": "web/src/lib/football-competition-catalog.generated.ts"
+      },
+      {
+        "from": "web/workers/playback/src/coach-evidence.mjs",
+        "to": "web/workers/playback/src/coach-safety.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/coach-request.mjs",
+        "to": "web/workers/playback/src/coach-safety.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/cricket-fixture-policy.mjs",
+        "to": "web/workers/playback/src/icc-kickoff-corrections.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/cricket-fixture-registry.mjs",
+        "to": "web/public/data/cpl-2026-fixtures.json"
+      },
+      {
+        "from": "web/workers/playback/src/cricket-fixture-registry.mjs",
+        "to": "web/workers/playback/src/coach-safety.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/cricket-fixture-registry.mjs",
+        "to": "web/workers/playback/src/cpl-fixture-policy.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/cricket-fixture-registry.mjs",
+        "to": "web/workers/playback/src/cricket-fixture-policy.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/public/data/cpl-2026-fixtures.json"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/broadcast-catalog.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/broadcast-registry.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/broadcast-source-adapters.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/coach-evidence.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/coach-request.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/coach-safety.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/coach-safety.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/coach-transfers.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/cpl-fixture-policy.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/cricket-fixture-registry.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/fpl-scoring.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/sports-fixture-event-sources.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/sports-fixture-registry.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/sports-fixture-sources.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/index.js",
+        "to": "web/workers/playback/src/worker-version.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/sports-fixture-event-sources.mjs",
+        "to": "web/workers/playback/src/coach-safety.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/sports-fixture-registry.mjs",
+        "to": "web/workers/playback/src/sports-fixture-policy.mjs"
+      },
+      {
+        "from": "web/workers/playback/src/sports-fixture-sources.mjs",
+        "to": "web/workers/playback/src/coach-safety.mjs"
+      }
+    ]
+  },
+  "controls": [
+    {
+      "path": "web/workers/playback/wrangler.toml",
+      "baselineSha256": "4e32236c82118108f3f7cce88d546f45741aafe92fca8f8451db7dd16519bed0",
+      "stagedSha256": "e021e3dce04c6fffe7571661ed93fcfca0f2ae2a4282f98dae4bfdf2aa9cf3ce",
+      "changed": true
+    },
+    {
+      "path": "web/package.json",
+      "baselineSha256": "cac5e11b6119b3362fa9a0793b40d9f0ca11699afe67f6973e8f46d52868be25",
+      "stagedSha256": "cac5e11b6119b3362fa9a0793b40d9f0ca11699afe67f6973e8f46d52868be25",
+      "changed": false
+    }
+  ],
+  "unrelatedExclusions": [
+    {
+      "path": "web/src/lib/football-competition-catalog.generated.ts",
+      "baselineSha256": "6c0d28abbbfe9bdb7d988f44284a2b0e372fcd579aade24668db3eeb9259c105",
+      "stagedSha256": "6c0d28abbbfe9bdb7d988f44284a2b0e372fcd579aade24668db3eeb9259c105",
+      "exclusionVerified": true
+    },
+    {
+      "path": "web/workers/playback/src/cricket-context-policy.mjs",
+      "baselineSha256": null,
+      "stagedSha256": null,
+      "exclusionVerified": true
+    },
+    {
+      "path": "web/workers/playback/src/cricket-fixture-policy.mjs",
+      "baselineSha256": "db270b297b1ce20be0ce5f0af3a807792f2fd246064e33b0a66799f324e847c7",
+      "stagedSha256": "db270b297b1ce20be0ce5f0af3a807792f2fd246064e33b0a66799f324e847c7",
+      "exclusionVerified": true
+    },
+    {
+      "path": "web/workers/playback/src/cricket-fixture-registry.mjs",
+      "baselineSha256": "966d87f7827fbe86fe3bb952cf57bbb2e324cb00a150588cbae36de225243bb9",
+      "stagedSha256": "966d87f7827fbe86fe3bb952cf57bbb2e324cb00a150588cbae36de225243bb9",
+      "exclusionVerified": true
+    },
+    {
+      "path": "web/workers/playback/src/sports-fixture-event-sources.mjs",
+      "baselineSha256": "3a62c604c4bd16ec3dc2d773abdfb643458c065679f1c6a2dfc158dc812a51f5",
+      "stagedSha256": "3a62c604c4bd16ec3dc2d773abdfb643458c065679f1c6a2dfc158dc812a51f5",
+      "exclusionVerified": true
+    },
+    {
+      "path": "web/workers/playback/src/sports-fixture-policy.mjs",
+      "baselineSha256": "26354769c148e74cd6520bd3c22d040a0d2091572336b7c52c3718dbe0bb311e",
+      "stagedSha256": "26354769c148e74cd6520bd3c22d040a0d2091572336b7c52c3718dbe0bb311e",
+      "exclusionVerified": true
+    },
+    {
+      "path": "web/workers/playback/src/sports-fixture-registry.mjs",
+      "baselineSha256": "4da2150b04b19aee863e75e672241b5c343de081c2ddbc28701e4ca861e98d8e",
+      "stagedSha256": "4da2150b04b19aee863e75e672241b5c343de081c2ddbc28701e4ca861e98d8e",
+      "exclusionVerified": true
+    },
+    {
+      "path": "web/workers/playback/src/sports-fixture-sources.mjs",
+      "baselineSha256": "10f972bb0af9bb653d03a35da99f22ae7255d12bc635f86352289eb1a84d6c69",
+      "stagedSha256": "10f972bb0af9bb653d03a35da99f22ae7255d12bc635f86352289eb1a84d6c69",
+      "exclusionVerified": true
+    },
+    {
+      "path": "web/workers/playback/src/ucl-reported-score-policy.mjs",
+      "baselineSha256": null,
+      "stagedSha256": null,
+      "exclusionVerified": true
+    }
+  ],
+  "overlayTestFiles": [
+    "web/workers/playback/src/broadcast-source-adapters.test.mjs",
+    "web/workers/playback/src/broadcast-registry-policy.test.mjs",
+    "web/workers/playback/src/broadcast-registry.test.mjs",
+    "web/workers/playback/src/broadcast-registry-worker.test.mjs"
+  ],
+  "filesystemOnly": true,
+  "gitMutation": false,
+  "network": false,
+  "deployment": false,
+  "tests": {
+    "receipt": "clean-activation-tests.json",
+    "exitCode": 0,
+    "counts": {
+      "tests": 202,
+      "pass": 202,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0,
+      "todo": 0
+    },
+    "offlineFetchGuard": true,
+    "actualWorkerdSyntheticFixturesCovered": true
+  },
+  "indexOnlyApprovedRegistryAdditionsVerified": true,
+  "handleSportsFixturesCohortHunkExcluded": true,
+  "storageBytes": 5322527,
+  "readyForExplicitActivationReview": true,
+  "notProofOf": [
+    "cloud-edge source compatibility",
+    "listed current target sports",
+    "decoded playback",
+    "owner notification delivery"
+  ],
+  "durablePatch": {
+    "path": "activation.patch",
+    "sha256": "0a0f7a5af810da1917096f4330139d3502e26d42574daaa2ca35a8c8eac5608c",
+    "reconstructionReceipt": "activation-reconstruction.json",
+    "allQualifiedStageFileHashesReconstructed": true
+  }
+}

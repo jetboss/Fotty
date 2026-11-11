@@ -27,17 +27,17 @@ struct FootballQuotaBanner: View {
     }
 
     private var title: String {
-        if scoreService.hasQuotaError { return "Live-score allowance reserved" }
+        if scoreService.hasQuotaError { return "Live scores may be delayed" }
         if scoreService.isUsingDelayedScoreFallback { return "Using delayed scores" }
         return "Live scores unavailable"
     }
 
     private var message: String {
         if scoreService.hasQuotaError {
-            return "Fotty preserved the remaining API-Football allowance. Premier League scores continue through the delayed football-data backup."
+            return "Premier League scores are using a delayed backup. Schedules and broadcasts still work."
         }
         if scoreService.isUsingDelayedScoreFallback {
-            return "The dedicated Premier League live feed is not configured or unavailable. Scores are coming from football-data and may be delayed."
+            return "Premier League scores may update later than usual. Schedules and broadcasts still work."
         }
         return "Premier League scores could not be refreshed. Schedules and streams remain available."
     }

@@ -29,6 +29,19 @@ test("general activation does not enable unreviewed public website feeds", async
   assert.equal(calls.some((name) => name.endsWith(":nba") || name.includes("tennis-atp")), false);
 });
 
+test("the international football switch enables only the three national-team feeds", async () => {
+  const calls = []; const waits = [];
+  const env = { FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "0", FOTTY_SPORTS_INTERNATIONAL_FOOTBALL_ENABLED: "1",
+    SPORTS_FIXTURES: { idFromName(name) { return name; }, get(name) { return { async fetch() { calls.push(name); return Response.json({ ok: true }); } }; } },
+    CRICKET_FIXTURES: { idFromName(name) { return name; }, get() { return { async fetch() { return Response.json({ ok: true }); } }; } } };
+  await worker.scheduled({}, env, { waitUntil(value) { waits.push(value); } });
+  await Promise.all(waits);
+  for (const id of ["uefa-nations-league", "international-friendlies", "concacaf-nations-league"]) {
+    assert.ok(calls.some((name) => name.endsWith(`:${id}`)), id);
+  }
+  assert.equal(calls.some((name) => name.endsWith(":nba") || name.endsWith(":mls") || name.includes("tennis-atp")), false);
+});
+
 test("one failing source group does not stop later cricket/sports refresh groups", async () => {
   const calls = []; const waits = [];
   const env = { FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "1", FOTTY_SPORTS_WNBA_ENABLED: "1", FOTTY_SPORTS_EFL_ENABLED: "1",
@@ -78,6 +91,49 @@ test("EFL uses existing durable admission and preserves accepted Cup facts after
   assert.equal(retained.fixtures[0].start, current.fixtures[0].start);
   assert.equal(retained.fixtures[0].competitionId, "carabao-cup");
   assert.equal(retained.coverage[0].sync.consecutiveFailures, 1);
+});
+
+test("EFL's typed empty-window response cannot erase an accepted active Cup fixture", async () => {
+  const descriptor = SPORTS_SOURCES.find((source) => source.id === "efl-carabao-cup");
+  const first = new Date("2026-10-29T20:00:00Z"), later = new Date("2026-10-29T20:05:00Z");
+  const env = { FOTTY_SPORTS_EFL_ENABLED: "1" };
+  const admitted = await refreshSportsSource(null, descriptor, first, (source, at) => collectSportsSource(source, at, env,
+    async (url) => Response.json({ data: [{ type: "match", id: "g2687773", attributes: {
+      competitionID: 2, kickOffDateUTC: "2026-10-29 19:45:00", TBC: null, matchPeriod: "FirstHalf",
+      homeTeam: { name: "Everton" }, awayTeam: { name: "Newcastle United" } } }],
+    meta: { count: 1, totalCount: 1 }, links: { self: String(url) } }, { headers: { Date: at.toUTCString() } })));
+  const refreshed = await refreshSportsSource(admitted, descriptor, later, (source, at) => collectSportsSource(source, at, env,
+    async () => Response.json({ errors: [{ detail: "No matches found", title: "Not Found", status: "404" }] },
+      { status: 404, headers: { Date: at.toUTCString() } })));
+  const snapshot = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, refreshed]]), later);
+  assert.equal(snapshot.coverage[0].status, "unavailable");
+  assert.equal(snapshot.coverage[0].sync.consecutiveFailures, 1);
+  assert.equal(snapshot.fixtures[0].id, "sports-fixture:carabao-cup:g2687773");
+  assert.equal(snapshot.fixtures[0].source.verification, "held");
+  assert.equal(snapshot.fixtures[0].source.observedAt, first.toISOString());
+  assert.equal(snapshot.fixtures[0].start, "2026-10-29T19:45:00.000Z");
+});
+
+test("EFL's verified empty rolling window recovers source coverage after completed Cup fixtures age out", async () => {
+  const descriptor = SPORTS_SOURCES.find((source) => source.id === "efl-carabao-cup");
+  const first = new Date("2026-10-30T21:50:04Z"), later = new Date("2026-11-01T19:02:44Z");
+  const env = { FOTTY_SPORTS_EFL_ENABLED: "1" };
+  const admitted = await refreshSportsSource(null, descriptor, first, (source, at) => collectSportsSource(source, at, env,
+    async (url) => Response.json({ data: [{ type: "match", id: "g2687773", attributes: {
+      competitionID: 2, kickOffDateUTC: "2026-10-29 19:45:00", TBC: null, matchPeriod: "FullTime",
+      homeTeam: { name: "Everton" }, awayTeam: { name: "Newcastle United" } } }],
+    meta: { count: 1, totalCount: 1 }, links: { self: String(url) } }, { headers: { Date: at.toUTCString() } })));
+  const original = JSON.stringify(admitted);
+  const refreshed = await refreshSportsSource(admitted, descriptor, later, (source, at) => collectSportsSource(source, at, env,
+    async () => Response.json({ errors: [{ detail: "No matches found", title: "Not Found", status: "404" }] },
+      { status: 404, headers: { Date: at.toUTCString() } })));
+  const snapshot = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, refreshed]]), later);
+  assert.equal(snapshot.coverage[0].status, "covered");
+  assert.equal(snapshot.coverage[0].fixtureCount, 0);
+  assert.equal(snapshot.coverage[0].sync.consecutiveFailures, 0);
+  assert.equal(snapshot.coverage[0].sync.lastSuccessAt, later.toISOString());
+  assert.deepEqual(snapshot.fixtures, []);
+  assert.equal(JSON.stringify(admitted), original, "A new empty window cannot mutate the earlier accepted facts");
 });
 
 test("a hung registry GET expires while other source receipts remain available", async () => {

@@ -1,7 +1,6 @@
 "use client";
 
 import { RefreshCw, Radio } from "lucide-react";
-import { STREAM_GUIDE_COPY } from "@/lib/stream-guide/copy";
 
 export function NoStreamsAvailableState({
   onRefresh,
@@ -15,9 +14,9 @@ export function NoStreamsAvailableState({
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-black/30">
         <Radio size={20} className="text-text-tertiary" />
       </div>
-      <p className="mt-4 text-sm font-black text-text-primary">{STREAM_GUIDE_COPY.noStreamsTitle}</p>
+      <p className="mt-4 text-sm font-black text-text-primary">No streams available yet</p>
       <p className="mx-auto mt-2 max-w-sm text-xs font-medium leading-5 text-text-secondary">
-        {STREAM_GUIDE_COPY.noStreamsBody}
+        Refresh closer to the start time. Fotty will show feeds as soon as providers publish them.
       </p>
       {lastCheckedAt ? (
         <p className="mt-2 text-[11px] font-medium text-text-tertiary">Last checked {lastCheckedAt}</p>
