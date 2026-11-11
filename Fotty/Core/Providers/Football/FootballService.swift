@@ -1251,6 +1251,24 @@ class TeamBrandService: ObservableObject {
 
     /// Exact current names/artwork from ESPN's existing NBA/MLB image catalog,
     /// verified 2026-08-27. Static fallbacks: no new runtime catalog API request.
+    /// Abu Dhabi T10 2026 franchises: the official abudhabit10.com team crests
+    /// (its Framer CDN), verified 11 Nov 2026. ESPN's cricket logo URLs for
+    /// these teams return 404 and TheSportsDB has no entries.
+    nonisolated static let abuDhabiT10BadgeURLs: [String: URL] = {
+        let base = "https://framerusercontent.com/images/"
+        let crests = [
+            "arabian aces": "mOd0GOc2GZiIn7FDN43NvEUoE", "emirates eagles": "jEvpbgJ8Nx7bcbs2GNyQIfnBNOU",
+            "royal desert champions": "C4t372HEQV4hkX6KsaxVJqK26q4", "uae bulls": "JgkMFay3SA07yQaNh6RRdsSy5w",
+            "united tigers": "HTULjcQJV11Cjjfi7ofUmlgk10", "yas lions": "W7CHpOcrZDI4cGbVA8d5lemMRLE"
+        ]
+        return crests.compactMapValues { URL(string: base + $0 + ".png?scale-down-to=512") }
+    }()
+
+    /// Crests drawn for a dark background (gold or white artwork on
+    /// transparency). Badge views keep a dark plate behind them in every
+    /// appearance so they stay legible on light rows.
+    nonisolated static let darkPlateBadgeURLs: Set<URL> = Set(abuDhabiT10BadgeURLs.values)
+
     nonisolated static let majorLeagueBadgeURLs: [String: URL] = {
         let leagues: [String: [String: String]] = [
             "nba": [
@@ -1324,21 +1342,7 @@ class TeamBrandService: ObservableObject {
             if let url = URL(string: rawURL) { badges[name] = url }
         }
 
-        // Abu Dhabi T10 2026 franchises: the official abudhabit10.com team crests
-        // (its Framer CDN), verified 11 Nov 2026. ESPN's cricket logo URLs for
-        // these teams return 404 and TheSportsDB has no entries.
-        let t10 = "https://framerusercontent.com/images/"
-        let abuDhabiT10: [String: String] = [
-            "arabian aces": t10 + "mOd0GOc2GZiIn7FDN43NvEUoE.png?scale-down-to=512",
-            "emirates eagles": t10 + "jEvpbgJ8Nx7bcbs2GNyQIfnBNOU.png?scale-down-to=512",
-            "royal desert champions": t10 + "C4t372HEQV4hkX6KsaxVJqK26q4.png?scale-down-to=512",
-            "uae bulls": t10 + "JgkMFay3SA07yQaNh6RRdsSy5w.png?scale-down-to=512",
-            "united tigers": t10 + "HTULjcQJV11Cjjfi7ofUmlgk10.png?scale-down-to=512",
-            "yas lions": t10 + "W7CHpOcrZDI4cGbVA8d5lemMRLE.png?scale-down-to=512"
-        ]
-        for (name, rawURL) in abuDhabiT10 {
-            if let url = URL(string: rawURL) { badges[name] = url }
-        }
+        badges.merge(abuDhabiT10BadgeURLs) { _, t10 in t10 }
 
         let cfl: [String: String] = [
             "bc lions": "https://r2.thesportsdb.com/images/media/team/badge/ysxssy1424732039.png",
