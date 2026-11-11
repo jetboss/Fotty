@@ -1,3 +1,12 @@
+## 2026-11-11: Watch outcome export, women's flags, paused-cricket wording, finished-today rows, T10 start cadence (Jet 284)
+
+- Owner Status "Export summary…" shares per-competition Watch totals as plain text (no fixture, source, URL or account detail). This completes the Month 1 outcome-record item.
+- National sides keep their flags for any squad ("Uganda Women", "India U19", "Pakistan A"); clubs never match a country.
+- Paused cricket shows "Resumes next day", "Resumes after the break" or "Waiting for play" instead of "No stream listed".
+- Home "Today so far" lists verified matches that finished today in the sports Home is showing, read-only. The playback catalog, Search and Matchday are unchanged (61cf951).
+- Worker `2026-11-11.fox-t10-4` (be1ed997, e6acfbb): T10 match 12 reached its start while ESPN still said "pre", so its status was "unknown" and the cohort fell to the 4-hour cadence, leaving the live match unseen for over an hour. Fixtures from 30 minutes before to 4 hours after their start now keep the 2-minute cadence and bypass a stored longer wait. The feed showed the match live at 17:09 UTC.
+- Seen on Jet 284: stumps row "Resumes next day"; Namibia Women and USA Women flags; finished T10, Victoria T20I, WBBL and a friendly under Today so far; Arabian Aces v Yas Lions as the Live now hero with Watch at 17:17 UTC. It appeared after one failed app registry download at 17:11 recovered on the next 5-minute attempt.
+
 ## 2026-11-11: PR 133 squash-merged to main; T10 season-end fix deployed
 
 PR 133 merged as 9243164 (tree equals branch head 6663c15) after three Codex findings were fixed and resolved: the T10 offseason coverage receipt now uses the fresh attempt time (an expired receipt would have made the app reject the whole cricket snapshot after November), a covered T10 cohort can supply the cricket fallback, and the probe resolves variants against the final redirected URL. The merge job proceeded while the non-required `ios` check was still running (a network timeout read as "no failures"); that run later passed, so all checks on the merged code are green. Worker `2026-11-11.fox-t10-3` (b407cd8f) deployed with the season-end fix under the owner's standing "fix it without asking" rule; the live feed showed 95 fixtures including 20 T10. The cloud playback probe now runs from `main` on its schedule.
