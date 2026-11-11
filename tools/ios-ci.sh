@@ -124,23 +124,34 @@ xcodebuild build-for-testing \
   "${CATALYST_BUILD_SETTINGS[@]}" \
   -only-testing:FottyTests
 
-# The static visual fixture warms an evictable shared NSCache. Run it in its
-# own fresh host process so prior unit-test memory pressure cannot replace its
-# synthetic loaded badge with a placeholder. All visual assertions remain
-# mandatory; the second invocation covers every other unit test exactly once.
-xcodebuild test-without-building \
-  "${VISUAL_RESULT_FLAGS[@]}" \
-  -project Fotty.xcodeproj \
-  -scheme Fotty \
-  -configuration Debug \
-  -destination 'platform=macOS,variant=Mac Catalyst' \
-  -derivedDataPath "$DERIVED_DATA" \
-  -jobs "$XCODE_JOBS" \
-  -parallel-testing-enabled NO \
-  "${TEST_TIMEOUT_FLAGS[@]}" \
-  CODE_SIGNING_ALLOWED=NO \
-  "${CATALYST_BUILD_SETTINGS[@]}" \
-  -only-testing:FottyTests/VisualRegressionTests
+# The approved PNGs are pinned to one renderer (Xcode build, SDK and display
+# settings, recorded in the manifest). A runner with a different Xcode cannot
+# produce comparable images, so the gate runs only where it is meaningful and
+# otherwise says so; it is never loosened. Owner decision, 11 Nov 2026: the
+# pinned Mac runs VisualRegressionTests before every release.
+PINNED_XCODE="$(python3 -c 'import json; print(json.load(open("FottyTests/Fixtures/VisualBaselines/manifest.json"))["renderer"]["xcode"])')"
+RUNNER_XCODE="$(xcodebuild -version | awk '/Build version/ {print $3}')"
+if [[ "$PINNED_XCODE" == "$RUNNER_XCODE" ]]; then
+  # The static visual fixture warms an evictable shared NSCache. Run it in its
+  # own fresh host process so prior unit-test memory pressure cannot replace its
+  # synthetic loaded badge with a placeholder. All visual assertions remain
+  # mandatory; the second invocation covers every other unit test exactly once.
+  xcodebuild test-without-building \
+    "${VISUAL_RESULT_FLAGS[@]}" \
+    -project Fotty.xcodeproj \
+    -scheme Fotty \
+    -configuration Debug \
+    -destination 'platform=macOS,variant=Mac Catalyst' \
+    -derivedDataPath "$DERIVED_DATA" \
+    -jobs "$XCODE_JOBS" \
+    -parallel-testing-enabled NO \
+    "${TEST_TIMEOUT_FLAGS[@]}" \
+    CODE_SIGNING_ALLOWED=NO \
+    "${CATALYST_BUILD_SETTINGS[@]}" \
+    -only-testing:FottyTests/VisualRegressionTests
+else
+  echo "::notice title=Visual regression gate not run::Runner Xcode $RUNNER_XCODE differs from the pinned renderer $PINNED_XCODE. Run VisualRegressionTests on the pinned Mac before release."
+fi
 
 xcodebuild test-without-building \
   "${UNIT_RESULT_FLAGS[@]}" \
