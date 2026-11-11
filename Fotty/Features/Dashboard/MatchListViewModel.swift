@@ -145,6 +145,21 @@ final class MatchListViewModel {
             + terminal.filter { !vetoIDs.contains($0.id) }
     }
 
+    /// Matches that finished earlier today (local calendar day), newest first,
+    /// for Home's "Today so far" only. Verified terminal facts; never added to
+    /// the playback catalog, Search or Matchday, and never offered an action.
+    func finishedToday(at now: Date = .init(), calendar: Calendar = .current, limit: Int = 6) -> [EventReference] {
+        (CricketFixtureCatalog.terminalEvents(from: cricketFixtureSnapshot)
+            + SportsFixtureCatalog.terminalEvents(from: sportsFixtureSnapshot))
+            .filter { event in
+                guard let kickoff = event.kickoffDate, kickoff <= now, calendar.isDate(kickoff, inSameDayAs: now),
+                      !event.hasCatalogIdentityConflict else { return false }
+                return event.cricketFixture?.status == .finished || event.sportsFixture?.status == .finished
+            }
+            .sorted { ($0.kickoffDate ?? .distantPast) > ($1.kickoffDate ?? .distantPast) }
+            .prefix(limit).map { $0 }
+    }
+
     /// A wider read-only planning projection for Search, built on demand by
     /// its nonempty-query preparation owner. Never added to Home or playback.
     func searchSchedule(at now: Date = .init()) -> [EventReference] {

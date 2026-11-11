@@ -436,7 +436,7 @@ struct SportsDashboardView: View {
             personalization: personalization, preservingLegacyOrder: isMultiSelectMode
         )
         let personalizedUpcomingLimit = UIDevice.current.userInterfaceIdiom == .pad ? 4 : 3
-        let sections = schedule.homeSections(
+        var sections = schedule.homeSections(
             from: items,
             diverseUpcoming: !usesPersonalizedWindow && selectedSportTab == HomeSportsDiscovery.allSports,
             featuredLiveLimit: personalizedUpcomingLimit,
@@ -445,6 +445,16 @@ struct SportsDashboardView: View {
             followedTeamKeys: personalization.selection.teamKeys,
             canWatch: { canOpenBroadcast($0.event) }
         )
+        // "Today so far" also lists matches that finished today, in the sports
+        // Home is showing. Read-only rows: no Watch, bell or lookup.
+        let shownSports = Set(items.map(\.sport))
+        let alreadyListed = Set(items.map(\.id))
+        sections.pausedToday += (matchListViewModel?.finishedToday(at: schedule.now) ?? [])
+            .filter { event in
+                !alreadyListed.contains(event.id) && shownSports.contains(event.normalizedCategory)
+                    && (selectedSportTab == HomeSportsDiscovery.allSports || event.normalizedCategory == selectedSportTab)
+            }
+            .map { HomeSportsDiscovery.Item(event: $0, phase: .unconfirmed, officialStatus: nil, now: schedule.now) }
         let later = usesPersonalizedWindow
             ? (title: "", items: [HomeSportsDiscovery.Item]())
             : schedule.later(from: items, excluding: sections.upcoming + [sections.nextClub].compactMap { $0 })
