@@ -129,7 +129,16 @@ struct BroadcastRegistrySnapshot: Codable, Equatable, Sendable {
             guard let date = Self.date(value) else { throw ValidationError.invalidRecord }
             return date
         }
-        let value = try decoder.decode(Self.self, from: data)
+        let decoded = try decoder.decode(Self.self, from: data)
+        // A source the app has retired (StreamEx, StreamVix) may still be
+        // published by the Worker. Drop its rows instead of rejecting the
+        // whole registry; every remaining row keeps the checks below.
+        let value = Self(schemaVersion: decoded.schemaVersion, revision: decoded.revision,
+            generatedAt: decoded.generatedAt,
+            providers: decoded.providers.filter { providerCodes.contains($0.providerCode) },
+            broadcasts: decoded.broadcasts.filter { providerCodes.contains($0.providerCode) },
+            links: decoded.links.filter { providerCodes.contains($0.providerCode) },
+            tvGuide: decoded.tvGuide)
         guard value.schemaVersion == 1, safeText(value.revision, limit: 128),
               value.providers.count <= providerCodes.count * scopes.count,
               value.broadcasts.count <= maximumRecords, value.links.count <= maximumRecords else { throw ValidationError.invalidSnapshot }
