@@ -108,7 +108,7 @@ enum LiveSourceHealthStore {
     private static var matchObservations: [MatchDelivery: [MatchObservation]] = loadedMatchEvidence().observations
     private static var wrongProgrammes: [Data: Date] = loadedMatchEvidence().wrongProgrammes
     private static let matchObservationLifetime: TimeInterval = 6 * 60 * 60
-    private static let matchEvidenceStorageKey = "fotty.live.matchEvidence.v1"
+    private static let matchEvidenceDefaultsName = "fotty.live.matchEvidence.v1"
 
     private struct PersistedMatchEvidence: Codable {
         struct Observation: Codable {
@@ -125,7 +125,7 @@ enum LiveSourceHealthStore {
     private static func loadedMatchEvidence(at now: Date = Date())
         -> (observations: [MatchDelivery: [MatchObservation]], wrongProgrammes: [Data: Date]) {
         guard evidenceKey.persistent, AppRuntime.privateOutageFixture == nil,
-              let data = UserDefaults.standard.data(forKey: matchEvidenceStorageKey) else { return ([:], [:]) }
+              let data = UserDefaults.standard.data(forKey: matchEvidenceDefaultsName) else { return ([:], [:]) }
         return decodeMatchEvidence(data, at: now)
     }
 
@@ -152,7 +152,7 @@ enum LiveSourceHealthStore {
     private static func persistMatchEvidence() {
         guard evidenceKey.persistent, AppRuntime.privateOutageFixture == nil,
               let data = encodedMatchEvidence() else { return }
-        UserDefaults.standard.set(data, forKey: matchEvidenceStorageKey)
+        UserDefaults.standard.set(data, forKey: matchEvidenceDefaultsName)
     }
 
     private static func encodedMatchEvidence() -> Data? {
@@ -841,7 +841,7 @@ enum LiveSourceHealthStore {
             verifyingSourceKeys.removeAll()
             matchObservations.removeAll()
             wrongProgrammes.removeAll()
-            UserDefaults.standard.removeObject(forKey: matchEvidenceStorageKey)
+            UserDefaults.standard.removeObject(forKey: matchEvidenceDefaultsName)
             snapshotCache = nil
             snapshotDecodeCount = 0
         }

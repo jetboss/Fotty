@@ -4,9 +4,9 @@
     {
       "appearance": "dark",
       "file": "home-phone-dark.png",
-      "height": 841,
+      "height": 777,
       "id": "home-phone-dark",
-      "sha256": "f7185d948440c209fb8b05f8517574b240b15234722d89b0a689aca9b47df27b",
+      "sha256": "a50e130005a752cf91b3b18981542606b943cee12089783f29f837ead436a83b",
       "surface": "home",
       "textSize": "large",
       "width": 375
@@ -14,9 +14,9 @@
     {
       "appearance": "light",
       "file": "home-phone-light.png",
-      "height": 841,
+      "height": 777,
       "id": "home-phone-light",
-      "sha256": "62f92bc51698fc8c3d81d9e0b06aa37773a1707e5e41b7a5630d7b9a6bcb0e67",
+      "sha256": "e420f71114c46989a60b8415fcb142cc25e250db368d2310ea62ff531d8aea42",
       "surface": "home",
       "textSize": "large",
       "width": 375
@@ -24,9 +24,9 @@
     {
       "appearance": "dark",
       "file": "home-phone-large-text.png",
-      "height": 1407,
+      "height": 1311,
       "id": "home-phone-large-text",
-      "sha256": "215540fafbe7e2e487c4875636e65e139c5fb60ddde1bbdc79fcf75e23ae80c8",
+      "sha256": "fd116309616f243d9b1c4a579b22c9de13ad01ff89d07465b8c098af97411e0a",
       "surface": "home",
       "textSize": "accessibility2",
       "width": 375
@@ -34,9 +34,9 @@
     {
       "appearance": "dark",
       "file": "home-ipad-landscape.png",
-      "height": 720,
+      "height": 676,
       "id": "home-ipad-landscape",
-      "sha256": "efa55f9ec16c7a49b2dc2665d22f0af2c63c820c25211fe67759e7f396e4f3f7",
+      "sha256": "46b9da71a20996f964ae848aa06b2890e35c9df2564a0bdf44f28bab6b4bb30d",
       "surface": "home",
       "textSize": "large",
       "width": 1180
@@ -44,9 +44,9 @@
     {
       "appearance": "light",
       "file": "home-ipad-narrow.png",
-      "height": 847,
+      "height": 803,
       "id": "home-ipad-narrow",
-      "sha256": "54efb18f0b474f9e41f46d35595f219f6366a29f9960b96531bc4e8e6bc4e2fa",
+      "sha256": "f8c8e379216147f1ca2d4a0a3a908936f7017bfcb6e4f6570bd44bb5563e4d21",
       "surface": "home",
       "textSize": "large",
       "width": 650
@@ -118,7 +118,7 @@
     "xcode": "27B52"
   },
   "schema": 1,
-  "reviewedBy": "Codex visual review, 5 November 2026",
-  "reviewedAt": "2026-11-05T10:33:41.953Z",
-  "sourceReceipt": "8d57591090df9ac1d8d269091151dde30b45548a1fdcbf1d3775395c22363850"
+  "reviewedBy": "Claude for the owner (delegated 11 Nov 2026): watch-first Home redesign",
+  "reviewedAt": "2026-11-11T02:46:31.457Z",
+  "sourceReceipt": "94731663451c8b6732892b8661e596fd7fe9619fb5d794c3be884d1efe6f912d"
 }

@@ -1,0 +1,124 @@
+{
+  "fixtureRevision": "fotty-components-20261010-v1",
+  "records": [
+    {
+      "appearance": "dark",
+      "file": "home-phone-dark.png",
+      "height": 841,
+      "id": "home-phone-dark",
+      "sha256": "f7185d948440c209fb8b05f8517574b240b15234722d89b0a689aca9b47df27b",
+      "surface": "home",
+      "textSize": "large",
+      "width": 375
+    },
+    {
+      "appearance": "light",
+      "file": "home-phone-light.png",
+      "height": 841,
+      "id": "home-phone-light",
+      "sha256": "62f92bc51698fc8c3d81d9e0b06aa37773a1707e5e41b7a5630d7b9a6bcb0e67",
+      "surface": "home",
+      "textSize": "large",
+      "width": 375
+    },
+    {
+      "appearance": "dark",
+      "file": "home-phone-large-text.png",
+      "height": 1407,
+      "id": "home-phone-large-text",
+      "sha256": "215540fafbe7e2e487c4875636e65e139c5fb60ddde1bbdc79fcf75e23ae80c8",
+      "surface": "home",
+      "textSize": "accessibility2",
+      "width": 375
+    },
+    {
+      "appearance": "dark",
+      "file": "home-ipad-landscape.png",
+      "height": 720,
+      "id": "home-ipad-landscape",
+      "sha256": "efa55f9ec16c7a49b2dc2665d22f0af2c63c820c25211fe67759e7f396e4f3f7",
+      "surface": "home",
+      "textSize": "large",
+      "width": 1180
+    },
+    {
+      "appearance": "light",
+      "file": "home-ipad-narrow.png",
+      "height": 847,
+      "id": "home-ipad-narrow",
+      "sha256": "54efb18f0b474f9e41f46d35595f219f6366a29f9960b96531bc4e8e6bc4e2fa",
+      "surface": "home",
+      "textSize": "large",
+      "width": 650
+    },
+    {
+      "appearance": "dark",
+      "file": "sources-phone-dark.png",
+      "height": 325,
+      "id": "sources-phone-dark",
+      "sha256": "22c768f32c3cc0d9bc0b0134f11b39efe2416b7d1bab254d07941394052c0502",
+      "surface": "sources",
+      "textSize": "large",
+      "width": 375
+    },
+    {
+      "appearance": "light",
+      "file": "sources-phone-large-text.png",
+      "height": 465,
+      "id": "sources-phone-large-text",
+      "sha256": "ce24f4b7ac26fda99cda5198fe3d1d491ffc2df459211c5273124e704b3c08a7",
+      "surface": "sources",
+      "textSize": "accessibility3",
+      "width": 320
+    },
+    {
+      "appearance": "dark",
+      "file": "controls-dark.png",
+      "height": 221,
+      "id": "controls-dark",
+      "sha256": "0ddc9e21454fe0a90110559f8a68bd95d20f29e83d723dea19e1f6d011dff476",
+      "surface": "controls",
+      "textSize": "large",
+      "width": 375
+    },
+    {
+      "appearance": "light",
+      "file": "controls-light.png",
+      "height": 221,
+      "id": "controls-light",
+      "sha256": "8c3720607df42d983613992db0ff835716e5e102ffbf660f5679f5c515b021e5",
+      "surface": "controls",
+      "textSize": "large",
+      "width": 375
+    },
+    {
+      "appearance": "light",
+      "file": "badges-loaded-and-missing.png",
+      "height": 221,
+      "id": "badges-loaded-and-missing",
+      "sha256": "6d381999acdd6dcd706b3d4693745b457c60adb4d45fd4ac7bf83e2e76befc0d",
+      "surface": "badges",
+      "textSize": "large",
+      "width": 375
+    }
+  ],
+  "renderer": {
+    "animations": "disabled",
+    "fixtureClock": "4000000000",
+    "fixtureTimeZone": "UTC",
+    "homeCapture": "UIHostingController.drawHierarchy.v1",
+    "locale": "en_US@rg=ttzzzz",
+    "motion": "false",
+    "os": "Version 27.0.1 (Build 26A434)",
+    "otherCapture": "SwiftUI.ImageRenderer.v1",
+    "platform": "macCatalyst",
+    "scale": "1",
+    "sdk": "macosx27.2",
+    "transparency": "false",
+    "xcode": "27B52"
+  },
+  "schema": 1,
+  "reviewedBy": "Codex visual review, 5 November 2026",
+  "reviewedAt": "2026-11-05T10:33:41.953Z",
+  "sourceReceipt": "8d57591090df9ac1d8d269091151dde30b45548a1fdcbf1d3775395c22363850"
+}

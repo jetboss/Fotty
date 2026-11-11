@@ -78,6 +78,7 @@ targets:
       - path: FottyTests
         excludes:
           - Fixtures/VisualBaselines-206
+          - Fixtures/VisualBaselines-273
           - Fixtures/VisualBaselines-Xcode27A266a
     dependencies:
       - target: Fotty
