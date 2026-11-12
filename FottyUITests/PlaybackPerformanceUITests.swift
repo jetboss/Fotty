@@ -46,7 +46,7 @@ final class PlaybackPerformanceUITests: XCTestCase {
     }
 
     func testBroadcastFirstHomeAndTVJourney() throws {
-        XCTAssertTrue(app.staticTexts["home-context-heading"].waitForExistence(timeout: 20))
+        XCTAssertTrue(app.buttons["home-selected-scope"].firstMatch.waitForExistence(timeout: 20))
         captureEvidence(surface: "3.0 broadcast-first Home")
         let follow = app.buttons["home-follow-club"].firstMatch
         if follow.exists && follow.isHittable {
@@ -79,9 +79,8 @@ final class PlaybackPerformanceUITests: XCTestCase {
     }
 
     func testTailoredHomeOnJet() {
-        let heading = app.staticTexts["home-context-heading"]
-        XCTAssertTrue(heading.waitForExistence(timeout: 20))
-        XCTAssertEqual(heading.label, "Tailored to you")
+        XCTAssertTrue(app.buttons["home-selected-scope"].firstMatch.waitForExistence(timeout: 20))
+        XCTAssertFalse(app.staticTexts["Tailored to you"].exists, "Home has no separate context heading")
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Tailored Home on Jet"
         screenshot.lifetime = .keepAlways

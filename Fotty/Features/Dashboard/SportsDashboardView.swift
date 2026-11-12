@@ -481,49 +481,6 @@ struct SportsDashboardView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .id("home-results")
 
-                CatalogAdaptiveHeading {
-                    Text("Tailored to you")
-                        .font(.title2.weight(.bold))
-                        .foregroundStyle(FottyTheme.textPrimary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .accessibilityAddTraits(.isHeader)
-                        .accessibilityIdentifier("home-context-heading")
-                } actions: {
-                    Menu {
-                    Button("Browse sports", systemImage: "sportscourt") {
-                        allSportsAppliesHomeInterests = true
-                        presentModal { showsAllSports = true }
-                    }
-                    if selectedSportTab != HomeSportsDiscovery.allSports {
-                        Button("Clear sport filter", systemImage: "line.3.horizontal.decrease") {
-                            selectedSportTab = HomeSportsDiscovery.allSports
-                            selectedFootballLeague = .all
-                            selectedCricketFilter = .all
-                            requestHomeResults()
-                        }
-                    }
-                    Toggle("Only my interests", isOn: $onlyShowSelectedInterests)
-                        .disabled(selectedInterestCount == 0)
-                    Button("Follow a club", systemImage: "star") { presentModal { showsClubPicker = true } }
-                    Button("Edit interests", systemImage: "slider.horizontal.3") {
-                        presentModal { showsInterestEditor = true }
-                    }
-                    .accessibilityIdentifier("dashboard-home-interests-edit")
-                } label: {
-                        HStack(spacing: 8) {
-                            Text(homeScopeLabel ?? "All sports")
-                            Image(systemName: "chevron.down").imageScale(.small)
-                        }
-                            .font(FottyTheme.typeMeta)
-                            .foregroundStyle(FottyTheme.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minHeight: 44, alignment: .leading)
-                }
-                    .buttonStyle(FottyPressButtonStyle())
-                    .accessibilityLabel("Showing \(homeScopeLabel ?? "All sports")")
-                    .accessibilityHint("Change the sport filter, show only your interests, or edit your interests")
-                    .accessibilityIdentifier("home-selected-scope")
-                }
 
                 #if DEBUG
                 if HomeSportsDiscovery.automatedClockStart != nil {
@@ -1527,8 +1484,52 @@ struct SportsDashboardView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// Home's sport/interest filter sits with Search and Settings; Home has
+    /// no separate "Tailored to you" heading.
+    private var homeScopeMenu: some View {
+            Menu {
+            Button("Browse sports", systemImage: "sportscourt") {
+                allSportsAppliesHomeInterests = true
+                presentModal { showsAllSports = true }
+            }
+            if selectedSportTab != HomeSportsDiscovery.allSports {
+                Button("Clear sport filter", systemImage: "line.3.horizontal.decrease") {
+                    selectedSportTab = HomeSportsDiscovery.allSports
+                    selectedFootballLeague = .all
+                    selectedCricketFilter = .all
+                    requestHomeResults()
+                }
+            }
+            Toggle("Only my interests", isOn: $onlyShowSelectedInterests)
+                .disabled(selectedInterestCount == 0)
+            Button("Follow a club", systemImage: "star") { presentModal { showsClubPicker = true } }
+            Button("Edit interests", systemImage: "slider.horizontal.3") {
+                presentModal { showsInterestEditor = true }
+            }
+            .accessibilityIdentifier("dashboard-home-interests-edit")
+        } label: {
+                HStack(spacing: 6) {
+                    Text(homeScopeLabel ?? "All sports")
+                        .lineLimit(1)
+                    Image(systemName: "chevron.down").imageScale(.small)
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(FottyTheme.textPrimary)
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay { Capsule().strokeBorder(FottyTheme.borderStrong, lineWidth: 0.5) }
+                .contentShape(Capsule())
+        }
+            .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull))
+            .accessibilityLabel("Showing \(homeScopeLabel ?? "All sports")")
+            .accessibilityHint("Change the sport filter, show only your interests, or edit your interests")
+            .accessibilityIdentifier("home-selected-scope")
+    }
+
     private var cinemaHomeActions: some View {
         HStack(spacing: 8) {
+            homeScopeMenu
             Button {
                 presentModal { showsSearch = true }
             } label: {
