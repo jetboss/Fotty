@@ -156,6 +156,7 @@ actor HighflySportsAddonClient {
         var searchScope = "search"
         var listingSpan: String?, liveCatalog: String?
         var liveRows: Int?, liveShape: String?, liveSameSport: Int?, liveCategories: String?, liveRestShape: String?
+        var liveLayout: String?
         defer {
             var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
             if let missReason { details["reason_code"] = missReason }
@@ -167,6 +168,7 @@ actor HighflySportsAddonClient {
             if let liveSameSport { details["live_sport_rows"] = "\(liveSameSport)" }
             if let liveCategories { details["live_categories"] = liveCategories }
             if let liveRestShape { details["live_rest_shape"] = liveRestShape }
+            if let liveLayout { details["live_layout"] = liveLayout }
             if let rowCount { details["candidate_count"] = "\(rowCount)" }
             if let unmatchedTeam { details["unmatched_team"] = unmatchedTeam }
             if let kickoffOffset {
@@ -240,6 +242,7 @@ actor HighflySportsAddonClient {
             liveShape = live.lazy.compactMap { Self.identityRejection($0) }.first ?? (live.isEmpty ? nil : "parsed")
             liveSameSport = live.filter { Self.identity($0)?.sport == original.sport }.count
             liveCategories = Self.categorySummary(live)
+            liveLayout = Self.layoutSummary(live.filter { Self.supports(category: $0.category) })
             // Would rows parse if the category were a sport we know? (shape beyond category)
             liveRestShape = live.lazy.map { Row(id: $0.id, type: $0.type, name: $0.name, description: $0.description,
                 releaseInfo: $0.releaseInfo, category: original.sport) }.compactMap { Self.identityRejection($0) }.first
@@ -442,6 +445,34 @@ actor HighflySportsAddonClient {
             summary = next
         }
         return summary.isEmpty ? "none" : summary
+    }
+
+    /// Diagnostic: the commonest description layout among rows, as line
+    /// classes (name/vs/release/date/live/empty/text) plus the releaseInfo
+    /// class, e.g. "name.text.date-ri_date". Classes only, never text.
+    nonisolated static func layoutSummary(_ rows: [Row]) -> String {
+        func isDate(_ value: String) -> Bool {
+            let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = TimeZone(secondsFromGMT: 0)
+            f.dateFormat = value.first == "0" ? "dd MMM yyyy '·' HH:mm 'UTC'" : "d MMM yyyy '·' HH:mm 'UTC'"
+            return f.date(from: value) != nil
+        }
+        func kind(_ line: String, row: Row) -> String {
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            if trimmed.isEmpty { return "empty" }
+            if trimmed == row.name { return "name" }
+            if !row.releaseInfo.isEmpty && trimmed == row.releaseInfo { return "release" }
+            if isDate(trimmed) { return "date" }
+            if trimmed.lowercased().contains("live") { return "live" }
+            if trimmed.range(of: #" (vs?\.?|v|@|-) "#, options: [.regularExpression, .caseInsensitive]) != nil { return "vs" }
+            return trimmed.rangeOfCharacter(from: .decimalDigits) != nil ? "digits" : "text"
+        }
+        let layouts = rows.map { row -> String in
+            let lines = row.description.components(separatedBy: "\n").prefix(5).map { kind($0, row: row) }.joined(separator: ".")
+            let info = row.releaseInfo.isEmpty ? "empty" : isDate(row.releaseInfo) ? "date"
+                : row.releaseInfo.lowercased().contains("live") ? "live" : row.releaseInfo.rangeOfCharacter(from: .decimalDigits) != nil ? "digits" : "text"
+            return String((lines + "-ri_" + info).prefix(64))
+        }
+        return Dictionary(grouping: layouts, by: { $0 }).max { $0.value.count < $1.value.count }?.key ?? "none"
     }
 
     /// Diagnostic: the first identity rule a row fails (nil = parsed). Never a title.

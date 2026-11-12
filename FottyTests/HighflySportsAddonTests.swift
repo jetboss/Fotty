@@ -162,6 +162,12 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertEqual(HighflySportsAddonClient.identityRejection(undated), "description_lines_1")
     }
 
+    func testLiveLayoutNamesLineKindsNotText() {
+        let live = HighflySportsAddonClient.Row(id: "streamed:x", name: "Arsenal vs Everton",
+            description: "Arsenal vs Everton\nPremier League\n10 Nov 2026 · 18:00 UTC", releaseInfo: "LIVE", category: "football")
+        XCTAssertEqual(HighflySportsAddonClient.layoutSummary([live]), "name.text.date-ri_live")
+    }
+
     func testLiveCategorySummaryKeepsOnlyCategoryWords() {
         let rows = ["Soccer", "Soccer", "Live Now", "", "F1 🏎️"].map {
             HighflySportsAddonClient.Row(id: "streamed:x", name: "Secret Title", description: "", releaseInfo: "", category: $0)
