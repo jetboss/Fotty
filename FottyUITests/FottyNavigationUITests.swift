@@ -1293,6 +1293,42 @@ final class Fotty25PhysicalUIJourneyTests: XCTestCase {
         capture(app, "physical-Home-returned")
     }
 
+    /// Visual review of the black-stage player: ready, info open, chrome dimmed.
+    func testPhysicalPlayerStageCaptures() throws {
+        let app = try launchNormalHome()
+        defer { app.terminate() }
+        let watches = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@ AND NOT (label CONTAINS[c] %@)", "Watch", "two"))
+        _ = watches.firstMatch.waitForExistence(timeout: 30)
+        sleep(3)
+        let player = app.descendants(matching: .any)["viewing-experience"].firstMatch
+        var opened = false
+        // Try listed Watch actions in order; a fixture with no stream shows
+        // an alert, which is dismissed before the next one is tried.
+        for watch in watches.allElementsBoundByIndex.filter({ $0.isHittable && $0.isEnabled }).prefix(6) {
+            watch.tap()
+            if player.waitForExistence(timeout: 30) { opened = true; break }
+            let ok = app.alerts.buttons["OK"].firstMatch
+            if ok.exists { ok.tap(); sleep(1) }
+        }
+        guard opened else { capture(app, "stage-no-player"); throw XCTSkip("No listed Watch opened the player.") }
+        let close = app.buttons["close-live-player"].firstMatch
+        defer { if close.exists && close.isHittable { close.tap() } }
+        _ = app.buttons["viewing-native-fullscreen"].firstMatch.waitForExistence(timeout: 20)
+        sleep(2)
+        captureDisplay("stage-ready")
+        let details = app.buttons["viewing-details"].firstMatch
+        XCTAssertTrue(details.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(details.frame.height, 44)
+        details.tap(); sleep(2)
+        captureDisplay("stage-info-open")
+        let done = app.buttons["viewing-details-done"].firstMatch
+        XCTAssertTrue(done.waitForExistence(timeout: 5)); done.tap()
+        sleep(7)
+        captureDisplay("stage-chrome-dimmed")
+        let sources = app.buttons["viewing-sources"].firstMatch
+        XCTAssertTrue(sources.exists && sources.isHittable, "Sources stays reachable")
+    }
+
     func testPhysicalSinglePlayerSourceAndDetailsPresentation() throws {
         let app = try launchNormalHome()
         defer { app.terminate() }

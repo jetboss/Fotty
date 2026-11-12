@@ -384,10 +384,14 @@ struct ViewingExperienceView: View {
             // Taps on the black margins wake dimmed chrome. The retained
             // picture is drawn above this layer, so it never sees this gesture.
             Color.black.contentShape(Rectangle()).onTapGesture { wakeChrome() }
+                .ignoresSafeArea()
         }
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark)
+        // Like the TV app: no status bar, and the home indicator steps back.
+        .statusBarHidden(true)
+        .persistentSystemOverlays(.hidden)
         .task(id: chromeWake) {
             guard !UIAccessibility.isVoiceOverRunning, !typeSize.isAccessibilitySize else { return }
             try? await Task.sleep(for: .seconds(4))
@@ -422,8 +426,12 @@ struct ViewingExperienceView: View {
             Spacer(minLength: 0)
             if !pane.model.isUsingWebEmbed {
                 Button { wakeChrome(); pane.model.beginNativeFullscreen() } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 44, height: 44)
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .frame(width: 44, height: 44).contentShape(Rectangle())
                 }
+                .frame(minWidth: 44, minHeight: 44)
+                .buttonStyle(.plain).font(.title3.weight(.medium))
+                .foregroundStyle(stageChromeStyle)
                 .disabled(!pane.model.canShowNativeFullscreen)
                 .accessibilityLabel("Open native fullscreen player")
                 .accessibilityIdentifier("viewing-native-fullscreen")
@@ -439,8 +447,9 @@ struct ViewingExperienceView: View {
 
     private var minimizeControl: some View {
         Button { viewing.minimize() } label: {
-            Image(systemName: "chevron.down").frame(width: 44, height: 44)
+            Image(systemName: "chevron.down").frame(width: 44, height: 44).contentShape(Rectangle())
         }
+        .frame(minWidth: 44, minHeight: 44)
         .buttonStyle(.plain).font(.title3.weight(.medium))
         .foregroundStyle(stageChromeStyle)
         .accessibilityLabel("Minimize player and browse")
@@ -449,8 +458,9 @@ struct ViewingExperienceView: View {
 
     private var closeControl: some View {
         Button { viewing.stop() } label: {
-            Image(systemName: "xmark").frame(width: 44, height: 44)
+            Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle())
         }
+        .frame(minWidth: 44, minHeight: 44)
         .buttonStyle(.plain).font(.title3.weight(.medium))
         .foregroundStyle(stageChromeStyle)
         .accessibilityLabel("Close player")
@@ -462,8 +472,9 @@ struct ViewingExperienceView: View {
             wakeChrome()
             if panel { showsInfoPanel.toggle() } else { showsTabletDetails = true }
         } label: {
-            Image(systemName: showsInfoPanel && panel ? "info.circle.fill" : "info.circle").frame(width: 44, height: 44)
+            Image(systemName: showsInfoPanel && panel ? "info.circle.fill" : "info.circle").frame(width: 44, height: 44).contentShape(Rectangle())
         }
+        .frame(minWidth: 44, minHeight: 44)
         .buttonStyle(.plain).font(.title3.weight(.medium))
         .foregroundStyle(stageChromeStyle)
         .accessibilityLabel(pane.event.isBroadcastChannel ? "Channel details" : "Match details")
@@ -556,7 +567,7 @@ struct ViewingExperienceView: View {
                 .padding(20)
             }
         }
-        .background(Color(white: 0.09))
+        .background(Color(white: 0.09).ignoresSafeArea())
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("viewing-info-panel")
     }
