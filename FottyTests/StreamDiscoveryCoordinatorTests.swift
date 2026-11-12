@@ -74,6 +74,17 @@ final class FixtureStreamPreflightScheduleTests: XCTestCase {
         XCTAssertEqual(schedule.delay(at: now.addingTimeInterval(300)), 90,
                        "An ineligible/playing screen must not poll in a tight loop after a due time passes")
     }
+
+    func testLiveFixturesAreCheckedBeforeUpcomingOnes() {
+        var schedule = FixtureStreamPreflightSchedule()
+        let ids = ["upcoming1", "upcoming2", "liveA", "liveB"]
+        let live: Set<String> = ["liveA", "liveB"]
+        XCTAssertEqual(schedule.takeNextID(from: ids, at: now, prioritized: live), "liveA")
+        XCTAssertEqual(schedule.takeNextID(from: ids, at: now.addingTimeInterval(90), prioritized: live), "liveB")
+        XCTAssertEqual(schedule.takeNextID(from: ids, at: now.addingTimeInterval(180), prioritized: live), "liveA")
+        XCTAssertEqual(schedule.takeNextID(from: ids, at: now.addingTimeInterval(270), prioritized: []), "upcoming1",
+                       "With nothing live the ordinary rotation resumes")
+    }
 }
 
 @MainActor
@@ -102,6 +113,19 @@ final class FixtureStreamDiscoveryIndexTests: XCTestCase {
         XCTAssertEqual(index.summary(for: request, at: now.addingTimeInterval(90))?.providers.first?.lastCandidateFoundAt, now,
                        "Cancelling a recheck may preserve a prior find, not the old delivery or an in-flight lease")
         XCTAssertFalse(index.summary(for: request, at: now.addingTimeInterval(90))?.isChecking ?? true)
+    }
+
+    func testAccountSourcesDoNotSpendTheSharedPreflightBudget() throws {
+        let index = FixtureStreamDiscoveryIndex(), request = request()
+        for step in 0..<24 {
+            let at = now.addingTimeInterval(Double(step) * 91)
+            index.abandon(try XCTUnwrap(index.begin(for: request, providerCode: "communitysports", preflight: true, at: at)))
+        }
+        let later = now.addingTimeInterval(24 * 91)
+        XCTAssertNil(index.begin(for: request, providerCode: "communitysports", preflight: true, at: later),
+                     "Free sources keep the 24-per-hour courtesy budget")
+        XCTAssertNotNil(index.begin(for: request, providerCode: "penguplay", preflight: true, at: later),
+                        "The owner's account source is limited by its own cooldown, not the shared budget")
     }
 
     func testConfirmedReadinessSurvivesDescriptorGapAndExpiresAfterFiveMinutes() throws {

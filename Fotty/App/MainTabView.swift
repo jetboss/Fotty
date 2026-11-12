@@ -256,9 +256,13 @@ struct MainTabView: View {
                             enabledProviderCodes: codes, at: now, phase: .preflight)
                     }
                 }
-                if let nextID = sourcePreflightSchedule.takeNextID(from: eligible.map(\.id), at: now),
+                let live = Set(eligible.filter { ($0.kickoffDate ?? .distantFuture) <= now }.map(\.id))
+                if let nextID = sourcePreflightSchedule.takeNextID(from: eligible.map(\.id), at: now, prioritized: live),
                    let event = eligible.first(where: { $0.id == nextID }) {
-                    await LiveStreamResolver.shared.preflightSources(for: StreamPlaybackRequest(event: event))
+                    let lanes = await LiveStreamResolver.shared.preflightSources(for: StreamPlaybackRequest(event: event))
+                    FottyQualityStore.shared.record(category: .playback, name: "source_preflight", outcome: .info,
+                        details: ["candidate_count": String(eligible.count), "source_count": String(lanes),
+                                  "sport": event.normalizedCategory, "stage": live.contains(nextID) ? "live" : "upcoming"])
                 }
                 do { try await Task.sleep(for: .seconds(sourcePreflightSchedule.delay(at: Date()))) }
                 catch { return }

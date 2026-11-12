@@ -319,8 +319,12 @@ actor LiveStreamResolver {
     /// Foreground metadata only: one current fixture, at most two reviewed
     /// optional providers, an eight-second owner and a separate preflight budget.
     /// No player, media probe, source setting or shared publisher is involved.
-    func preflightSources(for request: StreamPlaybackRequest) async {
-        guard !Task.isCancelled else { return }
+    static let accountPreflightDeadline: Duration = .seconds(30)
+
+    /// Returns how many source lanes ran (diagnostic count only).
+    @discardableResult
+    func preflightSources(for request: StreamPlaybackRequest) async -> Int {
+        guard !Task.isCancelled else { return 0 }
         let enabled = Set(await StreamPluginRegistry.shared.enabledProviderCodes())
         let plan = await CuratedStreamSourceCatalog.discoveryPlan(for: request, enabledProviderCodes: enabled)
         var sources = plan.optionalSources
@@ -328,7 +332,7 @@ actor LiveStreamResolver {
            let score808 = CuratedStreamSourceCatalog.definition(forProviderCode: "score808") {
             sources.append(score808)
         }
-        guard !sources.isEmpty else { return }
+        guard !sources.isEmpty else { return 0 }
         var lanes: [StreamDiscoveryCoordinator.Lane] = []
         var tickets: [FixtureStreamDiscoveryIndex.Ticket] = []
         // The owner's account source is checked every time; the free sources
@@ -361,11 +365,15 @@ actor LiveStreamResolver {
                     source: source, report: report, useDiscoveryIndex: true, preflightTicket: ticket)
             }
         }
-        guard !lanes.isEmpty else { return }
-        _ = await StreamDiscoveryCoordinator.collect(lanes: lanes, deadline: .seconds(8))
+        guard !lanes.isEmpty else { return 0 }
+        // Account sources (PenguPlay gathers channel links on request) get the
+        // longer budget; free sources keep the original eight seconds.
+        _ = await StreamDiscoveryCoordinator.collect(lanes: lanes,
+            deadline: account.isEmpty ? .seconds(8) : Self.accountPreflightDeadline)
         // Completed generations ignore abandonment; a parent cancelled before
         // a lane started must still release its metadata-only lease.
         for ticket in tickets { await FixtureStreamDiscoveryIndex.shared.abandon(ticket) }
+        return lanes.count
     }
 
     /// Stable upstream identity can survive wrapper rotation. A delivery hash

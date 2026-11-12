@@ -212,7 +212,10 @@ struct FixtureStreamPreflightSchedule: Sendable {
     private(set) var nextDueAt: Date?
     private var rotation: [String] = []
 
-    mutating func takeNextID(from eligibleIDs: [String], at now: Date) -> String? {
+    /// `prioritized` (live fixtures) are taken before upcoming ones, still in
+    /// rotation among themselves, so a live game is not queued behind a day's
+    /// schedule of upcoming fixtures.
+    mutating func takeNextID(from eligibleIDs: [String], at now: Date, prioritized: Set<String> = []) -> String? {
         guard now.timeIntervalSince1970.isFinite else { return nil }
         var seen = Set<String>()
         let current = eligibleIDs.filter { !$0.isEmpty && seen.insert($0).inserted }
@@ -221,7 +224,8 @@ struct FixtureStreamPreflightSchedule: Sendable {
         let retained = Set(rotation)
         rotation.append(contentsOf: current.filter { !retained.contains($0) })
         guard nextDueAt.map({ now >= $0 }) ?? true, !rotation.isEmpty else { return nil }
-        let selected = rotation.removeFirst()
+        let index = rotation.firstIndex(where: prioritized.contains) ?? 0
+        let selected = rotation.remove(at: index)
         rotation.append(selected)
         // Reserve before the caller awaits work. Cancellation or replacement
         // keeps this reservation rather than creating an immediate retry loop.
@@ -404,8 +408,12 @@ final class FixtureStreamDiscoveryIndex {
                 return nil
             }
             preflightStarts.removeAll { now.timeIntervalSince($0) >= 86_400 }
-            guard preflightStarts.count < 96,
-                  preflightStarts.filter({ now.timeIntervalSince($0) < 3_600 }).count < 24 else { return nil }
+            // The shared budget protects free sources. The owner's own account
+            // sources are bounded by the per-provider 90 s cooldown instead.
+            if !LiveSourceHealthStore.accountProviderCodes.contains(key.provider) {
+                guard preflightStarts.count < 96,
+                      preflightStarts.filter({ now.timeIntervalSince($0) < 3_600 }).count < 24 else { return nil }
+            }
         }
         if records[key] == nil, records.count >= capacity {
             let completed = records.filter { $0.value.generation == nil }
@@ -424,7 +432,7 @@ final class FixtureStreamDiscoveryIndex {
                               lastConfirmedAvailableAt: priorAvailability,
                               availabilityWithdrawalAt: priorWithdrawal, order: order)
         lastStartedByProvider[key.provider] = now
-        if preflight { preflightStarts.append(now) }
+        if preflight, !LiveSourceHealthStore.accountProviderCodes.contains(key.provider) { preflightStarts.append(now) }
         return Ticket(providerCode: key.provider, key: key, generation: generation)
     }
 
