@@ -155,7 +155,7 @@ actor HighflySportsAddonClient {
         var missReason: String?, rowCount: Int?, unmatchedTeam: String?, kickoffOffset: Int?
         var searchScope = "search"
         var listingSpan: String?, liveCatalog: String?
-        var liveRows: Int?, liveShape: String?, liveSameSport: Int?
+        var liveRows: Int?, liveShape: String?, liveSameSport: Int?, liveCategories: String?, liveRestShape: String?
         defer {
             var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
             if let missReason { details["reason_code"] = missReason }
@@ -165,6 +165,8 @@ actor HighflySportsAddonClient {
             if let liveRows { details["live_row_count"] = "\(liveRows)" }
             if let liveShape { details["live_row_shape"] = liveShape }
             if let liveSameSport { details["live_sport_rows"] = "\(liveSameSport)" }
+            if let liveCategories { details["live_categories"] = liveCategories }
+            if let liveRestShape { details["live_rest_shape"] = liveRestShape }
             if let rowCount { details["candidate_count"] = "\(rowCount)" }
             if let unmatchedTeam { details["unmatched_team"] = unmatchedTeam }
             if let kickoffOffset {
@@ -237,6 +239,11 @@ actor HighflySportsAddonClient {
             liveRows = live.count
             liveShape = live.lazy.compactMap { Self.identityRejection($0) }.first ?? (live.isEmpty ? nil : "parsed")
             liveSameSport = live.filter { Self.identity($0)?.sport == original.sport }.count
+            liveCategories = Self.categorySummary(live)
+            // Would rows parse if the category were a sport we know? (shape beyond category)
+            liveRestShape = live.lazy.map { Row(id: $0.id, type: $0.type, name: $0.name, description: $0.description,
+                releaseInfo: $0.releaseInfo, category: original.sport) }.compactMap { Self.identityRejection($0) }.first
+                ?? (live.isEmpty ? nil : "parsed")
             let seen = Set(rows.map(\.id))
             rows += live.filter { !seen.contains($0.id) }
             stage = "browse"
@@ -418,6 +425,25 @@ actor HighflySportsAddonClient {
             return .init(metadataID: row.id, effectiveID: row.id, identity: identity)
         }
     }
+    /// Diagnostic: distinct row categories, commonest first, as lowercase
+    /// letters/digits/hyphens joined by "." (≤64 chars). Categories, never titles.
+    nonisolated static func categorySummary(_ rows: [Row]) -> String {
+        let cleaned = rows.map { row -> String in
+            let lowered = row.category.lowercased().replacingOccurrences(of: " ", with: "-")
+            let kept = String(lowered.unicodeScalars.filter { CharacterSet.lowercaseLetters.contains($0) && $0.isASCII
+                || CharacterSet.decimalDigits.contains($0) && $0.isASCII || $0 == "-" }.prefix(20).map(Character.init))
+            return kept.isEmpty ? "blank" : kept
+        }
+        let ranked = Dictionary(grouping: cleaned, by: { $0 }).sorted { $0.value.count > $1.value.count || $0.value.count == $1.value.count && $0.key < $1.key }
+        var summary = ""
+        for (name, _) in ranked {
+            let next = summary.isEmpty ? name : summary + "." + name
+            guard next.count <= 64 else { break }
+            summary = next
+        }
+        return summary.isEmpty ? "none" : summary
+    }
+
     /// Diagnostic: the first identity rule a row fails (nil = parsed). Never a title.
     nonisolated static func identityRejection(_ row: Row) -> String? {
         guard identity(row) == nil else { return nil }

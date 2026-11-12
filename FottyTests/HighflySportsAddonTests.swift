@@ -151,6 +151,8 @@ final class HighflySportsAddonTests: XCTestCase {
         let receipt = FottyQualityStore.shared.records().last { $0.name == "highfly_lookup" }
         XCTAssertEqual(receipt?.details["live_row_shape"], "parsed")
         XCTAssertEqual(receipt?.details["live_sport_rows"], "1")
+        XCTAssertEqual(receipt?.details["live_categories"], "football")
+        XCTAssertEqual(receipt?.details["live_rest_shape"], "parsed")
     }
 
     func testLiveRowRejectionNamesTheRuleNotTheTitle() {
@@ -158,6 +160,13 @@ final class HighflySportsAddonTests: XCTestCase {
         let undated = HighflySportsAddonClient.Row(id: "streamed:x", name: "Arsenal vs Everton", description: "Arsenal vs Everton",
                                                    releaseInfo: "LIVE", category: "football")
         XCTAssertEqual(HighflySportsAddonClient.identityRejection(undated), "description_lines_1")
+    }
+
+    func testLiveCategorySummaryKeepsOnlyCategoryWords() {
+        let rows = ["Soccer", "Soccer", "Live Now", "", "F1 🏎️"].map {
+            HighflySportsAddonClient.Row(id: "streamed:x", name: "Secret Title", description: "", releaseInfo: "", category: $0)
+        }
+        XCTAssertEqual(HighflySportsAddonClient.categorySummary(rows), "soccer.blank.f1-.live-now")
     }
 
     func testPlainListingStillRequiresTheExactKickoff() async throws {
