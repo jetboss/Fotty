@@ -1,3 +1,7 @@
+## 2026-11-11: Internal TestFlight 3.0.0 (287)
+
+Owner approved. The build carries the Highfly two-step setup with Paste, the PenguPlay/StreamNexus removal (retired keychain links deleted at launch), about 80 more country flags, and everything in 285. The visual gate passed on the pinned Xcode 27B52. Pre-build snapshot `backups/release-source/3.0.0-287` (commit and source c0d0124 9b335787…4b73fa); the compare passed before upload. App and widget are both 287, signatures verify, and both dSYMs are present. Uploaded with `tools/testflight-upload.sh`; "Bug fixes" set and 287 added to Fotty Internal Smoke, notifying testers. Archive kept in Xcode Organizer.
+
 ## 2026-11-11: Highfly two-step setup with Paste (Month 2 "add your source")
 
 The Highfly setup screen is two numbered steps: open Highfly and copy the Install link or access code, then tap the system Paste button, which fills the link and adds the source in one tap (no paste-permission prompt). Typing remains as a fallback; the leftover review-only copy is removed. A read-only physical UI test passed on Jet 286 and an evidence screenshot shows both steps, Paste, the typed field and "Added · enabled". The roadmap's "a new tester connects Highfly unaided" still needs a real tester; not yet observed. About 80 more country flags (associate cricket and smaller football nations) were added, and the duplicate key that would crash at launch was caught before any build.
