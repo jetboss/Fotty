@@ -88,6 +88,26 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         XCTAssertEqual(sessions.first?.requiredHeaders, ["Referer": "https://site.example/"])
         XCTAssertEqual(sessions.first?.requiresGuardedRelay, true)
         XCTAssertTrue(fetched.value.allSatisfy { $0.hasPrefix(root) }, "Every request stays on the owner's configured link")
+        let records = FottyQualityStore.shared.records()
+        let admission = try XCTUnwrap(records.last { $0.name == "penguplay_delivery_admission" })
+        XCTAssertEqual(admission.details["addon_stream_entry_count"], "2", "Counts survive the diagnostic allowlist")
+        XCTAssertEqual(admission.details["candidate_count"], "1")
+        XCTAssertEqual(admission.details["addon_admission_rejected_count"], "1")
+        let lookup = try XCTUnwrap(records.last { $0.name == "penguplay_lookup" })
+        XCTAssertEqual(lookup.details["result"], "admitted")
+        XCTAssertFalse(lookup.details.values.contains { $0.contains("http") || $0.contains("Sabres") })
+    }
+
+    func testLookupReceiptNamesTheStageThatStopped() async throws {
+        let manifest = #"{"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["tv"],"idPrefixes":["pp-live:"]},{"name":"catalog","types":["tv"]}],"catalogs":[{"type":"tv","id":"pp-live-hockey"}]}"#
+        let client = Client(configuration: { self.manifestURL }, fetch: { urlRequest in
+            let body = urlRequest.url == self.manifestURL ? manifest : #"{"metas":[]}"#
+            let response = HTTPURLResponse(url: urlRequest.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+            return (Data(body.utf8), response)
+        }, enabled: { true }, current: { $0 }, validate: { _ in })
+        do { _ = try await client.resolve(for: request(), now: kickoff); XCTFail("No catalog row means no match") } catch {}
+        let lookup = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "penguplay_lookup" })
+        XCTAssertEqual(lookup.details["result"], "stopped_at_fixture_match")
     }
 }
 

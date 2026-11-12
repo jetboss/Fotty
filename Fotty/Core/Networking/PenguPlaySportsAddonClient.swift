@@ -165,11 +165,19 @@ actor PenguPlaySportsAddonClient {
               let initial = await current(request), Self.sameFixture(initial, request) else {
             throw CommunitySportsAddonError.matchNotFound
         }
+        // One lookup receipt per eligible request: the stage reached, never titles or URLs.
+        var stage = "manifest"
+        var finished = false
+        defer {
+            FottyQualityStore.shared.record(category: .playback, name: "penguplay_lookup", outcome: finished ? .success : .info,
+                details: ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage])
+        }
         let manifest: Manifest = try await read(manifestURL)
         let catalogID = Self.catalogID(forSport: original.sport)
         guard Self.hasLiveTV(manifest), manifest.catalogs.contains(where: { $0.id == catalogID && $0.type == "tv" }) else {
             throw CommunitySportsAddonError.invalidManifest
         }
+        stage = "search"
         let root = manifestURL.deletingLastPathComponent().absoluteString
         var rows: [Row] = []
         for term in Set([request.homeTeam, request.awayTeam]).sorted() where !term.isEmpty {
@@ -180,7 +188,9 @@ actor PenguPlaySportsAddonClient {
             guard page.metas.count <= 200, rows.count + page.metas.count <= 400 else { throw CommunitySportsAddonError.unsafeResponse }
             rows += page.metas
         }
+        stage = "fixture_match"
         let selected = try Self.select(request: request, rows: rows, now: now)
+        stage = "streams"
         guard let streamURL = URL(string: root + "stream/tv/" + Self.encodedComponent(selected.id) + ".json") else {
             throw CommunitySportsAddonError.unsafeResponse
         }
@@ -218,13 +228,17 @@ actor PenguPlaySportsAddonClient {
         }
         // Shape-only receipt so admission rules can be reviewed: counts, never URLs.
         FottyQualityStore.shared.record(category: .playback, name: "penguplay_delivery_admission", outcome: sessions.isEmpty ? .failure : .info,
-            details: ["entries": "\(streams.streams.count)", "admitted": "\(sessions.count)", "rejected": "\(rejected)"])
+            details: ["addon_stream_entry_count": "\(streams.streams.count)", "candidate_count": "\(sessions.count)",
+                      "addon_admission_rejected_count": "\(rejected)"])
+        stage = "admission"
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: streams.streams.count) }
         try Task.checkCancellation()
+        stage = "final_check"
         guard await enabled(), try await configuration() == manifestURL,
               let final = await current(request), Self.sameFixture(final, latest) else {
             throw CommunitySportsAddonError.conflictingMatch
         }
+        finished = true
         return sessions
     }
 
