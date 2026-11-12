@@ -149,12 +149,16 @@ actor HighflySportsAddonClient {
         // One lookup receipt per eligible request: the stage reached, never titles or URLs.
         var stage = "manifest"
         var finished = false
-        var missReason: String?, rowCount: Int?, unmatchedTeam: String?
+        var missReason: String?, rowCount: Int?, unmatchedTeam: String?, kickoffOffset: Int?
         defer {
             var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
             if let missReason { details["reason_code"] = missReason }
             if let rowCount { details["candidate_count"] = "\(rowCount)" }
             if let unmatchedTeam { details["unmatched_team"] = unmatchedTeam }
+            if let kickoffOffset {
+                details["kickoff_offset_min"] = String(max(-10_000, min(10_000, kickoffOffset)))
+                details["sport"] = original.sport
+            }
             FottyQualityStore.shared.record(category: .playback, name: "highfly_lookup", outcome: finished ? .success : .info,
                 details: details)
         }
@@ -195,8 +199,13 @@ actor HighflySportsAddonClient {
         do { selected = try Self.select(request: request, rows: rows, now: now) }
         catch {
             missReason = Self.missReason(request: request, rows: rows, now: now)
-            if missReason == "one_team_matches", let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request) {
-                unmatchedTeam = ReviewedSportsFixtureMatcher.unmatchedTeamName(for: requestID, parsed: rows.map { Self.identity($0) })
+            if let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request) {
+                let parsed = rows.map { Self.identity($0) }
+                if missReason == "one_team_matches" {
+                    unmatchedTeam = ReviewedSportsFixtureMatcher.unmatchedTeamName(for: requestID, parsed: parsed)
+                } else if missReason == "kickoff_differs" || missReason == "format_or_match_number_differs" {
+                    kickoffOffset = ReviewedSportsFixtureMatcher.kickoffOffsetMinutes(for: requestID, parsed: parsed)
+                }
             }
             throw error
         }

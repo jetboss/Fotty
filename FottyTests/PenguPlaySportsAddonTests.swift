@@ -154,6 +154,15 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         XCTAssertEqual(reason([row("🔴 LIVE: Melbourne Renegades W vs Hobart W")]), "one_team_matches")
     }
 
+    func testKickoffOffsetReportsTheClosestSamePairRow() throws {
+        let id = try XCTUnwrap(ReviewedSportsFixtureMatcher.requestIdentity(for: request()))
+        let early = Client.identity(row("🔴 LIVE: Buffalo Sabres - Tampa Bay Lightning", id: "pp-live:x~1",
+            released: "2026-11-11T23:30:00.000Z"), sport: "hockey")
+        let other = Client.identity(row("🔴 LIVE: Buffalo Sabres - Boston Bruins", id: "pp-live:x~2"), sport: "hockey")
+        XCTAssertEqual(ReviewedSportsFixtureMatcher.kickoffOffsetMinutes(for: id, parsed: [other, early]), -30)
+        XCTAssertNil(ReviewedSportsFixtureMatcher.kickoffOffsetMinutes(for: id, parsed: [other]))
+    }
+
     func testChannelRowNeedsExactChannelTitle() throws {
         let fox = row("🔴 LIVE: Fox Cricket", id: "pp-live:dl~fox")
         let rows = [row("🔴 LIVE: WBBL", id: "pp-live:dl~wbbl"), row("📺 Fox Cricket", id: "pp-live:dl~old"), fox]

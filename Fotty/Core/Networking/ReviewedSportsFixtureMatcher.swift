@@ -149,6 +149,15 @@ enum ReviewedSportsFixtureMatcher {
     /// Diagnostic only: when exactly one team matched, the source's own key for
     /// the other team (a normalized team name, never a title or link), so a
     /// naming alias can be reviewed.
+    /// Diagnostic only: minutes from the official kickoff to the source's time
+    /// for the same team pair (closest row), e.g. "-30" when listed 30 min early.
+    nonisolated static func kickoffOffsetMinutes(for request: RequestIdentity, parsed: [FixtureIdentity?]) -> Int? {
+        parsed.compactMap { $0 }
+            .filter { $0.sport == request.sport && $0.pair == request.pair }
+            .map { Int(($0.kickoff.timeIntervalSince(request.kickoff) / 60).rounded()) }
+            .min { abs($0) < abs($1) }
+    }
+
     nonisolated static func unmatchedTeamName(for request: RequestIdentity, parsed: [FixtureIdentity?]) -> String? {
         for identity in parsed.compactMap({ $0 }) where identity.sport == request.sport {
             let shared = Set(identity.pair).intersection(request.pair)
