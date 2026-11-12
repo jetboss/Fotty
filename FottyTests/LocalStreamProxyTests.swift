@@ -407,6 +407,17 @@ final class LocalStreamProxyTests: XCTestCase {
         XCTAssertNotEqual(profile.stableSegmentKey(for: first), profile.stableSegmentKey(for: next))
         XCTAssertNil(profile.stableSegmentKey(for: URL(string: "https://edge2.example-live.net/seg/000123.ts?token=a&x=1")!))
         XCTAssertTrue(profile.updatesAdvertisedSegmentURL)
+        // PenguPlay's own relay signs segments with a rotating `psig`.
+        let signed = URL(string: "https://pengu.uk/seg/abc/000123.ts?psig=aaa")!
+        let resigned = URL(string: "https://pengu.uk/seg/abc/000123.ts?psig=bbb")!
+        XCTAssertNotNil(profile.stableSegmentKey(for: signed))
+        XCTAssertEqual(profile.stableSegmentKey(for: signed), profile.stableSegmentKey(for: resigned))
+        XCTAssertNotEqual(profile.stableSegmentKey(for: signed),
+                          profile.stableSegmentKey(for: URL(string: "https://pengu.uk/seg/abc/000124.ts?psig=bbb")!))
+        XCTAssertNil(profile.stableSegmentKey(for: URL(string: "https://edge2.example-live.net/seg/000123.ts?psig=aaa")!),
+                     "psig is PenguPlay's relay only")
+        XCTAssertNil(profile.stableSegmentKey(for: URL(string: "https://pengu.uk/seg/abc/index.m3u8?psig=aaa")!))
+        XCTAssertNil(profile.stableSegmentKey(for: URL(string: "https://pengu.uk/seg/abc/000123.ts?psig=a&x=1")!))
     }
 
     func testReviewedTikTokImageWrapperRotationPreservesAllSignedQueryIdentity() throws {

@@ -172,10 +172,15 @@ struct LocalStreamProxyPlaylistProfile: Sendable, Equatable {
         if renewsSegmentToken {
             // PenguPlay's copy may use another DaddyLive edge host; the segment
             // shape (one `token` query on a .ts path) is what identifies it.
+            // Jet build 310: PenguPlay's own relay (pengu.uk) signs each
+            // media segment with one rotating `psig` query instead.
             guard LocalStreamProxyPolicy.allowsDestination(url), isPenguPlay || url.host?.lowercased() == "cdn.hdm1.net",
-                  url.pathExtension == "ts", url.absoluteString.utf8.count <= 8_192,
+                  url.absoluteString.utf8.count <= 8_192,
                   var parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
-                  let items = parts.queryItems, items.count == 1, items[0].name == "token",
+                  let items = parts.queryItems, items.count == 1,
+                  items[0].name == "token" && url.pathExtension == "ts"
+                    || isPenguPlay && items[0].name == "psig" && url.host?.lowercased() == "pengu.uk"
+                       && !["m3u8", "m3u"].contains(url.pathExtension.lowercased()),
                   let token = items[0].value, !token.isEmpty else { return nil }
             parts.query = nil
             guard let identity = parts.string else { return nil }
