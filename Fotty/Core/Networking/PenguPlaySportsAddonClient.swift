@@ -86,7 +86,7 @@ actor PenguPlaySportsAddonClient {
             config.waitsForConnectivity = false
             let transport = FottyBoundedHTTPClient(configuration: config)
             self.fetch = { request in
-                let result = try await transport.fetch(request, maximumBytes: 512 * 1024, deadline: 8,
+                let result = try await transport.fetch(request, maximumBytes: 512 * 1024, deadline: request.timeoutInterval,
                                                        acceptedStatusCodes: [200], redirectPolicy: { _, _ in false })
                 return (result.data, result.http)
             }
@@ -248,7 +248,7 @@ actor PenguPlaySportsAddonClient {
             throw CommunitySportsAddonError.unsafeResponse
         }
         lastReadFailure = nil
-        let streams: Streams = try await read(streamURL)
+        let streams: Streams = try await read(streamURL, timeout: Self.streamReadTimeout)
         stage = "stream_count"
         guard streams.streams.count <= 40 else { throw CommunitySportsAddonError.unsafeResponse }
         stage = "sign_in"
@@ -402,14 +402,18 @@ actor PenguPlaySportsAddonClient {
     /// Why the last read failed, as a shape only: status, type, size or decode.
     private var lastReadFailure: String?
 
-    private func read<T: Decodable>(_ url: URL) async throws -> T {
+    /// PenguPlay gathers a channel's links when asked, which can take well over
+    /// 8 s; only that one stream request gets the longer allowance.
+    static let streamReadTimeout: TimeInterval = 25
+
+    private func read<T: Decodable>(_ url: URL, timeout: TimeInterval = 8) async throws -> T {
         try Task.checkCancellation()
         guard await enabled(), let configured = try await configuration(),
               url.absoluteString.hasPrefix(configured.deletingLastPathComponent().absoluteString) else {
             throw CommunitySportsAddonError.matchNotFound
         }
         try await validate(url)
-        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: min(max(timeout, 1), 30))
         request.httpShouldHandleCookies = false
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Fotty/3.0 Stremio-Compatible", forHTTPHeaderField: "User-Agent")
