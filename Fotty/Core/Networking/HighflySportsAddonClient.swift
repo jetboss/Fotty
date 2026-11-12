@@ -154,10 +154,13 @@ actor HighflySportsAddonClient {
         var finished = false
         var missReason: String?, rowCount: Int?, unmatchedTeam: String?, kickoffOffset: Int?
         var searchScope = "search"
+        var listingSpan: String?, liveCatalog: String?
         defer {
             var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
             if let missReason { details["reason_code"] = missReason }
             if stage != "manifest", stage != "search" { details["search_scope"] = searchScope }
+            if let listingSpan { details["listing_span_h"] = listingSpan }
+            if let liveCatalog { details["live_catalog"] = liveCatalog }
             if let rowCount { details["candidate_count"] = "\(rowCount)" }
             if let unmatchedTeam { details["unmatched_team"] = unmatchedTeam }
             if let kickoffOffset {
@@ -181,6 +184,8 @@ actor HighflySportsAddonClient {
               ["catalog", "meta", "stream"].allSatisfy({ name in manifest.resources.contains { $0.name == name && $0.types.contains("sport") } }) else {
             throw CommunitySportsAddonError.invalidManifest
         }
+        // Diagnostic: whether the account advertises a separate live catalog (never its name or URL).
+        liveCatalog = manifest.catalogs.contains { $0.id.lowercased().contains("live") } ? "present" : "absent"
         stage = "search"
         let root = manifestURL.deletingLastPathComponent()
         var rows: [Row] = []
@@ -219,6 +224,12 @@ actor HighflySportsAddonClient {
                 browsed += page.metas
                 if page.metas.count < 100 { break }
             }
+            // Diagnostic: the hour span the listing covers relative to now
+            // (e.g. "20_170" means it starts 20 h ahead, so live games are absent).
+            let hours = browsed.compactMap { Self.identity($0) }.map { Int(($0.kickoff.timeIntervalSince(now) / 3600).rounded()) }
+            if let low = hours.min(), let high = hours.max() {
+                listingSpan = "\(max(-999, low))_\(min(9999, high))"
+            } else { listingSpan = browsed.isEmpty ? "empty" : "unreadable" }
             let known = Set(rows.map(\.id))
             rows += browsed.filter { !known.contains($0.id) }
             stage = "fixture_match"

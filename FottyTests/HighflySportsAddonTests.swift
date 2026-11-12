@@ -150,6 +150,9 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertEqual(counts.meta, 0); XCTAssertEqual(counts.stream, 0)
         let paths = await transport.catalogs()
         XCTAssertEqual(paths.filter { !$0.contains("search=") }, ["sports_football.json"])
+        let receipt = FottyQualityStore.shared.records().last { $0.name == "highfly_lookup" }
+        XCTAssertEqual(receipt?.details["listing_span_h"], "96_96")
+        XCTAssertEqual(receipt?.details["live_catalog"], "absent")
     }
 
     func testOwnerAccountSourceLeadsAutomaticChoice() {
