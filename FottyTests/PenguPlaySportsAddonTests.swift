@@ -35,6 +35,18 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         XCTAssertThrowsError(try Client.select(request: request(), rows: [live, row(live.name, id: "pp-live:ppv~other")], now: kickoff))
     }
 
+    func testWBBLShortNamesMatchOnlyUnambiguousCities() throws {
+        XCTAssertEqual(Client.searchTerms("Sydney Thunder Women", "Perth Scorchers Women"),
+                       ["Perth Scorchers", "Perth Scorchers Women", "Sydney Thunder", "Sydney Thunder Women"])
+        let wbbl = request(home: "Sydney Thunder Women", away: "Perth Scorchers Women", sport: "cricket")
+        let live = row("🔴 LIVE: Sydney Thunder W vs Perth W", id: "pp-live:wbbl~1")
+        XCTAssertEqual(try Client.select(request: wbbl, rows: [live], now: kickoff).id, live.id)
+        // The squad word still counts, and the two-team cities never shorten.
+        XCTAssertThrowsError(try Client.select(request: wbbl, rows: [row("🔴 LIVE: Sydney Thunder vs Perth", id: "pp-live:bbl~1")], now: kickoff))
+        let stars = request(home: "Melbourne Stars Women", away: "Perth Scorchers Women", sport: "cricket")
+        XCTAssertThrowsError(try Client.select(request: stars, rows: [row("🔴 LIVE: Melbourne W vs Perth W", id: "pp-live:wbbl~2")], now: kickoff))
+    }
+
     func testLiveTVManifestAndSignInPlaceholder() throws {
         let manifest = try JSONDecoder().decode(Client.Manifest.self, from: Data("""
         {"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["movie","series","tv"],"idPrefixes":["tt","pp-live:"]},

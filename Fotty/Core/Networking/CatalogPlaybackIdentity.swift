@@ -199,6 +199,7 @@ enum NationalTeamAliases {
     nonisolated static func canonical(_ normalized: String, sport: String) -> String {
         if let name = shared[normalized] { return name }
         if sport == "football", let name = football[normalized] { return name }
+        if sport == "cricket", let name = cricket[normalized] { return name }
         return normalized
     }
 
@@ -209,6 +210,15 @@ enum NationalTeamAliases {
         "north korea": ["korea dpr", "dpr korea", "north korea"],
         "hong kong": ["hong kong", "hong kong china"],
         "papua new guinea": ["papua new guinea", "png"],
+    ])
+
+    /// Cricket-only Big Bash city short names ("Perth W"). Only cities with a
+    /// single BBL/WBBL side; Melbourne and Sydney each have two and stay exact.
+    private static let cricket: [String: String] = groups([
+        "perth scorchers": ["perth scorchers", "perth"],
+        "adelaide strikers": ["adelaide strikers", "adelaide"],
+        "brisbane heat": ["brisbane heat", "brisbane"],
+        "hobart hurricanes": ["hobart hurricanes", "hobart"],
     ])
 
     /// Football-only: in cricket "Ireland" is a different (all-island) side.

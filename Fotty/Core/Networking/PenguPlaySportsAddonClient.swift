@@ -96,6 +96,20 @@ actor PenguPlaySportsAddonClient {
         "pp-live-" + ReviewedSportsFixtureMatcher.sportKey(sport).replacingOccurrences(of: "-", with: "_")
     }
 
+    /// PenguPlay's search misses "Sydney Thunder Women" but finds "Sydney Thunder";
+    /// the squad word is still enforced by the fixture matcher afterwards.
+    nonisolated static func searchTerms(_ home: String, _ away: String) -> [String] {
+        var terms = Set<String>()
+        for name in [home, away] {
+            let trimmed = name.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { continue }
+            terms.insert(trimmed)
+            let base = trimmed.replacingOccurrences(of: #"(?i)\s+(women'?s?|w)$"#, with: "", options: .regularExpression)
+            if !base.isEmpty { terms.insert(base) }
+        }
+        return terms.sorted()
+    }
+
     nonisolated static func encodedComponent(_ value: String) -> String {
         value.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~"))) ?? ""
     }
@@ -180,7 +194,7 @@ actor PenguPlaySportsAddonClient {
         stage = "search"
         let root = manifestURL.deletingLastPathComponent().absoluteString
         var rows: [Row] = []
-        for term in Set([request.homeTeam, request.awayTeam]).sorted() where !term.isEmpty {
+        for term in Self.searchTerms(request.homeTeam, request.awayTeam) {
             guard let url = URL(string: root + "catalog/tv/" + catalogID + "/search=" + Self.encodedComponent(term) + ".json") else {
                 throw CommunitySportsAddonError.unsafeResponse
             }
