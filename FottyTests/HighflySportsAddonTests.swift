@@ -155,6 +155,30 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertEqual(receipt?.details["live_rest_shape"], "parsed")
     }
 
+    func testUndatedLiveRowMatchesOnlyWhileTheOfficialGameIsLive() async throws {
+        let transport = HighflyTestTransport(mode: .undatedLiveRow)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff.addingTimeInterval(45 * 60))
+        XCTAssertEqual(sessions.count, 1)
+        for outside in [kickoff.addingTimeInterval(-60 * 60), kickoff.addingTimeInterval(3 * 3600)] {
+            let early = HighflyTestTransport(mode: .undatedLiveRow)
+            do { _ = try await client(early).resolve(for: request(), now: outside); XCTFail("Undated live row admitted outside the live window") }
+            catch { XCTAssertTrue(error is CommunitySportsAddonError) }
+            let counts = await early.counts()
+            XCTAssertEqual(counts.stream, 0)
+        }
+    }
+
+    func testUndatedLiveRowNeverStandsInForADifferentPairOrCricket() {
+        let id = ReviewedSportsFixtureMatcher.RequestIdentity(sport: "football", pair: ["arsenal", "everton"], kickoff: kickoff)
+        let live = HighflySportsAddonClient.liveKickoff(for: id, now: kickoff.addingTimeInterval(600))
+        XCTAssertNotNil(live)
+        let other = HighflySportsAddonClient.Row(id: "streamed:o", name: "Arsenal vs Chelsea", description: "Arsenal vs Chelsea\nLIVE",
+                                                 releaseInfo: "LIVE", category: "football")
+        XCTAssertNotEqual(HighflySportsAddonClient.identity(other, liveKickoff: live)?.pair, id.pair)
+        let cricket = ReviewedSportsFixtureMatcher.RequestIdentity(sport: "cricket", pair: ["a", "b"], kickoff: kickoff)
+        XCTAssertNil(HighflySportsAddonClient.liveKickoff(for: cricket, now: kickoff.addingTimeInterval(600)))
+    }
+
     func testLiveRowRejectionNamesTheRuleNotTheTitle() {
         XCTAssertNil(HighflySportsAddonClient.identityRejection(row()))
         let undated = HighflySportsAddonClient.Row(id: "streamed:x", name: "Arsenal vs Everton", description: "Arsenal vs Everton",
@@ -237,7 +261,7 @@ final class HighflySportsAddonTests: XCTestCase {
 }
 
 private actor HighflyTestTransport {
-    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive, liveCatalogOnly }
+    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow }
     private let premium: Bool
     private let mode: Mode
     private var streamCount = 0
@@ -267,6 +291,10 @@ private actor HighflyTestTransport {
             later["description"] = "Arsenal vs Everton\n14 Nov 2026 · 18:00 UTC"; later["releaseInfo"] = "14 Nov 2026 · 18:00 UTC"
             let searching = url.absoluteString.contains("search=")
             switch mode {
+            case .undatedLiveRow:
+                var live = row
+                live["description"] = "Arsenal vs Everton\n🔴 Live now"; live["releaseInfo"] = "LIVE"
+                body = ["metas": url.lastPathComponent == "sports_live.json" ? [live] : url.absoluteString.contains("skip=") ? [] : [later]]
             case .liveCatalogOnly: body = ["metas": url.lastPathComponent == "sports_live.json" ? [row] : url.absoluteString.contains("skip=") ? [] : [later]]
             case .searchOmitsLive: body = ["metas": url.absoluteString.contains("skip=") ? [] : searching ? [later] : [later, row]]
             case .listingOmitsLive: body = ["metas": url.absoluteString.contains("skip=") ? [] : [later]]
@@ -275,6 +303,7 @@ private actor HighflyTestTransport {
         } else if url.path.contains("/meta/") {
             metaCount += 1
             var meta = row
+            if mode == .undatedLiveRow { meta["description"] = "Arsenal vs Everton\n🔴 Live now"; meta["releaseInfo"] = "LIVE" }
             if mode == .conflictingMeta { meta["name"] = "Different fixture" }
             body = ["meta": meta]
         } else {

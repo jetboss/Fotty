@@ -240,7 +240,8 @@ actor HighflySportsAddonClient {
             }
             liveRows = live.count
             liveShape = live.lazy.compactMap { Self.identityRejection($0) }.first ?? (live.isEmpty ? nil : "parsed")
-            liveSameSport = live.filter { Self.identity($0)?.sport == original.sport }.count
+            let liveStart = Self.liveKickoff(for: original, now: now)
+            liveSameSport = live.filter { Self.identity($0, liveKickoff: liveStart)?.sport == original.sport }.count
             liveCategories = Self.categorySummary(live)
             liveLayout = Self.layoutSummary(live.filter { Self.supports(category: $0.category) })
             // Would rows parse if the category were a sport we know? (shape beyond category)
@@ -392,7 +393,8 @@ actor HighflySportsAddonClient {
     /// Diagnostic label for a lookup that found no row (never a title).
     nonisolated static func missReason(request: StreamPlaybackRequest, rows: [Row], now: Date) -> String {
         guard let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else { return "no_request_identity" }
-        let parsed = rows.map { Self.identity($0) }
+        let live = liveKickoff(for: requestID, now: now)
+        let parsed = rows.map { Self.identity($0, liveKickoff: live) }
         let final = screenedCandidates(request: request, requestID: requestID, rows: rows, now: now)
         let screened = zip(parsed, final).compactMap { raw, kept in kept.identity == nil ? raw : nil }
         return ReviewedSportsFixtureMatcher.missReason(for: requestID, parsed: parsed, screened: screened)
@@ -400,8 +402,9 @@ actor HighflySportsAddonClient {
 
     nonisolated private static func screenedCandidates(request: StreamPlaybackRequest,
             requestID: ReviewedSportsFixtureMatcher.RequestIdentity, rows: [Row], now: Date) -> [ReviewedSportsFixtureMatcher.Candidate] {
-        rows.map { row -> ReviewedSportsFixtureMatcher.Candidate in
-            var identity = Self.identity(row)
+        let live = liveKickoff(for: requestID, now: now)
+        return rows.map { row -> ReviewedSportsFixtureMatcher.Candidate in
+            var identity = Self.identity(row, liveKickoff: live)
             if requestID.sport == "cricket", let candidate = identity {
                 guard let official = request.preferredEvent?.cricketFixture, official.verified, !official.status.stopsPlayback,
                       candidate.cricketFormat == official.format.rawValue,
@@ -488,12 +491,36 @@ actor HighflySportsAddonClient {
         return "date_or_teams"
     }
 
-    nonisolated static func identity(_ row: Row) -> ReviewedSportsFixtureMatcher.FixtureIdentity? {
+    /// How long after the official kickoff a game can still be in progress.
+    /// Cricket is excluded: its format/ordinal/day rules own live identity.
+    nonisolated static let liveWindow: [String: TimeInterval] = [
+        "football": 150 * 60, "hockey": 210 * 60, "basketball": 210 * 60,
+        "baseball": 300 * 60, "american-football": 270 * 60,
+    ]
+
+    /// Highfly's live catalog rows carry no date ("<title>" + a live marker),
+    /// so the official kickoff stands in only while the official game is in
+    /// its live window. Pair, sport and squad still have to match exactly.
+    nonisolated static func liveKickoff(for requestID: ReviewedSportsFixtureMatcher.RequestIdentity, now: Date) -> Date? {
+        guard let window = liveWindow[requestID.sport],
+              now >= requestID.kickoff.addingTimeInterval(-10 * 60),
+              now <= requestID.kickoff.addingTimeInterval(window) else { return nil }
+        return requestID.kickoff
+    }
+
+    nonisolated static func identity(_ row: Row, liveKickoff: Date? = nil) -> ReviewedSportsFixtureMatcher.FixtureIdentity? {
         guard row.type == "sport", supports(category: row.category), row.name.utf8.count <= 1024,
               row.description.utf8.count <= 4096,
               row.id.range(of: #"^(streamed|sf|leaf|recap):[A-Za-z0-9_~.-]{1,400}$"#, options: .regularExpression) != nil,
               !row.id.hasPrefix("recap:") else { return nil }
         let parts = row.description.components(separatedBy: "\n")
+        if let liveKickoff, ReviewedSportsFixtureMatcher.sportKey(row.category) != "cricket",
+           parts.count == 2, parts[0] == row.name,
+           parts[1].lowercased().contains("live"), row.releaseInfo.lowercased().contains("live"),
+           parts[1].utf8.count <= 64, row.releaseInfo.utf8.count <= 64 {
+            return ReviewedSportsFixtureMatcher.fixtureIdentity(sport: row.category, cast: [], title: parts[0], kickoff: liveKickoff,
+                effectiveID: row.id, resourceType: "sport", programmeMetadata: row.name)
+        }
         guard parts.count == 2, parts[1] == row.releaseInfo,
               row.name == parts[0] || row.category == "cricket" && row.name.hasPrefix(parts[0] + " - ") else { return nil }
         let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = TimeZone(secondsFromGMT: 0)
