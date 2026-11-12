@@ -42,6 +42,8 @@ actor HighflySportsAddonClient {
     struct Delivery: Decodable, Sendable {
         let url: String?
         let supported: Bool
+        /// Diagnostic: which row-shape rule rejected this delivery, if any.
+        let shapeRejection: String?
         private struct Key: CodingKey {
             let stringValue: String; var intValue: Int? { nil }
             init?(stringValue: String) { self.stringValue = stringValue }; init?(intValue: Int) { return nil }
@@ -51,8 +53,10 @@ actor HighflySportsAddonClient {
             url = try? c?.decode(String.self, forKey: Key(stringValue: "url")!)
             let keys = Set(c?.allKeys.map(\.stringValue) ?? [])
             let hints = try? c?.decode([String: Bool].self, forKey: Key(stringValue: "behaviorHints")!)
-            supported = keys.isSubset(of: ["name", "title", "url", "behaviorHints"])
-                && (keys.contains("behaviorHints") ? hints?.keys.allSatisfy { $0 == "notWebReady" } == true : true)
+            let knownFields = keys.isSubset(of: ["name", "title", "url", "behaviorHints"])
+            let plainHints = keys.contains("behaviorHints") ? hints?.keys.allSatisfy { $0 == "notWebReady" } == true : true
+            supported = knownFields && plainHints
+            shapeRejection = !knownFields ? "row_extra_fields" : !plainHints ? "row_hints" : nil
         }
     }
     private struct Streams: Decodable { let streams: [Delivery] }
@@ -206,11 +210,30 @@ actor HighflySportsAddonClient {
             throw CommunitySportsAddonError.conflictingMatch
         }
         var sessions: [StreamSession] = [], seen: Set<URL> = []
+        var rejections: [String] = [], rejectedHost: String?
+        defer {
+            // Shape-only receipt: counts, the commonest reason and a rejected host name. Never a path or token.
+            var details = ["addon_stream_entry_count": "\(streams.streams.count)", "candidate_count": "\(sessions.count)",
+                           "addon_admission_rejected_count": "\(rejections.count)"]
+            if let common = Dictionary(grouping: rejections, by: { $0 }).max(by: { $0.value.count < $1.value.count })?.key {
+                details["reason_code"] = common
+            }
+            if let rejectedHost { details["delivery_host"] = rejectedHost }
+            FottyQualityStore.shared.record(category: .playback, name: "highfly_delivery_admission",
+                outcome: sessions.isEmpty ? .failure : .info, details: details)
+        }
         for row in streams.streams {
-            guard row.supported, let value = row.url, let url = URL(string: value), Self.admitsDelivery(url), seen.insert(url).inserted else { continue }
+            if let shape = row.shapeRejection { rejections.append(shape); continue }
+            guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
+            if let reason = Self.deliveryRejection(url) {
+                rejections.append(reason)
+                if reason == "host" || reason == "path" { rejectedHost = rejectedHost ?? url.host?.lowercased() }
+                continue
+            }
+            guard seen.insert(url).inserted else { continue }
             do { try await validate(url) }
             catch is CancellationError { throw CancellationError() }
-            catch { continue } // One rejected route must not erase valid siblings.
+            catch { rejections.append("validation"); continue } // One rejected route must not erase valid siblings.
             guard let binding = StreamEventBinding(request: latest, providerCode: Self.providerCode,
                 providerEventID: selected.id, streamID: selected.id, resourceType: "sport", manifestRevision: manifest.version,
                 verifiedAt: completedAt, expiresAt: completedAt.addingTimeInterval(90), at: completedAt) else { throw CommunitySportsAddonError.conflictingMatch }
@@ -243,6 +266,16 @@ actor HighflySportsAddonClient {
     nonisolated static func manifestIdentity(for url: URL) -> String {
         url.host?.hasPrefix("sports.") == true ? "community.sports.fly" : "community.sports.streamed.premium"
     }
+    /// Diagnostic label for `admitsDelivery` (nil = admitted). Same rules, in order.
+    nonisolated static func deliveryRejection(_ url: URL) -> String? {
+        guard !admitsDelivery(url) else { return nil }
+        if url.scheme != "https" { return "not_https" }
+        if url.host != "papacito.cfd" { return "host" }
+        if url.path.range(of: #"^/m3u/[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{1,64}\.m3u8$"#, options: .regularExpression) == nil { return "path" }
+        if (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).count != 1 { return "query_count" }
+        return "query_shape"
+    }
+
     nonisolated static func admitsDelivery(_ url: URL) -> Bool {
         guard url.scheme == "https", url.host == "papacito.cfd", url.port == nil || url.port == 443,
               url.user == nil, url.password == nil, url.fragment == nil, url.absoluteString.utf8.count <= 8192,

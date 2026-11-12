@@ -258,6 +258,7 @@ struct LocalStreamProxyPolicy {
     enum Failure: Error { case destination, manifest, capacity, revoked }
 
     private struct Entry { var url: URL; var lastUse: UInt64; var stableSegmentKey: String? = nil }
+    private var reportedSegmentShape = false
     let selectedMediaURL: URL
     let capability: String
     let limits: Limits
@@ -384,6 +385,17 @@ struct LocalStreamProxyPolicy {
         guard admitsDestination(url), url.absoluteString.utf8.count <= limits.urlBytes else { throw Failure.destination }
         let renewsToken = playlistProfile?.updatesAdvertisedSegmentURL == true
         let rawKey = !renewsToken || mediaSegment ? playlistProfile?.stableSegmentKey(for: url) : nil
+        if renewsToken, mediaSegment, rawKey == nil, !reportedSegmentShape {
+            // Shape only: extension, query parameter names and host. Never a value or path.
+            reportedSegmentShape = true
+            let names = (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map(\.name).sorted()
+                // The quality store drops values containing "token"; name it tkn.
+                .map { $0.replacingOccurrences(of: "token", with: "tkn", options: .caseInsensitive) }
+            FottyQualityStore.shared.record(category: .playback, name: "relay_segment_shape", outcome: .info, details: [
+                "stage": url.pathExtension.isEmpty ? "no_extension" : url.pathExtension.lowercased(),
+                "reason_code": names.isEmpty ? "no_query" : names.joined(separator: " ").prefix(60).description,
+                "delivery_host": url.host?.lowercased() ?? "none"])
+        }
         // Each playlist owns its aliases; another rendition cannot rebind them.
         let stableKey = rawKey.map { renewsToken ? base.absoluteString + "|" + $0 : $0 }
         if let stableKey, let identifier = stableSegmentAliases[stableKey], var entry = entries[identifier] {
