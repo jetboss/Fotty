@@ -16,6 +16,8 @@ struct StreamPluginsSettingsView: View {
     @State private var plugins: [StreamPlugin] = []
     @State private var loadState = PlaybackSourceSettingsState.loading
     @State private var showsFeedback = false
+    /// Account sources with a saved setup link on this device.
+    @State private var savedAccounts: Set<AccountSourceSetup> = []
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
@@ -51,18 +53,18 @@ struct StreamPluginsSettingsView: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(source.name).foregroundStyle(FottyTheme.textPrimary)
-                            Text("Set up your account")
+                            Label(accountStatus(source).title, systemImage: accountStatus(source).symbol)
                                 .font(FottyTheme.typeMeta)
-                                .foregroundStyle(FottyTheme.textSecondary)
+                                .foregroundStyle(accountStatus(source).isOn ? FottyTheme.accentText : FottyTheme.textSecondary)
                         }
                         .padding(.vertical, 4)
                     }
                     .listRowBackground(FottyTheme.surface)
                 }
             } header: {
-                Text("Sources requiring setup")
+                Text("Your accounts")
             } footer: {
-                Text("Add your account to enable a supported source in Watch.")
+                Text("Sources you connect with your own account. Each link stays on this device.")
             }
 
             if loadState == .unavailable || loadState == .empty {
@@ -168,7 +170,15 @@ struct StreamPluginsSettingsView: View {
         guard !Task.isCancelled else { return }
         plugins = snapshot.plugins
             .filter { StreamPluginProviderMatching.activePlayerProviderCodes.contains($0.providerCode.lowercased()) }
+        let store = AccountSourceSetupStore()
+        savedAccounts = Set(AccountSourceSetup.allCases.filter { (try? store.hasSavedLink(for: $0)) == true })
         loadState = .resolved(availableSourceCount: plugins.count, unavailableSourceCount: snapshot.unavailableSourceCount)
+    }
+
+    private func accountStatus(_ source: AccountSourceSetup) -> (title: String, symbol: String, isOn: Bool) {
+        guard savedAccounts.contains(source) else { return ("Set up your account", "plus.circle", false) }
+        let on = plugins.first { $0.providerCode.lowercased() == source.playbackProviderCode }?.isEnabled == true
+        return on ? ("Added · on", "checkmark.circle.fill", true) : ("Added · off", "pause.circle", false)
     }
 
     private func togglePlugin(_ plugin: StreamPlugin, enabled: Bool) {
