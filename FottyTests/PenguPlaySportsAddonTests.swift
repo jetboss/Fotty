@@ -122,6 +122,24 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         XCTAssertEqual(lookup.details["result"], "stopped_at_programme_channel", "No reviewed programme, no channel fallback")
     }
 
+    func testStreamFailureRecordsItsShape() async throws {
+        let root = manifestURL.deletingLastPathComponent().absoluteString
+        let manifest = #"{"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["tv"],"idPrefixes":["pp-live:"]},{"name":"catalog","types":["tv"]}],"catalogs":[{"type":"tv","id":"pp-live-cricket"}]}"#
+        let full = #"{"metas":[{"id":"pp-live:dl~fox","type":"tv","name":"🔴 LIVE: Fox Cricket","released":"2026-11-12T00:00:00.000Z"}]}"#
+        let client = Client(configuration: { self.manifestURL }, fetch: { urlRequest in
+            let url = urlRequest.url!.absoluteString
+            if url.hasPrefix(root + "stream/") { throw FottyBoundedHTTPClient.Failure.httpStatus(429) }
+            let body = url == self.manifestURL.absoluteString ? manifest : full
+            return (Data(body.utf8), HTTPURLResponse(url: urlRequest.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!)
+        }, enabled: { true }, current: { $0 }, validate: { _ in }, programmeChannels: { _ in [] })
+        let tile = StreamPlaybackRequest(matchID: CricketBroadcastChannel.foxCricket.canonicalID, displayTitle: "Fox Cricket",
+                                         homeTeam: "Fox Cricket", awayTeam: "", category: "cricket", kickoffDate: nil)
+        do { _ = try await client.resolve(for: tile, now: kickoff); XCTFail("429 has no streams") } catch {}
+        let lookup = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "penguplay_lookup" })
+        XCTAssertEqual(lookup.details["result"], "stopped_at_streams")
+        XCTAssertEqual(lookup.details["reason_code"], "http_429")
+    }
+
     func testChannelRowNeedsExactChannelTitle() throws {
         let fox = row("🔴 LIVE: Fox Cricket", id: "pp-live:dl~fox")
         let rows = [row("🔴 LIVE: WBBL", id: "pp-live:dl~wbbl"), row("📺 Fox Cricket", id: "pp-live:dl~old"), fox]

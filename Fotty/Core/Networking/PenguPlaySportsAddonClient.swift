@@ -199,9 +199,12 @@ actor PenguPlaySportsAddonClient {
         // One lookup receipt per eligible request: the stage reached, never titles or URLs.
         var stage = "manifest"
         var finished = false
+        lastReadFailure = nil
         defer {
+            var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
+            if !finished, let failure = lastReadFailure { details["reason_code"] = failure }
             FottyQualityStore.shared.record(category: .playback, name: "penguplay_lookup", outcome: finished ? .success : .info,
-                details: ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage])
+                details: details)
         }
         let manifest: Manifest = try await read(manifestURL)
         let catalogID = Self.catalogID(forSport: sport)
@@ -244,17 +247,22 @@ actor PenguPlaySportsAddonClient {
         guard let streamURL = URL(string: root + "stream/tv/" + Self.encodedComponent(selected.id) + ".json") else {
             throw CommunitySportsAddonError.unsafeResponse
         }
+        lastReadFailure = nil
         let streams: Streams = try await read(streamURL)
+        stage = "stream_count"
         guard streams.streams.count <= 40 else { throw CommunitySportsAddonError.unsafeResponse }
+        stage = "sign_in"
         guard !streams.streams.contains(where: Self.isSignInPlaceholder) else {
             throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: streams.streams.count)
         }
+        stage = "recheck"
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))
         guard await enabled(), try await configuration() == manifestURL,
               let latest = original == nil ? request : await current(request), Self.sameFixture(latest, request),
               await stillSelected(selected, channel: viaChannel, request: latest, at: completedAt) else {
             throw CommunitySportsAddonError.conflictingMatch
         }
+        stage = "delivery"
         var sessions: [StreamSession] = [], seen: Set<URL> = []
         var rejected = 0
         for row in streams.streams {
@@ -391,6 +399,9 @@ actor PenguPlaySportsAddonClient {
             && lhs.preferredEvent?.cricketFixture?.broadcastDayIdentity == rhs.preferredEvent?.cricketFixture?.broadcastDayIdentity
     }
 
+    /// Why the last read failed, as a shape only: status, type, size or decode.
+    private var lastReadFailure: String?
+
     private func read<T: Decodable>(_ url: URL) async throws -> T {
         try Task.checkCancellation()
         guard await enabled(), let configured = try await configuration(),
@@ -403,12 +414,24 @@ actor PenguPlaySportsAddonClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("Fotty/3.0 Stremio-Compatible", forHTTPHeaderField: "User-Agent")
         do {
-            let (data, response) = try await fetch(request)
-            try Task.checkCancellation()
-            guard data.count <= 512 * 1024, response.statusCode == 200, response.mimeType == "application/json" else {
-                throw CommunitySportsAddonError.invalidResponse
+            let fetched: (Data, HTTPURLResponse)
+            do { fetched = try await fetch(request) } catch is CancellationError { throw CancellationError() }
+            catch {
+                switch error as? FottyBoundedHTTPClient.Failure {
+                case .httpStatus(let code)?: lastReadFailure = "http_\(min(max(code, 0), 999))"
+                case .responseTooLarge?: lastReadFailure = "too_large"
+                case .unsafeRedirect?: lastReadFailure = "redirect"
+                default: lastReadFailure = (error as? URLError)?.code == .timedOut ? "timeout" : "transport"
+                }
+                throw error
             }
-            return try JSONDecoder().decode(T.self, from: data)
+            let (data, response) = fetched
+            try Task.checkCancellation()
+            guard response.statusCode == 200 else { lastReadFailure = "http_\(min(max(response.statusCode, 0), 999))"; throw CommunitySportsAddonError.invalidResponse }
+            guard response.mimeType == "application/json" else { lastReadFailure = "content_type"; throw CommunitySportsAddonError.invalidResponse }
+            guard data.count <= 512 * 1024 else { lastReadFailure = "too_large"; throw CommunitySportsAddonError.invalidResponse }
+            do { return try JSONDecoder().decode(T.self, from: data) }
+            catch { lastReadFailure = "decode"; throw error }
         } catch is CancellationError { throw CancellationError() }
         catch { throw CommunitySportsAddonError.invalidResponse } // Never propagate a credential-bearing URL.
     }
