@@ -4,9 +4,9 @@
     {
       "appearance": "dark",
       "file": "home-phone-dark.png",
-      "height": 777,
+      "height": 757,
       "id": "home-phone-dark",
-      "sha256": "a06cf09790ecb1beb6ea28a7731fc3ea405b1383ede207550215622a0e19119a",
+      "sha256": "7f33894a77ca0cee69da90e2577a8c67fa5ee2ee75a404c4aa5965de029e42a8",
       "surface": "home",
       "textSize": "large",
       "width": 375
@@ -14,9 +14,9 @@
     {
       "appearance": "light",
       "file": "home-phone-light.png",
-      "height": 777,
+      "height": 757,
       "id": "home-phone-light",
-      "sha256": "f4f6578baf1ec505212c24d86e16e60e94d75378f27371c162e205b7e02a739e",
+      "sha256": "48946554affe593698c0d1c10f9f5021f5358228993f080dd1bdac91f32547a5",
       "surface": "home",
       "textSize": "large",
       "width": 375
@@ -24,9 +24,9 @@
     {
       "appearance": "dark",
       "file": "home-phone-large-text.png",
-      "height": 1311,
+      "height": 1291,
       "id": "home-phone-large-text",
-      "sha256": "0479746134cd016b33badbf52f33cfaf7664a06e677211cda6a9a5e8e939b701",
+      "sha256": "4c344b61ea80b9246acac699db8b7708ead0a6448e586062a95f3f98af94ddb7",
       "surface": "home",
       "textSize": "accessibility2",
       "width": 375
@@ -34,9 +34,9 @@
     {
       "appearance": "dark",
       "file": "home-ipad-landscape.png",
-      "height": 676,
+      "height": 663,
       "id": "home-ipad-landscape",
-      "sha256": "921a069b8d03eb6f956f776146f5c136f30ed056e1c2f064281d15daf25bcbb5",
+      "sha256": "43a547cc4350ee04dbef90dec1881a5f3df19fd97328181e7675e565aa91943d",
       "surface": "home",
       "textSize": "large",
       "width": 1180
@@ -44,9 +44,9 @@
     {
       "appearance": "light",
       "file": "home-ipad-narrow.png",
-      "height": 803,
+      "height": 783,
       "id": "home-ipad-narrow",
-      "sha256": "e22cbaad166a09f9b2ccc1a3307a954f3428c5399056b6ac19d6b9c8c9f29860",
+      "sha256": "c83fc67ac555c28d54d2feb1aa24fcab5a0520e0d05fea1a8eec2e99b08bc58e",
       "surface": "home",
       "textSize": "large",
       "width": 650
@@ -118,7 +118,7 @@
     "xcode": "27B52"
   },
   "schema": 1,
-  "reviewedBy": "Claude for the owner (delegated 11 Nov 2026): T10 crest plate and 6 pt badge spacing on Home rows",
-  "reviewedAt": "2026-11-11T15:45:48.028Z",
-  "sourceReceipt": "0cdf1d7dce5cb8bd5d48b9229f3bc2a551f19a3b41e5a5ccfd8ec7ce92a4e080"
+  "reviewedBy": "Claude for the owner (approved 12 Nov 2026): Home row status joins competition line",
+  "reviewedAt": "2026-11-12T14:54:05.165Z",
+  "sourceReceipt": "f71c2fa6fa5cd61b39923309fc7220478b69406caa996d90cdba7e22afc08bf6"
 }

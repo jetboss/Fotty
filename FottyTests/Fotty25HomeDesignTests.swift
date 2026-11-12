@@ -123,7 +123,7 @@ final class Fotty25HomeDesignTests: XCTestCase {
         XCTAssertTrue(source.contains("selectionIsEmpty: items.isEmpty && channelEvents(applyingHomeInterests: true).isEmpty"))
         let emptyGuard = try XCTUnwrap(source.range(of: "if selectionIsEmpty {"))
         let recovery = try XCTUnwrap(source.range(of: "entries.append(.selectionEmpty)", range: emptyGuard.lowerBound..<source.endIndex))
-        let heading = try XCTUnwrap(source.range(of: "entries.append(.heading(.upcoming, \"Up Next\"))", range: recovery.upperBound..<source.endIndex))
+        let heading = try XCTUnwrap(source.range(of: "entries.append(.heading(.upcoming, \"Up next\"))", range: recovery.upperBound..<source.endIndex))
         let browse = try XCTUnwrap(source.range(of: "entries.append(.browseSports)", range: heading.upperBound..<source.endIndex))
         XCTAssertLessThan(recovery.lowerBound, heading.lowerBound)
         XCTAssertLessThan(heading.lowerBound, browse.lowerBound)
