@@ -158,7 +158,14 @@ actor HighflySportsAddonClient {
             FottyQualityStore.shared.record(category: .playback, name: "highfly_lookup", outcome: finished ? .success : .info,
                 details: details)
         }
-        let manifest: Manifest = try await read(manifestURL)
+        // The first request after launch can race the network; retry once.
+        let manifest: Manifest
+        do { manifest = try await read(manifestURL) }
+        catch is CancellationError { throw CancellationError() }
+        catch {
+            try await Task.sleep(for: .milliseconds(1500))
+            manifest = try await read(manifestURL)
+        }
         let catalogID = Self.catalogID(forSport: original.sport)
         guard manifest.id == Self.manifestIdentity(for: manifestURL), manifest.version.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil,
               manifest.catalogs.contains(where: { $0.id == catalogID && $0.type == "sport" }),

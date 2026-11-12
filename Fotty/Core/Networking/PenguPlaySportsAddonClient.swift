@@ -208,7 +208,7 @@ actor PenguPlaySportsAddonClient {
             FottyQualityStore.shared.record(category: .playback, name: "penguplay_lookup", outcome: finished ? .success : .info,
                 details: details)
         }
-        let manifest: Manifest = try await read(manifestURL)
+        let manifest: Manifest = try await readManifest(manifestURL)
         let catalogID = Self.catalogID(forSport: sport)
         guard Self.hasLiveTV(manifest), manifest.catalogs.contains(where: { $0.id == catalogID && $0.type == "tv" }) else {
             throw CommunitySportsAddonError.invalidManifest
@@ -409,6 +409,18 @@ actor PenguPlaySportsAddonClient {
             && lhs.preferredEvent?.cricketFixture?.broadcastDayIdentity == rhs.preferredEvent?.cricketFixture?.broadcastDayIdentity
     }
 
+    /// The first request after launch can race the network and source setup;
+    /// one short retry keeps that from becoming a missed lookup.
+    private func readManifest(_ url: URL) async throws -> Manifest {
+        do { return try await read(url) }
+        catch is CancellationError { throw CancellationError() }
+        catch {
+            try await Task.sleep(for: .milliseconds(1500))
+            lastReadFailure = nil
+            return try await read(url)
+        }
+    }
+
     /// Why the last read failed, as a shape only: status, type, size or decode.
     private var lastReadFailure: String?
 
@@ -418,11 +430,14 @@ actor PenguPlaySportsAddonClient {
 
     private func read<T: Decodable>(_ url: URL, timeout: TimeInterval = 8) async throws -> T {
         try Task.checkCancellation()
-        guard await enabled(), let configured = try await configuration(),
+        guard await enabled() else { lastReadFailure = "not_enabled"; throw CommunitySportsAddonError.matchNotFound }
+        guard let configured = try await configuration(),
               url.absoluteString.hasPrefix(configured.deletingLastPathComponent().absoluteString) else {
-            throw CommunitySportsAddonError.matchNotFound
+            lastReadFailure = "no_link"; throw CommunitySportsAddonError.matchNotFound
         }
-        try await validate(url)
+        do { try await validate(url) }
+        catch is CancellationError { throw CancellationError() }
+        catch { lastReadFailure = "destination_check"; throw error }
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: min(max(timeout, 1), 30))
         request.httpShouldHandleCookies = false
         request.setValue("application/json", forHTTPHeaderField: "Accept")
