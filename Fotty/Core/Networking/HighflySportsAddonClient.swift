@@ -287,21 +287,36 @@ actor HighflySportsAddonClient {
             throw error
         }
         stage = "streams"
+        // Each step names its own stop reason (never a title, id or URL).
         guard manifest.resources.filter({ $0.name == "stream" }).contains(where: { $0.idPrefixes?.contains(where: { selected.id.hasPrefix($0) }) == true }) else {
+            missReason = "stream_id_prefix"
             throw CommunitySportsAddonError.invalidManifest
         }
+        missReason = "meta_read"
         let metadata: Meta = try await read(root.appendingPathComponent("meta/sport/" + selected.id + ".json"))
-        guard metadata.meta == selected else { throw CommunitySportsAddonError.conflictingMatch }
+        // A live row's marker text can tick between the catalog and meta
+        // reads; the fixed fields must agree and the meta's own identity is
+        // re-matched below, so only description/releaseInfo may differ.
+        if let differs = Self.metaDifference(metadata.meta, selected) {
+            missReason = "meta_differs_" + differs
+            throw CommunitySportsAddonError.conflictingMatch
+        }
+        missReason = "streams_read"
         let streams: Streams = try await read(root.appendingPathComponent("stream/sport/" + selected.id + ".json"))
-        guard streams.streams.count <= 40 else { throw CommunitySportsAddonError.unsafeResponse }
+        guard streams.streams.count <= 40 else { missReason = "streams_too_many"; throw CommunitySportsAddonError.unsafeResponse }
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))
         // Revalidation below uses wall clock elapsed from resolve, supplied in
         // one local scope; no cached account or fixture authority is renewed.
+        missReason = "revalidate_account"
         guard await enabled(), try await configuration() == manifestURL,
-              let latest = await current(request), Self.sameFixture(latest, request),
-              (try? Self.select(request: latest, rows: [metadata.meta], now: completedAt)) != nil else {
+              let latest = await current(request), Self.sameFixture(latest, request) else {
             throw CommunitySportsAddonError.conflictingMatch
         }
+        guard (try? Self.select(request: latest, rows: [metadata.meta], now: completedAt)) != nil else {
+            missReason = "revalidate_meta_" + (Self.identityRejection(metadata.meta) ?? "fixture")
+            throw CommunitySportsAddonError.conflictingMatch
+        }
+        missReason = nil
         var sessions: [StreamSession] = [], seen: Set<URL> = []
         var rejections: [String] = [], rejectedHost: String?
         defer {
@@ -476,6 +491,16 @@ actor HighflySportsAddonClient {
             return String((lines + "-ri_" + info).prefix(64))
         }
         return Dictionary(grouping: layouts, by: { $0 }).max { $0.value.count < $1.value.count }?.key ?? "none"
+    }
+
+    /// nil when a meta row may stand for the selected catalog row: fixed
+    /// fields equal; description/releaseInfo are re-matched by identity.
+    nonisolated static func metaDifference(_ meta: Row, _ selected: Row) -> String? {
+        if meta.id != selected.id { return "id" }
+        if meta.type != selected.type { return "type" }
+        if meta.name != selected.name { return "name" }
+        if meta.category != selected.category { return "category" }
+        return nil
     }
 
     /// Diagnostic: the first identity rule a row fails (nil = parsed). Never a title.
