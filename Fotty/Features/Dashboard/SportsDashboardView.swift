@@ -1095,7 +1095,7 @@ struct SportsDashboardView: View {
             // an empty Up Next/See all heading has no matches to lead into.
             entries.append(.selectionEmpty)
         } else if !sections.upcoming.isEmpty || sections.nextClub == nil {
-            entries.append(.heading(.upcoming, "Up Next"))
+            entries.append(.heading(.upcoming, "Up next"))
             if !sections.upcoming.isEmpty {
                 appendRows(sections.upcoming, section: "upcoming", elevated: true)
             } else if !items.isEmpty {

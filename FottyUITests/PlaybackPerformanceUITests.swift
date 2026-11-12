@@ -118,6 +118,28 @@ final class PlaybackPerformanceUITests: XCTestCase {
         endSurface = "Home match boundaries in both appearances; visual review required"
     }
 
+    /// Home at the default and an accessibility text size, dark appearance.
+    func testPhysicalHomeLargeTextLayout() throws {
+        for size in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryAccessibilityL"] {
+            app.terminate()
+            app.launchArguments = [
+                "-fotty.onboarding.hasDismissed", "YES",
+                "-fotty.setup.dismissed.v1", "YES",
+                "-fotty.appearance", "dark",
+                "-UIPreferredContentSizeCategoryName", size
+            ]
+            app.launch()
+            XCTAssertTrue(tabControl("tab-home").waitForExistence(timeout: 15))
+            tap(tabControl("tab-home"))
+            XCTAssertTrue(app.buttons["home-selected-scope"].firstMatch.waitForExistence(timeout: 20))
+            captureEvidence(surface: "Home text \(size) top")
+            visibleContentScroll.swipeUp()
+            captureEvidence(surface: "Home text \(size) scrolled")
+        }
+        capturedFocusedEnd = true
+        endSurface = "Home at default and accessibility text sizes; visual review required"
+    }
+
     /// Inspect the real anchored plan without changing saved durations/follows
     /// or inventing fixtures. Full Matchday must remain a distinct destination.
     func testPhysicalTonightAndFullMatchdayRemainDistinct() throws {
