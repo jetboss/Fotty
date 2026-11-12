@@ -1971,7 +1971,7 @@ final class HomeDiscoveryTests: XCTestCase {
         let old = FixtureSourceLookupPresentation.State(currentCandidateCount: 0, previouslyFound: true,
             isChecking: false, catalogPreviouslyListed: true)
         XCTAssertFalse(old.canWatch)
-        XCTAssertEqual(old.detailsTitle, "Broadcast unconfirmed")
+        XCTAssertEqual(old.detailsTitle, "No stream found yet")
         let ready = FixtureSourceLookupPresentation.State(currentCandidateCount: 1, previouslyFound: false,
             isChecking: false, catalogListedProviderCount: 1)
         XCTAssertEqual(ready.detailsTitle, "Ready to watch", "A listing must not be described as a validated delivery")

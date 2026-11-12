@@ -275,7 +275,9 @@ struct SportActivityGrid: View {
             SportTileGridLayout(minimumTileWidth: roomyTiles ? minimumTabletTileWidth : minimumTileWidth,
                                 spacing: 8,
                                 maximumColumns: typeSize.isAccessibilitySize ? 1 : (roomyTiles ? nil : 3),
-                                balancesRows: roomyTiles) {
+                                // iPad/wide windows avoid an orphaned last tile (4 → 2×2);
+                                // iPhone keeps the approved three-column composition.
+                                balancesRows: isPad || horizontalSizeClass == .regular) {
                 tile(id: HomeSportsDiscovery.allSports, title: "All sports", summary: "Now & next")
                 ForEach(visible) { activity in
                     tile(id: activity.id, title: AnalyticalDataEngine.categoryDisplayName(for: activity.id), summary: activity.summary(at: discovery.now))
@@ -1172,6 +1174,9 @@ struct HomeOnAirSection: View {
                 .foregroundStyle(FottyTheme.textPrimary)
                 .accessibilityAddTraits(.isHeader)
                 .accessibilityIdentifier("home-on-air-heading")
+                // Same height as "Up next" (its See all button is 44 pt), so the
+                // two iPad column headings sit on one line.
+                .frame(minHeight: 44, alignment: .leading)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12, alignment: .top), count: count),
                       alignment: .leading, spacing: 12) {
                 ForEach(entries) { entry in card(entry) }
@@ -1183,7 +1188,9 @@ struct HomeOnAirSection: View {
     private func card(_ entry: HomeOnAirPolicy.Entry) -> some View {
         let event = entry.station.event
         let opening = pendingEventID == event.id
-        return VStack(alignment: .leading, spacing: 10) {
+        // The channel leads; Watch is a compact capsule, not the card's body.
+        // English is the default and goes unsaid; another language is named.
+        return VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.station.title)
                     .font(.headline)
@@ -1191,7 +1198,7 @@ struct HomeOnAirSection: View {
                     .fixedSize(horizontal: false, vertical: true)
                 // Only a programme the guide currently confirms is named.
                 if let line = entry.programme.map({ "Now · \($0)" })
-                    ?? (entry.station.language == .any ? nil : entry.station.language.title) {
+                    ?? ([.any, .english].contains(entry.station.language) ? nil : entry.station.language.title) {
                     Text(line)
                         .font(.subheadline)
                         .foregroundStyle(entry.programme == nil ? FottyTheme.textSecondary : FottyTheme.textPrimary)
@@ -1200,6 +1207,7 @@ struct HomeOnAirSection: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer(minLength: 0)
             Button { onWatch(event) } label: {
                 Label {
                     Text(opening ? "Opening…" : "Watch")
@@ -1208,9 +1216,11 @@ struct HomeOnAirSection: View {
                     else { Image(systemName: "play.fill") }
                 }
                 .font(FottyTheme.typeAction)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .padding(.horizontal, 6)
+                .frame(minHeight: 44)
             }
             .buttonStyle(.borderedProminent)
+            .buttonBorderShape(.capsule)
             .tint(FottyTheme.accent)
             .foregroundStyle(FottyTheme.textOnAccent)
             .disabled(pendingEventID != nil)
@@ -1218,8 +1228,9 @@ struct HomeOnAirSection: View {
             .accessibilityValue(opening ? "Opening broadcast" : (entry.programme ?? ""))
             .accessibilityIdentifier("home-on-air-watch-\(entry.station.id)")
         }
-        .padding(14)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        // Cards in one row share the tallest card's height.
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(FottyTheme.surface, in: .rect(cornerRadius: FottyTheme.radiusLG))
     }
 }

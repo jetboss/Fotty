@@ -523,7 +523,7 @@ extension CatalogIncrementalPublicationTests {
                 discoveryIndex: discovery, catalogIndex: catalog)?.evidence, vetoed ? nil : .freshLookupOpportunity)
             XCTAssertEqual(state.catalogListedProviderCount, outcome == .listed ? 1 : 0)
             XCTAssertEqual(state.detailsTitle, outcome == .listed ? "Broadcast listed"
-                : vetoed ? "Broadcast unconfirmed" : "Look for a broadcast")
+                : vetoed ? "No stream found yet" : "Look for a broadcast")
             XCTAssertNil(discovery.summary(for: request, at: now), "A listing attempt must not require eager per-match descriptor work")
             let stale = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: event,
                 at: now.addingTimeInterval(FixtureCatalogAvailabilityIndex.metadataLifetime),
@@ -562,7 +562,7 @@ extension CatalogIncrementalPublicationTests {
         let failed = try XCTUnwrap(discovery.begin(for: request, providerCode: "plaviosports",
             preflight: false, at: now.addingTimeInterval(2)))
         discovery.complete(failed, sessions: [], failure: StreamFailure(providerName: "AS1", category: .manifestUnreachable,
-            technicalMessage: "Descriptor unavailable", userMessage: "Broadcast unconfirmed",
+            technicalMessage: "Descriptor unavailable", userMessage: "No stream found yet",
             retryable: true, fallbackAllowed: true), at: now.addingTimeInterval(2))
         for seconds in [2.0, 100.0] {
             let rejected = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: event,

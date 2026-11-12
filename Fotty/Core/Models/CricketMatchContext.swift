@@ -12,7 +12,7 @@ struct CricketMatchContext: Codable, Equatable, Sendable {
             case .inPlay: "In play"
             case .matchBreak: "Play paused"
             case .inningsBreak: "Innings break"
-            case .stumps: "Stumps · Play finished for today"
+            case .stumps: "Stumps"
             case .lunch: "Lunch break"
             case .tea: "Tea break"
             case .interrupted: "Play interrupted"

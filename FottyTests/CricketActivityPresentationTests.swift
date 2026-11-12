@@ -34,8 +34,8 @@ final class CricketActivityPresentationTests: XCTestCase {
         XCTAssertEqual(item.phase, .live)
         XCTAssertTrue(item.isOnNow)
         XCTAssertFalse(item.hasConfirmedLiveStatus)
-        XCTAssertEqual(item.prominentStatusLabel, "Stumps · Play finished for today")
-        XCTAssertEqual(item.statusLabel, "Stumps · Play finished for today")
+        XCTAssertEqual(item.prominentStatusLabel, "Stumps")
+        XCTAssertEqual(item.statusLabel, "Stumps")
         XCTAssertEqual(item.event.cricketFixture, original.cricketFixture)
         XCTAssertEqual(MatchStartPolicy(event: item.event, now: now).timingAllowsPlayback, timing)
         XCTAssertNil(HomeDiscoveryRow.Presentation(item: item).liveDetail)
@@ -142,7 +142,7 @@ final class CricketActivityPresentationTests: XCTestCase {
 
     func testBreakCopyExplainsPlayAndSectionDoesNotCallPausedMatchesLive() throws {
         let expected: [(CricketMatchContext.Phase, String)] = [
-            (.stumps, "Stumps · Play finished for today"), (.lunch, "Lunch break"),
+            (.stumps, "Stumps"), (.lunch, "Lunch break"),
             (.tea, "Tea break"), (.inningsBreak, "Innings break"),
             (.matchBreak, "Play paused"), (.interrupted, "Play interrupted"), (.delayed, "Start delayed")
         ]

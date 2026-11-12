@@ -394,7 +394,7 @@ enum FixtureSourceLookupPresentation {
         var canTriggerLookup: Bool { canWatch || canOfferFreshLookup }
         var statusTitle: String {
             if isChecking { return "Finding a broadcast…" }
-            return hasCompletedLookup && !hasLookupFailure ? "Broadcast unavailable" : "Broadcast unconfirmed"
+            return hasCompletedLookup && !hasLookupFailure ? "No stream available" : "No stream found yet"
         }
         var title: String {
             if canWatch { return "Watch" }

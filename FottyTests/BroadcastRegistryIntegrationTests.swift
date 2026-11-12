@@ -97,7 +97,7 @@ final class BroadcastRegistryIntegrationTests: XCTestCase {
         let failure = try XCTUnwrap(index.begin(for: first, providerCode: "plaviosports", preflight: false,
             at: clock.addingTimeInterval(2)))
         index.complete(failure, sessions: [], failure: StreamFailure(providerName: "AS1", category: .manifestUnreachable,
-            technicalMessage: "Descriptor unavailable", userMessage: "Broadcast unconfirmed", retryable: true, fallbackAllowed: true),
+            technicalMessage: "Descriptor unavailable", userMessage: "No stream found yet", retryable: true, fallbackAllowed: true),
             at: clock.addingTimeInterval(2))
         XCTAssertEqual(BroadcastRegistryWatchPolicy.eligible(matches, for: first, discoveryIndex: index,
             at: clock.addingTimeInterval(2)).map { $0.broadcast.providerCode }, ["plaviosports"],

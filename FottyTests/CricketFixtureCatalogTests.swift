@@ -584,13 +584,13 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             XCTAssertTrue(state.detailsMessage(canWatchHere: true).contains("Choose Watch"))
         }
         let pending: [(FixtureSourceLookupPresentation.State, String)] = [
-            (.init(currentCandidateCount: 0, previouslyFound: false, isChecking: false), "Broadcast unconfirmed"),
-            (.init(currentCandidateCount: 0, previouslyFound: true, isChecking: false), "Broadcast unconfirmed"),
+            (.init(currentCandidateCount: 0, previouslyFound: false, isChecking: false), "No stream found yet"),
+            (.init(currentCandidateCount: 0, previouslyFound: true, isChecking: false), "No stream found yet"),
             (.init(currentCandidateCount: 0, previouslyFound: false, isChecking: true), "Finding a broadcast…"),
             (.init(currentCandidateCount: 0, previouslyFound: false, isChecking: false,
-                   hasCompletedLookup: true), "Broadcast unavailable"),
+                   hasCompletedLookup: true), "No stream available"),
             (.init(currentCandidateCount: 0, previouslyFound: false, isChecking: false,
-                   hasCompletedLookup: true, hasLookupFailure: true), "Broadcast unconfirmed")
+                   hasCompletedLookup: true, hasLookupFailure: true), "No stream found yet")
         ]
         for (state, title) in pending {
             XCTAssertFalse(state.canWatch)
@@ -609,9 +609,9 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             enabledProviderCodes: ["future-provider"], discoveryIndex: index))
         let state = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row, at: now,
             enabledProviderCodes: enabled, discoveryIndex: index))
-        XCTAssertEqual(state.title, "Broadcast unconfirmed")
+        XCTAssertEqual(state.title, "No stream found yet")
         XCTAssertEqual(state.symbol, "tv.slash")
-        XCTAssertEqual(state.accessibilityLabel(matchTitle: row.displayTitle), "\(row.displayTitle), Broadcast unconfirmed")
+        XCTAssertEqual(state.accessibilityLabel(matchTitle: row.displayTitle), "\(row.displayTitle), No stream found yet")
         XCTAssertFalse(state.canWatch)
         XCTAssertEqual(state.currentCandidateCount, 0)
         XCTAssertFalse(state.previouslyFound)
@@ -660,7 +660,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         let expired = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row,
             at: now.addingTimeInterval(300), discoveryIndex: index))
         XCTAssertFalse(expired.canWatch)
-        XCTAssertEqual(expired.title, "Broadcast unconfirmed")
+        XCTAssertEqual(expired.title, "No stream found yet")
         index.updateEnabledProviders([], revision: 2)
         XCTAssertNil(FixtureSourceLookupPresentation.state(for: row, at: now.addingTimeInterval(301), discoveryIndex: index))
         XCTAssertEqual(CatalogEventDetailsPresentation.broadcast(for: row, now: now.addingTimeInterval(301),
@@ -703,17 +703,17 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         XCTAssertEqual(checking.title, "Finding a broadcast…")
         index.complete(ticket, sessions: [], at: now)
         let empty = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row, at: now, discoveryIndex: index))
-        XCTAssertEqual(empty.title, "Broadcast unavailable")
+        XCTAssertEqual(empty.title, "No stream available")
         XCTAssertTrue(empty.hasCompletedLookup)
         XCTAssertFalse(empty.hasLookupFailure)
 
         let failedTicket = try XCTUnwrap(index.begin(for: request, providerCode: "communitysports", preflight: false, at: now))
         index.complete(failedTicket, sessions: [], failure: StreamFailure(providerName: "CS1",
             category: .manifestUnreachable, technicalMessage: "Metadata unavailable",
-            userMessage: "Broadcast unconfirmed", retryable: true, fallbackAllowed: true), at: now)
+            userMessage: "No stream found yet", retryable: true, fallbackAllowed: true), at: now)
         let failed = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row, at: now, discoveryIndex: index))
         XCTAssertFalse(failed.canWatch)
-        XCTAssertEqual(failed.title, "Broadcast unconfirmed")
+        XCTAssertEqual(failed.title, "No stream found yet")
         XCTAssertTrue(failed.hasLookupFailure)
 
         let partial = FixtureStreamDiscoveryIndex()
@@ -723,7 +723,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         let uncheckedSibling = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row, at: now, discoveryIndex: partial))
         XCTAssertFalse(uncheckedSibling.canWatch)
         XCTAssertFalse(uncheckedSibling.hasCompletedLookup)
-        XCTAssertEqual(uncheckedSibling.title, "Broadcast unconfirmed", "One empty lane cannot claim every enabled lane is empty")
+        XCTAssertEqual(uncheckedSibling.title, "No stream found yet", "One empty lane cannot claim every enabled lane is empty")
     }
 
     func testUpcomingFixtureRetainsCountdownAndGenericChannelRetainsIndependentWatch() {
@@ -1028,7 +1028,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         let empty = try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row, at: now,
             enabledProviderCodes: enabled, discoveryIndex: index, catalogIndex: FixtureCatalogAvailabilityIndex()))
         XCTAssertFalse(empty.canWatch, "A just-completed empty lookup is reported honestly")
-        XCTAssertEqual(empty.statusTitle, "Broadcast unavailable")
+        XCTAssertEqual(empty.statusTitle, "No stream available")
         let later = now.addingTimeInterval(FixtureStreamDiscoveryIndex.positiveLifetime + 1)
         XCTAssertTrue(try XCTUnwrap(FixtureSourceLookupPresentation.state(for: row, at: later,
             enabledProviderCodes: enabled, discoveryIndex: index, catalogIndex: FixtureCatalogAvailabilityIndex())).canWatch,
