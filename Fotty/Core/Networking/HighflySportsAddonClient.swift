@@ -86,6 +86,9 @@ actor HighflySportsAddonClient {
     /// are the sports Fotty's own schedules also cover, so a fixture can be
     /// matched exactly. Rugby, fight, golf, motorsport and tennis have no Fotty
     /// fixture to match against.
+    /// Pages of the plain sport listing read when search misses (100 rows each).
+    nonisolated static let browsePageLimit = 3
+
     nonisolated static let supportedSports: Set<String> = ["football", "cricket", "basketball", "baseball", "hockey", "american-football"]
 
     nonisolated static func supports(category: String) -> Bool {
@@ -150,9 +153,11 @@ actor HighflySportsAddonClient {
         var stage = "manifest"
         var finished = false
         var missReason: String?, rowCount: Int?, unmatchedTeam: String?, kickoffOffset: Int?
+        var searchScope = "search"
         defer {
             var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
             if let missReason { details["reason_code"] = missReason }
+            if stage != "manifest", stage != "search" { details["search_scope"] = searchScope }
             if let rowCount { details["candidate_count"] = "\(rowCount)" }
             if let unmatchedTeam { details["unmatched_team"] = unmatchedTeam }
             if let kickoffOffset {
@@ -195,6 +200,30 @@ actor HighflySportsAddonClient {
         }
         stage = "fixture_match"
         rowCount = Set(rows.map(\.id)).count
+        // Highfly's search returned these teams' other dated games but not
+        // today's (Jet build 303), so a miss also reads the plain sport
+        // listing. The same exact pair/kickoff/squad rules decide admission.
+        var searchMissed = false
+        do { _ = try Self.select(request: request, rows: rows, now: now) }
+        catch CommunitySportsAddonError.matchNotFound { searchMissed = true }
+        catch {}
+        if searchMissed {
+            stage = "browse"
+            searchScope = "search_and_browse"
+            var browsed: [Row] = []
+            for _ in 0..<Self.browsePageLimit {
+                let extra = browsed.isEmpty ? catalogID + ".json" : catalogID + "/skip=\(browsed.count).json"
+                guard let url = URL(string: root.absoluteString + "catalog/sport/" + extra) else { throw CommunitySportsAddonError.unsafeResponse }
+                let page: Catalog = try await read(url)
+                guard page.metas.count <= 100 else { throw CommunitySportsAddonError.unsafeResponse }
+                browsed += page.metas
+                if page.metas.count < 100 { break }
+            }
+            let known = Set(rows.map(\.id))
+            rows += browsed.filter { !known.contains($0.id) }
+            stage = "fixture_match"
+            rowCount = Set(rows.map(\.id)).count
+        }
         let selected: Row
         do { selected = try Self.select(request: request, rows: rows, now: now) }
         catch {

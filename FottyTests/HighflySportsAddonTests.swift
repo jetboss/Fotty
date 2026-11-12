@@ -127,6 +127,31 @@ final class HighflySportsAddonTests: XCTestCase {
         }
     }
 
+    func testSearchHitSkipsThePlainListing() async throws {
+        let transport = HighflyTestTransport()
+        _ = try await client(transport).resolve(for: request(), now: kickoff)
+        let paths = await transport.catalogs()
+        XCTAssertTrue(paths.allSatisfy { $0.contains("search=") }, "\(paths)")
+    }
+
+    func testSearchMissFindsTodaysGameInThePlainListing() async throws {
+        let transport = HighflyTestTransport(mode: .searchOmitsLive)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 1)
+        let paths = await transport.catalogs()
+        XCTAssertTrue(paths.contains("sports_football.json"), "\(paths)")
+    }
+
+    func testPlainListingStillRequiresTheExactKickoff() async throws {
+        let transport = HighflyTestTransport(mode: .listingOmitsLive)
+        do { _ = try await client(transport).resolve(for: request(), now: kickoff); XCTFail("A later meeting was admitted") }
+        catch { XCTAssertTrue(error is CommunitySportsAddonError) }
+        let counts = await transport.counts()
+        XCTAssertEqual(counts.meta, 0); XCTAssertEqual(counts.stream, 0)
+        let paths = await transport.catalogs()
+        XCTAssertEqual(paths.filter { !$0.contains("search=") }, ["sports_football.json"])
+    }
+
     func testOwnerAccountSourceLeadsAutomaticChoice() {
         let names = ["AS1", "CS1", "Score808", "HF2", "LS1", "HF1"]
         let sources = names.map {
@@ -176,17 +201,19 @@ final class HighflySportsAddonTests: XCTestCase {
 }
 
 private actor HighflyTestTransport {
-    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError }
+    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive }
     private let premium: Bool
     private let mode: Mode
     private var streamCount = 0
     private var metaCount = 0
+    private var catalogPaths: [String] = []
     init(premium: Bool = false, mode: Mode = .normal) { self.premium = premium; self.mode = mode }
     func configuration() -> URL? {
         URL(string: "https://\(premium ? "premium" : "sports").highfly.to/\(mode == .changeAccount && streamCount > 0 ? "changed" : "synthetic-account")/manifest.json")!
     }
     func enabled() -> Bool { !(mode == .disable && streamCount > 0) }
     func counts() -> (meta: Int, stream: Int) { (metaCount, streamCount) }
+    func catalogs() -> [String] { catalogPaths }
     func fetch(_ request: URLRequest) throws -> (Data, HTTPURLResponse) {
         let url = request.url!
         if mode == .transportError { throw NSError(domain: url.absoluteString, code: 1) }
@@ -198,7 +225,16 @@ private actor HighflyTestTransport {
                 "resources": ["catalog", "meta", "stream"].map { ["name": $0, "types": ["sport"], "idPrefixes": ["streamed:"]] },
                 "catalogs": [["id": "sports_football", "type": "sport"]]]
         } else if url.path.contains("/catalog/") {
-            body = ["metas": url.absoluteString.contains("skip=") ? [] : [row]]
+            catalogPaths.append(url.lastPathComponent)
+            var later = row
+            later["id"] = "streamed:later"
+            later["description"] = "Arsenal vs Everton\n14 Nov 2026 · 18:00 UTC"; later["releaseInfo"] = "14 Nov 2026 · 18:00 UTC"
+            let searching = url.absoluteString.contains("search=")
+            switch mode {
+            case .searchOmitsLive: body = ["metas": url.absoluteString.contains("skip=") ? [] : searching ? [later] : [later, row]]
+            case .listingOmitsLive: body = ["metas": url.absoluteString.contains("skip=") ? [] : [later]]
+            default: body = ["metas": url.absoluteString.contains("skip=") || !searching ? [] : [row]]
+            }
         } else if url.path.contains("/meta/") {
             metaCount += 1
             var meta = row
