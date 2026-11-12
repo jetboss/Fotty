@@ -26,6 +26,7 @@ struct SportsDashboardView: View {
     @AppStorage(SportsInterestPreferences.storageKey) private var followedSportsRaw = "[]"
     @State private var projectionCoordinator = HomeProjectionCoordinator()
     @State private var showsMoreLive = false
+    @State private var showsAllTodaySoFar = false
     @State private var tvLibrary = SportsTVLibrary.shared
     @State private var tvRegistry = BroadcastRegistryClient.shared
     @AppStorage(CommentaryPreference.storageKey) private var tvCommentary = CommentaryPreference.english.rawValue
@@ -129,6 +130,7 @@ struct SportsDashboardView: View {
 
     private func requestHomeResults() {
         showsMoreLive = false
+        showsAllTodaySoFar = false
         homeResultsRequest += 1
     }
 
@@ -821,6 +823,24 @@ struct SportsDashboardView: View {
     }
 
     @ViewBuilder
+    private func moreTodayButton(hidden: Int) -> some View {
+        Button {
+            showsAllTodaySoFar.toggle()
+        } label: {
+            HStack(spacing: 6) {
+                Text(showsAllTodaySoFar ? "Show fewer" : "Show \(hidden) more")
+                Image(systemName: showsAllTodaySoFar ? "chevron.up" : "chevron.down").imageScale(.small)
+            }
+            .font(FottyTheme.typeAction)
+            .foregroundStyle(FottyTheme.accentText)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(FottyPressButtonStyle())
+        .accessibilityLabel(showsAllTodaySoFar ? "Show fewer of today's matches" : "Show \(hidden) more of today's matches")
+        .accessibilityIdentifier("home-today-more")
+    }
+
     private func moreLiveButton(_ items: [HomeSportsDiscovery.Item]) -> some View {
         Button {
             showsMoreLive.toggle()
@@ -994,7 +1014,7 @@ struct SportsDashboardView: View {
     private enum HomeEntry: Identifiable {
         enum Heading: Hashable { case live, upcoming, later, awaitingStatus, todaySoFar }
         enum ID: Hashable {
-            case heading(Heading), overview, onAir, spotlight(String), club(String), followClub, moreLive, browseSports, empty, selectionEmpty, fixture(HomeSportsDiscovery.DisplayRow.ID)
+            case heading(Heading), overview, onAir, spotlight(String), club(String), followClub, moreLive, moreToday, browseSports, empty, selectionEmpty, fixture(HomeSportsDiscovery.DisplayRow.ID)
         }
         case heading(Heading, String)
         case overview(HomeSportsDiscovery.HomeSections, emptyMessage: String, onAir: [HomeOnAirPolicy.Entry])
@@ -1003,6 +1023,7 @@ struct SportsDashboardView: View {
         case club(HomeSportsDiscovery.Item)
         case followClub
         case moreLive([HomeSportsDiscovery.Item])
+        case moreToday(hidden: Int)
         case browseSports
         case empty(String, offersAllSports: Bool)
         case selectionEmpty
@@ -1016,6 +1037,7 @@ struct SportsDashboardView: View {
             case .club(let item): return .club(item.id)
             case .followClub: return .followClub
             case .moreLive: return .moreLive
+            case .moreToday: return .moreToday
             case .browseSports: return .browseSports
             case .empty: return .empty
             case .selectionEmpty: return .selectionEmpty
@@ -1040,7 +1062,13 @@ struct SportsDashboardView: View {
         func appendPausedToday() {
             guard !sections.pausedToday.isEmpty else { return }
             entries.append(.heading(.todaySoFar, "Today so far"))
-            appendRows(sections.pausedToday, section: "today-so-far", elevated: false)
+            // One column: earlier results must not push Up next a screen down.
+            // Paused (resumable) rows lead the list, so they stay in the first three.
+            let limit = HomeTodaySoFarPolicy.collapsedLimit
+            let collapse = columns == 1 && sections.pausedToday.count > limit + 1
+            let shown = collapse && !showsAllTodaySoFar ? Array(sections.pausedToday.prefix(limit)) : sections.pausedToday
+            appendRows(shown, section: "today-so-far", elevated: false)
+            if collapse { entries.append(.moreToday(hidden: sections.pausedToday.count - limit)) }
         }
         func appendAwaitingStatus() {
             guard !sections.awaitingStatus.isEmpty else { return }
@@ -1151,6 +1179,7 @@ struct SportsDashboardView: View {
         case .spotlight(let item):
             liveSpotlight(item)
         case .moreLive(let items): moreLiveButton(items)
+        case .moreToday(let hidden): moreTodayButton(hidden: hidden)
         case .browseSports:
             browseSportsSection(discovery)
         case .selectionEmpty:
@@ -2469,4 +2498,10 @@ struct SportsDashboardView: View {
         }
     }
 
+}
+
+/// iPhone's "Today so far" shows the first few rows, then "Show N more".
+/// A single extra row is shown rather than hidden behind a button.
+enum HomeTodaySoFarPolicy {
+    static let collapsedLimit = 3
 }
