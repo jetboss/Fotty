@@ -288,7 +288,10 @@ actor PenguPlaySportsAddonClient {
                 expiryTime: binding.expiresAt, canRefresh: true,
                 diagnosticMetadata: ["source_family": Self.providerCode, "delivery": "penguplay_hls",
                     "source_key": HighflySportsAddonClient.stableChoiceKey(url), "source_key_scope": "upstream"],
-                createdAt: completedAt, requiresGuardedRelay: true, eventBinding: binding))
+                createdAt: completedAt,
+                nativePlaylistProfile: LocalStreamProxyPlaylistProfile.penguPlay(deliveryURL: url,
+                    providerEventID: selected.id, headers: headers),
+                requiresGuardedRelay: true, eventBinding: binding))
             if sessions.count == 6 { break }
         }
         // Shape-only receipt so admission rules can be reviewed: counts, never URLs.

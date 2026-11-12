@@ -388,6 +388,27 @@ final class LocalStreamProxyTests: XCTestCase {
         XCTAssertEqual(unbound.stableSegmentAliasCount, 0, "A profile cannot migrate to changed captured headers")
     }
 
+    func testPenguPlayDaddyLiveSegmentsKeepOneIdentityAcrossTokenRotation() throws {
+        let delivery = URL(string: "https://edge.example-live.net/hls/premium51/mono.m3u8")!
+        let headers = ["Referer": "https://site.example/", "Origin": "https://site.example"]
+        XCTAssertNil(LocalStreamProxyPlaylistProfile.penguPlay(deliveryURL: delivery,
+            providerEventID: "pp-live:ppv~abc", headers: headers), "Only DaddyLive channels rotate segment tokens")
+        XCTAssertNil(LocalStreamProxyPlaylistProfile.penguPlay(deliveryURL: delivery,
+            providerEventID: "pp-live:daddylive~abc", headers: ["Cookie": "x"]), "No credential headers")
+        let profile = try XCTUnwrap(LocalStreamProxyPlaylistProfile.penguPlay(deliveryURL: delivery,
+            providerEventID: "pp-live:daddylive~abc", headers: headers))
+        XCTAssertNotNil(profile.validated(for: delivery, headers: headers))
+        XCTAssertNil(profile.validated(for: delivery, headers: ["Referer": "https://other.example/"]))
+        let first = URL(string: "https://edge2.example-live.net/seg/000123.ts?token=aaa")!
+        let rotated = URL(string: "https://edge2.example-live.net/seg/000123.ts?token=bbb")!
+        let next = URL(string: "https://edge2.example-live.net/seg/000124.ts?token=bbb")!
+        XCTAssertNotNil(profile.stableSegmentKey(for: first))
+        XCTAssertEqual(profile.stableSegmentKey(for: first), profile.stableSegmentKey(for: rotated))
+        XCTAssertNotEqual(profile.stableSegmentKey(for: first), profile.stableSegmentKey(for: next))
+        XCTAssertNil(profile.stableSegmentKey(for: URL(string: "https://edge2.example-live.net/seg/000123.ts?token=a&x=1")!))
+        XCTAssertTrue(profile.updatesAdvertisedSegmentURL)
+    }
+
     func testReviewedTikTokImageWrapperRotationPreservesAllSignedQueryIdentity() throws {
         let (delivery, headers, profile) = try reviewedCSPlaylistProfile()
         let target = "https://p16-common-sign.tiktokcdn.com/fixture/segment8.image?dr=1&refresh_token=fixture&t=123&ps=fixture&shp=a&shcp=b&idc=us"

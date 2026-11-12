@@ -473,7 +473,9 @@ final class FottyQualityStore {
         "preparation_underlying_domain", "preparation_underlying_code", "preparation_error_depth", "preparation_http_status",
         "diagnostic_phase", "diagnostic_purpose", "diagnostic_result", "handoff_phase", "audio_job_id",
         "diagnostic_operation_id", "audio_enabled", "playback_intent", "candidate_count",
-        "competition", "sport", "terminal_outcome", "failover_family", "failover_count"
+        "competition", "sport", "terminal_outcome", "failover_family", "failover_count",
+        // A source's normalized spelling of one team (alias review); never a title/link.
+        "unmatched_team"
     ]
     private static let retentionInterval: TimeInterval = 14 * 24 * 60 * 60
     private static let maximumRecords = 250

@@ -119,10 +119,29 @@ struct LocalStreamProxyPlaylistProfile: Sendable, Equatable {
     ]
     private let deliveryBinding: String
     private let renewsSegmentToken: Bool
+    /// PenguPlay's DaddyLive channels are direct HLS from the owner's account,
+    /// not the CS manifest rewriter; only token renewal applies to them.
+    private let isPenguPlay: Bool
 
-    private init(deliveryBinding: String, renewsSegmentToken: Bool = false) {
+    private init(deliveryBinding: String, renewsSegmentToken: Bool = false, isPenguPlay: Bool = false) {
         self.deliveryBinding = deliveryBinding
         self.renewsSegmentToken = renewsSegmentToken
+        self.isPenguPlay = isPenguPlay
+    }
+
+    /// PenguPlay rows `pp-live:daddylive~…` are the same DaddyLive CDN whose
+    /// overlapping segments rotate only their token; without a stable local
+    /// identity AVPlayer stops after the first reload (-12312).
+    static func penguPlay(deliveryURL: URL, providerEventID: String, headers: [String: String]) -> Self? {
+        guard providerEventID.hasPrefix("pp-live:daddylive~"), isPenguPlayDelivery(deliveryURL, headers: headers) else { return nil }
+        return Self(deliveryBinding: binding(deliveryURL, headers: headers), renewsSegmentToken: true, isPenguPlay: true)
+    }
+
+    private static func isPenguPlayDelivery(_ url: URL, headers: [String: String]) -> Bool {
+        LocalStreamProxyPolicy.allowsDestination(url) && url.scheme == "https"
+            && url.path.lowercased().hasSuffix(".m3u8") && url.absoluteString.utf8.count <= 8_192
+            && Set(headers.keys).isSubset(of: Set(["Referer", "Origin", "User-Agent"]))
+            && headers.values.allSatisfy({ !$0.isEmpty && $0.utf8.count <= 512 && $0.utf8.allSatisfy({ (32...126).contains($0) }) })
     }
 
     static func communitySports(deliveryURL: URL, manifestURL: URL,
@@ -137,7 +156,8 @@ struct LocalStreamProxyPlaylistProfile: Sendable, Equatable {
     }
 
     func validated(for deliveryURL: URL, headers: [String: String]) -> Self? {
-        guard Self.isReviewedDelivery(deliveryURL, headers: headers),
+        guard isPenguPlay ? Self.isPenguPlayDelivery(deliveryURL, headers: headers)
+                : Self.isReviewedDelivery(deliveryURL, headers: headers),
               Self.binding(deliveryURL, headers: headers) == deliveryBinding else { return nil }
         return self
     }
@@ -150,7 +170,9 @@ struct LocalStreamProxyPlaylistProfile: Sendable, Equatable {
 
     func stableSegmentKey(for url: URL) -> String? {
         if renewsSegmentToken {
-            guard LocalStreamProxyPolicy.allowsDestination(url), url.host?.lowercased() == "cdn.hdm1.net",
+            // PenguPlay's copy may use another DaddyLive edge host; the segment
+            // shape (one `token` query on a .ts path) is what identifies it.
+            guard LocalStreamProxyPolicy.allowsDestination(url), isPenguPlay || url.host?.lowercased() == "cdn.hdm1.net",
                   url.pathExtension == "ts", url.absoluteString.utf8.count <= 8_192,
                   var parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
                   let items = parts.queryItems, items.count == 1, items[0].name == "token",

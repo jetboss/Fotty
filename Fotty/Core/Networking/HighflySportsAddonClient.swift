@@ -145,11 +145,12 @@ actor HighflySportsAddonClient {
         // One lookup receipt per eligible request: the stage reached, never titles or URLs.
         var stage = "manifest"
         var finished = false
-        var missReason: String?, rowCount: Int?
+        var missReason: String?, rowCount: Int?, unmatchedTeam: String?
         defer {
             var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
             if let missReason { details["reason_code"] = missReason }
             if let rowCount { details["candidate_count"] = "\(rowCount)" }
+            if let unmatchedTeam { details["unmatched_team"] = unmatchedTeam }
             FottyQualityStore.shared.record(category: .playback, name: "highfly_lookup", outcome: finished ? .success : .info,
                 details: details)
         }
@@ -181,7 +182,13 @@ actor HighflySportsAddonClient {
         rowCount = Set(rows.map(\.id)).count
         let selected: Row
         do { selected = try Self.select(request: request, rows: rows, now: now) }
-        catch { missReason = Self.missReason(request: request, rows: rows, now: now); throw error }
+        catch {
+            missReason = Self.missReason(request: request, rows: rows, now: now)
+            if missReason == "one_team_matches", let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request) {
+                unmatchedTeam = ReviewedSportsFixtureMatcher.unmatchedTeamName(for: requestID, parsed: rows.map { Self.identity($0) })
+            }
+            throw error
+        }
         stage = "streams"
         guard manifest.resources.filter({ $0.name == "stream" }).contains(where: { $0.idPrefixes?.contains(where: { selected.id.hasPrefix($0) }) == true }) else {
             throw CommunitySportsAddonError.invalidManifest

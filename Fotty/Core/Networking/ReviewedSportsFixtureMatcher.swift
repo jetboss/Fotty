@@ -146,6 +146,18 @@ enum ReviewedSportsFixtureMatcher {
         return "teams_differ"
     }
 
+    /// Diagnostic only: when exactly one team matched, the source's own key for
+    /// the other team (a normalized team name, never a title or link), so a
+    /// naming alias can be reviewed.
+    nonisolated static func unmatchedTeamName(for request: RequestIdentity, parsed: [FixtureIdentity?]) -> String? {
+        for identity in parsed.compactMap({ $0 }) where identity.sport == request.sport {
+            let shared = Set(identity.pair).intersection(request.pair)
+            guard shared.count == 1, let other = identity.pair.first(where: { !shared.contains($0) }) else { continue }
+            return other.replacingOccurrences(of: "|", with: " ")
+        }
+        return nil
+    }
+
     nonisolated static func select(
         for request: RequestIdentity, from candidates: [Candidate]
     ) -> Selection {

@@ -118,6 +118,48 @@ final class PlaybackPerformanceUITests: XCTestCase {
         endSurface = "Home match boundaries in both appearances; visual review required"
     }
 
+    /// Visual review tour: every tab, Search, Settings and a live channel in
+    /// the player. Evidence only; it changes no saved settings or follows.
+    func testPhysicalScreenTourForVisualReview() throws {
+        app.terminate()
+        app.launchArguments = ["-fotty.onboarding.hasDismissed", "YES", "-fotty.setup.dismissed.v1", "YES",
+                               "-fotty.appearance", "dark"]
+        app.launch()
+        XCTAssertTrue(tabControl("tab-home").waitForExistence(timeout: 15))
+        for (tab, name) in [("tab-tv", "TV"), ("tab-arena", "Matchday"), ("tab-fpl", "FPL")] {
+            try selectTab(tab, surface: "Tour \(name) top")
+            sleep(2)
+            captureEvidence(surface: "Tour \(name) settled")
+            visibleContentScroll.swipeUp()
+            captureEvidence(surface: "Tour \(name) scrolled")
+            // Scrolling minimizes the floating tab bar; bring it back.
+            visibleContentScroll.swipeDown(); visibleContentScroll.swipeDown()
+        }
+        tap(tabControl("tab-home"))
+        let search = app.buttons["home-search"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 10)); tap(search)
+        sleep(2); captureEvidence(surface: "Tour Search")
+        let field = app.searchFields.firstMatch
+        if field.waitForExistence(timeout: 3) { field.tap(); field.typeText("Kraken"); sleep(2); captureEvidence(surface: "Tour Search results") }
+        let cancel = app.buttons["Cancel"].firstMatch
+        if cancel.exists && cancel.isHittable { cancel.tap() } else { app.swipeDown() }
+        let settings = app.buttons["home-settings"].firstMatch
+        XCTAssertTrue(settings.waitForExistence(timeout: 10)); tap(settings)
+        sleep(2); captureEvidence(surface: "Tour Settings top")
+        app.swipeUp(); captureEvidence(surface: "Tour Settings scrolled")
+        app.swipeUp(); captureEvidence(surface: "Tour Settings bottom")
+        let done = app.buttons["Done"].firstMatch
+        if done.exists && done.isHittable { done.tap() } else { app.swipeDown() }
+        let watch = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "home-on-air-watch-")).firstMatch
+        guard watch.waitForExistence(timeout: 10) else { capturedFocusedEnd = true; return }
+        tap(watch)
+        sleep(1); captureEvidence(surface: "Tour Player opening")
+        sleep(14); captureEvidence(surface: "Tour Player playing")
+        app.tap(); sleep(1); captureEvidence(surface: "Tour Player controls")
+        capturedFocusedEnd = true
+        endSurface = "Screen tour; visual review required"
+    }
+
     /// Home at the default and an accessibility text size, dark appearance.
     func testPhysicalHomeLargeTextLayout() throws {
         for size in ["UICTContentSizeCategoryL", "UICTContentSizeCategoryAccessibilityL"] {
