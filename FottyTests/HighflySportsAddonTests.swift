@@ -142,6 +142,24 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertTrue(paths.contains("sports_football.json"), "\(paths)")
     }
 
+    func testGameInProgressIsFoundInTheLiveCatalog() async throws {
+        let transport = HighflyTestTransport(mode: .liveCatalogOnly)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff.addingTimeInterval(600))
+        XCTAssertEqual(sessions.count, 1)
+        let paths = await transport.catalogs()
+        XCTAssertTrue(paths.contains("sports_live.json"), "\(paths)")
+        let receipt = FottyQualityStore.shared.records().last { $0.name == "highfly_lookup" }
+        XCTAssertEqual(receipt?.details["live_row_shape"], "parsed")
+        XCTAssertEqual(receipt?.details["live_sport_rows"], "1")
+    }
+
+    func testLiveRowRejectionNamesTheRuleNotTheTitle() {
+        XCTAssertNil(HighflySportsAddonClient.identityRejection(row()))
+        let undated = HighflySportsAddonClient.Row(id: "streamed:x", name: "Arsenal vs Everton", description: "Arsenal vs Everton",
+                                                   releaseInfo: "LIVE", category: "football")
+        XCTAssertEqual(HighflySportsAddonClient.identityRejection(undated), "description_lines_1")
+    }
+
     func testPlainListingStillRequiresTheExactKickoff() async throws {
         let transport = HighflyTestTransport(mode: .listingOmitsLive)
         do { _ = try await client(transport).resolve(for: request(), now: kickoff); XCTFail("A later meeting was admitted") }
@@ -149,10 +167,10 @@ final class HighflySportsAddonTests: XCTestCase {
         let counts = await transport.counts()
         XCTAssertEqual(counts.meta, 0); XCTAssertEqual(counts.stream, 0)
         let paths = await transport.catalogs()
-        XCTAssertEqual(paths.filter { !$0.contains("search=") }, ["sports_football.json"])
+        XCTAssertEqual(paths.filter { !$0.contains("search=") }, ["sports_live.json", "sports_football.json"])
         let receipt = FottyQualityStore.shared.records().last { $0.name == "highfly_lookup" }
         XCTAssertEqual(receipt?.details["listing_span_h"], "96_96")
-        XCTAssertEqual(receipt?.details["live_catalog"], "absent")
+        XCTAssertEqual(receipt?.details["live_catalog"], "present")
     }
 
     func testOwnerAccountSourceLeadsAutomaticChoice() {
@@ -204,7 +222,7 @@ final class HighflySportsAddonTests: XCTestCase {
 }
 
 private actor HighflyTestTransport {
-    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive }
+    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive, liveCatalogOnly }
     private let premium: Bool
     private let mode: Mode
     private var streamCount = 0
@@ -226,7 +244,7 @@ private actor HighflyTestTransport {
         if url.lastPathComponent == "manifest.json" {
             body = ["id": premium ? "community.sports.streamed.premium" : "community.sports.fly", "version": "1.3.0",
                 "resources": ["catalog", "meta", "stream"].map { ["name": $0, "types": ["sport"], "idPrefixes": ["streamed:"]] },
-                "catalogs": [["id": "sports_football", "type": "sport"]]]
+                "catalogs": [["id": "sports_football", "type": "sport"], ["id": "sports_live", "type": "sport"]]]
         } else if url.path.contains("/catalog/") {
             catalogPaths.append(url.lastPathComponent)
             var later = row
@@ -234,6 +252,7 @@ private actor HighflyTestTransport {
             later["description"] = "Arsenal vs Everton\n14 Nov 2026 · 18:00 UTC"; later["releaseInfo"] = "14 Nov 2026 · 18:00 UTC"
             let searching = url.absoluteString.contains("search=")
             switch mode {
+            case .liveCatalogOnly: body = ["metas": url.lastPathComponent == "sports_live.json" ? [row] : url.absoluteString.contains("skip=") ? [] : [later]]
             case .searchOmitsLive: body = ["metas": url.absoluteString.contains("skip=") ? [] : searching ? [later] : [later, row]]
             case .listingOmitsLive: body = ["metas": url.absoluteString.contains("skip=") ? [] : [later]]
             default: body = ["metas": url.absoluteString.contains("skip=") || !searching ? [] : [row]]

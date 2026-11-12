@@ -155,12 +155,16 @@ actor HighflySportsAddonClient {
         var missReason: String?, rowCount: Int?, unmatchedTeam: String?, kickoffOffset: Int?
         var searchScope = "search"
         var listingSpan: String?, liveCatalog: String?
+        var liveRows: Int?, liveShape: String?, liveSameSport: Int?
         defer {
             var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
             if let missReason { details["reason_code"] = missReason }
             if stage != "manifest", stage != "search" { details["search_scope"] = searchScope }
             if let listingSpan { details["listing_span_h"] = listingSpan }
             if let liveCatalog { details["live_catalog"] = liveCatalog }
+            if let liveRows { details["live_row_count"] = "\(liveRows)" }
+            if let liveShape { details["live_row_shape"] = liveShape }
+            if let liveSameSport { details["live_sport_rows"] = "\(liveSameSport)" }
             if let rowCount { details["candidate_count"] = "\(rowCount)" }
             if let unmatchedTeam { details["unmatched_team"] = unmatchedTeam }
             if let kickoffOffset {
@@ -213,6 +217,28 @@ actor HighflySportsAddonClient {
         catch CommunitySportsAddonError.matchNotFound { searchMissed = true }
         catch {}
         if searchMissed {
+            // Jet build 305: the dated listing starts 1-8 h ahead, so a game
+            // leaves it at kickoff. The account's live catalog carries games
+            // in progress; its rows face the same exact identity rules.
+            stage = "live"
+            var live: [Row] = []
+            for catalog in manifest.catalogs.filter({ $0.type == "sport" && $0.id.lowercased().contains("live") }).prefix(2) {
+                guard catalog.id.range(of: #"^[A-Za-z0-9_.-]{1,64}$"#, options: .regularExpression) != nil else { continue }
+                for _ in 0..<Self.browsePageLimit {
+                    let pageCount = live.count
+                    let extra = catalog.id + (pageCount == 0 ? "" : "/skip=\(pageCount)") + ".json"
+                    guard let url = URL(string: root.absoluteString + "catalog/sport/" + extra) else { throw CommunitySportsAddonError.unsafeResponse }
+                    let page: Catalog = try await read(url)
+                    guard page.metas.count <= 100, live.count + page.metas.count <= 600 else { throw CommunitySportsAddonError.unsafeResponse }
+                    live += page.metas
+                    if page.metas.count < 100 { break }
+                }
+            }
+            liveRows = live.count
+            liveShape = live.lazy.compactMap { Self.identityRejection($0) }.first ?? (live.isEmpty ? nil : "parsed")
+            liveSameSport = live.filter { Self.identity($0)?.sport == original.sport }.count
+            let seen = Set(rows.map(\.id))
+            rows += live.filter { !seen.contains($0.id) }
             stage = "browse"
             searchScope = "search_and_browse"
             var browsed: [Row] = []
@@ -392,6 +418,19 @@ actor HighflySportsAddonClient {
             return .init(metadataID: row.id, effectiveID: row.id, identity: identity)
         }
     }
+    /// Diagnostic: the first identity rule a row fails (nil = parsed). Never a title.
+    nonisolated static func identityRejection(_ row: Row) -> String? {
+        guard identity(row) == nil else { return nil }
+        if row.type != "sport" { return "type" }
+        if !supports(category: row.category) { return "category" }
+        if row.id.range(of: #"^(streamed|sf|leaf|recap):[A-Za-z0-9_~.-]{1,400}$"#, options: .regularExpression) == nil || row.id.hasPrefix("recap:") { return "id_prefix" }
+        let parts = row.description.components(separatedBy: "\n")
+        if parts.count != 2 { return "description_lines_\(min(parts.count, 9))" }
+        if parts[1] != row.releaseInfo { return row.releaseInfo.isEmpty ? "no_release_info" : "release_info_differs" }
+        if !(row.name == parts[0] || row.category == "cricket" && row.name.hasPrefix(parts[0] + " - ")) { return "name_differs" }
+        return "date_or_teams"
+    }
+
     nonisolated static func identity(_ row: Row) -> ReviewedSportsFixtureMatcher.FixtureIdentity? {
         guard row.type == "sport", supports(category: row.category), row.name.utf8.count <= 1024,
               row.description.utf8.count <= 4096,
