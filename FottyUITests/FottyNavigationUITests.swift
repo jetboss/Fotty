@@ -339,10 +339,9 @@ final class FottyNavigationUITests: XCTestCase {
         defer { resize(originalSize) }
         resize(CGSize(width: 1180, height: 950))
         XCTAssertGreaterThan(window.frame.width, 1000)
-        let todayID = "match-start-countdown-cpl-2026-ui-today"
-        let nextID = "match-start-countdown-cpl-2026-ui-next"
-        let today = app.staticTexts[todayID]
-        let next = app.staticTexts[nextID]
+        // Home rows carry their countdown in the row's own secondary line.
+        let today = rowStatusElement("cpl-2026-ui-today")
+        let next = rowStatusElement("cpl-2026-ui-next")
         reveal(today)
         XCTAssertTrue(today.label.contains("1h 5m"))
         XCTAssertEqual(today.frame.minY, next.frame.minY, accuracy: 12)
@@ -366,7 +365,9 @@ final class FottyNavigationUITests: XCTestCase {
                              "A narrow window must not retain a half-width landscape card")
         reveal(next)
         XCTAssertTrue(next.label.contains("25m"), "The surviving upcoming row must use the current clock: \(next.label)")
-        XCTAssertEqual(app.staticTexts.matching(identifier: nextID).count, 1, "An upcoming card cannot remain duplicated under Live now")
+        let nextCopies = max(app.staticTexts.matching(identifier: "match-start-countdown-cpl-2026-ui-next").count,
+                             app.descendants(matching: .any).matching(identifier: "home-event-cpl-2026-ui-next").count)
+        XCTAssertEqual(nextCopies, 1, "An upcoming card cannot remain duplicated under Live now")
         XCTAssertGreaterThan(next.frame.minY, today.frame.minY)
         openSettingsFromHome()
         tapBetaControl(app.buttons["tab-home"])
@@ -419,7 +420,7 @@ final class FottyNavigationUITests: XCTestCase {
         reveal(seeAll)
         tapBetaControl(seeAll)
         XCTAssertTrue(app.descendants(matching: .any)["home-full-lineup"].firstMatch.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.descendants(matching: .any)["match-start-countdown-ui-rugby"].firstMatch.exists)
+        XCTAssertTrue(rowStatusElement("ui-rugby").exists)
         XCTAssertFalse(app.buttons["match-start-play-ui-rugby"].exists, "A future source-free row must not open an empty player")
         tapBetaControl(app.buttons["tab-arena"])
         XCTAssertTrue(app.staticTexts["Trinbago Knight Riders"].waitForExistence(timeout: 5))
@@ -1387,5 +1388,14 @@ final class Fotty25PhysicalUIJourneyTests: XCTestCase {
     private func captureDisplay(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+}
+
+extension FottyNavigationUITests {
+    /// A row's status: the separate countdown element where a screen still
+    /// draws one, otherwise the row itself (Home rows embed the status).
+    func rowStatusElement(_ eventID: String) -> XCUIElement {
+        let countdown = app.descendants(matching: .any)["match-start-countdown-\(eventID)"].firstMatch
+        return countdown.exists ? countdown : app.descendants(matching: .any)["home-event-\(eventID)"].firstMatch
     }
 }

@@ -1001,7 +1001,8 @@ struct HomeScheduleRow: View {
             alternateActionTitle: alternateActionTitle,
             onCheckStreams: onCheckStreams,
             compact: true,
-            minimumInformationWidth: minimumInformationWidth
+            minimumInformationWidth: minimumInformationWidth,
+            embedsInlineStatus: true
         ) {
             eventInformation
                 .modifier(HomeRowSecondaryActions(event: item.event, isSaved: isSaved, saveTitle: saveTitle,
@@ -1066,13 +1067,17 @@ struct HomeScheduleRow: View {
                 .frame(width: 62, alignment: .leading)
             VStack(alignment: .leading, spacing: 3) {
                 matchIdentity
-                // Future countdowns belong below the names; current rows must
-                // still retain their score/confirmed-vs-listed qualifier.
-                Text(competitionAndStatus)
-                    .font(FottyTheme.typeMeta)
-                    .foregroundStyle(item.hasConfirmedLiveStatus ? FottyTheme.error : FottyTheme.textSecondary)
-                    .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
-                    .fixedSize(horizontal: false, vertical: true)
+                // Countdown/result joins the competition line under the names
+                // (never beside them), so a row needs no extra status line.
+                TimelineView(MatchCountdownSchedule(kickoff: item.event.isBroadcastChannel ? nil : item.event.kickoffDate)) { context in
+                    Text(secondaryLine(at: now ?? context.date))
+                        .font(FottyTheme.typeMeta)
+                        .monospacedDigit()
+                        .foregroundStyle(item.hasConfirmedLiveStatus ? FottyTheme.error : FottyTheme.textSecondary)
+                        .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("home-row-status-\(item.id)")
+                }
                 if isSaved { CatalogSavedStateLabel(eventID: item.id) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1108,6 +1113,14 @@ struct HomeScheduleRow: View {
             .foregroundStyle(FottyTheme.textPrimary)
             .lineLimit(nil)
             .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func secondaryLine(at date: Date) -> String {
+        guard let status = MatchRowInlineStatus.text(event: item.event, status: item.officialStatus, now: date,
+            hasWatch: true, hasAlternate: alternateActionTitle != nil, checksStreams: onCheckStreams != nil),
+              !competitionAndStatus.hasSuffix(status) else { return competitionAndStatus }
+        // Keep "Starts 1:00 PM" together: wrap before it, never inside it.
+        return "\(competitionAndStatus) · \(status.replacingOccurrences(of: " ", with: "\u{00A0}"))"
     }
 
     private var competitionAndStatus: String {

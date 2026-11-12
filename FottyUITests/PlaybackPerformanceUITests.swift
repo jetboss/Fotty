@@ -228,9 +228,11 @@ final class PlaybackPerformanceUITests: XCTestCase {
             for row in rows.allElementsBoundByIndex.prefix(12) where row.isHittable {
                 let eventID = String(row.identifier.dropFirst("home-event-".count))
                 guard !isSavedOnHome(eventID) else { continue }
-                let countdown = app.descendants(matching: .any).matching(identifier: "match-start-countdown-\(eventID)").firstMatch
-                guard countdown.exists else { continue }
+                let separate = app.descendants(matching: .any).matching(identifier: "match-start-countdown-\(eventID)").firstMatch
+                // Home rows embed the countdown in the row label ("… · Starts in 40m").
+                let countdown = separate.exists ? separate : row
                 let label = countdown.label.lowercased()
+                    .replacingOccurrences(of: #"^.* · starts in"#, with: "scheduled starts in", options: .regularExpression)
                 // A real scheduled countdown proves a dated fixture, not an
                 // undated channel. Avoid a near-kickoff row moving mid-check.
                 guard label.hasPrefix("scheduled starts in"),

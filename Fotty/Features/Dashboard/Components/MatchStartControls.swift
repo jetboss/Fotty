@@ -127,6 +127,29 @@ struct InlineReminderFeedbackState {
 
 /// Only visible countdown rows tick. Distant starts update once a minute;
 /// the final five minutes update each second, with no data/provider requests.
+/// The status a row without a playback action shows ("Starts 1:00 PM",
+/// "Finished", "No stream found yet"). Shared by MatchStartControls and rows
+/// that embed it in their own secondary line.
+@MainActor
+enum MatchRowInlineStatus {
+    static func hasPlaybackAction(policy: MatchStartPolicy, hasWatch: Bool, hasAlternate: Bool,
+                                  lookup: FixtureSourceLookupPresentation.State?) -> Bool {
+        (hasWatch && (policy.canAttemptPlayback || (hasAlternate && policy.timingAllowsPlayback)))
+            || lookup?.canTriggerLookup == true
+    }
+
+    /// Nil when the row shows a Watch/Check action instead of a status.
+    static func text(event: AnalyticalDataEngine.EventReference, status: FootballMatch.MatchStatus?, now: Date,
+                     hasWatch: Bool, hasAlternate: Bool, checksStreams: Bool) -> String? {
+        let policy = MatchStartPolicy(event: event, now: now, status: status)
+        let lookup = checksStreams ? FixtureSourceLookupPresentation.state(for: event,
+            at: HomeSportsDiscovery.automatedClockDate ?? Date(), status: status) : nil
+        guard !hasPlaybackAction(policy: policy, hasWatch: hasWatch, hasAlternate: hasAlternate, lookup: lookup) else { return nil }
+        if let lookup, !lookup.canWatch { return lookup.statusTitle }
+        return policy.title
+    }
+}
+
 struct MatchCountdownSchedule: TimelineSchedule {
     let kickoff: Date?
     func entries(from startDate: Date, mode: TimelineScheduleMode) -> AnySequence<Date> {
@@ -279,6 +302,9 @@ struct MatchStartControls<Information: View>: View {
     var showsReminder = true
     var compact = false
     var minimumInformationWidth: CGFloat? = nil
+    /// The row draws its own status line (see `MatchRowInlineStatus`), so
+    /// this wrapper does not add a separate one under the artwork.
+    var embedsInlineStatus = false
     private let information: Information
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -299,7 +325,9 @@ struct MatchStartControls<Information: View>: View {
          onCheckStreams: (() -> Void)? = nil,
          showsReminder: Bool = true, compact: Bool = false,
          minimumInformationWidth: CGFloat? = nil,
+         embedsInlineStatus: Bool = false,
          @ViewBuilder information: () -> Information) {
+        self.embedsInlineStatus = embedsInlineStatus
         self.event = event
         self.status = status
         self.now = now
@@ -349,7 +377,7 @@ struct MatchStartControls<Information: View>: View {
                                forceStack: typeSize.isAccessibilitySize) {
                     VStack(alignment: .leading, spacing: 5) {
                         information
-                        if inlineStatus {
+                        if inlineStatus && !embedsInlineStatus {
                             statusInformation(policy: policy)
                         }
                     }
@@ -402,8 +430,8 @@ struct MatchStartControls<Information: View>: View {
     }
 
     private func hasPlaybackAction(_ policy: MatchStartPolicy) -> Bool {
-        (onWatch != nil && (policy.canAttemptPlayback || (alternateActionTitle != nil && policy.timingAllowsPlayback)))
-            || lookupState()?.canTriggerLookup == true
+        MatchRowInlineStatus.hasPlaybackAction(policy: policy, hasWatch: onWatch != nil,
+            hasAlternate: alternateActionTitle != nil, lookup: lookupState())
     }
 
     private func lookupState() -> FixtureSourceLookupPresentation.State? {
