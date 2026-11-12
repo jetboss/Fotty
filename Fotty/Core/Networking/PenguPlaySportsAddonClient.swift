@@ -200,9 +200,11 @@ actor PenguPlaySportsAddonClient {
         var stage = "manifest"
         var finished = false
         lastReadFailure = nil
+        var missReason: String?, rowCount: Int?
         defer {
             var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
-            if !finished, let failure = lastReadFailure { details["reason_code"] = failure }
+            if !finished, let failure = lastReadFailure ?? missReason { details["reason_code"] = failure }
+            if let rowCount { details["candidate_count"] = "\(rowCount)" }
             FottyQualityStore.shared.record(category: .playback, name: "penguplay_lookup", outcome: finished ? .success : .info,
                 details: details)
         }
@@ -225,9 +227,14 @@ actor PenguPlaySportsAddonClient {
         stage = "fixture_match"
         var viaChannel: CricketBroadcastChannel? = channelTile
         let selected: Row
+        if channelTile == nil { rowCount = Set(rows.map(\.id)).count }
         if channelTile == nil, let exact = try? Self.select(request: request, rows: rows, now: now) {
             selected = exact
         } else {
+            if channelTile == nil, let requestID = original {
+                missReason = ReviewedSportsFixtureMatcher.missReason(for: requestID,
+                    parsed: rows.map { Self.identity($0, sport: requestID.sport) })
+            }
             if viaChannel == nil {
                 // Exact listing missed: only a current reviewed programme names the channel.
                 stage = "programme_channel"

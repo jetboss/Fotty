@@ -125,6 +125,27 @@ enum ReviewedSportsFixtureMatcher {
         return nil
     }
 
+    /// Diagnostic only: why no row matched, as a fixed label (never a title).
+    /// `screened` are identities the adapter rejected on extra evidence
+    /// (e.g. cricket format or match number) after they had parsed.
+    nonisolated static func missReason(for request: RequestIdentity, parsed: [FixtureIdentity?],
+                                       screened: [FixtureIdentity] = []) -> String {
+        guard !parsed.isEmpty else { return "no_rows" }
+        let near: (FixtureIdentity) -> Bool = { $0.pair == request.pair && abs($0.kickoff.timeIntervalSince(request.kickoff)) <= 15 * 60 }
+        if screened.contains(where: { $0.sport == request.sport && near($0) }) { return "format_or_match_number_differs" }
+        let readable = (parsed.compactMap { $0 } + screened).filter { $0.sport == request.sport }
+        guard !readable.isEmpty else { return "unreadable_rows" }
+        if readable.contains(where: near) { return "conflicting_rows" }
+        if readable.contains(where: { $0.pair == request.pair }) { return "kickoff_differs" }
+        let qualifiers = #"\|(?:women|reserves|youth|academy|ladies|w|u\d{1,2})(?:,(?:women|reserves|youth|academy|ladies|w|u\d{1,2}))*$"#
+        let base: ([String]) -> [String] = { pair in
+            pair.map { $0.replacingOccurrences(of: qualifiers, with: "", options: .regularExpression) }.sorted()
+        }
+        if readable.contains(where: { base($0.pair) == base(request.pair) }) { return "squad_differs" }
+        if readable.contains(where: { !Set(base($0.pair)).isDisjoint(with: base(request.pair)) }) { return "one_team_matches" }
+        return "teams_differ"
+    }
+
     nonisolated static func select(
         for request: RequestIdentity, from candidates: [Candidate]
     ) -> Selection {

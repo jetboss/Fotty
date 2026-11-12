@@ -145,9 +145,13 @@ actor HighflySportsAddonClient {
         // One lookup receipt per eligible request: the stage reached, never titles or URLs.
         var stage = "manifest"
         var finished = false
+        var missReason: String?, rowCount: Int?
         defer {
+            var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
+            if let missReason { details["reason_code"] = missReason }
+            if let rowCount { details["candidate_count"] = "\(rowCount)" }
             FottyQualityStore.shared.record(category: .playback, name: "highfly_lookup", outcome: finished ? .success : .info,
-                details: ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage])
+                details: details)
         }
         let manifest: Manifest = try await read(manifestURL)
         let catalogID = Self.catalogID(forSport: original.sport)
@@ -174,7 +178,10 @@ actor HighflySportsAddonClient {
             }
         }
         stage = "fixture_match"
-        let selected = try Self.select(request: request, rows: rows, now: now)
+        rowCount = Set(rows.map(\.id)).count
+        let selected: Row
+        do { selected = try Self.select(request: request, rows: rows, now: now) }
+        catch { missReason = Self.missReason(request: request, rows: rows, now: now); throw error }
         stage = "streams"
         guard manifest.resources.filter({ $0.name == "stream" }).contains(where: { $0.idPrefixes?.contains(where: { selected.id.hasPrefix($0) }) == true }) else {
             throw CommunitySportsAddonError.invalidManifest
@@ -242,7 +249,26 @@ actor HighflySportsAddonClient {
     }
     nonisolated static func select(request: StreamPlaybackRequest, rows: [Row], now: Date) throws -> Row {
         guard let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request), request.preferredEvent?.hasCatalogIdentityConflict != true else { throw CommunitySportsAddonError.matchNotFound }
-        let candidates = rows.map { row -> ReviewedSportsFixtureMatcher.Candidate in
+        let candidates = screenedCandidates(request: request, requestID: requestID, rows: rows, now: now)
+        switch ReviewedSportsFixtureMatcher.select(for: requestID, from: candidates) {
+        case .matched(let index): return rows[index]
+        case .missing: throw CommunitySportsAddonError.matchNotFound
+        case .conflicting: throw CommunitySportsAddonError.conflictingMatch
+        }
+    }
+
+    /// Diagnostic label for a lookup that found no row (never a title).
+    nonisolated static func missReason(request: StreamPlaybackRequest, rows: [Row], now: Date) -> String {
+        guard let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else { return "no_request_identity" }
+        let parsed = rows.map { Self.identity($0) }
+        let final = screenedCandidates(request: request, requestID: requestID, rows: rows, now: now)
+        let screened = zip(parsed, final).compactMap { raw, kept in kept.identity == nil ? raw : nil }
+        return ReviewedSportsFixtureMatcher.missReason(for: requestID, parsed: parsed, screened: screened)
+    }
+
+    nonisolated private static func screenedCandidates(request: StreamPlaybackRequest,
+            requestID: ReviewedSportsFixtureMatcher.RequestIdentity, rows: [Row], now: Date) -> [ReviewedSportsFixtureMatcher.Candidate] {
+        rows.map { row -> ReviewedSportsFixtureMatcher.Candidate in
             var identity = Self.identity(row)
             if requestID.sport == "cricket", let candidate = identity {
                 guard let official = request.preferredEvent?.cricketFixture, official.verified, !official.status.stopsPlayback,
@@ -268,11 +294,6 @@ actor HighflySportsAddonClient {
                 }
             }
             return .init(metadataID: row.id, effectiveID: row.id, identity: identity)
-        }
-        switch ReviewedSportsFixtureMatcher.select(for: requestID, from: candidates) {
-        case .matched(let index): return rows[index]
-        case .missing: throw CommunitySportsAddonError.matchNotFound
-        case .conflicting: throw CommunitySportsAddonError.conflictingMatch
         }
     }
     nonisolated static func identity(_ row: Row) -> ReviewedSportsFixtureMatcher.FixtureIdentity? {

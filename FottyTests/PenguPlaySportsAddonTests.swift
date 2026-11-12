@@ -140,6 +140,20 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         XCTAssertEqual(lookup.details["reason_code"], "http_429")
     }
 
+    func testMissReasonNamesWhyNoRowMatched() throws {
+        let wbbl = request(home: "Melbourne Renegades Women", away: "Sydney Sixers Women", sport: "cricket")
+        let id = try XCTUnwrap(ReviewedSportsFixtureMatcher.requestIdentity(for: wbbl))
+        func reason(_ rows: [Client.Row]) -> String {
+            ReviewedSportsFixtureMatcher.missReason(for: id, parsed: rows.map { Client.identity($0, sport: "cricket") })
+        }
+        XCTAssertEqual(reason([]), "no_rows")
+        XCTAssertEqual(reason([row("🔴 LIVE: WBBL")]), "unreadable_rows")
+        XCTAssertEqual(reason([row("🔴 LIVE: Sydney Thunder W vs Perth W")]), "teams_differ", "Today's mislabelled listing")
+        XCTAssertEqual(reason([row("🔴 LIVE: Melbourne Renegades W vs Sydney Sixers W", released: "2026-11-12T03:00:00.000Z")]), "kickoff_differs")
+        XCTAssertEqual(reason([row("🔴 LIVE: Melbourne Renegades vs Sydney Sixers")]), "squad_differs")
+        XCTAssertEqual(reason([row("🔴 LIVE: Melbourne Renegades W vs Hobart W")]), "one_team_matches")
+    }
+
     func testChannelRowNeedsExactChannelTitle() throws {
         let fox = row("🔴 LIVE: Fox Cricket", id: "pp-live:dl~fox")
         let rows = [row("🔴 LIVE: WBBL", id: "pp-live:dl~wbbl"), row("📺 Fox Cricket", id: "pp-live:dl~old"), fox]
