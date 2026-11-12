@@ -1288,6 +1288,9 @@ enum ViewingExperienceLayout {
 
     static func usesVideoFirstSinglePlayer(isPad: Bool, isTwo: Bool) -> Bool { isPad && !isTwo }
 
+    /// Wide windows show info beside the picture; narrower ones use a sheet.
+    static func usesInfoPanel(width: CGFloat, accessibility: Bool) -> Bool { width >= 900 && !accessibility }
+
     /// The stage has already excluded safe areas and the control dock. Fit both
     /// axes without reserving an unrequested inspector or cropping the programme.
     static func singleVideoSize(in available: CGSize) -> CGSize {

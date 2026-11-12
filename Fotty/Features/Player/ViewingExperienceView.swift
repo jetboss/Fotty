@@ -266,49 +266,29 @@ struct ViewingExperienceView: View {
     @State private var companionTab = CompanionTab.live
     @State private var focusVideo = false
     @State private var showsTabletDetails = false
+    @State private var showsInfoPanel = false
+    @State private var chromeIsDimmed = false
+    @State private var chromeWake = 0
+    @State private var lastStageWidth: CGFloat = 0
     @State private var singleFeedbackContext: SinglePlaybackFeedbackContext?
     @State private var broadcastRegistry = BroadcastRegistryClient.shared
     enum CompanionTab: String, CaseIterable { case live = "Live", details = "Match" }
 
     var body: some View {
         GeometryReader { proxy in
-            let wide = ViewingExperienceLayout.usesCompanion(width: proxy.size.width, accessibility: typeSize.isAccessibilitySize)
-            let videoFirst = ViewingExperienceLayout.usesVideoFirstSinglePlayer(
-                isPad: UIDevice.current.userInterfaceIdiom == .pad, isTwo: viewing.isTwo)
-            if videoFirst, let pane = viewing.primary {
-                tabletSinglePlayer(pane, size: proxy.size)
-            } else {
-            VStack(spacing: 0) {
-                if viewing.isTwo { toolbar }
-                else if let pane = viewing.primary { singleToolbar(pane) }
-                if viewing.isTwo {
-                    twoMatches(size: proxy.size)
-                } else if let pane = viewing.primary {
-                    if focusVideo {
-                        // Fit both axes of a short landscape window. Focus is
-                        // not a width-driven video hidden below a scroll edge.
-                        ViewingSurfaceSlot(id: pane.id)
-                            .aspectRatio(16/9, contentMode: .fit)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .padding(16)
-                        singleFocusActions(pane)
-                    } else { ScrollView {
-                        if wide && !focusVideo {
-                            HStack(alignment: .top, spacing: 24) {
-                                singleColumn(pane).frame(maxWidth: .infinity)
-                                companion(pane).frame(width: min(340, proxy.size.width * 0.28))
-                            }
-                            .padding(20)
-                        } else {
-                            VStack(alignment: .leading, spacing: 20) {
-                                singleColumn(pane)
-                                if !focusVideo { companion(pane) }
-                            }.padding(16)
+            if !viewing.isTwo, let pane = viewing.primary {
+                singleStage(pane, size: proxy.size)
+                    .onAppear { lastStageWidth = proxy.size.width }
+                    .onChange(of: proxy.size.width) { _, width in
+                        lastStageWidth = width
+                        if !ViewingExperienceLayout.usesInfoPanel(width: width, accessibility: typeSize.isAccessibilitySize) {
+                            showsInfoPanel = false
                         }
                     }
-                    .background(ViewingViewportMarker())
-                    }
-                }
+            } else {
+            VStack(spacing: 0) {
+                toolbar
+                if viewing.isTwo { twoMatches(size: proxy.size) }
             }
             .background(FottyTheme.background)
             .preferredColorScheme(viewing.isTwo ? nil : .dark)
@@ -353,6 +333,7 @@ struct ViewingExperienceView: View {
         }
         .onChange(of: viewing.primary?.id) { _, _ in
             showsTabletDetails = false
+            showsInfoPanel = false
             singleFeedbackContext = nil
         }
         .onChange(of: viewing.isTwo) { _, isTwo in
@@ -360,158 +341,224 @@ struct ViewingExperienceView: View {
         }
     }
 
-    /// Only layout slots move. ViewingSessionShell keeps the real media surface,
-    /// player/item and attempt mounted, including while either sheet is open.
-    private func tabletSinglePlayer(_ pane: ViewingSessionCoordinator.Pane, size: CGSize) -> some View {
-        let compactControls = typeSize.isAccessibilitySize || size.width < 600 || size.height < 500
-        return VStack(spacing: 0) {
-            tabletToolbar(pane, compact: compactControls)
-            GeometryReader { stage in
-                let video = ViewingExperienceLayout.singleVideoSize(in: stage.size)
-                ViewingSurfaceSlot(id: pane.id)
-                    .frame(width: video.width, height: video.height)
-                    .position(x: stage.size.width / 2, y: stage.size.height / 2)
+    /// Apple TV-style black stage for one match, on iPhone and iPad.
+    /// Only layout slots move: ViewingSessionShell keeps the real media
+    /// surface, player/item and attempt mounted, including while info opens.
+    /// Chrome sits in the black margins, never over the retained picture, so
+    /// provider/native controls keep every tap on the video itself.
+    private func singleStage(_ pane: ViewingSessionCoordinator.Pane, size: CGSize) -> some View {
+        let isPad = UIDevice.current.userInterfaceIdiom == .pad
+        let landscapePhone = !isPad && size.width > size.height && size.height < 500
+        let panel = showsInfoPanel && ViewingExperienceLayout.usesInfoPanel(width: size.width,
+            accessibility: typeSize.isAccessibilitySize)
+        return HStack(spacing: 0) {
+            Group {
+                if landscapePhone {
+                    HStack(spacing: 0) {
+                        VStack { minimizeControl; Spacer() }.padding(.vertical, 8)
+                        stageVideo(pane)
+                        VStack(spacing: 4) {
+                            closeControl; optionsControl(pane); infoControl(pane, panel: false)
+                            Spacer()
+                            sourceControl(pane, compact: true)
+                        }.padding(.vertical, 8)
+                    }
+                    .padding(.horizontal, 4)
+                } else {
+                    VStack(spacing: 0) {
+                        stageChrome(pane, wide: size.width >= 600 && !panel, panelAvailable:
+                            ViewingExperienceLayout.usesInfoPanel(width: size.width, accessibility: typeSize.isAccessibilitySize))
+                        stageVideo(pane)
+                        matchLine(pane)
+                    }
+                }
             }
-            // Publish this on every resize/orientation, not a departed scroll
-            // branch's viewport. Retained media must never clip to stale bounds.
-            .background(ViewingViewportMarker())
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            tabletControlDock(pane, compact: compactControls)
+            if panel {
+                infoPanel(pane).frame(width: 340)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
         }
-        .background(Color.black)
+        .animation(.easeInOut(duration: 0.25), value: panel)
+        .background {
+            // Taps on the black margins wake dimmed chrome. The retained
+            // picture is drawn above this layer, so it never sees this gesture.
+            Color.black.contentShape(Rectangle()).onTapGesture { wakeChrome() }
+        }
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
         .preferredColorScheme(.dark)
+        .task(id: chromeWake) {
+            guard !UIAccessibility.isVoiceOverRunning, !typeSize.isAccessibilitySize else { return }
+            try? await Task.sleep(for: .seconds(4))
+            withAnimation(.easeOut(duration: 0.6)) { chromeIsDimmed = true }
+        }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("viewing-video-first")
     }
 
-    private func tabletToolbar(_ pane: ViewingSessionCoordinator.Pane, compact: Bool) -> some View {
-        HStack(spacing: compact ? 8 : 12) {
-            Button { viewing.minimize() } label: {
-                Image(systemName: "chevron.down").frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("Minimize player and browse")
-            .accessibilityIdentifier("viewing-minimize")
-            badgePair(pane.event)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(pane.event.displayTitle)
-                .accessibilityHidden(!typeSize.isAccessibilitySize)
-            VStack(alignment: .leading, spacing: 3) {
-                if !typeSize.isAccessibilitySize {
-                    Text(pane.event.displayTitle).font(.headline).fixedSize(horizontal: false, vertical: true)
-                }
-                Text(ViewingPlaybackCopy.status(pane.model))
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+    private func wakeChrome() {
+        withAnimation(.easeOut(duration: 0.2)) { chromeIsDimmed = false }
+        chromeWake &+= 1
+    }
+
+    private func stageVideo(_ pane: ViewingSessionCoordinator.Pane) -> some View {
+        GeometryReader { stage in
+            let video = ViewingExperienceLayout.singleVideoSize(in: stage.size)
+            ViewingSurfaceSlot(id: pane.id)
+                .frame(width: video.width, height: video.height)
+                .position(x: stage.size.width / 2, y: stage.size.height / 2)
+        }
+        // Publish this on every resize/orientation, not a departed branch's
+        // viewport. Retained media must never clip to stale bounds.
+        .background(ViewingViewportMarker())
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    /// Quiet icon row: no bar, divider or fill. Dims after a few idle seconds.
+    private func stageChrome(_ pane: ViewingSessionCoordinator.Pane, wide: Bool, panelAvailable: Bool) -> some View {
+        HStack(spacing: wide ? 8 : 2) {
+            minimizeControl
             Spacer(minLength: 0)
             if !pane.model.isUsingWebEmbed {
-                Button { pane.model.beginNativeFullscreen() } label: {
+                Button { wakeChrome(); pane.model.beginNativeFullscreen() } label: {
                     Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 44, height: 44)
                 }
                 .disabled(!pane.model.canShowNativeFullscreen)
                 .accessibilityLabel("Open native fullscreen player")
                 .accessibilityIdentifier("viewing-native-fullscreen")
             }
-            Button { viewing.stop() } label: {
-                Image(systemName: "xmark").frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("Close player")
-            .accessibilityIdentifier("close-live-player")
+            infoControl(pane, panel: panelAvailable)
+            optionsControl(pane)
+            closeControl
         }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 12).padding(.vertical, 6)
-        .background(FottyTheme.surfaceSubtle)
-        .overlay(alignment: .bottom) { Divider() }
-    }
-
-    private func tabletControlDock(_ pane: ViewingSessionCoordinator.Pane, compact: Bool) -> some View {
-        // These controls deliberately sit OUTSIDE the retained media bounds.
-        // A transparent overlay above WebKit would steal provider control taps;
-        // chrome below the retained surface would instead be untappable.
-        Group {
-            if compact {
-                // Standard action symbols keep a short/narrow/AX window usable;
-                // full button names remain available to VoiceOver and on hover.
-                // Full team names remain readable in the scrollable Details sheet.
-                HStack(spacing: 12) { tabletActions(pane, compact: true) }
-                    .labelStyle(.iconOnly)
-            } else {
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) { tabletActions(pane, compact: false) }
-                    HStack(spacing: 12) { tabletActions(pane, compact: true) }.labelStyle(.iconOnly)
-                }
-            }
-        }
-        .font(.body.weight(.medium))
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.capsule)
-        .tint(.white)
-        .padding(.horizontal, 16).padding(.vertical, 10)
-        .frame(maxWidth: .infinity)
-        .background(FottyTheme.surfaceSubtle)
-        .overlay(alignment: .top) { Divider() }
+        .padding(.horizontal, 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("viewing-control-dock")
     }
 
-    @ViewBuilder private func tabletActions(_ pane: ViewingSessionCoordinator.Pane, compact: Bool) -> some View {
-        Button { pane.model.showSourceSelector = true } label: {
-            Label("Sources", systemImage: "antenna.radiowaves.left.and.right").frame(minHeight: 44)
+    private var minimizeControl: some View {
+        Button { viewing.minimize() } label: {
+            Image(systemName: "chevron.down").frame(width: 44, height: 44)
         }
-        .tint(FottyTheme.accent)
+        .buttonStyle(.plain).font(.title3.weight(.medium))
+        .foregroundStyle(stageChromeStyle)
+        .accessibilityLabel("Minimize player and browse")
+        .accessibilityIdentifier("viewing-minimize")
+    }
+
+    private var closeControl: some View {
+        Button { viewing.stop() } label: {
+            Image(systemName: "xmark").frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain).font(.title3.weight(.medium))
+        .foregroundStyle(stageChromeStyle)
+        .accessibilityLabel("Close player")
+        .accessibilityIdentifier("close-live-player")
+    }
+
+    private func infoControl(_ pane: ViewingSessionCoordinator.Pane, panel: Bool) -> some View {
+        Button {
+            wakeChrome()
+            if panel { showsInfoPanel.toggle() } else { showsTabletDetails = true }
+        } label: {
+            Image(systemName: showsInfoPanel && panel ? "info.circle.fill" : "info.circle").frame(width: 44, height: 44)
+        }
+        .buttonStyle(.plain).font(.title3.weight(.medium))
+        .foregroundStyle(stageChromeStyle)
+        .accessibilityLabel(pane.event.isBroadcastChannel ? "Channel details" : "Match details")
+        .accessibilityIdentifier("viewing-details")
+    }
+
+    private func optionsControl(_ pane: ViewingSessionCoordinator.Pane) -> some View {
+        singleOptions(pane, showsFocusOption: false, includesAddMatch: true)
+            .buttonStyle(.plain).font(.title3.weight(.medium))
+            .foregroundStyle(stageChromeStyle)
+    }
+
+    private var stageChromeStyle: Color {
+        Color.white.opacity(chromeIsDimmed ? 0.28 : 0.72)
+    }
+
+    /// One quiet line under the picture: badges, score, minute, source.
+    private func matchLine(_ pane: ViewingSessionCoordinator.Pane) -> some View {
+        let live = score(for: pane.event)
+        let teams = !pane.event.isBroadcastChannel && !pane.event.awayName.isEmpty
+        let headline = teams && live != nil
+            ? "\(pane.event.homeName) \(live!.homeGoals)–\(live!.awayGoals) \(pane.event.awayName)"
+            : pane.event.displayTitle
+        let detail = live?.minute ?? ViewingPlaybackCopy.status(pane.model)
+        return HStack(alignment: .center, spacing: 12) {
+            Button { wakeChrome(); openInfo(pane) } label: {
+                HStack(spacing: 10) {
+                    badgePair(pane.event).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(headline).font(.headline).foregroundStyle(.white)
+                            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+                        Text(detail).font(.subheadline).foregroundStyle(.white.opacity(0.6))
+                            .lineLimit(typeSize.isAccessibilitySize ? nil : 1)
+                    }
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityHint("Shows match details")
+            .accessibilityIdentifier("viewing-match-line")
+            Spacer(minLength: 0)
+            sourceControl(pane, compact: false)
+        }
+        .padding(.horizontal, 20).padding(.top, 10).padding(.bottom, 14)
+    }
+
+    private func sourceControl(_ pane: ViewingSessionCoordinator.Pane, compact: Bool) -> some View {
+        Button { wakeChrome(); pane.model.showSourceSelector = true } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "antenna.radiowaves.left.and.right")
+                if !compact, let name = pane.model.activeSession?.providerName { Text(name).monospacedDigit() }
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(stageChromeStyle)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Sources")
         .accessibilityValue(pane.model.activeSession?.providerName ?? "No source selected")
         .accessibilityIdentifier("viewing-sources")
-        .help("Sources")
-        Button { showsTabletDetails = true } label: {
-            Label("Details", systemImage: "info.circle").frame(minHeight: 44)
-        }
-        .accessibilityIdentifier("viewing-details")
-        .help(pane.event.isBroadcastChannel ? "Channel details" : "Match details")
-        if !compact {
-            Button { viewing.showMatchPicker() } label: {
-                Label("Add match", systemImage: "rectangle.split.2x1").frame(minHeight: 44)
-            }
-            .accessibilityLabel("Add a second match")
-            .accessibilityIdentifier("viewing-watch-two")
-        }
-        singleOptions(pane, showsFocusOption: false, includesAddMatch: compact)
     }
 
-    /// The phone header carries navigation; full match identity belongs beside
-    /// its badges below the video. Repeating long team names above and below
-    /// the picture made the controls compete with the content at phone widths.
-    private func singleToolbar(_ pane: ViewingSessionCoordinator.Pane) -> some View {
-        SinglePlayerNavigationHeader(
-            subtitle: focusVideo ? ViewingPlaybackCopy.status(pane.model) : pane.event.categoryDisplayName,
-            showsNativeFullscreen: !pane.model.isUsingWebEmbed,
-            enablesNativeFullscreen: pane.model.canShowNativeFullscreen, isFocused: focusVideo,
-            onMinimize: { viewing.minimize() },
-            onNativeFullscreen: { pane.model.beginNativeFullscreen() },
-            onExitFocus: { focusVideo = false }, onClose: { viewing.stop() })
+    private func openInfo(_ pane: ViewingSessionCoordinator.Pane) {
+        if ViewingExperienceLayout.usesInfoPanel(width: lastStageWidth, accessibility: typeSize.isAccessibilitySize) {
+            showsInfoPanel = true
+        } else { showsTabletDetails = true }
     }
 
-    private func singleFocusActions(_ pane: ViewingSessionCoordinator.Pane) -> some View {
-        HStack(spacing: 12) {
-            Button { pane.model.showSourceSelector = true } label: {
-                Label("Sources", systemImage: "antenna.radiowaves.left.and.right").frame(minHeight: 44)
+    /// iPad info beside the picture; the video refits into the narrower stage.
+    private func infoPanel(_ pane: ViewingSessionCoordinator.Pane) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(pane.event.isBroadcastChannel ? "Channel" : "Info").font(.headline)
+                Spacer()
+                Button("Done") { showsInfoPanel = false }
+                    .font(.body.weight(.semibold))
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("viewing-details-done")
             }
-            .tint(FottyTheme.accent)
-            .accessibilityIdentifier("viewing-sources")
-            Button { showsTabletDetails = true } label: {
-                Label(pane.event.isBroadcastChannel ? "Channel details" : "Match details", systemImage: "info.circle").frame(minHeight: 44)
+            .padding(.horizontal, 20).padding(.top, 8)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    SinglePlayerMatchIdentity(event: pane.event, status: ViewingPlaybackCopy.status(pane.model),
+                        scoreText: score(for: pane.event).map { "\($0.homeGoals)–\($0.awayGoals)" })
+                    companion(pane, showsHeading: false)
+                }
+                .padding(20)
             }
-            .accessibilityLabel("\(pane.event.isBroadcastChannel ? "Channel details" : "Match details") for \(pane.event.displayTitle)")
-            .accessibilityIdentifier("viewing-details")
         }
-        .if(typeSize.isAccessibilitySize) { $0.labelStyle(.iconOnly) }
-        .font(.subheadline.weight(.semibold))
-        .buttonStyle(.bordered).buttonBorderShape(.capsule)
-        .tint(.white)
-        .padding(.horizontal, 16).padding(.vertical, 8)
-        .frame(maxWidth: .infinity)
-        .background(FottyTheme.surfaceSubtle)
+        .background(Color(white: 0.09))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("viewing-info-panel")
     }
 
     private var toolbar: some View {
@@ -544,41 +591,6 @@ struct ViewingExperienceView: View {
         }
         .padding(.horizontal, 12).padding(.vertical, 4)
         .background(FottyTheme.surfaceSubtle)
-    }
-
-    private func singleColumn(_ pane: ViewingSessionCoordinator.Pane) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ViewingSurfaceSlot(id: pane.id).aspectRatio(16/9, contentMode: .fit)
-                .clipShape(.rect(cornerRadius: 16))
-            SinglePlayerMatchIdentity(event: pane.event, status: ViewingPlaybackCopy.status(pane.model),
-                scoreText: score(for: pane.event).map { "\($0.homeGoals)–\($0.awayGoals)" })
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) { singleActions(pane) }
-                VStack(alignment: .leading, spacing: 8) { singleActions(pane) }
-            }
-            .font(.subheadline.weight(.semibold))
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .tint(.white)
-            .accessibilityElement(children: .contain)
-        }
-    }
-
-    @ViewBuilder private func singleActions(_ pane: ViewingSessionCoordinator.Pane) -> some View {
-        Button { pane.model.showSourceSelector = true } label: {
-            Label("Sources", systemImage: "antenna.radiowaves.left.and.right")
-                .frame(minHeight: 44)
-        }
-            .buttonStyle(.borderedProminent)
-            .tint(FottyTheme.accent)
-            .foregroundStyle(FottyTheme.textOnAccent)
-            .accessibilityIdentifier("viewing-sources")
-        Button { viewing.showMatchPicker() } label: {
-            Label("Add match", systemImage: "rectangle.split.2x1").frame(minHeight: 44)
-        }
-            .accessibilityLabel("Add a second match")
-            .accessibilityIdentifier("viewing-watch-two")
-        singleOptions(pane)
     }
 
     private func singleOptions(_ pane: ViewingSessionCoordinator.Pane, showsFocusOption: Bool = true,

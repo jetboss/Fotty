@@ -112,7 +112,7 @@ final class Fotty25PlayerDesignTests: XCTestCase {
             XCTAssertTrue(presentation[scroll.upperBound...].contains(child), child)
         }
         let player = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Player/ViewingExperienceView.swift"), encoding: .utf8)
-        let focusActions = try XCTUnwrap(player.range(of: "private func singleFocusActions"))
+        let focusActions = try XCTUnwrap(player.range(of: "private func singleStage"))
         let multiToolbar = try XCTUnwrap(player.range(of: "private var toolbar: some View"))
         let focus = String(player[focusActions.lowerBound..<multiToolbar.lowerBound])
         XCTAssertTrue(focus.contains("pane.model.showSourceSelector = true"))
