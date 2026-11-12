@@ -392,7 +392,7 @@ actor LiveStreamResolver {
     nonisolated static func supportsDescriptorRenewal(_ session: StreamSession) -> Bool {
         guard let provider = session.eventBinding?.providerCode else { return false }
         return provider == ReviewedTVPlaylistClient.providerCode || session.playbackContract.endpoint == .directMedia
-            && ["communitysports", "plaviosports", "cncsports", "flixstreams", "highfly"].contains(provider)
+            && ["communitysports", "plaviosports", "cncsports", "flixstreams", "highfly", "penguplay"].contains(provider)
     }
 
     func refreshedDescriptor(for session: StreamSession, request: StreamPlaybackRequest) async -> StreamSession? {
@@ -444,6 +444,8 @@ actor LiveStreamResolver {
                         candidates = try await CNCSportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
                     } else if binding.providerCode == "highfly" {
                         candidates = try await HighflySportsAddonClient.shared.resolve(for: metadataRequest)
+                    } else if binding.providerCode == PenguPlaySportsAddonClient.providerCode {
+                        candidates = try await PenguPlaySportsAddonClient.shared.resolve(for: metadataRequest)
                     } else if binding.providerCode == "flixstreams" {
                         candidates = try await FlixStreamsAddonClient.shared.resolve(for: metadataRequest)
                     } else {
@@ -573,6 +575,7 @@ actor LiveStreamResolver {
         // Account-scoped sources re-read Keychain on every Watch/renewal. A
         // retained discovery receipt must not outlive removal or replacement.
         let cachedCandidates = useDiscoveryIndex && preflightTicket == nil && !refreshOptionalSources && source.dispatch != .highfly
+            && source.dispatch != .penguPlay
             ? await FixtureStreamDiscoveryIndex.shared.cachedSessions(for: request, providerCode: providerCode)
             : nil
         let cached = cachedCandidates.flatMap { candidates -> [StreamSession]? in
@@ -796,6 +799,7 @@ actor LiveStreamResolver {
         forceFreshMetadata: Bool = false) async throws -> [StreamSession] {
         switch source.dispatch {
         case .highfly: return try await HighflySportsAddonClient.shared.resolve(for: request)
+        case .penguPlay: return try await PenguPlaySportsAddonClient.shared.resolve(for: request)
         case .reviewedTV: return try await ReviewedTVPlaylistClient.shared.resolve(for: request)
         case .cncSports: return try await CNCSportsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
         case .flixStreams: return try await FlixStreamsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)

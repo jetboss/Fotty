@@ -77,6 +77,7 @@
 		3EEE5A2E114FACDA59C26F81 /* SportsWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DCC095B7B32B1BAA3A359EF /* SportsWidgetSnapshot.swift */; };
 		3F24BA633DDC87771E7D5744 /* SportsTVExperienceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26C7DD21FA99A7D2E38A710E /* SportsTVExperienceTests.swift */; };
 		3F5C1DBDFB7D95AF907CA1EF /* SinglePlaybackQualityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0186E61D47B7B39CA5DE097D /* SinglePlaybackQualityPolicy.swift */; };
+		3F6A9209FCDCC8493544A307 /* PenguPlaySportsAddonClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6224401155F9E951B9A0627 /* PenguPlaySportsAddonClient.swift */; };
 		403C6042E817965D4396CFF5 /* NativePlaybackPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DB0337E89BEA82006304998 /* NativePlaybackPreparation.swift */; };
 		40A9B775128F8EAC04CEBBD8 /* LocalDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9835157AD52174C23356FA4 /* LocalDataStore.swift */; };
 		40D1286F147DB37EE2B3FAC1 /* FPLChipAvailabilityPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BA8B6A88FC36CD915C53D8D /* FPLChipAvailabilityPolicy.swift */; };
@@ -251,6 +252,7 @@
 		C1E98BE07D4390DC5462BD6B /* FPLMatchdayRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746EB36DD03F2C1CC42CD023 /* FPLMatchdayRefreshTests.swift */; };
 		C21CEEF46D0386590016FF2B /* CatalogPlaybackIdentity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94CEC67BBC97FEFB70FB314 /* CatalogPlaybackIdentity.swift */; };
 		C2ACA8EA3544DAE85BBEEB30 /* SourceConnectionToolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E02F9CD8181851F2CEFD5F3 /* SourceConnectionToolTests.swift */; };
+		C4BD0807CD55E3F9DAD02102 /* PenguPlaySportsAddonTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCC3BB1D34D20C26602DB48 /* PenguPlaySportsAddonTests.swift */; };
 		C4F7356F1C51E8727B9D6829 /* FPLTransferStagingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79DA3F9751C98EFF67C8E3B2 /* FPLTransferStagingStore.swift */; };
 		C5FA167B5C5CFA24A3D75FA4 /* UCLReportedScoreView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CFDFCEB475C843E72D2A16D /* UCLReportedScoreView.swift */; };
 		C7057183500F7B65FD40FDD2 /* WatchOutcomeRecord.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254154C7211DB1FB4A9B2993 /* WatchOutcomeRecord.swift */; };
@@ -581,6 +583,7 @@
 		A46F1C1CB770FA1FB284F872 /* BroadcastRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastRegistry.swift; sourceTree = "<group>"; };
 		A51F3980E896F9E40ED86044 /* StringObfuscator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StringObfuscator.swift; sourceTree = "<group>"; };
 		A567B850EE852F541DC23EAA /* LivePlayerRetryLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePlayerRetryLifecycleTests.swift; sourceTree = "<group>"; };
+		A6224401155F9E951B9A0627 /* PenguPlaySportsAddonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PenguPlaySportsAddonClient.swift; sourceTree = "<group>"; };
 		A6337E176CBF569BE6D54978 /* NetworkPathObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPathObserver.swift; sourceTree = "<group>"; };
 		A68694E12F247D9B0EE68A79 /* DashboardPresentationLayers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentationLayers.swift; sourceTree = "<group>"; };
 		A6BC711C9A2C01F37332B8FD /* SportsTeamIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsTeamIdentity.swift; sourceTree = "<group>"; };
@@ -657,6 +660,7 @@
 		D8A833A3DF5207F458B3AB0E /* SportsWidgetPhysicalUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsWidgetPhysicalUITests.swift; sourceTree = "<group>"; };
 		D995C50C24B7F74804A99290 /* UserProfileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileStore.swift; sourceTree = "<group>"; };
 		DA575D09794E42A598A4A182 /* FPLAdvisorDataProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLAdvisorDataProvider.swift; sourceTree = "<group>"; };
+		DDCC3BB1D34D20C26602DB48 /* PenguPlaySportsAddonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PenguPlaySportsAddonTests.swift; sourceTree = "<group>"; };
 		DEEA68B48120B60D963D4521 /* Fotty.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Fotty.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E0B5CC2E5BDC44C516C3AF3E /* SettingsPrivacyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPrivacyView.swift; sourceTree = "<group>"; };
 		E1413E33466125080132E853 /* ViewingSessionShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewingSessionShell.swift; sourceTree = "<group>"; };
@@ -789,6 +793,7 @@
 				1A307CF1C7D80E12E1ED7A7C /* NativePlaybackEvidenceTests.swift */,
 				33974375B050147ADC2322FF /* NativePlaybackPreparationTests.swift */,
 				022960106FE014AD61802187 /* NativeWatchTwoTransitionTests.swift */,
+				DDCC3BB1D34D20C26602DB48 /* PenguPlaySportsAddonTests.swift */,
 				9BBF6ACFEB4685A95584834A /* PlavioSportsAddonTests.swift */,
 				533FB72EBF780EC46631BAE9 /* PlaybackAttemptTests.swift */,
 				10B590AA9F3D88078935D7A7 /* PlaybackFeedbackIssueTests.swift */,
@@ -1310,6 +1315,7 @@
 				5EB5F54537E6F1A2E2C8E657 /* LiveSourceHealthStore.swift */,
 				4C5A629380007246A6CB4D63 /* LocalStreamProxy.swift */,
 				107EAB2FEFAA8864DF42F609 /* LocalStreamProxyPolicy.swift */,
+				A6224401155F9E951B9A0627 /* PenguPlaySportsAddonClient.swift */,
 				18C54FE0F6DE209944D27053 /* PlavioSportsAddonClient.swift */,
 				9A07C9196CBAE9E646DCC454 /* ReviewedSportsFixtureMatcher.swift */,
 				58CD9A3AA8178993A635C99A /* ReviewedTVPlaylistClient.swift */,
@@ -1860,6 +1866,7 @@
 				83F37BD2D333306118742EDE /* NetworkPathObserver.swift in Sources */,
 				91E37ACBA1AFFC5BBB70AB30 /* NotificationManager.swift in Sources */,
 				F694C83FE6C8DB07E858F6A6 /* NowPlayingManager.swift in Sources */,
+				3F6A9209FCDCC8493544A307 /* PenguPlaySportsAddonClient.swift in Sources */,
 				D6BC2AE1FC41EB0FC4C8A968 /* PlavioSportsAddonClient.swift in Sources */,
 				C843D6E31EE9B23E08D052EA /* PlaybackAttempt.swift in Sources */,
 				825DD53F2C1C1EB0796A5F1F /* PlaybackControlsOverlay.swift in Sources */,
@@ -2005,6 +2012,7 @@
 				C0B009284212C34E1D7E0EDE /* NativePlaybackEvidenceTests.swift in Sources */,
 				A57ED07EB6AFA32C491BC367 /* NativePlaybackPreparationTests.swift in Sources */,
 				46B6E96689AD21D59AEE9AE7 /* NativeWatchTwoTransitionTests.swift in Sources */,
+				C4BD0807CD55E3F9DAD02102 /* PenguPlaySportsAddonTests.swift in Sources */,
 				2BBC93DB992249D8622381C8 /* PlavioSportsAddonTests.swift in Sources */,
 				78E5FDC23541CA6FD96BCD84 /* PlaybackAttemptTests.swift in Sources */,
 				29054634923724D53A47162E /* PlaybackFeedbackIssueTests.swift in Sources */,

@@ -195,7 +195,7 @@ private struct AccountSourceSetupView: View {
     var body: some View {
         Form {
             Section {
-                setupStep(1, "Open \(source.name)", detail: "Sign in or complete verification, then copy your Install link or access code.") {
+                setupStep(1, "Open \(source.name)", detail: source.copyHint) {
                     Link(destination: source.setupURL) { Label("Open \(source.name)", systemImage: "arrow.up.right.square") }
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("source-setup-open")
@@ -215,7 +215,7 @@ private struct AccountSourceSetupView: View {
                 Text("Add \(source.name) in two steps")
             }
             Section {
-                SecureField("Manifest link or \(source.name) access code", text: $draft)
+                SecureField(source == .highfly ? "Manifest link or Highfly access code" : "\(source.name) add-on link", text: $draft)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.URL)

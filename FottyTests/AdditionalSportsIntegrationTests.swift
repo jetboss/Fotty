@@ -5,15 +5,15 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     func testCuratedCatalogOwnsItsRegistrationAndDispatchIdentities() {
         let definitions = CuratedStreamSourceCatalog.all
         XCTAssertEqual(definitions.map(\.providerCode),
-                       ["score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv", "highfly"])
+                       ["score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv", "highfly", "penguplay"])
         XCTAssertEqual(Set(definitions.map(\.providerCode)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.manifestID)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.manifestFilename)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.provider)), Set(CuratedStreamSourceCatalog.Provider.allCases))
         XCTAssertEqual(definitions.map(\.dispatch),
-                       [.score808, .communitySports, .plavioSports, .cncSports, .flixStreams, .reviewedTV, .highfly])
+                       [.score808, .communitySports, .plavioSports, .cncSports, .flixStreams, .reviewedTV, .highfly, .penguPlay])
         XCTAssertEqual(StreamPluginProviderMatching.activePlayerProviderCodes, definitions.map(\.providerCode))
-        XCTAssertEqual(CuratedStreamSourceCatalog.optionalSources.map(\.discoveryName), ["CS", "AS", "LS", "FS", "TV", "HF"])
+        XCTAssertEqual(CuratedStreamSourceCatalog.optionalSources.map(\.discoveryName), ["CS", "AS", "LS", "FS", "TV", "HF", "PP"])
     }
 
     func testEveryCuratedDefinitionRequiresItsOwnBundledManifestAndProviderCode() throws {
@@ -94,12 +94,12 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
 
     func testCuratedDiscoveryScopesDelegateToExistingReviewedAdaptersWithoutBroadeningLanes() {
         let expected: [(String, [String])] = [
-            ("football", ["communitysports", "plaviosports", "flixstreams", "highfly"]),
-            ("soccer", ["communitysports", "plaviosports", "flixstreams", "highfly"]),
-            ("cricket", ["communitysports", "plaviosports", "cncsports", "flixstreams", "highfly"]),
-            ("hockey", ["communitysports", "cncsports", "highfly"]),
-            ("american-football", ["communitysports", "highfly"]),
-            ("basketball", ["communitysports", "highfly"]),
+            ("football", ["communitysports", "plaviosports", "flixstreams", "highfly", "penguplay"]),
+            ("soccer", ["communitysports", "plaviosports", "flixstreams", "highfly", "penguplay"]),
+            ("cricket", ["communitysports", "plaviosports", "cncsports", "flixstreams", "highfly", "penguplay"]),
+            ("hockey", ["communitysports", "cncsports", "highfly", "penguplay"]),
+            ("american-football", ["communitysports", "highfly", "penguplay"]),
+            ("basketball", ["communitysports", "highfly", "penguplay"]),
             ("rugby", ["communitysports"]),
             ("unreviewed", ["communitysports"])
         ]

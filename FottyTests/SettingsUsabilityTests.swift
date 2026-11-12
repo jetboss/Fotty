@@ -11,7 +11,7 @@ final class SettingsUsabilityTests: XCTestCase {
             "Fotty/Features/Settings/Views/StreamPluginsSettingsView.swift"), encoding: .utf8)
         XCTAssertTrue(view.contains("AccountSourceSetup.allCases.filter { $0.playbackProviderCode != nil }"),
                       "Review-only account sources must not appear in Settings")
-        XCTAssertEqual(AccountSourceSetup.allCases.filter { $0.playbackProviderCode != nil }, [.highfly])
+        XCTAssertEqual(AccountSourceSetup.allCases.filter { $0.playbackProviderCode != nil }, [.highfly, .penguPlay])
     }
 
     private let catalogDefinitions = [
@@ -21,7 +21,8 @@ final class SettingsUsabilityTests: XCTestCase {
         "cnc_sports_manifest": (id: "cnc-sports-extension", provider: "cncsports"),
         "flix_streams_manifest": (id: "flix-streams-extension", provider: "flixstreams"),
         "reviewed_tv_manifest": (id: "reviewed-tv-extension", provider: "reviewedtv"),
-        "highfly_manifest": (id: "highfly-extension", provider: "highfly")
+        "highfly_manifest": (id: "highfly-extension", provider: "highfly"),
+        "penguplay_manifest": (id: "penguplay-extension", provider: "penguplay")
     ]
 
     private func manifest(named filename: String) throws -> (StreamPluginManifest, URL) {
@@ -74,7 +75,7 @@ final class SettingsUsabilityTests: XCTestCase {
         let choices = ["score808-extension": false,
                        "community-sports-extension": false, "additional-sports-extension": false,
                        "cnc-sports-extension": false, "flix-streams-extension": false,
-                       "reviewed-tv-extension": false, "highfly-extension": false]
+                       "reviewed-tv-extension": false, "highfly-extension": false, "penguplay-extension": false]
         let missing = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
             if filename == "score808_manifest" { throw URLError(.fileDoesNotExist) }
             return try self.manifest(named: filename)
@@ -117,7 +118,7 @@ final class SettingsUsabilityTests: XCTestCase {
             let choices = ["score808-extension": true,
                            "community-sports-extension": true, "additional-sports-extension": true,
                            "cnc-sports-extension": false, "flix-streams-extension": enabled,
-                           "reviewed-tv-extension": false, "highfly-extension": false]
+                           "reviewed-tv-extension": false, "highfly-extension": false, "penguplay-extension": false]
             let unavailable = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
                 if filename == "flix_streams_manifest" { throw URLError(.fileDoesNotExist) }
                 return try self.manifest(named: filename)
@@ -254,7 +255,14 @@ final class AccountSourceSetupTests: XCTestCase {
     }
 
     func testConfiguredLinksStayWithTheirNamedProvider() throws {
-        XCTAssertEqual(AccountSourceSetup.allCases, [.highfly], "Retired review-only entries stay removed")
+        XCTAssertEqual(AccountSourceSetup.allCases, [.highfly, .penguPlay], "StreamNexus stays removed; PenguPlay is a real source")
+        XCTAssertFalse(AccountSourceSetup.retiredRawValues.contains(AccountSourceSetup.penguPlay.rawValue),
+                       "Launch cleanup must never delete a supported source's link")
+        let pengu = "https://pengu.uk/%7B%22source_live-sports%22%3A%22checked%22%7D/manifest.json"
+        XCTAssertEqual(try AccountSourceSetup.penguPlay.validatedLink(pengu).absoluteString, pengu)
+        XCTAssertThrowsError(try AccountSourceSetup.penguPlay.validatedLink("https://sports.highfly.to/x/manifest.json"))
+        XCTAssertThrowsError(try AccountSourceSetup.penguPlay.validatedLink("00000000-0000-0000-0000-000000000000"),
+                             "Highfly access codes are not PenguPlay links")
         XCTAssertEqual(try AccountSourceSetup.highfly.validatedLink("stremio://sports.highfly.to/test-config/manifest.json").scheme, "https")
         for other in ["https://pengu.uk/test-config/manifest.json", "https://sports.streamnexus.cc.cd/test-config/manifest.json"] {
             XCTAssertThrowsError(try AccountSourceSetup.highfly.validatedLink(other))

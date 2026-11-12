@@ -1,0 +1,10 @@
+{
+  "id": "penguplay-extension",
+  "name": "PenguPlay",
+  "providerCode": "penguplay",
+  "version": "1.0.0",
+  "author": "Fotty Core",
+  "description": "Live TV for football, cricket, basketball, baseball, hockey and American football with your PenguPlay account. Adding your setup link enables this source automatically.",
+  "iconName": "play.rectangle.fill",
+  "allowedDomains": ["pengu.uk"]
+}

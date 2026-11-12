@@ -153,12 +153,13 @@ enum CuratedStreamSourceCatalog {
         case flixStreams = "flixstreams"
         case reviewedTV = "reviewedtv"
         case highfly = "highfly"
+        case penguPlay = "penguplay"
     }
 
     /// Typed routing identity; it never carries an arbitrary URL or closure
     /// capable of bypassing the reviewed adapter's authority.
     enum Dispatch: CaseIterable, Equatable, Sendable {
-        case score808, communitySports, plavioSports, cncSports, flixStreams, reviewedTV, highfly
+        case score808, communitySports, plavioSports, cncSports, flixStreams, reviewedTV, highfly, penguPlay
     }
 
     struct Definition: Sendable, Equatable, Identifiable {
@@ -180,6 +181,7 @@ enum CuratedStreamSourceCatalog {
             case .flixStreams: return .flixStreams
             case .reviewedTV: return .reviewedTV
             case .highfly: return .highfly
+            case .penguPlay: return .penguPlay
             }
         }
         var isOptional: Bool { opaqueLabelPrefix != nil }
@@ -195,6 +197,7 @@ enum CuratedStreamSourceCatalog {
             case .cncSports: return CNCSportsAddonClient.supports(category: category)
             case .flixStreams: return FlixStreamsAddonClient.supports(category: category)
             case .highfly: return HighflySportsAddonClient.supports(category: category)
+            case .penguPlay: return PenguPlaySportsAddonClient.supports(category: category)
             }
         }
 
@@ -258,7 +261,9 @@ enum CuratedStreamSourceCatalog {
         .init(provider: .reviewedTV, manifestFilename: "reviewed_tv_manifest", manifestID: "reviewed-tv-extension",
               defaultEnabled: false, opaqueLabelPrefix: "TV"),
         .init(provider: .highfly, manifestFilename: "highfly_manifest", manifestID: "highfly-extension",
-              defaultEnabled: false, opaqueLabelPrefix: "HF")
+              defaultEnabled: false, opaqueLabelPrefix: "HF"),
+        .init(provider: .penguPlay, manifestFilename: "penguplay_manifest", manifestID: "penguplay-extension",
+              defaultEnabled: false, opaqueLabelPrefix: "PP")
     ]
 
     static var optionalSources: [Definition] { all.filter(\.isOptional) }
@@ -441,29 +446,52 @@ enum StreamPluginProviderMatching {
 // Account configuration is deliberately separate from the playback inventory.
 // A saved manifest is not an admitted adapter, source, fixture or media URL.
 enum AccountSourceSetup: String, CaseIterable, Identifiable, Sendable {
-    // PenguPlay and StreamNexus were review-only setup entries with no adapter;
-    // removed in Month 2 of the watch-first roadmap (11 Nov 2026).
-    case highfly
+    // StreamNexus was a review-only entry with no adapter (removed 11 Nov 2026).
+    // PenguPlay returned the same day as a real Live TV source (owner request).
+    case highfly, penguPlay
     /// Keychain accounts of retired setup entries, deleted once at launch.
-    static let retiredRawValues = ["penguPlay", "streamNexus"]
+    static let retiredRawValues = ["streamNexus"]
     var id: String { rawValue }
-    var playbackProviderCode: String? { "highfly" }
-    var name: String { "Highfly" }
-    var setupURL: URL { URL(string: "https://sports.highfly.to/configure")! }
+    var playbackProviderCode: String? {
+        switch self { case .highfly: return "highfly"; case .penguPlay: return PenguPlaySportsAddonClient.providerCode }
+    }
+    var name: String {
+        switch self { case .highfly: return "Highfly"; case .penguPlay: return "PenguPlay" }
+    }
+    var setupURL: URL {
+        switch self {
+        case .highfly: return URL(string: "https://sports.highfly.to/configure")!
+        case .penguPlay: return URL(string: "https://pengu.uk/")!
+        }
+    }
     var instructions: String {
-        "Use your Highfly access code or configured manifest link. For free access, complete verification and copy the Install link. Premium profiles can use their own configured links."
+        switch self {
+        case .highfly: return "Use your Highfly access code or configured manifest link. For free access, complete verification and copy the Install link. Premium profiles can use their own configured links."
+        case .penguPlay: return "Sign in to PenguPlay, turn on Live TV in your add-on settings, then copy your add-on link."
+        }
+    }
+    /// What step 1 asks for on the setup screen.
+    var copyHint: String {
+        switch self {
+        case .highfly: return "Sign in or complete verification, then copy your Install link or access code."
+        case .penguPlay: return "Sign in, turn on Live TV in your add-on settings, then copy your add-on link."
+        }
     }
     var manifestHosts: Set<String> {
-        Set(["to", "dev"].flatMap { tld in
-            ["sports", "premium", "premium-us2", "premium-eu1"].map { "\($0).highfly.\(tld)" }
-        })
+        switch self {
+        case .highfly:
+            return Set(["to", "dev"].flatMap { tld in
+                ["sports", "premium", "premium-us2", "premium-eu1"].map { "\($0).highfly.\(tld)" }
+            })
+        case .penguPlay: return ["pengu.uk"]
+        }
     }
     func validatedLink(_ input: String) throws -> URL {
         var value = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        if value.range(of: #"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}\.[a-fA-F0-9]{16}$"#, options: .regularExpression) != nil {
+        if self == .highfly, value.range(of: #"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}\.[a-fA-F0-9]{16}$"#, options: .regularExpression) != nil {
             value = "https://sports.highfly.to/" + value + "/manifest.json"
         }
-        if value.range(of: #"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"#, options: .regularExpression) != nil {
+        if self == .highfly, value.range(of: #"^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$"#, options: .regularExpression) != nil {
             value = "https://premium.highfly.to/" + value + "/manifest.json"
         }
         guard !value.isEmpty, value.utf8.count <= 8192,
@@ -501,6 +529,7 @@ final class AccountSourceConnector {
     init(store: AccountSourceSetupStore,
          verify: @escaping (AccountSourceSetup, URL) async throws -> Void = { provider, url in
              if provider == .highfly { try await HighflySportsAddonClient.validateConfiguration(url) }
+             if provider == .penguPlay { try await PenguPlaySportsAddonClient.validateConfiguration(url) }
          },
          setEnabled: @escaping (String, Bool) async -> Void = { code, enabled in
              guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: code) else { return }
@@ -569,7 +598,7 @@ final class AccountSourceSetupStore {
          kSecUseDataProtectionKeychain as String: true]
     }
     /// Deletes any private link a retired setup entry left in the keychain.
-    /// Best effort and idempotent; never touches the Highfly link.
+    /// Best effort and idempotent; never touches a supported source's link.
     static func removeRetiredSetups() {
         for account in AccountSourceSetup.retiredRawValues {
             _ = SecItemDelete(keychainQuery(account: account) as CFDictionary)
