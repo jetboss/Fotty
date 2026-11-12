@@ -1088,38 +1088,21 @@ final class PlaybackPerformanceUITests: XCTestCase {
                                            message: "Restoring paused compact viewing")
         assertViewingPause(usesNativeTransport: usesNativeTransport)
         navigationTimings.append("Compact-player journey completed; native identity receipt available=\(before != nil && after != nil). Absent/Web measurements are unknown, not decoded-video proof.")
-        if UIDevice.current.userInterfaceIdiom == .pad {
-            XCTAssertTrue(app.buttons["viewing-details"].waitForExistence(timeout: 5))
-            XCTAssertTrue(app.descendants(matching: .any)["viewing-control-dock"].firstMatch.exists)
-            XCTAssertFalse(app.descendants(matching: .any)["viewing-companion"].firstMatch.exists)
-            tap(app.buttons["viewing-details"])
-            let done = app.buttons["viewing-details-done"]
-            XCTAssertTrue(done.waitForExistence(timeout: 5))
-            captureEvidence(surface: "Paused video-first Details sheet")
-            tap(done)
-            XCTAssertTrue(waitUntil(timeout: 5) { !done.exists })
-            assertRetainedNativeViewingIdentity(before, identifier: "native-playback-measurement",
-                                               message: "Details Done while deliberately paused")
-            assertViewingPause(usesNativeTransport: usesNativeTransport)
-            try exerciseVideoFirstRotation(before: before, preservesPause: true, usesNativeTransport: usesNativeTransport)
-        } else {
-            let focus = app.buttons["viewing-focus-video"]
-            let options = app.buttons["viewing-options"]
-            try reveal(options)
-            tap(options)
-            XCTAssertTrue(focus.waitForExistence(timeout: 5))
-            tap(focus)
-            XCTAssertTrue(app.buttons["viewing-exit-focus"].waitForExistence(timeout: 5))
-            assertRetainedNativeViewingIdentity(before, identifier: "native-playback-measurement",
-                                               message: "Entering Focus while deliberately paused")
-            captureEvidence(surface: "Paused viewing Focus preserves the retained surface")
-            try exercisePausedViewingFocusRotation(before: before, usesNativeTransport: usesNativeTransport)
-            tap(app.buttons["viewing-exit-focus"])
-            XCTAssertTrue(app.buttons["viewing-sources"].waitForExistence(timeout: 5))
-            assertRetainedNativeViewingIdentity(before, identifier: "native-playback-measurement",
-                                               message: "Leaving Focus while deliberately paused")
-            assertViewingPause(usesNativeTransport: usesNativeTransport)
-        }
+        // One black-stage layout on iPhone and iPad: info opens on demand
+        // (side panel on wide iPad, sheet elsewhere) without moving the media.
+        XCTAssertTrue(app.buttons["viewing-details"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["viewing-control-dock"].firstMatch.exists)
+        XCTAssertFalse(app.descendants(matching: .any)["viewing-companion"].firstMatch.exists)
+        tap(app.buttons["viewing-details"])
+        let done = app.buttons["viewing-details-done"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5))
+        captureEvidence(surface: "Paused black-stage info")
+        tap(done)
+        XCTAssertTrue(waitUntil(timeout: 5) { !done.exists })
+        assertRetainedNativeViewingIdentity(before, identifier: "native-playback-measurement",
+                                           message: "Info Done while deliberately paused")
+        assertViewingPause(usesNativeTransport: usesNativeTransport)
+        try exerciseVideoFirstRotation(before: before, preservesPause: true, usesNativeTransport: usesNativeTransport)
         try openSources()
         try closeSourceSheetIfPresent()
         for rawURL in ["fotty://sports-plan", "fotty://matchday"] {
@@ -1155,7 +1138,7 @@ final class PlaybackPerformanceUITests: XCTestCase {
         try openRealPlayback()
         try waitForStartupUI(timeout: 65)
         let original = readNativeMeasurement(identifier: "native-playback-measurement")
-        tap(app.buttons["viewing-watch-two"])
+        openAddMatch()
         let candidates = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "viewing-second-match-"))
         guard candidates.firstMatch.waitForExistence(timeout: 10),
               let candidate = candidates.allElementsBoundByIndex.first(where: { $0.isHittable }) else {
@@ -1231,7 +1214,7 @@ final class PlaybackPerformanceUITests: XCTestCase {
             try waitForStartupUI(timeout: 65)
         }
         let original = readNativeMeasurement(identifier: "native-playback-measurement")
-        tap(app.buttons["viewing-watch-two"])
+        openAddMatch()
         let candidates = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "viewing-second-match-"))
         guard candidates.firstMatch.waitForExistence(timeout: 10),
               let candidate = try reviewedRealViewingSecondCandidate(in: candidates) else {
@@ -1354,7 +1337,7 @@ final class PlaybackPerformanceUITests: XCTestCase {
         executionTimeAllowance = 420
         try openRealPlayback()
         try waitForStartupUI(timeout: 65)
-        tap(app.buttons["viewing-watch-two"])
+        openAddMatch()
         let candidates = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "viewing-second-match-"))
         XCTAssertTrue(waitUntil(timeout: 15) {
             candidates.count > 0 || self.app.staticTexts["No other broadcast yet"].exists
@@ -1557,6 +1540,14 @@ final class PlaybackPerformanceUITests: XCTestCase {
                 return transport.exists && transport.label == "Play broadcast"
             }, "Restoration lost the canonical web paused intent")
         }
+    }
+
+    /// Add match lives in the player's options menu.
+    private func openAddMatch() {
+        let add = app.buttons["viewing-watch-two"].firstMatch
+        if !add.exists || !add.isHittable { tap(app.buttons["viewing-options"]) }
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        tap(add)
     }
 
     private func exercisePausedViewingFocusRotation(before: [String: Any]?, usesNativeTransport: Bool) throws {
