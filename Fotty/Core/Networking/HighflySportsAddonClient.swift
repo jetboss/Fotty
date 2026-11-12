@@ -142,6 +142,13 @@ actor HighflySportsAddonClient {
               let initial = await current(request), Self.sameFixture(initial, request) else {
             throw CommunitySportsAddonError.matchNotFound
         }
+        // One lookup receipt per eligible request: the stage reached, never titles or URLs.
+        var stage = "manifest"
+        var finished = false
+        defer {
+            FottyQualityStore.shared.record(category: .playback, name: "highfly_lookup", outcome: finished ? .success : .info,
+                details: ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage])
+        }
         let manifest: Manifest = try await read(manifestURL)
         let catalogID = Self.catalogID(forSport: original.sport)
         guard manifest.id == Self.manifestIdentity(for: manifestURL), manifest.version.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil,
@@ -149,23 +156,26 @@ actor HighflySportsAddonClient {
               ["catalog", "meta", "stream"].allSatisfy({ name in manifest.resources.contains { $0.name == name && $0.types.contains("sport") } }) else {
             throw CommunitySportsAddonError.invalidManifest
         }
+        stage = "search"
         let root = manifestURL.deletingLastPathComponent()
         var rows: [Row] = []
         // Both advertised participant searches handle common short-name
         // differences. Exact pairs/date/squad still decide admission below.
-        for term in Set([request.homeTeam, request.awayTeam]).sorted() where !term.isEmpty {
+        for term in PenguPlaySportsAddonClient.searchTerms(request.homeTeam, request.awayTeam) {
             let escaped = term.addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-._~")))!
             var skip = 0
             for _ in 0..<3 {
                 let extra = "search=" + escaped + (skip == 0 ? "" : "&skip=\(skip)") + ".json"
                 guard let url = URL(string: root.absoluteString + "catalog/sport/" + catalogID + "/" + extra) else { throw CommunitySportsAddonError.unsafeResponse }
                 let page: Catalog = try await read(url)
-                guard page.metas.count <= 100, rows.count + page.metas.count <= 300 else { throw CommunitySportsAddonError.unsafeResponse }
+                guard page.metas.count <= 100, rows.count + page.metas.count <= 600 else { throw CommunitySportsAddonError.unsafeResponse }
                 rows += page.metas; skip += page.metas.count
                 if page.metas.isEmpty { break }
             }
         }
+        stage = "fixture_match"
         let selected = try Self.select(request: request, rows: rows, now: now)
+        stage = "streams"
         guard manifest.resources.filter({ $0.name == "stream" }).contains(where: { $0.idPrefixes?.contains(where: { selected.id.hasPrefix($0) }) == true }) else {
             throw CommunitySportsAddonError.invalidManifest
         }
@@ -198,13 +208,16 @@ actor HighflySportsAddonClient {
                 createdAt: completedAt, requiresGuardedRelay: true, eventBinding: binding))
             if sessions.count == 6 { break }
         }
+        stage = "admission"
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: streams.streams.count) }
+        stage = "final_check"
         try Task.checkCancellation()
         guard await enabled(), try await configuration() == manifestURL,
               let final = await current(request), Self.sameFixture(final, latest),
               (try? Self.select(request: final, rows: [metadata.meta], now: now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock))))) != nil else {
             throw CommunitySportsAddonError.conflictingMatch
         }
+        finished = true
         return sessions
     }
 
