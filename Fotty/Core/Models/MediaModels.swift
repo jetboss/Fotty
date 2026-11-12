@@ -590,7 +590,7 @@ struct StreamEventBinding: Equatable, Sendable {
               !SportsTVStation.all.filter({ $0.cricketChannel == nil }).contains(where: { $0.id == request.matchID }) || television != nil,
               identity != nil || channel != nil || television != nil,
               let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode),
-              channel == nil || definition.provider == .communitySports
+              channel == nil || definition.provider == .communitySports || definition.provider == .penguPlay
                 || definition.provider == .reviewedTV && channel == .willow,
               television == nil || (definition.provider == .communitySports
                 && CommunitySportsAddonClient.supportsSportsTVChannel(request)

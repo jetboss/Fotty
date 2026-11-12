@@ -298,6 +298,7 @@ enum CuratedStreamSourceCatalog {
             }
             if isReviewedChannel {
                 return definition.provider == .communitySports
+                    || definition.provider == .penguPlay && television == nil
                     || definition.provider == .reviewedTV && ReviewedTVPlaylistClient.supports(request)
             }
             if definition.provider == .reviewedTV {

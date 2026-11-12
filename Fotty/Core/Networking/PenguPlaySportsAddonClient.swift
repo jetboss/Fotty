@@ -11,11 +11,14 @@ actor PenguPlaySportsAddonClient {
     typealias Fetch = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
     typealias Enabled = @Sendable () async -> Bool
     typealias Current = @Sendable (StreamPlaybackRequest) async -> StreamPlaybackRequest?
+    /// Fox Cricket / Willow channels a reviewed TV guide programme currently ties to this fixture.
+    typealias ProgrammeChannels = @Sendable (StreamPlaybackRequest) async -> Set<CricketBroadcastChannel>
     private let configuration: Configuration
     private let fetch: Fetch
     private let enabled: Enabled
     private let current: Current
     private let validate: @Sendable (URL) async throws -> Void
+    private let programmeChannels: ProgrammeChannels
 
     struct Row: Decodable, Equatable, Sendable {
         let id, type, name, released: String
@@ -64,7 +67,13 @@ actor PenguPlaySportsAddonClient {
     private struct Streams: Decodable { let streams: [Delivery] }
 
     init(configuration: Configuration? = nil, fetch: Fetch? = nil, enabled: Enabled? = nil,
-         current: Current? = nil, validate: (@Sendable (URL) async throws -> Void)? = nil) {
+         current: Current? = nil, validate: (@Sendable (URL) async throws -> Void)? = nil,
+         programmeChannels: ProgrammeChannels? = nil) {
+        self.programmeChannels = programmeChannels ?? { request in await MainActor.run {
+            Set(ReviewedTVPlaylistClient.programmeLookupRequests(for: request).compactMap { scoped in
+                scoped.registryMatch?.broadcast.channelID.flatMap { id in CricketBroadcastChannel.allCases.first { $0.canonicalID == id } }
+            })
+        } }
         self.configuration = configuration ?? { try await MainActor.run { try AccountSourceSetupStore().savedLink(for: .penguPlay) } }
         self.enabled = enabled ?? { await StreamPluginRegistry.shared.enabledProviderCodes().contains(Self.providerCode) }
         self.current = current ?? { request in await MainActor.run {
@@ -172,13 +181,21 @@ actor PenguPlaySportsAddonClient {
 
     func resolve(for request: StreamPlaybackRequest, now: Date = Date()) async throws -> [StreamSession] {
         let startedClock = Date()
+        // A fixture matches by exact teams and kickoff. A Fox Cricket / Willow
+        // channel row is used only for that channel's own tile, or for a fixture
+        // a reviewed TV guide programme currently places on that channel.
+        let channelTile = CricketBroadcastChannel.identifying(request: request)
+        let original = ReviewedSportsFixtureMatcher.requestIdentity(for: request)
         guard Self.supports(category: request.category), request.registryMatch == nil,
-              let original = ReviewedSportsFixtureMatcher.requestIdentity(for: request),
+              original != nil || channelTile != nil,
               await enabled(), let manifestURL = try await configuration(), manifestURL.query == nil,
-              (try? AccountSourceSetup.penguPlay.validatedLink(manifestURL.absoluteString)) == manifestURL,
-              let initial = await current(request), Self.sameFixture(initial, request) else {
+              (try? AccountSourceSetup.penguPlay.validatedLink(manifestURL.absoluteString)) == manifestURL else {
             throw CommunitySportsAddonError.matchNotFound
         }
+        if original != nil {
+            guard let initial = await current(request), Self.sameFixture(initial, request) else { throw CommunitySportsAddonError.matchNotFound }
+        }
+        let sport = original?.sport ?? "cricket"
         // One lookup receipt per eligible request: the stage reached, never titles or URLs.
         var stage = "manifest"
         var finished = false
@@ -187,14 +204,14 @@ actor PenguPlaySportsAddonClient {
                 details: ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage])
         }
         let manifest: Manifest = try await read(manifestURL)
-        let catalogID = Self.catalogID(forSport: original.sport)
+        let catalogID = Self.catalogID(forSport: sport)
         guard Self.hasLiveTV(manifest), manifest.catalogs.contains(where: { $0.id == catalogID && $0.type == "tv" }) else {
             throw CommunitySportsAddonError.invalidManifest
         }
         stage = "search"
         let root = manifestURL.deletingLastPathComponent().absoluteString
         var rows: [Row] = []
-        for term in Self.searchTerms(request.homeTeam, request.awayTeam) {
+        for term in channelTile == nil ? Self.searchTerms(request.homeTeam, request.awayTeam) : [] {
             guard let url = URL(string: root + "catalog/tv/" + catalogID + "/search=" + Self.encodedComponent(term) + ".json") else {
                 throw CommunitySportsAddonError.unsafeResponse
             }
@@ -203,7 +220,26 @@ actor PenguPlaySportsAddonClient {
             rows += page.metas
         }
         stage = "fixture_match"
-        let selected = try Self.select(request: request, rows: rows, now: now)
+        var viaChannel: CricketBroadcastChannel? = channelTile
+        let selected: Row
+        if channelTile == nil, let exact = try? Self.select(request: request, rows: rows, now: now) {
+            selected = exact
+        } else {
+            if viaChannel == nil {
+                // Exact listing missed: only a current reviewed programme names the channel.
+                stage = "programme_channel"
+                let channels = sport == "cricket" ? await programmeChannels(request) : []
+                guard channels.count == 1 else { throw CommunitySportsAddonError.matchNotFound }
+                viaChannel = channels.first
+            }
+            stage = "channel_row"
+            guard let channel = viaChannel, let url = URL(string: root + "catalog/tv/" + catalogID + ".json") else {
+                throw CommunitySportsAddonError.matchNotFound
+            }
+            let page: Catalog = try await read(url)
+            guard page.metas.count <= 200 else { throw CommunitySportsAddonError.unsafeResponse }
+            selected = try Self.selectChannel(channel, rows: page.metas)
+        }
         stage = "streams"
         guard let streamURL = URL(string: root + "stream/tv/" + Self.encodedComponent(selected.id) + ".json") else {
             throw CommunitySportsAddonError.unsafeResponse
@@ -215,8 +251,8 @@ actor PenguPlaySportsAddonClient {
         }
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))
         guard await enabled(), try await configuration() == manifestURL,
-              let latest = await current(request), Self.sameFixture(latest, request),
-              (try? Self.select(request: latest, rows: [selected], now: completedAt)) != nil else {
+              let latest = original == nil ? request : await current(request), Self.sameFixture(latest, request),
+              await stillSelected(selected, channel: viaChannel, request: latest, at: completedAt) else {
             throw CommunitySportsAddonError.conflictingMatch
         }
         var sessions: [StreamSession] = [], seen: Set<URL> = []
@@ -249,7 +285,8 @@ actor PenguPlaySportsAddonClient {
         try Task.checkCancellation()
         stage = "final_check"
         guard await enabled(), try await configuration() == manifestURL,
-              let final = await current(request), Self.sameFixture(final, latest) else {
+              let final = original == nil ? request : await current(request), Self.sameFixture(final, latest),
+              await stillSelected(selected, channel: viaChannel, request: final, at: completedAt) else {
             throw CommunitySportsAddonError.conflictingMatch
         }
         finished = true
@@ -306,6 +343,29 @@ actor PenguPlaySportsAddonClient {
         guard let kickoff = formatter.date(from: row.released) else { return nil }
         return ReviewedSportsFixtureMatcher.fixtureIdentity(sport: sport, cast: [], title: title, kickoff: kickoff,
             effectiveID: row.id, resourceType: "tv", programmeMetadata: row.name)
+    }
+
+    /// The one live row that is exactly this channel ("🔴 LIVE: Fox Cricket").
+    /// A competition-named row ("🔴 LIVE: WBBL") never identifies a game.
+    nonisolated static func selectChannel(_ channel: CricketBroadcastChannel, rows: [Row]) throws -> Row {
+        var ids = Set<String>()
+        let matches = rows.filter { row in
+            guard row.type == "tv", row.name.utf8.count <= 512, ids.insert(row.id).inserted,
+                  row.id.range(of: #"^pp-live:[A-Za-z0-9]{1,32}~[A-Za-z0-9_=~.-]{1,200}$"#, options: .regularExpression) != nil else { return false }
+            var title = row.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard title.hasPrefix("🔴 LIVE:") else { return false }
+            title = String(title.dropFirst("🔴 LIVE:".count))
+            return CricketBroadcastChannel.identifying(title: title) == channel
+        }
+        guard !matches.isEmpty else { throw CommunitySportsAddonError.matchNotFound }
+        guard matches.count == 1 else { throw CommunitySportsAddonError.conflictingMatch }
+        return matches[0]
+    }
+
+    private func stillSelected(_ row: Row, channel: CricketBroadcastChannel?, request: StreamPlaybackRequest, at now: Date) async -> Bool {
+        guard let channel else { return (try? Self.select(request: request, rows: [row], now: now)) != nil }
+        if CricketBroadcastChannel.identifying(request: request) == channel { return true }
+        return await programmeChannels(request) == [channel]
     }
 
     nonisolated static func select(request: StreamPlaybackRequest, rows: [Row], now: Date) throws -> Row {

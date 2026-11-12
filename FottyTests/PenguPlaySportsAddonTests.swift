@@ -116,10 +116,63 @@ final class PenguPlaySportsAddonTests: XCTestCase {
             let body = urlRequest.url == self.manifestURL ? manifest : #"{"metas":[]}"#
             let response = HTTPURLResponse(url: urlRequest.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
             return (Data(body.utf8), response)
-        }, enabled: { true }, current: { $0 }, validate: { _ in })
+        }, enabled: { true }, current: { $0 }, validate: { _ in }, programmeChannels: { _ in [] })
         do { _ = try await client.resolve(for: request(), now: kickoff); XCTFail("No catalog row means no match") } catch {}
         let lookup = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "penguplay_lookup" })
-        XCTAssertEqual(lookup.details["result"], "stopped_at_fixture_match")
+        XCTAssertEqual(lookup.details["result"], "stopped_at_programme_channel", "No reviewed programme, no channel fallback")
+    }
+
+    func testChannelRowNeedsExactChannelTitle() throws {
+        let fox = row("🔴 LIVE: Fox Cricket", id: "pp-live:dl~fox")
+        let rows = [row("🔴 LIVE: WBBL", id: "pp-live:dl~wbbl"), row("📺 Fox Cricket", id: "pp-live:dl~old"), fox]
+        XCTAssertEqual(try Client.selectChannel(.foxCricket, rows: rows).id, fox.id)
+        XCTAssertThrowsError(try Client.selectChannel(.willow, rows: rows), "A competition row never stands in for a channel")
+        XCTAssertThrowsError(try Client.selectChannel(.foxCricket, rows: rows + [row("🔴 LIVE: Fox Cricket HD", id: "pp-live:dl~fox2")]),
+                             "Two live Fox rows cannot be told apart")
+    }
+
+    private func cricketClient(programme: Set<CricketBroadcastChannel>, fetched: PenguPlayLockedValue<[String]>) -> Client {
+        let root = manifestURL.deletingLastPathComponent().absoluteString
+        let manifest = #"{"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["tv"],"idPrefixes":["pp-live:"]},{"name":"catalog","types":["tv"]}],"catalogs":[{"type":"tv","id":"pp-live-cricket"}]}"#
+        let full = #"{"metas":[{"id":"pp-live:dl~wbbl","type":"tv","name":"🔴 LIVE: WBBL","released":"2026-11-12T00:00:00.000Z"},{"id":"pp-live:dl~fox","type":"tv","name":"🔴 LIVE: Fox Cricket","released":"2026-11-12T00:00:00.000Z"}]}"#
+        let streams = #"{"streams":[{"url":"https://cdn.example.com/fox/index.m3u8"}]}"#
+        return Client(configuration: { self.manifestURL }, fetch: { urlRequest in
+            let url = urlRequest.url!.absoluteString
+            fetched.mutate { $0.append(url) }
+            let body = url == self.manifestURL.absoluteString ? manifest
+                : url == root + "catalog/tv/pp-live-cricket.json" ? full
+                : url.hasPrefix(root + "catalog/tv/pp-live-cricket/search=") ? #"{"metas":[]}"#
+                : url == root + "stream/tv/" + Client.encodedComponent("pp-live:dl~fox") + ".json" ? streams : "{}"
+            let response = HTTPURLResponse(url: urlRequest.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+            return (Data(body.utf8), response)
+        }, enabled: { true }, current: { $0 }, validate: { _ in }, programmeChannels: { _ in programme })
+    }
+
+    func testFixtureUsesFoxRowOnlyWithReviewedProgramme() async throws {
+        let fixture = request(home: "Melbourne Renegades Women", away: "Sydney Sixers Women", sport: "cricket")
+        let fetched = PenguPlayLockedValue<[String]>([])
+        let sessions = try await cricketClient(programme: [.foxCricket], fetched: fetched).resolve(for: fixture, now: kickoff)
+        XCTAssertEqual(sessions.map(\.providerName), ["PP1"])
+        XCTAssertEqual(sessions.first?.eventBinding?.providerEventID, "pp-live:dl~fox")
+        XCTAssertEqual(sessions.first?.eventBinding?.matchesIdentity(request: fixture, providerCode: "penguplay"), true)
+        do {
+            _ = try await cricketClient(programme: [], fetched: fetched).resolve(for: fixture, now: kickoff)
+            XCTFail("Without a reviewed programme the Fox channel is not this game")
+        } catch {}
+        do {
+            _ = try await cricketClient(programme: [.foxCricket, .willow], fetched: fetched).resolve(for: fixture, now: kickoff)
+            XCTFail("Two programme channels are ambiguous")
+        } catch {}
+    }
+
+    func testFoxCricketTileUsesThePenguPlayChannel() async throws {
+        let tile = StreamPlaybackRequest(matchID: CricketBroadcastChannel.foxCricket.canonicalID, displayTitle: "Fox Cricket",
+                                         homeTeam: "Fox Cricket", awayTeam: "", category: "cricket", kickoffDate: nil)
+        XCTAssertEqual(CricketBroadcastChannel.identifying(request: tile), .foxCricket)
+        let fetched = PenguPlayLockedValue<[String]>([])
+        let sessions = try await cricketClient(programme: [], fetched: fetched).resolve(for: tile, now: kickoff)
+        XCTAssertEqual(sessions.first?.eventBinding?.providerEventID, "pp-live:dl~fox")
+        XCTAssertFalse(fetched.value.contains { $0.contains("search=") }, "A channel tile never searches team names")
     }
 }
 
