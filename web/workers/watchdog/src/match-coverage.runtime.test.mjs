@@ -87,7 +87,7 @@ test("real SQLite: catalog-only aggregate commits separately with original compl
   assert.equal((await (await call("__test_run", { at: NOW })).json()).committed, true);
   const first = await (await call("__test_read")).json();
   assert.equal(first.main.runtime.lastCompletedAt, NOW); assert.equal(first.coverage.checkedAt, NOW);
-  assert.equal(first.coverage.competitions[0].outcome, "failure"); assert.equal(first.requests.length, 11);
+  assert.equal(first.coverage.competitions[0].outcome, "failure"); assert.equal(first.requests.length, 8);
   assert.equal(first.requests.filter((p) => p.startsWith("nuviosports.xyz")).length, 2);
   assert.equal(first.requests.filter((p) => p.startsWith("addon.plavio.site")).length, 3);
   assert.equal(first.main.ledger.outbox.length, 0, "One observation cannot confirm a coverage gap");

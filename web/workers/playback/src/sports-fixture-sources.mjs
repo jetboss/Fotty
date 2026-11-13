@@ -85,6 +85,24 @@ function normalize(descriptor, id, start, status, teams, observedAt, url, update
     source: { name: descriptor.sourceName, url, observedAt, ...(updatedAt ? { updatedAt } : {}) } };
 }
 
+// Football clocks are observations, never time elapsed since the scheduled start.
+// Both ESPN (45'+2') and the EFL (45' +2') publish a base minute and added time.
+function footballMinute(value, injuryTime) {
+  if (typeof value === "string") {
+    const match = /^(\d{1,3})['′]?(?:\s*\+\s*(\d{1,2})['′]?)?$/.exec(value.trim());
+    if (!match) return undefined;
+    value = Number(match[1]);
+    if (match[2] !== undefined) injuryTime = Number(match[2]);
+  }
+  if (!count(value) || value > 150 || (injuryTime != null && (!count(injuryTime) || injuryTime > 99))) return undefined;
+  return injuryTime ? `${value}+${injuryTime}′` : `${value}′`;
+}
+function attachFootballLive(fixture, home, away, clock) {
+  if (fixture?.sport !== "football" || fixture.status !== "live") return;
+  const hasScore = count(home) && home <= 99 && count(away) && away <= 99;
+  if (clock || hasScore) fixture.footballLive = { ...(hasScore ? { home, away } : {}), ...(clock ? { clock } : {}) };
+}
+
 export function sportsFixtureWindow(now) {
   check(now instanceof Date && Number.isFinite(now.getTime()), "Invalid collection time");
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
@@ -185,6 +203,11 @@ async function efl(descriptor, context) {
       squad: { gender: "men", ageGroup: "senior" },
       source: { name: "EFL", url: url.href, observedAt, updatedAt: generated.toISOString() },
     };
+    if (fixture?.status === "live") {
+      const phase = { HalfTime: "HT", ExtraHalfTime: "HT", ShootOut: "PEN", Penalties: "PEN" }[item.matchPeriod];
+      const clock = phase ?? footballMinute(item.formattedMatchTime) ?? footballMinute(item.matchMinutes);
+      attachFootballLive(fixture, item.homeTeam.score, item.awayTeam.score, clock);
+    }
     return { start, fixture };
   });
 }
@@ -220,6 +243,20 @@ async function football(descriptor, context) {
         participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, url.href, updatedAt, compID);
     const reportedScore = fixture ? normalizeUCLReportedScore(row, fixture) : undefined;
     if (reportedScore) fixture.reportedScore = reportedScore;
+    if (fixture?.status === "live" && updatedAt) {
+      const shootout = row.status === "PENALTY_SHOOTOUT" || row.score?.duration === "PENALTY_SHOOTOUT";
+      const phase = shootout ? "PEN" : row.status === "PAUSED" ? "HT" : undefined;
+      const clock = phase ?? footballMinute(row.minute, row.injuryTime) ?? (row.status === "EXTRA_TIME" ? "ET" : undefined);
+      // football-data's cumulative fullTime includes penalties. Subtract its
+      // explicit shootout totals to preserve match goals as the score advances.
+      const matchGoals = (side) => {
+        const total = row.score?.fullTime?.[side];
+        if (!shootout) return total;
+        const penalties = row.score?.penalties?.[side];
+        return count(total) && count(penalties) && total >= penalties ? total - penalties : undefined;
+      };
+      attachFootballLive(fixture, matchGoals("home"), matchGoals("away"), clock);
+    }
     return { fixture,
       start: row.utcDate, competitionId: compID };
   });
@@ -389,7 +426,18 @@ async function espnDaily(descriptor, context) {
       return participant(`espn:${descriptor.path.split("/")[1]}`, item.team.id, item.team.displayName, role);
     };
     const teams = [team("home"), team("away")];
-    return { start, fixture: match.timeValid ? normalize(descriptor, row.id, start, status, teams, observedAt, url) : null,
+    const fixture = match.timeValid ? normalize(descriptor, row.id, start, status, teams, observedAt, url) : null;
+    if (fixture?.sport === "football" && status === "live") {
+      const score = (role) => {
+        const value = match.competitors.find((item) => item.homeAway === role).score;
+        return typeof value === "string" && /^\d{1,2}$/.test(value) ? Number(value) : value;
+      };
+      const phase = row.status.type.name === "STATUS_HALFTIME" ? "HT" : undefined;
+      const clock = phase ?? footballMinute(row.status.displayClock) ?? footballMinute(row.status.type.shortDetail)
+        ?? (row.status.type.name === "STATUS_OVERTIME" ? "ET" : undefined);
+      attachFootballLive(fixture, score("home"), score("away"), clock);
+    }
+    return { start, fixture,
       providerID: row.id, group, agreement: JSON.stringify({ uid: row.uid, start, status, timeValid: match.timeValid,
         participants: match.competitors.map((item) => ({ role: item.homeAway, id: item.team.id, name: item.team.displayName }))
           .sort((a, b) => a.role.localeCompare(b.role)), squad: { gender: descriptor.gender, ageGroup: descriptor.ageGroup } }) };
