@@ -1,6 +1,6 @@
 import { createPolicy, emptyLedger, validateLedger, listNotifications } from "../../../../tools/watchdog/incident-policy.mjs";
 import { applyObservationBatch } from "../../../../tools/watchdog/observation-batch.mjs";
-import { observerPolicyOptions, PROVIDERS, OBSERVER_REVISION, CONFIGURATION_REVISION, EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS, CONFIRMATION_WINDOWS } from "../../../../tools/watchdog/manifest.mjs";
+import { observerPolicyOptions, PROVIDERS, RETIRED_SOURCES, OBSERVER_REVISION, CONFIGURATION_REVISION, EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS, CONFIRMATION_WINDOWS } from "../../../../tools/watchdog/manifest.mjs";
 import { probeSources } from "../../../../tools/watchdog/source-probes.mjs";
 import { collectFixtureReceipts } from "../../../../tools/watchdog/fixture-receipts.mjs";
 import { OwnerEmailDelivery } from "./owner-email.mjs";
@@ -47,8 +47,11 @@ function validateRuntime(runtime) {
   const budget = runtime.budget;
   if (!budget || Object.keys(budget).some((key) => !["day", "counts"].includes(key))) throw new Error("Invalid observer budget");
   if (budget.day != null) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(budget.day) || !budget.counts || Object.keys(budget.counts).length > PROVIDERS.length) throw new Error("Invalid budget day");
-    for (const [source, count] of Object.entries(budget.counts)) {
+    // Same-day counts recorded before a source was retired stay readable;
+    // they are never reserved against again and reset at the next UTC day.
+    const counts = Object.entries(budget.counts ?? {}).filter(([source, count]) => !RETIRED_SOURCES.includes(source) || !scalarTime(count));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(budget.day) || !budget.counts || counts.length > PROVIDERS.length) throw new Error("Invalid budget day");
+    for (const [source, count] of counts) {
       const bound = PROVIDERS.find((row) => row.source === source)?.maxRequestsPerDay;
       if (!bound || !scalarTime(count) || count > bound) throw new Error("Invalid source budget");
     }
