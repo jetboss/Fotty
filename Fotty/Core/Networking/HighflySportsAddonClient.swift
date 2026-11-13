@@ -156,6 +156,7 @@ actor HighflySportsAddonClient {
         var missReason: String?, rowCount: Int?, unmatchedTeam: String?, kickoffOffset: Int?
         var searchScope = "search"
         var requestPair: String?, candidatePairs: [String] = []
+        var listingCount: Int?
         var listingSpan: String?, liveCatalog: String?
         var supplementaryFailures = 0
         var liveRows: Int?, liveShape: String?, liveSameSport: Int?, liveCategories: String?, liveRestShape: String?
@@ -176,6 +177,7 @@ actor HighflySportsAddonClient {
             if let rowCount { details["candidate_count"] = "\(rowCount)" }
             if let unmatchedTeam { details["unmatched_team"] = unmatchedTeam }
             if let requestPair { details["request_pair"] = requestPair }
+            if let listingCount { details["listing_count"] = "\(listingCount)" }
             for (index, pair) in candidatePairs.prefix(2).enumerated() { details[index == 0 ? "candidate_pair" : "candidate_pair_2"] = pair }
             if let kickoffOffset {
                 details["kickoff_offset_min"] = String(max(-10_000, min(10_000, kickoffOffset)))
@@ -227,11 +229,7 @@ actor HighflySportsAddonClient {
         // Highfly's search returned these teams' other dated games but not
         // today's (Jet build 303), so a miss also reads the plain sport
         // listing. The same exact pair/kickoff/squad rules decide admission.
-        var searchMissed = false
-        do { _ = try Self.select(request: request, rows: rows, now: now) }
-        catch CommunitySportsAddonError.matchNotFound { searchMissed = true }
-        catch {}
-        if searchMissed {
+        if Self.selectAll(request: request, rows: rows, now: now).isEmpty {
             // Jet build 305: the dated listing starts 1-8 h ahead, so a game
             // leaves it at kickoff. The account's live catalog carries games
             // in progress; its rows face the same exact identity rules.
@@ -269,10 +267,7 @@ actor HighflySportsAddonClient {
             rows += live.filter { !seen.contains($0.id) }
             // A live match is enough; the upcoming listing cannot hold a game
             // in progress, so it is read only while there is still no match.
-            var stillMissing = false
-            do { _ = try Self.select(request: request, rows: rows, now: now) }
-            catch CommunitySportsAddonError.matchNotFound { stillMissing = true }
-            catch {}
+            let stillMissing = Self.selectAll(request: request, rows: rows, now: now).isEmpty
             var browsed: [Row] = []
             if stillMissing {
                 stage = "browse"
@@ -300,9 +295,10 @@ actor HighflySportsAddonClient {
             stage = "fixture_match"
             rowCount = Set(rows.map(\.id)).count
         }
-        let selected: Row
-        do { selected = try Self.select(request: request, rows: rows, now: now) }
-        catch {
+        // Highfly lists one game several times (one listing per upstream
+        // feed, plus a live row). Every exact listing contributes streams.
+        let matchedRows = Self.selectAll(request: request, rows: rows, now: now)
+        if matchedRows.isEmpty {
             missReason = Self.missReason(request: request, rows: rows, now: now)
             if let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request) {
                 let parsed = rows.map { Self.identity($0, liveKickoff: Self.liveKickoff(for: requestID, now: now),
@@ -318,31 +314,32 @@ actor HighflySportsAddonClient {
                     kickoffOffset = ReviewedSportsFixtureMatcher.kickoffOffsetMinutes(for: requestID, parsed: parsed)
                 }
             }
-            throw error
+            throw CommunitySportsAddonError.matchNotFound
         }
         stage = "streams"
-        // Each step names its own stop reason (never a title, id or URL).
-        guard manifest.resources.filter({ $0.name == "stream" }).contains(where: { resource in
-            resource.idPrefixes.map { prefixes in prefixes.contains { selected.id.hasPrefix($0) } } ?? true }) else {
-            missReason = "stream_id_prefix"
-            throw CommunitySportsAddonError.invalidManifest
+        listingCount = matchedRows.count
+        var listings: [(row: Row, deliveries: [Delivery])] = []
+        var offeredTotal = 0
+        for listing in matchedRows.prefix(Self.maximumListings) {
+            // A manifest that declares which ids it streams is honoured per listing.
+            guard manifest.resources.filter({ $0.name == "stream" }).contains(where: { resource in
+                resource.idPrefixes.map { prefixes in prefixes.contains { listing.id.hasPrefix($0) } } ?? true }) else {
+                supplementaryFailures += 1; continue
+            }
+            let metaRow: Row
+            do { metaRow = (try await read(root.appendingPathComponent("meta/sport/" + listing.id + ".json")) as Meta).meta }
+            catch is CancellationError { throw CancellationError() }
+            catch { supplementaryFailures += 1; metaRow = listing } // The catalog row already matched this game.
+            // A live marker may tick between reads; the fixed fields must agree.
+            guard Self.metaDifference(metaRow, listing) == nil else { supplementaryFailures += 1; continue }
+            do {
+                let streams: Streams = try await read(root.appendingPathComponent("stream/sport/" + listing.id + ".json"))
+                offeredTotal += streams.streams.count
+                listings.append((metaRow, Array(streams.streams.prefix(100))))
+            } catch is CancellationError { throw CancellationError() }
+            catch { supplementaryFailures += 1 }
         }
-        missReason = "meta_read"
-        let metaRow: Row
-        do { metaRow = (try await read(root.appendingPathComponent("meta/sport/" + selected.id + ".json")) as Meta).meta }
-        catch is CancellationError { throw CancellationError() }
-        catch { supplementaryFailures += 1; metaRow = selected } // The catalog row already matched this game.
-        let metadata = Meta(meta: metaRow)
-        // A live row's marker text can tick between the catalog and meta
-        // reads; the fixed fields must agree and the meta's own identity is
-        // re-matched below, so only description/releaseInfo may differ.
-        if let differs = Self.metaDifference(metadata.meta, selected) {
-            missReason = "meta_differs_" + differs
-            throw CommunitySportsAddonError.conflictingMatch
-        }
-        missReason = "streams_read"
-        let streams: Streams = try await read(root.appendingPathComponent("stream/sport/" + selected.id + ".json"))
-        let offered = Array(streams.streams.prefix(40))
+        guard !listings.isEmpty else { missReason = "streams_read"; throw CommunitySportsAddonError.invalidResponse }
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))
         // Revalidation below uses wall clock elapsed from resolve, supplied in
         // one local scope; no cached account or fixture authority is renewed.
@@ -351,8 +348,10 @@ actor HighflySportsAddonClient {
               let latest = await current(request), Self.sameFixture(latest, request) else {
             throw CommunitySportsAddonError.conflictingMatch
         }
-        guard (try? Self.select(request: latest, rows: [metadata.meta], now: completedAt)) != nil else {
-            missReason = "revalidate_meta_" + (Self.identityRejection(metadata.meta) ?? "fixture")
+        // Each listing's own details must still identify the game now.
+        listings = listings.filter { !Self.selectAll(request: latest, rows: [$0.row], now: completedAt).isEmpty }
+        guard !listings.isEmpty else {
+            missReason = "revalidate_meta"
             throw CommunitySportsAddonError.conflictingMatch
         }
         missReason = nil
@@ -360,16 +359,17 @@ actor HighflySportsAddonClient {
         var rejections: [String] = [], rejectedHost: String?
         defer {
             // Shape-only receipt: counts, the commonest reason and a rejected host name. Never a path or token.
-            var details = ["addon_stream_entry_count": "\(streams.streams.count)", "candidate_count": "\(sessions.count)",
+            var details = ["addon_stream_entry_count": "\(offeredTotal)", "candidate_count": "\(sessions.count)",
                            "addon_admission_rejected_count": "\(rejections.count)"]
             if let common = Dictionary(grouping: rejections, by: { $0 }).max(by: { $0.value.count < $1.value.count })?.key {
                 details["reason_code"] = common
             }
             if let rejectedHost { details["delivery_host"] = rejectedHost }
+            details["listing_count"] = "\(listings.count)"
             FottyQualityStore.shared.record(category: .playback, name: "highfly_delivery_admission",
                 outcome: sessions.isEmpty ? .failure : .info, details: details)
         }
-        for row in offered {
+        for (listing, row) in listings.flatMap({ listing in listing.deliveries.map { (listing.row, $0) } }) {
             guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
             if row.requiresDRM { rejections.append("drm"); continue }
             if let reason = AccountSourceDeliveryPolicy.rejection(url) {
@@ -388,7 +388,7 @@ actor HighflySportsAddonClient {
             catch is CancellationError { throw CancellationError() }
             catch { rejections.append("validation"); continue } // One rejected route must not erase valid siblings.
             guard let binding = StreamEventBinding(request: latest, providerCode: Self.providerCode,
-                providerEventID: selected.id, streamID: selected.id, resourceType: "sport", manifestRevision: manifest.version,
+                providerEventID: listing.id, streamID: listing.id, resourceType: "sport", manifestRevision: manifest.version,
                 verifiedAt: completedAt, expiresAt: completedAt.addingTimeInterval(90), at: completedAt) else { throw CommunitySportsAddonError.conflictingMatch }
             sessions.append(StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
                 providerName: "HF\(sessions.count + 1)", requiredHeaders: headers, qualityLabel: nil,
@@ -398,15 +398,16 @@ actor HighflySportsAddonClient {
                     // Server name only (e.g. testleaf.papacito.cfd); never a path or token.
                     "delivery_host": url.host?.lowercased() ?? "unknown"],
                 createdAt: completedAt, requiresGuardedRelay: true, eventBinding: binding))
-            if sessions.count == 8 { break }
+            if sessions.count == Self.maximumSessions { break }
         }
         stage = "admission"
-        guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: streams.streams.count) }
+        guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offeredTotal) }
         stage = "final_check"
         try Task.checkCancellation()
         guard await enabled(), try await configuration() == manifestURL,
               let final = await current(request), Self.sameFixture(final, latest),
-              (try? Self.select(request: final, rows: [metadata.meta], now: now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock))))) != nil else {
+              !Self.selectAll(request: final, rows: listings.map(\.row),
+                              now: now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))).isEmpty else {
             throw CommunitySportsAddonError.conflictingMatch
         }
         finished = true
@@ -435,6 +436,18 @@ actor HighflySportsAddonClient {
     /// An account delivery is admitted when it is safe; see AccountSourceDeliveryPolicy.
     nonisolated static func deliveryRejection(_ url: URL) -> String? { AccountSourceDeliveryPolicy.rejection(url) }
     nonisolated static func admitsDelivery(_ url: URL) -> Bool { deliveryRejection(url) == nil }
+
+    /// Upper bounds that only stop runaway responses; real games stay far below them.
+    nonisolated static let maximumListings = 12
+    nonisolated static let maximumSessions = 100
+
+    /// Every listing of the requested game (see ReviewedSportsFixtureMatcher.selectAll).
+    nonisolated static func selectAll(request: StreamPlaybackRequest, rows: [Row], now: Date) -> [Row] {
+        guard let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request),
+              request.preferredEvent?.hasCatalogIdentityConflict != true else { return [] }
+        let candidates = screenedCandidates(request: request, requestID: requestID, rows: rows, now: now)
+        return ReviewedSportsFixtureMatcher.selectAll(for: requestID, from: candidates).map { rows[$0] }
+    }
 
     nonisolated static func select(request: StreamPlaybackRequest, rows: [Row], now: Date) throws -> Row {
         guard let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request), request.preferredEvent?.hasCatalogIdentityConflict != true else { throw CommunitySportsAddonError.matchNotFound }

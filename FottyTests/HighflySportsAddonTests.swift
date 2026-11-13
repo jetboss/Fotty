@@ -229,6 +229,21 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertNil(rows[1].commonestReason, "Nothing unused, nothing to explain")
     }
 
+    func testEveryListingOfTheGameContributesStreams() async throws {
+        let transport = HighflyTestTransport(mode: .twoListings)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff)
+        // Feed A: 1 stream. Feed B: 10 more plus one duplicate of feed A's.
+        XCTAssertEqual(sessions.count, 11, "Two listings of one game are not a conflict, and no cap of 8 applies")
+        XCTAssertEqual(Set(sessions.map(\.playableURL)).count, 11, "Duplicates across listings appear once")
+        XCTAssertEqual(Set(sessions.compactMap { $0.eventBinding?.providerEventID }),
+                       ["streamed:synthetic", "streamed:synthetic-feed-b"])
+        let counts = await transport.counts()
+        XCTAssertEqual(counts.stream, 2)
+        let receipt = FottyQualityStore.shared.records().last { $0.name == "highfly_delivery_admission" }
+        XCTAssertEqual(receipt?.details["listing_count"], "2")
+        XCTAssertEqual(receipt?.details["candidate_count"], "11")
+    }
+
     func testSecondTeamSearchFailureKeepsTheFirstTeamsMatch() async throws {
         let transport = HighflyTestTransport(mode: .secondSearchFails)
         let sessions = try await client(transport).resolve(for: request(), now: kickoff)
@@ -377,7 +392,7 @@ final class HighflySportsAddonTests: XCTestCase {
 }
 
 private actor HighflyTestTransport {
-    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog, listingFailsAfterLive, liveFailsListingMatches, secondSearchFails, looseRows, metaFails, looseManifest }
+    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog, listingFailsAfterLive, liveFailsListingMatches, secondSearchFails, looseRows, metaFails, looseManifest, twoListings }
     private let premium: Bool
     private let mode: Mode
     private var streamCount = 0
@@ -431,6 +446,9 @@ private actor HighflyTestTransport {
             later["description"] = "Arsenal vs Everton\n14 Nov 2026 · 18:00 UTC"; later["releaseInfo"] = "14 Nov 2026 · 18:00 UTC"
             let searching = url.absoluteString.contains("search=")
             switch mode {
+            case .twoListings:
+                var second = row; second["id"] = "streamed:synthetic-feed-b"
+                body = ["metas": url.absoluteString.contains("skip=") || !searching ? [] : [row, second]]
             case .secondLiveCatalog:
                 // 100 unrelated rows then a short page in the first live
                 // catalog; the match is on the second catalog's first page.
@@ -476,12 +494,17 @@ private actor HighflyTestTransport {
             var meta = row
             if [.undatedLiveRow, .secondLiveCatalog, .listingFailsAfterLive].contains(mode) { meta["description"] = "Arsenal vs Everton\n🔴 Live now"; meta["releaseInfo"] = "LIVE" }
             if mode == .conflictingMeta { meta["name"] = "Different fixture" }
+            if mode == .twoListings, url.path.contains("feed-b") { meta["id"] = "streamed:synthetic-feed-b" }
             body = ["meta": meta]
         } else {
             streamCount += 1
             let key = premium ? "token" : "ft"
             var deliveries: [[String: Any]] = [["url": "https://sports.highfly.to/tip.m3u8"],
                 ["url": "https://papacito.cfd/m3u/synthetic/index.m3u8?\(key)=synthetic", "behaviorHints": ["notWebReady": true]]]
+            if mode == .twoListings, url.path.contains("feed-b") {
+                deliveries = (1...10).map { ["url": "https://edge\($0).papacito.cfd/m3u/b\($0)/index.m3u8?\(key)=s"] }
+                deliveries.append(["url": "https://papacito.cfd/m3u/synthetic/index.m3u8?\(key)=synthetic"])
+            }
             if mode == .badSibling { deliveries.insert(["url": "https://papacito.cfd/m3u/rejected/index.m3u8?\(key)=synthetic"], at: 0) }
             body = ["streams": deliveries]
         }

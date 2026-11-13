@@ -475,7 +475,7 @@ final class FottyQualityStore {
         "diagnostic_operation_id", "audio_enabled", "playback_intent", "candidate_count",
         "competition", "sport", "terminal_outcome", "failover_family", "failover_count",
         // A source's normalized spelling of one team (alias review); never a title/link.
-        "unmatched_team", "delivery_host", "kickoff_offset_min", "search_scope", "listing_span_h", "live_catalog", "live_row_count", "live_row_shape", "live_sport_rows", "live_categories", "live_rest_shape", "live_layout", "supplementary_failures", "request_pair", "candidate_pair", "candidate_pair_2"
+        "unmatched_team", "delivery_host", "kickoff_offset_min", "search_scope", "listing_span_h", "live_catalog", "live_row_count", "live_row_shape", "live_sport_rows", "live_categories", "live_rest_shape", "live_layout", "supplementary_failures", "request_pair", "candidate_pair", "candidate_pair_2", "listing_count"
     ]
     private static let retentionInterval: TimeInterval = 14 * 24 * 60 * 60
     private static let maximumRecords = 250
@@ -800,7 +800,7 @@ final class FottyQualityStore {
         case "relay_evicted_request_count": return Int(value).map { (0...1_000_000).contains($0) } ?? false
         case "audio_enabled", "playback_intent", "native_pip_active", "native_app_backgrounded":
             return ["true", "false"].contains(value)
-        case "candidate_count": return Int(value).map { (0...12).contains($0) } ?? false
+        case "candidate_count": return Int(value).map { (0...500).contains($0) } ?? false
         case "cs_stream_entry_count", "cs_admission_rejected_count", "addon_stream_entry_count", "addon_admission_rejected_count":
             return Int(value).map { (0...100).contains($0) } ?? false
         case "stage", "last_observed_stage":

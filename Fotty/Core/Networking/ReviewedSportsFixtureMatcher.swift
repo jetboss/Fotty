@@ -169,6 +169,24 @@ enum ReviewedSportsFixtureMatcher {
             .prefix(limit).map { $0 }
     }
 
+    /// Every listing of the requested game, for aggregating sources that list
+    /// one game several times (once per upstream feed, plus a live row). Each
+    /// listing must match exactly; an id whose own rows disagree is skipped,
+    /// without vetoing the other listings.
+    nonisolated static func selectAll(for request: RequestIdentity, from candidates: [Candidate]) -> [Int] {
+        let grouped = Dictionary(grouping: candidates, by: \.metadataID)
+        var chosen: [Int] = [], seen = Set<String>()
+        for index in candidates.indices {
+            let candidate = candidates[index]
+            guard let identity = candidate.identity, identity.sport == request.sport, identity.pair == request.pair,
+                  abs(identity.kickoff.timeIntervalSince(request.kickoff)) <= 15 * 60,
+                  grouped[candidate.metadataID]?.allSatisfy({ $0.identity == nil || $0.identity == identity }) == true,
+                  seen.insert(candidate.metadataID).inserted else { continue }
+            chosen.append(index)
+        }
+        return chosen
+    }
+
     nonisolated static func pairLabel(_ pair: [String]) -> String {
         String(pair.map { $0.replacingOccurrences(of: "|", with: " ") }.joined(separator: " v ").prefix(64))
     }
