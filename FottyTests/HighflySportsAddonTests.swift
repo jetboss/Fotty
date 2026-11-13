@@ -80,28 +80,46 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertThrowsError(try HighflySportsAddonClient.select(request: fixture(day: 2, ordinal: 1), rows: [item], now: now.addingTimeInterval(86400)))
     }
 
-    func testDeliveryAndRenewalIdentityRetainTransportAndOriginLimits() {
-        let free = URL(string: "https://papacito.cfd/m3u/synthetic/index.m3u8?ft=synthetic-signature")!
-        let premium = URL(string: "https://papacito.cfd/m3u/synthetic/index.m3u8?token=synthetic-new-signature")!
-        XCTAssertTrue(HighflySportsAddonClient.admitsDelivery(free))
-        XCTAssertTrue(HighflySportsAddonClient.admitsDelivery(premium))
-        XCTAssertEqual(HighflySportsAddonClient.stableChoiceKey(free), HighflySportsAddonClient.stableChoiceKey(premium))
-        for value in ["http://papacito.cfd/m3u/a/index.m3u8?ft=x", "https://papacito.cfd:8443/m3u/a/index.m3u8?ft=x",
-                      "https://example.com/m3u/a/index.m3u8?ft=x", "https://127.0.0.1/m3u/a/index.m3u8?ft=x",
-                      "https://papacito.cfd/m3u/a/index.m3u8?ft=x&token=y", "https://papacito.cfd/m3u/a/index.m3u8?ft=",
-                      "https://papacito.cfd/m3u/a/index.m3u8?url=https://example.com", "https://papacito.cfd/m3u/%2e%2e/index.m3u8?ft=x"] {
-            XCTAssertFalse(HighflySportsAddonClient.admitsDelivery(URL(string: value)!))
+    func testAccountDeliveriesAreJudgedOnSafetyNotShape() {
+        // Any link shape, query name or Highfly edge the paid add-on serves.
+        for value in ["https://papacito.cfd/m3u/synthetic/index.m3u8?ft=synthetic-signature",
+                      "https://papacito.cfd/m3u/synthetic/index.m3u8?token=synthetic-new-signature",
+                      "https://testleaf.papacito.cfd/m3u/a/index.m3u8?ft=x&token=y",
+                      "https://edge.example.net/live/stream.m3u8", "https://cdn.example.org/hls/master?sig=abc"] {
+            XCTAssertNil(HighflySportsAddonClient.deliveryRejection(URL(string: value)!), value)
+        }
+        XCTAssertEqual(HighflySportsAddonClient.stableChoiceKey(URL(string: "https://papacito.cfd/m3u/s/i.m3u8?ft=a")!),
+                       HighflySportsAddonClient.stableChoiceKey(URL(string: "https://papacito.cfd/m3u/s/i.m3u8?token=b")!))
+        // Safety still refuses: plain HTTP, odd ports, private/IP hosts, sign-in in the link, replays.
+        let refused: [(String, String)] = [
+            ("http://papacito.cfd/m3u/a/index.m3u8?ft=x", "not_https"),
+            ("https://papacito.cfd:8443/m3u/a/index.m3u8?ft=x", "unsafe_destination"),
+            ("https://127.0.0.1/m3u/a/index.m3u8?ft=x", "unsafe_destination"),
+            ("https://192.168.1.10/live.m3u8", "unsafe_destination"),
+            ("https://router.local/live.m3u8", "unsafe_destination"),
+            ("https://user:secret@papacito.cfd/live.m3u8", "credentials_in_link"),
+            ("https://recaps.highfly.to/game/full.m3u8", "replay"),
+            ("https://cdn.example.org/game/full.mp4", "not_live_media"),
+            ("https://cdn.example.org/watch.html", "not_live_media")]
+        for (value, reason) in refused {
+            XCTAssertEqual(HighflySportsAddonClient.deliveryRejection(URL(string: value)!), reason, value)
         }
     }
 
-    func testHeadersExternalAndDRMContractsAreNotSilentlyDropped() throws {
-        for json in [#"{"url":"https://example.com/a","behaviorHints":{"proxyHeaders":{}}}"#,
-                     #"{"url":"https://example.com/a","headers":{"Authorization":"synthetic"}}"#,
-                     #"{"externalUrl":"https://example.com/a"}"#, #"{"url":"https://example.com/a","drm":"clearkey"}"#] {
-            XCTAssertFalse(try JSONDecoder().decode(HighflySportsAddonClient.Delivery.self, from: Data(json.utf8)).supported)
+    func testUnknownRowFieldsAreIgnoredButCredentialsAndDRMAreNot() throws {
+        func decode(_ json: String) throws -> HighflySportsAddonClient.Delivery {
+            try JSONDecoder().decode(HighflySportsAddonClient.Delivery.self, from: Data(json.utf8))
         }
-        XCTAssertTrue(try JSONDecoder().decode(HighflySportsAddonClient.Delivery.self,
-            from: Data(#"{"url":"https://example.com/a","behaviorHints":{"notWebReady":true}}"#.utf8)).supported)
+        let plain = try decode(#"{"url":"https://example.com/a","name":"HD","behaviorHints":{"notWebReady":true,"bingeGroup":"x"},"extra":1}"#)
+        XCTAssertEqual(plain.url, "https://example.com/a")
+        XCTAssertFalse(plain.requiresDRM)
+        XCTAssertEqual(AccountSourceDeliveryPolicy.requestHeaders(plain.requestedHeaders), [:])
+        let referer = try decode(#"{"url":"https://example.com/a","behaviorHints":{"proxyHeaders":{"request":{"referer":"https://site.example/","X-Thing":"1"}}}}"#)
+        XCTAssertEqual(AccountSourceDeliveryPolicy.requestHeaders(referer.requestedHeaders), ["Referer": "https://site.example/"])
+        let credential = try decode(#"{"url":"https://example.com/a","headers":{"Authorization":"synthetic"}}"#)
+        XCTAssertNil(AccountSourceDeliveryPolicy.requestHeaders(credential.requestedHeaders), "Sign-in material is never forwarded")
+        XCTAssertTrue(try decode(#"{"url":"https://example.com/a","drm":"clearkey"}"#).requiresDRM)
+        XCTAssertNil(try decode(#"{"externalUrl":"https://example.com/a"}"#).url)
     }
 
     func testCodesNormalizeOnlyForTheirOwnProvider() throws {
@@ -193,6 +211,66 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertEqual(receipt?.details["supplementary_failures"], "1")
     }
 
+    func testOwnerStatusSummarisesOfferedAndUsedStreams() {
+        func receipt(_ name: String, offered: Int, used: Int, reason: String?, build: String = "900") -> FottyQualityRecord {
+            var details = ["addon_stream_entry_count": "\(offered)", "candidate_count": "\(used)"]
+            if let reason { details["reason_code"] = reason }
+            return FottyQualityRecord(id: UUID(), timestamp: Date(), category: .playback, name: name, outcome: .info,
+                                      durationMilliseconds: nil, details: details, appVersion: "3.0.0", appBuild: build)
+        }
+        let rows = AccountSourceAdmissionSummary.rows(records: [
+            receipt("highfly_delivery_admission", offered: 7, used: 5, reason: "replay"),
+            receipt("highfly_delivery_admission", offered: 7, used: 5, reason: "replay"),
+            receipt("highfly_delivery_admission", offered: 9, used: 1, reason: "host", build: "899"),
+            receipt("penguplay_delivery_admission", offered: 2, used: 2, reason: nil)], build: "900")
+        XCTAssertEqual(rows.map(\.name), ["Highfly", "PenguPlay"])
+        XCTAssertEqual(rows[0].offered, 14); XCTAssertEqual(rows[0].used, 10)
+        XCTAssertEqual(AccountSourceAdmissionSummary.label(rows[0].commonestReason ?? ""), "Replays, not live")
+        XCTAssertNil(rows[1].commonestReason, "Nothing unused, nothing to explain")
+    }
+
+    func testSecondTeamSearchFailureKeepsTheFirstTeamsMatch() async throws {
+        let transport = HighflyTestTransport(mode: .secondSearchFails)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 1, "Arsenal's search found the game; Everton's failing search must not discard it")
+        let receipt = FottyQualityStore.shared.records().last { $0.name == "highfly_lookup" }
+        XCTAssertEqual(receipt?.details["supplementary_failures"], "1")
+    }
+
+    func testRowsInAnUnfamiliarLayoutStillMatchTheRightGame() async throws {
+        let transport = HighflyTestTransport(mode: .looseRows)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(sessions.first?.eventBinding?.providerEventID, "match:arsenal-everton-2026")
+    }
+
+    func testFailedDetailsReadFallsBackToTheMatchedRow() async throws {
+        let transport = HighflyTestTransport(mode: .metaFails)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 1)
+        let counts = await transport.counts()
+        XCTAssertEqual(counts.meta, 1); XCTAssertEqual(counts.stream, 1)
+    }
+
+    func testRenamedManifestWithPlainResourcesStillWorks() async throws {
+        let transport = HighflyTestTransport(mode: .looseManifest)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 1)
+    }
+
+    func testBlankCategoryLiveRowUsesTheRequestedSportOnly() {
+        let id = ReviewedSportsFixtureMatcher.RequestIdentity(sport: "football", pair: ["arsenal", "everton"], kickoff: kickoff)
+        let live = HighflySportsAddonClient.liveKickoff(for: id, now: kickoff.addingTimeInterval(600))
+        let blank = HighflySportsAddonClient.Row(id: "streamed:b", name: "Arsenal vs Everton",
+            description: "Arsenal vs Everton\nLIVE", releaseInfo: "LIVE", category: "")
+        XCTAssertEqual(HighflySportsAddonClient.identity(blank, liveKickoff: live, fallbackSport: "football")?.sport, "football")
+        XCTAssertNil(HighflySportsAddonClient.identity(blank, liveKickoff: live), "No requested sport, no guess")
+        let tennis = HighflySportsAddonClient.Row(id: "streamed:t", name: "Arsenal vs Everton",
+            description: "Arsenal vs Everton\nLIVE", releaseInfo: "LIVE", category: "tennis")
+        XCTAssertNil(HighflySportsAddonClient.identity(tennis, liveKickoff: live, fallbackSport: "football"),
+                     "A stated different sport is never overridden")
+    }
+
     func testUndatedLiveRowNeverStandsInForADifferentPairOrCricket() {
         let id = ReviewedSportsFixtureMatcher.RequestIdentity(sport: "football", pair: ["arsenal", "everton"], kickoff: kickoff)
         let live = HighflySportsAddonClient.liveKickoff(for: id, now: kickoff.addingTimeInterval(600))
@@ -208,7 +286,8 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertNil(HighflySportsAddonClient.identityRejection(row()))
         let undated = HighflySportsAddonClient.Row(id: "streamed:x", name: "Arsenal vs Everton", description: "Arsenal vs Everton",
                                                    releaseInfo: "LIVE", category: "football")
-        XCTAssertEqual(HighflySportsAddonClient.identityRejection(undated), "description_lines_1")
+        XCTAssertEqual(HighflySportsAddonClient.identityRejection(undated), "live_without_window",
+                       "A live row with no official live window is not guessed into a kickoff")
     }
 
     func testLiveLayoutNamesLineKindsNotText() {
@@ -235,22 +314,6 @@ final class HighflySportsAddonTests: XCTestCase {
         let receipt = FottyQualityStore.shared.records().last { $0.name == "highfly_lookup" }
         XCTAssertEqual(receipt?.details["listing_span_h"], "96_96")
         XCTAssertEqual(receipt?.details["live_catalog"], "present")
-    }
-
-    func testDeliveryAdmitsHighflyEdgeSubdomainsWithTheSameShape() {
-        let path = "/m3u/synthetic/index.m3u8?token=abc"
-        for host in ["papacito.cfd", "testleaf.papacito.cfd", "edge-2.papacito.cfd"] {
-            XCTAssertTrue(HighflySportsAddonClient.admitsDelivery(URL(string: "https://\(host)\(path)")!), host)
-        }
-        for host in ["papacito.cfd.evil.example", "evilpapacito.cfd", "a.b.papacito.cfd", "-x.papacito.cfd",
-                     "TESTLEAF.papacito.cfd", "recaps.highfly.to", "papacito.cfd."] {
-            XCTAssertFalse(HighflySportsAddonClient.admitsDelivery(URL(string: "https://\(host)\(path)")!), host)
-            XCTAssertEqual(HighflySportsAddonClient.deliveryRejection(URL(string: "https://\(host)\(path)")!), "host", host)
-        }
-        // The subdomain changes nothing else: shape rules still apply.
-        XCTAssertEqual(HighflySportsAddonClient.deliveryRejection(URL(string: "https://testleaf.papacito.cfd/live/x.m3u8?token=a")!), "path")
-        XCTAssertEqual(HighflySportsAddonClient.deliveryRejection(URL(string: "https://testleaf.papacito.cfd/m3u/a/b.m3u8?token=a&x=1")!), "query_count")
-        XCTAssertEqual(HighflySportsAddonClient.deliveryRejection(URL(string: "http://testleaf.papacito.cfd\(path)")!), "not_https")
     }
 
     func testOwnerAccountSourceLeadsAutomaticChoice() {
@@ -302,7 +365,7 @@ final class HighflySportsAddonTests: XCTestCase {
 }
 
 private actor HighflyTestTransport {
-    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog, listingFailsAfterLive, liveFailsListingMatches }
+    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog, listingFailsAfterLive, liveFailsListingMatches, secondSearchFails, looseRows, metaFails, looseManifest }
     private let premium: Bool
     private let mode: Mode
     private var streamCount = 0
@@ -321,6 +384,29 @@ private actor HighflyTestTransport {
         let row: [String: Any] = ["id": "streamed:synthetic", "type": "sport", "name": "Arsenal vs Everton",
             "description": "Arsenal vs Everton\n10 Nov 2026 · 18:00 UTC", "releaseInfo": "10 Nov 2026 · 18:00 UTC", "category": "football"]
         let body: [String: Any]
+        func unavailable() -> (Data, HTTPURLResponse) {
+            (Data("busy".utf8), HTTPURLResponse(url: url, statusCode: 503, httpVersion: "HTTP/1.1",
+                headerFields: ["Content-Type": "text/plain"])!)
+        }
+        if mode == .secondSearchFails, url.absoluteString.contains("search=Everton") { return unavailable() }
+        if mode == .metaFails, url.path.contains("/meta/") { metaCount += 1; return unavailable() }
+        if mode == .looseManifest || mode == .looseRows, url.lastPathComponent == "manifest.json" {
+            body = ["id": "highfly.renamed", "version": "2.0", "resources": ["catalog", "meta", "stream"].map { ["name": $0, "types": ["sport"]] },
+                    "catalogs": [["id": "sports_football", "type": "sport", "name": "Football", "extra": ["genre"]]],
+                    "behaviorHints": ["configurable": true]]
+            return (try JSONSerialization.data(withJSONObject: body), HTTPURLResponse(url: url, statusCode: 200,
+                httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!)
+        }
+        if mode == .looseRows, url.path.contains("/catalog/") || url.path.contains("/meta/") {
+            // A new id scheme, three description lines with the date last, extra fields.
+            let loose: [String: Any] = ["id": "match:arsenal-everton-2026", "type": "sport", "name": "Arsenal vs Everton",
+                "description": "Arsenal vs Everton\nPremier League\n10 Nov 2026 · 18:00 UTC", "releaseInfo": "Matchday 11",
+                "category": "football", "poster": "https://example.invalid/p.png", "links": []]
+            if url.path.contains("/meta/") { metaCount += 1; body = ["meta": loose] }
+            else { catalogPaths.append(url.lastPathComponent); body = ["metas": url.absoluteString.contains("skip=") ? [] : [loose]] }
+            return (try JSONSerialization.data(withJSONObject: body), HTTPURLResponse(url: url, statusCode: 200,
+                httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "application/json"])!)
+        }
         if url.lastPathComponent == "manifest.json" {
             body = ["id": premium ? "community.sports.streamed.premium" : "community.sports.fly", "version": "1.3.0",
                 "resources": ["catalog", "meta", "stream"].map { ["name": $0, "types": ["sport"], "idPrefixes": ["streamed:"]] },

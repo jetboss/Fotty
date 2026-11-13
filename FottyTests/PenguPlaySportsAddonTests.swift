@@ -76,7 +76,12 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         XCTAssertEqual(Client.requestHeaders(try delivery(#"{"referer":"https://site.example/","User-Agent":"UA"}"#)),
                        ["Referer": "https://site.example/", "User-Agent": "UA"])
         XCTAssertNil(Client.requestHeaders(try delivery(#"{"Cookie":"secret"}"#)))
-        XCTAssertNil(Client.requestHeaders(try delivery(#"{"Referer":"http://site.example/"}"#)))
+        // A Referer is provenance, not a destination: plain-http values are forwarded,
+        // and unknown header names are dropped instead of refusing the stream.
+        XCTAssertEqual(Client.requestHeaders(try delivery(#"{"Referer":"http://site.example/","X-Thing":"1"}"#)),
+                       ["Referer": "http://site.example/"])
+        XCTAssertTrue(Client.admitsDelivery(URL(string: "https://cdn.example.com/hls/master?sig=abc")!),
+                      "A live playlist without an .m3u8 suffix is still tried")
     }
 
     func testResolveUsesOnlyTheOwnersLinkAndReturnsGuardedHLS() async throws {

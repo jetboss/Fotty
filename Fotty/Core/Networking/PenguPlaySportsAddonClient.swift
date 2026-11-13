@@ -220,9 +220,11 @@ actor PenguPlaySportsAddonClient {
             guard let url = URL(string: root + "catalog/tv/" + catalogID + "/search=" + Self.encodedComponent(term) + ".json") else {
                 throw CommunitySportsAddonError.unsafeResponse
             }
-            let page: Catalog = try await read(url)
-            guard page.metas.count <= 200, rows.count + page.metas.count <= 400 else { throw CommunitySportsAddonError.unsafeResponse }
-            rows += page.metas
+            do {
+                let page: Catalog = try await read(url)
+                rows += page.metas.prefix(max(0, 400 - rows.count))
+            } catch is CancellationError { throw CancellationError() }
+            catch { lastReadFailure = nil; continue } // Keep the other team's rows.
         }
         stage = "fixture_match"
         var viaChannel: CricketBroadcastChannel? = channelTile
@@ -247,8 +249,7 @@ actor PenguPlaySportsAddonClient {
                 throw CommunitySportsAddonError.matchNotFound
             }
             let page: Catalog = try await read(url)
-            guard page.metas.count <= 200 else { throw CommunitySportsAddonError.unsafeResponse }
-            selected = try Self.selectChannel(channel, rows: page.metas)
+            selected = try Self.selectChannel(channel, rows: Array(page.metas.prefix(200)))
         }
         stage = "streams"
         guard let streamURL = URL(string: root + "stream/tv/" + Self.encodedComponent(selected.id) + ".json") else {
@@ -257,7 +258,7 @@ actor PenguPlaySportsAddonClient {
         lastReadFailure = nil
         let streams: Streams = try await read(streamURL, timeout: Self.streamReadTimeout)
         stage = "stream_count"
-        guard streams.streams.count <= 40 else { throw CommunitySportsAddonError.unsafeResponse }
+        let offered = Array(streams.streams.prefix(40))
         stage = "sign_in"
         guard !streams.streams.contains(where: Self.isSignInPlaceholder) else {
             throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: streams.streams.count)
@@ -272,7 +273,7 @@ actor PenguPlaySportsAddonClient {
         stage = "delivery"
         var sessions: [StreamSession] = [], seen: Set<URL> = []
         var rejected = 0
-        for row in streams.streams {
+        for row in offered {
             guard let value = row.url, let url = URL(string: value), Self.admitsDelivery(url),
                   let headers = Self.requestHeaders(row), seen.insert(url).inserted else { rejected += 1; continue }
             do { try await validate(url) }
@@ -287,7 +288,8 @@ actor PenguPlaySportsAddonClient {
                 providerName: "PP\(sessions.count + 1)", requiredHeaders: headers, qualityLabel: nil,
                 expiryTime: binding.expiresAt, canRefresh: true,
                 diagnosticMetadata: ["source_family": Self.providerCode, "delivery": "penguplay_hls",
-                    "source_key": HighflySportsAddonClient.stableChoiceKey(url), "source_key_scope": "upstream"],
+                    "source_key": HighflySportsAddonClient.stableChoiceKey(url), "source_key_scope": "upstream",
+                    "delivery_host": url.host?.lowercased() ?? "unknown"],
                 createdAt: completedAt,
                 nativePlaylistProfile: LocalStreamProxyPlaylistProfile.penguPlay(deliveryURL: url,
                     providerEventID: selected.id, headers: headers),
@@ -311,30 +313,13 @@ actor PenguPlaySportsAddonClient {
         return sessions
     }
 
-    /// Secure HLS only, through the existing guarded relay's destination rules.
-    nonisolated static func admitsDelivery(_ url: URL) -> Bool {
-        url.scheme == "https" && (url.port == nil || url.port == 443) && url.user == nil && url.password == nil
-            && url.fragment == nil && url.absoluteString.utf8.count <= 8192 && LocalStreamProxyPolicy.allowsDestination(url)
-            && url.path.lowercased().hasSuffix(".m3u8")
-    }
+    /// Safe to open (see AccountSourceDeliveryPolicy); link shape is not judged.
+    nonisolated static func admitsDelivery(_ url: URL) -> Bool { AccountSourceDeliveryPolicy.rejection(url) == nil }
 
-    /// At most Origin, Referer and User-Agent; provenance must be https.
+    /// Referer, Origin and User-Agent are forwarded; other names are dropped;
+    /// a credential header refuses the stream. Response-header hints are ignored.
     nonisolated static func requestHeaders(_ delivery: Delivery) -> [String: String]? {
-        guard delivery.behaviorHints?.proxyHeaders?.response?.isEmpty ?? true else { return nil }
-        let request = delivery.behaviorHints?.proxyHeaders?.request ?? [:]
-        guard request.count <= 3 else { return nil }
-        let canonical = ["referer": "Referer", "origin": "Origin", "user-agent": "User-Agent"]
-        var headers: [String: String] = [:]
-        for (name, value) in request {
-            guard let key = canonical[name.lowercased()], headers[key] == nil, !value.isEmpty, value.utf8.count <= 512,
-                  value.utf8.allSatisfy({ (32...126).contains($0) }) else { return nil }
-            if key != "User-Agent" {
-                guard let url = URL(string: value), url.scheme == "https", url.host != nil,
-                      url.user == nil, url.password == nil, url.fragment == nil else { return nil }
-            }
-            headers[key] = value
-        }
-        return headers
+        AccountSourceDeliveryPolicy.requestHeaders(delivery.behaviorHints?.proxyHeaders?.request ?? [:])
     }
 
     /// "🔴 LIVE: A - B" / "📺 A x B" → "A vs B" when exactly one separator splits two names.

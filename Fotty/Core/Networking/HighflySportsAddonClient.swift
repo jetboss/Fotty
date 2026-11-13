@@ -33,30 +33,31 @@ actor HighflySportsAddonClient {
         }
     }
     private struct Catalog: Decodable { let metas: [Row] }
-    private struct Meta: Decodable { let meta: Row }
-    private struct Manifest: Decodable {
-        struct Resource: Decodable { let name: String; let types: [String]; let idPrefixes: [String]? }
-        struct Catalog: Decodable { let id: String; let type: String }
-        let id: String; let version: String; let resources: [Resource]; let catalogs: [Catalog]
-    }
+    private struct Meta: Decodable { let meta: Row; init(meta: Row) { self.meta = meta } }
+    /// Stremio manifest, read tolerantly (bare-string or object resources).
+    private typealias Manifest = PenguPlaySportsAddonClient.Manifest
+    /// One stream row. Only the link and any requested request headers matter;
+    /// every other field is ignored rather than treated as a reason to refuse.
     struct Delivery: Decodable, Sendable {
         let url: String?
-        let supported: Bool
-        /// Diagnostic: which row-shape rule rejected this delivery, if any.
-        let shapeRejection: String?
+        let requestedHeaders: [String: String]
+        /// DRM-protected rows cannot play in Fotty's player; skipping them is a
+        /// capability rule, not a judgement about the row's shape.
+        let requiresDRM: Bool
         private struct Key: CodingKey {
             let stringValue: String; var intValue: Int? { nil }
             init?(stringValue: String) { self.stringValue = stringValue }; init?(intValue: Int) { return nil }
+            static func named(_ name: String) -> Key { Key(stringValue: name)! }
         }
         init(from decoder: Decoder) throws {
             let c = try? decoder.container(keyedBy: Key.self)
-            url = try? c?.decode(String.self, forKey: Key(stringValue: "url")!)
-            let keys = Set(c?.allKeys.map(\.stringValue) ?? [])
-            let hints = try? c?.decode([String: Bool].self, forKey: Key(stringValue: "behaviorHints")!)
-            let knownFields = keys.isSubset(of: ["name", "title", "url", "behaviorHints"])
-            let plainHints = keys.contains("behaviorHints") ? hints?.keys.allSatisfy { $0 == "notWebReady" } == true : true
-            supported = knownFields && plainHints
-            shapeRejection = !knownFields ? "row_extra_fields" : !plainHints ? "row_hints" : nil
+            url = try? c?.decode(String.self, forKey: .named("url"))
+            let hints = try? c?.nestedContainer(keyedBy: Key.self, forKey: .named("behaviorHints"))
+            let proxy = try? hints?.nestedContainer(keyedBy: Key.self, forKey: .named("proxyHeaders"))
+            let proxied = (try? proxy?.decode([String: String].self, forKey: .named("request"))) ?? [:]
+            let direct = (try? c?.decode([String: String].self, forKey: .named("headers"))) ?? [:]
+            requestedHeaders = proxied.merging(direct) { first, _ in first }
+            requiresDRM = c?.contains(.named("drm")) == true
         }
     }
     private struct Streams: Decodable { let streams: [Delivery] }
@@ -189,7 +190,9 @@ actor HighflySportsAddonClient {
             manifest = try await read(manifestURL)
         }
         let catalogID = Self.catalogID(forSport: original.sport)
-        guard manifest.id == Self.manifestIdentity(for: manifestURL), manifest.version.range(of: #"^[0-9]+\.[0-9]+\.[0-9]+$"#, options: .regularExpression) != nil,
+        // The validated link already pins Highfly's host; its manifest id and
+        // version wording may change without making the source unsafe.
+        guard !manifest.version.isEmpty, manifest.version.utf8.count <= 64,
               manifest.catalogs.contains(where: { $0.id == catalogID && $0.type == "sport" }),
               ["catalog", "meta", "stream"].allSatisfy({ name in manifest.resources.contains { $0.name == name && $0.types.contains("sport") } }) else {
             throw CommunitySportsAddonError.invalidManifest
@@ -207,8 +210,11 @@ actor HighflySportsAddonClient {
             for _ in 0..<3 {
                 let extra = "search=" + escaped + (skip == 0 ? "" : "&skip=\(skip)") + ".json"
                 guard let url = URL(string: root.absoluteString + "catalog/sport/" + catalogID + "/" + extra) else { throw CommunitySportsAddonError.unsafeResponse }
-                let page: Catalog = try await read(url)
-                guard page.metas.count <= 100, rows.count + page.metas.count <= 600 else { throw CommunitySportsAddonError.unsafeResponse }
+                let page: Catalog
+                do { page = try await read(url) }
+                catch is CancellationError { throw CancellationError() }
+                catch { supplementaryFailures += 1; break } // Keep earlier pages; try the other team.
+                guard page.metas.count <= 100, rows.count + page.metas.count <= 600 else { supplementaryFailures += 1; break }
                 rows += page.metas; skip += page.metas.count
                 if page.metas.isEmpty { break }
             }
@@ -238,9 +244,7 @@ actor HighflySportsAddonClient {
                         let extra = catalog.id + (catalogRows.isEmpty ? "" : "/skip=\(catalogRows.count)") + ".json"
                         guard let url = URL(string: root.absoluteString + "catalog/sport/" + extra) else { throw CommunitySportsAddonError.unsafeResponse }
                         let page: Catalog = try await read(url)
-                        guard page.metas.count <= 100, live.count + catalogRows.count + page.metas.count <= 600 else {
-                            throw CommunitySportsAddonError.unsafeResponse
-                        }
+                        guard page.metas.count <= 100, live.count + catalogRows.count + page.metas.count <= 600 else { break }
                         catalogRows += page.metas
                         if page.metas.count < 100 { break }
                     }
@@ -251,7 +255,7 @@ actor HighflySportsAddonClient {
             liveRows = live.count
             liveShape = live.lazy.compactMap { Self.identityRejection($0) }.first ?? (live.isEmpty ? nil : "parsed")
             let liveStart = Self.liveKickoff(for: original, now: now)
-            liveSameSport = live.filter { Self.identity($0, liveKickoff: liveStart)?.sport == original.sport }.count
+            liveSameSport = live.filter { Self.identity($0, liveKickoff: liveStart, fallbackSport: original.sport)?.sport == original.sport }.count
             liveCategories = Self.categorySummary(live)
             liveLayout = Self.layoutSummary(live.filter { Self.supports(category: $0.category) })
             // Would rows parse if the category were a sport we know? (shape beyond category)
@@ -298,7 +302,7 @@ actor HighflySportsAddonClient {
         catch {
             missReason = Self.missReason(request: request, rows: rows, now: now)
             if let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request) {
-                let parsed = rows.map { Self.identity($0) }
+                let parsed = rows.map { Self.identity($0, fallbackSport: requestID.sport) }
                 if missReason == "one_team_matches" {
                     unmatchedTeam = ReviewedSportsFixtureMatcher.unmatchedTeamName(for: requestID, parsed: parsed)
                 } else if missReason == "kickoff_differs" || missReason == "format_or_match_number_differs" {
@@ -309,12 +313,17 @@ actor HighflySportsAddonClient {
         }
         stage = "streams"
         // Each step names its own stop reason (never a title, id or URL).
-        guard manifest.resources.filter({ $0.name == "stream" }).contains(where: { $0.idPrefixes?.contains(where: { selected.id.hasPrefix($0) }) == true }) else {
+        guard manifest.resources.filter({ $0.name == "stream" }).contains(where: { resource in
+            resource.idPrefixes.map { prefixes in prefixes.contains { selected.id.hasPrefix($0) } } ?? true }) else {
             missReason = "stream_id_prefix"
             throw CommunitySportsAddonError.invalidManifest
         }
         missReason = "meta_read"
-        let metadata: Meta = try await read(root.appendingPathComponent("meta/sport/" + selected.id + ".json"))
+        let metaRow: Row
+        do { metaRow = (try await read(root.appendingPathComponent("meta/sport/" + selected.id + ".json")) as Meta).meta }
+        catch is CancellationError { throw CancellationError() }
+        catch { supplementaryFailures += 1; metaRow = selected } // The catalog row already matched this game.
+        let metadata = Meta(meta: metaRow)
         // A live row's marker text can tick between the catalog and meta
         // reads; the fixed fields must agree and the meta's own identity is
         // re-matched below, so only description/releaseInfo may differ.
@@ -324,7 +333,7 @@ actor HighflySportsAddonClient {
         }
         missReason = "streams_read"
         let streams: Streams = try await read(root.appendingPathComponent("stream/sport/" + selected.id + ".json"))
-        guard streams.streams.count <= 40 else { missReason = "streams_too_many"; throw CommunitySportsAddonError.unsafeResponse }
+        let offered = Array(streams.streams.prefix(40))
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))
         // Revalidation below uses wall clock elapsed from resolve, supplied in
         // one local scope; no cached account or fixture authority is renewed.
@@ -351,13 +360,17 @@ actor HighflySportsAddonClient {
             FottyQualityStore.shared.record(category: .playback, name: "highfly_delivery_admission",
                 outcome: sessions.isEmpty ? .failure : .info, details: details)
         }
-        for row in streams.streams {
-            if let shape = row.shapeRejection { rejections.append(shape); continue }
+        for row in offered {
             guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
-            if let reason = Self.deliveryRejection(url) {
+            if row.requiresDRM { rejections.append("drm"); continue }
+            if Self.isAddonDomain(url.host, manifestHost: manifestURL.host) { rejections.append("addon_message"); continue }
+            if let reason = AccountSourceDeliveryPolicy.rejection(url) {
                 rejections.append(reason)
-                if reason == "host" || reason == "path" { rejectedHost = rejectedHost ?? url.host?.lowercased() }
+                rejectedHost = rejectedHost ?? url.host?.lowercased()
                 continue
+            }
+            guard let headers = AccountSourceDeliveryPolicy.requestHeaders(row.requestedHeaders) else {
+                rejections.append("credential_headers"); continue
             }
             guard seen.insert(url).inserted else { continue }
             do { try await validate(url) }
@@ -367,12 +380,14 @@ actor HighflySportsAddonClient {
                 providerEventID: selected.id, streamID: selected.id, resourceType: "sport", manifestRevision: manifest.version,
                 verifiedAt: completedAt, expiresAt: completedAt.addingTimeInterval(90), at: completedAt) else { throw CommunitySportsAddonError.conflictingMatch }
             sessions.append(StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
-                providerName: "HF\(sessions.count + 1)", requiredHeaders: [:], qualityLabel: nil,
+                providerName: "HF\(sessions.count + 1)", requiredHeaders: headers, qualityLabel: nil,
                 expiryTime: binding.expiresAt, canRefresh: true,
-                diagnosticMetadata: ["source_family": Self.providerCode, "delivery": "reviewed_direct_hls",
-                    "source_key": Self.stableChoiceKey(url), "source_key_scope": "upstream"],
+                diagnosticMetadata: ["source_family": Self.providerCode, "delivery": "account_direct_hls",
+                    "source_key": Self.stableChoiceKey(url), "source_key_scope": "upstream",
+                    // Server name only (e.g. testleaf.papacito.cfd); never a path or token.
+                    "delivery_host": url.host?.lowercased() ?? "unknown"],
                 createdAt: completedAt, requiresGuardedRelay: true, eventBinding: binding))
-            if sessions.count == 6 { break }
+            if sessions.count == 8 { break }
         }
         stage = "admission"
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: streams.streams.count) }
@@ -395,38 +410,21 @@ actor HighflySportsAddonClient {
     nonisolated static func manifestIdentity(for url: URL) -> String {
         url.host?.hasPrefix("sports.") == true ? "community.sports.fly" : "community.sports.streamed.premium"
     }
-    /// Diagnostic label for `admitsDelivery` (nil = admitted). Same rules, in order.
-    nonisolated static func deliveryRejection(_ url: URL) -> String? {
-        guard !admitsDelivery(url) else { return nil }
-        if url.scheme != "https" { return "not_https" }
-        if !admitsDeliveryHost(url.host) { return "host" }
-        if url.path.range(of: #"^/m3u/[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{1,64}\.m3u8$"#, options: .regularExpression) == nil { return "path" }
-        if (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).count != 1 { return "query_count" }
-        return "query_shape"
+    /// Highfly serves games from its delivery network; links on its own domain
+    /// (highfly.to, any server) are tip, upgrade or sign-in messages.
+    nonisolated static func isAddonDomain(_ host: String?, manifestHost: String?) -> Bool {
+        func domain(_ value: String?) -> String? {
+            guard let labels = value?.lowercased().split(separator: "."), labels.count >= 2 else { return nil }
+            return labels.suffix(2).joined(separator: ".")
+        }
+        guard let delivery = domain(host), let addon = domain(manifestHost) else { return false }
+        return delivery == addon
     }
 
-    /// Highfly's own delivery domain: papacito.cfd or one plain label under it
-    /// (Jet 312-313 showed live streams on testleaf.papacito.cfd). Never a
-    /// look-alike suffix, an IP, a trailing dot or a deeper subdomain.
-    nonisolated static func admitsDeliveryHost(_ host: String?) -> Bool {
-        guard let host, host == host.lowercased() else { return false }
-        if host == "papacito.cfd" { return true }
-        guard host.hasSuffix(".papacito.cfd") else { return false }
-        let label = String(host.dropLast(".papacito.cfd".count))
-        return label.range(of: #"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"#, options: .regularExpression) != nil
-    }
+    /// An account delivery is admitted when it is safe; see AccountSourceDeliveryPolicy.
+    nonisolated static func deliveryRejection(_ url: URL) -> String? { AccountSourceDeliveryPolicy.rejection(url) }
+    nonisolated static func admitsDelivery(_ url: URL) -> Bool { deliveryRejection(url) == nil }
 
-    nonisolated static func admitsDelivery(_ url: URL) -> Bool {
-        guard url.scheme == "https", admitsDeliveryHost(url.host), url.port == nil || url.port == 443,
-              url.user == nil, url.password == nil, url.fragment == nil, url.absoluteString.utf8.count <= 8192,
-              LocalStreamProxyPolicy.allowsDestination(url), let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              parts.percentEncodedPath == url.path,
-              url.path.range(of: #"^/m3u/[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{1,64}\.m3u8$"#, options: .regularExpression) != nil,
-              let items = parts.queryItems, items.count == 1, ["ft", "token"].contains(items[0].name),
-              let value = items[0].value, (1...4096).contains(value.utf8.count),
-              value.range(of: #"^[A-Za-z0-9._~-]+$"#, options: .regularExpression) != nil else { return false }
-        return true
-    }
     nonisolated static func select(request: StreamPlaybackRequest, rows: [Row], now: Date) throws -> Row {
         guard let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request), request.preferredEvent?.hasCatalogIdentityConflict != true else { throw CommunitySportsAddonError.matchNotFound }
         let candidates = screenedCandidates(request: request, requestID: requestID, rows: rows, now: now)
@@ -441,7 +439,7 @@ actor HighflySportsAddonClient {
     nonisolated static func missReason(request: StreamPlaybackRequest, rows: [Row], now: Date) -> String {
         guard let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else { return "no_request_identity" }
         let live = liveKickoff(for: requestID, now: now)
-        let parsed = rows.map { Self.identity($0, liveKickoff: live) }
+        let parsed = rows.map { Self.identity($0, liveKickoff: live, fallbackSport: requestID.sport) }
         let final = screenedCandidates(request: request, requestID: requestID, rows: rows, now: now)
         let screened = zip(parsed, final).compactMap { raw, kept in kept.identity == nil ? raw : nil }
         return ReviewedSportsFixtureMatcher.missReason(for: requestID, parsed: parsed, screened: screened)
@@ -451,7 +449,7 @@ actor HighflySportsAddonClient {
             requestID: ReviewedSportsFixtureMatcher.RequestIdentity, rows: [Row], now: Date) -> [ReviewedSportsFixtureMatcher.Candidate] {
         let live = liveKickoff(for: requestID, now: now)
         return rows.map { row -> ReviewedSportsFixtureMatcher.Candidate in
-            var identity = Self.identity(row, liveKickoff: live)
+            var identity = Self.identity(row, liveKickoff: live, fallbackSport: requestID.sport)
             if requestID.sport == "cricket", let candidate = identity {
                 guard let official = request.preferredEvent?.cricketFixture, official.verified, !official.status.stopsPlayback,
                       candidate.cricketFormat == official.format.rawValue,
@@ -536,16 +534,61 @@ actor HighflySportsAddonClient {
     }
 
     /// Diagnostic: the first identity rule a row fails (nil = parsed). Never a title.
-    nonisolated static func identityRejection(_ row: Row) -> String? {
-        guard identity(row) == nil else { return nil }
+    /// Diagnostic: why a row could not be read as a game (nil = it can). Never a title.
+    nonisolated static func identityRejection(_ row: Row, fallbackSport: String? = nil) -> String? {
+        guard identity(row, fallbackSport: fallbackSport) == nil else { return nil }
         if row.type != "sport" { return "type" }
-        if !supports(category: row.category) { return "category" }
-        if row.id.range(of: #"^(streamed|sf|leaf|recap):[A-Za-z0-9_~.-]{1,400}$"#, options: .regularExpression) == nil || row.id.hasPrefix("recap:") { return "id_prefix" }
-        let parts = row.description.components(separatedBy: "\n")
-        if parts.count != 2 { return "description_lines_\(min(parts.count, 9))" }
-        if parts[1] != row.releaseInfo { return row.releaseInfo.isEmpty ? "no_release_info" : "release_info_differs" }
-        if !(row.name == parts[0] || row.category == "cricket" && row.name.hasPrefix(parts[0] + " - ")) { return "name_differs" }
-        return "date_or_teams"
+        if rowSport(row, fallbackSport: fallbackSport) == nil { return "category" }
+        if !admitsRowID(row.id) { return "id" }
+        if title(of: row) == nil { return "no_title" }
+        if kickoff(of: row) == nil { return isLiveMarked(row) ? "live_without_window" : "no_date" }
+        return "teams"
+    }
+
+    /// Any plain id the add-on serves, except its replays. Ids become path
+    /// components, so only characters that cannot escape a path are allowed.
+    nonisolated static func admitsRowID(_ id: String) -> Bool {
+        id.range(of: #"^[A-Za-z0-9][A-Za-z0-9_~.:-]{0,399}$"#, options: .regularExpression) != nil
+            && !id.lowercased().hasPrefix("recap")
+    }
+
+    /// The row's sport, or the requested sport when the row leaves it blank
+    /// (Highfly's live catalog often does). Teams and kickoff still decide.
+    nonisolated static func rowSport(_ row: Row, fallbackSport: String?) -> String? {
+        let category = row.category.trimmingCharacters(in: .whitespacesAndNewlines)
+        if supports(category: category) { return category }
+        if category.isEmpty, let fallbackSport, supports(category: fallbackSport) { return fallbackSport }
+        return nil
+    }
+
+    /// First description line, else the name.
+    nonisolated static func title(of row: Row) -> String? {
+        let first = row.description.components(separatedBy: "\n").first?.trimmingCharacters(in: .whitespaces) ?? ""
+        let title = first.isEmpty ? row.name.trimmingCharacters(in: .whitespaces) : first
+        return title.isEmpty ? nil : title
+    }
+
+    /// A dated kickoff from releaseInfo or any description line, in Highfly's
+    /// "12 Nov 2026 · 19:45 UTC" form or ISO 8601.
+    nonisolated static func kickoff(of row: Row) -> Date? {
+        let lines = [row.releaseInfo] + row.description.components(separatedBy: "\n").dropFirst()
+        for raw in lines {
+            let line = raw.trimmingCharacters(in: .whitespaces)
+            guard !line.isEmpty, line.utf8.count <= 64 else { continue }
+            // A time without its zone is ambiguous, so only complete forms count.
+            for format in ["d MMM yyyy '·' HH:mm 'UTC'", "dd MMM yyyy '·' HH:mm 'UTC'"] {
+                let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = TimeZone(secondsFromGMT: 0)
+                f.dateFormat = format; f.isLenient = false
+                if let date = f.date(from: line), f.string(from: date) == line { return date }
+            }
+            if let date = ISO8601DateFormatter().date(from: line) { return date }
+        }
+        return nil
+    }
+
+    nonisolated static func isLiveMarked(_ row: Row) -> Bool {
+        ([row.releaseInfo] + row.description.components(separatedBy: "\n").dropFirst())
+            .contains { $0.utf8.count <= 64 && $0.lowercased().contains("live") }
     }
 
     /// How long after the official kickoff a game can still be in progress.
@@ -565,26 +608,21 @@ actor HighflySportsAddonClient {
         return requestID.kickoff
     }
 
-    nonisolated static func identity(_ row: Row, liveKickoff: Date? = nil) -> ReviewedSportsFixtureMatcher.FixtureIdentity? {
-        guard row.type == "sport", supports(category: row.category), row.name.utf8.count <= 1024,
-              row.description.utf8.count <= 4096,
-              row.id.range(of: #"^(streamed|sf|leaf|recap):[A-Za-z0-9_~.-]{1,400}$"#, options: .regularExpression) != nil,
-              !row.id.hasPrefix("recap:") else { return nil }
-        let parts = row.description.components(separatedBy: "\n")
-        if let liveKickoff, ReviewedSportsFixtureMatcher.sportKey(row.category) != "cricket",
-           parts.count == 2, parts[0] == row.name,
-           parts[1].lowercased().contains("live"), row.releaseInfo.lowercased().contains("live"),
-           parts[1].utf8.count <= 64, row.releaseInfo.utf8.count <= 64 {
-            return ReviewedSportsFixtureMatcher.fixtureIdentity(sport: row.category, cast: [], title: parts[0], kickoff: liveKickoff,
+    /// Reads a row as a game. Unknown or extra fields are ignored; only a
+    /// sport, a title naming two teams and a kickoff are required.
+    nonisolated static func identity(_ row: Row, liveKickoff: Date? = nil,
+                                     fallbackSport: String? = nil) -> ReviewedSportsFixtureMatcher.FixtureIdentity? {
+        guard row.type == "sport", row.name.utf8.count <= 1024, row.description.utf8.count <= 4096,
+              admitsRowID(row.id), let sport = rowSport(row, fallbackSport: fallbackSport),
+              let title = title(of: row) else { return nil }
+        if let date = kickoff(of: row) {
+            return ReviewedSportsFixtureMatcher.fixtureIdentity(sport: sport, cast: [], title: title, kickoff: date,
                 effectiveID: row.id, resourceType: "sport", programmeMetadata: row.name)
         }
-        guard parts.count == 2, parts[1] == row.releaseInfo,
-              row.name == parts[0] || row.category == "cricket" && row.name.hasPrefix(parts[0] + " - ") else { return nil }
-        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.timeZone = TimeZone(secondsFromGMT: 0)
-        f.dateFormat = row.releaseInfo.first == "0" ? "dd MMM yyyy '·' HH:mm 'UTC'" : "d MMM yyyy '·' HH:mm 'UTC'"
-        f.isLenient = false
-        guard let date = f.date(from: row.releaseInfo), f.string(from: date) == row.releaseInfo else { return nil }
-        return ReviewedSportsFixtureMatcher.fixtureIdentity(sport: row.category, cast: [], title: parts[0], kickoff: date,
+        // Live rows carry no date. The official kickoff stands in only while
+        // the official game is inside its live window (never cricket).
+        guard let liveKickoff, ReviewedSportsFixtureMatcher.sportKey(sport) != "cricket", isLiveMarked(row) else { return nil }
+        return ReviewedSportsFixtureMatcher.fixtureIdentity(sport: sport, cast: [], title: title, kickoff: liveKickoff,
             effectiveID: row.id, resourceType: "sport", programmeMetadata: row.name)
     }
     nonisolated private static func sameFixture(_ lhs: StreamPlaybackRequest, _ rhs: StreamPlaybackRequest) -> Bool {
@@ -613,5 +651,57 @@ actor HighflySportsAddonClient {
             return try JSONDecoder().decode(T.self, from: data)
         } catch is CancellationError { throw CancellationError() }
         catch { throw CommunitySportsAddonError.invalidResponse } // Never propagate a credential-bearing URL.
+    }
+}
+
+
+/// The owner's own paid add-ons (Highfly, PenguPlay) are trusted for what they
+/// serve. Fotty checks only that a stream is safe to open; whether it is the
+/// right game is decided by fixture matching, and whether it plays is decided by
+/// playback ranking. No host lists, path shapes or query-name rules.
+enum AccountSourceDeliveryPolicy {
+    static let maximumURLBytes = 8192
+
+    /// nil = safe to play. Reasons are short labels, never a URL.
+    nonisolated static func rejection(_ url: URL) -> String? {
+        if url.scheme?.lowercased() != "https" { return "not_https" }
+        if url.absoluteString.utf8.count > maximumURLBytes { return "too_long" }
+        if url.user != nil || url.password != nil { return "credentials_in_link" }
+        if !LocalStreamProxyPolicy.allowsDestination(url) { return "unsafe_destination" }
+        if isReplayHost(url.host) { return "replay" }
+        if nonLiveExtensions.contains(url.pathExtension.lowercased()) { return "not_live_media" }
+        return nil
+    }
+
+    /// Files and pages, not live streams: Fotty's live relay cannot play them.
+    /// Links without an extension or with any other one are tried.
+    static let nonLiveExtensions: Set<String> = ["mp4", "m4v", "mkv", "avi", "mov", "webm", "mp3", "aac",
+                                                 "html", "htm", "php", "jpg", "jpeg", "png", "gif"]
+
+    /// Replay/VOD servers (e.g. recaps.highfly.to) never join a live source list.
+    nonisolated static func isReplayHost(_ host: String?) -> Bool {
+        guard let first = host?.lowercased().split(separator: ".").first else { return false }
+        return ["recap", "recaps", "replay", "replays", "vod"].contains(String(first))
+    }
+
+    /// Request headers a stream asks for. Referer, Origin and User-Agent are
+    /// kept; other harmless names are dropped; a credential header refuses the
+    /// stream (nil), because Fotty never forwards sign-in material.
+    nonisolated static func requestHeaders(_ requested: [String: String]) -> [String: String]? {
+        let canonical = ["referer": "Referer", "origin": "Origin", "user-agent": "User-Agent"]
+        let credentials: Set<String> = ["cookie", "authorization", "proxy-authorization", "x-api-key", "x-auth-token"]
+        var headers: [String: String] = [:]
+        for (name, value) in requested {
+            let lower = name.lowercased()
+            if credentials.contains(lower) { return nil }
+            guard let key = canonical[lower], headers[key] == nil, !value.isEmpty, value.utf8.count <= 512,
+                  value.utf8.allSatisfy({ (32...126).contains($0) }) else { continue }
+            if key != "User-Agent" {
+                guard let url = URL(string: value), ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
+                      url.host != nil, url.user == nil, url.password == nil else { continue }
+            }
+            headers[key] = value
+        }
+        return headers
     }
 }

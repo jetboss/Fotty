@@ -4590,7 +4590,11 @@ final class LivePlayerViewModel {
             deviceFamily: FottyPlaybackQualityDetails.deviceFamily,
             additional: additional.merging(["source_index": String(currentSourceIndex + 1),
                                             "source_count": String(sessions.count),
-                                            "last_observed_stage": lastObservedPlaybackStage.rawValue]) { _, value in value }
+                                            "last_observed_stage": lastObservedPlaybackStage.rawValue]
+                // Account sources name their server (never a path or token) so
+                // each attempt shows which edge played or failed.
+                .merging(activeSession?.diagnosticMetadata["delivery_host"].map { ["delivery_host": $0] } ?? [:]) { current, _ in current }
+            ) { _, value in value }
         )
     }
 
