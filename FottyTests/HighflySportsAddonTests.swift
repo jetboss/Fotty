@@ -237,6 +237,22 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertEqual(receipt?.details["live_catalog"], "present")
     }
 
+    func testDeliveryAdmitsHighflyEdgeSubdomainsWithTheSameShape() {
+        let path = "/m3u/synthetic/index.m3u8?token=abc"
+        for host in ["papacito.cfd", "testleaf.papacito.cfd", "edge-2.papacito.cfd"] {
+            XCTAssertTrue(HighflySportsAddonClient.admitsDelivery(URL(string: "https://\(host)\(path)")!), host)
+        }
+        for host in ["papacito.cfd.evil.example", "evilpapacito.cfd", "a.b.papacito.cfd", "-x.papacito.cfd",
+                     "TESTLEAF.papacito.cfd", "recaps.highfly.to", "papacito.cfd."] {
+            XCTAssertFalse(HighflySportsAddonClient.admitsDelivery(URL(string: "https://\(host)\(path)")!), host)
+            XCTAssertEqual(HighflySportsAddonClient.deliveryRejection(URL(string: "https://\(host)\(path)")!), "host", host)
+        }
+        // The subdomain changes nothing else: shape rules still apply.
+        XCTAssertEqual(HighflySportsAddonClient.deliveryRejection(URL(string: "https://testleaf.papacito.cfd/live/x.m3u8?token=a")!), "path")
+        XCTAssertEqual(HighflySportsAddonClient.deliveryRejection(URL(string: "https://testleaf.papacito.cfd/m3u/a/b.m3u8?token=a&x=1")!), "query_count")
+        XCTAssertEqual(HighflySportsAddonClient.deliveryRejection(URL(string: "http://testleaf.papacito.cfd\(path)")!), "not_https")
+    }
+
     func testOwnerAccountSourceLeadsAutomaticChoice() {
         let names = ["AS1", "CS1", "Score808", "HF2", "LS1", "HF1"]
         let sources = names.map {

@@ -399,14 +399,25 @@ actor HighflySportsAddonClient {
     nonisolated static func deliveryRejection(_ url: URL) -> String? {
         guard !admitsDelivery(url) else { return nil }
         if url.scheme != "https" { return "not_https" }
-        if url.host != "papacito.cfd" { return "host" }
+        if !admitsDeliveryHost(url.host) { return "host" }
         if url.path.range(of: #"^/m3u/[A-Za-z0-9_-]{1,128}/[A-Za-z0-9_-]{1,64}\.m3u8$"#, options: .regularExpression) == nil { return "path" }
         if (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).count != 1 { return "query_count" }
         return "query_shape"
     }
 
+    /// Highfly's own delivery domain: papacito.cfd or one plain label under it
+    /// (Jet 312-313 showed live streams on testleaf.papacito.cfd). Never a
+    /// look-alike suffix, an IP, a trailing dot or a deeper subdomain.
+    nonisolated static func admitsDeliveryHost(_ host: String?) -> Bool {
+        guard let host, host == host.lowercased() else { return false }
+        if host == "papacito.cfd" { return true }
+        guard host.hasSuffix(".papacito.cfd") else { return false }
+        let label = String(host.dropLast(".papacito.cfd".count))
+        return label.range(of: #"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"#, options: .regularExpression) != nil
+    }
+
     nonisolated static func admitsDelivery(_ url: URL) -> Bool {
-        guard url.scheme == "https", url.host == "papacito.cfd", url.port == nil || url.port == 443,
+        guard url.scheme == "https", admitsDeliveryHost(url.host), url.port == nil || url.port == 443,
               url.user == nil, url.password == nil, url.fragment == nil, url.absoluteString.utf8.count <= 8192,
               LocalStreamProxyPolicy.allowsDestination(url), let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
               parts.percentEncodedPath == url.path,
