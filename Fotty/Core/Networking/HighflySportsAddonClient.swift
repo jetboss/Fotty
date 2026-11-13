@@ -363,11 +363,13 @@ actor HighflySportsAddonClient {
         for row in offered {
             guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
             if row.requiresDRM { rejections.append("drm"); continue }
-            if Self.isAddonDomain(url.host, manifestHost: manifestURL.host) { rejections.append("addon_message"); continue }
             if let reason = AccountSourceDeliveryPolicy.rejection(url) {
                 rejections.append(reason)
                 rejectedHost = rejectedHost ?? url.host?.lowercased()
                 continue
+            }
+            if Self.isAddonDomain(url.host, manifestHost: manifestURL.host) {
+                rejections.append("addon_message"); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue
             }
             guard let headers = AccountSourceDeliveryPolicy.requestHeaders(row.requestedHeaders) else {
                 rejections.append("credential_headers"); continue

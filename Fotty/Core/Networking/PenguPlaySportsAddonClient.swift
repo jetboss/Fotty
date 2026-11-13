@@ -272,13 +272,17 @@ actor PenguPlaySportsAddonClient {
         }
         stage = "delivery"
         var sessions: [StreamSession] = [], seen: Set<URL> = []
-        var rejected = 0
+        var rejections: [String] = [], rejectedHost: String?
         for row in offered {
-            guard let value = row.url, let url = URL(string: value), Self.admitsDelivery(url),
-                  let headers = Self.requestHeaders(row), seen.insert(url).inserted else { rejected += 1; continue }
+            guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
+            if let reason = AccountSourceDeliveryPolicy.rejection(url) {
+                rejections.append(reason); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue
+            }
+            guard let headers = Self.requestHeaders(row) else { rejections.append("credential_headers"); continue }
+            guard seen.insert(url).inserted else { continue }
             do { try await validate(url) }
             catch is CancellationError { throw CancellationError() }
-            catch { rejected += 1; continue } // One rejected route must not erase valid siblings.
+            catch { rejections.append("validation"); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue }
             guard let binding = StreamEventBinding(request: latest, providerCode: Self.providerCode,
                 providerEventID: selected.id, streamID: selected.id, resourceType: "tv", manifestRevision: manifest.version,
                 verifiedAt: completedAt, expiresAt: completedAt.addingTimeInterval(90), at: completedAt) else {
@@ -297,9 +301,14 @@ actor PenguPlaySportsAddonClient {
             if sessions.count == 6 { break }
         }
         // Shape-only receipt so admission rules can be reviewed: counts, never URLs.
+        var admission = ["addon_stream_entry_count": "\(streams.streams.count)", "candidate_count": "\(sessions.count)",
+                         "addon_admission_rejected_count": "\(rejections.count)"]
+        if let common = Dictionary(grouping: rejections, by: { $0 }).max(by: { $0.value.count < $1.value.count })?.key {
+            admission["reason_code"] = common
+        }
+        if let rejectedHost { admission["delivery_host"] = rejectedHost }
         FottyQualityStore.shared.record(category: .playback, name: "penguplay_delivery_admission", outcome: sessions.isEmpty ? .failure : .info,
-            details: ["addon_stream_entry_count": "\(streams.streams.count)", "candidate_count": "\(sessions.count)",
-                      "addon_admission_rejected_count": "\(rejected)"])
+            details: admission)
         stage = "admission"
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: streams.streams.count) }
         try Task.checkCancellation()
