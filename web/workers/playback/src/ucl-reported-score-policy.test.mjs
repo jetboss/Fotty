@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { boundedUCLReportedScores, normalizeUCLReportedScore, validUCLReportedScore } from "./ucl-reported-score-policy.mjs";
+import { boundedFixtureScores, normalizeUCLReportedScore, validUCLReportedScore } from "./ucl-reported-score-policy.mjs";
 
 const updatedAt = "2026-10-29T17:00:00.000Z";
 const fixture = (overrides = {}) => ({ id: "sports-fixture:champions-league:575377", sport: "football",
@@ -51,10 +51,30 @@ test("fresh same-ID nullable result has no optional score to renew previous goal
 test("budget stripping preserves every fixture and non-score field and ignores malformed optional score", () => {
   const legacy = { ...fixture({ competitionId: "premier-league" }), reportedScore: score };
   const snapshot = { schemaVersion: 1, complete: true, fixtures: [{ ...fixture(), reportedScore: score }, legacy], coverage: [] };
-  const output = boundedUCLReportedScores(snapshot);
+  const output = boundedFixtureScores(snapshot, new Date(updatedAt));
   assert.equal(output.fixtures.length, 2); assert.deepEqual(output.fixtures[0].reportedScore, score);
   assert.equal(output.fixtures[1].reportedScore, undefined); assert.equal(output.fixtures[1].competitionId, "premier-league");
-  const full = boundedUCLReportedScores({ ...snapshot, padding: "x".repeat(2 * 1024 * 1024), fixtures: snapshot.fixtures });
+  const full = boundedFixtureScores({ ...snapshot, padding: "x".repeat(2 * 1024 * 1024), fixtures: snapshot.fixtures }, new Date(updatedAt));
   assert.equal(full.fixtures.length, 2); assert.equal(full.fixtures[0].reportedScore, undefined);
   assert.equal(full.padding.length, 2 * 1024 * 1024, "Existing base data is never erased or truncated for scores");
+});
+
+test("live projections omit held, regressed-status and stale score evidence; missing fields and roles stay intact", () => {
+  const source = { name: "football-data.org", updatedAt, observedAt: updatedAt };
+  const footballLive = { home: 0, away: 2, clock: "90+7′" };
+  const record = (overrides) => fixture({ source, footballLive, ...overrides });
+  const fixtures = [record(), record({ footballLive: { clock: "HT" } }), record({ footballLive: { home: 2, away: 1 } }),
+    record({ status: "finished" }), record({ source: { ...source, verification: "held" } }),
+    record({ source: { ...source, observedAt: "2026-10-29T15:00:00Z" } }),
+    record({ source: { ...source, updatedAt: "2026-10-29T15:00:00Z" } }),
+    record({ footballLive: { clock: "151′" } }), record({ footballLive: { home: 0 } })];
+  const snapshot = { coverage: [{ status: "covered", competitionId: "champions-league" }], fixtures };
+  const output = boundedFixtureScores(snapshot, new Date(updatedAt));
+  assert.deepEqual(output.fixtures.map((row) => row.footballLive),
+    [footballLive, { clock: "HT" }, { home: 2, away: 1 }, ...Array(6).fill(undefined)]);
+  assert.deepEqual(fixtures[4].footballLive, footballLive, "Projection must not modify the stored receipt");
+  assert.equal(boundedFixtureScores({ ...snapshot, coverage: [] }, new Date(updatedAt)).fixtures[0].footballLive, undefined);
+  const full = boundedFixtureScores({ ...snapshot, padding: "x".repeat(2 * 1024 * 1024) }, new Date(updatedAt));
+  assert.equal(full.fixtures.length, fixtures.length);
+  assert.ok(full.fixtures.every((row) => row.footballLive === undefined));
 });
