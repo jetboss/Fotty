@@ -316,6 +316,18 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertEqual(receipt?.details["live_catalog"], "present")
     }
 
+    func testSameSlotPairsNameHighflysTeamsForAliasWork() {
+        let id = ReviewedSportsFixtureMatcher.RequestIdentity(sport: "football", pair: ["arsenal", "everton"], kickoff: kickoff)
+        let rows = [row(id: "streamed:a", name: "Arsenal FC vs Everton FC"),
+                    row(id: "streamed:b", name: "Chelsea vs Fulham", date: "10 Nov 2026 · 18:10 UTC"),
+                    row(id: "streamed:c", name: "Leeds vs Spurs", date: "10 Nov 2026 · 19:00 UTC")]
+        let parsed = rows.map { HighflySportsAddonClient.identity($0, fallbackSport: "football") }
+        let pairs = ReviewedSportsFixtureMatcher.sameSlotPairs(for: id, parsed: parsed)
+        XCTAssertFalse(pairs.contains { $0.contains("leeds") }, "An hour later is a different slot")
+        XCTAssertTrue(pairs.contains { $0.contains("chelsea") && $0.contains(" v ") }, "\(pairs)")
+        XCTAssertTrue(pairs.allSatisfy { $0.count <= 64 })
+    }
+
     func testOwnerAccountSourceLeadsAutomaticChoice() {
         let names = ["AS1", "CS1", "Score808", "HF2", "LS1", "HF1"]
         let sources = names.map {

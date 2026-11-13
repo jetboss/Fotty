@@ -158,6 +158,21 @@ enum ReviewedSportsFixtureMatcher {
             .min { abs($0) < abs($1) }
     }
 
+    /// Diagnostic for alias work: pairs listed in the same sport within 15
+    /// minutes of the request's kickoff, as "home v away" team keys (no titles).
+    nonisolated static func sameSlotPairs(for request: RequestIdentity, parsed: [FixtureIdentity?], limit: Int = 2) -> [String] {
+        var seen = Set<String>()
+        return parsed.compactMap { $0 }
+            .filter { $0.sport == request.sport && abs($0.kickoff.timeIntervalSince(request.kickoff)) <= 15 * 60 && $0.pair != request.pair }
+            .map { pairLabel($0.pair) }
+            .filter { seen.insert($0).inserted }
+            .prefix(limit).map { $0 }
+    }
+
+    nonisolated static func pairLabel(_ pair: [String]) -> String {
+        String(pair.map { $0.replacingOccurrences(of: "|", with: " ") }.joined(separator: " v ").prefix(64))
+    }
+
     nonisolated static func unmatchedTeamName(for request: RequestIdentity, parsed: [FixtureIdentity?]) -> String? {
         for identity in parsed.compactMap({ $0 }) where identity.sport == request.sport {
             let shared = Set(identity.pair).intersection(request.pair)

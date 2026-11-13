@@ -155,6 +155,7 @@ actor HighflySportsAddonClient {
         var finished = false
         var missReason: String?, rowCount: Int?, unmatchedTeam: String?, kickoffOffset: Int?
         var searchScope = "search"
+        var requestPair: String?, candidatePairs: [String] = []
         var listingSpan: String?, liveCatalog: String?
         var supplementaryFailures = 0
         var liveRows: Int?, liveShape: String?, liveSameSport: Int?, liveCategories: String?, liveRestShape: String?
@@ -174,6 +175,8 @@ actor HighflySportsAddonClient {
             if let liveLayout { details["live_layout"] = liveLayout }
             if let rowCount { details["candidate_count"] = "\(rowCount)" }
             if let unmatchedTeam { details["unmatched_team"] = unmatchedTeam }
+            if let requestPair { details["request_pair"] = requestPair }
+            for (index, pair) in candidatePairs.prefix(2).enumerated() { details[index == 0 ? "candidate_pair" : "candidate_pair_2"] = pair }
             if let kickoffOffset {
                 details["kickoff_offset_min"] = String(max(-10_000, min(10_000, kickoffOffset)))
                 details["sport"] = original.sport
@@ -302,7 +305,13 @@ actor HighflySportsAddonClient {
         catch {
             missReason = Self.missReason(request: request, rows: rows, now: now)
             if let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request) {
-                let parsed = rows.map { Self.identity($0, fallbackSport: requestID.sport) }
+                let parsed = rows.map { Self.identity($0, liveKickoff: Self.liveKickoff(for: requestID, now: now),
+                                                        fallbackSport: requestID.sport) }
+                // Team keys for alias work: Fotty's pair and Highfly's pairs in the same slot.
+                if missReason == "teams_differ" || missReason == "one_team_matches" {
+                    requestPair = ReviewedSportsFixtureMatcher.pairLabel(requestID.pair)
+                    candidatePairs = ReviewedSportsFixtureMatcher.sameSlotPairs(for: requestID, parsed: parsed)
+                }
                 if missReason == "one_team_matches" {
                     unmatchedTeam = ReviewedSportsFixtureMatcher.unmatchedTeamName(for: requestID, parsed: parsed)
                 } else if missReason == "kickoff_differs" || missReason == "format_or_match_number_differs" {
