@@ -352,37 +352,28 @@ final class FlixStreamsAddonTests: XCTestCase {
         XCTAssertEqual(FlixFixtureProtocol.paths.filter { $0 == streamPath }.count, 3)
     }
 
-    func testOnlyTheReviewedEncodedChannelRouteAndOneOpaqueTokenAreAdmitted() {
-        XCTAssertTrue(FlixStreamsAddonClient.isAdmittedDelivery(URL(string: delivery)!))
-        XCTAssertTrue(FlixStreamsAddonClient.isAdmittedDelivery(URL(string: delivery.replacingOccurrences(
-            of: "free.flixnest.app/", with: "free.flixnest.app:443/"))!))
-        let bad = [
-            delivery.replacingOccurrences(of: "https:", with: "http:"),
-            delivery.replacingOccurrences(of: "free.flixnest.app", with: "free.flixnest.app.evil.example"),
-            delivery.replacingOccurrences(of: "free.flixnest.app", with: "user:secret@free.flixnest.app"),
-            delivery.replacingOccurrences(of: "free.flixnest.app", with: "free.flixnest.app:8443"),
-            delivery.replacingOccurrences(of: "%3A", with: ":"),
-            delivery.replacingOccurrences(of: "%3A", with: "%253A"),
-            delivery.replacingOccurrences(of: "%3A870", with: "%3A0"),
-            delivery.replacingOccurrences(of: "%3A870", with: "%3A-1"),
-            delivery.replacingOccurrences(of: "%3A870", with: "%3A0870"),
-            delivery.replacingOccurrences(of: ".m3u8", with: ".mpd"),
-            delivery.replacingOccurrences(of: "/dlstreams/stream/", with: "/api/dlstreams/"),
-            delivery + "#player", delivery + "&token=extra", delivery + "&t=duplicate",
-            delivery.replacingOccurrences(of: "?t=fixture-signature", with: "?t="),
-            delivery.replacingOccurrences(of: "?t=fixture-signature", with: "?t=%0Ahidden"),
-            delivery.replacingOccurrences(of: "?t=fixture-signature", with: "?t=%E2%80%8Bhidden"),
-            delivery.replacingOccurrences(of: "?t=fixture-signature", with: "?t=" + String(repeating: "x", count: 4097))
-        ]
-        for value in bad { XCTAssertFalse(FlixStreamsAddonClient.isAdmittedDelivery(URL(string: value)!)) }
+    func testDeliveriesAreJudgedOnSafetyNotRouteOrToken() {
+        for value in [delivery, delivery.replacingOccurrences(of: "free.flixnest.app/", with: "free.flixnest.app:443/"),
+                      delivery.replacingOccurrences(of: "/dlstreams/stream/", with: "/api/dlstreams/"),
+                      delivery + "&token=extra", delivery.replacingOccurrences(of: "free.flixnest.app", with: "cdn.example.net")] {
+            XCTAssertTrue(FlixStreamsAddonClient.isAdmittedDelivery(URL(string: value)!), value)
+        }
+        for value in [delivery.replacingOccurrences(of: "https:", with: "http:"),
+                      delivery.replacingOccurrences(of: "free.flixnest.app", with: "user:secret@free.flixnest.app"),
+                      delivery.replacingOccurrences(of: "free.flixnest.app", with: "free.flixnest.app:8443"),
+                      delivery.replacingOccurrences(of: "free.flixnest.app", with: "127.0.0.1"),
+                      delivery + "#player", delivery.replacingOccurrences(of: ".m3u8", with: ".mp4"),
+                      delivery + String(repeating: "x", count: 8200)] {
+            XCTAssertFalse(FlixStreamsAddonClient.isAdmittedDelivery(URL(string: value)!), value)
+        }
     }
 
     func testSessionsDeduplicateTheFullDeliveryAndNeverExposeItsToken() throws {
         let rows = (0..<8).map { ["url": delivery + String($0), "filename": "harmless.ts", "name": "Example", "title": "Channel"] }
         let decoded = try decodeStreams([rows[0]] + rows)
         let result = FlixStreamsAddonClient.makeSessions(from: decoded, request: request(), addOnVersion: "1.0.0")
-        XCTAssertEqual(result.map(\.providerName), ["FS1", "FS2", "FS3", "FS4", "FS5", "FS6"])
-        XCTAssertEqual(Set(result.map { $0.diagnosticMetadata["source_key"]! }).count, 6)
+        XCTAssertEqual(result.map(\.providerName), (1...8).map { "FS\($0)" }, "No cap of 6; duplicates appear once")
+        XCTAssertEqual(Set(result.map { $0.diagnosticMetadata["source_key"]! }).count, 8)
         for session in result {
             XCTAssertEqual(session.matchID, request().matchID)
             XCTAssertEqual(session.streamType, .hls)
@@ -397,17 +388,19 @@ final class FlixStreamsAddonTests: XCTestCase {
         }
     }
 
-    func testUnsupportedStreamContractsAreNotConvertedToHeaderlessDeliveries() throws {
-        let additions: [[String: Any]] = [
-            ["externalUrl": delivery], ["infoHash": "hash"], ["drm": "clearkey"], ["licenseUrl": "https://example.invalid"],
-            ["headers": ["Authorization": "secret"]], ["behaviorHints": ["proxyHeaders": ["request": [:]]]],
-            ["behaviorHints": [:]], ["url": 17], ["filename": 17]
-        ]
-        for extra in additions {
+    func testOnlyDRMCredentialsAndMissingLinksRefuseARow() throws {
+        func result(_ extra: [String: Any]) throws -> [StreamSession] {
             var row: [String: Any] = ["url": delivery]
             extra.forEach { row[$0.key] = $0.value }
-            let result = FlixStreamsAddonClient.makeSessions(from: try decodeStreams([row]), request: request(), addOnVersion: "1.0.0")
-            XCTAssertTrue(result.isEmpty)
+            return FlixStreamsAddonClient.makeSessions(from: try decodeStreams([row]), request: request(), addOnVersion: "1.0.0")
+        }
+        for refused: [String: Any] in [["drm": "clearkey"], ["licenseUrl": "https://example.invalid"],
+                                       ["headers": ["Authorization": "secret"]], ["url": 17]] {
+            XCTAssertTrue(try result(refused).isEmpty, "\(refused)")
+        }
+        for harmless: [String: Any] in [["externalUrl": delivery], ["infoHash": "hash"],
+                                        ["behaviorHints": ["proxyHeaders": ["request": [:]]]], ["behaviorHints": [:]], ["filename": 17]] {
+            XCTAssertEqual(try result(harmless).count, 1, "Unknown or extra fields never refuse a stream: \(harmless)")
         }
     }
 
@@ -533,11 +526,10 @@ final class FlixStreamsAddonTests: XCTestCase {
         defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
         var invalid = entryJSON(); invalid["description"] = NSNull()
         FlixFixtureProtocol.setResponse(try .json(["metas": [invalid]]), for: pagePath(80))
-        do {
-            _ = try await FlixStreamsAddonClient(session: session).resolve(for: request())
-            XCTFail("Later same-ID malformed evidence must veto the early row")
-        } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .conflictingMatch) }
-        XCTAssertEqual(FlixFixtureProtocol.paths, ["/manifest.json", pagePath(0), pagePath(40), pagePath(80)])
+        // A later row on the same id that cannot be read is ignored; it does not sink the readable listing.
+        let result = try await FlixStreamsAddonClient(session: session).resolve(for: request())
+        XCTAssertEqual(result.count, 1)
+        XCTAssertEqual(FlixFixtureProtocol.paths, ["/manifest.json", pagePath(0), pagePath(40), pagePath(80), streamPath])
     }
 
     func testCatalogAndMetadataByteBoundsFailBeforeAnyStreamLookup() async throws {
@@ -566,7 +558,7 @@ final class FlixStreamsAddonTests: XCTestCase {
     func testMalformedStreamSiblingsAreIsolatedAndUnsupportedListsRemainAdmissionFailures() async throws {
         let documents: [([String: Any], Int)] = [
             (["streams": [NSNull(), ["url": 17], ["url": delivery, "drm": "clearkey"], ["url": delivery]]], 1),
-            (["streams": [["url": delivery, "behaviorHints": ["proxyHeaders": ["request": NSNull()]]]]], 0)
+            (["streams": [["url": delivery, "drm": "clearkey"]]], 0)
         ]
         for (document, expected) in documents {
             let session = try fixtureSession(streams: .json(document))

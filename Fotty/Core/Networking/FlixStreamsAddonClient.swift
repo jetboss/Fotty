@@ -100,7 +100,9 @@ enum FlixStreamsMatchSelection: Equatable {
 
 struct FlixStreamsStreamEntry: Decodable, Sendable {
     let url: String?
-    let isSupportedContract: Bool
+    /// Request headers the row asks for (behaviorHints.proxyHeaders.request or headers).
+    let requestedHeaders: [String: String]
+    let requiresDRM: Bool
 
     private struct Key: CodingKey {
         let stringValue: String
@@ -110,16 +112,15 @@ struct FlixStreamsStreamEntry: Decodable, Sendable {
     }
 
     init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy: Key.self)
+        let values = try? decoder.container(keyedBy: Key.self)
         func key(_ name: String) -> Key { Key(stringValue: name)! }
-        url = try values.decodeIfPresent(String.self, forKey: key("url"))
-        // Filename/name/title are inert display metadata, not playback hints.
-        // Reject new required headers, DRM, browser, torrent or auth contracts.
-        let fields: Set<String> = ["filename", "name", "title", "url"]
-        isSupportedContract = Set(values.allKeys.map(\.stringValue)).isSubset(of: fields)
-        for field in ["filename", "name", "title"] where values.contains(key(field)) {
-            _ = try values.decodeIfPresent(String.self, forKey: key(field))
-        }
+        url = try? values?.decodeIfPresent(String.self, forKey: key("url"))
+        let hints = try? values?.nestedContainer(keyedBy: Key.self, forKey: key("behaviorHints"))
+        let proxy = try? hints?.nestedContainer(keyedBy: Key.self, forKey: key("proxyHeaders"))
+        let proxied = (try? proxy?.decode([String: String].self, forKey: key("request"))) ?? [:]
+        let direct = (try? values?.decode([String: String].self, forKey: key("headers"))) ?? [:]
+        requestedHeaders = proxied.merging(direct) { first, _ in first }
+        requiresDRM = ["drm", "clearkey", "licenseUrl", "license"].contains { values?.contains(key($0)) == true }
     }
 }
 
@@ -283,35 +284,34 @@ actor FlixStreamsAddonClient {
         let manifest = try await loadManifest(now: now, forceRefresh: refreshMetadata)
         let genre = ReviewedSportsFixtureMatcher.sportKey(request.category) == "cricket" ? "cricket" : "soccer"
         let entries = try await loadCatalog(genre: genre, now: now, forceRefresh: refreshMetadata)
-        let selected: FlixStreamsCatalogEntry
-        switch Self.selectMatch(for: request, from: entries) {
-        case .matched(let entry): selected = entry
-        case .missing: throw CommunitySportsAddonError.matchNotFound
-        case .conflicting: throw CommunitySportsAddonError.conflictingMatch
+        let listings = Self.selectAllMatches(for: request, from: entries)
+        guard !listings.isEmpty else {
+            if case .conflicting = Self.selectMatch(for: request, from: entries) { throw CommunitySportsAddonError.conflictingMatch }
+            throw CommunitySportsAddonError.matchNotFound
         }
-        let document: StreamDocument = try await fetchJSON(StreamDocument.self,
-            from: Self.route(["stream", "tv", selected.id + ".json"]), stage: .streams)
-        guard document.entryCount > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
-        let sessions = Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version)
-        guard !sessions.isEmpty else {
-            throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: document.entryCount)
+        var all: [StreamSession] = [], offered = 0, read = 0
+        var firstFailure: Error?
+        for listing in listings {
+            let document: StreamDocument
+            do {
+                document = try await fetchJSON(StreamDocument.self,
+                    from: Self.route(["stream", "tv", listing.id + ".json"]), stage: .streams)
+            } catch is CancellationError { throw CancellationError() }
+            catch { firstFailure = firstFailure ?? error; continue }
+            read += 1; offered += document.entryCount
+            // A registered request binds each stream to the exact listing it came from.
+            let binding = isRegistered ? StreamEventBinding(request: request, providerCode: Self.providerCode,
+                providerEventID: listing.id, streamID: listing.id, manifestRevision: manifest.version,
+                verifiedAt: now, expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime), at: now) : nil
+            if isRegistered, binding == nil { continue }
+            all += Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version,
+                                     eventBinding: binding, at: now, after: all)
         }
         try Task.checkCancellation()
-        guard isRegistered else { return sessions }
-        // Binding comes from the exact freshly selected advertised identity.
-        // The shared resolver rejects an unbound registered session; keeping
-        // the identity here also makes a changed date/team/ID fail closed.
-        guard let binding = StreamEventBinding(request: request, providerCode: Self.providerCode,
-            providerEventID: selected.id, streamID: selected.id, manifestRevision: manifest.version,
-            verifiedAt: now, expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime), at: now) else {
-            throw CommunitySportsAddonError.conflictingMatch
-        }
-        let bound = Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version,
-            eventBinding: binding, at: now)
-        guard bound.count == sessions.count, bound.allSatisfy({ $0.eventBinding != nil }) else {
-            throw CommunitySportsAddonError.conflictingMatch
-        }
-        return bound
+        if read == 0, let firstFailure { throw firstFailure }
+        guard offered > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
+        guard !all.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offered) }
+        return all
     }
 
     private func loadManifest(now: Date, forceRefresh: Bool = false) async throws -> Manifest {
@@ -407,10 +407,30 @@ actor FlixStreamsAddonClient {
         return manifest
     }
 
+    nonisolated static let maximumCatalogEntries = 400
+    nonisolated static let maximumListings = 6
+
+    /// Every exact listing of the requested game (registered requests keep one).
+    nonisolated static func selectAllMatches(for request: StreamPlaybackRequest,
+                                            from entries: [FlixStreamsCatalogEntry]) -> [FlixStreamsCatalogEntry] {
+        guard request.registryMatch == nil, supports(request: request),
+              request.preferredEvent?.hasCatalogIdentityConflict != true,
+              let identity = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else {
+            if case .matched(let entry) = selectMatch(for: request, from: entries) { return [entry] }
+            return []
+        }
+        let entries = Array(entries.prefix(maximumCatalogEntries))
+        var seen = Set<String>()
+        return ReviewedSportsFixtureMatcher.selectAll(for: identity, from: catalogCandidates(entries))
+            .map { entries[$0] }
+            .filter { matchesRequestedCompetition(request, selected: $0, entries: entries) && seen.insert($0.id).inserted }
+            .prefix(maximumListings).map { $0 }
+    }
+
     nonisolated static func selectMatch(for request: StreamPlaybackRequest,
                                        from entries: [FlixStreamsCatalogEntry]) -> FlixStreamsMatchSelection {
-        guard supports(request: request), request.preferredEvent?.hasCatalogIdentityConflict != true,
-              entries.count <= 120 else { return .missing }
+        guard supports(request: request), request.preferredEvent?.hasCatalogIdentityConflict != true else { return .missing }
+        let entries = Array(entries.prefix(maximumCatalogEntries))
         let candidates = catalogCandidates(entries)
         switch ReviewedSportsFixtureMatcher.select(for: request, from: candidates) {
         case .matched(let index):
@@ -530,40 +550,30 @@ actor FlixStreamsAddonClient {
 
     nonisolated static func makeSessions(from streams: [FlixStreamsStreamEntry], request: StreamPlaybackRequest,
                                         addOnVersion: String, eventBinding: StreamEventBinding? = nil,
-                                        at now: Date = Date()) -> [StreamSession] {
+                                        at now: Date = Date(), after earlier: [StreamSession] = []) -> [StreamSession] {
         guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode) else { return [] }
         if let eventBinding, !eventBinding.matches(request: request, providerCode: providerCode, at: now) { return [] }
-        var seen = Set<String>()
+        var seen = Set(earlier.compactMap { $0.diagnosticMetadata["source_key"] })
         var sessions: [StreamSession] = []
-        for entry in streams.prefix(100) {
-            guard entry.isSupportedContract, let value = entry.url, let url = URL(string: value),
-                  isAdmittedDelivery(url) else { continue }
+        for entry in streams.prefix(StreamDeliveryPolicy.maximumSessionsPerProvider) {
+            guard !entry.requiresDRM, let value = entry.url, let url = URL(string: value), isAdmittedDelivery(url),
+                  let headers = StreamDeliveryPolicy.requestHeaders(entry.requestedHeaders) else { continue }
             let key = sourceKey(url: url)
             guard seen.insert(key).inserted else { continue }
-            guard let label = definition.sourceLabel(choice: sessions.count + 1) else { break }
+            guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else { break }
             sessions.append(.init(matchID: request.matchID, playableURL: url, streamType: .hls,
-                providerName: label, requiredHeaders: [:], qualityLabel: "Live video",
+                providerName: label, requiredHeaders: headers, qualityLabel: "Live video",
                 canRefresh: false, validationStatus: .validated,
                 diagnosticMetadata: ["source_family": providerCode, "manifest_result": "exact_fixture_match",
-                    "delivery": "reviewed_same_origin_hls", "addon_version": safeVersion(addOnVersion),
+                    "delivery": "provider_direct_hls", "addon_version": safeVersion(addOnVersion),
                     "source_key": key, "source_key_scope": "delivery"], createdAt: now,
                 requiresGuardedRelay: true, eventBinding: eventBinding))
-            if sessions.count == 6 { break }
         }
         return sessions
     }
 
-    nonisolated static func isAdmittedDelivery(_ url: URL) -> Bool {
-        guard isSafeOrigin(url), url.absoluteString.utf8.count <= 8192,
-              let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              parts.percentEncodedPath.range(of: #"^/dlstreams/stream/dlstreams%3Achannel%3A[1-9][0-9]*\.m3u8$"#,
-                                            options: .regularExpression) != nil,
-              parts.percentEncodedQuery?.hasPrefix("t=") == true,
-              let query = parts.queryItems, query.count == 1, query[0].name == "t",
-              let token = query[0].value, !token.isEmpty, token.utf8.count <= 4096,
-              !containsControls(token), token.rangeOfCharacter(from: .whitespacesAndNewlines) == nil else { return false }
-        return true
-    }
+    /// Safe to open (see StreamDeliveryPolicy); link shape is not judged.
+    nonisolated static func isAdmittedDelivery(_ url: URL) -> Bool { StreamDeliveryPolicy.rejection(url) == nil }
 
     nonisolated static func sourceKey(url: URL) -> String {
         let digest = SHA256.hash(data: Data((url.absoluteString + "\nheaders:{}").utf8))
