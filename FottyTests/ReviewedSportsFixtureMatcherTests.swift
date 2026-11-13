@@ -150,7 +150,7 @@ final class ReviewedSportsFixtureMatcherTests: XCTestCase {
         }
     }
 
-    func testEquivalentDuplicateMetadataReturnsFirstOriginalIndexButDistinctIDsRemainConflicting() {
+    func testEquivalentDuplicateMetadataAndDistinctIDsForOneGameAreListings() throws {
         let first = candidate(id: "same", target: "shared")
         let equivalent = candidate(id: "same", target: "shared", title: "Everton FC vs Hull City AFC",
                                    cast: ["Everton FC", "Hull City AFC"], sport: "soccer")
@@ -158,7 +158,9 @@ final class ReviewedSportsFixtureMatcherTests: XCTestCase {
         XCTAssertEqual(Matcher.select(for: request(), from: [unrelated, first, equivalent]), .matched(1))
         XCTAssertEqual(Matcher.select(for: request(), from: [equivalent, first]), .matched(0))
         let anotherID = candidate(id: "another", target: "shared")
-        XCTAssertEqual(Matcher.select(for: request(), from: [first, anotherID]), .conflicting)
+        XCTAssertEqual(Matcher.select(for: request(), from: [first, anotherID]), .matched(0))
+        let identity = try XCTUnwrap(Matcher.requestIdentity(for: request()))
+        XCTAssertEqual(Matcher.selectAll(for: identity, from: [first, anotherID]), [0, 1])
     }
 
     private func request(home: String = "Hull City AFC", away: String = "Everton FC",

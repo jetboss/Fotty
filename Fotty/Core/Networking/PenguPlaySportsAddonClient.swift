@@ -228,10 +228,12 @@ actor PenguPlaySportsAddonClient {
         }
         stage = "fixture_match"
         var viaChannel: CricketBroadcastChannel? = channelTile
-        let selected: Row
+        // Every exact listing of the game contributes streams.
+        var listings: [Row]
         if channelTile == nil { rowCount = Set(rows.map(\.id)).count }
-        if channelTile == nil, let exact = try? Self.select(request: request, rows: rows, now: now) {
-            selected = exact
+        let exactListings = channelTile == nil ? Self.selectAll(request: request, rows: rows, now: now) : []
+        if !exactListings.isEmpty {
+            listings = exactListings
         } else {
             if channelTile == nil, let requestID = original {
                 missReason = ReviewedSportsFixtureMatcher.missReason(for: requestID,
@@ -249,31 +251,52 @@ actor PenguPlaySportsAddonClient {
                 throw CommunitySportsAddonError.matchNotFound
             }
             let page: Catalog = try await read(url)
-            selected = try Self.selectChannel(channel, rows: Array(page.metas.prefix(200)))
+            listings = [try Self.selectChannel(channel, rows: Array(page.metas.prefix(200)))]
         }
         stage = "streams"
-        guard let streamURL = URL(string: root + "stream/tv/" + Self.encodedComponent(selected.id) + ".json") else {
-            throw CommunitySportsAddonError.unsafeResponse
+        lastReadFailure = nil
+        let reads = await withTaskGroup(of: (Int, Streams?).self) { group in
+            for (index, listing) in listings.prefix(Self.maximumListings).enumerated() {
+                guard let streamURL = URL(string: root + "stream/tv/" + Self.encodedComponent(listing.id) + ".json") else { continue }
+                group.addTask { (index, try? await self.read(streamURL, timeout: Self.streamReadTimeout)) }
+            }
+            var results: [(Int, Streams?)] = []
+            for await result in group { results.append(result) }
+            return results.sorted { $0.0 < $1.0 }
+        }
+        try Task.checkCancellation()
+        stage = "stream_count"
+        var gathered: [(row: Row, deliveries: [Delivery])] = []
+        var offeredTotal = 0, signInListings = 0
+        for (index, streams) in reads {
+            guard let streams else { continue }
+            offeredTotal += streams.streams.count
+            // A listing that answers with the sign-in placeholder adds nothing.
+            if streams.streams.contains(where: Self.isSignInPlaceholder) { signInListings += 1; continue }
+            gathered.append((listings[index], Array(streams.streams.prefix(100))))
+        }
+        guard !gathered.isEmpty else {
+            if signInListings > 0 {
+                stage = "sign_in"; throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offeredTotal)
+            }
+            stage = "streams"; throw CommunitySportsAddonError.invalidResponse
         }
         lastReadFailure = nil
-        let streams: Streams = try await read(streamURL, timeout: Self.streamReadTimeout)
-        stage = "stream_count"
-        let offered = Array(streams.streams.prefix(40))
-        stage = "sign_in"
-        guard !streams.streams.contains(where: Self.isSignInPlaceholder) else {
-            throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: streams.streams.count)
-        }
         stage = "recheck"
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))
         guard await enabled(), try await configuration() == manifestURL,
-              let latest = original == nil ? request : await current(request), Self.sameFixture(latest, request),
-              await stillSelected(selected, channel: viaChannel, request: latest, at: completedAt) else {
+              let latest = original == nil ? request : await current(request), Self.sameFixture(latest, request) else {
             throw CommunitySportsAddonError.conflictingMatch
         }
+        var current: [(row: Row, deliveries: [Delivery])] = []
+        for listing in gathered where await stillSelected(listing.row, channel: viaChannel, request: latest, at: completedAt) {
+            current.append(listing)
+        }
+        guard !current.isEmpty else { throw CommunitySportsAddonError.conflictingMatch }
         stage = "delivery"
         var sessions: [StreamSession] = [], seen: Set<URL> = []
         var rejections: [String] = [], rejectedHost: String?
-        for row in offered {
+        for (listing, row) in current.flatMap({ listing in listing.deliveries.map { (listing.row, $0) } }) {
             guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
             if let reason = AccountSourceDeliveryPolicy.rejection(url) {
                 rejections.append(reason); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue
@@ -284,7 +307,7 @@ actor PenguPlaySportsAddonClient {
             catch is CancellationError { throw CancellationError() }
             catch { rejections.append("validation"); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue }
             guard let binding = StreamEventBinding(request: latest, providerCode: Self.providerCode,
-                providerEventID: selected.id, streamID: selected.id, resourceType: "tv", manifestRevision: manifest.version,
+                providerEventID: listing.id, streamID: listing.id, resourceType: "tv", manifestRevision: manifest.version,
                 verifiedAt: completedAt, expiresAt: completedAt.addingTimeInterval(90), at: completedAt) else {
                 throw CommunitySportsAddonError.conflictingMatch
             }
@@ -296,12 +319,13 @@ actor PenguPlaySportsAddonClient {
                     "delivery_host": url.host?.lowercased() ?? "unknown"],
                 createdAt: completedAt,
                 nativePlaylistProfile: LocalStreamProxyPlaylistProfile.penguPlay(deliveryURL: url,
-                    providerEventID: selected.id, headers: headers),
+                    providerEventID: listing.id, headers: headers),
                 requiresGuardedRelay: true, eventBinding: binding))
-            if sessions.count == 6 { break }
+            if sessions.count == Self.maximumSessions { break }
         }
         // Shape-only receipt so admission rules can be reviewed: counts, never URLs.
-        var admission = ["addon_stream_entry_count": "\(streams.streams.count)", "candidate_count": "\(sessions.count)",
+        var admission = ["addon_stream_entry_count": "\(offeredTotal)", "used_count": "\(sessions.count)",
+                         "candidate_count": "\(min(sessions.count, 12))", "listing_count": "\(current.count)",
                          "addon_admission_rejected_count": "\(rejections.count)"]
         if let common = Dictionary(grouping: rejections, by: { $0 }).max(by: { $0.value.count < $1.value.count })?.key {
             admission["reason_code"] = common
@@ -310,14 +334,18 @@ actor PenguPlaySportsAddonClient {
         FottyQualityStore.shared.record(category: .playback, name: "penguplay_delivery_admission", outcome: sessions.isEmpty ? .failure : .info,
             details: admission)
         stage = "admission"
-        guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: streams.streams.count) }
+        guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offeredTotal) }
         try Task.checkCancellation()
         stage = "final_check"
         guard await enabled(), try await configuration() == manifestURL,
-              let final = original == nil ? request : await current(request), Self.sameFixture(final, latest),
-              await stillSelected(selected, channel: viaChannel, request: final, at: completedAt) else {
+              let final = original == nil ? request : await self.current(request), Self.sameFixture(final, latest) else {
             throw CommunitySportsAddonError.conflictingMatch
         }
+        var stillCurrent = false
+        for listing in current where await stillSelected(listing.row, channel: viaChannel, request: final, at: completedAt) {
+            stillCurrent = true; break
+        }
+        guard stillCurrent else { throw CommunitySportsAddonError.conflictingMatch }
         finished = true
         return sessions
     }
@@ -378,6 +406,22 @@ actor PenguPlaySportsAddonClient {
         guard let channel else { return (try? Self.select(request: request, rows: [row], now: now)) != nil }
         if CricketBroadcastChannel.identifying(request: request) == channel { return true }
         return await programmeChannels(request) == [channel]
+    }
+
+    /// Bounds that only stop runaway responses; real games stay far below them.
+    nonisolated static let maximumListings = 6
+    nonisolated static let maximumSessions = 100
+
+    /// Every exact listing of the requested game (see ReviewedSportsFixtureMatcher.selectAll).
+    nonisolated static func selectAll(request: StreamPlaybackRequest, rows: [Row], now: Date) -> [Row] {
+        guard let requestID = ReviewedSportsFixtureMatcher.requestIdentity(for: request),
+              request.preferredEvent?.hasCatalogIdentityConflict != true else { return [] }
+        var unique: [Row] = [], ids = Set<String>()
+        for row in rows where ids.insert(row.id).inserted { unique.append(row) }
+        let candidates = unique.map { row in
+            ReviewedSportsFixtureMatcher.Candidate(metadataID: row.id, effectiveID: row.id, identity: identity(row, sport: requestID.sport))
+        }
+        return ReviewedSportsFixtureMatcher.selectAll(for: requestID, from: candidates).map { unique[$0] }
     }
 
     nonisolated static func select(request: StreamPlaybackRequest, rows: [Row], now: Date) throws -> Row {

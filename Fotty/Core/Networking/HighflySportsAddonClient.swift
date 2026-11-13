@@ -359,7 +359,8 @@ actor HighflySportsAddonClient {
         var rejections: [String] = [], rejectedHost: String?
         defer {
             // Shape-only receipt: counts, the commonest reason and a rejected host name. Never a path or token.
-            var details = ["addon_stream_entry_count": "\(offeredTotal)", "candidate_count": "\(sessions.count)",
+            var details = ["addon_stream_entry_count": "\(offeredTotal)", "used_count": "\(sessions.count)",
+                           "candidate_count": "\(min(sessions.count, 12))",
                            "addon_admission_rejected_count": "\(rejections.count)"]
             if let common = Dictionary(grouping: rejections, by: { $0 }).max(by: { $0.value.count < $1.value.count })?.key {
                 details["reason_code"] = common

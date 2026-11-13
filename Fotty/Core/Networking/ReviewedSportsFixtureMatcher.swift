@@ -210,22 +210,19 @@ enum ReviewedSportsFixtureMatcher {
             return identity.sport == request.sport && identity.pair == request.pair
                 && abs(identity.kickoff.timeIntervalSince(request.kickoff)) <= 15 * 60
         }
-        // Keep the existing CS conflict semantics: even a malformed sibling is
-        // veto evidence, and both IDs must identify exactly the same fixture.
-        for index in matches {
+        // A listing whose own id rows disagree about the fixture is skipped;
+        // it no longer vetoes the other listings. Several consistent listings
+        // of the same game (one per upstream feed) are normal, not a conflict:
+        // the first is returned here, and selectAll returns every one.
+        let consistent = matches.filter { index in
             let candidate = candidates[index]
-            guard grouped[candidate.metadataID]?.allSatisfy({
-                $0.identity == candidate.identity
-            }) == true,
-            let target = candidate.identity?.effectiveID,
-            groupedTargets[target]?.allSatisfy({
-                $0.identity == candidate.identity
-            }) == true else { return .conflicting }
+            guard grouped[candidate.metadataID]?.allSatisfy({ $0.identity == candidate.identity }) == true,
+                  let target = candidate.identity?.effectiveID,
+                  groupedTargets[target]?.allSatisfy({ $0.identity == candidate.identity }) == true else { return false }
+            return true
         }
-        let unique = Dictionary(matches.map { (candidates[$0].metadataID, $0) },
-                                uniquingKeysWith: { first, _ in first })
-        if unique.count > 1 { return .conflicting }
-        return unique.values.first.map(Selection.matched) ?? .missing
+        if let first = consistent.first { return .matched(first) }
+        return matches.isEmpty ? .missing : .conflicting
     }
 
     nonisolated static func sportKey(_ raw: String) -> String {

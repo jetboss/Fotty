@@ -636,7 +636,7 @@ enum AccountSourceAdmissionSummary {
             let receipts = records.filter { $0.name == name && $0.appBuild == build }
             guard !receipts.isEmpty else { return nil }
             let offered = receipts.reduce(0) { $0 + (Int($1.details["addon_stream_entry_count"] ?? "") ?? 0) }
-            let used = receipts.reduce(0) { $0 + (Int($1.details["candidate_count"] ?? "") ?? 0) }
+            let used = receipts.reduce(0) { $0 + (Int($1.details["used_count"] ?? $1.details["candidate_count"] ?? "") ?? 0) }
             let reasons = receipts.compactMap { $0.details["reason_code"] }
             let commonest = Dictionary(grouping: reasons, by: { $0 }).max { $0.value.count < $1.value.count }?.key
             return Row(id: name, name: title, offered: offered, used: used, commonestReason: used < offered ? commonest : nil)

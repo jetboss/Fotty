@@ -186,10 +186,13 @@ final class FlixStreamsAddonTests: XCTestCase {
         let malformed = entry(hasMalformedIdentity: true)
         let wrong = entry(name: "⚽ England - Premier League : Chelsea vs Brighton")
         let second = entry(id: "dlstreams:event:bbbbbbbbbbbb")
-        for sibling in [malformed, wrong, second] {
+        for sibling in [malformed, wrong] {
             XCTAssertEqual(FlixStreamsAddonClient.selectMatch(for: request(), from: [good, sibling]), .conflicting)
             XCTAssertEqual(FlixStreamsAddonClient.selectMatch(for: request(), from: [sibling, good]), .conflicting)
         }
+        // A second id for the identical game is another listing, not a conflict.
+        XCTAssertEqual(FlixStreamsAddonClient.selectMatch(for: request(), from: [good, second]), .matched(good))
+        XCTAssertEqual(FlixStreamsAddonClient.selectMatch(for: request(), from: [second, good]), .matched(second))
         var malformedJSON = entryJSON(); malformedJSON["description"] = 17
         let decoded = try JSONDecoder().decode(FlixStreamsCatalogEntry.self, from: data(malformedJSON))
         XCTAssertEqual(decoded.id, fixtureID)

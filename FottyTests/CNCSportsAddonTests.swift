@@ -226,10 +226,9 @@ final class CNCSportsAddonTests: XCTestCase {
         XCTAssertThrowsError(try CNCSportsAddonClient.selectMetadata(for: request(at: kickoff.addingTimeInterval(901)),
             catalog: [catalogEntry()], metadata: [metadata()]))
         let rows = [catalogEntry(), catalogEntry(id: secondID)]
-        XCTAssertThrowsError(try CNCSportsAddonClient.selectMetadata(for: request(), catalog: rows,
-            metadata: [metadata(), metadata(id: secondID)])) {
-            XCTAssertEqual($0 as? CommunitySportsAddonError, .conflictingMatch)
-        }
+        // Two ids for the identical game are two listings: the first is used.
+        XCTAssertEqual(try CNCSportsAddonClient.selectMetadata(for: request(), catalog: rows,
+            metadata: [metadata(), metadata(id: secondID)]).id, fixtureID)
         XCTAssertEqual(try CNCSportsAddonClient.selectMetadata(for: request(), catalog: rows,
             metadata: [metadata(), metadata(id: secondID, description: description(time: "21:00"))]).id, fixtureID)
     }

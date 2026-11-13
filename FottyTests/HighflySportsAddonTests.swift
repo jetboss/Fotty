@@ -241,6 +241,7 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertEqual(counts.stream, 2)
         let receipt = FottyQualityStore.shared.records().last { $0.name == "highfly_delivery_admission" }
         XCTAssertEqual(receipt?.details["listing_count"], "2")
+        XCTAssertEqual(receipt?.details["used_count"], "11")
         XCTAssertEqual(receipt?.details["candidate_count"], "11")
     }
 

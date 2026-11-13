@@ -31,8 +31,8 @@ final class PenguPlaySportsAddonTests: XCTestCase {
                       row("🔴 LIVE: Buffalo Sabres - Tampa Bay Lightning", id: "https://evil.example/x")] {
             XCTAssertThrowsError(try Client.select(request: request(), rows: [wrong], now: kickoff), wrong.name)
         }
-        // Two different listings of the same game cannot be told apart.
-        XCTAssertThrowsError(try Client.select(request: request(), rows: [live, row(live.name, id: "pp-live:ppv~other")], now: kickoff))
+        // Two listings of the same game are both the right game.
+        XCTAssertEqual(try Client.select(request: request(), rows: [live, row(live.name, id: "pp-live:ppv~other")], now: kickoff).id, live.id)
     }
 
     func testWBBLShortNamesMatchOnlyUnambiguousCities() throws {
@@ -82,6 +82,30 @@ final class PenguPlaySportsAddonTests: XCTestCase {
                        ["Referer": "http://site.example/"])
         XCTAssertTrue(Client.admitsDelivery(URL(string: "https://cdn.example.com/hls/master?sig=abc")!),
                       "A live playlist without an .m3u8 suffix is still tried")
+    }
+
+    func testEveryListingOfTheGameContributesStreams() async throws {
+        let root = manifestURL.deletingLastPathComponent().absoluteString
+        let manifest = #"{"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["tv"],"idPrefixes":["pp-live:"]},{"name":"catalog","types":["tv"]}],"catalogs":[{"type":"tv","id":"pp-live-hockey"}]}"#
+        let catalog = #"{"metas":[{"id":"pp-live:daddylive~one","type":"tv","name":"🔴 LIVE: Buffalo Sabres - Tampa Bay Lightning","released":"2026-11-12T00:00:00.000Z","genres":["🏒 Hockey"]},{"id":"pp-live:ppv~two","type":"tv","name":"📺 Buffalo Sabres x Tampa Bay Lightning","released":"2026-11-12T00:00:00.000Z","genres":["🏒 Hockey"]}]}"#
+        func streams(_ host: String, _ count: Int) -> String {
+            #"{"streams":["# + (1...count).map { #"{"name":"PenguPlay","url":"https://\#(host)/live/\#($0)/index.m3u8"}"# }.joined(separator: ",") + "]}"
+        }
+        let client = Client(configuration: { self.manifestURL }, fetch: { urlRequest in
+            let url = urlRequest.url!.absoluteString
+            let body = url == self.manifestURL.absoluteString ? manifest
+                : url.hasPrefix(root + "catalog/tv/pp-live-hockey/search=") ? catalog
+                : url == root + "stream/tv/" + Client.encodedComponent("pp-live:daddylive~one") + ".json" ? streams("one.example.com", 4)
+                : url == root + "stream/tv/" + Client.encodedComponent("pp-live:ppv~two") + ".json" ? streams("two.example.com", 7) : "{}"
+            return (Data(body.utf8), HTTPURLResponse(url: urlRequest.url!, statusCode: 200, httpVersion: nil,
+                                                     headerFields: ["Content-Type": "application/json"])!)
+        }, enabled: { true }, current: { $0 }, validate: { _ in })
+        let sessions = try await client.resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 11, "Two listings of one game are not a conflict, and no cap of 6 applies")
+        XCTAssertEqual(Set(sessions.compactMap { $0.eventBinding?.providerEventID }), ["pp-live:daddylive~one", "pp-live:ppv~two"])
+        let admission = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "penguplay_delivery_admission" })
+        XCTAssertEqual(admission.details["used_count"], "11")
+        XCTAssertEqual(admission.details["listing_count"], "2")
     }
 
     func testResolveUsesOnlyTheOwnersLinkAndReturnsGuardedHLS() async throws {

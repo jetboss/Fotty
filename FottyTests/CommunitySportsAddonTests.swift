@@ -999,7 +999,8 @@ final class CommunitySportsAddonTests: XCTestCase {
         let squad = makeEntry(id: "nuvio_sport_shared", name: "Hull City Women vs Everton Women",
                               released: "2026-09-13T20:05:00Z", genre: "FOOTBALL", cast: ["Hull City Women", "Everton Women"])
         XCTAssertEqual(CommunitySportsAddonClient.selectMatch(for: request, from: [plain, equivalent]), .matched(plain))
-        XCTAssertEqual(CommunitySportsAddonClient.selectMatch(for: request, from: [plain, anotherID]), .conflicting)
+        // Two ids for the identical game are two listings, not a conflict.
+        XCTAssertEqual(CommunitySportsAddonClient.selectMatch(for: request, from: [plain, anotherID]), .matched(plain))
         XCTAssertEqual(CommunitySportsAddonClient.selectMatch(for: request, from: [plain, squad]), .conflicting)
         XCTAssertEqual(CommunitySportsAddonClient.selectMatch(for: request, from: [squad, plain]), .conflicting)
     }
@@ -1020,7 +1021,7 @@ final class CommunitySportsAddonTests: XCTestCase {
         )
     }
 
-    func testMultipleExactProviderIDsAreRejectedAsConflicting() {
+    func testMultipleExactProviderIDsForOneGameAreListingsNotConflicts() {
         let request = makeRequest(home: "Chelsea", away: "Brighton", category: "football")
         let first = makeEntry(
             id: "nuvio_sport_game-1",
@@ -1039,7 +1040,7 @@ final class CommunitySportsAddonTests: XCTestCase {
 
         XCTAssertEqual(
             CommunitySportsAddonClient.selectMatch(for: request, from: [first, second]),
-            .conflicting
+            .matched(first)
         )
     }
 
@@ -1142,7 +1143,8 @@ final class CommunitySportsAddonTests: XCTestCase {
                                   released: "2026-09-13T20:05:00Z", genre: "FOOTBALL",
                                   cast: ["Hull City AFC Women", "Everton FC Women"], videoID: target)
         for entries in [[first, anotherID], [anotherID, first]] {
-            XCTAssertEqual(CommunitySportsAddonClient.selectMatch(for: request, from: entries), .conflicting)
+            XCTAssertEqual(CommunitySportsAddonClient.selectMatch(for: request, from: entries), .matched(entries[0]),
+                           "Another id for the identical game is another listing, not a conflict")
         }
     }
 
@@ -3035,7 +3037,7 @@ final class CommunitySportsAddonTests: XCTestCase {
 
     @MainActor
     func testUncorroboratedNHLHandoffCannotReachDescriptor() async throws {
-        for scenario in ["ambiguous", "wrong-date", "wrong-programme", "wrong-squad", "terminal", "expired", "wrong-target", "extra-time", "cricket"] {
+        for scenario in ["wrong-date", "wrong-programme", "wrong-squad", "terminal", "expired", "wrong-target", "extra-time", "cricket"] {
             let h = try nhlHandoff(scenario)
             let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!, session: h.session)
             do {

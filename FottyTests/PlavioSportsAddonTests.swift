@@ -325,7 +325,8 @@ final class PlavioSportsAddonTests: XCTestCase {
         XCTAssertEqual(malformed.id, fixtureID)
         XCTAssertTrue(malformed.hasMalformedIdentity)
         XCTAssertEqual(PlavioSportsAddonClient.selectMatch(for: request(), from: [row, malformed]), .conflicting)
-        XCTAssertEqual(PlavioSportsAddonClient.selectMatch(for: request(), from: [row, entry(id: fixtureID + "-other")]), .conflicting)
+        let otherListing = entry(id: fixtureID + "-other")
+        XCTAssertEqual(PlavioSportsAddonClient.selectMatch(for: request(), from: [row, otherListing]), .matched(row))
     }
 
     func testLiveRowRequiresLiteralPublisherJoinAndNeverSuppliesItsOwnDate() throws {
@@ -1112,7 +1113,8 @@ final class PlavioSportsAddonTests: XCTestCase {
         }
         let otherID = cricketEntry(id: row.id + "-other")
         XCTAssertEqual(PlavioSportsAddonClient.selectMatch(for: officialCricketRequest(),
-                                                         from: [row, otherID]), .conflicting)
+                                                         from: [row, otherID]), .matched(row),
+                       "Another id for the identical Test day is another listing")
     }
 
     @MainActor
