@@ -155,6 +155,7 @@ actor HighflySportsAddonClient {
         var missReason: String?, rowCount: Int?, unmatchedTeam: String?, kickoffOffset: Int?
         var searchScope = "search"
         var listingSpan: String?, liveCatalog: String?
+        var supplementaryFailures = 0
         var liveRows: Int?, liveShape: String?, liveSameSport: Int?, liveCategories: String?, liveRestShape: String?
         var liveLayout: String?
         defer {
@@ -162,6 +163,7 @@ actor HighflySportsAddonClient {
             if let missReason { details["reason_code"] = missReason }
             if stage != "manifest", stage != "search" { details["search_scope"] = searchScope }
             if let listingSpan { details["listing_span_h"] = listingSpan }
+            if supplementaryFailures > 0 { details["supplementary_failures"] = "\(supplementaryFailures)" }
             if let liveCatalog { details["live_catalog"] = liveCatalog }
             if let liveRows { details["live_row_count"] = "\(liveRows)" }
             if let liveShape { details["live_row_shape"] = liveShape }
@@ -228,15 +230,23 @@ actor HighflySportsAddonClient {
             var live: [Row] = []
             for catalog in manifest.catalogs.filter({ $0.type == "sport" && $0.id.lowercased().contains("live") }).prefix(2) {
                 guard catalog.id.range(of: #"^[A-Za-z0-9_.-]{1,64}$"#, options: .regularExpression) != nil else { continue }
-                for _ in 0..<Self.browsePageLimit {
-                    let pageCount = live.count
-                    let extra = catalog.id + (pageCount == 0 ? "" : "/skip=\(pageCount)") + ".json"
-                    guard let url = URL(string: root.absoluteString + "catalog/sport/" + extra) else { throw CommunitySportsAddonError.unsafeResponse }
-                    let page: Catalog = try await read(url)
-                    guard page.metas.count <= 100, live.count + page.metas.count <= 600 else { throw CommunitySportsAddonError.unsafeResponse }
-                    live += page.metas
-                    if page.metas.count < 100 { break }
-                }
+                // Paging is per catalog. A supplementary read that fails or is
+                // unsafe drops only that catalog, never a match found elsewhere.
+                var catalogRows: [Row] = []
+                do {
+                    for _ in 0..<Self.browsePageLimit {
+                        let extra = catalog.id + (catalogRows.isEmpty ? "" : "/skip=\(catalogRows.count)") + ".json"
+                        guard let url = URL(string: root.absoluteString + "catalog/sport/" + extra) else { throw CommunitySportsAddonError.unsafeResponse }
+                        let page: Catalog = try await read(url)
+                        guard page.metas.count <= 100, live.count + catalogRows.count + page.metas.count <= 600 else {
+                            throw CommunitySportsAddonError.unsafeResponse
+                        }
+                        catalogRows += page.metas
+                        if page.metas.count < 100 { break }
+                    }
+                } catch is CancellationError { throw CancellationError() }
+                catch { supplementaryFailures += 1; catalogRows = [] }
+                live += catalogRows
             }
             liveRows = live.count
             liveShape = live.lazy.compactMap { Self.identityRejection($0) }.first ?? (live.isEmpty ? nil : "parsed")
@@ -250,23 +260,34 @@ actor HighflySportsAddonClient {
                 ?? (live.isEmpty ? nil : "parsed")
             let seen = Set(rows.map(\.id))
             rows += live.filter { !seen.contains($0.id) }
-            stage = "browse"
-            searchScope = "search_and_browse"
+            // A live match is enough; the upcoming listing cannot hold a game
+            // in progress, so it is read only while there is still no match.
+            var stillMissing = false
+            do { _ = try Self.select(request: request, rows: rows, now: now) }
+            catch CommunitySportsAddonError.matchNotFound { stillMissing = true }
+            catch {}
             var browsed: [Row] = []
-            for _ in 0..<Self.browsePageLimit {
-                let extra = browsed.isEmpty ? catalogID + ".json" : catalogID + "/skip=\(browsed.count).json"
-                guard let url = URL(string: root.absoluteString + "catalog/sport/" + extra) else { throw CommunitySportsAddonError.unsafeResponse }
-                let page: Catalog = try await read(url)
-                guard page.metas.count <= 100 else { throw CommunitySportsAddonError.unsafeResponse }
-                browsed += page.metas
-                if page.metas.count < 100 { break }
-            }
+            if stillMissing {
+                stage = "browse"
+                searchScope = "search_and_browse"
+                do {
+                    for _ in 0..<Self.browsePageLimit {
+                        let extra = browsed.isEmpty ? catalogID + ".json" : catalogID + "/skip=\(browsed.count).json"
+                        guard let url = URL(string: root.absoluteString + "catalog/sport/" + extra) else { throw CommunitySportsAddonError.unsafeResponse }
+                        let page: Catalog = try await read(url)
+                        guard page.metas.count <= 100 else { throw CommunitySportsAddonError.unsafeResponse }
+                        browsed += page.metas
+                        if page.metas.count < 100 { break }
+                    }
+                } catch is CancellationError { throw CancellationError() }
+                catch { supplementaryFailures += 1; browsed = [] }
+            } else { searchScope = "search_and_live" }
             // Diagnostic: the hour span the listing covers relative to now
             // (e.g. "20_170" means it starts 20 h ahead, so live games are absent).
             let hours = browsed.compactMap { Self.identity($0) }.map { Int(($0.kickoff.timeIntervalSince(now) / 3600).rounded()) }
             if let low = hours.min(), let high = hours.max() {
                 listingSpan = "\(max(-999, low))_\(min(9999, high))"
-            } else { listingSpan = browsed.isEmpty ? "empty" : "unreadable" }
+            } else if stillMissing { listingSpan = browsed.isEmpty ? "empty" : "unreadable" }
             let known = Set(rows.map(\.id))
             rows += browsed.filter { !known.contains($0.id) }
             stage = "fixture_match"

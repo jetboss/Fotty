@@ -358,7 +358,7 @@ struct ViewingExperienceView: View {
                         VStack { minimizeControl; Spacer() }.padding(.vertical, 8)
                         stageVideo(pane)
                         VStack(spacing: 4) {
-                            closeControl; optionsControl(pane); infoControl(pane, panel: false)
+                            closeControl; fullscreenControl(pane); optionsControl(pane); infoControl(pane, panel: false)
                             Spacer()
                             sourceControl(pane, compact: true)
                         }.padding(.vertical, 8)
@@ -394,7 +394,8 @@ struct ViewingExperienceView: View {
         .persistentSystemOverlays(.hidden)
         .task(id: chromeWake) {
             guard !UIAccessibility.isVoiceOverRunning, !typeSize.isAccessibilitySize else { return }
-            try? await Task.sleep(for: .seconds(4))
+            // A newer wake cancels this task; a cancelled sleep must not dim.
+            do { try await Task.sleep(for: .seconds(4)) } catch { return }
             withAnimation(.easeOut(duration: 0.6)) { chromeIsDimmed = true }
         }
         .accessibilityElement(children: .contain)
@@ -424,18 +425,7 @@ struct ViewingExperienceView: View {
         HStack(spacing: wide ? 8 : 2) {
             minimizeControl
             Spacer(minLength: 0)
-            if !pane.model.isUsingWebEmbed {
-                Button { wakeChrome(); pane.model.beginNativeFullscreen() } label: {
-                    Image(systemName: "arrow.up.left.and.arrow.down.right")
-                        .frame(width: 44, height: 44).contentShape(Rectangle())
-                }
-                .frame(minWidth: 44, minHeight: 44)
-                .buttonStyle(.plain).font(.title3.weight(.medium))
-                .foregroundStyle(stageChromeStyle)
-                .disabled(!pane.model.canShowNativeFullscreen)
-                .accessibilityLabel("Open native fullscreen player")
-                .accessibilityIdentifier("viewing-native-fullscreen")
-            }
+            fullscreenControl(pane)
             infoControl(pane, panel: panelAvailable)
             optionsControl(pane)
             closeControl
@@ -443,6 +433,21 @@ struct ViewingExperienceView: View {
         .padding(.horizontal, 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("viewing-control-dock")
+    }
+
+    @ViewBuilder private func fullscreenControl(_ pane: ViewingSessionCoordinator.Pane) -> some View {
+        if !pane.model.isUsingWebEmbed {
+            Button { wakeChrome(); pane.model.beginNativeFullscreen() } label: {
+                Image(systemName: "arrow.up.left.and.arrow.down.right")
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
+            }
+            .frame(minWidth: 44, minHeight: 44)
+            .buttonStyle(.plain).font(.title3.weight(.medium))
+            .foregroundStyle(stageChromeStyle)
+            .disabled(!pane.model.canShowNativeFullscreen)
+            .accessibilityLabel("Open native fullscreen player")
+            .accessibilityIdentifier("viewing-native-fullscreen")
+        }
     }
 
     private var minimizeControl: some View {

@@ -168,6 +168,31 @@ final class HighflySportsAddonTests: XCTestCase {
         }
     }
 
+    func testSecondLiveCatalogStartsAtItsOwnFirstPage() async throws {
+        let transport = HighflyTestTransport(mode: .secondLiveCatalog)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff.addingTimeInterval(30 * 60))
+        XCTAssertEqual(sessions.count, 1)
+        let paths = await transport.catalogs()
+        XCTAssertTrue(paths.contains("sports_live_extra.json"), "\(paths)")
+        XCTAssertFalse(paths.contains { $0.hasPrefix("skip=") && $0.contains("extra") }, "\(paths)")
+    }
+
+    func testListingFailureCannotDiscardALiveMatch() async throws {
+        let transport = HighflyTestTransport(mode: .listingFailsAfterLive)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff.addingTimeInterval(30 * 60))
+        XCTAssertEqual(sessions.count, 1)
+        let paths = await transport.catalogs()
+        XCTAssertFalse(paths.contains("sports_football.json"), "A live match skips the upcoming listing: \(paths)")
+    }
+
+    func testLiveCatalogFailureStillReadsTheListing() async throws {
+        let transport = HighflyTestTransport(mode: .liveFailsListingMatches)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 1)
+        let receipt = FottyQualityStore.shared.records().last { $0.name == "highfly_lookup" }
+        XCTAssertEqual(receipt?.details["supplementary_failures"], "1")
+    }
+
     func testUndatedLiveRowNeverStandsInForADifferentPairOrCricket() {
         let id = ReviewedSportsFixtureMatcher.RequestIdentity(sport: "football", pair: ["arsenal", "everton"], kickoff: kickoff)
         let live = HighflySportsAddonClient.liveKickoff(for: id, now: kickoff.addingTimeInterval(600))
@@ -261,7 +286,7 @@ final class HighflySportsAddonTests: XCTestCase {
 }
 
 private actor HighflyTestTransport {
-    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow }
+    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog, listingFailsAfterLive, liveFailsListingMatches }
     private let premium: Bool
     private let mode: Mode
     private var streamCount = 0
@@ -283,7 +308,8 @@ private actor HighflyTestTransport {
         if url.lastPathComponent == "manifest.json" {
             body = ["id": premium ? "community.sports.streamed.premium" : "community.sports.fly", "version": "1.3.0",
                 "resources": ["catalog", "meta", "stream"].map { ["name": $0, "types": ["sport"], "idPrefixes": ["streamed:"]] },
-                "catalogs": [["id": "sports_football", "type": "sport"], ["id": "sports_live", "type": "sport"]]]
+                "catalogs": [["id": "sports_football", "type": "sport"], ["id": "sports_live", "type": "sport"]]
+                    + (mode == .secondLiveCatalog ? [["id": "sports_live_extra", "type": "sport"]] : [])]
         } else if url.path.contains("/catalog/") {
             catalogPaths.append(url.lastPathComponent)
             var later = row
@@ -291,19 +317,50 @@ private actor HighflyTestTransport {
             later["description"] = "Arsenal vs Everton\n14 Nov 2026 · 18:00 UTC"; later["releaseInfo"] = "14 Nov 2026 · 18:00 UTC"
             let searching = url.absoluteString.contains("search=")
             switch mode {
+            case .secondLiveCatalog:
+                // 100 unrelated rows then a short page in the first live
+                // catalog; the match is on the second catalog's first page.
+                let path = url.path
+                if path.hasSuffix("/sports_live.json") {
+                    body = ["metas": (0..<100).map { i -> [String: Any] in
+                        var other = later; other["id"] = "streamed:filler\(i)"; return other }]
+                } else if path.contains("/sports_live/skip=") {
+                    body = ["metas": []]
+                } else if path.hasSuffix("/sports_live_extra.json") {
+                    var live = row
+                    live["description"] = "Arsenal vs Everton\n🔴 Live now"; live["releaseInfo"] = "LIVE"
+                    body = ["metas": [live]]
+                } else {
+                    body = ["metas": url.absoluteString.contains("skip=") ? [] : [later]]
+                }
+            case .liveFailsListingMatches:
+                if url.lastPathComponent == "sports_live.json" {
+                    return (Data("busy".utf8), HTTPURLResponse(url: url, statusCode: 503, httpVersion: "HTTP/1.1",
+                        headerFields: ["Content-Type": "text/plain"])!)
+                }
+                body = ["metas": url.absoluteString.contains("skip=") ? [] : searching ? [later] : [later, row]]
+            case .listingFailsAfterLive:
+                if url.lastPathComponent == "sports_football.json" || url.path.contains("/sports_football/skip=") {
+                    return (Data("busy".utf8), HTTPURLResponse(url: url, statusCode: 503, httpVersion: "HTTP/1.1",
+                        headerFields: ["Content-Type": "text/plain"])!)
+                }
+                var live = row
+                live["description"] = "Arsenal vs Everton\n🔴 Live now"; live["releaseInfo"] = "LIVE"
+                body = ["metas": url.lastPathComponent == "sports_live.json" ? [live] : url.absoluteString.contains("skip=") ? [] : [later]]
             case .undatedLiveRow:
                 var live = row
                 live["description"] = "Arsenal vs Everton\n🔴 Live now"; live["releaseInfo"] = "LIVE"
                 body = ["metas": url.lastPathComponent == "sports_live.json" ? [live] : url.absoluteString.contains("skip=") ? [] : [later]]
             case .liveCatalogOnly: body = ["metas": url.lastPathComponent == "sports_live.json" ? [row] : url.absoluteString.contains("skip=") ? [] : [later]]
-            case .searchOmitsLive: body = ["metas": url.absoluteString.contains("skip=") ? [] : searching ? [later] : [later, row]]
+            case .searchOmitsLive: body = ["metas": url.absoluteString.contains("skip=") || url.path.contains("sports_live") ? []
+                : searching ? [later] : [later, row]]
             case .listingOmitsLive: body = ["metas": url.absoluteString.contains("skip=") ? [] : [later]]
             default: body = ["metas": url.absoluteString.contains("skip=") || !searching ? [] : [row]]
             }
         } else if url.path.contains("/meta/") {
             metaCount += 1
             var meta = row
-            if mode == .undatedLiveRow { meta["description"] = "Arsenal vs Everton\n🔴 Live now"; meta["releaseInfo"] = "LIVE" }
+            if [.undatedLiveRow, .secondLiveCatalog, .listingFailsAfterLive].contains(mode) { meta["description"] = "Arsenal vs Everton\n🔴 Live now"; meta["releaseInfo"] = "LIVE" }
             if mode == .conflictingMeta { meta["name"] = "Different fixture" }
             body = ["meta": meta]
         } else {
