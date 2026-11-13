@@ -298,7 +298,7 @@ actor PenguPlaySportsAddonClient {
         var rejections: [String] = [], rejectedHost: String?
         for (listing, row) in current.flatMap({ listing in listing.deliveries.map { (listing.row, $0) } }) {
             guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
-            if let reason = AccountSourceDeliveryPolicy.rejection(url) {
+            if let reason = StreamDeliveryPolicy.rejection(url) {
                 rejections.append(reason); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue
             }
             guard let headers = Self.requestHeaders(row) else { rejections.append("credential_headers"); continue }
@@ -350,13 +350,13 @@ actor PenguPlaySportsAddonClient {
         return sessions
     }
 
-    /// Safe to open (see AccountSourceDeliveryPolicy); link shape is not judged.
-    nonisolated static func admitsDelivery(_ url: URL) -> Bool { AccountSourceDeliveryPolicy.rejection(url) == nil }
+    /// Safe to open (see StreamDeliveryPolicy); link shape is not judged.
+    nonisolated static func admitsDelivery(_ url: URL) -> Bool { StreamDeliveryPolicy.rejection(url) == nil }
 
     /// Referer, Origin and User-Agent are forwarded; other names are dropped;
     /// a credential header refuses the stream. Response-header hints are ignored.
     nonisolated static func requestHeaders(_ delivery: Delivery) -> [String: String]? {
-        AccountSourceDeliveryPolicy.requestHeaders(delivery.behaviorHints?.proxyHeaders?.request ?? [:])
+        StreamDeliveryPolicy.requestHeaders(delivery.behaviorHints?.proxyHeaders?.request ?? [:])
     }
 
     /// "🔴 LIVE: A - B" / "📺 A x B" → "A vs B" when exactly one separator splits two names.

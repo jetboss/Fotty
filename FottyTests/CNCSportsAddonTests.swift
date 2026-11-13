@@ -62,9 +62,8 @@ final class CNCSportsAddonTests: XCTestCase {
         }
         let exact = catalogEntry(name: "🔴 Capitals vs Flyers")
         let conflict = catalogEntry(name: "🔴 Other Capitals vs Flyers")
-        XCTAssertThrowsError(try CNCSportsAddonClient.preselectedCatalogIDs(for: request, from: [exact, conflict])) {
-            XCTAssertEqual($0 as? CommunitySportsAddonError, .conflictingMatch)
-        }
+        XCTAssertTrue(try CNCSportsAddonClient.preselectedCatalogIDs(for: request, from: [exact, conflict]).isEmpty,
+                      "An id whose own rows disagree is dropped")
     }
 
     func testNormalClientDiscoversObservedCapitalsFlyersThroughExactMetadataBeforeStreams() async throws {
@@ -184,9 +183,8 @@ final class CNCSportsAddonTests: XCTestCase {
             homeTeam: "Chicago Blackhawks", awayTeam: "Montreal Canadiens", category: "hockey")
         XCTAssertTrue(try CNCSportsAddonClient.preselectedCatalogIDs(for: undated, from: [catalogEntry()]).isEmpty)
         let rows = [catalogEntry(), catalogEntry(id: secondID), catalogEntry(id: "cnc:third")]
-        XCTAssertThrowsError(try CNCSportsAddonClient.preselectedCatalogIDs(for: request(), from: rows)) {
-            XCTAssertEqual($0 as? CommunitySportsAddonError, .conflictingMatch)
-        }
+        XCTAssertEqual(try CNCSportsAddonClient.preselectedCatalogIDs(for: request(), from: rows),
+                       [fixtureID, secondID, "cnc:third"], "Every listing of the game counts")
         XCTAssertEqual(try CNCSportsAddonClient.preselectedCatalogIDs(for: request(), from: [rows[0], rows[0], rows[1]]).count, 2)
     }
 
@@ -195,23 +193,22 @@ final class CNCSportsAddonTests: XCTestCase {
         let malformed = [catalogEntry(name: "Other Club vs Another Club"), catalogEntry(type: "movie"),
             CNCSportsCatalogEntry(id: fixtureID, name: "🔴 Blackhawks vs Canadiens", hasMalformedIdentity: true),
             CNCSportsCatalogEntry(id: "cnc:other", effectiveID: fixtureID, name: "Other vs Another", hasMalformedIdentity: true)]
+        // A malformed or different row on the same id drops that id: nothing from it plays.
         for row in malformed {
             for entries in [[exact, row], [row, exact]] {
-                XCTAssertThrowsError(try CNCSportsAddonClient.preselectedCatalogIDs(for: request(), from: entries)) {
-                    XCTAssertEqual($0 as? CommunitySportsAddonError, .conflictingMatch)
-                }
+                XCTAssertTrue(try CNCSportsAddonClient.preselectedCatalogIDs(for: request(), from: entries).isEmpty)
             }
         }
         var raw = catalogJSON(); raw["name"] = NSNull()
         let decoded = try JSONDecoder().decode(CNCSportsCatalogEntry.self, from: data(raw))
         XCTAssertEqual(decoded.id, fixtureID); XCTAssertTrue(decoded.hasMalformedIdentity)
-        XCTAssertThrowsError(try CNCSportsAddonClient.preselectedCatalogIDs(for: request(), from: [exact, decoded]))
+        XCTAssertTrue(try CNCSportsAddonClient.preselectedCatalogIDs(for: request(), from: [exact, decoded]).isEmpty)
         for hints: Any in [NSNull(), [:], ["defaultVideoId": "cnc:other"],
                            ["defaultVideoId": fixtureID, "proxyHeaders": [:]]] {
             var changed = catalogJSON(); changed["behaviorHints"] = hints
             let row = try JSONDecoder().decode(CNCSportsCatalogEntry.self, from: data(changed))
             XCTAssertTrue(row.hasMalformedIdentity)
-            XCTAssertThrowsError(try CNCSportsAddonClient.preselectedCatalogIDs(for: request(), from: [exact, row]))
+            XCTAssertTrue(try CNCSportsAddonClient.preselectedCatalogIDs(for: request(), from: [exact, row]).isEmpty)
         }
     }
 
@@ -249,18 +246,16 @@ final class CNCSportsAddonTests: XCTestCase {
         XCTAssertFalse(session.diagnosticMetadata.description.contains("edgestream"))
     }
 
-    func testDeliveryAdmissionRejectsEveryUnreviewedOriginPortPathAndQuery() throws {
+    func testDeliveryAdmissionRefusesUnsafeLinksOnly() throws {
         for value in ["http://edgestream7.pro/hls/fixture.m3u8", "https://edgestream7.pro:8443/hls/fixture.m3u8",
-            "https://edgestream7.pro.evil.example/hls/fixture.m3u8", "https://cdn.edgestream7.pro/hls/fixture.m3u8",
             "https://edgestream7.pro./hls/fixture.m3u8", "https://127.0.0.1/hls/fixture.m3u8",
             "https://user@edgestream7.pro/hls/fixture.m3u8", "https://user:secret@edgestream7.pro/hls/fixture.m3u8",
-            "https://edgestream7.pro/hls/fixture.m3u8?token=unreviewed", "https://edgestream7.pro/hls/fixture.m3u8#player",
-            "https://edgestream7.pro/hls/fixture.mp4", "https://edgestream7.pro/other/fixture.m3u8",
-            "https://edgestream7.pro/hls/fixture/extra.m3u8", "https://edgestream7.pro/hls//fixture.m3u8",
-            "https://edgestream7.pro/hls/fixture%2Fextra.m3u8", "https://edgestream7.pro/hls/%66ixture.m3u8",
-            "https://edgestream7.pro/hls/../fixture.m3u8", "https://edgestream7.pro/hls/.m3u8",
-            "https://edgestream4.pro/hls/fixture.m3u8"] {
-            XCTAssertTrue(try sessions([streamJSON(url: value)]).isEmpty)
+            "https://edgestream7.pro/hls/fixture.m3u8#player", "https://edgestream7.pro/hls/fixture.mp4"] {
+            XCTAssertTrue(try sessions([streamJSON(url: value)]).isEmpty, value)
+        }
+        for value in ["https://cdn.edgestream7.pro/hls/fixture.m3u8", "https://edgestream4.pro/hls/fixture.m3u8",
+            "https://edgestream7.pro/hls/fixture.m3u8?token=signed", "https://edgestream7.pro/other/fixture.m3u8"] {
+            XCTAssertEqual(try sessions([streamJSON(url: value)]).count, 1, value)
         }
         XCTAssertEqual(try sessions([streamJSON(url: "https://edgestream7.pro:443/hls/fixture.m3u8")]).count, 1)
     }
@@ -283,15 +278,18 @@ final class CNCSportsAddonTests: XCTestCase {
             streamJSON().merging(["behaviorHints": ["proxyHeaders": ["request": CNCSportsAddonClient.reviewedHeaders,
                 "response": ["Access-Control-Allow-Origin": "*"]]]]) { _, new in new }
         ]
-        for row in rejected { XCTAssertTrue(try sessions([row]).isEmpty) }
+        let refused = [rejected[7], rejected[13]] // Cookie header, DRM licence.
+        for row in refused { XCTAssertTrue(try sessions([row]).isEmpty) }
+        let admitted = rejected.indices.filter { ![7, 13].contains($0) }.map { rejected[$0] }
+        for row in admitted { XCTAssertEqual(try sessions([row]).count, 1) }
         let donation: [String: Any] = ["name": "support the project", "externalUrl": "https://example.com"]
-        XCTAssertEqual(try sessions([donation, rejected[0], streamJSON()]).map(\.providerName), ["LS1"])
+        XCTAssertEqual(try sessions([donation, streamJSON()]).map(\.providerName), ["LS1"], "A row with no link is skipped")
     }
 
     func testSixDeliveryCapDeduplicationAndHeaderSortedOpaqueKeyAreStable() throws {
         let rows = (0..<8).map { streamJSON(url: "https://edgestream7.pro/hls/fixture_\($0).m3u8") }
         let sessions = try sessions([rows[0]] + rows)
-        XCTAssertEqual(sessions.count, 6); XCTAssertEqual(sessions.map(\.providerName), (1...6).map { "LS\($0)" })
+        XCTAssertEqual(sessions.count, 8); XCTAssertEqual(sessions.map(\.providerName), (1...8).map { "LS\($0)" })
         let url = try XCTUnwrap(URL(string: delivery))
         let headers = CNCSportsAddonClient.reviewedHeaders
         let reversed = Dictionary(uniqueKeysWithValues: headers.sorted { $0.key > $1.key })
@@ -335,7 +333,7 @@ final class CNCSportsAddonTests: XCTestCase {
         let session = try fixtureSession(catalog: .json(["metas": [catalogJSON(), catalogJSON(name: "🔴 Other vs Another")]]))
         defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
         let rows = try await CNCSportsAddonClient(session: session).catalogMatches(for: [request()], now: kickoff)
-        XCTAssertEqual(rows.map(\.outcome), [.conflicting])
+        XCTAssertEqual(rows.map(\.outcome), [.notListed], "An id whose own rows disagree is not offered")
         XCTAssertEqual(CNCFixtureProtocol.paths, ["/manifest.json", catalogPath])
     }
 
@@ -385,8 +383,7 @@ final class CNCSportsAddonTests: XCTestCase {
     }
 
     func testCatalogPreselectionBoundsStopBeforeAnyMetadataRequest() async throws {
-        for rows in [[], [catalogJSON(name: "🔴 Other vs Another")],
-                     [catalogJSON(), catalogJSON(id: secondID), catalogJSON(id: "cnc:third")]] {
+        for rows in [[], [catalogJSON(name: "🔴 Other vs Another")]] {
             let session = try fixtureSession(catalog: .json(["metas": rows]))
             defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
             do { _ = try await CNCSportsAddonClient(session: session).resolve(for: request()); XCTFail("Expected no source") }
@@ -542,28 +539,34 @@ final class CNCSportsAddonTests: XCTestCase {
         }
         XCTAssertThrowsError(try CNCSportsAddonClient.selectCricketMetadata(for: request, catalog: [row],
             metadata: [metadata(name: "Adelaide Strikers vs Brisbane Heat", description: wbblDescription)], at: request.kickoffDate!))
-        XCTAssertThrowsError(try CNCSportsAddonClient.cricketCatalogIDs(for: request,
-            from: [row, catalogEntry(name: "🔜 Perth Scorchers Women vs Sydney Thunder Women")]))
+        XCTAssertTrue(try CNCSportsAddonClient.cricketCatalogIDs(for: request,
+            from: [row, catalogEntry(name: "🔜 Perth Scorchers Women vs Sydney Thunder Women")]).isEmpty,
+            "An id whose own rows name different teams is dropped")
     }
 
-    func testWBBLTransportRejectsOtherHostsPathsCredentialsDRMAndExpiredSignatures() throws {
-        XCTAssertTrue(CNCSportsAddonClient.isAdmittedCricketDelivery(URL(string: wbblDelivery)!))
-        for value in [wbblDelivery.replacingOccurrences(of: "https://", with: "http://"),
-                      wbblDelivery.replacingOccurrences(of: "bl.rutube.ru", with: "bl.rutube.ru.example.com"),
-                      wbblDelivery.replacingOccurrences(of: "/livestream/", with: "/other/"),
-                      wbblDelivery.replacingOccurrences(of: "4102444800", with: "1000000000"),
-                      wbblDelivery + "&cookie=private", wbblDelivery + "&s=duplicate", wbblDelivery + "#fragment",
-                      wbblDelivery.replacingOccurrences(of: "bl.rutube.ru", with: "user:pass@bl.rutube.ru")] {
-            XCTAssertFalse(CNCSportsAddonClient.isAdmittedCricketDelivery(URL(string: value)!), value)
+    @MainActor
+    func testStreamsAreJudgedOnSafetyNotServerPathOrTag() throws {
+        let request = wbblRequest()
+        func entry(_ json: [String: Any]) throws -> CNCSportsStreamEntry { try JSONDecoder().decode(CNCSportsStreamEntry.self, from: data(json)) }
+        func sessions(_ rows: [[String: Any]]) throws -> [StreamSession] {
+            CNCSportsAddonClient.makeSessions(from: try rows.map(entry), request: request, addOnVersion: "2.73.31")
         }
-        XCTAssertFalse(CNCSportsAddonClient.isAdmittedCricketHeaders(["User-Agent": "Mozilla/5.0 \r\nCookie: private"]))
-        XCTAssertFalse(CNCSportsAddonClient.isAdmittedCricketHeaders(CNCSportsAddonClient.reviewedCricketHeaders.merging(["Cookie":"private"]) { _, b in b }))
+        // Any server, path or stream name the provider serves, with or without proxy headers.
+        let varied: [[String: Any]] = [wbblStreamJSON(),
+            ["name": "Other provider HD", "url": "https://other-cdn.example.net/live/abc.m3u8"],
+            ["url": "https://edge.example.org/hls/master?sig=1", "behaviorHints": ["notWebReady": true]]]
+        XCTAssertEqual(try sessions(varied).count, 3)
+        // Safety still refuses: plain HTTP, sign-in in the link, DRM, credential headers.
+        var plain = wbblStreamJSON(); plain["url"] = wbblDelivery.replacingOccurrences(of: "https://", with: "http://")
+        var signedIn = wbblStreamJSON(); signedIn["url"] = wbblDelivery.replacingOccurrences(of: "bl.rutube.ru", with: "user:pass@bl.rutube.ru")
         var drm = wbblStreamJSON(); drm["clearkey"] = "not-admitted"
-        XCTAssertFalse(try JSONDecoder().decode(CNCSportsStreamEntry.self, from: data(drm)).isReviewedCricketContract)
-        var response = wbblStreamJSON()
-        response["behaviorHints"] = ["bingeGroup": "cncverse-playztv-live-events", "notWebReady": true,
-            "proxyHeaders": ["request": CNCSportsAddonClient.reviewedCricketHeaders, "response": ["Set-Cookie": "private"]]]
-        XCTAssertFalse(try JSONDecoder().decode(CNCSportsStreamEntry.self, from: data(response)).isReviewedCricketContract)
+        var cookie = wbblStreamJSON()
+        cookie["behaviorHints"] = ["proxyHeaders": ["request": ["Cookie": "private"]]]
+        XCTAssertTrue(try sessions([plain, signedIn, drm, cookie]).isEmpty)
+        // One unusual row never sinks the rest of the list.
+        let document = try JSONDecoder().decode(CNCSportsStreamDocumentProbe.self, from: data(["streams": [
+            ["weird": true], wbblStreamJSON()]]))
+        XCTAssertEqual(document.streams.count, 2)
     }
 
     @MainActor
@@ -582,7 +585,7 @@ final class CNCSportsAddonTests: XCTestCase {
         let catalog = try await client.catalogMatches(for: [request], now: request.kickoffDate!)
         XCTAssertEqual(catalog.first?.outcome, .needsVerification)
         let sessions = try await client.resolve(for: request, now: request.kickoffDate!)
-        XCTAssertEqual(sessions.map(\.providerName), ["LS1"])
+        XCTAssertEqual(sessions.map(\.providerName), ["LS1", "LS2"], "Every safe stream the listing serves")
         let result = try XCTUnwrap(sessions.first)
         XCTAssertEqual(result.requiredHeaders, CNCSportsAddonClient.reviewedCricketHeaders)
         XCTAssertEqual(result.requiresGuardedRelay, true)
@@ -883,3 +886,7 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
         XCTAssertEqual(count, 0)
     }
 }
+
+
+/// Decodes a stream list the way the adapter does, for tests.
+private struct CNCSportsStreamDocumentProbe: Decodable { let streams: [CNCSportsStreamEntry] }

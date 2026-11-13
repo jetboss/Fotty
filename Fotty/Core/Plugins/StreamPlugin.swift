@@ -227,7 +227,8 @@ enum CuratedStreamSourceCatalog {
             if provider == .reviewedTV {
                 return ReviewedTVPlaylistClient.channels.first { $0.providerName == "TV" + String(choice) }?.providerName
             }
-            guard let prefix = opaqueLabelPrefix, (1...6).contains(choice) else { return nil }
+            // Labels never limit how many streams a provider may offer.
+            guard let prefix = opaqueLabelPrefix, (1...StreamDeliveryPolicy.maximumSessionsPerProvider).contains(choice) else { return nil }
             return prefix + String(choice)
         }
 

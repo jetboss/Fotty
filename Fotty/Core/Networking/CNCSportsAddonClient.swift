@@ -62,42 +62,20 @@ struct CNCSportsMetadata: Decodable, Sendable {
 struct CNCSportsStreamEntry: Decodable, Sendable {
     let name: String?
     let url: String?
+    /// Request headers the row asks for (behaviorHints.proxyHeaders.request).
     let requiredHeaders: [String: String]?
-    let isSupportedContract: Bool
-    let isReviewedCricketContract: Bool
+    let requiresDRM: Bool
 
     init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy: CNCSportsCodingKey.self)
+        let values = try? decoder.container(keyedBy: CNCSportsCodingKey.self)
         func key(_ value: String) -> CNCSportsCodingKey { .init(value) }
-        name = try values.decodeIfPresent(String.self, forKey: key("name"))
-        url = try values.decodeIfPresent(String.self, forKey: key("url"))
-        if values.contains(key("title")) { _ = try values.decode(String.self, forKey: key("title")) }
-        var supported = Set(values.allKeys.map(\.stringValue)).isSubset(of: ["name", "title", "url", "behaviorHints"])
-        let hints = try values.nestedContainer(keyedBy: CNCSportsCodingKey.self, forKey: key("behaviorHints"))
-        supported = supported && Set(hints.allKeys.map(\.stringValue)) == ["proxyHeaders"]
-        let proxy = try hints.nestedContainer(keyedBy: CNCSportsCodingKey.self, forKey: key("proxyHeaders"))
-        supported = supported && Set(proxy.allKeys.map(\.stringValue)).isSubset(of: ["request", "response"])
-        if proxy.contains(key("response")) {
-            supported = try proxy.decode([String: String].self, forKey: key("response")).isEmpty && supported
-        }
-        let headers = try proxy.decode([String: String].self, forKey: key("request"))
-        requiredHeaders = headers
-        isSupportedContract = supported && headers == CNCSportsAddonClient.reviewedHeaders
-        // The newer PlayZTV envelope is a separate reviewed contract. It does
-        // not relax LivXow's existing NHL headers or accept response rewrites.
-        let cricketHints = Set(hints.allKeys.map(\.stringValue))
-        let cricketFields = Set(values.allKeys.map(\.stringValue))
-        let group = try? hints.decode(String.self, forKey: key("bingeGroup"))
-        let notWebReady = try? hints.decode(Bool.self, forKey: key("notWebReady"))
-        let filename = try? hints.decode(String.self, forKey: key("filename"))
-        let responseIsEmpty = !proxy.contains(key("response"))
-            || (try? proxy.decode([String: String].self, forKey: key("response")))?.isEmpty == true
-        isReviewedCricketContract = cricketFields.isSubset(of: ["name", "title", "url", "behaviorHints"])
-            && cricketHints.isSubset(of: ["bingeGroup", "notWebReady", "proxyHeaders", "filename"])
-            && group == "cncverse-playztv-live-events" && notWebReady == true
-            && (!hints.contains(key("filename")) || (filename.map { $0.utf8.count <= 512 && $0.rangeOfCharacter(from: .controlCharacters) == nil } ?? false))
-            && Set(proxy.allKeys.map(\.stringValue)).isSubset(of: ["request", "response"])
-            && responseIsEmpty && CNCSportsAddonClient.isAdmittedCricketHeaders(headers)
+        name = try? values?.decodeIfPresent(String.self, forKey: key("name"))
+        url = try? values?.decodeIfPresent(String.self, forKey: key("url"))
+        let hints = try? values?.nestedContainer(keyedBy: CNCSportsCodingKey.self, forKey: key("behaviorHints"))
+        let proxy = try? hints?.nestedContainer(keyedBy: CNCSportsCodingKey.self, forKey: key("proxyHeaders"))
+        requiredHeaders = (try? proxy?.decode([String: String].self, forKey: key("request"))) ?? nil
+        // Fotty's player cannot decrypt DRM-protected rows.
+        requiresDRM = ["drm", "clearkey", "licenseUrl", "license"].contains { values?.contains(key($0)) == true }
     }
 }
 
@@ -259,37 +237,60 @@ actor CNCSportsAddonClient {
         let entries = try await loadCatalog(now: now, forceRefresh: forceRefresh)
         let ids = try Self.preselectedCatalogIDs(for: request, from: entries)
         guard !ids.isEmpty else { throw CommunitySportsAddonError.matchNotFound }
-        let metadata = try await withThrowingTaskGroup(of: CNCSportsMetadata.self,
-                                                       returning: [CNCSportsMetadata].self) { group in
+        let metadata = try await fetchMetadata(ids)
+        try Task.checkCancellation()
+        let selected = try Self.selectAllMetadata(for: request, catalog: entries, metadata: metadata,
+            at: now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started))
+        return try await sessions(for: selected, request: request, manifest: manifest, now: now, started: started)
+    }
+
+    /// Details for each listing; one that fails or names another id is left out.
+    /// When none load, the first real failure is reported (never a generic miss).
+    private func fetchMetadata(_ ids: [String]) async throws -> [CNCSportsMetadata] {
+        let results = await withTaskGroup(of: Result<CNCSportsMetadata, Error>.self,
+                                          returning: [Result<CNCSportsMetadata, Error>].self) { group in
             for id in ids {
                 group.addTask {
-                    let document: MetadataDocument = try await self.fetchJSON(MetadataDocument.self,
-                        from: Self.route(["meta", "tv", id + ".json"]), stage: .metadata)
-                    guard document.meta.id == id else { throw CommunitySportsAddonError.conflictingMatch }
-                    return document.meta
+                    do {
+                        let document = try await self.fetchJSON(MetadataDocument.self,
+                            from: Self.route(["meta", "tv", id + ".json"]), stage: .metadata)
+                        guard document.meta.id == id else { return .failure(CommunitySportsAddonError.conflictingMatch) }
+                        return .success(document.meta)
+                    } catch { return .failure(error) }
                 }
             }
-            var rows: [CNCSportsMetadata] = []
-            for try await row in group { rows.append(row) }
-            return rows
+            var all: [Result<CNCSportsMetadata, Error>] = []
+            for await result in group { all.append(result) }
+            return all
+        }
+        let rows = results.compactMap { try? $0.get() }
+        if rows.isEmpty, case .failure(let error)? = results.first(where: { if case .failure = $0 { return true }; return false }) {
+            throw error
+        }
+        return ids.compactMap { id in rows.first { $0.id == id } }
+    }
+
+    /// Streams from every matched listing, merged and numbered once.
+    private func sessions(for listings: [CNCSportsMetadata], request: StreamPlaybackRequest, manifest: Manifest,
+                          now: Date, started: TimeInterval) async throws -> [StreamSession] {
+        var all: [StreamSession] = [], offered = 0, read = 0
+        for listing in listings {
+            guard let document = try? await fetchJSON(StreamDocument.self,
+                from: Self.route(["stream", "tv", listing.id + ".json"]), stage: .streams) else { continue }
+            read += 1; offered += document.entryCount
+            let made = Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version, after: all)
+            let completed = now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started)
+            guard let binding = StreamEventBinding(request: request, providerCode: Self.providerCode,
+                providerEventID: listing.id, streamID: listing.id, manifestRevision: manifest.version,
+                verifiedAt: now, expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime),
+                at: completed) else { continue }
+            all += made.map { $0.recordingEventBinding(binding, for: request, at: completed) }
         }
         try Task.checkCancellation()
-        let selected = try Self.selectMetadata(for: request, catalog: entries, metadata: metadata,
-            at: now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started))
-        let document: StreamDocument = try await fetchJSON(StreamDocument.self,
-            from: Self.route(["stream", "tv", selected.id + ".json"]), stage: .streams)
-        guard document.entryCount > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
-        let sessions = Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version)
-        guard !sessions.isEmpty else {
-            throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: document.entryCount)
-        }
-        try Task.checkCancellation()
-        let completed = now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started)
-        guard let binding = StreamEventBinding(request: request, providerCode: Self.providerCode,
-            providerEventID: selected.id, streamID: selected.id, manifestRevision: manifest.version,
-            verifiedAt: now, expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime),
-            at: completed) else { throw CommunitySportsAddonError.conflictingMatch }
-        return sessions.map { $0.recordingEventBinding(binding, for: request, at: completed) }
+        guard read > 0 else { throw CommunitySportsAddonError.invalidResponse }
+        guard offered > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
+        guard !all.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offered) }
+        return all
     }
 
     nonisolated static func preselectedCatalogIDs(for request: StreamPlaybackRequest,
@@ -309,31 +310,35 @@ actor CNCSportsAddonClient {
             && row.effectiveID == row.id && isSafeFixtureID(row.id) {
             if !ids.contains(row.id) { ids.append(row.id) }
         }
-        guard ids.count <= 2 else { throw CommunitySportsAddonError.conflictingMatch }
-        for id in ids {
-            let siblings = entries.filter { $0.id == id || $0.effectiveID == id }
-            guard siblings.allSatisfy({ !$0.hasMalformedIdentity && $0.type == "tv" && $0.id == id
-                && $0.effectiveID == id && participantIdentity(title: cleanCatalogName($0.name)) == wanted }) else {
-                throw CommunitySportsAddonError.conflictingMatch
-            }
-        }
-        return ids
+        // Every consistent listing counts; an id whose own rows disagree is dropped alone.
+        return Array(ids.filter { id in
+            entries.filter { $0.id == id || $0.effectiveID == id }.allSatisfy({ !$0.hasMalformedIdentity && $0.type == "tv"
+                && $0.id == id && $0.effectiveID == id && participantIdentity(title: cleanCatalogName($0.name)) == wanted })
+        }.prefix(maximumListings))
     }
+
+    nonisolated static let maximumListings = 6
 
     nonisolated static func selectMetadata(for request: StreamPlaybackRequest, catalog: [CNCSportsCatalogEntry],
                                          metadata: [CNCSportsMetadata], at now: Date = Date()) throws -> CNCSportsMetadata {
-        let ids = try preselectedCatalogIDs(for: request, from: catalog)
-        guard !ids.isEmpty, metadata.count == ids.count, Set(metadata.map(\.id)) == Set(ids) else {
-            throw CommunitySportsAddonError.conflictingMatch
+        guard let first = try selectAllMetadata(for: request, catalog: catalog, metadata: metadata, at: now).first else {
+            throw CommunitySportsAddonError.matchNotFound
         }
-        let byID = Dictionary(metadata.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return first
+    }
+
+    /// Every listing whose own details identify the requested game.
+    nonisolated static func selectAllMetadata(for request: StreamPlaybackRequest, catalog: [CNCSportsCatalogEntry],
+                                            metadata: [CNCSportsMetadata], at now: Date = Date()) throws -> [CNCSportsMetadata] {
+        let ids = Set(try preselectedCatalogIDs(for: request, from: catalog))
+        let usable = metadata.filter { ids.contains($0.id) }
+        guard !usable.isEmpty else { throw CommunitySportsAddonError.matchNotFound }
+        let byID = Dictionary(usable.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var candidates: [ReviewedSportsFixtureMatcher.Candidate] = []
         for row in catalog {
             var identity: ReviewedSportsFixtureMatcher.FixtureIdentity?
-            if let meta = byID[row.id], !meta.hasMalformedIdentity, meta.type == "tv" {
-                guard participantIdentity(title: meta.name) == participantIdentity(title: cleanCatalogName(row.name)) else {
-                    throw CommunitySportsAddonError.conflictingMatch
-                }
+            if let meta = byID[row.id], !meta.hasMalformedIdentity, meta.type == "tv",
+               participantIdentity(title: meta.name) == participantIdentity(title: cleanCatalogName(row.name)) {
                 if let kickoff = explicitKickoff(for: meta), let pair = participantIdentity(title: meta.name) {
                     let context = pair.sport == "cricket"
                         ? ReviewedSportsFixtureMatcher.cricketBroadcastContext(meta.name + "\n" + (meta.description ?? "")) : nil
@@ -344,13 +349,30 @@ actor CNCSportsAddonClient {
             }
             candidates.append(.init(metadataID: row.id, effectiveID: row.effectiveID, identity: identity))
         }
-        switch ReviewedSportsFixtureMatcher.select(for: request, from: candidates, at: now) {
-        case .matched(let index):
-            guard let meta = byID[catalog[index].id] else { throw CommunitySportsAddonError.matchNotFound }
-            return meta
-        case .missing: throw CommunitySportsAddonError.matchNotFound
-        case .conflicting: throw CommunitySportsAddonError.conflictingMatch
+        return try matchedMetadata(for: request, catalog: catalog, candidates: candidates, byID: byID, at: now)
+    }
+
+    /// Registry-bound requests keep their single registered listing; others take every exact listing.
+    nonisolated static func matchedMetadata(for request: StreamPlaybackRequest, catalog: [CNCSportsCatalogEntry],
+        candidates: [ReviewedSportsFixtureMatcher.Candidate], byID: [String: CNCSportsMetadata], at now: Date) throws -> [CNCSportsMetadata] {
+        if request.registryMatch != nil {
+            switch ReviewedSportsFixtureMatcher.select(for: request, from: candidates, at: now) {
+            case .matched(let index): return byID[catalog[index].id].map { [$0] } ?? []
+            case .missing: throw CommunitySportsAddonError.matchNotFound
+            case .conflicting: throw CommunitySportsAddonError.conflictingMatch
+            }
         }
+        guard let identity = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else { throw CommunitySportsAddonError.matchNotFound }
+        var seen = Set<String>()
+        let all = ReviewedSportsFixtureMatcher.selectAll(for: identity, from: candidates)
+            .compactMap { byID[catalog[$0].id] }.filter { seen.insert($0.id).inserted }
+        guard !all.isEmpty else {
+            if case .conflicting = ReviewedSportsFixtureMatcher.select(for: request, from: candidates, at: now) {
+                throw CommunitySportsAddonError.conflictingMatch
+            }
+            throw CommunitySportsAddonError.matchNotFound
+        }
+        return all
     }
 
     nonisolated static func explicitKickoff(for entry: CNCSportsMetadata) -> Date? {
@@ -471,31 +493,21 @@ actor CNCSportsAddonClient {
     }
 
     nonisolated static func makeSessions(from streams: [CNCSportsStreamEntry], request: StreamPlaybackRequest,
-                                        addOnVersion: String) -> [StreamSession] {
+                                        addOnVersion: String, after earlier: [StreamSession] = []) -> [StreamSession] {
         guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode) else { return [] }
-        let cricket = supportsReviewedCricket(request)
-        var seen = Set<String>(); var sessions: [StreamSession] = []
-        for entry in streams.prefix(100) {
-            guard (cricket ? entry.isReviewedCricketContract : entry.isSupportedContract),
-                  let name = entry.name, name.utf8.count <= 256,
-                  // Foundation includes U+200D in controlCharacters, but the
-                  // reviewed name contains that joiner in this exact emoji.
-                  // Permit the observed sequence, not arbitrary format controls.
-                  name.replacingOccurrences(of: "😮‍💨", with: "")
-                    .rangeOfCharacter(from: .controlCharacters) == nil,
-                  name.range(of: cricket ? #"^🎬PlayZTVProvider(?:\s|$)"# : #"^🎬LivXowProvider(?:\s|$)"#, options: .regularExpression) != nil,
-                  let value = entry.url, let url = URL(string: value),
-                  (cricket ? isAdmittedCricketDelivery(url) : isAdmittedDelivery(url)),
-                  let headers = entry.requiredHeaders, (cricket ? isAdmittedCricketHeaders(headers) : headers == reviewedHeaders) else { continue }
+        var seen = Set(earlier.compactMap { $0.diagnosticMetadata["source_key"] }); var sessions: [StreamSession] = []
+        for entry in streams.prefix(StreamDeliveryPolicy.maximumSessionsPerProvider) {
+            guard !entry.requiresDRM, let value = entry.url, let url = URL(string: value),
+                  StreamDeliveryPolicy.rejection(url) == nil,
+                  let headers = StreamDeliveryPolicy.requestHeaders(entry.requiredHeaders ?? [:]) else { continue }
             let key = sourceKey(url: url, headers: headers); guard seen.insert(key).inserted else { continue }
-            guard let label = definition.sourceLabel(choice: sessions.count + 1) else { break }
+            guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else { break }
             sessions.append(StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
                 providerName: label, requiredHeaders: headers, qualityLabel: "Live video", canRefresh: false,
                 validationStatus: .validated, diagnosticMetadata: ["source_family": providerCode,
-                    "manifest_result": "exact_fixture_match", "delivery": "reviewed_direct_hls",
+                    "manifest_result": "exact_fixture_match", "delivery": "provider_direct_hls",
                     "addon_version": safeVersion(addOnVersion), "source_key": key, "source_key_scope": "delivery"],
                 requiresGuardedRelay: true))
-            if sessions.count == 6 { break }
         }
         return sessions
     }
@@ -509,18 +521,14 @@ actor CNCSportsAddonClient {
         return url.path.range(of: #"^/hls/[A-Za-z0-9_-]+\.m3u8$"#, options: .regularExpression) != nil
     }
 
-    /// A timing allowance is not source authority. Recheck the complete reviewed
-    /// contract rather than trusting an LS display name or provider metadata alone.
+    /// CNC streams start slowly; any CNC fixture stream gets the longer startup
+    /// allowance. This is a timing allowance only, never admission.
     nonisolated static func isReviewedNativeSession(_ session: StreamSession) -> Bool {
         session.diagnosticMetadata["source_family"] == providerCode
             && session.diagnosticMetadata["manifest_result"] == "exact_fixture_match"
-            && session.diagnosticMetadata["delivery"] == "reviewed_direct_hls"
-            && ["LS1", "LS2", "LS3", "LS4", "LS5", "LS6"].contains(session.providerName)
+            && session.eventBinding.map({ ReviewedSportsFixtureMatcher.sportKey($0.sport) == "hockey" }) ?? true
             && session.streamType == .hls && session.playbackContract.endpoint == .directMedia
-            && isAdmittedDelivery(session.playableURL) && session.requiredHeaders == reviewedHeaders
-            && session.requiresGuardedRelay == true && session.nativeOriginProfile == nil
-            && session.nativePlaylistProfile == nil && !session.canRefresh
-            && session.diagnosticMetadata["source_key"] == sourceKey(url: session.playableURL, headers: reviewedHeaders)
+            && session.requiresGuardedRelay == true && !session.canRefresh
     }
 
     nonisolated static func sourceKey(url: URL, headers: [String: String]) -> String {
@@ -567,6 +575,8 @@ extension CNCSportsAddonClient {
               let fixture = event.cricketFixture, fixture.verified, fixture.format == .t20, !fixture.status.stopsPlayback,
               event.id == request.matchID, event.kickoffDate == request.kickoffDate,
               event.id == CricketFixtureCatalog.fixtureIDPrefix + fixture.fixtureID,
+              // The competition line is what separates the women's and men's squads
+              // in this catalog, so cricket stays limited to the reviewed league.
               ["wbbl", "women's big bash league", "women’s big bash league"].contains(fixture.competitionName.lowercased()),
               ReviewedSportsFixtureMatcher.requestIdentity(for: request) != nil else { return false }
         return true
@@ -596,33 +606,39 @@ extension CNCSportsAddonClient {
                   isSafeFixtureID(row.id) else { continue }
             if !ids.contains(row.id) { ids.append(row.id) }
         }
-        guard ids.count <= 2 else { throw CommunitySportsAddonError.conflictingMatch }
-        for id in ids {
-            guard entries.filter({ $0.id == id || $0.effectiveID == id }).allSatisfy({
-                !$0.hasMalformedIdentity && $0.type == "tv" && $0.id == id && $0.effectiveID == id && pair($0) == wanted.pair
-            }) else { throw CommunitySportsAddonError.conflictingMatch }
-        }
-        return ids
+        return Array(ids.filter { id in
+            entries.filter({ $0.id == id || $0.effectiveID == id }).allSatisfy({
+                !$0.hasMalformedIdentity && $0.type == "tv" && $0.id == id && $0.effectiveID == id && pair($0) == wanted.pair })
+        }.prefix(maximumListings))
     }
 
     nonisolated static func explicitCricketKickoff(for meta: CNCSportsMetadata) -> Date? {
         guard !meta.hasMalformedIdentity, meta.type == "tv", let description = meta.description,
               description.utf8.count <= 2048 else { return nil }
+        // The league line identifies the squad (women's vs men's); the clock line the kickoff.
         let lines = description.components(separatedBy: "\n")
-        guard lines.count == 5, lines[0] == "📌 Cricket", lines[1] == "🏆 Women's Big Bash League",
-              lines[3].isEmpty, lines[4].range(of: #"^📡 Available Servers: (?:[1-9][0-9]?|100)$"#, options: .regularExpression) != nil,
-              lines[2].hasPrefix("🕐 ") else { return nil }
-        return parseExplicitUTCClock(String(lines[2].dropFirst("🕐 ".count)))
+        guard lines.contains("🏆 Women's Big Bash League") else { return nil }
+        let clocks = lines.filter { $0.hasPrefix("🕐 ") }
+        guard clocks.count == 1, let clock = clocks.first else { return nil }
+        return parseExplicitUTCClock(String(clock.dropFirst("🕐 ".count)))
     }
 
     nonisolated static func selectCricketMetadata(for request: StreamPlaybackRequest,
         catalog: [CNCSportsCatalogEntry], metadata: [CNCSportsMetadata], at now: Date) throws -> CNCSportsMetadata {
-        let ids = try cricketCatalogIDs(for: request, from: catalog)
-        guard !ids.isEmpty, metadata.count == ids.count, Set(metadata.map(\.id)) == Set(ids),
-              let wanted = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else {
-            throw CommunitySportsAddonError.conflictingMatch
+        guard let first = try selectAllCricketMetadata(for: request, catalog: catalog, metadata: metadata, at: now).first else {
+            throw CommunitySportsAddonError.matchNotFound
         }
-        let byID = Dictionary(metadata.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        return first
+    }
+
+    nonisolated static func selectAllCricketMetadata(for request: StreamPlaybackRequest,
+        catalog: [CNCSportsCatalogEntry], metadata: [CNCSportsMetadata], at now: Date) throws -> [CNCSportsMetadata] {
+        let ids = Set(try cricketCatalogIDs(for: request, from: catalog))
+        let usable = metadata.filter { ids.contains($0.id) }
+        guard !usable.isEmpty, let wanted = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else {
+            throw CommunitySportsAddonError.matchNotFound
+        }
+        let byID = Dictionary(usable.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let candidates = catalog.map { row -> ReviewedSportsFixtureMatcher.Candidate in
             var identity: ReviewedSportsFixtureMatcher.FixtureIdentity?
             if let meta = byID[row.id], let start = explicitCricketKickoff(for: meta), start == wanted.kickoff,
@@ -635,13 +651,7 @@ extension CNCSportsAddonClient {
             }
             return .init(metadataID: row.id, effectiveID: row.effectiveID, identity: identity)
         }
-        switch ReviewedSportsFixtureMatcher.select(for: request, from: candidates, at: now) {
-        case .matched(let index):
-            guard let meta = byID[catalog[index].id] else { throw CommunitySportsAddonError.matchNotFound }
-            return meta
-        case .missing: throw CommunitySportsAddonError.matchNotFound
-        case .conflicting: throw CommunitySportsAddonError.conflictingMatch
-        }
+        return try matchedMetadata(for: request, catalog: catalog, candidates: candidates, byID: byID, at: now)
     }
 
     nonisolated static func isAdmittedCricketHeaders(_ headers: [String: String]) -> Bool {
@@ -693,27 +703,9 @@ extension CNCSportsAddonClient {
         let catalog = try await loadCricketCatalog(now: now, forceRefresh: forceRefresh)
         let ids = try Self.cricketCatalogIDs(for: request, from: catalog)
         guard !ids.isEmpty else { throw CommunitySportsAddonError.matchNotFound }
-        var metadata: [CNCSportsMetadata] = []
-        for id in ids {
-            let document = try await fetchJSON(MetadataDocument.self,
-                from: Self.route(["meta", "tv", id + ".json"]), stage: .metadata)
-            guard document.meta.id == id else { throw CommunitySportsAddonError.conflictingMatch }
-            metadata.append(document.meta)
-        }
-        let selected = try Self.selectCricketMetadata(for: request, catalog: catalog, metadata: metadata,
+        let metadata = try await fetchMetadata(ids)
+        let selected = try Self.selectAllCricketMetadata(for: request, catalog: catalog, metadata: metadata,
             at: now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started))
-        let streams = try await fetchJSON(StreamDocument.self,
-            from: Self.route(["stream", "tv", selected.id + ".json"]), stage: .streams)
-        guard streams.entryCount > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
-        let sessions = Self.makeSessions(from: streams.streams, request: request, addOnVersion: manifest.version)
-        guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: streams.entryCount) }
-        try Task.checkCancellation()
-        let completed = now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started)
-        guard let binding = StreamEventBinding(request: request, providerCode: Self.providerCode,
-            providerEventID: selected.id, streamID: selected.id, manifestRevision: manifest.version,
-            verifiedAt: now, expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime), at: completed) else {
-            throw CommunitySportsAddonError.conflictingMatch
-        }
-        return sessions.map { $0.recordingEventBinding(binding, for: request, at: completed) }
+        return try await sessions(for: selected, request: request, manifest: manifest, now: now, started: started)
     }
 }

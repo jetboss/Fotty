@@ -373,7 +373,7 @@ actor HighflySportsAddonClient {
         for (listing, row) in listings.flatMap({ listing in listing.deliveries.map { (listing.row, $0) } }) {
             guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
             if row.requiresDRM { rejections.append("drm"); continue }
-            if let reason = AccountSourceDeliveryPolicy.rejection(url) {
+            if let reason = StreamDeliveryPolicy.rejection(url) {
                 rejections.append(reason)
                 rejectedHost = rejectedHost ?? url.host?.lowercased()
                 continue
@@ -381,7 +381,7 @@ actor HighflySportsAddonClient {
             if Self.isAddonDomain(url.host, manifestHost: manifestURL.host) {
                 rejections.append("addon_message"); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue
             }
-            guard let headers = AccountSourceDeliveryPolicy.requestHeaders(row.requestedHeaders) else {
+            guard let headers = StreamDeliveryPolicy.requestHeaders(row.requestedHeaders) else {
                 rejections.append("credential_headers"); continue
             }
             guard seen.insert(url).inserted else { continue }
@@ -434,8 +434,8 @@ actor HighflySportsAddonClient {
         return delivery == addon
     }
 
-    /// An account delivery is admitted when it is safe; see AccountSourceDeliveryPolicy.
-    nonisolated static func deliveryRejection(_ url: URL) -> String? { AccountSourceDeliveryPolicy.rejection(url) }
+    /// An account delivery is admitted when it is safe; see StreamDeliveryPolicy.
+    nonisolated static func deliveryRejection(_ url: URL) -> String? { StreamDeliveryPolicy.rejection(url) }
     nonisolated static func admitsDelivery(_ url: URL) -> Bool { deliveryRejection(url) == nil }
 
     /// Upper bounds that only stop runaway responses; real games stay far below them.
@@ -680,12 +680,14 @@ actor HighflySportsAddonClient {
 }
 
 
-/// The owner's own paid add-ons (Highfly, PenguPlay) are trusted for what they
-/// serve. Fotty checks only that a stream is safe to open; whether it is the
-/// right game is decided by fixture matching, and whether it plays is decided by
-/// playback ranking. No host lists, path shapes or query-name rules.
-enum AccountSourceDeliveryPolicy {
+/// Fotty's one stream rule, for every provider. A stream is used when it is
+/// safe to open; whether it is the right game is decided by fixture matching,
+/// and whether it plays is decided by playback ranking. No host lists, path
+/// shapes, stream-name tags, exact header sets or query-name rules.
+enum StreamDeliveryPolicy {
     static let maximumURLBytes = 8192
+    /// Stops runaway responses only; real games stay far below it.
+    static let maximumSessionsPerProvider = 100
 
     /// nil = safe to play. Reasons are short labels, never a URL.
     nonisolated static func rejection(_ url: URL) -> String? {
