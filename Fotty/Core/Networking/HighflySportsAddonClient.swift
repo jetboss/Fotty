@@ -697,7 +697,22 @@ enum StreamDeliveryPolicy {
         if !LocalStreamProxyPolicy.allowsDestination(url) { return "unsafe_destination" }
         if isReplayHost(url.host) { return "replay" }
         if nonLiveExtensions.contains(url.pathExtension.lowercased()) { return "not_live_media" }
+        // A wrapper link (…?url=https://…) is only as safe as the link inside it.
+        for inner in innerLinks(url) {
+            if inner.scheme?.lowercased() != "https" { return "inner_not_https" }
+            if inner.user != nil || inner.password != nil { return "inner_credentials" }
+            if !LocalStreamProxyPolicy.allowsDestination(inner) { return "inner_unsafe_destination" }
+        }
         return nil
+    }
+
+    /// Links carried in query values (url=, target=, …), decoded once.
+    nonisolated static func innerLinks(_ url: URL) -> [URL] {
+        (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).compactMap { item in
+            guard let value = item.value?.trimmingCharacters(in: .whitespaces), value.contains("://"),
+                  let inner = URL(string: value), inner.scheme != nil, inner.host != nil else { return nil }
+            return inner
+        }
     }
 
     /// Files and pages, not live streams: Fotty's live relay cannot play them.

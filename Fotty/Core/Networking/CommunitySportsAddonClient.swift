@@ -131,10 +131,10 @@ struct CommunitySportsStreamEntry: Decodable, Sendable, Equatable {
             }
 
             init(from decoder: Decoder) throws {
-                let values = try decoder.container(keyedBy: CodingKeys.self)
-                // An advertised null/non-string header contract is not absence.
-                request = values.contains(.request) ? try values.decode([String: String].self, forKey: .request) : nil
-                response = values.contains(.response) ? try values.decode([String: String].self, forKey: .response) : nil
+                let values = try? decoder.container(keyedBy: CodingKeys.self)
+                // Unreadable header blocks read as absent; the row is still tried.
+                request = try? values?.decode([String: String].self, forKey: .request)
+                response = try? values?.decode([String: String].self, forKey: .response)
             }
         }
 
@@ -167,6 +167,20 @@ struct CommunitySportsStreamEntry: Decodable, Sendable, Equatable {
         case name, title, url, resolution, quality, behaviorHints
         case externalURL = "externalUrl"
         case sourceHint = "_source"
+    }
+
+    /// Each field is read on its own: a field of an unexpected type reads as
+    /// absent instead of failing the whole stream list.
+    init(from decoder: Decoder) throws {
+        let values = try? decoder.container(keyedBy: CodingKeys.self)
+        name = try? values?.decodeIfPresent(String.self, forKey: .name)
+        title = try? values?.decodeIfPresent(String.self, forKey: .title)
+        url = try? values?.decodeIfPresent(String.self, forKey: .url)
+        externalURL = try? values?.decodeIfPresent(String.self, forKey: .externalURL)
+        resolution = try? values?.decodeIfPresent(String.self, forKey: .resolution)
+        quality = try? values?.decodeIfPresent(String.self, forKey: .quality)
+        sourceHint = try? values?.decodeIfPresent(String.self, forKey: .sourceHint)
+        behaviorHints = try? values?.decodeIfPresent(BehaviorHints.self, forKey: .behaviorHints)
     }
 }
 
@@ -475,49 +489,45 @@ actor CommunitySportsAddonClient {
         case .conflicting: throw CommunitySportsAddonError.conflictingMatch
         }
 
-        let streamID = matched.behaviorHints?.defaultVideoId ?? matched.id
-        if let rejection = Self.videoIDRejection(streamID) {
-            throw CommunitySportsAddonError.unsafeMetadata(stage: .streams, reason: rejection,
-                invalidScalar: rejection == .streamIDCharacters ? Self.videoIDInvalidScalar(streamID) : nil)
-        }
-        let streamURL = Self.routeURL(
-            relativeTo: manifestURL,
-            components: ["stream", "tv", "\(streamID).json"]
-        )
-        var document: StreamDocument = try await fetchJSON(
-            StreamDocument.self,
-            from: streamURL,
-            anchoredTo: manifestURL,
-            byteLimit: 256 * 1024,
-            stage: .streams,
-            forceRefresh: refreshed
-        )
-        if document.entryCount == 0, !refreshed, Self.allowsTargetedRefresh(for: request, at: now) {
-            try Task.checkCancellation()
-            refreshed = true
-            // The same exact catalog match owns this one descriptor re-fetch.
-            // Empty stays pending if it is still empty; admission failures and
-            // HTTP/auth/security failures never enter a blind retry loop.
-            document = try await fetchJSON(StreamDocument.self, from: streamURL, anchoredTo: manifestURL,
-                byteLimit: 256 * 1024, stage: .streams, forceRefresh: true)
-        }
-        guard document.entryCount > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
-        let sessions = Self.makeSessions(
-            from: document.streams,
-            request: request,
-            manifestURL: manifestURL,
-            addOnVersion: manifest.version
-        )
-        guard !sessions.isEmpty else {
-            throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: document.entryCount)
+        var listings = Self.selectAllMatches(for: request, from: lookupEntries)
+        if listings.isEmpty { listings = [matched] }
+        var sessions: [StreamSession] = [], offered = 0, firstFailure: Error?
+        for listing in listings.prefix(Self.maximumListings) {
+            let streamID = listing.behaviorHints?.defaultVideoId ?? listing.id
+            if let rejection = Self.videoIDRejection(streamID) {
+                firstFailure = firstFailure ?? CommunitySportsAddonError.unsafeMetadata(stage: .streams, reason: rejection,
+                    invalidScalar: rejection == .streamIDCharacters ? Self.videoIDInvalidScalar(streamID) : nil)
+                continue
+            }
+            let streamURL = Self.routeURL(relativeTo: manifestURL, components: ["stream", "tv", "\(streamID).json"])
+            var document: StreamDocument
+            do {
+                document = try await fetchJSON(StreamDocument.self, from: streamURL, anchoredTo: manifestURL,
+                    byteLimit: 256 * 1024, stage: .streams, forceRefresh: refreshed)
+                if document.entryCount == 0, !refreshed, Self.allowsTargetedRefresh(for: request, at: now) {
+                    try Task.checkCancellation()
+                    refreshed = true
+                    // The same exact catalog match owns this one descriptor re-fetch.
+                    document = try await fetchJSON(StreamDocument.self, from: streamURL, anchoredTo: manifestURL,
+                        byteLimit: 256 * 1024, stage: .streams, forceRefresh: true)
+                }
+            } catch is CancellationError { throw CancellationError() }
+            catch { firstFailure = firstFailure ?? error; continue }
+            offered += document.entryCount
+            let binding = StreamEventBinding(request: request,
+                providerCode: StreamPluginProviderMatching.communitySportsProviderCode,
+                providerEventID: listing.id, streamID: streamID,
+                manifestRevision: manifest.version, verifiedAt: now,
+                expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime), at: now)
+            sessions += Self.makeSessions(from: document.streams, request: request, manifestURL: manifestURL,
+                                          addOnVersion: manifest.version, after: sessions)
+                .map { $0.recordingEventBinding(binding, for: request, at: now) }
         }
         try Task.checkCancellation()
-        let binding = StreamEventBinding(request: request,
-            providerCode: StreamPluginProviderMatching.communitySportsProviderCode,
-            providerEventID: matched.id, streamID: streamID,
-            manifestRevision: manifest.version, verifiedAt: now,
-            expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime), at: now)
-        return sessions.map { $0.recordingEventBinding(binding, for: request, at: now) }
+        if offered == 0, let firstFailure { throw firstFailure }
+        guard offered > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
+        guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offered) }
+        return sessions
     }
 
     /// The accepted broadcast supplies its literal metadata/stream IDs. A fresh
@@ -1119,6 +1129,23 @@ actor CommunitySportsAddonClient {
         return configuration
     }
 
+    nonisolated static let maximumListings = 6
+
+    /// A live HLS playlist, directly or inside a wrapper link. Pages such as
+    /// donation or player links are not streams and are never played as one.
+    nonisolated static func isLivePlaylistLink(_ url: URL) -> Bool {
+        ([url] + StreamDeliveryPolicy.innerLinks(url)).contains { $0.path.lowercased().hasSuffix(".m3u8") }
+    }
+
+    /// Every exact listing of the requested game, de-duplicated by id.
+    nonisolated static func selectAllMatches(for request: StreamPlaybackRequest,
+                                            from entries: [CommunitySportsCatalogEntry]) -> [CommunitySportsCatalogEntry] {
+        guard request.registryMatch == nil, let identity = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else { return [] }
+        var seen = Set<String>()
+        return ReviewedSportsFixtureMatcher.selectAll(for: identity, from: catalogCandidates(entries))
+            .map { entries[$0] }.filter { seen.insert($0.id).inserted }
+    }
+
     nonisolated static func selectMatch(
         for request: StreamPlaybackRequest,
         from entries: [CommunitySportsCatalogEntry]
@@ -1145,36 +1172,47 @@ actor CommunitySportsAddonClient {
         addOnVersion: String,
         entryLimit: Int = 100,
         eventBinding: StreamEventBinding? = nil,
-        at now: Date = Date()
+        at now: Date = Date(),
+        after earlier: [StreamSession] = []
     ) -> [StreamSession] {
         guard let definition = CuratedStreamSourceCatalog.definition(
             forProviderCode: StreamPluginProviderMatching.communitySportsProviderCode) else { return [] }
         if let eventBinding, !eventBinding.matches(request: request,
             providerCode: StreamPluginProviderMatching.communitySportsProviderCode, at: now) { return [] }
-        var seen = Set<StreamDeliveryIdentity>()
+        var seen = Set(earlier.map { StreamDeliveryIdentity(url: $0.playableURL, headers: $0.requiredHeaders) })
         var admitted: [(entry: CommunitySportsStreamEntry, url: URL, isWeb: Bool,
-                        directHLS: Bool, headers: [String: String])] = []
+                        directHLS: Bool, headers: [String: String], direct: Bool)] = []
 
         // The standalone channel path can combine two independently verified
         // 100-row descriptors. Ordinary fixture resolution keeps its old cap.
         for entry in streams.prefix(min(max(entryLimit, 0), 200)) {
             let candidates = [entry.url, entry.externalURL].compactMap { $0 }.compactMap(URL.init(string:))
-            guard let accepted = candidates.compactMap({ candidate -> (URL, Bool)? in
+            let recognised = candidates.compactMap({ candidate -> (URL, Bool)? in
                 guard let isWeb = admittedDelivery(candidate, manifestURL: manifestURL,
                                                    sourceHint: entry.sourceHint) else { return nil }
                 return (candidate, isWeb)
-            }).first else { continue }
-            let directHLS = isReviewedDirectHLS(accepted.0, manifestURL: manifestURL, sourceHint: entry.sourceHint)
-            guard let requestHeaders = admittedRequestHeaders(for: entry, deliveryURL: accepted.0,
-                manifestURL: manifestURL, reviewedDirectHLS: directHLS) else { continue }
-            guard accepted.1 || admitsWrappedTarget(accepted.0, manifestURL: manifestURL,
-                sourceHint: entry.sourceHint, headers: requestHeaders) else { continue }
-            // The reviewed header contract is native HLS only. Do not silently
-            // drop advertised requirements on a Web route that cannot apply them.
-            guard !accepted.1 || requestHeaders.isEmpty else { continue }
+            }).first
+            let directHLS = recognised.map { isReviewedDirectHLS($0.0, manifestURL: manifestURL, sourceHint: entry.sourceHint) } ?? false
+            var accepted: (URL, Bool)
+            var requestHeaders: [String: String]
+            var direct = false
+            if let recognised,
+               let reviewedHeaders = admittedRequestHeaders(for: entry, deliveryURL: recognised.0,
+                    manifestURL: manifestURL, reviewedDirectHLS: directHLS),
+               recognised.1 || admitsWrappedTarget(recognised.0, manifestURL: manifestURL,
+                    sourceHint: entry.sourceHint, headers: reviewedHeaders),
+               // The reviewed header contract is native HLS only.
+               !recognised.1 || reviewedHeaders.isEmpty {
+                accepted = recognised; requestHeaders = reviewedHeaders
+            } else if let value = entry.url, let url = URL(string: value), StreamDeliveryPolicy.rejection(url) == nil,
+                      Self.isLivePlaylistLink(url),
+                      let headers = StreamDeliveryPolicy.requestHeaders(entry.behaviorHints?.proxyHeaders?.request ?? [:]) {
+                // Not a route Fotty recognises, but safe: play it directly rather than discard it.
+                accepted = (url, false); requestHeaders = headers; direct = true
+            } else { continue }
             let headers = accepted.1 ? ["X-Fotty-Web-Embed": "true"] : requestHeaders
             guard seen.insert(StreamDeliveryIdentity(url: accepted.0, headers: headers)).inserted else { continue }
-            admitted.append((entry, accepted.0, accepted.1, directHLS, headers))
+            admitted.append((entry, accepted.0, accepted.1, directHLS, headers, direct))
         }
 
         // One upstream can advertise many equivalent quality/channel variants.
@@ -1186,18 +1224,16 @@ actor CommunitySportsAddonClient {
         for index in admitted.indices {
             let item = admitted[index]
             let identity = sourceIdentity(for: item.entry, deliveryURL: item.url)
-            if representedSources.insert(identity.key).inserted {
-                selectedIndices.insert(index)
-                if selectedIndices.count == 6 { break }
-            }
+            if representedSources.insert(identity.key).inserted { selectedIndices.insert(index) }
         }
-        for index in admitted.indices where selectedIndices.count < 6 {
-            selectedIndices.insert(index)
-        }
-        let selected = admitted.enumerated().filter { selectedIndices.contains($0.offset) }.map(\.element)
+        // Every admitted stream is offered: one per source first, then the rest.
+        let cap = StreamDeliveryPolicy.maximumSessionsPerProvider - earlier.count
+        for index in admitted.indices where selectedIndices.count < cap { selectedIndices.insert(index) }
+        let firstPass = admitted.indices.filter { selectedIndices.contains($0) }
+        let selected = firstPass.map { admitted[$0] }
 
         return selected.enumerated().compactMap { index, item -> StreamSession? in
-            guard let label = definition.sourceLabel(choice: index + 1) else { return nil }
+            guard let label = definition.sourceLabel(choice: earlier.count + index + 1) else { return nil }
             let identity = sourceIdentity(for: item.entry, deliveryURL: item.url)
             return StreamSession(
                 matchID: request.matchID,
@@ -1214,7 +1250,7 @@ actor CommunitySportsAddonClient {
                     "manifest_result": request.registryMatch?.programmeAuthority != nil ? "verified_programme_channel_match"
                         : CricketBroadcastChannel.identifying(request: request) != nil || Self.supportsSportsTVChannel(request)
                             ? "exact_channel_match" : "exact_fixture_match",
-                    "delivery": item.isWeb ? "same_origin_web"
+                    "delivery": item.direct ? "provider_direct_hls" : item.isWeb ? "same_origin_web"
                         : item.directHLS ? "reviewed_direct_hls" : "same_origin_hls_proxy",
                     "addon_version": String(addOnVersion.prefix(24)),
                     "source_hint": sanitizedSourceHint(item.entry.sourceHint),
@@ -1222,10 +1258,10 @@ actor CommunitySportsAddonClient {
                     "source_key_scope": identity.scope
                 ],
                 createdAt: now,
-                nativeOriginProfile: item.isWeb ? nil : LocalStreamProxyOriginProfile.communitySports(
+                nativeOriginProfile: item.isWeb || item.direct ? nil : LocalStreamProxyOriginProfile.communitySports(
                     deliveryURL: item.url, manifestURL: manifestURL,
                     sourceHint: item.entry.sourceHint, headers: item.headers),
-                nativePlaylistProfile: item.isWeb ? nil : LocalStreamProxyPlaylistProfile.communitySports(
+                nativePlaylistProfile: item.isWeb || item.direct ? nil : LocalStreamProxyPlaylistProfile.communitySports(
                     deliveryURL: item.url, manifestURL: manifestURL,
                     sourceHint: item.entry.sourceHint, headers: item.headers),
                 // The new headerless HLS alias still needs per-reference
