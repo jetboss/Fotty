@@ -554,7 +554,7 @@ final class CNCSportsAddonTests: XCTestCase {
         // Any server, path or stream name the provider serves, with or without proxy headers.
         let varied: [[String: Any]] = [wbblStreamJSON(),
             ["name": "Other provider HD", "url": "https://other-cdn.example.net/live/abc.m3u8"],
-            ["url": "https://edge.example.org/hls/master?sig=1", "behaviorHints": ["notWebReady": true]]]
+            ["url": "https://edge.example.org/hls/master.m3u8?sig=1", "behaviorHints": ["notWebReady": true]]]
         XCTAssertEqual(try sessions(varied).count, 3)
         // Safety still refuses: plain HTTP, sign-in in the link, DRM, credential headers.
         var plain = wbblStreamJSON(); plain["url"] = wbblDelivery.replacingOccurrences(of: "https://", with: "http://")

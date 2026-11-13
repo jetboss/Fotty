@@ -706,6 +706,17 @@ enum StreamDeliveryPolicy {
         return nil
     }
 
+    /// Public providers (unknown operators) also need a live playlist link:
+    /// placeholders, pages and health checks are not streams.
+    nonisolated static func publicRejection(_ url: URL) -> String? {
+        rejection(url) ?? (isLivePlaylistLink(url) ? nil : "not_a_playlist")
+    }
+
+    /// A live HLS playlist, directly or inside a wrapper link.
+    nonisolated static func isLivePlaylistLink(_ url: URL) -> Bool {
+        ([url] + innerLinks(url)).contains { $0.path.lowercased().hasSuffix(".m3u8") }
+    }
+
     /// Links carried in query values (url=, target=, …), decoded once.
     nonisolated static func innerLinks(_ url: URL) -> [URL] {
         (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).compactMap { item in

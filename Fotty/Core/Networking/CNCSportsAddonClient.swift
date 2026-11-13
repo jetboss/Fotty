@@ -498,7 +498,7 @@ actor CNCSportsAddonClient {
         var seen = Set(earlier.compactMap { $0.diagnosticMetadata["source_key"] }); var sessions: [StreamSession] = []
         for entry in streams.prefix(StreamDeliveryPolicy.maximumSessionsPerProvider) {
             guard !entry.requiresDRM, let value = entry.url, let url = URL(string: value),
-                  StreamDeliveryPolicy.rejection(url) == nil,
+                  StreamDeliveryPolicy.publicRejection(url) == nil,
                   let headers = StreamDeliveryPolicy.requestHeaders(entry.requiredHeaders ?? [:]) else { continue }
             let key = sourceKey(url: url, headers: headers); guard seen.insert(key).inserted else { continue }
             guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else { break }

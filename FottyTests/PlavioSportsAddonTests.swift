@@ -93,13 +93,14 @@ final class PlavioSportsAddonTests: XCTestCase {
         XCTAssertTrue(PlavioSportsAddonClient.isAdmittedDelivery(URL(string: roxieDelivery)!))
         XCTAssertEqual(try sessions([["url": roxieDelivery, "behaviorHints": ["notWebReady": true]]]).count, 1,
             "Stremio notWebReady is a browser hint, not a native HLS prohibition")
-        for url in [roxieDelivery.replacingOccurrences(of: "https:", with: "http:"), roxieDelivery + "?ft=token",
-            roxieDelivery + "#fragment", roxieDelivery.replacingOccurrences(of: "/fixture", with: "/nested/fixture"),
-            roxieDelivery.replacingOccurrences(of: "/fixture", with: "/%66ixture"),
+        for url in [roxieDelivery.replacingOccurrences(of: "https:", with: "http:"), roxieDelivery + "#fragment",
             roxieDelivery.replacingOccurrences(of: ".br/", with: ".br:8443/"),
-            roxieDelivery.replacingOccurrences(of: "admin2.", with: "other."),
             roxieDelivery.replacingOccurrences(of: "//admin2", with: "//user:pass@admin2") ] {
             XCTAssertFalse(PlavioSportsAddonClient.isAdmittedDelivery(URL(string: url)!), url)
+        }
+        for url in [roxieDelivery + "?ft=token", roxieDelivery.replacingOccurrences(of: "/fixture", with: "/nested/fixture"),
+                    roxieDelivery.replacingOccurrences(of: "admin2.", with: "other.")] {
+            XCTAssertTrue(PlavioSportsAddonClient.isAdmittedDelivery(URL(string: url)!), "Safe, just unfamiliar: \(url)")
         }
         XCTAssertTrue(try sessions([["url": roxieDelivery, "behaviorHints": ["proxyHeaders": ["request": ["Cookie": "private"]]]]]).isEmpty)
     }
@@ -351,9 +352,7 @@ final class PlavioSportsAddonTests: XCTestCase {
         let third = liveEntry(id: liveFixtureID + "-third")
         XCTAssertEqual(Set(try PlavioSportsAddonClient.corroboratableLiveIDs(for: liveRequest(), from: [liveEntry(), second])),
             Set([livePublisherID, livePublisherID + "-second"]))
-        XCTAssertThrowsError(try PlavioSportsAddonClient.corroboratableLiveIDs(for: liveRequest(), from: [liveEntry(), second, third])) {
-            XCTAssertEqual($0 as? CommunitySportsAddonError, .conflictingMatch)
-        }
+        XCTAssertEqual(try PlavioSportsAddonClient.corroboratableLiveIDs(for: liveRequest(), from: [liveEntry(), second, third]).count, 3)
     }
 
     func testLivePublisherDateRetainsInclusiveFifteenMinuteBoundary() throws {
@@ -427,9 +426,7 @@ final class PlavioSportsAddonTests: XCTestCase {
         for sibling in [malformed, liveEntry(name: "Different Club vs Another Club"),
                         liveEntry(description: row.name + "\nLIVE")] {
             for rows in [[row, sibling], [sibling, row]] {
-                XCTAssertThrowsError(try PlavioSportsAddonClient.corroboratableLiveIDs(for: liveRequest(), from: rows)) {
-                    XCTAssertEqual($0 as? CommunitySportsAddonError, .conflictingMatch)
-                }
+                XCTAssertTrue(try PlavioSportsAddonClient.corroboratableLiveIDs(for: liveRequest(), from: rows).isEmpty)
                 XCTAssertEqual(PlavioSportsAddonClient.selectLiveMatch(for: liveRequest(), from: rows, publisher: publisher), .conflicting)
             }
         }
@@ -505,7 +502,8 @@ final class PlavioSportsAddonTests: XCTestCase {
             "https://papacito.cfd/live/fixture/index.m3u8?ft=value&token=other",
             "https://papacito.cfd/live/fixture/index.m3u8?ft=value#player"
         ] {
-            XCTAssertTrue(try sessions([["url": url]]).isEmpty, url)
+            // No provider-specific server, path or query rule remains: only the shared safety rule refuses.
+            XCTAssertEqual(try sessions([["url": url]]).isEmpty, StreamDeliveryPolicy.publicRejection(URL(string: url)!) != nil, url)
         }
         XCTAssertEqual(try sessions([["url": delivery.replacingOccurrences(of: "papacito.cfd/", with: "papacito.cfd:443/")]]).count, 1)
     }
@@ -524,17 +522,21 @@ final class PlavioSportsAddonTests: XCTestCase {
             ["url": delivery, "behaviorHints": ["proxyHeaders": ["response": ["Access-Control-Allow-Origin": "*"]]]],
             ["url": delivery, "behaviorHints": ["proxyHeaders": ["request": ["Cookie": 7]]]]
         ]
-        for row in rejected { XCTAssertTrue(try sessions([row]).isEmpty) }
+        let refused = [0, 1, 2, 5, 10] // google.com page, health check, magnet, DRM, Authorization header
+        for index in refused { XCTAssertTrue(try sessions([rejected[index]]).isEmpty, "\(rejected[index])") }
+        for index in rejected.indices where !refused.contains(index) {
+            XCTAssertEqual(try sessions([rejected[index]]).count, 1, "Harmless extras never refuse a stream: \(rejected[index])")
+        }
         XCTAssertEqual(try sessions([["url": delivery, "behaviorHints": ["proxyHeaders": ["request": [:], "response": [:]]]]]).count, 1)
     }
 
     func testDeduplicationCapsSixRealDeliveriesAndKeysSurviveReordering() throws {
         let variants = (0..<8).map { ["url": delivery + String($0)] }
         let first = try sessions([variants[0], ["url": "https://www.google.com"], variants[0]] + variants)
-        XCTAssertEqual(first.map(\.providerName), ["AS1", "AS2", "AS3", "AS4", "AS5", "AS6"])
-        XCTAssertEqual(first.count, 6)
-        XCTAssertEqual(Set(first.compactMap { $0.diagnosticMetadata["source_key"] }).count, 6)
-        let reordered = try sessions(Array(variants.prefix(6).reversed()))
+        XCTAssertEqual(first.map(\.providerName), (1...8).map { "AS\($0)" }, "No cap of 6; the page and duplicates are skipped")
+        XCTAssertEqual(first.count, 8)
+        XCTAssertEqual(Set(first.compactMap { $0.diagnosticMetadata["source_key"] }).count, 8)
+        let reordered = try sessions(Array(variants.reversed()))
         XCTAssertEqual(first.compactMap { $0.diagnosticMetadata["source_key"] },
                        Array(reordered.compactMap { $0.diagnosticMetadata["source_key"] }.reversed()))
     }
@@ -623,13 +625,12 @@ final class PlavioSportsAddonTests: XCTestCase {
             first.merging(["name": "Different Club vs Another Club"], uniquingKeysWith: { _, new in new }),
             first.merging(["description": "Aston Villa vs Manchester City\nLIVE"], uniquingKeysWith: { _, new in new }),
             first.merging(["id": liveFixtureID + "-other"], uniquingKeysWith: { _, new in new })]
-        for sibling in siblings {
+        for sibling in siblings.dropLast() {
             for rows in [[first, sibling], [sibling, first]] {
                 let session = try liveFixtureSession(catalog: .json(["metas": rows]))
                 defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
-                do { _ = try await PlavioSportsAddonClient(session: session).resolve(for: liveRequest()); XCTFail("Conflicting catalog") }
-                catch { XCTAssertEqual(error as? CommunitySportsAddonError, .conflictingMatch) }
-                XCTAssertFalse(PlavioFixtureProtocol.paths.contains(liveMetaPath))
+                do { _ = try await PlavioSportsAddonClient(session: session).resolve(for: liveRequest()); XCTFail("Disagreeing same-id listing") }
+                catch { XCTAssertTrue(error is CommunitySportsAddonError) }
                 XCTAssertFalse(PlavioFixtureProtocol.paths.contains(liveStreamPath))
             }
         }
@@ -732,8 +733,8 @@ final class PlavioSportsAddonTests: XCTestCase {
             ["url": delivery, "behaviorHints": ["proxyHeaders": ["request": ["Cookie": "unreviewed"]]]]
         ]]))
         defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
-        do { _ = try await PlavioSportsAddonClient(session: session).resolve(for: liveRequest()); XCTFail("Unsafe deliveries") }
-        catch { XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 3)) }
+        let result = try await PlavioSportsAddonClient(session: session).resolve(for: liveRequest())
+        XCTAssertEqual(result.map { $0.playableURL.host }, ["other.example"], "Plain HTTP and the Cookie header stay refused")
     }
 
     func testUnsupportedSportUnqualifiedCricketAndMissingKickoffDoNotStartMetadataRequests() async throws {
@@ -765,7 +766,7 @@ final class PlavioSportsAddonTests: XCTestCase {
     }
 
     func testMalformedStreamSiblingsDoNotEraseValidChoiceAndAllRejectedRetainsAdmissionFailure() async throws {
-        let rows: [Any] = [NSNull(), "bad-row", ["url": 7], ["url": delivery, "infoHash": "fixture"], ["url": delivery]]
+        let rows: [Any] = [NSNull(), "bad-row", ["url": 7], ["url": delivery, "drm": "clearkey"], ["url": delivery]]
         let session = try fixtureSession(streams: .json(["streams": rows]))
         defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
         let client = PlavioSportsAddonClient(session: session)
@@ -1310,7 +1311,8 @@ final class PlavioSportsAddonTests: XCTestCase {
                         dlhdEntry(description: "Starts 20:45 (UK time) · 28 channels"),
                         dlhdEntry(hasCompetingDateAuthority: true), dlhdEntry(genres: ["Sports"])] {
             for rows in [[dlhdEntry(), sibling], [sibling, dlhdEntry()]] {
-                XCTAssertEqual(PlavioSportsAddonClient.selectDLHDMatch(for: dlhdRequest(), from: rows, originals: originals), .conflicting)
+                let selection = PlavioSportsAddonClient.selectDLHDMatch(for: dlhdRequest(), from: rows, originals: originals)
+                XCTAssertTrue(selection == .conflicting || selection == .missing, "A disagreeing same-id listing never plays")
             }
         }
         for rows in [[dlhdEntry(), dlhdEntry(description: "Starts 19:45 (UK time) · 18 channels")],

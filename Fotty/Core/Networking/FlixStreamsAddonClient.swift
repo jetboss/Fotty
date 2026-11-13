@@ -573,7 +573,7 @@ actor FlixStreamsAddonClient {
     }
 
     /// Safe to open (see StreamDeliveryPolicy); link shape is not judged.
-    nonisolated static func isAdmittedDelivery(_ url: URL) -> Bool { StreamDeliveryPolicy.rejection(url) == nil }
+    nonisolated static func isAdmittedDelivery(_ url: URL) -> Bool { StreamDeliveryPolicy.publicRejection(url) == nil }
 
     nonisolated static func sourceKey(url: URL) -> String {
         let digest = SHA256.hash(data: Data((url.absoluteString + "\nheaders:{}").utf8))

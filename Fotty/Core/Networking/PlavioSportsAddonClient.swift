@@ -82,8 +82,8 @@ struct PlavioPublisherFixture: Decodable, Sendable {
 
 struct PlavioSportsStreamEntry: Decodable, Sendable {
     let url: String?
-    let isSupportedContract: Bool
     let requiredHeaders: [String: String]
+    let requiresDRM: Bool
 
     private struct Key: CodingKey {
         let stringValue: String
@@ -92,38 +92,16 @@ struct PlavioSportsStreamEntry: Decodable, Sendable {
         init?(intValue: Int) { return nil }
     }
 
+    /// Unknown or extra fields are ignored; only the link, requested request
+    /// headers and DRM markers matter.
     init(from decoder: Decoder) throws {
-        let values = try decoder.container(keyedBy: Key.self)
+        let values = try? decoder.container(keyedBy: Key.self)
         func key(_ name: String) -> Key { Key(stringValue: name)! }
-        url = try values.decodeIfPresent(String.self, forKey: key("url"))
-        let supportedFields: Set<String> = ["name", "title", "description", "url", "behaviorHints"]
-        var parsedHeaders: [String: String] = [:]
-        var supported = Set(values.allKeys.map(\.stringValue)).isSubset(of: supportedFields)
-        for field in ["name", "title", "description"] where values.contains(key(field)) {
-            _ = try values.decodeIfPresent(String.self, forKey: key(field))
-        }
-        if values.contains(key("behaviorHints")) {
-            let hints = try values.nestedContainer(keyedBy: Key.self, forKey: key("behaviorHints"))
-            supported = supported && Set(hints.allKeys.map(\.stringValue))
-                .isSubset(of: ["notWebReady", "proxyHeaders"])
-            if hints.contains(key("notWebReady")) {
-                _ = try hints.decode(Bool.self, forKey: key("notWebReady"))
-            }
-            if hints.contains(key("proxyHeaders")) {
-                let headers = try hints.nestedContainer(keyedBy: Key.self, forKey: key("proxyHeaders"))
-                supported = supported && Set(headers.allKeys.map(\.stringValue)).isSubset(of: ["request", "response"])
-                for field in ["request", "response"] where headers.contains(key(field)) {
-                    // Preserve reviewed request headers; response overrides remain forbidden.
-                    let decoded = try headers.decode([String: String].self, forKey: key(field))
-                    if field == "request" { parsedHeaders = decoded }
-                    else { supported = decoded.isEmpty && supported }
-                }
-            }
-        }
-        isSupportedContract = supported && (parsedHeaders.isEmpty || url.flatMap(URL.init(string:)).map {
-            PlavioSportsAddonClient.admitsCricketDelivery($0, headers: parsedHeaders)
-        } == true)
-        requiredHeaders = parsedHeaders
+        url = try? values?.decodeIfPresent(String.self, forKey: key("url"))
+        let hints = try? values?.nestedContainer(keyedBy: Key.self, forKey: key("behaviorHints"))
+        let proxy = try? hints?.nestedContainer(keyedBy: Key.self, forKey: key("proxyHeaders"))
+        requiredHeaders = (try? proxy?.decode([String: String].self, forKey: key("request"))) ?? [:]
+        requiresDRM = ["drm", "clearkey", "licenseUrl", "license"].contains { values?.contains(key($0)) == true }
     }
 }
 
@@ -917,12 +895,12 @@ actor PlavioSportsAddonClient {
                 && $0.broadcast.providerEventID == $0.broadcast.streamID && $0.broadcast.providerEventID == entry.id } ?? true)
                 && dlhdCatalogIdentity(entry).map { $0.participants.pair == asked.pair } == true
         }
-        let ids = Set(candidates.map(\.id))
-        guard ids.count <= 1 else { throw CommunitySportsAddonError.conflictingMatch }
-        guard let candidate = candidates.first, let identity = dlhdCatalogIdentity(candidate) else { return nil }
-        guard entries.filter({ $0.id == candidate.id }).allSatisfy({
-            dlhdCatalogIdentity($0) == identity && $0.name == candidate.name
-        }) else { throw CommunitySportsAddonError.conflictingMatch }
+        // Several listings of the game are fine: use the first whose own rows agree.
+        guard let candidate = candidates.first(where: { candidate in
+                  guard let identity = dlhdCatalogIdentity(candidate) else { return false }
+                  return entries.filter({ $0.id == candidate.id }).allSatisfy({
+                      dlhdCatalogIdentity($0) == identity && $0.name == candidate.name })
+              }), let identity = dlhdCatalogIdentity(candidate) else { return nil }
         if let requestedCompetition = request.preferredEvent?.competitionID, !requestedCompetition.isEmpty {
             let competitions = ["england premier league": "premier-league", "uefa champions league": "champions-league",
                                 "england league cup": "carabao-cup", "france ligue 1": "ligue-1",
@@ -1345,7 +1323,6 @@ actor PlavioSportsAddonClient {
         for request: StreamPlaybackRequest, from entries: [PlavioSportsCatalogEntry]
     ) throws -> PlavioSportsCatalogEntry? {
         let ids = try corroboratableLiveIDs(for: request, from: entries)
-        guard ids.count <= 1 else { throw CommunitySportsAddonError.conflictingMatch }
         guard let id = ids.first else { return nil }
         return entries.first { livePublisherID(for: $0) == id }
     }
@@ -1395,9 +1372,8 @@ actor PlavioSportsAddonClient {
                   identity.sport == requested.sport, identity.pair == requested.pair else { continue }
             guard entries.filter({ $0.id == entry.id }).allSatisfy({
                 liveParticipantIdentity(for: $0) == identity
-            }) else { throw CommunitySportsAddonError.conflictingMatch }
+            }) else { continue }
             if !ids.contains(id) { ids.append(id) }
-            guard ids.count <= 2 else { throw CommunitySportsAddonError.conflictingMatch }
         }
         return ids
     }
@@ -1505,43 +1481,25 @@ actor PlavioSportsAddonClient {
         guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode) else { return [] }
         var seen = Set<String>()
         var sessions: [StreamSession] = []
-        for entry in streams.prefix(100) {
-            guard entry.isSupportedContract, let value = entry.url, let url = URL(string: value),
-                  (entry.requiredHeaders.isEmpty && isAdmittedDelivery(url)
-                    || allowReviewedCricketDelivery && admitsCricketDelivery(url, headers: entry.requiredHeaders)) else { continue }
-            let key = sourceKey(url: url, headers: entry.requiredHeaders)
+        for entry in streams.prefix(StreamDeliveryPolicy.maximumSessionsPerProvider) {
+            guard !entry.requiresDRM, let value = entry.url, let url = URL(string: value), isAdmittedDelivery(url),
+                  let headers = StreamDeliveryPolicy.requestHeaders(entry.requiredHeaders) else { continue }
+            let key = sourceKey(url: url, headers: headers)
             guard seen.insert(key).inserted else { continue }
             guard let label = definition.sourceLabel(choice: sessions.count + 1) else { break }
             sessions.append(StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
-                providerName: label, requiredHeaders: entry.requiredHeaders, qualityLabel: "Live video",
+                providerName: label, requiredHeaders: headers, qualityLabel: "Live video",
                 canRefresh: false, validationStatus: .validated,
                 diagnosticMetadata: ["source_family": providerCode, "manifest_result": "exact_fixture_match",
                     "delivery": "reviewed_direct_hls", "addon_version": safeVersion(addOnVersion), "match_method": matchMethod,
                     "source_key": key, "source_key_scope": "delivery"], requiresGuardedRelay: true))
-            if sessions.count == 6 { break }
         }
         return sessions
     }
 
+    /// Safe to open (see StreamDeliveryPolicy); server and link shape are not judged.
     nonisolated static func isAdmittedDelivery(_ url: URL) -> Bool {
-        guard url.scheme?.lowercased() == "https",
-              ["papacito.cfd", "admin2.formaturamaxi.com.br"].contains(url.host?.lowercased() ?? ""),
-              url.port == nil || url.port == 443, url.user == nil, url.password == nil,
-              url.fragment == nil, LocalStreamProxyPolicy.allowsDestination(url),
-              url.absoluteString.utf8.count <= 8192,
-              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              components.percentEncodedPath == url.path,
-              !url.path.contains("\\"), !url.path.contains("//") else { return false }
-        let path = url.path.split(separator: "/", omittingEmptySubsequences: false)
-        if url.host?.lowercased() == "admin2.formaturamaxi.com.br" {
-            return components.query == nil && path.count == 2 && path.first == ""
-                && String(path[1]).range(of: #"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}\.m3u8$"#, options: .regularExpression) != nil
-        }
-        guard path.count == 4, path.first == "", path.dropFirst().allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }),
-              url.pathExtension == "m3u8", let query = components.queryItems, query.count == 1,
-              query[0].name == "ft", let token = query[0].value, !token.isEmpty,
-              token.utf8.count <= 4096, token.rangeOfCharacter(from: .controlCharacters) == nil else { return false }
-        return true
+        StreamDeliveryPolicy.publicRejection(url) == nil
     }
 
     nonisolated static func admitsCricketDelivery(_ url: URL, headers: [String: String]) -> Bool {

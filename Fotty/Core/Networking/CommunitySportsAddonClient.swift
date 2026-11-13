@@ -1133,9 +1133,7 @@ actor CommunitySportsAddonClient {
 
     /// A live HLS playlist, directly or inside a wrapper link. Pages such as
     /// donation or player links are not streams and are never played as one.
-    nonisolated static func isLivePlaylistLink(_ url: URL) -> Bool {
-        ([url] + StreamDeliveryPolicy.innerLinks(url)).contains { $0.path.lowercased().hasSuffix(".m3u8") }
-    }
+    nonisolated static func isLivePlaylistLink(_ url: URL) -> Bool { StreamDeliveryPolicy.isLivePlaylistLink(url) }
 
     /// Every exact listing of the requested game, de-duplicated by id.
     nonisolated static func selectAllMatches(for request: StreamPlaybackRequest,
