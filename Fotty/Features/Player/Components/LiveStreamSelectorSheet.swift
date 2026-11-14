@@ -21,6 +21,7 @@ struct LiveStreamSelectorSheet: View {
     /// Asked again periodically while the sheet is open; validity depends on
     /// time and provider setup, neither of which is observable.
     let rightMatchPresentation: (() -> LivePlayerViewModel.RightMatchPresentation)?
+    let programmeEvidence: ProgrammeEvidencePresentation
     let onSelect: (Int) -> Void
     @State private var selection: BroadcastSourcePickerPolicy.Filter = .automatic
     
@@ -40,6 +41,7 @@ struct LiveStreamSelectorSheet: View {
         onPictureBlocked: ((UUID) -> Void)? = nil,
         onRightMatch: ((UUID) -> Void)? = nil,
         rightMatchPresentation: (() -> LivePlayerViewModel.RightMatchPresentation)? = nil,
+        programmeEvidence: ProgrammeEvidencePresentation = .empty,
         onSelect: @escaping (Int) -> Void
     ) {
         self.sessions = sessions
@@ -55,6 +57,7 @@ struct LiveStreamSelectorSheet: View {
         self.onPictureBlocked = onPictureBlocked
         self.onRightMatch = onRightMatch
         self.rightMatchPresentation = rightMatchPresentation
+        self.programmeEvidence = programmeEvidence
         self.onSelect = onSelect
     }
     
@@ -126,6 +129,18 @@ struct LiveStreamSelectorSheet: View {
                         .font(.subheadline)
                         .foregroundStyle(FottyTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
+                    if !programmeEvidence.searchLines.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(programmeEvidence.searchLines, id: \.self) { line in
+                                Text(line)
+                                    .font(.caption)
+                                    .foregroundStyle(FottyTheme.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityIdentifier("broadcast-sources-search-counts")
+                    }
                     if offersGroupFilter || isCheckingAdditionalSources {
                         singleSourceFilters
                     }
@@ -229,7 +244,8 @@ struct LiveStreamSelectorSheet: View {
                         || (index == currentSourceIndex && currentPlaybackHasError),
                     isCoolingDown: LiveSourceHealthStore.isTemporarilyUnavailable(session.legacySource),
                     currentMode: index == currentSourceIndex ? currentPlaybackMode : nil,
-                    usesJoinedPresentation: true) {
+                    usesJoinedPresentation: true,
+                    evidenceNote: programmeEvidence.labelNote(for: session.id)) {
                     if index != currentSourceIndex
                         || failedSessionIDs.contains(session.id)
                         || (index == currentSourceIndex && currentPlaybackHasError)
@@ -502,6 +518,8 @@ struct SessionRow: View {
     var isCoolingDown = false
     var currentMode: LivePlaybackMode? = nil
     var usesJoinedPresentation = false
+    /// A fixed phrase about the provider's own label; never a title or URL.
+    var evidenceNote: String? = nil
     let action: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ScaledMetric(relativeTo: .body) private var numberSize: CGFloat = 30
@@ -528,6 +546,12 @@ struct SessionRow: View {
                         Text(sourceDescription)
                             .font(.caption)
                             .foregroundStyle(FottyTheme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let evidenceNote {
+                        Text(evidenceNote)
+                            .font(.caption)
+                            .foregroundStyle(FottyTheme.textTertiary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -569,7 +593,8 @@ struct SessionRow: View {
         .accessibilityIdentifier("broadcast-source-\(displayNumber)")
         .accessibilityValue(session.providerName)
         .accessibilityLabel(BroadcastSourcePresentation.accessibilityLabel(title: sourceTitle, provider: session.providerName,
-            number: displayNumber, description: sourceDescription, action: actionLabel))
+            number: displayNumber, description: [sourceDescription, evidenceNote].compactMap { $0 }.joined(separator: ". "),
+            action: actionLabel))
         .accessibilityAddTraits(isActive ? .isSelected : [])
         .accessibilityHint(isFailed || isCoolingDown
             ? "Try this source again"

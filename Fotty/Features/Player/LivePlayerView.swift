@@ -825,6 +825,11 @@ struct LivePlayerView: View {
             rightMatchAction = { sourceID in viewModel.reportRightMatch(for: sourceID, expectedAttempt: displayedAttempt) }
             rightMatchPresentation = { viewModel.rightMatchPresentation(for: sourceID, expectedAttempt: displayedAttempt) }
         } else { rightMatchAction = nil; rightMatchPresentation = nil }
+        // Local counts only, read once when the sheet opens.
+        let programmeEvidence = !AppRuntime.usesPrivateMatchSelection || viewModel.event.isBroadcastChannel ? .empty
+            : ProgrammeEvidencePresentation.make(
+                fixtureID: viewModel.activeSession?.matchID ?? viewModel.sessions.first?.matchID ?? viewModel.event.id,
+                records: FottyQualityStore.shared.records())
         return LiveStreamSelectorSheet(
             sessions: viewModel.sessions,
             currentSourceIndex: $viewModel.currentSourceIndex,
@@ -839,6 +844,7 @@ struct LivePlayerView: View {
             onPictureBlocked: pictureBlockedAction,
             onRightMatch: rightMatchAction,
             rightMatchPresentation: rightMatchPresentation,
+            programmeEvidence: programmeEvidence,
             onSelect: selectBroadcastSession
         )
         .presentationDetents([.medium, .large])

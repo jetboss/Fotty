@@ -416,6 +416,7 @@ struct FottyOwnerStatusView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var snapshot = FottyQualityStore.shared.ownerStatusSnapshot()
     @State private var watchOutcomes = FottyQualityStore.shared.watchOutcomeSummary()
+    @State private var programmeEvidence = ProgrammeEvidenceBuildSummary.currentBuild()
 
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -492,6 +493,33 @@ struct FottyOwnerStatusView: View {
                     }
                 }
                 .accessibilityIdentifier("owner-status-account-sources")
+
+                SettingsSection(title: "Programme evidence on this build") {
+                    if programmeEvidence.isEmpty {
+                        statusRow("Searches with stream counts", value: "None recorded")
+                    }
+                    ForEach(Array(programmeEvidence.rows.enumerated()), id: \.element.id) { index, row in
+                        if index > 0 { SettingsDivider() }
+                        statusRow(row.name, value: row.searches == 1 ? "1 search" : "\(row.searches) searches")
+                        statusRow("Streams found · can be tried", value: "\(row.found) · \(row.tryable)")
+                        statusRow("Listings read · unread · empty", value: "\(row.listingsRead) · \(row.listingsUnread) · \(row.listingsEmpty)")
+                        if row.partialSearches > 0 { statusRow("Partial searches", value: "\(row.partialSearches)") }
+                        if row.sampledLabels > 0 {
+                            statusRow("Labels match · other teams · no teams",
+                                      value: "\(row.labelsAgree) · \(row.labelsOtherTeams) · \(row.labelsNoTeams)")
+                        }
+                    }
+                    if !programmeEvidence.isEmpty {
+                        SettingsDivider()
+                        statusRow("You confirmed right match", value: "\(programmeEvidence.viewerConfirmations)")
+                        statusRow("You reported wrong match", value: "\(programmeEvidence.viewerWrongMatches)")
+                        Text("Labels are the provider's own claims, sampled from the latest searches only; they never show what was on screen. Only your Right match and Wrong match taps confirm a programme.")
+                            .font(.caption)
+                            .foregroundStyle(FottyTheme.textSecondary)
+                            .padding(.top, 8)
+                    }
+                }
+                .accessibilityIdentifier("owner-status-programme-evidence")
 
                 SettingsSection(title: "Watch outcomes on this device") {
                     if watchOutcomes.rows.isEmpty {
