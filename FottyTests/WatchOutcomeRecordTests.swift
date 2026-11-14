@@ -15,12 +15,16 @@ final class WatchOutcomeRecordTests: XCTestCase {
         let counts = store.fixtureLookupCounts(fixture: first.fixture, provider: .highfly, window: window)
         XCTAssertEqual(counts.lookups, 2)
         XCTAssertEqual(counts.observedEntries, 4)
-        XCTAssertEqual(counts.uniqueObservedContracts, 1, "The same executable contract seen twice is not two independent streams")
+        XCTAssertEqual(counts.uniqueObservedContracts, 1, "Repeated contracts in retained samples are not independent streams")
         XCTAssertEqual(counts.readResponses, 2)
         XCTAssertEqual(counts.unreadResponses, 0)
         XCTAssertEqual(counts.knownEmptyResponses, 0)
-        XCTAssertFalse(counts.isTruncated)
-        XCTAssertEqual(store.records().filter { $0.name == "provider_delivery" }.count, 4)
+        // Only the newest Highfly lookup keeps samples; the superseded one
+        // keeps its summary, so contract coverage is honestly incomplete.
+        XCTAssertTrue(counts.isTruncated)
+        let samples = store.records().filter { $0.name == "provider_delivery" }
+        XCTAssertEqual(samples.count, 2)
+        XCTAssertTrue(samples.allSatisfy { $0.details["evidence_lookup_id"] == second.lookupID.uuidString.lowercased() })
         XCTAssertEqual(store.records().filter { $0.name == "provider_lookup" }.count, 2)
     }
 
@@ -220,6 +224,81 @@ final class WatchOutcomeRecordTests: XCTestCase {
         XCTAssertTrue(records.filter { $0.name == "provider_delivery" }.isEmpty)
     }
 
+    /// Sample eligibility is per provider: PenguPlay searches (empty, unread or
+    /// sampled) never consume Highfly's slot, and only a newer Highfly lookup,
+    /// even a failed one, supersedes Highfly's samples.
+    func testEachProviderKeepsItsLatestSamplesUntilItsOwnNewerLookupSupersedesThem() throws {
+        let fixture = "private-fixture-sentinel", base = Date().addingTimeInterval(-600)
+        let highfly = try evidenceReceipt(date: base)
+        let highflySource = try XCTUnwrap(highfly.deliveries.compactMap(\.sourceID).first)
+        store.recordProviderLookup(highfly)
+        for (offset, mode) in [(1.0, "empty"), (2.0, "unread"), (3.0, "empty")] {
+            store.recordProviderLookup(try evidenceReceipt(mode: mode, date: base.addingTimeInterval(offset), provider: .penguPlay))
+        }
+        func samples(_ provider: EvidenceProvider) -> [FottyQualityRecord] {
+            store.records().filter { $0.name == "provider_delivery" && $0.details["source_family"] == provider.rawValue }
+        }
+        func summary(_ receipt: ProviderLookupReceipt) throws -> FottyQualityRecord {
+            try XCTUnwrap(store.records().first { $0.name == "provider_lookup"
+                && $0.details["evidence_lookup_id"] == receipt.lookupID.uuidString.lowercased() })
+        }
+        XCTAssertEqual(store.records().filter { $0.name == "provider_lookup" }.count, 4)
+        XCTAssertEqual(samples(.highfly).count, 2, "PenguPlay lookups must not consume Highfly's sample eligibility")
+        XCTAssertTrue(samples(.highfly).allSatisfy { $0.details["evidence_lookup_id"] == highfly.lookupID.uuidString.lowercased() })
+        XCTAssertTrue(samples(.penguPlay).isEmpty)
+        XCTAssertEqual(try summary(highfly).details["evidence_truncated"], "false")
+        XCTAssertEqual(try summary(highfly).details["evidence_reconciled"], "true")
+        XCTAssertEqual(ProgrammeEvidencePresentation.make(fixtureID: fixture, records: store.records())
+            .labelNote(for: highflySource), "Provider label matches this game")
+
+        let pengu = try evidenceReceipt(date: base.addingTimeInterval(4), provider: .penguPlay)
+        let penguSource = try XCTUnwrap(pengu.deliveries.compactMap(\.sourceID).first)
+        store.recordProviderLookup(pengu)
+        XCTAssertEqual(samples(.highfly).count, 2)
+        XCTAssertEqual(samples(.penguPlay).count, 2)
+
+        // A newer failed Highfly lookup supersedes only Highfly's samples.
+        let failed = try evidenceReceipt(mode: "unread", date: base.addingTimeInterval(5))
+        store.recordProviderLookup(failed)
+        let records = store.records()
+        XCTAssertEqual(records.filter { $0.name == "provider_lookup" }.count, 6, "Summaries survive invalidation")
+        XCTAssertTrue(samples(.highfly).isEmpty, "Superseded Highfly samples must not stay attached to the sheet")
+        XCTAssertEqual(samples(.penguPlay).count, 2)
+        XCTAssertTrue(samples(.penguPlay).allSatisfy { $0.details["evidence_lookup_id"] == pengu.lookupID.uuidString.lowercased() })
+        XCTAssertEqual(try summary(highfly).details["evidence_truncated"], "true")
+        XCTAssertEqual(try summary(highfly).details["evidence_reconciled"], "false")
+        XCTAssertEqual(try summary(pengu).details["evidence_truncated"], "false")
+        XCTAssertEqual(try summary(pengu).details["evidence_reconciled"], "true")
+        XCTAssertEqual(try summary(failed).details["evidence_retained_entries"], "0")
+        let presentation = ProgrammeEvidencePresentation.make(fixtureID: fixture, records: records)
+        XCTAssertNil(presentation.labelNote(for: highflySource))
+        XCTAssertEqual(presentation.labelNote(for: penguSource), "Provider label matches this game")
+        XCTAssertEqual(presentation.latestSearches.map(\.provider), [.highfly, .penguPlay])
+        XCTAssertEqual(presentation.latestSearches.map(\.found), [0, 2])
+        let reloaded = FottyQualityStore(defaults: defaults, storageKey: "watch-outcomes")
+        XCTAssertEqual(reloaded.records(), records, "Reading/reloading must not evict or revive samples")
+    }
+
+    /// Per-provider eligibility still shares the one 64-record reserve. The
+    /// newest lookup's whole cohort is placed first; an older provider's
+    /// cohort that does not fit is dropped whole and its summary says so.
+    func testProviderSamplesShareOneReserveAndNeverKeepAPartialCohort() throws {
+        let base = Date().addingTimeInterval(-600)
+        let highfly = try evidenceReceipt(mode: "full", date: base)
+        let pengu = try evidenceReceipt(date: base.addingTimeInterval(1), provider: .penguPlay)
+        store.recordProviderLookup(highfly); store.recordProviderLookup(pengu)
+        let records = store.records(), samples = records.filter { $0.name == "provider_delivery" }
+        XCTAssertLessThanOrEqual(samples.count, FottyQualityStore.reservedProviderDeliveryRecords)
+        XCTAssertEqual(samples.count, 2)
+        XCTAssertTrue(samples.allSatisfy { $0.details["evidence_lookup_id"] == pengu.lookupID.uuidString.lowercased() })
+        for (receipt, kept) in [(highfly, false), (pengu, true)] {
+            let summary = try XCTUnwrap(records.first { $0.name == "provider_lookup"
+                && $0.details["evidence_lookup_id"] == receipt.lookupID.uuidString.lowercased() })
+            XCTAssertEqual(summary.details["evidence_truncated"], kept ? "false" : "true")
+            XCTAssertEqual(summary.details["evidence_reconciled"], kept ? "true" : "false")
+        }
+    }
+
     func testFullStoreReservesSamplesAndOnlyTruncatesTheLookupWhoseSamplesWereDropped() throws {
         for _ in 0..<250 { store.record(category: .playback, name: "ordinary_diagnostic", outcome: .info) }
         let date = Date()
@@ -227,12 +306,13 @@ final class WatchOutcomeRecordTests: XCTestCase {
         for receipt in receipts { store.recordProviderLookup(receipt) }
         let records = store.records()
         XCTAssertEqual(records.count, 250, "Unused sample capacity remains ordinary history")
-        XCTAssertEqual(records.filter { $0.name == "provider_delivery" }.count, 4)
+        // Equal-time Highfly lookups: the newest append is the provider's latest.
+        XCTAssertEqual(records.filter { $0.name == "provider_delivery" }.count, 2)
         for (index, receipt) in receipts.enumerated() {
             let summary = try XCTUnwrap(records.first { $0.name == "provider_lookup"
                 && $0.details["evidence_lookup_id"] == receipt.lookupID.uuidString.lowercased() })
-            XCTAssertEqual(summary.details["evidence_truncated"], index == 0 ? "true" : "false")
-            XCTAssertEqual(summary.details["evidence_reconciled"], index == 0 ? "false" : "true")
+            XCTAssertEqual(summary.details["evidence_truncated"], index == 2 ? "false" : "true")
+            XCTAssertEqual(summary.details["evidence_reconciled"], index == 2 ? "true" : "false")
             XCTAssertEqual(summary.details["evidence_observed_entries"], "2")
         }
         let reloaded = FottyQualityStore(defaults: defaults, storageKey: "watch-outcomes")
@@ -297,12 +377,12 @@ final class WatchOutcomeRecordTests: XCTestCase {
     }
 
     private func evidenceReceipt(fixture: String = "private-fixture-sentinel", mode: String = "normal",
-                                 date: Date = Date()) throws -> ProviderLookupReceipt {
+                                 date: Date = Date(), provider: EvidenceProvider = .highfly) throws -> ProviderLookupReceipt {
         let generation = UUID()
         let request = StreamPlaybackRequest(matchID: fixture, displayTitle: "Liverpool vs Arsenal",
             homeTeam: "Liverpool", awayTeam: "Arsenal", category: "football", kickoffDate: date)
         var ledger = StreamAdmissionLedger()
-        var evidence = StreamLookupEvidence(request: request, provider: .highfly, lookupID: ledger.id,
+        var evidence = StreamLookupEvidence(request: request, provider: provider, lookupID: ledger.id,
             configurationGeneration: generation, at: date)
         if mode == "unread" {
             evidence.unreadResponse(); ledger.finish(admitted: 0, completion: "failed")
@@ -320,7 +400,7 @@ final class WatchOutcomeRecordTests: XCTestCase {
             if mode == "normal" {
                 let session = StreamSession(matchID: fixture,
                     playableURL: try XCTUnwrap(URL(string: "https://media.example.test/game.m3u8?token=private-token-sentinel")),
-                    streamType: .hls, providerName: "HF1", requiredHeaders: ["User-Agent": "private-header-sentinel"])
+                    streamType: .hls, providerName: provider == .penguPlay ? "PP1" : "HF1", requiredHeaders: ["User-Agent": "private-header-sentinel"])
                 _ = evidence.attaching(to: session, listingID: "private-listing-sentinel", index: 0, at: date)
             }
             ledger.finish(admitted: mode == "normal" ? 1 : 0)

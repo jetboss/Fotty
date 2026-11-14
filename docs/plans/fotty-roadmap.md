@@ -142,3 +142,5 @@ review**, together with startup/timeout cost. Unconfirmed viewing is not counted
    reviews it.
 2. Plan, ownership split and first four tasks: **approved**.
 3. Retirement-review threshold: **approved**.
+
+- **14 Nov — provider receipt retention follow-up:** each provider's newest lookup now owns its sample eligibility, so empty PenguPlay searches cannot erase Highfly labels. The existing 64-sample/250-record caps, whole cohorts, current playback/audio and watch-outcome protection remain. A newer empty search invalidates only its own provider's older samples. Baseline: 3 failing methods/11 assertions; green: 43 focused passed; full Catalyst: 2,775 passed, 12 opt-in/physical skips, zero failed. Claude direct review: no P1/P2. Source-only, ranking unchanged, Jet328 untouched. See `docs/testing/fotty-provider-cohorts-20261114/`. Stage4 raw-ID feedback scope is the next separate repair.

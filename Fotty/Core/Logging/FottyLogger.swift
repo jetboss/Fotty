@@ -677,7 +677,6 @@ final class FottyQualityStore {
     /// Samples have their own share of the same buffer, ahead of older ordinary
     /// history but never reserved outcomes or the newest playback/audio cohort.
     static let reservedProviderDeliveryRecords = 64
-    static let maximumProviderDeliveryLookups = 2
 
     private let defaults: UserDefaults
     private let storageKey: String
@@ -1156,13 +1155,19 @@ final class FottyQualityStore {
         }
 
         let selectedIDs = Set(selected.map(\.id))
-        // Reversing the input before a stable timestamp sort breaks equal-time
-        // ties by newest append. Never revive an older sample cohort just
-        // because a newer search is empty or its samples do not fit.
+        // Each provider's newest lookup is its only sample candidate, so one
+        // provider's searches never consume another's eligibility. Reversing
+        // the input before a stable timestamp sort breaks equal-time ties by
+        // newest append. Choose before capacity selection: never revive an
+        // older sample cohort because a newer search is empty, failed, did
+        // not fit, or lost its own summary to the hard cap.
+        var lookupProviders = Set<String>()
         let latestLookups = records.reversed().filter {
-            selectedIDs.contains($0.id) && $0.category == .playback && $0.name == "provider_lookup"
+            $0.timestamp >= cutoff && $0.category == .playback && $0.name == "provider_lookup"
                 && providerLookupKey($0) != nil
-        }.sorted { $0.timestamp > $1.timestamp }.prefix(maximumProviderDeliveryLookups)
+        }.sorted { $0.timestamp > $1.timestamp }.filter {
+            lookupProviders.insert($0.details["source_family", default: ""]).inserted
+        }.filter { selectedIDs.contains($0.id) }
         let samplesByLookup = Dictionary(grouping: retained.filter(isProviderDelivery)) { providerLookupKey($0) }
         protectedIDs.formUnion(latestLookups.map(\.id))
         var retainedSampleCounts: [String: Int] = [:]
