@@ -17,6 +17,8 @@
 		091F402E33DCCE22327193B6 /* WatchTapAcknowledgementTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C59B38242049FEA1A93F7F1F /* WatchTapAcknowledgementTests.swift */; };
 		0A21CCA5FF4C098C15FB671A /* MatchCacheItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA8A69D2FC8B2C891CCBDF67 /* MatchCacheItem.swift */; };
 		0AF528C5B2CD62B69675D35F /* ViewingPlanTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9AD26A269899C1610B845F2 /* ViewingPlanTests.swift */; };
+		C6D7C57B2DBFA07A8FE033ED /* StreamEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2BDB424CF7E91E0483A53F4 /* StreamEvidenceTests.swift */; };
+		9A4D4987D06B99A49977F8C8 /* StreamEvidenceSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39E66D7660CA6D771DF6FE30 /* StreamEvidenceSessionTests.swift */; };
 		0CA7D8BB838881D3516C181F /* LiveSourceHealthScopeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46FBFFDC78DAE06BCDDBBF09 /* LiveSourceHealthScopeTests.swift */; };
 		0D276123D64746CC794D52D5 /* StringObfuscator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A51F3980E896F9E40ED86044 /* StringObfuscator.swift */; };
 		0EAD2B25A5F48C859AF06F63 /* CricketFixtureCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A46DDFACDD07E1EA1ECDF66C /* CricketFixtureCatalogTests.swift */; };
@@ -48,6 +50,7 @@
 		229503C813C400BDD0A7A1BA /* FottyLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = F103DF8E998830FA50963A92 /* FottyLiveActivityExtension.appex */; platformFilters = (ios, ); settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		24FD578C6B0F48419961684C /* WatchOutcomeRecordTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFC199AC75904AE87689B251 /* WatchOutcomeRecordTests.swift */; };
 		2759F9CF4B1CE10F094D28E2 /* FPLMultiGWPlannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41B7E1260FD2A189FE556FAE /* FPLMultiGWPlannerView.swift */; };
+		F459A74F745CD4EA05AE541D /* StreamEvidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6145BAE3F60899A5E3BF9562 /* StreamEvidence.swift */; };
 		2793D19470B4376429A2D676 /* MediaModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93E9A24A739FF94E9D5016E2 /* MediaModels.swift */; };
 		27A747E317F4F93BCF758765 /* APIFootballModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6EC3C0EF00CD4C2E2DB820A /* APIFootballModels.swift */; };
 		280590A19D6CB74EAA2DAB10 /* SettingsScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0358C1299510CEB2A81BF269 /* SettingsScreen.swift */; };
@@ -477,6 +480,8 @@
 		4483A2DCF2E02D4602F83943 /* Score808SiteCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Score808SiteCatalog.swift; sourceTree = "<group>"; };
 		464E156A00A6510A757C8B70 /* ArenaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArenaModels.swift; sourceTree = "<group>"; };
 		469E3918650B9F86B832FE79 /* URLExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URLExtensions.swift; sourceTree = "<group>"; };
+		C2BDB424CF7E91E0483A53F4 /* StreamEvidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamEvidenceTests.swift; sourceTree = "<group>"; };
+		39E66D7660CA6D771DF6FE30 /* StreamEvidenceSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamEvidenceSessionTests.swift; sourceTree = "<group>"; };
 		46FBFFDC78DAE06BCDDBBF09 /* LiveSourceHealthScopeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSourceHealthScopeTests.swift; sourceTree = "<group>"; };
 		4744193DAA45F40E9DA6D529 /* TeamFollowKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamFollowKey.swift; sourceTree = "<group>"; };
 		48070512128334AFE9A5E436 /* TeamOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TeamOnboardingView.swift; sourceTree = "<group>"; };
@@ -560,6 +565,7 @@
 		8FEE681802D8C19D177CA470 /* PlaybackPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackPolicyTests.swift; sourceTree = "<group>"; };
 		915AEAADA49442EDF92EEB5B /* SettingsSportsContinuityView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSportsContinuityView.swift; sourceTree = "<group>"; };
 		93B40F140ABB6536CA644848 /* FPLTransferRules.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLTransferRules.swift; sourceTree = "<group>"; };
+		6145BAE3F60899A5E3BF9562 /* StreamEvidence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamEvidence.swift; sourceTree = "<group>"; };
 		93E9A24A739FF94E9D5016E2 /* MediaModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaModels.swift; sourceTree = "<group>"; };
 		93ED7601B587AD43426740B7 /* reviewed-tv-guide-snapshot.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "reviewed-tv-guide-snapshot.json"; sourceTree = "<group>"; };
 		93F9973A68099485B2B9B2C5 /* StreamPluginsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamPluginsSettingsView.swift; sourceTree = "<group>"; };
@@ -782,6 +788,8 @@
 				6AB90B1B3D9621F8B7FA1A15 /* LastLiveMatchStoreTests.swift */,
 				0E036FC72946463478B6611A /* LivePlaybackRecoveryOverridesTests.swift */,
 				A567B850EE852F541DC23EAA /* LivePlayerRetryLifecycleTests.swift */,
+				C2BDB424CF7E91E0483A53F4 /* StreamEvidenceTests.swift */,
+				39E66D7660CA6D771DF6FE30 /* StreamEvidenceSessionTests.swift */,
 				46FBFFDC78DAE06BCDDBBF09 /* LiveSourceHealthScopeTests.swift */,
 				ACEC5F20FCC543D43196F967 /* LocalStreamProxyTests.swift */,
 				D88742C1A5EE70E38141AF59 /* MatchdayDayNavigationTests.swift */,
@@ -1432,6 +1440,7 @@
 				7A79B71F8A5A9DFD97D34C80 /* CricketMatchContext.swift */,
 				0E747C30D569515452EB0C47 /* CurrentEventBroadcastPolicy.swift */,
 				EA8A69D2FC8B2C891CCBDF67 /* MatchCacheItem.swift */,
+				6145BAE3F60899A5E3BF9562 /* StreamEvidence.swift */,
 				93E9A24A739FF94E9D5016E2 /* MediaModels.swift */,
 				800B3EA8DCFB122CEABB21E6 /* SportsFixtureCatalog.swift */,
 				2C3CC6D98F21EEB895F3203E /* SportsSearchSchedule.swift */,
@@ -1861,6 +1870,7 @@
 				38B47B168DBE61ACE4F9978F /* MatchdayDayNavigationPolicy.swift in Sources */,
 				CE64B38F1DF921DFCE8ABB8C /* MatchdaySetupCard.swift in Sources */,
 				90C6763D13E9BE025BBA5930 /* MediaAudioSessionOwner.swift in Sources */,
+				F459A74F745CD4EA05AE541D /* StreamEvidence.swift in Sources */,
 				2793D19470B4376429A2D676 /* MediaModels.swift in Sources */,
 				42378BF8D7063F349ECD9568 /* MomentumChartView.swift in Sources */,
 				881EF5B0F8C4036535B0AEA6 /* MultiLivePlayerView.swift in Sources */,
@@ -2003,6 +2013,8 @@
 				AA7C926EA0220BF8B5E31B61 /* LastLiveMatchStoreTests.swift in Sources */,
 				A0CA6C462A2CA6B7FD5C3B50 /* LivePlaybackRecoveryOverridesTests.swift in Sources */,
 				AC1A8DE1AD0AA0A772C373A5 /* LivePlayerRetryLifecycleTests.swift in Sources */,
+				C6D7C57B2DBFA07A8FE033ED /* StreamEvidenceTests.swift in Sources */,
+				9A4D4987D06B99A49977F8C8 /* StreamEvidenceSessionTests.swift in Sources */,
 				0CA7D8BB838881D3516C181F /* LiveSourceHealthScopeTests.swift in Sources */,
 				4C1C9010DC293DE182FE1F39 /* LocalStreamProxyTests.swift in Sources */,
 				9398C85D0C91A6F6B7BF98E3 /* MatchHubRefreshTests.swift in Sources */,

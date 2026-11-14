@@ -73,6 +73,11 @@ key. Raw identifiers, labels, URLs and headers stay transient. See
   found seven defects, all fixed with tests (stale-attempt taps, typed failover outside transport
   recovery, paused/PiP refusal, shared failover accounting, blocked-hold that unmounts the Web page,
   late native stall fence). Full suite 2,690 / 0 failures. Right match waits for Codex 1.
+- **14 Nov — Codex 1 and 2, on baseline at 03ff887:** evidence foundation and expiry (63137a7);
+  Highfly/PenguPlay delivery receipts, lookup counts, provider configuration generation and the
+  prepared-provenance bridge (d137939). Claude reviewed both; one P2 (delivery samples could evict
+  playback history from the 250-record store) fixed by Codex in 03ff887. Claude added the three
+  Xcode memberships. Full suite on the clean commit 2,770 / 0 failures. Next: Claude's Right match.
 - **Open follow-up (Codex area):** `NativePlayerAudioIsolationTests` reconnect test crashed once
   under full-suite load; likely a pre-existing timing flake.
 
