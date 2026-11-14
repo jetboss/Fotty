@@ -67,18 +67,28 @@ final class ProgrammeEvidenceIntegrationTests: XCTestCase {
             "Nothing to confirm before preparation captured the transport")
         model.capturePreparedProgrammeEvidence(selected: active, cookies: [], attemptID: attempt)
         XCTAssertEqual(model.rightMatchPresentation(for: active.id, expectedAttempt: attempt), .available)
+        func observations() -> [FottyQualityRecord] {
+            FottyQualityStore.shared.records().filter {
+                $0.name == "programme_observation" && $0.details["attempt_id"] == attempt.uuidString
+            }
+        }
+        XCTAssertTrue(observations().isEmpty)
         model.reportRightMatch(for: active.id, expectedAttempt: attempt)
         XCTAssertEqual(model.rightMatchPresentation(for: active.id, expectedAttempt: attempt), .confirmed)
+        // Exactly this attempt's tap, not any earlier test's confirmation.
+        XCTAssertEqual(observations().map { $0.details["programme_observation"] }, ["viewer_confirmed_right"])
 
         // Lookup receipts live in the isolated store; the player writes its
         // viewer observation to the shared one.
-        let summary = ProgrammeEvidenceBuildSummary.make(records: store.records() + FottyQualityStore.shared.records())
+        let summary = ProgrammeEvidenceBuildSummary.make(records: store.records() + observations())
         let row = try XCTUnwrap(summary.rows.first { $0.id == .highfly })
-        XCTAssertGreaterThanOrEqual(row.searches, 1)
-        XCTAssertGreaterThanOrEqual(row.found, 3)
-        XCTAssertGreaterThanOrEqual(row.labelsAgree, 1)
-        XCTAssertGreaterThanOrEqual(row.labelsOtherTeams, 1)
-        XCTAssertGreaterThanOrEqual(summary.viewerConfirmations, 1)
+        XCTAssertEqual(row.searches, 1)
+        XCTAssertEqual(row.found, 3)
+        XCTAssertEqual(row.tryable, 3)
+        XCTAssertEqual(row.labelsAgree, 1)
+        XCTAssertEqual(row.labelsOtherTeams, 1)
+        XCTAssertEqual(row.labelsNoTeams, 1)
+        XCTAssertEqual(summary.viewerConfirmations, 1)
     }
 
     /// A phone's store is normally full of ordinary records (Jet: about 250).
@@ -100,6 +110,17 @@ final class ProgrammeEvidenceIntegrationTests: XCTestCase {
         let presentation = ProgrammeEvidencePresentation.make(fixtureID: matchID, records: store.records())
         XCTAssertEqual(presentation.latestSearches.first?.found, 3, "The search summary is an ordinary record and survives")
         XCTAssertEqual(presentation.labelNote(for: sessions[0].id), "Provider label matches this game")
+    }
+
+    func testSourcesSheetSnapshotReadsTheStoreOncePerOpening() {
+        let snapshot = ProgrammeEvidenceSnapshot()
+        let first = ProgrammeEvidencePresentation(latestSearches: [], labels: [UUID(): .agrees])
+        XCTAssertEqual(snapshot.value { first }, first)
+        XCTAssertEqual(snapshot.value { .empty }, first, "Re-evaluation while open reuses the snapshot")
+        XCTAssertEqual(snapshot.reads, 1)
+        snapshot.reset()
+        XCTAssertEqual(snapshot.value { .empty }, .empty, "A new opening reads again")
+        XCTAssertEqual(snapshot.reads, 2)
     }
 
     func testPresentationUsesNewestSearchPerProviderAndBuildSummaryCountsEachLookupOnce() throws {

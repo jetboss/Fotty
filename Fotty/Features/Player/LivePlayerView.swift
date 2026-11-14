@@ -723,6 +723,8 @@ struct LivePlayerView: View {
     @Environment(LiveScoreService.self) private var scoreService
     
     @State private var didApplyLandscape = false
+    /// Not observed: a cache so an open Sources sheet reads the store once.
+    @State private var programmeEvidenceSnapshot = ProgrammeEvidenceSnapshot()
     @State private var scorePollingOwner = UUID()
     #if FOTTY_PRIVATE_OUTAGE_DRILL
     @State private var privateBlockedSource: UUID?
@@ -825,11 +827,13 @@ struct LivePlayerView: View {
             rightMatchAction = { sourceID in viewModel.reportRightMatch(for: sourceID, expectedAttempt: displayedAttempt) }
             rightMatchPresentation = { viewModel.rightMatchPresentation(for: sourceID, expectedAttempt: displayedAttempt) }
         } else { rightMatchAction = nil; rightMatchPresentation = nil }
-        // Local counts only, read once when the sheet opens.
+        // Local counts only, read once per opening (reset when the sheet closes).
         let programmeEvidence = !AppRuntime.usesPrivateMatchSelection || viewModel.event.isBroadcastChannel ? .empty
-            : ProgrammeEvidencePresentation.make(
-                fixtureID: viewModel.activeSession?.matchID ?? viewModel.sessions.first?.matchID ?? viewModel.event.id,
-                records: FottyQualityStore.shared.records())
+            : programmeEvidenceSnapshot.value {
+                ProgrammeEvidencePresentation.make(
+                    fixtureID: viewModel.activeSession?.matchID ?? viewModel.sessions.first?.matchID ?? viewModel.event.id,
+                    records: FottyQualityStore.shared.records())
+            }
         return LiveStreamSelectorSheet(
             sessions: viewModel.sessions,
             currentSourceIndex: $viewModel.currentSourceIndex,
@@ -917,8 +921,11 @@ struct LivePlayerView: View {
         // Playback is a dark cinema surface, independent of browsing appearance.
         .preferredColorScheme(isSurfaceOnly ? nil : .dark)
         .environment(\.colorScheme, .dark)
-        .sheet(isPresented: $viewModel.showSourceSelector) {
+        .sheet(isPresented: $viewModel.showSourceSelector, onDismiss: { programmeEvidenceSnapshot.reset() }) {
             sourceSelectorSheet
+        }
+        .onChange(of: viewModel.showSourceSelector) { _, shown in
+            if !shown { programmeEvidenceSnapshot.reset() }
         }
         .onAppear {
             if !isSurfaceOnly { MatchNavigationStore.shared.livePlayerDidAppear(matchID: viewModel.event.id) }

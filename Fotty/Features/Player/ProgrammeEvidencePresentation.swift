@@ -92,6 +92,24 @@ private extension ProgrammeEvidencePresentation.LabelComparison {
     }
 }
 
+/// One evidence read per Sources sheet opening. Sheet content can be
+/// re-evaluated many times while open; the store is read only the first time,
+/// and the snapshot is dropped when the sheet closes.
+final class ProgrammeEvidenceSnapshot {
+    private var stored: ProgrammeEvidencePresentation?
+    private(set) var reads = 0
+
+    func value(_ make: () -> ProgrammeEvidencePresentation) -> ProgrammeEvidencePresentation {
+        if let stored { return stored }
+        let made = make()
+        reads += 1
+        stored = made
+        return made
+    }
+
+    func reset() { stored = nil }
+}
+
 /// Owner Status totals for retained evidence on the current build.
 struct ProgrammeEvidenceBuildSummary: Equatable {
     struct Row: Equatable, Identifiable {
