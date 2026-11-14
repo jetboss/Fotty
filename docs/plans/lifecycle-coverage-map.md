@@ -10,8 +10,8 @@ duplicate tests were added. Gaps found during the review are listed at the end.
 | Cancelled discovery | `ViewingSessionCoordinatorTests` `testStoppedSingleDiscoveryCannotPublishLateChoicesOrRevivePlayer`, `testIncrementalOptionalWatchCancellationAndChangedAdmissionCannotMountLateSources`; `LivePlayerRetryLifecycleTests` `testPendingSingleDiscoveryCannotOverridePauseCancelManualSelectionBackgroundOrRetirement` |
 | Replaced attempts | `ViewingSessionCoordinatorTests` `testLatestReplacementWinsAndRechecksPresentationAtCommit`; `LivePlayerRetryLifecycleTests` `testManualReloadOfSameSourceInvalidatesEarlierRetry`, `testSourceSelectionInvalidatesPendingRetry` |
 | Late recovery callbacks | `LivePlayerRetryLifecycleTests` `testStaleRecoveryCannotCancelTheCurrentAttemptRetry`, `testExplicitPauseCancelsRetryAndLateStartedMessageCannotResumeIt`, `testBackgroundingCancelsRetryAndIgnoresLateProgress` |
-| Token / lease expiry | `LivePlayerRetryLifecycleTests` `testExpiredSingleFlixLeaseRenewsExactQueryTokenBeforeValidatingAnyMedia`, `testUnavailableOrWrongRowFlixRenewalNeverValidatesExpiredLeaseAndKeepsTypedPrivateFailure`, `testCancelledSingleFlixRenewalCannotAdoptOrValidateItsLateFreshResult` |
-| App reopen / retained player | `ViewingSessionCoordinatorTests` `testRetainedSingleReopenPreservesPausedTransportWithoutResolverOrReplacement`, `testRetainedSingleReopenRejectsChangedOrConflictingCurrentIdentityAndTerminalStatus`, `testRetainedSingleReopenRejectsFailedAndRetiredModels` |
+| Token / lease expiry (Flix examples; not every provider) | `LivePlayerRetryLifecycleTests` `testExpiredSingleFlixLeaseRenewsExactQueryTokenBeforeValidatingAnyMedia`, `testUnavailableOrWrongRowFlixRenewalNeverValidatesExpiredLeaseAndKeepsTypedPrivateFailure`, `testCancelledSingleFlixRenewalCannotAdoptOrValidateItsLateFreshResult` |
+| Retained player reopen (in-process; not a cold relaunch) | `ViewingSessionCoordinatorTests` `testRetainedSingleReopenPreservesPausedTransportWithoutResolverOrReplacement`, `testRetainedSingleReopenRejectsChangedOrConflictingCurrentIdentityAndTerminalStatus`, `testRetainedSingleReopenRejectsFailedAndRetiredModels` |
 | Background / foreground | `LivePlayerRetryLifecycleTests` `testBackgroundPiPFatalItemRecordsImmediatelyAndRecoversOnceOnForeground`, `testBackgroundNativeFailureNeverOverridesPauseBeforeOrAfterTheObservation` |
 | Network loss while paused | `LivePlayerRetryLifecycleTests` `testNativeExplicitPauseSurvivesDelayedNetworkLossAndRestoration` |
 
@@ -19,9 +19,10 @@ duplicate tests were added. Gaps found during the review are listed at the end.
 
 1. **Viewer feedback conflated "wrong match" and "blocked picture"** — fixed on `claude/viewer-feedback`
    (task 2, first half): separate actions; blocked picture records an ordinary failure, never
-   wrong-programme, and leaves that delivery behind without a same-source retry.
-2. **Half-time and in-match programme changes** have no player test: a channel or delivery that
-   switches programme mid-match is only caught by the viewer. This needs Codex's correctness
-   evidence (task Codex 1) before it can be tested meaningfully.
-3. **Physical checks** (pause/resume, audible audio, PiP, iPhone player) remain device gates, not
+   wrong-programme, exhausts that delivery and fails over directly (no transport retry, offline wait
+   or Web fallback of the same source). Reports are refused while paused and for stale attempts.
+2. **Half-time transport** (a stream pausing or changing at the interval) can be tested now;
+   **programme-correctness boundaries and expiry** need Codex 1's evidence types first.
+3. **Cold relaunch** and non-Flix lease expiry are not covered by the tests above.
+4. **Physical checks** (pause/resume, audible audio, PiP, iPhone player) remain device gates, not
    unit tests.

@@ -4152,7 +4152,8 @@ final class LivePlayerViewModel {
     /// (another source or a newer attempt) are ignored.
     func canReportViewerFeedback(for sourceID: UUID, expectedAttempt: UUID) -> Bool {
         usesSingleStreamRanking && viewingPlaybackContext == .single && isPlaybackSessionActive
-            && !isPlaybackSessionRetired && activeSource != nil && isCurrent(requestID: expectedAttempt, sourceID: sourceID)
+            && !isPlaybackSessionRetired && userWantsPlayback && activeSource != nil
+            && isCurrent(requestID: expectedAttempt, sourceID: sourceID)
     }
 
     /// "Picture blocked": the delivery shows an access card, a black or frozen
@@ -4161,12 +4162,31 @@ final class LivePlayerViewModel {
     /// wrong-programme) and moves on to the next source.
     func reportPictureBlocked(for sourceID: UUID, expectedAttempt: UUID) {
         guard canReportViewerFeedback(for: sourceID, expectedAttempt: expectedAttempt), let current = activeSource else { return }
-        recordMatchOutcome(.failed, for: current)
         FottyQualityStore.shared.record(category: .playback, name: "viewer_reported_blocked", outcome: .failure,
             details: playbackQualityDetails())
-        // Final for this delivery (no same-source retry): the viewer has already seen it fail.
-        handleSourceStartupFailure(current, reason: "Viewer reported a blocked picture; this broadcast is unavailable",
-                                   expectedRequestID: loadRequestID)
+        // The viewer has already seen this delivery fail: exhaust it for this
+        // session and move on directly. This bypasses transport recovery, so
+        // it can never become an offline wait or a same-source Web fallback.
+        cancelPendingWebRetry()
+        stallValidationTask?.cancel()
+        stopPlaybackWatchdog()
+        failedSourceIDs.insert(current.id)
+        recordMatchOutcome(.failed, for: current)
+        LiveSourceHealthStore.recordFailure(for: current, wasStall: false, reason: "Viewer reported a blocked picture")
+        if let next = nextPlayableSource(after: current), let index = sources.firstIndex(where: { $0.id == next.id }) {
+            recordWatchFailover(to: next)
+            currentSourceIndex = index
+            prefetchDescriptorRenewals(after: next)
+            showPlaybackBanner("Switching to another source")
+            loadCurrentSource(ignoringCircuitBreaker: true)
+            return
+        }
+        cancelAudioPreparation()
+        withModelOwnedNativeRateCommand { player?.pause() }
+        errorTitle = "No other broadcast"
+        error = "This source's picture was blocked. Retry to look for another broadcast."
+        transition(to: .failed, phase: "Choose Broadcast Source")
+        showControls = true
     }
 
     func reportWrongMatch(for sourceID: UUID, expectedAttempt: UUID) {

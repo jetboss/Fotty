@@ -90,6 +90,63 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         XCTAssertEqual(model.currentSourceIndex, twin.currentSourceIndex)
     }
 
+    private func twoSourceBlockedFixture() -> (LivePlayerViewModel, [StreamSession]) {
+        let event = singleDiscoveryFixture()
+        let sessions = (1...2).map { singleDiscoverySession(event: event, provider: "AS\($0)", suffix: "blocked-\($0)", web: false) }
+        let model = LivePlayerViewModel(event: event, providedSessions: sessions, prepareAudioSession: { .completed([]) },
+            validateNativeSource: { _, _ in .invalid("No media in unit tests") },
+            currentMatchProviders: { ["plaviosports"] })
+        model.didApplyLandscape = true
+        XCTAssertTrue(model.configureSingleStreamRanking())
+        // A playing native attempt on the first ranked source, with no item opened.
+        model.player = AVPlayer()
+        model.transition(to: .playing(.native), phase: "Playing")
+        return (model, sessions)
+    }
+
+    func testPictureBlockedFailsOverDirectlyEvenOfflineAndNeverReloadsTheBlockedSource() throws {
+        for offline in [false, true] {
+            let (model, sessions) = twoSourceBlockedFixture()
+            defer { model.cleanup() }
+            if offline { model.handleNetworkReachabilityChange(false) }
+            let blocked = try XCTUnwrap(model.activeSource)
+            XCTAssertTrue(sessions.contains { $0.id == blocked.id })
+            model.reportPictureBlocked(for: blocked.id, expectedAttempt: model.loadRequestID)
+            XCTAssertTrue(model.failedSourceIDs.contains(blocked.id), "offline=\(offline)")
+            XCTAssertNotEqual(model.activeSource?.id, blocked.id, "Moves to the other source, never an offline wait on this one")
+            XCTAssertNotEqual(model.playbackState, .failed)
+            XCTAssertFalse(model.pendingRetryAfterNetworkRestore)
+        }
+    }
+
+    func testPictureBlockedIsRefusedWhilePausedAndForAnOlderAttempt() throws {
+        let (model, _) = twoSourceBlockedFixture()
+        defer { model.cleanup() }
+        let blocked = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
+        model.togglePlayPause()
+        XCTAssertFalse(model.canReportViewerFeedback(for: blocked.id, expectedAttempt: attempt))
+        model.reportPictureBlocked(for: blocked.id, expectedAttempt: attempt)
+        XCTAssertTrue(model.failedSourceIDs.isEmpty, "A paused report would not consume the delivery, so it is refused")
+        XCTAssertEqual(model.currentSourceIndex, 0)
+        XCTAssertEqual(model.playbackState, .paused(.native))
+        model.togglePlayPause()
+        model.reportPictureBlocked(for: blocked.id, expectedAttempt: UUID())
+        XCTAssertTrue(model.failedSourceIDs.isEmpty, "A tap from an older attempt changes nothing")
+    }
+
+    func testPictureBlockedWithNoOtherSourceStopsInsteadOfReloadingIt() throws {
+        let model = makeSourcePlayer(sessions: [csSession(web: false)]) { _, _ in .invalid("No media in unit tests") }
+        defer { model.cleanup() }
+        XCTAssertTrue(model.configureSingleStreamRanking())
+        model.player = AVPlayer()
+        model.transition(to: .playing(.native), phase: "Playing")
+        let blocked = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
+        model.reportPictureBlocked(for: blocked.id, expectedAttempt: attempt)
+        XCTAssertEqual(model.playbackState, .failed)
+        XCTAssertEqual(model.errorTitle, "No other broadcast")
+        XCTAssertEqual(model.loadRequestID, attempt, "The blocked source is not reloaded")
+    }
+
     func testSingleWebInitialMetricsRemainOnceWhenDecodedStagePrecedesRepeatedOwnerStarts() async throws {
         let delay = ControlledWebRetryDelay()
         let model = try await makePlayer(delay: delay, markPlaying: false)
