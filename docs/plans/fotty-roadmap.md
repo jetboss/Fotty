@@ -91,7 +91,22 @@ key. Raw identifiers, labels, URLs and headers stay transient. See
   store read per sheet opening, exact test assertions. Full suite 2,783 / 0 failures (one
   `VisualRegressionTests` "missingWindowScene" failure did not recur on rerun).
 - **Open follow-up (Codex area):** `NativePlayerAudioIsolationTests` reconnect test crashed once
-  under full-suite load; likely a pre-existing timing flake.
+  under full-suite load; likely a pre-existing timing flake. *Update (stage 3):* the available
+  crash report (EXC_BAD_ACCESS in CoreFoundation/MediaToolbox during XCTest teardown, no test
+  named) does not support a timing explanation; cause unknown, no change made. The 7 unchanged
+  tests passed in the stage 3 focused run; the earlier crash remains unexplained.
+- **14 Nov — stage 3 (lifecycle), paused Wrong match repair verified locally:** the stage 3
+  primitives were already covered (see `docs/plans/lifecycle-coverage-map.md`). One composite gap
+  repaired in `LivePlayerViewModel`: Play after a paused Wrong match resumed the rejected delivery.
+  Explicit Play after Pause now goes through the existing wrong-programme gate in
+  `loadCurrentSource` (new attempt, failover or "No matching broadcast"); with no backup it holds
+  the delivery like a blocked picture, so the rejected Web page and late callbacks cannot restart
+  it. Baseline: the regression failed (one method, 20 assertions, native/Web × 1/2 sources).
+  Catalyst: focused 261 passed / 0 skipped / 0 failed; full suite 2,785 total, 2,773 passed,
+  12 opt-in/physical skips, 0 failed. Independent review: no remaining P1/P2. Ranking, provider
+  matching/admission, FPL and multi-stream unchanged. **Jet 328:** normal Watch, correct Haiti–United States picture, paused Sources and same-attempt
+  resume checked; exact wrong-picture feedback remains physical-unexercised (correct stream observed); the rest of the roadmap (stages 4–7) is not done. The per-provider store-slot follow-up
+  is separate and not implemented.
 
 ## Ownership (agreed)
 

@@ -1,0 +1,77 @@
+{
+  "build": 328,
+  "version": "3.0.0",
+  "device": "Jet iPad",
+  "normalApp": true,
+  "testHost": false,
+  "fixture": {
+    "teams": [
+      "Haiti",
+      "United States"
+    ],
+    "competition": "CONCACAF Nations League quarterfinal first leg",
+    "kickoffUTC": "2026-11-14T21:30:00Z",
+    "scheduleSource": "https://www.concacaf.com/competitions/nations-league/matches/50691fb4fc6140dfb26ed7e240467e27/haiti-vs-united-states",
+    "freshStatusSource": "ESPN existing CONCACAF Nations League fixture publisher",
+    "freshStatusObservedUTC": "2026-11-14T22:01:46Z",
+    "status": "First half,24 minutes,Haiti0\u20131USA"
+  },
+  "watch": {
+    "tapToDecodedMs": 17721,
+    "attemptToDecodedMs": 4115,
+    "correctProgramme": "Visually observed Haiti0\u20131USA CONCACAF quarterfinal, consistent teams/kits/score and advancing match clock",
+    "firstObservedClock": "24:29",
+    "pausedClock": "25:07",
+    "resumeObservedClock": "25:24",
+    "lastObservedClock": "27:23",
+    "sourceChoices": [
+      "LS1",
+      "CS1",
+      "CS2",
+      "CS3"
+    ],
+    "controls": "Pause held picture during Sources opening/dismissal; explicit Play resumed same source and attempt; normal close returned to Home",
+    "sameAttemptThroughResumeHoldAndClose": true,
+    "hold": {
+      "source": "LS1",
+      "source_family": "cncsports",
+      "mode": "native",
+      "source_count": "4",
+      "attempt_number": "1",
+      "native_continuity_elapsed_ms": "92575",
+      "native_continuity_media_advance_ms": "92575",
+      "native_continuity_stalls": "0",
+      "native_access_stalls": "0",
+      "native_access_dropped_frames": "0",
+      "native_presentation_width": "1280",
+      "native_presentation_height": "720"
+    },
+    "resumeRecovery": [
+      {
+        "action": "started",
+        "elapsedMs": 0,
+        "trigger": "stall_timeout"
+      },
+      {
+        "action": "resumed",
+        "elapsedMs": 516,
+        "trigger": "stall_timeout"
+      }
+    ]
+  },
+  "preferences": {
+    "comparedStableKeys": 9,
+    "allUnchanged": true,
+    "sourceOptInsChanged": false
+  },
+  "limits": [
+    "Paused wrong-programme branch tested deterministically, not physically reported against the correct stream",
+    "No audible-audio pass: Device Hub has no audio relay",
+    "No new PL/UCL/cricket, alternate route, independence or PiP qualification"
+  ],
+  "exitState": "Normal Fotty Home, own playback closed",
+  "phoneTouched": false,
+  "fplOrMultistreamChanged": false,
+  "rankingChanged": false,
+  "publishedOrTestFlight": false
+}

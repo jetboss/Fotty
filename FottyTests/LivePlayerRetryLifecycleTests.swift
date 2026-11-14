@@ -349,6 +349,215 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         XCTAssertNil(model.viewerExhaustedSourceID)
     }
 
+    // MARK: Wrong match while paused
+
+    @MainActor private final class ValidationLog { var urls: [URL] = [] }
+
+    private struct PausedWrongMatchFixture {
+        let model: LivePlayerViewModel
+        let event: EventReference
+        let sessions: [StreamSession]
+        let lookups: FreshLookupRecorder
+        let validations: ValidationLog
+        /// Native only: an inert transport that counts every Play it receives.
+        let player: NativeBackgroundTransportSpyPlayer?
+    }
+
+    /// A playing single-match attempt on the first ranked of `sourceCount`
+    /// deliveries. The fixture ID and the delivery host are unique, so neither
+    /// the persisted wrong-programme evidence nor the shared provider health
+    /// (keyed by family and host) recorded here can reach any other test.
+    /// Nothing loads media: native validation is injected and refuses, fresh
+    /// lookups only record.
+    private func pausedWrongMatchFixture(web: Bool, sourceCount: Int) async throws -> PausedWrongMatchFixture {
+        let event = singleDiscoveryFixture(
+            id: "sports-fixture:premier-league:paused-wrong-\(web ? "web" : "native")-\(UUID().uuidString)")
+        let host = "paused-wrong-\(UUID().uuidString.lowercased()).example"
+        let sessions = try (1...sourceCount).map { index in
+            StreamSession(matchID: event.id,
+                playableURL: try XCTUnwrap(URL(string: web ? "https://\(host)/watch/\(index)" : "https://\(host)/\(index).m3u8")),
+                streamType: web ? .unknown : .hls, providerName: web ? "CS\(index)" : "AS\(index)",
+                requiredHeaders: web ? ["X-Fotty-Web-Embed": "true"] : [:])
+        }
+        let lookups = FreshLookupRecorder(), validations = ValidationLog()
+        let model = LivePlayerViewModel(event: event, providedSessions: sessions, ownsRemoteCommands: false,
+            prepareAudioSession: { .completed([]) }, configureAudioSession: { .completed([]) },
+            validateNativeSource: { url, _ in
+                validations.urls.append(url)
+                return .invalid("No media in unit tests")
+            }, refreshSourceDescriptor: { _, _ in nil },
+            currentMatchProviders: { ["plaviosports", "communitysports"] },
+            freshMatchLookup: { request, _ in lookups.requests.append(request) })
+        model.didApplyLandscape = true
+        XCTAssertTrue(model.configureSingleStreamRanking())
+        XCTAssertEqual(model.sessions.count, sourceCount)
+        if web {
+            model.loadCurrentSource()
+            await model.loadTask?.value
+            XCTAssertTrue(model.isUsingWebEmbed)
+            model.handleWebEmbedPlaybackStarted(sourceID: try XCTUnwrap(model.activeSource?.id),
+                requestID: model.loadRequestID, startupLatencyMs: 50)
+            XCTAssertEqual(model.playbackState, .playing(.webEmbed))
+            return PausedWrongMatchFixture(model: model, event: event, sessions: sessions, lookups: lookups,
+                validations: validations, player: nil)
+        }
+        let player = NativeBackgroundTransportSpyPlayer(playerItem: AVPlayerItem(asset: AVMutableComposition()))
+        model.player = player
+        model.transition(to: .playing(.native), phase: "Playing")
+        return PausedWrongMatchFixture(model: model, event: event, sessions: sessions, lookups: lookups,
+            validations: validations, player: player)
+    }
+
+    private func viewerWrongMatchRecords(_ attempt: UUID) -> [FottyQualityRecord] {
+        FottyQualityStore.shared.records().filter {
+            $0.name == "programme_observation" && $0.details["attempt_id"] == attempt.uuidString
+                && $0.details["programme_observation"] == "viewer_reported_wrong"
+        }
+    }
+
+    /// The Sources sheet offers Wrong match while paused. The report keeps the
+    /// viewer's Pause (no reload, failover, lookup or Play), and the explicit
+    /// Play that follows never resumes the delivery they rejected: it starts a
+    /// new attempt on the other source, or ends honestly when none is left.
+    func testPausedWrongMatchKeepsPauseAndExplicitPlayNeverResumesTheRejectedDelivery() async throws {
+        for web in [false, true] {
+            for sourceCount in [1, 2] {
+                let label = "\(web ? "web" : "native") sources=\(sourceCount)"
+                let fixture = try await pausedWrongMatchFixture(web: web, sourceCount: sourceCount)
+                let model = fixture.model
+                let original = MatchListViewModel.shared.matches
+                MatchListViewModel.shared.matches = [fixture.event]
+                defer { MatchListViewModel.shared.matches = original; model.cleanup() }
+                let rejected = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
+                let other = fixture.sessions.first { $0.id != rejected.id }
+                let order = model.sessions.map(\.id)
+                let validatedBeforePlay = fixture.validations.urls
+
+                model.togglePlayPause()
+                XCTAssertFalse(model.userWantsPlayback, label)
+                XCTAssertEqual(model.playbackState, web ? .paused(.webEmbed) : .paused(.native), label)
+
+                // Taps from an older attempt or another source change nothing.
+                model.reportWrongMatch(for: rejected.id, expectedAttempt: UUID())
+                model.reportWrongMatch(for: other?.id ?? UUID(), expectedAttempt: attempt)
+                XCTAssertTrue(viewerWrongMatchRecords(attempt).isEmpty, label)
+                XCTAssertNotEqual(LiveSourceHealthStore.matchEvidence(for: rejected, fixtureID: fixture.event.id),
+                    .wrongProgramme, label)
+
+                // The current tap is recorded exactly once, and the viewer stays paused.
+                model.reportWrongMatch(for: rejected.id, expectedAttempt: attempt)
+                XCTAssertEqual(viewerWrongMatchRecords(attempt).count, 1, label)
+                XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: rejected, fixtureID: fixture.event.id),
+                    .wrongProgramme, label)
+                XCTAssertFalse(model.userWantsPlayback, label)
+                XCTAssertEqual(model.playbackState, web ? .paused(.webEmbed) : .paused(.native), label)
+                XCTAssertEqual(model.loadRequestID, attempt, "\(label): no reload or failover before explicit Play")
+                XCTAssertEqual(model.activeSource?.id, rejected.id, label)
+                XCTAssertNil(model.error, label)
+                XCTAssertNil(model.webRetryTask, label)
+                XCTAssertTrue(fixture.lookups.requests.isEmpty, "\(label): a paused report spends no lookup")
+                XCTAssertEqual(fixture.validations.urls, validatedBeforePlay, label)
+                if web {
+                    XCTAssertEqual(model.webPlaybackCommand?.shouldPlay, false, "\(label): the page receives no Play")
+                } else {
+                    XCTAssertNil(model.audioPreparationTask, "\(label): no queued resume")
+                    XCTAssertEqual(fixture.player?.playCount, 0, label)
+                }
+
+                // Explicit Play: never the rejected delivery again.
+                model.togglePlayPause()
+                XCTAssertTrue(model.userWantsPlayback, label)
+                XCTAssertNotEqual(model.loadRequestID, attempt, "\(label): Play cannot resume the rejected attempt")
+                XCTAssertNotEqual(model.webPlaybackCommand?.shouldPlay, true,
+                    "\(label): Play is never sent to the rejected page")
+                if sourceCount == 2 {
+                    let next = try XCTUnwrap(other, label)
+                    XCTAssertEqual(model.activeSource?.id, next.id, "\(label): the other source on a new attempt")
+                    XCTAssertNotEqual(model.playbackState, .failed, label)
+                    XCTAssertNotEqual(LiveSourceHealthStore.matchEvidence(for: next.legacySource,
+                        fixtureID: fixture.event.id), .wrongProgramme, "\(label): only the rejected delivery is marked")
+                } else {
+                    XCTAssertEqual(model.playbackState, .failed, label)
+                    XCTAssertEqual(model.errorTitle, "No matching broadcast", label)
+                    XCTAssertNotNil(model.error, label)
+                    XCTAssertEqual(model.activeSource?.id, rejected.id, "\(label): nothing else replaces it")
+                    // Held like a blocked picture: the rejected page is unmounted
+                    // (a changed attempt ID would otherwise reload it).
+                    XCTAssertEqual(model.viewerExhaustedSourceID, rejected.id, label)
+                    XCTAssertTrue(model.shouldSuspendWebPlayback, label)
+                    XCTAssertFalse(model.shouldDisplayWebPlayback, label)
+                    // Late callbacks from the old or the terminal attempt start nothing.
+                    let terminal = model.loadRequestID, message = model.error
+                    let lookupsBefore = fixture.lookups.requests.count, validationsBefore = fixture.validations.urls
+                    for requestID in [attempt, terminal] {
+                        if web {
+                            model.handleWebEmbedPlaybackStarted(sourceID: rejected.id, requestID: requestID, startupLatencyMs: 10)
+                            model.handleWebEmbedPlaybackRecovered(sourceID: rejected.id, requestID: requestID)
+                            model.handleWebEmbedFailure(sourceID: rejected.id, requestID: requestID, reason: "Playback stalled")
+                        } else {
+                            model.validateRecoverableStall(for: rejected, reason: "Late native stall", requestID: requestID)
+                            model.handleSourceStartupFailure(rejected, reason: "Late native stall", countsAsStall: true,
+                                expectedRequestID: requestID)
+                        }
+                    }
+                    XCTAssertEqual(model.loadRequestID, terminal, "\(label): no reload after late callbacks")
+                    XCTAssertEqual(model.playbackState, .failed, label)
+                    XCTAssertEqual(model.errorTitle, "No matching broadcast", label)
+                    XCTAssertEqual(model.error, message, label)
+                    XCTAssertEqual(model.viewerExhaustedSourceID, rejected.id, label)
+                    XCTAssertTrue(model.shouldSuspendWebPlayback, label)
+                    XCTAssertFalse(model.shouldDisplayWebPlayback, label)
+                    XCTAssertNil(model.webRetryTask, "\(label): no hidden retry")
+                    XCTAssertEqual(fixture.lookups.requests.count, lookupsBefore, "\(label): no hidden lookup")
+                    XCTAssertEqual(fixture.validations.urls, validationsBefore, "\(label): no hidden validation")
+                }
+                // Let any work Play queued finish, then prove the rejected
+                // delivery never received Play or a new validation.
+                let queuedAudio = model.audioPreparationTask, queuedLoad = model.loadTask
+                await queuedAudio?.value
+                await queuedLoad?.value
+                if let player = fixture.player {
+                    XCTAssertEqual(player.playCount, 0, "\(label): the rejected item never resumes")
+                }
+                XCTAssertFalse(fixture.validations.urls.contains(rejected.url), label)
+                XCTAssertEqual(viewerWrongMatchRecords(attempt).count, 1, "\(label): Play adds no second rejection")
+                XCTAssertTrue(viewerWrongMatchRecords(model.loadRequestID).isEmpty, label)
+                XCTAssertEqual(model.sessions.map(\.id), order, "\(label): source order is unchanged")
+            }
+        }
+    }
+
+    /// The repair covers only Play after an explicit Pause. Toggling while a
+    /// wanted attempt is still connecting keeps its existing semantics, even
+    /// when that delivery carries wrong-programme evidence.
+    func testConnectingToggleWithWrongProgrammeEvidenceKeepsItsExistingSemantics() async throws {
+        for web in [false, true] {
+            let label = web ? "web" : "native"
+            let fixture = try await pausedWrongMatchFixture(web: web, sourceCount: 1)
+            let model = fixture.model
+            let original = MatchListViewModel.shared.matches
+            MatchListViewModel.shared.matches = [fixture.event]
+            defer { MatchListViewModel.shared.matches = original; model.cleanup() }
+            let session = try XCTUnwrap(model.activeSession), attempt = model.loadRequestID
+            model.transition(to: .connecting(web ? .webEmbed : .native), phase: "Connecting...")
+            LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: session.legacySource,
+                fixtureID: fixture.event.id, watchID: UUID(), at: Date(), session: session)
+            XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session), .wrongProgramme, label)
+            XCTAssertTrue(model.userWantsPlayback, label)
+
+            model.togglePlayPause()
+            let queuedAudio = model.audioPreparationTask
+            await queuedAudio?.value
+
+            XCTAssertEqual(model.loadRequestID, attempt, "\(label): no new attempt while playback was still wanted")
+            XCTAssertNil(model.viewerExhaustedSourceID, label)
+            XCTAssertNotEqual(model.playbackState, .failed, label)
+            XCTAssertNil(model.error, label)
+            XCTAssertEqual(model.activeSource?.id, session.id, label)
+            if web { XCTAssertEqual(model.webPlaybackCommand?.shouldPlay, true, label) }
+        }
+    }
+
     func testSingleWebInitialMetricsRemainOnceWhenDecodedStagePrecedesRepeatedOwnerStarts() async throws {
         let delay = ControlledWebRetryDelay()
         let model = try await makePlayer(delay: delay, markPlaying: false)

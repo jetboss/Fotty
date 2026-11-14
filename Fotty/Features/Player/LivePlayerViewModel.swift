@@ -246,9 +246,11 @@ final class LivePlayerViewModel {
         isUsingWebEmbed && !isRetiringWebForNativeWatchTwo
             && (viewerExhaustedSourceID == nil || viewerExhaustedSourceID != activeSource?.id)
     }
-    /// A source the viewer reported blocked with no other broadcast left. Its
-    /// Web surface is unmounted (not reloaded) until Retry or another source;
-    /// keeping the same attempt ID avoids remounting the blocked page.
+    /// A source the viewer reported blocked, or a wrong-programme delivery,
+    /// with no other broadcast left. Its Web surface is unmounted (not
+    /// reloaded) and its late callbacks start nothing until Retry or another
+    /// source; for a blocked picture the same attempt ID also avoids
+    /// remounting the page.
     private(set) var viewerExhaustedSourceID: UUID?
     /// The delivery this attempt actually prepared, with the exact cookie
     /// snapshot and the lookup's opaque listing attached. Only these facts can
@@ -1102,6 +1104,22 @@ final class LivePlayerViewModel {
         // Failed attempts require the existing explicit Retry/source path.
         // Play must not publish a playing state that preparation will reject.
         guard error == nil, playbackState != .failed else { return }
+        // Only Play after an explicit Pause; connecting or recovering with
+        // playback still wanted keeps its existing toggle semantics.
+        let isExplicitResume = !userWantsPlayback
+            && (isUsingWebEmbed ? !isPlaying : !(isPlaying || hasPendingNativePlay))
+        if isExplicitResume, activeDeliveryIsRejectedSingleMatch {
+            // Wrong match can be reported while paused (Sources sheet); its
+            // recovery correctly waited for this Play. Never resume the
+            // rejected page or item: a new attempt applies the existing
+            // wrong-programme skip, failing over or ending honestly.
+            userWantsPlayback = true
+            shouldResumeAfterForeground = false
+            loadCurrentSource()
+            updateNowPlayingInfo()
+            scheduleAutoHide()
+            return
+        }
         if isUsingWebEmbed {
             let shouldPlay = !isPlaying
             userWantsPlayback = shouldPlay
@@ -1176,6 +1194,14 @@ final class LivePlayerViewModel {
         }
         updateNowPlayingInfo()
         scheduleAutoHide()
+    }
+
+    /// The selected single-match delivery carries the existing wrong-programme
+    /// evidence (the same check `loadCurrentSource` applies before any start).
+    private var activeDeliveryIsRejectedSingleMatch: Bool {
+        guard usesSingleStreamRanking, viewingPlaybackContext == .single, !event.isBroadcastChannel,
+              isPlaybackSessionActive, !isPlaybackSessionRetired, let session = activeSession else { return false }
+        return LiveSourceHealthStore.matchEvidence(for: session) == .wrongProgramme
     }
 
     func toggleFillMode() { isFillMode.toggle(); scheduleAutoHide() }
@@ -2122,6 +2148,12 @@ final class LivePlayerViewModel {
             } else {
                 errorTitle = wrongProgramme ? "No matching broadcast" : "Sources Temporarily Unavailable"
                 error = wrongProgramme ? "This source showed a different programme. Retry to look for another broadcast." : "Automatic switching is paused because every source failed recently. Choose a source to retry it manually."
+                if wrongProgramme {
+                    // Hold the rejected delivery as a blocked picture is held:
+                    // its Web page is unmounted, not reloaded for this attempt.
+                    viewerExhaustedSourceID = source.id
+                    shouldSuspendWebPlayback = true
+                }
                 transition(to: .failed, phase: "Choose Broadcast Source")
                 showControls = true
             }

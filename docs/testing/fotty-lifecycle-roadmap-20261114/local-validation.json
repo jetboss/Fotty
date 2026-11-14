@@ -1,0 +1,106 @@
+{
+  "base": "c76a93d601f69d3905c43dbb4895dda5b1ac27b3",
+  "scope": "single-stream paused wrong-programme lifecycle",
+  "tests": [
+    {
+      "action": "compile-catalyst",
+      "label": "red-compile",
+      "exitCode": 0,
+      "passed": true,
+      "sourceUnchanged": true,
+      "counts": null,
+      "skippedTests": [],
+      "failedTests": []
+    },
+    {
+      "action": "test",
+      "label": "paused-wrong-red",
+      "exitCode": 65,
+      "passed": false,
+      "sourceUnchanged": true,
+      "counts": {
+        "testMethodsFailed": 1,
+        "assertionFailures": 20,
+        "skipped": 0
+      },
+      "skippedTests": [],
+      "failedTests": [
+        "-[FottyTests.LivePlayerRetryLifecycleTests testPausedWrongMatchKeepsPauseAndExplicitPlayNeverResumesTheRejectedDelivery]"
+      ],
+      "note": "Original running-driver parser counted assertion lines as failed tests; normalized against XCTest method result."
+    },
+    {
+      "action": "compile-catalyst",
+      "label": "green-compile",
+      "exitCode": 0,
+      "passed": true,
+      "sourceUnchanged": true,
+      "counts": null,
+      "skippedTests": [],
+      "failedTests": []
+    },
+    {
+      "action": "test",
+      "label": "focused-green",
+      "exitCode": 0,
+      "passed": true,
+      "sourceUnchanged": true,
+      "counts": {
+        "total": 261,
+        "skipped": 0,
+        "failed": 0,
+        "passed": 261
+      },
+      "skippedTests": [],
+      "failedTests": []
+    },
+    {
+      "action": "test",
+      "label": "full-green",
+      "exitCode": 0,
+      "passed": true,
+      "sourceUnchanged": true,
+      "counts": {
+        "total": 2785,
+        "skipped": 12,
+        "failed": 0,
+        "passed": 2773
+      },
+      "skippedTests": [
+        "-[FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistryRefreshReconcilesSavedBaselineWithoutLosingFreshTV]",
+        "-[FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistrySnapshotPassesActualNativeWireValidation]",
+        "-[FottyTests.CNCSportsPhysicalCanaryTests testReviewedCNCDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]",
+        "-[FottyTests.FlixStreamsAddonTests testPhysicalFlixDecodedVideoCanary]",
+        "-[FottyTests.FlixStreamsAddonTests testPhysicalFlixSecondDecodedVideoCanary]",
+        "-[FottyTests.PlavioSportsAddonTests testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]",
+        "-[FottyTests.PlaybackPolicyTests testReferenceHLSMaintainsOneAttemptDuringSoak]",
+        "-[FottyTests.ReviewedRelayThroughputPhysicalTests testSyntheticOneMiBDirectBytesAndGuardedRelayThroughputOnPhysicalDevice]",
+        "-[FottyTests.Score808SiteCatalogTests testOptInCurrentProviderDiscovery]",
+        "-[FottyTests.SourceConnectionToolTests testAllEnabledSourcesForVerifiedFootballFixture]",
+        "-[FottyTests.SourceConnectionToolTests testOptInNHLRegisteredCSMetadata]",
+        "-[FottyTests.SourceConnectionToolTests testReviewedTVExpandedChannelsThroughGuardedDecoder]"
+      ],
+      "failedTests": []
+    }
+  ],
+  "changedSourceSHA256": {
+    "Fotty/Features/Player/LivePlayerViewModel.swift": "7f40d218980c518413c543407dc462aba32f875cf85c0155c20284b517fa3b47",
+    "FottyTests/LivePlayerRetryLifecycleTests.swift": "7ef272152544c007799a5e39377023d0c6c462f31660d028678561e14dc872ea"
+  },
+  "review": "Genuine Claude CLI implementation plus Codex independent review; no remaining P1/P2 findings.",
+  "limits": [
+    "12 opt-in/physical cases skipped; not playback passes",
+    "Historical audio test crash cause remains unproven",
+    "Memory finish export ran but doctor failed on pre-existing Current-State.md >8KB; generated export left out to preserve unrelated primary edits"
+  ],
+  "release": {
+    "exitCode": 0,
+    "passed": true,
+    "sourceUnchanged": true,
+    "version": "3.0.0",
+    "build": 328,
+    "appAndExtensionSignature": "verified",
+    "installedNormalJetBuild": 328,
+    "phoneTouched": false
+  }
+}
