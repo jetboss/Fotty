@@ -61,10 +61,19 @@ remain Claude's integration work. No device has received this branch.
   the sample cap still receive in-memory listing provenance but do not have an
   individual diagnostic row.
 - Receipts use the existing 250-record quality store, not another telemetry
-  service. Summary and delivery samples are retained/evicted as one cohort.
-  Existing Watch-outcome reservation and retention limits remain. Counts are
-  explicitly for retained evidence in the requested window, not lifetime
-  provider totals. Old admission records remain separate from these records.
+  service. Lookup summaries participate in ordinary bounded retention
+  independently of their samples. Playback, audio, Watch outcomes and all other
+  ordinary records are selected first. Whole sample groups from only the newest
+  two retained lookups may use remaining capacity; they reserve no slots and
+  cannot evict ordinary records. Equal-time lookups use append order.
+- Dropping a lookup's samples preserves its summary and raw/read totals, marks
+  it truncated and not reconciled, and makes aggregate unique-contract counts
+  explicitly incomplete. The newest empty/unread searches do not revive older
+  samples. Retained summaries still deduplicate replay after sample eviction;
+  persisted older records receive this policy on read. Existing Watch-outcome
+  reservation, total record bound and time retention remain. “Keep summaries”
+  does not mean unlimited history: ordinary time/count limits still apply.
+  Old admission records remain separate from these records.
 - `provider_lookup` and `provider_delivery` contain only finite enums/counts,
   device-keyed HMACs and local UUIDs. Raw fixture/listing identifiers, labels,
   URLs, query tokens, headers and cookies are absent from the new records.
@@ -122,6 +131,9 @@ this branch. Review Task 2 before merging it into the shared baseline.
 
 ## Verification
 
+The original `d137939` results follow. The required retention review correction
+and its later validation are documented below and in `retention-review.json`.
+
 The full Catalyst suite passed: **2,754 passed, 12 opt-in skipped, 0 failed
 (2,766 total)**. All **37 added regression tests** passed. Exact tested source
 hashes, skipped tests and the isolated project hash are in `validation.json`.
@@ -150,3 +162,27 @@ The primary checkout and paused broad worktree remain untouched. The existing
 local brain check reports `Current-State.md` above its 8 KB limit; this scoped
 handoff preserves the Task 2 facts without editing Claude's roadmap or the
 shared historical summaries.
+
+## Claude retention review correction
+
+Claude's 14 November review accepted the evidence design, privacy and
+prepared-provenance bridge, but found that up to 65 records per lookup could
+evict earlier viewing evidence. The original atomic summary/sample retention
+policy was wrong. Limiting samples to two lookups alone would still consume
+space ahead of viewing records, so the correction uses **only spare capacity
+after ordinary retention**. No new storage or increased total capacity is used.
+
+Only `FottyLogger.swift` and `WatchOutcomeRecordTests.swift` change in this
+follow-up. The old summary-plus-sample eviction test is replaced with coverage
+for preserved summaries, global sample limits, equal-time order, replay and
+truthful counts. Four additional regressions cover a six-search flood after
+playback/audio/Watch records, near-full viewing history, legacy persisted
+records/orphan samples, and empty/unread searches. The sanitizer test uses an
+ordinary summary record because orphan delivery samples are now discarded.
+
+The full Catalyst suite passed on the frozen two-file change: **2,758 passed,
+12 opt-in skipped, 0 failed (2,770 total)**, including all five retention
+regression scenarios. One isolated gate used the existing Task 1 membership
+patch; the exact source hashes and skipped tests are in `retention-review.json`.
+Ranking, admission, configuration
+generation, player/UI, devices, project integration and TestFlight are unchanged.

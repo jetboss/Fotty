@@ -60,7 +60,7 @@ final class WatchOutcomeRecordTests: XCTestCase {
     }
 
     func testEvidenceDetailValidationRejectsRawValuesAndInvalidCounters() {
-        store.record(category: .playback, name: "provider_delivery", outcome: .info, details: [
+        store.record(category: .playback, name: "provider_lookup", outcome: .info, details: [
             "evidence_contract": "https://private.example/token", "evidence_listing": "private-listing",
             "evidence_lookup_id": "secret", "evidence_generation": "secret", "evidence_comparison": "Liverpool vs Arsenal",
             "evidence_entry_index": "-1", "evidence_read_responses": "1000001", "evidence_has_name": "maybe",
@@ -110,16 +110,114 @@ final class WatchOutcomeRecordTests: XCTestCase {
         XCTAssertTrue(counts.isTruncated)
     }
 
-    func testProviderReceiptCohortsAreEvictedWholeUnderTheExistingBound() throws {
-        for _ in 0..<6 { store.recordProviderLookup(try evidenceReceipt(mode: "capped")) }
+    func testProviderSummariesSurviveSampleLimitAndReplayDoesNotRestoreEvictedSamples() throws {
+        let date = Date()
+        let receipts = try (0..<6).map { _ in try evidenceReceipt(mode: "capped", date: date) }
+        for receipt in receipts { store.recordProviderLookup(receipt) }
+        // A later unrelated write must preserve equal-time append ordering too.
+        store.record(category: .playback, name: "audio_activation_evidence", outcome: .info)
         let records = store.records()
         XCTAssertLessThanOrEqual(records.count, 250)
+        XCTAssertEqual(records.filter { $0.name == "provider_lookup" }.count, 6)
+        let samples = records.filter { $0.name == "provider_delivery" }
+        XCTAssertEqual(samples.count, 128)
+        XCTAssertEqual(Set(samples.compactMap { $0.details["evidence_lookup_id"] }),
+            Set(receipts.suffix(2).map { $0.lookupID.uuidString.lowercased() }))
+        let retainedIDs = Set(receipts.suffix(2).map { $0.lookupID.uuidString.lowercased() })
         for summary in records where summary.name == "provider_lookup" {
-            let members = records.filter { $0.name == "provider_delivery"
-                && $0.details["evidence_lookup_id"] == summary.details["evidence_lookup_id"] }
-            XCTAssertEqual(members.count, 64)
+            XCTAssertEqual(summary.details["evidence_reconciled"],
+                retainedIDs.contains(summary.details["evidence_lookup_id"] ?? "") ? "true" : "false")
+            if !retainedIDs.contains(summary.details["evidence_lookup_id"] ?? "") {
+                XCTAssertEqual(summary.details["evidence_truncated"], "true")
+            }
         }
-        XCTAssertFalse(records.filter { $0.name == "provider_lookup" }.isEmpty)
+        store.recordProviderLookup(receipts[0])
+        XCTAssertEqual(store.records(), records, "A retained summary still deduplicates a lookup after its samples expire")
+        let counts = store.fixtureLookupCounts(fixture: receipts[0].fixture, provider: .highfly,
+            window: .init(start: date.addingTimeInterval(-1), end: date.addingTimeInterval(1)))
+        XCTAssertEqual(counts.lookups, 6)
+        XCTAssertEqual(counts.observedEntries, 420)
+        XCTAssertEqual(counts.readResponses, 6)
+        XCTAssertEqual(counts.uniqueObservedContracts, 64)
+        XCTAssertTrue(counts.isTruncated, "Evicted samples cannot claim complete contract coverage")
+    }
+
+    func testLargeProviderSearchesCannotEvictEarlierPlaybackAudioOrWatchOutcomes() throws {
+        let attempt = UUID().uuidString, audioJob = UUID().uuidString
+        for index in 0..<100 {
+            store.record(category: .playback, name: index == 0 ? "attempt_started" : "decoded_progress", outcome: .success,
+                details: ["attempt_id": attempt])
+        }
+        for _ in 0..<2 {
+            store.record(category: .playback, name: "audio_activation_evidence", outcome: .success,
+                details: ["audio_job_id": audioJob])
+        }
+        let recorder = recorder(), watch = UUID()
+        recorder.begin(watchID: watch, competition: "premier-league", sport: "football")
+        recorder.picture(watchID: watch, family: "HF")
+        let before = store.records()
+        for _ in 0..<6 { store.recordProviderLookup(try evidenceReceipt(mode: "capped")) }
+        let after = store.records()
+        XCTAssertTrue(Set(before.map(\.id)).isSubset(of: Set(after.map(\.id))))
+        XCTAssertEqual(after.filter { $0.details["attempt_id"] == attempt }, before.filter { $0.details["attempt_id"] == attempt })
+        XCTAssertEqual(after.filter { $0.details["audio_job_id"] == audioJob }.count, 2)
+        XCTAssertEqual(outcomes().count, 1)
+        XCTAssertEqual(after.filter { $0.name == "provider_lookup" }.count, 6)
+        XCTAssertEqual(after.filter { $0.name == "provider_delivery" }.count, 128)
+        XCTAssertLessThanOrEqual(after.count, 250)
+    }
+
+    func testProviderSamplesYieldAllCapacityToNearlyFullViewingHistory() throws {
+        let attempt = UUID().uuidString
+        for _ in 0..<230 {
+            store.record(category: .playback, name: "native_diagnostic", outcome: .info, details: ["attempt_id": attempt])
+        }
+        let before = store.records()
+        for _ in 0..<6 { store.recordProviderLookup(try evidenceReceipt(mode: "capped")) }
+        let after = store.records()
+        XCTAssertEqual(after.filter { $0.details["attempt_id"] == attempt }, before)
+        XCTAssertEqual(after.filter { $0.name == "provider_lookup" }.count, 6)
+        XCTAssertTrue(after.filter { $0.name == "provider_delivery" }.isEmpty,
+            "Samples reserve no slots and cannot force a playback cohort out")
+        XCTAssertTrue(after.filter { $0.name == "provider_lookup" }.allSatisfy {
+            $0.details["evidence_truncated"] == "true" && $0.details["evidence_reconciled"] == "false"
+        })
+        XCTAssertEqual(after.count, 236)
+    }
+
+    func testLegacyProviderSamplesArePrunedOnReadWithoutLosingSummariesOrOrphaningEntries() throws {
+        var legacy: [FottyQualityRecord] = []
+        let date = Date()
+        let receipts = try (0..<3).map { _ in try evidenceReceipt(mode: "capped", date: date) }
+        for receipt in receipts {
+            let isolated = FottyQualityStore(defaults: defaults, storageKey: "legacy-source")
+            isolated.clear(); isolated.recordProviderLookup(receipt)
+            legacy += isolated.records()
+        }
+        let orphan = try XCTUnwrap(legacy.first { $0.name == "provider_delivery" })
+        var orphanDetails = orphan.details
+        orphanDetails["evidence_lookup_id"] = UUID().uuidString.lowercased()
+        legacy.append(.init(id: UUID(), timestamp: date, category: .playback, name: "provider_delivery", outcome: .info,
+            durationMilliseconds: nil, details: orphanDetails, appVersion: orphan.appVersion, appBuild: orphan.appBuild))
+        defaults.set(try JSONEncoder().encode(legacy), forKey: "watch-outcomes")
+        let reloaded = FottyQualityStore(defaults: defaults, storageKey: "watch-outcomes")
+        let result = reloaded.records()
+        XCTAssertEqual(result.filter { $0.name == "provider_lookup" }.count, 3)
+        let samples = result.filter { $0.name == "provider_delivery" }
+        XCTAssertEqual(samples.count, 128)
+        XCTAssertEqual(Set(samples.compactMap { $0.details["evidence_lookup_id"] }),
+            Set(receipts.suffix(2).map { $0.lookupID.uuidString.lowercased() }))
+        XCTAssertEqual(try JSONDecoder().decode([FottyQualityRecord].self,
+            from: XCTUnwrap(defaults.data(forKey: "watch-outcomes"))), result)
+    }
+
+    func testNewEmptySearchesDoNotReviveOlderDeliverySamples() throws {
+        store.recordProviderLookup(try evidenceReceipt(mode: "capped"))
+        store.recordProviderLookup(try evidenceReceipt(mode: "empty"))
+        store.recordProviderLookup(try evidenceReceipt(mode: "unread"))
+        let records = store.records()
+        XCTAssertEqual(records.filter { $0.name == "provider_lookup" }.count, 3)
+        XCTAssertTrue(records.filter { $0.name == "provider_delivery" }.isEmpty)
     }
 
     private func evidenceReceipt(fixture: String = "private-fixture-sentinel", mode: String = "normal",

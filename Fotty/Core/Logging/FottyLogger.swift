@@ -674,6 +674,8 @@ final class FottyQualityStore {
     static let reservedWatchOutcomes = 100
     static let routineRefreshNames: Set<String> = ["live_refresh", "schedule_refresh"]
     static let maximumRoutineRefreshSuccesses = 40
+    /// Optional diagnostic samples never reserve space ahead of viewing records.
+    static let maximumProviderDeliveryLookups = 2
 
     private let defaults: UserDefaults
     private let storageKey: String
@@ -712,7 +714,7 @@ final class FottyQualityStore {
                               fetchFailures: fetchFailures, name: "stream_admission")
     }
 
-    /// One atomic diagnostic cohort per lookup. Replayed receipts do not become
+    /// One atomic diagnostic write per lookup. Replayed receipts do not become
     /// extra lookups, and a partial response is never written as an empty one.
     /// This does not publish telemetry or influence source selection.
     func recordProviderLookup(_ receipt: ProviderLookupReceipt) {
@@ -1102,11 +1104,11 @@ final class FottyQualityStore {
                 routineSuccesses += 1
                 return routineSuccesses <= maximumRoutineRefreshSuccesses
             }
-        let cohorts = Dictionary(grouping: retained) { record in
-            if record.category == .playback, ["provider_lookup", "provider_delivery"].contains(record.name),
-               let lookup = record.details["evidence_lookup_id"], UUID(uuidString: lookup) != nil {
-                return "provider_lookup:\(record.details["source_family"] ?? "unknown"):\(lookup)"
-            }
+        // Select the ordinary records exactly as if verbose delivery samples
+        // did not exist. A summary is one ordinary record; losing its optional
+        // samples must never remove the lookup or crowd out playback/audio.
+        let ordinary = retained.filter { !isProviderDelivery($0) }
+        let cohorts = Dictionary(grouping: ordinary) { record in
             if record.category == .playback, let attemptID = record.details["attempt_id"] {
                 return "playback:\(attemptID)"
             }
@@ -1119,9 +1121,9 @@ final class FottyQualityStore {
             ($0.map(\.timestamp).max() ?? .distantPast) > ($1.map(\.timestamp).max() ?? .distantPast)
         }
 
-        let reserved = Set(retained.filter { $0.category == .playback && $0.name == WatchOutcomeRecorder.recordName }
+        let reserved = Set(ordinary.filter { $0.category == .playback && $0.name == WatchOutcomeRecorder.recordName }
             .prefix(reservedWatchOutcomes).map(\.id))
-        var selected = retained.filter { reserved.contains($0.id) }
+        var selected = ordinary.filter { reserved.contains($0.id) }
         for cohort in cohorts where !cohort.contains(where: { reserved.contains($0.id) }) {
             if selected.count == reserved.count, cohort.count > maximumRecords - reserved.count {
                 selected.append(contentsOf: cohort.sorted { $0.timestamp < $1.timestamp }
@@ -1131,7 +1133,50 @@ final class FottyQualityStore {
             guard selected.count + cohort.count <= maximumRecords else { continue }
             selected.append(contentsOf: cohort)
         }
-        return selected.sorted { $0.timestamp < $1.timestamp }
+
+        let selectedIDs = Set(selected.map(\.id))
+        // Reversing the input before a stable timestamp sort breaks equal-time
+        // ties by newest append. Never revive an older sample cohort just
+        // because a newer search is empty or its samples do not fit.
+        let latestLookups = records.reversed().filter {
+            selectedIDs.contains($0.id) && $0.category == .playback && $0.name == "provider_lookup"
+                && providerLookupKey($0) != nil
+        }.sorted { $0.timestamp > $1.timestamp }.prefix(maximumProviderDeliveryLookups)
+        let samplesByLookup = Dictionary(grouping: retained.filter(isProviderDelivery)) { providerLookupKey($0) }
+        var retainedSampleCounts: [String: Int] = [:]
+        for summary in latestLookups {
+            guard let key = providerLookupKey(summary), let samples = samplesByLookup[key],
+                  samples.count <= StreamLookupEvidence.maximumDeliveries,
+                  selected.count + samples.count <= maximumRecords else { continue }
+            selected.append(contentsOf: samples)
+            retainedSampleCounts[key] = samples.count
+        }
+        selected = selected.map { record in
+            guard record.category == .playback, record.name == "provider_lookup",
+                  let key = providerLookupKey(record), let value = record.details["evidence_retained_entries"],
+                  let expected = Int(value), expected > retainedSampleCounts[key, default: 0] else { return record }
+            var details = record.details
+            details["evidence_truncated"] = "true"
+            details["evidence_reconciled"] = "false"
+            return .init(id: record.id, timestamp: record.timestamp, category: record.category,
+                name: record.name, outcome: record.outcome, durationMilliseconds: record.durationMilliseconds,
+                details: details, appVersion: record.appVersion, appBuild: record.appBuild)
+        }
+        let positions = records.enumerated().reduce(into: [UUID: Int]()) { $0[$1.element.id] = $1.offset }
+        return selected.sorted {
+            if $0.timestamp == $1.timestamp { return positions[$0.id, default: 0] < positions[$1.id, default: 0] }
+            return $0.timestamp < $1.timestamp
+        }
+    }
+
+    private static func isProviderDelivery(_ record: FottyQualityRecord) -> Bool {
+        record.category == .playback && record.name == "provider_delivery"
+    }
+
+    private static func providerLookupKey(_ record: FottyQualityRecord) -> String? {
+        guard let provider = record.details["source_family"],
+              let lookup = record.details["evidence_lookup_id"], UUID(uuidString: lookup) != nil else { return nil }
+        return "\(provider):\(lookup)"
     }
 
     private static func validCorrelationDetail(_ key: String, value: String) -> Bool {

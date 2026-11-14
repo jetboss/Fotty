@@ -1,0 +1,71 @@
+{
+  "date": "2026-11-14",
+  "baseCommit": "d1379394619f4a902cb86f410341bc481603196c",
+  "review": "Claude: merge after isolating delivery samples from viewing records",
+  "policy": {
+    "maximumTotalRecords": 250,
+    "maximumSampleLookups": 2,
+    "maximumSamplesPerLookup": 64,
+    "reservedSampleSlots": 0,
+    "ordinaryRecordsSelectedFirst": true,
+    "wholeSampleGroups": true,
+    "summariesSurviveSampleEviction": true,
+    "droppedSampleSummariesTruncated": true,
+    "droppedSampleSummariesReconciled": false
+  },
+  "verification": {
+    "status": "passed",
+    "platform": "Mac Catalyst arm64",
+    "suite": "FottyTests",
+    "sourceSHA256": {
+      "Fotty/Core/Logging/FottyLogger.swift": "8b13eab6d631e38c6774bf063823c6efed9b2d24734f6431ba7e64e4a4501f72",
+      "FottyTests/WatchOutcomeRecordTests.swift": "efee3c47a2e5dbe60539cb1e3a6901899ae37e48fe9fbb1dd5563b57665ebf37"
+    },
+    "projectSHA256": "6d7bcfb7c1763affd95f57fc4980e7bf6ae771e5c223d4505f45454b8d73e515",
+    "projectMembership": "Unchanged Task 1 patch, isolated test checkout only",
+    "regressionTests": [
+      "testProviderSummariesSurviveSampleLimitAndReplayDoesNotRestoreEvictedSamples",
+      "testLargeProviderSearchesCannotEvictEarlierPlaybackAudioOrWatchOutcomes",
+      "testProviderSamplesYieldAllCapacityToNearlyFullViewingHistory",
+      "testLegacyProviderSamplesArePrunedOnReadWithoutLosingSummariesOrOrphaningEntries",
+      "testNewEmptySearchesDoNotReviveOlderDeliverySamples"
+    ],
+    "netNewTests": 4,
+    "result": "Passed",
+    "passed": 2758,
+    "failed": 0,
+    "skipped": 12,
+    "total": 2770,
+    "regressionScenariosPassed": 5,
+    "sourceHashesVerifiedAfterRun": true,
+    "skippedTests": [
+      "BroadcastRegistryIntegrationTests/testOptInProductionRegistryRefreshReconcilesSavedBaselineWithoutLosingFreshTV()",
+      "BroadcastRegistryIntegrationTests/testOptInProductionRegistrySnapshotPassesActualNativeWireValidation()",
+      "CNCSportsPhysicalCanaryTests/testReviewedCNCDeliveryDecodesThroughGuardedRelayOnPhysicalDevice()",
+      "FlixStreamsAddonTests/testPhysicalFlixDecodedVideoCanary()",
+      "FlixStreamsAddonTests/testPhysicalFlixSecondDecodedVideoCanary()",
+      "PlavioSportsAddonTests/testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice()",
+      "PlaybackPolicyTests/testReferenceHLSMaintainsOneAttemptDuringSoak()",
+      "ReviewedRelayThroughputPhysicalTests/testSyntheticOneMiBDirectBytesAndGuardedRelayThroughputOnPhysicalDevice()",
+      "Score808SiteCatalogTests/testOptInCurrentProviderDiscovery()",
+      "SourceConnectionToolTests/testAllEnabledSourcesForVerifiedFootballFixture()",
+      "SourceConnectionToolTests/testOptInNHLRegisteredCSMetadata()",
+      "SourceConnectionToolTests/testReviewedTVExpandedChannelsThroughGuardedDecoder()"
+    ]
+  },
+  "scope": {
+    "rankingChanged": false,
+    "providerAdapterChanges": false,
+    "playerUIChanged": false,
+    "projectFileChanged": false,
+    "plansChanged": false,
+    "deviceInteractions": false,
+    "testFlight": false,
+    "push": false
+  },
+  "memoryCheck": {
+    "exitCode": 1,
+    "existingCurrentStateBudgetFailure": true,
+    "generatedExportRestored": true
+  }
+}
