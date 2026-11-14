@@ -5,6 +5,153 @@ import XCTest
 /// Every store here is an isolated defaults suite; nothing reaches the network.
 @MainActor
 final class WatchOutcomeRecordTests: XCTestCase {
+    func testProviderReceiptsDeduplicateLookupsButCountRepeatedReadsAndUniqueContractsSeparately() throws {
+        let first = try evidenceReceipt()
+        store.recordProviderLookup(first)
+        store.recordProviderLookup(first)
+        let second = try evidenceReceipt()
+        store.recordProviderLookup(second)
+        let window = DateInterval(start: Date().addingTimeInterval(-60), end: Date().addingTimeInterval(60))
+        let counts = store.fixtureLookupCounts(fixture: first.fixture, provider: .highfly, window: window)
+        XCTAssertEqual(counts.lookups, 2)
+        XCTAssertEqual(counts.observedEntries, 4)
+        XCTAssertEqual(counts.uniqueObservedContracts, 1, "The same executable contract seen twice is not two independent streams")
+        XCTAssertEqual(counts.readResponses, 2)
+        XCTAssertEqual(counts.unreadResponses, 0)
+        XCTAssertEqual(counts.knownEmptyResponses, 0)
+        XCTAssertFalse(counts.isTruncated)
+        XCTAssertEqual(store.records().filter { $0.name == "provider_delivery" }.count, 4)
+        XCTAssertEqual(store.records().filter { $0.name == "provider_lookup" }.count, 2)
+    }
+
+    func testProviderUnreadAndKnownEmptyAreDifferentAndFixturesDoNotMix() throws {
+        let unread = try evidenceReceipt(mode: "unread")
+        let empty = try evidenceReceipt(mode: "empty")
+        store.recordProviderLookup(unread); store.recordProviderLookup(empty)
+        store.recordProviderLookup(try evidenceReceipt(fixture: "another-private-fixture"))
+        let counts = store.fixtureLookupCounts(fixture: unread.fixture, provider: .highfly,
+            window: .init(start: Date().addingTimeInterval(-60), end: Date().addingTimeInterval(60)))
+        XCTAssertEqual(counts.lookups, 2)
+        XCTAssertEqual(counts.observedEntries, 0, "Zero observed entries is not a claim that an unread provider offered zero")
+        XCTAssertEqual(counts.readResponses, 1)
+        XCTAssertEqual(counts.unreadResponses, 1)
+        XCTAssertEqual(counts.knownEmptyResponses, 1)
+        let other = store.fixtureLookupCounts(fixture: unread.fixture, provider: .penguPlay, window: counts.window)
+        XCTAssertEqual(other.lookups, 0)
+    }
+
+    func testProviderReceiptExportContainsOpaqueCorrelationOnly() throws {
+        let receipt = try evidenceReceipt()
+        store.recordProviderLookup(receipt)
+        let data = try JSONEncoder().encode(store.records())
+        let text = String(decoding: data, as: UTF8.self)
+        for raw in ["private-fixture-sentinel", "private-listing-sentinel", "media.example.test",
+                    "private-token-sentinel", "private-header-sentinel", "Liverpool", "Arsenal"] {
+            XCTAssertFalse(text.contains(raw), raw)
+        }
+        let delivery = try XCTUnwrap(store.records().first { $0.name == "provider_delivery" })
+        XCTAssertEqual(delivery.details["evidence_fixture"]?.count, 64)
+        XCTAssertEqual(delivery.details["evidence_contract"]?.count, 64)
+        XCTAssertEqual(delivery.details["evidence_comparison"], "agrees")
+        XCTAssertEqual(delivery.details["evidence_has_name"], "true")
+        XCTAssertEqual(delivery.details["source_id"], try XCTUnwrap(receipt.deliveries[0].sourceID).uuidString.lowercased())
+        XCTAssertNil(store.records().first { $0.name == "provider_delivery"
+            && $0.details["evidence_disposition"] == "duplicate" }?.details["source_id"])
+    }
+
+    func testEvidenceDetailValidationRejectsRawValuesAndInvalidCounters() {
+        store.record(category: .playback, name: "provider_delivery", outcome: .info, details: [
+            "evidence_contract": "https://private.example/token", "evidence_listing": "private-listing",
+            "evidence_lookup_id": "secret", "evidence_generation": "secret", "evidence_comparison": "Liverpool vs Arsenal",
+            "evidence_entry_index": "-1", "evidence_read_responses": "1000001", "evidence_has_name": "maybe",
+            "evidence_disposition": "some raw provider error", "evidence_schema": "9"])
+        XCTAssertEqual(store.records().last?.details, [:])
+    }
+
+    func testDelayedReceiptBelongsToItsObservationWindowInsteadOfItsWriteTime() throws {
+        let old = Date().addingTimeInterval(-120)
+        let receipt = try evidenceReceipt(date: old)
+        store.recordProviderLookup(receipt)
+        let current = store.fixtureLookupCounts(fixture: receipt.fixture, provider: .highfly,
+            window: .init(start: Date().addingTimeInterval(-10), end: Date().addingTimeInterval(10)))
+        XCTAssertEqual(current.lookups, 0)
+        let original = store.fixtureLookupCounts(fixture: receipt.fixture, provider: .highfly,
+            window: .init(start: old.addingTimeInterval(-1), end: old.addingTimeInterval(1)))
+        XCTAssertEqual(original.lookups, 1)
+        XCTAssertTrue(store.records().allSatisfy { $0.timestamp == receipt.finishedAt })
+    }
+
+    func testImpossibleNonemptyResponseCountsCannotCreateReconciledReceipts() throws {
+        let empty = try evidenceReceipt(mode: "empty"), normal = try evidenceReceipt()
+        for (base, reads, empties) in [(empty, 1, 0), (normal, 3, 0)] {
+            let invalid = ProviderLookupReceipt(fixture: base.fixture, provider: base.provider,
+                lookupID: UUID(), configurationGeneration: base.configurationGeneration,
+                startedAt: base.startedAt, finishedAt: base.finishedAt, observedEntries: base.observedEntries,
+                readResponses: reads, unreadResponses: 0, knownEmptyResponses: empties,
+                uniqueObservedContracts: base.uniqueObservedContracts, admitted: base.admitted,
+                dispositions: base.dispositions, deliveries: base.deliveries, completion: "complete",
+                isTruncated: false, isReconciled: true)
+            store.recordProviderLookup(invalid)
+        }
+        XCTAssertTrue(store.records().isEmpty)
+    }
+
+    func testCappedProviderSamplesKeepRawCountsAndStateTheUniqueCountIsIncomplete() throws {
+        let receipt = try evidenceReceipt(mode: "capped")
+        store.recordProviderLookup(receipt)
+        let counts = store.fixtureLookupCounts(fixture: receipt.fixture, provider: .highfly,
+            window: .init(start: Date().addingTimeInterval(-60), end: Date().addingTimeInterval(60)))
+        XCTAssertEqual(receipt.observedEntries, 70)
+        XCTAssertEqual(receipt.deliveries.count, 64)
+        XCTAssertTrue(receipt.isReconciled)
+        XCTAssertEqual(receipt.dispositions["limit"], 70)
+        XCTAssertEqual(counts.observedEntries, 70)
+        XCTAssertEqual(counts.uniqueObservedContracts, 64)
+        XCTAssertTrue(counts.isTruncated)
+    }
+
+    func testProviderReceiptCohortsAreEvictedWholeUnderTheExistingBound() throws {
+        for _ in 0..<6 { store.recordProviderLookup(try evidenceReceipt(mode: "capped")) }
+        let records = store.records()
+        XCTAssertLessThanOrEqual(records.count, 250)
+        for summary in records where summary.name == "provider_lookup" {
+            let members = records.filter { $0.name == "provider_delivery"
+                && $0.details["evidence_lookup_id"] == summary.details["evidence_lookup_id"] }
+            XCTAssertEqual(members.count, 64)
+        }
+        XCTAssertFalse(records.filter { $0.name == "provider_lookup" }.isEmpty)
+    }
+
+    private func evidenceReceipt(fixture: String = "private-fixture-sentinel", mode: String = "normal",
+                                 date: Date = Date()) throws -> ProviderLookupReceipt {
+        let generation = UUID()
+        let request = StreamPlaybackRequest(matchID: fixture, displayTitle: "Liverpool vs Arsenal",
+            homeTeam: "Liverpool", awayTeam: "Arsenal", category: "football", kickoffDate: date)
+        var ledger = StreamAdmissionLedger()
+        var evidence = StreamLookupEvidence(request: request, provider: .highfly, lookupID: ledger.id,
+            configurationGeneration: generation, at: date)
+        if mode == "unread" {
+            evidence.unreadResponse(); ledger.finish(admitted: 0, completion: "failed")
+        } else {
+            let count = mode == "empty" ? 0 : (mode == "capped" ? 70 : 2)
+            ledger.observe(count); evidence.readResponse(listingID: "private-listing-sentinel", entries: count)
+            for index in 0..<count {
+                let url = "https://media.example.test/\(mode == "capped" ? String(index) : "game").m3u8?token=private-token-sentinel"
+                evidence.observeEntry(listingID: "private-listing-sentinel", index: index, url: url,
+                    headers: ["User-Agent": "private-header-sentinel"], name: "Liverpool vs Arsenal", title: nil, at: date)
+                let reason = mode == "capped" ? "limit" : (index == 0 ? "admitted" : "duplicate")
+                ledger.record(reason); evidence.disposition(listingID: "private-listing-sentinel", index: index, reason: reason)
+            }
+            if mode == "normal" {
+                let session = StreamSession(matchID: fixture,
+                    playableURL: try XCTUnwrap(URL(string: "https://media.example.test/game.m3u8?token=private-token-sentinel")),
+                    streamType: .hls, providerName: "HF1", requiredHeaders: ["User-Agent": "private-header-sentinel"])
+                _ = evidence.attaching(to: session, listingID: "private-listing-sentinel", index: 0, at: date)
+            }
+            ledger.finish(admitted: mode == "normal" ? 1 : 0)
+        }
+        return try XCTUnwrap(evidence.snapshot(ledger: ledger, completion: mode == "unread" ? "failed" : "complete", at: date))
+    }
     private let suiteName = "WatchOutcomeRecordTests"
     private var defaults: UserDefaults!
     private var store: FottyQualityStore!

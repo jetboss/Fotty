@@ -51,6 +51,7 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         let manifest = #"{"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["tv"],"idPrefixes":["pp-live:"]},{"name":"meta","types":["tv"],"idPrefixes":["pp-live:"]},"catalog"],"catalogs":[{"type":"tv","id":"pp-live-football"}]}"#
         let row = #"{"id":"pp-live:aksports~one","type":"tv","name":"📺 Kuwait vs Syria","released":"2026-11-12T00:00:00.000Z""#
         let fetched = PenguPlayLockedValue<[String]>([])
+        let receipts = PenguPlayLockedValue<[ProviderLookupReceipt]>([])
         let client = Client(configuration: { self.manifestURL }, fetch: { request in
             let url = try XCTUnwrap(request.url)
             fetched.mutate { $0.append(url.path) }
@@ -62,13 +63,18 @@ final class PenguPlaySportsAddonTests: XCTestCase {
             } else { XCTFail("A terminal fixture cannot authorize a stream lookup"); body = "{}" }
             let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
             return (Data(body.utf8), response)
-        }, enabled: { true }, current: { $0 }, validate: { _ in })
+        }, enabled: { true }, current: { $0 }, validate: { _ in },
+            receiptSink: { receipt in receipts.mutate { $0.append(receipt) } })
         do {
             _ = try await client.resolve(for: request(home: "Kuwait", away: "Syria", sport: "football"), now: kickoff)
             XCTFail("Expected the current source status to veto the stale search result")
         } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .matchNotFound) }
         XCTAssertEqual(fetched.value.filter { $0.contains("/meta/") }.count, 1)
         XCTAssertFalse(fetched.value.contains { $0.contains("/stream/") })
+        let receipt = try XCTUnwrap(receipts.value.last)
+        XCTAssertEqual(receipt.unreadResponses, 1, "A metadata veto leaves the selected listing’s stream response unread")
+        XCTAssertEqual(receipt.readResponses, 0)
+        XCTAssertEqual(receipt.knownEmptyResponses, 0)
     }
 
     func testWBBLShortNamesMatchOnlyUnambiguousCities() throws {
@@ -254,6 +260,191 @@ final class PenguPlaySportsAddonTests: XCTestCase {
                              "Two live Fox rows cannot be told apart")
     }
 
+    func testDeliveryLabelsDecodeIndependentlyWithoutChangingAdmissionFields() throws {
+        func decode(_ body: String) throws -> Client.Delivery {
+            try JSONDecoder().decode(Client.Delivery.self, from: Data(body.utf8))
+        }
+        let malformedName = try decode(#"{"name":7,"title":"Buffalo Sabres vs Tampa Bay Lightning","url":"https://cdn.example.com/one.m3u8"}"#)
+        XCTAssertNil(malformedName.name)
+        XCTAssertEqual(malformedName.title, "Buffalo Sabres vs Tampa Bay Lightning")
+        XCTAssertEqual(malformedName.requestedHeaders, [:])
+        let malformedTitle = try decode(#"{"name":"Buffalo Sabres vs Tampa Bay Lightning","title":{"private":"value"},"url":"https://cdn.example.com/two.m3u8"}"#)
+        XCTAssertEqual(malformedTitle.name, "Buffalo Sabres vs Tampa Bay Lightning")
+        XCTAssertNil(malformedTitle.title)
+        XCTAssertEqual(malformedTitle.requestedHeaders, [:])
+        let absent = try decode(#"{"url":"https://cdn.example.com/three.m3u8"}"#)
+        XCTAssertNil(absent.name); XCTAssertNil(absent.title)
+    }
+
+    func testLookupEvidenceCountsMultipleListingsAndKeepsContradictionOutOfRanking() async throws {
+        let receipts = PenguPlayLockedValue<[ProviderLookupReceipt]>([])
+        let generation = UUID()
+        let first = #"{"streams":[{"name":"Buffalo Sabres vs Tampa Bay Lightning","title":"Boston Bruins vs Toronto Maple Leafs","url":"https://cdn.example.com/first.m3u8?token=private-token-sentinel"},{"name":7,"title":"Buffalo Sabres vs Tampa Bay Lightning","url":"https://cdn.example.com/second.m3u8"},{"url":"https://cdn.example.com/second.m3u8"},7]}"#
+        let client = evidenceClient(streams: [first, #"{"streams":[]}"#], generation: { _ in generation },
+            sink: { receipt in receipts.mutate { $0.append(receipt) } })
+        let sessions = try await client.resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.map(\.providerName), ["PP1", "PP2"])
+        XCTAssertEqual(sessions.map { $0.playableURL.lastPathComponent }, ["first.m3u8", "second.m3u8"],
+                       "Metadata contradiction is evidence, never a new sort or refusal rule")
+        let receipt = try XCTUnwrap(receipts.value.last)
+        XCTAssertEqual(receipts.value.count, 1)
+        XCTAssertEqual(receipt.configurationGeneration, generation)
+        XCTAssertEqual(receipt.readResponses, 2)
+        XCTAssertEqual(receipt.knownEmptyResponses, 1)
+        XCTAssertEqual(receipt.unreadResponses, 0)
+        XCTAssertEqual(receipt.observedEntries, 4)
+        XCTAssertEqual(receipt.uniqueObservedContracts, 2)
+        XCTAssertEqual(receipt.admitted, 2)
+        XCTAssertEqual(receipt.dispositions["duplicate"], 1)
+        XCTAssertEqual(receipt.dispositions["no_url"], 1)
+        XCTAssertEqual(receipt.deliveries.map(\.disposition), ["admitted", "admitted", "duplicate", "no_url"])
+        XCTAssertEqual(receipt.deliveries[0].comparison, .contradicts)
+        XCTAssertTrue(receipt.deliveries[0].hasName); XCTAssertTrue(receipt.deliveries[0].hasTitle)
+        XCTAssertEqual(receipt.deliveries[1].comparison, .agrees)
+        XCTAssertFalse(receipt.deliveries[1].hasName); XCTAssertTrue(receipt.deliveries[1].hasTitle)
+        XCTAssertEqual(receipt.deliveries[2].comparison, .noParseableTeams)
+        XCTAssertTrue(receipt.isReconciled)
+        for session in sessions {
+            let provenance = try XCTUnwrap(session.deliveryProvenance)
+            XCTAssertEqual(provenance.lookupID, receipt.lookupID)
+            XCTAssertEqual(provenance.configurationGeneration, generation)
+            XCTAssertTrue(receipt.deliveries.contains { $0.listing == provenance.listing && $0.contract == provenance.contract
+                && $0.sourceID == session.id && $0.disposition == "admitted" })
+            XCTAssertNil(session.deliveryTransportContext, "Discovery cannot invent the playback cookie snapshot")
+        }
+        XCTAssertTrue(receipt.deliveries.filter { $0.disposition != "admitted" }.allSatisfy { $0.sourceID == nil },
+                      "A duplicate or refused sibling is not the selected source")
+        let suiteName = "PenguPlayEvidencePrivacy-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = FottyQualityStore(defaults: defaults, now: { receipt.finishedAt })
+        store.recordProviderLookup(receipt)
+        XCTAssertEqual(store.records().filter { $0.name == "provider_lookup" }.count, 1)
+        let serialized = String(decoding: try JSONEncoder().encode(store.records()), as: UTF8.self)
+        for privateValue in ["private-token-sentinel", "cdn.example.com", "first.m3u8", "Buffalo", "Boston", "pp-live:lane~"] {
+            XCTAssertFalse(serialized.contains(privateValue), privateValue)
+        }
+    }
+
+    func testReceiptUsesEffectiveHeadersAfterHarmlessHintsAreDropped() async throws {
+        let receipts = PenguPlayLockedValue<[ProviderLookupReceipt]>([])
+        let body = #"{"streams":[{"url":"https://cdn.example.com/headers.m3u8","headers":{"Accept":"video/*","Referer":"https://origin.example.com/watch"}}]}"#
+        let client = evidenceClient(streams: [body], sink: { receipt in receipts.mutate { $0.append(receipt) } })
+        let sessions = try await client.resolve(for: request(), now: kickoff)
+        let session = try XCTUnwrap(sessions.first)
+        XCTAssertEqual(session.requiredHeaders, ["Referer": "https://origin.example.com/watch"])
+        let provenance = try XCTUnwrap(session.deliveryProvenance)
+        let receipt = try XCTUnwrap(receipts.value.last)
+        let delivery = try XCTUnwrap(receipt.deliveries.first)
+        XCTAssertEqual(delivery.contract, provenance.contract,
+                       "Receipt identity uses the headers that playback receives, not discarded hints")
+        XCTAssertEqual(delivery.contract, LiveSourceHealthStore.deliveryContractFingerprint(for: session))
+        XCTAssertEqual(delivery.sourceID, session.id)
+        XCTAssertEqual(delivery.disposition, "admitted")
+        XCTAssertTrue(receipt.isReconciled)
+    }
+
+    func testRepeatedLookupsHaveSeparateIDsAndStableContractFingerprints() async throws {
+        let receipts = PenguPlayLockedValue<[ProviderLookupReceipt]>([]), generation = UUID()
+        let client = evidenceClient(streams: [#"{"streams":[{"url":"https://cdn.example.com/repeated.m3u8"}]}"#],
+            generation: { _ in generation }, sink: { receipt in receipts.mutate { $0.append(receipt) } })
+        let first = try await client.resolve(for: request(), now: kickoff)
+        let second = try await client.resolve(for: request(), now: kickoff.addingTimeInterval(1))
+        XCTAssertEqual(receipts.value.count, 2)
+        XCTAssertNotEqual(receipts.value[0].lookupID, receipts.value[1].lookupID)
+        XCTAssertEqual(receipts.value[0].observedEntries, 1)
+        XCTAssertEqual(receipts.value[1].observedEntries, 1)
+        XCTAssertEqual(first.first?.deliveryProvenance?.contract, second.first?.deliveryProvenance?.contract)
+        XCTAssertEqual(first.first?.deliveryProvenance?.listing, second.first?.deliveryProvenance?.listing)
+        XCTAssertNotEqual(first.first?.deliveryProvenance?.lookupID, second.first?.deliveryProvenance?.lookupID)
+    }
+
+    func testPartialStreamReadKeepsGoodListingAndSeparatesUnreadFromEmpty() async throws {
+        let receipts = PenguPlayLockedValue<[ProviderLookupReceipt]>([])
+        let client = evidenceClient(streams: [#"{"streams":[{"url":"https://cdn.example.com/good.m3u8"}]}"#,
+                                             #"{"streams":[]}"#, #"{"streams":[]}"#], failures: [1],
+            sink: { receipt in receipts.mutate { $0.append(receipt) } })
+        let sessions = try await client.resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 1)
+        let receipt = try XCTUnwrap(receipts.value.last)
+        XCTAssertEqual(receipt.readResponses, 2)
+        XCTAssertEqual(receipt.unreadResponses, 1)
+        XCTAssertEqual(receipt.knownEmptyResponses, 1)
+        XCTAssertEqual(receipt.observedEntries, 1, "Unread responses are not fabricated as empty or offered streams")
+        XCTAssertEqual(receipt.admitted, 1)
+        XCTAssertEqual(receipt.completion, "partial")
+        XCTAssertTrue(receipt.isReconciled)
+    }
+
+    func testEntirelyUnreadStreamResponsesDoNotBecomeKnownEmpty() async throws {
+        let receipts = PenguPlayLockedValue<[ProviderLookupReceipt]>([])
+        let client = evidenceClient(streams: [#"{"streams":[]}"#], failures: [0],
+            sink: { receipt in receipts.mutate { $0.append(receipt) } })
+        do { _ = try await client.resolve(for: request(), now: kickoff); XCTFail("Expected failed descriptor") } catch {}
+        let receipt = try XCTUnwrap(receipts.value.last)
+        XCTAssertEqual(receipt.readResponses, 0)
+        XCTAssertEqual(receipt.unreadResponses, 1)
+        XCTAssertEqual(receipt.knownEmptyResponses, 0)
+        XCTAssertEqual(receipt.observedEntries, 0)
+        XCTAssertEqual(receipt.completion, "failed")
+        XCTAssertFalse(receipt.isReconciled, "There is no observed stream response to reconcile")
+    }
+
+    func testEvidenceCountsFullResponseBeforeExistingScanAndSessionLimits() async throws {
+        let receipts = PenguPlayLockedValue<[ProviderLookupReceipt]>([])
+        let body = "{\"streams\":[" + (0..<101).map { #"{"url":"https://cdn.example.com/limited/\#($0).m3u8"}"# }.joined(separator: ",") + "]}"
+        let client = evidenceClient(streams: [body], sink: { receipt in receipts.mutate { $0.append(receipt) } })
+        let sessions = try await client.resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 100)
+        let receipt = try XCTUnwrap(receipts.value.last)
+        XCTAssertEqual(receipt.observedEntries, 101)
+        XCTAssertEqual(receipt.admitted, 100)
+        XCTAssertEqual(receipt.dispositions["limit"], 1)
+        XCTAssertTrue(receipt.isTruncated)
+        XCTAssertLessThanOrEqual(receipt.deliveries.count, 64)
+        XCTAssertTrue(receipt.isReconciled)
+    }
+
+    func testConfigurationGenerationChangeWithdrawsPendingLookupEvenWhenURLReturnsToSameValue() async throws {
+        let receipts = PenguPlayLockedValue<[ProviderLookupReceipt]>([])
+        let calls = PenguPlayLockedValue(0), original = UUID(), replacement = UUID()
+        let client = evidenceClient(streams: [#"{"streams":[{"url":"https://cdn.example.com/config.m3u8"}]}"#],
+            generation: { _ in
+                var value = original
+                calls.mutate { count in count += 1; value = count == 1 ? original : replacement }
+                return value
+            }, sink: { receipt in receipts.mutate { $0.append(receipt) } })
+        do { _ = try await client.resolve(for: request(), now: kickoff); XCTFail("Old configuration must not publish sources") }
+        catch { XCTAssertEqual(error as? CommunitySportsAddonError, .conflictingMatch) }
+        let receipt = try XCTUnwrap(receipts.value.last)
+        XCTAssertEqual(receipt.configurationGeneration, original)
+        XCTAssertEqual(receipt.admitted, 0)
+        XCTAssertEqual(receipt.completion, "failed")
+        XCTAssertTrue(receipt.isReconciled)
+    }
+
+    private func evidenceClient(streams: [String], failures: Set<Int> = [],
+                                generation: Client.Generation? = nil,
+                                sink: @escaping Client.ReceiptSink) -> Client {
+        let manifest = #"{"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["tv"],"idPrefixes":["pp-live:"]},"catalog"],"catalogs":[{"type":"tv","id":"pp-live-hockey"}]}"#
+        let rows = streams.indices.map { #"{"id":"pp-live:lane~\#($0)","type":"tv","name":"Buffalo Sabres vs Tampa Bay Lightning","released":"2026-11-12T00:00:00.000Z"}"# }
+        let catalog = "{\"metas\":[" + rows.joined(separator: ",") + "]}"
+        let root = manifestURL.deletingLastPathComponent().absoluteString
+        let streamURLs = streams.indices.map { root + "stream/tv/" + Client.encodedComponent("pp-live:lane~\($0)") + ".json" }
+        return Client(configuration: { self.manifestURL }, fetch: { request in
+            let url = try XCTUnwrap(request.url)
+            let body: String
+            if url == self.manifestURL { body = manifest }
+            else if let index = streamURLs.firstIndex(of: url.absoluteString) {
+                if failures.contains(index) { throw URLError(.timedOut) }
+                body = streams[index]
+            } else { body = catalog }
+            return (Data(body.utf8), HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"])!)
+        }, enabled: { true }, current: { $0 }, validate: { _ in }, programmeChannels: { _ in [] },
+            generation: generation, receiptSink: sink)
+    }
+
     private func cricketClient(programme: Set<CricketBroadcastChannel>, fetched: PenguPlayLockedValue<[String]>) -> Client {
         let root = manifestURL.deletingLastPathComponent().absoluteString
         let manifest = #"{"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["tv"],"idPrefixes":["pp-live:"]},{"name":"catalog","types":["tv"]}],"catalogs":[{"type":"tv","id":"pp-live-cricket"}]}"#
@@ -296,6 +487,7 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         let sessions = try await cricketClient(programme: [], fetched: fetched).resolve(for: tile, now: kickoff)
         XCTAssertEqual(sessions.first?.eventBinding?.providerEventID, "pp-live:dl~fox")
         XCTAssertFalse(fetched.value.contains { $0.contains("search=") }, "A channel tile never searches team names")
+        XCTAssertNil(sessions.first?.deliveryProvenance, "A generic channel tile has no current programme identity")
     }
 }
 

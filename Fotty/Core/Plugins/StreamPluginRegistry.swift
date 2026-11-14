@@ -20,6 +20,7 @@ actor StreamPluginRegistry {
     private var pluginStates: [String: Bool] = [:]
     private var unavailableSourceCount = 0
     private var enablementRevision: UInt64 = 0
+    private var isolatedForTesting = false
 
     private static let defaultsKey = "com.fotty.stream_plugin_states"
     private static let legacyManifestsKey = "com.fotty.stream_installed_manifests"
@@ -28,6 +29,15 @@ actor StreamPluginRegistry {
         self.registeredPlugins = initialState.plugins
         self.pluginStates = initialState.states
         self.unavailableSourceCount = initialState.unavailableSourceCount
+    }
+
+    /// Exercises the real toggle path without touching the owner's defaults or
+    /// shared discovery indexes. Not used by the application's shared registry.
+    init(testingPlugins: [StreamPlugin], states: [String: Bool] = [:]) {
+        precondition(AppRuntime.isAutomatedTesting)
+        registeredPlugins = Dictionary(uniqueKeysWithValues: testingPlugins.map { ($0.id, $0) })
+        pluginStates = states
+        isolatedForTesting = true
     }
 
     /// Provider codes for enabled playback modules.
@@ -42,8 +52,13 @@ actor StreamPluginRegistry {
     // MARK: - Module Management
 
     func setPluginEnabled(_ enabled: Bool, forId pluginId: String) async {
+        let previous = pluginStates[pluginId] ?? registeredPlugins[pluginId]?.isEnabled
         pluginStates[pluginId] = enabled
         saveStates()
+        if previous != enabled, let code = registeredPlugins[pluginId]?.providerCode,
+           let provider = EvidenceProvider(rawValue: code) {
+            ProviderEvidenceConfiguration.rotate(for: provider)
+        }
         enablementRevision &+= 1
         await refreshDiscoveryAvailability(invalidating: registeredPlugins[pluginId]?.providerCode)
     }
@@ -51,6 +66,7 @@ actor StreamPluginRegistry {
     /// One host-level refresh, plus explicit source changes. This reads only
     /// bundled/local state; rows never start registry or provider requests.
     func refreshDiscoveryAvailability(invalidating providerCode: String? = nil) async {
+        guard !isolatedForTesting else { return }
         let codes = Set(enabledProviderCodes()), revision = enablementRevision
         await MainActor.run {
             FixtureStreamDiscoveryIndex.shared.updateEnabledProviders(codes, revision: revision,
@@ -88,6 +104,7 @@ actor StreamPluginRegistry {
     // MARK: - Persistence Helpers
 
     private func saveStates() {
+        guard !isolatedForTesting else { return }
         UserDefaults.standard.set(pluginStates, forKey: Self.defaultsKey)
     }
 

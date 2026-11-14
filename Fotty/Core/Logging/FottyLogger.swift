@@ -611,6 +611,14 @@ final class FottyQualityStore {
         "admission_reconciled", "admission_fetch_failures", "stream_selection_stage"
     ]).union(StreamAdmissionLedger.countDetailKeys)
     private static let streamSelectionStages: Set<String> = ["final_watch", "registry_binding", "discovery_cache"]
+    private static let evidenceCountKeys: Set<String> = ["evidence_read_responses", "evidence_unread_responses",
+        "evidence_empty_responses", "evidence_observed_entries", "evidence_unique_contracts",
+        "evidence_retained_entries", "evidence_entry_index"]
+    private static let evidenceDetailKeys: Set<String> = evidenceCountKeys.union([
+        "evidence_schema", "evidence_fixture", "evidence_lookup_id", "evidence_generation",
+        "evidence_listing", "evidence_contract", "evidence_has_name", "evidence_has_title",
+        "evidence_comparison", "evidence_disposition", "evidence_truncated", "evidence_reconciled"
+    ])
 
     private static let allowedDetailKeys: Set<String> = [
         "mode", "failure_kind", "recovery_kind", "feed", "source",
@@ -704,6 +712,122 @@ final class FottyQualityStore {
                               fetchFailures: fetchFailures, name: "stream_admission")
     }
 
+    /// One atomic diagnostic cohort per lookup. Replayed receipts do not become
+    /// extra lookups, and a partial response is never written as an empty one.
+    /// This does not publish telemetry or influence source selection.
+    func recordProviderLookup(_ receipt: ProviderLookupReceipt) {
+        guard AppRuntime.privateOutageFixture == nil, receipt.fixture.isValid,
+              receipt.startedAt.timeIntervalSinceReferenceDate.isFinite,
+              receipt.finishedAt.timeIntervalSinceReferenceDate.isFinite, receipt.finishedAt >= receipt.startedAt,
+              receipt.provider == .highfly || receipt.provider == .penguPlay,
+              receipt.deliveries.count <= StreamLookupEvidence.maximumDeliveries,
+              StreamAdmissionLedger.completions.contains(receipt.completion),
+              [receipt.observedEntries, receipt.readResponses, receipt.unreadResponses,
+               receipt.knownEmptyResponses, receipt.uniqueObservedContracts, receipt.admitted]
+                .allSatisfy(StreamAdmissionLedger.validCount.contains),
+              receipt.knownEmptyResponses <= receipt.readResponses,
+              receipt.readResponses - receipt.knownEmptyResponses <= receipt.observedEntries,
+              receipt.observedEntries == 0 || receipt.readResponses > receipt.knownEmptyResponses,
+              receipt.admitted <= receipt.observedEntries,
+              receipt.deliveries.count <= receipt.observedEntries,
+              receipt.uniqueObservedContracts == Set(receipt.deliveries.compactMap(\.contract)).count,
+              receipt.dispositions.keys.allSatisfy(StreamAdmissionLedger.reasons.contains),
+              receipt.dispositions.values.allSatisfy(StreamAdmissionLedger.validCount.contains),
+              receipt.deliveries.allSatisfy({ $0.listing.isValid && ($0.contract?.isValid ?? true)
+                  && StreamAdmissionLedger.validCount.contains($0.index)
+                  && StreamAdmissionLedger.reasons.contains($0.disposition)
+                  && ($0.sourceID == nil || ($0.contract != nil && ["admitted", "withdrawn"].contains($0.disposition)))
+                  && $0.observedAt.timeIntervalSinceReferenceDate.isFinite
+                  && $0.observedAt >= receipt.startedAt && $0.observedAt <= receipt.finishedAt }) else { return }
+        let hex: (DeviceHMAC) -> String = { $0.bytes.map { String(format: "%02x", $0) }.joined() }
+        let common = ["source_family": receipt.provider.rawValue, "evidence_schema": "1",
+                      "evidence_fixture": hex(receipt.fixture), "evidence_lookup_id": receipt.lookupID.uuidString.lowercased(),
+                      "evidence_generation": receipt.configurationGeneration.uuidString.lowercased()]
+        var summary = common
+        summary["admission_completion"] = receipt.completion
+        summary["evidence_read_responses"] = String(receipt.readResponses)
+        summary["evidence_unread_responses"] = String(receipt.unreadResponses)
+        summary["evidence_empty_responses"] = String(receipt.knownEmptyResponses)
+        summary["evidence_observed_entries"] = String(receipt.observedEntries)
+        summary["evidence_unique_contracts"] = String(receipt.uniqueObservedContracts)
+        summary["evidence_retained_entries"] = String(receipt.deliveries.count)
+        let truncated = receipt.isTruncated || receipt.deliveries.count < receipt.observedEntries
+        let samples = receipt.deliveries.reduce(into: [String: Int]()) { $0[$1.disposition, default: 0] += 1 }
+        let reconciled = receipt.isReconciled && receipt.readResponses > 0
+            && receipt.dispositions.values.reduce(0, +) == receipt.observedEntries
+            && receipt.dispositions["admitted", default: 0] == receipt.admitted
+            && StreamAdmissionLedger.reasons.allSatisfy {
+                truncated ? samples[$0, default: 0] <= receipt.dispositions[$0, default: 0]
+                    : samples[$0, default: 0] == receipt.dispositions[$0, default: 0]
+            }
+        summary["evidence_truncated"] = String(truncated)
+        summary["evidence_reconciled"] = String(reconciled)
+        summary["admitted_count"] = String(receipt.admitted)
+        for reason in StreamAdmissionLedger.reasons {
+            summary[StreamAdmissionLedger.detailKey(reason)] = String(receipt.dispositions[reason, default: 0])
+        }
+        let timestamp = receipt.finishedAt
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown"
+        func make(_ name: String, _ details: [String: String]) -> FottyQualityRecord {
+            FottyQualityRecord(id: UUID(), timestamp: timestamp, category: .playback, name: name, outcome: .info,
+                durationMilliseconds: nil, details: details, appVersion: version, appBuild: build)
+        }
+        var cohort = receipt.deliveries.map { delivery -> FottyQualityRecord in
+            var details = common
+            details["evidence_listing"] = hex(delivery.listing)
+            details["evidence_contract"] = delivery.contract.map(hex)
+            details["evidence_entry_index"] = String(delivery.index)
+            details["evidence_has_name"] = String(delivery.hasName)
+            details["evidence_has_title"] = String(delivery.hasTitle)
+            details["evidence_comparison"] = delivery.comparison.rawValue
+            details["evidence_disposition"] = delivery.disposition
+            details["source_id"] = delivery.sourceID?.uuidString.lowercased()
+            return make("provider_delivery", details)
+        }
+        cohort.append(make("provider_lookup", summary))
+        lock.lock()
+        defer { lock.unlock(); writes.drain() }
+        var values = decodedRecordsLocked()
+        guard !values.contains(where: { $0.name == "provider_lookup"
+            && $0.details["source_family"] == receipt.provider.rawValue
+            && $0.details["evidence_lookup_id"] == receipt.lookupID.uuidString.lowercased() }) else { return }
+        values.append(contentsOf: cohort)
+        persistLocked(Self.pruned(values, now: now()))
+    }
+
+    /// Totals describe retained receipts only. A contract seen in repeated
+    /// lookups counts once; response entries still count on each distinct read.
+    func fixtureLookupCounts(fixture: DeviceHMAC, provider: EvidenceProvider,
+                             window: DateInterval) -> FixtureLookupCounts {
+        let hex = fixture.bytes.map { String(format: "%02x", $0) }.joined()
+        let rows = records().filter { $0.category == .playback && $0.details["evidence_fixture"] == hex
+            && $0.details["source_family"] == provider.rawValue && window.contains($0.timestamp) }
+        var lookups = Set<String>(), contracts = Set<String>()
+        var observed = 0, read = 0, unread = 0, empty = 0, truncated = false
+        for row in rows where row.name == "provider_lookup" {
+            guard let lookup = row.details["evidence_lookup_id"], UUID(uuidString: lookup) != nil,
+                  lookups.insert(lookup).inserted else { continue }
+            func count(_ key: String) -> Int {
+                guard let value = row.details[key], let number = Int(value),
+                      StreamAdmissionLedger.validCount.contains(number) else { truncated = true; return 0 }
+                return number
+            }
+            observed += count("evidence_observed_entries"); read += count("evidence_read_responses")
+            unread += count("evidence_unread_responses"); empty += count("evidence_empty_responses")
+            let samples = rows.filter { $0.name == "provider_delivery" && $0.details["evidence_lookup_id"] == lookup }
+            if samples.count != count("evidence_retained_entries") || row.details["evidence_truncated"] != "false" { truncated = true }
+            for sample in samples {
+                if let contract = sample.details["evidence_contract"], Self.validCorrelationDetail("evidence_contract", value: contract) {
+                    contracts.insert(contract)
+                }
+            }
+        }
+        return .init(fixture: fixture, provider: provider, window: window, lookups: lookups.count,
+            observedEntries: observed, uniqueObservedContracts: contracts.count, readResponses: read,
+            unreadResponses: unread, knownEmptyResponses: empty, webOnlyLookups: 0, isTruncated: truncated)
+    }
+
     /// Session filtering is a separate unit from provider response entries.
     /// A selection receipt never contributes to offered/admitted lookup totals.
     func recordStreamSelection(sourceFamily: String, stage: String, ledger: StreamAdmissionLedger) {
@@ -777,7 +901,8 @@ final class FottyQualityStore {
         guard AppRuntime.privateOutageFixture == nil else { return }
         let safeName = Self.safeToken(name, maximumLength: 48) ?? "unknown"
         let safeDetails = details.reduce(into: [String: String]()) { result, entry in
-            guard Self.allowedDetailKeys.contains(entry.key) || Self.admissionDetailKeys.contains(entry.key),
+            guard Self.allowedDetailKeys.contains(entry.key) || Self.admissionDetailKeys.contains(entry.key)
+                    || Self.evidenceDetailKeys.contains(entry.key),
                   Self.validCorrelationDetail(entry.key, value: entry.value),
                   let value = Self.safeToken(entry.value, maximumLength: 64) else { return }
             result[entry.key] = value
@@ -978,6 +1103,10 @@ final class FottyQualityStore {
                 return routineSuccesses <= maximumRoutineRefreshSuccesses
             }
         let cohorts = Dictionary(grouping: retained) { record in
+            if record.category == .playback, ["provider_lookup", "provider_delivery"].contains(record.name),
+               let lookup = record.details["evidence_lookup_id"], UUID(uuidString: lookup) != nil {
+                return "provider_lookup:\(record.details["source_family"] ?? "unknown"):\(lookup)"
+            }
             if record.category == .playback, let attemptID = record.details["attempt_id"] {
                 return "playback:\(attemptID)"
             }
@@ -1006,6 +1135,9 @@ final class FottyQualityStore {
     }
 
     private static func validCorrelationDetail(_ key: String, value: String) -> Bool {
+        if evidenceCountKeys.contains(key) {
+            return Int(value).map(StreamAdmissionLedger.validCount.contains) ?? false
+        }
         if StreamAdmissionLedger.countDetailKeys.contains(key) {
             return Int(value).map(StreamAdmissionLedger.validCount.contains) ?? false
         }
@@ -1013,6 +1145,14 @@ final class FottyQualityStore {
             return UInt32(value) != nil
         }
         switch key {
+        case "evidence_schema": return value == "1"
+        case "evidence_fixture", "evidence_listing", "evidence_contract":
+            return value.utf8.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
+        case "evidence_lookup_id", "evidence_generation": return UUID(uuidString: value) != nil
+        case "evidence_has_name", "evidence_has_title", "evidence_truncated", "evidence_reconciled":
+            return value == "true" || value == "false"
+        case "evidence_comparison": return MetadataComparison(rawValue: value) != nil
+        case "evidence_disposition": return StreamAdmissionLedger.reasons.contains(value)
         case "admission_schema": return value == "1"
         case "admission_lookup_id": return UUID(uuidString: value) != nil
         case "admission_completion": return StreamAdmissionLedger.completions.contains(value)

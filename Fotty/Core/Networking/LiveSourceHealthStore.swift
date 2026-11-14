@@ -102,6 +102,37 @@ enum LiveSourceHealthStore {
         return .fixture(evidenceDigest("fixture", [fixtureID]))
     }
 
+    static func configurationFingerprint(provider: EvidenceProvider, manifestURL: URL) -> DeviceHMAC? {
+        guard manifestURL.absoluteString.utf8.count <= 8192 else { return nil }
+        return evidenceDigest("configuration", [provider.rawValue, manifestURL.absoluteString])
+    }
+
+    static func listingFingerprint(provider: EvidenceProvider, listingID: String) -> DeviceHMAC? {
+        guard boundedIdentity(listingID) else { return nil }
+        return evidenceDigest("listing", [provider.rawValue, listingID])
+    }
+
+    /// Rebind a fresh lookup's opaque listing identity after the owner has
+    /// prepared the actual transport. No raw provider ID crosses into the
+    /// player, no lookup timestamp is renewed, and this never claims the right
+    /// programme. The caller still fences its current attempt/selection.
+    static func preparedDeliveryProvenance(from selected: StreamSession, for session: StreamSession,
+                                           scope: ProgrammeScope, configurationGeneration: UUID,
+                                           at now: Date = Date()) -> DeliveryProvenance? {
+        guard let lookup = selected.deliveryProvenance, selected.id == session.id, selected.matchID == session.matchID,
+              provenanceMatches(lookup, session: selected, scope: scope, configurationGeneration: configurationGeneration),
+              deliveryTransportIsCurrent(for: session, at: now), lookup.schemaVersion == 1,
+              lookup.listing.isValid, lookup.contract.isValid, lookup.scope == scope,
+              scopeMatches(scope, session: session), lookup.configurationGeneration == configurationGeneration,
+              lookup.provider.rawValue == StreamEventBinding.providerCode(forSessionProviderName: session.providerName),
+              lookup.observedAt.timeIntervalSinceReferenceDate.isFinite,
+              (0..<StreamEventBinding.metadataLifetime).contains(now.timeIntervalSince(lookup.observedAt)),
+              let contract = deliveryContractFingerprint(for: session) else { return nil }
+        return .init(schemaVersion: 1, scope: scope, provider: lookup.provider, listing: lookup.listing,
+            contract: contract, lookupID: lookup.lookupID, configurationGeneration: configurationGeneration,
+            watchID: lookup.watchID, observedAt: lookup.observedAt)
+    }
+
     /// The caller supplies the actual programme identity. A station name alone
     /// cannot establish a programme or its boundary.
     static func channelProgrammeScope(channelID: String, programmeID: String) -> ProgrammeScope? {

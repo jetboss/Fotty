@@ -1,0 +1,172 @@
+{
+  "date": "2026-11-14",
+  "branch": "codex/provider-evidence-20261114",
+  "baseCommit": "63137a78fe5f0de3faffa30459417cc5a38cff01",
+  "task1Review": {
+    "reviewer": "Claude",
+    "reviewedCommit": "63137a7",
+    "approvedAtUTC": "2026-11-14T16:28:57.211Z",
+    "source": "Local Fotty assistant chat; no defects found, reviewer did not rerun suite"
+  },
+  "gate": {
+    "platform": "Mac Catalyst arm64",
+    "suite": "FottyTests",
+    "parallelTesting": false,
+    "jobs": 2,
+    "simulators": false,
+    "projectMembership": "Task 1 project-membership.patch applied only in isolated test checkout",
+    "projectMembershipPatchSHA256": "f423661c79ce0906e01aafa7047aedf2e711fafa335fa96ec0c95b2c8e61d8f9",
+    "projectSHA256": "6d7bcfb7c1763affd95f57fc4980e7bf6ae771e5c223d4505f45454b8d73e515",
+    "sourceSHA256": {
+      "Fotty/Core/Logging/FottyLogger.swift": "8db50cecdfe04847f21c2fd1369beb334d024ef788ab3f4fa38c022e97eff176",
+      "Fotty/Core/Models/StreamEvidence.swift": "1d69e0670a8669cd1d058697f06ebe896c71c0b9f57fd2a5ee76683d621bf5d6",
+      "Fotty/Core/Networking/HighflySportsAddonClient.swift": "0b243f72b2e08fe3e74e48b1f42bc189f940bd0be6ef4c7b8e99e92b779a2ea5",
+      "Fotty/Core/Networking/LiveSourceHealthStore.swift": "2a9a0080f365584dfff69354f67ddeedfd626b37d619cbc2fe72a13c2c84f0d0",
+      "Fotty/Core/Networking/PenguPlaySportsAddonClient.swift": "cd0154cef868109d4fd975813fcec0abe32c334c84415d6be7aa8a584b221f91",
+      "Fotty/Core/Plugins/StreamPlugin.swift": "ad2a506a7539e116200404c4d43ac1b707727feadb238c6383add24cb4f2177b",
+      "Fotty/Core/Plugins/StreamPluginRegistry.swift": "df1003ecea142e3e70aac5b3039b157751972109669b201ca1bb064ee69a1e8d",
+      "FottyTests/HighflySportsAddonTests.swift": "3558aa30d581aac8bb7e29c60ba184490b53d198ca67b2023ef3a221b20e8eef",
+      "FottyTests/PenguPlaySportsAddonTests.swift": "5917813899c34aa894c81eeeef9cf61806b5326514990559b3a3fce0a69137c7",
+      "FottyTests/SettingsUsabilityTests.swift": "9f9a854fbd5a69661aea6e49ed1fde4cc260d81029c34cae4e44f90ae431d687",
+      "FottyTests/StreamEvidenceSessionTests.swift": "544decf8fb7db3b8388d00c47edf2e0cedfcc31ccb34a2daceb36a7000a4d95b",
+      "FottyTests/WatchOutcomeRecordTests.swift": "4a24171a91d2c21e8ec8e0aa6a32891f18b8614668dcc1cee1e89cc21cadfe0e"
+    },
+    "status": "passed",
+    "result": "Passed",
+    "passed": 2754,
+    "failed": 0,
+    "skipped": 12,
+    "total": 2766,
+    "sourceHashesVerifiedAfterRun": true,
+    "addedTestsPassed": 37,
+    "skippedTests": [
+      "BroadcastRegistryIntegrationTests/testOptInProductionRegistryRefreshReconcilesSavedBaselineWithoutLosingFreshTV()",
+      "BroadcastRegistryIntegrationTests/testOptInProductionRegistrySnapshotPassesActualNativeWireValidation()",
+      "CNCSportsPhysicalCanaryTests/testReviewedCNCDeliveryDecodesThroughGuardedRelayOnPhysicalDevice()",
+      "FlixStreamsAddonTests/testPhysicalFlixDecodedVideoCanary()",
+      "FlixStreamsAddonTests/testPhysicalFlixSecondDecodedVideoCanary()",
+      "PlavioSportsAddonTests/testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice()",
+      "PlaybackPolicyTests/testReferenceHLSMaintainsOneAttemptDuringSoak()",
+      "ReviewedRelayThroughputPhysicalTests/testSyntheticOneMiBDirectBytesAndGuardedRelayThroughputOnPhysicalDevice()",
+      "Score808SiteCatalogTests/testOptInCurrentProviderDiscovery()",
+      "SourceConnectionToolTests/testAllEnabledSourcesForVerifiedFootballFixture()",
+      "SourceConnectionToolTests/testOptInNHLRegisteredCSMetadata()",
+      "SourceConnectionToolTests/testReviewedTVExpandedChannelsThroughGuardedDecoder()"
+    ],
+    "selectedExistingCoverage": [
+      {
+        "name": "testCleanupDisconnectionContinuesWhenItsAwaitingTaskIsCancelled()",
+        "nodeIdentifier": "NativePlayerAudioIsolationTests/testCleanupDisconnectionContinuesWhenItsAwaitingTaskIsCancelled()",
+        "result": "Passed"
+      },
+      {
+        "name": "testDisconnectMustBeAcknowledgedBeforeBarrierCanAuthorizePlayback()",
+        "nodeIdentifier": "NativePlayerAudioIsolationTests/testDisconnectMustBeAcknowledgedBeforeBarrierCanAuthorizePlayback()",
+        "result": "Passed"
+      },
+      {
+        "name": "testItemReplacementAfterSettledReconnectRejectsAnotherAudibleRequest()",
+        "nodeIdentifier": "NativePlayerAudioIsolationTests/testItemReplacementAfterSettledReconnectRejectsAnotherAudibleRequest()",
+        "result": "Passed"
+      },
+      {
+        "name": "testItemReplacementDuringReconnectRejectsItsWaiterAndReconcilesDisconnected()",
+        "nodeIdentifier": "NativePlayerAudioIsolationTests/testItemReplacementDuringReconnectRejectsItsWaiterAndReconcilesDisconnected()",
+        "result": "Passed"
+      },
+      {
+        "name": "testOldReconnectGenerationCannotAuthorizeAReissuedReconnect()",
+        "nodeIdentifier": "NativePlayerAudioIsolationTests/testOldReconnectGenerationCannotAuthorizeAReissuedReconnect()",
+        "result": "Passed"
+      },
+      {
+        "name": "testRepeatedSettledDesiredStateReusesBarrierWithoutAnotherSetter()",
+        "nodeIdentifier": "NativePlayerAudioIsolationTests/testRepeatedSettledDesiredStateReusesBarrierWithoutAnotherSetter()",
+        "result": "Passed"
+      },
+      {
+        "name": "testRevocationSerializesAfterLateReconnectAndEndsDisconnected()",
+        "nodeIdentifier": "NativePlayerAudioIsolationTests/testRevocationSerializesAfterLateReconnectAndEndsDisconnected()",
+        "result": "Passed"
+      },
+      {
+        "name": "testApprovedComponentVisualBaselines()",
+        "nodeIdentifier": "VisualRegressionTests/testApprovedComponentVisualBaselines()",
+        "result": "Passed"
+      }
+    ]
+  },
+  "addedRegressionTests": [
+    "testDeliveryLabelsDecodeIndependentlyWithoutChangingAdmissionInputs",
+    "testLookupReceiptsLinkEveryListingAndKeepRepeatedLookupsSeparate",
+    "testDeliveryLabelContradictionIsRecordedWithoutReorderingOrRefusingStreams",
+    "testPartialUnreadResponseDoesNotBecomeAnEmptyResponseOrHideSuccessfulSiblings",
+    "testDuplicateContractContradictionCannotBeHiddenByTheFirstAdmittedLabel",
+    "testSourceReceiptIdentifiesAdmittedEntryRatherThanEarlierRejectedSameContract",
+    "testKnownEmptyAndUnreadStreamResponsesHaveDifferentReceipts",
+    "testConflictingMetadataLeavesTheStreamResponseUnreadRatherThanKnownEmpty",
+    "testScanLimitAccountsForEveryObservedTailWithoutInflatingUniqueContractCoverage",
+    "testChangedGenerationWithdrawsProvisionalStreamsEvenWhenTheAccountLinkIsUnchanged",
+    "testDeliveryLabelsDecodeIndependentlyWithoutChangingAdmissionFields",
+    "testLookupEvidenceCountsMultipleListingsAndKeepsContradictionOutOfRanking",
+    "testReceiptUsesEffectiveHeadersAfterHarmlessHintsAreDropped",
+    "testRepeatedLookupsHaveSeparateIDsAndStableContractFingerprints",
+    "testPartialStreamReadKeepsGoodListingAndSeparatesUnreadFromEmpty",
+    "testEntirelyUnreadStreamResponsesDoNotBecomeKnownEmpty",
+    "testEvidenceCountsFullResponseBeforeExistingScanAndSessionLimits",
+    "testConfigurationGenerationChangeWithdrawsPendingLookupEvenWhenURLReturnsToSameValue",
+    "testCurrentGenerationIsReadOnlyAndTracksRotationAcrossRelaunch",
+    "testSameConfigurationSurvivesSerializedRelaunchAndOtherProvidersStayIsolated",
+    "testChangingConfigurationAwayAndBackNeverReusesOldGeneration",
+    "testExplicitRotationInvalidatesOnlySelectedProviderEvenWithSameLink",
+    "testSuccessfulAccountWritesRotateButFailedWritesPreserveEvidenceGeneration",
+    "testInvalidOrCancelledSetupDoesNotRotateGeneration",
+    "testRegistryEnablementChangesRotateWhileNoopAndReloadDoNot",
+    "testGenerationPayloadContainsOnlyOpaqueValuesAndHasFiniteProviderCapacity",
+    "testMalformedUnknownOrOversizedPersistedPayloadCannotRestoreOldEpoch",
+    "testConcurrentLookupsAgreeOnOneGeneration",
+    "testPreparedHandoffRebindsOpaqueListingWithoutRenewingLookupAuthority",
+    "testProviderReceiptsDeduplicateLookupsButCountRepeatedReadsAndUniqueContractsSeparately",
+    "testProviderUnreadAndKnownEmptyAreDifferentAndFixturesDoNotMix",
+    "testProviderReceiptExportContainsOpaqueCorrelationOnly",
+    "testEvidenceDetailValidationRejectsRawValuesAndInvalidCounters",
+    "testDelayedReceiptBelongsToItsObservationWindowInsteadOfItsWriteTime",
+    "testImpossibleNonemptyResponseCountsCannotCreateReconciledReceipts",
+    "testCappedProviderSamplesKeepRawCountsAndStateTheUniqueCountIsIncomplete",
+    "testProviderReceiptCohortsAreEvictedWholeUnderTheExistingBound"
+  ],
+  "earlierAttempts": [
+    {
+      "stage": "compile",
+      "exitCode": 65,
+      "cause": "New PenguPlay test attempted JSON encoding on an intentionally non-Codable receipt; corrected test to verify sanitized persistent records."
+    },
+    {
+      "stage": "intermediate-full-suite",
+      "result": "Failed",
+      "passed": 2750,
+      "failed": 1,
+      "skipped": 12,
+      "total": 2763,
+      "failure": "VisualRegressionTests/testApprovedComponentVisualBaselines(): XCTAssertNotNil for immediately warmed image-cache entry at line 306. No changes to image cache, visual test or artwork. Cause not established. All 34 new tests in that snapshot passed."
+    }
+  ],
+  "scope": {
+    "rankingChanged": false,
+    "matchingRulesChanged": false,
+    "playerOrUIChanged": false,
+    "projectFileChanged": false,
+    "plansChanged": false,
+    "deviceInteraction": false,
+    "iOSPackaging": false,
+    "liveProviderRequests": false,
+    "push": false,
+    "deployment": false,
+    "testFlight": false
+  },
+  "memoryCheck": {
+    "exitCode": 1,
+    "existingCurrentStateBudgetFailure": true,
+    "generatedExportRestored": true
+  }
+}

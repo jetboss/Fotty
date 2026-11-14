@@ -3,6 +3,39 @@ import XCTest
 
 @MainActor
 final class StreamEvidenceSessionTests: XCTestCase {
+    func testPreparedHandoffRebindsOpaqueListingWithoutRenewingLookupAuthority() throws {
+        let original = try session()
+        let lookup = try receipt(for: original)
+        let selected = original.recordingDeliveryProvenance(lookup, scope: lookup.scope,
+            configurationGeneration: configuration, at: now)
+        let cookie = try XCTUnwrap(HTTPCookie(properties: [.domain: "media.example", .path: "/", .name: "session",
+            .value: "private-cookie-sentinel", .secure: "TRUE", .expires: now.addingTimeInterval(120)]))
+        let prepared = original.recordingDeliveryTransport(cookies: [cookie], at: now.addingTimeInterval(1))
+        let rebound = try XCTUnwrap(LiveSourceHealthStore.preparedDeliveryProvenance(from: selected, for: prepared,
+            scope: lookup.scope, configurationGeneration: configuration, at: now.addingTimeInterval(1)))
+        XCTAssertEqual(rebound.listing, lookup.listing)
+        XCTAssertEqual(rebound.lookupID, lookup.lookupID)
+        XCTAssertEqual(rebound.observedAt, lookup.observedAt)
+        XCTAssertNotEqual(rebound.contract, lookup.contract)
+        XCTAssertEqual(rebound.contract, LiveSourceHealthStore.deliveryContractFingerprint(for: prepared))
+        XCTAssertNil(LiveSourceHealthStore.preparedDeliveryProvenance(from: selected, for: original,
+            scope: lookup.scope, configurationGeneration: configuration, at: now))
+        XCTAssertNil(LiveSourceHealthStore.preparedDeliveryProvenance(from: selected, for: prepared,
+            scope: lookup.scope, configurationGeneration: UUID(), at: now.addingTimeInterval(1)))
+        let otherChoice = try session().recordingDeliveryTransport(cookies: [cookie], at: now.addingTimeInterval(1))
+        XCTAssertNil(LiveSourceHealthStore.preparedDeliveryProvenance(from: selected, for: otherChoice,
+            scope: lookup.scope, configurationGeneration: configuration, at: now.addingTimeInterval(1)),
+            "Equal contracts do not authorize attributing another selected source to this listing")
+        XCTAssertNil(LiveSourceHealthStore.preparedDeliveryProvenance(from: selected, for: prepared,
+            scope: lookup.scope, configurationGeneration: configuration,
+            at: now.addingTimeInterval(StreamEventBinding.metadataLifetime)))
+        let attached = prepared.recordingDeliveryProvenance(rebound, scope: lookup.scope,
+            configurationGeneration: configuration, at: now.addingTimeInterval(1))
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: attached, scope: lookup.scope,
+            configurationGeneration: configuration, attemptID: UUID(), expiry: .attemptOnly,
+            at: now.addingTimeInterval(1)), .unknown)
+    }
+
     private let now = Date(timeIntervalSince1970: 1_788_548_400)
     private let configuration = UUID()
 

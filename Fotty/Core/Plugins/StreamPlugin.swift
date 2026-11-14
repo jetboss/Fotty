@@ -560,7 +560,8 @@ final class AccountSourceConnector {
     }
 }
 
-/// No UserDefaults, iCloud, shared app group, analytics or diagnostic export.
+/// Private links never enter UserDefaults, iCloud, shared app groups or logs.
+/// Successful changes rotate only the separate opaque evidence generation.
 /// Injectable storage keeps unit tests away from the real Keychain.
 @MainActor
 final class AccountSourceSetupStore {
@@ -622,6 +623,106 @@ final class AccountSourceSetupStore {
     func save(_ value: String, for provider: AccountSourceSetup) throws {
         let url = try provider.validatedLink(value)
         try write(provider, Data(url.absoluteString.utf8))
+        if let code = provider.playbackProviderCode, let evidenceProvider = EvidenceProvider(rawValue: code) {
+            ProviderEvidenceConfiguration.rotate(for: evidenceProvider)
+        }
     }
-    func remove(_ provider: AccountSourceSetup) throws { try write(provider, nil) }
+    func remove(_ provider: AccountSourceSetup) throws {
+        try write(provider, nil)
+        if let code = provider.playbackProviderCode, let evidenceProvider = EvidenceProvider(rawValue: code) {
+            ProviderEvidenceConfiguration.rotate(for: evidenceProvider)
+        }
+    }
+}
+
+/// Evidence epochs, not credentials or enablement. A configuration change away
+/// and back must never regain the old epoch. This store is independent of the
+/// registry's process-local revision and never changes playback permission.
+enum ProviderEvidenceConfiguration {
+    private struct Entry: Codable {
+        let generation: UUID
+        let configuration: DeviceHMAC?
+    }
+    private struct Payload: Codable {
+        let version: Int
+        let entries: [String: Entry]
+    }
+    private static let storageKey = "fotty.provider.evidence.configuration.v1"
+    private static let maximumPayloadBytes = 16 * 1024
+    private static let queue = DispatchQueue(label: "com.fotty.providerEvidenceConfiguration")
+    private static var testingPayload: Data?
+
+    static func generation(for provider: EvidenceProvider, configuration: URL) -> UUID {
+        guard let fingerprint = LiveSourceHealthStore.configurationFingerprint(provider: provider,
+                                                                                manifestURL: configuration) else {
+            // No reusable evidence identity for an unrepresentable contract;
+            // this API does not throw or reject the source's playback.
+            return UUID()
+        }
+        return queue.sync {
+            var entries = load()
+            if let existing = entries[provider.rawValue], existing.configuration == fingerprint {
+                return existing.generation
+            }
+            let generation = UUID()
+            entries[provider.rawValue] = Entry(generation: generation, configuration: fingerprint)
+            save(entries)
+            return generation
+        }
+    }
+
+    /// Read-only fence for the player; callers need not handle private setup
+    /// links, and merely displaying evidence cannot create an epoch.
+    static func currentGeneration(for provider: EvidenceProvider) -> UUID? {
+        queue.sync { load()[provider.rawValue]?.generation }
+    }
+
+    /// Run after a successful settings write, not during validation or failed
+    /// setup. Keep the last fingerprint so a following unchanged lookup uses
+    /// the new generation instead of reconstructing the previous one.
+    static func rotate(for provider: EvidenceProvider) {
+        queue.sync {
+            var entries = load()
+            entries[provider.rawValue] = Entry(generation: UUID(), configuration: entries[provider.rawValue]?.configuration)
+            save(entries)
+        }
+    }
+
+    private static var usesIsolatedStorage: Bool {
+        AppRuntime.isAutomatedTesting || AppRuntime.privateOutageFixture != nil
+    }
+
+    /// Read every time rather than retaining a once-loaded configuration epoch.
+    /// Replacement/removal of local defaults is observed on the next lookup.
+    private static func load() -> [String: Entry] {
+        let data = usesIsolatedStorage ? testingPayload : UserDefaults.standard.data(forKey: storageKey)
+        guard let data, data.count <= maximumPayloadBytes,
+              let payload = try? JSONDecoder().decode(Payload.self, from: data), payload.version == 1,
+              payload.entries.count <= EvidenceProvider.allCases.count,
+              payload.entries.keys.allSatisfy({ EvidenceProvider(rawValue: $0) != nil }) else { return [:] }
+        return payload.entries
+    }
+
+    private static func save(_ entries: [String: Entry]) {
+        guard entries.count <= EvidenceProvider.allCases.count,
+              let data = try? JSONEncoder().encode(Payload(version: 1, entries: entries)),
+              data.count <= maximumPayloadBytes else { return }
+        if usesIsolatedStorage { testingPayload = data }
+        else { UserDefaults.standard.set(data, forKey: storageKey) }
+    }
+
+    static func resetForTesting() {
+        guard AppRuntime.isAutomatedTesting else { return }
+        queue.sync { testingPayload = nil }
+    }
+
+    static func encodedForTesting() -> Data? {
+        guard AppRuntime.isAutomatedTesting else { return nil }
+        return queue.sync { testingPayload }
+    }
+
+    static func restoreForTesting(_ data: Data?) {
+        guard AppRuntime.isAutomatedTesting else { return }
+        queue.sync { testingPayload = data }
+    }
 }

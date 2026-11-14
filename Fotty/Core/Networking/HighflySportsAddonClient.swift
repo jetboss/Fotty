@@ -9,11 +9,15 @@ actor HighflySportsAddonClient {
     typealias Fetch = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
     typealias Enabled = @Sendable () async -> Bool
     typealias Current = @Sendable (StreamPlaybackRequest) async -> StreamPlaybackRequest?
+    typealias Generation = @Sendable (URL) async -> UUID
+    typealias ReceiptSink = @Sendable (ProviderLookupReceipt) -> Void
     private let configuration: Configuration
     private let fetch: Fetch
     private let enabled: Enabled
     private let current: Current
     private let validate: @Sendable (URL) async throws -> Void
+    private let generation: Generation
+    private let receiptSink: ReceiptSink
 
     struct Row: Decodable, Equatable, Sendable {
         let id, type, name, description, releaseInfo, category: String
@@ -36,10 +40,12 @@ actor HighflySportsAddonClient {
     private struct Meta: Decodable { let meta: Row; init(meta: Row) { self.meta = meta } }
     /// Stremio manifest, read tolerantly (bare-string or object resources).
     private typealias Manifest = PenguPlaySportsAddonClient.Manifest
-    /// One stream row. Only the link and any requested request headers matter;
-    /// every other field is ignored rather than treated as a reason to refuse.
+    /// Only the link and requested headers affect transport admission. Optional
+    /// delivery labels are observed separately and never change source order.
     struct Delivery: Decodable, Sendable {
         let url: String?
+        let name: String?
+        let title: String?
         let requestedHeaders: [String: String]?
         /// DRM-protected rows cannot play in Fotty's player; skipping them is a
         /// capability rule, not a judgement about the row's shape.
@@ -52,6 +58,8 @@ actor HighflySportsAddonClient {
         init(from decoder: Decoder) throws {
             let c = try? decoder.container(keyedBy: Key.self)
             url = try? c?.decode(String.self, forKey: .named("url"))
+            name = try? c?.decode(String.self, forKey: .named("name"))
+            title = try? c?.decode(String.self, forKey: .named("title"))
             requestedHeaders = try? StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
             requiresDRM = StreamDeliveryPolicy.decodeRequiresDRM(from: decoder)
         }
@@ -59,13 +67,16 @@ actor HighflySportsAddonClient {
     private struct Streams: Decodable { let streams: [Delivery] }
 
     init(configuration: Configuration? = nil, fetch: Fetch? = nil, enabled: Enabled? = nil,
-         current: Current? = nil, validate: (@Sendable (URL) async throws -> Void)? = nil) {
+         current: Current? = nil, validate: (@Sendable (URL) async throws -> Void)? = nil,
+         generation: Generation? = nil, receiptSink: ReceiptSink? = nil) {
         self.configuration = configuration ?? { try await MainActor.run { try AccountSourceSetupStore().savedLink(for: .highfly) } }
         self.enabled = enabled ?? { await StreamPluginRegistry.shared.enabledProviderCodes().contains(Self.providerCode) }
         self.current = current ?? { request in await MainActor.run {
             RegisteredDescriptorRecoveryPolicy.currentRequest(for: request, in: MatchListViewModel.shared.playbackAdmissionCatalog)
         } }
         self.validate = validate ?? { try await LocalStreamProxyDestinationValidator.validate($0) }
+        self.generation = generation ?? { ProviderEvidenceConfiguration.generation(for: .highfly, configuration: $0) }
+        self.receiptSink = receiptSink ?? { FottyQualityStore.shared.recordProviderLookup($0) }
         if let fetch { self.fetch = fetch } else {
             let config = URLSessionConfiguration.ephemeral
             config.httpCookieStorage = nil; config.urlCache = nil; config.httpShouldSetCookies = false
@@ -150,6 +161,9 @@ actor HighflySportsAddonClient {
         var stage = "manifest"
         var finished = false
         var admission = StreamAdmissionLedger(), fetchFailures = 0
+        let configurationGeneration = await generation(manifestURL)
+        var evidence = StreamLookupEvidence(request: request, provider: .highfly, lookupID: admission.id,
+            configurationGeneration: configurationGeneration, at: now)
         var sessions: [StreamSession] = [], seen: Set<StreamDeliveryIdentity> = []
         var cancelled = false, listingsLimited = false
         defer {
@@ -158,6 +172,10 @@ actor HighflySportsAddonClient {
             admission.finish(admitted: finished ? sessions.count : 0, completion: completion)
             FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, ledger: admission,
                 completion: completion, fetchFailures: fetchFailures)
+            if let receipt = evidence.snapshot(ledger: admission, completion: completion,
+                at: now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))) {
+                receiptSink(receipt)
+            }
         }
         var missReason: String?, rowCount: Int?, unmatchedTeam: String?, kickoffOffset: Int?
         var searchScope = "search"
@@ -325,28 +343,40 @@ actor HighflySportsAddonClient {
         stage = "streams"
         listingCount = matchedRows.count
         listingsLimited = matchedRows.count > Self.maximumListings
+        if listingsLimited { evidence.markTruncated() }
         var listings: [(row: Row, deliveries: [Delivery])] = []
         var offeredTotal = 0
         for listing in matchedRows.prefix(Self.maximumListings) {
             // A manifest that declares which ids it streams is honoured per listing.
             guard manifest.resources.filter({ $0.name == "stream" }).contains(where: { resource in
                 resource.idPrefixes.map { prefixes in prefixes.contains { listing.id.hasPrefix($0) } } ?? true }) else {
-                supplementaryFailures += 1; continue
+                supplementaryFailures += 1; evidence.unreadResponse(); continue
             }
             let metaRow: Row
             do { metaRow = (try await read(root.appendingPathComponent("meta/sport/" + listing.id + ".json")) as Meta).meta }
-            catch is CancellationError { cancelled = true; throw CancellationError() }
+            catch is CancellationError { evidence.unreadResponse(); cancelled = true; throw CancellationError() }
             catch { supplementaryFailures += 1; metaRow = listing } // The catalog row already matched this game.
             // A live marker may tick between reads; the fixed fields must agree.
-            guard Self.metaDifference(metaRow, listing) == nil else { supplementaryFailures += 1; continue }
+            guard Self.metaDifference(metaRow, listing) == nil else {
+                supplementaryFailures += 1; evidence.unreadResponse(); continue
+            }
             do {
                 let streams: Streams = try await read(root.appendingPathComponent("stream/sport/" + listing.id + ".json"))
+                evidence.readResponse(listingID: listing.id, entries: streams.streams.count)
+                let observedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))
+                for (index, delivery) in streams.streams.enumerated() {
+                    evidence.observeEntry(listingID: listing.id, index: index, url: delivery.url,
+                        headers: delivery.requestedHeaders.flatMap(StreamDeliveryPolicy.requestHeaders),
+                        name: delivery.name, title: delivery.title, at: observedAt)
+                    if index >= 100 { evidence.disposition(listingID: listing.id, index: index, reason: "limit") }
+                }
+                if streams.streams.count > 100 { evidence.markTruncated() }
                 offeredTotal += streams.streams.count
                 admission.observe(streams.streams.count)
                 admission.record("limit", count: max(0, streams.streams.count - 100))
                 listings.append((metaRow, Array(streams.streams.prefix(100))))
-            } catch is CancellationError { cancelled = true; throw CancellationError() }
-            catch { supplementaryFailures += 1; fetchFailures += 1 }
+            } catch is CancellationError { evidence.unreadResponse(); cancelled = true; throw CancellationError() }
+            catch { evidence.unreadResponse(); supplementaryFailures += 1; fetchFailures += 1 }
         }
         guard !listings.isEmpty else { missReason = "streams_read"; throw CommunitySportsAddonError.invalidResponse }
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))
@@ -354,13 +384,17 @@ actor HighflySportsAddonClient {
         // one local scope; no cached account or fixture authority is renewed.
         missReason = "revalidate_account"
         guard await enabled(), try await configuration() == manifestURL,
+              await generation(manifestURL) == configurationGeneration,
               let latest = await current(request), Self.sameFixture(latest, request) else {
             throw CommunitySportsAddonError.conflictingMatch
         }
         // Each listing's own details must still identify the game now.
         listings = listings.filter {
             let keep = !Self.selectAll(request: latest, rows: [$0.row], now: completedAt).isEmpty
-            if !keep { admission.record("fixture_changed", count: $0.deliveries.count) }
+            if !keep {
+                admission.record("fixture_changed", count: $0.deliveries.count)
+                for index in $0.deliveries.indices { evidence.disposition(listingID: $0.row.id, index: index, reason: "fixture_changed") }
+            }
             return keep
         }
         guard !listings.isEmpty else {
@@ -368,41 +402,48 @@ actor HighflySportsAddonClient {
             throw CommunitySportsAddonError.conflictingMatch
         }
         missReason = nil
-        for (listing, row) in listings.flatMap({ listing in listing.deliveries.map { (listing.row, $0) } }) {
-            guard sessions.count < Self.maximumSessions else { admission.record("limit"); continue }
-            guard let value = row.url, let url = URL(string: value) else { admission.record("no_url"); continue }
-            if row.requiresDRM { admission.record("drm"); continue }
+        for (listing, index, row) in listings.flatMap({ listing in listing.deliveries.enumerated().map { (listing.row, $0.offset, $0.element) } }) {
+            var disposition = "unprocessed"
+            defer { evidence.disposition(listingID: listing.id, index: index, reason: disposition) }
+            guard sessions.count < Self.maximumSessions else { disposition = "limit"; admission.record(disposition); continue }
+            guard let value = row.url, let url = URL(string: value) else { disposition = "no_url"; admission.record(disposition); continue }
+            if row.requiresDRM { disposition = "drm"; admission.record(disposition); continue }
             if let reason = StreamDeliveryPolicy.rejection(url) {
+                disposition = reason
                 admission.record(reason)
                 continue
             }
-            guard let requested = row.requestedHeaders else { admission.record("malformed_headers"); continue }
+            guard let requested = row.requestedHeaders else { disposition = "malformed_headers"; admission.record(disposition); continue }
             guard let headers = StreamDeliveryPolicy.requestHeaders(requested) else {
-                admission.record(StreamDeliveryPolicy.headerRejection(requested) ?? "malformed_headers"); continue
+                disposition = StreamDeliveryPolicy.headerRejection(requested) ?? "malformed_headers"
+                admission.record(disposition); continue
             }
-            guard !seen.contains(StreamDeliveryIdentity(url: url, headers: headers)) else { admission.record("duplicate"); continue }
+            guard !seen.contains(StreamDeliveryIdentity(url: url, headers: headers)) else { disposition = "duplicate"; admission.record(disposition); continue }
             do { try await validate(url) }
             catch is CancellationError { cancelled = true; throw CancellationError() }
-            catch { admission.record("validation"); continue } // One rejected route must not erase valid siblings.
+            catch { disposition = "validation"; admission.record(disposition); continue } // One rejected route must not erase valid siblings.
             guard let binding = StreamEventBinding(request: latest, providerCode: Self.providerCode,
                 providerEventID: listing.id, streamID: listing.id, resourceType: "sport", manifestRevision: manifest.version,
                 verifiedAt: completedAt, expiresAt: completedAt.addingTimeInterval(90), at: completedAt) else { throw CommunitySportsAddonError.conflictingMatch }
             seen.insert(StreamDeliveryIdentity(url: url, headers: headers))
-            admission.record("admitted")
-            sessions.append(StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
+            disposition = "admitted"
+            admission.record(disposition)
+            let session = StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
                 providerName: "HF\(sessions.count + 1)", requiredHeaders: headers, qualityLabel: nil,
                 expiryTime: binding.expiresAt, canRefresh: true,
                 diagnosticMetadata: ["source_family": Self.providerCode, "delivery": "account_direct_hls",
                     "source_key": Self.stableChoiceKey(url, headers: headers), "source_key_scope": "upstream",
                     // Server name only (e.g. testleaf.papacito.cfd); never a path or token.
                     "delivery_host": url.host?.lowercased() ?? "unknown"],
-                createdAt: completedAt, requiresGuardedRelay: true, eventBinding: binding))
+                createdAt: completedAt, requiresGuardedRelay: true, eventBinding: binding)
+            sessions.append(evidence.attaching(to: session, listingID: listing.id, index: index, at: completedAt))
         }
         stage = "admission"
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offeredTotal) }
         stage = "final_check"
         try Task.checkCancellation()
         guard await enabled(), try await configuration() == manifestURL,
+              await generation(manifestURL) == configurationGeneration,
               let final = await current(request), Self.sameFixture(final, latest),
               !Self.selectAll(request: final, rows: listings.map(\.row),
                               now: now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))).isEmpty else {

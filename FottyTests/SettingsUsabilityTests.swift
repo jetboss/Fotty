@@ -323,3 +323,172 @@ final class AccountSourceSetupTests: XCTestCase {
         XCTAssertEqual(value, old)
     }
 }
+
+@MainActor
+final class ProviderEvidenceConfigurationTests: XCTestCase {
+    private let first = URL(string: "https://premium.highfly.to/private-account-one/manifest.json")!
+    private let second = URL(string: "https://premium.highfly.to/private-account-two/manifest.json")!
+
+    func testCurrentGenerationIsReadOnlyAndTracksRotationAcrossRelaunch() throws {
+        ProviderEvidenceConfiguration.resetForTesting()
+        defer { ProviderEvidenceConfiguration.resetForTesting() }
+        XCTAssertNil(ProviderEvidenceConfiguration.currentGeneration(for: .highfly))
+        XCTAssertNil(ProviderEvidenceConfiguration.encodedForTesting())
+        let original = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        XCTAssertEqual(ProviderEvidenceConfiguration.currentGeneration(for: .highfly), original)
+        ProviderEvidenceConfiguration.rotate(for: .highfly)
+        let rotated = try XCTUnwrap(ProviderEvidenceConfiguration.currentGeneration(for: .highfly))
+        XCTAssertNotEqual(rotated, original)
+        let saved = try XCTUnwrap(ProviderEvidenceConfiguration.encodedForTesting())
+        ProviderEvidenceConfiguration.resetForTesting()
+        ProviderEvidenceConfiguration.restoreForTesting(saved)
+        XCTAssertEqual(ProviderEvidenceConfiguration.currentGeneration(for: .highfly), rotated)
+        XCTAssertNil(ProviderEvidenceConfiguration.currentGeneration(for: .penguPlay))
+    }
+
+    func testSameConfigurationSurvivesSerializedRelaunchAndOtherProvidersStayIsolated() throws {
+        ProviderEvidenceConfiguration.resetForTesting()
+        defer { ProviderEvidenceConfiguration.resetForTesting() }
+        let highfly = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        let pengu = ProviderEvidenceConfiguration.generation(for: .penguPlay, configuration: first)
+        XCTAssertNotEqual(highfly, pengu)
+        XCTAssertEqual(highfly, ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first))
+        let saved = try XCTUnwrap(ProviderEvidenceConfiguration.encodedForTesting())
+        ProviderEvidenceConfiguration.resetForTesting()
+        ProviderEvidenceConfiguration.restoreForTesting(saved)
+        XCTAssertEqual(highfly, ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first))
+        XCTAssertEqual(pengu, ProviderEvidenceConfiguration.generation(for: .penguPlay, configuration: first))
+    }
+
+    func testChangingConfigurationAwayAndBackNeverReusesOldGeneration() {
+        ProviderEvidenceConfiguration.resetForTesting()
+        defer { ProviderEvidenceConfiguration.resetForTesting() }
+        let a = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        let b = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: second)
+        let newA = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        XCTAssertEqual(Set([a, b, newA]).count, 3)
+        XCTAssertEqual(newA, ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first))
+    }
+
+    func testExplicitRotationInvalidatesOnlySelectedProviderEvenWithSameLink() {
+        ProviderEvidenceConfiguration.resetForTesting()
+        defer { ProviderEvidenceConfiguration.resetForTesting() }
+        let a = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        let other = ProviderEvidenceConfiguration.generation(for: .penguPlay, configuration: first)
+        ProviderEvidenceConfiguration.rotate(for: .highfly)
+        let replacement = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        XCTAssertNotEqual(a, replacement)
+        XCTAssertEqual(replacement, ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first))
+        XCTAssertEqual(other, ProviderEvidenceConfiguration.generation(for: .penguPlay, configuration: first))
+    }
+
+    func testSuccessfulAccountWritesRotateButFailedWritesPreserveEvidenceGeneration() throws {
+        ProviderEvidenceConfiguration.resetForTesting()
+        defer { ProviderEvidenceConfiguration.resetForTesting() }
+        var value: Data?, failing = false
+        let store = AccountSourceSetupStore(read: { _ in value }, write: { _, next in
+            if failing { throw AccountSourceSetupError.storageUnavailable }
+            value = next
+        })
+        let initial = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        try store.save(first.absoluteString, for: .highfly)
+        let saved = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        XCTAssertNotEqual(initial, saved)
+        failing = true
+        XCTAssertThrowsError(try store.save(second.absoluteString, for: .highfly))
+        XCTAssertThrowsError(try store.remove(.highfly))
+        XCTAssertEqual(saved, ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first))
+        failing = false
+        try store.remove(.highfly)
+        XCTAssertNil(value)
+        XCTAssertNotEqual(saved, ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first))
+    }
+
+    func testInvalidOrCancelledSetupDoesNotRotateGeneration() async throws {
+        ProviderEvidenceConfiguration.resetForTesting()
+        defer { ProviderEvidenceConfiguration.resetForTesting() }
+        var writes = 0
+        let store = AccountSourceSetupStore(read: { _ in nil }, write: { _, _ in writes += 1 })
+        let original = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        XCTAssertThrowsError(try store.save("https://unreviewed.example/private/manifest.json", for: .highfly))
+        let connector = AccountSourceConnector(store: store, verify: { _, _ in throw CancellationError() },
+                                              setEnabled: { _, _ in XCTFail("Must not enable after cancellation") })
+        do { _ = try await connector.add(second.absoluteString, for: .highfly); XCTFail("Expected cancellation") }
+        catch { XCTAssertTrue(error is CancellationError) }
+        XCTAssertEqual(writes, 0)
+        XCTAssertEqual(original, ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first))
+    }
+
+    func testRegistryEnablementChangesRotateWhileNoopAndReloadDoNot() async {
+        ProviderEvidenceConfiguration.resetForTesting()
+        defer { ProviderEvidenceConfiguration.resetForTesting() }
+        let highfly = StreamPlugin(id: "highfly-extension", name: "Highfly", providerCode: "highfly", isEnabled: true)
+        let pengu = StreamPlugin(id: "penguplay-extension", name: "PenguPlay", providerCode: "penguplay", isEnabled: true)
+        let registry = StreamPluginRegistry(testingPlugins: [highfly, pengu])
+        let initial = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        let other = ProviderEvidenceConfiguration.generation(for: .penguPlay, configuration: first)
+        await registry.setPluginEnabled(true, forId: highfly.id)
+        XCTAssertEqual(initial, ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first))
+        await registry.setPluginEnabled(false, forId: highfly.id)
+        let disabled = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        await registry.setPluginEnabled(true, forId: highfly.id)
+        let reenabled = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        XCTAssertEqual(Set([initial, disabled, reenabled]).count, 3)
+        XCTAssertEqual(other, ProviderEvidenceConfiguration.generation(for: .penguPlay, configuration: first))
+        _ = await registry.playbackSettingsSnapshot(reload: true)
+        XCTAssertEqual(reenabled, ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first))
+    }
+
+    func testGenerationPayloadContainsOnlyOpaqueValuesAndHasFiniteProviderCapacity() throws {
+        ProviderEvidenceConfiguration.resetForTesting()
+        defer { ProviderEvidenceConfiguration.resetForTesting() }
+        for provider in EvidenceProvider.allCases {
+            _ = ProviderEvidenceConfiguration.generation(for: provider, configuration: first)
+        }
+        let data = try XCTUnwrap(ProviderEvidenceConfiguration.encodedForTesting())
+        let text = String(decoding: data, as: UTF8.self)
+        for privateValue in ["https://", "premium.highfly.to", "private-account-one", "manifest.json"] {
+            XCTAssertFalse(text.contains(privateValue))
+        }
+        let payload = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let entries = try XCTUnwrap(payload["entries"] as? [String: Any])
+        XCTAssertEqual(entries.count, EvidenceProvider.allCases.count)
+        XCTAssertLessThan(data.count, 16 * 1024)
+    }
+
+    func testMalformedUnknownOrOversizedPersistedPayloadCannotRestoreOldEpoch() throws {
+        ProviderEvidenceConfiguration.resetForTesting()
+        defer { ProviderEvidenceConfiguration.resetForTesting() }
+        let old = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+        let saved = try XCTUnwrap(ProviderEvidenceConfiguration.encodedForTesting())
+        var unsupported = try XCTUnwrap(JSONSerialization.jsonObject(with: saved) as? [String: Any])
+        unsupported["version"] = 2
+        var unknown = try XCTUnwrap(JSONSerialization.jsonObject(with: saved) as? [String: Any])
+        unknown["entries"] = ["unreviewed": ["generation": old.uuidString]]
+        let inputs = [Data("not JSON".utf8), Data(repeating: 32, count: 16 * 1024 + 1),
+                      try JSONSerialization.data(withJSONObject: unsupported),
+                      try JSONSerialization.data(withJSONObject: unknown)]
+        for input in inputs {
+            ProviderEvidenceConfiguration.restoreForTesting(input)
+            let replacement = ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first)
+            XCTAssertNotEqual(replacement, old)
+            XCTAssertEqual(replacement, ProviderEvidenceConfiguration.generation(for: .highfly, configuration: first))
+        }
+    }
+
+    func testConcurrentLookupsAgreeOnOneGeneration() async {
+        ProviderEvidenceConfiguration.resetForTesting()
+        defer { ProviderEvidenceConfiguration.resetForTesting() }
+        let url = first
+        let values = await withTaskGroup(of: UUID.self, returning: [UUID].self) { group in
+            for _ in 0..<24 {
+                group.addTask { ProviderEvidenceConfiguration.generation(for: .highfly, configuration: url) }
+            }
+            var generations: [UUID] = []
+            for await value in group { generations.append(value) }
+            return generations
+        }
+        XCTAssertEqual(values.count, 24)
+        XCTAssertEqual(Set(values).count, 1)
+    }
+}

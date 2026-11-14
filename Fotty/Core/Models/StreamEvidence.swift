@@ -135,6 +135,175 @@ struct FixtureLookupCounts: Equatable, Sendable {
     let isTruncated: Bool
 }
 
+/// Bounded diagnostic observation, not a player choice or correctness verdict.
+/// Index is local to this listing's stream response. No raw fields survive.
+struct ProviderDeliveryReceipt: Equatable, Sendable {
+    let listing: DeviceHMAC
+    let index: Int
+    let contract: DeviceHMAC?
+    let hasName, hasTitle: Bool
+    let comparison: MetadataComparison
+    var disposition: String
+    let observedAt: Date
+    var sourceID: UUID? = nil
+}
+
+struct ProviderLookupReceipt: Equatable, Sendable {
+    let fixture: DeviceHMAC
+    let provider: EvidenceProvider
+    let lookupID, configurationGeneration: UUID
+    let startedAt, finishedAt: Date
+    let observedEntries, readResponses, unreadResponses, knownEmptyResponses: Int
+    let uniqueObservedContracts, admitted: Int
+    let dispositions: [String: Int]
+    let deliveries: [ProviderDeliveryReceipt]
+    let completion: String
+    let isTruncated, isReconciled: Bool
+}
+
+/// One eligible adapter lookup. Response counts describe logical stream reads,
+/// not the transport's internal retries or catalog pages. Missing responses
+/// never manufacture a raw-stream zero. Retained contract counts are lower
+/// bounds when a sample is truncated.
+struct StreamLookupEvidence: Sendable {
+    static let maximumDeliveries = 64
+    private let request: StreamPlaybackRequest
+    private let provider: EvidenceProvider
+    private let lookupID, generation: UUID
+    private let startedAt: Date
+    private var deliveries: [ProviderDeliveryReceipt] = []
+    private var listingObservedAt: [DeviceHMAC: Date] = [:]
+    private var observedEntries = 0, readResponses = 0, unreadResponses = 0, knownEmptyResponses = 0
+    private var truncated = false
+
+    init(request: StreamPlaybackRequest, provider: EvidenceProvider, lookupID: UUID,
+         configurationGeneration: UUID, at now: Date) {
+        self.request = request; self.provider = provider; self.lookupID = lookupID
+        generation = configurationGeneration; startedAt = now
+    }
+
+    mutating func readResponse(listingID: String, entries: Int) {
+        guard StreamAdmissionLedger.validCount.contains(entries),
+              entries <= StreamAdmissionLedger.validCount.upperBound - observedEntries,
+              readResponses < StreamAdmissionLedger.validCount.upperBound else { truncated = true; return }
+        observedEntries += entries; readResponses += 1
+        if entries == 0 { knownEmptyResponses += 1 }
+    }
+
+    mutating func unreadResponse() {
+        guard unreadResponses < StreamAdmissionLedger.validCount.upperBound else { truncated = true; return }
+        unreadResponses += 1
+    }
+
+    mutating func markTruncated() { truncated = true }
+
+    mutating func observeEntry(listingID: String, index: Int, url: String?, headers: [String: String]?,
+                              name: String?, title: String?, at now: Date) {
+        guard index >= 0, StreamAdmissionLedger.validCount.contains(index),
+              let listing = LiveSourceHealthStore.listingFingerprint(provider: provider, listingID: listingID),
+              now.timeIntervalSinceReferenceDate.isFinite, now >= startedAt else { truncated = true; return }
+        if listingObservedAt[listing] == nil, listingObservedAt.count < Self.maximumDeliveries {
+            listingObservedAt[listing] = now
+        }
+        guard !deliveries.contains(where: { $0.listing == listing && $0.index == index }) else { return }
+        guard deliveries.count < Self.maximumDeliveries else { truncated = true; return }
+        let contract: DeviceHMAC?
+        if let value = url, value.utf8.count <= 8192, let url = URL(string: value), let headers {
+            contract = LiveSourceHealthStore.deliveryContractFingerprint(for: StreamSession(matchID: request.matchID,
+                playableURL: url, streamType: .hls, providerName: provider.rawValue, requiredHeaders: headers))
+        } else { contract = nil }
+        deliveries.append(.init(listing: listing, index: index, contract: contract,
+            hasName: Self.boundedLabel(name) != nil, hasTitle: Self.boundedLabel(title) != nil,
+            comparison: Self.compare(name: name, title: title, request: request),
+            disposition: "unprocessed", observedAt: now))
+    }
+
+    mutating func disposition(listingID: String, index: Int, reason: String) {
+        guard StreamAdmissionLedger.reasons.contains(reason),
+              let listing = LiveSourceHealthStore.listingFingerprint(provider: provider, listingID: listingID) else { return }
+        guard let position = deliveries.firstIndex(where: { $0.listing == listing && $0.index == index }) else { return }
+        deliveries[position].disposition = reason
+    }
+
+    mutating func attaching(to session: StreamSession, listingID: String, index: Int, at now: Date) -> StreamSession {
+        guard let contract = LiveSourceHealthStore.deliveryContractFingerprint(for: session),
+              let listing = LiveSourceHealthStore.listingFingerprint(provider: provider, listingID: listingID)
+        else { return session }
+        // Existing player records already carry this local source UUID. Keep
+        // the exact admitted origin, not other rows with the same contract.
+        // This describes initial selection, never decoded playback or renewal.
+        if let position = deliveries.firstIndex(where: {
+            $0.listing == listing && $0.index == index && $0.contract == contract
+        }) {
+            deliveries[position].sourceID = session.id
+        }
+        // A rolling channel tile has no authoritative programme identity. Its
+        // diagnostics can be counted without minting fixture correctness.
+        guard CricketBroadcastChannel.identifying(request: request) == nil,
+              ReviewedSportsFixtureMatcher.requestIdentity(for: request) != nil,
+              let scope = LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: request.matchID),
+              let observedAt = listingObservedAt[listing],
+              let provenance = LiveSourceHealthStore.deliveryProvenance(for: session, scope: scope,
+                listingID: listingID, lookupID: lookupID, configurationGeneration: generation, at: observedAt)
+        else { return session }
+        let attached = session.recordingDeliveryProvenance(provenance, scope: scope,
+            configurationGeneration: generation, at: now)
+        let samples = deliveries.filter { $0.contract == contract }
+        let comparison: MetadataComparison = samples.contains { $0.comparison == .contradicts } ? .contradicts
+            : (samples.contains { $0.comparison == .agrees } ? .agrees : .noParseableTeams)
+        let comparedAt = max(observedAt, samples.map(\.observedAt).max() ?? observedAt)
+        let expiresAt = min(observedAt, samples.map(\.observedAt).min() ?? observedAt)
+            .addingTimeInterval(StreamEventBinding.metadataLifetime)
+        let receipt = DeliveryMetadataReceipt(provenance: provenance, hasName: samples.contains { $0.hasName },
+            hasTitle: samples.contains { $0.hasTitle }, comparison: comparison, comparedAt: comparedAt, expiresAt: expiresAt)
+        LiveSourceHealthStore.recordDeliveryMetadata(receipt, for: attached, scope: scope,
+            configurationGeneration: generation, at: now)
+        return attached
+    }
+
+    func snapshot(ledger: StreamAdmissionLedger, completion: String, at now: Date) -> ProviderLookupReceipt? {
+        guard startedAt.timeIntervalSinceReferenceDate.isFinite, now.timeIntervalSinceReferenceDate.isFinite,
+              now >= startedAt, ledger.id == lookupID, ledger.isFinished,
+              StreamAdmissionLedger.completions.contains(completion),
+              case .fixture(let fixture)? = LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: request.matchID)
+        else { return nil }
+        let failed = completion == "failed" || completion == "cancelled"
+        let samples = deliveries.map { value -> ProviderDeliveryReceipt in
+            var entry = value
+            if failed && entry.disposition == "admitted" { entry.disposition = "withdrawn" }
+            return entry
+        }
+        let partial = truncated || samples.count < observedEntries
+        let counts = samples.reduce(into: [String: Int]()) { $0[$1.disposition, default: 0] += 1 }
+        let reconciled = ledger.isReconciled && ledger.offered == observedEntries
+            && StreamAdmissionLedger.reasons.allSatisfy {
+                partial ? counts[$0, default: 0] <= ledger.dispositions[$0, default: 0]
+                    : counts[$0, default: 0] == ledger.dispositions[$0, default: 0]
+            }
+        return .init(fixture: fixture, provider: provider, lookupID: lookupID, configurationGeneration: generation,
+            startedAt: startedAt, finishedAt: now, observedEntries: observedEntries, readResponses: readResponses,
+            unreadResponses: unreadResponses, knownEmptyResponses: knownEmptyResponses,
+            uniqueObservedContracts: Set(samples.compactMap(\.contract)).count, admitted: ledger.admitted,
+            dispositions: ledger.dispositions, deliveries: samples, completion: completion,
+            isTruncated: partial, isReconciled: reconciled)
+    }
+
+    private static func boundedLabel(_ value: String?) -> String? {
+        guard let value, value.utf8.count <= 512 else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    static func compare(name: String?, title: String?, request: StreamPlaybackRequest) -> MetadataComparison {
+        guard let expected = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else { return .noParseableTeams }
+        let pairs = [name, title].compactMap(boundedLabel).compactMap {
+            ReviewedSportsFixtureMatcher.participantIdentity(sport: expected.sport, cast: [], title: $0)
+        }
+        if pairs.contains(where: { $0.pair != expected.pair }) { return .contradicts }
+        return pairs.isEmpty ? .noParseableTeams : .agrees
+    }
+}
+
 /// Pure local evidence storage. Playback outcomes have no input here: even an
 /// indefinitely decoded picture cannot establish programme correctness. Expired
 /// observations remain within the same bounds solely to prevent replay from

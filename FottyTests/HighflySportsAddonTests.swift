@@ -454,12 +454,214 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertEqual(StreamDeliveryPolicy.requestHeaders(["Referer":"http://public.example.com/"]), ["Referer":"http://public.example.com/"])
     }
 
-    private func client(_ transport: HighflyTestTransport) -> HighflySportsAddonClient {
+    func testDeliveryLabelsDecodeIndependentlyWithoutChangingAdmissionInputs() throws {
+        func decode(_ json: String) throws -> HighflySportsAddonClient.Delivery {
+            try JSONDecoder().decode(HighflySportsAddonClient.Delivery.self, from: Data(json.utf8))
+        }
+        let malformedName = try decode(#"{"url":"https://edge.example.com/live","name":12,"title":"Arsenal vs Everton"}"#)
+        XCTAssertNil(malformedName.name)
+        XCTAssertEqual(malformedName.title, "Arsenal vs Everton")
+        XCTAssertEqual(malformedName.requestedHeaders, [:])
+        let malformedTitle = try decode(#"{"url":"https://edge.example.com/live","name":"Arsenal vs Everton","title":["unexpected"]}"#)
+        XCTAssertEqual(malformedTitle.name, "Arsenal vs Everton")
+        XCTAssertNil(malformedTitle.title)
+        for json in [#"{"url":"https://edge.example.com/live"}"#,
+                     #"{"url":"https://edge.example.com/live","name":null,"title":null}"#] {
+            let absent = try decode(json)
+            XCTAssertNil(absent.name); XCTAssertNil(absent.title)
+            XCTAssertEqual(absent.url, "https://edge.example.com/live")
+            XCTAssertFalse(absent.requiresDRM)
+        }
+    }
+
+    func testLookupReceiptsLinkEveryListingAndKeepRepeatedLookupsSeparate() async throws {
+        let transport = HighflyTestTransport(mode: .twoListings), receipts = HighflyReceiptBox()
+        let generation = UUID()
+        let resolver = client(transport, generation: { _ in generation }, receiptSink: receipts.append)
+        let first = try await resolver.resolve(for: request(), now: kickoff)
+        let second = try await resolver.resolve(for: request(), now: kickoff.addingTimeInterval(1))
+        let records = receipts.values
+        XCTAssertEqual(records.count, 2)
+        XCTAssertNotEqual(records[0].lookupID, records[1].lookupID)
+        XCTAssertEqual(records[0].configurationGeneration, generation)
+        XCTAssertEqual(records[0].fixture, records[1].fixture)
+        for (sessions, record) in [(first, records[0]), (second, records[1])] {
+            XCTAssertEqual(record.readResponses, 2)
+            XCTAssertEqual(record.unreadResponses, 0)
+            XCTAssertEqual(record.observedEntries, 13)
+            XCTAssertEqual(record.uniqueObservedContracts, 11)
+            XCTAssertEqual(record.admitted, 11)
+            XCTAssertEqual(record.dispositions["duplicate"], 1)
+            XCTAssertEqual(record.dispositions["no_url"], 1)
+            XCTAssertEqual(record.deliveries.count, 13)
+            XCTAssertEqual(Set(record.deliveries.map(\.listing)).count, 2)
+            XCTAssertEqual(Set(record.deliveries.compactMap(\.sourceID)), Set(sessions.map(\.id)))
+            XCTAssertTrue(record.deliveries.filter { $0.disposition != "admitted" }.allSatisfy { $0.sourceID == nil })
+            XCTAssertTrue(record.isReconciled)
+            XCTAssertFalse(record.isTruncated)
+            for session in sessions {
+                let provenance = try XCTUnwrap(session.deliveryProvenance)
+                XCTAssertEqual(provenance.lookupID, record.lookupID)
+                XCTAssertEqual(provenance.configurationGeneration, generation)
+                XCTAssertNil(session.deliveryTransportContext, "Discovery does not invent a prepared cookie snapshot")
+                XCTAssertTrue(record.deliveries.contains { $0.listing == provenance.listing
+                    && $0.contract == provenance.contract && $0.disposition == "admitted" && $0.sourceID == session.id })
+            }
+        }
+    }
+
+    func testDeliveryLabelContradictionIsRecordedWithoutReorderingOrRefusingStreams() async throws {
+        let receipts = HighflyReceiptBox(), transport = HighflyTestTransport(mode: .metadataLabels)
+        let result = try await client(transport, receiptSink: receipts.append).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(result.map(\.providerName), ["HF1", "HF2", "HF3"])
+        XCTAssertEqual(result.map { $0.playableURL.lastPathComponent }, ["first.m3u8", "second.m3u8", "third.m3u8"])
+        let receipt = try XCTUnwrap(receipts.values.last)
+        XCTAssertEqual(receipt.deliveries.map(\.comparison), [.agrees, .contradicts, .noParseableTeams])
+        XCTAssertEqual(receipt.deliveries.map(\.hasName), [true, true, false])
+        XCTAssertEqual(receipt.deliveries.map(\.hasTitle), [true, true, false])
+        XCTAssertEqual(receipt.deliveries.map(\.disposition), ["admitted", "admitted", "admitted"])
+        let description = String(reflecting: receipt)
+        for raw in ["Arsenal", "Everton", "Chelsea", "Fulham", "private-label-sentinel",
+                    "edge.example.com", "synthetic-account", "private-token-sentinel", "streamed:synthetic"] {
+            XCTAssertFalse(description.contains(raw), "Raw provider values must not enter typed receipts")
+        }
+    }
+
+    func testPartialUnreadResponseDoesNotBecomeAnEmptyResponseOrHideSuccessfulSiblings() async throws {
+        let receipts = HighflyReceiptBox(), transport = HighflyTestTransport(mode: .partialStreams)
+        let result = try await client(transport, receiptSink: receipts.append).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(result.map(\.providerName), ["HF1"])
+        let receipt = try XCTUnwrap(receipts.values.last)
+        XCTAssertEqual(receipt.readResponses, 1)
+        XCTAssertEqual(receipt.unreadResponses, 1)
+        XCTAssertEqual(receipt.knownEmptyResponses, 0)
+        XCTAssertEqual(receipt.observedEntries, 2)
+        XCTAssertEqual(receipt.admitted, 1)
+        XCTAssertEqual(receipt.completion, "partial")
+        XCTAssertTrue(receipt.isReconciled)
+    }
+
+    func testDuplicateContractContradictionCannotBeHiddenByTheFirstAdmittedLabel() async throws {
+        let receipts = HighflyReceiptBox(), generation = UUID()
+        let result = try await client(HighflyTestTransport(mode: .contradictoryDuplicate),
+            generation: { _ in generation }, receiptSink: receipts.append).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(result.map(\.providerName), ["HF1"], "Diagnostic comparison does not change deduplication or ordering")
+        let receipt = try XCTUnwrap(receipts.values.last)
+        XCTAssertEqual(receipt.deliveries.map(\.comparison), [.agrees, .contradicts])
+        XCTAssertEqual(receipt.deliveries.map(\.disposition), ["admitted", "duplicate"])
+        let session = try XCTUnwrap(result.first), provenance = try XCTUnwrap(session.deliveryProvenance)
+        XCTAssertEqual(receipt.deliveries.first?.sourceID, session.id)
+        XCTAssertNil(receipt.deliveries.last?.sourceID, "A duplicate observation is not the admitted origin")
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: provenance.scope,
+            configurationGeneration: generation, attemptID: nil, expiry: .boundary(kickoff.addingTimeInterval(3600)),
+            at: provenance.observedAt.addingTimeInterval(1)), .unknown,
+            "A duplicate delivery's contradictory metadata must not be lost behind first-listed agreement")
+    }
+
+    func testSourceReceiptIdentifiesAdmittedEntryRatherThanEarlierRejectedSameContract() async throws {
+        let receipts = HighflyReceiptBox()
+        let sessions = try await client(HighflyTestTransport(mode: .rejectedThenAdmittedContract),
+            receiptSink: receipts.append).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.map(\.providerName), ["HF1"], "Origin accounting does not change admission or source order")
+        let session = try XCTUnwrap(sessions.first), receipt = try XCTUnwrap(receipts.values.last)
+        XCTAssertEqual(receipt.deliveries.map(\.index), [0, 1, 2])
+        XCTAssertEqual(receipt.deliveries.map(\.disposition), ["drm", "admitted", "duplicate"])
+        XCTAssertEqual(receipt.deliveries.map(\.sourceID), [nil, session.id, nil])
+        let contract = try XCTUnwrap(session.deliveryProvenance?.contract)
+        XCTAssertTrue(receipt.deliveries.allSatisfy { $0.contract == contract },
+            "The transport contracts deliberately match; only the admitted entry may name the returned session")
+        XCTAssertEqual(receipt.admitted, 1)
+        XCTAssertTrue(receipt.isReconciled)
+    }
+
+    func testKnownEmptyAndUnreadStreamResponsesHaveDifferentReceipts() async throws {
+        for mode in [HighflyTestTransport.Mode.emptyStreams, .streamReadFails] {
+            let receipts = HighflyReceiptBox()
+            do {
+                _ = try await client(HighflyTestTransport(mode: mode), receiptSink: receipts.append)
+                    .resolve(for: request(), now: kickoff)
+                XCTFail("Empty or unavailable response cannot produce playback")
+            } catch { XCTAssertTrue(error is CommunitySportsAddonError) }
+            let receipt = try XCTUnwrap(receipts.values.last)
+            XCTAssertEqual(receipt.observedEntries, 0)
+            XCTAssertEqual(receipt.admitted, 0)
+            XCTAssertEqual(receipt.readResponses, mode == .emptyStreams ? 1 : 0)
+            XCTAssertEqual(receipt.unreadResponses, mode == .emptyStreams ? 0 : 1)
+            XCTAssertEqual(receipt.knownEmptyResponses, mode == .emptyStreams ? 1 : 0)
+        }
+    }
+
+    func testConflictingMetadataLeavesTheStreamResponseUnreadRatherThanKnownEmpty() async throws {
+        let receipts = HighflyReceiptBox(), transport = HighflyTestTransport(mode: .conflictingMeta)
+        do {
+            _ = try await client(transport, receiptSink: receipts.append).resolve(for: request(), now: kickoff)
+            XCTFail("A conflicting listing cannot acquire stream authority")
+        } catch { XCTAssertTrue(error is CommunitySportsAddonError) }
+        let receipt = try XCTUnwrap(receipts.values.last)
+        XCTAssertEqual(receipt.readResponses, 0)
+        XCTAssertEqual(receipt.unreadResponses, 1)
+        XCTAssertEqual(receipt.knownEmptyResponses, 0)
+        XCTAssertEqual(receipt.observedEntries, 0)
+        XCTAssertTrue(receipt.deliveries.isEmpty)
+        XCTAssertFalse(receipt.isReconciled, "No stream response was observed")
+        let requests = await transport.counts()
+        XCTAssertEqual(requests.stream, 0)
+    }
+
+    func testScanLimitAccountsForEveryObservedTailWithoutInflatingUniqueContractCoverage() async throws {
+        let receipts = HighflyReceiptBox()
+        let sessions = try await client(HighflyTestTransport(mode: .streamScanLimit), receiptSink: receipts.append)
+            .resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 100)
+        XCTAssertTrue(sessions.allSatisfy { $0.deliveryProvenance != nil },
+            "Diagnostic sample limits must not erase the listing association for admitted sessions")
+        let receipt = try XCTUnwrap(receipts.values.last)
+        XCTAssertEqual(receipt.observedEntries, 130)
+        XCTAssertEqual(receipt.admitted, 100)
+        XCTAssertEqual(receipt.dispositions["limit"], 30)
+        XCTAssertTrue(receipt.isTruncated)
+        XCTAssertLessThanOrEqual(receipt.deliveries.count, 64)
+        XCTAssertLessThanOrEqual(receipt.uniqueObservedContracts, 64)
+        XCTAssertTrue(receipt.isReconciled)
+    }
+
+    func testChangedGenerationWithdrawsProvisionalStreamsEvenWhenTheAccountLinkIsUnchanged() async throws {
+        let receipts = HighflyReceiptBox(), epochs = HighflyGenerationSequence()
+        let transport = HighflyTestTransport()
+        let resolver = client(transport, generation: { _ in await epochs.next() }, receiptSink: receipts.append)
+        do {
+            _ = try await resolver.resolve(for: request(), now: kickoff)
+            XCTFail("A changed configuration generation must invalidate the old lookup")
+        } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .conflictingMatch) }
+        let receipt = try XCTUnwrap(receipts.values.last)
+        XCTAssertEqual(receipt.observedEntries, 2)
+        XCTAssertEqual(receipt.admitted, 0)
+        XCTAssertEqual(receipt.dispositions["withdrawn"], 1)
+        XCTAssertTrue(receipt.deliveries.allSatisfy { $0.disposition != "admitted" })
+        XCTAssertTrue(receipt.isReconciled)
+    }
+
+    private func client(_ transport: HighflyTestTransport,
+                        generation: HighflySportsAddonClient.Generation? = nil,
+                        receiptSink: HighflySportsAddonClient.ReceiptSink? = nil) -> HighflySportsAddonClient {
         HighflySportsAddonClient(configuration: { await transport.configuration() }, fetch: { try await transport.fetch($0) },
             enabled: { await transport.enabled() }, current: { $0 }, validate: { url in
                 if url.path.contains("rejected") { throw CommunitySportsAddonError.unsafeResponse }
-            })
+            }, generation: generation, receiptSink: receiptSink)
     }
+}
+
+private final class HighflyReceiptBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored: [ProviderLookupReceipt] = []
+    func append(_ receipt: ProviderLookupReceipt) { lock.lock(); defer { lock.unlock() }; stored.append(receipt) }
+    var values: [ProviderLookupReceipt] { lock.lock(); defer { lock.unlock() }; return stored }
+}
+
+private actor HighflyGenerationSequence {
+    private let initial = UUID(), changed = UUID()
+    private var reads = 0
+    func next() -> UUID { reads += 1; return reads <= 2 ? initial : changed }
 }
 
 private actor HighflyTestTransport {
@@ -468,6 +670,7 @@ private actor HighflyTestTransport {
         case searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog
         case listingFailsAfterLive, liveFailsListingMatches, secondTeamSearchTimesOut, teamSearchesTimeOut, cancelTeamSearch
         case secondSearchFails, looseRows, metaFails, looseManifest, twoListings
+        case metadataLabels, contradictoryDuplicate, rejectedThenAdmittedContract, partialStreams, emptyStreams, streamReadFails, streamScanLimit
     }
     private let premium: Bool
     private let mode: Mode
@@ -530,7 +733,7 @@ private actor HighflyTestTransport {
                 body = ["metas": url.lastPathComponent == "sports_live.json" ? [row] : []]
             case .cancelTeamSearch:
                 throw CancellationError()
-            case .twoListings:
+            case .twoListings, .partialStreams:
                 var second = row; second["id"] = "streamed:synthetic-feed-b"
                 body = ["metas": url.absoluteString.contains("skip=") || !searching ? [] : [row, second]]
             case .secondLiveCatalog:
@@ -578,16 +781,39 @@ private actor HighflyTestTransport {
             var meta = row
             if [.undatedLiveRow, .secondLiveCatalog, .listingFailsAfterLive].contains(mode) { meta["description"] = "Arsenal vs Everton\n🔴 Live now"; meta["releaseInfo"] = "LIVE" }
             if mode == .conflictingMeta { meta["name"] = "Different fixture" }
-            if mode == .twoListings, url.path.contains("feed-b") { meta["id"] = "streamed:synthetic-feed-b" }
+            if [.twoListings, .partialStreams].contains(mode), url.path.contains("feed-b") { meta["id"] = "streamed:synthetic-feed-b" }
             body = ["meta": meta]
         } else {
             streamCount += 1
+            if mode == .streamReadFails || mode == .partialStreams && url.path.contains("feed-b") { return unavailable() }
             let key = premium ? "token" : "ft"
             var deliveries: [[String: Any]] = [["externalUrl": "https://sports.highfly.to/setup"],
                 ["url": "https://papacito.cfd/m3u/synthetic/index.m3u8?\(key)=synthetic", "behaviorHints": ["notWebReady": true]]]
             if mode == .twoListings, url.path.contains("feed-b") {
                 deliveries = (1...10).map { ["url": "https://edge\($0).papacito.cfd/m3u/b\($0)/index.m3u8?\(key)=s"] }
                 deliveries.append(["url": "https://papacito.cfd/m3u/synthetic/index.m3u8?\(key)=synthetic"])
+            }
+            if mode == .emptyStreams { deliveries = [] }
+            if mode == .metadataLabels {
+                deliveries = [
+                    ["url": "https://edge.example.com/first.m3u8?token=private-token-sentinel",
+                     "name": "Arsenal vs Everton", "title": "private-label-sentinel"],
+                    ["url": "https://edge.example.com/second.m3u8", "name": "Arsenal vs Everton", "title": "Chelsea vs Fulham"],
+                    ["url": "https://edge.example.com/third.m3u8", "name": 12, "title": ["unreadable"]]]
+            }
+            if mode == .contradictoryDuplicate {
+                deliveries = [
+                    ["url": "https://edge.example.com/duplicate-label.m3u8", "name": "Arsenal vs Everton"],
+                    ["url": "https://edge.example.com/duplicate-label.m3u8", "title": "Chelsea vs Fulham"]]
+            }
+            if mode == .rejectedThenAdmittedContract {
+                let contractURL = "https://edge.example.com/same-contract.m3u8"
+                deliveries = [["url": contractURL, "drm": true],
+                              ["url": contractURL],
+                              ["url": contractURL]]
+            }
+            if mode == .streamScanLimit {
+                deliveries = (0..<130).map { ["url": "https://edge.example.com/route-\($0).m3u8"] }
             }
             if mode == .ownDomain { deliveries[0] = ["url": "https://sports.highfly.to/delivery.php", "behaviorHints": NSNull(), "drm": NSNull()] }
             if mode == .nullableMetadata { deliveries += [["url": "https://edge.example.com/live", "headers": NSNull(), "behaviorHints": ["proxyHeaders": NSNull()], "drm": false], ["url": 7]] }
