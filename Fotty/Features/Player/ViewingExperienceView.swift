@@ -655,6 +655,16 @@ struct ViewingExperienceView: View {
             if AppRuntime.usesPrivateMatchSelection, let source = pane.model.activeSource,
                pane.model.error == nil, pane.model.canReportViewerFeedback(for: source.id, expectedAttempt: displayedAttempt) {
                 Divider()
+                if pane.model.isRightMatchConfirmed(for: source.id, expectedAttempt: displayedAttempt) {
+                    Label("Right match confirmed", systemImage: "checkmark.circle.fill")
+                        .accessibilityIdentifier("viewing-right-match-confirmed")
+                } else if pane.model.canConfirmRightMatch(for: source.id, expectedAttempt: displayedAttempt) {
+                    Button { pane.model.reportRightMatch(for: source.id, expectedAttempt: displayedAttempt) } label: {
+                        Label("Right match", systemImage: "checkmark.circle")
+                    }
+                    .accessibilityHint("Optional. Confirms this source shows the match you chose. Playback does not change")
+                    .accessibilityIdentifier("viewing-right-match")
+                }
                 if !pane.event.isBroadcastChannel {
                     Button { pane.model.reportWrongMatch(for: source.id, expectedAttempt: displayedAttempt) } label: {
                         Label("Wrong match", systemImage: "flag")

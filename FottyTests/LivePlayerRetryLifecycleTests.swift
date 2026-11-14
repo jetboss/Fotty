@@ -90,6 +90,136 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         XCTAssertEqual(model.currentSourceIndex, twin.currentSourceIndex)
     }
 
+    // MARK: Right match
+
+    private struct RightMatchFixture {
+        let model: LivePlayerViewModel
+        let evidenced: StreamSession
+        let plain: StreamSession
+    }
+
+    /// A playing native attempt on a Highfly delivery whose lookup supplied
+    /// fixture provenance, plus a second source without any provenance.
+    private func rightMatchFixture() throws -> RightMatchFixture {
+        ProviderEvidenceConfiguration.resetForTesting()
+        let event = singleDiscoveryFixture(id: "sports-fixture:premier-league:right-match-\(UUID().uuidString)")
+        let generation = ProviderEvidenceConfiguration.generation(for: .highfly,
+            configuration: try XCTUnwrap(URL(string: "https://addon.example/right-match/manifest.json")))
+        let scope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: event.id))
+        let bare = singleDiscoverySession(event: event, provider: "HF1", suffix: "right-match-hf", web: false)
+        let provenance = try XCTUnwrap(LiveSourceHealthStore.deliveryProvenance(for: bare, scope: scope,
+            listingID: "listing-right-match", lookupID: UUID(), configurationGeneration: generation))
+        let evidenced = bare.recordingDeliveryProvenance(provenance, scope: scope, configurationGeneration: generation)
+        XCTAssertNotNil(evidenced.deliveryProvenance)
+        let plain = singleDiscoverySession(event: event, provider: "AS2", suffix: "right-match-plain", web: false)
+        let model = LivePlayerViewModel(event: event, providedSessions: [evidenced, plain],
+            prepareAudioSession: { .completed([]) }, validateNativeSource: { _, _ in .invalid("No media in unit tests") },
+            currentMatchProviders: { ["highfly", "plaviosports"] })
+        model.didApplyLandscape = true
+        XCTAssertTrue(model.configureSingleStreamRanking())
+        model.player = AVPlayer()
+        model.transition(to: .playing(.native), phase: "Playing")
+        return RightMatchFixture(model: model, evidenced: evidenced, plain: plain)
+    }
+
+    private func rightMatchRecords(_ attempt: UUID) -> [FottyQualityRecord] {
+        FottyQualityStore.shared.records().filter {
+            $0.name == "programme_observation" && $0.details["attempt_id"] == attempt.uuidString
+                && $0.details["programme_observation"] == "viewer_confirmed_right"
+        }
+    }
+
+    func testRightMatchConfirmsOnlyThePreparedAttemptAndNeverChangesPlayback() throws {
+        let fixture = try rightMatchFixture()
+        let model = fixture.model
+        defer { model.cleanup(); ProviderEvidenceConfiguration.resetForTesting() }
+        let source = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
+        try XCTSkipUnless(source.id == fixture.evidenced.id, "Ranking chose the evidenced source first")
+
+        // Before preparation captured the transport there is nothing to confirm.
+        XCTAssertFalse(model.canConfirmRightMatch(for: source.id, expectedAttempt: attempt))
+        model.reportRightMatch(for: source.id, expectedAttempt: attempt)
+        XCTAssertTrue(rightMatchRecords(attempt).isEmpty)
+
+        // A capture for an older attempt or another source is ignored.
+        model.capturePreparedProgrammeEvidence(selected: fixture.evidenced, cookies: [], attemptID: UUID())
+        XCTAssertNil(model.preparedProgrammeEvidence)
+
+        model.capturePreparedProgrammeEvidence(selected: fixture.evidenced, cookies: [], attemptID: attempt)
+        XCTAssertEqual(model.preparedProgrammeEvidence?.attemptID, attempt)
+        XCTAssertTrue(model.canConfirmRightMatch(for: source.id, expectedAttempt: attempt))
+
+        // Stale taps change nothing.
+        model.reportRightMatch(for: UUID(), expectedAttempt: attempt)
+        model.reportRightMatch(for: source.id, expectedAttempt: UUID())
+        XCTAssertTrue(rightMatchRecords(attempt).isEmpty)
+        XCTAssertFalse(model.isRightMatchConfirmed(for: source.id, expectedAttempt: attempt))
+
+        let state = model.playbackState, index = model.currentSourceIndex, failed = model.failedSourceIDs
+        model.reportRightMatch(for: source.id, expectedAttempt: attempt)
+        XCTAssertTrue(model.isRightMatchConfirmed(for: source.id, expectedAttempt: attempt))
+        XCTAssertFalse(model.canConfirmRightMatch(for: source.id, expectedAttempt: attempt), "Offered once per attempt")
+        XCTAssertEqual(rightMatchRecords(attempt).count, 1)
+        let prepared = try XCTUnwrap(model.preparedProgrammeEvidence)
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: prepared.session, scope: prepared.scope,
+            configurationGeneration: prepared.generation, attemptID: attempt, expiry: .attemptOnly), .viewerConfirmed)
+
+        // Confirmation is evidence only: no reload, failover or source change.
+        XCTAssertEqual(model.loadRequestID, attempt)
+        XCTAssertEqual(model.playbackState, state)
+        XCTAssertEqual(model.currentSourceIndex, index)
+        XCTAssertEqual(model.failedSourceIDs, failed)
+        XCTAssertEqual(model.activeSource?.id, source.id)
+
+        // A second tap records nothing more.
+        model.reportRightMatch(for: source.id, expectedAttempt: attempt)
+        XCTAssertEqual(rightMatchRecords(attempt).count, 1)
+    }
+
+    func testRightMatchEndsWithTheAttemptAndWhenProviderSetupChanges() throws {
+        let fixture = try rightMatchFixture()
+        let model = fixture.model
+        defer { model.cleanup(); ProviderEvidenceConfiguration.resetForTesting() }
+        let source = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
+        try XCTSkipUnless(source.id == fixture.evidenced.id, "Ranking chose the evidenced source first")
+        model.capturePreparedProgrammeEvidence(selected: fixture.evidenced, cookies: [], attemptID: attempt)
+        model.reportRightMatch(for: source.id, expectedAttempt: attempt)
+        XCTAssertTrue(model.isRightMatchConfirmed(for: source.id, expectedAttempt: attempt))
+        let prepared = try XCTUnwrap(model.preparedProgrammeEvidence)
+
+        // Changing the provider setup withdraws the option and the shown verdict.
+        ProviderEvidenceConfiguration.rotate(for: .highfly)
+        XCTAssertFalse(model.isRightMatchConfirmed(for: source.id, expectedAttempt: attempt))
+        XCTAssertFalse(model.canConfirmRightMatch(for: source.id, expectedAttempt: attempt))
+
+        // Ending the attempt clears the captured evidence and the stored verdict.
+        model.cancelLoading()
+        XCTAssertNotEqual(model.loadRequestID, attempt)
+        XCTAssertNil(model.preparedProgrammeEvidence)
+        XCTAssertNil(model.rightMatchConfirmedAttempt)
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: prepared.session, scope: prepared.scope,
+            configurationGeneration: prepared.generation, attemptID: attempt, expiry: .attemptOnly), .unknown)
+    }
+
+    func testRightMatchIsNotOfferedWithoutProvenanceOrWhilePaused() throws {
+        let fixture = try rightMatchFixture()
+        let model = fixture.model
+        defer { model.cleanup(); ProviderEvidenceConfiguration.resetForTesting() }
+        let source = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
+        try XCTSkipUnless(source.id == fixture.evidenced.id, "Ranking chose the evidenced source first")
+
+        // A source without lookup provenance never gains the option.
+        model.capturePreparedProgrammeEvidence(selected: fixture.plain, cookies: [], attemptID: attempt)
+        XCTAssertNil(model.preparedProgrammeEvidence)
+
+        model.capturePreparedProgrammeEvidence(selected: fixture.evidenced, cookies: [], attemptID: attempt)
+        XCTAssertTrue(model.canConfirmRightMatch(for: source.id, expectedAttempt: attempt))
+        model.transition(to: .paused(.native), phase: "Paused")
+        XCTAssertFalse(model.canConfirmRightMatch(for: source.id, expectedAttempt: attempt), "Only while the viewer watches it play")
+        model.reportRightMatch(for: source.id, expectedAttempt: attempt)
+        XCTAssertTrue(rightMatchRecords(attempt).isEmpty)
+    }
+
     private func twoSourceBlockedFixture() -> (LivePlayerViewModel, [StreamSession]) {
         let event = singleDiscoveryFixture()
         let sessions = (1...2).map { singleDiscoverySession(event: event, provider: "AS\($0)", suffix: "blocked-\($0)", web: false) }

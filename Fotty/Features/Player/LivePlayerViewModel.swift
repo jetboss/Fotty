@@ -250,6 +250,20 @@ final class LivePlayerViewModel {
     /// Web surface is unmounted (not reloaded) until Retry or another source;
     /// keeping the same attempt ID avoids remounting the blocked page.
     private(set) var viewerExhaustedSourceID: UUID?
+    /// The delivery this attempt actually prepared, with the exact cookie
+    /// snapshot and the lookup's opaque listing attached. Only these facts can
+    /// carry a viewer verdict; nothing is inferred later from the cookie jar.
+    struct PreparedProgrammeEvidence {
+        let attemptID: UUID
+        let sourceID: UUID
+        let session: StreamSession
+        let scope: ProgrammeScope
+        let provider: EvidenceProvider
+        let generation: UUID
+    }
+    @ObservationIgnored private(set) var preparedProgrammeEvidence: PreparedProgrammeEvidence?
+    /// The attempt the viewer confirmed shows the right match (presentation only).
+    private(set) var rightMatchConfirmedAttempt: UUID?
     private var lastAdmittedSourceIndex = 0
     @ObservationIgnored private var causalDiagnosticBudget = FottyPlaybackDiagnosticBudget()
     @ObservationIgnored private var handoffDiagnosticPhase: FottyPlaybackDiagnosticHandoffPhase = .none
@@ -330,6 +344,7 @@ final class LivePlayerViewModel {
                 deferredSingleNativePreparation = nil
                 invalidateSingleNetworkRecovery()
                 retireNativeFullscreenForTransportChange()
+                endProgrammeEvidence(for: loadRequestID)
             }
         }
     }
@@ -2612,6 +2627,9 @@ final class LivePlayerViewModel {
             throw CancellationError()
         }
         streamProxy = prepared.proxy
+        // The relay received exactly this snapshot; it is the transport the
+        // viewer will see. A missing bridge means unknown, never a refusal.
+        capturePreparedProgrammeEvidence(selected: session, cookies: cookies, attemptID: requestID)
         return prepared.url
     }
 
@@ -4201,6 +4219,73 @@ final class LivePlayerViewModel {
         FottyQualityStore.shared.record(category: .playback, name: "programme_observation", outcome: .failure,
             details: playbackQualityDetails(singlePlaybackEvidence(programme: .viewerReportedWrong)))
         handleSourceStartupFailure(current, reason: "Provider reports this broadcast is unavailable", expectedRequestID: loadRequestID)
+    }
+
+    // MARK: Right match (explicit viewer confirmation, attempt-scoped)
+
+    /// Rebinds the lookup's provenance to the transport this attempt prepared.
+    /// Sources without fixture provenance simply have no Right match option.
+    /// Called by native relay preparation (internal only for tests).
+    func capturePreparedProgrammeEvidence(selected: StreamSession, cookies: [HTTPCookie], attemptID: UUID) {
+        guard isCurrent(requestID: attemptID, sourceID: selected.id),
+              usesSingleStreamRanking, viewingPlaybackContext == .single, !event.isBroadcastChannel,
+              let lookup = selected.deliveryProvenance,
+              let scope = LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: selected.matchID),
+              let generation = ProviderEvidenceConfiguration.currentGeneration(for: lookup.provider) else { return }
+        let prepared = selected.recordingDeliveryTransport(cookies: cookies)
+        guard let provenance = LiveSourceHealthStore.preparedDeliveryProvenance(from: selected, for: prepared,
+                scope: scope, configurationGeneration: generation) else { return }
+        let session = prepared.recordingDeliveryProvenance(provenance, scope: scope, configurationGeneration: generation)
+        guard session.deliveryProvenance != nil else { return }
+        preparedProgrammeEvidence = PreparedProgrammeEvidence(attemptID: attemptID, sourceID: selected.id,
+            session: session, scope: scope, provider: lookup.provider, generation: generation)
+    }
+
+    private func endProgrammeEvidence(for attemptID: UUID) {
+        if rightMatchConfirmedAttempt == attemptID { rightMatchConfirmedAttempt = nil }
+        guard let evidence = preparedProgrammeEvidence, evidence.attemptID == attemptID else { return }
+        preparedProgrammeEvidence = nil
+        LiveSourceHealthStore.endProgrammeEvidenceAttempt(attemptID)
+    }
+
+    /// Evidence for exactly this attempt and source, whose provider setup and
+    /// prepared transport are still current.
+    private func currentProgrammeEvidence(for sourceID: UUID, expectedAttempt: UUID) -> PreparedProgrammeEvidence? {
+        guard let evidence = preparedProgrammeEvidence, evidence.attemptID == expectedAttempt,
+              evidence.sourceID == sourceID, activeSource?.id == sourceID,
+              ProviderEvidenceConfiguration.currentGeneration(for: evidence.provider) == evidence.generation,
+              LiveSourceHealthStore.deliveryTransportIsCurrent(for: evidence.session, at: Date()) else { return nil }
+        return evidence
+    }
+
+    /// Quiet and optional: offered only while the viewer is watching a playing
+    /// delivery that can carry the verdict, and not after it was given.
+    func canConfirmRightMatch(for sourceID: UUID, expectedAttempt: UUID) -> Bool {
+        !event.isBroadcastChannel && isPlaying && error == nil
+            && canReportViewerFeedback(for: sourceID, expectedAttempt: expectedAttempt)
+            && rightMatchConfirmedAttempt != expectedAttempt
+            && currentProgrammeEvidence(for: sourceID, expectedAttempt: expectedAttempt) != nil
+    }
+
+    func isRightMatchConfirmed(for sourceID: UUID, expectedAttempt: UUID) -> Bool {
+        guard rightMatchConfirmedAttempt == expectedAttempt,
+              let evidence = currentProgrammeEvidence(for: sourceID, expectedAttempt: expectedAttempt) else { return false }
+        return LiveSourceHealthStore.programmeCorrectness(for: evidence.session, scope: evidence.scope,
+            configurationGeneration: evidence.generation, attemptID: expectedAttempt, expiry: .attemptOnly) == .viewerConfirmed
+    }
+
+    /// "Right match": the viewer says this delivery shows the requested game.
+    /// It never changes playback, ranking or failover. There is no authoritative
+    /// programme end, so the verdict lasts for this attempt only.
+    func reportRightMatch(for sourceID: UUID, expectedAttempt: UUID) {
+        guard canConfirmRightMatch(for: sourceID, expectedAttempt: expectedAttempt),
+              let evidence = currentProgrammeEvidence(for: sourceID, expectedAttempt: expectedAttempt) else { return }
+        let recorded = LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: evidence.session, scope: evidence.scope,
+            configurationGeneration: evidence.generation, attemptID: expectedAttempt, expiry: .attemptOnly)
+        guard recorded else { return }
+        rightMatchConfirmedAttempt = expectedAttempt
+        FottyQualityStore.shared.record(category: .playback, name: "programme_observation", outcome: .success,
+            details: playbackQualityDetails(singlePlaybackEvidence(programme: .viewerConfirmedRight)))
     }
 
     // MARK: Backup freshness (policy and scheduler in BackupFreshness.swift)

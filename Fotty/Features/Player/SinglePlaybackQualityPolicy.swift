@@ -8,7 +8,7 @@ enum SinglePlaybackAssignmentBasis: String {
 }
 
 enum SinglePlaybackProgrammeObservation: String {
-    case unobserved, viewerReportedWrong = "viewer_reported_wrong"
+    case unobserved, viewerReportedWrong = "viewer_reported_wrong", viewerConfirmedRight = "viewer_confirmed_right"
 }
 
 /// Date mapping supplied by the current AVPlayerItem. It describes the publisher's
