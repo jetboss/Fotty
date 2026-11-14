@@ -1,0 +1,22 @@
+--- a/Fotty.xcodeproj/project.pbxproj
++++ b/Fotty.xcodeproj/project.pbxproj
+@@ -19,0 +20,2 @@
++		C6D7C57B2DBFA07A8FE033ED /* StreamEvidenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2BDB424CF7E91E0483A53F4 /* StreamEvidenceTests.swift */; };
++		9A4D4987D06B99A49977F8C8 /* StreamEvidenceSessionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39E66D7660CA6D771DF6FE30 /* StreamEvidenceSessionTests.swift */; };
+@@ -50,0 +53 @@
++		F459A74F745CD4EA05AE541D /* StreamEvidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6145BAE3F60899A5E3BF9562 /* StreamEvidence.swift */; };
+@@ -479,0 +483,2 @@
++		C2BDB424CF7E91E0483A53F4 /* StreamEvidenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamEvidenceTests.swift; sourceTree = "<group>"; };
++		39E66D7660CA6D771DF6FE30 /* StreamEvidenceSessionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamEvidenceSessionTests.swift; sourceTree = "<group>"; };
+@@ -562,0 +568 @@
++		6145BAE3F60899A5E3BF9562 /* StreamEvidence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamEvidence.swift; sourceTree = "<group>"; };
+@@ -784,0 +791,2 @@
++				C2BDB424CF7E91E0483A53F4 /* StreamEvidenceTests.swift */,
++				39E66D7660CA6D771DF6FE30 /* StreamEvidenceSessionTests.swift */,
+@@ -1434,0 +1443 @@
++				6145BAE3F60899A5E3BF9562 /* StreamEvidence.swift */,
+@@ -1863,0 +1873 @@
++				F459A74F745CD4EA05AE541D /* StreamEvidence.swift in Sources */,
+@@ -2005,0 +2016,2 @@
++				C6D7C57B2DBFA07A8FE033ED /* StreamEvidenceTests.swift in Sources */,
++				9A4D4987D06B99A49977F8C8 /* StreamEvidenceSessionTests.swift in Sources */,

@@ -2,6 +2,15 @@ import Foundation
 import CryptoKit
 import Security
 
+/// Opaque snapshot of the transport actually prepared for this attempt. Raw
+/// cookies remain transient, and this context is never saved with a session.
+struct DeliveryTransportContext: Equatable, Sendable {
+    let declaredContract: DeviceHMAC
+    let contract: DeviceHMAC
+    let observedAt: Date
+    let expiresAt: Date?
+}
+
 // MARK: - Live Source Health Store
 // Retains successful provider performance to optimize Watch Now selection.
 // Content and playback failures belong to the current attempt, not a host.
@@ -72,6 +81,233 @@ enum LiveSourceHealthStore {
         [source.cookie == nil ? "no-cookie" : "cookie", source.cookie ?? "",
          source.referer == nil ? "no-referer" : "referer", source.referer ?? ""]
             + source.headers.keys.sorted().flatMap { [$0, source.headers[$0] ?? ""] }
+    }
+
+    // MARK: Programme evidence (independent of playback health and ranking)
+
+    private static let programmeEvidenceDefaultsName = "fotty.programme.evidence.v1"
+    private static let maximumProgrammePayloadBytes = 512 * 1024
+    private static var programmeEvidence = loadedProgrammeEvidence()
+
+    private static func evidenceDigest(_ domain: String, _ fields: [String]) -> DeviceHMAC {
+        DeviceHMAC(bytes: digest(["fotty.programme-evidence.v1", domain] + fields))
+    }
+
+    private static func boundedIdentity(_ value: String) -> Bool {
+        !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && value.utf8.count <= 4096
+    }
+
+    static func fixtureProgrammeScope(fixtureID: String) -> ProgrammeScope? {
+        guard boundedIdentity(fixtureID) else { return nil }
+        return .fixture(evidenceDigest("fixture", [fixtureID]))
+    }
+
+    /// The caller supplies the actual programme identity. A station name alone
+    /// cannot establish a programme or its boundary.
+    static func channelProgrammeScope(channelID: String, programmeID: String) -> ProgrammeScope? {
+        guard boundedIdentity(channelID), boundedIdentity(programmeID) else { return nil }
+        return .channelProgramme(channel: evidenceDigest("channel", [channelID]),
+                                 programme: evidenceDigest("programme", [channelID, programmeID]))
+    }
+
+    /// Retains the full URL/query and effective header values. Case/order of
+    /// HTTP header names is immaterial; conflicting aliases are ambiguous, so
+    /// they receive no evidence identity. This never changes stream admission.
+    static func deliveryContractFingerprint(for source: StreamSource) -> DeviceHMAC? {
+        let url = source.url.absoluteString
+        guard url.utf8.count <= 8192, source.headers.count <= 64 else { return nil }
+        var headers: [String: String] = [:]
+        var totalBytes = url.utf8.count
+        func insert(_ name: String, _ value: String) -> Bool {
+            let key = name.lowercased()
+            totalBytes += name.utf8.count + value.utf8.count
+            guard !key.isEmpty, totalBytes <= 65536,
+                  headers[key] == nil || headers[key] == value else { return false }
+            headers[key] = value
+            return true
+        }
+        for (name, value) in source.headers { guard insert(name, value) else { return nil } }
+        if let cookie = source.cookie { guard insert("cookie", cookie) else { return nil } }
+        if let referer = source.referer { guard insert("referer", referer) else { return nil } }
+        let contract = source.playbackContract ?? .describing(url: source.url, provider: source.provider,
+                                                             headers: source.headers)
+        let fields = [url, contract.endpoint.rawValue, contract.container.rawValue]
+            + headers.keys.sorted().flatMap { [$0, headers[$0] ?? ""] }
+        return evidenceDigest("contract", fields)
+    }
+
+    static func declaredDeliveryContractFingerprint(for session: StreamSession) -> DeviceHMAC? {
+        deliveryContractFingerprint(for: session.legacySource)
+    }
+
+    static func deliveryContractFingerprint(for session: StreamSession) -> DeviceHMAC? {
+        guard let declared = declaredDeliveryContractFingerprint(for: session) else { return nil }
+        guard let context = session.deliveryTransportContext else { return declared }
+        guard context.declaredContract == declared, context.contract.isValid else { return nil }
+        return context.contract
+    }
+
+    /// Pass exactly the captured cookie snapshot used by native preparation or
+    /// handoff, including an explicit empty snapshot. Reading the shared cookie
+    /// jar later could attribute a verdict to a request that never played.
+    static func deliveryTransportContext(for session: StreamSession, cookies: [HTTPCookie],
+                                         at now: Date = Date()) -> DeliveryTransportContext? {
+        guard now.timeIntervalSinceReferenceDate.isFinite, cookies.count <= 64,
+              let declared = declaredDeliveryContractFingerprint(for: session) else { return nil }
+        let scoped = cookies.filter { LocalStreamProxyPolicy.cookie($0, matches: session.playableURL, now: now) }
+        var fields = [declared.bytes.base64EncodedString()]
+        var totalBytes = 0
+        for cookie in scoped {
+            guard cookie.expiresDate?.timeIntervalSinceReferenceDate.isFinite ?? true else { return nil }
+            let values = [cookie.name, cookie.value, cookie.domain, cookie.path,
+                          cookie.isSecure ? "secure" : "insecure",
+                          cookie.expiresDate.map { String($0.timeIntervalSinceReferenceDate.bitPattern) } ?? "session"]
+            totalBytes += values.reduce(0) { $0 + $1.utf8.count }
+            guard totalBytes <= 65536 else { return nil }
+            fields.append(contentsOf: values)
+        }
+        return DeliveryTransportContext(declaredContract: declared,
+            contract: scoped.isEmpty ? declared : evidenceDigest("prepared-contract", fields),
+            observedAt: now, expiresAt: scoped.compactMap(\.expiresDate).min())
+    }
+
+    static func deliveryTransportIsCurrent(for session: StreamSession, at now: Date) -> Bool {
+        guard let context = session.deliveryTransportContext,
+              now.timeIntervalSinceReferenceDate.isFinite, context.observedAt.timeIntervalSinceReferenceDate.isFinite,
+              context.observedAt <= now,
+              now.timeIntervalSince(context.observedAt) < ProgrammeEvidenceLedger.maximumRetention,
+              context.declaredContract == declaredDeliveryContractFingerprint(for: session),
+              context.contract.isValid else { return false }
+        return context.expiresAt.map { $0.timeIntervalSinceReferenceDate.isFinite && now < $0 } ?? true
+    }
+
+    private static func scopeMatches(_ scope: ProgrammeScope, session: StreamSession) -> Bool {
+        guard boundedIdentity(session.matchID) else { return false }
+        switch scope {
+        case .fixture(let fixture):
+            return fixture.isValid && scope == fixtureProgrammeScope(fixtureID: session.matchID)
+        case .channelProgramme(let channel, let programme):
+            return channel.isValid && programme.isValid && channel == evidenceDigest("channel", [session.matchID])
+        }
+    }
+
+    /// configurationGeneration must be the caller's current provider generation,
+    /// rotated on configuration changes. There is deliberately no default or
+    /// derivation from a provider label, saved session, or process-local revision.
+    static func deliveryProvenance(for session: StreamSession, scope: ProgrammeScope, listingID: String,
+                                   lookupID: UUID, configurationGeneration: UUID, watchID: UUID? = nil,
+                                   at now: Date = Date()) -> DeliveryProvenance? {
+        guard now.timeIntervalSinceReferenceDate.isFinite, boundedIdentity(listingID),
+              scopeMatches(scope, session: session),
+              let code = StreamEventBinding.providerCode(forSessionProviderName: session.providerName),
+              let provider = EvidenceProvider(rawValue: code),
+              let contract = deliveryContractFingerprint(for: session) else { return nil }
+        return DeliveryProvenance(schemaVersion: 1, scope: scope, provider: provider,
+            listing: evidenceDigest("listing", [provider.rawValue, listingID]), contract: contract,
+            lookupID: lookupID, configurationGeneration: configurationGeneration, watchID: watchID, observedAt: now)
+    }
+
+    static func provenanceMatches(_ provenance: DeliveryProvenance, session: StreamSession,
+                                  scope: ProgrammeScope, configurationGeneration: UUID) -> Bool {
+        provenance.schemaVersion == 1 && provenance.listing.isValid && provenance.contract.isValid
+            && provenance.observedAt.timeIntervalSinceReferenceDate.isFinite
+            && provenance.scope == scope && scopeMatches(scope, session: session)
+            && provenance.configurationGeneration == configurationGeneration
+            && provenance.provider.rawValue == StreamEventBinding.providerCode(forSessionProviderName: session.providerName)
+            && provenance.contract == deliveryContractFingerprint(for: session)
+    }
+
+    @discardableResult
+    static func recordViewerVerdict(_ verdict: ViewerVerdict, for session: StreamSession, scope: ProgrammeScope,
+                                    configurationGeneration: UUID, attemptID: UUID, expiry: CorrectnessExpiry,
+                                    at now: Date = Date()) -> Bool {
+        guard AppRuntime.privateOutageFixture == nil, deliveryTransportIsCurrent(for: session, at: now),
+              let provenance = session.deliveryProvenance,
+              provenanceMatches(provenance, session: session, scope: scope,
+                                configurationGeneration: configurationGeneration) else { return false }
+        return queue.sync {
+            let recorded = programmeEvidence.record(ProgrammeEvidence(provenance: provenance, attemptID: attemptID,
+                verdict: verdict, observedAt: now, expiry: expiry), at: now)
+            if recorded { persistProgrammeEvidence(at: now) }
+            return recorded
+        }
+    }
+
+    @discardableResult
+    static func recordDeliveryMetadata(_ receipt: DeliveryMetadataReceipt, for session: StreamSession,
+                                       scope: ProgrammeScope, configurationGeneration: UUID,
+                                       at now: Date = Date()) -> Bool {
+        guard AppRuntime.privateOutageFixture == nil, session.deliveryProvenance == receipt.provenance,
+              provenanceMatches(receipt.provenance, session: session, scope: scope,
+                                configurationGeneration: configurationGeneration) else { return false }
+        return queue.sync {
+            let recorded = programmeEvidence.record(receipt, at: now)
+            if recorded { persistProgrammeEvidence(at: now) }
+            return recorded
+        }
+    }
+
+    static func programmeCorrectness(for session: StreamSession, scope: ProgrammeScope,
+                                     configurationGeneration: UUID, attemptID: UUID?, expiry: CorrectnessExpiry,
+                                     at now: Date = Date()) -> ProgrammeCorrectness {
+        guard let provenance = session.deliveryProvenance,
+              provenanceMatches(provenance, session: session, scope: scope,
+                                configurationGeneration: configurationGeneration) else { return .unknown }
+        return queue.sync {
+            programmeEvidence.prune(at: now)
+            let correctness = programmeEvidence.correctness(for: provenance, attemptID: attemptID, expiry: expiry, at: now)
+            if correctness == .viewerConfirmed || correctness == .viewerRejected {
+                guard deliveryTransportIsCurrent(for: session, at: now) else { return .unknown }
+            }
+            return correctness
+        }
+    }
+
+    static func endProgrammeEvidenceAttempt(_ attemptID: UUID) {
+        queue.sync { programmeEvidence.endAttempt(attemptID) }
+    }
+
+    private static func loadedProgrammeEvidence(at now: Date = Date()) -> ProgrammeEvidenceLedger {
+        guard evidenceKey.persistent, AppRuntime.privateOutageFixture == nil,
+              let data = UserDefaults.standard.data(forKey: programmeEvidenceDefaultsName) else {
+            return ProgrammeEvidenceLedger()
+        }
+        return decodeProgrammeEvidence(data, at: now)
+    }
+
+    private static func decodeProgrammeEvidence(_ data: Data, at now: Date) -> ProgrammeEvidenceLedger {
+        guard data.count <= maximumProgrammePayloadBytes,
+              let snapshot = try? JSONDecoder().decode(ProgrammeEvidenceLedger.Snapshot.self, from: data) else {
+            return ProgrammeEvidenceLedger()
+        }
+        return ProgrammeEvidenceLedger(snapshot: snapshot, at: now)
+    }
+
+    /// Queue-owned, separate from legacy playback health. Only opaque digests,
+    /// finite enums/times and local correlation UUIDs enter this payload.
+    private static func encodedProgrammeEvidence(at now: Date) -> Data? {
+        guard let data = try? JSONEncoder().encode(programmeEvidence.persisted(at: now)),
+              data.count <= maximumProgrammePayloadBytes else { return nil }
+        return data
+    }
+
+    private static func persistProgrammeEvidence(at now: Date) {
+        guard evidenceKey.persistent, AppRuntime.privateOutageFixture == nil,
+              let data = encodedProgrammeEvidence(at: now) else { return }
+        UserDefaults.standard.set(data, forKey: programmeEvidenceDefaultsName)
+    }
+
+    static func reloadProgrammeEvidenceForTesting(at now: Date = Date()) {
+        guard AppRuntime.isAutomatedTesting else { return }
+        queue.sync {
+            guard let data = encodedProgrammeEvidence(at: now) else { return }
+            programmeEvidence = decodeProgrammeEvidence(data, at: now)
+        }
+    }
+
+    static func encodedProgrammeEvidenceForTesting(at now: Date = Date()) -> Data? {
+        guard AppRuntime.isAutomatedTesting else { return nil }
+        return queue.sync { encodedProgrammeEvidence(at: now) }
     }
     /// All bound adapters preserve the exact local row ID only after an admitted
     /// same-choice renewal. FS/SV additionally publish an unambiguous channel
@@ -858,6 +1094,8 @@ enum LiveSourceHealthStore {
             matchObservations.removeAll()
             wrongProgrammes.removeAll()
             UserDefaults.standard.removeObject(forKey: matchEvidenceDefaultsName)
+            programmeEvidence = ProgrammeEvidenceLedger()
+            UserDefaults.standard.removeObject(forKey: programmeEvidenceDefaultsName)
             snapshotCache = nil
             snapshotDecodeCount = 0
         }

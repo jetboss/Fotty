@@ -726,6 +726,12 @@ struct StreamSession: Identifiable, Codable, Sendable {
     /// Reacquire through the exact adapter after decoding a saved session.
     /// Fixture linkage is transient and never exports provider event IDs.
     private(set) var eventBinding: StreamEventBinding? = nil
+    /// A local association with the exact observed delivery, never a correctness
+    /// verdict. Saved sessions must reacquire provenance through a fresh lookup.
+    private(set) var deliveryProvenance: DeliveryProvenance? = nil
+    /// Digest of the actual prepared cookie snapshot, never a live cookie-jar
+    /// lookup. Decoding a session cannot restore transport observation.
+    private(set) var deliveryTransportContext: DeliveryTransportContext? = nil
     /// A captured media request has a direct endpoint role even if its container
     /// remains unknown. This ephemeral declaration never grants origin authority.
     private(set) var declaredPlaybackEndpoint: StreamPlaybackContract.Endpoint? = nil
@@ -810,6 +816,45 @@ struct StreamSession: Identifiable, Codable, Sendable {
     func recordingMediaProbe(_ evidence: StreamMediaProbeEvidence?) -> Self {
         var session = self
         session.mediaProbeEvidence = evidence
+        if session.playbackContract.endpoint != playbackContract.endpoint
+            || session.playbackContract.container != playbackContract.container {
+            session.deliveryProvenance = nil
+            session.deliveryTransportContext = nil
+        }
+        return session
+    }
+
+    /// The caller supplies the cookies captured for this actual delivery,
+    /// including an explicit empty snapshot. Raw cookies are never retained.
+    func recordingDeliveryTransport(cookies: [HTTPCookie], at now: Date = Date()) -> Self {
+        var session = self
+        let previousContract = LiveSourceHealthStore.deliveryContractFingerprint(for: self)
+        session.deliveryTransportContext = LiveSourceHealthStore.deliveryTransportContext(for: self,
+            cookies: cookies, at: now)
+        if session.deliveryTransportContext == nil
+            || LiveSourceHealthStore.deliveryContractFingerprint(for: session) != previousContract {
+            session.deliveryProvenance = nil
+        }
+        return session
+    }
+
+    /// Scope and configuration come from the current caller, never from saved
+    /// session data. A mismatch clears an earlier association rather than
+    /// leaving stale evidence attached to a newly interpreted delivery.
+    func recordingDeliveryProvenance(
+        _ provenance: DeliveryProvenance?, scope: ProgrammeScope,
+        configurationGeneration: UUID, at now: Date = Date()
+    ) -> Self {
+        var session = self
+        session.deliveryProvenance = provenance.flatMap { provenance in
+            let age = now.timeIntervalSince(provenance.observedAt)
+            guard now.timeIntervalSinceReferenceDate.isFinite,
+                  provenance.observedAt.timeIntervalSinceReferenceDate.isFinite,
+                  age >= 0, age < ProgrammeEvidenceLedger.maximumRetention,
+                  LiveSourceHealthStore.provenanceMatches(provenance, session: self, scope: scope,
+                      configurationGeneration: configurationGeneration) else { return nil }
+            return provenance
+        }
         return session
     }
 
@@ -839,7 +884,7 @@ struct StreamSession: Identifiable, Codable, Sendable {
               fresh.playbackContract.endpoint == playbackContract.endpoint,
               StreamEventBinding.providerCode(forSessionProviderName: fresh.providerName) == previous.providerCode
         else { return nil }
-        return Self(id: id, matchID: matchID, title: fresh.title ?? title,
+        var renewed = Self(id: id, matchID: matchID, title: fresh.title ?? title,
             playableURL: fresh.playableURL, streamType: fresh.streamType, providerName: providerName,
             requiredHeaders: fresh.requiredHeaders, qualityLabel: fresh.qualityLabel,
             expiryTime: fresh.expiryTime, leaseID: fresh.leaseID, canRefresh: fresh.canRefresh,
@@ -848,6 +893,17 @@ struct StreamSession: Identifiable, Codable, Sendable {
             nativeOriginProfile: fresh.nativeOriginProfile, nativePlaylistProfile: fresh.nativePlaylistProfile,
             requiresGuardedRelay: fresh.requiresGuardedRelay == true, mediaProbeEvidence: fresh.mediaProbeEvidence,
             declaredPlaybackEndpoint: fresh.declaredPlaybackEndpoint, eventBinding: next)
+        renewed.deliveryTransportContext = fresh.deliveryTransportContext
+        if !LiveSourceHealthStore.deliveryTransportIsCurrent(for: renewed, at: now) {
+            renewed.deliveryTransportContext = nil
+        }
+        // Retaining the selected row ID is not evidence that the new contract
+        // shows the old programme. Only a distinct fresh lookup may contribute
+        // provenance, including when the executable URL is unchanged.
+        guard let provenance = fresh.deliveryProvenance,
+              provenance.lookupID != deliveryProvenance?.lookupID else { return renewed }
+        return renewed.recordingDeliveryProvenance(provenance, scope: provenance.scope,
+            configurationGeneration: provenance.configurationGeneration, at: now)
     }
 
     var requiresLocalProxy: Bool {

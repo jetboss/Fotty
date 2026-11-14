@@ -645,6 +645,277 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: recent, at: now.addingTimeInterval(120)), .sustained)
     }
 
+    func testProgrammeContractFingerprintUsesFullURLAndCanonicalHeaderNames() throws {
+        let url = try XCTUnwrap(URL(string: "https://media.example.test/game.m3u8?token=one"))
+        func source(url: URL, headers: [String: String], cookie: String? = nil,
+                    endpoint: StreamPlaybackContract.Endpoint = .directMedia,
+                    type: StreamType = .hls) -> StreamSource {
+            .init(url: url, quality: "auto", provider: "HF1", headers: headers, cookie: cookie,
+                  playbackContract: .describing(url: url, provider: "HF1", headers: headers,
+                    streamType: type, declaredEndpoint: endpoint))
+        }
+        let headers = ["Referer": "https://origin.example.test/watch", "Accept": "video/*"]
+        let original = try XCTUnwrap(LiveSourceHealthStore.deliveryContractFingerprint(for: source(url: url, headers: headers)))
+        let equivalent = source(url: url, headers: ["accept": "video/*", "referer": "https://origin.example.test/watch"])
+        XCTAssertEqual(LiveSourceHealthStore.deliveryContractFingerprint(for: equivalent), original)
+        let changes = [
+            source(url: try XCTUnwrap(URL(string: "https://media.example.test/game.m3u8?token=two")), headers: headers),
+            source(url: try XCTUnwrap(URL(string: "https://media.example.test/other.m3u8?token=one")), headers: headers),
+            source(url: url, headers: ["Referer": "https://other.example.test/watch", "Accept": "video/*"]),
+            source(url: url, headers: headers, cookie: "session=one"),
+            source(url: url, headers: headers, endpoint: .webPage),
+            source(url: url, headers: headers, type: .mp4)
+        ]
+        for changed in changes {
+            let fingerprint = try XCTUnwrap(LiveSourceHealthStore.deliveryContractFingerprint(for: changed))
+            XCTAssertNotEqual(fingerprint, original, "Executable contract changes invalidate correctness")
+        }
+        XCTAssertNotEqual(LiveSourceHealthStore.deliveryContractFingerprint(for: source(url: url, headers: headers, cookie: "session=one")),
+                          LiveSourceHealthStore.deliveryContractFingerprint(for: source(url: url, headers: headers, cookie: "session=two")))
+        XCTAssertNil(LiveSourceHealthStore.deliveryContractFingerprint(for: source(url: url,
+            headers: ["Referer": "https://a.example.test", "referer": "https://b.example.test"])),
+            "Conflicting case aliases have no unambiguous effective request")
+        let framedFirst = try XCTUnwrap(LiveSourceHealthStore.deliveryContractFingerprint(for: source(url: url,
+            headers: ["X-A": "x|x-b|y", "X-B": "z"])))
+        let framedSecond = try XCTUnwrap(LiveSourceHealthStore.deliveryContractFingerprint(for: source(url: url,
+            headers: ["X-A": "x", "X-B": "y|x-b|z"])))
+        XCTAssertNotEqual(framedFirst, framedSecond, "Delimiter characters in values cannot alias field boundaries")
+    }
+
+    func testProgrammeFactorySeparatesDomainsAndLengthFramesIdentityFields() throws {
+        let fixture = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: "same-private-identity"))
+        let first = try XCTUnwrap(LiveSourceHealthStore.channelProgrammeScope(channelID: "a", programmeID: "bc"))
+        let second = try XCTUnwrap(LiveSourceHealthStore.channelProgrammeScope(channelID: "ab", programmeID: "c"))
+        XCTAssertNotEqual(first, second)
+        XCTAssertNotEqual(fixture, LiveSourceHealthStore.channelProgrammeScope(channelID: "same-private-identity", programmeID: "same-private-identity"))
+        let now = Date(timeIntervalSince1970: 1_800_000_000), generation = UUID()
+        let session = try programmeSession(scope: fixture, configuration: generation, at: now,
+            matchID: "same-private-identity", listing: "same-private-identity")
+        let provenance = try XCTUnwrap(session.deliveryProvenance)
+        guard case .fixture(let fixtureDigest) = fixture else { return XCTFail("Expected fixture scope") }
+        XCTAssertNotEqual(fixtureDigest, provenance.listing, "Fixture and listing domains cannot alias")
+        XCTAssertEqual(provenance.contract, LiveSourceHealthStore.deliveryContractFingerprint(for: session))
+        XCTAssertTrue(LiveSourceHealthStore.provenanceMatches(provenance, session: session, scope: fixture,
+                                                            configurationGeneration: generation))
+    }
+
+    func testProgrammeCorrectnessRequiresCurrentContractScopeProviderAndConfiguration() throws {
+        LiveSourceHealthStore.resetForTesting()
+        defer { LiveSourceHealthStore.resetForTesting() }
+        let now = Date(timeIntervalSince1970: 1_800_000_000), generation = UUID(), attempt = UUID()
+        let scope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: "fixture-one"))
+        let expiry = CorrectnessExpiry.boundary(now.addingTimeInterval(600))
+        let session = try programmeSession(scope: scope, configuration: generation, at: now)
+        XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now))
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now), .viewerConfirmed)
+        let changedGeneration = UUID()
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: changedGeneration, attemptID: attempt, expiry: expiry, at: now), .unknown)
+        XCTAssertFalse(LiveSourceHealthStore.recordViewerVerdict(.rejected, for: session, scope: scope,
+            configurationGeneration: changedGeneration, attemptID: attempt, expiry: expiry, at: now))
+        let changedScope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: "fixture-two"))
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: changedScope,
+            configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now), .unknown)
+        let changedContract = try programmeSession(scope: scope, configuration: generation, at: now,
+            id: session.id, url: "https://media.example.test/private-game.m3u8?token=changed")
+        let changedProvider = try programmeSession(scope: scope, configuration: generation, at: now, provider: "PP1")
+        for replacement in [changedContract, changedProvider] {
+            XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: replacement, scope: scope,
+                configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now), .unknown)
+        }
+    }
+
+    func testBoundaryEvidenceSurvivesRelaunchAndFreshLookupButExpiresAtItsOriginalEnd() throws {
+        LiveSourceHealthStore.resetForTesting()
+        defer { LiveSourceHealthStore.resetForTesting() }
+        let now = Date(timeIntervalSince1970: 1_800_000_000), generation = UUID(), attempt = UUID()
+        let scope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: "fixture-one"))
+        let expiry = CorrectnessExpiry.boundary(now.addingTimeInterval(60))
+        let original = try programmeSession(scope: scope, configuration: generation, at: now)
+        XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: original, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now))
+        LiveSourceHealthStore.reloadProgrammeEvidenceForTesting(at: now.addingTimeInterval(10))
+        let refreshed = try programmeSession(scope: scope, configuration: generation, at: now.addingTimeInterval(10))
+        XCTAssertNotEqual(original.deliveryProvenance?.lookupID, refreshed.deliveryProvenance?.lookupID)
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: refreshed, scope: scope,
+            configurationGeneration: generation, attemptID: UUID(), expiry: expiry, at: now.addingTimeInterval(10)), .viewerConfirmed)
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: refreshed, scope: scope,
+            configurationGeneration: generation, attemptID: UUID(), expiry: .boundary(now.addingTimeInterval(600)),
+            at: now.addingTimeInterval(60)), .unknown, "A later boundary cannot extend an old verdict")
+    }
+
+    func testAttemptOnlyEvidenceEndsWithAttemptAndCannotBeRestored() throws {
+        LiveSourceHealthStore.resetForTesting()
+        defer { LiveSourceHealthStore.resetForTesting() }
+        let now = Date(timeIntervalSince1970: 1_800_000_000), generation = UUID(), attempt = UUID()
+        let scope = try XCTUnwrap(LiveSourceHealthStore.channelProgrammeScope(channelID: "channel-one", programmeID: "unknown-boundary"))
+        let session = try programmeSession(scope: scope, configuration: generation, at: now, matchID: "channel-one")
+        XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.rejected, for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .attemptOnly, at: now))
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .attemptOnly, at: now), .viewerRejected)
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: generation, attemptID: UUID(), expiry: .attemptOnly, at: now), .unknown)
+        LiveSourceHealthStore.endProgrammeEvidenceAttempt(attempt)
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .attemptOnly, at: now), .unknown)
+        let nextAttempt = UUID()
+        XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: session, scope: scope,
+            configurationGeneration: generation, attemptID: nextAttempt, expiry: .attemptOnly, at: now))
+        LiveSourceHealthStore.reloadProgrammeEvidenceForTesting(at: now)
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: generation, attemptID: nextAttempt, expiry: .attemptOnly, at: now), .unknown)
+    }
+
+    func testProgrammeEvidenceCodecContainsNoRawIdentityOrTransportAndSessionDecodeDropsProvenance() throws {
+        LiveSourceHealthStore.resetForTesting()
+        defer { LiveSourceHealthStore.resetForTesting() }
+        let now = Date(timeIntervalSince1970: 1_800_000_000), generation = UUID()
+        let scope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: "private-fixture-sentinel"))
+        let session = try programmeSession(scope: scope, configuration: generation, at: now,
+            matchID: "private-fixture-sentinel", listing: "private-listing-sentinel",
+            url: "https://private-host-sentinel.example.test/private-path?token=private-token-sentinel",
+            headers: ["Referer": "https://private-origin-sentinel.example.test/watch"])
+        XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: session, scope: scope,
+            configurationGeneration: generation, attemptID: UUID(), expiry: .boundary(now.addingTimeInterval(60)), at: now))
+        let data = try XCTUnwrap(LiveSourceHealthStore.encodedProgrammeEvidenceForTesting(at: now))
+        let text = try XCTUnwrap(String(data: data, encoding: .utf8))
+        for privateValue in ["private-fixture-sentinel", "private-listing-sentinel", "private-host-sentinel",
+                             "private-path", "private-token-sentinel", "private-origin-sentinel", "Private display title"] {
+            XCTAssertFalse(text.contains(privateValue), privateValue)
+        }
+        let restored = try JSONDecoder().decode(StreamSession.self, from: JSONEncoder().encode(session))
+        XCTAssertNil(restored.deliveryProvenance, "Persisted sessions must reacquire provenance")
+    }
+
+    func testLegacyPlaybackHistoryNeverBecomesProgrammeCorrectnessOrChangesNewVerdictRanking() throws {
+        LiveSourceHealthStore.resetForTesting()
+        defer { LiveSourceHealthStore.resetForTesting() }
+        let now = Date(timeIntervalSince1970: 1_800_000_000), generation = UUID(), attempt = UUID()
+        let scope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: "fixture-one"))
+        let session = try programmeSession(scope: scope, configuration: generation, at: now)
+        let alternate = try programmeSession(scope: scope, configuration: generation, at: now,
+            url: "https://media.example.test/alternate.m3u8")
+        let expiry = CorrectnessExpiry.boundary(now.addingTimeInterval(60))
+        for outcome in [LiveSourceHealthStore.MatchOutcome.decoded, .sustained, .wrongProgramme] {
+            LiveSourceHealthStore.recordMatchOutcome(outcome, for: session.legacySource,
+                fixtureID: session.matchID, watchID: UUID(), at: now)
+            XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+                configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now), .unknown)
+        }
+        let order = LiveSourceHealthStore.rankedSingleStreamSessions([session, alternate], at: now).map(\.id)
+        XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now))
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session, at: now), .wrongProgramme,
+                       "New correctness does not rewrite legacy compatibility evidence")
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([session, alternate], at: now).map(\.id), order)
+    }
+
+    func testMetadataAndExplicitVerdictsStaySeparateAtTheStoreBoundary() throws {
+        LiveSourceHealthStore.resetForTesting()
+        defer { LiveSourceHealthStore.resetForTesting() }
+        let now = Date(timeIntervalSince1970: 1_800_000_000), generation = UUID(), attempt = UUID()
+        let scope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: "fixture-one"))
+        let session = try programmeSession(scope: scope, configuration: generation, at: now)
+        let provenance = try XCTUnwrap(session.deliveryProvenance), end = now.addingTimeInterval(60)
+        func receipt(_ comparison: MetadataComparison) -> DeliveryMetadataReceipt {
+            .init(provenance: provenance, hasName: true, hasTitle: true, comparison: comparison, comparedAt: now, expiresAt: end)
+        }
+        XCTAssertTrue(LiveSourceHealthStore.recordDeliveryMetadata(receipt(.agrees), for: session, scope: scope,
+            configurationGeneration: generation, at: now))
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .boundary(end), at: now), .metadataAgrees)
+        XCTAssertTrue(LiveSourceHealthStore.recordDeliveryMetadata(receipt(.contradicts), for: session, scope: scope,
+            configurationGeneration: generation, at: now))
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .boundary(end), at: now), .unknown)
+        XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.rejected, for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .boundary(end), at: now))
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .boundary(end), at: now), .viewerRejected)
+        XCTAssertFalse(LiveSourceHealthStore.recordDeliveryMetadata(receipt(.agrees), for: session, scope: scope,
+            configurationGeneration: UUID(), at: now), "Stale configuration cannot write metadata")
+    }
+
+    func testDeclaredDeliveryCanRecordMetadataButCannotRecordViewerProofWithoutTransportSnapshot() throws {
+        LiveSourceHealthStore.resetForTesting()
+        defer { LiveSourceHealthStore.resetForTesting() }
+        let now = Date(timeIntervalSince1970: 1_800_000_000), generation = UUID(), attempt = UUID()
+        let scope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: "fixture-one"))
+        let declared = StreamSession(matchID: "fixture-one",
+            playableURL: try XCTUnwrap(URL(string: "https://media.example.test/game.m3u8")),
+            streamType: .hls, providerName: "HF1", createdAt: now)
+        let provenance = try XCTUnwrap(LiveSourceHealthStore.deliveryProvenance(for: declared, scope: scope,
+            listingID: "listing-one", lookupID: UUID(), configurationGeneration: generation, at: now))
+        let session = declared.recordingDeliveryProvenance(provenance, scope: scope,
+            configurationGeneration: generation, at: now)
+        let end = now.addingTimeInterval(60)
+        XCTAssertTrue(LiveSourceHealthStore.recordDeliveryMetadata(.init(provenance: provenance,
+            hasName: true, hasTitle: false, comparison: .agrees, comparedAt: now, expiresAt: end),
+            for: session, scope: scope, configurationGeneration: generation, at: now))
+        XCTAssertFalse(LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .boundary(end), at: now),
+            "An advertised URL and headers are not a captured playback transport")
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .boundary(end), at: now), .metadataAgrees)
+        let prepared = session.recordingDeliveryTransport(cookies: [], at: now)
+        XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: prepared, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .boundary(end), at: now))
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: .boundary(end), at: now), .unknown,
+            "A declaration-only session cannot read a viewer verdict for a prepared delivery")
+    }
+
+    func testExplicitCookieSnapshotChangesContractAndCannotInheritViewerProof() throws {
+        LiveSourceHealthStore.resetForTesting()
+        defer { LiveSourceHealthStore.resetForTesting() }
+        let now = Date(timeIntervalSince1970: 1_800_000_000), generation = UUID(), attempt = UUID()
+        let scope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: "fixture-one"))
+        let original = try programmeSession(scope: scope, configuration: generation, at: now)
+        let expiry = CorrectnessExpiry.boundary(now.addingTimeInterval(60))
+        XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: original, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now))
+        func cookie(_ value: String) throws -> HTTPCookie {
+            try XCTUnwrap(HTTPCookie(properties: [.name: "session", .value: value,
+                .domain: "media.example.test", .path: "/", .secure: "TRUE", .expires: now.addingTimeInterval(30)]))
+        }
+        let changed = original.recordingDeliveryTransport(cookies: [try cookie("one")], at: now)
+        XCTAssertNil(changed.deliveryProvenance, "A changed executable cookie contract drops its old receipt")
+        let changedFingerprint = try XCTUnwrap(LiveSourceHealthStore.deliveryContractFingerprint(for: changed))
+        XCTAssertNotEqual(changedFingerprint, LiveSourceHealthStore.deliveryContractFingerprint(for: original))
+        let another = original.recordingDeliveryTransport(cookies: [try cookie("two")], at: now)
+        XCTAssertNotEqual(changedFingerprint, LiveSourceHealthStore.deliveryContractFingerprint(for: another))
+        let provenance = try XCTUnwrap(LiveSourceHealthStore.deliveryProvenance(for: changed, scope: scope,
+            listingID: "listing-one", lookupID: UUID(), configurationGeneration: generation, at: now))
+        let attached = changed.recordingDeliveryProvenance(provenance, scope: scope,
+            configurationGeneration: generation, at: now)
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: attached, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now), .unknown)
+        XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: attached, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now))
+        XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: attached, scope: scope,
+            configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now.addingTimeInterval(30)), .unknown,
+            "A later programme boundary cannot extend the captured cookie's transport validity")
+    }
+
+    private func programmeSession(scope: ProgrammeScope, configuration: UUID, at now: Date,
+                                  id: UUID = UUID(), matchID: String = "fixture-one", listing: String = "listing-one",
+                                  url: String = "https://media.example.test/private-game.m3u8?token=original",
+                                  provider: String = "HF1", headers: [String: String] = [:]) throws -> StreamSession {
+        let session = StreamSession(id: id, matchID: matchID, title: "Private display title",
+            playableURL: try XCTUnwrap(URL(string: url)), streamType: .hls, providerName: provider,
+            requiredHeaders: headers, createdAt: now)
+            .recordingDeliveryTransport(cookies: [], at: now)
+        let provenance = try XCTUnwrap(LiveSourceHealthStore.deliveryProvenance(for: session, scope: scope,
+            listingID: listing, lookupID: UUID(), configurationGeneration: configuration, watchID: UUID(), at: now))
+        let attached = session.recordingDeliveryProvenance(provenance, scope: scope,
+            configurationGeneration: configuration, at: now)
+        XCTAssertNotNil(attached.deliveryProvenance)
+        return attached
+    }
+
     /// The main family is CS; "hotel" marks a Score808 sibling.
     private func session(matchID: String, path: String, family: String = "communitysports") throws -> StreamSession {
         StreamSession(matchID: matchID,
