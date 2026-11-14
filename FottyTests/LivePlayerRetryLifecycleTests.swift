@@ -115,6 +115,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
             XCTAssertTrue(model.failedSourceIDs.contains(blocked.id), "offline=\(offline)")
             XCTAssertNotEqual(model.activeSource?.id, blocked.id, "Moves to the other source, never an offline wait on this one")
             XCTAssertNotEqual(model.playbackState, .failed)
+            XCTAssertEqual(model.autoFailoverCount, 1, "Same failover accounting as automatic failover")
             XCTAssertFalse(model.pendingRetryAfterNetworkRestore)
         }
     }
@@ -144,7 +145,15 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         model.reportPictureBlocked(for: blocked.id, expectedAttempt: attempt)
         XCTAssertEqual(model.playbackState, .failed)
         XCTAssertEqual(model.errorTitle, "No other broadcast")
-        XCTAssertEqual(model.loadRequestID, attempt, "The blocked source is not reloaded")
+        XCTAssertEqual(model.activeSource?.id, blocked.id, "The blocked source is not replaced by a reload")
+        XCTAssertNotEqual(model.loadRequestID, attempt, "The exhausted attempt is retired")
+        // Its late callbacks cannot clear the error or resume the blocked source.
+        model.handleWebEmbedPlaybackRecovered(sourceID: blocked.id, requestID: attempt)
+        XCTAssertEqual(model.playbackState, .failed)
+        XCTAssertNotNil(model.error)
+        let terminal = FottyQualityStore.shared.records().filter {
+            $0.name == "terminal_failure" && $0.details["attempt_id"] == attempt.uuidString }
+        XCTAssertEqual(terminal.count, 1, "Same terminal record as an automatic exhaustion")
     }
 
     func testSingleWebInitialMetricsRemainOnceWhenDecodedStagePrecedesRepeatedOwnerStarts() async throws {

@@ -3081,7 +3081,8 @@ final class LivePlayerViewModel {
         countsAsStall: Bool = false,
         expectedRequestID: UUID? = nil,
         diagnosticDetails: [String: String] = [:],
-        recordFailure: Bool
+        recordFailure: Bool,
+        viewerExhausted: Bool = false
     ) {
         guard isPlaybackSessionActive, !isAppBackgrounded, userWantsPlayback,
               pendingSingleDiscoveryFailure == nil,
@@ -3144,6 +3145,9 @@ final class LivePlayerViewModel {
             requiredDescriptorRefreshSourceIDs.insert(source.id)
             recoveryAction = .retryNativeStartup(.stalled)
         }
+        // A viewer-reported blocked picture exhausts this delivery outright:
+        // no network wait, Web fallback, handoff return or same-source retry.
+        if viewerExhausted { recoveryAction = .exhaustSource(.providerUnavailable) }
         let failureKind = recoveryAction.failureKind
         traceRecovery("\(source.provider) \(failureKind.rawValue) stall=\(countsAsStall) decoded=\(playbackIntervals.hasDecoded) reachable=\(isNetworkReachable) \(diagnosticDetails["preparation_reason"] ?? "")")
         if recordFailure {
@@ -3338,6 +3342,12 @@ final class LivePlayerViewModel {
             recordWatchTerminal(.failed, failureKind: failureKind)
             errorTitle = failureKind.title
             error = failureKind.terminalMessage
+            if viewerExhausted {
+                loadRequestID = UUID()
+                shouldSuspendWebPlayback = true
+                errorTitle = "No other broadcast"
+                error = "This source's picture was blocked. Retry to look for another broadcast."
+            }
             showControls = true
             transition(to: .failed, phase: "Choose Broadcast Source")
         }
@@ -4153,6 +4163,7 @@ final class LivePlayerViewModel {
     func canReportViewerFeedback(for sourceID: UUID, expectedAttempt: UUID) -> Bool {
         usesSingleStreamRanking && viewingPlaybackContext == .single && isPlaybackSessionActive
             && !isPlaybackSessionRetired && userWantsPlayback && activeSource != nil
+            && !isPictureInPictureActive && !isWebPictureInPictureActive
             && isCurrent(requestID: expectedAttempt, sourceID: sourceID)
     }
 
@@ -4164,29 +4175,11 @@ final class LivePlayerViewModel {
         guard canReportViewerFeedback(for: sourceID, expectedAttempt: expectedAttempt), let current = activeSource else { return }
         FottyQualityStore.shared.record(category: .playback, name: "viewer_reported_blocked", outcome: .failure,
             details: playbackQualityDetails())
-        // The viewer has already seen this delivery fail: exhaust it for this
-        // session and move on directly. This bypasses transport recovery, so
-        // it can never become an offline wait or a same-source Web fallback.
+        // The viewer has already seen this delivery fail. A pending same-source
+        // Web retry must not swallow the report.
         cancelPendingWebRetry()
-        stallValidationTask?.cancel()
-        stopPlaybackWatchdog()
-        failedSourceIDs.insert(current.id)
-        recordMatchOutcome(.failed, for: current)
-        LiveSourceHealthStore.recordFailure(for: current, wasStall: false, reason: "Viewer reported a blocked picture")
-        if let next = nextPlayableSource(after: current), let index = sources.firstIndex(where: { $0.id == next.id }) {
-            recordWatchFailover(to: next)
-            currentSourceIndex = index
-            prefetchDescriptorRenewals(after: next)
-            showPlaybackBanner("Switching to another source")
-            loadCurrentSource(ignoringCircuitBreaker: true)
-            return
-        }
-        cancelAudioPreparation()
-        withModelOwnedNativeRateCommand { player?.pause() }
-        errorTitle = "No other broadcast"
-        error = "This source's picture was blocked. Retry to look for another broadcast."
-        transition(to: .failed, phase: "Choose Broadcast Source")
-        showControls = true
+        recoverSourceStartupFailure(current, reason: "Viewer reported a blocked picture",
+            expectedRequestID: expectedAttempt, recordFailure: true, viewerExhausted: true)
     }
 
     func reportWrongMatch(for sourceID: UUID, expectedAttempt: UUID) {
