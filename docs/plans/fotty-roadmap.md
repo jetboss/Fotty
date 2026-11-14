@@ -83,6 +83,13 @@ key. Raw identifiers, labels, URLs and headers stay transient. See
   rebinds lookup provenance; the verdict is attempt-only (no authoritative programme end) and
   never changes playback or ranking. Wrong match now also records the typed rejection. Codex
   cross-reviewed two rounds (two P2s fixed). Full suite 2,775 / 0 failures. Not yet on a device.
+- **14 Nov — Claude task 2 complete (evidence presentation), merged at 58915d3:** Sources sheet
+  shows each provider's newest search ("found N · M can be tried") and a quiet provider-label note
+  per source; Owner Status has "Programme evidence on this build". Integration tests drive a
+  Highfly lookup through presentation and Right match. The tests found that delivery samples got
+  no space in a full store; Codex reserved 64 records for them (3094b8c). Codex review fixes: one
+  store read per sheet opening, exact test assertions. Full suite 2,783 / 0 failures (one
+  `VisualRegressionTests` "missingWindowScene" failure did not recur on rerun).
 - **Open follow-up (Codex area):** `NativePlayerAudioIsolationTests` reconnect test crashed once
   under full-suite load; likely a pre-existing timing flake.
 
