@@ -78,6 +78,11 @@ key. Raw identifiers, labels, URLs and headers stay transient. See
   prepared-provenance bridge (d137939). Claude reviewed both; one P2 (delivery samples could evict
   playback history from the 250-record store) fixed by Codex in 03ff887. Claude added the three
   Xcode memberships. Full suite on the clean commit 2,770 / 0 failures. Next: Claude's Right match.
+- **14 Nov — Claude task 2 (second half), merged at 66c146c:** optional Right match in the Sources
+  sheet and player options. Native relay preparation captures its exact cookie snapshot and
+  rebinds lookup provenance; the verdict is attempt-only (no authoritative programme end) and
+  never changes playback or ranking. Wrong match now also records the typed rejection. Codex
+  cross-reviewed two rounds (two P2s fixed). Full suite 2,775 / 0 failures. Not yet on a device.
 - **Open follow-up (Codex area):** `NativePlayerAudioIsolationTests` reconnect test crashed once
   under full-suite load; likely a pre-existing timing flake.
 
