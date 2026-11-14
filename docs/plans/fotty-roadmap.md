@@ -62,6 +62,20 @@ key. Raw identifiers, labels, URLs and headers stay transient. See
 `DeliveryProvenance`, `MetadataComparison`, `DeliveryMetadataReceipt`, `ViewerVerdict`,
 `ProgrammeCorrectness`, `CorrectnessExpiry`, `ProgrammeEvidence`, `FixtureLookupCounts`.
 
+## Progress
+
+- **14 Nov — baseline:** Codex committed build 324 (f9b88eb, bd6764f); Claude reviewed it and
+  added the relay-deadlock fix proven on Jet 317 (d1347dd). Full suite 2,685 / 0 failures.
+- **14 Nov — Claude task 1:** the planned lifecycle scenarios were already covered; recorded in
+  `docs/plans/lifecycle-coverage-map.md` instead of duplicate tests.
+- **14 Nov — Claude task 2 (first half), merged at 48e7978:** separate Wrong match and Picture
+  blocked actions in the Sources sheet and player options. Codex cross-reviewed five rounds and
+  found seven defects, all fixed with tests (stale-attempt taps, typed failover outside transport
+  recovery, paused/PiP refusal, shared failover accounting, blocked-hold that unmounts the Web page,
+  late native stall fence). Full suite 2,690 / 0 failures. Right match waits for Codex 1.
+- **Open follow-up (Codex area):** `NativePlayerAudioIsolationTests` reconnect test crashed once
+  under full-suite load; likely a pre-existing timing flake.
+
 ## Ownership (agreed)
 
 - **Codex:** provider adapters and tests, fixture matching/bindings, delivery/provenance models,
