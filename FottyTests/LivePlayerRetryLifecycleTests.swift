@@ -147,6 +147,12 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         XCTAssertEqual(model.errorTitle, "No other broadcast")
         XCTAssertEqual(model.activeSource?.id, blocked.id, "The blocked source is not replaced by a reload")
         XCTAssertEqual(model.viewerExhaustedSourceID, blocked.id)
+        // A late native stall or failure for the held source starts no recovery
+        // (no Web return, no reload) and keeps the hold.
+        model.handleSourceStartupFailure(blocked, reason: "Late native stall", countsAsStall: true, expectedRequestID: attempt)
+        XCTAssertEqual(model.loadRequestID, attempt)
+        XCTAssertEqual(model.viewerExhaustedSourceID, blocked.id)
+        XCTAssertEqual(model.playbackState, .failed)
         // Its late callbacks cannot clear the error or resume the blocked source.
         model.handleWebEmbedPlaybackRecovered(sourceID: blocked.id, requestID: attempt)
         XCTAssertEqual(model.playbackState, .failed)

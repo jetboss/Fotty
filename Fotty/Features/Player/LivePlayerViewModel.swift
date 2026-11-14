@@ -3093,8 +3093,10 @@ final class LivePlayerViewModel {
         recordFailure: Bool,
         viewerExhausted: Bool = false
     ) {
+        // A source on blocked hold has already been exhausted by the viewer; late
+        // native/Web failures or stalls for it must not start any recovery.
         guard isPlaybackSessionActive, !isAppBackgrounded, userWantsPlayback,
-              pendingSingleDiscoveryFailure == nil,
+              pendingSingleDiscoveryFailure == nil, viewerExhaustedSourceID != source.id,
               activeSource?.id == source.id else { return }
         if let expectedRequestID, !isCurrent(requestID: expectedRequestID) { return }
         // Repeated bridge reports during the same recovery delay must not
@@ -4330,7 +4332,7 @@ final class LivePlayerViewModel {
         expectedItem: AVPlayerItem? = nil,
         requestID: UUID? = nil
     ) {
-        guard isPlaybackSessionActive, userWantsPlayback else { return }
+        guard isPlaybackSessionActive, userWantsPlayback, viewerExhaustedSourceID != source.id else { return }
         let expectedRequestID = requestID ?? loadRequestID
         if viewingPlaybackContext == .single, singleResumeOwner?.attempt == expectedRequestID,
            foregroundResumeValidationTask?.isCancelled == false { return }
