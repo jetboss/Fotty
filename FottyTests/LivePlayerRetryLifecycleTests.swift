@@ -100,7 +100,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
 
     /// A playing native attempt on a Highfly delivery whose lookup supplied
     /// fixture provenance, plus a second source without any provenance.
-    private func rightMatchFixture() throws -> RightMatchFixture {
+    private func rightMatchFixture(includePlain: Bool = true) throws -> RightMatchFixture {
         ProviderEvidenceConfiguration.resetForTesting()
         let event = singleDiscoveryFixture(id: "sports-fixture:premier-league:right-match-\(UUID().uuidString)")
         let generation = ProviderEvidenceConfiguration.generation(for: .highfly,
@@ -112,7 +112,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         let evidenced = bare.recordingDeliveryProvenance(provenance, scope: scope, configurationGeneration: generation)
         XCTAssertNotNil(evidenced.deliveryProvenance)
         let plain = singleDiscoverySession(event: event, provider: "AS2", suffix: "right-match-plain", web: false)
-        let model = LivePlayerViewModel(event: event, providedSessions: [evidenced, plain],
+        let model = LivePlayerViewModel(event: event, providedSessions: includePlain ? [evidenced, plain] : [evidenced],
             prepareAudioSession: { .completed([]) }, validateNativeSource: { _, _ in .invalid("No media in unit tests") },
             currentMatchProviders: { ["highfly", "plaviosports"] })
         model.didApplyLandscape = true
@@ -199,6 +199,45 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         XCTAssertNil(model.rightMatchConfirmedAttempt)
         XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: prepared.session, scope: prepared.scope,
             configurationGeneration: prepared.generation, attemptID: attempt, expiry: .attemptOnly), .unknown)
+    }
+
+    func testWrongMatchAfterRightMatchLeavesNoConfirmation() throws {
+        for includePlain in [true, false] {
+            let fixture = try rightMatchFixture(includePlain: includePlain)
+            let model = fixture.model
+            defer { model.cleanup(); ProviderEvidenceConfiguration.resetForTesting() }
+            let source = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
+            try XCTSkipUnless(source.id == fixture.evidenced.id, "Ranking chose the evidenced source first")
+            model.capturePreparedProgrammeEvidence(selected: fixture.evidenced, cookies: [], attemptID: attempt)
+            let prepared = try XCTUnwrap(model.preparedProgrammeEvidence)
+            model.reportRightMatch(for: source.id, expectedAttempt: attempt)
+            XCTAssertEqual(model.rightMatchPresentation(for: source.id, expectedAttempt: attempt), .confirmed)
+
+            model.reportWrongMatch(for: source.id, expectedAttempt: attempt)
+            XCTAssertNil(model.rightMatchConfirmedAttempt, "includePlain=\(includePlain)")
+            XCTAssertNotEqual(model.rightMatchPresentation(for: source.id, expectedAttempt: attempt), .confirmed)
+            let correctness = LiveSourceHealthStore.programmeCorrectness(for: prepared.session, scope: prepared.scope,
+                configurationGeneration: prepared.generation, attemptID: attempt, expiry: .attemptOnly)
+            XCTAssertNotEqual(correctness, .viewerConfirmed, "includePlain=\(includePlain)")
+            if model.loadRequestID == attempt {
+                XCTAssertEqual(correctness, .viewerRejected, "A retained attempt keeps the later rejection")
+            }
+        }
+    }
+
+    func testRightMatchPresentationIsRecomputedWhenSetupChanges() throws {
+        let fixture = try rightMatchFixture()
+        let model = fixture.model
+        defer { model.cleanup(); ProviderEvidenceConfiguration.resetForTesting() }
+        let source = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
+        try XCTSkipUnless(source.id == fixture.evidenced.id, "Ranking chose the evidenced source first")
+        XCTAssertEqual(model.rightMatchPresentation(for: source.id, expectedAttempt: attempt), .unavailable)
+        model.capturePreparedProgrammeEvidence(selected: fixture.evidenced, cookies: [], attemptID: attempt)
+        XCTAssertEqual(model.rightMatchPresentation(for: source.id, expectedAttempt: attempt), .available)
+        model.reportRightMatch(for: source.id, expectedAttempt: attempt)
+        XCTAssertEqual(model.rightMatchPresentation(for: source.id, expectedAttempt: attempt), .confirmed)
+        ProviderEvidenceConfiguration.rotate(for: .highfly)
+        XCTAssertEqual(model.rightMatchPresentation(for: source.id, expectedAttempt: attempt), .unavailable)
     }
 
     func testRightMatchIsNotOfferedWithoutProvenanceOrWhilePaused() throws {

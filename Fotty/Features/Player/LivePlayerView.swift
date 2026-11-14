@@ -817,15 +817,14 @@ struct LivePlayerView: View {
             pictureBlockedAction = { sourceID in viewModel.reportPictureBlocked(for: sourceID, expectedAttempt: displayedAttempt) }
         }
         let rightMatchAction: ((UUID) -> Void)?
-        var rightMatchConfirmed = false
+        let rightMatchPresentation: (() -> LivePlayerViewModel.RightMatchPresentation)?
         if !AppRuntime.usesPrivateMatchSelection || usesManagedAudio || viewModel.event.isBroadcastChannel {
-            rightMatchAction = nil
+            rightMatchAction = nil; rightMatchPresentation = nil
         } else if let sourceID = viewModel.activeSource?.id {
             let displayedAttempt = viewModel.loadRequestID
-            rightMatchConfirmed = viewModel.isRightMatchConfirmed(for: sourceID, expectedAttempt: displayedAttempt)
-            rightMatchAction = viewModel.canConfirmRightMatch(for: sourceID, expectedAttempt: displayedAttempt)
-                ? { sourceID in viewModel.reportRightMatch(for: sourceID, expectedAttempt: displayedAttempt) } : nil
-        } else { rightMatchAction = nil }
+            rightMatchAction = { sourceID in viewModel.reportRightMatch(for: sourceID, expectedAttempt: displayedAttempt) }
+            rightMatchPresentation = { viewModel.rightMatchPresentation(for: sourceID, expectedAttempt: displayedAttempt) }
+        } else { rightMatchAction = nil; rightMatchPresentation = nil }
         return LiveStreamSelectorSheet(
             sessions: viewModel.sessions,
             currentSourceIndex: $viewModel.currentSourceIndex,
@@ -839,7 +838,7 @@ struct LivePlayerView: View {
             onWrongMatch: wrongMatchAction,
             onPictureBlocked: pictureBlockedAction,
             onRightMatch: rightMatchAction,
-            isRightMatchConfirmed: rightMatchConfirmed,
+            rightMatchPresentation: rightMatchPresentation,
             onSelect: selectBroadcastSession
         )
         .presentationDetents([.medium, .large])

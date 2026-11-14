@@ -4218,6 +4218,13 @@ final class LivePlayerViewModel {
         recordMatchOutcome(.wrongProgramme, for: current)
         FottyQualityStore.shared.record(category: .playback, name: "programme_observation", outcome: .failure,
             details: playbackQualityDetails(singlePlaybackEvidence(programme: .viewerReportedWrong)))
+        // The later explicit verdict wins over an earlier Right match, even if
+        // the attempt survives recovery (for example a retained terminal stop).
+        if let evidence = currentProgrammeEvidence(for: sourceID, expectedAttempt: expectedAttempt) {
+            LiveSourceHealthStore.recordViewerVerdict(.rejected, for: evidence.session, scope: evidence.scope,
+                configurationGeneration: evidence.generation, attemptID: expectedAttempt, expiry: .attemptOnly)
+        }
+        if rightMatchConfirmedAttempt == expectedAttempt { rightMatchConfirmedAttempt = nil }
         handleSourceStartupFailure(current, reason: "Provider reports this broadcast is unavailable", expectedRequestID: loadRequestID)
     }
 
@@ -4265,6 +4272,15 @@ final class LivePlayerViewModel {
             && canReportViewerFeedback(for: sourceID, expectedAttempt: expectedAttempt)
             && rightMatchConfirmedAttempt != expectedAttempt
             && currentProgrammeEvidence(for: sourceID, expectedAttempt: expectedAttempt) != nil
+    }
+
+    enum RightMatchPresentation: Equatable { case unavailable, available, confirmed }
+
+    /// Re-evaluated on demand: cookie expiry and provider setup changes are
+    /// not observable, so presentation must ask again rather than cache it.
+    func rightMatchPresentation(for sourceID: UUID, expectedAttempt: UUID) -> RightMatchPresentation {
+        if isRightMatchConfirmed(for: sourceID, expectedAttempt: expectedAttempt) { return .confirmed }
+        return canConfirmRightMatch(for: sourceID, expectedAttempt: expectedAttempt) ? .available : .unavailable
     }
 
     func isRightMatchConfirmed(for sourceID: UUID, expectedAttempt: UUID) -> Bool {

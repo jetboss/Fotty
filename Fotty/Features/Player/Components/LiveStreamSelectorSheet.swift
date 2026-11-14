@@ -18,7 +18,9 @@ struct LiveStreamSelectorSheet: View {
     let onWrongMatch: ((UUID) -> Void)?
     let onPictureBlocked: ((UUID) -> Void)?
     let onRightMatch: ((UUID) -> Void)?
-    let isRightMatchConfirmed: Bool
+    /// Asked again periodically while the sheet is open; validity depends on
+    /// time and provider setup, neither of which is observable.
+    let rightMatchPresentation: (() -> LivePlayerViewModel.RightMatchPresentation)?
     let onSelect: (Int) -> Void
     @State private var selection: BroadcastSourcePickerPolicy.Filter = .automatic
     
@@ -37,7 +39,7 @@ struct LiveStreamSelectorSheet: View {
         onWrongMatch: ((UUID) -> Void)? = nil,
         onPictureBlocked: ((UUID) -> Void)? = nil,
         onRightMatch: ((UUID) -> Void)? = nil,
-        isRightMatchConfirmed: Bool = false,
+        rightMatchPresentation: (() -> LivePlayerViewModel.RightMatchPresentation)? = nil,
         onSelect: @escaping (Int) -> Void
     ) {
         self.sessions = sessions
@@ -52,7 +54,7 @@ struct LiveStreamSelectorSheet: View {
         self.onWrongMatch = onWrongMatch
         self.onPictureBlocked = onPictureBlocked
         self.onRightMatch = onRightMatch
-        self.isRightMatchConfirmed = isRightMatchConfirmed
+        self.rightMatchPresentation = rightMatchPresentation
         self.onSelect = onSelect
     }
     
@@ -128,24 +130,32 @@ struct LiveStreamSelectorSheet: View {
                         singleSourceFilters
                     }
                     joinedSourceChoices
-                    if isRightMatchConfirmed, !currentPlaybackHasError {
-                        Label("You confirmed this is the right match", systemImage: "checkmark.circle.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(FottyTheme.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .frame(minHeight: 44, alignment: .leading)
-                            .accessibilityIdentifier("single-source-right-match-confirmed")
-                    } else if let onRightMatch, sessions.indices.contains(currentSourceIndex), !currentPlaybackHasError {
-                        Button {
-                            onRightMatch(sessions[currentSourceIndex].id)
-                            dismiss()
-                        } label: {
-                            Label("Right match", systemImage: "checkmark.circle")
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(minHeight: 44, alignment: .leading)
+                    if let onRightMatch, let rightMatchPresentation,
+                       sessions.indices.contains(currentSourceIndex), !currentPlaybackHasError {
+                        TimelineView(.periodic(from: .now, by: 5)) { _ in
+                            switch rightMatchPresentation() {
+                            case .confirmed:
+                                Label("You confirmed this is the right match", systemImage: "checkmark.circle.fill")
+                                    .font(.subheadline)
+                                    .foregroundStyle(FottyTheme.textSecondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .frame(minHeight: 44, alignment: .leading)
+                                    .accessibilityIdentifier("single-source-right-match-confirmed")
+                            case .available:
+                                Button {
+                                    onRightMatch(sessions[currentSourceIndex].id)
+                                    dismiss()
+                                } label: {
+                                    Label("Right match", systemImage: "checkmark.circle")
+                                        .fixedSize(horizontal: false, vertical: true)
+                                        .frame(minHeight: 44, alignment: .leading)
+                                }
+                                .accessibilityHint("Optional. Confirms this source shows the match you chose. Playback does not change")
+                                .accessibilityIdentifier("single-source-right-match")
+                            case .unavailable:
+                                EmptyView()
+                            }
                         }
-                        .accessibilityHint("Optional. Confirms this source shows the match you chose. Playback does not change")
-                        .accessibilityIdentifier("single-source-right-match")
                     }
                     if let onWrongMatch, sessions.indices.contains(currentSourceIndex), !currentPlaybackHasError {
                         Button {
@@ -229,7 +239,8 @@ struct LiveStreamSelectorSheet: View {
                     }
                 }
                 .contextMenu {
-                    if let onRightMatch, !isRightMatchConfirmed, index == currentSourceIndex, !currentPlaybackHasError {
+                    if let onRightMatch, rightMatchPresentation?() == .available,
+                       index == currentSourceIndex, !currentPlaybackHasError {
                         Button("Right match", systemImage: "checkmark.circle") {
                             onRightMatch(session.id)
                             dismiss()
