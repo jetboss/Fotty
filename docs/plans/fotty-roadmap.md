@@ -1,6 +1,7 @@
 # Fotty roadmap — joint Claude/Codex plan
 
-Status: **Agreed by Claude and Codex after two rounds (14 Nov 2026); awaiting owner decisions.**
+Status: **Approved by the owner on 14 Nov 2026** (plan, ownership split, first four tasks, retirement-review threshold).
+Next gate: Codex commits its build 324 working tree as the baseline; Claude reviews it; then tasks start.
 Discussion record: `docs/plans/discussion/` (round 1 prompt and Codex review, round 2 Claude
 reply and Codex reply).
 
@@ -87,11 +88,11 @@ Categories: disabled, untested, unavailable, repeatedly unsuccessful. At least 1
 fixtures across at least 2 weeks with no viewer-confirmed or stable correct play **triggers owner
 review**, together with startup/timeout cost. Unconfirmed viewing is not counted as failure.
 
-## Owner decisions needed
+## Owner decisions (14 Nov 2026)
 
 1. **Baseline:** the build 324 work (71 modified files plus new files, including
    `StreamDeliveryPolicy.swift`) is uncommitted in the main checkout. It must become a committed,
    reviewed baseline before either agent starts tasks. Proposed: Codex commits its 324 work; Claude
    reviews it.
-2. **Approve** this plan, the ownership split and the first four tasks.
-3. **Approve** the retirement-review threshold.
+2. Plan, ownership split and first four tasks: **approved**.
+3. Retirement-review threshold: **approved**.
