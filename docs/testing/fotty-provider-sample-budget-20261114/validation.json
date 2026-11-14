@@ -1,0 +1,94 @@
+{
+  "baseCommit": "d84837062b9138d0894f55bf1f4626fb48ec5273",
+  "platform": "Mac Catalyst arm64",
+  "testOnlyOverrides": {
+    "MACOSX_DEPLOYMENT_TARGET": "27.0",
+    "CODE_SIGN_IDENTITY": "-",
+    "CODE_SIGN_ENTITLEMENTS": "",
+    "CODE_SIGNING_REQUIRED": "NO",
+    "CODE_SIGNING_ALLOWED": "YES"
+  },
+  "exitCode": 0,
+  "verification": {
+    "focused": {
+      "passed": 79,
+      "failed": 0,
+      "skipped": 0,
+      "failures": [],
+      "skips": [],
+      "succeeded": true,
+      "total": 79
+    },
+    "full": {
+      "passed": 2770,
+      "failed": 0,
+      "skipped": 12,
+      "failures": [],
+      "skips": [
+        "FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistryRefreshReconcilesSavedBaselineWithoutLosingFreshTV",
+        "FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistrySnapshotPassesActualNativeWireValidation",
+        "FottyTests.CNCSportsPhysicalCanaryTests testReviewedCNCDeliveryDecodesThroughGuardedRelayOnPhysicalDevice",
+        "FottyTests.FlixStreamsAddonTests testPhysicalFlixDecodedVideoCanary",
+        "FottyTests.FlixStreamsAddonTests testPhysicalFlixSecondDecodedVideoCanary",
+        "FottyTests.PlavioSportsAddonTests testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice",
+        "FottyTests.PlaybackPolicyTests testReferenceHLSMaintainsOneAttemptDuringSoak",
+        "FottyTests.ReviewedRelayThroughputPhysicalTests testSyntheticOneMiBDirectBytesAndGuardedRelayThroughputOnPhysicalDevice",
+        "FottyTests.Score808SiteCatalogTests testOptInCurrentProviderDiscovery",
+        "FottyTests.SourceConnectionToolTests testAllEnabledSourcesForVerifiedFootballFixture",
+        "FottyTests.SourceConnectionToolTests testOptInNHLRegisteredCSMetadata",
+        "FottyTests.SourceConnectionToolTests testReviewedTVExpandedChannelsThroughGuardedDecoder"
+      ],
+      "succeeded": true,
+      "resultBasis": "xcodebuild test-without-building exited 0; XCTest reported 2782 total, 12 skipped, 0 failures",
+      "total": 2782
+    }
+  },
+  "sourceSHA256": {
+    "Fotty/Core/Logging/FottyLogger.swift": "aa19b9a33abfe01fa48f7ea897c8864e58d3f7e039930d7a4d3d5a10f4282311",
+    "FottyTests/WatchOutcomeRecordTests.swift": "c5e9be1ac76b5002488f828edf3fae7fc4a97286cb2d8f7a735b4aa7baf2b466",
+    "FottyTests/ProgrammeEvidenceIntegrationTests.swift": "a903359be07928c8f44edf88bbddd9decac7fd58b0bd45aa409aef9ae1c642d5",
+    "Fotty.xcodeproj/project.pbxproj": "01e1343895cb20a08acc487d7e8c0ae8942aa83adb713d82a8b27df65eb4b9e9"
+  },
+  "policy": {
+    "maximumTotalRecords": 250,
+    "reservedProviderDeliveryRecords": 64,
+    "maximumSampleLookups": 2,
+    "wholeSampleGroups": true,
+    "reservedWatchOutcomes": 100,
+    "newestPlaybackAndAudioCohortsTakePriority": true,
+    "unusedSampleCapacityReusable": true
+  },
+  "initialPreflightStops": [
+    {
+      "exitCode": 70,
+      "reason": "Default macOS 27.2 deployment target exceeded this Mac 27.0.1; no tests ran."
+    },
+    {
+      "exitCode": 65,
+      "reason": "Development-only app entitlements prevented ad-hoc Catalyst signing; no tests ran."
+    }
+  ],
+  "testOnlyOverridesNote": "Command-line deployment/signing overrides only; Xcode project and production entitlements unchanged.",
+  "sourceHashesVerifiedAfterRun": true,
+  "cleanup": {
+    "ownedBuildOutputRemoved": true,
+    "freeDiskBeforeGiB": 16,
+    "freeDiskAfterGiB": 16
+  },
+  "memoryCheck": {
+    "exitCode": 1,
+    "existingCurrentStateBudgetFailure": true,
+    "generatedExportRestored": true,
+    "durableReceipt": "README.md in this directory"
+  },
+  "scope": {
+    "rankingChanged": false,
+    "providerAdaptersChanged": false,
+    "devicesTouched": false,
+    "FPLChanged": false,
+    "multiStreamChanged": false,
+    "TestFlight": false,
+    "pushed": false,
+    "merged": false
+  }
+}

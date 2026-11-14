@@ -674,7 +674,9 @@ final class FottyQualityStore {
     static let reservedWatchOutcomes = 100
     static let routineRefreshNames: Set<String> = ["live_refresh", "schedule_refresh"]
     static let maximumRoutineRefreshSuccesses = 40
-    /// Optional diagnostic samples never reserve space ahead of viewing records.
+    /// Samples have their own share of the same buffer, ahead of older ordinary
+    /// history but never reserved outcomes or the newest playback/audio cohort.
+    static let reservedProviderDeliveryRecords = 64
     static let maximumProviderDeliveryLookups = 2
 
     private let defaults: UserDefaults
@@ -1092,6 +1094,7 @@ final class FottyQualityStore {
 
     private static func pruned(_ records: [FottyQualityRecord], now: Date) -> [FottyQualityRecord] {
         let cutoff = now.addingTimeInterval(-retentionInterval)
+        let positions = records.enumerated().reduce(into: [UUID: Int]()) { $0[$1.element.id] = $1.offset }
         // Routine successful score/schedule refreshes arrive every few minutes.
         // Left uncapped they evicted a whole day of playback evidence (Jet,
         // 8 Nov: 184 of 249 records). Keep only the newest few; failures and
@@ -1104,9 +1107,8 @@ final class FottyQualityStore {
                 routineSuccesses += 1
                 return routineSuccesses <= maximumRoutineRefreshSuccesses
             }
-        // Select the ordinary records exactly as if verbose delivery samples
-        // did not exist. A summary is one ordinary record; losing its optional
-        // samples must never remove the lookup or crowd out playback/audio.
+        // Start with the ordinary retention policy, then allocate the bounded
+        // sample share below. Unused sample capacity remains ordinary history.
         let ordinary = retained.filter { !isProviderDelivery($0) }
         let cohorts = Dictionary(grouping: ordinary) { record in
             if record.category == .playback, let attemptID = record.details["attempt_id"] {
@@ -1118,13 +1120,32 @@ final class FottyQualityStore {
             }
             return "record:\(record.id.uuidString)"
         }.values.sorted {
-            ($0.map(\.timestamp).max() ?? .distantPast) > ($1.map(\.timestamp).max() ?? .distantPast)
+            let left = $0.map(\.timestamp).max() ?? .distantPast
+            let right = $1.map(\.timestamp).max() ?? .distantPast
+            if left == right {
+                return ($0.map { positions[$0.id, default: 0] }.max() ?? 0)
+                    > ($1.map { positions[$0.id, default: 0] }.max() ?? 0)
+            }
+            return left > right
         }
 
         let reserved = Set(ordinary.filter { $0.category == .playback && $0.name == WatchOutcomeRecorder.recordName }
             .prefix(reservedWatchOutcomes).map(\.id))
         var selected = ordinary.filter { reserved.contains($0.id) }
-        for cohort in cohorts where !cohort.contains(where: { reserved.contains($0.id) }) {
+        var protectedIDs = reserved
+        // The store has no player owner: the newest attempt/job is the bounded
+        // proxy for current viewing. Preserve it before newer lookup summaries
+        // or samples consume capacity. Only the hard cap/outcome reserve may
+        // clip an oversized current cohort, as in ordinary history retention.
+        for key in ["attempt_id", "audio_job_id"] {
+            if let current = cohorts.first(where: { $0.contains { $0.category == .playback && $0.details[key] != nil } }) {
+                let unselected = current.filter { !protectedIDs.contains($0.id) }
+                selected.append(contentsOf: unselected.sorted { $0.timestamp < $1.timestamp }
+                    .suffix(maximumRecords - selected.count))
+                protectedIDs.formUnion(current.map(\.id))
+            }
+        }
+        for cohort in cohorts where !cohort.contains(where: { protectedIDs.contains($0.id) }) {
             if selected.count == reserved.count, cohort.count > maximumRecords - reserved.count {
                 selected.append(contentsOf: cohort.sorted { $0.timestamp < $1.timestamp }
                     .suffix(maximumRecords - reserved.count))
@@ -1143,12 +1164,27 @@ final class FottyQualityStore {
                 && providerLookupKey($0) != nil
         }.sorted { $0.timestamp > $1.timestamp }.prefix(maximumProviderDeliveryLookups)
         let samplesByLookup = Dictionary(grouping: retained.filter(isProviderDelivery)) { providerLookupKey($0) }
+        protectedIDs.formUnion(latestLookups.map(\.id))
         var retainedSampleCounts: [String: Int] = [:]
+        var sampleCount = 0
         for summary in latestLookups {
             guard let key = providerLookupKey(summary), let samples = samplesByLookup[key],
                   samples.count <= StreamLookupEvidence.maximumDeliveries,
-                  selected.count + samples.count <= maximumRecords else { continue }
+                  sampleCount + samples.count <= reservedProviderDeliveryRecords else { continue }
+            // Reserve real capacity, not only leftovers. Plan whole-cohort
+            // eviction first; if protected viewing leaves too little space,
+            // discard this plan and yield the sample share instead.
+            var removed = Set<UUID>()
+            let currentIDs = Set(selected.map(\.id))
+            for cohort in cohorts.reversed() where selected.count - removed.count + samples.count > maximumRecords {
+                let ids = Set(cohort.map(\.id)).intersection(currentIDs)
+                guard ids.isDisjoint(with: protectedIDs) else { continue }
+                removed.formUnion(ids)
+            }
+            guard selected.count - removed.count + samples.count <= maximumRecords else { continue }
+            selected.removeAll { removed.contains($0.id) }
             selected.append(contentsOf: samples)
+            sampleCount += samples.count
             retainedSampleCounts[key] = samples.count
         }
         selected = selected.map { record in
@@ -1162,7 +1198,6 @@ final class FottyQualityStore {
                 name: record.name, outcome: record.outcome, durationMilliseconds: record.durationMilliseconds,
                 details: details, appVersion: record.appVersion, appBuild: record.appBuild)
         }
-        let positions = records.enumerated().reduce(into: [UUID: Int]()) { $0[$1.element.id] = $1.offset }
         return selected.sorted {
             if $0.timestamp == $1.timestamp { return positions[$0.id, default: 0] < positions[$1.id, default: 0] }
             return $0.timestamp < $1.timestamp

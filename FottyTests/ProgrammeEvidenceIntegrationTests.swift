@@ -99,7 +99,6 @@ final class ProgrammeEvidenceIntegrationTests: XCTestCase {
             receiptSink: { store.recordProviderLookup($0) }).resolve(for: request, now: now)
         let presentation = ProgrammeEvidencePresentation.make(fixtureID: matchID, records: store.records())
         XCTAssertEqual(presentation.latestSearches.first?.found, 3, "The search summary is an ordinary record and survives")
-        XCTExpectFailure("Codex area: provider_delivery samples only use space left after ordinary records, so a full store keeps none (needs its own small budget)")
         XCTAssertEqual(presentation.labelNote(for: sessions[0].id), "Provider label matches this game")
     }
 

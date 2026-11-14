@@ -120,10 +120,10 @@ final class WatchOutcomeRecordTests: XCTestCase {
         XCTAssertLessThanOrEqual(records.count, 250)
         XCTAssertEqual(records.filter { $0.name == "provider_lookup" }.count, 6)
         let samples = records.filter { $0.name == "provider_delivery" }
-        XCTAssertEqual(samples.count, 128)
+        XCTAssertEqual(samples.count, 64)
         XCTAssertEqual(Set(samples.compactMap { $0.details["evidence_lookup_id"] }),
-            Set(receipts.suffix(2).map { $0.lookupID.uuidString.lowercased() }))
-        let retainedIDs = Set(receipts.suffix(2).map { $0.lookupID.uuidString.lowercased() })
+            Set(receipts.suffix(1).map { $0.lookupID.uuidString.lowercased() }))
+        let retainedIDs = Set(receipts.suffix(1).map { $0.lookupID.uuidString.lowercased() })
         for summary in records where summary.name == "provider_lookup" {
             XCTAssertEqual(summary.details["evidence_reconciled"],
                 retainedIDs.contains(summary.details["evidence_lookup_id"] ?? "") ? "true" : "false")
@@ -163,11 +163,11 @@ final class WatchOutcomeRecordTests: XCTestCase {
         XCTAssertEqual(after.filter { $0.details["audio_job_id"] == audioJob }.count, 2)
         XCTAssertEqual(outcomes().count, 1)
         XCTAssertEqual(after.filter { $0.name == "provider_lookup" }.count, 6)
-        XCTAssertEqual(after.filter { $0.name == "provider_delivery" }.count, 128)
+        XCTAssertEqual(after.filter { $0.name == "provider_delivery" }.count, 64)
         XCTAssertLessThanOrEqual(after.count, 250)
     }
 
-    func testProviderSamplesYieldAllCapacityToNearlyFullViewingHistory() throws {
+    func testProviderSampleReserveYieldsToTheCurrentPlaybackCohort() throws {
         let attempt = UUID().uuidString
         for _ in 0..<230 {
             store.record(category: .playback, name: "native_diagnostic", outcome: .info, details: ["attempt_id": attempt])
@@ -178,7 +178,7 @@ final class WatchOutcomeRecordTests: XCTestCase {
         XCTAssertEqual(after.filter { $0.details["attempt_id"] == attempt }, before)
         XCTAssertEqual(after.filter { $0.name == "provider_lookup" }.count, 6)
         XCTAssertTrue(after.filter { $0.name == "provider_delivery" }.isEmpty,
-            "Samples reserve no slots and cannot force a playback cohort out")
+            "The current playback cohort takes priority over the sample reserve")
         XCTAssertTrue(after.filter { $0.name == "provider_lookup" }.allSatisfy {
             $0.details["evidence_truncated"] == "true" && $0.details["evidence_reconciled"] == "false"
         })
@@ -204,9 +204,9 @@ final class WatchOutcomeRecordTests: XCTestCase {
         let result = reloaded.records()
         XCTAssertEqual(result.filter { $0.name == "provider_lookup" }.count, 3)
         let samples = result.filter { $0.name == "provider_delivery" }
-        XCTAssertEqual(samples.count, 128)
+        XCTAssertEqual(samples.count, 64)
         XCTAssertEqual(Set(samples.compactMap { $0.details["evidence_lookup_id"] }),
-            Set(receipts.suffix(2).map { $0.lookupID.uuidString.lowercased() }))
+            Set(receipts.suffix(1).map { $0.lookupID.uuidString.lowercased() }))
         XCTAssertEqual(try JSONDecoder().decode([FottyQualityRecord].self,
             from: XCTUnwrap(defaults.data(forKey: "watch-outcomes"))), result)
     }
@@ -220,6 +220,82 @@ final class WatchOutcomeRecordTests: XCTestCase {
         XCTAssertTrue(records.filter { $0.name == "provider_delivery" }.isEmpty)
     }
 
+    func testFullStoreReservesSamplesAndOnlyTruncatesTheLookupWhoseSamplesWereDropped() throws {
+        for _ in 0..<250 { store.record(category: .playback, name: "ordinary_diagnostic", outcome: .info) }
+        let date = Date()
+        let receipts = try (0..<3).map { _ in try evidenceReceipt(date: date) }
+        for receipt in receipts { store.recordProviderLookup(receipt) }
+        let records = store.records()
+        XCTAssertEqual(records.count, 250, "Unused sample capacity remains ordinary history")
+        XCTAssertEqual(records.filter { $0.name == "provider_delivery" }.count, 4)
+        for (index, receipt) in receipts.enumerated() {
+            let summary = try XCTUnwrap(records.first { $0.name == "provider_lookup"
+                && $0.details["evidence_lookup_id"] == receipt.lookupID.uuidString.lowercased() })
+            XCTAssertEqual(summary.details["evidence_truncated"], index == 0 ? "true" : "false")
+            XCTAssertEqual(summary.details["evidence_reconciled"], index == 0 ? "false" : "true")
+            XCTAssertEqual(summary.details["evidence_observed_entries"], "2")
+        }
+        let reloaded = FottyQualityStore(defaults: defaults, storageKey: "watch-outcomes")
+        XCTAssertEqual(reloaded.records(), records, "Reading/reloading must not evict or revive samples")
+    }
+
+    func testFullStoreRetainsTheNewestComplete64EntrySampleGroup() throws {
+        for _ in 0..<250 { store.record(category: .playback, name: "ordinary_diagnostic", outcome: .info) }
+        let old = try evidenceReceipt(mode: "full"), latest = try evidenceReceipt(mode: "full")
+        store.recordProviderLookup(old); store.recordProviderLookup(latest)
+        let records = store.records(), samples = records.filter { $0.name == "provider_delivery" }
+        XCTAssertEqual(records.count, 250)
+        XCTAssertEqual(samples.count, FottyQualityStore.reservedProviderDeliveryRecords)
+        XCTAssertTrue(samples.allSatisfy { $0.details["evidence_lookup_id"] == latest.lookupID.uuidString.lowercased() })
+        let summary = try XCTUnwrap(records.first { $0.name == "provider_lookup"
+            && $0.details["evidence_lookup_id"] == latest.lookupID.uuidString.lowercased() })
+        XCTAssertEqual(summary.details["evidence_truncated"], "false")
+        XCTAssertEqual(summary.details["evidence_reconciled"], "true")
+    }
+
+    func testSampleReserveEvictsAnOlderPlaybackCohortWholeAndPreservesTheCurrentOne() throws {
+        let old = UUID().uuidString, current = UUID().uuidString
+        for (attempt, count) in [(old, 80), (current, 100)] {
+            for _ in 0..<count {
+                store.record(category: .playback, name: "native_diagnostic", outcome: .info, details: ["attempt_id": attempt])
+            }
+        }
+        for _ in 0..<69 { store.record(category: .playback, name: "ordinary_diagnostic", outcome: .info) }
+        XCTAssertEqual(store.records().count, 249)
+        store.recordProviderLookup(try evidenceReceipt(mode: "full"))
+        let records = store.records()
+        XCTAssertEqual(records.filter { $0.details["attempt_id"] == current }.count, 100)
+        XCTAssertTrue(records.filter { $0.details["attempt_id"] == old }.isEmpty,
+            "Make room for samples by evicting the older attempt whole, never a misleading partial history")
+        XCTAssertEqual(records.filter { $0.name == "provider_delivery" }.count, 64)
+        XCTAssertLessThanOrEqual(records.count, 250)
+    }
+
+    func testSampleReserveCannotEvictReservedOutcomesOrCurrentPlaybackAndAudio() throws {
+        let recorder = recorder()
+        for _ in 0..<100 {
+            let watch = UUID()
+            recorder.begin(watchID: watch, competition: "premier-league", sport: "football")
+            recorder.picture(watchID: watch, family: "HF")
+        }
+        let attempt = UUID().uuidString, audioJob = UUID().uuidString
+        for _ in 0..<110 {
+            store.record(category: .playback, name: "native_diagnostic", outcome: .info, details: ["attempt_id": attempt])
+        }
+        for _ in 0..<10 {
+            store.record(category: .playback, name: "audio_activation_evidence", outcome: .info, details: ["audio_job_id": audioJob])
+        }
+        let protected = store.records()
+        for _ in 0..<30 { store.record(category: .playback, name: "ordinary_diagnostic", outcome: .info) }
+        store.recordProviderLookup(try evidenceReceipt(mode: "full"))
+        let records = store.records()
+        XCTAssertEqual(records.count, 250)
+        XCTAssertTrue(Set(protected.map(\.id)).isSubset(of: Set(records.map(\.id))))
+        XCTAssertEqual(outcomes().count, FottyQualityStore.reservedWatchOutcomes)
+        XCTAssertTrue(records.filter { $0.name == "provider_delivery" }.isEmpty,
+            "A complete sample group cannot fit without displacing protected viewing; yield instead")
+    }
+
     private func evidenceReceipt(fixture: String = "private-fixture-sentinel", mode: String = "normal",
                                  date: Date = Date()) throws -> ProviderLookupReceipt {
         let generation = UUID()
@@ -231,13 +307,14 @@ final class WatchOutcomeRecordTests: XCTestCase {
         if mode == "unread" {
             evidence.unreadResponse(); ledger.finish(admitted: 0, completion: "failed")
         } else {
-            let count = mode == "empty" ? 0 : (mode == "capped" ? 70 : 2)
+            let count = mode == "empty" ? 0 : (mode == "capped" ? 70 : (mode == "full" ? 64 : 2))
+            let manyContracts = mode == "capped" || mode == "full"
             ledger.observe(count); evidence.readResponse(listingID: "private-listing-sentinel", entries: count)
             for index in 0..<count {
-                let url = "https://media.example.test/\(mode == "capped" ? String(index) : "game").m3u8?token=private-token-sentinel"
+                let url = "https://media.example.test/\(manyContracts ? String(index) : "game").m3u8?token=private-token-sentinel"
                 evidence.observeEntry(listingID: "private-listing-sentinel", index: index, url: url,
                     headers: ["User-Agent": "private-header-sentinel"], name: "Liverpool vs Arsenal", title: nil, at: date)
-                let reason = mode == "capped" ? "limit" : (index == 0 ? "admitted" : "duplicate")
+                let reason = manyContracts ? "limit" : (index == 0 ? "admitted" : "duplicate")
                 ledger.record(reason); evidence.disposition(listingID: "private-listing-sentinel", index: index, reason: reason)
             }
             if mode == "normal" {
