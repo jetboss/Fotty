@@ -146,7 +146,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         XCTAssertEqual(model.playbackState, .failed)
         XCTAssertEqual(model.errorTitle, "No other broadcast")
         XCTAssertEqual(model.activeSource?.id, blocked.id, "The blocked source is not replaced by a reload")
-        XCTAssertNotEqual(model.loadRequestID, attempt, "The exhausted attempt is retired")
+        XCTAssertEqual(model.viewerExhaustedSourceID, blocked.id)
         // Its late callbacks cannot clear the error or resume the blocked source.
         model.handleWebEmbedPlaybackRecovered(sourceID: blocked.id, requestID: attempt)
         XCTAssertEqual(model.playbackState, .failed)
@@ -154,6 +154,24 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         let terminal = FottyQualityStore.shared.records().filter {
             $0.name == "terminal_failure" && $0.details["attempt_id"] == attempt.uuidString }
         XCTAssertEqual(terminal.count, 1, "Same terminal record as an automatic exhaustion")
+    }
+
+    func testBlockedWebSourceWithNoAlternativeIsUnmountedNotReloadedUntilRetry() async throws {
+        let model = try await makePlayer(delay: ControlledWebRetryDelay(), configureSingle: true)
+        defer { model.cleanup() }
+        let blocked = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
+        XCTAssertTrue(model.shouldDisplayWebPlayback)
+        model.reportPictureBlocked(for: blocked.id, expectedAttempt: attempt)
+        guard model.playbackState == .failed else { return } // A test player with another source fails over instead.
+        XCTAssertEqual(model.loadRequestID, attempt, "Same attempt ID: the blocked page is not remounted")
+        XCTAssertFalse(model.shouldDisplayWebPlayback, "The blocked Web surface is unmounted, so activation cannot resume it")
+        model.handleWebEmbedPlaybackStarted(sourceID: blocked.id, requestID: attempt, startupLatencyMs: 10)
+        model.handleWebEmbedPlaybackRecovered(sourceID: blocked.id, requestID: attempt)
+        XCTAssertEqual(model.playbackState, .failed)
+        XCTAssertNotNil(model.error)
+        // Explicit Retry (a new load) ends the hold.
+        model.loadCurrentSource(ignoringCircuitBreaker: true)
+        XCTAssertNil(model.viewerExhaustedSourceID)
     }
 
     func testSingleWebInitialMetricsRemainOnceWhenDecodedStagePrecedesRepeatedOwnerStarts() async throws {

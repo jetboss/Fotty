@@ -242,7 +242,14 @@ final class LivePlayerViewModel {
     @ObservationIgnored private var retiredWebOwner: (sourceID: UUID, requestID: UUID)?
     private var nativeWatchTwoIntentRevision = UUID()
     var nativeWatchTwoIntentID: UUID { nativeWatchTwoIntentRevision }
-    var shouldDisplayWebPlayback: Bool { isUsingWebEmbed && !isRetiringWebForNativeWatchTwo }
+    var shouldDisplayWebPlayback: Bool {
+        isUsingWebEmbed && !isRetiringWebForNativeWatchTwo
+            && (viewerExhaustedSourceID == nil || viewerExhaustedSourceID != activeSource?.id)
+    }
+    /// A source the viewer reported blocked with no other broadcast left. Its
+    /// Web surface is unmounted (not reloaded) until Retry or another source;
+    /// keeping the same attempt ID avoids remounting the blocked page.
+    private(set) var viewerExhaustedSourceID: UUID?
     private var lastAdmittedSourceIndex = 0
     @ObservationIgnored private var causalDiagnosticBudget = FottyPlaybackDiagnosticBudget()
     @ObservationIgnored private var handoffDiagnosticPhase: FottyPlaybackDiagnosticHandoffPhase = .none
@@ -2016,6 +2023,8 @@ final class LivePlayerViewModel {
 
     func loadCurrentSource(ignoringCircuitBreaker: Bool = false) {
         guard !isPlaybackSessionRetired else { return }
+        // Any new load (Retry, a chosen source or failover) ends the blocked hold.
+        viewerExhaustedSourceID = nil
         guard let selectedSession, admits(selectedSession) else {
             if sessions.indices.contains(lastAdmittedSourceIndex) { currentSourceIndex = lastAdmittedSourceIndex }
             showPlaybackBanner("Choose a source using the same player, or watch this match on its own.")
@@ -3343,7 +3352,7 @@ final class LivePlayerViewModel {
             errorTitle = failureKind.title
             error = failureKind.terminalMessage
             if viewerExhausted {
-                loadRequestID = UUID()
+                viewerExhaustedSourceID = source.id
                 shouldSuspendWebPlayback = true
                 errorTitle = "No other broadcast"
                 error = "This source's picture was blocked. Retry to look for another broadcast."
@@ -3425,7 +3434,7 @@ final class LivePlayerViewModel {
         guard !isRetiringWebForNativeWatchTwo, isPlaybackSessionActive, !isAppBackgrounded,
               !isWebPlaybackUserPaused, let source = activeSource,
               isCurrent(requestID: requestID, sourceID: sourceID),
-              isUsingWebEmbed else { return }
+              isUsingWebEmbed, viewerExhaustedSourceID != sourceID else { return }
         isVideoReadyForDisplay = true
         handleSuccessfulStartup(
             source: source,
@@ -3437,7 +3446,7 @@ final class LivePlayerViewModel {
     func handleWebEmbedPlaybackRecovered(sourceID: UUID, requestID: UUID) {
         guard !isRetiringWebForNativeWatchTwo, isPlaybackSessionActive, !isAppBackgrounded,
               isCurrent(requestID: requestID, sourceID: sourceID),
-              isUsingWebEmbed,
+              isUsingWebEmbed, viewerExhaustedSourceID != sourceID,
               !isWebPlaybackUserPaused else { return }
         lastObservedPlaybackStage = .decoded
         if let identity = intervalIdentity {
