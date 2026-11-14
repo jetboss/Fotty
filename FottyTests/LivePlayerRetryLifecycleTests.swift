@@ -53,6 +53,43 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: source, fixtureID: model.event.id), .wrongProgramme)
     }
 
+    func testPictureBlockedIsAFailureNotAWrongProgrammeAndIgnoresStaleTaps() async throws {
+        let model = try await makePlayer(delay: ControlledWebRetryDelay(), configureSingle: true)
+        defer { model.cleanup() }
+        let source = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
+        func blocked() -> [FottyQualityRecord] {
+            FottyQualityStore.shared.records().filter {
+                $0.name == "viewer_reported_blocked" && $0.details["attempt_id"] == attempt.uuidString
+            }
+        }
+        func programme() -> [FottyQualityRecord] {
+            FottyQualityStore.shared.records().filter {
+                $0.name == "programme_observation" && $0.details["attempt_id"] == attempt.uuidString
+            }
+        }
+        // Taps from another source or an older attempt change nothing.
+        model.reportPictureBlocked(for: UUID(), expectedAttempt: attempt)
+        model.reportPictureBlocked(for: source.id, expectedAttempt: UUID())
+        XCTAssertTrue(blocked().isEmpty)
+        XCTAssertEqual(model.loadRequestID, attempt)
+
+        model.reportPictureBlocked(for: source.id, expectedAttempt: attempt)
+        XCTAssertEqual(blocked().count, 1)
+        XCTAssertTrue(programme().isEmpty, "A blocked picture says nothing about which programme it was")
+        XCTAssertNotEqual(LiveSourceHealthStore.matchEvidence(for: source, fixtureID: model.event.id), .wrongProgramme)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: source, fixtureID: model.event.id), .recentlyFailed)
+
+        // Recovery is exactly the Wrong-match path; only the recorded evidence differs.
+        let twin = try await makePlayer(delay: ControlledWebRetryDelay(), configureSingle: true)
+        defer { twin.cleanup() }
+        let twinSource = try XCTUnwrap(twin.activeSource)
+        twin.reportWrongMatch(for: twinSource.id, expectedAttempt: twin.loadRequestID)
+        XCTAssertEqual(model.playbackState, twin.playbackState)
+        XCTAssertEqual(model.failedSourceIDs.contains(source.id), twin.failedSourceIDs.contains(twinSource.id))
+        XCTAssertEqual(model.webRetryTask == nil, twin.webRetryTask == nil)
+        XCTAssertEqual(model.currentSourceIndex, twin.currentSourceIndex)
+    }
+
     func testSingleWebInitialMetricsRemainOnceWhenDecodedStagePrecedesRepeatedOwnerStarts() async throws {
         let delay = ControlledWebRetryDelay()
         let model = try await makePlayer(delay: delay, markPlaying: false)

@@ -803,11 +803,18 @@ struct LivePlayerView: View {
 
     private var sourceSelectorSheet: some View {
         let wrongMatchAction: ((UUID) -> Void)?
+        let pictureBlockedAction: ((UUID) -> Void)?
         if !AppRuntime.usesPrivateMatchSelection || usesManagedAudio || viewModel.event.isBroadcastChannel {
             wrongMatchAction = nil
         } else {
             let displayedAttempt = viewModel.loadRequestID
             wrongMatchAction = { sourceID in viewModel.reportWrongMatch(for: sourceID, expectedAttempt: displayedAttempt) }
+        }
+        if !AppRuntime.usesPrivateMatchSelection || usesManagedAudio {
+            pictureBlockedAction = nil
+        } else {
+            let displayedAttempt = viewModel.loadRequestID
+            pictureBlockedAction = { sourceID in viewModel.reportPictureBlocked(for: sourceID, expectedAttempt: displayedAttempt) }
         }
         return LiveStreamSelectorSheet(
             sessions: viewModel.sessions,
@@ -820,6 +827,7 @@ struct LivePlayerView: View {
             viewingContext: viewModel.event.isBroadcastChannel ? .channel : .match,
             recommendedIndices: recommendedMatchIndices,
             onWrongMatch: wrongMatchAction,
+            onPictureBlocked: pictureBlockedAction,
             onSelect: selectBroadcastSession
         )
         .presentationDetents([.medium, .large])

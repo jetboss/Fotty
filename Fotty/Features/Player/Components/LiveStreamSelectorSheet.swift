@@ -16,6 +16,7 @@ struct LiveStreamSelectorSheet: View {
     let viewingContext: ViewingContext
     let recommendedIndices: [Int]?
     let onWrongMatch: ((UUID) -> Void)?
+    let onPictureBlocked: ((UUID) -> Void)?
     let onSelect: (Int) -> Void
     @State private var selection: BroadcastSourcePickerPolicy.Filter = .automatic
     
@@ -32,6 +33,7 @@ struct LiveStreamSelectorSheet: View {
         viewingContext: ViewingContext = .match,
         recommendedIndices: [Int]? = nil,
         onWrongMatch: ((UUID) -> Void)? = nil,
+        onPictureBlocked: ((UUID) -> Void)? = nil,
         onSelect: @escaping (Int) -> Void
     ) {
         self.sessions = sessions
@@ -44,6 +46,7 @@ struct LiveStreamSelectorSheet: View {
         self.viewingContext = viewingContext
         self.recommendedIndices = recommendedIndices
         self.onWrongMatch = onWrongMatch
+        self.onPictureBlocked = onPictureBlocked
         self.onSelect = onSelect
     }
     
@@ -124,12 +127,24 @@ struct LiveStreamSelectorSheet: View {
                             onWrongMatch(sessions[currentSourceIndex].id)
                             dismiss()
                         } label: {
-                            Label("Wrong match or blocked picture", systemImage: "flag")
+                            Label("Wrong match", systemImage: "flag")
                                 .fixedSize(horizontal: false, vertical: true)
                                 .frame(minHeight: 44, alignment: .leading)
                         }
-                        .accessibilityHint("Tries another broadcast and avoids this delivery for this match")
+                        .accessibilityHint("This source shows a different programme. Tries another broadcast and avoids this one for this match")
                         .accessibilityIdentifier("single-source-wrong-programme")
+                    }
+                    if let onPictureBlocked, sessions.indices.contains(currentSourceIndex), !currentPlaybackHasError {
+                        Button {
+                            onPictureBlocked(sessions[currentSourceIndex].id)
+                            dismiss()
+                        } label: {
+                            Label("Picture blocked", systemImage: "eye.slash")
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(minHeight: 44, alignment: .leading)
+                        }
+                        .accessibilityHint("The picture is blocked, black or frozen. Tries another broadcast")
+                        .accessibilityIdentifier("single-source-picture-blocked")
                     }
                     if let title = matchProjection?.showAllTitle {
                         Button(title) { selection = .all }
@@ -192,6 +207,12 @@ struct LiveStreamSelectorSheet: View {
                     if let onWrongMatch, index == currentSourceIndex, !currentPlaybackHasError {
                         Button("Showing a different match", systemImage: "flag") {
                             onWrongMatch(session.id)
+                            dismiss()
+                        }
+                    }
+                    if let onPictureBlocked, index == currentSourceIndex, !currentPlaybackHasError {
+                        Button("Picture blocked", systemImage: "eye.slash") {
+                            onPictureBlocked(session.id)
                             dismiss()
                         }
                     }

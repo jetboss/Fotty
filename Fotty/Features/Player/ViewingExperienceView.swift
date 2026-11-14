@@ -651,6 +651,22 @@ struct ViewingExperienceView: View {
                 }
                 .accessibilityIdentifier("viewing-pip")
             }
+            if AppRuntime.usesPrivateMatchSelection, let source = pane.model.activeSource,
+               pane.model.error == nil, pane.model.canReportViewerFeedback(for: source.id, expectedAttempt: pane.model.loadRequestID) {
+                Divider()
+                if !pane.event.isBroadcastChannel {
+                    Button { pane.model.reportWrongMatch(for: source.id, expectedAttempt: pane.model.loadRequestID) } label: {
+                        Label("Wrong match", systemImage: "flag")
+                    }
+                    .accessibilityHint("This source shows a different programme. Tries another broadcast")
+                    .accessibilityIdentifier("viewing-wrong-match")
+                }
+                Button { pane.model.reportPictureBlocked(for: source.id, expectedAttempt: pane.model.loadRequestID) } label: {
+                    Label("Picture blocked", systemImage: "eye.slash")
+                }
+                .accessibilityHint("The picture is blocked, black or frozen. Tries another broadcast")
+                .accessibilityIdentifier("viewing-picture-blocked")
+            }
             Divider()
             Button { singleFeedbackContext = SinglePlaybackFeedbackContext.make(model: pane.model) } label: {
                 Label("Report a problem", systemImage: "bubble.left.and.exclamationmark.bubble.right")

@@ -4148,6 +4148,27 @@ final class LivePlayerViewModel {
         loadCurrentSource(ignoringCircuitBreaker: true)
     }
 
+    /// Viewer feedback that applies to this exact attempt only; stale taps
+    /// (another source or a newer attempt) are ignored.
+    func canReportViewerFeedback(for sourceID: UUID, expectedAttempt: UUID) -> Bool {
+        usesSingleStreamRanking && viewingPlaybackContext == .single && isPlaybackSessionActive
+            && !isPlaybackSessionRetired && activeSource != nil && isCurrent(requestID: expectedAttempt, sourceID: sourceID)
+    }
+
+    /// "Picture blocked": the delivery shows an access card, a black or frozen
+    /// picture, or a provider notice. It says nothing about whether the
+    /// programme is right, so it records an ordinary failure (never
+    /// wrong-programme) and moves on to the next source.
+    func reportPictureBlocked(for sourceID: UUID, expectedAttempt: UUID) {
+        guard canReportViewerFeedback(for: sourceID, expectedAttempt: expectedAttempt), let current = activeSource else { return }
+        recordMatchOutcome(.failed, for: current)
+        FottyQualityStore.shared.record(category: .playback, name: "viewer_reported_blocked", outcome: .failure,
+            details: playbackQualityDetails())
+        // Final for this delivery (no same-source retry): the viewer has already seen it fail.
+        handleSourceStartupFailure(current, reason: "Viewer reported a blocked picture; this broadcast is unavailable",
+                                   expectedRequestID: loadRequestID)
+    }
+
     func reportWrongMatch(for sourceID: UUID, expectedAttempt: UUID) {
         guard usesSingleStreamRanking, viewingPlaybackContext == .single, !event.isBroadcastChannel,
               isPlaybackSessionActive, !isPlaybackSessionRetired, let current = activeSource,
