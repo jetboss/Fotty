@@ -8,6 +8,131 @@ final class CNCSportsAddonTests: XCTestCase {
     private let secondID = "cnc:" + String(repeating: "B", count: 1218) + "=="
     private let delivery = "https://edgestream7.pro/hls/offline_fixture.m3u8"
 
+    func testPartialFetchReceiptSurvivesBothSuccessfulAndThrowingAggregateLookups() async throws {
+        let suite = "CNCSports.partial." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let second = secondID
+        let session = try fixtureSession(catalog: .json(["metas": [catalogJSON(), catalogJSON(id: second)]]),
+            streams: .failure(URLError(.timedOut)))
+        CNCFixtureProtocol.setResponse(try .json(["meta": metadataJSON(id: second)]), for: metaPath(second))
+        let secondPath = streamPath(second)
+        defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        let client = CNCSportsAddonClient(session: session, qualityStore: store)
+        CNCFixtureProtocol.setResponse(try .json(["streams": [["url": delivery]]]), for: secondPath)
+        let accepted = try await client.resolve(for: request(), now: kickoff, forceRefresh: true)
+        XCTAssertEqual(accepted.count, 1)
+        CNCFixtureProtocol.setResponse(try .json(["streams": [["url": delivery, "drm": true]]]), for: secondPath)
+        do {
+            _ = try await client.resolve(for: request(), now: kickoff, forceRefresh: true)
+            XCTFail("A failed sibling keeps the aggregate incomplete")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError,
+                .transportFailure(code: URLError.timedOut.rawValue, stage: .streams))
+        }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 2)
+        XCTAssertEqual(Set(receipts.compactMap { $0.details["admission_lookup_id"] }).count, 2)
+        for receipt in receipts {
+            XCTAssertEqual(receipt.details["offered_count"], "1")
+            XCTAssertEqual(receipt.details["admission_fetch_failures"], "1")
+            XCTAssertEqual(receipt.details["admission_completion"], "partial")
+            XCTAssertEqual(receipt.details["admission_reconciled"], "yes")
+            XCTAssertEqual(receipt.details["admission_unprocessed_count"], "0")
+        }
+        let acceptedReceipt = try XCTUnwrap(receipts.first { $0.details["admitted_count"] == "1" })
+        XCTAssertEqual(acceptedReceipt.details["admission_drm_count"], "0")
+        let rejectedReceipt = try XCTUnwrap(receipts.first { $0.details["admitted_count"] == "0" })
+        XCTAssertEqual(rejectedReceipt.details["admission_drm_count"], "1")
+    }
+
+    func testUnreadFailureNeverBecomesAConfirmedZeroOffer() async throws {
+        let suite = "CNCSports.unread." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let session = try fixtureSession()
+        defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        CNCFixtureProtocol.setResponse(.status(503), for: "/manifest.json")
+        do {
+            _ = try await CNCSportsAddonClient(session: session, qualityStore: store).resolve(for: request(), now: kickoff)
+            XCTFail("Manifest failure")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError, .httpFailure(statusCode: 503, stage: .manifest))
+        }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let detail = try XCTUnwrap(receipts.first).details
+        XCTAssertNil(detail["offered_count"])
+        XCTAssertEqual(detail["admission_observation"], "unread")
+        XCTAssertEqual(detail["admission_completion"], "failed")
+        XCTAssertEqual(detail["admission_fetch_failures"], "1")
+    }
+
+    func testCommonAdmissionAccountsForEveryMixedRowWithoutGuessingContentFromTheURL() async throws {
+        let suite = "CNCSports.admission." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let php = "https://video.example.org/play.php?token=fixture"
+        let bare = "https://video.example.org/live/opaque"
+        let rows: [Any] = [NSNull(), "bad-row", ["url": 17],
+            ["url": php, "drm": true], ["url": php, "headers": ["Cookie": "private"]],
+            ["url": php, "headers": 7], ["url": "http://video.example.org/live"],
+            ["url": "https://video.example.org/wrap?url=http%3A%2F%2F127.0.0.1%2Fprivate"],
+            ["url": php, "headers": NSNull(), "behaviorHints": NSNull(), "drm": false,
+                "clearkey": NSNull(), "licenseUrl": "", "license": [:]],
+            ["url": php, "behaviorHints": ["proxyHeaders": ["request": NSNull()]], "drm": [:]],
+            ["url": bare, "headers": ["User-Agent": "Player A"], "drmInfo": []],
+            ["url": bare, "headers": ["User-Agent": "Player B"], "drmHeaders": NSNull()]]
+        let session = try fixtureSession(streams: .json(["streams": rows]))
+        defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        let result = try await CNCSportsAddonClient(session: session, qualityStore: store)
+            .resolve(for: request(), now: kickoff, forceRefresh: true)
+        XCTAssertEqual(result.map { $0.playableURL.absoluteString }, [php, bare, bare])
+        XCTAssertEqual(result.map(\.providerName), ["LS1", "LS2", "LS3"])
+        XCTAssertEqual(result.map(\.requiredHeaders), [[:], ["User-Agent": "Player A"], ["User-Agent": "Player B"]])
+        XCTAssertTrue(result.allSatisfy { $0.requiresGuardedRelay == true })
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let detail = try XCTUnwrap(receipts.first).details
+        XCTAssertEqual(detail["offered_count"], "12")
+        XCTAssertEqual(detail["admitted_count"], "3")
+        XCTAssertEqual(detail["admission_malformed_count"], "2")
+        for reason in ["no_url", "drm", "credential_headers", "malformed_headers", "not_https", "inner_not_https", "duplicate"] {
+            XCTAssertEqual(detail["admission_" + reason + "_count"], "1", reason)
+        }
+        XCTAssertEqual(detail["admission_completion"], "complete")
+        XCTAssertEqual(detail["admission_unprocessed_count"], "0")
+        XCTAssertEqual(detail["admission_reconciled"], "yes")
+        XCTAssertFalse(detail.description.contains("token=fixture"))
+        XCTAssertFalse(detail.description.contains("private"))
+    }
+
+    func testAggregateSessionLimitAccountsForLaterDuplicatesAndHeaderVariants() throws {
+        let rows: [[String: Any]] = (0..<100).map { ["url": "https://video.example.org/opaque/\($0)"] }
+        func decode(_ rows: [[String: Any]]) throws -> [CNCSportsStreamEntry] {
+            try rows.map { try JSONDecoder().decode(CNCSportsStreamEntry.self, from: data($0)) }
+        }
+        var ledger = StreamAdmissionLedger()
+        ledger.observe(103)
+        let first = CNCSportsAddonClient.makeSessions(from: try decode(rows), request: request(),
+            addOnVersion: "1.0.0", ledger: &ledger)
+        let later: [[String: Any]] = [rows[0],
+            ["url": "https://video.example.org/opaque/0", "headers": ["User-Agent": "different"]],
+            ["url": "https://video.example.org/opaque/later"]]
+        let second = CNCSportsAddonClient.makeSessions(from: try decode(later), request: request(),
+            addOnVersion: "1.0.0", after: first, ledger: &ledger)
+        ledger.finish(admitted: first.count + second.count, completion: "limited")
+        XCTAssertEqual(first.count, 100)
+        XCTAssertTrue(second.isEmpty)
+        XCTAssertEqual(ledger.dispositions["duplicate"], 1)
+        XCTAssertEqual(ledger.dispositions["limit"], 2)
+        XCTAssertEqual(ledger.admitted, 100)
+        XCTAssertTrue(ledger.isReconciled)
+    }
+
     func testReviewedManifestRequiresExactIdentityStringResourcesAndOneFixedCatalog() throws {
         let manifest = try CNCSportsAddonClient.validateManifest(data: data(manifestJSON()))
         XCTAssertEqual(manifest.id, "com.cncverse.stremiobridge")
@@ -250,10 +375,10 @@ final class CNCSportsAddonTests: XCTestCase {
         for value in ["http://edgestream7.pro/hls/fixture.m3u8", "https://edgestream7.pro:8443/hls/fixture.m3u8",
             "https://edgestream7.pro./hls/fixture.m3u8", "https://127.0.0.1/hls/fixture.m3u8",
             "https://user@edgestream7.pro/hls/fixture.m3u8", "https://user:secret@edgestream7.pro/hls/fixture.m3u8",
-            "https://edgestream7.pro/hls/fixture.m3u8#player", "https://edgestream7.pro/hls/fixture.mp4"] {
+            "https://edgestream7.pro/hls/fixture.m3u8#player"] {
             XCTAssertTrue(try sessions([streamJSON(url: value)]).isEmpty, value)
         }
-        for value in ["https://cdn.edgestream7.pro/hls/fixture.m3u8", "https://edgestream4.pro/hls/fixture.m3u8",
+        for value in ["https://edgestream7.pro/hls/fixture.mp4", "https://cdn.edgestream7.pro/hls/fixture.m3u8", "https://edgestream4.pro/hls/fixture.m3u8",
             "https://edgestream7.pro/hls/fixture.m3u8?token=signed", "https://edgestream7.pro/other/fixture.m3u8"] {
             XCTAssertEqual(try sessions([streamJSON(url: value)]).count, 1, value)
         }
@@ -278,7 +403,7 @@ final class CNCSportsAddonTests: XCTestCase {
             streamJSON().merging(["behaviorHints": ["proxyHeaders": ["request": CNCSportsAddonClient.reviewedHeaders,
                 "response": ["Access-Control-Allow-Origin": "*"]]]]) { _, new in new }
         ]
-        let refused = [7, 13, 14, 15] // Credentials, DRM and malformed advertised header contracts.
+        let refused = [7, 13] // Credentials and declared DRM; null optional hints impose no requirement.
         for index in refused { XCTAssertTrue(try sessions([rejected[index]]).isEmpty) }
         let admitted = rejected.indices.filter { !refused.contains($0) }.map { rejected[$0] }
         for row in admitted { XCTAssertEqual(try sessions([row]).count, 1) }
@@ -303,15 +428,28 @@ final class CNCSportsAddonTests: XCTestCase {
     }
 
     func testOfferedCountIncludesRowsBeyondTheAdmissionScan() async throws {
+        let suite = "CNCSports.scan." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
         let rows = Array<Any>(repeating: NSNull(), count: 100) + [streamJSON()]
         let session = try fixtureSession(streams: .json(["streams": rows]))
         defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
         do {
-            _ = try await CNCSportsAddonClient(session: session).resolve(for: request())
+            _ = try await CNCSportsAddonClient(session: session, qualityStore: store).resolve(for: request())
             XCTFail("The 101st row is outside the admission scan")
         } catch {
             XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 101))
         }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let detail = try XCTUnwrap(receipts.first).details
+        XCTAssertEqual(detail["offered_count"], "101")
+        XCTAssertEqual(detail["admitted_count"], "0")
+        XCTAssertEqual(detail["admission_malformed_count"], "100")
+        XCTAssertEqual(detail["admission_limit_count"], "1")
+        XCTAssertEqual(detail["admission_completion"], "limited")
+        XCTAssertEqual(detail["admission_reconciled"], "yes")
     }
 
     func testSixDeliveryCapDeduplicationAndHeaderSortedOpaqueKeyAreStable() throws {

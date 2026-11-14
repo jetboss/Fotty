@@ -2596,7 +2596,8 @@ final class LivePlayerViewModel {
         let cookies = HTTPCookieStorage.shared.cookies(for: remoteURL) ?? []
         let prepared = try await NativePlaybackPreparation.prepareDelivery(url: remoteURL,
             headers: session.requiredHeaders, cookies: cookies, requiresRelay: true,
-            originProfile: session.nativeOriginProfile, playlistProfile: session.nativePlaylistProfile)
+            originProfile: session.nativeOriginProfile, playlistProfile: session.nativePlaylistProfile,
+            expectsHLS: session.streamType == .hls)
         guard !Task.isCancelled, isCurrent(requestID: requestID, sourceID: session.id) else {
             prepared.discard()
             throw CancellationError()

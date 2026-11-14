@@ -18,6 +18,51 @@ final class Score808SiteCatalogTests: XCTestCase {
         }
     }
 
+    func testWebPlayerAdmissionDoesNotInventRawStreamCounts() async throws {
+        let suite = "Score808-admission-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults, storageKey: "quality")
+        let listing = Data(("<div class='elfsight-app-\(widgetID)'></div>" + player()).utf8)
+        let configurationData = try JSONSerialization.data(withJSONObject: configuration([event()]))
+        let resolver = Score808SiteResolver(reader: { url in
+            url == Score808SiteResolver.listingPage ? listing : configurationData
+        }, qualityStore: store)
+        let session = try await resolver.resolve(for: batchRequest(), now: kickoff)
+        XCTAssertNotNil(session)
+        XCTAssertEqual(session?.diagnosticMetadata["source_family"], "score808")
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        XCTAssertNil(receipts.first?.details["offered_count"], "A web page is not a raw stream descriptor list")
+        XCTAssertEqual(receipts.first?.details["admission_observation"], "unread")
+        XCTAssertEqual(receipts.first?.details["admission_completion"], "complete")
+        let row = try XCTUnwrap(store.ownerStatusSnapshot().streamAdmissions.first)
+        XCTAssertNil(row.offered)
+        XCTAssertNil(row.admitted)
+        XCTAssertEqual(row.firstPictures, 0, "A player page is not decoded playback")
+        XCTAssertFalse(receipts[0].details.values.contains { $0.contains("://") })
+    }
+
+    func testWebLookupFailureAndCancellationEachKeepOneUnknownCountReceipt() async throws {
+        for cancelled in [false, true] {
+            let suite = "Score808-stopped-" + UUID().uuidString
+            let defaults = UserDefaults(suiteName: suite)!
+            defer { defaults.removePersistentDomain(forName: suite) }
+            let store = FottyQualityStore(defaults: defaults, storageKey: "quality")
+            let resolver = Score808SiteResolver(reader: { _ in
+                if cancelled { throw CancellationError() }
+                throw URLError(.timedOut)
+            }, qualityStore: store)
+            do { _ = try await resolver.resolve(for: batchRequest(), now: kickoff); XCTFail("Expected read failure") }
+            catch { XCTAssertTrue(cancelled ? error is CancellationError : (error as? URLError)?.code == .timedOut) }
+            let receipts = store.records().filter { $0.name == "stream_admission" }
+            XCTAssertEqual(receipts.count, 1)
+            XCTAssertNil(receipts[0].details["offered_count"])
+            XCTAssertEqual(receipts[0].details["admission_completion"], cancelled ? "cancelled" : "failed")
+            XCTAssertEqual(receipts[0].details["admission_fetch_failures"], cancelled ? "0" : "1")
+        }
+    }
+
     func testCatalogBatchSharesFixedListingAndBootWithoutFetchingSelectedWatchPage() async throws {
         var row = event(); row["actions"] = actions("https://www.score808live.tv/fixture-player-only/")
         let fixture = Score808BatchFixtureReader(listing: Data("<div class='elfsight-app-\(widgetID)'></div>".utf8),

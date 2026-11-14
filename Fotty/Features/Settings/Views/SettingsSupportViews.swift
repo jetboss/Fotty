@@ -475,10 +475,20 @@ struct FottyOwnerStatusView: View {
                     ForEach(Array(snapshot.streamAdmissions.enumerated()), id: \.element.id) { index, row in
                         if index > 0 { SettingsDivider() }
                         statusRow(row.displayName, value: row.admissionText)
-                        if let reason = row.reportedReason {
-                            statusRow("Latest reported rejection", value: StreamAdmissionSummary.label(reason))
+                        ForEach(row.dispositionReasons, id: \.self) { reason in
+                            statusRow(StreamAdmissionSummary.label(reason), value: "\(row.dispositions[reason, default: 0])")
                         }
+                        if row.unreadLookups > 0 { statusRow("Lookups without stream-entry counts", value: "\(row.unreadLookups)") }
+                        if row.fetchFailures > 0 { statusRow("Failed reads", value: "\(row.fetchFailures)") }
+                        if row.incompleteLookups > 0 { statusRow("Partial, stopped or failed lookups", value: "\(row.incompleteLookups)") }
+                        if row.unreconciledLookups > 0 { statusRow("Lookups with incomplete accounting", value: "\(row.unreconciledLookups)") }
                         statusRow("Watch taps reaching first picture", value: "\(row.firstPictures) recorded")
+                    }
+                    if !snapshot.streamAdmissions.isEmpty {
+                        Text("Candidates passed discovery checks and still need media verification. First pictures record actual playback starts. Counts cover retained lookups on this build; repeat lookups can count the same offer again.")
+                            .font(.caption)
+                            .foregroundStyle(FottyTheme.textSecondary)
+                            .padding(.top, 8)
                     }
                 }
                 .accessibilityIdentifier("owner-status-account-sources")
@@ -634,27 +644,46 @@ extension StreamAdmissionSummary.Row {
 
     var admissionText: String {
         guard lookups > 0 else { return "No stream counts recorded" }
-        let entries = offered.map { "\($0) offered" } ?? "Offered count unavailable"
-        let choices = admitted.map { "\($0) admitted" } ?? "Admitted count unavailable"
+        let entries = offered.map { "\($0) offered" }
+            ?? (observedOffered > 0 ? "\(observedOffered) observed; other counts unavailable" : "Offered count unavailable")
+        let choices = admitted.map { "\($0) candidates" } ?? "Candidate count unavailable"
         let lookupsText = lookups == 1 ? "1 lookup" : "\(lookups) lookups"
         return "\(entries) · \(choices) · \(lookupsText)"
+    }
+
+    var dispositionReasons: [String] {
+        dispositions.keys.filter { $0 != "admitted" && dispositions[$0, default: 0] > 0 }.sorted()
     }
 }
 
 extension StreamAdmissionSummary {
     static func label(_ reason: String) -> String {
         switch reason {
-        case "replay": return "Replays, not live"
-        case "addon_message": return "Add-on messages"
-        case "not_live_media": return "Files, not live streams"
+        case "replay": return "Replay-host rule"
+        case "addon_message", "same_addon_domain": return "Same add-on domain"
+        case "not_live_media": return "File or page extension"
         case "drm": return "DRM-protected"
         case "credential_headers": return "Needs sign-in headers"
         case "malformed_headers": return "Invalid request headers"
         case "sign_in": return "Sign-in required"
         case "not_https", "unsafe_destination", "credentials_in_link", "too_long",
              "inner_not_https", "inner_credentials", "inner_unsafe_destination": return "Unsafe links"
-        case "validation": return "Server unreachable"
+        case "validation": return "Destination validation failed"
         case "no_url": return "No link"
+        case "admitted": return "Candidates awaiting media verification"
+        case "duplicate": return "Duplicate deliveries"
+        case "malformed": return "Unreadable entries"
+        case "not_a_playlist": return "Playlist-link rule"
+        case "unsupported": return "Unsupported delivery"
+        case "filtered": return "Filtered by adapter policy"
+        case "fixture_changed": return "Fixture authority changed"
+        case "expired": return "Expired candidates"
+        case "disabled": return "Source disabled before selection"
+        case "binding": return "Fixture binding not current"
+        case "withdrawn": return "Candidates withdrawn before return"
+        case "limit": return "Not examined: lookup limit"
+        case "unprocessed": return "No decision completed"
+        case "unrecorded": return "Decision breakdown unavailable"
         default: return "Other"
         }
     }

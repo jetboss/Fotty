@@ -11,7 +11,7 @@ final class CommunitySportsAddonTests: XCTestCase {
     /// contract tests protect is that none of them gets a reviewed route
     /// (special relay profiles, reviewed headers or web embedding).
     static func noReviewedRoute(_ sessions: [StreamSession]) -> Bool {
-        sessions.allSatisfy { $0.diagnosticMetadata["delivery"] == "provider_direct_hls"
+        sessions.allSatisfy { $0.streamType == .hls && $0.requiresGuardedRelay == true
             && $0.nativeOriginProfile == nil && $0.nativePlaylistProfile == nil
             && StreamDeliveryPolicy.rejection($0.playableURL) == nil }
     }
@@ -53,16 +53,15 @@ final class CommunitySportsAddonTests: XCTestCase {
         }
     }
 
-    func testReviewedCDNLiveRequiresExactPublicHeaderContract() {
-        var wrongOrigin = cdnLiveHeaders; wrongOrigin["Origin"] = "https://other.example"
-        var wrongReferer = cdnLiveHeaders; wrongReferer["Referer"] = "https://cdnlivetv.tv/other"
-        var credentials = cdnLiveHeaders; credentials["Authorization"] = "fixture-secret"
-        var missing = cdnLiveHeaders; missing.removeValue(forKey: "Origin")
-        for headers in [nil, [:], wrongOrigin, wrongReferer, credentials, missing] {
-            XCTAssertTrue(Self.noReviewedRoute(directFancodeSessions([directFancodeEntry(url: cdnLiveURL, sourceHint: "cdnlive", headers: headers)])))
+    func testCDNLiveAcceptsAdvertisedPublicHeadersAndRejectsCredentials() {
+        var changed = cdnLiveHeaders; changed["Origin"] = "https://other.example"
+        for headers: [String: String]? in [nil, [:], changed, ["User-Agent": "Different Player"]] {
+            let sessions = directFancodeSessions([directFancodeEntry(url: cdnLiveURL, sourceHint: "cdnlive", headers: headers)])
+            XCTAssertEqual(sessions.count, 1)
+            XCTAssertEqual(sessions.first?.requiredHeaders, StreamDeliveryPolicy.requestHeaders(headers ?? [:]))
         }
-        XCTAssertTrue(Self.noReviewedRoute(directFancodeSessions([directFancodeEntry(url: cdnLiveURL, sourceHint: "cdnlive",
-            headers: cdnLiveHeaders, responseHeaders: ["Access-Control-Allow-Origin": "*"])])))
+        XCTAssertTrue(directFancodeSessions([directFancodeEntry(url: cdnLiveURL, sourceHint: "cdnlive",
+            headers: ["Authorization": "private"])]).isEmpty)
     }
 
     func testOnlyStreamListGetsALargerBoundedTransportSlice() {
@@ -217,44 +216,27 @@ final class CommunitySportsAddonTests: XCTestCase {
         }
     }
 
-    func testReviewedDirectFancodeRequiresExactPublicHeaderContractWithoutCredentials() {
-        let good = ["Referer": "https://fancode.com/", "User-Agent": "ReactNativeVideo/9.11.1 (Fixture Player)"]
-        var rejected: [[String: String]?] = [nil, [:], ["User-Agent": "ReactNativeVideo/9.11.1 (Fixture Player)"], ["Referer": "https://fancode.com/"]]
-        for referer in ["https://www.fancode.com/", "https://fancode.com", "http://fancode.com/",
-                        "https://fancode.com:444/", "https://fancode.com.evil.example/", "https://127.0.0.1/",
-                        "https://user:secret@fancode.com/", "https://fancode.com/player", "https://fancode.com/?private=token"] {
-            rejected.append(["Referer": referer, "User-Agent": "ReactNativeVideo/9.11.1 (Fixture Player)"])
+    func testFancodeAcceptsPublicHeaderVariationsWithoutCredentials() {
+        for headers: [String: String]? in [nil, [:], ["Referer": "http://fancode.com/player?published=1"],
+                                           ["User-Agent": "Different Player", "Origin": "https://other.example"]] {
+            XCTAssertEqual(directFancodeSessions([directFancodeEntry(headers: headers)]).first?.requiredHeaders,
+                           StreamDeliveryPolicy.requestHeaders(headers ?? [:]))
         }
-        for name in ["Origin", "Cookie", "Authorization", "Proxy-Authorization", "Host", "X-API-Key"] {
-            rejected.append(good.merging([name: name == "Origin" ? "https://fancode.com" : "untrusted"],
-                                         uniquingKeysWith: { _, new in new }))
+        for headers in [["Cookie": "private"], ["User-Agent": "bad\r\nvalue"],
+                        ["Referer": "https://127.0.0.1/"], ["User-Agent": "one", "user-agent": "two"]] {
+            XCTAssertTrue(directFancodeSessions([directFancodeEntry(headers: headers)]).isEmpty)
         }
-        for agent in ["", "Fixture Player", "ReactNativeVideo/", "OtherReactNativeVideo/9.11.1",
-                      "ReactNativeVideo/9.11.1\r\nCookie: secret", "ReactNativeVideo/9.11.1🟢",
-                      "ReactNativeVideo/" + String(repeating: "a", count: 513)] {
-            rejected.append(["Referer": "https://fancode.com/", "User-Agent": agent])
-        }
-        rejected.append(good.merging(["user-agent": "duplicate"], uniquingKeysWith: { _, new in new }))
-        for headers in rejected {
-            XCTAssertTrue(Self.noReviewedRoute(directFancodeSessions([directFancodeEntry(headers: headers)])))
-        }
-        XCTAssertTrue(Self.noReviewedRoute(directFancodeSessions([directFancodeEntry(responseHeaders: ["Access-Control-Allow-Origin": "*"])])))
     }
 
-    func testReviewedDirectFancodeDoesNotAdmitDonationOrWrappedHTTP2122AndKeepsOpaqueLabels() throws {
+    func testPublicURLsAreNotClassifiedByHostnameButWrappedHTTPIsRejected() throws {
         let direct = directFancodeEntry()
-        let donation = directFancodeEntry(url: "https://www.buymeacoffee.com/fixture-support")
-        let unsafeWrapper = try fairCapEntry(sourceHint: "sktech", upstream: "http://93.184.216.34:2122/live/index.m3u8")
-        let sibling = try fairCapEntry(sourceHint: "streamedpk", upstream: "https://video.example/live.m3u8")
-        let sessions = directFancodeSessions([donation, unsafeWrapper, direct, sibling, direct])
-        XCTAssertEqual(sessions.count, 2)
-        XCTAssertEqual(sessions.map(\.providerName), ["CS1", "CS2"])
-        XCTAssertEqual(sessions.map { $0.playableURL.absoluteString }, [direct, sibling].compactMap(\.url))
-        let reordered = directFancodeSessions([sibling, donation, direct, unsafeWrapper])
-        XCTAssertEqual(reordered.map(\.providerName), ["CS1", "CS2"])
-        XCTAssertEqual(sessions.first?.diagnosticMetadata["source_key"], reordered.last?.diagnosticMetadata["source_key"])
-        XCTAssertEqual(sessions.last?.diagnosticMetadata["source_key"], reordered.first?.diagnosticMetadata["source_key"])
-        XCTAssertNotEqual(sessions.first?.diagnosticMetadata["source_key"], sessions.last?.diagnosticMetadata["source_key"])
+        let advertised = directFancodeEntry(url: "https://www.buymeacoffee.com/fixture-support")
+        let unsafe = try fairCapEntry(sourceHint: "sktech", upstream: "http://93.184.216.34:2122/live/index.m3u8")
+        let sibling = try fairCapEntry(sourceHint: "streamedpk", upstream: "https://video.example/live")
+        let sessions = directFancodeSessions([advertised, unsafe, direct, sibling, direct])
+        XCTAssertEqual(sessions.map { $0.playableURL.absoluteString }, [advertised, direct, sibling].compactMap(\.url))
+        XCTAssertEqual(sessions.map(\.providerName), ["CS1", "CS2", "CS3"])
+        XCTAssertTrue(sessions.allSatisfy { $0.requiresGuardedRelay == true })
     }
 
     private func directFancodeEntry(
@@ -279,6 +261,21 @@ final class CommunitySportsAddonTests: XCTestCase {
                 XCTAssertTrue(directFancodeSessions([entry]).isEmpty, "\(path), \(key)")
             }
         }
+    }
+
+    func testExceptionalPortCannotLaunderAnIndependentUnsafeNestedTarget() throws {
+        for upstream in ["https://video.example/live", "https://643t8a.7odxv0l067ka.net:8443/live/master.m3u8"] {
+            for unsafe in ["https://127.0.0.1/private", "http://public.example/media", "https://other.example:8443/media",
+                           "https://user:secret@public.example/media"] {
+                for parameter in ["target", "backup"] {
+                    let entry = try reviewed8443Entry(upstream: upstream,
+                        extraQuery: [URLQueryItem(name: parameter, value: unsafe)])
+                    XCTAssertTrue(reviewed8443Sessions([entry]).isEmpty, upstream + " " + parameter + " " + unsafe)
+                }
+            }
+        }
+        XCTAssertNotNil(reviewed8443Sessions([try reviewed8443Entry()]).first?.nativeOriginProfile,
+                        "The reviewed exceptional destination remains available with its exact contract")
     }
 
     func testPublishedManifestHLSAliasPreservesSignedQueryAndReviewedPlaylistProfile() throws {
@@ -318,8 +315,12 @@ final class CommunitySportsAddonTests: XCTestCase {
         var duplicate = try XCTUnwrap(URLComponents(string: "https://nuviosports.xyz/api/manifest.m3u8"))
         duplicate.queryItems = [URLQueryItem(name: "url", value: "https://video.example/live.m3u8"),
                                 URLQueryItem(name: "URL", value: "https://video.example/other.m3u8")]
-        XCTAssertTrue(Self.noReviewedRoute(directFancodeSessions([directFancodeEntry(url: try XCTUnwrap(duplicate.url).absoluteString,
-            sourceHint: "streamedpk", headers: nil)])))
+        let ambiguous = directFancodeSessions([directFancodeEntry(url: try XCTUnwrap(duplicate.url).absoluteString,
+            sourceHint: "streamedpk", headers: nil)])
+        XCTAssertEqual(ambiguous.count, 1, "Safe advertised URLs still reach native validation")
+        XCTAssertTrue(Self.noReviewedRoute(ambiguous))
+        XCTAssertNil(ambiguous.first?.nativeOriginProfile)
+        XCTAssertNil(ambiguous.first?.nativePlaylistProfile, "Ambiguous wrapper targets grant no stability profile")
         let safe = "https://nuviosports.xyz/api/manifest.m3u8?url=https%3A%2F%2Fvideo.example%2Flive.m3u8"
         for header in ["Cookie", "Authorization", "X-API-Key"] {
             XCTAssertTrue(Self.noReviewedRoute(directFancodeSessions([directFancodeEntry(url: safe, sourceHint: "daddylive",
@@ -428,7 +429,7 @@ final class CommunitySportsAddonTests: XCTestCase {
         }
         let alternative = try fairCapEntry(sourceHint: "streamedpk", upstream: "https://lb1.strmd.st/live/alternative.m3u8")
         let admitted = reviewed8443Sessions([invalid] + dominant + [alternative])
-        XCTAssertEqual(admitted.count, 8, "All seven variants plus the alternative; the unrecognised non-playlist link is not a stream")
+        XCTAssertEqual(admitted.count, 9, "All safe advertised alternatives reach guarded native validation")
         XCTAssertTrue(admitted.contains { $0.playableURL.absoluteString == alternative.url && $0.nativePlaylistProfile != nil })
 
         let bounded = reviewed8443Sessions(Array(repeating: dominant[0], count: 100) + [alternative])
@@ -470,7 +471,7 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertNil(source.mergingHeaders(["User-Agent": "changed"]).nativePlaylistProfile)
         let decoded = try JSONDecoder().decode(StreamSession.self, from: JSONEncoder().encode(session))
         XCTAssertNil(decoded.nativePlaylistProfile, "A saved session must resolve the reviewed contract again")
-        XCTAssertFalse(decoded.requiresLocalProxy)
+        XCTAssertTrue(decoded.requiresLocalProxy, "Native transport keeps its guarded validation requirement even without a restored special profile")
     }
 
     func testDecodedPublicProxyHeadersSurviveNativeSessionAndLegacySource() throws {
@@ -606,52 +607,25 @@ final class CommunitySportsAddonTests: XCTestCase {
             behaviorHints: .init(proxyHeaders: .init(request: headers)))
     }
 
-    func testReviewedRouteAdmitsHTTPProvenanceAndSendsUserAgentOnly() throws {
+    func testNativeMediaKeepsPublicHTTPProvenanceWithoutGrantingHTTPTransport() throws {
         let sessions = reviewed8443Sessions([try httpProvenanceEntry()])
         XCTAssertEqual(sessions.count, 1)
-        XCTAssertEqual(sessions.first?.requiredHeaders, ["User-Agent": "Mozilla/5.0 Fixture"],
-                       "http Referer/Origin are page labels; Fotty never sends them")
-        XCTAssertEqual(sessions.first?.streamType, .hls)
-        let refererOnly = reviewed8443Sessions([try httpProvenanceEntry(includeOrigin: false)])
-        XCTAssertEqual(refererOnly.first?.requiredHeaders, ["User-Agent": "Mozilla/5.0 Fixture"])
+        XCTAssertEqual(sessions.first?.requiredHeaders, ["User-Agent": "Mozilla/5.0 Fixture",
+            "Referer": "http://www.fawanews.sc/", "Origin": "http://www.fawanews.sc"])
+        XCTAssertTrue(sessions.first?.requiresGuardedRelay == true)
+        let changed = reviewed8443Sessions([try httpProvenanceEntry(target: "https://cdn.example.net/live",
+            refererParam: "http://other.example/", delivery: "https://nuviosports.xyz/api/new-route")])
+        XCTAssertEqual(changed.count, 1)
+        XCTAssertEqual(changed.first?.requiredHeaders["Referer"], "http://www.fawanews.sc/")
     }
 
-    func testHTTPProvenanceNeverAdmitsUnsafeTargetsOrProvenance() throws {
-        let rejected: [(String, CommunitySportsStreamEntry)] = [
-            ("http IP target", try httpProvenanceEntry(target: "http://203.0.113.9/hls/index.m3u8")),
-            ("http DNS target", try httpProvenanceEntry(target: "http://cdn.example.net/live/index.m3u8")),
-            ("https IP-literal target", try httpProvenanceEntry(target: "https://10.0.0.5/live/index.m3u8")),
-            ("non-m3u8 target", try httpProvenanceEntry(target: "https://cdn.example.net/live/index.mpd")),
-            ("IP-literal provenance", try httpProvenanceEntry(referer: "http://203.0.113.9/", origin: "http://203.0.113.9")),
-            ("local provenance", try httpProvenanceEntry(referer: "http://player.local/", origin: "http://player.local")),
-            ("non-default port", try httpProvenanceEntry(referer: "http://www.fawanews.sc:8080/", origin: "http://www.fawanews.sc:8080")),
-            ("credentials", try httpProvenanceEntry(referer: "http://user:pw@www.fawanews.sc/", origin: "http://www.fawanews.sc")),
-            ("referer query", try httpProvenanceEntry(referer: "http://www.fawanews.sc/?x=1")),
-            ("origin path", try httpProvenanceEntry(origin: "http://www.fawanews.sc/player")),
-            ("header differs from parameter", try httpProvenanceEntry(refererParam: "http://other.example/")),
-            ("different hosts", try httpProvenanceEntry(origin: "http://other.example")),
-            ("mixed schemes", try httpProvenanceEntry(origin: "https://www.fawanews.sc")),
-            ("unreviewed route", try httpProvenanceEntry(delivery: "https://nuviosports.xyz/api/other.m3u8")),
-            ("watch route", try httpProvenanceEntry(delivery: "https://nuviosports.xyz/watch/fixture")),
-        ]
-        for (label, entry) in rejected {
-            let sessions = reviewed8443Sessions([entry])
-            XCTAssertFalse(sessions.contains { $0.requiredHeaders["Referer"]?.hasPrefix("http://") == true }, label)
-            if label != "watch route" { XCTAssertTrue(sessions.isEmpty, label) }
-        }
-        // Another manifest origin cannot use the reviewed exception.
-        let foreign = CommunitySportsAddonClient.makeSessions(from: [try httpProvenanceEntry(
-                delivery: "https://addon.example/api/manifest.m3u8")],
-            request: makeRequest(home: "Chelsea", away: "Brighton", category: "football"),
-            manifestURL: URL(string: "https://addon.example/manifest.json")!, addOnVersion: "3.1.3")
-        XCTAssertTrue(foreign.isEmpty)
-        // The relay still never forwards http provenance upstream.
-        let request = LocalStreamProxyPolicy.remoteRequest(url: URL(string: "https://cdn.example.net/live/index.m3u8")!,
-            selectedMediaURL: URL(string: "https://nuviosports.xyz/api/manifest.m3u8")!, method: "GET",
-            capturedHeaders: ["Referer": "http://www.fawanews.sc/", "Origin": "http://www.fawanews.sc"],
-            cookies: [], clientHeaders: [:], timeout: 5)
-        XCTAssertNil(request.value(forHTTPHeaderField: "Referer"))
-        XCTAssertNil(request.value(forHTTPHeaderField: "Origin"))
+    func testHTTPProvenanceStillRejectsUnsafeMediaAndCredentialDestinations() throws {
+        let rejected = [try httpProvenanceEntry(target: "http://cdn.example.net/live"),
+            try httpProvenanceEntry(target: "https://10.0.0.5/live"),
+            try httpProvenanceEntry(referer: "http://player.local/", origin: "http://player.local"),
+            try httpProvenanceEntry(referer: "http://user:pw@public.example/"),
+            try httpProvenanceEntry(referer: "http://public.example:8080/")]
+        for entry in rejected { XCTAssertTrue(reviewed8443Sessions([entry]).isEmpty) }
     }
 
     func testHeaderContractRetainsNoHintRoutesAndDeliveryDeduplication() throws {
@@ -661,19 +635,19 @@ final class CommunitySportsAddonTests: XCTestCase {
         let sessions = headerSessions([plain, first, first, second])
         XCTAssertEqual(sessions.map(\.providerName), ["CS1", "CS2", "CS3"])
         XCTAssertEqual(sessions[0].requiredHeaders, [:])
-        XCTAssertFalse(sessions[0].requiresLocalProxy)
+        XCTAssertTrue(sessions[0].requiresLocalProxy)
         XCTAssertEqual(sessions[1].requiredHeaders, ["User-Agent": "public-a"])
         XCTAssertEqual(sessions[2].requiredHeaders, ["User-Agent": "public-b"])
     }
 
-    func testOnlyPublicThreeHeaderRequestContractIsAdmitted() throws {
-        for name in ["Cookie", "Authorization", "Proxy-Authorization", "Host", "X-API-Key", "X-Fotty-Web-Embed"] {
-            XCTAssertTrue(Self.noReviewedRoute(headerSessions([try decodedHeaderEntry(headers: [name: "untrusted"]) ])), name)
+    func testCredentialHeadersCannotBeErasedByOtherHeaderShapes() throws {
+        for name in ["Cookie", "Authorization", "Proxy-Authorization", "X-API-Key", "X-Auth-Token"] {
+            XCTAssertTrue(headerSessions([try decodedHeaderEntry(headers: [name: "untrusted"])]).isEmpty, name)
         }
         let duplicated = try decodedHeaderEntry(headers: ["User-Agent": "one", "user-agent": "two"])
-        XCTAssertTrue(Self.noReviewedRoute(headerSessions([duplicated])))
-        let response = try decodedHeaderEntry(headers: [:], responseHeaders: ["Access-Control-Allow-Origin": "*"])
-        XCTAssertTrue(Self.noReviewedRoute(headerSessions([response])))
+        XCTAssertTrue(headerSessions([duplicated]).isEmpty)
+        let ignored = try decodedHeaderEntry(headers: ["Host": "ignored", "User-Agent": "Player"])
+        XCTAssertEqual(headerSessions([ignored]).first?.requiredHeaders, ["User-Agent": "Player"])
     }
 
     func testHeaderValuesRejectControlUnicodeAndOversizedInput() throws {
@@ -684,39 +658,30 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertEqual(headerSessions([accepted]).first?.requiredHeaders["User-Agent"]?.count, 512)
     }
 
-    func testProvenanceRequiresSafeHTTPSAndExactUnambiguousQueryAgreement() throws {
-        let unsafe = ["http://embed.example/player", "https://127.0.0.1/player", "https://localhost/player",
-                      "https://169.254.169.254/player", "https://[::ffff:127.0.0.1]/player",
-                      "https://embed.example:444/player", "https://user:pass@embed.example/player",
-                      "https://embed.example/player?token=private", "https://embed.example/player#fragment"]
-        for value in unsafe {
-            XCTAssertTrue(Self.noReviewedRoute(headerSessions([try decodedHeaderEntry(headers: ["Referer": value], referer: value)])), value)
+    func testPublicProvenanceIsPreservedIndependentlyOfWrapperQueryHints() throws {
+        for value in ["http://embed.example/player", "https://other.example/player?token=published",
+                      "https://embed.example/player#fragment"] {
+            let sessions = headerSessions([try decodedHeaderEntry(headers: ["Referer": value])])
+            XCTAssertEqual(sessions.first?.requiredHeaders["Referer"], value)
         }
-        let mismatch = try decodedHeaderEntry(headers: ["Referer": "https://other.example/player"])
-        XCTAssertTrue(Self.noReviewedRoute(headerSessions([mismatch])))
-        let duplicate = try decodedHeaderEntry(headers: ["Referer": "https://embed.example/player"],
-                                                extraQuery: [URLQueryItem(name: "REFERER", value: "https://embed.example/player")])
-        XCTAssertTrue(Self.noReviewedRoute(headerSessions([duplicate])))
-        let missing = try decodedHeaderEntry(headers: ["Origin": "https://embed.example"], origin: nil)
-        XCTAssertTrue(Self.noReviewedRoute(headerSessions([missing])))
+        for value in ["https://127.0.0.1/player", "https://localhost/player", "https://embed.example:444/player",
+                      "https://user:pass@embed.example/player"] {
+            XCTAssertTrue(headerSessions([try decodedHeaderEntry(headers: ["Referer": value])]).isEmpty)
+        }
     }
 
-    func testOriginMustBeRootAndAgreeWithRefererOrigin() throws {
-        let path = try decodedHeaderEntry(headers: ["Origin": "https://embed.example/player"],
-                                           origin: "https://embed.example/player")
-        XCTAssertTrue(Self.noReviewedRoute(headerSessions([path])))
-        let conflicting = try decodedHeaderEntry(headers: ["Referer": "https://embed.example/player", "Origin": "https://other.example"],
-                                                  origin: "https://other.example")
-        XCTAssertTrue(Self.noReviewedRoute(headerSessions([conflicting])))
+    func testSafeAdvertisedProvenanceDoesNotRequireMatchingOrigins() throws {
+        let entry = try decodedHeaderEntry(headers: ["Referer": "https://embed.example/player", "Origin": "https://other.example"])
+        XCTAssertEqual(headerSessions([entry]).first?.requiredHeaders["Origin"], "https://other.example")
     }
 
-    func testMalformedAdvertisedHeaderContractsRejectTheRow() throws {
-        let malformedValues: [Any] = [NSNull(), "not-an-object", ["User-Agent": 7]]
-        for malformed in malformedValues {
+    func testNullHeaderHintsAreAbsentButMalformedMapsRejectTheirOwnRow() throws {
+        for value: Any in [NSNull(), "not-an-object", ["User-Agent": 7]] {
             let document: [String: Any] = ["url": "https://addon.example/api/manifest",
-                                          "behaviorHints": ["proxyHeaders": ["request": malformed]]]
-            let data = try JSONSerialization.data(withJSONObject: document)
-            XCTAssertThrowsError(try JSONDecoder().decode(CommunitySportsStreamEntry.self, from: data))
+                "behaviorHints": ["proxyHeaders": ["request": value]]]
+            let entry = try JSONDecoder().decode(CommunitySportsStreamEntry.self,
+                from: JSONSerialization.data(withJSONObject: document))
+            XCTAssertEqual(headerSessions([entry]).count, value is NSNull ? 1 : 0)
         }
     }
 
@@ -1091,6 +1056,71 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertEqual(receipts.count, 1)
         XCTAssertEqual(receipts.first?.details["offered_count"], "5")
         XCTAssertEqual(receipts.first?.details["admitted_count"], "2")
+        for reason in ["duplicate", "malformed_headers", "credential_headers"] {
+            XCTAssertEqual(receipts.first?.details["admission_" + reason + "_count"], "1", reason)
+        }
+        XCTAssertEqual(receipts.first?.details["admission_unprocessed_count"], "0")
+        XCTAssertEqual(receipts.first?.details["admission_reconciled"], "yes")
+    }
+
+    func testPartialStreamFailureReportsOnlyEnumeratedOffersAndRetainsTheirReasons() async throws {
+        var first = catalogEntry(teams: ["Chelsea", "Brighton"])
+        first["id"] = "nuvio_sport_first"
+        first["behaviorHints"] = ["defaultVideoId": "nuvio_sport_first"]
+        var second = first; second["id"] = "nuvio_sport_second"
+        second["behaviorHints"] = ["defaultVideoId": "nuvio_sport_second"]
+        let session = try makeFixtureSession(sportResponse: .json(["metas": [first, second]]))
+        defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
+        let url = "https://new-cdn.example/live"
+        let rows: [Any] = [["url": url, "behaviorHints": NSNull(), "drm": NSNull()],
+            ["url": url, "headers": ["User-Agent": "Backup"], "drm": false],
+            ["url": url, "headers": ["User-Agent": "Backup"]],
+            ["url": url, "drm": ["licenseUrl": "https://license.example/"]],
+            ["url": url, "headers": ["Authorization": "private", "User-Agent": 7]], NSNull()]
+        CommunitySportsFixtureProtocol.setResponse(try .json(["streams": rows]), for: "/stream/tv/nuvio_sport_first.json")
+        CommunitySportsFixtureProtocol.setResponse(.failure(URLError(.timedOut)), for: "/stream/tv/nuvio_sport_second.json")
+        let suite = "cs-partial-ledger-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!,
+            session: session, qualityStore: store)
+        let result = try await client.resolve(for: makeRequest(home: "Chelsea", away: "Brighton", category: "football"))
+        XCTAssertEqual(result.count, 2)
+        XCTAssertTrue(result.allSatisfy { $0.requiresGuardedRelay == true && $0.eventBinding?.providerEventID == "nuvio_sport_first" })
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let receipt = try XCTUnwrap(receipts.first)
+        XCTAssertEqual(receipt.details["offered_count"], "6")
+        XCTAssertEqual(receipt.details["admitted_count"], "2")
+        XCTAssertEqual(receipt.details["admission_fetch_failures"], "1")
+        XCTAssertEqual(receipt.details["admission_completion"], "partial")
+        XCTAssertEqual(receipt.details["admission_reconciled"], "yes")
+        for reason in ["duplicate", "drm", "malformed_headers", "malformed"] {
+            XCTAssertEqual(receipt.details["admission_" + reason + "_count"], "1", reason)
+        }
+    }
+
+    func testUnreadStreamFailureEmitsReceiptWithoutInventingZeroOffers() async throws {
+        let session = try makeFixtureSession(streamResponse: .failure(URLError(.timedOut)))
+        defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
+        let suite = "cs-unread-ledger-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!,
+            session: session, qualityStore: store)
+        do {
+            _ = try await client.resolve(for: makeRequest(home: "Chelsea", away: "Brighton", category: "football"))
+            XCTFail("The timeout must remain a failure")
+        } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .transportFailure(code: URLError.timedOut.rawValue, stage: .streams)) }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let receipt = try XCTUnwrap(receipts.first)
+        XCTAssertNil(receipt.details["offered_count"])
+        XCTAssertEqual(receipt.details["admission_observation"], "unread")
+        XCTAssertEqual(receipt.details["admission_completion"], "failed")
+        XCTAssertEqual(receipt.details["admission_fetch_failures"], "1")
     }
 
     func testReusedIDWithContradictoryFixtureCannotHideBehindRequestFiltering() {
@@ -1672,7 +1702,7 @@ final class CommunitySportsAddonTests: XCTestCase {
         })
     }
 
-    func testStreamAdmissionKeepsOnlyReviewedSameOriginRoutesAndLabelsCS() {
+    func testStreamAdmissionKeepsSafeNativeAlternativesAndExplicitWebRoutes() {
         let request = makeRequest(home: "Chelsea", away: "Brighton", category: "football")
         let manifest = URL(string: "https://addon.example/manifest.json")!
         let hls = CommunitySportsStreamEntry(
@@ -1715,11 +1745,12 @@ final class CommunitySportsAddonTests: XCTestCase {
             addOnVersion: "3.0.0"
         )
 
-        XCTAssertEqual(sessions.map(\.providerName), ["CS1", "CS2", "CS3"])
-        XCTAssertEqual(sessions.map(\.streamType), [.hls, .unknown, .hls])
+        XCTAssertEqual(sessions.map(\.providerName), ["CS1", "CS2", "CS3", "CS4", "CS5"])
+        XCTAssertEqual(sessions.map(\.streamType), [.hls, .unknown, .hls, .hls, .hls])
         XCTAssertEqual(sessions.first?.qualityLabel, "1080p")
         XCTAssertEqual(sessions[1].requiredHeaders["X-Fotty-Web-Embed"], "true")
-        XCTAssertEqual(sessions.last?.playableURL.absoluteString, "https://video.example/master.m3u8")
+        XCTAssertEqual(sessions[2].playableURL.absoluteString, "https://video.example/master.m3u8")
+        XCTAssertTrue(sessions.enumerated().filter { $0.offset != 1 }.allSatisfy { $0.element.requiresGuardedRelay == true })
         XCTAssertEqual(sessions.last?.diagnosticMetadata["delivery"], "provider_direct_hls",
                        "An unrecognised playlist is tried directly, never on a reviewed route")
         XCTAssertEqual(sessions.first?.diagnosticMetadata["source_family"], "communitysports")
@@ -2229,8 +2260,8 @@ final class CommunitySportsAddonTests: XCTestCase {
         defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
         let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!, session: session)
         let result = try await client.resolve(for: makeRequest(home: "Chelsea", away: "Brighton", category: "football"))
-        XCTAssertEqual(result.map { $0.playableURL.query }, ["channel=first", "channel=last"])
-        XCTAssertEqual(result.map(\.providerName), ["CS1", "CS2"])
+        XCTAssertEqual(result.map { $0.playableURL.query }, ["channel=first", "channel=bad-null", "channel=bad-response", "channel=last"])
+        XCTAssertEqual(result.map(\.providerName), ["CS1", "CS2", "CS3", "CS4"])
         XCTAssertTrue(result.allSatisfy { $0.requiredHeaders.isEmpty },
                       "A malformed required-header row must be rejected, never converted to a headerless session")
     }
@@ -2281,27 +2312,15 @@ final class CommunitySportsAddonTests: XCTestCase {
         }
     }
 
-    func testExactFixtureWithOnlyUnsupportedDeliveriesRetainsBoundedAdmissionResult() async throws {
-        let entries = [
-            ["url": "https://unreviewed.example/api/manifest?private=one"],
-            ["url": "https://addon.example/unreviewed-route?private=two"]
-        ]
+    func testExactFixtureExtensionlessAlternativesReachGuardedValidation() async throws {
+        let entries = [["url": "https://unreviewed.example/api/manifest?private=one"],
+                       ["url": "https://addon.example/unreviewed-route?private=two"]]
         let session = try makeFixtureSession(streamResponse: .json(["streams": entries]))
         defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
         let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!, session: session)
-        do {
-            _ = try await client.resolve(for: makeRequest(home: "Chelsea", away: "Brighton", category: "football"))
-            XCTFail("Unsupported deliveries must not be admitted or mislabeled as a missing fixture")
-        } catch {
-            XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 2))
-            let failure = LiveStreamResolver.communitySportsFailure(from: try XCTUnwrap(error as? CommunitySportsAddonError))
-            XCTAssertEqual(failure.category, .providerReturnedEmpty)
-            XCTAssertEqual(failure.redactedMetadata["manifest_result"], "no_admitted_stream_delivery")
-            XCTAssertEqual(failure.redactedMetadata["cs_stream_entry_count"], "2")
-            XCTAssertEqual(failure.redactedMetadata["cs_admission_rejected_count"], "2")
-            XCTAssertFalse(failure.redactedMetadata.description.contains("private"))
-        }
-        XCTAssertEqual(CommunitySportsFixtureProtocol.paths.last, "/stream/tv/nuvio_sport_fixture.json")
+        let result = try await client.resolve(for: makeRequest(home: "Chelsea", away: "Brighton", category: "football"))
+        XCTAssertEqual(result.count, 2)
+        XCTAssertTrue(result.allSatisfy { $0.requiresGuardedRelay == true && $0.streamType == .hls && $0.eventBinding != nil })
     }
 
     func testAdmissionReceiptCountsAllOfferedRowsWhileScanningOnlyOneHundred() async throws {
@@ -2314,15 +2333,16 @@ final class CommunitySportsAddonTests: XCTestCase {
         let store = FottyQualityStore(defaults: defaults)
         let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!,
             session: session, qualityStore: store)
-        do {
-            _ = try await client.resolve(for: makeRequest(home: "Chelsea", away: "Brighton", category: "football"))
-            XCTFail("No playable entries in the scanned rows")
-        } catch {
-            XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 150))
-        }
+        let admitted = try await client.resolve(for: makeRequest(home: "Chelsea", away: "Brighton", category: "football"))
+        XCTAssertEqual(admitted.count, 1)
         let receipt = try XCTUnwrap(store.records().last { $0.name == "stream_admission" })
         XCTAssertEqual(receipt.details["offered_count"], "150")
-        XCTAssertEqual(receipt.details["admitted_count"], "0")
+        XCTAssertEqual(receipt.details["admitted_count"], "1")
+        XCTAssertEqual(receipt.details["admission_duplicate_count"], "99")
+        XCTAssertEqual(receipt.details["admission_limit_count"], "50")
+        XCTAssertEqual(receipt.details["admission_unprocessed_count"], "0")
+        XCTAssertEqual(receipt.details["admission_reconciled"], "yes")
+        XCTAssertEqual(receipt.details["admission_completion"], "limited")
         for count in [Int.min, -1, 0, 2, 100, 101, Int.max] {
             let metadata = LiveStreamResolver.communitySportsFailure(from: .streamAdmissionRejected(entryCount: count)).redactedMetadata
             XCTAssertEqual(metadata["cs_stream_entry_count"], String(min(max(count, 0), 100)))
@@ -2347,9 +2367,9 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertFalse(CommunitySportsFixtureProtocol.paths.contains { $0.hasPrefix("/stream/") })
     }
 
-    func testUnsupportedEntryDoesNotChangeAdmittedSiblingLabelOrSourceIdentity() async throws {
+    func testUnsafeEntryDoesNotChangeAdmittedSiblingLabelOrSourceIdentity() async throws {
         let session = try makeFixtureSession(streamResponse: .json(["streams": [
-            ["url": "https://unreviewed.example/api/manifest", "_source": "unreviewed"],
+            ["url": "http://unreviewed.example/api/manifest", "_source": "unreviewed"],
             ["url": "https://addon.example/api/manifest?channel=fixture", "_source": "upstream-a"]
         ]]))
         defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
@@ -2432,7 +2452,7 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertEqual(CommunitySportsFixtureProtocol.paths, ["/manifest.json"])
     }
 
-    func testReplacementOriginAdmitsOnlyItsExactReviewedDeliveryRoutes() {
+    func testReplacementOriginKeepsSafeCDNsAndOnlyItsReviewedWebRoute() {
         let manifest = URL(string: "https://nuviosports.xyz/manifest.json")!
         let request = makeRequest(home: "Chelsea", away: "Brighton", category: "football")
         let urls = [
@@ -2453,9 +2473,12 @@ final class CommunitySportsAddonTests: XCTestCase {
         }
         let sessions = CommunitySportsAddonClient.makeSessions(from: entries, request: request,
                                                                manifestURL: manifest, addOnVersion: "3.1.3")
-        XCTAssertEqual(sessions.map(\.providerName), ["CS1", "CS2"])
-        XCTAssertEqual(sessions.map(\.streamType), [.hls, .unknown])
-        XCTAssertEqual(sessions.map { $0.playableURL.host }, ["nuviosports.xyz", "nuviosports.xyz"])
+        XCTAssertEqual(sessions.map(\.providerName), ["CS1", "CS2", "CS3", "CS4", "CS5"])
+        XCTAssertEqual(sessions.map(\.streamType), [.hls, .unknown, .hls, .hls, .hls])
+        XCTAssertEqual(sessions.map { $0.playableURL.host }, ["nuviosports.xyz", "nuviosports.xyz",
+            "nuvio.moaqeel6679.my.id", "media.nuviosports.xyz", "nuviosports.xyz"])
+        XCTAssertTrue(sessions.enumerated().filter { $0.offset != 1 }.allSatisfy { $0.element.requiresGuardedRelay == true })
+        XCTAssertTrue(sessions.allSatisfy { $0.nativeOriginProfile == nil && $0.nativePlaylistProfile == nil })
         XCTAssertTrue(sessions.allSatisfy(StreamPluginProviderMatching.isActivePlayerSession))
     }
 
@@ -2597,7 +2620,11 @@ final class CommunitySportsAddonTests: XCTestCase {
         let row = channelRow(.willow, id: association.broadcast.providerEventID)
         let session = try makeChannelSession(.willow, rows: [row])
         defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
-        let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!, session: session,
+        let suite = "cs-owned-lookup-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!, session: session, qualityStore: store,
             programmeEnablement: { true }, programmeCurrentRequest: { _, _ in canonical },
             programmeAssociations: { request, at in snapshot.lookup(for: request, enabledProviderCodes: ["communitysports"], at: at) })
         let choices = try await client.resolve(for: canonical.usingRegistryMatch(association), now: kickoff)
@@ -2614,6 +2641,12 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertEqual(choice.diagnosticMetadata["manifest_result"], "verified_programme_channel_match")
         XCTAssertEqual(CommunitySportsFixtureProtocol.paths, ["/manifest.json", channelSearchPath(.willow),
             "/meta/tv/\(association.broadcast.providerEventID).json", "/stream/tv/\(association.broadcast.streamID).json"])
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        XCTAssertEqual(receipts.first?.details["offered_count"], "1")
+        XCTAssertEqual(receipts.first?.details["admitted_count"], "1")
+        XCTAssertEqual(receipts.first?.details["admission_unprocessed_count"], "0")
+        XCTAssertEqual(receipts.first?.details["admission_reconciled"], "yes")
     }
 
     @MainActor
@@ -2665,6 +2698,47 @@ final class CommunitySportsAddonTests: XCTestCase {
         do { _ = try await work.value; XCTFail("Withdrawn programme cannot publish a fixture source") }
         catch { XCTAssertEqual(error as? CommunitySportsAddonError, .conflictingMatch) }
         XCTAssertFalse(CommunitySportsFixtureProtocol.paths.contains("/stream/tv/\(association.broadcast.streamID).json"))
+    }
+
+    @MainActor
+    func testProgrammeWithdrawnDuringDescriptorFetchAccountsOnlyUndispositionedRowsAsFixtureChanged() async throws {
+        let (snapshot, canonical) = try programmeChannelFixture(guideLifetime: 30)
+        let association = try XCTUnwrap(snapshot.lookup(for: canonical,
+            enabledProviderCodes: ["communitysports"], at: kickoff).first)
+        let row = channelRow(.willow, id: association.broadcast.providerEventID)
+        let session = try makeChannelSession(.willow, rows: [row])
+        defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
+        let suite = "cs-withdrawn-ledger-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let state = CSProgrammeTestState(), gate = CommunitySportsFixtureGate("programme descriptor pending")
+        CommunitySportsFixtureProtocol.setResponse(.controlled(gate), for: "/stream/tv/\(association.broadcast.streamID).json")
+        let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!,
+            session: session, qualityStore: store, programmeEnablement: { true },
+            programmeCurrentRequest: { _, _ in canonical }, programmeAssociations: { request, at in
+                guard await state.available else { return [] }
+                return snapshot.lookup(for: request, enabledProviderCodes: ["communitysports"], at: at)
+            })
+        let clock = kickoff
+        let work = Task { try await client.resolve(for: canonical.usingRegistryMatch(association), now: clock) }
+        defer { work.cancel(); gate.respond(.failure(URLError(.cancelled))) }
+        await fulfillment(of: [gate.started], timeout: 2)
+        await state.set(false)
+        let rows: [Any] = [NSNull(), ["url": "https://public-cdn.example/stream"]]
+        gate.respond(try .json(["streams": rows]))
+        do { _ = try await work.value; XCTFail("Withdrawn programme must not publish its returned stream") }
+        catch { XCTAssertEqual(error as? CommunitySportsAddonError, .conflictingMatch) }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let receipt = try XCTUnwrap(receipts.first)
+        XCTAssertEqual(receipt.details["offered_count"], "2")
+        XCTAssertEqual(receipt.details["admitted_count"], "0")
+        XCTAssertEqual(receipt.details["admission_malformed_count"], "1")
+        XCTAssertEqual(receipt.details["admission_fixture_changed_count"], "1")
+        XCTAssertEqual(receipt.details["admission_unprocessed_count"], "0")
+        XCTAssertEqual(receipt.details["admission_reconciled"], "yes")
+        XCTAssertEqual(receipt.details["admission_fetch_failures"], "0")
     }
 
     @MainActor
@@ -3004,11 +3078,23 @@ final class CommunitySportsAddonTests: XCTestCase {
         let uk = channelRow(.willow, id: "nuvio_sport_uk", country: "United Kingdom")
         let session = try makeChannelSession(.willow, rows: [us, uk])
         defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
+        let suite = "cs-owned-lookup-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
         CommunitySportsFixtureProtocol.setResponse(.status(503), for: "/stream/tv/nuvio_sport_us.json")
         let result = try await CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!,
-            session: session).resolve(for: channelRequest(.willow), now: kickoff)
+            session: session, qualityStore: store).resolve(for: channelRequest(.willow), now: kickoff)
         XCTAssertEqual(result.count, 1)
         XCTAssertEqual(result.first?.eventBinding?.providerEventID, "nuvio_sport_uk")
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        XCTAssertEqual(receipts.first?.details["offered_count"], "1")
+        XCTAssertEqual(receipts.first?.details["admitted_count"], "1")
+        XCTAssertEqual(receipts.first?.details["admission_unprocessed_count"], "0")
+        XCTAssertEqual(receipts.first?.details["admission_reconciled"], "yes")
+        XCTAssertEqual(receipts.first?.details["admission_fetch_failures"], "1")
+        XCTAssertEqual(receipts.first?.details["admission_completion"], "partial")
     }
 
     func testChannelDescriptorsRetainExistingDeliveryAndHeaderRestrictions() async throws {
@@ -3056,7 +3142,11 @@ final class CommunitySportsAddonTests: XCTestCase {
             "resources": ["catalog", "meta", "stream"], "catalogs": [["id": "nuvio_sports_live", "type": "tv"]]
         ]), searchResponses: ["/meta/tv/nuvio_sport_fixture.json": try .json(["meta": row])])
         defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
-        let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!, session: session)
+        let suite = "cs-owned-lookup-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!, session: session, qualityStore: store)
         let sessions = try await client.resolve(for: request, now: kickoff)
         XCTAssertEqual(sessions.count, 1)
         XCTAssertEqual(CommunitySportsFixtureProtocol.paths, ["/manifest.json", "/meta/tv/nuvio_sport_fixture.json", "/stream/tv/nuvio_sport_fixture.json"])
@@ -3064,6 +3154,12 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertTrue(binding.usesRegistryAssociation)
         XCTAssertTrue(binding.matches(request: request, providerCode: "communitysports", at: kickoff))
         XCTAssertEqual(binding.fixtureID, request.matchID)
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        XCTAssertEqual(receipts.first?.details["offered_count"], "1")
+        XCTAssertEqual(receipts.first?.details["admitted_count"], "1")
+        XCTAssertEqual(receipts.first?.details["admission_unprocessed_count"], "0")
+        XCTAssertEqual(receipts.first?.details["admission_reconciled"], "yes")
     }
 
     @MainActor

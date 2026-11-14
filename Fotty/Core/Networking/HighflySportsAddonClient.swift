@@ -53,7 +53,7 @@ actor HighflySportsAddonClient {
             let c = try? decoder.container(keyedBy: Key.self)
             url = try? c?.decode(String.self, forKey: .named("url"))
             requestedHeaders = try? StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
-            requiresDRM = c?.contains(.named("drm")) == true
+            requiresDRM = StreamDeliveryPolicy.decodeRequiresDRM(from: decoder)
         }
     }
     private struct Streams: Decodable { let streams: [Delivery] }
@@ -149,6 +149,16 @@ actor HighflySportsAddonClient {
         // One lookup receipt per eligible request: the stage reached, never titles or URLs.
         var stage = "manifest"
         var finished = false
+        var admission = StreamAdmissionLedger(), fetchFailures = 0
+        var sessions: [StreamSession] = [], seen: Set<StreamDeliveryIdentity> = []
+        var cancelled = false, listingsLimited = false
+        defer {
+            let completion = cancelled || Task.isCancelled ? "cancelled" : (!finished ? "failed" :
+                (listingsLimited || admission.dispositions["limit", default: 0] > 0 ? "limited" : (fetchFailures > 0 ? "partial" : "complete")))
+            admission.finish(admitted: finished ? sessions.count : 0, completion: completion)
+            FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, ledger: admission,
+                completion: completion, fetchFailures: fetchFailures)
+        }
         var missReason: String?, rowCount: Int?, unmatchedTeam: String?, kickoffOffset: Int?
         var searchScope = "search"
         var requestPair: String?, candidatePairs: [String] = []
@@ -185,7 +195,7 @@ actor HighflySportsAddonClient {
         // The first request after launch can race the network; retry once.
         let manifest: Manifest
         do { manifest = try await read(manifestURL) }
-        catch is CancellationError { throw CancellationError() }
+        catch is CancellationError { cancelled = true; throw CancellationError() }
         catch {
             try await Task.sleep(for: .milliseconds(1500))
             manifest = try await read(manifestURL)
@@ -213,7 +223,7 @@ actor HighflySportsAddonClient {
                 guard let url = URL(string: root.absoluteString + "catalog/sport/" + catalogID + "/" + extra) else { throw CommunitySportsAddonError.unsafeResponse }
                 let page: Catalog
                 do { page = try await read(url) }
-                catch is CancellationError { throw CancellationError() }
+                catch is CancellationError { cancelled = true; throw CancellationError() }
                 catch { supplementaryFailures += 1; break } // Keep earlier pages; try the other team.
                 guard page.metas.count <= 100, rows.count + page.metas.count <= 600 else { supplementaryFailures += 1; break }
                 rows += page.metas; skip += page.metas.count
@@ -245,7 +255,7 @@ actor HighflySportsAddonClient {
                         catalogRows += page.metas
                         if page.metas.count < 100 { break }
                     }
-                } catch is CancellationError { throw CancellationError() }
+                } catch is CancellationError { cancelled = true; throw CancellationError() }
                 catch { supplementaryFailures += 1; catalogRows = [] }
                 live += catalogRows
             }
@@ -277,7 +287,7 @@ actor HighflySportsAddonClient {
                         browsed += page.metas
                         if page.metas.count < 100 { break }
                     }
-                } catch is CancellationError { throw CancellationError() }
+                } catch is CancellationError { cancelled = true; throw CancellationError() }
                 catch { supplementaryFailures += 1; browsed = [] }
             } else { searchScope = "search_and_live" }
             // Diagnostic: the hour span the listing covers relative to now
@@ -314,6 +324,7 @@ actor HighflySportsAddonClient {
         }
         stage = "streams"
         listingCount = matchedRows.count
+        listingsLimited = matchedRows.count > Self.maximumListings
         var listings: [(row: Row, deliveries: [Delivery])] = []
         var offeredTotal = 0
         for listing in matchedRows.prefix(Self.maximumListings) {
@@ -324,28 +335,20 @@ actor HighflySportsAddonClient {
             }
             let metaRow: Row
             do { metaRow = (try await read(root.appendingPathComponent("meta/sport/" + listing.id + ".json")) as Meta).meta }
-            catch is CancellationError { throw CancellationError() }
+            catch is CancellationError { cancelled = true; throw CancellationError() }
             catch { supplementaryFailures += 1; metaRow = listing } // The catalog row already matched this game.
             // A live marker may tick between reads; the fixed fields must agree.
             guard Self.metaDifference(metaRow, listing) == nil else { supplementaryFailures += 1; continue }
             do {
                 let streams: Streams = try await read(root.appendingPathComponent("stream/sport/" + listing.id + ".json"))
                 offeredTotal += streams.streams.count
+                admission.observe(streams.streams.count)
+                admission.record("limit", count: max(0, streams.streams.count - 100))
                 listings.append((metaRow, Array(streams.streams.prefix(100))))
-            } catch is CancellationError { throw CancellationError() }
-            catch { supplementaryFailures += 1 }
+            } catch is CancellationError { cancelled = true; throw CancellationError() }
+            catch { supplementaryFailures += 1; fetchFailures += 1 }
         }
         guard !listings.isEmpty else { missReason = "streams_read"; throw CommunitySportsAddonError.invalidResponse }
-        var sessions: [StreamSession] = [], seen: Set<StreamDeliveryIdentity> = []
-        var rejections: [String] = [], rejectedHost: String?
-        defer {
-            if !Task.isCancelled {
-                FottyQualityStore.shared.recordAccountStreamAdmission(provider: .highfly, offered: offeredTotal,
-                    admitted: finished ? sessions.count : 0, candidateCount: sessions.count,
-                    listingCount: listings.count, rejections: rejections,
-                    rejectedHost: rejectedHost, finished: finished)
-            }
-        }
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))
         // Revalidation below uses wall clock elapsed from resolve, supplied in
         // one local scope; no cached account or fixture authority is renewed.
@@ -355,34 +358,37 @@ actor HighflySportsAddonClient {
             throw CommunitySportsAddonError.conflictingMatch
         }
         // Each listing's own details must still identify the game now.
-        listings = listings.filter { !Self.selectAll(request: latest, rows: [$0.row], now: completedAt).isEmpty }
+        listings = listings.filter {
+            let keep = !Self.selectAll(request: latest, rows: [$0.row], now: completedAt).isEmpty
+            if !keep { admission.record("fixture_changed", count: $0.deliveries.count) }
+            return keep
+        }
         guard !listings.isEmpty else {
             missReason = "revalidate_meta"
             throw CommunitySportsAddonError.conflictingMatch
         }
         missReason = nil
         for (listing, row) in listings.flatMap({ listing in listing.deliveries.map { (listing.row, $0) } }) {
-            guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
-            if row.requiresDRM { rejections.append("drm"); continue }
+            guard sessions.count < Self.maximumSessions else { admission.record("limit"); continue }
+            guard let value = row.url, let url = URL(string: value) else { admission.record("no_url"); continue }
+            if row.requiresDRM { admission.record("drm"); continue }
             if let reason = StreamDeliveryPolicy.rejection(url) {
-                rejections.append(reason)
-                rejectedHost = rejectedHost ?? url.host?.lowercased()
+                admission.record(reason)
                 continue
             }
-            if Self.isAddonDomain(url.host, manifestHost: manifestURL.host) {
-                rejections.append("addon_message"); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue
-            }
-            guard let requested = row.requestedHeaders else { rejections.append("malformed_headers"); continue }
+            guard let requested = row.requestedHeaders else { admission.record("malformed_headers"); continue }
             guard let headers = StreamDeliveryPolicy.requestHeaders(requested) else {
-                rejections.append("credential_headers"); continue
+                admission.record(StreamDeliveryPolicy.headerRejection(requested) ?? "malformed_headers"); continue
             }
-            guard seen.insert(StreamDeliveryIdentity(url: url, headers: headers)).inserted else { continue }
+            guard !seen.contains(StreamDeliveryIdentity(url: url, headers: headers)) else { admission.record("duplicate"); continue }
             do { try await validate(url) }
-            catch is CancellationError { throw CancellationError() }
-            catch { rejections.append("validation"); continue } // One rejected route must not erase valid siblings.
+            catch is CancellationError { cancelled = true; throw CancellationError() }
+            catch { admission.record("validation"); continue } // One rejected route must not erase valid siblings.
             guard let binding = StreamEventBinding(request: latest, providerCode: Self.providerCode,
                 providerEventID: listing.id, streamID: listing.id, resourceType: "sport", manifestRevision: manifest.version,
                 verifiedAt: completedAt, expiresAt: completedAt.addingTimeInterval(90), at: completedAt) else { throw CommunitySportsAddonError.conflictingMatch }
+            seen.insert(StreamDeliveryIdentity(url: url, headers: headers))
+            admission.record("admitted")
             sessions.append(StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
                 providerName: "HF\(sessions.count + 1)", requiredHeaders: headers, qualityLabel: nil,
                 expiryTime: binding.expiresAt, canRefresh: true,
@@ -391,7 +397,6 @@ actor HighflySportsAddonClient {
                     // Server name only (e.g. testleaf.papacito.cfd); never a path or token.
                     "delivery_host": url.host?.lowercased() ?? "unknown"],
                 createdAt: completedAt, requiresGuardedRelay: true, eventBinding: binding))
-            if sessions.count == Self.maximumSessions { break }
         }
         stage = "admission"
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offeredTotal) }
@@ -415,17 +420,6 @@ actor HighflySportsAddonClient {
     nonisolated static func manifestIdentity(for url: URL) -> String {
         url.host?.hasPrefix("sports.") == true ? "community.sports.fly" : "community.sports.streamed.premium"
     }
-    /// Highfly serves games from its delivery network; links on its own domain
-    /// (highfly.to, any server) are tip, upgrade or sign-in messages.
-    nonisolated static func isAddonDomain(_ host: String?, manifestHost: String?) -> Bool {
-        func domain(_ value: String?) -> String? {
-            guard let labels = value?.lowercased().split(separator: "."), labels.count >= 2 else { return nil }
-            return labels.suffix(2).joined(separator: ".")
-        }
-        guard let delivery = domain(host), let addon = domain(manifestHost) else { return false }
-        return delivery == addon
-    }
-
     /// An account delivery is admitted when it is safe; see StreamDeliveryPolicy.
     nonisolated static func deliveryRejection(_ url: URL) -> String? { StreamDeliveryPolicy.rejection(url) }
     nonisolated static func admitsDelivery(_ url: URL) -> Bool { deliveryRejection(url) == nil }
@@ -670,112 +664,5 @@ actor HighflySportsAddonClient {
         catch let error as URLError where distinguishSearchTimeout && error.code == .timedOut {
             throw URLError(.timedOut) // Preserve the failure category without the original request URL.
         } catch { throw CommunitySportsAddonError.invalidResponse } // Never propagate a credential-bearing URL.
-    }
-}
-
-
-/// Fotty's one stream rule, for every provider. A stream is used when it is
-/// safe to open; whether it is the right game is decided by fixture matching,
-/// and whether it plays is decided by playback ranking. No host lists, path
-/// shapes, stream-name tags, exact header sets or query-name rules.
-enum StreamDeliveryPolicy {
-    static let maximumURLBytes = 8192
-    /// Stops runaway responses only; real games stay far below it.
-    static let maximumSessionsPerProvider = 100
-
-    /// nil = safe to play. Reasons are short labels, never a URL.
-    nonisolated static func rejection(_ url: URL) -> String? {
-        if url.scheme?.lowercased() != "https" { return "not_https" }
-        if url.absoluteString.utf8.count > maximumURLBytes { return "too_long" }
-        if url.user != nil || url.password != nil { return "credentials_in_link" }
-        if !LocalStreamProxyPolicy.allowsDestination(url) { return "unsafe_destination" }
-        if isReplayHost(url.host) { return "replay" }
-        if nonLiveExtensions.contains(url.pathExtension.lowercased()) { return "not_live_media" }
-        // A wrapper link (…?url=https://…) is only as safe as the link inside it.
-        for inner in innerLinks(url) {
-            if inner.scheme?.lowercased() != "https" { return "inner_not_https" }
-            if inner.user != nil || inner.password != nil { return "inner_credentials" }
-            if !LocalStreamProxyPolicy.allowsDestination(inner) { return "inner_unsafe_destination" }
-            if isReplayHost(inner.host) { return "replay" }
-        }
-        return nil
-    }
-
-    /// Public providers (unknown operators) also need a live playlist link:
-    /// placeholders, pages and health checks are not streams.
-    nonisolated static func publicRejection(_ url: URL) -> String? {
-        rejection(url) ?? (isLivePlaylistLink(url) ? nil : "not_a_playlist")
-    }
-
-    /// A live HLS playlist, directly or inside a wrapper link.
-    nonisolated static func isLivePlaylistLink(_ url: URL) -> Bool {
-        ([url] + innerLinks(url)).contains { $0.path.lowercased().hasSuffix(".m3u8") }
-    }
-
-    /// Links carried in query values (url=, target=, …), decoded once.
-    nonisolated static func innerLinks(_ url: URL) -> [URL] {
-        (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).compactMap { item in
-            guard let value = item.value?.trimmingCharacters(in: .whitespaces), value.contains("://"),
-                  let inner = URL(string: value), inner.scheme != nil, inner.host != nil else { return nil }
-            return inner
-        }
-    }
-
-    /// Files and pages, not live streams: Fotty's live relay cannot play them.
-    /// Links without an extension or with any other one are tried.
-    static let nonLiveExtensions: Set<String> = ["mp4", "m4v", "mkv", "avi", "mov", "webm", "mp3", "aac",
-                                                 "html", "htm", "php", "jpg", "jpeg", "png", "gif"]
-
-    /// Replay/VOD servers (e.g. recaps.highfly.to) never join a live source list.
-    nonisolated static func isReplayHost(_ host: String?) -> Bool {
-        guard let first = host?.lowercased().split(separator: ".").first else { return false }
-        return ["recap", "recaps", "replay", "replays", "vod"].contains(String(first))
-    }
-
-    private enum HeaderKey: String, CodingKey { case headers, behaviorHints, proxyHeaders, request }
-
-    /// Preserve sign-in requirements and conflicting values when reading either
-    /// Stremio header location. The caller can reject one malformed stream.
-    nonisolated static func decodeRequestHeaders(from decoder: Decoder) throws -> [String: String] {
-        let values = try decoder.container(keyedBy: HeaderKey.self)
-        var maps: [[String: String]] = []
-        if values.contains(.headers) { maps.append(try values.decode([String: String].self, forKey: .headers)) }
-        if values.contains(.behaviorHints) {
-            let hints = try values.nestedContainer(keyedBy: HeaderKey.self, forKey: .behaviorHints)
-            if hints.contains(.proxyHeaders) {
-                let proxy = try hints.nestedContainer(keyedBy: HeaderKey.self, forKey: .proxyHeaders)
-                if proxy.contains(.request) { maps.append(try proxy.decode([String: String].self, forKey: .request)) }
-            }
-        }
-        var headers: [String: String] = [:]
-        for map in maps {
-            for (name, value) in map {
-                let lower = name.lowercased()
-                if let previous = headers[lower], previous != value { throw CommunitySportsAddonError.unsafeResponse }
-                headers[lower] = value
-            }
-        }
-        return headers
-    }
-
-    /// Request headers a stream asks for. Referer, Origin and User-Agent are
-    /// kept; other harmless names are dropped; a credential header refuses the
-    /// stream (nil), because Fotty never forwards sign-in material.
-    nonisolated static func requestHeaders(_ requested: [String: String]) -> [String: String]? {
-        let canonical = ["referer": "Referer", "origin": "Origin", "user-agent": "User-Agent"]
-        let credentials: Set<String> = ["cookie", "authorization", "proxy-authorization", "x-api-key", "x-auth-token"]
-        var headers: [String: String] = [:]
-        for (name, value) in requested {
-            let lower = name.lowercased()
-            if credentials.contains(lower) { return nil }
-            guard let key = canonical[lower], headers[key] == nil, !value.isEmpty, value.utf8.count <= 512,
-                  value.utf8.allSatisfy({ (32...126).contains($0) }) else { continue }
-            if key != "User-Agent" {
-                guard let url = URL(string: value), ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
-                      url.host != nil, url.user == nil, url.password == nil else { continue }
-            }
-            headers[key] = value
-        }
-        return headers
     }
 }

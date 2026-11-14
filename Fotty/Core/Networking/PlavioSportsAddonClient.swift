@@ -82,7 +82,8 @@ struct PlavioPublisherFixture: Decodable, Sendable {
 
 struct PlavioSportsStreamEntry: Decodable, Sendable {
     let url: String?
-    let requiredHeaders: [String: String]
+    /// nil preserves an invalid advertised header contract for row-level rejection.
+    let requiredHeaders: [String: String]?
     let requiresDRM: Bool
 
     private struct Key: CodingKey {
@@ -92,26 +93,12 @@ struct PlavioSportsStreamEntry: Decodable, Sendable {
         init?(intValue: Int) { return nil }
     }
 
-    /// Unknown or extra fields are ignored; only the link, requested request
-    /// headers and DRM markers matter.
     init(from decoder: Decoder) throws {
-        let values = try? decoder.container(keyedBy: Key.self)
+        let values = try decoder.container(keyedBy: Key.self)
         func key(_ name: String) -> Key { Key(stringValue: name)! }
-        url = try? values?.decodeIfPresent(String.self, forKey: key("url"))
-        let hints = try? values?.nestedContainer(keyedBy: Key.self, forKey: key("behaviorHints"))
-        let proxy = try? hints?.nestedContainer(keyedBy: Key.self, forKey: key("proxyHeaders"))
-        var requested: [String: String] = [:]
-        for container in [try? values?.nestedContainer(keyedBy: Key.self, forKey: key("headers")),
-                          try? proxy?.nestedContainer(keyedBy: Key.self, forKey: key("request"))] {
-            guard let container else { continue }
-            for field in container.allKeys {
-                // Preserve the name even if its value is malformed, so a
-                // credential requirement cannot disappear during decoding.
-                requested[field.stringValue.lowercased()] = (try? container.decode(String.self, forKey: field)) ?? ""
-            }
-        }
-        requiredHeaders = requested
-        requiresDRM = ["drm", "clearkey", "licenseUrl", "license"].contains { values?.contains(key($0)) == true }
+        url = try? values.decodeIfPresent(String.self, forKey: key("url"))
+        requiredHeaders = try? StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
+        requiresDRM = StreamDeliveryPolicy.decodeRequiresDRM(from: decoder)
     }
 }
 
@@ -213,25 +200,34 @@ actor PlavioSportsAddonClient {
         }
     }
 
-    private struct StreamDocument: Decodable {
+    private struct StreamDocument: Decodable, Sendable {
         let streams: [PlavioSportsStreamEntry]
         let entryCount: Int
-
+        let malformedCount: Int
+        let unexaminedCount: Int
         private enum CodingKeys: String, CodingKey { case streams }
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             guard values.contains(.streams), try !values.decodeNil(forKey: .streams) else {
-                streams = []; entryCount = 0; return
+                streams = []; entryCount = 0; malformedCount = 0; unexaminedCount = 0; return
             }
             var rows = try values.nestedUnkeyedContainer(forKey: .streams)
-            var entries: [PlavioSportsStreamEntry] = []
             let offered = rows.count
+            var entries: [PlavioSportsStreamEntry] = []
             var scanned = 0
-            while !rows.isAtEnd, scanned < 100 {
+            while !rows.isAtEnd, scanned < StreamDeliveryPolicy.maximumSessionsPerProvider {
                 let row = try rows.superDecoder(); scanned += 1
                 if let entry = try? PlavioSportsStreamEntry(from: row) { entries.append(entry) }
             }
             streams = entries; entryCount = offered ?? scanned
+            malformedCount = scanned - entries.count
+            unexaminedCount = entryCount - scanned
+        }
+
+        func observe(in ledger: inout StreamAdmissionLedger) {
+            ledger.observe(entryCount)
+            ledger.record("malformed", count: malformedCount)
+            ledger.record("limit", count: unexaminedCount)
         }
     }
 
@@ -269,6 +265,7 @@ actor PlavioSportsAddonClient {
     }
 
     private struct Snapshot<Value> { let value: Value; let fetchedAt: Date }
+    private let qualityStore: FottyQualityStore
     private let transport: FottyBoundedHTTPClient
     private let manifestTTL: TimeInterval
     private let catalogTTL: TimeInterval
@@ -288,7 +285,8 @@ actor PlavioSportsAddonClient {
              try await LocalStreamProxyDestinationValidator.resolve($0)
          }, officialSnapshot: @escaping @Sendable (Date) async -> SportsFixtureCatalog.Snapshot? = { now in
              await MainActor.run { SportsFixtureUpdater.shared.cachedSnapshot(now: now) }
-         }) {
+         }, qualityStore: FottyQualityStore = .shared) {
+        self.qualityStore = qualityStore
         transport = FottyBoundedHTTPClient(configuration: session?.configuration ?? Self.makeConfiguration())
         self.manifestTTL = manifestTTL; self.catalogTTL = catalogTTL
         self.negativeCatalogTTL = negativeCatalogTTL
@@ -396,6 +394,46 @@ actor PlavioSportsAddonClient {
 
     func resolve(for request: StreamPlaybackRequest, now: Date = Date(),
                  forceRefresh: Bool = false) async throws -> [StreamSession] {
+        var ledger = StreamAdmissionLedger(), fetchFailures = 0
+        var returned = 0, limited = false, completion = "failed"
+        defer {
+            ledger.finish(admitted: returned, completion: completion)
+            qualityStore.recordStreamAdmission(sourceFamily: Self.providerCode, ledger: ledger,
+                completion: completion, fetchFailures: fetchFailures)
+        }
+        do {
+            let sessions = try await resolveAdmission(for: request, now: now, forceRefresh: forceRefresh,
+                ledger: &ledger, fetchFailures: &fetchFailures, limited: &limited)
+            returned = sessions.count
+            completion = fetchFailures > 0 ? "partial" : (limited || ledger.dispositions["limit", default: 0] > 0 ? "limited" : "complete")
+            return sessions
+        } catch {
+            if error is CancellationError || (error as? URLError)?.code == .cancelled || Task.isCancelled {
+                completion = "cancelled"
+            } else {
+                if fetchFailures == 0, Self.isAdmissionFetchFailure(error) { fetchFailures = 1 }
+                switch error as? CommunitySportsAddonError {
+                case .lookupBudgetExhausted?: completion = fetchFailures > 0 ? "partial" : "limited"
+                case .streamEntriesEmpty?, .streamAdmissionRejected?:
+                    completion = fetchFailures > 0 ? "partial" : (limited || ledger.dispositions["limit", default: 0] > 0 ? "limited" : "complete")
+                default: completion = ledger.hasObservedResponse && fetchFailures > 0 ? "partial" : "failed"
+                }
+            }
+            throw error
+        }
+    }
+
+    private nonisolated static func isAdmissionFetchFailure(_ error: Error) -> Bool {
+        if error is CancellationError || (error as? URLError)?.code == .cancelled { return false }
+        switch error as? CommunitySportsAddonError {
+        case .httpFailure?, .transportFailure?, .invalidJSON?, .invalidResponse?, .unsafeResponse?, .unsafeMetadata?: return true
+        default: return error is URLError
+        }
+    }
+
+    private func resolveAdmission(for request: StreamPlaybackRequest, now: Date,
+        forceRefresh: Bool, ledger: inout StreamAdmissionLedger, fetchFailures: inout Int,
+        limited: inout Bool) async throws -> [StreamSession] {
         try Task.checkCancellation()
         guard let profile = CatalogProfile.profile(for: request.category),
               request.preferredEvent?.hasCatalogIdentityConflict != true, request.kickoffDate != nil else { throw CommunitySportsAddonError.matchNotFound }
@@ -426,6 +464,7 @@ actor PlavioSportsAddonClient {
             throw plan.conflict ? CommunitySportsAddonError.conflictingMatch : .matchNotFound
         }
 
+        limited = plan.rows.count > Self.maximumListings
         let listings = plan.rows.prefix(Self.maximumListings)
         if !refreshed, hadCachedManifest, CommunitySportsAddonClient.allowsTargetedRefresh(for: request, at: now),
            listings.contains(where: { $0.join == .live && !manifest.advertises("meta", id: $0.row.id) }) {
@@ -435,7 +474,6 @@ actor PlavioSportsAddonClient {
         }
         var sessions: [StreamSession] = []
         var firstFailure: Error?
-        var offered = 0
         var readDescriptor = false
         var mayRefreshEmpty = !refreshed && CommunitySportsAddonClient.allowsTargetedRefresh(for: request, at: now)
         var mayRefreshOriginal = dlhdOriginalSnapshot.map { Self.isFresh($0.fetchedAt, at: now, ttl: 5 * 60) } == true
@@ -489,24 +527,27 @@ actor PlavioSportsAddonClient {
                 try Task.checkCancellation()
                 let streamURL = Self.route(["stream", "tv", id + ".json"])
                 var document = try await fetchJSON(StreamDocument.self, from: streamURL, stage: .streams, forceRefresh: refreshed)
+                document.observe(in: &ledger)
+                readDescriptor = true
                 if document.entryCount == 0, mayRefreshEmpty {
                     mayRefreshEmpty = false
                     document = try await fetchJSON(StreamDocument.self, from: streamURL, stage: .streams, forceRefresh: true)
+                    document.observe(in: &ledger)
                 }
                 try Task.checkCancellation()
                 guard let binding = StreamEventBinding(request: request, providerCode: Self.providerCode,
                     providerEventID: id, streamID: id, manifestRevision: manifest.version, verifiedAt: now,
                     expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime), at: now) else {
+                    ledger.record("fixture_changed", count: document.streams.count)
                     throw CommunitySportsAddonError.conflictingMatch
                 }
-                readDescriptor = true
-                offered += document.entryCount
                 sessions += Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version,
                     matchMethod: listing.join == .roxie ? "official_fixture_pair_civil_date" : "explicit_dated_fixture",
-                    after: sessions).map { $0.recordingEventBinding(binding, for: request, at: now) }
+                    after: sessions, ledger: &ledger).map { $0.recordingEventBinding(binding, for: request, at: now) }
             } catch {
                 try Task.checkCancellation()
                 if error is CancellationError || (error as? URLError)?.code == .cancelled { throw error }
+                if Self.isAdmissionFetchFailure(error) { fetchFailures += 1 }
                 firstFailure = firstFailure ?? error
             }
         }
@@ -516,10 +557,9 @@ actor PlavioSportsAddonClient {
         guard sessions.allSatisfy({ $0.eventBinding?.matches(request: request, providerCode: Self.providerCode,
             at: completedAt) == true }) else { throw CommunitySportsAddonError.conflictingMatch }
         if sessions.isEmpty, let firstFailure { throw firstFailure }
-        FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, offered: offered, admitted: sessions.count)
         if !sessions.isEmpty { return sessions }
-        if offered == 0 { throw CommunitySportsAddonError.streamEntriesEmpty }
-        throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offered)
+        if ledger.offered == 0 { throw CommunitySportsAddonError.streamEntriesEmpty }
+        throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: ledger.offered)
     }
 
     private enum ListingJoin { case dated, cnc, roxie, dlhd, live }
@@ -1553,15 +1593,34 @@ actor PlavioSportsAddonClient {
     nonisolated static func makeSessions(from streams: [PlavioSportsStreamEntry], request: StreamPlaybackRequest,
                                         addOnVersion: String, matchMethod: String = "explicit_dated_fixture",
                                         after earlier: [StreamSession] = []) -> [StreamSession] {
-        guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode) else { return [] }
+        var ledger = StreamAdmissionLedger()
+        ledger.observe(streams.count)
+        return makeSessions(from: streams, request: request, addOnVersion: addOnVersion, matchMethod: matchMethod, after: earlier, ledger: &ledger)
+    }
+
+    nonisolated static func makeSessions(from streams: [PlavioSportsStreamEntry], request: StreamPlaybackRequest,
+                                        addOnVersion: String, matchMethod: String = "explicit_dated_fixture",
+                                        after earlier: [StreamSession] = [], ledger: inout StreamAdmissionLedger) -> [StreamSession] {
+        guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode) else { ledger.record("validation", count: streams.count); return [] }
         var seen = Set(earlier.compactMap { $0.diagnosticMetadata["source_key"] })
         var sessions: [StreamSession] = []
+        ledger.record("limit", count: max(0, streams.count - StreamDeliveryPolicy.maximumSessionsPerProvider))
         for entry in streams.prefix(StreamDeliveryPolicy.maximumSessionsPerProvider) {
-            guard !entry.requiresDRM, let value = entry.url, let url = URL(string: value), isAdmittedDelivery(url),
-                  let headers = StreamDeliveryPolicy.requestHeaders(entry.requiredHeaders) else { continue }
+            guard !entry.requiresDRM else { ledger.record("drm"); continue }
+            guard let value = entry.url, !value.isEmpty else { ledger.record("no_url"); continue }
+            guard let url = URL(string: value) else { ledger.record("malformed"); continue }
+            if let reason = StreamDeliveryPolicy.publicRejection(url) { ledger.record(reason); continue }
+            guard let requested = entry.requiredHeaders else { ledger.record("malformed_headers"); continue }
+            guard let headers = StreamDeliveryPolicy.requestHeaders(requested) else {
+                ledger.record(StreamDeliveryPolicy.headerRejection(requested) ?? "malformed_headers")
+                continue
+            }
             let key = sourceKey(url: url, headers: headers)
-            guard seen.insert(key).inserted else { continue }
-            guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else { break }
+            guard seen.insert(key).inserted else { ledger.record("duplicate"); continue }
+            guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else {
+                ledger.record("limit"); continue
+            }
+            ledger.record("admitted")
             sessions.append(StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
                 providerName: label, requiredHeaders: headers, qualityLabel: "Live video",
                 canRefresh: false, validationStatus: .validated,
@@ -1575,18 +1634,6 @@ actor PlavioSportsAddonClient {
     /// Safe to open (see StreamDeliveryPolicy); server and link shape are not judged.
     nonisolated static func isAdmittedDelivery(_ url: URL) -> Bool {
         StreamDeliveryPolicy.publicRejection(url) == nil
-    }
-
-    nonisolated static func admitsCricketDelivery(_ url: URL, headers: [String: String]) -> Bool {
-        guard url.scheme == "https", url.host == "dai-fancode.pages.dev",
-              url.port == nil || url.port == 443, url.user == nil, url.password == nil,
-              url.query == nil, url.fragment == nil, LocalStreamProxyPolicy.allowsDestination(url),
-              let parts = URLComponents(url: url, resolvingAgainstBaseURL: false), parts.percentEncodedPath == url.path,
-              url.path.range(of: #"^/mumbai/[A-Za-z0-9][A-Za-z0-9_-]{0,239}/index\.m3u8$"#, options: .regularExpression) != nil,
-              Set(headers.keys) == Set(["Referer", "User-Agent"]), headers["Referer"] == "https://fancode.com/",
-              let ua = headers["User-Agent"], ua.hasPrefix("ReactNativeVideo/"), ua.count > 17,
-              ua.utf8.count <= 512, ua.utf8.allSatisfy({ (32...126).contains($0) }) else { return false }
-        return true
     }
 
     nonisolated static func sourceKey(url: URL, headers: [String: String] = [:]) -> String {

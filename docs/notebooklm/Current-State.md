@@ -1,6 +1,8 @@
 # Fotty current state
 
-10 Nov: normal Jet **265** installed; clear stumps/break labels, neutral icons and player status. 94 focused tests and signed Release pass; Home/details/scorecard stumps verified on Jet. Highfly Premium remains configured/enabled from264; live test pending resumed play and a fresh delivery (latest response Streams Unavailable). [Receipt](../testing/fotty-source-research-2026-11-10/jet265-cricket-status.json). Pengu/StreamNexus review-only. Preserve discovery/undeployed Worker edits. Phone/FPL/multi untouched; no TestFlight. Alerts dashboard-only. History below.
+14 Nov: [Jet 324 shared stream acceptance](../testing/fotty324-shared-admission/README.md): common delivery policy, per-entry accounting and separate selection ledgers. 2,678 tests passed, 12 skipped; signed normal 324 installed on Jet. Watch offered 26 choices (HF7/7, CS6/8, PP13/14; CNC unread). HF1 showed wrong rugby; HF2 held correct Vegas–Nashville 92s/zero stalls and recovered after a later failure chain. Programme mismatch cause remains unproven. No phone/FPL/multi/TF changes.
+
+13 Nov history: [323 providers](../testing/fotty323-provider-watch/README.md), [322 CNC](../testing/fotty320-cnc-football/README.md), [319 Watch/Retry](../testing/fotty318-watch-availability/README.md).
 
 ## Product and release baseline
 

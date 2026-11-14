@@ -103,7 +103,7 @@ final class PenguPlaySportsAddonTests: XCTestCase {
     func testDeliveryAndHeaderAdmission() throws {
         XCTAssertTrue(Client.admitsDelivery(URL(string: "https://cdn.example.com/live/index.m3u8?token=x")!))
         for bad in ["http://cdn.example.com/a.m3u8", "https://user:pw@cdn.example.com/a.m3u8",
-                    "https://cdn.example.com/a.mp4", "https://127.0.0.1/a.m3u8"] {
+                    "https://127.0.0.1/a.m3u8"] {
             XCTAssertFalse(Client.admitsDelivery(URL(string: bad)!), bad)
         }
         func delivery(_ headers: String) throws -> Client.Delivery {
@@ -139,9 +139,9 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         let sessions = try await client.resolve(for: request(), now: kickoff)
         XCTAssertEqual(sessions.count, 11, "Two listings of one game are not a conflict, and no cap of 6 applies")
         XCTAssertEqual(Set(sessions.compactMap { $0.eventBinding?.providerEventID }), ["pp-live:daddylive~one", "pp-live:ppv~two"])
-        let admission = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "penguplay_delivery_admission" })
-        XCTAssertEqual(admission.details["used_count"], "11")
-        XCTAssertEqual(admission.details["listing_count"], "2")
+        let admission = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "stream_admission" && $0.details["source_family"] == "penguplay" })
+        XCTAssertEqual(admission.details["admitted_count"], "11")
+        XCTAssertEqual(admission.details["offered_count"], "11")
     }
 
     func testResolveUsesOnlyTheOwnersLinkAndReturnsGuardedHLS() async throws {
@@ -161,18 +161,35 @@ final class PenguPlaySportsAddonTests: XCTestCase {
             return (Data(body.utf8), response)
         }, enabled: { true }, current: { $0 }, validate: { _ in })
         let sessions = try await client.resolve(for: request, now: kickoff)
-        XCTAssertEqual(sessions.map(\.providerName), ["PP1"], "The mp4 delivery is not admitted")
+        XCTAssertEqual(sessions.map(\.providerName), ["PP1", "PP2"], "Actual guarded media response decides content, not its suffix")
         XCTAssertEqual(sessions.first?.requiredHeaders, ["Referer": "https://site.example/"])
         XCTAssertEqual(sessions.first?.requiresGuardedRelay, true)
         XCTAssertTrue(fetched.value.allSatisfy { $0.hasPrefix(root) }, "Every request stays on the owner's configured link")
         let records = FottyQualityStore.shared.records()
-        let admission = try XCTUnwrap(records.last { $0.name == "penguplay_delivery_admission" })
-        XCTAssertEqual(admission.details["addon_stream_entry_count"], "2", "Counts survive the diagnostic allowlist")
-        XCTAssertEqual(admission.details["candidate_count"], "1")
-        XCTAssertEqual(admission.details["addon_admission_rejected_count"], "1")
+        let admission = try XCTUnwrap(records.last { $0.name == "stream_admission" && $0.details["source_family"] == "penguplay" })
+        XCTAssertEqual(admission.details["offered_count"], "2", "Counts survive the diagnostic allowlist")
+        XCTAssertEqual(admission.details["admitted_count"], "2")
+        XCTAssertEqual(admission.details["admission_reconciled"], "yes")
         let lookup = try XCTUnwrap(records.last { $0.name == "penguplay_lookup" })
         XCTAssertEqual(lookup.details["result"], "admitted")
         XCTAssertFalse(lookup.details.values.contains { $0.contains("http") || $0.contains("Sabres") })
+    }
+
+    func testMixedNoticeMalformedAndNullMetadataCannotEraseValidSibling() async throws {
+        let manifest = #"{"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["tv"],"idPrefixes":["pp-live:"]},"catalog"],"catalogs":[{"type":"tv","id":"pp-live-hockey"}]}"#
+        let catalog = #"{"metas":[{"id":"pp-live:daddylive~one","type":"tv","name":"Buffalo Sabres vs Tampa Bay Lightning","released":"2026-11-12T00:00:00.000Z"}]}"#
+        let streams = #"{"streams":[{"title":"You must sign in","url":"https://pengu.uk/web/index.html"},7,{"url":"https://cdn.example.com/play.php","behaviorHints":null,"drm":null},{"url":"https://cdn.example.com/play.php","headers":null},{"url":"https://cdn.example.com/locked","drm":"widevine"}]}"#
+        let client = Client(configuration: { self.manifestURL }, fetch: { r in
+            let url = try XCTUnwrap(r.url)
+            let body = url == self.manifestURL ? manifest : url.path.contains("/stream/") ? streams : catalog
+            return (Data(body.utf8),HTTPURLResponse(url:url,statusCode:200,httpVersion:nil,headerFields:["Content-Type":"application/json"])!)
+        }, enabled:{true},current:{$0},validate:{_ in})
+        let sessions = try await client.resolve(for: request(),now:kickoff)
+        XCTAssertEqual(sessions.count,1); XCTAssertEqual(sessions[0].requiresGuardedRelay, true)
+        let row = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "stream_admission" && $0.details["source_family"] == "penguplay" })
+        XCTAssertEqual(row.details["offered_count"],"5"); XCTAssertEqual(row.details["admitted_count"],"1")
+        for reason in ["sign_in","no_url","duplicate","drm"] { XCTAssertEqual(row.details["admission_" + reason + "_count"],"1") }
+        XCTAssertEqual(row.details["admission_reconciled"],"yes")
     }
 
     func testLookupReceiptNamesTheStageThatStopped() async throws {

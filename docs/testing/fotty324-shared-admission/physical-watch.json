@@ -1,0 +1,105 @@
+{
+  "recordedAtUTC": "2026-11-14T04:22:58.864913+00:00",
+  "device": "Jet iPad",
+  "appVersion": "3.0.0",
+  "build": "324",
+  "installation": "one normal signed Release; no test host",
+  "fixture": {
+    "home": "Vegas Golden Knights",
+    "away": "Nashville Predators",
+    "competition": "NHL",
+    "kickoffUTC": "2026-11-14T03:00:00Z",
+    "statusEvidence": "fresh ESPN scoreboard STATUS_IN_PROGRESS before and after; first party NHL API unavailable",
+    "programmeObserved": "correct hockey teams and 1\u20131 score on HF2; initial HF1 showed La Rochelle\u2013Bayonne rugby"
+  },
+  "normalWatch": {
+    "tapUTC": "2026-11-14T04:11:36.787Z",
+    "feedbackObserved": "Finding a broadcast / Cancel",
+    "firstDecodedMilliseconds": 4509,
+    "firstDecodedSource": "HF1",
+    "firstDecodedProgrammeCorrect": false,
+    "correctManualSource": "HF2",
+    "correctSourceAttemptToDecodeMilliseconds": 1752,
+    "correctHoldMilliseconds": 92439,
+    "correctMediaAdvanceMilliseconds": 92438,
+    "nativeStalls": 0,
+    "nativePresentation": "1280x720",
+    "pickerChoices": 26,
+    "initialAdmissions": {
+      "highfly": {
+        "offered": 7,
+        "admitted": 7,
+        "rejected": {}
+      },
+      "communitysports": {
+        "offered": 8,
+        "admitted": 6,
+        "rejected": {
+          "inner_not_https": 2
+        }
+      },
+      "penguplay": {
+        "offered": 14,
+        "admitted": 13,
+        "rejected": {
+          "no_url": 1
+        }
+      },
+      "cncsports": {
+        "offered": null,
+        "admitted": null,
+        "completion": "failed",
+        "fetchFailures": 1
+      }
+    },
+    "allKnownRetainedLookupsReconcile": true
+  },
+  "naturalFailure": {
+    "trigger": "HF1 stalled on a later selection; no forced outage",
+    "observedStallMilliseconds": 6317,
+    "attempts": [
+      "HF1 stalled",
+      "PP1 descriptor failed",
+      "CS1 failed before decode",
+      "HF2 decoded correct match"
+    ],
+    "sourceFailureToReplacementDecodeMilliseconds": 15630,
+    "replacementAttemptToDecodeMilliseconds": 1709,
+    "independentBackupProven": false
+  },
+  "limits": [
+    "Initial first picture was the wrong programme; not a successful correct-match Watch result.",
+    "Highfly telemetry proves one matched listing yielded seven deliveries, but does not retain its identity. Wrong upstream delivery versus parsing is not established.",
+    "Only HF2 correct-programme sustained playback qualified. Other offered candidates are not all playback passes.",
+    "Centre-control gestures did not establish a stable paused state; no pause/resume pass claimed.",
+    "Device Hub does not relay sound; audio not confirmed.",
+    "No fresh PL/UCL/cricket qualification in this gate."
+  ],
+  "preservation": {
+    "phoneUntouched": true,
+    "noTestFlight": true,
+    "noCloudOrGitPublication": true,
+    "sourceOptinsUnchanged": true,
+    "trackedStablePreferencesUnchanged": 8,
+    "expectedPlaybackHealthChanged": true
+  },
+  "ownerStatus": {
+    "visuallyVerified": true,
+    "highfly": "72 offered / 72 candidates / 10 lookups",
+    "communitysports": "16 offered / 12 candidates / 4 unsafe links / 2 lookups",
+    "penguplay": "31 observed; other counts unavailable / 3 no-link entries / 1 unread lookup",
+    "cncsports": "offered and candidates unavailable / 1 unread lookup / 1 failed read",
+    "interpretation": "current-build retained lookups, not unique delivery inventory",
+    "finalScreen": "Home"
+  },
+  "sourceSnapshot": {
+    "acceptanceProductionFilesCompared": 18,
+    "changedSincePassingSnapshot": 0
+  },
+  "cleanup": {
+    "ownedBuildGateRemoved": true,
+    "ownedKeepAwakeStopped": true,
+    "rawDevicePreferencesRemoved": true,
+    "completedAtUTC": "2026-11-14T04:25:20.200211+00:00"
+  }
+}

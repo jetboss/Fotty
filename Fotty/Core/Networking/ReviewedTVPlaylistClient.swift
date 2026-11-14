@@ -143,39 +143,72 @@ actor ReviewedTVPlaylistClient {
         url.host == "live-addon-rust.vercel.app" && channels.contains { $0.playlistURL == url }
     }
 
+    private struct Delivery {
+        let url: URL
+        let headers: [String: String]
+    }
+
     private struct ChannelDeliveries {
-        var offered = 0
-        private(set) var urls: [URL] = []
-        private var seen: Set<URL> = []
+        var ledger = StreamAdmissionLedger()
+        private(set) var offers: [Delivery] = []
+        private var seen: Set<StreamDeliveryIdentity> = []
         var failure: CommunitySportsAddonError = .matchNotFound
 
-        mutating func append(_ url: URL) {
-            if seen.insert(url).inserted { urls.append(url) }
+        mutating func reject(_ reason: String) {
+            ledger.record(reason)
+            failure = .unsafeResponse
         }
-
+        mutating func append(_ url: URL, headers: [String: String]) {
+            guard seen.insert(.init(url: url, headers: headers)).inserted else { ledger.record("duplicate"); return }
+            guard offers.count < StreamDeliveryPolicy.maximumSessionsPerProvider else { ledger.record("limit"); return }
+            offers.append(.init(url: url, headers: headers))
+        }
         func first() throws -> URL {
-            guard let url = urls.first else { throw failure }
-            return url
+            guard let offer = offers.first else { throw failure }
+            return offer.url
         }
+    }
+
+    private struct JSONDelivery: Decodable {
+        let headers: [String: String]?
+        let requiresDRM: Bool
+        init(from decoder: Decoder) throws {
+            headers = try? StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
+            requiresDRM = StreamDeliveryPolicy.decodeRequiresDRM(from: decoder)
+        }
+    }
+
+    private nonisolated static func defaultHeaders(for channel: ChannelDefinition) -> [String: String] {
+        isTenies(channel.playlistURL) ? teniesHeaders : channel.playbackUserAgent.map { ["User-Agent": $0] } ?? [:]
+    }
+
+    private nonisolated static func deliveryHeaders(_ requested: [String: String], channel: ChannelDefinition) -> [String: String]? {
+        guard let supplied = StreamDeliveryPolicy.requestHeaders(requested) else { return nil }
+        return defaultHeaders(for: channel).merging(supplied) { _, advertised in advertised }
     }
 
     private nonisolated static func teniesDeliveries(_ data: Data, channel: ChannelDefinition) throws -> ChannelDeliveries {
         guard let document = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let streams = document["streams"] as? [Any] else { throw CommunitySportsAddonError.unsafeResponse }
         var result = ChannelDeliveries()
-        for case let stream as [String: Any] in streams {
-            guard stream["name"] as? String == "TENIES.SPACE Live TV",
-                  let title = stream["title"] as? String, channel.playlistLabels.contains(title) else { continue }
-            result.offered += 1
-            guard Set(stream.keys) == ["name", "title", "url", "behaviorHints"],
-                  let hints = stream["behaviorHints"] as? [String: Any],
-                  Set(hints.keys) == ["notWebReady", "requestHeaders"], hints["notWebReady"] as? Bool == false,
-                  hints["requestHeaders"] as? [String: String] == teniesHeaders,
-                  let raw = stream["url"] as? String, let url = URL(string: raw), admitsDelivery(url, channel: channel) else {
-                result.failure = .unsafeResponse
-                continue
+        // This endpoint declares one station. Every returned row belongs in
+        // its receipt, including malformed or mismatched rows.
+        result.ledger.observe(streams.count)
+        for row in streams {
+            guard let stream = row as? [String: Any] else { result.reject("malformed"); continue }
+            guard let title = stream["title"] as? String, channel.playlistLabels.contains(title) else {
+                result.reject("filtered"); continue
             }
-            result.append(url)
+            guard let bytes = try? JSONSerialization.data(withJSONObject: stream),
+                  let decoded = try? JSONDecoder().decode(JSONDelivery.self, from: bytes) else { result.reject("malformed"); continue }
+            guard !decoded.requiresDRM else { result.reject("drm"); continue }
+            guard let requested = decoded.headers else { result.reject("malformed_headers"); continue }
+            if let reason = StreamDeliveryPolicy.headerRejection(requested) { result.reject(reason); continue }
+            guard let headers = deliveryHeaders(requested, channel: channel) else { result.reject("malformed_headers"); continue }
+            guard let raw = stream["url"] as? String else { result.reject("no_url"); continue }
+            guard let url = URL(string: raw) else { result.reject("malformed"); continue }
+            if let rejection = StreamDeliveryPolicy.rejection(url) { result.reject(rejection); continue }
+            result.append(url, headers: headers)
         }
         return result
     }
@@ -264,6 +297,14 @@ actor ReviewedTVPlaylistClient {
                          enabledProviderCodes: [ReviewedTVPlaylistClient.providerCode], at: at)
                  }) async throws -> [StreamSession] {
         let started = Date()
+        var ledger = StreamAdmissionLedger(), fetchFailures = 0
+        var admitted = 0, completion = "failed"
+        defer {
+            if Task.isCancelled { completion = "cancelled" }
+            ledger.finish(admitted: admitted, completion: completion)
+            qualityStore.recordStreamAdmission(sourceFamily: Self.providerCode, ledger: ledger,
+                completion: completion, fetchFailures: fetchFailures)
+        }
         let television = SportsTVStation.identifying(request)
         if television != nil, !(await isEnabled()) { throw CommunitySportsAddonError.matchNotFound }
         let requests: [StreamPlaybackRequest]
@@ -294,14 +335,8 @@ actor ReviewedTVPlaylistClient {
         var playlistCache: [URL: Data] = [:]
         var resolved: [(StreamPlaybackRequest, StreamSession)] = []
         var firstFailure: Error?
-        var offered: Int?
-        var admitted = 0
-        defer {
-            if let offered, !Task.isCancelled {
-                qualityStore.recordStreamAdmission(sourceFamily: Self.providerCode, offered: offered, admitted: admitted)
-            }
-        }
         for scoped in accepted {
+            var enumerated = false
             do {
                 guard let channel = Self.selectedChannel(for: scoped, at: now) else { throw CommunitySportsAddonError.conflictingMatch }
                 let data: Data
@@ -313,16 +348,19 @@ actor ReviewedTVPlaylistClient {
                     playlistCache[channel.playlistURL] = data
                 }
                 let deliveries = try Self.deliveries(from: data, playlistURL: channel.playlistURL, channel: channel)
-                offered = (offered ?? 0) + deliveries.offered
-                guard !deliveries.urls.isEmpty else { throw deliveries.failure }
-                var validated: [URL] = []
-                for delivery in deliveries.urls {
+                enumerated = true
+                ledger.observe(deliveries.ledger.offered)
+                for (reason, count) in deliveries.ledger.dispositions { ledger.record(reason, count: count) }
+                guard !deliveries.offers.isEmpty else { throw deliveries.failure }
+                var validated: [Delivery] = []
+                for delivery in deliveries.offers {
                     try Task.checkCancellation()
                     do {
-                        try await validateDestination(delivery)
+                        try await validateDestination(delivery.url)
                         validated.append(delivery)
                     } catch {
                         try Task.checkCancellation()
+                        ledger.record("validation")
                         if firstFailure == nil { firstFailure = error }
                     }
                 }
@@ -332,16 +370,21 @@ actor ReviewedTVPlaylistClient {
                 if let association = scoped.registryMatch {
                     guard await isEnabled(), let fixture = await currentFixture(scoped, completedAt),
                           Self.programmeAssociation(for: fixture.usingRegistryMatch(association), at: completedAt) != nil else {
+                        ledger.record("fixture_changed", count: validated.count)
                         throw CommunitySportsAddonError.conflictingMatch
                     }
                     current = fixture.usingRegistryMatch(association)
                 } else { current = scoped }
                 for delivery in validated {
-                    resolved.append((current, try Self.session(for: current, delivery: delivery,
-                        at: now, hasAlternatives: deliveries.urls.count > 1)))
+                    resolved.append((current, try Self.session(for: current, delivery: delivery.url,
+                        at: now, hasAlternatives: deliveries.offers.count > 1, requiredHeaders: delivery.headers)))
+                    ledger.record("admitted")
                 }
             } catch {
+                if error is CancellationError || (error as? URLError)?.code == .cancelled { completion = "cancelled"; throw error }
                 try Task.checkCancellation()
+                if !enumerated, (error as? CommunitySportsAddonError) != .conflictingMatch,
+                   (error as? CommunitySportsAddonError) != .matchNotFound { fetchFailures += 1 }
                 if firstFailure == nil { firstFailure = error }
             }
         }
@@ -361,6 +404,7 @@ actor ReviewedTVPlaylistClient {
         if requiresEnablement, !(await isEnabled()) { throw CommunitySportsAddonError.conflictingMatch }
         try Task.checkCancellation()
         admitted = resolved.count
+        completion = fetchFailures > 0 || firstFailure != nil ? "partial" : ledger.dispositions["limit", default: 0] > 0 ? "limited" : "complete"
         return resolved.map { $0.1 }
     }
 
@@ -419,7 +463,7 @@ actor ReviewedTVPlaylistClient {
             }
             // Preserve the selected backup across a reorder. A lone source in
             // older sessions can still renew onto a publisher's replacement URL.
-            let sameDelivery = candidates.first { $0.playableURL == session.playableURL }
+            let sameDelivery = candidates.first { $0.playableURL == session.playableURL && $0.requiredHeaders == session.requiredHeaders }
             let singleReplacement = candidates.count == 1 && session.diagnosticMetadata["tv_has_alternatives"] != "true"
             guard let fresh = sameDelivery ?? (singleReplacement ? candidates.first : nil),
                   let next = fresh.eventBinding,
@@ -550,33 +594,15 @@ actor ReviewedTVPlaylistClient {
     nonisolated static func admitsDelivery(_ url: URL) -> Bool { admitsDelivery(url, channel: channels[0]) }
 
     nonisolated static func admitsDelivery(_ url: URL, channel: ChannelDefinition) -> Bool {
-        channels.contains(channel) && LocalStreamProxyPolicy.allowsDestination(url)
-            && url.scheme?.lowercased() == "https" && (url.port == nil || url.port == 443)
-            && url.user == nil && url.password == nil && url.fragment == nil && admitsQuery(url, channel: channel)
-            && (channel.deliveryPath == nil || channel.deliveryPath == url.path)
-            && channel.allowedDeliveryHosts.contains(url.host?.lowercased() ?? "")
-            && url.pathExtension.lowercased() == "m3u8" && url.absoluteString.utf8.count <= 8_192
-    }
-
-    // Only the current, literally advertised opaque CDN token is carried. It
-    // is never decoded, regenerated, stripped or stored. Fresh metadata and the
-    // existing90-second descriptor lease remain mandatory. No other query is admitted.
-    private nonisolated static func admitsQuery(_ url: URL, channel: ChannelDefinition) -> Bool {
-        guard channel.allowedDeliveryHosts == ["cdnlivetv.tv"] else { return url.query == channel.reviewedPlaylistQuery }
-        guard let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems,
-              items.count == 1, items[0].name == "token", let value = items[0].value,
-              (32...1024).contains(value.utf8.count),
-              value.range(of: "^[A-Za-z0-9_+/=-]+$", options: .regularExpression) != nil else { return false }
-        return true
+        channels.contains(channel) && StreamDeliveryPolicy.rejection(url) == nil
     }
 
     nonisolated static func willowDelivery(from data: Data, playlistURL: URL) throws -> URL {
         try delivery(from: data, playlistURL: playlistURL, channel: channels[0])
     }
 
-    /// Exact selected ID/label and reviewed host. Other channels, alternate
-    /// markets, player instructions and unsupported delivery origins grant no
-    /// authority. Each selected channel is parsed independently.
+    /// Exact selected station identity and trusted playlist provenance grant
+    /// authority. Each advertised delivery then uses the common transport policy.
     nonisolated static func delivery(from data: Data, playlistURL: URL, channel: ChannelDefinition) throws -> URL {
         try deliveries(from: data, playlistURL: playlistURL, channel: channel).first()
     }
@@ -590,69 +616,96 @@ actor ReviewedTVPlaylistClient {
         guard lines.count <= 20_000,
               let first = lines.first, first == "#EXTM3U" || first.hasPrefix("#EXTM3U ") else { throw CommunitySportsAddonError.unsafeResponse }
         let identifierPattern = try NSRegularExpression(pattern: #"(?:^|\s)tvg-id="([^"]*)"(?=\s|,|$)"#)
-        var pending: String?, hasInstructions = false, publishedAgentCount = 0
+        var pending: String?, scoped = false
+        var requested: [String: String] = [:], rowFailure: String?
         var result = ChannelDeliveries()
-        for rawLine in lines.dropFirst() {
-            guard rawLine.utf8.count <= 8_192,
-                  !rawLine.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) && $0.value != 9 }) else {
-                // Discard the whole broken entry. Never bind its next URL to
-                // the previous station. Retain the rejection if no option survives.
-                let idAttribute = "tvg-id=\"" + channel.playlistIdentifier + "\""
-                let beginsEntry = rawLine.trimmingCharacters(in: .whitespaces).hasPrefix("#EXTINF:")
-                if rawLine.contains(idAttribute) || (!beginsEntry && pending?.contains(idAttribute) == true) {
-                    result.failure = .unsafeResponse
-                }
-                pending = nil
-                continue
+        result.ledger.observe(0)
+        func belongsToStation(_ metadata: String) -> Bool {
+            guard metadata.contains("tvg-id=\"" + channel.playlistIdentifier + "\"") else { return false }
+            if channel.playlistURL == zillaLGPlaylistURL {
+                guard let comma = metadata.lastIndex(of: ",") else { return false }
+                return channel.playlistLabels.contains(String(metadata[metadata.index(after: comma)...]).trimmingCharacters(in: .whitespaces))
             }
+            return true
+        }
+        func merge(_ map: [String: String]) {
+            for (name, value) in map {
+                let lower = name.lowercased()
+                if let previous = requested[lower], previous != value { rowFailure = "malformed_headers" }
+                requested[lower] = value
+            }
+        }
+        for rawLine in lines.dropFirst() {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             if line.isEmpty { continue }
-            if line.hasPrefix("#EXTINF:") { pending = line; hasInstructions = false; publishedAgentCount = 0; continue }
+            if line.hasPrefix("#EXTINF:") {
+                if scoped { result.reject(rowFailure ?? "no_url") }
+                pending = line; scoped = belongsToStation(line); requested = [:]; rowFailure = nil
+                if scoped { result.ledger.observe(1) }
+            }
+            guard rawLine.utf8.count <= 8_192,
+                  !rawLine.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) && $0.value != 9 }) else {
+                if scoped { result.reject("malformed") }
+                pending = nil; scoped = false
+                continue
+            }
+            if line.hasPrefix("#EXTINF:") { continue }
             if line.hasPrefix("#") {
-                if pending != nil && !line.hasPrefix("#EXTGRP:") {
-                    if let agent = channel.playbackUserAgent, line == "#EXTVLCOPT:http-user-agent=" + agent { publishedAgentCount += 1 }
-                    else { hasInstructions = true }
+                guard scoped else { continue }
+                if line.hasPrefix("#EXTVLCOPT:") {
+                    let value = String(line.dropFirst("#EXTVLCOPT:".count))
+                    if let equal = value.firstIndex(of: "=") {
+                        let name = String(value[..<equal]).lowercased()
+                        let known = ["http-user-agent": "User-Agent", "http-referrer": "Referer", "http-referer": "Referer", "http-origin": "Origin", "http-cookie": "Cookie", "http-authorization": "Authorization"]
+                        if let header = known[name] { merge([header: String(value[value.index(after: equal)...])]) }
+                        else { rowFailure = "unsupported" }
+                    } else { rowFailure = "malformed_headers" }
+                } else if line.hasPrefix("#EXTHTTP:") {
+                    let bytes = Data(line.dropFirst("#EXTHTTP:".count).utf8)
+                    if let map = try? JSONDecoder().decode([String: String].self, from: bytes) { merge(map) }
+                    else { rowFailure = "malformed_headers" }
+                } else if line.hasPrefix("#EXT-X-KEY:") || line.hasPrefix("#EXT-X-SESSION-KEY:") {
+                    rowFailure = "drm"
+                } else if line.hasPrefix("#KODIPROP:") {
+                    let value = String(line.dropFirst("#KODIPROP:".count))
+                    if value.lowercased().contains("license") || value.lowercased().contains("drm") { rowFailure = "drm" }
+                    else if let equal = value.firstIndex(of: "="),
+                            ["inputstream.adaptive.manifest_headers", "inputstream.adaptive.stream_headers"].contains(String(value[..<equal])) {
+                        let query = String(value[value.index(after: equal)...])
+                        if let items = URLComponents(string: "https://headers.example/?" + query)?.queryItems {
+                            for item in items {
+                                if let value = item.value { merge([item.name: value]) } else { rowFailure = "malformed_headers" }
+                            }
+                        } else { rowFailure = "malformed_headers" }
+                    } else { rowFailure = "unsupported" }
                 }
                 continue
             }
-            defer { pending = nil; hasInstructions = false; publishedAgentCount = 0 }
-            guard let metadata = pending else { continue }
-            // This publisher reuses one dummy tvg-id across its channels.
-            // Only this reviewed profile uses the exact published label as
-            // an additional selector; its ID, origin and path must still pass
-            // every check below. Never treat the dummy ID as channel authority.
-            if channel.playlistURL == zillaLGPlaylistURL {
-                guard let comma = metadata.lastIndex(of: ","),
-                      channel.playlistLabels.contains(String(metadata[metadata.index(after: comma)...]).trimmingCharacters(in: .whitespaces)) else { continue }
-            }
+            defer { pending = nil; scoped = false; requested = [:]; rowFailure = nil }
+            guard scoped, let metadata = pending else { continue }
             let source = metadata as NSString
             let attributes = identifierPattern.matches(in: metadata, range: NSRange(location: 0, length: source.length))
                 .map { source.substring(with: $0.range(at: 1)) }
-            guard attributes.contains(channel.playlistIdentifier) else { continue }
             guard attributes == [channel.playlistIdentifier], let comma = metadata.lastIndex(of: ",") else {
-                result.failure = .unsafeResponse
-                continue
+                result.reject("malformed"); continue
             }
             let label = String(metadata[metadata.index(after: comma)...]).trimmingCharacters(in: .whitespaces)
             let base = label.replacingOccurrences(of: #"\s*\([0-9]{3,4}p\)$"#, with: "", options: .regularExpression)
             let matchesLabel = channel.providerName == "TV1"
                 ? CricketBroadcastChannel.identifying(title: base) == .willow : channel.playlistLabels.contains(base)
-            guard matchesLabel else {
-                result.failure = .conflictingMatch
-                continue
-            }
-            result.offered += 1
-            guard !hasInstructions, publishedAgentCount == (channel.playbackUserAgent == nil ? 0 : 1),
-                  let url = URL(string: line), admitsDelivery(url, channel: channel) else {
-                result.failure = .unsafeResponse
-                continue
-            }
-            result.append(url)
+            guard matchesLabel else { result.reject("filtered"); result.failure = .conflictingMatch; continue }
+            if let rowFailure { result.reject(rowFailure); continue }
+            if let reason = StreamDeliveryPolicy.headerRejection(requested) { result.reject(reason); continue }
+            guard let headers = deliveryHeaders(requested, channel: channel) else { result.reject("malformed_headers"); continue }
+            guard let url = URL(string: line) else { result.reject("malformed"); continue }
+            if let rejection = StreamDeliveryPolicy.rejection(url) { result.reject(rejection); continue }
+            result.append(url, headers: headers)
         }
+        if scoped { result.reject(rowFailure ?? "no_url") }
         return result
     }
 
-    nonisolated static func session(for request: StreamPlaybackRequest, delivery: URL, at now: Date, hasAlternatives: Bool = false) throws -> StreamSession {
+    nonisolated static func session(for request: StreamPlaybackRequest, delivery: URL, at now: Date, hasAlternatives: Bool = false, requiredHeaders: [String: String]? = nil) throws -> StreamSession {
         guard let channel = selectedChannel(for: request, at: now), admitsDelivery(delivery, channel: channel) else {
             throw CommunitySportsAddonError.unsafeResponse
         }
@@ -662,12 +715,14 @@ actor ReviewedTVPlaylistClient {
         guard let binding = StreamEventBinding(request: request, providerCode: providerCode,
                 providerEventID: programme?.broadcast.providerEventID ?? channel.streamID, streamID: channel.streamID,
                 manifestRevision: revision, verifiedAt: now, expiresAt: expiry, at: now) else { throw CommunitySportsAddonError.unsafeResponse }
-        let key = SHA256.hash(data: Data(delivery.absoluteString.utf8)).map { String(format: "%02x", $0) }.joined()
+        let headers = requiredHeaders ?? defaultHeaders(for: channel)
+        guard StreamDeliveryPolicy.requestHeaders(headers) != nil else { throw CommunitySportsAddonError.unsafeResponse }
+        let key = PlavioSportsAddonClient.sourceKey(url: delivery, headers: headers)
         var details = ["source_family": providerCode, "manifest_result": "exact_channel_match",
                        "delivery": "reviewed_direct_hls", "source_key": key, "source_key_scope": "delivery"]
         if hasAlternatives { details["tv_has_alternatives"] = "true" }
         return StreamSession(matchID: request.matchID, playableURL: delivery, streamType: .hls,
-            providerName: channel.providerName, requiredHeaders: Self.isTenies(channel.playlistURL) ? Self.teniesHeaders : channel.playbackUserAgent.map { ["User-Agent": $0] } ?? [:], qualityLabel: nil, expiryTime: binding.expiresAt,
+            providerName: channel.providerName, requiredHeaders: headers, qualityLabel: nil, expiryTime: binding.expiresAt,
             canRefresh: true, diagnosticMetadata: details, createdAt: now,
             requiresGuardedRelay: true, eventBinding: binding)
     }

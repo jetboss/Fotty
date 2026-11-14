@@ -66,13 +66,18 @@ actor PenguPlaySportsAddonClient {
         let id: String; let version: String; let resources: [Resource]; let catalogs: [Catalog]
     }
     struct Delivery: Decodable, Sendable {
-        struct Hints: Decodable, Sendable {
-            struct Proxy: Decodable, Sendable { let request: [String: String]?; let response: [String: String]? }
-            let proxyHeaders: Proxy?
-        }
         let url: String?
         let title: String?
-        let behaviorHints: Hints?
+        let requestedHeaders: [String: String]?
+        let requiresDRM: Bool
+        enum CodingKeys: String, CodingKey { case url, title }
+        init(from decoder: Decoder) throws {
+            let c = try? decoder.container(keyedBy: CodingKeys.self)
+            url = try? c?.decode(String.self, forKey: .url)
+            title = try? c?.decode(String.self, forKey: .title)
+            requestedHeaders = try? StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
+            requiresDRM = StreamDeliveryPolicy.decodeRequiresDRM(from: decoder)
+        }
     }
     private struct Streams: Decodable { let streams: [Delivery] }
 
@@ -209,6 +214,16 @@ actor PenguPlaySportsAddonClient {
         // One lookup receipt per eligible request: the stage reached, never titles or URLs.
         var stage = "manifest"
         var finished = false
+        var admission = StreamAdmissionLedger(), fetchFailures = 0
+        var sessions: [StreamSession] = [], seen: Set<StreamDeliveryIdentity> = []
+        var cancelled = false, listingsLimited = false
+        defer {
+            let completion = cancelled || Task.isCancelled ? "cancelled" : (!finished ? "failed" :
+                (listingsLimited || admission.dispositions["limit", default: 0] > 0 ? "limited" : (fetchFailures > 0 ? "partial" : "complete")))
+            admission.finish(admitted: finished ? sessions.count : 0, completion: completion)
+            FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, ledger: admission,
+                completion: completion, fetchFailures: fetchFailures)
+        }
         lastReadFailure = nil
         var missReason: String?, rowCount: Int?
         defer {
@@ -233,7 +248,7 @@ actor PenguPlaySportsAddonClient {
             do {
                 let page: Catalog = try await read(url)
                 rows += page.metas.prefix(max(0, 400 - rows.count))
-            } catch is CancellationError { throw CancellationError() }
+            } catch is CancellationError { cancelled = true; throw CancellationError() }
             catch { lastReadFailure = nil; continue } // Keep the other team's rows.
         }
         stage = "fixture_match"
@@ -266,6 +281,7 @@ actor PenguPlaySportsAddonClient {
         stage = "streams"
         lastReadFailure = nil
         let exactListing = viaChannel == nil
+        listingsLimited = listings.count > Self.maximumListings
         let reads = await withTaskGroup(of: (Int, Result<Streams, Error>).self) { group in
             for (index, listing) in listings.prefix(Self.maximumListings).enumerated() {
                 group.addTask {
@@ -294,40 +310,27 @@ actor PenguPlaySportsAddonClient {
             for await result in group { results.append(result) }
             return results.sorted { $0.0 < $1.0 }
         }
-        try Task.checkCancellation()
         stage = "stream_count"
         var gathered: [(row: Row, deliveries: [Delivery])] = []
         var firstFailure: Error?
-        var offeredTotal = 0, signInListings = 0
+        var offeredTotal = 0
         for (index, result) in reads {
             let streams: Streams
             switch result {
             case .success(let value): streams = value
             case .failure(let error):
+                if error is CancellationError { cancelled = true } else { fetchFailures += 1 }
                 if firstFailure == nil || (firstFailure as? CommunitySportsAddonError) == .matchNotFound { firstFailure = error }
                 continue
             }
             offeredTotal += streams.streams.count
-            // A listing that answers with the sign-in placeholder adds nothing.
-            if streams.streams.contains(where: Self.isSignInPlaceholder) { signInListings += 1; continue }
+            admission.observe(streams.streams.count)
+            admission.record("limit", count: max(0, streams.streams.count - 100))
             gathered.append((listings[index], Array(streams.streams.prefix(100))))
         }
-        var sessions: [StreamSession] = [], seen: Set<StreamDeliveryIdentity> = []
-        var rejections: [String] = [], rejectedHost: String?
-        let listingsRead = gathered.count + signInListings
-        defer {
-            if listingsRead > 0, !Task.isCancelled {
-                FottyQualityStore.shared.recordAccountStreamAdmission(provider: .penguPlay, offered: offeredTotal,
-                    admitted: finished ? sessions.count : 0, candidateCount: sessions.count,
-                    listingCount: listingsRead, rejections: rejections,
-                    fallbackReason: signInListings > 0 ? "sign_in" : nil,
-                    rejectedHost: rejectedHost, finished: finished)
-            }
-        }
+        if cancelled { throw CancellationError() }
+        try Task.checkCancellation()
         guard !gathered.isEmpty else {
-            if signInListings > 0 {
-                stage = "sign_in"; throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offeredTotal)
-            }
             stage = "streams"; throw firstFailure ?? CommunitySportsAddonError.invalidResponse
         }
         lastReadFailure = nil
@@ -338,26 +341,33 @@ actor PenguPlaySportsAddonClient {
             throw CommunitySportsAddonError.conflictingMatch
         }
         var current: [(row: Row, deliveries: [Delivery])] = []
-        for listing in gathered where await stillSelected(listing.row, channel: viaChannel, request: latest, at: completedAt) {
-            current.append(listing)
+        for listing in gathered {
+            if await stillSelected(listing.row, channel: viaChannel, request: latest, at: completedAt) { current.append(listing) }
+            else { admission.record("fixture_changed", count: listing.deliveries.count) }
         }
         guard !current.isEmpty else { throw CommunitySportsAddonError.conflictingMatch }
         stage = "delivery"
         for (listing, row) in current.flatMap({ listing in listing.deliveries.map { (listing.row, $0) } }) {
-            guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
+            guard sessions.count < Self.maximumSessions else { admission.record("limit"); continue }
+            if Self.isSignInPlaceholder(row) { admission.record("sign_in"); continue }
+            if row.requiresDRM { admission.record("drm"); continue }
+            guard let value = row.url, let url = URL(string: value) else { admission.record("no_url"); continue }
             if let reason = StreamDeliveryPolicy.rejection(url) {
-                rejections.append(reason); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue
+                admission.record(reason); continue
             }
-            guard let headers = Self.requestHeaders(row) else { rejections.append("credential_headers"); continue }
-            guard seen.insert(StreamDeliveryIdentity(url: url, headers: headers)).inserted else { continue }
+            guard row.requestedHeaders != nil else { admission.record("malformed_headers"); continue }
+            guard let headers = Self.requestHeaders(row) else { admission.record(StreamDeliveryPolicy.headerRejection(row.requestedHeaders ?? [:]) ?? "malformed_headers"); continue }
+            guard !seen.contains(StreamDeliveryIdentity(url: url, headers: headers)) else { admission.record("duplicate"); continue }
             do { try await validate(url) }
-            catch is CancellationError { throw CancellationError() }
-            catch { rejections.append("validation"); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue }
+            catch is CancellationError { cancelled = true; throw CancellationError() }
+            catch { admission.record("validation"); continue }
             guard let binding = StreamEventBinding(request: latest, providerCode: Self.providerCode,
                 providerEventID: listing.id, streamID: listing.id, resourceType: "tv", manifestRevision: manifest.version,
                 verifiedAt: completedAt, expiresAt: completedAt.addingTimeInterval(90), at: completedAt) else {
                 throw CommunitySportsAddonError.conflictingMatch
             }
+            seen.insert(StreamDeliveryIdentity(url: url, headers: headers))
+            admission.record("admitted")
             sessions.append(StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
                 providerName: "PP\(sessions.count + 1)", requiredHeaders: headers, qualityLabel: nil,
                 expiryTime: binding.expiresAt, canRefresh: true,
@@ -368,7 +378,6 @@ actor PenguPlaySportsAddonClient {
                 nativePlaylistProfile: LocalStreamProxyPlaylistProfile.penguPlay(deliveryURL: url,
                     providerEventID: listing.id, headers: headers),
                 requiresGuardedRelay: true, eventBinding: binding))
-            if sessions.count == Self.maximumSessions { break }
         }
         stage = "admission"
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offeredTotal) }
@@ -393,7 +402,7 @@ actor PenguPlaySportsAddonClient {
     /// Referer, Origin and User-Agent are forwarded; other names are dropped;
     /// a credential header refuses the stream. Response-header hints are ignored.
     nonisolated static func requestHeaders(_ delivery: Delivery) -> [String: String]? {
-        StreamDeliveryPolicy.requestHeaders(delivery.behaviorHints?.proxyHeaders?.request ?? [:])
+        delivery.requestedHeaders.flatMap(StreamDeliveryPolicy.requestHeaders)
     }
 
     /// "🔴 LIVE: A - B" / "📺 A x B" → "A vs B" when exactly one separator splits two names.

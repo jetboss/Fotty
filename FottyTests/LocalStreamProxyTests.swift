@@ -1605,7 +1605,15 @@ final class LocalStreamProxyTests: XCTestCase {
         let mediaDelegate = LocalStreamProxy.RedirectDelegate(proxy: proxy, request: incoming, limit: 1)
         let segment = URL(string: "https://cdn.example.net/segment.ts")!
         let rangedSegment = await redirect(mediaDelegate, from: media, to: segment)
-        XCTAssertEqual(rangedSegment?.value(forHTTPHeaderField: "Range"), "bytes=0-99")
+        XCTAssertNil(rangedSegment?.value(forHTTPHeaderField: "Range"), "A root playlist redirect remains a complete-playlist request despite its new suffix")
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [ProxyFixtureProtocol.self]
+        let realSegment = URL(string: "https://media.example.com/part.ts")!
+        let segmentProxy = LocalStreamProxy(headers: [:], cookies: [], selectedMediaURL: realSegment,
+            configuration: config, resolver: { _ in ["8.8.8.8"] })
+        defer { segmentProxy.stop() }
+        let segmentDelegate = LocalStreamProxy.RedirectDelegate(proxy: segmentProxy, request: incoming, limit: 1)
+        let realRange = await redirect(segmentDelegate, from: realSegment, to: segment)
+        XCTAssertEqual(realRange?.value(forHTTPHeaderField: "Range"), "bytes=0-99", "Actual media redirects preserve byte ranges")
         let overBudget = await redirect(delegate, from: cdn, to: URL(string: "https://next.example.net/list.m3u8")!)
         XCTAssertNil(overBudget)
         XCTAssertEqual(ProxyFixtureProtocol.requests.count, 0)
@@ -1767,6 +1775,64 @@ final class LocalStreamProxyTests: XCTestCase {
                 continuation.resume(returning: $0)
             }
         }
+    }
+
+    func testDeclaredHLSUsesBodyAndManifestAncestryForOpaqueRootAndVariant() async throws {
+        let root = URL(string: "https://media.example.com/play.php?ticket=synthetic")!
+        ProxyFixtureProtocol.configure { fixture in
+            let path = fixture.request.url!.path
+            if path == "/play.php" {
+                fixture.respond(type: "application/octet-stream", body: Data("#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=100000\nvariant?id=2".utf8))
+            } else if path == "/variant" {
+                fixture.respond(type: "text/plain", body: Data("#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\npart.ts".utf8))
+            } else { fixture.respond(type: "video/mp2t", body: Data([0x47, 1, 2, 3])) }
+        }
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [ProxyFixtureProtocol.self]
+        let proxy = LocalStreamProxy(headers: ["Referer":"http://public.example.com/", "Range":"bytes=0-1"], cookies: [],
+            selectedMediaURL: root, expectsHLS: true, configuration: config, resolver: { _ in ["8.8.8.8"] })
+        defer { proxy.stop() }; try await proxy.start()
+        func lastLink(_ data: Data) throws -> URL {
+            try XCTUnwrap(URL(string: String(decoding: data, as: UTF8.self).components(separatedBy: "\n").last!))
+        }
+        let (master, reply) = try await URLSession.shared.data(from: XCTUnwrap(proxy.playbackURL()))
+        XCTAssertEqual((reply as? HTTPURLResponse)?.mimeType, "application/vnd.apple.mpegurl")
+        let variant = try lastLink(master); XCTAssertEqual(variant.host, "127.0.0.1")
+        let (playlist, _) = try await URLSession.shared.data(from: variant)
+        let part = try lastLink(playlist); XCTAssertEqual(part.host, "127.0.0.1")
+        let (bytes, _) = try await URLSession.shared.data(from: part)
+        XCTAssertEqual(bytes, Data([0x47, 1, 2, 3]))
+        for request in ProxyFixtureProtocol.requests.prefix(2) {
+            XCTAssertNil(request.value(forHTTPHeaderField: "Range"))
+            XCTAssertEqual(request.value(forHTTPHeaderField: "Referer"), "http://public.example.com/")
+        }
+    }
+
+    func testDeclaredOpaqueHLSRejectsActualHTMLWithoutPublishingReferences() async throws {
+        ProxyFixtureProtocol.configure { fixture in
+            fixture.respond(type: "text/html", body: Data("<html>Sign in: https://unrelated.example.com/</html>".utf8))
+        }
+        let config = URLSessionConfiguration.ephemeral; config.protocolClasses = [ProxyFixtureProtocol.self]
+        let proxy = LocalStreamProxy(headers: [:], cookies: [], selectedMediaURL: URL(string: "https://media.example.com/play")!,
+            expectsHLS: true, configuration: config, resolver: { _ in ["8.8.8.8"] })
+        defer { proxy.stop() }; try await proxy.start()
+        let (_, response) = try await URLSession.shared.data(from: XCTUnwrap(proxy.playbackURL()))
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 502)
+        XCTAssertEqual(proxy.lastFailureEvidence?.stage, .manifest)
+        XCTAssertEqual(ProxyFixtureProtocol.requests.count, 1)
+    }
+
+    func testOpaquePlaylistRoleSurvivesRedirectButDoesNotApplyToKeysOrSegments() throws {
+        let root = URL(string:"https://media.example.com/play")!, redirected = URL(string:"https://cdn.example.com/live")!
+        var policy = LocalStreamProxyPolicy(selectedMediaURL:root, expectsHLS:true)
+        try policy.admitRedirect(from:root,to:redirected)
+        XCTAssertTrue(policy.expectsManifest(redirected))
+        _ = try policy.rewriteManifest("#EXTM3U\n#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"audio\",NAME=\"English\",URI=\"audio\"\n#EXT-X-KEY:METHOD=AES-128,URI=\"key\"\n#EXTINF:6,\nsegment", relativeTo:redirected,port:1234)
+        XCTAssertTrue(policy.expectsManifest(URL(string:"https://cdn.example.com/audio")!))
+        XCTAssertFalse(policy.expectsManifest(URL(string:"https://cdn.example.com/key")!))
+        XCTAssertFalse(policy.expectsManifest(URL(string:"https://cdn.example.com/segment")!))
+        _ = try policy.rewriteManifest("#EXTM3U\n#EXT-X-KEY:METHOD=AES-128,URI=\"key.m3u8\"\n#EXTINF:6,\nsegment.m3u8",relativeTo:redirected,port:1234)
+        XCTAssertFalse(policy.expectsManifest(URL(string:"https://cdn.example.com/key.m3u8")!))
+        XCTAssertFalse(policy.expectsManifest(URL(string:"https://cdn.example.com/segment.m3u8")!))
     }
 
     private func makeProxy(headers: [String: String] = [:], limits: LocalStreamProxyPolicy.Limits = .init()) -> LocalStreamProxy {

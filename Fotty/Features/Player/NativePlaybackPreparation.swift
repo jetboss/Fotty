@@ -15,12 +15,12 @@ enum NativePlaybackPreparation {
     static func prepareDelivery(
         url: URL, headers: [String: String], cookies: [HTTPCookie], requiresRelay: Bool,
         originProfile: LocalStreamProxyOriginProfile? = nil,
-        playlistProfile: LocalStreamProxyPlaylistProfile? = nil
+        playlistProfile: LocalStreamProxyPlaylistProfile? = nil, expectsHLS: Bool = false
     ) async throws -> Delivery {
         try Task.checkCancellation()
         guard requiresRelay else { return Delivery(url: url, proxy: nil) }
         let proxy = LocalStreamProxy(headers: headers, cookies: cookies, selectedMediaURL: url,
-                                     originProfile: originProfile, playlistProfile: playlistProfile)
+                                     originProfile: originProfile, playlistProfile: playlistProfile, expectsHLS: expectsHLS)
         var retained = false
         defer { if !retained { proxy.stop() } }
         do { try await proxy.start() }

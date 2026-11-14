@@ -156,6 +156,9 @@ struct CommunitySportsStreamEntry: Decodable, Sendable, Equatable {
     let quality: String?
     let sourceHint: String?
     let behaviorHints: BehaviorHints?
+    let requestedHeaders: [String: String]?
+    let requiresDRM: Bool
+    let hasMalformedURL: Bool
 
     init(name: String?, title: String?, url: String?, externalURL: String?,
          resolution: String?, quality: String?, sourceHint: String?,
@@ -168,6 +171,9 @@ struct CommunitySportsStreamEntry: Decodable, Sendable, Equatable {
         self.quality = quality
         self.sourceHint = sourceHint
         self.behaviorHints = behaviorHints
+        requestedHeaders = behaviorHints?.proxyHeaders?.request ?? [:]
+        requiresDRM = false
+        hasMalformedURL = false
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -187,18 +193,13 @@ struct CommunitySportsStreamEntry: Decodable, Sendable, Equatable {
         resolution = try? values.decodeIfPresent(String.self, forKey: .resolution)
         quality = try? values.decodeIfPresent(String.self, forKey: .quality)
         sourceHint = try? values.decodeIfPresent(String.self, forKey: .sourceHint)
-        let hints = values.contains(.behaviorHints) ? try values.decode(BehaviorHints.self, forKey: .behaviorHints) : nil
-        guard values.contains(.headers) else { behaviorHints = hints; return }
-        let direct = try values.decode([String: String].self, forKey: .headers)
-        var request: [String: String] = [:]
-        for map in [hints?.proxyHeaders?.request ?? [:], direct] {
-            for (name, value) in map {
-                let lower = name.lowercased()
-                if let previous = request[lower], previous != value { throw CommunitySportsAddonError.unsafeResponse }
-                request[lower] = value
-            }
+        requestedHeaders = try? StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
+        requiresDRM = StreamDeliveryPolicy.decodeRequiresDRM(from: decoder)
+        hasMalformedURL = [CodingKeys.url, .externalURL].contains { key in
+            values.contains(key) && (try? values.decodeNil(forKey: key)) != true
+                && (try? values.decode(String.self, forKey: key)) == nil
         }
-        behaviorHints = .init(proxyHeaders: .init(request: request, response: hints?.proxyHeaders?.response))
+        behaviorHints = .init(proxyHeaders: .init(request: requestedHeaders))
     }
 }
 
@@ -239,16 +240,18 @@ actor CommunitySportsAddonClient {
     private struct StreamDocument: Decodable, Sendable {
         let streams: [CommunitySportsStreamEntry]
         let entryCount: Int
+        let malformedCount: Int
+        let limitedCount: Int
 
         private enum CodingKeys: String, CodingKey { case streams }
 
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             guard values.contains(.streams) else {
-                streams = []; entryCount = 0; return
+                streams = []; entryCount = 0; malformedCount = 0; limitedCount = 0; return
             }
             if try values.decodeNil(forKey: .streams) {
-                streams = []; entryCount = 0; return
+                streams = []; entryCount = 0; malformedCount = 0; limitedCount = 0; return
             }
             var rows = try values.nestedUnkeyedContainer(forKey: .streams)
             let offered = rows.count
@@ -265,6 +268,8 @@ actor CommunitySportsAddonClient {
             }
             streams = admittedRows
             entryCount = offered ?? scanned
+            malformedCount = scanned - admittedRows.count
+            limitedCount = max(0, entryCount - scanned)
         }
     }
 
@@ -395,17 +400,71 @@ actor CommunitySportsAddonClient {
         }
     }
 
+    private func fetchStreamDocument(attempt: AdmissionAttempt, from url: URL, anchoredTo manifestURL: URL,
+                                     byteLimit: Int, stage: CommunitySportsRequestStage,
+                                     forceRefresh: Bool) async throws -> StreamDocument {
+        do {
+            let document = try await fetchJSON(StreamDocument.self, from: url, anchoredTo: manifestURL,
+                byteLimit: byteLimit, stage: stage, forceRefresh: forceRefresh)
+            attempt.observe(document)
+            return document
+        } catch {
+            if !Task.isCancelled && !(error is CancellationError) && (error as? URLError)?.code != .cancelled {
+                attempt.fetchFailures += 1
+            }
+            throw error
+        }
+    }
+
+    private final class AdmissionAttempt {
+        var ledger = StreamAdmissionLedger()
+        var fetchFailures = 0
+        func observe(_ document: StreamDocument) {
+            ledger.observe(document.entryCount)
+            ledger.record("malformed", count: document.malformedCount)
+            ledger.record("limit", count: document.limitedCount)
+        }
+        func record(_ reason: String, _ count: Int = 1) { ledger.record(reason, count: count) }
+        func recordRemaining(_ reason: String) { ledger.record(reason, count: ledger.offered - ledger.accounted) }
+    }
+
     func resolve(for request: StreamPlaybackRequest, now: Date = Date(),
                  forceRefresh: Bool = false) async throws -> [StreamSession] {
+        let attempt = AdmissionAttempt()
+        var admitted = 0, completion = "failed"
+        defer {
+            attempt.ledger.finish(admitted: admitted, completion: completion)
+            qualityStore.recordStreamAdmission(sourceFamily: "communitysports", ledger: attempt.ledger,
+                completion: completion, fetchFailures: attempt.fetchFailures)
+        }
+        do {
+            let sessions = try await resolveLookup(for: request, now: now, forceRefresh: forceRefresh, attempt: attempt)
+            admitted = sessions.count
+            completion = attempt.fetchFailures > 0 ? "partial" : attempt.ledger.dispositions["limit", default: 0] > 0 ? "limited" : "complete"
+            return sessions
+        } catch {
+            if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled { completion = "cancelled" }
+            else if attempt.fetchFailures == 0 {
+                switch error as? CommunitySportsAddonError {
+                case .httpFailure, .transportFailure, .invalidJSON, .invalidResponse, .invalidManifest: attempt.fetchFailures = 1
+                default: break
+                }
+            }
+            throw error
+        }
+    }
+
+    private func resolveLookup(for request: StreamPlaybackRequest, now: Date,
+                 forceRefresh: Bool, attempt: AdmissionAttempt) async throws -> [StreamSession] {
         try Task.checkCancellation()
         if let association = request.registryMatch {
-            return try await resolveRegistered(association, request: request, now: now, forceRefresh: forceRefresh)
+            return try await resolveRegistered(association, request: request, now: now, forceRefresh: forceRefresh, attempt: attempt)
         }
         if let channel = CricketBroadcastChannel.identifying(request: request) {
-            return try await resolveChannel(.cricket(channel), request: request, now: now, forceRefresh: forceRefresh)
+            return try await resolveChannel(.cricket(channel), request: request, now: now, forceRefresh: forceRefresh, attempt: attempt)
         }
         if let channel = Self.tvNetwork(for: request) {
-            return try await resolveChannel(channel, request: request, now: now, forceRefresh: forceRefresh)
+            return try await resolveChannel(channel, request: request, now: now, forceRefresh: forceRefresh, attempt: attempt)
         }
         guard let manifestURL, Self.isSafeManifestURL(manifestURL) else {
             throw CommunitySportsAddonError.configurationUnavailable
@@ -457,7 +516,7 @@ actor CommunitySportsAddonClient {
             // An unadvertised optional sport catalog is expected absence. A
             // failed advertised catalog is evidence that an empty Live lookup
             // must not later misreport as an ordinary missing fixture.
-            if preferredCatalogIsAdvertised { preferredCatalogFailure = error }
+            if preferredCatalogIsAdvertised { preferredCatalogFailure = error; attempt.fetchFailures += 1 }
             matchSelection = .missing
         }
 
@@ -514,7 +573,6 @@ actor CommunitySportsAddonClient {
         var listings = Self.selectAllMatches(for: request, from: lookupEntries)
         if listings.isEmpty { listings = [matched] }
         var sessions: [StreamSession] = [], offered = 0, firstFailure: Error?
-        var enumerated = false
         for listing in listings.prefix(Self.maximumListings) {
             let streamID = listing.behaviorHints?.defaultVideoId ?? listing.id
             if let rejection = Self.videoIDRejection(streamID) {
@@ -525,14 +583,13 @@ actor CommunitySportsAddonClient {
             let streamURL = Self.routeURL(relativeTo: manifestURL, components: ["stream", "tv", "\(streamID).json"])
             var document: StreamDocument
             do {
-                document = try await fetchJSON(StreamDocument.self, from: streamURL, anchoredTo: manifestURL,
+                document = try await fetchStreamDocument(attempt: attempt, from: streamURL, anchoredTo: manifestURL,
                     byteLimit: 256 * 1024, stage: .streams, forceRefresh: refreshed)
-                enumerated = true
                 if document.entryCount == 0, !refreshed, Self.allowsTargetedRefresh(for: request, at: now) {
                     try Task.checkCancellation()
                     refreshed = true
                     // The same exact catalog match owns this one descriptor re-fetch.
-                    document = try await fetchJSON(StreamDocument.self, from: streamURL, anchoredTo: manifestURL,
+                    document = try await fetchStreamDocument(attempt: attempt, from: streamURL, anchoredTo: manifestURL,
                         byteLimit: 256 * 1024, stage: .streams, forceRefresh: true)
                 }
             } catch is CancellationError { throw CancellationError() }
@@ -544,12 +601,11 @@ actor CommunitySportsAddonClient {
                 manifestRevision: manifest.version, verifiedAt: now,
                 expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime), at: now)
             sessions += Self.makeSessions(from: document.streams, request: request, manifestURL: manifestURL,
-                                          addOnVersion: manifest.version, after: sessions)
+                                          addOnVersion: manifest.version, after: sessions, admission: attempt.record)
                 .map { $0.recordingEventBinding(binding, for: request, at: now) }
         }
         try Task.checkCancellation()
         if sessions.isEmpty, let firstFailure { throw firstFailure }
-        if enumerated { qualityStore.recordStreamAdmission(sourceFamily: "communitysports", offered: offered, admitted: sessions.count) }
         guard offered > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offered) }
         return sessions
@@ -559,7 +615,7 @@ actor CommunitySportsAddonClient {
     /// same-ID response must still corroborate those facts before any media
     /// descriptor is requested. No canonical kickoff replaces a source date.
     private func resolveRegistered(_ association: BroadcastRegistryMatch, request: StreamPlaybackRequest,
-                                   now: Date, forceRefresh: Bool) async throws -> [StreamSession] {
+                                   now: Date, forceRefresh: Bool, attempt: AdmissionAttempt) async throws -> [StreamSession] {
         let record = association.broadcast
         let startedAt = ProcessInfo.processInfo.systemUptime
         let currentCricketListing = record.startBasis == "current-listing"
@@ -570,7 +626,7 @@ actor CommunitySportsAddonClient {
               Self.videoIDRejection(record.streamID) == nil,
               let manifestURL, Self.isSafeManifestURL(manifestURL) else { throw CommunitySportsAddonError.conflictingMatch }
         if association.programmeAuthority != nil {
-            return try await resolveProgrammeChannel(association, request: request, now: now, manifestURL: manifestURL)
+            return try await resolveProgrammeChannel(association, request: request, now: now, manifestURL: manifestURL, attempt: attempt)
         }
         let manifest = try await loadManifest(from: manifestURL, now: now, forceRefresh: forceRefresh)
         guard manifest.resources.contains("meta"), manifest.resources.contains("stream") else {
@@ -620,16 +676,15 @@ actor CommunitySportsAddonClient {
         }
         guard handoff.map({ $0.expiresAt > completionTime() }) ?? true,
               currentListingStillValid(at: completionTime()) else { throw CommunitySportsAddonError.conflictingMatch }
-        let document: StreamDocument = try await fetchJSON(StreamDocument.self,
+        let document: StreamDocument = try await fetchStreamDocument(attempt: attempt,
             from: Self.routeURL(relativeTo: manifestURL, components: ["stream", "tv", advertisedStream + ".json"]),
             anchoredTo: manifestURL, byteLimit: 256 * 1024, stage: .streams, forceRefresh: true)
-        var admitted = 0
-        defer {
-            if !Task.isCancelled { qualityStore.recordStreamAdmission(sourceFamily: "communitysports", offered: document.entryCount, admitted: admitted) }
-        }
         guard document.entryCount > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
         let completedAt = completionTime()
-        guard currentListingStillValid(at: completedAt) else { throw CommunitySportsAddonError.conflictingMatch }
+        guard currentListingStillValid(at: completedAt) else {
+            attempt.recordRemaining("fixture_changed")
+            throw CommunitySportsAddonError.conflictingMatch
+        }
         let currentEvidenceExpiry = currentCricketListing
             ? min(currentListingExpiry ?? now, association.link?.expiresAt ?? now,
                   record.expiresAt, association.provider.expiresAt ?? now,
@@ -638,13 +693,13 @@ actor CommunitySportsAddonClient {
             providerEventID: handoff?.newID ?? record.providerEventID, streamID: advertisedStream, manifestRevision: manifest.version,
             verifiedAt: now, expiresAt: min(now.addingTimeInterval(StreamEventBinding.metadataLifetime),
                 handoff?.expiresAt ?? .distantFuture, currentEvidenceExpiry), at: completedAt, csHandoff: handoff) else {
+            attempt.recordRemaining("fixture_changed")
             throw CommunitySportsAddonError.conflictingMatch
         }
         let sessions = Self.makeSessions(from: document.streams, request: request, manifestURL: manifestURL,
-            addOnVersion: manifest.version).map { $0.recordingEventBinding(binding, for: request, at: completedAt) }
+            addOnVersion: manifest.version, admission: attempt.record).map { $0.recordingEventBinding(binding, for: request, at: completedAt) }
         try Task.checkCancellation()
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: document.entryCount) }
-        admitted = sessions.count
         return sessions
     }
 
@@ -709,7 +764,7 @@ actor CommunitySportsAddonClient {
     /// identity. Catalog/meta agreement and delivery guards remain the same as
     /// channel browsing, while the returned binding owns the official fixture.
     private func resolveProgrammeChannel(_ association: BroadcastRegistryMatch, request: StreamPlaybackRequest,
-                                        now: Date, manifestURL: URL) async throws -> [StreamSession] {
+                                        now: Date, manifestURL: URL, attempt: AdmissionAttempt) async throws -> [StreamSession] {
         let started = Date(), record = association.broadcast
         guard var accepted = await currentProgrammeRequest(for: request, association: association, at: now) else {
             throw CommunitySportsAddonError.conflictingMatch
@@ -741,14 +796,10 @@ actor CommunitySportsAddonClient {
             throw CommunitySportsAddonError.conflictingMatch
         }
         accepted = current
-        let document: StreamDocument = try await fetchJSON(StreamDocument.self,
+        let document: StreamDocument = try await fetchStreamDocument(attempt: attempt,
             from: Self.routeURL(relativeTo: manifestURL, components: ["stream", "tv", record.streamID + ".json"]),
             anchoredTo: manifestURL, byteLimit: 256 * 1024, stage: .streams, forceRefresh: true)
         try Task.checkCancellation()
-        var admitted = 0
-        defer {
-            if !Task.isCancelled { qualityStore.recordStreamAdmission(sourceFamily: "communitysports", offered: document.entryCount, admitted: admitted) }
-        }
         guard document.entryCount > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(started)))
         guard let current = await currentProgrammeRequest(for: accepted, association: association, at: completedAt),
@@ -756,13 +807,15 @@ actor CommunitySportsAddonClient {
               let binding = StreamEventBinding(request: current, providerCode: "communitysports",
                 providerEventID: record.providerEventID, streamID: record.streamID, manifestRevision: manifest.version,
                 verifiedAt: completedAt, expiresAt: min(completedAt.addingTimeInterval(StreamEventBinding.metadataLifetime),
-                    proof.acceptanceExpiresAt), at: completedAt) else { throw CommunitySportsAddonError.conflictingMatch }
+                    proof.acceptanceExpiresAt), at: completedAt) else {
+            attempt.recordRemaining("fixture_changed")
+            throw CommunitySportsAddonError.conflictingMatch
+        }
         let sessions = Self.makeSessions(from: document.streams, request: current, manifestURL: manifestURL,
-            addOnVersion: manifest.version, eventBinding: binding, at: completedAt)
+            addOnVersion: manifest.version, eventBinding: binding, at: completedAt, admission: attempt.record)
         guard !sessions.isEmpty, sessions.allSatisfy({ $0.eventBinding != nil }) else {
             throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: document.entryCount)
         }
-        admitted = sessions.count
         return sessions
     }
 
@@ -890,7 +943,7 @@ actor CommunitySportsAddonClient {
     }
 
     private func resolveChannel(_ channel: NetworkChannel, request: StreamPlaybackRequest,
-                                now: Date, forceRefresh: Bool) async throws -> [StreamSession] {
+                                now: Date, forceRefresh: Bool, attempt: AdmissionAttempt) async throws -> [StreamSession] {
         guard let manifestURL, Self.isSafeManifestURL(manifestURL) else { throw CommunitySportsAddonError.configurationUnavailable }
         let manifest = try await loadManifest(from: manifestURL, now: now, forceRefresh: forceRefresh)
         guard manifest.resources.contains("meta"), manifest.resources.contains("stream") else { throw CommunitySportsAddonError.invalidManifest }
@@ -908,17 +961,11 @@ actor CommunitySportsAddonClient {
         }
         var documents: [(entry: CommunitySportsCatalogEntry, streams: [CommunitySportsStreamEntry])] = []
         var totalEntries = 0, lastFailure: Error?
-        var admitted = 0
-        defer {
-            if !documents.isEmpty, !Task.isCancelled {
-                qualityStore.recordStreamAdmission(sourceFamily: "communitysports", offered: totalEntries, admitted: admitted)
-            }
-        }
         for choice in choices {
             try Task.checkCancellation()
             do {
                 let target = choice.behaviorHints?.defaultVideoId ?? choice.id
-                let document: StreamDocument = try await fetchJSON(StreamDocument.self,
+                let document: StreamDocument = try await fetchStreamDocument(attempt: attempt,
                     from: Self.routeURL(relativeTo: manifestURL, components: ["stream", "tv", target + ".json"]),
                     anchoredTo: manifestURL, byteLimit: 256 * 1024, stage: .streams, forceRefresh: forceRefresh)
                 totalEntries += document.entryCount
@@ -934,7 +981,9 @@ actor CommunitySportsAddonClient {
             throw CommunitySportsAddonError.streamEntriesEmpty
         }
         let sessions = Self.makeSessions(from: documents.flatMap(\.streams), request: request,
-            manifestURL: manifestURL, addOnVersion: manifest.version, entryLimit: 200)
+            manifestURL: manifestURL, addOnVersion: manifest.version, entryLimit: 200, admission: attempt.record)
+        // Reconstruct ownership only. These rows were already counted above;
+        // this second pure conversion must not record another decision.
         let provenance = documents.map { document in
             (document.entry, Set(Self.makeSessions(from: document.streams, request: request,
                 manifestURL: manifestURL, addOnVersion: manifest.version).map {
@@ -952,7 +1001,6 @@ actor CommunitySportsAddonClient {
         }
         try Task.checkCancellation()
         guard !bound.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: totalEntries) }
-        admitted = bound.count
         return bound
     }
 
@@ -1213,67 +1261,94 @@ actor CommunitySportsAddonClient {
         entryLimit: Int = 100,
         eventBinding: StreamEventBinding? = nil,
         at now: Date = Date(),
-        after earlier: [StreamSession] = []
+        after earlier: [StreamSession] = [],
+        admission: ((String, Int) -> Void)? = nil
     ) -> [StreamSession] {
         guard let definition = CuratedStreamSourceCatalog.definition(
             forProviderCode: StreamPluginProviderMatching.communitySportsProviderCode) else { return [] }
         if let eventBinding, !eventBinding.matches(request: request,
-            providerCode: StreamPluginProviderMatching.communitySportsProviderCode, at: now) { return [] }
+            providerCode: StreamPluginProviderMatching.communitySportsProviderCode, at: now) {
+            admission?("fixture_changed", streams.count); return []
+        }
         var seen = Set(earlier.map { StreamDeliveryIdentity(url: $0.playableURL, headers: $0.requiredHeaders) })
         var admitted: [(entry: CommunitySportsStreamEntry, url: URL, isWeb: Bool,
                         directHLS: Bool, headers: [String: String], direct: Bool)] = []
 
-        // The standalone channel path can combine two independently verified
-        // 100-row descriptors. Ordinary fixture resolution keeps its old cap.
-        for entry in streams.prefix(min(max(entryLimit, 0), 200)) {
-            let candidates = [entry.url, entry.externalURL].compactMap { $0 }.compactMap(URL.init(string:))
-            let recognised = candidates.compactMap({ candidate -> (URL, Bool)? in
-                guard let isWeb = admittedDelivery(candidate, manifestURL: manifestURL,
-                                                   sourceHint: entry.sourceHint) else { return nil }
-                return (candidate, isWeb)
-            }).first
-            let directHLS = recognised.map { isReviewedDirectHLS($0.0, manifestURL: manifestURL, sourceHint: entry.sourceHint) } ?? false
-            var accepted: (URL, Bool)
-            var requestHeaders: [String: String]
-            var direct = false
-            if let recognised,
-               let reviewedHeaders = admittedRequestHeaders(for: entry, deliveryURL: recognised.0,
-                    manifestURL: manifestURL, reviewedDirectHLS: directHLS),
-               recognised.1 || admitsWrappedTarget(recognised.0, manifestURL: manifestURL,
-                    sourceHint: entry.sourceHint, headers: reviewedHeaders),
-               // The reviewed header contract is native HLS only.
-               !recognised.1 || reviewedHeaders.isEmpty {
-                accepted = recognised; requestHeaders = reviewedHeaders
-            } else if let value = entry.url, let url = URL(string: value), StreamDeliveryPolicy.rejection(url) == nil,
-                      Self.isLivePlaylistLink(url),
-                      let headers = StreamDeliveryPolicy.requestHeaders(entry.behaviorHints?.proxyHeaders?.request ?? [:]) {
-                // Not a route Fotty recognises, but safe: play it directly rather than discard it.
-                accepted = (url, false); requestHeaders = headers; direct = true
-            } else { continue }
-            let headers = accepted.1 ? ["X-Fotty-Web-Embed": "true"] : requestHeaders
-            guard seen.insert(StreamDeliveryIdentity(url: accepted.0, headers: headers)).inserted else { continue }
-            admitted.append((entry, accepted.0, accepted.1, directHLS, headers, direct))
+        // Count each enumerated row exactly once. Header requirements remain
+        // obligations even when a second URL or reviewed wrapper is available.
+        let scanLimit = min(max(entryLimit, 0), 200)
+        admission?("limit", max(0, streams.count - scanLimit))
+        for entry in streams.prefix(scanLimit) {
+            guard !entry.requiresDRM else { admission?("drm", 1); continue }
+            guard let requested = entry.requestedHeaders else { admission?("malformed_headers", 1); continue }
+            if let reason = StreamDeliveryPolicy.headerRejection(requested) { admission?(reason, 1); continue }
+            guard let commonHeaders = StreamDeliveryPolicy.requestHeaders(requested) else { admission?("malformed_headers", 1); continue }
+            let rawCandidates = [entry.url, entry.externalURL].compactMap { $0 }
+            let candidates = rawCandidates.compactMap(URL.init(string:))
+            guard !candidates.isEmpty else { admission?(entry.hasMalformedURL || !rawCandidates.isEmpty ? "malformed" : "no_url", 1); continue }
+            var accepted: (url: URL, isWeb: Bool, headers: [String: String], direct: Bool)?
+            var rejection = "unsupported"
+            for candidate in candidates {
+                let recognised = admittedDelivery(candidate, manifestURL: manifestURL, sourceHint: entry.sourceHint)
+                if recognised == true {
+                    guard commonHeaders.isEmpty else { rejection = "unsupported"; continue }
+                    accepted = (candidate, true, [:], false)
+                    break
+                }
+                if let reason = StreamDeliveryPolicy.rejection(candidate) {
+                    // A reviewed exceptional port still requires its exact
+                    // wrapper, upstream origin and published header contract.
+                    if reason == "inner_unsafe_destination", recognised == false,
+                       let headers = admittedRequestHeaders(for: entry, deliveryURL: candidate, manifestURL: manifestURL),
+                       let profile = LocalStreamProxyOriginProfile.communitySports(deliveryURL: candidate,
+                            manifestURL: manifestURL, sourceHint: entry.sourceHint, headers: headers),
+                       admitsWrappedTarget(candidate, manifestURL: manifestURL, sourceHint: entry.sourceHint, headers: headers),
+                       StreamDeliveryPolicy.innerLinks(candidate).allSatisfy({
+                           LocalStreamProxyPolicy.allowsDestination($0) || profile.allowsExceptionalDestination($0)
+                       }) {
+                        accepted = (candidate, false, headers, false)
+                        break
+                    }
+                    rejection = reason
+                    continue
+                }
+                // Common-safe alternatives remain playable, but an ambiguous
+                // wrapper cannot gain the reviewed stability/origin profiles.
+                let reviewedRoute = recognised != nil && admitsWrappedTarget(candidate,
+                    manifestURL: manifestURL, sourceHint: entry.sourceHint, headers: commonHeaders)
+                accepted = (candidate, false, commonHeaders, !reviewedRoute)
+                break
+            }
+            guard let accepted else { admission?(rejection, 1); continue }
+            let headers = accepted.isWeb ? ["X-Fotty-Web-Embed": "true"] : accepted.headers
+            guard seen.insert(StreamDeliveryIdentity(url: accepted.url, headers: headers)).inserted else {
+                admission?("duplicate", 1); continue
+            }
+            admitted.append((entry, accepted.url, accepted.isWeb,
+                isReviewedDirectHLS(accepted.url, manifestURL: manifestURL, sourceHint: entry.sourceHint), headers, accepted.direct))
         }
 
         // One upstream can advertise many equivalent quality/channel variants.
         // Reserve a first valid choice for each opaque source group before
-        // filling the six slots, so early variants cannot hide other providers.
+        // filling the bounded response, so early variants cannot hide other providers.
         // Admission/delivery deduplication above and response order stay intact.
         var selectedIndices = Set<Int>()
         var representedSources = Set<String>()
-        for index in admitted.indices {
+        let cap = max(0, StreamDeliveryPolicy.maximumSessionsPerProvider - earlier.count)
+        for index in admitted.indices where selectedIndices.count < cap {
             let item = admitted[index]
             let identity = sourceIdentity(for: item.entry, deliveryURL: item.url)
             if representedSources.insert(identity.key).inserted { selectedIndices.insert(index) }
         }
         // Every admitted stream is offered: one per source first, then the rest.
-        let cap = StreamDeliveryPolicy.maximumSessionsPerProvider - earlier.count
         for index in admitted.indices where selectedIndices.count < cap { selectedIndices.insert(index) }
         let firstPass = admitted.indices.filter { selectedIndices.contains($0) }
         let selected = firstPass.map { admitted[$0] }
+        admission?("limit", admitted.count - selected.count)
 
         return selected.enumerated().compactMap { index, item -> StreamSession? in
-            guard let label = definition.sourceLabel(choice: earlier.count + index + 1) else { return nil }
+            guard let label = definition.sourceLabel(choice: earlier.count + index + 1) else { admission?("limit", 1); return nil }
+            admission?("admitted", 1)
             let identity = sourceIdentity(for: item.entry, deliveryURL: item.url)
             return StreamSession(
                 matchID: request.matchID,
@@ -1304,9 +1379,9 @@ actor CommunitySportsAddonClient {
                 nativePlaylistProfile: item.isWeb || item.direct ? nil : LocalStreamProxyPlaylistProfile.communitySports(
                     deliveryURL: item.url, manifestURL: manifestURL,
                     sourceHint: item.entry.sourceHint, headers: item.headers),
-                // The new headerless HLS alias still needs per-reference
-                // destination/redirect checks in the native guarded relay.
-                requiresGuardedRelay: !item.isWeb && item.url.path.hasSuffix(".m3u8"),
+                // Native validation applies even when the URL has no suffix.
+                // Every child reference retains destination/redirect checks.
+                requiresGuardedRelay: !item.isWeb,
                 eventBinding: eventBinding
             )
         }

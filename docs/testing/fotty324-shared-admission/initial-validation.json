@@ -1,0 +1,20 @@
+{
+  "result": "failed_before_corrections",
+  "failures": [
+    "FottyTests/CommunitySportsAddonTests.swift:3047: error: -[FottyTests.CommunitySportsAddonTests testChannelDescriptorFailureDoesNotDiscardIndependentMainChannelDelivery] : XCTAssertEqual failed: (\"Optional(\"no\")\") is not equal to (\"Optional(\"yes\")\")",
+    "FottyTests/CommunitySportsAddonTests.swift:470: error: -[FottyTests.CommunitySportsAddonTests testHeaderlessReviewedPlaylistProfileSurvivesAdapterAndNativeSourceOnlyAtRuntime] : XCTAssertFalse failed",
+    "FottyTests/CommunitySportsAddonTests.swift:318: error: -[FottyTests.CommunitySportsAddonTests testPublishedManifestHLSAliasCannotLaunderUnsafeHeaderlessTargets] : XCTAssertTrue failed",
+    "FottyTests/CommunitySportsAddonTests.swift:2472: error: -[FottyTests.CommunitySportsAddonTests testReplacementOriginAdmitsOnlyItsExactReviewedDeliveryRoutes] : XCTAssertEqual failed: (\"[\"CS1\", \"CS2\", \"CS3\", \"CS4\", \"CS5\"]\") is not equal to (\"[\"CS1\", \"CS2\"]\")",
+    "FottyTests/CommunitySportsAddonTests.swift:2473: error: -[FottyTests.CommunitySportsAddonTests testReplacementOriginAdmitsOnlyItsExactReviewedDeliveryRoutes] : XCTAssertEqual failed: (\"[Fotty.StreamType.hls, Fotty.StreamType.unknown, Fotty.StreamType.hls, Fotty.StreamType.hls, Fotty.StreamType.hls]\") is not equal to (\"[Fotty.StreamType.hls, Fotty.StreamType.unknown]\")",
+    "FottyTests/CommunitySportsAddonTests.swift:2474: error: -[FottyTests.CommunitySportsAddonTests testReplacementOriginAdmitsOnlyItsExactReviewedDeliveryRoutes] : XCTAssertEqual failed: (\"[Optional(\"nuviosports.xyz\"), Optional(\"nuviosports.xyz\"), Optional(\"nuvio.moaqeel6679.my.id\"), Optional(\"media.nuviosports.xyz\"), Optional(\"nuviosports.xyz\")]\") is not equal to (\"[Optional(\"nuviosports.xyz\"), Optional(\"nuviosports.xyz\")]\")",
+    "FottyTests/CommunitySportsAddonTests.swift:2374: error: -[FottyTests.CommunitySportsAddonTests testUnsupportedEntryDoesNotChangeAdmittedSiblingLabelOrSourceIdentity] : XCTAssertEqual failed: (\"[\"CS1\", \"CS2\"]\") is not equal to (\"[\"CS1\"]\")",
+    "FottyTests/CommunitySportsAddonTests.swift:2375: error: -[FottyTests.CommunitySportsAddonTests testUnsupportedEntryDoesNotChangeAdmittedSiblingLabelOrSourceIdentity] : XCTAssertEqual failed: (\"Optional(\"unreviewed\")\") is not equal to (\"Optional(\"upstream-a\")\")",
+    "FottyTests/CommunitySportsAddonTests.swift:2376: error: -[FottyTests.CommunitySportsAddonTests testUnsupportedEntryDoesNotChangeAdmittedSiblingLabelOrSourceIdentity] : XCTAssertEqual failed: (\"Optional(\"unreviewed.example\")\") is not equal to (\"Optional(\"addon.example\")\")",
+    "FottyTests/LocalStreamProxyTests.swift:1632: error: -[FottyTests.LocalStreamProxyTests testRealRedirectDelegateRebuildsCredentialsAndEnforcesHopBudget] : XCTAssertEqual failed: (\"nil\") is not equal to (\"Optional(\"bytes=0-99\")\")",
+    "FottyTests/PenguPlaySportsAddonTests.swift:143: error: -[FottyTests.PenguPlaySportsAddonTests testEveryListingOfTheGameContributesStreams] : XCTAssertEqual failed: (\"nil\") is not equal to (\"Optional(\"11\")\")",
+    "FottyTests/PenguPlaySportsAddonTests.swift:144: error: -[FottyTests.PenguPlaySportsAddonTests testEveryListingOfTheGameContributesStreams] : XCTAssertEqual failed: (\"nil\") is not equal to (\"Optional(\"2\")\")",
+    "FottyTests/PlavioSportsAddonTests.swift:1392: error: -[FottyTests.PlavioSportsAddonTests testCurrentCricketEnvelopeUsesOnlyAdvertisedCatalogAndUnchangedHLSAdmission] : failed - Placeholder is not HLS",
+    "FottyTests/WatchOutcomeRecordTests.swift:368: error: -[FottyTests.WatchOutcomeRecordTests testDuplicateLookupReceiptDoesNotDoubleCountAndLegacyReasonsAreNotExtrapolated] : XCTAssertNil failed: \"0\" - One modal reason cannot explain a legacy receipt's full difference",
+    "FottyTests/WatchOutcomeRecordTests.swift:435: error: -[FottyTests.WatchOutcomeRecordTests testSelectionReceiptsPreserveBoundaryLossesWithoutCountingProviderOffersAgain] : XCTAssertNil failed: \"0\""
+  ]
+}

@@ -3,11 +3,16 @@ import Foundation
 /// Reads only the publisher's public calendar and selected same-site player page.
 /// No ID guessing, rolling-stream cache, HTML execution, or TLS exceptions.
 final class Score808SiteResolver: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    typealias Reader = @Sendable (URL) async throws -> Data
     static let listingPage = URL(string: "https://www.score808live.tv/score808-live-football-scores-real-time-match-updates-results/")!
     private static let calendarHost = "core.service.elfsight.com"
     private let session: URLSession
+    private let reader: Reader?
+    private let qualityStore: FottyQualityStore
 
-    override init() {
+    init(reader: Reader? = nil, qualityStore: FottyQualityStore = .shared) {
+        self.reader = reader
+        self.qualityStore = qualityStore
         let config = URLSessionConfiguration.ephemeral
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         config.timeoutIntervalForRequest = 4
@@ -20,6 +25,30 @@ final class Score808SiteResolver: NSObject, URLSessionTaskDelegate, @unchecked S
     deinit { session.invalidateAndCancel() }
 
     func resolve(for request: StreamPlaybackRequest, now: Date = Date()) async throws -> StreamSession? {
+        // This adapter returns a web player page. It does not enumerate the
+        // browser's media choices, so a page must never become a fabricated
+        // "one stream offered" receipt. Keep that count explicitly unavailable.
+        var ledger = StreamAdmissionLedger(), completion = "failed", fetchFailures = 0
+        defer {
+            ledger.finish(admitted: 0, completion: completion)
+            qualityStore.recordStreamAdmission(sourceFamily: "score808", ledger: ledger,
+                                               completion: completion, fetchFailures: fetchFailures)
+        }
+        do {
+            let result = try await resolvePage(for: request, now: now)
+            try Task.checkCancellation()
+            completion = "complete"
+            return result
+        } catch {
+            if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
+                completion = "cancelled"
+            } else { fetchFailures = 1 }
+            throw error
+        }
+    }
+
+    private func resolvePage(for request: StreamPlaybackRequest, now: Date) async throws -> StreamSession? {
+        try Task.checkCancellation()
         if let association = request.registryMatch {
             guard association.matches(request: request, providerCode: "score808",
                 providerEventID: association.broadcast.providerEventID, streamID: association.broadcast.streamID, at: now),
@@ -61,7 +90,7 @@ final class Score808SiteResolver: NSObject, URLSessionTaskDelegate, @unchecked S
                               "X-Fotty-Web-Embed": "true",
                               "X-Fotty-Nexus-Source": "score808_site"],
             qualityLabel: "Web", validationStatus: .validated,
-            diagnosticMetadata: ["manifest_result": "matched_site_player_page",
+            diagnosticMetadata: ["source_family": "score808", "manifest_result": "matched_site_player_page",
                                  "segment_result": "awaiting_decoded_web_playback",
                                  "referer": Self.listingPage.absoluteString]
         )
@@ -76,6 +105,12 @@ final class Score808SiteResolver: NSObject, URLSessionTaskDelegate, @unchecked S
     private func read(_ url: URL) async throws -> Data {
         try Task.checkCancellation()
         guard Self.allows(url) else { throw URLError(.unsupportedURL) }
+        if let reader {
+            let data = try await reader(url)
+            try Task.checkCancellation()
+            guard data.count <= Score808SiteCatalog.maximumDocumentBytes else { throw URLError(.dataLengthExceedsMaximum) }
+            return data
+        }
         var request = URLRequest(url: url)
         request.setValue("application/json,text/html;q=0.9", forHTTPHeaderField: "Accept")
         let (bytes, response) = try await session.bytes(for: request, delegate: self)

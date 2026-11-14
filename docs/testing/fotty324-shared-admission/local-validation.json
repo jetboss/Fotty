@@ -1,0 +1,11 @@
+{
+  "result": "Passed",
+  "totalTestCount": 2690,
+  "passedTests": 2678,
+  "failedTests": 0,
+  "skippedTests": 12,
+  "excludedSuite": "VisualRegressionTests",
+  "platform": "Mac Catalyst",
+  "simulator": false,
+  "appSourceSHA256": "25f9b8875f48d58c82073c98f089aa94c69047059e37e83eec6867a2fd7fcd4f"
+}

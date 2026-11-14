@@ -89,6 +89,131 @@ final class PlavioSportsAddonTests: XCTestCase {
         XCTAssertEqual(PlavioSportsAddonClient.selectRoxieMatch(for: request, from: [roxieRow()], official: stale, at: roxieNow), .conflicting)
     }
 
+    func testPartialFetchReceiptSurvivesBothSuccessfulAndThrowingAggregateLookups() async throws {
+        let suite = "PlavioSports.partial." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let second = fixtureID + "-second"
+        var secondRow = entryJSON(); secondRow["id"] = second
+        let session = try fixtureSession(catalog: .json(["metas": [entryJSON(), secondRow]]),
+            streams: .failure(URLError(.timedOut)))
+        let secondPath = "/stream/tv/" + second + ".json"
+        defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
+        let client = PlavioSportsAddonClient(session: session, qualityStore: store)
+        PlavioFixtureProtocol.setResponse(try .json(["streams": [["url": delivery]]]), for: secondPath)
+        let accepted = try await client.resolve(for: request(), now: kickoff, forceRefresh: true)
+        XCTAssertEqual(accepted.count, 1)
+        PlavioFixtureProtocol.setResponse(try .json(["streams": [["url": delivery, "drm": true]]]), for: secondPath)
+        do {
+            _ = try await client.resolve(for: request(), now: kickoff, forceRefresh: true)
+            XCTFail("A failed sibling keeps the aggregate incomplete")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError,
+                .transportFailure(code: URLError.timedOut.rawValue, stage: .streams))
+        }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 2)
+        XCTAssertEqual(Set(receipts.compactMap { $0.details["admission_lookup_id"] }).count, 2)
+        for receipt in receipts {
+            XCTAssertEqual(receipt.details["offered_count"], "1")
+            XCTAssertEqual(receipt.details["admission_fetch_failures"], "1")
+            XCTAssertEqual(receipt.details["admission_completion"], "partial")
+            XCTAssertEqual(receipt.details["admission_reconciled"], "yes")
+            XCTAssertEqual(receipt.details["admission_unprocessed_count"], "0")
+        }
+        let acceptedReceipt = try XCTUnwrap(receipts.first { $0.details["admitted_count"] == "1" })
+        XCTAssertEqual(acceptedReceipt.details["admission_drm_count"], "0")
+        let rejectedReceipt = try XCTUnwrap(receipts.first { $0.details["admitted_count"] == "0" })
+        XCTAssertEqual(rejectedReceipt.details["admission_drm_count"], "1")
+    }
+
+    func testUnreadFailureNeverBecomesAConfirmedZeroOffer() async throws {
+        let suite = "PlavioSports.unread." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let session = try fixtureSession()
+        defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
+        PlavioFixtureProtocol.setResponse(.status(503), for: "/manifest.json")
+        do {
+            _ = try await PlavioSportsAddonClient(session: session, qualityStore: store).resolve(for: request(), now: kickoff)
+            XCTFail("Manifest failure")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError, .httpFailure(statusCode: 503, stage: .manifest))
+        }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let detail = try XCTUnwrap(receipts.first).details
+        XCTAssertNil(detail["offered_count"])
+        XCTAssertEqual(detail["admission_observation"], "unread")
+        XCTAssertEqual(detail["admission_completion"], "failed")
+        XCTAssertEqual(detail["admission_fetch_failures"], "1")
+    }
+
+    func testCommonAdmissionAccountsForEveryMixedRowWithoutGuessingContentFromTheURL() async throws {
+        let suite = "PlavioSports.admission." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let php = "https://video.example.org/play.php?token=fixture"
+        let bare = "https://video.example.org/live/opaque"
+        let rows: [Any] = [NSNull(), "bad-row", ["url": 17],
+            ["url": php, "drm": true], ["url": php, "headers": ["Cookie": "private"]],
+            ["url": php, "headers": 7], ["url": "http://video.example.org/live"],
+            ["url": "https://video.example.org/wrap?url=http%3A%2F%2F127.0.0.1%2Fprivate"],
+            ["url": php, "headers": NSNull(), "behaviorHints": NSNull(), "drm": false,
+                "clearkey": NSNull(), "licenseUrl": "", "license": [:]],
+            ["url": php, "behaviorHints": ["proxyHeaders": ["request": NSNull()]], "drm": [:]],
+            ["url": bare, "headers": ["User-Agent": "Player A"], "drmInfo": []],
+            ["url": bare, "headers": ["User-Agent": "Player B"], "drmHeaders": NSNull()]]
+        let session = try fixtureSession(streams: .json(["streams": rows]))
+        defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
+        let result = try await PlavioSportsAddonClient(session: session, qualityStore: store)
+            .resolve(for: request(), now: kickoff, forceRefresh: true)
+        XCTAssertEqual(result.map { $0.playableURL.absoluteString }, [php, bare, bare])
+        XCTAssertEqual(result.map(\.providerName), ["AS1", "AS2", "AS3"])
+        XCTAssertEqual(result.map(\.requiredHeaders), [[:], ["User-Agent": "Player A"], ["User-Agent": "Player B"]])
+        XCTAssertTrue(result.allSatisfy { $0.requiresGuardedRelay == true })
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let detail = try XCTUnwrap(receipts.first).details
+        XCTAssertEqual(detail["offered_count"], "12")
+        XCTAssertEqual(detail["admitted_count"], "3")
+        XCTAssertEqual(detail["admission_malformed_count"], "2")
+        for reason in ["no_url", "drm", "credential_headers", "malformed_headers", "not_https", "inner_not_https", "duplicate"] {
+            XCTAssertEqual(detail["admission_" + reason + "_count"], "1", reason)
+        }
+        XCTAssertEqual(detail["admission_completion"], "complete")
+        XCTAssertEqual(detail["admission_unprocessed_count"], "0")
+        XCTAssertEqual(detail["admission_reconciled"], "yes")
+        XCTAssertFalse(detail.description.contains("token=fixture"))
+        XCTAssertFalse(detail.description.contains("private"))
+    }
+
+    func testAggregateSessionLimitAccountsForLaterDuplicatesAndHeaderVariants() throws {
+        let rows: [[String: Any]] = (0..<100).map { ["url": "https://video.example.org/opaque/\($0)"] }
+        func decode(_ rows: [[String: Any]]) throws -> [PlavioSportsStreamEntry] {
+            try rows.map { try JSONDecoder().decode(PlavioSportsStreamEntry.self, from: data($0)) }
+        }
+        var ledger = StreamAdmissionLedger()
+        ledger.observe(103)
+        let first = PlavioSportsAddonClient.makeSessions(from: try decode(rows), request: request(),
+            addOnVersion: "1.0.0", ledger: &ledger)
+        let later: [[String: Any]] = [rows[0],
+            ["url": "https://video.example.org/opaque/0", "headers": ["User-Agent": "different"]],
+            ["url": "https://video.example.org/opaque/later"]]
+        let second = PlavioSportsAddonClient.makeSessions(from: try decode(later), request: request(),
+            addOnVersion: "1.0.0", after: first, ledger: &ledger)
+        ledger.finish(admitted: first.count + second.count, completion: "limited")
+        XCTAssertEqual(first.count, 100)
+        XCTAssertTrue(second.isEmpty)
+        XCTAssertEqual(ledger.dispositions["duplicate"], 1)
+        XCTAssertEqual(ledger.dispositions["limit"], 2)
+        XCTAssertEqual(ledger.admitted, 100)
+        XCTAssertTrue(ledger.isReconciled)
+    }
+
     func testReviewedRoxieDeliveryKeepsTransportAndHeaderBoundaries() throws {
         XCTAssertTrue(PlavioSportsAddonClient.isAdmittedDelivery(URL(string: roxieDelivery)!))
         XCTAssertEqual(try sessions([["url": roxieDelivery, "behaviorHints": ["notWebReady": true]]]).count, 1,
@@ -508,7 +633,7 @@ final class PlavioSportsAddonTests: XCTestCase {
         XCTAssertEqual(try sessions([["url": delivery.replacingOccurrences(of: "papacito.cfd/", with: "papacito.cfd:443/")]]).count, 1)
     }
 
-    func testPlaceholderExternalP2PDRMAndMalformedHeaderContractsCannotBecomeOptions() throws {
+    func testTransportAndExplicitRequirementsDetermineAdmissionUntilRelayVerification() throws {
         let rejected: [[String: Any]] = [
             ["url": "https://www.google.com"], ["url": "https://sports.highfly.to/health"],
             ["url": "magnet:?xt=urn:btih:fixture"], ["url": delivery, "externalUrl": "https://example.com"],
@@ -522,7 +647,7 @@ final class PlavioSportsAddonTests: XCTestCase {
             ["url": delivery, "behaviorHints": ["proxyHeaders": ["response": ["Access-Control-Allow-Origin": "*"]]]],
             ["url": delivery, "behaviorHints": ["proxyHeaders": ["request": ["Cookie": 7]]]]
         ]
-        let refused = [0, 1, 2, 5, 10, 13] // google.com page, health check, magnet, DRM, Authorization header
+        let refused = [2, 5, 10, 13] // Non-HTTPS transport, DRM, and credential header contracts.
         for index in refused { XCTAssertTrue(try sessions([rejected[index]]).isEmpty, "\(rejected[index])") }
         for index in rejected.indices where !refused.contains(index) {
             XCTAssertEqual(try sessions([rejected[index]]).count, 1, "Harmless extras never refuse a stream: \(rejected[index])")
@@ -532,8 +657,8 @@ final class PlavioSportsAddonTests: XCTestCase {
 
     func testDeduplicationRetainsDistinctDeliveriesAndKeysSurviveReordering() throws {
         let variants = (0..<8).map { ["url": delivery + String($0)] }
-        let first = try sessions([variants[0], ["url": "https://www.google.com"], variants[0]] + variants)
-        XCTAssertEqual(first.map(\.providerName), (1...8).map { "AS\($0)" }, "No cap of 6; the page and duplicates are skipped")
+        let first = try sessions([variants[0], ["url": "http://video.example.org"], variants[0]] + variants)
+        XCTAssertEqual(first.map(\.providerName), (1...8).map { "AS\($0)" }, "Unsafe transport and duplicate contracts are skipped")
         XCTAssertEqual(first.count, 8)
         XCTAssertEqual(Set(first.compactMap { $0.diagnosticMetadata["source_key"] }).count, 8)
         let reordered = try sessions(Array(variants.reversed()))
@@ -545,9 +670,9 @@ final class PlavioSportsAddonTests: XCTestCase {
         let mixed: [String: Any] = ["Authorization": "fixture", "X-Ignored": 4]
         XCTAssertTrue(try sessions([["url": delivery, "behaviorHints": ["proxyHeaders": ["request": mixed]]]]).isEmpty)
         XCTAssertTrue(try sessions([["url": delivery, "headers": mixed]]).isEmpty)
-        let valid = try sessions([["url": delivery, "behaviorHints": ["proxyHeaders": ["request":
+        let malformed = try sessions([["url": delivery, "behaviorHints": ["proxyHeaders": ["request":
             ["Referer": "https://video.example/", "X-Ignored": 4] as [String: Any]]]]])
-        XCTAssertEqual(valid.first?.requiredHeaders, ["Referer": "https://video.example/"])
+        XCTAssertTrue(malformed.isEmpty, "Malformed advertised maps remain visible as a row rejection")
     }
 
     func testMultipleDatedListingsKeepDistinctHeadersAndBindingsAfterAnEmptyDescriptor() async throws {
@@ -863,11 +988,24 @@ final class PlavioSportsAddonTests: XCTestCase {
     }
 
     func testStreamScanIsBoundedAtOneHundredRowsIncludingMalformedSiblings() async throws {
+        let suite = "PlavioSports.scan." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
         let rows: [Any] = Array(repeating: NSNull(), count: 100) + [["url": delivery]]
         let session = try fixtureSession(streams: .json(["streams": rows]))
         defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
-        do { _ = try await PlavioSportsAddonClient(session: session).resolve(for: request()); XCTFail("Past scan boundary") }
+        do { _ = try await PlavioSportsAddonClient(session: session, qualityStore: store).resolve(for: request()); XCTFail("Past scan boundary") }
         catch { XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 101)) }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let detail = try XCTUnwrap(receipts.first).details
+        XCTAssertEqual(detail["offered_count"], "101")
+        XCTAssertEqual(detail["admitted_count"], "0")
+        XCTAssertEqual(detail["admission_malformed_count"], "100")
+        XCTAssertEqual(detail["admission_limit_count"], "1")
+        XCTAssertEqual(detail["admission_completion"], "limited")
+        XCTAssertEqual(detail["admission_reconciled"], "yes")
     }
 
     func testOversizeResponseAndMalformedStreamContainerAreBoundedFailures() async throws {
@@ -1238,7 +1376,7 @@ final class PlavioSportsAddonTests: XCTestCase {
     }
 
     @MainActor
-    func testCurrentCricketEnvelopeUsesOnlyAdvertisedCatalogAndUnchangedHLSAdmission() async throws {
+    func testCurrentCricketEnvelopeUsesAdvertisedCatalogAndRequiresHLSResponseContent() async throws {
         let session = try cricketFixtureSession()
         defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
         let sources = try await PlavioSportsAddonClient(session: session).resolve(for: officialCricketRequest())
@@ -1249,10 +1387,25 @@ final class PlavioSportsAddonTests: XCTestCase {
         XCTAssertTrue(sources.first?.requiresGuardedRelay == true)
         XCTAssertEqual(sources.first?.requiredHeaders, [:])
         XCTAssertFalse(PlavioFixtureProtocol.paths.contains("/api/matches/all"))
-        PlavioFixtureProtocol.setResponse(try .json(["streams": [["url": "https://addon.plavio.site/upcoming.html"]]]),
+        let candidateURL = URL(string: "https://addon.plavio.site/upcoming.html")!
+        PlavioFixtureProtocol.setResponse(try .json(["streams": [["url": candidateURL.absoluteString]]]),
                                          for: cricketStreamPath)
-        do { _ = try await PlavioSportsAddonClient(session: session).resolve(for: officialCricketRequest()); XCTFail("Placeholder is not HLS") }
-        catch { XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 1)) }
+        let candidates = try await PlavioSportsAddonClient(session: session).resolve(for: officialCricketRequest())
+        let candidate = try XCTUnwrap(candidates.first)
+        XCTAssertEqual(candidates.count, 1)
+        XCTAssertEqual(candidate.playableURL, candidateURL)
+        XCTAssertTrue(candidate.requiresGuardedRelay == true)
+        XCTAssertEqual(candidate.streamType, .hls)
+        XCTAssertEqual(candidate.eventBinding?.providerEventID, sources.first?.eventBinding?.providerEventID)
+        // A path cannot establish the response content. The guarded relay must
+        // reject an actual notice without publishing any referenced resources.
+        var relayPolicy = LocalStreamProxyPolicy(selectedMediaURL: candidateURL, expectsHLS: true)
+        XCTAssertThrowsError(try relayPolicy.rewriteManifest(
+            "<!doctype html><html><body>Upcoming</body></html>", relativeTo: candidateURL, port: 8765))
+        XCTAssertEqual(relayPolicy.registeredURLCount, 1)
+        let rewritten = try relayPolicy.rewriteManifest(
+            "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6,\nsegment.ts", relativeTo: candidateURL, port: 8765)
+        XCTAssertTrue(rewritten.contains("http://127.0.0.1:8765/"))
     }
 
     @MainActor
@@ -1804,14 +1957,18 @@ final class PlavioSportsAddonTests: XCTestCase {
         XCTAssertNil(PlavioSportsAddonClient.cncCricketIdentity(invalid))
     }
 
-    func testPlavioLiveCricketDeliveryKeepsNarrowHeadersAndPath() {
-        let url = URL(string: "https://dai-fancode.pages.dev/mumbai/fixture/index.m3u8")!
+    func testCricketDeliveryUsesCommonTransportAndHeaderAdmission() throws {
+        let url = URL(string: "https://video.example.org/another/play.php")!
         let headers = ["Referer": "https://fancode.com/", "User-Agent": "ReactNativeVideo/9.11.1"]
-        XCTAssertTrue(PlavioSportsAddonClient.admitsCricketDelivery(url, headers: headers))
-        XCTAssertFalse(PlavioSportsAddonClient.admitsCricketDelivery(url, headers: [:]))
-        XCTAssertFalse(PlavioSportsAddonClient.admitsCricketDelivery(url, headers: headers.merging(["Cookie":"private"], uniquingKeysWith: { _, b in b })))
-        XCTAssertFalse(PlavioSportsAddonClient.admitsCricketDelivery(URL(string: "http://dai-fancode.pages.dev/mumbai/fixture/index.m3u8")!, headers: headers))
-        XCTAssertFalse(PlavioSportsAddonClient.admitsCricketDelivery(URL(string: "https://dai-fancode.pages.dev/other/fixture/index.m3u8")!, headers: headers))
+        let rows: [[String: Any]] = [
+            ["url": url.absoluteString], ["url": url.absoluteString, "headers": headers],
+            ["url": url.absoluteString, "headers": ["Cookie": "private"]],
+            ["url": "http://video.example.org/live", "headers": headers]]
+        let accepted = PlavioSportsAddonClient.makeSessions(from: try decodeStreams(rows),
+            request: explicitCricketRequest(), addOnVersion: "1.9.82")
+        XCTAssertEqual(accepted.count, 2)
+        XCTAssertEqual(accepted.map(\.requiredHeaders), [[:], headers])
+        XCTAssertTrue(accepted.allSatisfy { $0.requiresGuardedRelay == true })
         XCTAssertNotEqual(PlavioSportsAddonClient.sourceKey(url: url), PlavioSportsAddonClient.sourceKey(url: url, headers: headers))
     }
 

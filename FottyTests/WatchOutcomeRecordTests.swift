@@ -219,8 +219,9 @@ final class WatchOutcomeRecordTests: XCTestCase {
         XCTAssertEqual(community.offered, 125)
         XCTAssertEqual(community.admitted, 100)
         XCTAssertEqual(community.firstPictures, 2)
-        XCTAssertEqual(community.admissionText, "125 offered · 100 admitted · 2 lookups")
-        XCTAssertEqual(rows.first { $0.id == .reviewedTV }?.admissionText, "0 offered · 0 admitted · 1 lookup")
+        XCTAssertEqual(community.admissionText, "125 offered · 100 candidates · 2 lookups")
+        XCTAssertEqual(community.dispositions["unrecorded"], 25)
+        XCTAssertEqual(rows.first { $0.id == .reviewedTV }?.admissionText, "0 offered · 0 candidates · 1 lookup")
         XCTAssertEqual(rows.first { $0.id == .score808 }?.admissionText, "No stream counts recorded")
         XCTAssertEqual(store.ownerStatusSnapshot(appBuild: "older-build").streamAdmissions, [])
     }
@@ -256,6 +257,185 @@ final class WatchOutcomeRecordTests: XCTestCase {
         for receipt in store.records() {
             XCTAssertEqual(Set(receipt.details.keys), ["source_family", "offered_count", "admitted_count"])
             XCTAssertTrue(families.contains(try XCTUnwrap(receipt.details["source_family"])))
+        }
+    }
+
+    func testAdmissionLedgerPartitionsEveryObservedEntryWithoutInventingRejections() {
+        var ledger = StreamAdmissionLedger()
+        ledger.observe(7)
+        ledger.record("duplicate")
+        ledger.record("malformed")
+        ledger.record("same_addon_domain", count: 2)
+        ledger.record("limit")
+        ledger.finish(admitted: 1)
+        XCTAssertEqual(ledger.offered, 7)
+        XCTAssertEqual(ledger.admitted, 1)
+        XCTAssertEqual(ledger.dispositions["unprocessed"], 1)
+        XCTAssertEqual(ledger.dispositions["limit"], 1, "Only an explicitly observed limit is a limit")
+        XCTAssertEqual(ledger.accounted, ledger.offered)
+        XCTAssertTrue(ledger.isReconciled)
+        ledger.finish(admitted: 1)
+        XCTAssertTrue(ledger.isReconciled, "Finalization is idempotent")
+    }
+
+    func testCancelledOrFailedLookupWithdrawsProvisionalChoicesAndKeepsItsEvidence() throws {
+        for completion in ["cancelled", "failed"] {
+            var ledger = StreamAdmissionLedger()
+            ledger.observe(4)
+            ledger.record("duplicate")
+            ledger.record("admitted", count: 3)
+            ledger.finish(admitted: 3, completion: completion)
+            XCTAssertEqual(ledger.admitted, 0)
+            XCTAssertEqual(ledger.dispositions["withdrawn"], 3)
+            XCTAssertTrue(ledger.isReconciled)
+            store.recordStreamAdmission(sourceFamily: "highfly", ledger: ledger, completion: completion)
+        }
+        let row = try XCTUnwrap(store.ownerStatusSnapshot().streamAdmissions.first)
+        XCTAssertEqual(row.lookups, 2)
+        XCTAssertEqual(row.offered, 8)
+        XCTAssertEqual(row.admitted, 0)
+        XCTAssertEqual(row.dispositions["withdrawn"], 6)
+        XCTAssertEqual(row.incompleteLookups, 2)
+        XCTAssertEqual(row.firstPictures, 0)
+    }
+
+    func testAdmissionUnreadAndEmptyResponsesAreDifferentAndFailuresDoNotInventOffers() throws {
+        var unread = StreamAdmissionLedger()
+        unread.finish(admitted: 0, completion: "failed")
+        store.recordStreamAdmission(sourceFamily: "highfly", ledger: unread, completion: "failed", fetchFailures: 2)
+        var empty = StreamAdmissionLedger()
+        empty.observe(0)
+        empty.finish(admitted: 0)
+        store.recordStreamAdmission(sourceFamily: "reviewedtv", ledger: empty)
+        let records = store.records()
+        let failed = try XCTUnwrap(records.first { $0.details["source_family"] == "highfly" })
+        XCTAssertNil(failed.details["offered_count"])
+        XCTAssertNil(failed.details["admitted_count"])
+        XCTAssertEqual(failed.details["admission_observation"], "unread")
+        XCTAssertEqual(failed.details["admission_reconciled"], "unknown")
+        XCTAssertEqual(failed.details["admission_fetch_failures"], "2")
+        let knownEmpty = try XCTUnwrap(records.first { $0.details["source_family"] == "reviewedtv" })
+        XCTAssertEqual(knownEmpty.details["offered_count"], "0")
+        XCTAssertEqual(knownEmpty.details["admission_observation"], "known")
+        XCTAssertEqual(knownEmpty.details["admission_reconciled"], "yes")
+        let row = try XCTUnwrap(store.ownerStatusSnapshot().streamAdmissions.first { $0.id == .highfly })
+        XCTAssertNil(row.offered)
+        XCTAssertEqual(row.unreadLookups, 1)
+        XCTAssertEqual(row.fetchFailures, 2)
+    }
+
+    func testPartialAdmissionKeepsFailedSiblingAndEveryReasonInTheSameScope() throws {
+        var first = StreamAdmissionLedger()
+        first.observe(5)
+        first.record("duplicate")
+        first.record("same_addon_domain")
+        first.record("malformed")
+        first.finish(admitted: 2, completion: "partial")
+        store.recordStreamAdmission(sourceFamily: "highfly", ledger: first, completion: "partial", fetchFailures: 1)
+        var second = StreamAdmissionLedger()
+        second.observe(3)
+        second.record("validation", count: 2)
+        second.finish(admitted: 1)
+        store.recordStreamAdmission(sourceFamily: "highfly", ledger: second)
+        let row = try XCTUnwrap(store.ownerStatusSnapshot().streamAdmissions.first)
+        XCTAssertEqual(row.offered, 8)
+        XCTAssertEqual(row.admitted, 3)
+        XCTAssertEqual(row.dispositions.values.reduce(0, +), 8)
+        XCTAssertEqual(row.dispositions["validation"], 2)
+        XCTAssertEqual(row.dispositions["same_addon_domain"], 1)
+        XCTAssertEqual(row.fetchFailures, 1)
+        XCTAssertEqual(row.incompleteLookups, 1)
+        XCTAssertEqual(row.firstPictures, 0)
+        XCTAssertEqual(StreamAdmissionSummary.label("same_addon_domain"), "Same add-on domain")
+        XCTAssertFalse(row.dispositionReasons.contains("admitted"))
+    }
+
+    func testDuplicateLookupReceiptDoesNotDoubleCountAndLegacyReasonsAreNotExtrapolated() throws {
+        var ledger = StreamAdmissionLedger()
+        ledger.observe(3)
+        ledger.record("duplicate")
+        ledger.finish(admitted: 2)
+        store.recordStreamAdmission(sourceFamily: "highfly", ledger: ledger)
+        store.recordStreamAdmission(sourceFamily: "highfly", ledger: ledger)
+        store.record(category: .playback, name: "highfly_delivery_admission", outcome: .info,
+                     details: ["offered_count": "3", "admitted_count": "1", "reason_code": "replay"])
+        let row = try XCTUnwrap(store.ownerStatusSnapshot().streamAdmissions.first)
+        XCTAssertEqual(row.lookups, 2)
+        XCTAssertEqual(row.offered, 6)
+        XCTAssertEqual(row.admitted, 3)
+        XCTAssertEqual(row.dispositions["duplicate"], 1)
+        XCTAssertEqual(row.dispositions["unrecorded"], 2)
+        XCTAssertEqual(row.dispositions["replay"], 0, "A legacy modal reason adds no counted replay decisions")
+        XCTAssertFalse(row.dispositionReasons.contains("replay"), "Zero histogram entries are not displayed as decisions")
+    }
+
+    func testLedgerRejectsOverAccountingUnknownReasonsAndPrivateReceiptFields() throws {
+        var ledger = StreamAdmissionLedger()
+        ledger.observe(2)
+        ledger.record("admitted", count: 2)
+        ledger.record("duplicate")
+        ledger.record("https://secret.invalid/token")
+        ledger.observe(Int.max)
+        ledger.finish(admitted: 2)
+        XCTAssertFalse(ledger.isReconciled)
+        XCTAssertEqual(ledger.accounted, 2)
+        store.recordStreamAdmission(sourceFamily: "highfly", ledger: ledger)
+        let receipt = try XCTUnwrap(store.records().last)
+        XCTAssertEqual(receipt.details["admission_reconciled"], "no")
+        XCTAssertEqual(receipt.details["admission_duplicate_count"], "0")
+        XCTAssertFalse(receipt.details.description.contains("secret"))
+        XCTAssertTrue(StreamAdmissionLedger.reasons.allSatisfy { receipt.details[StreamAdmissionLedger.detailKey($0)] != nil })
+        let row = try XCTUnwrap(store.ownerStatusSnapshot().streamAdmissions.first)
+        XCTAssertEqual(row.unreconciledLookups, 1)
+        XCTAssertEqual(row.dispositions["unrecorded"], 2)
+    }
+
+    func testStructuredAdmissionReceiptSupportsEveryRegisteredProviderWithoutPrivateDetails() {
+        for provider in CuratedStreamSourceCatalog.Provider.allCases {
+            var ledger = StreamAdmissionLedger()
+            ledger.observe(101)
+            ledger.record("limit")
+            ledger.finish(admitted: 100)
+            store.recordStreamAdmission(sourceFamily: provider.rawValue, ledger: ledger)
+        }
+        store.recordStreamAdmission(sourceFamily: "private.invalid", ledger: StreamAdmissionLedger())
+        XCTAssertEqual(store.records().count, CuratedStreamSourceCatalog.Provider.allCases.count)
+        for receipt in store.records() {
+            XCTAssertEqual(receipt.details["admission_reconciled"], "yes")
+            XCTAssertEqual(receipt.details["admission_limit_count"], "1")
+            XCTAssertNil(receipt.details["delivery_host"])
+            XCTAssertNil(receipt.details["reason_code"])
+            XCTAssertFalse(receipt.details.values.contains { $0.contains("://") })
+        }
+    }
+
+    func testSelectionReceiptsPreserveBoundaryLossesWithoutCountingProviderOffersAgain() throws {
+        var admission = StreamAdmissionLedger()
+        admission.observe(4)
+        admission.finish(admitted: 4)
+        store.recordStreamAdmission(sourceFamily: "highfly", ledger: admission)
+        for stage in ["registry_binding", "final_watch", "discovery_cache"] {
+            var selection = StreamAdmissionLedger()
+            selection.observe(4)
+            selection.record("expired")
+            selection.record("disabled")
+            selection.record("binding")
+            selection.finish(admitted: 1)
+            store.recordStreamSelection(sourceFamily: "highfly", stage: stage, ledger: selection)
+        }
+        store.recordStreamSelection(sourceFamily: "highfly", stage: "private.invalid", ledger: admission)
+        let selections = store.records().filter { $0.name == "stream_selection" }
+        XCTAssertEqual(selections.count, 3)
+        XCTAssertEqual(Set(selections.compactMap { $0.details["stream_selection_stage"] }),
+                       ["registry_binding", "final_watch", "discovery_cache"])
+        XCTAssertTrue(selections.allSatisfy { $0.details["admission_reconciled"] == "yes" && $0.details["admission_binding_count"] == "1" })
+        let row = try XCTUnwrap(store.ownerStatusSnapshot().streamAdmissions.first)
+        XCTAssertEqual(row.lookups, 1)
+        XCTAssertEqual(row.offered, 4)
+        XCTAssertEqual(row.admitted, 4)
+        for reason in ["expired", "disabled", "binding"] {
+            XCTAssertEqual(row.dispositions[reason], 0, "Selection losses do not enter raw admission totals")
+            XCTAssertFalse(row.dispositionReasons.contains(reason))
         }
     }
 

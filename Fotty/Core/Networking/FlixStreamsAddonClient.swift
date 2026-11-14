@@ -100,8 +100,8 @@ enum FlixStreamsMatchSelection: Equatable {
 
 struct FlixStreamsStreamEntry: Decodable, Sendable {
     let url: String?
-    /// Request headers the row asks for (behaviorHints.proxyHeaders.request or headers).
-    let requestedHeaders: [String: String]
+    /// nil preserves an invalid advertised header contract for row-level rejection.
+    let requestedHeaders: [String: String]?
     let requiresDRM: Bool
 
     private struct Key: CodingKey {
@@ -115,8 +115,8 @@ struct FlixStreamsStreamEntry: Decodable, Sendable {
         let values = try decoder.container(keyedBy: Key.self)
         func key(_ name: String) -> Key { Key(stringValue: name)! }
         url = try? values.decodeIfPresent(String.self, forKey: key("url"))
-        requestedHeaders = try StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
-        requiresDRM = ["drm", "clearkey", "licenseUrl", "license"].contains { values.contains(key($0)) }
+        requestedHeaders = try? StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
+        requiresDRM = StreamDeliveryPolicy.decodeRequiresDRM(from: decoder)
     }
 }
 
@@ -173,28 +173,39 @@ actor FlixStreamsAddonClient {
         }
     }
 
-    private struct StreamDocument: Decodable {
+    private struct StreamDocument: Decodable, Sendable {
         let streams: [FlixStreamsStreamEntry]
         let entryCount: Int
+        let malformedCount: Int
+        let unexaminedCount: Int
         private enum CodingKeys: String, CodingKey { case streams }
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             guard values.contains(.streams), try !values.decodeNil(forKey: .streams) else {
-                streams = []; entryCount = 0; return
+                streams = []; entryCount = 0; malformedCount = 0; unexaminedCount = 0; return
             }
             var rows = try values.nestedUnkeyedContainer(forKey: .streams)
             let offered = rows.count
             var entries: [FlixStreamsStreamEntry] = []
-            var count = 0
-            while !rows.isAtEnd, count < 100 {
-                let row = try rows.superDecoder(); count += 1
+            var scanned = 0
+            while !rows.isAtEnd, scanned < StreamDeliveryPolicy.maximumSessionsPerProvider {
+                let row = try rows.superDecoder(); scanned += 1
                 if let entry = try? FlixStreamsStreamEntry(from: row) { entries.append(entry) }
             }
-            streams = entries; entryCount = offered ?? count
+            streams = entries; entryCount = offered ?? scanned
+            malformedCount = scanned - entries.count
+            unexaminedCount = entryCount - scanned
+        }
+
+        func observe(in ledger: inout StreamAdmissionLedger) {
+            ledger.observe(entryCount)
+            ledger.record("malformed", count: malformedCount)
+            ledger.record("limit", count: unexaminedCount)
         }
     }
 
     private struct Snapshot<Value> { let value: Value; let fetchedAt: Date }
+    private let qualityStore: FottyQualityStore
     private let transport: FottyBoundedHTTPClient
     private let manifestTTL: TimeInterval
     private let catalogTTL: TimeInterval
@@ -205,7 +216,8 @@ actor FlixStreamsAddonClient {
     private var catalogGenerations: [String: UUID] = [:]
 
     init(session: URLSession? = nil, manifestTTL: TimeInterval = 30 * 60,
-         catalogTTL: TimeInterval = 120, negativeCatalogTTL: TimeInterval = 15) {
+         catalogTTL: TimeInterval = 120, negativeCatalogTTL: TimeInterval = 15, qualityStore: FottyQualityStore = .shared) {
+        self.qualityStore = qualityStore
         transport = FottyBoundedHTTPClient(configuration: session?.configuration ?? Self.makeConfiguration())
         self.manifestTTL = manifestTTL; self.catalogTTL = catalogTTL
         self.negativeCatalogTTL = negativeCatalogTTL
@@ -264,6 +276,47 @@ actor FlixStreamsAddonClient {
 
     func resolve(for request: StreamPlaybackRequest, now: Date = Date(),
                  forceRefresh: Bool = false) async throws -> [StreamSession] {
+        var ledger = StreamAdmissionLedger(), fetchFailures = 0
+        var returned = 0, limited = false, completion = "failed"
+        defer {
+            ledger.finish(admitted: returned, completion: completion)
+            qualityStore.recordStreamAdmission(sourceFamily: Self.providerCode, ledger: ledger,
+                completion: completion, fetchFailures: fetchFailures)
+        }
+        do {
+            let sessions = try await resolveAdmission(for: request, now: now, forceRefresh: forceRefresh,
+                ledger: &ledger, fetchFailures: &fetchFailures, limited: &limited)
+            returned = sessions.count
+            completion = fetchFailures > 0 ? "partial" : (limited || ledger.dispositions["limit", default: 0] > 0 ? "limited" : "complete")
+            return sessions
+        } catch {
+            if error is CancellationError || (error as? URLError)?.code == .cancelled || Task.isCancelled {
+                completion = "cancelled"
+            } else {
+                if fetchFailures == 0, Self.isAdmissionFetchFailure(error) { fetchFailures = 1 }
+                switch error as? CommunitySportsAddonError {
+                case .lookupBudgetExhausted?: completion = fetchFailures > 0 ? "partial" : "limited"
+                case .streamEntriesEmpty?, .streamAdmissionRejected?:
+                    completion = fetchFailures > 0 ? "partial" : (limited || ledger.dispositions["limit", default: 0] > 0 ? "limited" : "complete")
+                default: completion = ledger.hasObservedResponse && fetchFailures > 0 ? "partial" : "failed"
+                }
+            }
+            throw error
+        }
+    }
+
+    private nonisolated static func isAdmissionFetchFailure(_ error: Error) -> Bool {
+        if error is CancellationError || (error as? URLError)?.code == .cancelled { return false }
+        switch error as? CommunitySportsAddonError {
+        case .httpFailure?, .transportFailure?, .invalidJSON?, .invalidResponse?, .unsafeResponse?, .unsafeMetadata?: return true
+        default: return error is URLError
+        }
+    }
+
+    private func resolveAdmission(for request: StreamPlaybackRequest, now: Date,
+        forceRefresh: Bool, ledger: inout StreamAdmissionLedger, fetchFailures: inout Int,
+        limited: inout Bool) async throws -> [StreamSession] {
+        let started = ProcessInfo.processInfo.systemUptime
         try Task.checkCancellation()
         guard Self.supports(request: request),
               request.preferredEvent?.hasCatalogIdentityConflict != true,
@@ -282,29 +335,37 @@ actor FlixStreamsAddonClient {
             if case .conflicting = Self.selectMatch(for: request, from: entries) { throw CommunitySportsAddonError.conflictingMatch }
             throw CommunitySportsAddonError.matchNotFound
         }
-        var all: [StreamSession] = [], offered = 0, read = 0
+        var all: [StreamSession] = []
+        limited = listings.count > Self.maximumListings
         var firstFailure: Error?
-        for listing in listings {
+        for listing in listings.prefix(Self.maximumListings) {
             let document: StreamDocument
             do {
                 document = try await fetchJSON(StreamDocument.self,
                     from: Self.route(["stream", "tv", listing.id + ".json"]), stage: .streams)
             } catch is CancellationError { throw CancellationError() }
-            catch { firstFailure = firstFailure ?? error; continue }
-            read += 1; offered += document.entryCount
+            catch {
+                if Self.isAdmissionFetchFailure(error) { fetchFailures += 1 }
+                firstFailure = firstFailure ?? error; continue
+            }
+            document.observe(in: &ledger)
             // A registered request binds each stream to the exact listing it came from.
             let binding = isRegistered ? StreamEventBinding(request: request, providerCode: Self.providerCode,
                 providerEventID: listing.id, streamID: listing.id, manifestRevision: manifest.version,
                 verifiedAt: now, expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime), at: now) : nil
-            if isRegistered, binding == nil { continue }
+            if isRegistered, binding == nil { ledger.record("fixture_changed", count: document.streams.count); continue }
             all += Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version,
-                                     eventBinding: binding, at: now, after: all)
+                                     eventBinding: binding, at: now, after: all, ledger: &ledger)
         }
         try Task.checkCancellation()
         if all.isEmpty, let firstFailure { throw firstFailure }
-        if read > 0 { FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, offered: offered, admitted: all.count) }
-        guard offered > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
-        guard !all.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offered) }
+        let completed = now.addingTimeInterval(max(0, ProcessInfo.processInfo.systemUptime - started))
+        if isRegistered, !all.allSatisfy({ $0.eventBinding?.matches(request: request,
+            providerCode: Self.providerCode, at: completed) == true }) {
+            throw CommunitySportsAddonError.conflictingMatch
+        }
+        guard ledger.offered > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
+        guard !all.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: ledger.offered) }
         return all
     }
 
@@ -409,7 +470,7 @@ actor FlixStreamsAddonClient {
                                             from entries: [FlixStreamsCatalogEntry]) -> [FlixStreamsCatalogEntry] {
         let entries = Array(entries.prefix(maximumCatalogEntries))
         let selection = listingSelection(for: request, entries: entries, candidates: catalogCandidates(entries))
-        return selection.indices.prefix(maximumListings).map { entries[$0] }
+        return selection.indices.map { entries[$0] }
     }
 
     nonisolated static func selectMatch(for request: StreamPlaybackRequest,
@@ -551,16 +612,37 @@ actor FlixStreamsAddonClient {
     nonisolated static func makeSessions(from streams: [FlixStreamsStreamEntry], request: StreamPlaybackRequest,
                                         addOnVersion: String, eventBinding: StreamEventBinding? = nil,
                                         at now: Date = Date(), after earlier: [StreamSession] = []) -> [StreamSession] {
-        guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode) else { return [] }
-        if let eventBinding, !eventBinding.matches(request: request, providerCode: providerCode, at: now) { return [] }
+        var ledger = StreamAdmissionLedger()
+        ledger.observe(streams.count)
+        return makeSessions(from: streams, request: request, addOnVersion: addOnVersion, eventBinding: eventBinding, at: now, after: earlier, ledger: &ledger)
+    }
+
+    nonisolated static func makeSessions(from streams: [FlixStreamsStreamEntry], request: StreamPlaybackRequest,
+                                        addOnVersion: String, eventBinding: StreamEventBinding? = nil,
+                                        at now: Date = Date(), after earlier: [StreamSession] = [], ledger: inout StreamAdmissionLedger) -> [StreamSession] {
+        guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode) else { ledger.record("validation", count: streams.count); return [] }
+        if let eventBinding, !eventBinding.matches(request: request, providerCode: providerCode, at: now) {
+            ledger.record("fixture_changed", count: streams.count); return []
+        }
         var seen = Set(earlier.compactMap { $0.diagnosticMetadata["source_key"] })
         var sessions: [StreamSession] = []
+        ledger.record("limit", count: max(0, streams.count - StreamDeliveryPolicy.maximumSessionsPerProvider))
         for entry in streams.prefix(StreamDeliveryPolicy.maximumSessionsPerProvider) {
-            guard !entry.requiresDRM, let value = entry.url, let url = URL(string: value), isAdmittedDelivery(url),
-                  let headers = StreamDeliveryPolicy.requestHeaders(entry.requestedHeaders) else { continue }
+            guard !entry.requiresDRM else { ledger.record("drm"); continue }
+            guard let value = entry.url, !value.isEmpty else { ledger.record("no_url"); continue }
+            guard let url = URL(string: value) else { ledger.record("malformed"); continue }
+            if let reason = StreamDeliveryPolicy.publicRejection(url) { ledger.record(reason); continue }
+            guard let requested = entry.requestedHeaders else { ledger.record("malformed_headers"); continue }
+            guard let headers = StreamDeliveryPolicy.requestHeaders(requested) else {
+                ledger.record(StreamDeliveryPolicy.headerRejection(requested) ?? "malformed_headers")
+                continue
+            }
             let key = sourceKey(url: url, headers: headers)
-            guard seen.insert(key).inserted else { continue }
-            guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else { break }
+            guard seen.insert(key).inserted else { ledger.record("duplicate"); continue }
+            guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else {
+                ledger.record("limit"); continue
+            }
+            ledger.record("admitted")
             sessions.append(.init(matchID: request.matchID, playableURL: url, streamType: .hls,
                 providerName: label, requiredHeaders: headers, qualityLabel: "Live video",
                 canRefresh: false, validationStatus: .validated,

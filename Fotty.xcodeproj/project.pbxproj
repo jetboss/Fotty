@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		AB3240000000000000000001 /* StreamDeliveryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB3240000000000000000002 /* StreamDeliveryPolicy.swift */; };
 		00D8EEE4324123616A48CE63 /* PlaybackPerformanceUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0FCBE0F87200F6728F07BEE /* PlaybackPerformanceUITests.swift */; };
 		00EA5FD084EC850411B8D8B8 /* MatchHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8247272179FC24568F36C27 /* MatchHubView.swift */; };
 		028341DE997FD948DC902A70 /* LivePlaybackPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71953F9C927107A8EB68E178 /* LivePlaybackPolicy.swift */; };
@@ -371,6 +372,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		AB3240000000000000000002 /* StreamDeliveryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamDeliveryPolicy.swift; sourceTree = "<group>"; };
 		0153BF3AE2368FA4C1937E8D /* LivePlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePlayerView.swift; sourceTree = "<group>"; };
 		01773C08B0866576196782A3 /* LiveMatchTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveMatchTimelineView.swift; sourceTree = "<group>"; };
 		0186E61D47B7B39CA5DE097D /* SinglePlaybackQualityPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SinglePlaybackQualityPolicy.swift; sourceTree = "<group>"; };
@@ -1311,6 +1313,7 @@
 				E687E0BC5716B17D7836EEB2 /* FlixStreamsAddonClient.swift */,
 				BC58DC3233EB1385BE282CC2 /* FottyBoundedHTTPClient.swift */,
 				7693F4C0AAA876A7C554EA3D /* HighflySportsAddonClient.swift */,
+				AB3240000000000000000002 /* StreamDeliveryPolicy.swift */,
 				6490671312449481486B1A4A /* LiveCatalogSnapshot.swift */,
 				5EB5F54537E6F1A2E2C8E657 /* LiveSourceHealthStore.swift */,
 				4C5A629380007246A6CB4D63 /* LocalStreamProxy.swift */,
@@ -1821,6 +1824,7 @@
 				3AD713AA9A7E81E7BF4B660C /* FottyPrivateBackup.swift in Sources */,
 				06CBE23078DB9C041983C970 /* HeroMatchCarousel.swift in Sources */,
 				D12F69340BD37660FDC6376E /* HighflySportsAddonClient.swift in Sources */,
+				AB3240000000000000000001 /* StreamDeliveryPolicy.swift in Sources */,
 				D193575AD1E16E91EB0CEDE0 /* HomeCatalogProjectionPolicies.swift in Sources */,
 				815A59F521E0BCCA9B532308 /* HomeProjectionCoordinator.swift in Sources */,
 				D3AACA2F4520431DF39F14F6 /* HomeSportsDiscovery.swift in Sources */,

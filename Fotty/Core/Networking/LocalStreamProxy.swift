@@ -82,6 +82,7 @@ final class LocalStreamProxy: @unchecked Sendable {
          limits: LocalStreamProxyPolicy.Limits = .init(),
          originProfile: LocalStreamProxyOriginProfile? = nil,
          playlistProfile: LocalStreamProxyPlaylistProfile? = nil,
+         expectsHLS: Bool = false,
          configuration: URLSessionConfiguration? = nil,
          resolver: @escaping LocalStreamProxyDestinationValidator.Resolver = { try await LocalStreamProxyDestinationValidator.resolve($0) }) {
         self.headers = headers
@@ -92,7 +93,7 @@ final class LocalStreamProxy: @unchecked Sendable {
         self.resolver = resolver
         policy = LocalStreamProxyPolicy(selectedMediaURL: selectedMediaURL, limits: limits,
                                         originProfile: self.originProfile, requestHeaders: headers,
-                                        playlistProfile: playlistProfile)
+                                        playlistProfile: playlistProfile, expectsHLS: expectsHLS)
         let config = configuration ?? .ephemeral
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         config.timeoutIntervalForRequest = limits.requestSeconds
@@ -368,7 +369,7 @@ final class LocalStreamProxy: @unchecked Sendable {
         LocalStreamProxyPolicy.remoteRequest(
             url: url, selectedMediaURL: selectedMediaURL, method: request.method,
             capturedHeaders: headers, cookies: cookies, clientHeaders: request.headers,
-            timeout: limits.requestSeconds)
+            timeout: limits.requestSeconds, expectsManifest: withStateLock { policy.manifestRole(url) })
     }
 
     private func forwardRequest(_ request: ParsedRequest, remoteURL: URL, on connection: NWConnection) async {
@@ -394,8 +395,9 @@ final class LocalStreamProxy: @unchecked Sendable {
                     recordFailure(on: connection, stage: stage, kind: .httpStatus, statusCode: http.statusCode)
                     sendError(http.statusCode, on: connection); return
                 }
-                let isManifest = finalURL.pathExtension.lowercased() == "m3u8"
-                    || (http.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased().contains("mpegurl")
+                let isManifest = withStateLock { policy.manifestRole(finalURL) }
+                    ?? (finalURL.pathExtension.lowercased() == "m3u8"
+                        || (http.value(forHTTPHeaderField: "Content-Type") ?? "").lowercased().contains("mpegurl"))
                 if isManifest {
                     stage = .manifest
                     updateRequestEvidence(on: connection, phase: stage)

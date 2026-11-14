@@ -448,18 +448,19 @@ final class FixtureStreamDiscoveryIndex {
         var seen = Set<StreamDeliveryIdentity>()
         record.sessions.removeAll(keepingCapacity: true)
         record.hasCompleteSessionList = true
+        var boundary = StreamAdmissionLedger(); boundary.observe(sessions.count)
         for session in sessions {
-            guard isAdmitted(session, for: record.request, providerCode: ticket.providerCode, at: now),
-                  seen.insert(StreamDeliveryIdentity(url: session.playableURL, headers: session.requiredHeaders)).inserted
-            else { continue }
-            // An oversized result still supplies availability evidence. The next channel
-            // Watch must re-resolve it instead of opening with an incomplete picker.
-            if record.sessions.count == StreamDeliveryPolicy.maximumSessionsPerProvider {
-                record.hasCompleteSessionList = false
-                break
+            guard !session.hasExpiredMediaLease(at: now) else { boundary.record("expired"); continue }
+            guard isAdmitted(session, for: record.request, providerCode: ticket.providerCode, at: now) else { boundary.record("binding"); continue }
+            guard seen.insert(StreamDeliveryIdentity(url: session.playableURL, headers: session.requiredHeaders)).inserted else { boundary.record("duplicate"); continue }
+            // Keep availability evidence but require a fresh lookup for a capped list.
+            guard record.sessions.count < StreamDeliveryPolicy.maximumSessionsPerProvider else {
+                record.hasCompleteSessionList = false; boundary.record("limit"); continue
             }
+            boundary.record("admitted")
             record.sessions.append(session)
         }
+        FottyQualityStore.shared.recordStreamSelection(sourceFamily: ticket.providerCode, stage: "discovery_cache", ledger: boundary)
         record.completedAt = now
         record.generation = nil
         if !record.sessions.isEmpty { record.lastCandidateFoundAt = now }

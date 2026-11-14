@@ -132,6 +132,14 @@ final class FixtureStreamDiscoveryIndexTests: XCTestCase {
         index.complete(ticket, sessions: sessions, at: now)
         XCTAssertNil(LiveStreamResolver.cachedChannelSessions(for: request, providerCode: "reviewedtv", index: index, at: now))
         XCTAssertEqual(index.summary(for: request, at: now)?.providers.first?.outcome, .candidates)
+        let receipt = try XCTUnwrap(FottyQualityStore.shared.records().last {
+            $0.name == "stream_selection" && $0.details["stream_selection_stage"] == "discovery_cache"
+                && $0.details["source_family"] == "reviewedtv"
+        })
+        XCTAssertEqual(receipt.details["offered_count"], "101")
+        XCTAssertEqual(receipt.details["admitted_count"], "100")
+        XCTAssertEqual(receipt.details["admission_limit_count"], "1")
+        XCTAssertEqual(receipt.details["admission_reconciled"], "yes")
     }
 
     func testMatchWatchRechecksPreflightDeliveryAndRecordsWithdrawnDescriptor() throws {

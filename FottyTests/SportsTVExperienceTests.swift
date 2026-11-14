@@ -215,13 +215,15 @@ final class SportsTVExperienceTests: XCTestCase {
                 let base = "https://\(host)/synthetic/index.m3u8"
                 for changed in [base, base + "?" + query + "&token=x", base + "?" + query + "&" + query,
                                 base + "?" + query + "0", base + "?ads.xumo_channelId=00000000"] {
-                    XCTAssertFalse(ReviewedTVPlaylistClient.admitsDelivery(URL(string: changed)!, channel: channel))
+                    XCTAssertTrue(ReviewedTVPlaylistClient.admitsDelivery(URL(string: changed)!, channel: channel))
                 }
             }
             XCTAssertNil(request.registryMatch, "A channel is not proof of a fixture's programme")
-            XCTAssertFalse(ReviewedTVPlaylistClient.admitsDelivery(delivery), "Never substitute an English station for main Willow")
-            for invalid in ["http://\(host)/a.m3u8", "https://\(host):8443/a.m3u8", "https://\(host)/a.m3u8?token=x",
-                            "https://child.\(host)/a.m3u8", "https://barinaslive1.boldmss.com/a.m3u8"] {
+            XCTAssertThrowsError(try ReviewedTVPlaylistClient.willowDelivery(from: playlist, playlistURL: channel.playlistURL),
+                                 "Station identity comes from the selected playlist entry, never a shared transport host")
+            for invalid in ["http://\(host)/a.m3u8", "https://\(host):8443/a.m3u8",
+                            "https://user:secret@\(host)/live", "https://127.0.0.1/live",
+                            "https://\(host)/live?url=http://public.example/live"] {
                 XCTAssertFalse(ReviewedTVPlaylistClient.admitsDelivery(URL(string: invalid)!, channel: channel))
             }
         }
@@ -296,17 +298,21 @@ final class SportsTVExperienceTests: XCTestCase {
         }
     }
 
-    func testDiscoveredStationContractRejectsWrongIdentityPathHeadersAndProvenance() throws {
+    func testDiscoveredStationContractRejectsWrongIdentityUnsafeTransportAndCredentials() throws {
         for provider in ["TV17", "TV21", "TV22", "TV23", "TV24"] {
             let channel = try XCTUnwrap(ReviewedTVPlaylistClient.channel(forProviderName: provider))
             let target = try coreDelivery(channel), good = corePlaylist(channel, delivery: target)
             XCTAssertEqual(try ReviewedTVPlaylistClient.delivery(from: good,
                 playlistURL: channel.playlistURL, channel: channel), target)
             let host = try XCTUnwrap(target.host)
-            for value in ["http://\(host)\(target.path)", "https://\(host)/another-channel/master.m3u8",
-                          target.absoluteString + "?token=unreviewed", target.absoluteString + "#fragment",
-                          "https://\(host):8443\(target.path)", "https://127.0.0.1\(target.path)"] {
+            for value in ["http://\(host)\(target.path)", target.absoluteString + "#fragment",
+                          "https://\(host):8443\(target.path)", "https://127.0.0.1\(target.path)",
+                          "https://user:secret@\(host)\(target.path)", "https://\(host)/stream?url=https://127.0.0.1/live"] {
                 XCTAssertFalse(ReviewedTVPlaylistClient.admitsDelivery(URL(string: value)!, channel: channel))
+            }
+            for safe in ["https://new-cdn.example/stream", target.absoluteString + "?token=published"] {
+                XCTAssertEqual(try ReviewedTVPlaylistClient.delivery(from: corePlaylist(channel, delivery: URL(string: safe)!),
+                    playlistURL: channel.playlistURL, channel: channel).absoluteString, safe)
             }
             let text = String(decoding: good, as: UTF8.self)
             for mutation in [text.replacingOccurrences(of: channel.playlistIdentifier, with: "Willow.us@SD"),
@@ -330,23 +336,29 @@ final class SportsTVExperienceTests: XCTestCase {
                 poster: nil, popular: false, teams: nil)), at: now))
     }
 
-    func testCoreEnglishContractsRejectChannelSubstitutionTokenChangesAndHeaderInstructions() throws {
+    func testCoreEnglishContractsPreserveStationIdentityAndDefaultHeadersWithSafeAlternatives() throws {
         let channel = try XCTUnwrap(ReviewedTVPlaylistClient.channel(forProviderName: "TV10"))
         let target = try coreDelivery(channel), data = corePlaylist(channel, delivery: target)
         XCTAssertEqual(try ReviewedTVPlaylistClient.delivery(from: data,
             playlistURL: channel.playlistURL, channel: channel), target)
         let host = try XCTUnwrap(target.host), path = try XCTUnwrap(channel.deliveryPath)
-        for invalid in ["http://\(host)\(path)?token=" + String(repeating: "a", count: 48),
-                        "https://\(host)\(path)", "https://\(host)\(path)?token=", "https://\(host)\(path)?token=short",
-                        target.absoluteString + "&token=" + String(repeating: "a", count: 48),
-                        target.absoluteString + "&other=x", target.absoluteString + "#fragment",
-                        "https://\(host)/unreviewed/playlist.m3u8?token=" + String(repeating: "a", count: 48)] {
+        for invalid in ["http://\(host)\(path)", "https://\(host):8443\(path)",
+                        "https://127.0.0.1/live", "https://user:secret@\(host)\(path)",
+                        target.absoluteString + "#fragment", "https://\(host)/stream?url=http://public.example/live"] {
             XCTAssertFalse(ReviewedTVPlaylistClient.admitsDelivery(URL(string: invalid)!, channel: channel))
         }
+        for safe in ["https://\(host)\(path)", target.absoluteString + "&quality=published", "https://new-cdn.example/live"] {
+            XCTAssertEqual(try ReviewedTVPlaylistClient.delivery(from: corePlaylist(channel, delivery: URL(string: safe)!),
+                playlistURL: channel.playlistURL, channel: channel).absoluteString, safe)
+        }
+        let defaulted = String(decoding: data, as: UTF8.self)
+            .replacingOccurrences(of: "#EXTVLCOPT:http-user-agent=" + channel.playbackUserAgent! + "\n", with: "")
+        XCTAssertEqual(try ReviewedTVPlaylistClient.delivery(from: Data(defaulted.utf8),
+            playlistURL: channel.playlistURL, channel: channel), target,
+            "An omitted optional directive retains the station's required default User-Agent")
         for mutation in [String(decoding: data, as: UTF8.self).replacingOccurrences(of: channel.playlistIdentifier, with: "SkySp.Fball.uk"),
                          String(decoding: data, as: UTF8.self).replacingOccurrences(of: channel.displayName, with: "Sky Sports Football"),
                          String(decoding: data, as: UTF8.self).replacingOccurrences(of: "#EXTVLCOPT:http-user-agent=", with: "#EXTVLCOPT:http-referrer="),
-                         String(decoding: data, as: UTF8.self).replacingOccurrences(of: "#EXTVLCOPT:http-user-agent=" + channel.playbackUserAgent! + "\n", with: ""),
                          String(decoding: data, as: UTF8.self).replacingOccurrences(of: target.absoluteString, with: "#EXTHTTP:{\"Authorization\":\"unreviewed\"}\n" + target.absoluteString)] {
             XCTAssertThrowsError(try ReviewedTVPlaylistClient.delivery(from: Data(mutation.utf8),
                 playlistURL: channel.playlistURL, channel: channel))

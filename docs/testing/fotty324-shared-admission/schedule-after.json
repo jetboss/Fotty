@@ -1,0 +1,34 @@
+{
+  "checkedAt": "2026-11-14T04:20:04.011869+00:00",
+  "authorityURL": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard?dates=20261113",
+  "matches": [
+    {
+      "name": "Nashville Predators at Vegas Golden Knights",
+      "date": "2026-11-14T03:00Z",
+      "status": {
+        "clock": 687.0,
+        "displayClock": "11:27",
+        "period": 2,
+        "type": {
+          "id": "2",
+          "name": "STATUS_IN_PROGRESS",
+          "state": "in",
+          "completed": false,
+          "description": "In Progress",
+          "detail": "11:27 - 2nd Period",
+          "shortDetail": "11:27 - 2nd"
+        }
+      },
+      "teams": [
+        {
+          "name": "Vegas Golden Knights",
+          "score": "1"
+        },
+        {
+          "name": "Nashville Predators",
+          "score": "1"
+        }
+      ]
+    }
+  ]
+}

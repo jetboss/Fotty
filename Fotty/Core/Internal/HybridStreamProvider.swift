@@ -279,12 +279,26 @@ actor LiveStreamResolver {
                                     technicalMessage: "Cancelled during provider discovery.")
         }
         let enabledAtCompletion = await StreamPluginRegistry.shared.enabledProviderCodes()
-        let sessions = LiveSourceHealthStore.rankedSessions(deduplicatedSessions(collected.sessions.filter { session in
-            !session.hasExpiredMediaLease()
-                && (!singleStreamDiscovery || Self.admitsSingleSession(session, for: request))
-                && StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes: enabledAtCompletion)
-                .contains { StreamPluginProviderMatching.matches(session.legacySource, code: $0) }
-        }))
+        var selectionLedgers: [String: StreamAdmissionLedger] = [:]
+        var selectedIdentities: Set<StreamDeliveryIdentity> = []
+        let allowedCodes = StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes: enabledAtCompletion)
+        let selectedAt = Date()
+        let selected = collected.sessions.filter { session in
+            let family = StreamEventBinding.providerCode(forSessionProviderName: session.providerName) ?? "unknown"
+            selectionLedgers[family, default: StreamAdmissionLedger()].observe(1)
+            let reason: String
+            if session.hasExpiredMediaLease(at: selectedAt) { reason = "expired" }
+            else if singleStreamDiscovery && !Self.admitsSingleSession(session, for: request) { reason = "binding" }
+            else if !allowedCodes.contains(where: { StreamPluginProviderMatching.matches(session.legacySource, code: $0) }) { reason = "disabled" }
+            else if !selectedIdentities.insert(StreamDeliveryIdentity(url: session.playableURL, headers: session.requiredHeaders)).inserted { reason = "duplicate" }
+            else { reason = "admitted" }
+            selectionLedgers[family]?.record(reason)
+            return reason == "admitted"
+        }
+        for (family, ledger) in selectionLedgers {
+            FottyQualityStore.shared.recordStreamSelection(sourceFamily: family, stage: "final_watch", ledger: ledger)
+        }
+        let sessions = LiveSourceHealthStore.rankedSessions(selected)
         let exitEvent = StreamEventRecord(name: .streamResolutionStarted, matchID: request.matchID,
             matchTitle: request.displayTitle, attemptID: attemptID,
             currentState: sessions.isEmpty ? .failed : .readyToPlay,
@@ -825,11 +839,18 @@ actor LiveStreamResolver {
                 let resolved = try await resolve(request.usingRegistryMatch(association))
                 try Task.checkCancellation()
                 let now = clock()
+                var boundary = StreamAdmissionLedger(); boundary.observe(resolved.count)
                 let admitted = resolved.filter { session in
-                    guard let binding = session.eventBinding, !session.hasExpiredMediaLease(at: now) else { return false }
-                    return binding.matchesRegistryEntry(association, request: request, at: now)
-                        && binding.matches(request: request, providerCode: providerCode, at: now)
+                    let reason: String
+                    if session.hasExpiredMediaLease(at: now) { reason = "expired" }
+                    else if let binding = session.eventBinding,
+                            binding.matchesRegistryEntry(association, request: request, at: now),
+                            binding.matches(request: request, providerCode: providerCode, at: now) { reason = "admitted" }
+                    else { reason = "binding" }
+                    boundary.record(reason)
+                    return reason == "admitted"
                 }
+                FottyQualityStore.shared.recordStreamSelection(sourceFamily: providerCode, stage: "registry_binding", ledger: boundary)
                 for session in admitted { choices.append(session); onSession(session) }
             } catch {
                 try Task.checkCancellation()

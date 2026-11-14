@@ -7,6 +7,157 @@ final class FlixStreamsAddonTests: XCTestCase {
     private let delivery = "https://free.flixnest.app/dlstreams/stream/dlstreams%3Achannel%3A870.m3u8?t=fixture-signature"
     private let england = "\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}"
 
+    func testCancellationWithdrawsPreviouslyAdmittedSiblingAndKeepsItsOffer() async throws {
+        let suite = "FlixStreams.cancelled." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let second = "dlstreams:event:bbbbbbbbbbbb"
+        let session = try fixtureSession(page0: [entryJSON(), entryJSON(id: second)], page80: [])
+        defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
+        let gate = FlixFixtureGate("second stream started")
+        FlixFixtureProtocol.setResponse(.controlled(gate), for: "/stream/tv/" + second + ".json")
+        let client = FlixStreamsAddonClient(session: session, qualityStore: store)
+        let lookup = Task { try await client.resolve(for: request(), now: kickoff) }
+        defer { lookup.cancel(); gate.respond(.failure(URLError(.cancelled))) }
+        await fulfillment(of: [gate.started], timeout: 2)
+        lookup.cancel()
+        do { _ = try await lookup.value; XCTFail("Cancelled lookup") }
+        catch { XCTAssertTrue(error is CancellationError || (error as? URLError)?.code == .cancelled) }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let detail = try XCTUnwrap(receipts.first).details
+        XCTAssertEqual(detail["offered_count"], "1")
+        XCTAssertEqual(detail["admitted_count"], "0")
+        XCTAssertEqual(detail["admission_withdrawn_count"], "1")
+        XCTAssertEqual(detail["admission_completion"], "cancelled")
+        XCTAssertEqual(detail["admission_reconciled"], "yes")
+    }
+
+    func testPartialFetchReceiptSurvivesBothSuccessfulAndThrowingAggregateLookups() async throws {
+        let suite = "FlixStreams.partial." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let second = "dlstreams:event:bbbbbbbbbbbb"
+        let session = try fixtureSession(page0: [entryJSON(), entryJSON(id: second)], page80: [],
+            streams: .failure(URLError(.timedOut)))
+        let secondPath = "/stream/tv/" + second + ".json"
+        defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
+        let client = FlixStreamsAddonClient(session: session, qualityStore: store)
+        FlixFixtureProtocol.setResponse(try .json(["streams": [["url": delivery]]]), for: secondPath)
+        let accepted = try await client.resolve(for: request(), now: kickoff, forceRefresh: true)
+        XCTAssertEqual(accepted.count, 1)
+        FlixFixtureProtocol.setResponse(try .json(["streams": [["url": delivery, "drm": true]]]), for: secondPath)
+        do {
+            _ = try await client.resolve(for: request(), now: kickoff, forceRefresh: true)
+            XCTFail("A failed sibling keeps the aggregate incomplete")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError,
+                .transportFailure(code: URLError.timedOut.rawValue, stage: .streams))
+        }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 2)
+        XCTAssertEqual(Set(receipts.compactMap { $0.details["admission_lookup_id"] }).count, 2)
+        for receipt in receipts {
+            XCTAssertEqual(receipt.details["offered_count"], "1")
+            XCTAssertEqual(receipt.details["admission_fetch_failures"], "1")
+            XCTAssertEqual(receipt.details["admission_completion"], "partial")
+            XCTAssertEqual(receipt.details["admission_reconciled"], "yes")
+            XCTAssertEqual(receipt.details["admission_unprocessed_count"], "0")
+        }
+        let acceptedReceipt = try XCTUnwrap(receipts.first { $0.details["admitted_count"] == "1" })
+        XCTAssertEqual(acceptedReceipt.details["admission_drm_count"], "0")
+        let rejectedReceipt = try XCTUnwrap(receipts.first { $0.details["admitted_count"] == "0" })
+        XCTAssertEqual(rejectedReceipt.details["admission_drm_count"], "1")
+    }
+
+    func testUnreadFailureNeverBecomesAConfirmedZeroOffer() async throws {
+        let suite = "FlixStreams.unread." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let session = try fixtureSession()
+        defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
+        FlixFixtureProtocol.setResponse(.status(503), for: "/manifest.json")
+        do {
+            _ = try await FlixStreamsAddonClient(session: session, qualityStore: store).resolve(for: request(), now: kickoff)
+            XCTFail("Manifest failure")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError, .httpFailure(statusCode: 503, stage: .manifest))
+        }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let detail = try XCTUnwrap(receipts.first).details
+        XCTAssertNil(detail["offered_count"])
+        XCTAssertEqual(detail["admission_observation"], "unread")
+        XCTAssertEqual(detail["admission_completion"], "failed")
+        XCTAssertEqual(detail["admission_fetch_failures"], "1")
+    }
+
+    func testCommonAdmissionAccountsForEveryMixedRowWithoutGuessingContentFromTheURL() async throws {
+        let suite = "FlixStreams.admission." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let php = "https://video.example.org/play.php?token=fixture"
+        let bare = "https://video.example.org/live/opaque"
+        let rows: [Any] = [NSNull(), "bad-row", ["url": 17],
+            ["url": php, "drm": true], ["url": php, "headers": ["Cookie": "private"]],
+            ["url": php, "headers": 7], ["url": "http://video.example.org/live"],
+            ["url": "https://video.example.org/wrap?url=http%3A%2F%2F127.0.0.1%2Fprivate"],
+            ["url": php, "headers": NSNull(), "behaviorHints": NSNull(), "drm": false,
+                "clearkey": NSNull(), "licenseUrl": "", "license": [:]],
+            ["url": php, "behaviorHints": ["proxyHeaders": ["request": NSNull()]], "drm": [:]],
+            ["url": bare, "headers": ["User-Agent": "Player A"], "drmInfo": []],
+            ["url": bare, "headers": ["User-Agent": "Player B"], "drmHeaders": NSNull()]]
+        let session = try fixtureSession(streams: .json(["streams": rows]))
+        defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
+        let result = try await FlixStreamsAddonClient(session: session, qualityStore: store)
+            .resolve(for: request(), now: kickoff, forceRefresh: true)
+        XCTAssertEqual(result.map { $0.playableURL.absoluteString }, [php, bare, bare])
+        XCTAssertEqual(result.map(\.providerName), ["FS1", "FS2", "FS3"])
+        XCTAssertEqual(result.map(\.requiredHeaders), [[:], ["User-Agent": "Player A"], ["User-Agent": "Player B"]])
+        XCTAssertTrue(result.allSatisfy { $0.requiresGuardedRelay == true })
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let detail = try XCTUnwrap(receipts.first).details
+        XCTAssertEqual(detail["offered_count"], "12")
+        XCTAssertEqual(detail["admitted_count"], "3")
+        XCTAssertEqual(detail["admission_malformed_count"], "2")
+        for reason in ["no_url", "drm", "credential_headers", "malformed_headers", "not_https", "inner_not_https", "duplicate"] {
+            XCTAssertEqual(detail["admission_" + reason + "_count"], "1", reason)
+        }
+        XCTAssertEqual(detail["admission_completion"], "complete")
+        XCTAssertEqual(detail["admission_unprocessed_count"], "0")
+        XCTAssertEqual(detail["admission_reconciled"], "yes")
+        XCTAssertFalse(detail.description.contains("token=fixture"))
+        XCTAssertFalse(detail.description.contains("private"))
+    }
+
+    func testAggregateSessionLimitAccountsForLaterDuplicatesAndHeaderVariants() throws {
+        let rows: [[String: Any]] = (0..<100).map { ["url": "https://video.example.org/opaque/\($0)"] }
+        func decode(_ rows: [[String: Any]]) throws -> [FlixStreamsStreamEntry] {
+            try rows.map { try JSONDecoder().decode(FlixStreamsStreamEntry.self, from: data($0)) }
+        }
+        var ledger = StreamAdmissionLedger()
+        ledger.observe(103)
+        let first = FlixStreamsAddonClient.makeSessions(from: try decode(rows), request: request(),
+            addOnVersion: "1.0.0", ledger: &ledger)
+        let later: [[String: Any]] = [rows[0],
+            ["url": "https://video.example.org/opaque/0", "headers": ["User-Agent": "different"]],
+            ["url": "https://video.example.org/opaque/later"]]
+        let second = FlixStreamsAddonClient.makeSessions(from: try decode(later), request: request(),
+            addOnVersion: "1.0.0", after: first, ledger: &ledger)
+        ledger.finish(admitted: first.count + second.count, completion: "limited")
+        XCTAssertEqual(first.count, 100)
+        XCTAssertTrue(second.isEmpty)
+        XCTAssertEqual(ledger.dispositions["duplicate"], 1)
+        XCTAssertEqual(ledger.dispositions["limit"], 2)
+        XCTAssertEqual(ledger.admitted, 100)
+        XCTAssertTrue(ledger.isReconciled)
+    }
+
     func testManifestRequiresTheReviewedIdentityAndAdvertisedGenrePagination() throws {
         let manifest = try FlixStreamsAddonClient.validateManifest(data: data(manifestJSON()))
         XCTAssertEqual(manifest.id, "org.flixstreams.free")
@@ -378,7 +529,7 @@ final class FlixStreamsAddonTests: XCTestCase {
     }
 
     func testDeliveriesAreJudgedOnSafetyNotRouteOrToken() {
-        for value in [delivery, delivery.replacingOccurrences(of: "free.flixnest.app/", with: "free.flixnest.app:443/"),
+        for value in [delivery.replacingOccurrences(of: ".m3u8", with: ".mp4"), delivery, delivery.replacingOccurrences(of: "free.flixnest.app/", with: "free.flixnest.app:443/"),
                       delivery.replacingOccurrences(of: "/dlstreams/stream/", with: "/api/dlstreams/"),
                       delivery + "&token=extra", delivery.replacingOccurrences(of: "free.flixnest.app", with: "cdn.example.net")] {
             XCTAssertTrue(FlixStreamsAddonClient.isAdmittedDelivery(URL(string: value)!), value)
@@ -387,7 +538,7 @@ final class FlixStreamsAddonTests: XCTestCase {
                       delivery.replacingOccurrences(of: "free.flixnest.app", with: "user:secret@free.flixnest.app"),
                       delivery.replacingOccurrences(of: "free.flixnest.app", with: "free.flixnest.app:8443"),
                       delivery.replacingOccurrences(of: "free.flixnest.app", with: "127.0.0.1"),
-                      delivery + "#player", delivery.replacingOccurrences(of: ".m3u8", with: ".mp4"),
+                      delivery + "#player",
                       delivery + String(repeating: "x", count: 8200)] {
             XCTAssertFalse(FlixStreamsAddonClient.isAdmittedDelivery(URL(string: value)!), value)
         }
@@ -637,15 +788,28 @@ final class FlixStreamsAddonTests: XCTestCase {
     }
 
     func testOfferedCountIncludesRowsBeyondTheAdmissionScan() async throws {
+        let suite = "FlixStreams.scan." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        defer { defaults.removePersistentDomain(forName: suite) }
         let rows = Array<Any>(repeating: NSNull(), count: 100) + [["url": delivery]]
         let session = try fixtureSession(streams: .json(["streams": rows]))
         defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
         do {
-            _ = try await FlixStreamsAddonClient(session: session).resolve(for: request())
+            _ = try await FlixStreamsAddonClient(session: session, qualityStore: store).resolve(for: request())
             XCTFail("The 101st row is outside the admission scan")
         } catch {
             XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 101))
         }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let detail = try XCTUnwrap(receipts.first).details
+        XCTAssertEqual(detail["offered_count"], "101")
+        XCTAssertEqual(detail["admitted_count"], "0")
+        XCTAssertEqual(detail["admission_malformed_count"], "100")
+        XCTAssertEqual(detail["admission_limit_count"], "1")
+        XCTAssertEqual(detail["admission_completion"], "limited")
+        XCTAssertEqual(detail["admission_reconciled"], "yes")
     }
 
     func testEmptyStreamsAndMalformedStreamDocumentsKeepDistinctStages() async throws {

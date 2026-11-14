@@ -262,7 +262,7 @@ struct LocalStreamProxyPolicy {
 
     enum Failure: Error { case destination, manifest, capacity, revoked }
 
-    private struct Entry { var url: URL; var lastUse: UInt64; var stableSegmentKey: String? = nil }
+    private struct Entry { var url: URL; var lastUse: UInt64; var stableSegmentKey: String? = nil; var isManifest: Bool? = nil }
     private var reportedSegmentShape = false
     let selectedMediaURL: URL
     let capability: String
@@ -279,7 +279,7 @@ struct LocalStreamProxyPolicy {
 
     init(selectedMediaURL: URL, limits: Limits = Limits(),
          originProfile: LocalStreamProxyOriginProfile? = nil, requestHeaders: [String: String] = [:],
-         playlistProfile: LocalStreamProxyPlaylistProfile? = nil) {
+         playlistProfile: LocalStreamProxyPlaylistProfile? = nil, expectsHLS: Bool = false) {
         self.selectedMediaURL = selectedMediaURL
         self.limits = limits
         self.originProfile = originProfile?.validated(for: selectedMediaURL, headers: requestHeaders)
@@ -288,6 +288,7 @@ struct LocalStreamProxyPolicy {
             + UUID().uuidString.replacingOccurrences(of: "-", with: "")
         if admitsDestination(selectedMediaURL), selectedMediaURL.absoluteString.utf8.count <= limits.urlBytes {
             selectedIdentifier = try? register(selectedMediaURL)
+            if let selectedIdentifier { entries[selectedIdentifier]?.isManifest = expectsHLS || selectedMediaURL.pathExtension.lowercased() == "m3u8" ? true : nil }
         }
     }
 
@@ -318,12 +319,21 @@ struct LocalStreamProxyPolicy {
         return entry.url
     }
 
+    func manifestRole(_ url: URL) -> Bool? {
+        guard let id = identifiers[url] else { return nil }
+        return entries[id]?.isManifest
+    }
+
+    func expectsManifest(_ url: URL) -> Bool { manifestRole(url) ?? (url.pathExtension.lowercased() == "m3u8") }
+
     func contains(_ url: URL) -> Bool { !isRevoked && identifiers[url] != nil }
 
     /// Called only after the redirect destination passes transport validation.
     mutating func admitRedirect(from source: URL, to destination: URL) throws {
         guard contains(source) else { throw Failure.destination }
-        _ = try register(destination)
+        let manifest = manifestRole(source)
+        let id = try register(destination)
+        if let manifest { entries[id]?.isManifest = manifest }
     }
 
     mutating func rewriteManifest(_ manifest: String, relativeTo baseURL: URL, port: UInt16) throws -> String {
@@ -337,14 +347,17 @@ struct LocalStreamProxyPolicy {
         let usesCRLF = manifest.contains("\r\n")
         let lines = manifest.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n")
         var followsMediaDuration = false
+        var followsVariant = false
         let rewritten = try lines.map { line -> String in
             var result = line
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty && !trimmed.hasPrefix("#") {
                 let mediaSegment = followsMediaDuration
                 followsMediaDuration = false
-                return try updated.registerReference(trimmed, relativeTo: baseURL, port: port, mediaSegment: mediaSegment)
+                let playlist: Bool? = followsVariant ? true : (mediaSegment ? false : nil); followsVariant = false
+                return try updated.registerReference(trimmed, relativeTo: baseURL, port: port, mediaSegment: mediaSegment, playlist: playlist)
             }
+            if trimmed.hasPrefix("#EXT-X-STREAM-INF:") { followsVariant = true }
             if trimmed.hasPrefix("#EXTINF:") { followsMediaDuration = true }
             // Parse comma-separated attributes outside quoted values. A regex
             // matching URI= inside another attribute's text can corrupt metadata.
@@ -370,7 +383,8 @@ struct LocalStreamProxyPolicy {
                       line[line.index(before: attribute.upperBound)] == "\"" else { throw Failure.manifest }
                 let range = line.index(after: valueStart)..<line.index(before: attribute.upperBound)
                 guard !line[range].contains("\"") else { throw Failure.manifest }
-                let value = try updated.registerReference(String(result[range]), relativeTo: baseURL, port: port)
+                let playlist = ["#EXT-X-MEDIA:", "#EXT-X-I-FRAME-STREAM-INF:", "#EXT-X-RENDITION-REPORT:"].contains { trimmed.hasPrefix($0) }
+                let value = try updated.registerReference(String(result[range]), relativeTo: baseURL, port: port, playlist: playlist)
                 result.replaceSubrange(range, with: value)
             }
             return result
@@ -382,7 +396,7 @@ struct LocalStreamProxyPolicy {
         return usesCRLF ? rewritten.replacingOccurrences(of: "\n", with: "\r\n") : rewritten
     }
 
-    private mutating func registerReference(_ reference: String, relativeTo base: URL, port: UInt16, mediaSegment: Bool = false) throws -> String {
+    private mutating func registerReference(_ reference: String, relativeTo base: URL, port: UInt16, mediaSegment: Bool = false, playlist: Bool? = nil) throws -> String {
         guard !reference.isEmpty, !reference.contains("{$"),
               let url = URL(string: reference, relativeTo: base)?.absoluteURL else { throw Failure.manifest }
         // Admission remains unchanged even if an existing alias is found. An
@@ -416,6 +430,7 @@ struct LocalStreamProxyPolicy {
             return localURL(identifier: identifier, port: port).absoluteString
         }
         let identifier = try register(url, forceNew: renewsToken && stableKey != nil)
+        if let playlist { entries[identifier]?.isManifest = playlist }
         if let stableKey {
             stableSegmentAliases[stableKey] = identifier
             entries[identifier]?.stableSegmentKey = stableKey
@@ -544,7 +559,7 @@ struct LocalStreamProxyPolicy {
 
     static func remoteRequest(url: URL, selectedMediaURL: URL, method: String,
                               capturedHeaders: [String: String], cookies: [HTTPCookie],
-                              clientHeaders: [String: String], timeout: TimeInterval) -> URLRequest {
+                              clientHeaders: [String: String], timeout: TimeInterval, expectsManifest: Bool? = nil) -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.timeoutInterval = timeout
@@ -553,7 +568,7 @@ struct LocalStreamProxyPolicy {
         // Playlist rewriting changes byte offsets and representation identity.
         // A player's 0-1 probe must fetch the complete known playlist, not an
         // upstream slice or 304 validated against a different representation.
-        let requestsWholeManifest = url.pathExtension.lowercased() == "m3u8"
+        let requestsWholeManifest = expectsManifest ?? (url.pathExtension.lowercased() == "m3u8")
         let representationHeaders: Set<String> = ["range", "if-range", "if-modified-since", "if-none-match", "if-match", "if-unmodified-since"]
         let shareable: Set<String> = ["referer", "origin", "user-agent", "accept", "accept-language"]
         let forbidden: Set<String> = ["host", "cookie", "cookie2", "proxy-authorization", "connection", "content-length", "transfer-encoding", "upgrade", "te", "trailer", "accept-encoding"]
@@ -566,7 +581,7 @@ struct LocalStreamProxyPolicy {
                   key.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-") }),
                   !value.contains(where: { $0.asciiValue.map({ $0 < 32 || $0 == 127 }) ?? false }) else { continue }
             if name == "referer" || name == "origin" {
-                guard let provenance = URL(string: value), allowsDestination(provenance) else { continue }
+                guard let provenance = URL(string: value), StreamDeliveryPolicy.allowsProvenance(provenance) else { continue }
                 var parts = URLComponents(url: provenance, resolvingAgainstBaseURL: false)
                 parts?.fragment = nil
                 if name == "origin" { parts?.path = ""; parts?.query = nil }

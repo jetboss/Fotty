@@ -66,18 +66,17 @@ struct CNCSportsMetadata: Decodable, Sendable {
 struct CNCSportsStreamEntry: Decodable, Sendable {
     let name: String?
     let url: String?
-    /// Absent headers decode as empty. An invalid advertised contract decodes as nil.
+    /// nil preserves an invalid advertised header contract for row-level rejection.
     let requiredHeaders: [String: String]?
     let requiresDRM: Bool
 
     init(from decoder: Decoder) throws {
-        let values = try? decoder.container(keyedBy: CNCSportsCodingKey.self)
-        func key(_ value: String) -> CNCSportsCodingKey { .init(value) }
-        name = try? values?.decodeIfPresent(String.self, forKey: key("name"))
-        url = try? values?.decodeIfPresent(String.self, forKey: key("url"))
+        let values = try decoder.container(keyedBy: CNCSportsCodingKey.self)
+        func key(_ name: String) -> CNCSportsCodingKey { .init(name) }
+        name = try? values.decodeIfPresent(String.self, forKey: key("name"))
+        url = try? values.decodeIfPresent(String.self, forKey: key("url"))
         requiredHeaders = try? StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
-        // Fotty's player cannot decrypt DRM-protected rows.
-        requiresDRM = ["drm", "clearkey", "licenseUrl", "license"].contains { values?.contains(key($0)) == true }
+        requiresDRM = StreamDeliveryPolicy.decodeRequiresDRM(from: decoder)
     }
 }
 
@@ -133,26 +132,38 @@ actor CNCSportsAddonClient {
         }
     }
     private struct MetadataDocument: Decodable { let meta: CNCSportsMetadata }
-    private struct StreamDocument: Decodable {
+    private struct StreamDocument: Decodable, Sendable {
         let streams: [CNCSportsStreamEntry]
         let entryCount: Int
+        let malformedCount: Int
+        let unexaminedCount: Int
         private enum CodingKeys: String, CodingKey { case streams }
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
             guard values.contains(.streams), try !values.decodeNil(forKey: .streams) else {
-                streams = []; entryCount = 0; return
+                streams = []; entryCount = 0; malformedCount = 0; unexaminedCount = 0; return
             }
             var rows = try values.nestedUnkeyedContainer(forKey: .streams)
             let offered = rows.count
-            var entries: [CNCSportsStreamEntry] = []; var count = 0
-            while !rows.isAtEnd, count < 100 {
-                let row = try rows.superDecoder(); count += 1
+            var entries: [CNCSportsStreamEntry] = []
+            var scanned = 0
+            while !rows.isAtEnd, scanned < StreamDeliveryPolicy.maximumSessionsPerProvider {
+                let row = try rows.superDecoder(); scanned += 1
                 if let entry = try? CNCSportsStreamEntry(from: row) { entries.append(entry) }
             }
-            streams = entries; entryCount = offered ?? count
+            streams = entries; entryCount = offered ?? scanned
+            malformedCount = scanned - entries.count
+            unexaminedCount = entryCount - scanned
+        }
+
+        func observe(in ledger: inout StreamAdmissionLedger) {
+            ledger.observe(entryCount)
+            ledger.record("malformed", count: malformedCount)
+            ledger.record("limit", count: unexaminedCount)
         }
     }
     private struct Snapshot<Value> { let value: Value; let fetchedAt: Date }
+    private let qualityStore: FottyQualityStore
     private let transport: FottyBoundedHTTPClient
     private let manifestTTL: TimeInterval
     private let catalogTTL: TimeInterval
@@ -167,7 +178,8 @@ actor CNCSportsAddonClient {
     private var footballCursorOrder: [String] = []
 
     init(session: URLSession? = nil, manifestTTL: TimeInterval = 30 * 60,
-         catalogTTL: TimeInterval = 2 * 60, negativeCatalogTTL: TimeInterval = 15) {
+         catalogTTL: TimeInterval = 2 * 60, negativeCatalogTTL: TimeInterval = 15, qualityStore: FottyQualityStore = .shared) {
+        self.qualityStore = qualityStore
         transport = FottyBoundedHTTPClient(configuration: session?.configuration ?? Self.makeConfiguration())
         self.manifestTTL = manifestTTL; self.catalogTTL = catalogTTL; self.negativeCatalogTTL = negativeCatalogTTL
     }
@@ -243,12 +255,54 @@ actor CNCSportsAddonClient {
 
     func resolve(for request: StreamPlaybackRequest, now: Date = Date(),
                  forceRefresh: Bool = false) async throws -> [StreamSession] {
+        var ledger = StreamAdmissionLedger(), fetchFailures = 0
+        var returned = 0, limited = false, completion = "failed"
+        defer {
+            ledger.finish(admitted: returned, completion: completion)
+            qualityStore.recordStreamAdmission(sourceFamily: Self.providerCode, ledger: ledger,
+                completion: completion, fetchFailures: fetchFailures)
+        }
+        do {
+            let sessions = try await resolveAdmission(for: request, now: now, forceRefresh: forceRefresh,
+                ledger: &ledger, fetchFailures: &fetchFailures, limited: &limited)
+            returned = sessions.count
+            completion = fetchFailures > 0 ? "partial" : (limited || ledger.dispositions["limit", default: 0] > 0 ? "limited" : "complete")
+            return sessions
+        } catch {
+            if error is CancellationError || (error as? URLError)?.code == .cancelled || Task.isCancelled {
+                completion = "cancelled"
+            } else {
+                if fetchFailures == 0, Self.isAdmissionFetchFailure(error) { fetchFailures = 1 }
+                switch error as? CommunitySportsAddonError {
+                case .lookupBudgetExhausted?: completion = fetchFailures > 0 ? "partial" : "limited"
+                case .streamEntriesEmpty?, .streamAdmissionRejected?:
+                    completion = fetchFailures > 0 ? "partial" : (limited || ledger.dispositions["limit", default: 0] > 0 ? "limited" : "complete")
+                default: completion = ledger.hasObservedResponse && fetchFailures > 0 ? "partial" : "failed"
+                }
+            }
+            throw error
+        }
+    }
+
+    private nonisolated static func isAdmissionFetchFailure(_ error: Error) -> Bool {
+        if error is CancellationError || (error as? URLError)?.code == .cancelled { return false }
+        switch error as? CommunitySportsAddonError {
+        case .httpFailure?, .transportFailure?, .invalidJSON?, .invalidResponse?, .unsafeResponse?, .unsafeMetadata?: return true
+        default: return error is URLError
+        }
+    }
+
+    private func resolveAdmission(for request: StreamPlaybackRequest, now: Date,
+        forceRefresh: Bool, ledger: inout StreamAdmissionLedger, fetchFailures: inout Int,
+        limited: inout Bool) async throws -> [StreamSession] {
         try Task.checkCancellation()
         if ReviewedSportsFixtureMatcher.sportKey(request.category) == "football" {
-            return try await resolveFootball(for: request, now: now, forceRefresh: forceRefresh)
+            return try await resolveFootball(for: request, now: now, forceRefresh: forceRefresh,
+                ledger: &ledger, fetchFailures: &fetchFailures, limited: &limited)
         }
         if ReviewedSportsFixtureMatcher.sportKey(request.category) == "cricket" {
-            return try await resolveCricket(for: request, now: now, forceRefresh: forceRefresh)
+            return try await resolveCricket(for: request, now: now, forceRefresh: forceRefresh,
+                ledger: &ledger, fetchFailures: &fetchFailures, limited: &limited)
         }
         guard Self.supports(category: request.category),
               ReviewedSportsFixtureMatcher.requestIdentity(for: request) != nil else {
@@ -259,16 +313,18 @@ actor CNCSportsAddonClient {
         let entries = try await loadCatalog(now: now, forceRefresh: forceRefresh)
         let ids = try Self.preselectedCatalogIDs(for: request, from: entries)
         guard !ids.isEmpty else { throw CommunitySportsAddonError.matchNotFound }
-        let metadata = try await fetchMetadata(ids)
+        limited = ids.count > Self.maximumListings
+        let metadata = try await fetchMetadata(Array(ids.prefix(Self.maximumListings)), fetchFailures: &fetchFailures)
         try Task.checkCancellation()
         let selected = try Self.selectAllMetadata(for: request, catalog: entries, metadata: metadata,
             at: now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started))
-        return try await sessions(for: selected, request: request, manifest: manifest, now: now, started: started)
+        return try await sessions(for: selected, request: request, manifest: manifest, now: now, started: started,
+            ledger: &ledger, fetchFailures: &fetchFailures)
     }
 
     /// Details for each listing; one that fails or names another id is left out.
     /// When none load, the first real failure is reported (never a generic miss).
-    private func fetchMetadata(_ ids: [String]) async throws -> [CNCSportsMetadata] {
+    private func fetchMetadata(_ ids: [String], fetchFailures: inout Int) async throws -> [CNCSportsMetadata] {
         let results = await withTaskGroup(of: Result<CNCSportsMetadata, Error>.self,
                                           returning: [Result<CNCSportsMetadata, Error>].self) { group in
             for id in ids {
@@ -285,6 +341,10 @@ actor CNCSportsAddonClient {
             for await result in group { all.append(result) }
             return all
         }
+        fetchFailures += results.filter { result in
+            if case .failure(let error) = result { return Self.isAdmissionFetchFailure(error) }
+            return false
+        }.count
         let rows = results.compactMap { try? $0.get() }
         if rows.isEmpty, case .failure(let error)? = results.first(where: { if case .failure = $0 { return true }; return false }) {
             throw error
@@ -294,30 +354,36 @@ actor CNCSportsAddonClient {
 
     /// Streams from every matched listing, merged and numbered once.
     private func sessions(for listings: [CNCSportsMetadata], request: StreamPlaybackRequest, manifest: Manifest,
-                          now: Date, started: TimeInterval) async throws -> [StreamSession] {
-        var all: [StreamSession] = [], offered = 0, read = 0
+                          now: Date, started: TimeInterval, ledger: inout StreamAdmissionLedger,
+                          fetchFailures: inout Int) async throws -> [StreamSession] {
+        var all: [StreamSession] = []
         var firstFailure: Error?
         for listing in listings {
             let document: StreamDocument
             do { document = try await fetchJSON(StreamDocument.self,
                 from: Self.route(["stream", "tv", listing.id + ".json"]), stage: .streams) }
             catch is CancellationError { throw CancellationError() }
-            catch { firstFailure = firstFailure ?? error; continue }
-            read += 1; offered += document.entryCount
-            let made = Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version, after: all)
+            catch {
+                if Self.isAdmissionFetchFailure(error) { fetchFailures += 1 }
+                firstFailure = firstFailure ?? error; continue
+            }
+            document.observe(in: &ledger)
             let completed = now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started)
             guard let binding = StreamEventBinding(request: request, providerCode: Self.providerCode,
                 providerEventID: listing.id, streamID: listing.id, manifestRevision: manifest.version,
                 verifiedAt: now, expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime),
-                at: completed) else { continue }
+                at: completed) else { ledger.record("fixture_changed", count: document.streams.count); continue }
+            let made = Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version, after: all, ledger: &ledger)
             all += made.map { $0.recordingEventBinding(binding, for: request, at: completed) }
         }
         try Task.checkCancellation()
         if all.isEmpty, let firstFailure { throw firstFailure }
-        if read > 0 { FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, offered: offered, admitted: all.count) }
-        guard read > 0 else { throw CommunitySportsAddonError.invalidResponse }
-        guard offered > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
-        guard !all.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offered) }
+        let completed = now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started)
+        guard all.allSatisfy({ $0.eventBinding?.matches(request: request, providerCode: Self.providerCode, at: completed) == true })
+        else { throw CommunitySportsAddonError.conflictingMatch }
+        guard ledger.hasObservedResponse else { throw CommunitySportsAddonError.invalidResponse }
+        guard ledger.offered > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
+        guard !all.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: ledger.offered) }
         return all
     }
 
@@ -342,7 +408,7 @@ actor CNCSportsAddonClient {
         return Array(ids.filter { id in
             entries.filter { $0.id == id || $0.effectiveID == id }.allSatisfy({ !$0.hasMalformedIdentity && $0.type == "tv"
                 && $0.id == id && $0.effectiveID == id && participantIdentity(title: cleanCatalogName($0.name)) == wanted })
-        }.prefix(maximumListings))
+        })
     }
 
     nonisolated static let maximumListings = 6
@@ -532,16 +598,33 @@ actor CNCSportsAddonClient {
 
     nonisolated static func makeSessions(from streams: [CNCSportsStreamEntry], request: StreamPlaybackRequest,
                                         addOnVersion: String, after earlier: [StreamSession] = []) -> [StreamSession] {
-        guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode) else { return [] }
+        var ledger = StreamAdmissionLedger()
+        ledger.observe(streams.count)
+        return makeSessions(from: streams, request: request, addOnVersion: addOnVersion, after: earlier, ledger: &ledger)
+    }
+
+    nonisolated static func makeSessions(from streams: [CNCSportsStreamEntry], request: StreamPlaybackRequest,
+                                        addOnVersion: String, after earlier: [StreamSession] = [], ledger: inout StreamAdmissionLedger) -> [StreamSession] {
+        guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode) else { ledger.record("validation", count: streams.count); return [] }
         var seen = Set(earlier.compactMap { $0.diagnosticMetadata["source_key"] })
         var sessions: [StreamSession] = []
+        ledger.record("limit", count: max(0, streams.count - StreamDeliveryPolicy.maximumSessionsPerProvider))
         for entry in streams.prefix(StreamDeliveryPolicy.maximumSessionsPerProvider) {
-            guard !entry.requiresDRM, let value = entry.url, let url = URL(string: value),
-                  StreamDeliveryPolicy.publicRejection(url) == nil,
-                  let required = entry.requiredHeaders, let headers = StreamDeliveryPolicy.requestHeaders(required) else { continue }
+            guard !entry.requiresDRM else { ledger.record("drm"); continue }
+            guard let value = entry.url, !value.isEmpty else { ledger.record("no_url"); continue }
+            guard let url = URL(string: value) else { ledger.record("malformed"); continue }
+            if let reason = StreamDeliveryPolicy.publicRejection(url) { ledger.record(reason); continue }
+            guard let requested = entry.requiredHeaders else { ledger.record("malformed_headers"); continue }
+            guard let headers = StreamDeliveryPolicy.requestHeaders(requested) else {
+                ledger.record(StreamDeliveryPolicy.headerRejection(requested) ?? "malformed_headers")
+                continue
+            }
             let key = sourceKey(url: url, headers: headers)
-            guard seen.insert(key).inserted else { continue }
-            guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else { break }
+            guard seen.insert(key).inserted else { ledger.record("duplicate"); continue }
+            guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else {
+                ledger.record("limit"); continue
+            }
+            ledger.record("admitted")
             sessions.append(StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
                 providerName: label, requiredHeaders: headers, qualityLabel: "Live video", canRefresh: false,
                 validationStatus: .validated, diagnosticMetadata: ["source_family": providerCode,
@@ -652,7 +735,7 @@ extension CNCSportsAddonClient {
         return Array(ids.filter { id in
             entries.filter({ $0.id == id || $0.effectiveID == id }).allSatisfy({
                 !$0.hasMalformedIdentity && $0.type == "tv" && $0.id == id && $0.effectiveID == id && pair($0) == wanted.pair })
-        }.prefix(maximumListings))
+        })
     }
 
     nonisolated static func explicitCricketKickoff(for meta: CNCSportsMetadata) -> Date? {
@@ -738,7 +821,8 @@ extension CNCSportsAddonClient {
     }
 
     private func resolveCricket(for request: StreamPlaybackRequest, now: Date,
-                                forceRefresh: Bool) async throws -> [StreamSession] {
+                                forceRefresh: Bool, ledger: inout StreamAdmissionLedger,
+                                fetchFailures: inout Int, limited: inout Bool) async throws -> [StreamSession] {
         guard Self.supportsReviewedCricket(request) else { throw CommunitySportsAddonError.matchNotFound }
         let started = ProcessInfo.processInfo.systemUptime
         let manifest = try await loadManifest(now: now, forceRefresh: forceRefresh)
@@ -746,10 +830,12 @@ extension CNCSportsAddonClient {
         let catalog = try await loadCricketCatalog(now: now, forceRefresh: forceRefresh)
         let ids = try Self.cricketCatalogIDs(for: request, from: catalog)
         guard !ids.isEmpty else { throw CommunitySportsAddonError.matchNotFound }
-        let metadata = try await fetchMetadata(ids)
+        limited = ids.count > Self.maximumListings
+        let metadata = try await fetchMetadata(Array(ids.prefix(Self.maximumListings)), fetchFailures: &fetchFailures)
         let selected = try Self.selectAllCricketMetadata(for: request, catalog: catalog, metadata: metadata,
             at: now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started))
-        return try await sessions(for: selected, request: request, manifest: manifest, now: now, started: started)
+        return try await sessions(for: selected, request: request, manifest: manifest, now: now, started: started,
+            ledger: &ledger, fetchFailures: &fetchFailures)
     }
 }
 
@@ -862,8 +948,7 @@ extension CNCSportsAddonClient {
     private struct FootballDelivery: Sendable {
         let reference: String
         let catalog: String
-        let streams: [CNCSportsStreamEntry]
-        let entryCount: Int
+        let document: StreamDocument?
     }
 
     private struct FootballConflict: Error { let reference: String }
@@ -910,12 +995,12 @@ extension CNCSportsAddonClient {
             for await (id, result) in group {
                 switch result {
                 case .success(let count) where count > 0: available.insert(id)
-                case .success: results.append(.success(.init(reference: Self.footballReference(id), catalog: catalog.id, streams: [], entryCount: 0)))
+                case .success: results.append(.success(.init(reference: Self.footballReference(id), catalog: catalog.id, document: nil)))
                 case .failure(let error): results.append(.failure(error))
                 }
             }
         }
-        try Task.checkCancellation()
+        if Task.isCancelled { return results + [.failure(CancellationError())] }
         // Advance each metadata window's stream cursor independently. Otherwise
         // cycles with matching periods can permanently skip the same delivery.
         let positiveIDs = ids.filter(available.contains)
@@ -928,18 +1013,20 @@ extension CNCSportsAddonClient {
                     do {
                         let doc = try await self.fetchJSON(StreamDocument.self,
                             from: Self.route(["stream", "tv", id + ".json"]), stage: .streams)
-                        return .success(.init(reference: Self.footballReference(id), catalog: catalog.id, streams: doc.streams, entryCount: doc.entryCount))
+                        return .success(.init(reference: Self.footballReference(id), catalog: catalog.id, document: doc))
                     } catch { return .failure(error) }
                 }
             }
             for await result in group { results.append(result) }
         }
-        try Task.checkCancellation()
+        // Return already-read responses even when cancellation arrived during
+        // sibling fetches; the lookup owner records them before rethrowing.
         return results
     }
 
     private func resolveFootball(for request: StreamPlaybackRequest, now: Date,
-                                 forceRefresh: Bool) async throws -> [StreamSession] {
+                                 forceRefresh: Bool, ledger: inout StreamAdmissionLedger,
+                                 fetchFailures: inout Int, limited: inout Bool) async throws -> [StreamSession] {
         guard Self.supportsReviewedFootball(request) else { throw CommunitySportsAddonError.matchNotFound }
         let name = request.homeTeam.trimmingCharacters(in: .whitespacesAndNewlines)
         let reserved = CharacterSet.controlCharacters.union(CharacterSet(charactersIn: "/\\?#%&="))
@@ -962,24 +1049,35 @@ extension CNCSportsAddonClient {
             for await result in group { values.append(contentsOf: result) }
             return values
         }
-        try Task.checkCancellation()
         let errors: [Error] = results.compactMap { result in
             if case .failure(let error) = result { return error }
             return nil
         }
+        fetchFailures += errors.filter(Self.isAdmissionFetchFailure).count
+        limited = errors.contains { ($0 as? CommunitySportsAddonError) == .lookupBudgetExhausted }
+        let allDeliveries = results.compactMap { try? $0.get() }
+        for delivery in allDeliveries { delivery.document?.observe(in: &ledger) }
+        try Task.checkCancellation()
         if let fatal = errors.first(where: CommunitySportsAddonClient.isFatalCatalogBatchError) { throw fatal }
         let conflicts = Set(errors.compactMap { ($0 as? FootballConflict)?.reference })
-        let deliveries = results.compactMap { try? $0.get() }.filter { !conflicts.contains($0.reference) }
+        for delivery in allDeliveries where conflicts.contains(delivery.reference) {
+            ledger.record("fixture_changed", count: delivery.document?.streams.count ?? 0)
+        }
+        let deliveries = allDeliveries.filter { !conflicts.contains($0.reference) }
             .sorted { ($0.catalog, $0.reference) < ($1.catalog, $1.reference) }
         let completed = now.addingTimeInterval(ProcessInfo.processInfo.systemUptime - started)
         var sessions: [StreamSession] = []
-        for delivery in deliveries where !delivery.streams.isEmpty {
+        for delivery in deliveries {
+            guard let document = delivery.document else { continue }
             guard let binding = StreamEventBinding(request: request, providerCode: Self.providerCode,
                 providerEventID: delivery.reference, streamID: delivery.reference, manifestRevision: manifest.version,
                 verifiedAt: now, expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime),
-                at: completed) else { throw CommunitySportsAddonError.conflictingMatch }
-            let accepted = Self.makeSessions(from: delivery.streams, request: request, addOnVersion: manifest.version,
-                after: sessions)
+                at: completed) else {
+                ledger.record("fixture_changed", count: document.streams.count)
+                throw CommunitySportsAddonError.conflictingMatch
+            }
+            let accepted = Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version,
+                after: sessions, ledger: &ledger)
             sessions += accepted.map { $0.recordingEventBinding(binding, for: request, at: completed) }
         }
         if sessions.isEmpty {
@@ -988,9 +1086,7 @@ extension CNCSportsAddonClient {
             if !conflicts.isEmpty { throw CommunitySportsAddonError.conflictingMatch }
             guard !deliveries.isEmpty else { throw CommunitySportsAddonError.matchNotFound }
         }
-        let count = deliveries.reduce(0) { $0 + $1.entryCount }
-        FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, offered: count, admitted: sessions.count)
         guard sessions.isEmpty else { return sessions }
-        throw count > 0 ? CommunitySportsAddonError.streamAdmissionRejected(entryCount: count) : .streamEntriesEmpty
+        throw ledger.offered > 0 ? CommunitySportsAddonError.streamAdmissionRejected(entryCount: ledger.offered) : .streamEntriesEmpty
     }
 }

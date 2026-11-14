@@ -6,7 +6,7 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_800_000_000)
     private let delivery = "https://tvsen5.aynaott.com/reviewed-willow/index.m3u8"
 
-    func testFuboDummyIDNeedsExactLabelOriginPathAndProvenance() throws {
+    func testFuboDummyIDNeedsExactLabelAndPlaylistProvenance() throws {
         let channel = try XCTUnwrap(ReviewedTVPlaylistClient.channel(forProviderName: "TV27"))
         let target = "https://ad993ce7.wurl.com" + (try XCTUnwrap(channel.deliveryPath))
         func row(id: String = "24.7.Dummy.us", label: String = "460 Fubo Sports", url: String? = nil, directive: String? = nil) -> Data {
@@ -20,10 +20,8 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
         let unrelated = row(label: "467 CBS Sports HQ", url: "https://ad993ce7.wurl.com/another/playlist.m3u8")
         XCTAssertEqual(try parseFubo(combinedPlaylist([unrelated, row(), unrelated])).absoluteString, target)
         for bad in [unrelated, row(id: "FuboSports.us"), row(label: "Fubo Sports"),
-                    row(label: "460 Fubo Sports 2"), row(url: "https://ad993ce7.wurl.com/another/playlist.m3u8"),
-                    row(url: target + "?token=unreviewed"), row(url: target.replacingOccurrences(of: "https:", with: "http:")),
+                    row(label: "460 Fubo Sports 2"), row(url: target.replacingOccurrences(of: "https:", with: "http:")),
                     row(url: target.replacingOccurrences(of: "ad993ce7.wurl.com", with: "ad993ce7.wurl.com:8443")),
-                    row(url: target.replacingOccurrences(of: "ad993ce7.wurl.com", with: "other.wurl.com")),
                     row(directive: "#EXTHTTP:{\"Authorization\":\"unreviewed\"}"),
                     row(directive: "#KODIPROP:inputstream.adaptive.license_key=unreviewed")] {
             XCTAssertThrowsError(try parseFubo(bad))
@@ -84,21 +82,24 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
         }
     }
 
-    func testHTTPSOriginPortCredentialsQueryAndHLSPathRemainClosed() {
-        for url in ["http://tvsen5.aynaott.com/a.m3u8", "https://tvsen7.aynaott.com/a.m3u8",
-                    "https://child.tvsen5.aynaott.com/a.m3u8", "https://tvsen5.aynaott.com:8443/a.m3u8",
-                    "https://user:password@tvsen5.aynaott.com/a.m3u8", "https://tvsen5.aynaott.com/a.m3u8?token=unreviewed",
-                    "https://tvsen5.aynaott.com/a.m3u8#fragment", "https://tvsen5.aynaott.com/a.html",
-                    "https://127.0.0.1/a.m3u8", "file:///a.m3u8"] {
+    func testTransportRejectsUnsafeDestinationsWithoutGuessingContentFromPaths() throws {
+        for url in ["http://tvsen5.aynaott.com/a.m3u8", "https://tvsen5.aynaott.com:8443/a.m3u8",
+                    "https://user:password@tvsen5.aynaott.com/a.m3u8", "https://tvsen5.aynaott.com/a.m3u8#fragment",
+                    "https://127.0.0.1/a.m3u8", "file:///a.m3u8",
+                    "https://new-cdn.example/manifest?url=http://unsafe.example/live"] {
             XCTAssertFalse(ReviewedTVPlaylistClient.admitsDelivery(URL(string: url)!), url)
             XCTAssertThrowsError(try parse(playlist(url: url)))
+        }
+        for url in ["https://new-cdn.example/live", "https://child.tvsen5.aynaott.com/a.m3u8",
+                    "https://tvsen5.aynaott.com/a.m3u8?token=advertised", "https://new-cdn.example/stream.php"] {
+            XCTAssertEqual(try parse(playlist(url: url)).absoluteString, url)
         }
     }
 
     func testDiagnosticDeliveryUsesFirstDistinctStationOfferAndRejectsUnsupportedHeaders() throws {
         let sibling = playlist(url: "https://tvsen5.aynaott.com/different/index.m3u8")
         XCTAssertEqual(try parse(combinedPlaylist([playlist(), playlist(), sibling])).absoluteString, delivery)
-        for directive in ["#EXTVLCOPT:http-user-agent=unreviewed", "#KODIPROP:inputstream.adaptive.license_key=unreviewed",
+        for directive in ["#KODIPROP:inputstream.adaptive.license_key=unreviewed",
                           "#EXTHTTP:{\"Authorization\":\"unreviewed\"}"] {
             XCTAssertThrowsError(try parse(playlist(directive: directive)))
         }
@@ -477,6 +478,82 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
             && $0.requiresGuardedRelay == true && $0.eventBinding?.streamID == channel.streamID })
     }
 
+    func testStationJSONKeepsSafeNewCDNAndHeaderAlternativesAndAccountsEveryRow() async throws {
+        let station = try XCTUnwrap(SportsTVStation.station(provider: "TV25"))
+        let url = "https://advertised-cdn.example/stream.php?token=published"
+        func row(_ headers: Any, title: String = "Sky Sports Premier League FHD UK") -> [String: Any] {
+            ["name": "TENIES.SPACE Live TV", "title": title, "url": url, "description": "New optional metadata",
+             "drm": NSNull(), "behaviorHints": ["notWebReady": false, "requestHeaders": headers]]
+        }
+        let rows: [Any] = [row(["User-Agent": "Player A"]), row(["User-Agent": "Player B"]),
+            row(["User-Agent": "Player A"]), row(["Authorization": "private"]),
+            row(["User-Agent": 7]), row([:], title: "TNT Sports 4 FHD UK"), NSNull()]
+        let payload = try JSONSerialization.data(withJSONObject: ["streams": rows])
+        let suite = "tv-ledger-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let client = ReviewedTVPlaylistClient(fetch: { request in
+            (payload, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"])!)
+        }, validateDestination: { _ in }, qualityStore: store)
+        let sessions = try await client.resolve(for: .init(event: station.event), now: now, isEnabled: { true })
+        XCTAssertEqual(sessions.map { $0.requiredHeaders["User-Agent"] }, ["Player A", "Player B"])
+        XCTAssertTrue(sessions.allSatisfy { $0.playableURL.absoluteString == url && $0.requiresGuardedRelay == true
+            && $0.requiredHeaders["Referer"] == "https://cdnlivetv.tv/" })
+        XCTAssertEqual(Set(sessions.compactMap { $0.diagnosticMetadata["source_key"] }).count, 2)
+        let receipt = try XCTUnwrap(store.records().last { $0.name == "stream_admission" })
+        XCTAssertEqual(receipt.details["offered_count"], "7")
+        XCTAssertEqual(receipt.details["admitted_count"], "2")
+        for reason in ["duplicate", "credential_headers", "malformed_headers", "filtered", "malformed"] {
+            XCTAssertEqual(receipt.details["admission_" + reason + "_count"], "1", reason)
+        }
+    }
+
+    func testM3UHeaderFormsKeepSameURLAlternativesAndMalformedScopedRowsAreCounted() async throws {
+        let newURL = "https://new-cdn.example/manifest?variant=published"
+        let payload = combinedPlaylist([
+            playlist(url: newURL, directive: "#EXTVLCOPT:http-user-agent=Player A"),
+            playlist(url: newURL, directive: "#EXTHTTP:{\"User-Agent\":\"Player B\",\"Referer\":\"http://public-player.example/\"}"),
+            playlist(url: newURL, directive: "#EXTHTTP:{\"Authorization\":\"private\",\"User-Agent\":7}"),
+            playlist(label: "Willow Sports", url: newURL),
+            Data("#EXTM3U\n#EXTINF:-1 tvg-id=\"Willow.us@SD\",Willow\n".utf8)])
+        let suite = "tv-m3u-ledger-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let client = ReviewedTVPlaylistClient(fetch: { query in
+            (payload, HTTPURLResponse(url: query.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["Content-Type": "text/plain"])!)
+        }, validateDestination: { _ in }, qualityStore: store)
+        let result = try await client.resolve(for: request(), now: now)
+        XCTAssertEqual(result.map { $0.requiredHeaders["User-Agent"] }, ["Player A", "Player B"])
+        XCTAssertEqual(result.last?.requiredHeaders["Referer"], "http://public-player.example/")
+        let receipt = try XCTUnwrap(store.records().last { $0.name == "stream_admission" })
+        XCTAssertEqual(receipt.details["offered_count"], "5")
+        XCTAssertEqual(receipt.details["admitted_count"], "2")
+        for reason in ["malformed_headers", "filtered", "no_url"] {
+            XCTAssertEqual(receipt.details["admission_" + reason + "_count"], "1", reason)
+        }
+    }
+
+    func testUnreadStationFailureHasNoInventedOfferCount() async throws {
+        let suite = "tv-unread-ledger-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let client = ReviewedTVPlaylistClient(fetch: { _ in throw URLError(.timedOut) }, qualityStore: store)
+        do { _ = try await client.resolve(for: request(), now: now); XCTFail("Timeout must remain a failure") }
+        catch { }
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let receipt = try XCTUnwrap(receipts.first)
+        XCTAssertNil(receipt.details["offered_count"])
+        XCTAssertEqual(receipt.details["admission_observation"], "unread")
+        XCTAssertEqual(receipt.details["admission_completion"], "failed")
+        XCTAssertEqual(receipt.details["admission_fetch_failures"], "1")
+    }
+
     func testReviewedChannelDefinitionsKeepWillowStableAndESPNMarketsExplicit() throws {
         let definitions = ReviewedTVPlaylistClient.channels
         XCTAssertEqual(definitions.map(\.providerName), ((1...15).map { "TV\($0)" } + ["TV17", "TV21", "TV22", "TV23", "TV24", "TV25", "TV26", "TV27"]))
@@ -506,7 +583,7 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
         let target = URL(string: "https://barinaslive1.boldmss.com/reviewed-espn/index.m3u8")!
         XCTAssertEqual(try ReviewedTVPlaylistClient.delivery(from: espnPlaylist(),
             playlistURL: ReviewedTVPlaylistClient.playlistURL, channel: channel), target)
-        XCTAssertFalse(ReviewedTVPlaylistClient.admitsDelivery(target), "The legacy no-channel API still admits only Willow")
+        XCTAssertTrue(ReviewedTVPlaylistClient.admitsDelivery(target), "Transport validation does not infer station identity from a hostname")
         for id in ["ESPNLatinAmerica.us@Argentina", "ESPNLatinAmerica.us@Chile", "ESPNLatinAmerica.us@Colombia", "ESPN2LatinAmerica.us@South"] {
             XCTAssertThrowsError(try ReviewedTVPlaylistClient.delivery(from: espnPlaylist(id: id),
                 playlistURL: ReviewedTVPlaylistClient.playlistURL, channel: channel), id)
@@ -516,15 +593,14 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
                 playlistURL: ReviewedTVPlaylistClient.playlistURL, channel: channel), label)
         }
         for value in ["http://barinaslive1.boldmss.com/a.m3u8", "https://barinaslive1.boldmss.com:1936/a.m3u8",
-                      "https://barinaslive1.boldmss.com/a.m3u8?token=unreviewed", "https://barinaslive1.boldmss.com/a.m3u8#fragment",
-                      "https://user:password@barinaslive1.boldmss.com/a.m3u8", "https://child.barinaslive1.boldmss.com/a.m3u8",
-                      "https://tvsen5.aynaott.com/a.m3u8", "https://127.0.0.1/a.m3u8", "https://barinaslive1.boldmss.com/a.html"] {
+                      "https://barinaslive1.boldmss.com/a.m3u8#fragment",
+                      "https://user:password@barinaslive1.boldmss.com/a.m3u8", "https://127.0.0.1/a.m3u8"] {
             let url = URL(string: value)!
             XCTAssertFalse(ReviewedTVPlaylistClient.admitsDelivery(url, channel: channel), value)
             XCTAssertThrowsError(try ReviewedTVPlaylistClient.delivery(from: espnPlaylist(url: value),
                 playlistURL: ReviewedTVPlaylistClient.playlistURL, channel: channel), value)
         }
-        for directive in ["#EXTVLCOPT:http-user-agent=unreviewed", "#EXTHTTP:{\"Authorization\":\"unreviewed\"}",
+        for directive in ["#EXTHTTP:{\"Authorization\":\"unreviewed\"}",
                           "#KODIPROP:inputstream.adaptive.license_key=unreviewed"] {
             XCTAssertThrowsError(try ReviewedTVPlaylistClient.delivery(from: espnPlaylist(directive: directive),
                 playlistURL: ReviewedTVPlaylistClient.playlistURL, channel: channel))

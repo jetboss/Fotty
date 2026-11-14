@@ -424,21 +424,106 @@ struct FottyOwnerStatusSnapshot: Equatable {
     var hasCurrentBuildEvidence: Bool { currentBuildSummary.recordCount > 0 }
 }
 
+/// One provider lookup's bounded accounting. Reasons describe decisions made by
+/// the adapter; they never claim that an unplayed response contains live video.
+struct StreamAdmissionLedger: Equatable, Sendable {
+    static let validCount = 0...1_000_000
+    static let reasons: Set<String> = [
+        "admitted", "duplicate", "malformed", "no_url", "drm", "not_https", "too_long",
+        "credentials_in_link", "unsafe_destination", "replay", "not_live_media",
+        "inner_not_https", "inner_credentials", "inner_unsafe_destination", "not_a_playlist",
+        "credential_headers", "malformed_headers", "sign_in", "same_addon_domain",
+        "validation", "unsupported", "filtered", "fixture_changed", "withdrawn", "limit", "unprocessed",
+        "expired", "disabled", "binding"
+    ]
+    static let completions: Set<String> = ["complete", "partial", "failed", "cancelled", "limited"]
+    static func detailKey(_ reason: String) -> String { "admission_" + reason + "_count" }
+    static let countDetailKeys = Set(reasons.map(detailKey))
+
+    let id = UUID()
+    private(set) var offered = 0
+    private(set) var dispositions: [String: Int] = [:]
+    private(set) var hasObservedResponse = false
+    private(set) var accountingValid = true
+    private(set) var completion = "complete"
+    private(set) var isFinished = false
+    var admitted: Int { dispositions["admitted", default: 0] }
+    var accounted: Int { dispositions.values.reduce(0, +) }
+    var isReconciled: Bool { hasObservedResponse && accountingValid && accounted == offered }
+
+    mutating func observe(_ count: Int) {
+        guard !isFinished, Self.validCount.contains(count), count <= Self.validCount.upperBound - offered else {
+            accountingValid = false; return
+        }
+        hasObservedResponse = true
+        offered += count
+    }
+
+    mutating func record(_ reason: String, count: Int = 1) {
+        guard !isFinished, Self.reasons.contains(reason), Self.validCount.contains(count), count <= offered - accounted else {
+            accountingValid = false; return
+        }
+        if count > 0 { dispositions[reason, default: 0] += count }
+    }
+
+    /// Call after the final authority check. Known scan/session tails must be
+    /// recorded as `limit` by the caller; unexplained rows remain `unprocessed`.
+    mutating func finish(admitted returned: Int, completion: String = "complete") {
+        let validCompletion = Self.completions.contains(completion)
+        guard validCompletion, Self.validCount.contains(returned), returned <= offered else {
+            accountingValid = false
+            self.completion = validCompletion ? completion : "failed"
+            if !isFinished {
+                dispositions["unprocessed", default: 0] += offered - accounted
+                isFinished = true
+            }
+            return
+        }
+        let finalCount = ["failed", "cancelled"].contains(completion) ? 0 : returned
+        if isFinished {
+            if finalCount > admitted { accountingValid = false; return }
+            dispositions["withdrawn", default: 0] += admitted - finalCount
+            dispositions["admitted"] = finalCount
+            self.completion = completion
+            return
+        }
+        self.completion = completion
+        if admitted > finalCount {
+            dispositions["withdrawn", default: 0] += admitted - finalCount
+            dispositions["admitted"] = finalCount
+        } else if finalCount > admitted {
+            let additional = finalCount - admitted
+            if additional <= offered - accounted { dispositions["admitted", default: 0] += additional }
+            else { accountingValid = false }
+        }
+        let remaining = offered - accounted
+        if remaining > 0 { dispositions["unprocessed", default: 0] += remaining }
+        isFinished = true
+    }
+}
+
 /// Totals from retained receipts. A lookup can see the same stream again.
 enum StreamAdmissionSummary {
-    static let validCount = 0...1_000_000
+    static let validCount = StreamAdmissionLedger.validCount
     struct Row: Identifiable, Equatable {
         let id: CuratedStreamSourceCatalog.Provider
         var lookups = 0
         var offered: Int? = 0
         var admitted: Int? = 0
         var firstPictures = 0
+        var dispositions: [String: Int] = [:]
+        var observedOffered = 0
+        var unreadLookups = 0
+        var fetchFailures = 0
+        var incompleteLookups = 0
+        var unreconciledLookups = 0
         var reportedReason: String?
         fileprivate var reasonTime: Date?
     }
 
     static func rows(records: [FottyQualityRecord]) -> [Row] {
         var rows: [CuratedStreamSourceCatalog.Provider: Row] = [:]
+        var lookupIDs = Set<String>()
         for record in records where record.category == .playback {
             let provider: CuratedStreamSourceCatalog.Provider
             switch record.name {
@@ -457,16 +542,40 @@ enum StreamAdmissionSummary {
                 guard record.details["terminal_outcome"] == WatchOutcomeTerminal.playing.rawValue else { continue }
                 row.firstPictures += 1
             } else {
+                if let lookupID = record.details["admission_lookup_id"], !lookupIDs.insert(lookupID).inserted { continue }
                 // Legacy account receipts captured candidates before final validation.
                 // Their raw entry count is useful, but admitted choices are unknown.
                 let offered = count(record.details["offered_count"] ?? record.details["addon_stream_entry_count"])
                 let admitted = count(record.details["admitted_count"])
                 row.lookups += 1
+                row.observedOffered += offered ?? 0
                 row.offered = row.offered.flatMap { total in offered.map { total + $0 } }
                 if let offered, let admitted, admitted <= offered, let previous = row.admitted {
                     row.admitted = previous + admitted
                 } else {
                     row.admitted = nil
+                }
+                if record.details["admission_schema"] == "1" {
+                    row.unreadLookups += record.details["admission_observation"] == "unread" ? 1 : 0
+                    row.fetchFailures += count(record.details["admission_fetch_failures"]) ?? 0
+                    row.incompleteLookups += record.details["admission_completion"] == "complete" ? 0 : 1
+                    let decisions = StreamAdmissionLedger.reasons.reduce(into: [String: Int]()) { result, reason in
+                        if let value = count(record.details[StreamAdmissionLedger.detailKey(reason)]) { result[reason] = value }
+                    }
+                    if let offered, let admitted, record.details["admission_reconciled"] == "yes",
+                       decisions.values.reduce(0, +) == offered, decisions["admitted", default: 0] == admitted {
+                        for (reason, value) in decisions { row.dispositions[reason, default: 0] += value }
+                    } else if let offered {
+                        row.unreconciledLookups += 1
+                        row.dispositions["unrecorded", default: 0] += offered
+                    }
+                } else if let offered {
+                    // Historical receipts cannot supply a reason histogram.
+                    // Account for that gap explicitly instead of extending one
+                    // modal reason to every excluded entry.
+                    let knownAdmitted = admitted.flatMap { $0 <= offered ? $0 : nil } ?? 0
+                    row.dispositions["admitted", default: 0] += knownAdmitted
+                    row.dispositions["unrecorded", default: 0] += offered - knownAdmitted
                 }
                 if let reason = record.details["reason_code"], row.reasonTime.map({ $0 <= record.timestamp }) ?? true {
                     row.reportedReason = reason
@@ -496,6 +605,12 @@ enum StreamAdmissionSummary {
 /// network traffic and can be cleared or exported by the user.
 final class FottyQualityStore {
     static let shared = FottyQualityStore(performanceStore: .shared)
+
+    private static let admissionDetailKeys: Set<String> = Set([
+        "admission_schema", "admission_lookup_id", "admission_completion", "admission_observation",
+        "admission_reconciled", "admission_fetch_failures", "stream_selection_stage"
+    ]).union(StreamAdmissionLedger.countDetailKeys)
+    private static let streamSelectionStages: Set<String> = ["final_watch", "registry_binding", "discovery_cache"]
 
     private static let allowedDetailKeys: Set<String> = [
         "mode", "failure_kind", "recovery_kind", "feed", "source",
@@ -581,7 +696,47 @@ final class FottyQualityStore {
         self.writes = FottyDefaultsWriteBuffer(defaults: defaults)
     }
 
-    /// One completed provider lookup. The offered entries and returned choices
+    /// The adapter owns this receipt. Discovery, ranking and cache replay must
+    /// not record these same response entries a second time.
+    func recordStreamAdmission(sourceFamily: String, ledger: StreamAdmissionLedger,
+                               completion: String = "complete", fetchFailures: Int = 0) {
+        recordStreamDecisions(sourceFamily: sourceFamily, ledger: ledger, completion: completion,
+                              fetchFailures: fetchFailures, name: "stream_admission")
+    }
+
+    /// Session filtering is a separate unit from provider response entries.
+    /// A selection receipt never contributes to offered/admitted lookup totals.
+    func recordStreamSelection(sourceFamily: String, stage: String, ledger: StreamAdmissionLedger) {
+        guard Self.streamSelectionStages.contains(stage) else { return }
+        recordStreamDecisions(sourceFamily: sourceFamily, ledger: ledger, completion: ledger.completion,
+                              fetchFailures: 0, name: "stream_selection", stage: stage)
+    }
+
+    private func recordStreamDecisions(sourceFamily: String, ledger: StreamAdmissionLedger,
+                                       completion: String, fetchFailures: Int, name: String, stage: String? = nil) {
+        guard let provider = CuratedStreamSourceCatalog.Provider(rawValue: sourceFamily) else { return }
+        var final = ledger
+        let terminal = completion == "complete" ? ledger.completion : completion
+        final.finish(admitted: final.admitted, completion: terminal)
+        var details = ["source_family": provider.rawValue, "admission_schema": "1",
+                       "admission_lookup_id": final.id.uuidString.lowercased(),
+                       "admission_completion": StreamAdmissionLedger.completions.contains(terminal) ? terminal : "failed",
+                       "admission_observation": final.hasObservedResponse ? "known" : "unread",
+                       "admission_reconciled": final.hasObservedResponse ? (final.isReconciled ? "yes" : "no") : "unknown",
+                       "admission_fetch_failures": String(min(max(fetchFailures, 0), StreamAdmissionLedger.validCount.upperBound))]
+        if final.hasObservedResponse {
+            details["offered_count"] = String(final.offered)
+            details["admitted_count"] = String(final.admitted)
+        }
+        details["stream_selection_stage"] = stage
+        for reason in StreamAdmissionLedger.reasons {
+            details[StreamAdmissionLedger.detailKey(reason)] = String(final.dispositions[reason, default: 0])
+        }
+        record(category: .playback, name: name, outcome: terminal == "complete" ? .info : .failure,
+               details: details)
+    }
+
+    /// Legacy receipt compatibility. The offered entries and returned choices
     /// belong to the same request; a cancelled lookup supplies neither count.
     func recordStreamAdmission(sourceFamily: String, offered: Int, admitted: Int) {
         guard let provider = CuratedStreamSourceCatalog.Provider(rawValue: sourceFamily),
@@ -622,7 +777,7 @@ final class FottyQualityStore {
         guard AppRuntime.privateOutageFixture == nil else { return }
         let safeName = Self.safeToken(name, maximumLength: 48) ?? "unknown"
         let safeDetails = details.reduce(into: [String: String]()) { result, entry in
-            guard Self.allowedDetailKeys.contains(entry.key),
+            guard Self.allowedDetailKeys.contains(entry.key) || Self.admissionDetailKeys.contains(entry.key),
                   Self.validCorrelationDetail(entry.key, value: entry.value),
                   let value = Self.safeToken(entry.value, maximumLength: 64) else { return }
             result[entry.key] = value
@@ -851,10 +1006,20 @@ final class FottyQualityStore {
     }
 
     private static func validCorrelationDetail(_ key: String, value: String) -> Bool {
+        if StreamAdmissionLedger.countDetailKeys.contains(key) {
+            return Int(value).map(StreamAdmissionLedger.validCount.contains) ?? false
+        }
         if ["native_continuity_elapsed_ms", "native_continuity_media_advance_ms", "native_continuity_stalls"].contains(key) {
             return UInt32(value) != nil
         }
         switch key {
+        case "admission_schema": return value == "1"
+        case "admission_lookup_id": return UUID(uuidString: value) != nil
+        case "admission_completion": return StreamAdmissionLedger.completions.contains(value)
+        case "admission_observation": return ["known", "unread"].contains(value)
+        case "admission_reconciled": return ["yes", "no", "unknown"].contains(value)
+        case "admission_fetch_failures": return Int(value).map(StreamAdmissionLedger.validCount.contains) ?? false
+        case "stream_selection_stage": return streamSelectionStages.contains(value)
         case "relay_unaliased_segment": return value == "true"
         case "native_resume_action": return ["started", "resumed", "outside_window", "window_rejoined", "seek_incomplete", "buffered_play", "timeout"].contains(value)
         case "native_resume_elapsed_ms": return UInt32(value).map { $0 <= 3_600_000 } ?? false
