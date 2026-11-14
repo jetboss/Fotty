@@ -263,7 +263,8 @@ struct LocalStreamProxyPolicy {
     enum Failure: Error { case destination, manifest, capacity, revoked }
 
     private struct Entry { var url: URL; var lastUse: UInt64; var stableSegmentKey: String? = nil; var isManifest: Bool? = nil }
-    private var reportedSegmentShape = false
+    // Copied with the transaction and sampled by the owner after releasing its lock.
+    private(set) var observedUnaliasedMediaSegment = false
     let selectedMediaURL: URL
     let capability: String
     let limits: Limits
@@ -404,17 +405,10 @@ struct LocalStreamProxyPolicy {
         guard admitsDestination(url), url.absoluteString.utf8.count <= limits.urlBytes else { throw Failure.destination }
         let renewsToken = playlistProfile?.updatesAdvertisedSegmentURL == true
         let rawKey = !renewsToken || mediaSegment ? playlistProfile?.stableSegmentKey(for: url) : nil
-        if renewsToken, mediaSegment, rawKey == nil, !reportedSegmentShape {
-            // Shape only: extension, query parameter names and host. Never a value or path.
-            reportedSegmentShape = true
-            let names = (URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []).map(\.name).sorted()
-                // The quality store drops values containing "token"; name it tkn.
-                .map { $0.replacingOccurrences(of: "token", with: "tkn", options: .caseInsensitive) }
-            FottyQualityStore.shared.record(category: .playback, name: "relay_segment_shape", outcome: .info, details: [
-                "stage": url.pathExtension.isEmpty ? "no_extension" : url.pathExtension.lowercased(),
-                "reason_code": names.isEmpty ? "no_query" : names.joined(separator: " ").prefix(60).description,
-                "delivery_host": url.host?.lowercased() ?? "none"])
-        }
+        // This runs under LocalStreamProxy.stateLock. Defaults notifications
+        // can synchronously wait on the main thread, which reads this same relay.
+        // Keep the observation in memory; diagnostics collect it out of band.
+        if renewsToken, mediaSegment, rawKey == nil { observedUnaliasedMediaSegment = true }
         // Each playlist owns its aliases; another rendition cannot rebind them.
         let stableKey = rawKey.map { renewsToken ? base.absoluteString + "|" + $0 : $0 }
         if let stableKey, let identifier = stableSegmentAliases[stableKey], var entry = entries[identifier] {

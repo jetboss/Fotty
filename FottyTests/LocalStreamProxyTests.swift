@@ -1205,6 +1205,30 @@ final class LocalStreamProxyTests: XCTestCase {
         XCTAssertEqual(proxy.requestEvidenceSnapshot().requests.first?.outcome, .cancelled)
     }
 
+    func testUnrecognizedPenguSegmentIsRelayedWithoutSynchronousQualityWrites() async throws {
+        // Reproduces the segment shape from Jet's two watchdog terminations.
+        // A synchronous store write here can notify a main-thread observer
+        // while the player is trying to read the very same relay's diagnostics.
+        let profile = try XCTUnwrap(LocalStreamProxyPlaylistProfile.penguPlay(deliveryURL: media,
+            providerEventID: "pp-live:daddylive~fixture", headers: [:]))
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ProxyFixtureProtocol.self]
+        let proxy = LocalStreamProxy(headers: [:], cookies: [], selectedMediaURL: media,
+            playlistProfile: profile, configuration: configuration, resolver: { _ in ["8.8.8.8"] })
+        ProxyFixtureProtocol.configure { fixture in
+            fixture.respond(type: "application/vnd.apple.mpegurl", body: Data("#EXTM3U\n#EXTINF:2,\nchunk?m=private-marker\n".utf8))
+        }
+        let shapeIDs = { FottyQualityStore.shared.records().filter { $0.name == "relay_segment_shape" }.map(\.id) }
+        let before = shapeIDs()
+        defer { proxy.stop() }; try await proxy.start()
+        XCTAssertNil(proxy.diagnosticDetails()["relay_unaliased_segment"])
+        let (bytes, response) = try await URLSession.shared.data(from: XCTUnwrap(proxy.playbackURL()))
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertFalse(String(decoding: bytes, as: UTF8.self).contains("private-marker"))
+        XCTAssertEqual(shapeIDs(), before, "Playlist rewrite must never synchronously notify the quality store")
+        XCTAssertEqual(proxy.diagnosticDetails()["relay_unaliased_segment"], "true")
+    }
+
     func testRelayRequestEvidenceIsBoundedOpaqueAndDoesNotWriteTheQualityStorePerRequest() async throws {
         ProxyFixtureProtocol.configure { fixture in
             fixture.respond(type: "text/plain", body: Data("synthetic private body".utf8), status: 503)

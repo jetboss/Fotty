@@ -60,10 +60,11 @@ final class LocalStreamProxy: @unchecked Sendable {
     func diagnosticDetails(now: TimeInterval = ProcessInfo.processInfo.systemUptime) -> [String: String] {
         let captured = withStateLock { (LocalStreamProxyRequestSnapshot(relayID: relayID,
             requests: requestReceipts, evictedCount: evictedRequestReceiptCount, observedAt: now), failureEvidence,
-            playlistProgress.latestSnapshot) }
+            playlistProgress.latestSnapshot, policy.observedUnaliasedMediaSegment) }
         return captured.0.qualityDetails()
             .merging(captured.1?.qualityDetails() ?? [:]) { _, value in value }
             .merging(captured.2?.qualityDetails(at: now) ?? [:]) { _, value in value }
+            .merging(captured.3 ? ["relay_unaliased_segment": "true"] : [:]) { _, value in value }
     }
 
     /// A current, repeated upstream-window observation, never a decoded-video
