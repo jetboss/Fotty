@@ -124,6 +124,13 @@ final class SportsTVExperienceTests: XCTestCase {
     }
 
     func testWatchSourcesExposeStationIdentityWithoutPretendingUnknownQuality() {
+        let stationLabels = [2, 3].map { number in
+            BroadcastSourcePresentation.accessibilityLabel(title: "Willow Cricket", provider: "TV1", number: number,
+                                                          description: nil, action: "Switch")
+        }
+        XCTAssertEqual(stationLabels, ["Willow Cricket, Source 2, Switch", "Willow Cricket, Source 3, Switch"])
+        XCTAssertEqual(BroadcastSourcePresentation.accessibilityLabel(title: "Broadcast 4", provider: "CS4",
+            number: 4, description: nil, action: "Switch"), "Broadcast 4, Switch")
         XCTAssertEqual(BroadcastSourcePresentation.watchTitle(provider: "TV1", number: 2), "Willow Cricket")
         XCTAssertEqual(BroadcastSourcePresentation.watchTitle(provider: "CS4", number: 3), "Broadcast 3")
         XCTAssertEqual(BroadcastSourcePresentation.watchDescription(provider: "CS4", qualityLabel: "English · HD"),

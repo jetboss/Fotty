@@ -658,6 +658,15 @@ enum LiveSourceHealthStore {
                 snapshot.lastFailureReason = nil
                 snapshots[key] = snapshot
             }
+            if SportsTVStation.station(provider: source.provider) != nil {
+                let routeKeys = snapshots.keys.filter { $0.hasPrefix("single-tv-route|") }
+                if routeKeys.count > 128 {
+                    let newestFirst = routeKeys.sorted {
+                        (snapshots[$0]?.lastSuccessAt ?? 0) > (snapshots[$1]?.lastSuccessAt ?? 0)
+                    }
+                    for key in newestFirst.dropFirst(128) { snapshots.removeValue(forKey: key) }
+                }
+            }
             saveSnapshots(snapshots)
 
             if let contextKey, !contextKey.isEmpty {
@@ -699,7 +708,14 @@ enum LiveSourceHealthStore {
 
     private static func singleStreamEvidenceKey(for source: StreamSource) -> String {
         guard let station = SportsTVStation.station(provider: source.provider) else { return sourceKey(for: source) }
-        return "single-tv|\(station.provider)|\(source.url.host?.lowercased() ?? "unknown-host")"
+        return "single-tv-route|\(station.provider)|" + reviewedTVDeliveryDigest(for: source)
+    }
+
+    /// The URL and request headers never become persisted keys. Distinct reviewed
+    /// deliveries of the same station may use the same CDN and different paths.
+    static func reviewedTVDeliveryDigest(for source: StreamSource) -> String {
+        digest(["reviewed-tv", source.provider, source.url.absoluteString] + transportFields(source))
+            .map { String(format: "%02x", $0) }.joined()
     }
 
     private static func sessionKey(for session: StreamSession) -> String {

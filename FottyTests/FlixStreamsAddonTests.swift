@@ -252,6 +252,31 @@ final class FlixStreamsAddonTests: XCTestCase {
     }
 
     @MainActor
+    func testBrowseAndWatchCheckCompetitionForEachIndependentListing() async throws {
+        let clock = Date()
+        let event = try XCTUnwrap(registeredRequest(at: clock).preferredEvent)
+        let request = StreamPlaybackRequest(event: event)
+        let otherID = "dlstreams:event:bbbbbbbbbbbb"
+        let otherLeague = "⚽ UEFA Champions League : Arsenal vs Everton"
+        let valid = entry()
+        let other = entry(id: otherID, name: otherLeague)
+        let session = try fixtureSession(page0: [entryJSON(id: otherID, name: otherLeague)])
+        defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
+        let client = FlixStreamsAddonClient(session: session)
+        let browse = try await client.catalogMatches(for: [request], now: clock)
+        XCTAssertEqual(browse.first?.outcome, .listed)
+        XCTAssertEqual(browse.first?.providerEventID, fixtureID)
+        XCTAssertEqual(FlixStreamsAddonClient.selectMatch(for: request, from: [other, valid]), .matched(valid))
+        let sessions = try await client.resolve(for: request, now: clock)
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertFalse(FlixFixtureProtocol.paths.contains("/stream/tv/" + otherID + ".json"))
+
+        let conflicting = entry(name: otherLeague)
+        XCTAssertEqual(FlixStreamsAddonClient.selectMatch(for: request, from: [valid, conflicting]), .conflicting)
+        XCTAssertTrue(FlixStreamsAddonClient.selectAllMatches(for: request, from: [valid, conflicting]).isEmpty)
+    }
+
+    @MainActor
     func testRegisteredLookupReadsFreshCatalogAndReturnsBoundPickerCompatibleDeliveries() async throws {
         let clock = Date(), session = try fixtureSession()
         defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
@@ -385,6 +410,43 @@ final class FlixStreamsAddonTests: XCTestCase {
             XCTAssertEqual(session.diagnosticMetadata["source_key"]?.count, 27)
             XCTAssertFalse(session.diagnosticMetadata.description.contains("fixture-signature"))
             XCTAssertFalse(session.diagnosticMetadata.description.contains("free.flixnest.app"))
+        }
+    }
+
+    func testSamePlaylistWithDifferentRequiredHeadersProducesTwoChoices() async throws {
+        let rows: [[String: Any]] = [
+            ["url": delivery, "headers": ["User-Agent": "player-a"]],
+            ["url": delivery, "behaviorHints": ["proxyHeaders": ["request": ["user-agent": "player-a"]]]],
+            ["url": delivery, "headers": ["User-Agent": "player-b"]],
+            ["url": delivery, "headers": ["Authorization": "private", "User-Agent": 1]],
+            ["url": delivery, "behaviorHints": ["proxyHeaders": ["request": ["Cookie": 1]]]],
+            ["url": delivery, "headers": ["User-Agent": "player-b"],
+             "behaviorHints": ["proxyHeaders": ["request": ["user-agent": "different"]]]]
+        ]
+        let session = try fixtureSession(streams: .json(["streams": rows]))
+        defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
+        let result = try await FlixStreamsAddonClient(session: session).resolve(for: request())
+        XCTAssertEqual(result.map(\.requiredHeaders), [["User-Agent": "player-a"], ["User-Agent": "player-b"]])
+        XCTAssertEqual(Set(result.compactMap { $0.diagnosticMetadata["source_key"] }).count, 2)
+    }
+
+    func testSiblingStreamTimeoutRetainsHealthyChoiceAndSurfacesIfNoSiblingSucceeds() async throws {
+        let second = "dlstreams:event:bbbbbbbbbbbb"
+        let secondPath = "/stream/tv/" + second + ".json"
+        let session = try fixtureSession(page0: [entryJSON(), entryJSON(id: second)], page80: [],
+                                         streams: .failure(URLError(.timedOut)))
+        defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
+        let client = FlixStreamsAddonClient(session: session)
+        FlixFixtureProtocol.setResponse(try .json(["streams": [["url": delivery]]]), for: secondPath)
+        let result = try await client.resolve(for: request())
+        XCTAssertEqual(result.map { $0.playableURL.absoluteString }, [delivery])
+        FlixFixtureProtocol.setResponse(try .json(["streams": []]), for: secondPath)
+        do {
+            _ = try await client.resolve(for: request())
+            XCTFail("The failed stream request must remain observable")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError,
+                           .transportFailure(code: URLError.timedOut.rawValue, stage: .streams))
         }
     }
 
@@ -526,10 +588,11 @@ final class FlixStreamsAddonTests: XCTestCase {
         defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
         var invalid = entryJSON(); invalid["description"] = NSNull()
         FlixFixtureProtocol.setResponse(try .json(["metas": [invalid]]), for: pagePath(80))
-        // A later row on the same id that cannot be read is ignored; it does not sink the readable listing.
-        let result = try await FlixStreamsAddonClient(session: session).resolve(for: request())
-        XCTAssertEqual(result.count, 1)
-        XCTAssertEqual(FlixFixtureProtocol.paths, ["/manifest.json", pagePath(0), pagePath(40), pagePath(80), streamPath])
+        do {
+            _ = try await FlixStreamsAddonClient(session: session).resolve(for: request())
+            XCTFail("A later contradictory row must withdraw this listing before any stream request")
+        } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .conflictingMatch) }
+        XCTAssertEqual(FlixFixtureProtocol.paths, ["/manifest.json", pagePath(0), pagePath(40), pagePath(80)])
     }
 
     func testCatalogAndMetadataByteBoundsFailBeforeAnyStreamLookup() async throws {
@@ -570,6 +633,18 @@ final class FlixStreamsAddonTests: XCTestCase {
                 XCTAssertEqual(expected, 0)
                 XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 1))
             }
+        }
+    }
+
+    func testOfferedCountIncludesRowsBeyondTheAdmissionScan() async throws {
+        let rows = Array<Any>(repeating: NSNull(), count: 100) + [["url": delivery]]
+        let session = try fixtureSession(streams: .json(["streams": rows]))
+        defer { session.invalidateAndCancel(); FlixFixtureProtocol.reset() }
+        do {
+            _ = try await FlixStreamsAddonClient(session: session).resolve(for: request())
+            XCTFail("The 101st row is outside the admission scan")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 101))
         }
     }
 

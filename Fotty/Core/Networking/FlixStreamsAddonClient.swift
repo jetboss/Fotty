@@ -112,15 +112,11 @@ struct FlixStreamsStreamEntry: Decodable, Sendable {
     }
 
     init(from decoder: Decoder) throws {
-        let values = try? decoder.container(keyedBy: Key.self)
+        let values = try decoder.container(keyedBy: Key.self)
         func key(_ name: String) -> Key { Key(stringValue: name)! }
-        url = try? values?.decodeIfPresent(String.self, forKey: key("url"))
-        let hints = try? values?.nestedContainer(keyedBy: Key.self, forKey: key("behaviorHints"))
-        let proxy = try? hints?.nestedContainer(keyedBy: Key.self, forKey: key("proxyHeaders"))
-        let proxied = (try? proxy?.decode([String: String].self, forKey: key("request"))) ?? [:]
-        let direct = (try? values?.decode([String: String].self, forKey: key("headers"))) ?? [:]
-        requestedHeaders = proxied.merging(direct) { first, _ in first }
-        requiresDRM = ["drm", "clearkey", "licenseUrl", "license"].contains { values?.contains(key($0)) == true }
+        url = try? values.decodeIfPresent(String.self, forKey: key("url"))
+        requestedHeaders = try StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
+        requiresDRM = ["drm", "clearkey", "licenseUrl", "license"].contains { values.contains(key($0)) }
     }
 }
 
@@ -187,13 +183,14 @@ actor FlixStreamsAddonClient {
                 streams = []; entryCount = 0; return
             }
             var rows = try values.nestedUnkeyedContainer(forKey: .streams)
+            let offered = rows.count
             var entries: [FlixStreamsStreamEntry] = []
             var count = 0
             while !rows.isAtEnd, count < 100 {
                 let row = try rows.superDecoder(); count += 1
                 if let entry = try? FlixStreamsStreamEntry(from: row) { entries.append(entry) }
             }
-            streams = entries; entryCount = count
+            streams = entries; entryCount = offered ?? count
         }
     }
 
@@ -257,15 +254,11 @@ actor FlixStreamsAddonClient {
             guard let catalog = entries[genre], let parsed = candidates[genre] else {
                 return .init(matchID: request.matchID, outcome: .unsupported)
             }
-            switch ReviewedSportsFixtureMatcher.select(for: request, from: parsed) {
-            case .matched(let index):
-                guard Self.matchesRequestedCompetition(request, selected: catalog[index], entries: catalog) else {
-                    return .init(matchID: request.matchID, outcome: .conflicting)
-                }
-                return .init(matchID: request.matchID, outcome: .listed, providerEventID: catalog[index].id)
-            case .missing: return .init(matchID: request.matchID, outcome: .notListed)
-            case .conflicting: return .init(matchID: request.matchID, outcome: .conflicting)
+            let selection = Self.listingSelection(for: request, entries: catalog, candidates: parsed)
+            if let first = selection.indices.first {
+                return .init(matchID: request.matchID, outcome: .listed, providerEventID: catalog[first].id)
             }
+            return .init(matchID: request.matchID, outcome: selection.conflict ? .conflicting : .notListed)
         }
     }
 
@@ -308,7 +301,8 @@ actor FlixStreamsAddonClient {
                                      eventBinding: binding, at: now, after: all)
         }
         try Task.checkCancellation()
-        if read == 0, let firstFailure { throw firstFailure }
+        if all.isEmpty, let firstFailure { throw firstFailure }
+        if read > 0 { FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, offered: offered, admitted: all.count) }
         guard offered > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
         guard !all.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offered) }
         return all
@@ -413,32 +407,38 @@ actor FlixStreamsAddonClient {
     /// Every exact listing of the requested game (registered requests keep one).
     nonisolated static func selectAllMatches(for request: StreamPlaybackRequest,
                                             from entries: [FlixStreamsCatalogEntry]) -> [FlixStreamsCatalogEntry] {
-        guard request.registryMatch == nil, supports(request: request),
-              request.preferredEvent?.hasCatalogIdentityConflict != true,
-              let identity = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else {
-            if case .matched(let entry) = selectMatch(for: request, from: entries) { return [entry] }
-            return []
-        }
         let entries = Array(entries.prefix(maximumCatalogEntries))
-        var seen = Set<String>()
-        return ReviewedSportsFixtureMatcher.selectAll(for: identity, from: catalogCandidates(entries))
-            .map { entries[$0] }
-            .filter { matchesRequestedCompetition(request, selected: $0, entries: entries) && seen.insert($0.id).inserted }
-            .prefix(maximumListings).map { $0 }
+        let selection = listingSelection(for: request, entries: entries, candidates: catalogCandidates(entries))
+        return selection.indices.prefix(maximumListings).map { entries[$0] }
     }
 
     nonisolated static func selectMatch(for request: StreamPlaybackRequest,
                                        from entries: [FlixStreamsCatalogEntry]) -> FlixStreamsMatchSelection {
-        guard supports(request: request), request.preferredEvent?.hasCatalogIdentityConflict != true else { return .missing }
         let entries = Array(entries.prefix(maximumCatalogEntries))
-        let candidates = catalogCandidates(entries)
-        switch ReviewedSportsFixtureMatcher.select(for: request, from: candidates) {
-        case .matched(let index):
-            guard matchesRequestedCompetition(request, selected: entries[index], entries: entries) else { return .conflicting }
-            return .matched(entries[index])
-        case .missing: return .missing
-        case .conflicting: return .conflicting
+        let selection = listingSelection(for: request, entries: entries, candidates: catalogCandidates(entries))
+        if let first = selection.indices.first { return .matched(entries[first]) }
+        return selection.conflict ? .conflicting : .missing
+    }
+
+    nonisolated private static func listingSelection(for request: StreamPlaybackRequest,
+        entries: [FlixStreamsCatalogEntry], candidates: [ReviewedSportsFixtureMatcher.Candidate]) -> (indices: [Int], conflict: Bool) {
+        guard supports(request: request), request.preferredEvent?.hasCatalogIdentityConflict != true,
+              let identity = ReviewedSportsFixtureMatcher.requestIdentity(for: request) else { return ([], false) }
+        let matches: [Int]
+        if request.registryMatch != nil {
+            switch ReviewedSportsFixtureMatcher.select(for: request, from: candidates) {
+            case .matched(let index): matches = [index]
+            case .missing: return ([], false)
+            case .conflicting: return ([], true)
+            }
+        } else {
+            matches = ReviewedSportsFixtureMatcher.selectAll(for: identity, from: candidates)
+            if matches.isEmpty {
+                return ([], ReviewedSportsFixtureMatcher.select(for: identity, from: candidates) == .conflicting)
+            }
         }
+        let eligible = matches.filter { matchesRequestedCompetition(request, selected: entries[$0], entries: entries) }
+        return (eligible, eligible.isEmpty)
     }
 
     nonisolated private static func catalogCandidates(_ entries: [FlixStreamsCatalogEntry]) -> [ReviewedSportsFixtureMatcher.Candidate] {
@@ -558,7 +558,7 @@ actor FlixStreamsAddonClient {
         for entry in streams.prefix(StreamDeliveryPolicy.maximumSessionsPerProvider) {
             guard !entry.requiresDRM, let value = entry.url, let url = URL(string: value), isAdmittedDelivery(url),
                   let headers = StreamDeliveryPolicy.requestHeaders(entry.requestedHeaders) else { continue }
-            let key = sourceKey(url: url)
+            let key = sourceKey(url: url, headers: headers)
             guard seen.insert(key).inserted else { continue }
             guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else { break }
             sessions.append(.init(matchID: request.matchID, playableURL: url, streamType: .hls,
@@ -575,8 +575,9 @@ actor FlixStreamsAddonClient {
     /// Safe to open (see StreamDeliveryPolicy); link shape is not judged.
     nonisolated static func isAdmittedDelivery(_ url: URL) -> Bool { StreamDeliveryPolicy.publicRejection(url) == nil }
 
-    nonisolated static func sourceKey(url: URL) -> String {
-        let digest = SHA256.hash(data: Data((url.absoluteString + "\nheaders:{}").utf8))
+    nonisolated static func sourceKey(url: URL, headers: [String: String] = [:]) -> String {
+        let contract = headers.isEmpty ? "{}" : headers.keys.sorted().map { "\($0):\(headers[$0]!)" }.joined(separator: "\n")
+        let digest = SHA256.hash(data: Data((url.absoluteString + "\nheaders:" + contract).utf8))
         return "fs_" + digest.prefix(12).map { String(format: "%02x", $0) }.joined()
     }
 

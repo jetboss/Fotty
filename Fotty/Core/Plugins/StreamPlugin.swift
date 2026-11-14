@@ -205,6 +205,9 @@ enum CuratedStreamSourceCatalog {
             if dispatch == .reviewedTV {
                 return ReviewedTVPlaylistClient.programmeLookupRequest(for: StreamPlaybackRequest(event: event)) != nil
             }
+            if dispatch == .cncSports && ReviewedSportsFixtureMatcher.sportKey(event.normalizedCategory) == "football" {
+                return CNCSportsAddonClient.supportsReviewedFootball(StreamPlaybackRequest(event: event))
+            }
             if dispatch == .cncSports && ReviewedSportsFixtureMatcher.sportKey(event.normalizedCategory) == "cricket" {
                 return CNCSportsAddonClient.supportsReviewedCricket(StreamPlaybackRequest(event: event))
             }
@@ -220,7 +223,8 @@ enum CuratedStreamSourceCatalog {
             }
             guard label.hasPrefix(prefix) else { return false }
             let suffix = String(label.dropFirst(prefix.count))
-            return suffix.count == 1 && ["1", "2", "3", "4", "5", "6"].contains(suffix)
+            guard let choice = Int(suffix) else { return false }
+            return sourceLabel(choice: choice) == label
         }
 
         func sourceLabel(choice: Int) -> String? {
@@ -233,7 +237,7 @@ enum CuratedStreamSourceCatalog {
         }
 
         /// Historical CS-labelled sources also use the existing CS-digit
-        /// alias path. Keep it unchanged; only CS1–CS6 is an opaque family.
+        /// alias path for historical labels outside the generated range.
         func matchesLegacyLabel(_ raw: String) -> Bool {
             guard provider == .communitySports, let prefix = opaqueLabelPrefix else { return false }
             let label = raw.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -308,6 +312,9 @@ enum CuratedStreamSourceCatalog {
             }
             guard definition.supportsDiscovery(category: request.category) else { return false }
             guard hasExactFixture else { return false }
+            if definition.provider == .cncSports && ReviewedSportsFixtureMatcher.sportKey(request.category) == "football" {
+                return CNCSportsAddonClient.supportsReviewedFootball(request)
+            }
             if definition.provider == .cncSports && ReviewedSportsFixtureMatcher.sportKey(request.category) == "cricket" {
                 return CNCSportsAddonClient.supportsReviewedCricket(request)
             }

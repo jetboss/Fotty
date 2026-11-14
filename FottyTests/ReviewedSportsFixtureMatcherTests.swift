@@ -136,6 +136,18 @@ final class ReviewedSportsFixtureMatcherTests: XCTestCase {
         XCTAssertEqual(Matcher.select(for: request(), from: [unrelated, exact]), .matched(1))
     }
 
+    func testCleanListingDoesNotReintroduceAnUnownedTargetFromAnotherListing() throws {
+        let identity = try XCTUnwrap(Matcher.requestIdentity(for: request()))
+        let clean = candidate(id: "clean")
+        let duplicate = candidate(id: "second", target: "shared")
+        for conflict in [candidate(id: "other", target: "shared", offset: 86_400),
+                         Matcher.Candidate(metadataID: "other", effectiveID: "shared", identity: nil)] {
+            for rows in [[clean, duplicate, conflict], [conflict, duplicate, clean]] {
+                XCTAssertEqual(Matcher.selectAll(for: identity, from: rows).map { rows[$0].metadataID }, ["clean"])
+            }
+        }
+    }
+
     func testMetadataAndEffectiveTargetConflictsIncludeDateSportSquadTypeAndRoute() {
         let exact = candidate(id: "exact", target: "shared")
         let conflicts = [candidate(id: "exact", target: "redirected"),

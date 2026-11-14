@@ -357,6 +357,7 @@ final class FixtureStreamDiscoveryIndex {
         var generation: UUID?
         var completedAt: Date?
         var sessions: [StreamSession] = []
+        var hasCompleteSessionList = true
         var failure: StreamFailureCategory?
         var lastCandidateFoundAt: Date?
         var lastConfirmedAvailableAt: Date? = nil
@@ -445,10 +446,20 @@ final class FixtureStreamDiscoveryIndex {
               now >= record.startedAt else { return }
         noteTime(now)
         var seen = Set<StreamDeliveryIdentity>()
-        record.sessions = sessions.filter { session in
-            guard isAdmitted(session, for: record.request, providerCode: ticket.providerCode, at: now) else { return false }
-            return seen.insert(StreamDeliveryIdentity(url: session.playableURL, headers: session.requiredHeaders)).inserted
-        }.prefix(6).map { $0 }
+        record.sessions.removeAll(keepingCapacity: true)
+        record.hasCompleteSessionList = true
+        for session in sessions {
+            guard isAdmitted(session, for: record.request, providerCode: ticket.providerCode, at: now),
+                  seen.insert(StreamDeliveryIdentity(url: session.playableURL, headers: session.requiredHeaders)).inserted
+            else { continue }
+            // An oversized result still supplies availability evidence. The next channel
+            // Watch must re-resolve it instead of opening with an incomplete picker.
+            if record.sessions.count == StreamDeliveryPolicy.maximumSessionsPerProvider {
+                record.hasCompleteSessionList = false
+                break
+            }
+            record.sessions.append(session)
+        }
         record.completedAt = now
         record.generation = nil
         if !record.sessions.isEmpty { record.lastCandidateFoundAt = now }
@@ -493,7 +504,8 @@ final class FixtureStreamDiscoveryIndex {
         guard now.timeIntervalSince1970.isFinite,
               highestObservedAt.map({ now >= $0 }) ?? true,
               let key = key(for: request, providerCode: providerCode),
-              let record = records[key], record.generation == nil, isFresh(record, at: now) else { return nil }
+              let record = records[key], record.generation == nil, record.hasCompleteSessionList,
+              isFresh(record, at: now) else { return nil }
         noteTime(now)
         let sessions = record.sessions.filter {
             isAdmitted($0, for: request, providerCode: key.provider, at: now)

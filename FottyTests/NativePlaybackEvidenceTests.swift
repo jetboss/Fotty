@@ -186,7 +186,7 @@ final class NativePlaybackEvidenceTests: XCTestCase {
         let hostile: [StreamSession] = [
             reviewedLSSession(family: "communitysports"),
             reviewedLSSession(provider: "CS1"),
-            reviewedLSSession(provider: "LS7"),
+            reviewedLSSession(provider: "LS101"),
             reviewedLSSession(provider: "LS1\n"),
             reviewedLSSession(type: .mp4),
             reviewedLSSession(type: .unknown),

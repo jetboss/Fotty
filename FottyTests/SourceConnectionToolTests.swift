@@ -50,7 +50,7 @@ final class SourceConnectionToolTests: XCTestCase {
             let matches = registry.lookup(for: request, enabledProviderCodes: ["communitysports"])
             guard !matches.isEmpty else { XCTFail("\(pin.id) has no current registered CS association."); continue }
             do {
-                let sessions = try await LiveStreamResolver.resolveRegisteredOptionalSessions(
+                let sessions = try await LiveStreamResolver.shared.resolveRegisteredOptionalSessions(
                     for: request, providerCode: "communitysports", associations: matches,
                     resolve: { scoped in try await cs.resolve(for: scoped, now: Date(), forceRefresh: true) })
                 let native = sessions.filter { $0.playbackContract.endpoint == .directMedia && $0.playbackContract.container == .hls }

@@ -505,7 +505,8 @@ struct SessionRow: View {
         .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusMD))
         .accessibilityIdentifier("broadcast-source-\(displayNumber)")
         .accessibilityValue(session.providerName)
-        .accessibilityLabel([sourceTitle, sourceDescription, actionLabel].compactMap { $0 }.joined(separator: ", "))
+        .accessibilityLabel(BroadcastSourcePresentation.accessibilityLabel(title: sourceTitle, provider: session.providerName,
+            number: displayNumber, description: sourceDescription, action: actionLabel))
         .accessibilityAddTraits(isActive ? .isSelected : [])
         .accessibilityHint(isFailed || isCoolingDown
             ? "Try this source again"
@@ -560,6 +561,11 @@ struct SessionRow: View {
 /// Only reviewed display terms are copied; raw titles, URLs and diagnostics stay
 /// out of the normal picker. Missing metadata adds no generic filler.
 enum BroadcastSourcePresentation {
+    static func accessibilityLabel(title: String, provider: String, number: Int, description: String?, action: String) -> String {
+        let stationChoice = SportsTVStation.station(provider: provider).map { _ in "Source \(number)" }
+        return [title, stationChoice, description, action].compactMap { $0 }.joined(separator: ", ")
+    }
+
     static func watchTitle(provider: String, number: Int) -> String {
         SportsTVStation.station(provider: provider)?.title ?? "Broadcast \(number)"
     }

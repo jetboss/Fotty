@@ -54,7 +54,7 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     func testCuratedOpaqueLabelsHaveOneOwnerAndDoNotExpandLegacyLabelAdmission() throws {
         for definition in CuratedStreamSourceCatalog.optionalSources {
             let choices = definition.provider == .reviewedTV
-                ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 21, 22, 23, 24, 25, 26, 27] : Array(1...6)
+                ? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17, 21, 22, 23, 24, 25, 26, 27] : Array(1...StreamDeliveryPolicy.maximumSessionsPerProvider)
             let lastChoice = try XCTUnwrap(choices.last)
             for choice in choices {
                 let label = try XCTUnwrap(definition.sourceLabel(choice: choice))
@@ -74,14 +74,14 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
                 }
             }
             let invalidSuffixes = ["", "0", String(lastChoice + 1), "01", "1 extra", "١"]
-                + (definition.provider == .reviewedTV ? ["16", "20"] : ["10"])
+                + (definition.provider == .reviewedTV ? ["16", "20"] : ["+7", "010"])
             for suffix in invalidSuffixes {
                 XCTAssertNil(CuratedStreamSourceCatalog.opaqueDefinition(for: definition.discoveryName + suffix))
             }
         }
-        XCTAssertTrue(try XCTUnwrap(CuratedStreamSourceCatalog.definition(forProviderCode: "communitysports")).matchesLegacyLabel("CS7"),
-                      "The old explicit CS-digit alias is separate from the six opaque option labels")
-        XCTAssertNil(CuratedStreamSourceCatalog.opaqueDefinition(for: "CS7"))
+        XCTAssertTrue(try XCTUnwrap(CuratedStreamSourceCatalog.definition(forProviderCode: "communitysports")).matchesLegacyLabel("CS101"),
+                      "The old explicit CS-digit alias is separate from the current opaque option labels")
+        XCTAssertNil(CuratedStreamSourceCatalog.opaqueDefinition(for: "CS101"))
         XCTAssertFalse(try XCTUnwrap(CuratedStreamSourceCatalog.definition(forProviderCode: "plaviosports")).matchesLegacyLabel("AS7"))
         XCTAssertNil(CuratedStreamSourceCatalog.opaqueDefinition(for: "as1"))
     }
@@ -94,8 +94,8 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
 
     func testCuratedDiscoveryScopesDelegateToExistingReviewedAdaptersWithoutBroadeningLanes() {
         let expected: [(String, [String])] = [
-            ("football", ["communitysports", "plaviosports", "flixstreams", "highfly", "penguplay"]),
-            ("soccer", ["communitysports", "plaviosports", "flixstreams", "highfly", "penguplay"]),
+            ("football", ["communitysports", "plaviosports", "cncsports", "flixstreams", "highfly", "penguplay"]),
+            ("soccer", ["communitysports", "plaviosports", "cncsports", "flixstreams", "highfly", "penguplay"]),
             ("cricket", ["communitysports", "plaviosports", "cncsports", "flixstreams", "highfly", "penguplay"]),
             ("hockey", ["communitysports", "cncsports", "highfly", "penguplay"]),
             ("american-football", ["communitysports", "highfly", "penguplay"]),
@@ -120,7 +120,7 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     }
 
     func testFlixLabelsOwnOnlyTheirReviewedFamilyDespiteRemoteProviderAliases() {
-        for number in 1...6 {
+        for number in [1, 6, 7, 10, 100] {
             let source = StreamSource(title: "Streamed golf india admin community sports plaviosports cncsports",
                 url: URL(string: "https://example.invalid/streamed/score808/communitysports/fixture.m3u8")!,
                 quality: "HD", provider: "FS\(number)")
@@ -139,7 +139,7 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     }
 
     func testUnreviewedFlixLabelsAndRemoteNamesCannotImpersonateFSOptions() {
-        for label in ["FS0", "FS7", "FS10", "FS1 extra", "Flix", "Broadcast"] {
+        for label in ["FS0", "FS101", "FS010", "FS1 extra", "Flix", "Broadcast"] {
             let source = StreamSource(title: "FS1 flixstreams",
                 url: URL(string: "https://example.invalid/flixstreams/fixture.m3u8")!, quality: "HD", provider: label)
             XCTAssertNil(StreamPluginProviderMatching.opaqueProviderFamily(label), label)
@@ -225,7 +225,7 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
             }
             XCTAssertEqual(LiveSourceHealthStore.providerFamily(for: source), "cncsports")
         }
-        for label in ["LS7", "LS1 extra", "Broadcast", "CNCVerse"] {
+        for label in ["LS101", "LS1 extra", "Broadcast", "CNCVerse"] {
             let source = StreamSource(title: "LS1 cncsports", url: URL(string: "https://example.com/cncsports")!,
                 quality: "HD", provider: label)
             XCTAssertFalse(StreamPluginProviderMatching.matches(source, code: "cncsports"))
@@ -275,7 +275,7 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     }
 
     func testRemoteLabelsAndURLsCannotImpersonateAdditionalFamily() {
-        for provider in ["Broadcast", "AS7", "AS1 extra", "Plavio"] {
+        for provider in ["Broadcast", "AS101", "AS1 extra", "Plavio"] {
             let source = StreamSource(title: "AS1 plaviosports", url: URL(string: "https://example.com/plaviosports")!, quality: "auto", provider: provider)
             XCTAssertFalse(StreamPluginProviderMatching.matches(source, code: "plaviosports"))
         }

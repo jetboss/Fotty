@@ -164,8 +164,25 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: [String: Any]])
         XCTAssertEqual(saved[healthKey(tnt)]?["successCount"] as? Int, 1,
             "Legacy ranking retains its unchanged aggregate for other playback contexts")
-        XCTAssertEqual(saved["single-tv|TV13|shared.example"]?["successCount"] as? Int, 1)
-        XCTAssertNil(saved["single-tv|TV11|shared.example"])
+        let route = try XCTUnwrap(saved.keys.first { $0.hasPrefix("single-tv-route|TV13|") })
+        XCTAssertEqual(saved[route]?["successCount"] as? Int, 1)
+        XCTAssertFalse(route.contains("tnt.m3u8"))
+        XCTAssertFalse(saved.keys.contains { $0.hasPrefix("single-tv-route|TV11|") })
+    }
+
+    func testSameTVStationDoesNotTransferPictureOrContinuityToAnotherDelivery() {
+        func session(_ query: String) -> StreamSession {
+            StreamSession(matchID: "sports-channel:sky-sports-football",
+                playableURL: URL(string: "https://shared.example/sky.m3u8?" + query)!,
+                streamType: .hls, providerName: "TV11")
+        }
+        let main = session("variant=main"), backup = session("variant=backup")
+        LiveSourceHealthStore.recordSuccess(for: backup, startupLatencyMs: 1_000)
+        XCTAssertTrue(LiveSourceHealthStore.hasFreshSingleStreamSuccess(for: backup.legacySource))
+        XCTAssertFalse(LiveSourceHealthStore.hasFreshSingleStreamSuccess(for: main.legacySource))
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([main, backup]).first?.id, backup.id)
+        XCTAssertNotEqual(SourceDeliveryDiversity.localDeliveryKey(for: main.legacySource),
+                          SourceDeliveryDiversity.localDeliveryKey(for: backup.legacySource))
     }
 
     private let healthKeys = ["fotty.live.sourceHealth.v1", "fotty.live.lastGoodProvider.v1"]

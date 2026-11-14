@@ -99,6 +99,7 @@ final class HighflySportsAddonTests: XCTestCase {
             ("https://router.local/live.m3u8", "unsafe_destination"),
             ("https://user:secret@papacito.cfd/live.m3u8", "credentials_in_link"),
             ("https://recaps.highfly.to/game/full.m3u8", "replay"),
+            ("https://cdn.example.org/proxy?url=https%3A%2F%2Frecaps.highfly.to%2Fgame%2Ffull.m3u8", "replay"),
             ("https://cdn.example.org/game/full.mp4", "not_live_media"),
             ("https://cdn.example.org/watch.html", "not_live_media")]
         for (value, reason) in refused {
@@ -113,11 +114,11 @@ final class HighflySportsAddonTests: XCTestCase {
         let plain = try decode(#"{"url":"https://example.com/a","name":"HD","behaviorHints":{"notWebReady":true,"bingeGroup":"x"},"extra":1}"#)
         XCTAssertEqual(plain.url, "https://example.com/a")
         XCTAssertFalse(plain.requiresDRM)
-        XCTAssertEqual(StreamDeliveryPolicy.requestHeaders(plain.requestedHeaders), [:])
+        XCTAssertEqual(plain.requestedHeaders.flatMap(StreamDeliveryPolicy.requestHeaders), [:])
         let referer = try decode(#"{"url":"https://example.com/a","behaviorHints":{"proxyHeaders":{"request":{"referer":"https://site.example/","X-Thing":"1"}}}}"#)
-        XCTAssertEqual(StreamDeliveryPolicy.requestHeaders(referer.requestedHeaders), ["Referer": "https://site.example/"])
+        XCTAssertEqual(referer.requestedHeaders.flatMap(StreamDeliveryPolicy.requestHeaders), ["Referer": "https://site.example/"])
         let credential = try decode(#"{"url":"https://example.com/a","headers":{"Authorization":"synthetic"}}"#)
-        XCTAssertNil(StreamDeliveryPolicy.requestHeaders(credential.requestedHeaders), "Sign-in material is never forwarded")
+        XCTAssertNil(credential.requestedHeaders.flatMap(StreamDeliveryPolicy.requestHeaders), "Sign-in material is never forwarded")
         XCTAssertTrue(try decode(#"{"url":"https://example.com/a","drm":"clearkey"}"#).requiresDRM)
         XCTAssertNil(try decode(#"{"externalUrl":"https://example.com/a"}"#).url)
     }
@@ -140,6 +141,8 @@ final class HighflySportsAddonTests: XCTestCase {
             XCTAssertTrue(sessions.first?.requiresGuardedRelay == true)
             XCTAssertTrue(sessions.first?.canRefresh == true)
             XCTAssertTrue(LiveStreamResolver.supportsDescriptorRenewal(sessions[0]))
+            XCTAssertEqual(sessions.first?.diagnosticMetadata["delivery_host"], "papacito.cfd")
+            XCTAssertFalse(sessions.first?.diagnosticMetadata.values.contains { $0.contains("synthetic") || $0.contains("/") } ?? true)
             let counts = await transport.counts()
             XCTAssertEqual(counts.meta, 1); XCTAssertEqual(counts.stream, 1)
         }
@@ -150,6 +153,43 @@ final class HighflySportsAddonTests: XCTestCase {
         _ = try await client(transport).resolve(for: request(), now: kickoff)
         let paths = await transport.catalogs()
         XCTAssertTrue(paths.allSatisfy { $0.contains("search=") }, "\(paths)")
+    }
+
+    func testSecondTeamSearchTimeoutPreservesFirstTeamsExactMatch() async throws {
+        let transport = HighflyTestTransport(mode: .secondTeamSearchTimesOut)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.map(\.providerName), ["HF1"])
+        let paths = await transport.catalogs()
+        XCTAssertTrue(paths.contains("search=Arsenal.json"))
+        XCTAssertTrue(paths.contains("search=Everton.json"))
+        XCTAssertFalse(paths.contains("sports_live.json"))
+        let counts = await transport.counts()
+        XCTAssertEqual(counts.meta, 1)
+        XCTAssertEqual(counts.stream, 1)
+    }
+
+    func testBothTeamSearchTimeoutsStillFindMatchInLiveCatalog() async throws {
+        let transport = HighflyTestTransport(mode: .teamSearchesTimeOut)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.map(\.providerName), ["HF1"])
+        let paths = await transport.catalogs()
+        XCTAssertTrue(paths.contains("search=Arsenal.json"))
+        XCTAssertTrue(paths.contains("search=Everton.json"))
+        XCTAssertTrue(paths.contains("sports_live.json"))
+        XCTAssertFalse(paths.contains("sports_football.json"))
+    }
+
+    func testCancelledTeamSearchStopsBeforeFallbackOrStreamRequest() async throws {
+        let transport = HighflyTestTransport(mode: .cancelTeamSearch)
+        do {
+            _ = try await client(transport).resolve(for: request(), now: kickoff)
+            XCTFail("Cancelled lookup returned a stream")
+        } catch is CancellationError {}
+        let paths = await transport.catalogs()
+        XCTAssertEqual(paths, ["search=Arsenal.json"])
+        let counts = await transport.counts()
+        XCTAssertEqual(counts.meta, 0)
+        XCTAssertEqual(counts.stream, 0)
     }
 
     func testSearchMissFindsTodaysGameInThePlainListing() async throws {
@@ -209,24 +249,6 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertEqual(sessions.count, 1)
         let receipt = FottyQualityStore.shared.records().last { $0.name == "highfly_lookup" }
         XCTAssertEqual(receipt?.details["supplementary_failures"], "1")
-    }
-
-    func testOwnerStatusSummarisesOfferedAndUsedStreams() {
-        func receipt(_ name: String, offered: Int, used: Int, reason: String?, build: String = "900") -> FottyQualityRecord {
-            var details = ["addon_stream_entry_count": "\(offered)", "candidate_count": "\(used)"]
-            if let reason { details["reason_code"] = reason }
-            return FottyQualityRecord(id: UUID(), timestamp: Date(), category: .playback, name: name, outcome: .info,
-                                      durationMilliseconds: nil, details: details, appVersion: "3.0.0", appBuild: build)
-        }
-        let rows = AccountSourceAdmissionSummary.rows(records: [
-            receipt("highfly_delivery_admission", offered: 7, used: 5, reason: "replay"),
-            receipt("highfly_delivery_admission", offered: 7, used: 5, reason: "replay"),
-            receipt("highfly_delivery_admission", offered: 9, used: 1, reason: "host", build: "899"),
-            receipt("penguplay_delivery_admission", offered: 2, used: 2, reason: nil)], build: "900")
-        XCTAssertEqual(rows.map(\.name), ["Highfly", "PenguPlay"])
-        XCTAssertEqual(rows[0].offered, 14); XCTAssertEqual(rows[0].used, 10)
-        XCTAssertEqual(AccountSourceAdmissionSummary.label(rows[0].commonestReason ?? ""), "Replays, not live")
-        XCTAssertNil(rows[1].commonestReason, "Nothing unused, nothing to explain")
     }
 
     func testEveryListingOfTheGameContributesStreams() async throws {
@@ -368,7 +390,22 @@ final class HighflySportsAddonTests: XCTestCase {
             let transport = HighflyTestTransport(mode: mode)
             do { _ = try await client(transport).resolve(for: request(), now: kickoff); XCTFail("Stale account admitted") }
             catch { XCTAssertTrue(error is CommunitySportsAddonError) }
+            let receipt = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "highfly_delivery_admission" })
+            XCTAssertGreaterThan(Int(receipt.details["offered_count"] ?? "") ?? 0, 0)
+            XCTAssertEqual(receipt.details["admitted_count"], "0", "The account changed after the list was read")
         }
+    }
+
+    func testHeaderVariantsRetainDistinctRenewalKeysAndMalformedSiblingIsCounted() async throws {
+        let transport = HighflyTestTransport(mode: .headerVariants)
+        let result = try await client(transport).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(result.map(\.requiredHeaders), [["User-Agent": "Player A"], ["User-Agent": "Player B"]])
+        XCTAssertEqual(Set(result.map(\.playableURL)).count, 1)
+        XCTAssertEqual(Set(result.compactMap { $0.diagnosticMetadata["source_key"] }).count, 2)
+        let receipt = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "highfly_delivery_admission" })
+        XCTAssertEqual(receipt.details["offered_count"], "4")
+        XCTAssertEqual(receipt.details["admitted_count"], "2")
+        XCTAssertEqual(receipt.details["reason_code"], "malformed_headers")
     }
 
     func testOneRejectedDestinationDoesNotRemoveValidSibling() async throws {
@@ -393,7 +430,12 @@ final class HighflySportsAddonTests: XCTestCase {
 }
 
 private actor HighflyTestTransport {
-    enum Mode: Sendable { case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog, listingFailsAfterLive, liveFailsListingMatches, secondSearchFails, looseRows, metaFails, looseManifest, twoListings }
+    enum Mode: Sendable {
+        case normal, conflictingMeta, disable, changeAccount, badSibling, transportError, headerVariants
+        case searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog
+        case listingFailsAfterLive, liveFailsListingMatches, secondTeamSearchTimesOut, teamSearchesTimeOut, cancelTeamSearch
+        case secondSearchFails, looseRows, metaFails, looseManifest, twoListings
+    }
     private let premium: Bool
     private let mode: Mode
     private var streamCount = 0
@@ -447,6 +489,14 @@ private actor HighflyTestTransport {
             later["description"] = "Arsenal vs Everton\n14 Nov 2026 · 18:00 UTC"; later["releaseInfo"] = "14 Nov 2026 · 18:00 UTC"
             let searching = url.absoluteString.contains("search=")
             switch mode {
+            case .secondTeamSearchTimesOut:
+                if url.lastPathComponent == "search=Everton.json" { throw URLError(.timedOut) }
+                body = ["metas": url.lastPathComponent == "search=Arsenal.json" ? [row] : []]
+            case .teamSearchesTimeOut:
+                if searching { throw URLError(.timedOut) }
+                body = ["metas": url.lastPathComponent == "sports_live.json" ? [row] : []]
+            case .cancelTeamSearch:
+                throw CancellationError()
             case .twoListings:
                 var second = row; second["id"] = "streamed:synthetic-feed-b"
                 body = ["metas": url.absoluteString.contains("skip=") || !searching ? [] : [row, second]]
@@ -505,6 +555,13 @@ private actor HighflyTestTransport {
             if mode == .twoListings, url.path.contains("feed-b") {
                 deliveries = (1...10).map { ["url": "https://edge\($0).papacito.cfd/m3u/b\($0)/index.m3u8?\(key)=s"] }
                 deliveries.append(["url": "https://papacito.cfd/m3u/synthetic/index.m3u8?\(key)=synthetic"])
+            }
+            if mode == .headerVariants {
+                let stream = "https://papacito.cfd/m3u/synthetic/index.m3u8?" + key + "=synthetic"
+                deliveries = [["url": stream, "headers": ["User-Agent": "Player A"]],
+                              ["url": stream, "behaviorHints": ["proxyHeaders": ["request": ["user-agent": "Player A"]]]],
+                              ["url": stream, "headers": ["User-Agent": "Player B"]],
+                              ["url": stream, "headers": ["Authorization": "private", "User-Agent": 12]]]
             }
             if mode == .badSibling { deliveries.insert(["url": "https://papacito.cfd/m3u/rejected/index.m3u8?\(key)=synthetic"], at: 0) }
             body = ["streams": deliveries]

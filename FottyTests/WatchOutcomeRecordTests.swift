@@ -203,6 +203,62 @@ final class WatchOutcomeRecordTests: XCTestCase {
         XCTAssertNil(WatchOutcomeSummary.median([]))
     }
 
+    func testOwnerStatusCountsReturnedChoicesAndWatchPicturesIndependently() throws {
+        store.recordStreamAdmission(sourceFamily: "communitysports", offered: 120, admitted: 100)
+        store.recordStreamAdmission(sourceFamily: "communitysports", offered: 5, admitted: 0)
+        store.recordStreamAdmission(sourceFamily: "reviewedtv", offered: 0, admitted: 0)
+        for family in ["communitysports", "CS", "score808"] {
+            store.record(category: .playback, name: "watch_outcome", outcome: .success,
+                         details: ["source_family": family, "terminal_outcome": "playing"])
+        }
+        store.record(category: .playback, name: "watch_outcome", outcome: .failure,
+                     details: ["source_family": "communitysports", "terminal_outcome": "failed"])
+        let rows = store.ownerStatusSnapshot().streamAdmissions
+        let community = try XCTUnwrap(rows.first { $0.id == .communitySports })
+        XCTAssertEqual(community.lookups, 2)
+        XCTAssertEqual(community.offered, 125)
+        XCTAssertEqual(community.admitted, 100)
+        XCTAssertEqual(community.firstPictures, 2)
+        XCTAssertEqual(community.admissionText, "125 offered · 100 admitted · 2 lookups")
+        XCTAssertEqual(rows.first { $0.id == .reviewedTV }?.admissionText, "0 offered · 0 admitted · 1 lookup")
+        XCTAssertEqual(rows.first { $0.id == .score808 }?.admissionText, "No stream counts recorded")
+        XCTAssertEqual(store.ownerStatusSnapshot(appBuild: "older-build").streamAdmissions, [])
+    }
+
+    func testOwnerStatusKeepsUnknownHistoricalCountsAndUnobservedPicturesDistinct() throws {
+        // The old logger dropped an offered count over 100. Its used_count could
+        // still include candidates discarded during the final fixture check.
+        store.record(category: .playback, name: "highfly_delivery_admission", outcome: .info,
+                     details: ["used_count": "100", "candidate_count": "12", "reason_code": "replay"])
+        store.record(category: .playback, name: "penguplay_delivery_admission", outcome: .info,
+                     details: ["addon_stream_entry_count": "5", "candidate_count": "3"])
+        let rows = store.ownerStatusSnapshot().streamAdmissions
+        let highfly = try XCTUnwrap(rows.first { $0.id == .highfly })
+        XCTAssertNil(highfly.offered)
+        XCTAssertNil(highfly.admitted)
+        XCTAssertEqual(highfly.firstPictures, 0)
+        XCTAssertEqual(highfly.reportedReason, "replay")
+        let penguPlay = try XCTUnwrap(rows.first { $0.id == .penguPlay })
+        XCTAssertEqual(penguPlay.offered, 5)
+        XCTAssertNil(penguPlay.admitted)
+    }
+
+    func testAdmissionReceiptsContainOnlyBoundedCountsAndKnownFamilies() throws {
+        let families = CuratedStreamSourceCatalog.optionalSources.map(\.providerCode)
+        for family in families {
+            store.recordStreamAdmission(sourceFamily: family, offered: 300, admitted: 12)
+        }
+        store.recordStreamAdmission(sourceFamily: "highfly", offered: 3, admitted: 4)
+        store.recordStreamAdmission(sourceFamily: "penguplay", offered: -1, admitted: 0)
+        store.recordStreamAdmission(sourceFamily: "highfly", offered: Int.max, admitted: 0)
+        store.recordStreamAdmission(sourceFamily: "https://example.invalid/secret", offered: 5, admitted: 1)
+        XCTAssertEqual(store.records().count, families.count)
+        for receipt in store.records() {
+            XCTAssertEqual(Set(receipt.details.keys), ["source_family", "offered_count", "admitted_count"])
+            XCTAssertTrue(families.contains(try XCTUnwrap(receipt.details["source_family"])))
+        }
+    }
+
     func testCompetitionLabelsAreOpaqueBuckets() {
         let channel = EventReference(id: "willow", title: "Willow", category: "cricket", date: nil,
                                      poster: nil, popular: false, teams: nil)

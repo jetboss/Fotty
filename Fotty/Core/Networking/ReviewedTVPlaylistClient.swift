@@ -143,18 +143,41 @@ actor ReviewedTVPlaylistClient {
         url.host == "live-addon-rust.vercel.app" && channels.contains { $0.playlistURL == url }
     }
 
-    private nonisolated static func teniesDelivery(_ data: Data, channel: ChannelDefinition) throws -> URL {
+    private struct ChannelDeliveries {
+        var offered = 0
+        private(set) var urls: [URL] = []
+        private var seen: Set<URL> = []
+        var failure: CommunitySportsAddonError = .matchNotFound
+
+        mutating func append(_ url: URL) {
+            if seen.insert(url).inserted { urls.append(url) }
+        }
+
+        func first() throws -> URL {
+            guard let url = urls.first else { throw failure }
+            return url
+        }
+    }
+
+    private nonisolated static func teniesDeliveries(_ data: Data, channel: ChannelDefinition) throws -> ChannelDeliveries {
         guard let document = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let streams = document["streams"] as? [[String: Any]], streams.count == 1,
-              let stream = streams.first, Set(stream.keys) == ["name", "title", "url", "behaviorHints"],
-              stream["name"] as? String == "TENIES.SPACE Live TV",
-              let title = stream["title"] as? String, channel.playlistLabels.contains(title),
-              let hints = stream["behaviorHints"] as? [String: Any],
-              Set(hints.keys) == ["notWebReady", "requestHeaders"], hints["notWebReady"] as? Bool == false,
-              hints["requestHeaders"] as? [String: String] == teniesHeaders,
-              let raw = stream["url"] as? String, let url = URL(string: raw), admitsDelivery(url, channel: channel)
-        else { throw CommunitySportsAddonError.unsafeResponse }
-        return url
+              let streams = document["streams"] as? [Any] else { throw CommunitySportsAddonError.unsafeResponse }
+        var result = ChannelDeliveries()
+        for case let stream as [String: Any] in streams {
+            guard stream["name"] as? String == "TENIES.SPACE Live TV",
+                  let title = stream["title"] as? String, channel.playlistLabels.contains(title) else { continue }
+            result.offered += 1
+            guard Set(stream.keys) == ["name", "title", "url", "behaviorHints"],
+                  let hints = stream["behaviorHints"] as? [String: Any],
+                  Set(hints.keys) == ["notWebReady", "requestHeaders"], hints["notWebReady"] as? Bool == false,
+                  hints["requestHeaders"] as? [String: String] == teniesHeaders,
+                  let raw = stream["url"] as? String, let url = URL(string: raw), admitsDelivery(url, channel: channel) else {
+                result.failure = .unsafeResponse
+                continue
+            }
+            result.append(url)
+        }
+        return result
     }
 
     private nonisolated static func espn(_ number: Int, identifier: String, markets: Set<String>) -> ChannelDefinition {
@@ -178,8 +201,10 @@ actor ReviewedTVPlaylistClient {
     typealias ProgrammeMatches = @Sendable (StreamPlaybackRequest, Date) async -> [BroadcastRegistryMatch]
     private let fetch: Fetch
     private let validateDestination: ValidateDestination
+    private let qualityStore: FottyQualityStore
 
-    init(fetch: Fetch? = nil, validateDestination: ValidateDestination? = nil) {
+    init(fetch: Fetch? = nil, validateDestination: ValidateDestination? = nil, qualityStore: FottyQualityStore = .shared) {
+        self.qualityStore = qualityStore
         self.validateDestination = validateDestination ?? { try await LocalStreamProxyDestinationValidator.validate($0) }
         if let fetch { self.fetch = fetch }
         else {
@@ -269,6 +294,13 @@ actor ReviewedTVPlaylistClient {
         var playlistCache: [URL: Data] = [:]
         var resolved: [(StreamPlaybackRequest, StreamSession)] = []
         var firstFailure: Error?
+        var offered: Int?
+        var admitted = 0
+        defer {
+            if let offered, !Task.isCancelled {
+                qualityStore.recordStreamAdmission(sourceFamily: Self.providerCode, offered: offered, admitted: admitted)
+            }
+        }
         for scoped in accepted {
             do {
                 guard let channel = Self.selectedChannel(for: scoped, at: now) else { throw CommunitySportsAddonError.conflictingMatch }
@@ -280,8 +312,20 @@ actor ReviewedTVPlaylistClient {
                     }
                     playlistCache[channel.playlistURL] = data
                 }
-                let delivery = try Self.delivery(from: data, playlistURL: channel.playlistURL, channel: channel)
-                try await validateDestination(delivery)
+                let deliveries = try Self.deliveries(from: data, playlistURL: channel.playlistURL, channel: channel)
+                offered = (offered ?? 0) + deliveries.offered
+                guard !deliveries.urls.isEmpty else { throw deliveries.failure }
+                var validated: [URL] = []
+                for delivery in deliveries.urls {
+                    try Task.checkCancellation()
+                    do {
+                        try await validateDestination(delivery)
+                        validated.append(delivery)
+                    } catch {
+                        try Task.checkCancellation()
+                        if firstFailure == nil { firstFailure = error }
+                    }
+                }
                 try Task.checkCancellation()
                 let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(started)))
                 let current: StreamPlaybackRequest
@@ -292,7 +336,10 @@ actor ReviewedTVPlaylistClient {
                     }
                     current = fixture.usingRegistryMatch(association)
                 } else { current = scoped }
-                resolved.append((current, try Self.session(for: current, delivery: delivery, at: now)))
+                for delivery in validated {
+                    resolved.append((current, try Self.session(for: current, delivery: delivery,
+                        at: now, hasAlternatives: deliveries.urls.count > 1)))
+                }
             } catch {
                 try Task.checkCancellation()
                 if firstFailure == nil { firstFailure = error }
@@ -313,6 +360,7 @@ actor ReviewedTVPlaylistClient {
         guard !resolved.isEmpty else { throw firstFailure ?? CommunitySportsAddonError.matchNotFound }
         if requiresEnablement, !(await isEnabled()) { throw CommunitySportsAddonError.conflictingMatch }
         try Task.checkCancellation()
+        admitted = resolved.count
         return resolved.map { $0.1 }
     }
 
@@ -369,7 +417,11 @@ actor ReviewedTVPlaylistClient {
                 guard matches.count == 1, let association = matches.first else { return nil }
                 accepted = current.usingRegistryMatch(association)
             }
-            guard candidates.count == 1, let fresh = candidates.first,
+            // Preserve the selected backup across a reorder. A lone source in
+            // older sessions can still renew onto a publisher's replacement URL.
+            let sameDelivery = candidates.first { $0.playableURL == session.playableURL }
+            let singleReplacement = candidates.count == 1 && session.diagnosticMetadata["tv_has_alternatives"] != "true"
+            guard let fresh = sameDelivery ?? (singleReplacement ? candidates.first : nil),
                   let next = fresh.eventBinding,
                   next.providerEventID == old.providerEventID, next.streamID == old.streamID,
                   next.matches(request: accepted, providerCode: Self.providerCode, at: completedAt),
@@ -526,8 +578,12 @@ actor ReviewedTVPlaylistClient {
     /// markets, player instructions and unsupported delivery origins grant no
     /// authority. Each selected channel is parsed independently.
     nonisolated static func delivery(from data: Data, playlistURL: URL, channel: ChannelDefinition) throws -> URL {
+        try deliveries(from: data, playlistURL: playlistURL, channel: channel).first()
+    }
+
+    private nonisolated static func deliveries(from data: Data, playlistURL: URL, channel: ChannelDefinition) throws -> ChannelDeliveries {
         guard channels.contains(channel), playlistURL == channel.playlistURL, data.count <= maximumBytes else { throw CommunitySportsAddonError.unsafeResponse }
-        if isTenies(playlistURL) { return try teniesDelivery(data, channel: channel) }
+        if isTenies(playlistURL) { return try teniesDeliveries(data, channel: channel) }
         guard let raw = String(data: data, encoding: .utf8) else { throw CommunitySportsAddonError.unsafeResponse }
         let text = raw.hasPrefix("\u{FEFF}") ? String(raw.dropFirst()) : raw
         let lines = text.components(separatedBy: .newlines)
@@ -535,16 +591,16 @@ actor ReviewedTVPlaylistClient {
               let first = lines.first, first == "#EXTM3U" || first.hasPrefix("#EXTM3U ") else { throw CommunitySportsAddonError.unsafeResponse }
         let identifierPattern = try NSRegularExpression(pattern: #"(?:^|\s)tvg-id="([^"]*)"(?=\s|,|$)"#)
         var pending: String?, hasInstructions = false, publishedAgentCount = 0
-        var selected: Set<URL> = []
+        var result = ChannelDeliveries()
         for rawLine in lines.dropFirst() {
             guard rawLine.utf8.count <= 8_192,
                   !rawLine.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) && $0.value != 9 }) else {
                 // Discard the whole broken entry. Never bind its next URL to
-                // the previous station, or overlook a broken selected entry.
+                // the previous station. Retain the rejection if no option survives.
                 let idAttribute = "tvg-id=\"" + channel.playlistIdentifier + "\""
                 let beginsEntry = rawLine.trimmingCharacters(in: .whitespaces).hasPrefix("#EXTINF:")
                 if rawLine.contains(idAttribute) || (!beginsEntry && pending?.contains(idAttribute) == true) {
-                    throw CommunitySportsAddonError.unsafeResponse
+                    result.failure = .unsafeResponse
                 }
                 pending = nil
                 continue
@@ -560,8 +616,7 @@ actor ReviewedTVPlaylistClient {
                 continue
             }
             defer { pending = nil; hasInstructions = false; publishedAgentCount = 0 }
-            guard let metadata = pending, let url = URL(string: line),
-                  channel.allowedDeliveryHosts.contains(url.host?.lowercased() ?? "") else { continue }
+            guard let metadata = pending else { continue }
             // This publisher reuses one dummy tvg-id across its channels.
             // Only this reviewed profile uses the exact published label as
             // an additional selector; its ID, origin and path must still pass
@@ -574,22 +629,30 @@ actor ReviewedTVPlaylistClient {
             let attributes = identifierPattern.matches(in: metadata, range: NSRange(location: 0, length: source.length))
                 .map { source.substring(with: $0.range(at: 1)) }
             guard attributes.contains(channel.playlistIdentifier) else { continue }
-            guard attributes == [channel.playlistIdentifier], !hasInstructions,
-                  publishedAgentCount == (channel.playbackUserAgent == nil ? 0 : 1), admitsDelivery(url, channel: channel),
-                  let comma = metadata.lastIndex(of: ",") else { throw CommunitySportsAddonError.unsafeResponse }
+            guard attributes == [channel.playlistIdentifier], let comma = metadata.lastIndex(of: ",") else {
+                result.failure = .unsafeResponse
+                continue
+            }
             let label = String(metadata[metadata.index(after: comma)...]).trimmingCharacters(in: .whitespaces)
             let base = label.replacingOccurrences(of: #"\s*\([0-9]{3,4}p\)$"#, with: "", options: .regularExpression)
             let matchesLabel = channel.providerName == "TV1"
                 ? CricketBroadcastChannel.identifying(title: base) == .willow : channel.playlistLabels.contains(base)
-            guard matchesLabel else { throw CommunitySportsAddonError.conflictingMatch }
-            selected.insert(url)
+            guard matchesLabel else {
+                result.failure = .conflictingMatch
+                continue
+            }
+            result.offered += 1
+            guard !hasInstructions, publishedAgentCount == (channel.playbackUserAgent == nil ? 0 : 1),
+                  let url = URL(string: line), admitsDelivery(url, channel: channel) else {
+                result.failure = .unsafeResponse
+                continue
+            }
+            result.append(url)
         }
-        guard selected.count <= 1 else { throw CommunitySportsAddonError.conflictingMatch }
-        guard let url = selected.first else { throw CommunitySportsAddonError.matchNotFound }
-        return url
+        return result
     }
 
-    nonisolated static func session(for request: StreamPlaybackRequest, delivery: URL, at now: Date) throws -> StreamSession {
+    nonisolated static func session(for request: StreamPlaybackRequest, delivery: URL, at now: Date, hasAlternatives: Bool = false) throws -> StreamSession {
         guard let channel = selectedChannel(for: request, at: now), admitsDelivery(delivery, channel: channel) else {
             throw CommunitySportsAddonError.unsafeResponse
         }
@@ -600,11 +663,12 @@ actor ReviewedTVPlaylistClient {
                 providerEventID: programme?.broadcast.providerEventID ?? channel.streamID, streamID: channel.streamID,
                 manifestRevision: revision, verifiedAt: now, expiresAt: expiry, at: now) else { throw CommunitySportsAddonError.unsafeResponse }
         let key = SHA256.hash(data: Data(delivery.absoluteString.utf8)).map { String(format: "%02x", $0) }.joined()
+        var details = ["source_family": providerCode, "manifest_result": "exact_channel_match",
+                       "delivery": "reviewed_direct_hls", "source_key": key, "source_key_scope": "delivery"]
+        if hasAlternatives { details["tv_has_alternatives"] = "true" }
         return StreamSession(matchID: request.matchID, playableURL: delivery, streamType: .hls,
             providerName: channel.providerName, requiredHeaders: Self.isTenies(channel.playlistURL) ? Self.teniesHeaders : channel.playbackUserAgent.map { ["User-Agent": $0] } ?? [:], qualityLabel: nil, expiryTime: binding.expiresAt,
-            canRefresh: true, diagnosticMetadata: ["source_family": providerCode,
-                "manifest_result": "exact_channel_match", "delivery": "reviewed_direct_hls",
-                "source_key": key, "source_key_scope": "delivery"], createdAt: now,
+            canRefresh: true, diagnosticMetadata: details, createdAt: now,
             requiresGuardedRelay: true, eventBinding: binding)
     }
 }

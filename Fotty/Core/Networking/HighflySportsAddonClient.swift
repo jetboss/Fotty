@@ -40,7 +40,7 @@ actor HighflySportsAddonClient {
     /// every other field is ignored rather than treated as a reason to refuse.
     struct Delivery: Decodable, Sendable {
         let url: String?
-        let requestedHeaders: [String: String]
+        let requestedHeaders: [String: String]?
         /// DRM-protected rows cannot play in Fotty's player; skipping them is a
         /// capability rule, not a judgement about the row's shape.
         let requiresDRM: Bool
@@ -52,11 +52,7 @@ actor HighflySportsAddonClient {
         init(from decoder: Decoder) throws {
             let c = try? decoder.container(keyedBy: Key.self)
             url = try? c?.decode(String.self, forKey: .named("url"))
-            let hints = try? c?.nestedContainer(keyedBy: Key.self, forKey: .named("behaviorHints"))
-            let proxy = try? hints?.nestedContainer(keyedBy: Key.self, forKey: .named("proxyHeaders"))
-            let proxied = (try? proxy?.decode([String: String].self, forKey: .named("request"))) ?? [:]
-            let direct = (try? c?.decode([String: String].self, forKey: .named("headers"))) ?? [:]
-            requestedHeaders = proxied.merging(direct) { first, _ in first }
+            requestedHeaders = try? StreamDeliveryPolicy.decodeRequestHeaders(from: decoder)
             requiresDRM = c?.contains(.named("drm")) == true
         }
     }
@@ -340,6 +336,16 @@ actor HighflySportsAddonClient {
             catch { supplementaryFailures += 1 }
         }
         guard !listings.isEmpty else { missReason = "streams_read"; throw CommunitySportsAddonError.invalidResponse }
+        var sessions: [StreamSession] = [], seen: Set<StreamDeliveryIdentity> = []
+        var rejections: [String] = [], rejectedHost: String?
+        defer {
+            if !Task.isCancelled {
+                FottyQualityStore.shared.recordAccountStreamAdmission(provider: .highfly, offered: offeredTotal,
+                    admitted: finished ? sessions.count : 0, candidateCount: sessions.count,
+                    listingCount: listings.count, rejections: rejections,
+                    rejectedHost: rejectedHost, finished: finished)
+            }
+        }
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(startedClock)))
         // Revalidation below uses wall clock elapsed from resolve, supplied in
         // one local scope; no cached account or fixture authority is renewed.
@@ -355,21 +361,6 @@ actor HighflySportsAddonClient {
             throw CommunitySportsAddonError.conflictingMatch
         }
         missReason = nil
-        var sessions: [StreamSession] = [], seen: Set<URL> = []
-        var rejections: [String] = [], rejectedHost: String?
-        defer {
-            // Shape-only receipt: counts, the commonest reason and a rejected host name. Never a path or token.
-            var details = ["addon_stream_entry_count": "\(offeredTotal)", "used_count": "\(sessions.count)",
-                           "candidate_count": "\(min(sessions.count, 12))",
-                           "addon_admission_rejected_count": "\(rejections.count)"]
-            if let common = Dictionary(grouping: rejections, by: { $0 }).max(by: { $0.value.count < $1.value.count })?.key {
-                details["reason_code"] = common
-            }
-            if let rejectedHost { details["delivery_host"] = rejectedHost }
-            details["listing_count"] = "\(listings.count)"
-            FottyQualityStore.shared.record(category: .playback, name: "highfly_delivery_admission",
-                outcome: sessions.isEmpty ? .failure : .info, details: details)
-        }
         for (listing, row) in listings.flatMap({ listing in listing.deliveries.map { (listing.row, $0) } }) {
             guard let value = row.url, let url = URL(string: value) else { rejections.append("no_url"); continue }
             if row.requiresDRM { rejections.append("drm"); continue }
@@ -381,10 +372,11 @@ actor HighflySportsAddonClient {
             if Self.isAddonDomain(url.host, manifestHost: manifestURL.host) {
                 rejections.append("addon_message"); rejectedHost = rejectedHost ?? url.host?.lowercased(); continue
             }
-            guard let headers = StreamDeliveryPolicy.requestHeaders(row.requestedHeaders) else {
+            guard let requested = row.requestedHeaders else { rejections.append("malformed_headers"); continue }
+            guard let headers = StreamDeliveryPolicy.requestHeaders(requested) else {
                 rejections.append("credential_headers"); continue
             }
-            guard seen.insert(url).inserted else { continue }
+            guard seen.insert(StreamDeliveryIdentity(url: url, headers: headers)).inserted else { continue }
             do { try await validate(url) }
             catch is CancellationError { throw CancellationError() }
             catch { rejections.append("validation"); continue } // One rejected route must not erase valid siblings.
@@ -395,7 +387,7 @@ actor HighflySportsAddonClient {
                 providerName: "HF\(sessions.count + 1)", requiredHeaders: headers, qualityLabel: nil,
                 expiryTime: binding.expiresAt, canRefresh: true,
                 diagnosticMetadata: ["source_family": Self.providerCode, "delivery": "account_direct_hls",
-                    "source_key": Self.stableChoiceKey(url), "source_key_scope": "upstream",
+                    "source_key": Self.stableChoiceKey(url, headers: headers), "source_key_scope": "upstream",
                     // Server name only (e.g. testleaf.papacito.cfd); never a path or token.
                     "delivery_host": url.host?.lowercased() ?? "unknown"],
                 createdAt: completedAt, requiresGuardedRelay: true, eventBinding: binding))
@@ -415,10 +407,10 @@ actor HighflySportsAddonClient {
         return sessions
     }
 
-    nonisolated static func stableChoiceKey(_ url: URL) -> String {
+    nonisolated static func stableChoiceKey(_ url: URL, headers: [String: String] = [:]) -> String {
         var parts = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         parts.query = nil
-        return PlavioSportsAddonClient.sourceKey(url: parts.url!)
+        return PlavioSportsAddonClient.sourceKey(url: parts.url!, headers: headers)
     }
     nonisolated static func manifestIdentity(for url: URL) -> String {
         url.host?.hasPrefix("sports.") == true ? "community.sports.fly" : "community.sports.streamed.premium"
@@ -657,7 +649,7 @@ actor HighflySportsAddonClient {
             && lhs.preferredEvent?.sportsFixture?.squad == rhs.preferredEvent?.sportsFixture?.squad
             && lhs.preferredEvent?.cricketFixture?.broadcastDayIdentity == rhs.preferredEvent?.cricketFixture?.broadcastDayIdentity
     }
-    private func read<T: Decodable>(_ url: URL) async throws -> T {
+    private func read<T: Decodable>(_ url: URL, distinguishSearchTimeout: Bool = false) async throws -> T {
         try Task.checkCancellation()
         guard await enabled(), let configured = try await configuration(),
               url.absoluteString.hasPrefix(configured.deletingLastPathComponent().absoluteString) else {
@@ -675,7 +667,9 @@ actor HighflySportsAddonClient {
                   response.mimeType == "application/json" else { throw CommunitySportsAddonError.invalidResponse }
             return try JSONDecoder().decode(T.self, from: data)
         } catch is CancellationError { throw CancellationError() }
-        catch { throw CommunitySportsAddonError.invalidResponse } // Never propagate a credential-bearing URL.
+        catch let error as URLError where distinguishSearchTimeout && error.code == .timedOut {
+            throw URLError(.timedOut) // Preserve the failure category without the original request URL.
+        } catch { throw CommunitySportsAddonError.invalidResponse } // Never propagate a credential-bearing URL.
     }
 }
 
@@ -702,6 +696,7 @@ enum StreamDeliveryPolicy {
             if inner.scheme?.lowercased() != "https" { return "inner_not_https" }
             if inner.user != nil || inner.password != nil { return "inner_credentials" }
             if !LocalStreamProxyPolicy.allowsDestination(inner) { return "inner_unsafe_destination" }
+            if isReplayHost(inner.host) { return "replay" }
         }
         return nil
     }
@@ -735,6 +730,32 @@ enum StreamDeliveryPolicy {
     nonisolated static func isReplayHost(_ host: String?) -> Bool {
         guard let first = host?.lowercased().split(separator: ".").first else { return false }
         return ["recap", "recaps", "replay", "replays", "vod"].contains(String(first))
+    }
+
+    private enum HeaderKey: String, CodingKey { case headers, behaviorHints, proxyHeaders, request }
+
+    /// Preserve sign-in requirements and conflicting values when reading either
+    /// Stremio header location. The caller can reject one malformed stream.
+    nonisolated static func decodeRequestHeaders(from decoder: Decoder) throws -> [String: String] {
+        let values = try decoder.container(keyedBy: HeaderKey.self)
+        var maps: [[String: String]] = []
+        if values.contains(.headers) { maps.append(try values.decode([String: String].self, forKey: .headers)) }
+        if values.contains(.behaviorHints) {
+            let hints = try values.nestedContainer(keyedBy: HeaderKey.self, forKey: .behaviorHints)
+            if hints.contains(.proxyHeaders) {
+                let proxy = try hints.nestedContainer(keyedBy: HeaderKey.self, forKey: .proxyHeaders)
+                if proxy.contains(.request) { maps.append(try proxy.decode([String: String].self, forKey: .request)) }
+            }
+        }
+        var headers: [String: String] = [:]
+        for map in maps {
+            for (name, value) in map {
+                let lower = name.lowercased()
+                if let previous = headers[lower], previous != value { throw CommunitySportsAddonError.unsafeResponse }
+                headers[lower] = value
+            }
+        }
+        return headers
     }
 
     /// Request headers a stream asks for. Referer, Origin and User-Agent are

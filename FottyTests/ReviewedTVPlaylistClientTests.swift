@@ -95,11 +95,9 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
         }
     }
 
-    func testConflictingSameOriginDeliveriesAndHeaderInstructionsFailClosed() throws {
-        let repeated = String(decoding: playlist(), as: UTF8.self)
-        XCTAssertEqual(try parse(Data((repeated + String(repeated.dropFirst("#EXTM3U\n".count))).utf8)).absoluteString, delivery)
-        let sibling = String(decoding: playlist(url: "https://tvsen5.aynaott.com/different/index.m3u8"), as: UTF8.self)
-        XCTAssertThrowsError(try parse(Data((repeated + String(sibling.dropFirst("#EXTM3U\n".count))).utf8)))
+    func testDiagnosticDeliveryUsesFirstDistinctStationOfferAndRejectsUnsupportedHeaders() throws {
+        let sibling = playlist(url: "https://tvsen5.aynaott.com/different/index.m3u8")
+        XCTAssertEqual(try parse(combinedPlaylist([playlist(), playlist(), sibling])).absoluteString, delivery)
         for directive in ["#EXTVLCOPT:http-user-agent=unreviewed", "#KODIPROP:inputstream.adaptive.license_key=unreviewed",
                           "#EXTHTTP:{\"Authorization\":\"unreviewed\"}"] {
             XCTAssertThrowsError(try parse(playlist(directive: directive)))
@@ -131,7 +129,7 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
         let selected = "#EXTINF:-1 tvg-id=\"Willow.us@SD\",Willow\n"
         // A broken header must sever the pending selected station from the following URL.
         XCTAssertThrowsError(try parse(Data((start + selected + broken + impostor).utf8)))
-        XCTAssertThrowsError(try parse(Data((start + row + selected + "#EXTVLCOPT:" + String(repeating: "x", count: 8193) + "\n" + impostor).utf8)))
+        XCTAssertEqual(try parse(Data((start + row + selected + "#EXTVLCOPT:" + String(repeating: "x", count: 8193) + "\n" + impostor).utf8)).absoluteString, delivery)
     }
 
     func testTVIsDefaultOffAndFixtureLookupNeedsVerifiedProgrammeAuthority() throws {
@@ -452,6 +450,33 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
         XCTAssertThrowsError(try resolve(sky, headers: headers.merging(["Cookie": "unexpected"]) { _, new in new }))
     }
 
+    func testTeniesStationBackupsRetainOnlyMatchingStreamsWithReviewedHeaders() async throws {
+        let station = try XCTUnwrap(SportsTVStation.station(provider: "TV25"))
+        let channel = try XCTUnwrap(ReviewedTVPlaylistClient.channel(forProviderName: station.provider))
+        let origin = "https://cdnlivetv.tv"
+        let path = try XCTUnwrap(channel.deliveryPath)
+        let headers = ["Origin": origin, "Referer": origin + "/"]
+        func row(_ token: String, title: String = "Sky Sports Premier League FHD UK",
+                 headers: [String: String]) -> [String: Any] {
+            ["name": "TENIES.SPACE Live TV", "title": title, "url": origin + path + "?token=" + token,
+             "behaviorHints": ["notWebReady": false, "requestHeaders": headers] as [String: Any]]
+        }
+        let first = String(repeating: "a", count: 64), second = String(repeating: "b", count: 64)
+        let rows = [row(first, headers: headers),
+                    row(second, title: "TNT Sports 4 FHD UK", headers: headers),
+                    row(second, headers: ["Authorization": "unreviewed"]),
+                    row(first, headers: headers), row(second, headers: headers)]
+        let payload = try JSONSerialization.data(withJSONObject: ["streams": rows])
+        let client = ReviewedTVPlaylistClient(fetch: { query in
+            (payload, HTTPURLResponse(url: query.url!, statusCode: 200, httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"])!)
+        }, validateDestination: { _ in })
+        let sessions = try await client.resolve(for: .init(event: station.event), now: now, isEnabled: { true })
+        XCTAssertEqual(sessions.map { $0.playableURL.absoluteString }, [first, second].map { origin + path + "?token=" + $0 })
+        XCTAssertTrue(sessions.allSatisfy { $0.providerName == station.provider && $0.requiredHeaders == headers
+            && $0.requiresGuardedRelay == true && $0.eventBinding?.streamID == channel.streamID })
+    }
+
     func testReviewedChannelDefinitionsKeepWillowStableAndESPNMarketsExplicit() throws {
         let definitions = ReviewedTVPlaylistClient.channels
         XCTAssertEqual(definitions.map(\.providerName), ((1...15).map { "TV\($0)" } + ["TV17", "TV21", "TV22", "TV23", "TV24", "TV25", "TV26", "TV27"]))
@@ -589,6 +614,53 @@ final class ReviewedTVPlaylistClientTests: XCTestCase {
         XCTAssertTrue(result.allSatisfy { $0.eventBinding?.matches(request: $0.providerName == "TV2" ? espn1 : espn4,
             providerCode: "reviewedtv", at: self.now) == true })
         let observed = await log.snapshot(); XCTAssertEqual(observed.requests.count, 1); XCTAssertEqual(observed.destinations.count, 3)
+    }
+
+    func testOneAssignedStationPublishesDistinctDeliveriesAndRenewsTheSelectedBackup() async throws {
+        let assignment = footballAssignment(at: now)
+        let canonical = StreamPlaybackRequest(event: try XCTUnwrap(assignment.preferredEvent))
+        let association = try XCTUnwrap(assignment.registryMatch)
+        let base = "https://barinaslive1.boldmss.com"
+        let main = base + "/primary/index.m3u8", backup = base + "/backup/index.m3u8"
+        let blocked = base + "/unreachable/index.m3u8"
+        let invalid = espnPlaylist(url: main, directive: "#EXTHTTP:unreviewed")
+        let unrelated = espnPlaylist(id: "Other.us", label: "Another station", url: main)
+        let initial = combinedPlaylist([unrelated, invalid, espnPlaylist(url: main), espnPlaylist(url: blocked),
+                                        espnPlaylist(url: main), espnPlaylist(url: backup)])
+        let reordered = combinedPlaylist([espnPlaylist(url: backup), espnPlaylist(url: main)])
+        let removed = espnPlaylist(url: main)
+        let suite = "reviewed-tv-admission-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let log = TVFetchLog()
+        let client = ReviewedTVPlaylistClient(fetch: { query in
+            let n = await log.fetched(query)
+            return (n == 1 ? initial : n == 2 ? reordered : removed,
+                HTTPURLResponse(url: query.url!, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "text/plain"])!)
+        }, validateDestination: { url in
+            if url.absoluteString == blocked { throw URLError(.cannotFindHost) }
+        }, qualityStore: store)
+        let sessions = try await client.resolve(for: canonical, now: now, isEnabled: { true },
+            currentFixture: { _, _ in canonical }, programmeMatches: { _, _ in [association] })
+        XCTAssertEqual(sessions.map { $0.playableURL.absoluteString }, [main, backup])
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        XCTAssertEqual(receipts.first?.details["source_family"], "reviewedtv")
+        XCTAssertEqual(receipts.first?.details["offered_count"], "5")
+        XCTAssertEqual(receipts.first?.details["admitted_count"], "2")
+        XCTAssertEqual(Set(sessions.compactMap { $0.diagnosticMetadata["source_key"] }).count, 2)
+        XCTAssertTrue(sessions.allSatisfy { $0.providerName == "TV2" && $0.requiresGuardedRelay == true
+            && $0.eventBinding?.matches(request: assignment, providerCode: "reviewedtv", at: self.now) == true })
+        let selected = try XCTUnwrap(sessions.last)
+        let later = now.addingTimeInterval(5)
+        let renewed = await client.refreshedDescriptor(for: selected, request: canonical, now: later,
+            isEnabled: { true }, currentFixture: { _, _ in canonical }, programmeMatches: { _, _ in [association] })
+        XCTAssertEqual(renewed?.playableURL.absoluteString, backup)
+        XCTAssertEqual(renewed?.id, selected.id)
+        let missing = await client.refreshedDescriptor(for: selected, request: canonical, now: later,
+            isEnabled: { true }, currentFixture: { _, _ in canonical }, programmeMatches: { _, _ in [association] })
+        XCTAssertNil(missing)
     }
 
     func testMissingSiblingAndConflictingSiblingDoNotEraseAnotherValidChannel() async throws {

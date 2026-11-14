@@ -119,7 +119,7 @@ final class CNCSportsAddonTests: XCTestCase {
         XCTAssertEqual(try CNCSportsAddonClient.selectMetadata(for: scoped,
             catalog: [catalogEntry(name: shortTitle)], metadata: [self.metadata(name: shortTitle, description:
                 "📌 Hockey\n🏆 NHL\n🕐 Nov 04, 2026 00:00 UTC\n\n📡 Available Servers: 1")], at: start).id, fixtureID)
-        let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request, providerCode: "cncsports",
+        let choices = try await LiveStreamResolver.shared.resolveRegisteredOptionalSessions(for: request, providerCode: "cncsports",
             associations: [association], resolve: { try await client.resolve(for: $0, now: start) }, clock: { start })
         XCTAssertEqual(choices.map(\.providerName), ["LS1"])
         XCTAssertEqual(choices.first?.eventBinding?.usesRegistryAssociation, true)
@@ -278,12 +278,40 @@ final class CNCSportsAddonTests: XCTestCase {
             streamJSON().merging(["behaviorHints": ["proxyHeaders": ["request": CNCSportsAddonClient.reviewedHeaders,
                 "response": ["Access-Control-Allow-Origin": "*"]]]]) { _, new in new }
         ]
-        let refused = [rejected[7], rejected[13]] // Cookie header, DRM licence.
-        for row in refused { XCTAssertTrue(try sessions([row]).isEmpty) }
-        let admitted = rejected.indices.filter { ![7, 13].contains($0) }.map { rejected[$0] }
+        let refused = [7, 13, 14, 15] // Credentials, DRM and malformed advertised header contracts.
+        for index in refused { XCTAssertTrue(try sessions([rejected[index]]).isEmpty) }
+        let admitted = rejected.indices.filter { !refused.contains($0) }.map { rejected[$0] }
         for row in admitted { XCTAssertEqual(try sessions([row]).count, 1) }
         let donation: [String: Any] = ["name": "support the project", "externalUrl": "https://example.com"]
         XCTAssertEqual(try sessions([donation, streamJSON()]).map(\.providerName), ["LS1"], "A row with no link is skipped")
+    }
+
+    func testHeaderVariantsRemainDistinctAndMalformedMapsCannotEraseCredentials() throws {
+        let url = "https://example.org/video/live.m3u8"
+        let rows: [[String: Any]] = [
+            ["url": url, "headers": ["User-Agent": "Player A"]],
+            ["url": url, "behaviorHints": ["proxyHeaders": ["request": ["user-agent": "Player A"]]]],
+            ["url": url, "headers": ["User-Agent": "Player B"]],
+            ["url": url, "headers": ["User-Agent": "Player A"],
+             "behaviorHints": ["proxyHeaders": ["request": ["user-agent": "different"]]]],
+            ["url": url, "behaviorHints": ["proxyHeaders": ["request": ["Cookie": "private", "Other": 3]]]],
+            ["url": url, "headers": ["Authorization": 12]]
+        ]
+        let result = try sessions(rows)
+        XCTAssertEqual(result.map(\.requiredHeaders), [["User-Agent": "Player A"], ["User-Agent": "Player B"]])
+        XCTAssertEqual(Set(result.compactMap { $0.diagnosticMetadata["source_key"] }).count, 2)
+    }
+
+    func testOfferedCountIncludesRowsBeyondTheAdmissionScan() async throws {
+        let rows = Array<Any>(repeating: NSNull(), count: 100) + [streamJSON()]
+        let session = try fixtureSession(streams: .json(["streams": rows]))
+        defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        do {
+            _ = try await CNCSportsAddonClient(session: session).resolve(for: request())
+            XCTFail("The 101st row is outside the admission scan")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 101))
+        }
     }
 
     func testSixDeliveryCapDeduplicationAndHeaderSortedOpaqueKeyAreStable() throws {
@@ -307,7 +335,7 @@ final class CNCSportsAddonTests: XCTestCase {
         let config = CNCSportsAddonClient.makeConfiguration()
         XCTAssertEqual(config.timeoutIntervalForRequest, 7); XCTAssertEqual(config.timeoutIntervalForResource, 12)
         XCTAssertFalse(config.waitsForConnectivity); XCTAssertNil(config.httpCookieStorage); XCTAssertNil(config.urlCredentialStorage)
-        XCTAssertFalse(CNCSportsAddonClient.supports(category: "football"))
+        XCTAssertTrue(CNCSportsAddonClient.supports(category: "football"))
         XCTAssertTrue(CNCSportsAddonClient.supports(category: "cricket"))
         XCTAssertFalse(CNCSportsAddonClient.supports(category: "basketball"))
         XCTAssertFalse(CNCSportsAddonClient.supports(category: "nba"))
@@ -646,6 +674,342 @@ final class CNCSportsAddonTests: XCTestCase {
         XCTAssertFalse(CNCFixtureProtocol.paths.contains { $0.hasPrefix("/stream/") })
     }
 
+    private let footballStart = ISO8601DateFormatter().date(from: "2026-11-13T19:00:00Z")!
+    private let footballTitle = "Grenada vs Saint Kitts and Nevis"
+
+    @MainActor
+    private func grenadaRequest(verified: Bool = true, status: SportsFixtureCatalog.Status = .live) -> StreamPlaybackRequest {
+        let teams = ["Grenada", "St. Kitts and Nevis"]
+        let fixture = SportsFixtureMetadata(fixtureID: "sports-fixture:concacaf-nations-league:401929713",
+            sport: "football", competitionID: "concacaf-nations-league", competitionName: "Concacaf Nations League",
+            eventKind: .match, title: teams.joined(separator: " vs "),
+            participants: [.init(id: "grn", name: teams[0]), .init(id: "skn", name: teams[1])],
+            squad: .init(gender: .men, ageGroup: "senior"), status: status, observedAt: footballStart, verified: verified)
+        return StreamPlaybackRequest(event: EventReference(id: fixture.fixtureID, title: fixture.title, category: "football",
+            date: Int64(footballStart.timeIntervalSince1970), poster: nil, popular: false,
+            teams: .init(home: .init(name: teams[0], badge: nil), away: .init(name: teams[1], badge: nil)),
+            sportsFixture: fixture, competitionID: fixture.competitionID))
+    }
+
+    private func footballDescription(servers: Int = 1) -> String {
+        "📌 Football\n🏆 CONCACAF Nations League\n🕐 Nov 13, 2026 19:00 UTC\n\n📡 Available Servers: \(servers)"
+    }
+
+    private func footballSearchPath(_ catalogID: String) -> String {
+        "/catalog/tv/\(catalogID)/search=Grenada.json"
+    }
+
+    private func footballFixtureSession(livXow: [[String: Any]], playZTV: [[String: Any]]) throws -> URLSession {
+        var manifest = manifestJSON(version: "2.106.32")
+        manifest["catalogs"] = [CNCSportsAddonClient.catalogID, CNCSportsAddonClient.cricketCatalogID].map {
+            ["id": $0, "type": "tv", "extra": [["name": "search", "isRequired": false]]]
+        }
+        let session = try fixtureSession(manifest: .json(manifest), catalog: .json(["metas": []]))
+        for (catalogID, rows) in [(CNCSportsAddonClient.catalogID, livXow), (CNCSportsAddonClient.cricketCatalogID, playZTV)] {
+            CNCFixtureProtocol.setResponse(try .json(["metas": []]), for: "/catalog/tv/\(catalogID).json")
+            CNCFixtureProtocol.setResponse(try .json(["metas": rows]), for: footballSearchPath(catalogID))
+        }
+        return session
+    }
+
+    @MainActor
+    func testEnabledCNCParticipatesInWatchForVerifiedFootballFixtures() throws {
+        let request = grenadaRequest()
+        let plan = CuratedStreamSourceCatalog.discoveryPlan(for: request, enabledProviderCodes: ["cncsports"], at: footballStart)
+        XCTAssertEqual(plan.optionalSources.map(\.providerCode), ["cncsports"])
+        XCTAssertTrue(CuratedStreamSourceCatalog.discoveryPlan(for: request,
+            enabledProviderCodes: [], at: footballStart).optionalSources.isEmpty)
+        for invalid in [grenadaRequest(verified: false), grenadaRequest(status: .finished)] {
+            XCTAssertTrue(CuratedStreamSourceCatalog.discoveryPlan(for: invalid,
+                enabledProviderCodes: ["cncsports"], at: footballStart).optionalSources.isEmpty)
+        }
+    }
+
+    @MainActor
+    func testOffPageGrenadaListingsDistinguishVerifiedMatchFromIncompatibleDelivery() async throws {
+        let noServers = "cnc:zeroPlayZ"
+        let session = try footballFixtureSession(livXow: [catalogJSON(name: "🔜 Grenada vs St. Kitts And Nevis")],
+            playZTV: [catalogJSON(id: noServers, name: "🔜 " + footballTitle), catalogJSON(id: secondID, name: "🔴 " + footballTitle)])
+        defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        for (id, name, count) in [(fixtureID, "Grenada vs St. Kitts And Nevis", 0),
+                                   (noServers, footballTitle, 0), (secondID, footballTitle, 1)] {
+            CNCFixtureProtocol.setResponse(try .json(["meta": metadataJSON(id: id, name: name,
+                description: footballDescription(servers: count))]), for: metaPath(id))
+        }
+        let unsupported: [[String: Any]] = [
+            ["name": "Support the project", "externalUrl": "https://example.com/support"],
+            ["name": "🎬PlayZTVProvider Auto", "url": "http://198.51.100.1/test.m3u8",
+             "behaviorHints": ["bingeGroup": "cncverse-playztv-live-events", "filename": "Offline match", "notWebReady": true]]
+        ]
+        CNCFixtureProtocol.setResponse(try .json(["streams": unsupported]), for: streamPath(secondID))
+        do {
+            _ = try await CNCSportsAddonClient(session: session).resolve(for: grenadaRequest(), now: footballStart)
+            XCTFail("A dated listing and an external or HTTP descriptor must not become playable")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 2))
+        }
+        XCTAssertTrue(CNCFixtureProtocol.paths.contains(footballSearchPath(CNCSportsAddonClient.catalogID)))
+        XCTAssertTrue(CNCFixtureProtocol.paths.contains(footballSearchPath(CNCSportsAddonClient.cricketCatalogID)))
+        XCTAssertEqual(CNCFixtureProtocol.paths.filter { $0.hasPrefix("/stream/") }, [streamPath(secondID)])
+    }
+
+    @MainActor
+    func testMultipleFootballOffersForSameVerifiedFixtureRemainDistinctUntilDeliveryDeduplication() async throws {
+        let zero = "cnc:secondHalfZero"
+        let otherFixture = "cnc:otherFixture"
+        let ids = [fixtureID, zero, secondID]
+        for hasCompatibleDelivery in [false, true] {
+            var rows = ids.map { id in catalogJSON(id: id, name: (id == zero ? "🔜 " : "🔴 ") + footballTitle) }
+            rows.insert(catalogJSON(id: otherFixture, name: "🔴 Grenada vs Cuba"), at: 0)
+            let session = try footballFixtureSession(livXow: [], playZTV: rows)
+            defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+            for id in ids {
+                CNCFixtureProtocol.setResponse(try .json(["meta": metadataJSON(id: id, name: footballTitle,
+                    description: footballDescription(servers: id == zero ? 0 : 1))]), for: metaPath(id))
+                if id == zero { continue }
+                let descriptor: [String: Any]
+                if hasCompatibleDelivery {
+                    descriptor = wbblStreamJSON()
+                } else {
+                    descriptor = ["name": "🎬PlayZTVProvider Auto", "url": "http://198.51.100.1/test.m3u8",
+                                  "behaviorHints": ["bingeGroup": "cncverse-playztv-live-events", "notWebReady": true]]
+                }
+                let support: [String: Any] = ["name": "Support the project", "externalUrl": "https://example.com/support"]
+                CNCFixtureProtocol.setResponse(try .json(["streams": [support, descriptor]]), for: streamPath(id))
+            }
+            let client = CNCSportsAddonClient(session: session)
+            if hasCompatibleDelivery {
+                let result = try await client.resolve(for: grenadaRequest(), now: footballStart)
+                XCTAssertEqual(result.count, 1, "Two IDs advertising the same delivery cannot become two backups")
+                XCTAssertEqual(result.first?.matchID, grenadaRequest().matchID)
+            } else {
+                do {
+                    _ = try await client.resolve(for: grenadaRequest(), now: footballStart)
+                    XCTFail("These verified fixture listings had no compatible delivery")
+                } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 4)) }
+            }
+            XCTAssertEqual(Set(CNCFixtureProtocol.paths.filter { $0.hasPrefix("/meta/") }), Set(ids.map(metaPath)))
+            XCTAssertEqual(Set(CNCFixtureProtocol.paths.filter { $0.hasPrefix("/stream/") }),
+                           Set([streamPath(fixtureID), streamPath(secondID)]))
+            XCTAssertFalse(CNCFixtureProtocol.paths.contains(metaPath(otherFixture)))
+        }
+    }
+
+    @MainActor
+    func testFootballOfferBudgetIsBoundedAndRetryChecksPreviouslyUnexaminedOffers() async throws {
+        let ids = (0..<6).map { "cnc:boundedOffer\($0)" }
+        let session = try footballFixtureSession(livXow: [], playZTV: ids.map { catalogJSON(id: $0, name: "🔴 " + footballTitle) })
+        defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        for id in ids {
+            CNCFixtureProtocol.setResponse(try .json(["meta": metadataJSON(id: id, name: footballTitle,
+                description: footballDescription(servers: 0))]), for: metaPath(id))
+        }
+        let client = CNCSportsAddonClient(session: session)
+        var checked = Set<String>()
+        for retry in [false, true] {
+            let before = CNCFixtureProtocol.paths.count
+            do {
+                _ = try await client.resolve(for: grenadaRequest(), now: footballStart, forceRefresh: retry)
+                XCTFail("A bounded partial scan cannot claim to know all deliveries")
+            } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .lookupBudgetExhausted) }
+            let current = CNCFixtureProtocol.paths.dropFirst(before)
+            let metas = current.filter { $0.hasPrefix("/meta/") }
+            XCTAssertEqual(Set(metas).count, 3)
+            XCTAssertEqual(metas.count, 3)
+            XCTAssertFalse(current.contains { $0.hasPrefix("/stream/") })
+            checked.formUnion(metas)
+        }
+        XCTAssertEqual(checked, Set(ids.map(metaPath)), "Retry must give previously unexamined offers a turn")
+    }
+
+    @MainActor
+    func testFootballDeliveryBudgetLimitsRequestsWithoutCallingUntestedOffersEmpty() async throws {
+        let ids = (0..<3).map { "cnc:activeOffer\($0)" }
+        let session = try footballFixtureSession(livXow: [], playZTV: ids.map { catalogJSON(id: $0, name: "🔴 " + footballTitle) })
+        defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        for id in ids {
+            CNCFixtureProtocol.setResponse(try .json(["meta": metadataJSON(id: id, name: footballTitle,
+                description: footballDescription(servers: 1))]), for: metaPath(id))
+            CNCFixtureProtocol.setResponse(try .json(["streams": []]), for: streamPath(id))
+        }
+        do {
+            _ = try await CNCSportsAddonClient(session: session).resolve(for: grenadaRequest(), now: footballStart)
+            XCTFail("The third advertised offer has not been checked")
+        } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .lookupBudgetExhausted) }
+        XCTAssertEqual(CNCFixtureProtocol.paths.filter { $0.hasPrefix("/meta/") }.count, 3)
+        XCTAssertEqual(CNCFixtureProtocol.paths.filter { $0.hasPrefix("/stream/") }.count, 2)
+    }
+
+    @MainActor
+    func testRetryEventuallyChecksEveryPositiveFootballOfferAcrossMultipleMetadataWindows() async throws {
+        let ids = (0..<9).map { "cnc:positiveOffer\($0)" }
+        let session = try footballFixtureSession(livXow: [], playZTV: ids.map { catalogJSON(id: $0, name: "🔴 " + footballTitle) })
+        defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        for id in ids {
+            CNCFixtureProtocol.setResponse(try .json(["meta": metadataJSON(id: id, name: footballTitle,
+                description: footballDescription(servers: 1))]), for: metaPath(id))
+            CNCFixtureProtocol.setResponse(try .json(["streams": []]), for: streamPath(id))
+        }
+        let client = CNCSportsAddonClient(session: session)
+        var checked = Set<String>()
+        // Three metadata windows with three eligible offers per window.
+        // Each window must give its previously unexamined third offer a turn on its second visit.
+        for pass in 0..<6 {
+            let before = CNCFixtureProtocol.paths.count
+            do {
+                _ = try await client.resolve(for: grenadaRequest(), now: footballStart, forceRefresh: pass > 0)
+                XCTFail("Some advertised offers were outside this pass's budget")
+            } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .lookupBudgetExhausted) }
+            let current = CNCFixtureProtocol.paths.dropFirst(before)
+            let metas = current.filter { $0.hasPrefix("/meta/") }
+            let streams = current.filter { $0.hasPrefix("/stream/") }
+            XCTAssertEqual(metas.count, 3)
+            XCTAssertEqual(Set(metas).count, 3)
+            XCTAssertEqual(streams.count, 2)
+            XCTAssertEqual(Set(streams).count, 2)
+            checked.formUnion(streams)
+        }
+        XCTAssertEqual(checked, Set(ids.map(streamPath)), "No offer may starve across retries")
+    }
+
+    @MainActor
+    func testFootballCompetitionAliasesAndContradictoryScheduleFields() throws {
+        for (published, official) in [("English Premier League (EPL)", "premier-league"),
+                                      ("UEFA Champions League", "champions-league"), ("Major League Soccer", "mls"),
+                                      ("International Friendly", "international-friendlies"),
+                                      ("CONCACAF Nations League", "concacaf-nations-league"),
+                                      ("UEFA Nations League", "uefa-nations-league")] {
+            XCTAssertEqual(CNCSportsAddonClient.footballCompetitionID(published), official)
+        }
+        let request = grenadaRequest()
+        let original = metadataJSON(name: footballTitle, description: footballDescription())
+        let exact = try JSONDecoder().decode(CNCSportsMetadata.self, from: data(original))
+        XCTAssertEqual(CNCSportsAddonClient.footballServerCount(for: exact, request: request), 1)
+        let otherStart = "2026-11-14T19:00:00Z"
+        for field in ["released", "releaseInfo", "date", "startTime", "kickoff", "videos"] {
+            var changed = original
+            if field == "videos" {
+                changed[field] = [["id": fixtureID, "released": otherStart]]
+            } else {
+                changed[field] = otherStart
+            }
+            let meta = try JSONDecoder().decode(CNCSportsMetadata.self, from: data(changed))
+            XCTAssertNil(CNCSportsAddonClient.footballServerCount(for: meta, request: request), field)
+        }
+    }
+
+    @MainActor
+    func testFootballVerifiesSportDateCompetitionAndBothTeamsBeforeRequestingStreams() async throws {
+        for (name, description) in [
+            ("Grenada vs Cuba", footballDescription()),
+            ("Grenada U20 vs Saint Kitts and Nevis U20", footballDescription()),
+            (footballTitle, footballDescription().replacingOccurrences(of: "Football", with: "Hockey")),
+            (footballTitle, footballDescription().replacingOccurrences(of: "Nov 13", with: "Nov 12")),
+            (footballTitle, footballDescription().replacingOccurrences(of: "19:00 UTC", with: "19:00")),
+            (footballTitle, footballDescription().replacingOccurrences(of: "CONCACAF Nations League", with: "International Friendly"))
+        ] {
+            let session = try footballFixtureSession(livXow: [], playZTV: [catalogJSON(name: "🔴 " + footballTitle)])
+            defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+            CNCFixtureProtocol.setResponse(try .json(["meta": metadataJSON(name: name, description: description)]), for: metaPath(fixtureID))
+            do {
+                _ = try await CNCSportsAddonClient(session: session).resolve(for: grenadaRequest(), now: footballStart)
+                XCTFail("Wrong sport, date, competition or teams reached playback")
+            } catch { XCTAssertTrue(error is CommunitySportsAddonError) }
+            XCTAssertTrue(CNCFixtureProtocol.paths.contains(metaPath(fixtureID)))
+            XCTAssertFalse(CNCFixtureProtocol.paths.contains { $0.hasPrefix("/stream/") })
+        }
+    }
+
+    @MainActor
+    func testUnavailableFootballCatalogCannotHideSiblingDeliveryOrTurnIncompleteLookupIntoNoStreams() async throws {
+        let request = grenadaRequest()
+        for serverCount in [0, 1] {
+            let session = try footballFixtureSession(livXow: [catalogJSON(name: "🔴 " + footballTitle)], playZTV: [])
+            defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+            CNCFixtureProtocol.setResponse(try .json(["meta": metadataJSON(name: footballTitle,
+                description: footballDescription(servers: serverCount))]), for: metaPath(fixtureID))
+            CNCFixtureProtocol.setResponse(.status(503), for: footballSearchPath(CNCSportsAddonClient.cricketCatalogID))
+            let client = CNCSportsAddonClient(session: session)
+            if serverCount == 0 {
+                do {
+                    _ = try await client.resolve(for: request, now: footballStart)
+                    XCTFail("An unavailable sibling cannot be counted as a fully checked empty result")
+                } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .httpFailure(statusCode: 503, stage: .catalog)) }
+                XCTAssertFalse(CNCFixtureProtocol.paths.contains(streamPath(fixtureID)))
+            } else {
+                let sessions = try await client.resolve(for: request, now: footballStart)
+                XCTAssertEqual(sessions.count, 1)
+                XCTAssertEqual(sessions.first?.matchID, request.matchID)
+            }
+        }
+    }
+
+    @MainActor
+    func testPlayZTVAloneSupportsFootballWithOrWithoutAdvertisedSearchAndCannotSupplyNHL() async throws {
+        let playZTV = CNCSportsAddonClient.cricketCatalogID
+        let basePath = "/catalog/tv/\(playZTV).json"
+        for hasSearch in [true, false] {
+            var catalog: [String: Any] = ["id": playZTV, "type": "tv"]
+            if hasSearch { catalog["extra"] = [["name": "search", "isRequired": false]] }
+            var manifest = manifestJSON(version: "2.106.32")
+            manifest["catalogs"] = [catalog]
+            let session = try fixtureSession(manifest: .json(manifest),
+                meta: .json(["meta": metadataJSON(name: footballTitle, description: footballDescription())]),
+                streams: .json(["streams": [wbblStreamJSON()]]))
+            defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+            let expected = hasSearch ? footballSearchPath(playZTV) : basePath
+            CNCFixtureProtocol.setResponse(try .json(["metas": [catalogJSON(name: "🔴 " + footballTitle)]]), for: expected)
+            let client = CNCSportsAddonClient(session: session)
+            let result = try await client.resolve(for: grenadaRequest(), now: footballStart)
+            XCTAssertEqual(result.count, 1)
+            XCTAssertEqual(CNCFixtureProtocol.paths, ["/manifest.json", expected, metaPath(fixtureID), streamPath(fixtureID)])
+            do {
+                _ = try await client.resolve(for: request(), now: kickoff)
+                XCTFail("An advertised PlayZTV football catalog cannot supply the LivXow NHL lane")
+            } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .invalidManifest) }
+            XCTAssertFalse(CNCFixtureProtocol.paths.contains(catalogPath))
+        }
+    }
+
+    @MainActor
+    func testFootballBindsCompatibleLivXowSessionToExactOfficialMatch() async throws {
+        let session = try footballFixtureSession(livXow: [catalogJSON(name: "🔴 " + footballTitle)], playZTV: [])
+        defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        CNCFixtureProtocol.setResponse(try .json(["meta": metadataJSON(name: footballTitle, description: footballDescription())]),
+                                      for: metaPath(fixtureID))
+        let request = grenadaRequest()
+        let results = try await CNCSportsAddonClient(session: session).resolve(for: request, now: footballStart)
+        let result = try XCTUnwrap(results.first)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(result.matchID, request.matchID)
+        let reference = CNCSportsAddonClient.footballReference(fixtureID)
+        XCTAssertEqual(result.eventBinding?.providerEventID, reference)
+        XCTAssertEqual(result.eventBinding?.streamID, reference)
+        XCTAssertTrue(result.eventBinding?.matches(request: request, providerCode: "cncsports", at: footballStart) == true)
+
+        let fixture = try XCTUnwrap(request.preferredEvent?.sportsFixture)
+        let expiry = footballStart.addingTimeInterval(300)
+        let teams = fixture.participants.map(\.name)
+        let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "d", count: 64),
+            providerCode: "cncsports", providerEventID: reference, streamID: reference, resourceType: "tv",
+            scope: "football", kind: .event, sport: "football", title: fixture.title, participants: teams, start: footballStart,
+            competitionID: fixture.competitionID, squad: fixture.squad, observedAt: footballStart, expiresAt: expiry,
+            verification: .dated, issues: [])
+        let link = BroadcastRegistrySnapshot.Link(fixtureID: fixture.fixtureID, broadcastID: record.id,
+            providerCode: "cncsports", state: .listed, matchMethod: .exact,
+            fixtureFingerprint: .init(fixtureID: fixture.fixtureID, sport: "football", start: footballStart,
+                participants: teams, competitionID: fixture.competitionID, squad: fixture.squad), expiresAt: expiry)
+        let association = BroadcastRegistryMatch(broadcast: record, link: link,
+            provider: .init(providerCode: "cncsports", scope: "football", status: .available, observedAt: footballStart, expiresAt: expiry))
+        let pinned = request.usingRegistryMatch(association)
+        let fresh = try await CNCSportsAddonClient(session: session).resolve(for: pinned, now: footballStart, forceRefresh: true)
+        XCTAssertEqual(fresh.first?.eventBinding?.usesRegistryAssociation, true)
+        XCTAssertEqual(fresh.first?.eventBinding?.providerEventID, reference)
+        XCTAssertTrue(LiveStreamResolver.supportsDescriptorRenewal(try XCTUnwrap(fresh.first)))
+        XCTAssertEqual(CNCFixtureProtocol.paths.filter { $0 == metaPath(fixtureID) }.count, 2)
+        XCTAssertEqual(CNCFixtureProtocol.paths.filter { $0 == streamPath(fixtureID) }.count, 2)
+    }
+
     private var catalogPath: String { "/catalog/tv/" + CNCSportsAddonClient.catalogID + ".json" }
     private func metaPath(_ id: String) -> String { "/meta/tv/" + id + ".json" }
     private func streamPath(_ id: String) -> String { "/stream/tv/" + id + ".json" }
@@ -780,7 +1144,7 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
 
     private struct ResolveFailure: Error {}
 
-    private func association() -> (StreamPlaybackRequest, BroadcastRegistryMatch) {
+    private func association(_ marker: String = "d") -> (StreamPlaybackRequest, BroadcastRegistryMatch) {
         let teams = ["Leeds United", "Tottenham Hotspur"]
         let metadata = SportsFixtureMetadata(fixtureID: "sports-fixture:premier-league:560632", sport: "football",
             competitionID: "premier-league", competitionName: "Premier League", eventKind: .match,
@@ -791,8 +1155,9 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
             date: Int64(start.timeIntervalSince1970), poster: nil, popular: false,
             teams: .init(home: .init(name: teams[0], badge: nil), away: .init(name: teams[1], badge: nil)), sportsFixture: metadata, competitionID: "premier-league")
         let request = StreamPlaybackRequest(event: event), expiry = start.addingTimeInterval(3600)
-        let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "d", count: 64),
-            providerCode: "communitysports", providerEventID: "cs-event", streamID: "cs-event", resourceType: "tv",
+        let eventID = "cs-event-" + marker
+        let record = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: marker, count: 64),
+            providerCode: "communitysports", providerEventID: eventID, streamID: eventID, resourceType: "tv",
             scope: "football", kind: .event, sport: "football", title: metadata.title, participants: teams, start: start,
             competitionID: "premier-league", squad: metadata.squad, observedAt: start, expiresAt: expiry,
             verification: .dated, issues: [])
@@ -810,10 +1175,41 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
             playableURL: URL(string: "https://direct.example/" + path + ".m3u8")!, streamType: .hls, providerName: "CS")
     }
 
+    func testRegisteredRetryReachesThirdCurrentListingWithTwoLookupsPerAttempt() async throws {
+        let (request, first) = association("a"), second = association("b").1, third = association("c").1
+        let instant = start, resolver = LiveStreamResolver(), calls = CallCounter()
+        let lookup: @Sendable (StreamPlaybackRequest) async throws -> [StreamSession] = { scoped in
+            await calls.hit()
+            guard scoped.registryMatch == third else { throw CommunitySportsAddonError.streamEntriesEmpty }
+            let binding = try XCTUnwrap(StreamEventBinding(request: scoped, providerCode: "communitysports",
+                providerEventID: third.broadcast.providerEventID, streamID: third.broadcast.streamID,
+                manifestRevision: "1", verifiedAt: instant, expiresAt: instant.addingTimeInterval(90), at: instant))
+            let choice = StreamSession(matchID: scoped.matchID, playableURL: URL(string: "https://third.example/live.m3u8")!,
+                streamType: .hls, providerName: "CS1", createdAt: instant, eventBinding: binding)
+            XCTAssertNotNil(choice.eventBinding, "The descriptor must be created within its binding's lease")
+            return [choice]
+        }
+        do {
+            _ = try await resolver.resolveRegisteredOptionalSessions(for: request, providerCode: "communitysports",
+                associations: [first, second, third], resolve: lookup, clock: { instant },
+                fallback: { throw CommunitySportsAddonError.streamEntriesEmpty })
+            XCTFail("The first two checked rows had no streams")
+        } catch {
+            XCTAssertEqual(error as? CommunitySportsAddonError, .lookupBudgetExhausted)
+        }
+        let initialCalls = await calls.count
+        XCTAssertEqual(initialCalls, 2)
+        let retry = try await resolver.resolveRegisteredOptionalSessions(for: request, providerCode: "communitysports",
+            associations: [second, first, third], resolve: lookup, clock: { instant })
+        XCTAssertEqual(retry.map { $0.eventBinding?.providerEventID }, [third.broadcast.providerEventID])
+        let retryCalls = await calls.count
+        XCTAssertEqual(retryCalls, 4)
+    }
+
     func testRegisteredFailureFallsBackToDirectExactLookup() async throws {
         let (request, match) = association(), calls = CallCounter(), direct = Self.session("direct")
         let clock = start
-        let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+        let choices = try await LiveStreamResolver.shared.resolveRegisteredOptionalSessions(for: request,
             providerCode: "communitysports", associations: [match],
             resolve: { _ in throw ResolveFailure() }, clock: { clock },
             fallback: { await calls.hit(); return [direct] })
@@ -827,7 +1223,7 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
         // entry is filtered out; the direct lane must still run.
         let (request, match) = association(), direct = Self.session("direct")
         let clock = start
-        let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+        let choices = try await LiveStreamResolver.shared.resolveRegisteredOptionalSessions(for: request,
             providerCode: "communitysports", associations: [match],
             resolve: { _ in [Self.session("unbound")] }, clock: { clock },
             fallback: { [direct] })
@@ -838,7 +1234,7 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
         let (request, match) = association()
         let clock = start
         do {
-            _ = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+            _ = try await LiveStreamResolver.shared.resolveRegisteredOptionalSessions(for: request,
                 providerCode: "communitysports", associations: [match],
                 resolve: { _ in throw ResolveFailure() }, clock: { clock })
             XCTFail("Expected the registered miss to throw without a fallback")
@@ -849,17 +1245,31 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
         let (request, match) = association()
         let clock = start
         do {
-            _ = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+            _ = try await LiveStreamResolver.shared.resolveRegisteredOptionalSessions(for: request,
                 providerCode: "communitysports", associations: [match],
                 resolve: { _ in throw ResolveFailure() }, clock: { clock }, fallback: { [] })
             XCTFail("Expected an empty direct lookup to keep the original failure")
         } catch { XCTAssertTrue(error is ResolveFailure) }
     }
 
+    func testDirectCatalogMissRetainsRegisteredDescriptorWithdrawal() async {
+        let (request, match) = association()
+        let clock = start
+        for descriptorFailure in [CommunitySportsAddonError.streamEntriesEmpty, .streamAdmissionRejected(entryCount: 2)] {
+            do {
+                _ = try await LiveStreamResolver.shared.resolveRegisteredOptionalSessions(for: request,
+                    providerCode: "communitysports", associations: [match],
+                    resolve: { _ in throw descriptorFailure }, clock: { clock },
+                    fallback: { throw CommunitySportsAddonError.matchNotFound })
+                XCTFail("An empty or incompatible descriptor cannot produce a stream")
+            } catch { XCTAssertEqual(error as? CommunitySportsAddonError, descriptorFailure) }
+        }
+    }
+
     func testFallbackDeliveriesAreDeduplicated() async throws {
         let (request, match) = association(), direct = Self.session("direct")
         let clock = start
-        let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+        let choices = try await LiveStreamResolver.shared.resolveRegisteredOptionalSessions(for: request,
             providerCode: "communitysports", associations: [match],
             resolve: { _ in throw ResolveFailure() }, clock: { clock },
             fallback: { [direct, Self.session("direct"), Self.session("second")] })
@@ -870,7 +1280,7 @@ final class RegistryHintDirectFallbackTests: XCTestCase {
         let (request, match) = association(), calls = CallCounter()
         let clock = start
         let task = Task {
-            try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: request,
+            try await LiveStreamResolver.shared.resolveRegisteredOptionalSessions(for: request,
                 providerCode: "communitysports", associations: [match],
                 resolve: { _ in
                     withUnsafeCurrentTask { $0?.cancel() }

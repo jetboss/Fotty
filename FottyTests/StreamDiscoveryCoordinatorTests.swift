@@ -91,6 +91,79 @@ final class FixtureStreamPreflightScheduleTests: XCTestCase {
 final class FixtureStreamDiscoveryIndexTests: XCTestCase {
     private let now = Date(timeIntervalSince1970: 1_788_548_400)
 
+    func testSameStationRoutesSurviveDiscoveryChannelCacheRankingAndShowAll() async throws {
+        let station = try XCTUnwrap(SportsTVStation.station(provider: "TV2"))
+        let request = StreamPlaybackRequest(event: station.event)
+        let sessions = try (1...7).map { number in
+            let url = try XCTUnwrap(URL(string: "https://barinaslive1.boldmss.com/route-\(number)/index.m3u8"))
+            return try ReviewedTVPlaylistClient.session(for: request, delivery: url, at: now, hasAlternatives: true)
+        }
+        let diagnostics = StreamAttemptDiagnostics(attemptID: "tv-test", matchID: request.matchID,
+            matchTitle: station.title, finalState: .readyToPlay, createdAt: now, completedAt: now,
+            timeline: [], providerAttempts: [])
+        let result = StreamResolutionSuccess(attemptID: diagnostics.attemptID, sessions: sessions, diagnostics: diagnostics)
+        let instant = now
+        let discovery = await StreamDiscoveryCoordinator.collect(lanes: [{ report in
+            report(.partialSession(sessions[0]))
+            return .success(result)
+        }], clock: { instant })
+        XCTAssertEqual(discovery.sessions.map(\.id), sessions.map(\.id))
+        let index = FixtureStreamDiscoveryIndex()
+        let ticket = try XCTUnwrap(index.begin(for: request, providerCode: "reviewedtv", preflight: false, at: now))
+        index.complete(ticket, sessions: discovery.sessions, at: now)
+        let cached = try XCTUnwrap(LiveStreamResolver.cachedChannelSessions(for: request, providerCode: "reviewedtv",
+            index: index, at: now))
+        XCTAssertEqual(cached.map(\.id), sessions.map(\.id))
+        let ranked = LiveSourceHealthStore.rankedSingleStreamSessions(cached, at: now)
+        let all = BroadcastSourcePickerPolicy.matchProjection(ranked, recommended: [0], filter: .all)
+        XCTAssertEqual(Set(all.indices.map { ranked[$0].id }), Set(sessions.map(\.id)))
+        XCTAssertEqual(Set(ranked.map(\.providerName)), ["TV2"])
+    }
+
+    func testOversizedChannelResultRequiresFreshLookupInsteadOfReturningPartialChoices() throws {
+        let station = try XCTUnwrap(SportsTVStation.station(provider: "TV2"))
+        let request = StreamPlaybackRequest(event: station.event)
+        let sessions = try (0...StreamDeliveryPolicy.maximumSessionsPerProvider).map { number in
+            let url = try XCTUnwrap(URL(string: "https://barinaslive1.boldmss.com/route-\(number)/index.m3u8"))
+            return try ReviewedTVPlaylistClient.session(for: request, delivery: url, at: now, hasAlternatives: true)
+        }
+        let index = FixtureStreamDiscoveryIndex()
+        let ticket = try XCTUnwrap(index.begin(for: request, providerCode: "reviewedtv", preflight: false, at: now))
+        index.complete(ticket, sessions: sessions, at: now)
+        XCTAssertNil(LiveStreamResolver.cachedChannelSessions(for: request, providerCode: "reviewedtv", index: index, at: now))
+        XCTAssertEqual(index.summary(for: request, at: now)?.providers.first?.outcome, .candidates)
+    }
+
+    func testMatchWatchRechecksPreflightDeliveryAndRecordsWithdrawnDescriptor() throws {
+        let index = FixtureStreamDiscoveryIndex(), request = request()
+        let hint = try XCTUnwrap(index.begin(for: request, providerCode: "communitysports", preflight: true, at: now))
+        index.complete(hint, sessions: [try session(for: request)], at: now)
+        let tap = now.addingTimeInterval(1)
+        XCTAssertNotNil(index.cachedSessions(for: request, providerCode: "communitysports", at: tap))
+        XCTAssertNil(LiveStreamResolver.cachedChannelSessions(for: request, providerCode: "communitysports", index: index, at: tap))
+        let lookup = try XCTUnwrap(index.begin(for: request, providerCode: "communitysports", preflight: false, at: tap))
+        let empty = LiveStreamResolver.communitySportsFailure(from: .streamEntriesEmpty)
+        index.complete(lookup, sessions: [], failure: empty, at: tap)
+        let source = try XCTUnwrap(index.summary(for: request, at: tap)?.providers.first)
+        XCTAssertEqual(source.compatibleCandidateCount, 0)
+        XCTAssertFalse(source.hasRecentlyConfirmedBroadcast(at: tap))
+        XCTAssertEqual(LiveStreamResolver.noMatchDeliveryFailure([empty]).userMessage, LiveStreamResolver.noPlayableMatchMessage)
+    }
+
+    func testLaterSourceChoiceSurvivesNormalWatchDiscoveryAndBinding() throws {
+        let index = FixtureStreamDiscoveryIndex(), fixture = request()
+        for (family, label) in [("highfly", "HF7"), ("penguplay", "PP10"), ("flixstreams", "FS100")] {
+            let ticket = try XCTUnwrap(index.begin(for: fixture, providerCode: family, preflight: false, at: now))
+            let binding = try XCTUnwrap(StreamEventBinding(request: fixture, providerCode: family, providerEventID: "event",
+                streamID: "video", resourceType: family == "highfly" ? "sport" : "tv", manifestRevision: "1.0", verifiedAt: now, expiresAt: now.addingTimeInterval(90), at: now))
+            let choice = StreamSession(matchID: fixture.matchID, playableURL: URL(string: "https://example.com/live.m3u8")!,
+                streamType: .hls, providerName: label, validationStatus: .validated, createdAt: now, eventBinding: binding)
+            index.complete(ticket, sessions: [choice], at: now)
+            XCTAssertEqual(index.summary(for: fixture, at: now)?.providers.first(where: { $0.providerCode == family })?.compatibleCandidateCount, 1)
+            XCTAssertEqual(index.cachedSessions(for: fixture, providerCode: family, at: now)?.first?.eventBinding?.providerCode, family)
+        }
+    }
+
     func testPriorFindSurvivesTheSixtyNinetyGapWithoutReusingExpiredSessions() throws {
         let index = FixtureStreamDiscoveryIndex(), request = request()
         let ticket = try XCTUnwrap(index.begin(for: request, providerCode: "communitysports", preflight: true, at: now))
@@ -482,6 +555,28 @@ final class FixtureStreamDiscoveryIndexTests: XCTestCase {
 }
 
 final class StreamDiscoveryCoordinatorTests: XCTestCase {
+    func testMatchWatchKeepsPartialNoStreamSeparateFromAnUnreachableSource() {
+        let empty = LiveStreamResolver.communitySportsFailure(from: .streamEntriesEmpty)
+        let noMatch = LiveStreamResolver.communitySportsFailure(from: .matchNotFound, providerName: "HF")
+        let busy = LiveStreamResolver.communitySportsFailure(from: .httpFailure(statusCode: 429, stage: .manifest), providerName: "AS")
+        for failures in [[empty, noMatch, busy], [busy, noMatch, empty]] {
+            let result = LiveStreamResolver.noMatchDeliveryFailure(failures)
+            XCTAssertEqual(result.category, .providerReturnedEmpty)
+            XCTAssertEqual(result.userMessage, "No playable stream was found for this match. Some sources couldn’t be checked.")
+            XCTAssertTrue(result.retryable)
+            XCTAssertEqual(result.redactedMetadata["discovery_result"], "partial_no_stream")
+        }
+        let checked = LiveStreamResolver.noMatchDeliveryFailure([empty, noMatch])
+        XCTAssertEqual(checked.userMessage, LiveStreamResolver.noPlayableMatchMessage)
+        XCTAssertEqual(checked.redactedMetadata["discovery_result"], "no_stream")
+        let unavailable = LiveStreamResolver.noMatchDeliveryFailure([busy])
+        XCTAssertEqual(unavailable.category, .manifestUnreachable)
+        XCTAssertEqual(unavailable.userMessage, "Couldn’t check the sources for this match right now. Try again.")
+        XCTAssertEqual(unavailable.redactedMetadata["platform_error_code"], "429")
+        let unsafe = LiveStreamResolver.communitySportsFailure(from: .unsafeResponse)
+        XCTAssertEqual(LiveStreamResolver.noMatchDeliveryFailure([unsafe]).id, unsafe.id)
+    }
+
     private var originalHealth: [String: Any] = [:]
     override func setUp() {
         super.setUp()

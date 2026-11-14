@@ -40,6 +40,7 @@ enum CommunitySportsAddonError: Error, Equatable {
                         invalidScalar: UInt32? = nil)
     case matchNotFound
     case conflictingMatch
+    case lookupBudgetExhausted
     case streamEntriesEmpty
     case streamAdmissionRejected(entryCount: Int)
 
@@ -131,14 +132,20 @@ struct CommunitySportsStreamEntry: Decodable, Sendable, Equatable {
             }
 
             init(from decoder: Decoder) throws {
-                let values = try? decoder.container(keyedBy: CodingKeys.self)
-                // Unreadable header blocks read as absent; the row is still tried.
-                request = try? values?.decode([String: String].self, forKey: .request)
-                response = try? values?.decode([String: String].self, forKey: .response)
+                let values = try decoder.container(keyedBy: CodingKeys.self)
+                request = values.contains(.request) ? try values.decode([String: String].self, forKey: .request) : nil
+                response = values.contains(.response) ? try values.decode([String: String].self, forKey: .response) : nil
             }
         }
 
         let proxyHeaders: ProxyHeaders?
+
+        private enum CodingKeys: String, CodingKey { case proxyHeaders }
+        init(proxyHeaders: ProxyHeaders?) { self.proxyHeaders = proxyHeaders }
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            proxyHeaders = values.contains(.proxyHeaders) ? try values.decode(ProxyHeaders.self, forKey: .proxyHeaders) : nil
+        }
     }
 
     let name: String?
@@ -164,23 +171,34 @@ struct CommunitySportsStreamEntry: Decodable, Sendable, Equatable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case name, title, url, resolution, quality, behaviorHints
+        case name, title, url, resolution, quality, behaviorHints, headers
         case externalURL = "externalUrl"
         case sourceHint = "_source"
     }
 
-    /// Each field is read on its own: a field of an unexpected type reads as
-    /// absent instead of failing the whole stream list.
+    /// Display fields are independent. A malformed header requirement rejects
+    /// its row before either direct or wrapped admission can attempt playback.
     init(from decoder: Decoder) throws {
-        let values = try? decoder.container(keyedBy: CodingKeys.self)
-        name = try? values?.decodeIfPresent(String.self, forKey: .name)
-        title = try? values?.decodeIfPresent(String.self, forKey: .title)
-        url = try? values?.decodeIfPresent(String.self, forKey: .url)
-        externalURL = try? values?.decodeIfPresent(String.self, forKey: .externalURL)
-        resolution = try? values?.decodeIfPresent(String.self, forKey: .resolution)
-        quality = try? values?.decodeIfPresent(String.self, forKey: .quality)
-        sourceHint = try? values?.decodeIfPresent(String.self, forKey: .sourceHint)
-        behaviorHints = try? values?.decodeIfPresent(BehaviorHints.self, forKey: .behaviorHints)
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        name = try? values.decodeIfPresent(String.self, forKey: .name)
+        title = try? values.decodeIfPresent(String.self, forKey: .title)
+        url = try? values.decodeIfPresent(String.self, forKey: .url)
+        externalURL = try? values.decodeIfPresent(String.self, forKey: .externalURL)
+        resolution = try? values.decodeIfPresent(String.self, forKey: .resolution)
+        quality = try? values.decodeIfPresent(String.self, forKey: .quality)
+        sourceHint = try? values.decodeIfPresent(String.self, forKey: .sourceHint)
+        let hints = values.contains(.behaviorHints) ? try values.decode(BehaviorHints.self, forKey: .behaviorHints) : nil
+        guard values.contains(.headers) else { behaviorHints = hints; return }
+        let direct = try values.decode([String: String].self, forKey: .headers)
+        var request: [String: String] = [:]
+        for map in [hints?.proxyHeaders?.request ?? [:], direct] {
+            for (name, value) in map {
+                let lower = name.lowercased()
+                if let previous = request[lower], previous != value { throw CommunitySportsAddonError.unsafeResponse }
+                request[lower] = value
+            }
+        }
+        behaviorHints = .init(proxyHeaders: .init(request: request, response: hints?.proxyHeaders?.response))
     }
 }
 
@@ -233,6 +251,7 @@ actor CommunitySportsAddonClient {
                 streams = []; entryCount = 0; return
             }
             var rows = try values.nestedUnkeyedContainer(forKey: .streams)
+            let offered = rows.count
             var admittedRows: [CommunitySportsStreamEntry] = []
             var scanned = 0
             while !rows.isAtEnd, scanned < 100 {
@@ -245,7 +264,7 @@ actor CommunitySportsAddonClient {
                 }
             }
             streams = admittedRows
-            entryCount = scanned
+            entryCount = offered ?? scanned
         }
     }
 
@@ -260,6 +279,7 @@ actor CommunitySportsAddonClient {
     }
 
     private let manifestURL: URL?
+    private let qualityStore: FottyQualityStore
     private let transport: FottyBoundedHTTPClient
     private let manifestTTL: TimeInterval
     private let catalogTTL: TimeInterval
@@ -278,6 +298,7 @@ actor CommunitySportsAddonClient {
         manifestTTL: TimeInterval = 30 * 60,
         catalogTTL: TimeInterval = 2 * 60,
         negativeCatalogTTL: TimeInterval = 15,
+        qualityStore: FottyQualityStore = .shared,
         programmeEnablement: @escaping @Sendable () async -> Bool = {
             await StreamPluginRegistry.shared.enabledProviderCodes().contains("communitysports")
         },
@@ -289,6 +310,7 @@ actor CommunitySportsAddonClient {
             await BroadcastRegistryClient.shared.lookup(for: request, enabledProviderCodes: ["communitysports"], at: at)
         }
     ) {
+        self.qualityStore = qualityStore
         self.manifestURL = manifestURL
         self.transport = FottyBoundedHTTPClient(configuration: session?.configuration ?? Self.makeConfiguration())
         self.manifestTTL = manifestTTL
@@ -492,6 +514,7 @@ actor CommunitySportsAddonClient {
         var listings = Self.selectAllMatches(for: request, from: lookupEntries)
         if listings.isEmpty { listings = [matched] }
         var sessions: [StreamSession] = [], offered = 0, firstFailure: Error?
+        var enumerated = false
         for listing in listings.prefix(Self.maximumListings) {
             let streamID = listing.behaviorHints?.defaultVideoId ?? listing.id
             if let rejection = Self.videoIDRejection(streamID) {
@@ -504,6 +527,7 @@ actor CommunitySportsAddonClient {
             do {
                 document = try await fetchJSON(StreamDocument.self, from: streamURL, anchoredTo: manifestURL,
                     byteLimit: 256 * 1024, stage: .streams, forceRefresh: refreshed)
+                enumerated = true
                 if document.entryCount == 0, !refreshed, Self.allowsTargetedRefresh(for: request, at: now) {
                     try Task.checkCancellation()
                     refreshed = true
@@ -524,7 +548,8 @@ actor CommunitySportsAddonClient {
                 .map { $0.recordingEventBinding(binding, for: request, at: now) }
         }
         try Task.checkCancellation()
-        if offered == 0, let firstFailure { throw firstFailure }
+        if sessions.isEmpty, let firstFailure { throw firstFailure }
+        if enumerated { qualityStore.recordStreamAdmission(sourceFamily: "communitysports", offered: offered, admitted: sessions.count) }
         guard offered > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offered) }
         return sessions
@@ -598,6 +623,10 @@ actor CommunitySportsAddonClient {
         let document: StreamDocument = try await fetchJSON(StreamDocument.self,
             from: Self.routeURL(relativeTo: manifestURL, components: ["stream", "tv", advertisedStream + ".json"]),
             anchoredTo: manifestURL, byteLimit: 256 * 1024, stage: .streams, forceRefresh: true)
+        var admitted = 0
+        defer {
+            if !Task.isCancelled { qualityStore.recordStreamAdmission(sourceFamily: "communitysports", offered: document.entryCount, admitted: admitted) }
+        }
         guard document.entryCount > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
         let completedAt = completionTime()
         guard currentListingStillValid(at: completedAt) else { throw CommunitySportsAddonError.conflictingMatch }
@@ -615,6 +644,7 @@ actor CommunitySportsAddonClient {
             addOnVersion: manifest.version).map { $0.recordingEventBinding(binding, for: request, at: completedAt) }
         try Task.checkCancellation()
         guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: document.entryCount) }
+        admitted = sessions.count
         return sessions
     }
 
@@ -715,6 +745,10 @@ actor CommunitySportsAddonClient {
             from: Self.routeURL(relativeTo: manifestURL, components: ["stream", "tv", record.streamID + ".json"]),
             anchoredTo: manifestURL, byteLimit: 256 * 1024, stage: .streams, forceRefresh: true)
         try Task.checkCancellation()
+        var admitted = 0
+        defer {
+            if !Task.isCancelled { qualityStore.recordStreamAdmission(sourceFamily: "communitysports", offered: document.entryCount, admitted: admitted) }
+        }
         guard document.entryCount > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
         let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(started)))
         guard let current = await currentProgrammeRequest(for: accepted, association: association, at: completedAt),
@@ -728,6 +762,7 @@ actor CommunitySportsAddonClient {
         guard !sessions.isEmpty, sessions.allSatisfy({ $0.eventBinding != nil }) else {
             throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: document.entryCount)
         }
+        admitted = sessions.count
         return sessions
     }
 
@@ -873,6 +908,12 @@ actor CommunitySportsAddonClient {
         }
         var documents: [(entry: CommunitySportsCatalogEntry, streams: [CommunitySportsStreamEntry])] = []
         var totalEntries = 0, lastFailure: Error?
+        var admitted = 0
+        defer {
+            if !documents.isEmpty, !Task.isCancelled {
+                qualityStore.recordStreamAdmission(sourceFamily: "communitysports", offered: totalEntries, admitted: admitted)
+            }
+        }
         for choice in choices {
             try Task.checkCancellation()
             do {
@@ -911,6 +952,7 @@ actor CommunitySportsAddonClient {
         }
         try Task.checkCancellation()
         guard !bound.isEmpty else { throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: totalEntries) }
+        admitted = bound.count
         return bound
     }
 

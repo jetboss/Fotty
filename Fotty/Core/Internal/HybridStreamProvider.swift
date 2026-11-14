@@ -142,9 +142,11 @@ enum FlixStreamsDiscoveryQuality {
 
 actor LiveStreamResolver {
     static let shared = LiveStreamResolver()
+    nonisolated static let noPlayableMatchMessage = "No playable stream is available for this match right now."
 
     private let validationSession: URLSession
     private var preflightProviderSchedule = FixtureProviderPreflightSchedule()
+    private var registeredLookupSchedule = FixtureProviderPreflightSchedule()
 
     init(validationConfiguration: URLSessionConfiguration? = nil) {
         let configuration = validationConfiguration ?? URLSessionConfiguration.ephemeral
@@ -198,7 +200,7 @@ actor LiveStreamResolver {
             return .failure(failure, diagnostics)
         }
         let enabled = await StreamPluginRegistry.shared.enabledProviderCodes()
-        let foregroundTVLookup = singleStreamDiscovery && onChoices != nil
+        let foregroundTVLookup = singleStreamDiscovery
         let plan = await CuratedStreamSourceCatalog.discoveryPlan(for: request,
             enabledProviderCodes: Set(enabled), allowDeferredTVLookup: foregroundTVLookup)
         var lanes: [StreamDiscoveryCoordinator.Lane] = []
@@ -250,7 +252,7 @@ actor LiveStreamResolver {
                 let allowed = StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes: enabledNow)
                 let admitted = sessions.filter { session in
                     !session.hasExpiredMediaLease()
-                        && (!singleStreamDiscovery || LiveSourceHealthStore.matchEvidence(for: session) != .wrongProgramme)
+                        && (!singleStreamDiscovery || Self.admitsSingleSession(session, for: request))
                         && allowed.contains { StreamPluginProviderMatching.matches(session.legacySource, code: $0) }
                 }
                 guard !Task.isCancelled, !admitted.isEmpty else { return }
@@ -279,7 +281,7 @@ actor LiveStreamResolver {
         let enabledAtCompletion = await StreamPluginRegistry.shared.enabledProviderCodes()
         let sessions = LiveSourceHealthStore.rankedSessions(deduplicatedSessions(collected.sessions.filter { session in
             !session.hasExpiredMediaLease()
-                && (!singleStreamDiscovery || LiveSourceHealthStore.matchEvidence(for: session) != .wrongProgramme)
+                && (!singleStreamDiscovery || Self.admitsSingleSession(session, for: request))
                 && StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes: enabledAtCompletion)
                 .contains { StreamPluginProviderMatching.matches(session.legacySource, code: $0) }
         }))
@@ -306,14 +308,55 @@ actor LiveStreamResolver {
                 userMessage: "Checking the broadcast providers took too long. Please try again.",
                 retryable: true, fallbackAllowed: true))
         }
+        if singleStreamDiscovery, request.preferredEvent?.isBroadcastChannel != true {
+            return .failure(Self.noMatchDeliveryFailure(failures), diagnostics)
+        }
         let failure = StreamTransportFailurePolicy.mostActionableFailure(in: failures)
             ?? StreamFailure(providerName: nil, category: .providerReturnedEmpty,
                 technicalMessage: "No enabled provider returned a matched player page.",
                 userMessage: singleStreamDiscovery && request.preferredEvent?.isBroadcastChannel == true
                     ? "No playable stream is available for this channel right now."
-                    : "No playable stream is available for this match right now.",
+                    : Self.noPlayableMatchMessage,
                 retryable: true, fallbackAllowed: false)
         return .failure(failure, diagnostics)
+    }
+
+    nonisolated static func admitsSingleSession(_ session: StreamSession, for request: StreamPlaybackRequest) -> Bool {
+        guard session.matchID == request.matchID, session.validationStatus == .validated,
+              LiveSourceHealthStore.matchEvidence(for: session) != .wrongProgramme else { return false }
+        return session.eventBinding.map { $0.matches(request: request, providerCode: $0.providerCode) } ?? true
+    }
+
+    /// Called only after the final session admission filter found nothing. Per-source
+    /// causes remain in the diagnostic timeline, including failures from partial checks.
+    nonisolated static func noMatchDeliveryFailure(_ failures: [StreamFailure]) -> StreamFailure {
+        let checked = failures.filter { failure in
+            switch failure.category {
+            case .providerReturnedEmpty, .invalidMatchMapping, .unsupportedScheme, .invalidURL, .leaseExpired:
+                return true
+            default: return false
+            }
+        }
+        // Keep actionable authentication and security errors (and their
+        // retry semantics). A plain source outage must not sound like a verified miss.
+        if checked.isEmpty, let cause = StreamTransportFailurePolicy.mostActionableFailure(in: failures) {
+            switch cause.category {
+            case .providerTimeout, .manifestUnreachable, .manifestInvalid, .segmentUnreachable:
+                return StreamFailure(providerName: cause.providerName, category: cause.category,
+                    technicalMessage: cause.technicalMessage,
+                    userMessage: "Couldn’t check the sources for this match right now. Try again.",
+                    retryable: true, fallbackAllowed: cause.fallbackAllowed,
+                    redactedMetadata: cause.redactedMetadata)
+            default: return cause
+            }
+        }
+        let partial = checked.count < failures.count
+        return StreamFailure(category: .providerReturnedEmpty,
+            technicalMessage: "Match discovery finished without an admitted delivery.",
+            userMessage: partial ? "No playable stream was found for this match. Some sources couldn’t be checked."
+                                 : noPlayableMatchMessage,
+            retryable: true, fallbackAllowed: false,
+            redactedMetadata: ["discovery_result": partial ? "partial_no_stream" : "no_stream"])
     }
 
     /// Foreground metadata only: one current fixture, at most two reviewed
@@ -559,6 +602,7 @@ actor LiveStreamResolver {
 
         let needsFreshTVAssociation = refreshTVRegistry && source.dispatch == .reviewedTV
             && request.registryMatch == nil && ReviewedSportsFixtureMatcher.requestIdentity(for: request) != nil
+        var tvCheckFailed = false
         if needsFreshTVAssociation {
             let hasFreshProgramme = await MainActor.run {
                 ReviewedTVPlaylistClient.programmeLookupRequest(for: request) != nil
@@ -566,7 +610,9 @@ actor LiveStreamResolver {
             if !hasFreshProgramme {
                 // Registry work belongs to this parallel lane. AS/CS can publish
                 // and start while one existing registry refresh is joined.
-                _ = await BroadcastRegistryClient.shared.refreshForPlayback()
+                let snapshot = await BroadcastRegistryClient.shared.refreshForPlayback()
+                let refreshFailure = await BroadcastRegistryClient.shared.lastRefreshFailure
+                tvCheckFailed = snapshot == nil || refreshFailure != nil
             }
             if Task.isCancelled {
                 return cancelledOutcome(attemptID: attemptID, request: request,
@@ -577,14 +623,12 @@ actor LiveStreamResolver {
 
         let registered = useDiscoveryIndex ? await Self.optionalRegistryMatches(for: request,
             providerCode: providerCode) : []
-        // Explicit single-player Retry asks every enabled lane for current
-        // metadata. It must not replay a still-leased descriptor that just
-        // failed. Registry identity facts and provider limits remain intact.
-        // Account-scoped sources re-read Keychain on every Watch/renewal. A
-        // retained discovery receipt must not outlive removal or replacement.
+        // A match may still be listed after its descriptor has been withdrawn.
+        // Match taps ask the adapter again. Channels may use their leased result;
+        // explicit Retry and credential-backed sources always recheck.
         let cachedCandidates = useDiscoveryIndex && preflightTicket == nil && !refreshOptionalSources && source.dispatch != .highfly
             && source.dispatch != .penguPlay
-            ? await FixtureStreamDiscoveryIndex.shared.cachedSessions(for: request, providerCode: providerCode)
+            ? await Self.cachedChannelSessions(for: request, providerCode: providerCode)
             : nil
         let cached = cachedCandidates.flatMap { candidates -> [StreamSession]? in
             let allowed = registered.isEmpty ? candidates : candidates.filter { session in
@@ -601,6 +645,7 @@ actor LiveStreamResolver {
         } else { ticket = nil }
         do {
             guard !needsFreshTVAssociation || !registered.isEmpty else {
+                if tvCheckFailed { throw CommunitySportsAddonError.invalidResponse }
                 throw CommunitySportsAddonError.matchNotFound
             }
             let sessions: [StreamSession]
@@ -647,7 +692,7 @@ actor LiveStreamResolver {
                                 forceFreshMetadata: refreshMetadata)
                         }
                     }
-                    sessions = try await Self.resolveRegisteredOptionalSessions(for: request,
+                    sessions = try await self.resolveRegisteredOptionalSessions(for: request,
                         providerCode: providerCode, associations: registered, resolve: { scoped in
                             try await self.resolveOptionalAdapter(source, request: scoped, forceRefresh: true,
                                 forceFreshMetadata: refreshOptionalSources)
@@ -655,6 +700,7 @@ actor LiveStreamResolver {
                 }
             }
             try Task.checkCancellation()
+            guard !sessions.isEmpty else { throw CommunitySportsAddonError.streamEntriesEmpty }
             guard await StreamPluginRegistry.shared.enabledProviderCodes().contains(providerCode) else {
                 throw CancellationError()
             }
@@ -742,10 +788,17 @@ actor LiveStreamResolver {
         }
     }
 
+    @MainActor
+    static func cachedChannelSessions(for request: StreamPlaybackRequest, providerCode: String,
+                                      index: FixtureStreamDiscoveryIndex? = nil, at now: Date = Date()) -> [StreamSession]? {
+        guard request.preferredEvent?.isBroadcastChannel == true else { return nil }
+        return (index ?? .shared).cachedSessions(for: request, providerCode: providerCode, at: now)
+    }
+
     /// The production registered lane keeps only fresh deliveries from each
     /// exact association. The adapter still owns all source-specific matching
     /// and transport admission; this seam cannot invent an executable ID.
-    nonisolated static func resolveRegisteredOptionalSessions(
+    func resolveRegisteredOptionalSessions(
         for request: StreamPlaybackRequest, providerCode: String, associations: [BroadcastRegistryMatch],
         resolve: @escaping @Sendable (StreamPlaybackRequest) async throws -> [StreamSession],
         onSession: @escaping @Sendable (StreamSession) -> Void = { _ in },
@@ -753,10 +806,21 @@ actor LiveStreamResolver {
         fallback: (@Sendable () async throws -> [StreamSession])? = nil
     ) async throws -> [StreamSession] {
         var choices: [StreamSession] = [], lastError: Error?
-        // Retain independent literal broadcasts without a second broad search.
-        // The calling coordinator's deadline and cancellation own all children.
-        for association in associations.prefix(2) {
+        var registeredDeliveryFailure: CommunitySportsAddonError?
+        try Task.checkCancellation()
+        // Only opaque IDs rotate. Every lookup uses freshly supplied associations,
+        // and every returned binding must still match the current fixture and time.
+        let checkedAt = clock()
+        let current = associations.filter { association in
+            association.matches(request: request, providerCode: providerCode,
+                providerEventID: association.broadcast.providerEventID, streamID: association.broadcast.streamID, at: checkedAt)
+        }
+        let currentIDs = current.map { $0.broadcast.id }
+        let selected = registeredLookupSchedule.takeProviders(for: providerCode + "|" + request.matchID, available: currentIDs)
+        let deferred = Set(currentIDs).count > selected.count
+        for id in selected {
             try Task.checkCancellation()
+            guard let association = current.first(where: { $0.broadcast.id == id }) else { continue }
             do {
                 let resolved = try await resolve(request.usingRegistryMatch(association))
                 try Task.checkCancellation()
@@ -769,17 +833,42 @@ actor LiveStreamResolver {
                 for session in admitted { choices.append(session); onSession(session) }
             } catch {
                 try Task.checkCancellation()
+                if error is CancellationError { throw error }
                 lastError = error
+                if let typed = error as? CommunitySportsAddonError {
+                    switch typed {
+                    case .streamEntriesEmpty, .streamAdmissionRejected: registeredDeliveryFailure = typed
+                    default: break
+                    }
+                }
             }
         }
         if choices.isEmpty {
             // Registered associations are evidence, not the only route. A miss
             // here must not hide an exact direct listing from the same provider.
-            guard let fallback else { throw lastError ?? CommunitySportsAddonError.matchNotFound }
+            let missing: CommunitySportsAddonError = deferred ? .lookupBudgetExhausted : .matchNotFound
+            guard let fallback else {
+                if deferred { throw missing }
+                throw lastError ?? missing
+            }
             try Task.checkCancellation()
-            let direct = try await fallback()
+            let direct: [StreamSession]
+            do { direct = try await fallback() }
+            catch let error as CommunitySportsAddonError {
+                try Task.checkCancellation()
+                switch error {
+                case .matchNotFound, .streamEntriesEmpty, .streamAdmissionRejected:
+                    if deferred { throw missing }
+                    if error == .matchNotFound { throw registeredDeliveryFailure ?? missing }
+                    throw error
+                default: throw error
+                }
+            }
             try Task.checkCancellation()
-            guard !direct.isEmpty else { throw lastError ?? CommunitySportsAddonError.matchNotFound }
+            guard !direct.isEmpty else {
+                if deferred { throw missing }
+                throw registeredDeliveryFailure ?? lastError ?? missing
+            }
             choices = direct
         }
         var seen = Set<StreamDeliveryIdentity>()
@@ -879,6 +968,12 @@ actor LiveStreamResolver {
                 fallbackAllowed: true,
                 redactedMetadata: ["manifest_result": "no_exact_fixture_match"]
             )
+        case .lookupBudgetExhausted:
+            return StreamFailure(providerName: providerName, category: .lookupIncomplete,
+                technicalMessage: "The bounded lookup has more exact-match listings to check.",
+                userMessage: "More broadcast options are available to check. Try again.",
+                retryable: true, fallbackAllowed: true,
+                redactedMetadata: ["manifest_result": "lookup_budget_exhausted"])
         case .streamEntriesEmpty:
             return StreamFailure(
                 providerName: providerName,

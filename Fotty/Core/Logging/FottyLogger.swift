@@ -414,6 +414,7 @@ struct FottyOwnerStatusSnapshot: Equatable {
     let appVersion: String
     let appBuild: String
     let currentBuildSummary: FottyQualitySummary
+    let streamAdmissions: [StreamAdmissionSummary.Row]
     let retainedRecordCount: Int
     let olderBuildRecordCount: Int
     let firstCurrentBuildRecordAt: Date?
@@ -421,6 +422,71 @@ struct FottyOwnerStatusSnapshot: Equatable {
     let performance: FottyPerformanceSummary
 
     var hasCurrentBuildEvidence: Bool { currentBuildSummary.recordCount > 0 }
+}
+
+/// Totals from retained receipts. A lookup can see the same stream again.
+enum StreamAdmissionSummary {
+    static let validCount = 0...1_000_000
+    struct Row: Identifiable, Equatable {
+        let id: CuratedStreamSourceCatalog.Provider
+        var lookups = 0
+        var offered: Int? = 0
+        var admitted: Int? = 0
+        var firstPictures = 0
+        var reportedReason: String?
+        fileprivate var reasonTime: Date?
+    }
+
+    static func rows(records: [FottyQualityRecord]) -> [Row] {
+        var rows: [CuratedStreamSourceCatalog.Provider: Row] = [:]
+        for record in records where record.category == .playback {
+            let provider: CuratedStreamSourceCatalog.Provider
+            switch record.name {
+            case "highfly_delivery_admission": provider = .highfly
+            case "penguplay_delivery_admission": provider = .penguPlay
+            case "stream_admission", WatchOutcomeRecorder.recordName:
+                guard let family = record.details["source_family"]?.lowercased(),
+                      let definition = CuratedStreamSourceCatalog.all.first(where: {
+                          $0.providerCode == family || $0.opaqueLabelPrefix?.lowercased() == family
+                      }) else { continue }
+                provider = definition.provider
+            default: continue
+            }
+            var row = rows[provider] ?? Row(id: provider)
+            if record.name == WatchOutcomeRecorder.recordName {
+                guard record.details["terminal_outcome"] == WatchOutcomeTerminal.playing.rawValue else { continue }
+                row.firstPictures += 1
+            } else {
+                // Legacy account receipts captured candidates before final validation.
+                // Their raw entry count is useful, but admitted choices are unknown.
+                let offered = count(record.details["offered_count"] ?? record.details["addon_stream_entry_count"])
+                let admitted = count(record.details["admitted_count"])
+                row.lookups += 1
+                row.offered = row.offered.flatMap { total in offered.map { total + $0 } }
+                if let offered, let admitted, admitted <= offered, let previous = row.admitted {
+                    row.admitted = previous + admitted
+                } else {
+                    row.admitted = nil
+                }
+                if let reason = record.details["reason_code"], row.reasonTime.map({ $0 <= record.timestamp }) ?? true {
+                    row.reportedReason = reason
+                    row.reasonTime = record.timestamp
+                }
+            }
+            rows[provider] = row
+        }
+        return CuratedStreamSourceCatalog.all.compactMap { rows[$0.provider] }
+    }
+
+    static func mostFrequent(_ reasons: [String]) -> String? {
+        let counts = reasons.reduce(into: [String: Int]()) { $0[$1, default: 0] += 1 }
+        return counts.keys.sorted().max { counts[$0, default: 0] < counts[$1, default: 0] }
+    }
+
+    private static func count(_ value: String?) -> Int? {
+        guard let value, let parsed = Int(value), validCount.contains(parsed) else { return nil }
+        return parsed
+    }
 }
 
 /// Privacy-safe, on-device evidence for Fotty's release gates.
@@ -441,7 +507,7 @@ final class FottyQualityStore {
         "selection_reason", "candidate_families", "duplicate_choices", "independence_evidence",
         "last_observed_stage", "stage", "platform_error_code",
         "cs_stream_entry_count", "cs_admission_rejected_count",
-        "addon_stream_entry_count", "addon_admission_rejected_count",
+        "addon_stream_entry_count", "addon_admission_rejected_count", "offered_count", "admitted_count",
         "native_presentation_id", "native_presentation_event", "native_pip_active", "native_app_backgrounded",
         "native_failure_trigger", "native_error_domain", "native_error_code",
         "native_underlying_domain", "native_underlying_code", "native_error_depth",
@@ -462,7 +528,7 @@ final class FottyQualityStore {
         "relay_retained_in_flight_count", "relay_retained_completed_count", "relay_retained_failed_count", "relay_retained_cancelled_count",
         "relay_observed_failure_request_id", "relay_observed_failure_resource_id", "relay_same_resource_later_completed",
         "relay_failure_request_id", "relay_failure_resource_id", "relay_failure_resource_category",
-        "relay_playlist_resource_id", "relay_playlist_samples", "relay_playlist_age_ms", "relay_playlist_metadata_preserved",
+        "relay_unaliased_segment", "relay_playlist_resource_id", "relay_playlist_samples", "relay_playlist_age_ms", "relay_playlist_metadata_preserved",
         "relay_playlist_upstream_kind", "relay_playlist_upstream_change", "relay_playlist_upstream_endlist",
         "relay_playlist_upstream_segments", "relay_playlist_upstream_sequence", "relay_playlist_upstream_target_ms",
         "relay_playlist_upstream_last_digest", "relay_playlist_upstream_unchanged_ms",
@@ -513,6 +579,36 @@ final class FottyQualityStore {
         self.performanceStore = performanceStore ?? FottyPerformanceStore(defaults: defaults, now: now)
         self.lock = lock
         self.writes = FottyDefaultsWriteBuffer(defaults: defaults)
+    }
+
+    /// One completed provider lookup. The offered entries and returned choices
+    /// belong to the same request; a cancelled lookup supplies neither count.
+    func recordStreamAdmission(sourceFamily: String, offered: Int, admitted: Int) {
+        guard let provider = CuratedStreamSourceCatalog.Provider(rawValue: sourceFamily),
+              StreamAdmissionSummary.validCount.contains(offered),
+              (0...offered).contains(admitted) else { return }
+        record(category: .playback, name: "stream_admission", outcome: .info, details: [
+            "source_family": provider.rawValue,
+            "offered_count": String(offered),
+            "admitted_count": String(admitted)
+        ])
+    }
+
+    func recordAccountStreamAdmission(provider: CuratedStreamSourceCatalog.Provider, offered: Int, admitted: Int,
+                                      candidateCount: Int, listingCount: Int, rejections: [String],
+                                      fallbackReason: String? = nil, rejectedHost: String?, finished: Bool) {
+        guard provider == .highfly || provider == .penguPlay,
+              StreamAdmissionSummary.validCount.contains(offered), (0...offered).contains(admitted) else { return }
+        // Preserve the account diagnostics consumed by existing reports. Owner Status
+        // uses only the explicit admission pair and a fixed display label for the reason.
+        var details = ["offered_count": String(offered), "admitted_count": String(admitted),
+                       "addon_stream_entry_count": String(offered), "used_count": String(admitted),
+                       "candidate_count": String(min(candidateCount, 12)), "listing_count": String(listingCount),
+                       "addon_admission_rejected_count": String(rejections.count)]
+        details["reason_code"] = StreamAdmissionSummary.mostFrequent(rejections) ?? fallbackReason
+        details["delivery_host"] = rejectedHost
+        record(category: .playback, name: provider.rawValue + "_delivery_admission",
+               outcome: finished ? .info : .failure, details: details)
     }
 
     func record(
@@ -590,6 +686,7 @@ final class FottyQualityStore {
             appVersion: version,
             appBuild: build,
             currentBuildSummary: Self.summarize(current),
+            streamAdmissions: StreamAdmissionSummary.rows(records: current),
             retainedRecordCount: retained.count,
             olderBuildRecordCount: retained.count - current.count,
             firstCurrentBuildRecordAt: current.map(\.timestamp).min(),
@@ -758,6 +855,7 @@ final class FottyQualityStore {
             return UInt32(value) != nil
         }
         switch key {
+        case "relay_unaliased_segment": return value == "true"
         case "native_resume_action": return ["started", "resumed", "outside_window", "window_rejoined", "seek_incomplete", "buffered_play", "timeout"].contains(value)
         case "native_resume_elapsed_ms": return UInt32(value).map { $0 <= 3_600_000 } ?? false
         case "native_resume_window": return ["inside", "expired", "unknown"].contains(value)
@@ -801,6 +899,7 @@ final class FottyQualityStore {
         case "audio_enabled", "playback_intent", "native_pip_active", "native_app_backgrounded":
             return ["true", "false"].contains(value)
         case "candidate_count": return Int(value).map { (0...12).contains($0) } ?? false
+        case "offered_count", "admitted_count": return Int(value).map(StreamAdmissionSummary.validCount.contains) ?? false
         case "used_count": return Int(value).map { (0...500).contains($0) } ?? false
         case "cs_stream_entry_count", "cs_admission_rejected_count", "addon_stream_entry_count", "addon_admission_rejected_count":
             return Int(value).map { (0...100).contains($0) } ?? false

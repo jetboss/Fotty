@@ -55,14 +55,14 @@ final class PlavioSportsAddonTests: XCTestCase {
         XCTAssertEqual(PlavioSportsAddonClient.selectRoxieMatch(for: fresh, from: [roxieRow()], official: nil, at: roxieNow), .missing)
         XCTAssertEqual(PlavioSportsAddonClient.selectRoxieMatch(for: self.request(), from: [roxieRow()], official: snapshot, at: roxieNow), .missing)
     }
-    @MainActor func testRoxieRejectsWrongDatesSquadsReplaysAndAmbiguousProviderIDs() {
+    @MainActor func testRoxieKeepsOnlyMatchingDatesSquadsAndConsistentProviderIDs() {
         let (request, snapshot) = roxieContext()
         let rejected = [roxieRow(description: "Starts November 1, 2026 8:00 AM (site time) · 1 channel"),
             roxieRow(name: "Manchester City Women vs Brighton Women"), roxieRow(name: "Manchester City U21 vs Brighton U21"),
             roxieRow(name: "Manchester City vs Brighton Highlights")]
         for row in rejected { XCTAssertEqual(PlavioSportsAddonClient.selectRoxieMatch(for: request, from: [row], official: snapshot, at: roxieNow), .missing) }
         let sibling = roxieRow(id: roxieID + "-second")
-        XCTAssertEqual(PlavioSportsAddonClient.selectRoxieMatch(for: request, from: [roxieRow(), sibling], official: snapshot, at: roxieNow), .conflicting)
+        XCTAssertEqual(PlavioSportsAddonClient.selectRoxieMatch(for: request, from: [roxieRow(), sibling], official: snapshot, at: roxieNow), .matched(roxieRow()))
         XCTAssertEqual(PlavioSportsAddonClient.selectRoxieMatch(for: request, from: [roxieRow(), roxieRow(name: "Manchester City vs Chelsea")], official: snapshot, at: roxieNow), .conflicting)
         XCTAssertNil(PlavioSportsAddonClient.roxieIdentity(roxieRow(description: "Starts February 31, 2026 8:00 AM (site time) · 1 channel")))
     }
@@ -522,7 +522,7 @@ final class PlavioSportsAddonTests: XCTestCase {
             ["url": delivery, "behaviorHints": ["proxyHeaders": ["response": ["Access-Control-Allow-Origin": "*"]]]],
             ["url": delivery, "behaviorHints": ["proxyHeaders": ["request": ["Cookie": 7]]]]
         ]
-        let refused = [0, 1, 2, 5, 10] // google.com page, health check, magnet, DRM, Authorization header
+        let refused = [0, 1, 2, 5, 10, 13] // google.com page, health check, magnet, DRM, Authorization header
         for index in refused { XCTAssertTrue(try sessions([rejected[index]]).isEmpty, "\(rejected[index])") }
         for index in rejected.indices where !refused.contains(index) {
             XCTAssertEqual(try sessions([rejected[index]]).count, 1, "Harmless extras never refuse a stream: \(rejected[index])")
@@ -530,7 +530,7 @@ final class PlavioSportsAddonTests: XCTestCase {
         XCTAssertEqual(try sessions([["url": delivery, "behaviorHints": ["proxyHeaders": ["request": [:], "response": [:]]]]]).count, 1)
     }
 
-    func testDeduplicationCapsSixRealDeliveriesAndKeysSurviveReordering() throws {
+    func testDeduplicationRetainsDistinctDeliveriesAndKeysSurviveReordering() throws {
         let variants = (0..<8).map { ["url": delivery + String($0)] }
         let first = try sessions([variants[0], ["url": "https://www.google.com"], variants[0]] + variants)
         XCTAssertEqual(first.map(\.providerName), (1...8).map { "AS\($0)" }, "No cap of 6; the page and duplicates are skipped")
@@ -539,6 +539,88 @@ final class PlavioSportsAddonTests: XCTestCase {
         let reordered = try sessions(Array(variants.reversed()))
         XCTAssertEqual(first.compactMap { $0.diagnosticMetadata["source_key"] },
                        Array(reordered.compactMap { $0.diagnosticMetadata["source_key"] }.reversed()))
+    }
+
+    func testCredentialNamesSurviveMalformedSiblingHeaders() throws {
+        let mixed: [String: Any] = ["Authorization": "fixture", "X-Ignored": 4]
+        XCTAssertTrue(try sessions([["url": delivery, "behaviorHints": ["proxyHeaders": ["request": mixed]]]]).isEmpty)
+        XCTAssertTrue(try sessions([["url": delivery, "headers": mixed]]).isEmpty)
+        let valid = try sessions([["url": delivery, "behaviorHints": ["proxyHeaders": ["request":
+            ["Referer": "https://video.example/", "X-Ignored": 4] as [String: Any]]]]])
+        XCTAssertEqual(valid.first?.requiredHeaders, ["Referer": "https://video.example/"])
+    }
+
+    func testMultipleDatedListingsKeepDistinctHeadersAndBindingsAfterAnEmptyDescriptor() async throws {
+        let ids = [fixtureID, fixtureID + "-two", fixtureID + "-three", fixtureID + "-wrong"]
+        let rows = ids.map { id -> [String: Any] in
+            var row = entryJSON()
+            row["id"] = id
+            return row
+        }
+        var conflict = rows[3]
+        conflict["name"] = "Different Club vs Another Club"
+        let session = try fixtureSession(catalog: .json(["metas": rows + [conflict]]), streams: .json(["streams": []]))
+        defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
+        PlavioFixtureProtocol.setResponse(try .json(["streams": [["url": delivery]]]), for: "/stream/tv/" + ids[1] + ".json")
+        PlavioFixtureProtocol.setResponse(try .json(["streams": [["url": delivery], ["url": delivery,
+            "behaviorHints": ["proxyHeaders": ["request": ["Referer": "https://video.example/"]]]]]]),
+            for: "/stream/tv/" + ids[2] + ".json")
+        let resolved = try await PlavioSportsAddonClient(session: session).resolve(for: request(), now: kickoff, forceRefresh: true)
+        XCTAssertEqual(resolved.map(\.providerName), ["AS1", "AS2"])
+        XCTAssertEqual(resolved.map { $0.eventBinding?.providerEventID }, [ids[1], ids[2]])
+        XCTAssertEqual(resolved.map { $0.eventBinding?.streamID }, [ids[1], ids[2]])
+        XCTAssertEqual(resolved.map(\.requiredHeaders), [[:], ["Referer": "https://video.example/"]])
+        XCTAssertFalse(PlavioFixtureProtocol.paths.contains("/stream/tv/" + ids[3] + ".json"))
+    }
+
+    func testLiveListingsIndependentlyVerifyEachMetadataJoinBeforeReadingItsStream() async throws {
+        let secondID = liveFixtureID + "-second"
+        var second = liveEntryJSON()
+        second["id"] = secondID
+        let session = try liveFixtureSession(metadata: .status(503), catalog: .json(["metas": [liveEntryJSON(), second]]))
+        defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
+        var meta = liveMetaJSON()
+        meta["id"] = secondID
+        PlavioFixtureProtocol.setResponse(try .json(["meta": meta]), for: "/meta/tv/" + secondID + ".json")
+        PlavioFixtureProtocol.setResponse(try .json(["streams": [["url": delivery]]]), for: "/stream/tv/" + secondID + ".json")
+        let resolved = try await PlavioSportsAddonClient(session: session).resolve(for: liveRequest(), forceRefresh: true)
+        XCTAssertEqual(resolved.map { $0.eventBinding?.providerEventID }, [secondID])
+        XCTAssertTrue(PlavioFixtureProtocol.paths.contains(liveMetaPath))
+        XCTAssertFalse(PlavioFixtureProtocol.paths.contains(liveStreamPath))
+    }
+
+    @MainActor
+    func testDistinctCricketListingsWithDifferentOrdinalsCannotBorrowAnUnknownOfficialOrdinal() async throws {
+        let first = cricketEntry()
+        let second = cricketEntry(id: first.id + "-second", qualifier: "2nd Test Day 1")
+        let session = try cricketFixtureSession()
+        defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
+        PlavioFixtureProtocol.setResponse(try .json(["metas": [cricketEntryJSON(first), cricketEntryJSON(second)]]),
+            for: cricketCatalogPath)
+        let client = PlavioSportsAddonClient(session: session)
+        let request = officialCricketRequest()
+        let receipt = try await client.catalogMatches(for: [request], now: cricketKickoff)
+        XCTAssertEqual(receipt.first?.outcome, .conflicting)
+        do { _ = try await client.resolve(for: request, now: cricketKickoff); XCTFail("Ambiguous Test ordinal") }
+        catch { XCTAssertEqual(error as? CommunitySportsAddonError, .conflictingMatch) }
+        XCTAssertFalse(PlavioFixtureProtocol.paths.contains { $0.hasPrefix("/stream/") })
+    }
+
+    func testDLHDListingWithWrongClockDoesNotHideAnIndependentlyDatedListing() async throws {
+        let session = try dlhdFixtureSession()
+        defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
+        var wrong = dlhdEntryJSON()
+        let wrongID = dlhdID + "wrong"
+        wrong["id"] = wrongID
+        wrong["description"] = "Starts 20:45 (UK time) · 28 channels"
+        PlavioFixtureProtocol.setResponse(try .json(["metas": [wrong, dlhdEntryJSON()]]), for: footballCatalogPath)
+        PlavioFixtureProtocol.setResponse(try .json(["meta": wrong]), for: "/meta/tv/" + wrongID + ".json")
+        let client = PlavioSportsAddonClient(session: session, originalScheduleResolver: { _ in ["1.1.1.1"] })
+        let batch = try await client.catalogMatches(for: [dlhdRequest()], now: dlhdKickoff)
+        XCTAssertEqual(batch.first?.providerEventID, dlhdID)
+        let result = try await client.resolve(for: dlhdRequest(), now: dlhdKickoff, forceRefresh: true)
+        XCTAssertEqual(result.map { $0.eventBinding?.providerEventID }, [dlhdID])
+        XCTAssertFalse(PlavioFixtureProtocol.paths.contains("/stream/tv/" + wrongID + ".json"))
     }
 
     func testMetadataOriginAndEphemeralConfigurationRemainBoundedAndCredentialFree() {
@@ -785,7 +867,7 @@ final class PlavioSportsAddonTests: XCTestCase {
         let session = try fixtureSession(streams: .json(["streams": rows]))
         defer { session.invalidateAndCancel(); PlavioFixtureProtocol.reset() }
         do { _ = try await PlavioSportsAddonClient(session: session).resolve(for: request()); XCTFail("Past scan boundary") }
-        catch { XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 100)) }
+        catch { XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 101)) }
     }
 
     func testOversizeResponseAndMalformedStreamContainerAreBoundedFailures() async throws {

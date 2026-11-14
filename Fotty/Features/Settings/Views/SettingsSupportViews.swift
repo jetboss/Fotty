@@ -468,19 +468,17 @@ struct FottyOwnerStatusView: View {
                     statusRow("Median time to video", value: startupLabel)
                 }
 
-                SettingsSection(title: "Your sources on this build") {
-                    let sources = AccountSourceAdmissionSummary.rows(records: FottyQualityStore.shared.records(),
-                                                                     build: snapshot.appBuild)
-                    if sources.isEmpty {
-                        statusRow("Highfly and PenguPlay", value: "No lookups yet")
+                SettingsSection(title: "Source activity on this build") {
+                    if snapshot.streamAdmissions.isEmpty {
+                        statusRow("Recent lookups and first pictures", value: "None recorded")
                     }
-                    ForEach(Array(sources.enumerated()), id: \.element.id) { index, row in
+                    ForEach(Array(snapshot.streamAdmissions.enumerated()), id: \.element.id) { index, row in
                         if index > 0 { SettingsDivider() }
-                        statusRow(row.name, value: "Used \(row.used) of \(row.offered) streams")
-                        if let reason = row.commonestReason {
-                            SettingsDivider()
-                            statusRow("\(row.name) · not used", value: AccountSourceAdmissionSummary.label(reason))
+                        statusRow(row.displayName, value: row.admissionText)
+                        if let reason = row.reportedReason {
+                            statusRow("Latest reported rejection", value: StreamAdmissionSummary.label(reason))
                         }
+                        statusRow("Watch taps reaching first picture", value: "\(row.firstPictures) recorded")
                     }
                 }
                 .accessibilityIdentifier("owner-status-account-sources")
@@ -620,29 +618,30 @@ enum WatchOutcomeSummaryText {
 }
 
 
-/// Streams the owner's account sources offered versus streams Fotty used, on
-/// the installed build. Counts and reason labels only: never a link or title.
-enum AccountSourceAdmissionSummary {
-    struct Row: Identifiable, Equatable {
-        let id: String
-        let name: String
-        let offered: Int
-        let used: Int
-        let commonestReason: String?
-    }
-
-    static func rows(records: [FottyQualityRecord], build: String) -> [Row] {
-        [("highfly_delivery_admission", "Highfly"), ("penguplay_delivery_admission", "PenguPlay")].compactMap { name, title in
-            let receipts = records.filter { $0.name == name && $0.appBuild == build }
-            guard !receipts.isEmpty else { return nil }
-            let offered = receipts.reduce(0) { $0 + (Int($1.details["addon_stream_entry_count"] ?? "") ?? 0) }
-            let used = receipts.reduce(0) { $0 + (Int($1.details["used_count"] ?? $1.details["candidate_count"] ?? "") ?? 0) }
-            let reasons = receipts.compactMap { $0.details["reason_code"] }
-            let commonest = Dictionary(grouping: reasons, by: { $0 }).max { $0.value.count < $1.value.count }?.key
-            return Row(id: name, name: title, offered: offered, used: used, commonestReason: used < offered ? commonest : nil)
+extension StreamAdmissionSummary.Row {
+    var displayName: String {
+        switch id {
+        case .highfly: return "Highfly"
+        case .penguPlay: return "PenguPlay"
+        case .communitySports: return "CommunitySports"
+        case .cncSports: return "CNC"
+        case .plavioSports: return "Plavio"
+        case .flixStreams: return "FlixStreams"
+        case .reviewedTV: return "TV"
+        case .score808: return "Score808"
         }
     }
 
+    var admissionText: String {
+        guard lookups > 0 else { return "No stream counts recorded" }
+        let entries = offered.map { "\($0) offered" } ?? "Offered count unavailable"
+        let choices = admitted.map { "\($0) admitted" } ?? "Admitted count unavailable"
+        let lookupsText = lookups == 1 ? "1 lookup" : "\(lookups) lookups"
+        return "\(entries) · \(choices) · \(lookupsText)"
+    }
+}
+
+extension StreamAdmissionSummary {
     static func label(_ reason: String) -> String {
         switch reason {
         case "replay": return "Replays, not live"
@@ -650,7 +649,10 @@ enum AccountSourceAdmissionSummary {
         case "not_live_media": return "Files, not live streams"
         case "drm": return "DRM-protected"
         case "credential_headers": return "Needs sign-in headers"
-        case "not_https", "unsafe_destination", "credentials_in_link", "too_long": return "Unsafe links"
+        case "malformed_headers": return "Invalid request headers"
+        case "sign_in": return "Sign-in required"
+        case "not_https", "unsafe_destination", "credentials_in_link", "too_long",
+             "inner_not_https", "inner_credentials", "inner_unsafe_destination": return "Unsafe links"
         case "validation": return "Server unreachable"
         case "no_url": return "No link"
         default: return "Other"

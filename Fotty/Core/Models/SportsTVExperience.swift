@@ -279,6 +279,9 @@ enum SourceDeliveryDiversity {
         }.map(\.element)
     }
     static func localDeliveryKey(for source: StreamSource) -> String {
+        if SportsTVStation.station(provider: source.provider) != nil {
+            return "continuity|" + LiveSourceHealthStore.reviewedTVDeliveryDigest(for: source)
+        }
         let value = [source.provider.lowercased(), source.url.host?.lowercased() ?? "", source.url.path].joined(separator: "|")
         return "continuity|" + SHA256.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
     }

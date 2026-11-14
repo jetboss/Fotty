@@ -386,6 +386,7 @@ enum StreamFailureCategory: String, Codable, Sendable {
     case noProviderAvailable = "no_provider_available"
     case providerTimeout = "provider_timeout"
     case providerReturnedEmpty = "provider_returned_empty"
+    case lookupIncomplete = "lookup_incomplete"
     case invalidMatchMapping = "invalid_match_mapping"
     case invalidURL = "invalid_url"
     case unsupportedScheme = "unsupported_scheme"

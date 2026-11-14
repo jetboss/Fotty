@@ -710,15 +710,13 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertTrue(Self.noReviewedRoute(headerSessions([conflicting])))
     }
 
-    func testMalformedAdvertisedHeaderContractsReadAsAbsentWithoutFailingTheRow() throws {
+    func testMalformedAdvertisedHeaderContractsRejectTheRow() throws {
         let malformedValues: [Any] = [NSNull(), "not-an-object", ["User-Agent": 7]]
         for malformed in malformedValues {
             let document: [String: Any] = ["url": "https://addon.example/api/manifest",
                                           "behaviorHints": ["proxyHeaders": ["request": malformed]]]
             let data = try JSONSerialization.data(withJSONObject: document)
-            let entry = try JSONDecoder().decode(CommunitySportsStreamEntry.self, from: data)
-            XCTAssertEqual(entry.url, "https://addon.example/api/manifest")
-            XCTAssertNil(entry.behaviorHints?.proxyHeaders?.request)
+            XCTAssertThrowsError(try JSONDecoder().decode(CommunitySportsStreamEntry.self, from: data))
         }
     }
 
@@ -1052,6 +1050,47 @@ final class CommunitySportsAddonTests: XCTestCase {
             CommunitySportsAddonClient.selectMatch(for: request, from: [first, second]),
             .matched(first)
         )
+    }
+
+    func testResolveMergesOnlyIndependentlyOwnedListingsAndCountsTheirStreamRows() async throws {
+        func entry(_ id: String, target: String, teams: [String]) -> [String: Any] {
+            var result = catalogEntry(teams: teams)
+            result["id"] = id
+            result["behaviorHints"] = ["defaultVideoId": target]
+            return result
+        }
+        let pair = ["Chelsea", "Brighton"]
+        let first = "nuvio_sport_first", second = "nuvio_sport_second", disputed = "nuvio_sport_disputed"
+        let owner1 = "nuvio_sport_one", owner2 = "nuvio_sport_two"
+        let catalog = [entry(owner1, target: first, teams: pair), entry("nuvio_sport_bad", target: disputed, teams: pair),
+                       entry(owner2, target: second, teams: pair),
+                       entry("nuvio_sport_other", target: disputed, teams: ["Arsenal", "Everton"])]
+        let session = try makeFixtureSession(sportResponse: .json(["metas": catalog]))
+        defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
+        let stream = "https://fixture.example/live/"
+        let primary = stream + "primary.m3u8", backup = stream + "backup.m3u8"
+        CommunitySportsFixtureProtocol.setResponse(try .json(["streams": [["url": primary]]]), for: "/stream/tv/" + first + ".json")
+        let rows: [[String: Any]] = [
+            ["url": primary], ["url": backup],
+            ["url": stream + "rejected.m3u8", "headers": ["Authorization": "private", "User-Agent": 1]],
+            ["url": stream + "credential.m3u8", "headers": ["Cookie": "private"]]
+        ]
+        CommunitySportsFixtureProtocol.setResponse(try .json(["streams": rows]), for: "/stream/tv/" + second + ".json")
+        let suite = "cs-admission-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!,
+                                                 session: session, qualityStore: store)
+        let result = try await client.resolve(for: makeRequest(home: pair[0], away: pair[1], category: "football"))
+        XCTAssertEqual(result.map { $0.playableURL.absoluteString }, [primary, backup])
+        XCTAssertEqual(result.compactMap { $0.eventBinding?.providerEventID }, [owner1, owner2])
+        XCTAssertEqual(result.compactMap { $0.eventBinding?.streamID }, [first, second])
+        XCTAssertFalse(CommunitySportsFixtureProtocol.paths.contains("/stream/tv/" + disputed + ".json"))
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        XCTAssertEqual(receipts.first?.details["offered_count"], "5")
+        XCTAssertEqual(receipts.first?.details["admitted_count"], "2")
     }
 
     func testReusedIDWithContradictoryFixtureCannotHideBehindRequestFiltering() {
@@ -2190,10 +2229,8 @@ final class CommunitySportsAddonTests: XCTestCase {
         defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
         let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!, session: session)
         let result = try await client.resolve(for: makeRequest(home: "Chelsea", away: "Brighton", category: "football"))
-        // Unreadable rows are skipped; rows whose header block is malformed are still tried.
-        XCTAssertEqual(result.map { $0.playableURL.query },
-                       ["channel=first", "channel=bad-null", "channel=bad-string", "channel=bad-value", "channel=bad-response", "channel=last"])
-        XCTAssertEqual(result.map(\.providerName), (1...6).map { "CS\($0)" })
+        XCTAssertEqual(result.map { $0.playableURL.query }, ["channel=first", "channel=last"])
+        XCTAssertEqual(result.map(\.providerName), ["CS1", "CS2"])
         XCTAssertTrue(result.allSatisfy { $0.requiredHeaders.isEmpty },
                       "A malformed required-header row must be rejected, never converted to a headerless session")
     }
@@ -2220,7 +2257,7 @@ final class CommunitySportsAddonTests: XCTestCase {
             _ = try await client.resolve(for: makeRequest(home: "Chelsea", away: "Brighton", category: "football"))
             XCTFail("Skipping malformed rows must not scan unbounded later candidates")
         } catch {
-            XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 100))
+            XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 101))
         }
     }
 
@@ -2267,17 +2304,25 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertEqual(CommunitySportsFixtureProtocol.paths.last, "/stream/tv/nuvio_sport_fixture.json")
     }
 
-    func testAdmissionCountsDescribeOnlyTheHundredEntriesActuallyScanned() async throws {
+    func testAdmissionReceiptCountsAllOfferedRowsWhileScanningOnlyOneHundred() async throws {
         let entries = Array(repeating: ["url": "https://unreviewed.example/api/manifest"], count: 150)
         let session = try makeFixtureSession(streamResponse: .json(["streams": entries]))
         defer { session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
-        let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!, session: session)
+        let suite = "cs-offered-count-" + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let store = FottyQualityStore(defaults: defaults)
+        let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!,
+            session: session, qualityStore: store)
         do {
             _ = try await client.resolve(for: makeRequest(home: "Chelsea", away: "Brighton", category: "football"))
-            XCTFail("The adapter must not read or count beyond its existing admission limit")
+            XCTFail("No playable entries in the scanned rows")
         } catch {
-            XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 100))
+            XCTAssertEqual(error as? CommunitySportsAddonError, .streamAdmissionRejected(entryCount: 150))
         }
+        let receipt = try XCTUnwrap(store.records().last { $0.name == "stream_admission" })
+        XCTAssertEqual(receipt.details["offered_count"], "150")
+        XCTAssertEqual(receipt.details["admitted_count"], "0")
         for count in [Int.min, -1, 0, 2, 100, 101, Int.max] {
             let metadata = LiveStreamResolver.communitySportsFailure(from: .streamAdmissionRejected(entryCount: count)).redactedMetadata
             XCTAssertEqual(metadata["cs_stream_entry_count"], String(min(max(count, 0), 100)))
@@ -3027,7 +3072,7 @@ final class CommunitySportsAddonTests: XCTestCase {
         defer { h.session.invalidateAndCancel(); CommunitySportsFixtureProtocol.reset() }
         let client = CommunitySportsAddonClient(manifestURL: URL(string: "https://addon.example/manifest.json")!, session: h.session)
         let clock = kickoff
-        let choices = try await LiveStreamResolver.resolveRegisteredOptionalSessions(for: h.request,
+        let choices = try await LiveStreamResolver.shared.resolveRegisteredOptionalSessions(for: h.request,
             providerCode: "communitysports", associations: [h.parent], resolve: { scoped in
                 try await client.resolve(for: scoped, now: clock, forceRefresh: true)
             }, clock: { clock })

@@ -97,9 +97,10 @@ final class StreamPlaybackContractTests: XCTestCase {
         }
         XCTAssertEqual(BroadcastSourcePickerPolicy.groups(in: [choice("Score808"), choice("AS1"), choice("CS2"),
             choice("AS2"), choice("Score808")]), ["Broadcasts", "AS", "CS"])
-        for raw in ["https://private.invalid/token", "A source named AS1", "FS7", "AS01", "as1"] {
+        for raw in ["https://private.invalid/token", "A source named AS1", "FS101", "AS01", "as1"] {
             XCTAssertEqual(BroadcastSourcePickerPolicy.group(for: choice(raw)), "Broadcasts")
         }
+        XCTAssertEqual(BroadcastSourcePickerPolicy.group(for: choice("FS7")), "FS")
         XCTAssertEqual(BroadcastSourcePickerPolicy.groups(in: []), [])
         XCTAssertEqual(BroadcastSourcePickerPolicy.groups(in: [choice("AS1"), choice("AS2")]), ["AS"])
     }

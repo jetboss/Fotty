@@ -100,7 +100,17 @@ struct PlavioSportsStreamEntry: Decodable, Sendable {
         url = try? values?.decodeIfPresent(String.self, forKey: key("url"))
         let hints = try? values?.nestedContainer(keyedBy: Key.self, forKey: key("behaviorHints"))
         let proxy = try? hints?.nestedContainer(keyedBy: Key.self, forKey: key("proxyHeaders"))
-        requiredHeaders = (try? proxy?.decode([String: String].self, forKey: key("request"))) ?? [:]
+        var requested: [String: String] = [:]
+        for container in [try? values?.nestedContainer(keyedBy: Key.self, forKey: key("headers")),
+                          try? proxy?.nestedContainer(keyedBy: Key.self, forKey: key("request"))] {
+            guard let container else { continue }
+            for field in container.allKeys {
+                // Preserve the name even if its value is malformed, so a
+                // credential requirement cannot disappear during decoding.
+                requested[field.stringValue.lowercased()] = (try? container.decode(String.self, forKey: field)) ?? ""
+            }
+        }
+        requiredHeaders = requested
         requiresDRM = ["drm", "clearkey", "licenseUrl", "license"].contains { values?.contains(key($0)) == true }
     }
 }
@@ -171,6 +181,10 @@ actor PlavioSportsAddonClient {
             }
             private enum CodingKeys: String, CodingKey { case name, types, idPrefixes }
         }
+        func advertises(_ name: String, id: String) -> Bool {
+            resources.contains { $0.name == name && $0.types?.contains("tv") == true
+                && $0.idPrefixes?.contains(where: { id.hasPrefix($0) }) == true }
+        }
         struct Catalog: Decodable, Sendable { let id: String; let type: String }
         struct Hints: Decodable, Sendable { let configurationRequired: Bool? }
         let id: String
@@ -211,12 +225,13 @@ actor PlavioSportsAddonClient {
             }
             var rows = try values.nestedUnkeyedContainer(forKey: .streams)
             var entries: [PlavioSportsStreamEntry] = []
+            let offered = rows.count
             var scanned = 0
             while !rows.isAtEnd, scanned < 100 {
                 let row = try rows.superDecoder(); scanned += 1
                 if let entry = try? PlavioSportsStreamEntry(from: row) { entries.append(entry) }
             }
-            streams = entries; entryCount = scanned
+            streams = entries; entryCount = offered ?? scanned
         }
     }
 
@@ -328,7 +343,8 @@ actor PlavioSportsAddonClient {
         }
         var needsOriginal = false
         for request in requests where profile(for: request) == .football {
-            guard let entries = catalogs[.football], case .missing = select(request, scope: .football, entries: entries) else { continue }
+            guard let entries = catalogs[.football] else { continue }
+            if case .matched = select(request, scope: .football, entries: entries) { continue }
             if (try? Self.dlhdMetadataCandidate(for: request, from: entries)) != nil { needsOriginal = true; break }
         }
         var originals: [DLHDOriginalFixture] = []
@@ -348,31 +364,33 @@ actor PlavioSportsAddonClient {
             }
             if let failure = catalogFailures[scope] { return .init(matchID: request.matchID, outcome: .failed(failure)) }
             guard let entries = catalogs[scope] else { return .init(matchID: request.matchID, outcome: .unsupported) }
+            var conflict = false
             switch select(request, scope: scope, entries: entries) {
             case .matched(let row): return .init(matchID: request.matchID, outcome: .listed, providerEventID: row.id)
-            case .conflicting: return .init(matchID: request.matchID, outcome: .conflicting)
-            case .missing:
-                guard scope == .football else { return .init(matchID: request.matchID, outcome: .notListed) }
+            case .conflicting: conflict = true
+            case .missing: break
+            }
+            if scope == .football {
                 switch Self.selectRoxieMatch(for: request, from: entries, official: liveOfficial, at: now) {
                 case .matched(let row): return .init(matchID: request.matchID, outcome: .listed, providerEventID: row.id)
-                case .conflicting: return .init(matchID: request.matchID, outcome: .conflicting)
+                case .conflicting: conflict = true
                 case .missing: break
+                }
+                if let row = try? Self.advertisedMetadataCandidate(for: request, from: entries) {
+                    return .init(matchID: request.matchID, outcome: .needsVerification, providerEventID: row.id)
                 }
                 do {
                     if try Self.dlhdMetadataCandidate(for: request, from: entries) != nil {
                         if let originalFailure { return .init(matchID: request.matchID, outcome: .failed(originalFailure)) }
                         switch Self.selectDLHDMatch(for: request, from: entries, originals: originals) {
                         case .matched(let row): return .init(matchID: request.matchID, outcome: .needsVerification, providerEventID: row.id)
-                        case .conflicting: return .init(matchID: request.matchID, outcome: .conflicting)
-                        case .missing: return .init(matchID: request.matchID, outcome: .notListed)
+                        case .conflicting: conflict = true
+                        case .missing: break
                         }
                     }
-                    if let row = try Self.advertisedMetadataCandidate(for: request, from: entries) {
-                        return .init(matchID: request.matchID, outcome: .needsVerification, providerEventID: row.id)
-                    }
-                    return .init(matchID: request.matchID, outcome: .notListed)
-                } catch { return .init(matchID: request.matchID, outcome: .conflicting) }
+                } catch { conflict = true }
             }
+            return .init(matchID: request.matchID, outcome: conflict ? .conflicting : .notListed)
         }
     }
 
@@ -380,7 +398,7 @@ actor PlavioSportsAddonClient {
                  forceRefresh: Bool = false) async throws -> [StreamSession] {
         try Task.checkCancellation()
         guard let profile = CatalogProfile.profile(for: request.category),
-              request.kickoffDate != nil else { throw CommunitySportsAddonError.matchNotFound }
+              request.preferredEvent?.hasCatalogIdentityConflict != true, request.kickoffDate != nil else { throw CommunitySportsAddonError.matchNotFound }
         // A plain cricket team pair has no format or match/day distinction.
         // Reject that ambiguity before making any requests, rather than using
         // an add-on suffix to invent the native fixture's missing authority.
@@ -399,144 +417,162 @@ actor PlavioSportsAddonClient {
         guard let selectedCatalogID = profile.catalogID(in: manifest) else {
             throw CommunitySportsAddonError.invalidManifest
         }
-        let roxieCheckStarted = ProcessInfo.processInfo.systemUptime
+        let started = ProcessInfo.processInfo.systemUptime
         let entries = try await loadCatalog(id: selectedCatalogID, now: now, forceRefresh: refreshed)
-        let selected: PlavioSportsCatalogEntry
-        let usedMetadataJoin: Bool
-        let usedDLHDJoin: Bool
-        let usedRoxieJoin: Bool
-        switch Self.selectMatch(for: request, from: entries) {
-        case .matched(let entry):
-            if Self.isSafeCNCCricketID(entry.id) {
-                guard manifest.resources.contains(where: { $0.name == "meta" && $0.types?.contains("tv") == true
-                    && $0.idPrefixes?.contains(where: { entry.id.hasPrefix($0) }) == true }) else {
-                    throw CommunitySportsAddonError.invalidManifest
-                }
-                let document = try await fetchJSON(MetaDocument.self,
-                    from: Self.route(["meta", "tv", entry.id + ".json"]), stage: .metadata, forceRefresh: true)
-                try Task.checkCancellation()
-                let meta = document.meta
-                let checked = PlavioSportsCatalogEntry(id: meta.id, type: meta.type, name: meta.name,
-                    description: meta.description, genres: meta.genres, hasMalformedIdentity: meta.hasUnsupportedAuthority)
-                guard meta.id == entry.id, Self.cncCricketIdentity(checked) == Self.cncCricketIdentity(entry),
-                      Self.cncCricketIdentity(checked) != nil else { throw CommunitySportsAddonError.conflictingMatch }
-            }
-            selected = entry; usedMetadataJoin = false; usedDLHDJoin = false; usedRoxieJoin = false
-        case .missing:
-            if profile == .football, entries.contains(where: { Self.isSafeRoxieID($0.id) }) {
-                let official = await officialSnapshot(now)
-                try Task.checkCancellation()
-                let roxie = Self.selectRoxieMatch(for: request, from: entries, official: official, at: now)
-                if case .conflicting = roxie { throw CommunitySportsAddonError.conflictingMatch }
-                if case .matched(let candidate) = roxie {
-                    guard manifest.resources.contains(where: {
-                        $0.name == "meta" && $0.types?.contains("tv") == true
-                            && $0.idPrefixes?.contains(where: { candidate.id.hasPrefix($0) }) == true
-                    }) else { throw CommunitySportsAddonError.invalidManifest }
-                    let metadata = try await fetchJSON(MetaDocument.self,
-                        from: Self.route(["meta", "tv", candidate.id + ".json"]), stage: .metadata, forceRefresh: refreshed)
+        let official = entries.contains(where: { Self.isSafeRoxieID($0.id) }) ? await officialSnapshot(now) : nil
+        let plan = Self.listings(for: request, entries: entries, official: official, at: now)
+        try Task.checkCancellation()
+        guard !plan.rows.isEmpty else {
+            throw plan.conflict ? CommunitySportsAddonError.conflictingMatch : .matchNotFound
+        }
+
+        let listings = plan.rows.prefix(Self.maximumListings)
+        if !refreshed, hadCachedManifest, CommunitySportsAddonClient.allowsTargetedRefresh(for: request, at: now),
+           listings.contains(where: { $0.join == .live && !manifest.advertises("meta", id: $0.row.id) }) {
+            manifest = try await loadManifest(now: now, forceRefresh: true)
+            refreshed = true
+            guard profile.catalogID(in: manifest) == selectedCatalogID else { throw CommunitySportsAddonError.invalidManifest }
+        }
+        var sessions: [StreamSession] = []
+        var firstFailure: Error?
+        var offered = 0
+        var readDescriptor = false
+        var mayRefreshEmpty = !refreshed && CommunitySportsAddonClient.allowsTargetedRefresh(for: request, at: now)
+        var mayRefreshOriginal = dlhdOriginalSnapshot.map { Self.isFresh($0.fetchedAt, at: now, ttl: 5 * 60) } == true
+            && CommunitySportsAddonClient.allowsTargetedRefresh(for: request, at: now)
+        for listing in listings {
+            try Task.checkCancellation()
+            let id = listing.row.id
+            do {
+                guard manifest.advertises("stream", id: id) else { throw CommunitySportsAddonError.invalidManifest }
+                if listing.join != .dated {
+                    guard manifest.advertises("meta", id: id) else { throw CommunitySportsAddonError.invalidManifest }
+                    let metadata = try await fetchJSON(MetaDocument.self, from: Self.route(["meta", "tv", id + ".json"]),
+                        stage: .metadata, forceRefresh: refreshed || listing.join == .cnc)
                     try Task.checkCancellation()
                     let meta = metadata.meta
-                    let metaRow = PlavioSportsCatalogEntry(id: meta.id, type: meta.type, name: meta.name,
-                        description: meta.description, genres: meta.genres ?? candidate.genres,
-                        hasMalformedIdentity: meta.hasUnsupportedAuthority)
-                    let checkedAt = now.addingTimeInterval(max(0, ProcessInfo.processInfo.systemUptime - roxieCheckStarted))
-                    guard meta.id == candidate.id, Self.roxieIdentity(metaRow) == Self.roxieIdentity(candidate),
-                          case .matched = Self.selectRoxieMatch(for: request, from: entries,
-                            official: await officialSnapshot(checkedAt), at: checkedAt) else {
-                        throw CommunitySportsAddonError.conflictingMatch
+                    switch listing.join {
+                    case .cnc:
+                        let checked = PlavioSportsCatalogEntry(id: meta.id, type: meta.type, name: meta.name,
+                            description: meta.description, genres: meta.genres, hasMalformedIdentity: meta.hasUnsupportedAuthority)
+                        guard meta.id == id, Self.cncCricketIdentity(checked) == Self.cncCricketIdentity(listing.row)
+                        else { throw CommunitySportsAddonError.conflictingMatch }
+                    case .roxie:
+                        let row = PlavioSportsCatalogEntry(id: meta.id, type: meta.type, name: meta.name,
+                            description: meta.description, genres: meta.genres ?? listing.row.genres,
+                            hasMalformedIdentity: meta.hasUnsupportedAuthority)
+                        let checkedAt = now.addingTimeInterval(max(0, ProcessInfo.processInfo.systemUptime - started))
+                        guard meta.id == id, Self.roxieIdentity(row) == Self.roxieIdentity(listing.row),
+                              case .matched = Self.selectRoxieMatch(for: request, from: [listing.row],
+                                  official: await officialSnapshot(checkedAt), at: checkedAt) else {
+                            throw CommunitySportsAddonError.conflictingMatch
+                        }
+                    case .dlhd:
+                        try Self.validateDLHDMetadata(meta, catalog: listing.row)
+                        let originals = try await loadDLHDOriginalSchedule(now: now)
+                        var selection = Self.selectDLHDMatch(for: request, from: [listing.row], originals: originals)
+                        if case .missing = selection, mayRefreshOriginal {
+                            mayRefreshOriginal = false
+                            let fresh = try await loadDLHDOriginalSchedule(now: now, forceRefresh: true)
+                            selection = Self.selectDLHDMatch(for: request, from: [listing.row], originals: fresh)
+                        }
+                        switch selection {
+                        case .matched: break
+                        case .missing: throw CommunitySportsAddonError.matchNotFound
+                        case .conflicting: throw CommunitySportsAddonError.conflictingMatch
+                        }
+                    case .live:
+                        _ = try Self.corroboratedMetadata(meta, for: listing.row, request: request)
+                    case .dated: break
                     }
-                    selected = candidate; usedMetadataJoin = false; usedDLHDJoin = false; usedRoxieJoin = true
-                    break
                 }
-            }
-            if profile == .football, let candidate = try Self.dlhdMetadataCandidate(for: request, from: entries) {
-                guard manifest.resources.contains(where: {
-                    $0.name == "meta" && $0.types?.contains("tv") == true
-                        && $0.idPrefixes?.contains(where: { candidate.id.hasPrefix($0) }) == true
-                }) else { throw CommunitySportsAddonError.invalidManifest }
-                let metadata = try await fetchJSON(MetaDocument.self,
-                    from: Self.route(["meta", "tv", candidate.id + ".json"]), stage: .metadata,
-                    forceRefresh: refreshed)
                 try Task.checkCancellation()
-                try Self.validateDLHDMetadata(metadata.meta, catalog: candidate)
-                let hadOriginal = dlhdOriginalSnapshot.map {
-                    Self.isFresh($0.fetchedAt, at: now, ttl: 5 * 60)
-                } ?? false
-                var originals = try await loadDLHDOriginalSchedule(now: now)
-                var selection = Self.selectDLHDMatch(for: request, from: entries, originals: originals)
-                if case .missing = selection, hadOriginal,
-                   CommunitySportsAddonClient.allowsTargetedRefresh(for: request, at: now) {
-                    originals = try await loadDLHDOriginalSchedule(now: now, forceRefresh: true)
-                    selection = Self.selectDLHDMatch(for: request, from: entries, originals: originals)
+                let streamURL = Self.route(["stream", "tv", id + ".json"])
+                var document = try await fetchJSON(StreamDocument.self, from: streamURL, stage: .streams, forceRefresh: refreshed)
+                if document.entryCount == 0, mayRefreshEmpty {
+                    mayRefreshEmpty = false
+                    document = try await fetchJSON(StreamDocument.self, from: streamURL, stage: .streams, forceRefresh: true)
                 }
-                switch selection {
-                case .matched(let entry): selected = entry
-                case .missing: throw CommunitySportsAddonError.matchNotFound
-                case .conflicting: throw CommunitySportsAddonError.conflictingMatch
+                try Task.checkCancellation()
+                guard let binding = StreamEventBinding(request: request, providerCode: Self.providerCode,
+                    providerEventID: id, streamID: id, manifestRevision: manifest.version, verifiedAt: now,
+                    expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime), at: now) else {
+                    throw CommunitySportsAddonError.conflictingMatch
                 }
-                usedMetadataJoin = false; usedDLHDJoin = true; usedRoxieJoin = false
-                break
+                readDescriptor = true
+                offered += document.entryCount
+                sessions += Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version,
+                    matchMethod: listing.join == .roxie ? "official_fixture_pair_civil_date" : "explicit_dated_fixture",
+                    after: sessions).map { $0.recordingEventBinding(binding, for: request, at: now) }
+            } catch {
+                try Task.checkCancellation()
+                if error is CancellationError || (error as? URLError)?.code == .cancelled { throw error }
+                firstFailure = firstFailure ?? error
             }
-            guard profile == .football,
-                  let candidate = try Self.advertisedMetadataCandidate(for: request, from: entries) else {
-                throw CommunitySportsAddonError.matchNotFound
-            }
-            let supportsMetadata: (Manifest) -> Bool = { contract in
-                contract.resources.contains(where: {
-                    $0.name == "meta" && $0.types?.contains("tv") == true
-                        && $0.idPrefixes?.contains(where: { candidate.id.hasPrefix($0) }) == true
-                })
-            }
-            if !supportsMetadata(manifest), !refreshed, hadCachedManifest,
-               CommunitySportsAddonClient.allowsTargetedRefresh(for: request, at: now) {
-                refreshed = true
-                manifest = try await loadManifest(now: now, forceRefresh: true)
-            }
-            guard supportsMetadata(manifest),
-                  manifest.catalogs.filter({ $0.id == selectedCatalogID && $0.type == "tv" }).count == 1
-            else { throw CommunitySportsAddonError.invalidManifest }
-            let document = try await fetchJSON(MetaDocument.self,
-                from: Self.route(["meta", "tv", candidate.id + ".json"]), stage: .metadata,
-                forceRefresh: refreshed)
-            try Task.checkCancellation()
-            selected = try Self.corroboratedMetadata(document.meta, for: candidate, request: request)
-            usedMetadataJoin = true
-            usedDLHDJoin = false; usedRoxieJoin = false
-        case .conflicting: throw CommunitySportsAddonError.conflictingMatch
-        }
-        guard (usedRoxieJoin ? Self.isSafeRoxieID(selected.id)
-               : usedDLHDJoin ? Self.isSafeDLHDID(selected.id)
-               : usedMetadataJoin ? Self.isSafeAdvertisedLiveID(selected.id)
-               : Self.isSafeFixtureID(selected.id, profile: profile)),
-              manifest.resources.contains(where: {
-            $0.name == "stream" && $0.types?.contains("tv") == true
-                && $0.idPrefixes?.contains(where: { selected.id.hasPrefix($0) }) == true
-        }) else { throw CommunitySportsAddonError.invalidManifest }
-        let streamURL = Self.route(["stream", "tv", selected.id + ".json"])
-        var document: StreamDocument = try await fetchJSON(StreamDocument.self,
-            from: streamURL, stage: .streams, forceRefresh: refreshed)
-        if document.entryCount == 0, !refreshed,
-           CommunitySportsAddonClient.allowsTargetedRefresh(for: request, at: now) {
-            try Task.checkCancellation()
-            refreshed = true
-            // One same-ID revalidation can observe a late published delivery.
-            // It never retries admission/transport failures or invents a source.
-            document = try await fetchJSON(StreamDocument.self, from: streamURL,
-                stage: .streams, forceRefresh: true)
-        }
-        guard document.entryCount > 0 else { throw CommunitySportsAddonError.streamEntriesEmpty }
-        let sessions = Self.makeSessions(from: document.streams, request: request, addOnVersion: manifest.version,
-            matchMethod: usedRoxieJoin ? "official_fixture_pair_civil_date" : "explicit_dated_fixture",
-            allowReviewedCricketDelivery: Self.isSafeCNCCricketID(selected.id))
-        guard !sessions.isEmpty else {
-            throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: document.entryCount)
         }
         try Task.checkCancellation()
-        let binding = StreamEventBinding(request: request, providerCode: Self.providerCode,
-            providerEventID: selected.id, streamID: selected.id, manifestRevision: manifest.version,
-            verifiedAt: now, expiresAt: now.addingTimeInterval(StreamEventBinding.metadataLifetime), at: now)
-        return sessions.map { $0.recordingEventBinding(binding, for: request, at: now) }
+        guard readDescriptor else { throw firstFailure ?? CommunitySportsAddonError.matchNotFound }
+        let completedAt = now.addingTimeInterval(max(0, ProcessInfo.processInfo.systemUptime - started))
+        guard sessions.allSatisfy({ $0.eventBinding?.matches(request: request, providerCode: Self.providerCode,
+            at: completedAt) == true }) else { throw CommunitySportsAddonError.conflictingMatch }
+        if sessions.isEmpty, let firstFailure { throw firstFailure }
+        FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, offered: offered, admitted: sessions.count)
+        if !sessions.isEmpty { return sessions }
+        if offered == 0 { throw CommunitySportsAddonError.streamEntriesEmpty }
+        throw CommunitySportsAddonError.streamAdmissionRejected(entryCount: offered)
+    }
+
+    private enum ListingJoin { case dated, cnc, roxie, dlhd, live }
+    private struct Listing {
+        let row: PlavioSportsCatalogEntry
+        let join: ListingJoin
+    }
+    nonisolated static let maximumListings = 6
+
+    /// A literal stream ID owns all its catalog siblings. Keep those together
+    /// through the family's identity checks before fetching its descriptor.
+    nonisolated private static func listings(for request: StreamPlaybackRequest, entries: [PlavioSportsCatalogEntry],
+        official: SportsFixtureCatalog.Snapshot?, at now: Date) -> (rows: [Listing], conflict: Bool) {
+        let groups = Dictionary(grouping: entries, by: \.id)
+        var seen = Set<String>(), result: [Listing] = []
+        var conflict = false
+        for entry in entries where seen.insert(entry.id).inserted {
+            guard let siblings = groups[entry.id] else { continue }
+            if let registry = request.registryMatch,
+               !registry.matches(request: request, providerCode: providerCode,
+                    providerEventID: entry.id, streamID: entry.id, at: now) { continue }
+            // Roxie and DaddyLive never supply an explicit dated catalog identity.
+            // A pinned registry entry for either still needs its own metadata join.
+            let specialFootball = isSafeRoxieID(entry.id) || isSafeDLHDID(entry.id)
+            switch specialFootball ? .missing : selectMatch(for: request, from: siblings) {
+            case .matched(let row):
+                result.append(Listing(row: row, join: isSafeCNCCricketID(row.id) ? .cnc : .dated))
+                continue
+            case .conflicting: conflict = true; continue
+            case .missing: break
+            }
+            guard CatalogProfile.profile(for: request.category) == .football else { continue }
+            if isSafeRoxieID(entry.id) {
+                switch selectRoxieMatch(for: request, from: siblings, official: official, at: now) {
+                case .matched(let row): result.append(Listing(row: row, join: .roxie))
+                case .conflicting: conflict = true
+                case .missing: break
+                }
+            } else if isSafeDLHDID(entry.id) {
+                do {
+                    if let row = try dlhdMetadataCandidate(for: request, from: siblings) {
+                        result.append(Listing(row: row, join: .dlhd))
+                    }
+                } catch { conflict = true }
+            } else if let row = try? advertisedMetadataCandidate(for: request, from: siblings) {
+                result.append(Listing(row: row, join: .live))
+            }
+        }
+        if request.registryMatch == nil, let cricket = cricketRequest(for: request), cricket.ordinal == nil {
+            let ordinals = Set(result.compactMap { cricketIdentity(for: $0.row)?.qualifier.ordinal })
+            if ordinals.count > 1 { return ([], true) }
+        }
+        return (result, conflict)
     }
 
     private func loadDLHDOriginalSchedule(now: Date, forceRefresh: Bool = false) async throws -> [DLHDOriginalFixture] {
@@ -890,25 +926,25 @@ actor PlavioSportsAddonClient {
         from entries: [PlavioSportsCatalogEntry]) throws -> PlavioSportsCatalogEntry? {
         guard entries.count <= 600, let asked = ReviewedSportsFixtureMatcher.requestIdentity(for: request),
               asked.sport == "football" else { return nil }
-        let candidates = entries.filter { entry in
-            (request.registryMatch.map { $0.broadcast.providerCode == Self.providerCode
-                && $0.broadcast.providerEventID == $0.broadcast.streamID && $0.broadcast.providerEventID == entry.id } ?? true)
-                && dlhdCatalogIdentity(entry).map { $0.participants.pair == asked.pair } == true
+        var sawConflict = false
+        let siblings = Dictionary(grouping: entries, by: \.id)
+        for entry in entries {
+            if let registry = request.registryMatch,
+               (registry.broadcast.providerCode != providerCode || registry.broadcast.providerEventID != entry.id
+                || registry.broadcast.streamID != entry.id) { continue }
+            guard let identity = dlhdCatalogIdentity(entry), identity.participants.pair == asked.pair else { continue }
+            guard siblings[entry.id]?.allSatisfy({ dlhdCatalogIdentity($0) == identity && $0.name == entry.name }) == true
+            else { sawConflict = true; continue }
+            if let competition = request.preferredEvent?.competitionID, !competition.isEmpty {
+                let competitions = ["england premier league": "premier-league", "uefa champions league": "champions-league",
+                                    "england league cup": "carabao-cup", "france ligue 1": "ligue-1",
+                                    "germany bundesliga": "bundesliga", "italy serie a": "serie-a", "spain la liga": "la-liga"]
+                guard competitions[identity.competition] == competition else { sawConflict = true; continue }
+            }
+            return entry
         }
-        // Several listings of the game are fine: use the first whose own rows agree.
-        guard let candidate = candidates.first(where: { candidate in
-                  guard let identity = dlhdCatalogIdentity(candidate) else { return false }
-                  return entries.filter({ $0.id == candidate.id }).allSatisfy({
-                      dlhdCatalogIdentity($0) == identity && $0.name == candidate.name })
-              }), let identity = dlhdCatalogIdentity(candidate) else { return nil }
-        if let requestedCompetition = request.preferredEvent?.competitionID, !requestedCompetition.isEmpty {
-            let competitions = ["england premier league": "premier-league", "uefa champions league": "champions-league",
-                                "england league cup": "carabao-cup", "france ligue 1": "ligue-1",
-                                "germany bundesliga": "bundesliga",
-                                "italy serie a": "serie-a", "spain la liga": "la-liga"]
-            guard competitions[identity.competition] == requestedCompetition else { throw CommunitySportsAddonError.conflictingMatch }
-        }
-        return candidate
+        if sawConflict { throw CommunitySportsAddonError.conflictingMatch }
+        return nil
     }
 
     nonisolated private static func validateDLHDMetadata(_ meta: MetaEntry, catalog: PlavioSportsCatalogEntry) throws {
@@ -930,29 +966,44 @@ actor PlavioSportsAddonClient {
 
     nonisolated static func selectDLHDMatch(for request: StreamPlaybackRequest,
         from entries: [PlavioSportsCatalogEntry], originals: [DLHDOriginalFixture]) -> PlavioSportsMatchSelection {
-        do {
-            guard originals.count <= 2_000, let candidate = try dlhdMetadataCandidate(for: request, from: entries),
-                  let identity = dlhdCatalogIdentity(candidate) else { return .missing }
-            let linked = originals.filter { $0.competition == identity.competition && $0.participants == identity.participants }
-            // Another date, clock, malformed context or duplicate original row
-            // is ambiguity, even if one sibling happens to fit the request.
-            guard linked.count <= 1 else { return .conflicting }
-            guard let original = linked.first, original.clock == identity.clock, let date = original.kickoff,
-                  let london = TimeZone(identifier: "Europe/London") else { return .missing }
-            var calendar = Calendar(identifier: .gregorian); calendar.timeZone = london
-            let parts = calendar.dateComponents([.hour, .minute], from: date)
-            let ukClock = String(format: "%02d:%02d", parts.hour ?? -1, parts.minute ?? -1)
-            guard ukClock == identity.clock else { return .conflicting }
-            let fixture = ReviewedSportsFixtureMatcher.fixtureIdentity(sport: "football", cast: [],
-                title: candidate.name.components(separatedBy: ":").last.map(SportsTeamIdentity.normalized) ?? "",
-                kickoff: date, effectiveID: candidate.id, resourceType: "tv")
-            switch ReviewedSportsFixtureMatcher.select(for: request,
-                from: [.init(metadataID: candidate.id, effectiveID: candidate.id, identity: fixture)]) {
-            case .matched: return .matched(candidate)
-            case .conflicting: return .conflicting
-            case .missing: return .missing
-            }
-        } catch { return .conflicting }
+        guard entries.count <= 600, originals.count <= 2_000 else { return .missing }
+        let siblings = Dictionary(grouping: entries, by: \.id)
+        var seen = Set<String>(), conflict = false
+        for entry in entries where seen.insert(entry.id).inserted {
+            do {
+                guard let candidate = try dlhdMetadataCandidate(for: request, from: siblings[entry.id] ?? []),
+                      let identity = dlhdCatalogIdentity(candidate) else { continue }
+                switch selectDLHDOriginal(for: request, candidate: candidate, identity: identity, originals: originals) {
+                case .matched: return .matched(candidate)
+                case .conflicting: conflict = true
+                case .missing: break
+                }
+            } catch { conflict = true }
+        }
+        return conflict ? .conflicting : .missing
+    }
+
+    nonisolated private static func selectDLHDOriginal(for request: StreamPlaybackRequest, candidate: PlavioSportsCatalogEntry,
+        identity: DLHDCatalogIdentity, originals: [DLHDOriginalFixture]) -> PlavioSportsMatchSelection {
+        let linked = originals.filter { $0.competition == identity.competition && $0.participants == identity.participants }
+        // Another date, clock, malformed context or duplicate original row
+        // is ambiguity, even if one sibling happens to fit the request.
+        guard linked.count <= 1 else { return .conflicting }
+        guard let original = linked.first, original.clock == identity.clock, let date = original.kickoff,
+              let london = TimeZone(identifier: "Europe/London") else { return .missing }
+        var calendar = Calendar(identifier: .gregorian); calendar.timeZone = london
+        let parts = calendar.dateComponents([.hour, .minute], from: date)
+        let ukClock = String(format: "%02d:%02d", parts.hour ?? -1, parts.minute ?? -1)
+        guard ukClock == identity.clock else { return .conflicting }
+        let fixture = ReviewedSportsFixtureMatcher.fixtureIdentity(sport: "football", cast: [],
+            title: candidate.name.components(separatedBy: ":").last.map(SportsTeamIdentity.normalized) ?? "",
+            kickoff: date, effectiveID: candidate.id, resourceType: "tv")
+        switch ReviewedSportsFixtureMatcher.select(for: request,
+            from: [.init(metadataID: candidate.id, effectiveID: candidate.id, identity: fixture)]) {
+        case .matched: return .matched(candidate)
+        case .conflicting: return .conflicting
+        case .missing: return .missing
+        }
     }
 
     nonisolated static func selectMatch(for request: StreamPlaybackRequest,
@@ -1030,6 +1081,10 @@ actor PlavioSportsAddonClient {
             return String(format: "%04d-%02d-%02d", p.year!, p.month!, p.day!)
         }
         let wantedDay = day(wanted.kickoff)
+        guard entries.contains(where: { row in
+            guard let identity = roxieIdentity(row) else { return false }
+            return identity.pair.pair == wanted.pair && identity.date == wantedDay
+        }) else { return .missing }
         let peers = official.fixtures.filter { row in
             guard row.sport == "football", row.eventKind == .match, row.squad == anchor.squad,
                   row.source.verification != .held,
@@ -1051,21 +1106,21 @@ actor PlavioSportsAddonClient {
             guard (-300...SportsFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(statusReceipt)) else { return .conflicting }
         }
         var candidates: [PlavioSportsCatalogEntry] = []
+        var conflictingID = false
         for row in entries {
             guard let identity = roxieIdentity(row), identity.pair.pair == wanted.pair, identity.date == wantedDay else { continue }
             if let registry = request.registryMatch,
                (registry.broadcast.providerCode != Self.providerCode || registry.broadcast.providerEventID != row.id || registry.broadcast.streamID != row.id) { continue }
-            guard entries.filter({ $0.id == row.id }).allSatisfy({ roxieIdentity($0) == identity }) else { return .conflicting }
+            guard entries.filter({ $0.id == row.id }).allSatisfy({ roxieIdentity($0) == identity }) else { conflictingID = true; continue }
             if !candidates.contains(where: { $0.id == row.id }) { candidates.append(row) }
         }
-        guard candidates.count <= 1 else { return .conflicting }
-        return candidates.first.map(PlavioSportsMatchSelection.matched) ?? .missing
+        return candidates.first.map(PlavioSportsMatchSelection.matched) ?? (conflictingID ? .conflicting : .missing)
     }
 
     nonisolated private static func footballCatalogCandidates(_ entries: [PlavioSportsCatalogEntry]) -> [ReviewedSportsFixtureMatcher.Candidate] {
         entries.map { entry -> ReviewedSportsFixtureMatcher.Candidate in
             let identity: ReviewedSportsFixtureMatcher.FixtureIdentity?
-            if !entry.hasMalformedIdentity, isSafeFixtureID(entry.id), entry.type == "tv",
+            if !entry.hasMalformedIdentity, !entry.hasCompetingDateAuthority, isSafeFixtureID(entry.id), entry.type == "tv",
                entry.genres == ["Sports"], let date = explicitKickoff(for: entry) {
                 identity = ReviewedSportsFixtureMatcher.fixtureIdentity(sport: "football", cast: [],
                     title: entry.name, kickoff: date, effectiveID: entry.id, resourceType: "tv")
@@ -1113,7 +1168,7 @@ actor PlavioSportsAddonClient {
     /// the common participant identity, so two same-ID rows cannot silently
     /// turn a first Test/T20I into a second match or a later Test day.
     nonisolated private static func cricketIdentity(for entry: PlavioSportsCatalogEntry) -> CricketIdentity? {
-        guard !entry.hasMalformedIdentity, isSafeFixtureID(entry.id, profile: .cricket),
+        guard !entry.hasMalformedIdentity, !entry.hasCompetingDateAuthority, isSafeFixtureID(entry.id, profile: .cricket),
               entry.type == "tv", entry.genres == ["Cricket"],
               !entry.name.isEmpty, entry.name.utf8.count <= 512,
               entry.name.rangeOfCharacter(from: .controlCharacters) == nil,
@@ -1208,7 +1263,11 @@ actor PlavioSportsAddonClient {
                   qualifiers.count <= 1, qualifiers.allSatisfy({
                 $0.format == format && ($0.day == nil || $0.day == 1)
             }) else { return nil }
-            return .init(fixture: requested, format: format, ordinal: qualifiers.first?.ordinal)
+            let publishedOrdinal = fixture.matchOrdinal ?? fixture.context?.matchOrdinal
+            let titleOrdinal = qualifiers.first?.ordinal
+            if let publishedOrdinal, let titleOrdinal, publishedOrdinal != titleOrdinal { return nil }
+            if format == .test, let day = fixture.context?.day, day != 1 { return nil }
+            return .init(fixture: requested, format: format, ordinal: publishedOrdinal ?? titleOrdinal)
         }
 
         let parts = request.displayTitle.components(separatedBy: " - ")
@@ -1280,7 +1339,13 @@ actor PlavioSportsAddonClient {
         if supportsCNCOfficialCricket(request), entries.contains(where: { isSafeCNCCricketID($0.id) }) {
             let candidates = entries.map { entry in
                 ReviewedSportsFixtureMatcher.Candidate(metadataID: entry.id, effectiveID: entry.id,
-                    identity: cncCricketIdentity(entry))
+                    identity: cncCricketIdentity(entry).flatMap { identity in
+                        guard let official = request.preferredEvent?.cricketFixture,
+                              identity.cricketFormat.map({ $0 == official.format.rawValue }) ?? true,
+                              identity.matchOrdinal.map({ ordinal in official.matchOrdinal.map { $0 == ordinal } ?? true }) ?? true
+                        else { return nil }
+                        return identity
+                    })
             }
             switch ReviewedSportsFixtureMatcher.select(for: request, from: candidates) {
             case .matched(let index): return .matched(entries[index])
@@ -1300,6 +1365,16 @@ actor PlavioSportsAddonClient {
                 return identity.fixture
             }
             return .init(metadataID: entry.id, effectiveID: entry.id, identity: admitted)
+        }
+        if request.registryMatch == nil, requested.ordinal == nil {
+            let groups = Dictionary(grouping: entries.indices, by: { entries[$0].id })
+            let ordinals = Set(groups.values.compactMap { indices -> Int? in
+                guard let first = indices.first, let fixture = candidates[first].identity,
+                      fixture.pair == requested.fixture.pair, indices.allSatisfy({ identities[$0] == identities[first] })
+                else { return nil }
+                return identities[first]?.qualifier.ordinal
+            })
+            if ordinals.count > 1 { return .conflicting }
         }
         let selection = request.registryMatch == nil
             ? ReviewedSportsFixtureMatcher.select(for: requested.fixture, from: candidates)
@@ -1388,7 +1463,7 @@ actor PlavioSportsAddonClient {
         var candidates: [ReviewedSportsFixtureMatcher.Candidate] = []
         for entry in entries {
             var identity: ReviewedSportsFixtureMatcher.FixtureIdentity?
-            if !entry.hasMalformedIdentity, isSafeFixtureID(entry.id), entry.type == "tv",
+            if !entry.hasMalformedIdentity, !entry.hasCompetingDateAuthority, isSafeFixtureID(entry.id), entry.type == "tv",
                entry.genres == ["Sports"], let date = explicitKickoff(for: entry) {
                 identity = ReviewedSportsFixtureMatcher.fixtureIdentity(sport: "football", cast: [],
                     title: entry.name, kickoff: date, effectiveID: entry.id, resourceType: "tv")
@@ -1430,7 +1505,7 @@ actor PlavioSportsAddonClient {
     }
 
     nonisolated private static func livePublisherID(for entry: PlavioSportsCatalogEntry) -> String? {
-        guard !entry.hasMalformedIdentity, entry.type == "tv", entry.genres == ["Sports"],
+        guard !entry.hasMalformedIdentity, !entry.hasCompetingDateAuthority, entry.type == "tv", entry.genres == ["Sports"],
               isSafeAdvertisedLiveID(entry.id),
               !entry.name.isEmpty, entry.name.utf8.count <= 512,
               entry.name.rangeOfCharacter(from: .controlCharacters) == nil,
@@ -1477,16 +1552,16 @@ actor PlavioSportsAddonClient {
 
     nonisolated static func makeSessions(from streams: [PlavioSportsStreamEntry], request: StreamPlaybackRequest,
                                         addOnVersion: String, matchMethod: String = "explicit_dated_fixture",
-                                        allowReviewedCricketDelivery: Bool = false) -> [StreamSession] {
+                                        after earlier: [StreamSession] = []) -> [StreamSession] {
         guard let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode) else { return [] }
-        var seen = Set<String>()
+        var seen = Set(earlier.compactMap { $0.diagnosticMetadata["source_key"] })
         var sessions: [StreamSession] = []
         for entry in streams.prefix(StreamDeliveryPolicy.maximumSessionsPerProvider) {
             guard !entry.requiresDRM, let value = entry.url, let url = URL(string: value), isAdmittedDelivery(url),
                   let headers = StreamDeliveryPolicy.requestHeaders(entry.requiredHeaders) else { continue }
             let key = sourceKey(url: url, headers: headers)
             guard seen.insert(key).inserted else { continue }
-            guard let label = definition.sourceLabel(choice: sessions.count + 1) else { break }
+            guard let label = definition.sourceLabel(choice: earlier.count + sessions.count + 1) else { break }
             sessions.append(StreamSession(matchID: request.matchID, playableURL: url, streamType: .hls,
                 providerName: label, requiredHeaders: headers, qualityLabel: "Live video",
                 canRefresh: false, validationStatus: .validated,

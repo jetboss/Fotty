@@ -35,6 +35,42 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         XCTAssertEqual(try Client.select(request: request(), rows: [live, row(live.name, id: "pp-live:ppv~other")], now: kickoff).id, live.id)
     }
 
+    func testProviderFinishedMatchWithdrawsSameIDButPreservesIndependentLiveListing() throws {
+        let match = request(home: "Kuwait", away: "Syria", sport: "football")
+        let live = row("🔴 LIVE: Kuwait vs Syria", id: "pp-live:aksports~one")
+        let ended = Client.Row(id: live.id, name: "📺 Kuwait vs Syria", released: live.released,
+            description: "International Friendly Games\nSoccer\nFinished — a replay may still be available\nKickoff: Nov 13, 12:30")
+        for stale in [[ended], [live, ended], [ended, live]] {
+            XCTAssertThrowsError(try Client.select(request: match, rows: stale, now: kickoff))
+        }
+        let other = row("🔴 LIVE: Kuwait vs Syria", id: "pp-live:second~two")
+        XCTAssertEqual(try Client.select(request: match, rows: [ended, live, other], now: kickoff).id, other.id)
+    }
+
+    func testCurrentMetadataWithdrawsStaleSearchBeforeAnyDescriptorIsOpened() async throws {
+        let manifest = #"{"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["tv"],"idPrefixes":["pp-live:"]},{"name":"meta","types":["tv"],"idPrefixes":["pp-live:"]},"catalog"],"catalogs":[{"type":"tv","id":"pp-live-football"}]}"#
+        let row = #"{"id":"pp-live:aksports~one","type":"tv","name":"📺 Kuwait vs Syria","released":"2026-11-12T00:00:00.000Z""#
+        let fetched = PenguPlayLockedValue<[String]>([])
+        let client = Client(configuration: { self.manifestURL }, fetch: { request in
+            let url = try XCTUnwrap(request.url)
+            fetched.mutate { $0.append(url.path) }
+            let body: String
+            if url == self.manifestURL { body = manifest }
+            else if url.path.contains("/catalog/") { body = "{\"metas\":[" + row + "}]}" }
+            else if url.path.contains("/meta/") {
+                body = "{\"meta\":" + row + #","description":"Soccer\nFinished — a replay may still be available"}}"#
+            } else { XCTFail("A terminal fixture cannot authorize a stream lookup"); body = "{}" }
+            let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: nil, headerFields: ["Content-Type": "application/json"])!
+            return (Data(body.utf8), response)
+        }, enabled: { true }, current: { $0 }, validate: { _ in })
+        do {
+            _ = try await client.resolve(for: request(home: "Kuwait", away: "Syria", sport: "football"), now: kickoff)
+            XCTFail("Expected the current source status to veto the stale search result")
+        } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .matchNotFound) }
+        XCTAssertEqual(fetched.value.filter { $0.contains("/meta/") }.count, 1)
+        XCTAssertFalse(fetched.value.contains { $0.contains("/stream/") })
+    }
+
     func testWBBLShortNamesMatchOnlyUnambiguousCities() throws {
         XCTAssertEqual(Client.searchTerms("Sydney Thunder Women", "Perth Scorchers Women"),
                        ["Perth Scorchers", "Perth Scorchers Women", "Sydney Thunder", "Sydney Thunder Women"])

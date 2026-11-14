@@ -174,17 +174,7 @@ enum ReviewedSportsFixtureMatcher {
     /// listing must match exactly; an id whose own rows disagree is skipped,
     /// without vetoing the other listings.
     nonisolated static func selectAll(for request: RequestIdentity, from candidates: [Candidate]) -> [Int] {
-        let grouped = Dictionary(grouping: candidates, by: \.metadataID)
-        var chosen: [Int] = [], seen = Set<String>()
-        for index in candidates.indices {
-            let candidate = candidates[index]
-            guard let identity = candidate.identity, identity.sport == request.sport, identity.pair == request.pair,
-                  abs(identity.kickoff.timeIntervalSince(request.kickoff)) <= 15 * 60,
-                  grouped[candidate.metadataID]?.allSatisfy({ $0.identity == nil || $0.identity == identity }) == true,
-                  seen.insert(candidate.metadataID).inserted else { continue }
-            chosen.append(index)
-        }
-        return chosen
+        matchingIndices(for: request, from: candidates).accepted
     }
 
     nonisolated static func pairLabel(_ pair: [String]) -> String {
@@ -203,26 +193,29 @@ enum ReviewedSportsFixtureMatcher {
     nonisolated static func select(
         for request: RequestIdentity, from candidates: [Candidate]
     ) -> Selection {
-        let grouped = Dictionary(grouping: candidates, by: \.metadataID)
-        let groupedTargets = Dictionary(grouping: candidates, by: \.effectiveID)
-        let matches = candidates.indices.filter { index in
-            guard let identity = candidates[index].identity else { return false }
-            return identity.sport == request.sport && identity.pair == request.pair
-                && abs(identity.kickoff.timeIntervalSince(request.kickoff)) <= 15 * 60
+        let matches = matchingIndices(for: request, from: candidates)
+        if let first = matches.accepted.first { return .matched(first) }
+        return matches.hadMatch ? .conflicting : .missing
+    }
+
+    /// Both entry points use the same ownership proof, including unreadable siblings.
+    private nonisolated static func matchingIndices(for request: RequestIdentity, from candidates: [Candidate])
+        -> (accepted: [Int], hadMatch: Bool) {
+        let byListing = Dictionary(grouping: candidates, by: \.metadataID)
+        let byTarget = Dictionary(grouping: candidates, by: \.effectiveID)
+        var accepted: [Int] = [], seen = Set<String>()
+        var hadMatch = false
+        for (index, candidate) in candidates.enumerated() {
+            guard let identity = candidate.identity, identity.sport == request.sport,
+                  identity.pair == request.pair, abs(identity.kickoff.timeIntervalSince(request.kickoff)) <= 15 * 60 else { continue }
+            hadMatch = true
+            guard candidate.effectiveID == identity.effectiveID,
+                  byListing[candidate.metadataID]?.allSatisfy({ $0.identity == identity }) == true,
+                  byTarget[candidate.effectiveID]?.allSatisfy({ $0.identity == identity }) == true,
+                  seen.insert(candidate.metadataID).inserted else { continue }
+            accepted.append(index)
         }
-        // A listing whose own id rows disagree about the fixture is skipped;
-        // it no longer vetoes the other listings. Several consistent listings
-        // of the same game (one per upstream feed) are normal, not a conflict:
-        // the first is returned here, and selectAll returns every one.
-        let consistent = matches.filter { index in
-            let candidate = candidates[index]
-            guard grouped[candidate.metadataID]?.allSatisfy({ $0.identity == candidate.identity }) == true,
-                  let target = candidate.identity?.effectiveID,
-                  groupedTargets[target]?.allSatisfy({ $0.identity == candidate.identity }) == true else { return false }
-            return true
-        }
-        if let first = consistent.first { return .matched(first) }
-        return matches.isEmpty ? .missing : .conflicting
+        return (accepted, hadMatch)
     }
 
     nonisolated static func sportKey(_ raw: String) -> String {
