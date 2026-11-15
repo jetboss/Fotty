@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-11T10:47:41.365286+00:00
-Source digest: 5808dfb7b72a9e70253102beef6fb29ed189fb46282d748eeacf0e0531b3de29
+Generated: 2026-11-14T04:25:05.274071+00:00
+Source digest: baf70e50303486678c00427ff6de237affc45b5e8f3f8abdc8410ce718914a45
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,11 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-10 Nov: normal Jet **265** installed; clear stumps/break labels, neutral icons and player status. 94 focused tests and signed Release pass; Home/details/scorecard stumps verified on Jet. Highfly Premium remains configured/enabled from264; live test pending resumed play and a fresh delivery (latest response Streams Unavailable). [Receipt](../testing/fotty-source-research-2026-11-10/jet265-cricket-status.json). Pengu/StreamNexus review-only. Preserve discovery/undeployed Worker edits. Phone/FPL/multi untouched; no TestFlight. Alerts dashboard-only. History below.
+14 Nov: [Jet 324 shared stream acceptance](../testing/fotty324-shared-admission/README.md): common delivery policy, per-entry accounting and separate selection ledgers. 2,678 tests passed, 12 skipped; signed normal 324 installed on Jet. Watch offered 26 choices (HF7/7, CS6/8, PP13/14; CNC unread). HF1 showed wrong rugby; HF2 held correct Vegas–Nashville 92s/zero stalls and recovered after a later failure chain. Programme mismatch cause remains unproven. No phone/FPL/multi/TF changes.
+
+13 Nov history: [323 providers](../testing/fotty323-provider-watch/README.md), [322 CNC](../testing/fotty320-cnc-football/README.md), [319 Watch/Retry](../testing/fotty318-watch-availability/README.md).
+
+12 Nov: Jet 317 fixed the relay deadlock and showed Curaçao–Panama at 0–0 in the 86th minute. Jet 316 fixed Highfly search. Internal TestFlight 287. Dashboard-only alerts. [Earlier Jet checks](../testing/fotty317-football-home-and-relay/README.md).
 
 ## Product and release baseline
 
@@ -25,11 +29,7 @@ Receipt:releases/Fotty-2.0.1-206.md.
 
 - Owner prioritizes working backup supply over extra alert/email work. Existing
   monitoring remains active; getfotty.com and direct email remain unavailable/OFF.
-- Retained plan through4Nov16:15Tobago is bounded PL/UCL/supported-cricket and focused
-  PiP qualification, fresh eligible fixtures/freeJet only. Phone/FPL/multi/
-  TestFlight remain excluded. Never reuse ended match pins.
-- 187Cup fullscreen/90s passed; originalPiP failed.192channelPiP is separate.
-  History:testing/fotty187-broadcast-reliability/ and fotty-resilience-2026-10-29/.
+- The 4 November live campaign is expired. Its pending gates are historical, not authority for a new recurring check. Use fresh eligible fixtures and current owner authority; never reuse ended match pins. History: testing/fotty187-broadcast-reliability/ and fotty-resilience-2026-10-29/.
 
 Audit:audit/Fotty-November-2026-Baseline.md.
 
@@ -67,11 +67,9 @@ awaiting UI Automation approval before methods ran. Owner action requested.
 43FPL/multi source hashes+11stable preferences/source choices unchanged. No phone,
 cloud/Git/TF work. Receipt:testing/fotty-watch-retry-2026-11-01/.
 
-## Fotty2.5 retained gates
+## Earlier optional work
 
--186 optional last-live/Search/interests/context/quality/report/reminders:361units and signed app/widget passed. Jet basic [REDACTED] passed; burst query, decoded programme, quality/Report, sync/widget/PiP remain open. Route:testing/fotty25-remaining-2026-10-29/Plan.md.
-- Optional score-context patch70e8b10 passed215backend/181watchdog; rebase/review
-  on83b1a44 before separate activation. It remains undeployed.
+Fotty2.5 optional gates and undeployed score-context work are historical: testing/fotty25-remaining-2026-10-29/Plan.md and Decisions-Log.md.
 
 ## Retained source baseline
 
@@ -882,6 +880,111 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-14 — Shared acceptance and auditable exclusions, Jet 324
+
+Replace provider-specific URL-shape guesses with shared delivery safety and actual guarded HLS verification. Every observed entry receives a disposition; partial, failed and cancelled lookups retain their evidence and unread responses stay unknown. Separate cache/binding/final-selection receipts from raw offers. Shared optional-header/DRM decoding, duplicate handling, caps and response-role propagation apply across active adapters; fixture/squad/date and transport boundaries remain. Score808 page-only discovery has no raw stream count. Preserve pre-existing source changes and retired lanes.
+
+The consolidated native suite passed 2,678 tests with 12 opt-in skips; one signed normal build 324 was installed on Jet. Watch displayed 26 choices, with all known offers accounted for. HF2 showed correct Vegas–Nashville for 92 seconds without a recorded stall. HF1 showed rugby; it is not a correct-programme pass. Its one matched listing/seven delivered entries do not establish whether upstream mapping or parsing caused the wrong picture. A later real HF1 stall recovered via unsuccessful PP1/CS1 attempts to HF2 in 15.630 seconds after the failure record. No independence, audible-audio or Pause/Play pass is claimed. See [324 evidence](../testing/fotty324-shared-admission/README.md). Phone/FPL/multi/source opt-ins unchanged; no cloud, Git publication or TestFlight.
+
+## 2026-11-13 — Preserve independently matched listings through Watch
+
+A disputed listing vetoes that identity. A clean listing for the same fixture can still supply playback. Discovery, selection and cached choices use the same provider-label numbering. Reviewed TV retains distinct approved station deliveries. Owner Status reports offered entries, admitted choices and successful Watch taps separately, grouped by installed build. Local merge and physical evidence are in the [build 323 receipt](../testing/fotty323-provider-watch/README.md).
+
+## 2026-11-13: Account sources judged on safety and the right game, not data shape
+
+Owner approved after repeated stream rejections. Highfly and PenguPlay (the owner's own paid add-ons) now share `AccountSourceDeliveryPolicy`: a stream is used when it is HTTPS, a public destination, has no sign-in in the link, is not a replay server and is not a file or page. Capability rules stay: DRM rows, credential headers and Highfly's own-domain message streams are skipped. Host lists, link paths, query names, row fields, id schemes, description layouts and manifest wording no longer refuse anything; a failed search, page, live catalog, listing or details read drops only itself (`supplementary_failures`). Fixture matching (teams, sport, squad, kickoff) is unchanged and remains the strict gate. Account sessions record `delivery_host`; Owner Status shows streams offered vs used per source with the commonest reason. Public sources (CommunitySports, Plavio, CNC) keep their strict rules. Commits 0bcc8cf, d86571a; 2,602 tests on the commits alone, 2,628 with the other session's uncommitted edits on top. Jet 315–316: Highfly used 3 of 5 streams (the 2 skipped were replays) and hockey started in 6.2 s; one PenguPlay refusal on 315 predates reason labels and has not recurred. Built in a separate worktree because another session had uncommitted edits in the same files; that session's 60-file working state was snapshotted to `saved/uncommitted-2026-11-13`, three-way merged and left uncommitted on top.
+
+## 2026-11-13 CNC verifies football from event metadata
+
+CNC LivXow and PlayZTV publish mixed-sport catalogs. Verify the two teams, squad, competition and full UTC kickoff against the official fixture before treating a row as football or requesting deliveries. Jet searches per match. The shared collector can check simultaneous fixtures within its existing network budget. Distinct IDs can legitimately represent the same match. A lookup limit means there are more offers to check. Only contradictory identity evidence invalidates an offer. A listed server count can still resolve to no compatible stream. [Grenada Watch verification](../testing/fotty320-cnc-football/README.md).
+
+## 2026-11-13 Match Watch checks the provider's current delivery
+
+Match discovery uses registry associations to locate the fixture, then asks each eligible enabled provider for current stream options. A single failed provider cannot override another playable choice. When there are zero choices, preserve whether some or all providers were unreachable. Retry rechecks the original fixture and current opt-ins. [Jet verification and regression cases](../testing/fotty318-watch-availability/README.md).
+
+## 2026-11-12: Football scores on Home and the PP1 playback deadlock
+
+Two Jet termination reports implicated a synchronous diagnostic defaults write inside the relay lock. Keep relay observations in memory under lock and export only through the existing snapshot. Preserve full signed segment URLs; an unknown query shape or a CoreMedia rejection does not prove equivalence. Live scores/clocks come from the same fresh, exact official fixture; missing values are not guessed. [Code-path, physical and production checks](../testing/fotty317-football-home-and-relay/README.md).
+
+## 2026-11-12 Highfly team-search timeout isolation
+
+A timeout on the second participant search previously abandoned exact candidates already returned by the first. The adapter now stops paging the timed-out term, retains earlier rows, and continues through the existing participant and catalog lookups. Cancellation still stops discovery. Exact fixture matching, metadata confirmation and stream admission still run.
+
+All 30 Highfly Catalyst tests passed, including three new cases covering a second-team timeout, both team searches timing out before a live-catalog hit, and cancellation. On the private signed Jet 316 build, Home → Bruins–Canadiens → Watch automatically selected HF5. The NHL scoreboard showed Montréal at Boston live and the broadcast picture showed both teams. The iPad recorded 6,189 ms from tap to picture, 92,544 ms of native media advance over 92,544 ms, zero stalls and zero failovers. The live lookup returned five eligible Highfly deliveries. The timeout was injected in regression tests and did not occur in the live Watch session.
+
+## 2026-11-12: Highfly finds live games; PenguPlay dropouts fixed; Apple TV-style player (Jet 303–312)
+
+- Highfly: the dated listing and search only carry games that have not started (span 1–8 h ahead), so a miss now also reads the account's live catalog and then the listing. Live rows are "title + live marker" with no date; while the official fixture is inside its sport's live window (10 min before kickoff to 2.5–5 h after; never cricket) the official kickoff stands in. Exact pair, sport and squad still decide. Meta rows may differ from catalog rows only in description/releaseInfo. Jet 310: hockey 5/7 and football 1/3 streams admitted (recap-host links rejected); HF1 decoded live football in 3.4 s and 2.9 s. Commits 3bfa9f4…baff84d.
+- PenguPlay: DaddyLive segments come through its own relay host with one rotating `psig` query (not `token`), so renewal never engaged. The segment key now accepts that shape on that host only (22c4e95). Jet 311: PP1 played 92 s with 0 stalls (previously died at 15–30 s).
+- Player: owner rejected three busier concepts and chose an Apple TV-style black stage (4589347, fa327bb). One layout for iPhone and iPad: full-bleed black, hidden status bar, dim icon chrome in the margins that fades after 4 s, one match line under the picture (badges, score, minute) plus the source; info opens on demand (side panel ≥900 pt wide, sheet otherwise); Add match, quality, PiP and report live in options. Chrome never overlays the retained media. Jet captures: native visually inspected (connecting state only); live picture and iPhone not yet inspected. Owner: "Looks good". Physical UI tests updated for the new layout and compile for device.
+
+## 2026-11-11: Internal TestFlight 3.0.0 (287)
+
+Owner approved. The build carries the Highfly two-step setup with Paste, the PenguPlay/StreamNexus removal (retired keychain links deleted at launch), about 80 more country flags, and everything in 285. The visual gate passed on the pinned Xcode 27B52. Pre-build snapshot `backups/release-source/3.0.0-287` (commit and source c0d0124 9b335787…4b73fa); the compare passed before upload. App and widget are both 287, signatures verify, and both dSYMs are present. Uploaded with `tools/testflight-upload.sh`; "Bug fixes" set and 287 added to Fotty Internal Smoke, notifying testers. Archive kept in Xcode Organizer.
+
+## 2026-11-11: Highfly two-step setup with Paste (Month 2 "add your source")
+
+The Highfly setup screen is two numbered steps: open Highfly and copy the Install link or access code, then tap the system Paste button, which fills the link and adds the source in one tap (no paste-permission prompt). Typing remains as a fallback; the leftover review-only copy is removed. A read-only physical UI test passed on Jet 286 and an evidence screenshot shows both steps, Paste, the typed field and "Added · enabled". The roadmap's "a new tester connects Highfly unaided" still needs a real tester; not yet observed. About 80 more country flags (associate cricket and smaller football nations) were added, and the duplicate key that would crash at launch was caught before any build.
+
+## 2026-11-11: Watchdog redeployed without StreamEx probes (two deploy incidents, both fixed)
+
+Owner approved the deploy. The first deploy (`2026-11-11.streamex-retired-1`) made every watchdog request fail with Cloudflare 1101: today's stored request budget held counts for the retired StreamEx sources, and `validateRuntime` rejected counts for sources not in PROVIDERS. Rolled back to ce08e047 within minutes; fixed in 33778f3 (retired-source counts are ignored) with a runtime regression test seeding a confirmed StreamEx incident and same-day StreamEx counts. The redeploy then left the watchdog idle ("activation pending"): `wrangler.toml` ships `FOTTY_WATCHDOG_ENABLED = "0"` and no `FOTTY_WATCHDOG_ACTIVATED_AT`, while the live version had them set outside the file. Redeployed as d0b70f91 with `--var FOTTY_WATCHDOG_ENABLED:1 --var FOTTY_WATCHDOG_ACTIVATED_AT:2026-10-11T11:14:52.000Z` (owner email stays off). A full run completed at 23:21 UTC; all 73 stored incidents (8 StreamEx) remain readable. **Future watchdog deploys must pass those two `--var` values.** Playback Worker settings were checked against the pre-session version f5ff757f: only the intended T10 and international-football switches were added.
+
+## 2026-11-11: Month 2 start: dormant sources removed (watchdog deploy pending)
+
+edfbb7f. App: `AccountSourceSetup` keeps only Highfly. PenguPlay and StreamNexus were review-only entries with no adapter and are removed; any link they left in the keychain is deleted once at launch. Watchdog: StreamEx (retired 9 Nov) is no longer probed, saving 3 reads per run, and its closure/catalog parsers and tests are deleted. The three sources stay admitted as inactive so persisted incidents stay valid; the live watchdog holds confirmed StreamEx redirect incidents, and validateLedger rejects unadmitted sources. Configuration revision `2026-11-11.streamex-retired-1`. Tests: watchdog 201 + 23; app setup 29; dry-run build OK. Not deployed: the watchdog deploy was stopped for owner approval. When deploying, set the deploy copy's `WORKER_SOURCE_VERSION` to the live playback version (`2026-11-11.fox-t10-4`); the repo copy is stale.
+
+## 2026-11-11: Internal TestFlight 3.0.0 (285)
+
+Owner approved. The build carries the Watch outcome export, flags for women's and age-group national sides, paused-cricket wording, finished-today rows under Today so far, and everything in 283. The visual gate passed on the pinned Xcode 27B52 first. Pre-build snapshot `backups/release-source/3.0.0-285` (commit and source 766aa8f cf348996…833413); the compare passed before upload. App and widget are both 285, signatures verify, and both dSYMs are present. Uploaded with `tools/testflight-upload.sh`; "Bug fixes" set and 285 added to Fotty Internal Smoke, notifying testers. Archive kept in Xcode Organizer.
+
+## 2026-11-11: Watch outcome export, women's flags, paused-cricket wording, finished-today rows, T10 start cadence (Jet 284)
+
+- Owner Status "Export summary…" shares per-competition Watch totals as plain text (no fixture, source, URL or account detail). This completes the Month 1 outcome-record item.
+- National sides keep their flags for any squad ("Uganda Women", "India U19", "Pakistan A"); clubs never match a country.
+- Paused cricket shows "Resumes next day", "Resumes after the break" or "Waiting for play" instead of "No stream listed".
+- Home "Today so far" lists verified matches that finished today in the sports Home is showing, read-only. The playback catalog, Search and Matchday are unchanged (61cf951).
+- Worker `2026-11-11.fox-t10-4` (be1ed997, e6acfbb): T10 match 12 reached its start while ESPN still said "pre", so its status was "unknown" and the cohort fell to the 4-hour cadence, leaving the live match unseen for over an hour. Fixtures from 30 minutes before to 4 hours after their start now keep the 2-minute cadence and bypass a stored longer wait. The feed showed the match live at 17:09 UTC.
+- Seen on Jet 284: stumps row "Resumes next day"; Namibia Women and USA Women flags; finished T10, Victoria T20I, WBBL and a friendly under Today so far; Arabian Aces v Yas Lions as the Live now hero with Watch at 17:17 UTC. It appeared after one failed app registry download at 17:11 recovered on the next 5-minute attempt.
+
+## 2026-11-11: PR 133 squash-merged to main; T10 season-end fix deployed
+
+PR 133 merged as 9243164 (tree equals branch head 6663c15) after three Codex findings were fixed and resolved: the T10 offseason coverage receipt now uses the fresh attempt time (an expired receipt would have made the app reject the whole cricket snapshot after November), a covered T10 cohort can supply the cricket fallback, and the probe resolves variants against the final redirected URL. The merge job proceeded while the non-required `ios` check was still running (a network timeout read as "no failures"); that run later passed, so all checks on the merged code are green. Worker `2026-11-11.fox-t10-3` (b407cd8f) deployed with the season-end fix under the owner's standing "fix it without asking" rule; the live feed showed 95 fixtures including 20 T10. The cloud playback probe now runs from `main` on its schedule.
+
+## 2026-11-11: Cloud playback probe and green watchdog check (Month 1 roadmap)
+
+New `tools/playback-probe.mjs` and the `Cloud Playback Probe` workflow. For each Premier League, Champions League and cricket match the live registry lists, the probe asks the public add-on source (CS, AS, CNC, FS) for its stream descriptor and checks the HLS playlist is playable (media playlist with segments, or a master whose first variant is). Segments are never downloaded, and only Origin/Referer/User-Agent are sent. Highfly and guide rows are not probed from the cloud. Hourly 10:12-23:12 UTC, plus a 23:55 UTC daily report per competition and source (checks, playable share, median time to playlist, other outcomes). The repository is public, so reports carry no URLs, IDs, headers or titles. Scheduled runs start only once the branch reaches `main`. First live run, 16:33 UTC: cricket/CS 1 of 1 playable in 6.6 s. Commit 7941985.
+
+Separately, the `observation-policy` (Watchdog CI) failure was a stale test: its fake network answered Plavio at hd.plavio.site, while the observer, the app and the Worker use addon.plavio.site with id community.plaviohd.private. Test fixed in 165127f; observer unchanged. The watchdog still probes the retired StreamEx sites; removing them belongs with the Month 2 dormant-source cleanup.
+
+## 2026-11-11: Internal TestFlight 3.0.0 (283)
+
+Owner approved. The build carries the steady live-cricket cadence (2-minute polling while live), the official T10 crests on dark plates, the 6 pt badge spacing and the T10 Fox programme links. Pre-build snapshot `backups/release-source/3.0.0-283` (commit dae0876, source 9d5fc538…6445f5); the compare passed before upload. Signatures verify and both dSYMs are present. Uploaded with `tools/testflight-upload.sh` (Xcode account signing). The API key set "Bug fixes" and added 283 to Fotty Internal Smoke, notifying testers, with no export-compliance prompt. Archive kept in Xcode Organizer.
+
+## 2026-11-11: Steady live cricket links; official T10 crests on dark plates; 6 pt badge spacing (Jet 282, TestFlight 279)
+
+The T10 Live now hero flickered because the app accepts a Fox programme link only while its cricket receipt is under 10 minutes old, and the receipt could be about 5 minutes old at the Worker plus about 5 minutes of app polling. While any cricket fixture is live, the app now polls every 2 minutes and the Worker's T10 cohort refreshes every 2 minutes (Worker `2026-11-11.fox-t10-2`, 18baa940). The 10-minute rule is unchanged. The six T10 franchises use their official abudhabit10.com crests (Framer CDN); ESPN's cricket logo URLs return 404 and TheSportsDB has none. The gold and white crests vanished on light rows, so `TeamBrandService.darkPlateBadgeURLs` crests sit on a fixed dark plate. The two badges in Home rows and match cards now have 6 pt between them, up from 2-3 pt. Five Home visual references were rebaselined (spacing only; receipt visual-review-2026-11-11-b, gate passes on 27B52). Seen on Jet 282 by screenshot: Aces and Lions crests legible with spaced badges. TestFlight 3.0.0 (279) reached Fotty Internal Smoke with no compliance prompt (Info.plist key works), but it predates these fixes.
+
+## 2026-11-11: Link Fox Cricket's guide to the T10; restore the WBBL Fox link (Worker deployed, app on Jet 279)
+
+Fox changed its guide format: the WBBL episode line now reads "S2024 , Ep14 , Stars v Heat", which silently stopped every live WBBL Fox link. It titles the T10 "Live: Abu Dhabi T10 League: Aces v Lions" and cuts long titles at 40 characters. A Fox listing now resolves when its episode line carries a known pair (optionally after season/episode) and the title is an exact leading part of "Live: <competition>: A v B". A Fox T10 programme links only to the unique, fresh, live ESPN T10 fixture of the same pair (3-hour window, no ordinal). The app (d957658) accepts T10 Fox links, and media still comes only from the user's enabled AU Fox Cricket channel source. Worker abec37e deployed as `2026-11-11.fox-t10-1` (cec50591) from a clean copy (529 tests); app suites pass (253). Live registry at 15:11 UTC: Fox programme listed for Royal Desert Champions v UAE Bulls. Jet 279 installed (60 s hold); the owner confirmed the match returned as the Live now hero with Watch. T10 badges stay as monograms: ESPN's cricket logo URLs return 404 and TheSportsDB has no entries.
+
+## 2026-11-11: Carry the Abu Dhabi T10 (Worker deployed)
+
+Owner approved. Fox Cricket and Willow showed a live Abu Dhabi T10 match that Fotty did not list, because no cricket schedule covered the league. A new isolated cohort reads ESPN's public scoreboard (league 18522) by month: ESPN event and team IDs, match numbers, and the feed's live, finished or abandoned state. TBA play-offs are skipped until named. It is season-gated to November 2026 behind `CRICKET_T10_ENABLED`, and a failure keeps accepted rows without touching ICC, CPL or WBBL. The app already accepts any cricket competition and the T10 format, so no app update is needed. Commit 7ce6ded, deployed as `2026-11-11.abu-dhabi-t10-1` (ab9af64b) from a clean copy of HEAD; the other session's uncommitted Worker edits stayed undeployed. The live feed showed 20 T10 fixtures at 14:35 UTC, with match 11 live. Jet 278 picked it up at its next 5-minute cricket refresh (14:38 UTC), with no app change, and the owner confirmed the match shows on Jet. Not done: linking Fox Cricket and Willow programmes to T10 fixtures.
+
+## 2026-11-11: Internal TestFlight 3.0.0 (278): broadcast registry fix and national-team matching
+
+Owner approved. The build carries 0a45e84 (registry no longer rejected over retired StreamEx/StreamVix coverage) and c244a5e (national-team spelling aliases). Pre-build snapshot `backups/release-source/3.0.0-278` (commit 8bc12ad, source a2ca159a…3b25d); the compare passed before the upload. The archive's signatures verify. Uploaded through the Xcode account: the App Store Connect API key is refused for distribution signing, and the upload script now defaults to the account (113bf42). The API key set the note "Bug fixes", but it cannot answer export compliance (403). The owner answered "no non-exempt encryption" in App Store Connect, as for every earlier build, and 278 was then added to Fotty Internal Smoke, notifying its testers. `ITSAppUsesNonExemptEncryption = NO` is now in Info.plist (82e791e) for future builds. Archive kept in Xcode Organizer.
+
+## 2026-11-11: Broadcast registry rejected since 9 Nov (StreamEx/StreamVix retired in app only)
+
+On 9 Nov the app removed StreamVix and StreamEx, including from `BroadcastRegistrySnapshot.providerCodes`, but the Worker still publishes their coverage rows. A single unknown provider code rejected the whole registry, so every refresh on builds since then (TestFlight 276 included) failed validation, and Watch lost all registry listings: 858 broadcasts and 72 links at 13:50 UTC. Found from Jet 277's private diagnostics (`broadcast_registry_refresh` failures every few minutes). Fix 0a45e84: rows for providers the app does not support are dropped before validation, and the remaining rows keep every existing check. Jet 278: 90 s hold passed and no registry failure was logged (only failures are logged; 277 logged one 3 s after launch). Testers on 276 stay affected until a new upload, or until the Worker stops publishing the two retired codes (needs an owner-approved deploy; the other session's uncommitted Worker edits stay undeployed).
+
+## 2026-11-11: Match national teams across source spellings (source only)
+
+Highfly and the other reviewed sources matched a fixture only when both names normalized identically, so differently spelled national sides (Türkiye/Turkey, Czechia, Côte d'Ivoire, IR Iran, Korea Republic) never found their streams. The whole-name alias list that only catalog admission used is now a shared `NationalTeamAliases` (in `CatalogPlaybackIdentity.swift`), extended with common FIFA/ISO variants, and `ReviewedSportsFixtureMatcher.teamKey` applies it after the club catalog. Whole names only. Squad qualifiers stay part of identity, and "Ireland" means the Republic only in football. Focused Catalyst tests pass (matcher, catalog identity, Highfly, CNC). Not installed on a device and not seen against Highfly's live catalog; the Highfly link is device-only on Jet. Commit c244a5e.
 
 ## 2026-11-11: Internal TestFlight 3.0.0 (276), first upload since 206
 

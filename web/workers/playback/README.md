@@ -1,17 +1,17 @@
 # Fotty playback Worker
 
-Edge API so **getfotty.com** (static FTP) can play the same StreamEx / VipLeague embeds the iOS app plays.
+Edge API for the Fotty iOS app: catalog metadata, the shared broadcast
+registry, official fixtures, football scores and the FPL coach.
 
-iOS can use its native local proxy. Browser Watch stays on the third-party
-provider origin; the Worker supplies source metadata and redirects only.
+The legacy website stream lookup (`/api/live/streams`) and embed redirect
+(`/api/embed/player`) were retired on 2026-11-08; both now return 404.
 
 ## Routes
 
 | Path | Role |
 |------|------|
 | `GET /api/live/catalog` | Versioned, bounded catalog metadata from the reviewed provider family; independent lookup remains separate |
-| `GET /api/live/streams` | Catalog stream variants (echo/delta/…) |
-| `GET /api/embed/player` | Validate the requested source identity and redirect to the provider origin |
+| `GET /api/live/broadcasts` | Cloud broadcast registry: a freshness hint for the app, collected on a live-window cadence that spends each provider's daily read budget during matches |
 | `POST /api/fpl/coach` | Rate-limited official FPL evidence check and structured DeepSeek proxy |
 | `GET /api/football/matches` | Server-keyed football-data.org schedule and score fallback |
 | `GET /api/football/live` | Optional Premier League live score/minute proxy via API-Football |

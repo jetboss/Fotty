@@ -45,7 +45,7 @@ struct MatchHubView: View {
 
                     if let event = viewModel.playerEvent,
                        MatchPlaybackFeedback.shared.notReadyIDs.contains(event.id) {
-                        Button("No stream found yet · Retry") { viewModel.watchLive() }
+                        Button("No stream found yet · Retry") { viewModel.watchLive(freshDiscovery: true) }
                             .disabled(viewModel.isFindingStream)
                             .font(FottyTheme.typeMeta)
                             .foregroundStyle(FottyTheme.accentText)
@@ -143,7 +143,7 @@ struct MatchHubView: View {
                 if showModalDismissButton { dismiss() }
             }
         }
-        .alert("Playback Error", isPresented: Binding(get: { viewModel.streamError != nil }, set: { _ in viewModel.streamError = nil })) {
+        .alert("Broadcast unavailable", isPresented: Binding(get: { viewModel.streamError != nil }, set: { _ in viewModel.streamError = nil })) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(viewModel.streamError ?? "Unknown error")

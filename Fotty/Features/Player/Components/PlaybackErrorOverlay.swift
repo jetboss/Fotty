@@ -8,6 +8,7 @@ struct PlaybackErrorOverlay: View {
     let sourceRecoveryButtonTitle: String
     let dismiss: () -> Void
     let isCompact: Bool
+    let retriesDiscovery: Bool
     let onRetry: () -> Void
     let onShowBroadcastSources: () -> Void
     @State private var showsFeedback = false
@@ -40,7 +41,7 @@ struct PlaybackErrorOverlay: View {
                     Button {
                         onRetry()
                     } label: {
-                        Label(isCompact ? "Retry" : "Try this source again", systemImage: "arrow.clockwise")
+                        Label(isCompact || retriesDiscovery ? "Retry" : "Try this source again", systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(FottyPrimaryButtonStyle())
                     .accessibilityIdentifier("playback-error-retry")

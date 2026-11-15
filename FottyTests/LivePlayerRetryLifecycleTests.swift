@@ -841,7 +841,8 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         model.setSingleSourceDiscoveryActive(false)
         model.setSingleSourceDiscoveryActive(false)
         XCTAssertEqual(model.playbackState, .failed)
-        XCTAssertNotNil(model.error)
+        XCTAssertEqual(model.errorTitle, "No playable stream right now")
+        XCTAssertEqual(model.error, "None of the available streams could play this match. Retry to check for a working stream.")
         XCTAssertFalse(model.isCheckingAdditionalSources)
         XCTAssertEqual(discoveryRecords("terminal_failure", sources: initial).count, 1)
         let terminalAttempt = model.loadRequestID, terminalSource = model.activeSource?.id
@@ -1153,6 +1154,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
                                     reason: "Broadcast is unavailable")
         for _ in 0..<20 { await Task.yield() }
         XCTAssertEqual(model.playbackState, .failed)
+        XCTAssertEqual(model.errorTitle, "No playable stream right now")
         XCTAssertTrue(lookups.requests.isEmpty)
         XCTAssertFalse(LivePlayerViewModel.webFailureCanAwaitFreshDelivery(failureKind: .stalled,
             reason: "Embedding disabled"))

@@ -349,7 +349,11 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
         && Date.parse(scope.expiresAt) > time && time - Date.parse(scope.observedAt) <= BROADCAST_REGISTRY_LIMITS.sourceLifetime;
       if (!["available", "partial"].includes(scope?.status) && !retained) fail("needsVerification", "source-unavailable");
       if (Date.parse(broadcast.expiresAt) <= time || Date.parse(broadcast.observedAt) > time + 5 * minute) fail("needsVerification", "stale-source");
-      if ((!currentListing && broadcast.verification !== "dated") || !broadcast.start) fail("needsVerification", "missing-date");
+      if ((!currentListing && broadcast.verification !== "dated") || !broadcast.start) {
+        const noCNCServers = broadcast.providerCode === "cncsports" && !!broadcast.start && broadcast.issues?.includes("unverified-fixture");
+        fail("needsVerification", noCNCServers ? "unverified-fixture" : "missing-date");
+      }
+      if (broadcast.providerCode === "cncsports" && broadcast.start && broadcast.start !== fixture.start) fail("conflicting", "time-conflict");
       if (broadcast.competitionID && fixture.competitionID && broadcast.competitionID !== fixture.competitionID) fail("conflicting", "competition-conflict");
       if (broadcast.squad && fixture.squad && !same(broadcast.squad, fixture.squad)) fail("conflicting", "squad-conflict");
       if (fixture.sport === "cricket") {

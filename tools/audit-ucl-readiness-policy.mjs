@@ -8,21 +8,12 @@ export const supportedUCLSourceCodes = Object.freeze([
   "alpha",
 ]);
 
-export function usableWorkerVariantCount(payload) {
-  const variants = Array.isArray(payload)
-    ? payload
-    : payload?.streams || payload?.variants || payload?.data || payload?.result || [];
-  if (!Array.isArray(variants)) return 0;
-
-  return variants.filter((variant) => {
-    if (!variant || typeof variant !== "object") return false;
-    const provider = String(variant.provider || "").trim().toLowerCase();
-    const heatTier = String(variant.heatTier || "").trim().toLowerCase();
-    if (provider === "legacy" || heatTier === "legacy") return false;
-    try {
-      return new URL(String(variant.embedUrl || "").trim()).protocol === "https:";
-    } catch {
-      return false;
-    }
-  }).length;
+// A fixture is ready when the cloud registry lists at least one current link
+// for its exact official identity. Ambiguous, conflicting or expired links do
+// not count; this is metadata readiness, not decoded-playback proof.
+export function listedRegistryLinkCount(snapshot, fixtureID) {
+  if (!snapshot || !Array.isArray(snapshot.links)) return 0;
+  return new Set(snapshot.links
+    .filter((link) => link && link.fixtureID === fixtureID && link.state === "listed")
+    .map((link) => link.broadcastID)).size;
 }

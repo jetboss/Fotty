@@ -105,7 +105,7 @@ function supportedFixtures(code, fixtures) {
   // Activity only changes collection scheduling. It is never admission, LIVE
   // inference or permission to invent a provider route for an unsupported sport.
   if (code === "score808") return fixtures.filter((f) => f.sport === "football");
-  if (code === "cncsports") return fixtures.filter((f) => f.sport === "hockey" && f.competitionID === "nhl");
+  if (code === "cncsports") return fixtures.filter((f) => f.sport === "football" || f.sport === "hockey" && f.competitionID === "nhl");
   if (code === "streamvix") return fixtures.filter((f) => f.sport === "football"
     && ["premier-league", "champions-league"].includes(f.competitionID));
   if (code === "plaviosports") return fixtures.filter((f) => ["football", "cricket"].includes(f.sport));
@@ -116,41 +116,89 @@ function supportedFixtures(code, fixtures) {
   return fixtures;
 }
 
-function cadence(fixtures, now, cost, cap) {
-  const active = fixtures.some((f) => f.status === "live" || Date.parse(f.start) <= now + 30 * minute && Date.parse(f.start) >= now - 30 * minute);
-  const soon = fixtures.some((f) => Date.parse(f.start) > now && Date.parse(f.start) <= now + day);
-  // Spend actual reads, not logical batches. A three-request source cannot
-  // silently acquire one-request cadence or borrow the observer's allowance.
-  return Math.max(active ? 5 * minute : soon ? 15 * minute : 4 * 60 * minute,
-    Math.ceil(day * Math.max(1, cost) / cap));
+// The cloud registry is a hint for the app, not the authority on what exists:
+// its job is to be fresh while matches are on. The daily read ledger is the
+// only accounting, so the cadence spends that allowance inside live windows
+// (30 minutes before kickoff through the expected end) and idles elsewhere.
+const LIVE_FLOOR = 5 * minute, LIVE_LEAD = 30 * minute, SOON_FLOOR = 60 * minute, QUIET_FLOOR = 4 * 60 * minute;
+function expectedDuration(f) {
+  if (f.sport === "football") return 135 * minute;
+  if (f.sport === "hockey") return 3 * 60 * minute;
+  if (f.sport === "cricket") return f.format === "ODI" ? 9 * 60 * minute : f.format === "Test" ? 8 * 60 * minute : 4 * 60 * minute;
+  return 4 * 60 * minute;
+}
+export function liveWindows(fixtures, now) {
+  const windows = [];
+  for (const f of fixtures) {
+    const start = Date.parse(f.start);
+    if (!Number.isFinite(start)) continue;
+    const listedEnd = Date.parse(f.end);
+    let end = Number.isFinite(listedEnd) && listedEnd > start ? listedEnd : start + expectedDuration(f);
+    // Official LIVE status outlasts any duration estimate (extra time, rain, a
+    // long Test day). It keeps the window open; it never opens one by itself
+    // for a fixture whose status is merely scheduled far from kickoff.
+    if (f.status === "live") end = Math.max(end, now + LIVE_FLOOR);
+    windows.push([start - LIVE_LEAD, end]);
+  }
+  windows.sort((a, b) => a[0] - b[0]);
+  const merged = [];
+  for (const w of windows) {
+    const last = merged.at(-1);
+    if (last && w[0] <= last[1]) last[1] = Math.max(last[1], w[1]); else merged.push([...w]);
+  }
+  return merged;
+}
+function overlap(windows, from, to) {
+  return windows.reduce((sum, [a, b]) => sum + Math.max(0, Math.min(b, to) - Math.max(a, from)), 0);
+}
+export function cadence(fixtures, now, cost, cap, spent = 0) {
+  cost = Math.max(1, cost);
+  const uniform = Math.ceil(day * cost / cap), windows = liveWindows(fixtures, now);
+  const active = windows.some(([a, b]) => a <= now && now < b);
+  // Pre-match listings get an hourly look only in the three hours before a
+  // window opens; earlier in the day stays quiet so the live allowance is intact.
+  const soon = windows.some(([a]) => a > now && a <= now + 3 * SOON_FLOOR);
+  if (!active) return Math.max(soon ? SOON_FLOOR : QUIET_FLOOR, uniform);
+  // Pace the remaining UTC-day ledger across the remaining live time today,
+  // after reserving a quiet-cadence trickle for the rest of the day. The
+  // ledger still hard-stops reads; this only decides where they are spent.
+  const dayEnd = Date.parse(iso(now).slice(0, 10) + "T00:00:00.000Z") + day;
+  const liveLeft = Math.max(LIVE_FLOOR, overlap(windows, now, dayEnd));
+  const quietLeft = Math.max(0, dayEnd - now - liveLeft);
+  const remaining = Math.max(0, cap - Math.max(0, spent));
+  const reserve = Math.min(Math.floor(remaining / 2), cost * Math.floor(quietLeft / Math.max(QUIET_FLOOR, uniform)));
+  const liveBudget = Math.max(cost, remaining - reserve);
+  return Math.max(LIVE_FLOOR, Math.ceil(liveLeft * cost / liveBudget));
+}
+function spentToday(budget, now) {
+  return budget && budget.day === iso(now).slice(0, 10) ? budget.count : 0;
 }
 
 function activeReviewedTV(fixtures, now) {
-  return supportedFixtures("reviewedtv", fixtures).some((f) => f.status === "live"
-    || Math.abs(Date.parse(f.start) - now) <= 30 * minute);
+  return liveWindows(supportedFixtures("reviewedtv", fixtures), now).some(([a, b]) => a <= now && now < b);
 }
 function healthyReviewedTVExpiry(source, now) {
   return Math.max(0, ...(source?.records ?? []).filter((r) => r.providerCode === "reviewedtv" && r.verification === "dated"
     && ["available", "partial"].includes(source.scopes?.[r.scope]?.status) && Date.parse(r.expiresAt) > now)
     .map((r) => Date.parse(r.expiresAt)));
 }
-function reviewedTVDemandDue(descriptor, source, fixtures, now) {
+function reviewedTVDemandDue(descriptor, source, fixtures, now, budget) {
   const due = Date.parse(source?.nextAttemptAt ?? "1970-01-01T00:00:00Z"), last = Date.parse(source?.lastAttemptAt);
   if (descriptor.providerCode !== "reviewedtv" || !Number.isFinite(last) || !activeReviewedTV(fixtures, now)
     || source.failures && !healthyReviewedTVExpiry(source, now)) return due;
   // Quiet/soon planning is not a prepaid HTTP reservation. Re-evaluate it when
   // actual admitted demand becomes active, using the fixed collector's maximum
   // three reads (two Willow dates plus one RSS), inside the SAME daily ledger.
-  // Existing spend-ahead debt remains binding; no old reads are refunded.
+  // Reads already spent today shrink the remaining live allowance.
   return Math.max(source.kickoffCheckpoint?.postponedUntil ?? 0,
-    Math.min(due, last + cadence(supportedFixtures("reviewedtv", fixtures), now, 3, descriptor.maxRequestsPerDay)));
+    Math.min(due, last + cadence(supportedFixtures("reviewedtv", fixtures), now, 3, descriptor.maxRequestsPerDay, spentToday(budget, now))));
 }
 
 function checkpointPlan(source, fixtures, now, ordinaryDue, cap) {
   if (source?.failures || !Number.isFinite(ordinaryDue)) return null;
   const prior = source?.kickoffCheckpoint;
   // One checkpoint groups every fixture with the same literal accepted UTC
-  // kickoff. Do not advance another slot until the previous advance is repaid.
+  // kickoff and is taken once per kickoff.
   if (prior && prior.postponedUntil > now) return null;
   const start = [...new Set(fixtures.map((f) => Date.parse(f.start)))].sort((a, b) => a - b)
     .find((at) => at > now && at <= now + 5 * minute && (!prior || at > prior.start));
@@ -158,12 +206,10 @@ function checkpointPlan(source, fixtures, now, ordinaryDue, cap) {
   if (ordinaryDue <= now) return { start, takenAt: now, ordinaryDue: now, postponedUntil: now };
   const last = Date.parse(source.lastAttemptAt), interval = ordinaryDue - last;
   if (!Number.isFinite(last) || last > now || interval < 5 * minute || interval > 8 * day) return null;
-  // Move the existing next background cycle into this pre-kickoff window, then
-  // skip its old slot. This is spend-ahead debt, not another repeating cadence.
-  // A crash before settlement must conservatively charge a full eight-read
-  // slot. The completed cycle settles this using its actual durable reads.
-  return { start, takenAt: now, ordinaryDue,
-    postponedUntil: ordinaryDue + Math.max(interval, Math.ceil(day * 8 / cap)) };
+  // Pull the next cycle into this pre-kickoff window. There is no repayment
+  // gap afterwards: the reads land in the durable daily ledger, and the live
+  // cadence paces the rest of the day from what that ledger has left.
+  return { start, takenAt: now, ordinaryDue, postponedUntil: ordinaryDue };
 }
 
 function ambiguityIdentities(rows) {
@@ -219,6 +265,11 @@ export class BroadcastRegistry {
       for (const scope of Object.values(state.scopes ?? {})) providers.push({ ...scope,
         ...(state.nextAttemptAt ? { nextAttemptAt: state.nextAttemptAt } : {}) });
       for (const record of state.records ?? []) {
+        // The previous mixed-catalog collector labelled every undated CNC row
+        // NHL. Retain the original receipt in storage; omit this unsupported
+        // classification until fresh same-ID metadata verifies the sport.
+        if (record.providerCode === "cncsports" && record.scope === "hockey" && record.competitionID === "nhl"
+          && !record.start && record.providerEventID.startsWith("cnc-observation:")) continue;
         if (now - Date.parse(record.observedAt) <= BROADCAST_REGISTRY_LIMITS.retention) broadcasts.push(record);
       }
     }
@@ -246,7 +297,7 @@ export class BroadcastRegistry {
   eligible(descriptor, stored, now, fixtures = []) {
     const source = stored.providers[descriptor.providerCode], budget = stored.budgets[descriptor.providerCode];
     if (budget && (now < budget.lastAt || budget.day === iso(now).slice(0, 10) && budget.count >= descriptor.maxRequestsPerDay)) return false;
-    const due = reviewedTVDemandDue(descriptor, source, fixtures, now);
+    const due = reviewedTVDemandDue(descriptor, source, fixtures, now, budget);
     return due <= now || descriptor.providerCode !== "reviewedtv"
       && checkpointPlan(source, supportedFixtures(descriptor.providerCode, fixtures), now, due, descriptor.maxRequestsPerDay) !== null;
   }
@@ -257,7 +308,7 @@ export class BroadcastRegistry {
       await this.state.storage.setAlarm?.(now + 15_000);
     } else {
       const descriptor = this.providers.find((p) => p.providerCode === "reviewedtv"), source = stored.providers.reviewedtv;
-      const budget = stored.budgets.reviewedtv, due = descriptor && reviewedTVDemandDue(descriptor, source, fixtures, now);
+      const budget = stored.budgets.reviewedtv, due = descriptor && reviewedTVDemandDue(descriptor, source, fixtures, now, budget);
       // The five-minute cron rounds a7.5-minute due time up to the ten-minute
       // expiry boundary. One DO alarm executes the ALREADY planned TV slot;
       // it adds no reads/cadence and cannot loop on empty or failed inventories.
@@ -274,7 +325,7 @@ export class BroadcastRegistry {
     const stored = await this.stored(), now = this.now(), loaded = await this.fixtures(), fixtures = loaded.fixtures;
     const ordered = this.providers.map((_, i) => this.providers[(stored.cursor + i) % this.providers.length]);
     const reviewed = this.providers.find((p) => p.providerCode === "reviewedtv"), reviewedState = stored.providers.reviewedtv;
-    if (reviewed && reviewedState) reviewedState.nextAttemptAt = iso(reviewedTVDemandDue(reviewed, reviewedState, fixtures, now));
+    if (reviewed && reviewedState) reviewedState.nextAttemptAt = iso(reviewedTVDemandDue(reviewed, reviewedState, fixtures, now, stored.budgets.reviewedtv));
     const due = ordered.filter((p) => this.eligible(p, stored, now, fixtures));
     const urgentTV = due.find((p) => p.providerCode === "reviewedtv" && activeReviewedTV(fixtures, now) && healthyReviewedTVExpiry(reviewedState, now));
     // Short-lived accepted TV facts must not wait behind several20-second
@@ -349,22 +400,14 @@ export class BroadcastRegistry {
         state.failures = previous.failures + 1;
       }
       state.records = state.records.filter((r) => now - Date.parse(r.observedAt) <= BROADCAST_REGISTRY_LIMITS.retention);
-      const delay = cadence(supportedFixtures(code, fixtures), now, Math.max(cycle.reads, 1), descriptor.maxRequestsPerDay);
+      const delay = cadence(supportedFixtures(code, fixtures), now, Math.max(cycle.reads, 1), descriptor.maxRequestsPerDay,
+        spentToday(stored.budgets[code], now));
       const independentTV = code === "reviewedtv" && healthyReviewedTVExpiry(state, now);
       const retryDelay = state.failures && !independentTV ? Math.max(delay, Math.min(60 * minute, 5 * minute * 2 ** Math.min(4, state.failures - 1))) : delay;
-      let nextAttempt;
-      if (state.kickoffCheckpoint?.takenAt === now) {
-        state.kickoffCheckpoint = { ...state.kickoffCheckpoint,
-          postponedUntil: state.kickoffCheckpoint.ordinaryDue + retryDelay };
-        // Freshness at kickoff outranks the repayment: refresh shortly after the
-        // match goes live instead of waiting out the full-read cycle, so a live
-        // half is not missed. `start` is already a numeric timestamp.
-        nextAttempt = Math.min(state.kickoffCheckpoint.postponedUntil,
-          state.kickoffCheckpoint.start + 5 * minute);
-      } else {
-        nextAttempt = Math.max(state.kickoffCheckpoint?.postponedUntil ?? 0, now + retryDelay);
-      }
-      state.nextAttemptAt = iso(nextAttempt);
+      // A taken checkpoint never postpones the following cycle into the match.
+      if (state.kickoffCheckpoint?.takenAt === now) state.kickoffCheckpoint = { ...state.kickoffCheckpoint,
+        postponedUntil: state.kickoffCheckpoint.ordinaryDue };
+      state.nextAttemptAt = iso(now + retryDelay);
       stored.providers[code] = state;
       try {
         // Admit one provider delta against the complete accepted registry. An

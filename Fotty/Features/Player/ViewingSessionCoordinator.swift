@@ -37,7 +37,12 @@ final class ViewingSessionCoordinator {
         let event: EventReference
         let category: StreamFailureCategory
         let retryable: Bool
+        var retryOptionalLookup: (@MainActor () -> Void)? = nil
     }
+
+    private static let cancelledDiscovery: Set<StreamFailureCategory> = [
+        .navigationCancelled, .duplicateRequestCancelled, .userCancelled, .backgroundedDuringResolution
+    ]
 
     private(set) var panes: [Pane] = [] {
         didSet {
@@ -182,6 +187,10 @@ final class ViewingSessionCoordinator {
         guard let recovery = singleDiscoveryRecovery, recovery.retryable else { return }
         resolutionError = nil
         guard isCurrentSingleRetryOwner() else { cancelResolution(); return }
+        if let retryOptionalLookup = recovery.retryOptionalLookup {
+            retryOptionalLookup()
+            return
+        }
         if let pane = primary, panes.count == 1, pane.model.error != nil,
            Self.canReuse(pane.event, for: recovery.event) {
             _ = retrySinglePlaybackDiscovery(for: pane.model)
@@ -780,6 +789,7 @@ final class ViewingSessionCoordinator {
     }
 
     func stop() {
+        if singleDiscoveryRecovery != nil { resolutionError = nil }
         retirePlayback(preservingResolution: false)
     }
 
@@ -977,15 +987,15 @@ final class ViewingSessionCoordinator {
                 if self.singleSourceDiscoveryPaneID == nil {
                     self.resolutionError = matched.isBroadcastChannel
                         ? "No supported stream is available for this channel right now."
-                        : "No supported stream is available for this match right now."
+                        : LiveStreamResolver.noPlayableMatchMessage
+                    self.singleDiscoveryRecovery = .init(event: matched, category: .providerReturnedEmpty, retryable: true)
                     MatchPlaybackFeedback.shared.notReady(event.id)
                     WatchOutcomeRecorder.shared.finish(watchID: generation, .noStreamFound, failureKind: "no_admitted_stream")
                 }
             case .failure(let failure, let diagnostics):
                 // An unrelated slow/failed lane cannot interrupt a source that
                 // was already admitted. Diagnostics still record the failure.
-                guard ![StreamFailureCategory.navigationCancelled, .duplicateRequestCancelled,
-                        .userCancelled, .backgroundedDuringResolution].contains(failure.category) else {
+                guard !Self.cancelledDiscovery.contains(failure.category) else {
                     if self.singleSourceDiscoveryPaneID == nil {
                         WatchOutcomeRecorder.shared.finish(watchID: generation, resolutionFailure: failure.category)
                     }
@@ -1061,8 +1071,9 @@ final class ViewingSessionCoordinator {
         WatchOutcomeRecorder.shared.begin(watchID: generation, event: event)
         optionalSourceLookupGeneration = generation
         pendingSingleEvent = event
-        resolutionMessage = "Opening broadcast…"
+        resolutionMessage = "Finding a broadcast…"
         resolutionError = nil
+        MatchPlaybackFeedback.shared.attempting(event.id)
         resolveTask = Task { [weak self] in
             guard let self else { return }
             defer {
@@ -1109,6 +1120,13 @@ final class ViewingSessionCoordinator {
                 outcome = await self.resolvePlayback(request)
             }
             guard !Task.isCancelled, self.resolutionGeneration == generation else { return }
+            // A retry stays on the same official fixture and rechecks the
+            // originating screen, current source opt-ins, and eligibility.
+            let retryLookup: @MainActor () -> Void = { [weak self] in
+                guard let self else { return }
+                self.checkOptionalSources(for: admitted, enabledProviders: enabledProviders,
+                    discover: self.rediscoverSinglePlayback, currentEvent: currentEvent)
+            }
             switch outcome {
             case .success(let result):
                 let acceptance = await self.acceptOptionalSourceChoices(result.sessions, event: admitted,
@@ -1117,16 +1135,26 @@ final class ViewingSessionCoordinator {
                 if self.optionalSourceLookupPaneID == nil {
                     self.resolutionError = acceptance == .changed
                         ? "This fixture changed. Refresh the lineup before watching."
-                        : "No supported stream is available for this match right now."
+                        : LiveStreamResolver.noPlayableMatchMessage
                     if acceptance == .changed {
                         WatchOutcomeRecorder.shared.finish(watchID: generation, .failed, failureKind: "fixture_changed")
                     } else {
+                        self.singleDiscoveryRecovery = .init(event: admitted, category: .providerReturnedEmpty,
+                            retryable: true, retryOptionalLookup: retryLookup)
+                        MatchPlaybackFeedback.shared.notReady(event.id)
                         WatchOutcomeRecorder.shared.finish(watchID: generation, .noStreamFound, failureKind: "no_admitted_stream")
                     }
                 }
             case .failure(let failure, let diagnostic):
                 if self.optionalSourceLookupPaneID == nil {
+                    guard !Self.cancelledDiscovery.contains(failure.category) else {
+                        WatchOutcomeRecorder.shared.finish(watchID: generation, resolutionFailure: failure.category)
+                        return
+                    }
                     self.resolutionError = failure.userMessage
+                    self.singleDiscoveryRecovery = .init(event: admitted, category: failure.category,
+                        retryable: failure.retryable, retryOptionalLookup: failure.retryable ? retryLookup : nil)
+                    MatchPlaybackFeedback.shared.notReady(event.id)
                     WatchOutcomeRecorder.shared.finish(watchID: generation, resolutionFailure: failure.category)
                     FottyQualityStore.shared.record(category: .playback, name: "resolution_failure", outcome: .failure,
                         details: ["watch_session_id": generation.uuidString, "attempt_id": diagnostic.attemptID,

@@ -71,21 +71,23 @@ enum SportsFixtureCatalog {
         let squad: Squad
         let source: Source
         let reportedScore: UCLReportedScore?
+        let footballLive: FootballFixtureLive?
         var kickoff: Date? { SportsFixtureCatalog.date(start) }
         var competitionKey: String { "\(sport)|\(competitionId)" }
 
         init(id: String, sport: String, start: String, status: Status, eventKind: EventKind, title: String,
              competitionId: String, competitionName: String, participants: [Participant], squad: Squad,
-             source: Source, reportedScore: UCLReportedScore? = nil) {
+             source: Source, reportedScore: UCLReportedScore? = nil, footballLive: FootballFixtureLive? = nil) {
             self.id = id; self.sport = sport; self.start = start; self.status = status; self.eventKind = eventKind
             self.title = title; self.competitionId = competitionId; self.competitionName = competitionName
             self.participants = participants; self.squad = squad; self.source = source
+            self.footballLive = footballLive?.validated(sport: sport, status: status, kind: eventKind, participants: participants)
             self.reportedScore = reportedScore?.validated(sport: sport, competitionID: competitionId, kind: eventKind,
                 participants: participants, squad: squad, status: status, sourceName: source.name, sourceUpdatedAt: source.updatedAt)
         }
 
         private enum CodingKeys: String, CodingKey {
-            case id, sport, start, status, eventKind, title, competitionId, competitionName, participants, squad, source, reportedScore
+            case id, sport, start, status, eventKind, title, competitionId, competitionName, participants, squad, source, reportedScore, footballLive
         }
         init(from decoder: Decoder) throws {
             let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -100,6 +102,8 @@ enum SportsFixtureCatalog {
             participants = try values.decode([Participant].self, forKey: .participants)
             squad = try values.decode(Squad.self, forKey: .squad)
             source = try values.decode(Source.self, forKey: .source)
+            let live = try? values.decode(FootballFixtureLive.self, forKey: .footballLive)
+            footballLive = live?.validated(sport: sport, status: status, kind: eventKind, participants: participants)
             let candidate = try? values.decode(UCLReportedScore.self, forKey: .reportedScore)
             reportedScore = candidate?.validated(sport: sport, competitionID: competitionId, kind: eventKind,
                 participants: participants, squad: squad, status: status, sourceName: source.name, sourceUpdatedAt: source.updatedAt)
@@ -291,7 +295,7 @@ enum SportsFixtureCatalog {
         return Fixture(id: fixture.id, sport: fixture.sport, start: fixture.start, status: fixture.status,
                        eventKind: fixture.eventKind, title: fixture.title, competitionId: fixture.competitionId,
                        competitionName: fixture.competitionName, participants: fixture.participants,
-                       squad: fixture.squad, source: source, reportedScore: fixture.reportedScore)
+                       squad: fixture.squad, source: source, reportedScore: fixture.reportedScore, footballLive: fixture.footballLive)
     }
 
     static func pollingInterval(snapshot: Snapshot?, now: Date) -> TimeInterval {
@@ -500,7 +504,8 @@ enum SportsFixtureCatalog {
             verified: (verifiedRow || (fixture.source.verification == nil && covered))
                 && snapshot.sourceStatus.verifiesCurrentRows, reportedScore: fixture.reportedScore,
             reportedScoreObservedAt: fixture.reportedScore == nil ? nil : date(fixture.source.observedAt),
-            identityObservedAt: identityObservedAt)
+            identityObservedAt: identityObservedAt, footballLive: fixture.footballLive,
+            footballLiveMayBeDelayed: fixture.footballLive != nil && fixture.source.name == "football-data.org")
     }
 
     @MainActor
@@ -511,6 +516,56 @@ enum SportsFixtureCatalog {
             away: .init(name: participants[1].name, badge: nil)) : nil
         return .init(id: fixture.id, title: fixture.title, category: fixture.sport,
             date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false, teams: teams, sportsFixture: metadata, competitionID: fixture.competitionId)
+    }
+}
+
+/// The publisher may have goals, an explicit match clock, or both.
+struct FootballFixtureLive: Codable, Equatable, Sendable {
+    let home: Int?
+    let away: Int?
+    let clock: String?
+
+    init?(home: Int?, away: Int?, clock: String?) {
+        if let home, let away, (0...99).contains(home), (0...99).contains(away) {
+            self.home = home
+            self.away = away
+        } else {
+            self.home = nil
+            self.away = nil
+        }
+        self.clock = clock.flatMap(Self.validatedClock)
+        guard self.home != nil || self.clock != nil else { return nil }
+    }
+
+    private enum CodingKeys: String, CodingKey { case home, away, clock }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        guard let live = Self(home: try? values.decode(Int.self, forKey: .home),
+                              away: try? values.decode(Int.self, forKey: .away),
+                              clock: try? values.decode(String.self, forKey: .clock)) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Empty football score and clock"))
+        }
+        self = live
+    }
+
+    private static func validatedClock(_ value: String) -> String? {
+        if ["HT", "ET", "PEN"].contains(value) { return value }
+        guard value.utf8.count <= 10, value.last == "′" else { return nil }
+        let numbers = value.dropLast().split(separator: "+", omittingEmptySubsequences: false)
+        guard (1...2).contains(numbers.count), let minute = Int(numbers[0]), (0...150).contains(minute),
+              String(minute) == String(numbers[0]) else { return nil }
+        if numbers.count == 2 {
+            guard let added = Int(numbers[1]), (1...99).contains(added), String(added) == String(numbers[1]) else { return nil }
+        }
+        return value
+    }
+
+    func validated(sport: String, status: SportsFixtureCatalog.Status, kind: SportsFixtureCatalog.EventKind,
+                   participants: [SportsFixtureCatalog.Participant]) -> Self? {
+        guard sport == "football", status == .live, kind == .match, participants.count == 2,
+              participants.contains(where: { $0.role == "home" }), participants.contains(where: { $0.role == "away" }) else { return nil }
+        return self
     }
 }
 
@@ -528,6 +583,8 @@ struct SportsFixtureMetadata: Codable, Equatable, Sendable {
     let verified: Bool
     let reportedScore: UCLReportedScore?
     let reportedScoreObservedAt: Date?
+    let footballLive: FootballFixtureLive?
+    let footballLiveMayBeDelayed: Bool?
     /// Successful verification of fixture identity is independent of the
     /// publisher's last status change. It never upgrades LIVE/terminal status.
     let identityObservedAt: Date?
@@ -535,7 +592,7 @@ struct SportsFixtureMetadata: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case fixtureID, sport, competitionID, competitionName, eventKind, title, participants, squad, status
-        case observedAt, verified, reportedScore, reportedScoreObservedAt, identityObservedAt
+        case observedAt, verified, reportedScore, reportedScoreObservedAt, identityObservedAt, footballLive, footballLiveMayBeDelayed
     }
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
@@ -553,18 +610,24 @@ struct SportsFixtureMetadata: Codable, Equatable, Sendable {
         verified = try values.decode(Bool.self, forKey: .verified)
         let candidate = try? values.decode(UCLReportedScore.self, forKey: .reportedScore)
         reportedScore = candidate?.isWellFormed == true ? candidate : nil
+        footballLiveMayBeDelayed = try? values.decode(Bool.self, forKey: .footballLiveMayBeDelayed)
         reportedScoreObservedAt = try? values.decode(Date.self, forKey: .reportedScoreObservedAt)
+        let live = try? values.decode(FootballFixtureLive.self, forKey: .footballLive)
+        footballLive = live?.validated(sport: sport, status: status, kind: eventKind, participants: participants)
     }
 
     init(fixtureID: String, sport: String, competitionID: String, competitionName: String,
          eventKind: SportsFixtureCatalog.EventKind, title: String, participants: [SportsFixtureCatalog.Participant],
          squad: SportsFixtureCatalog.Squad, status: SportsFixtureCatalog.Status, observedAt: Date, verified: Bool,
-         reportedScore: UCLReportedScore? = nil, reportedScoreObservedAt: Date? = nil, identityObservedAt: Date? = nil) {
+         reportedScore: UCLReportedScore? = nil, reportedScoreObservedAt: Date? = nil, identityObservedAt: Date? = nil,
+         footballLive: FootballFixtureLive? = nil, footballLiveMayBeDelayed: Bool = false) {
         self.fixtureID = fixtureID; self.sport = sport; self.competitionID = competitionID; self.competitionName = competitionName
         self.eventKind = eventKind; self.title = title; self.participants = participants; self.squad = squad
         self.status = status; self.observedAt = observedAt; self.verified = verified
         self.reportedScore = reportedScore; self.reportedScoreObservedAt = reportedScoreObservedAt
         self.identityObservedAt = identityObservedAt
+        self.footballLiveMayBeDelayed = footballLiveMayBeDelayed ? true : nil
+        self.footballLive = footballLive?.validated(sport: sport, status: status, kind: eventKind, participants: participants)
     }
     func isLive(at now: Date) -> Bool {
         verified && status == .live && (-300...SportsFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(observedAt))

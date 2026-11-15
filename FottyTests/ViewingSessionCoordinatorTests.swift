@@ -1260,7 +1260,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             XCTAssertEqual(current.id, fixture.id)
             return fixture
         })
-        XCTAssertEqual(owner.resolutionMessage, "Opening broadcast…")
+        XCTAssertEqual(owner.resolutionMessage, "Finding a broadcast…")
         await waitForSourceCheck { owner.primary != nil }
 
         XCTAssertEqual(primaryLookups, 0, "Independent CS discovery must not depend on a primary listing")
@@ -1317,6 +1317,59 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             XCTAssertFalse(owner.expanded)
             XCTAssertEqual(factory.models.count, 1)
         }
+    }
+
+    func testOptionalWatchRetryRechecksFixtureAndOpensOnlyFreshMatchingChoice() async throws {
+        let factory = ModelFactory(), fixture = sourceCheckFixture("optional-retry")
+        let fresh = StreamSession(matchID: fixture.id, title: "CS1",
+            playableURL: URL(string: "https://example.invalid/fresh.m3u8")!,
+            streamType: .hls, providerName: "CS1")
+        var phases: [OptionalSourceLookupPolicy.Phase] = []
+        var retries = 0
+        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+            rediscoverSinglePlayback: { request, _ in
+                retries += 1
+                XCTAssertEqual(request.matchID, fixture.id)
+                XCTAssertEqual(request.kickoffDate, fixture.kickoffDate)
+                return self.outcome(for: fixture, sessions: [fresh])
+            }, cancelPlayback: { _ in })
+        defer { owner.stop() }
+        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["communitysports"] },
+            discover: { _, _ in self.outcome(for: fixture, sessions: []) }) { event, phase in
+                phases.append(phase)
+                return event
+            })
+        await waitForSourceCheck { owner.canRetrySingleDiscovery }
+        XCTAssertEqual(owner.resolutionError, "No playable stream is available for this match right now.")
+        XCTAssertNil(owner.primary)
+        owner.retrySingleDiscovery()
+        await waitForSourceCheck { owner.primary != nil }
+        XCTAssertEqual(retries, 1)
+        XCTAssertEqual(phases, [.offer, .completion, .offer, .completion])
+        XCTAssertEqual(owner.primary?.model.sessions.map(\.id), [fresh.id])
+        XCTAssertNil(owner.resolutionError)
+    }
+
+    func testOptionalWatchRetryAfterProviderFailureRejectsFixtureThatEnded() async {
+        let fixture = sourceCheckFixture("optional-retry-terminal")
+        var stillCurrent = true, refreshes = 0
+        let owner = ViewingSessionCoordinator(rediscoverSinglePlayback: { _, _ in
+            refreshes += 1
+            return self.outcome(for: fixture, sessions: [])
+        }, cancelPlayback: { _ in })
+        defer { owner.stop() }
+        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["communitysports"] },
+            discover: { _, _ in self.discoveryFailure(for: fixture, category: .providerTimeout, retryable: true) },
+            currentEvent: { event, _ in stillCurrent ? event : nil }))
+        await waitForSourceCheck { owner.canRetrySingleDiscovery }
+        XCTAssertEqual(owner.resolutionError, "Discovery failed")
+        stillCurrent = false
+        owner.retrySingleDiscovery()
+        await waitForSourceCheck { owner.resolutionMessage == nil }
+        XCTAssertEqual(refreshes, 0)
+        XCTAssertFalse(owner.canRetrySingleDiscovery)
+        XCTAssertNil(owner.primary)
+        XCTAssertEqual(owner.resolutionError, "This fixture could not be confirmed. Refresh the lineup before watching.")
     }
 
     func testOptionalSourceCheckRejectsDuplicateAndCannotCommitAfterCancellation() async throws {
@@ -1394,7 +1447,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
                 phases.append(phase)
                 return event
             })
-        XCTAssertEqual(owner.resolutionMessage, "Opening broadcast…")
+        XCTAssertEqual(owner.resolutionMessage, "Finding a broadcast…")
         XCTAssertFalse(owner.hasMountedOptionalSourceLookup(for: fixture))
         await waitForSourceCheck { gate.publish != nil }
         await gate.publish?([first])

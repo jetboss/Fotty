@@ -285,6 +285,25 @@ final class FootballScoreReceiptTests: XCTestCase {
                       "Matching reviewed scope must not require cross-provider numeric IDs to agree")
     }
 
+    func testHomeCannotBorrowLivePremierLeagueGoalsForTheSameClubsInAnotherCompetition() async throws {
+        let clock = ReceiptClock(now)
+        let feed = ReceiptProvider([.success([row(.live)])])
+        let service = service(clock: clock, feed: feed)
+        await service.refresh()
+        XCTAssertNotNil(HomeDiscoveryRow.Presentation.footballMatch(for: badgeEvent(), scores: service))
+        for another in [badgeEvent(competition: "fa-cup"), badgeEvent(kickoff: now.addingTimeInterval(-3_600)),
+                        badgeEvent(home: "Chelsea U19"), badgeEvent(conflict: true)] {
+            XCTAssertNil(HomeDiscoveryRow.Presentation.footballMatch(for: another, scores: service))
+        }
+        let event = badgeEvent(competition: "fa-cup")
+        let item = HomeSportsDiscovery.Item(event: event, phase: .live, officialStatus: .inPlay, now: now)
+        let presentation = HomeDiscoveryRow.Presentation(item: item, scoreService: service)
+        XCTAssertNotNil(service.scoreForMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate))
+        XCTAssertNil(presentation.homeScore)
+        XCTAssertNil(presentation.awayScore)
+        XCTAssertEqual(presentation.liveDetail, "LIVE")
+    }
+
     func testOfficialAbbreviationsReachHomeScoreMinuteAndArtworkWithoutMatchingScheduleMerge() async throws {
         let clock = ReceiptClock(now)
         let official = try palaceOfficialRow()

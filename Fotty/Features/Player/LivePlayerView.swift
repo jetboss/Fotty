@@ -1154,6 +1154,7 @@ struct LivePlayerView: View {
                     sourceRecoveryButtonTitle: sourceRecoveryButtonTitle,
                     dismiss: closePlayback,
                     isCompact: isPortrait,
+                    retriesDiscovery: onRetryDiscovery != nil,
                     onRetry: {
                         if let onRetryDiscovery { onRetryDiscovery() }
                         else { viewModel.retryCurrentSourceExplicitly() }

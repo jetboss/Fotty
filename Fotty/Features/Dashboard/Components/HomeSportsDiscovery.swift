@@ -4,11 +4,40 @@ import Foundation
 /// probing, or changes to persisted fixture/provider identities happen here.
 @MainActor
 struct HomeSportsDiscovery {
+    #if DEBUG
+    /// Read once from the isolated Home test process. A replay uses the payload's
+    /// own receipt as the observation instant and keeps every source timestamp.
+    static let automatedFootballSnapshot: SportsFixtureCatalog.Snapshot? = {
+        let environment = ProcessInfo.processInfo.environment
+        guard AppRuntime.isAutomatedTesting, environment["FOTTY_HOME_UI_TESTING"] == "1",
+              let encoded = environment["FOTTY_HOME_FOOTBALL_SNAPSHOT_B64"],
+              encoded.utf8.count <= 32_768, let data = Data(base64Encoded: encoded) else { return nil }
+        let now: Date
+        if environment["FOTTY_HOME_REPLAY_AT_RECEIPT"] == "1" {
+            struct Receipt: Decodable { let checkedAt: String }
+            guard let receipt = try? JSONDecoder().decode(Receipt.self, from: data),
+                  let originalDate = SportsFixtureCatalog.date(receipt.checkedAt) else { return nil }
+            now = originalDate
+        } else {
+            now = Date()
+        }
+        guard let snapshot = try? SportsFixtureCatalog.validatedSnapshot(from: data, now: now),
+              snapshot.fixtures.count == 1, let fixture = snapshot.fixtures.first,
+              fixture.sport == "football", fixture.eventKind == .match else { return nil }
+        return snapshot
+    }()
+
+    static var hasAutomatedKickoffClock: Bool {
+        AppRuntime.isAutomatedTesting && ProcessInfo.processInfo.environment["FOTTY_HOME_CLOCK_UI_TESTING"] == "1"
+    }
+    #endif
+
     /// A deterministic clock for the isolated, in-memory UI journey only.
     static var automatedClockStart: Date? {
         #if DEBUG
-        if AppRuntime.isAutomatedTesting,
-           ProcessInfo.processInfo.environment["FOTTY_HOME_CLOCK_UI_TESTING"] == "1" {
+        if ProcessInfo.processInfo.environment["FOTTY_HOME_REPLAY_AT_RECEIPT"] == "1",
+           let date = automatedFootballSnapshot?.receiptDate { return date }
+        if hasAutomatedKickoffClock {
             return Date(timeIntervalSince1970: 1_800_000_000)
         }
         #endif
@@ -22,7 +51,7 @@ struct HomeSportsDiscovery {
 
     #if DEBUG
     static func advanceAutomatedClock() {
-        guard automatedClockStart != nil else { return }
+        guard hasAutomatedKickoffClock else { return }
         // Ephemeral process state, not UserDefaults. Returning to Home must not
         // rewind the test clock when its view-local @State is recreated.
         automatedClockOffset = 100 * 60

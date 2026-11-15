@@ -73,7 +73,7 @@ test("EFL uses existing durable admission and preserves accepted Cup facts after
   const collect = (source, at) => collectSportsSource(source, at, env, async (url) => Response.json({
     data: [{ type: "match", id: "g2687775", attributes: { competitionID: 2,
       kickOffDateUTC: "2026-10-28 20:00:00", TBC: null, matchPeriod: "FirstHalf",
-      homeTeam: { name: "Liverpool" }, awayTeam: { name: "Chelsea" } } }],
+      matchMinutes: 12, homeTeam: { name: "Liverpool", score: 1 }, awayTeam: { name: "Chelsea", score: 0 } } }],
     meta: { count: 1, totalCount: 1 }, links: { self: String(url) },
   }, { headers: { Date: at.toUTCString() } }));
   const admitted = await refreshSportsSource(null, descriptor, now, collect);
@@ -81,12 +81,14 @@ test("EFL uses existing durable admission and preserves accepted Cup facts after
   assert.equal(current.coverage[0].status, "covered");
   assert.equal(current.fixtures[0].id, "sports-fixture:carabao-cup:g2687775");
   assert.equal(current.fixtures[0].status, "live");
+  assert.deepEqual(current.fixtures[0].footballLive, { home: 1, away: 0, clock: "12′" });
   assert.equal(current.fixtures[0].source.verification, undefined, "The complete covered cohort supplies admission authority");
   const later = new Date(now.getTime() + 300_000);
   const failed = await refreshSportsSource(admitted, descriptor, later, async () => { throw new Error("Sports schedule upstream unavailable"); });
   const retained = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, failed]]), later);
   assert.equal(retained.coverage[0].status, "unavailable");
   assert.equal(retained.fixtures[0].source.verification, "held");
+  assert.equal(retained.fixtures[0].footballLive, undefined);
   assert.equal(retained.fixtures[0].source.observedAt, now.toISOString());
   assert.equal(retained.fixtures[0].start, current.fixtures[0].start);
   assert.equal(retained.fixtures[0].competitionId, "carabao-cup");

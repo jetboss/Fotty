@@ -4,8 +4,8 @@ import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  listedRegistryLinkCount,
   supportedUCLSourceCodes,
-  usableWorkerVariantCount,
 } from "./audit-ucl-readiness-policy.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -36,8 +36,10 @@ if (!Number.isFinite(strictWithinMinutes) || strictWithinMinutes < 0 || strictWi
 
 const fixtureURL = process.env.FOTTY_FOOTBALL_FIXTURE_URL
   || "https://fotty-playback-v3.adaptive-rhubarb.workers.dev/api/football/matches";
-const streamURL = process.env.FOTTY_STREAM_LOOKUP_URL
-  || "https://fotty-playback-v3.adaptive-rhubarb.workers.dev/api/live/streams";
+// --resolve asks the same cloud registry the app reads whether each fixture
+// currently has a listed source, instead of trusting provider metadata alone.
+const registryURL = process.env.FOTTY_BROADCAST_REGISTRY_URL
+  || "https://fotty-playback-v3.adaptive-rhubarb.workers.dev/api/live/broadcasts";
 const providerURLs = [
   "https://www.streamex.net/api/live/matches/all",
   "https://streamex.sh/api/live/matches/all",
@@ -123,7 +125,10 @@ async function providerCatalog() {
       return [];
     }
   }));
-  requireValue(snapshots.some((events) => events.length > 0), "No provider metadata endpoint was reachable.");
+  // With --resolve the registry decides readiness; metadata only adds context.
+  if (resolveVariants && !snapshots.some((events) => events.length > 0)) {
+    console.warn("No provider metadata endpoint was reachable; relying on the broadcast registry.");
+  } else requireValue(snapshots.some((events) => events.length > 0), "No provider metadata endpoint was reachable.");
 
   const byID = new Map();
   for (const event of snapshots.flat()) {
@@ -155,30 +160,24 @@ function matchingProviderEvents(match, events) {
   });
 }
 
-const variantCache = new Map();
-async function variantCount(events) {
-  const sources = [...new Map(events.flatMap((event) => event.sources || [])
+function variantCount(events) {
+  return [...new Set(events.flatMap((event) => event.sources || [])
     .filter((source) => supportedSources.has(String(source.source || "").toLowerCase()))
-    .map((source) => [sourceKey(source), source])).values()];
-  if (!resolveVariants) return sources.length;
-  let count = 0;
-  for (const source of sources) {
-    const key = sourceKey(source);
-    if (!variantCache.has(key)) {
-      const lookup = new URL(streamURL);
-      lookup.searchParams.set("source", source.source);
-      lookup.searchParams.set("id", source.id);
-      variantCache.set(key, fetchJSON(lookup, 10_000)
-        .then(usableWorkerVariantCount)
-        .catch(() => 0));
-    }
-    count += await variantCache.get(key);
+    .map(sourceKey))].length;
+}
+
+async function registrySnapshot() {
+  if (!resolveVariants) return null;
+  try {
+    return await fetchJSON(registryURL, 15_000);
+  } catch (error) {
+    console.warn(`Broadcast registry unavailable: ${error.message}`);
+    return { links: [] };
   }
-  return count;
 }
 
 try {
-  const [matches, events] = await Promise.all([fixtureSchedule(), providerCatalog()]);
+  const [matches, events, registry] = await Promise.all([fixtureSchedule(), providerCatalog(), registrySnapshot()]);
   const start = now.valueOf() - 3 * 60 * 60 * 1000;
   const end = now.valueOf() + horizonHours * 60 * 60 * 1000;
   const windowMatches = matches.filter((match) => {
@@ -193,7 +192,9 @@ try {
       fixture: `${match.homeTeam.name} vs ${match.awayTeam.name}`,
       kickoff: match.utcDate,
       providerRows: providers.length,
-      variants: await variantCount(providers),
+      variants: registry
+        ? listedRegistryLinkCount(registry, `sports-fixture:champions-league:${match.id}`)
+        : variantCount(providers),
     });
   }
 
@@ -207,7 +208,7 @@ try {
   const resolved = rows.filter((row) => row.variants > 0);
 
   console.log(`UCL readiness at ${now.toISOString()}: ${windowMatches.length} official fixture(s) inside ${horizonHours}h.`);
-  console.log(`${resolved.length} fixture(s) have ${resolveVariants ? "resolved" : "advertised"} supported variants; ${missing.length} are not in provider metadata yet.`);
+  console.log(`${resolved.length} fixture(s) have ${resolveVariants ? "listed registry" : "advertised supported"} sources; ${missing.length} are not in provider metadata yet.`);
   for (const row of rows) {
     console.log(`${row.kickoff} | ${row.fixture} | provider rows ${row.providerRows} | variants ${row.variants}`);
   }

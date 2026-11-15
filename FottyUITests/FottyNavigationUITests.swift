@@ -63,6 +63,27 @@ final class FottyNavigationUITests: XCTestCase {
         if isAppwidePolishAudit || name.contains("testHomeDiscovery") || name.contains("testHomeSportSelection") || name.contains("testDashboard") {
             app.launchEnvironment["FOTTY_HOME_UI_TESTING"] = "1"
         }
+        if name.contains("testHomeDiscoveryFootballScoreAndClock") {
+            // A fixed historical receipt also catches accidental use of the
+            // current clock when classifying or rendering the replay.
+            let now = Date(timeIntervalSince1970: 1_798_000_000)
+            let observed = now.ISO8601Format()
+            let snapshot = """
+            {"schemaVersion":1,"complete":true,"checkedAt":"\(observed)","revision":"home-score-test","sourceStatus":"verified",
+             "coverage":[{"sport":"football","competitionId":"concacaf-nations-league","competitionName":"Concacaf Nations League",
+                          "status":"covered","checkedAt":"\(observed)","fixtureCount":1,"pendingFixtureCount":0}],
+             "fixtures":[{"id":"sports-fixture:concacaf-nations-league:test-score","sport":"football","eventKind":"match","status":"live",
+                          "start":"\(now.addingTimeInterval(-65 * 60).ISO8601Format())","title":"Curaçao vs Panama",
+                          "competitionId":"concacaf-nations-league","competitionName":"Concacaf Nations League",
+                          "participants":[{"id":"home","name":"Curaçao","role":"home"},{"id":"away","name":"Panama","role":"away"}],
+                          "squad":{"gender":"men","ageGroup":"senior"},"footballLive":{"home":0,"away":0,"clock":"62′"},
+                          "source":{"name":"ESPN","url":"https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.nations.league/scoreboard",
+                                    "observedAt":"\(observed)","verification":"verified"}}]}
+            """
+            app.launchEnvironment["FOTTY_HOME_FOOTBALL_SNAPSHOT_B64"] = Data(snapshot.utf8).base64EncodedString()
+            app.launchEnvironment["FOTTY_HOME_REPLAY_AT_RECEIPT"] = "1"
+            app.launchArguments += ["-fotty.home.onlyShowSelectedInterests", "NO"]
+        }
         if name.contains("testHomeDiscoveryKickoffTransition") {
             app.launchEnvironment["FOTTY_HOME_CLOCK_UI_TESTING"] = "1"
         }
@@ -323,6 +344,13 @@ final class FottyNavigationUITests: XCTestCase {
         openSettingsFromHome()
         tapBetaControl(app.buttons["tab-fpl"])
         XCTAssertTrue(updated.waitForExistence(timeout: 5), "Accepted replacement did not survive the tab switch")
+    }
+
+    func testHomeDiscoveryFootballScoreAndClock() throws {
+        let hero = app.buttons["home-live-details-sports-fixture:concacaf-nations-league:test-score"]
+        XCTAssertTrue(hero.waitForExistence(timeout: 12), "The official live fixture never appeared in the Home hero")
+        XCTAssertTrue(hero.label.contains("0 – 0"), "Missing score in the Home hero: \(hero.label)")
+        XCTAssertTrue(hero.label.contains("62′"), "Missing publisher match minute in the Home hero: \(hero.label)")
     }
 
     func testHomeDiscoveryKickoffTransition() throws {

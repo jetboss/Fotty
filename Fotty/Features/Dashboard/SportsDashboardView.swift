@@ -485,7 +485,7 @@ struct SportsDashboardView: View {
 
 
                 #if DEBUG
-                if HomeSportsDiscovery.automatedClockStart != nil {
+                if HomeSportsDiscovery.hasAutomatedKickoffClock {
                     Button("Advance test clock past kickoff") {
                         HomeSportsDiscovery.advanceAutomatedClock()
                         discoveryDate = HomeSportsDiscovery.automatedClockDate ?? Date()
@@ -644,8 +644,7 @@ struct SportsDashboardView: View {
                 from: liveScoreService.analysisMatches, competition: .championsLeague)
         )
         await projectionCoordinator.rebuild(input: input, status: { event in
-            guard event.normalizedCategory == "football",
-                  let match = liveScoreService.findMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate) else { return nil }
+            guard let match = HomeDiscoveryRow.Presentation.footballMatch(for: event, scores: liveScoreService) else { return nil }
             // A schedule-only "timed" row is not proof of a delayed start.
             if match.status.isUpcoming, (event.kickoffDate ?? .distantFuture) <= requestKey.clockDate { return nil }
             return liveScoreService.currentStatus(for: match, at: requestKey.clockDate)

@@ -40,6 +40,83 @@ final class SportsFixtureCatalogTests: XCTestCase {
             teams: .init(home: .init(name: home, badge: nil), away: .init(name: "New York Knicks", badge: nil)), competitionID: competition)
     }
 
+    private func decodedFootballEvent(_ live: Any?, status: SportsFixtureCatalog.Status = .live,
+                                      publisherUpdate: Date? = nil, held: Bool = false,
+                                      publisher: String = "ESPN") throws -> EventReference {
+        let original = carabaoFixture(status: status)
+        let row = SportsFixtureCatalog.Fixture(id: original.id, sport: original.sport,
+            start: original.start, status: status, eventKind: original.eventKind, title: original.title,
+            competitionId: original.competitionId, competitionName: original.competitionName,
+            participants: Array(original.participants.reversed()), squad: original.squad,
+            source: .init(name: publisher, url: "https://example.com/fixtures", observedAt: stamp(now),
+                          updatedAt: publisherUpdate.map(stamp), verification: held ? .held : .verified))
+        let data = try JSONEncoder().encode(snapshot([row], unavailable: held ? [row.competitionId] : []))
+        var payload = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var rows = try XCTUnwrap(payload["fixtures"] as? [[String: Any]])
+        rows[0]["footballLive"] = live
+        payload["fixtures"] = rows
+        let validated = try SportsFixtureCatalog.validatedSnapshot(from: JSONSerialization.data(withJSONObject: payload), now: now)
+        let event = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: validated, at: now).first)
+        return try JSONDecoder().decode(EventReference.self, from: JSONEncoder().encode(event))
+    }
+
+    func testHomeReadsVerifiedFootballScoreAndClockFromFixtureAndCacheInHomeAwayOrder() throws {
+        let event = try decodedFootballEvent(["home": 2, "away": 0, "clock": "45+2′"])
+        let item = try XCTUnwrap(HomeSportsDiscovery(events: [event], now: now).items.first)
+        let score = HomeDiscoveryRow.Presentation(item: item)
+        XCTAssertEqual(event.homeName, "Liverpool")
+        XCTAssertEqual(event.awayName, "Chelsea")
+        XCTAssertEqual(score.homeScore, 2)
+        XCTAssertEqual(score.awayScore, 0)
+        XCTAssertEqual(score.liveDetail, "45+2′")
+        XCTAssertEqual(score.statusLabel, "2–0 · 45+2′")
+        XCTAssertFalse(score.scoreMayBeDelayed)
+    }
+
+    func testHomeAcceptsPartialFootballFactsWithoutInventingZeroOrMinute() throws {
+        func presentation(_ live: Any?) throws -> HomeDiscoveryRow.Presentation {
+            let event = try decodedFootballEvent(live)
+            return try HomeDiscoveryRow.Presentation(item: XCTUnwrap(HomeSportsDiscovery(events: [event], now: now).items.first))
+        }
+        for phase in ["HT", "ET", "PEN", "0′", "90+12′"] {
+            let clockOnly = try presentation(["clock": phase, "home": "bad", "away": 2] as [String: Any])
+            XCTAssertNil(clockOnly.homeScore)
+            XCTAssertNil(clockOnly.awayScore)
+            XCTAssertEqual(clockOnly.liveDetail, phase)
+            XCTAssertEqual(clockOnly.statusLabel, phase)
+        }
+        for invalid in ["151′", "45+101′", "45+0′", "2H", "FT", "62", "60:01"] {
+            let zero = try presentation(["home": 0, "away": 0, "clock": invalid])
+            XCTAssertEqual(zero.homeScore, 0)
+            XCTAssertEqual(zero.awayScore, 0)
+            XCTAssertEqual(zero.liveDetail, "LIVE")
+        }
+        for invalid in [nil, NSNull(), "wrong", ["home": 2], ["home": 100, "away": 0]] as [Any?] {
+            let empty = try presentation(invalid)
+            XCTAssertNil(empty.homeScore)
+            XCTAssertNil(empty.awayScore)
+            XCTAssertEqual(empty.liveDetail, "LIVE")
+        }
+    }
+
+    func testFootballHeroRequiresLiveReceiptAndDisplaysPublisherDelay() throws {
+        let facts: [String: Any] = ["home": 2, "away": 1, "clock": "70′"]
+        for event in [
+            try decodedFootballEvent(facts, status: .scheduled), try decodedFootballEvent(facts, held: true),
+            try decodedFootballEvent(facts, publisherUpdate: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1))
+        ] {
+            // Even when a distinct status feed says LIVE, held/stale/scheduled score fields are inadmissible.
+            let score = HomeDiscoveryRow.Presentation(item: .init(event: event, phase: .live, officialStatus: .inPlay, now: now))
+            XCTAssertNil(score.homeScore)
+            XCTAssertNil(score.awayScore)
+            XCTAssertEqual(score.liveDetail, "LIVE")
+        }
+        let event = try decodedFootballEvent(facts, publisherUpdate: now, publisher: "football-data.org")
+        let score = HomeDiscoveryRow.Presentation(item: .init(event: event, phase: .live, officialStatus: nil, now: now))
+        XCTAssertTrue(score.scoreMayBeDelayed)
+        XCTAssertEqual(score.statusLabel, "2–1 · 70′ · May be delayed")
+    }
+
     func testValidatedReceiptAndOldJSONCompatibility() throws {
         let expected = snapshot([fixture()])
         XCTAssertEqual(try SportsFixtureCatalog.validatedSnapshot(from: JSONEncoder().encode(expected), now: now), expected)

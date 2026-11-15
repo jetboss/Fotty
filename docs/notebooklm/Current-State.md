@@ -4,6 +4,8 @@
 
 13 Nov history: [323 providers](../testing/fotty323-provider-watch/README.md), [322 CNC](../testing/fotty320-cnc-football/README.md), [319 Watch/Retry](../testing/fotty318-watch-availability/README.md).
 
+12 Nov: Jet 317 fixed the relay deadlock and showed Curaçao–Panama at 0–0 in the 86th minute. Jet 316 fixed Highfly search. Internal TestFlight 287. Dashboard-only alerts. [Earlier Jet checks](../testing/fotty317-football-home-and-relay/README.md).
+
 ## Product and release baseline
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
@@ -16,11 +18,7 @@ Receipt:releases/Fotty-2.0.1-206.md.
 
 - Owner prioritizes working backup supply over extra alert/email work. Existing
   monitoring remains active; getfotty.com and direct email remain unavailable/OFF.
-- Retained plan through4Nov16:15Tobago is bounded PL/UCL/supported-cricket and focused
-  PiP qualification, fresh eligible fixtures/freeJet only. Phone/FPL/multi/
-  TestFlight remain excluded. Never reuse ended match pins.
-- 187Cup fullscreen/90s passed; originalPiP failed.192channelPiP is separate.
-  History:testing/fotty187-broadcast-reliability/ and fotty-resilience-2026-10-29/.
+- The 4 November live campaign is expired. Its pending gates are historical, not authority for a new recurring check. Use fresh eligible fixtures and current owner authority; never reuse ended match pins. History: testing/fotty187-broadcast-reliability/ and fotty-resilience-2026-10-29/.
 
 Audit:audit/Fotty-November-2026-Baseline.md.
 
@@ -58,11 +56,9 @@ awaiting UI Automation approval before methods ran. Owner action requested.
 43FPL/multi source hashes+11stable preferences/source choices unchanged. No phone,
 cloud/Git/TF work. Receipt:testing/fotty-watch-retry-2026-11-01/.
 
-## Fotty2.5 retained gates
+## Earlier optional work
 
--186 optional last-live/Search/interests/context/quality/report/reminders:361units and signed app/widget passed. Jet basic consent/interests/day-jump/Search passed; burst query, decoded programme, quality/Report, sync/widget/PiP remain open. Route:testing/fotty25-remaining-2026-10-29/Plan.md.
-- Optional score-context patch70e8b10 passed215backend/181watchdog; rebase/review
-  on83b1a44 before separate activation. It remains undeployed.
+Fotty2.5 optional gates and undeployed score-context work are historical: testing/fotty25-remaining-2026-10-29/Plan.md and Decisions-Log.md.
 
 ## Retained source baseline
 

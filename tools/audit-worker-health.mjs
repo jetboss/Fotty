@@ -2,8 +2,6 @@
 
 import { WORKER_SOURCE_VERSION } from "../web/workers/playback/src/worker-version.mjs";
 import {
-  validateEmbedRedirect,
-  validateWorkerCatalog,
   validateWorkerCPL,
   validateWorkerHealth,
 } from "./audit-worker-health-policy.mjs";
@@ -46,37 +44,9 @@ try {
     expectedVersion: WORKER_SOURCE_VERSION,
   });
 
-  const catalogResponse = await boundedJSON(
-    "/api/live/streams?source=alpha&id=fotty-worker-health-probe",
-    512 * 1024,
-  );
-  const catalog = validateWorkerCatalog({
-    body: catalogResponse.body,
-    expectedVersion: WORKER_SOURCE_VERSION,
-    expectedProviderCount: health.catalogProviderCount,
-    headers: {
-      version: versionHeader(catalogResponse.response),
-      attempted: catalogResponse.response.headers.get("x-fotty-catalog-attempted"),
-      responding: catalogResponse.response.headers.get("x-fotty-catalog-responding"),
-      coverage: catalogResponse.response.headers.get("x-fotty-catalog-coverage"),
-    },
-  });
-
-  const embedResponse = await fetch(
-    new URL("/api/embed/player?source=alpha&id=fotty-worker-health-probe&streamNo=1", baseURL),
-    { headers: { "User-Agent": userAgent }, redirect: "manual", signal: AbortSignal.timeout(15_000) },
-  );
-  validateEmbedRedirect({
-    status: embedResponse.status,
-    location: embedResponse.headers.get("location"),
-    headerVersion: versionHeader(embedResponse),
-    expectedVersion: WORKER_SOURCE_VERSION,
-  });
-
-  console.log(`Worker ${WORKER_SOURCE_VERSION}: health and embed contracts passed.`);
+  console.log(`Worker ${WORKER_SOURCE_VERSION}: health and CPL contracts passed.`);
   console.log(`CPL: ${cpl.fixtureCount} fixtures, ${cpl.sourceStatus}.`);
-  console.log(`Catalog: ${catalog.coverage}, ${catalog.responding}/${catalog.attempted} providers responding; direct fallback present.`);
-  for (const warning of [...health.warnings, ...cpl.warnings, ...catalog.warnings]) {
+  for (const warning of [...health.warnings, ...cpl.warnings]) {
     console.warn(`WARNING: ${warning}`);
   }
   console.log("The quota-consuming /api/football/live route was not called.");

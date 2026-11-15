@@ -312,6 +312,61 @@ test("ESPN football descriptors (MLS and national teams) retain explicit league 
   assert.equal((await collect("mls", espnFetch("mls", [row]))).fixtures[0].status, "live");
 });
 
+test("ESPN keeps home/away goals and the displayed minute for every football scoreboard", async () => {
+  for (const id of ["mls", "uefa-nations-league", "international-friendlies", "concacaf-nations-league"]) {
+    const event = espnEvent("101", { status: { type: { name: "STATUS_SECOND_HALF", state: "in", completed: false },
+      displayClock: "90'+3'" } }, source(id));
+    const [home, away] = event.competitions[0].competitors;
+    home.score = "2";
+    away.score = "0";
+    event.competitions[0].competitors = [away, home];
+    const read = async () => (await collect(id, espnFetch(id, [event]))).fixtures[0].footballLive;
+    assert.deepEqual(await read(), { home: 2, away: 0, clock: "90+3′" });
+    event.status.type.name = "STATUS_HALFTIME";
+    home.score = undefined;
+    assert.deepEqual(await read(), { clock: "HT" });
+    event.status.type.name = "STATUS_SECOND_HALF";
+    home.score = "0";
+    event.status.displayClock = "unavailable";
+    assert.deepEqual(await read(), { home: 0, away: 0 });
+    event.status.type = { name: "STATUS_FULL_TIME", state: "post", completed: true };
+    assert.equal(await read(), undefined);
+  }
+});
+
+test("EFL retains reported match goals and added time while half-time wins over the last minute", async () => {
+  const details = { homeTeam: { name: "Liverpool", score: 1 }, awayTeam: { name: "Chelsea", score: 2 },
+    formattedMatchTime: "45' +2'", matchMinutes: 47 };
+  const read = async (fields) => (await collect("efl-carabao-cup", eflFetch([eflRow(fields)]), eflEnv)).fixtures[0].footballLive;
+  assert.deepEqual(await read(details), { home: 1, away: 2, clock: "45+2′" });
+  assert.deepEqual(await read({ ...details, matchPeriod: "HalfTime" }), { home: 1, away: 2, clock: "HT" });
+  assert.deepEqual(await read({ matchMinutes: 62 }), { clock: "62′" });
+  assert.equal(await read({ ...details, matchPeriod: "PreMatch" }), undefined);
+});
+
+test("football-data projects clock and score independently on all six competitions and keeps shootouts out of match goals", async () => {
+  const codes = Object.keys(source("football-data").codes);
+  const rows = codes.map((code, index) => footballRow({ competition: { code }, id: 500 + index, status: "IN_PLAY",
+    lastUpdated: now.toISOString(), minute: 45, injuryTime: 2, score: { fullTime: { home: 0, away: 1 } } }));
+  const read = async () => (await collect("football-data", footballFetch(rows), { FOOTBALL_DATA_API_KEY: "test" })).fixtures;
+  const events = await read();
+  assert.equal(events.length, codes.length);
+  for (const event of events) assert.deepEqual(event.footballLive, { home: 0, away: 1, clock: "45+2′" });
+  Object.assign(rows[0], { status: "PAUSED", score: { fullTime: { home: null, away: null } } });
+  Object.assign(rows[1], { status: "PENALTY_SHOOTOUT", score: { duration: "PENALTY_SHOOTOUT",
+    fullTime: { home: 4, away: 3 }, penalties: { home: 3, away: 2 } } });
+  Object.assign(rows[2], { minute: null, injuryTime: 0 });
+  Object.assign(rows[3], { lastUpdated: undefined });
+  Object.assign(rows[4], { status: "TIMED" });
+  const output = await read();
+  const updated = rows.map((row) => output.find((event) => event.id.endsWith(`:${row.id}`)));
+  assert.deepEqual(updated[0].footballLive, { clock: "HT" });
+  assert.deepEqual(updated[1].footballLive, { home: 1, away: 1, clock: "PEN" });
+  assert.deepEqual(updated[2].footballLive, { home: 0, away: 1 });
+  assert.equal(updated[3].footballLive, undefined);
+  assert.equal(updated[4].footballLive, undefined);
+});
+
 test("NCAA unions agreeing FBS/FCS events once and rejects cross-group team/time/status conflicts", async () => {
   const descriptor = source("college-football");
   const event = espnEvent("100", {}, descriptor);

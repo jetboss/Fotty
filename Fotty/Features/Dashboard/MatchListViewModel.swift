@@ -352,6 +352,16 @@ final class MatchListViewModel {
         if AppRuntime.isAutomatedTesting,
            ProcessInfo.processInfo.environment["FOTTY_HOME_UI_TESTING"] == "1" {
             let now = HomeSportsDiscovery.automatedClockStart ?? Date()
+            if ProcessInfo.processInfo.environment["FOTTY_HOME_FOOTBALL_SNAPSHOT_B64"] != nil {
+                guard let snapshot = HomeSportsDiscovery.automatedFootballSnapshot else { return }
+                // Home features a watch-eligible fixture. Supply only the in-memory
+                // lookup capability; no provider settings, listings or media are written.
+                FixtureStreamDiscoveryIndex.shared.updateEnabledProviders(
+                    [StreamPluginProviderMatching.communitySportsProviderCode], revision: .max)
+                sportsFixtureSnapshot = snapshot
+                matches = SportsFixtureCatalog.merging(into: [], snapshot: snapshot, at: now)
+                return
+            }
             func fixture(_ id: String, sport: String, title: String, hours: Double) -> AnalyticalDataEngine.EventReference {
                 .init(id: id, title: title, category: sport, date: Int64(now.addingTimeInterval(hours * 3600).timeIntervalSince1970), poster: nil, popular: false, teams: nil)
             }

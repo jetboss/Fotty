@@ -352,16 +352,199 @@ function fsRow(row, scope, now) {
   }
   return record("flixstreams", row, scope, now, facts, issues);
 }
-async function cncRow(row, now) {
-  if (!object(row)) return null;
-  if (typeof row.id !== "string" || row.id.length > 4096 || !/^cnc:[A-Za-z0-9_-]+={0,2}$/u.test(row.id)) return null;
-  const issues = [], participants = pair(typeof row.name === "string" ? row.name.replace(/^(?:🔴|🔜|✅) /u, "") : ""), hints = row.behaviorHints;
-  if (row.type !== "tv" || !object(hints) || Object.keys(hints).join() !== "defaultVideoId" || hints.defaultVideoId !== row.id) issues.push("identity-conflict");
-  // CNC's advertised identifier encodes a provider object. Persist only an
-  // observation fingerprint, never that embedded payload or executable route.
+const CNC_LIVXOW = "cnc_LivXowLiveEvents_tv", CNC_PLAYZTV = "cnc_PlayZTVLiveEvents_tv";
+const cncIdentityID = (value) => typeof value === "string" && value.length <= 4096 && /^cnc:[A-Za-z0-9_-]+={0,2}$/u.test(value);
+// The native LivXow adapter accepts these exact NHL nicknames for retrieval. They
+// confer no sport or league authority without the same-ID Hockey/NHL metadata.
+const CNC_NHL_NAMES = new Map([
+  ["blackhawks", "Chicago Blackhawks"], ["canadiens", "Montréal Canadiens"], ["capitals", "Washington Capitals"],
+  ["flyers", "Philadelphia Flyers"], ["maple leafs", "Toronto Maple Leafs"], ["mammoth", "Utah Mammoth"],
+  ["jets", "Winnipeg Jets"], ["oilers", "Edmonton Oilers"], ["devils", "New Jersey Devils"],
+  ["red wings", "Detroit Red Wings"], ["lightning", "Tampa Bay Lightning"], ["blues", "St. Louis Blues"],
+  ["rangers", "New York Rangers"], ["wild", "Minnesota Wild"], ["golden knights", "Vegas Golden Knights"],
+  ["penguins", "Pittsburgh Penguins"], ["stars", "Dallas Stars"], ["avalanche", "Colorado Avalanche"],
+  ["blue jackets", "Columbus Blue Jackets"], ["hurricanes", "Carolina Hurricanes"], ["predators", "Nashville Predators"],
+  ["ducks", "Anaheim Ducks"], ["canucks", "Vancouver Canucks"],
+]);
+function cncTeam(name, category) {
+  // This is a country-name alias, not a blanket replacement of St. in club names.
+  if (category === "hockey") return CNC_NHL_NAMES.get(normalizedName(name)) ?? name;
+  return category === "football" && normalizedName(name) === "saint kitts and nevis" ? "St. Kitts and Nevis" : name;
+}
+function cncTeams(name, category) {
+  return pair(typeof name === "string" ? name.replace(/^(?:🔴|🔜|✅) /u, "") : "").map((name) => cncTeam(name, category));
+}
+const cncLeague = (league) => ({ "uefa champions league": "champions-league", "english premier league": "premier-league",
+  "english premier league epl": "premier-league", "major league soccer": "mls", "fifa friendlies": "international-friendlies",
+  "international friendly": "international-friendlies", "la liga": "la-liga", "nhl": "nhl" })[normalizedName(league)]
+  ?? normalizedName(league).replaceAll(" ", "-");
+// Scope evidence is present only in same-ID metadata. Index each mixed catalog
+// locally once; a simultaneous NHL fixture reuses the same LivXow read.
+function indexCNCCatalog(rows, sports, fixtures, keyFor, rejectedIDs, identityByID) {
+  const siblings = new Map(), pairs = new Map();
+  for (const row of rows) {
+    if (!object(row)) continue;
+    for (const id of new Set([row.id, row.behaviorHints?.defaultVideoId])) {
+      if (cncIdentityID(id)) {
+        if (!siblings.has(id)) siblings.set(id, []);
+        siblings.get(id).push(row);
+      }
+    }
+    for (const category of sports) {
+      const key = keyFor(cncTeams(row.name, category), category);
+      if (!fixtures.has(key) || !cncIdentityID(row.id)) continue;
+      if (!pairs.has(key)) pairs.set(key, new Set());
+      pairs.get(key).add(row.id);
+    }
+  }
+  const byFixture = new Map();
+  for (const [id, group] of siblings) {
+    const signature = (row) => cncTeams(row.name, "football").map(normalizedName).sort().join("\n");
+    const reference = signature(group[0]);
+    if (identityByID.has(id) && identityByID.get(id) !== reference) rejectedIDs.add(id);
+    identityByID.set(id, reference);
+    if (group.some((row) => row.id !== id || row.type !== "tv" || !object(row.behaviorHints)
+      || Object.keys(row.behaviorHints).join() !== "defaultVideoId" || row.behaviorHints.defaultVideoId !== id
+      || typeof row.name !== "string" || signature(row) !== reference)) rejectedIDs.add(id);
+  }
+  for (const [key, ids] of pairs) {
+    const [fixture] = fixtures.get(key);
+    for (const id of ids) {
+      const group = siblings.get(id);
+      if (rejectedIDs.has(id) || !group.every((row) => keyFor(cncTeams(row.name, fixture.sport), fixture.sport) === key)) continue;
+      if (!byFixture.has(key)) byFixture.set(key, []);
+      byFixture.get(key).push(group[0]);
+    }
+  }
+  return byFixture;
+}
+async function cncRow(row, meta, fixture, now) {
+  const category = fixture.sport;
+  if (!cncIdentityID(row?.id) || !object(meta) || meta.id !== row.id || meta.type !== "tv"
+    || !str(meta.name, 512) || typeof meta.description !== "string" || meta.description.length > 2048
+    || ["released", "releaseInfo", "date", "startTime", "kickoff", "videos", "behaviorHints"].some((k) => own(meta, k))) return null;
+  const participants = cncTeams(meta.name, category);
+  if (category === "football") {
+    if (fixture.squad?.ageGroup !== "senior" || !["men", "women"].includes(fixture.squad?.gender)) return null;
+    const expected = fixture.squad.gender === "women" ? "women" : "";
+    if (participants.some((name) => [...squadTokens(normalizedName(name))].sort().join(",") !== expected)) return null;
+  }
+  if (!samePair(participants, cncTeams(row.name, category), category)
+    || !samePair(participants, fixture.participants.map((name) => cncTeam(name, category)), category)) return null;
+  const lines = meta.description.split("\n");
+  if (lines.length !== 5 || lines[0] !== (category === "football" ? "📌 Football" : "📌 Hockey")
+    || !lines[1].startsWith("🏆 ") || !str(lines[1], 160) || lines[3] !== ""
+    || !/^📡 Available Servers: (?:0|[1-9][0-9]?|100)$/u.test(lines[4])) return null;
+  const competitionID = cncLeague(lines[1].slice("🏆 ".length));
+  if (competitionID !== fixture.competitionID || category === "hockey" && competitionID !== "nhl") return null;
+  const match = /^🕐 (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (0?[1-9]|[12][0-9]|3[01]), (20[0-9]{2}) ((?:[01][0-9]|2[0-3])):([0-5][0-9]) UTC$/u.exec(lines[2]);
+  const start = match && dateParts(+match[3], "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ").indexOf(match[1]) + 1, +match[2], +match[4], +match[5]);
+  if (!start || start !== utc(fixture.start)) return null;
+  // Device re-resolves this digest against its own fresh catalog. The raw upstream
+  // ID may embed a private route, so it is never published or persisted.
   const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(row.id)));
   const reference = "cnc-observation:" + [...hash].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return record("cncsports", { id: reference, name: row.name }, "hockey", now, { sport: "hockey", participants, competitionID: "nhl" }, issues);
+  const listing = record("cncsports", { id: reference, name: row.name }, category, now,
+    { sport: category, participants: fixture.participants, competitionID, start }, lines[4] === "📡 Available Servers: 0" ? ["unverified-fixture"] : []);
+  return category === "football" ? { ...listing, squad: fixture.squad } : listing;
+}
+async function collectCNC({ manifest, read, hints, cursor, now, signal }) {
+  const targets = hints.filter((f) => f.sport === "football" || f.sport === "hockey" && f.competitionID === "nhl");
+  const sports = [...new Set(targets.map((f) => f.sport))];
+  const coverage = new Map(sports.map((s) => [s, { healthy: false }]));
+  const seenTeams = new Map(), fixtures = new Map();
+  const keyFor = (participants, category) => {
+    if (participants.length !== 2) return null;
+    const keys = participants.map((name) => {
+      const key = category + "\n" + name;
+      if (!seenTeams.has(key)) seenTeams.set(key, teamKey(cncTeam(name, category), category));
+      return seenTeams.get(key);
+    }).sort();
+    return [category, ...keys].join("\n");
+  };
+  for (const fixture of targets) {
+    const key = keyFor(fixture.participants, fixture.sport);
+    if (!fixtures.has(key)) fixtures.set(key, []);
+    fixtures.get(key).push(fixture);
+  }
+  const rotate = (items, offset) => {
+    if (!items.length) return [];
+    const start = offset % items.length;
+    return [...items.slice(start), ...items.slice(0, start)];
+  };
+  const tick = Number.isSafeInteger(cursor) && cursor >= 0 ? cursor : 0;
+  const keysFor = (sport) => [...fixtures.keys()].filter((key) => fixtures.get(key)[0].sport === sport);
+  const football = rotate(keysFor("football"), tick), hockey = rotate(keysFor("hockey"), tick);
+  const catalogs = football.length ? [CNC_PLAYZTV, CNC_LIVXOW] : hockey.length ? [CNC_LIVXOW] : [];
+  const fail = (error, affected) => {
+    if (signal?.aborted || error?.name === "AbortError") throw error;
+    for (const sport of affected) coverage.get(sport).failure = reason(error);
+  };
+  const candidates = new Map(), rejectedIDs = new Set(), identityByID = new Map();
+  await Promise.all(catalogs.map(async (catalogID) => {
+    const supported = sports.filter((s) => catalogID === CNC_LIVXOW || s === "football");
+    let listing;
+    try { listing = advertised(manifest, catalogID); }
+    catch (error) { fail(error, supported); return; }
+    const url = ORIGINS.cncsports + "/catalog/tv/" + catalogID;
+    let rows = [], indexed = new Map();
+    try {
+      rows = safeRows(await read(url + ".json"), 600);
+      indexed = indexCNCCatalog(rows, supported, fixtures, keyFor, rejectedIDs, identityByID);
+      supported.forEach((s) => { coverage.get(s).healthy = true; });
+    } catch (error) { fail(error, supported); }
+    const missing = football.find((key) => !indexed.has(key));
+    const query = missing && searchHint(fixtures.get(missing)[0].participants[0], "football");
+    if (query && Array.isArray(listing.extra) && listing.extra.some((extra) => extra?.name === "search" && extra.isRequired !== true)) {
+      try {
+        const found = safeRows(await read(url + "/search=" + query + ".json"), 600);
+        // Check all known siblings together; a conflicting search result cannot
+        // override an otherwise good default row, or vice versa.
+        indexed = indexCNCCatalog([...rows, ...found], supported, fixtures, keyFor, rejectedIDs, identityByID);
+        coverage.get("football").healthy = true;
+      } catch (error) { fail(error, ["football"]); }
+    }
+    for (const [key, entries] of indexed) {
+      if (!candidates.has(key)) candidates.set(key, new Map());
+      for (const row of entries) candidates.get(key).set(row.id, row);
+    }
+  }));
+  // A sport gets its first candidate before another sport's second. Side-by-side
+  // fixtures likewise share the available metadata reads before extra routes.
+  const ordered = [];
+  for (let i = 0; i < Math.max(football.length, hockey.length); i++) {
+    for (const key of [football[i], hockey[i]]) if (candidates.has(key)) ordered.push(key);
+  }
+  const picks = ordered.map((key) => {
+    const rows = [...candidates.get(key).values()].filter((r) => !rejectedIDs.has(r.id)).sort((a, b) => a.id.localeCompare(b.id));
+    // Status decorations only prioritize reads. Keep active rows first while
+    // rotating within each group; every ID must prove its own identity/date.
+    const pass = Math.floor(tick / (key.startsWith("football\n") ? football.length : hockey.length));
+    const active = rows.filter((r) => r.name.startsWith("🔴 "));
+    const others = rows.filter((r) => !r.name.startsWith("🔴 "));
+    return [key, [...rotate(active, pass), ...rotate(others, pass)]];
+  });
+  const selected = new Map(), remainingReads = 8 - read.count();
+  for (let i = 0; i < remainingReads && selected.size < remainingReads; i++) {
+    for (const [key, rows] of picks) {
+      const row = rows[i];
+      if (row && !selected.has(row.id) && selected.size < remainingReads) selected.set(row.id, { row, key });
+    }
+  }
+  const batches = await Promise.all([...selected.values()].map(async ({ row, key }) => {
+    const matches = fixtures.get(key);
+    try {
+      const response = await read(ORIGINS.cncsports + "/meta/tv/" + encodeURIComponent(row.id) + ".json");
+      return (await Promise.all(matches.map((fixture) => cncRow(row, response?.meta, fixture, now)))).filter(Boolean);
+    } catch (error) { fail(error, [matches[0].sport]); return []; }
+  }));
+  const broadcasts = batches.flat();
+  const scopes = (sports.length ? sports : ["football", "hockey"]).map((s) => {
+    const { healthy, failure } = coverage.get(s) ?? {};
+    if (!healthy && failure === "unsupported-scope") return { scope: s, complete: false, status: "unsupported", failure };
+    return { scope: s, complete: false, status: !healthy && failure ? "failed" : "partial", ...(failure ? { failure } : {}) };
+  });
+  return { cursor: (tick + 1) % 65536, scopes, broadcasts };
 }
 
 const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -840,7 +1023,8 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
         }
         cursor = candidates.length ? (offset + advanced) % candidates.length : 0;
       } else if (providerCode === "cncsports") {
-        await cohort("hockey", async () => { advertised(m, "cnc_LivXowLiveEvents_tv"); return safeRows(await read(ORIGINS[providerCode] + "/catalog/tv/cnc_LivXowLiveEvents_tv.json", 512 * KiB), 600); }, (row) => cncRow(row, now), false);
+        const cnc = await collectCNC({ manifest: m, read, hints, cursor, now, signal });
+        cursor = cnc.cursor; scopes.push(...cnc.scopes); broadcasts.push(...cnc.broadcasts);
       } else if (providerCode === "flixstreams") {
         advertised(m, "essential-live-events", (c) => c.extra?.some((e) => e.name === "skip" && e.isRequired !== true)
           && c.extra?.some((e) => e.name === "genre" && e.isRequired !== true && e.options?.includes("soccer") && e.options?.includes("cricket")));
@@ -874,7 +1058,7 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
     return { scope, complete, status: complete ? rows.length ? "available" : "empty" : healthy ? "partial" : "failed", ...(failure ? { failure } : {}) };
   });
   const result = { providerCode, observedAt: now.toISOString(), ...(tvGuide ? { tvGuide } : {}), ...(programmeContext ? { programmeContext } : {}), complete: combinedScopes.length > 0 && combinedScopes.every((s) => s.complete), scopes: combinedScopes, broadcasts,
-    ...(["communitysports", "plaviosports"].includes(providerCode) ? { cursor } : {}) };
+    ...(["communitysports", "plaviosports", "cncsports"].includes(providerCode) ? { cursor } : {}) };
   if (new TextEncoder().encode(JSON.stringify(result)).byteLength > MAX_BYTES) return { providerCode, observedAt: now.toISOString(), complete: false,
     scopes: scopes.map((s) => scopeResult(s.scope, [], false, "capacity-exceeded")), broadcasts: [] };
   return result;

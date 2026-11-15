@@ -1,5 +1,5 @@
-// Optional delayed reporting from the already admitted football-data CL rows.
-// No requests, live-score authority, fixture/status changes or PL/FPL changes.
+// Optional score evidence on admitted fixtures. The historical Champions League
+// report has a separate contract and can also accompany a finished fixture.
 const MAX_SCORE_BYTES = 32 * 1024;
 const MAX_SNAPSHOT_BYTES = 2 * 1024 * 1024;
 const SCORE_KEYS = new Set(["home", "away", "publisherUpdatedAt"]);
@@ -40,22 +40,43 @@ export function normalizeUCLReportedScore(row, fixture) {
   const score = { home: row.score?.fullTime?.home, away: row.score?.fullTime?.away, publisherUpdatedAt };
   return validUCLReportedScore(score, fixture) ? score : undefined;
 }
-const withoutScore = (fixture) => {
-  if (fixture.reportedScore === undefined) return fixture;
-  const copy = { ...fixture }; delete copy.reportedScore; return copy;
-};
-export function boundedUCLReportedScores(snapshot) {
-  const fixtures = snapshot.fixtures.map((fixture) => fixture.reportedScore === undefined
-    || validUCLReportedScore(fixture.reportedScore, fixture) ? fixture : withoutScore(fixture));
-  const base = fixtures.map(withoutScore);
+function validLiveDisplay(live, fixture, covered, now) {
+  if (fixture.sport !== "football" || fixture.eventKind !== "match" || fixture.status !== "live"
+    || fixture.source?.verification === "held" || !covered.has(fixture.competitionId) && fixture.source?.verification !== "verified"
+    || !live || typeof live !== "object" || Array.isArray(live)) return false;
+  const receipts = [fixture.source.observedAt];
+  if (fixture.source.updatedAt !== undefined) receipts.push(fixture.source.updatedAt);
+  if (!receipts.every((receipt) => {
+    const age = now.getTime() - Date.parse(utc(receipt));
+    return age >= -300_000 && age <= 1_800_000;
+  })) return false;
+  const hasScore = live.home !== undefined || live.away !== undefined;
+  const hasClock = live.clock !== undefined;
+  return (hasScore || hasClock) && Object.keys(live).every((key) => ["home", "away", "clock"].includes(key))
+    && (!hasScore || scoreInteger(live.home) && scoreInteger(live.away))
+    && (!hasClock || typeof live.clock === "string" && /^(?:HT|ET|PEN|(?:0|[1-9]\d?|1[0-4]\d|150)(?:\+[1-9]\d?)?′)$/.test(live.clock));
+}
+
+export function boundedFixtureScores(snapshot, now) {
+  const covered = new Set(snapshot.coverage.filter((lane) => lane.status === "covered").map((lane) => lane.competitionId));
+  const base = snapshot.fixtures.map((fixture) => {
+    if (fixture.reportedScore === undefined && fixture.footballLive === undefined) return fixture;
+    const { reportedScore, footballLive, ...facts } = fixture;
+    return facts;
+  });
+  const encoder = new TextEncoder();
+  const bytes = (value) => encoder.encode(JSON.stringify(value)).length;
   // Reserve the fixed SHA256 revision's wire size before the caller hashes it.
-  const baseBytes = new TextEncoder().encode(JSON.stringify({ ...snapshot, revision: "0".repeat(64), fixtures: base })).length;
+  const baseBytes = bytes({ ...snapshot, revision: "0".repeat(64), fixtures: base });
   let budget = Math.min(MAX_SCORE_BYTES, Math.max(0, MAX_SNAPSHOT_BYTES - baseBytes));
-  return { ...snapshot, fixtures: fixtures.map((fixture, index) => {
-    if (fixture.reportedScore === undefined) return fixture;
-    const bytes = new TextEncoder().encode(JSON.stringify(fixture)).length
-      - new TextEncoder().encode(JSON.stringify(base[index])).length;
-    if (bytes > budget) return base[index];
-    budget -= bytes; return fixture;
+  return { ...snapshot, fixtures: snapshot.fixtures.map((fixture, index) => {
+    if (fixture === base[index]) return fixture;
+    const output = { ...base[index] };
+    if (validUCLReportedScore(fixture.reportedScore, fixture)) output.reportedScore = fixture.reportedScore;
+    if (validLiveDisplay(fixture.footballLive, fixture, covered, now)) output.footballLive = fixture.footballLive;
+    const added = bytes(output) - bytes(base[index]);
+    if (added > budget) return base[index];
+    budget -= added;
+    return output;
   }) };
 }

@@ -2,8 +2,8 @@
  * Fotty playback edge API — iOS parity for getfotty.com static FTP.
  *
  * Routes:
- *   GET /api/live/streams?source=&id=
- *   GET /api/embed/player?source=&id=&streamNo=
+ *   GET /api/live/catalog
+ *   GET /api/live/broadcasts
  *   GET /api/cricket/cpl-fixtures
  *   GET /api/cricket/fixtures
  *   GET /api/sports/fixtures
@@ -293,17 +293,6 @@ async function handleBroadcastRegistry(request, url, env) {
 const IOS_SAFARI_USER_AGENT =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
 
-const EMBED_ST_ORIGIN = "https://embed.st";
-
-/** Prefer StreamEx `delta` on web (echo PPV ids often 404 in-browser). */
-const SOURCE_PRIORITY = ["delta", "hotel", "echo", "india", "golf", "alpha"];
-
-const STREAM_PROVIDERS = [
-  { label: "StreameX", baseURL: "https://www.streamex.net", pathPrefix: "/api/live/stream" },
-  { label: "StreameX Mirror", baseURL: "https://streamex.sh", pathPrefix: "/api/live/stream" },
-  { label: "Streamed Backup", baseURL: "https://streamed.pk", pathPrefix: "/api/stream" },
-];
-
 const FOOTBALL_DATA_ORIGIN = "https://api.football-data.org/v4";
 const API_FOOTBALL_ORIGIN = "https://v3.football.api-sports.io";
 // Keep Worker quota aligned with the iOS policy. Add "2" when Champions League
@@ -315,7 +304,6 @@ const API_FOOTBALL_PROVIDER_RESERVE = 20;
 const API_FOOTBALL_CACHE_TTL_MS = 240 * 1000;
 const API_FOOTBALL_ACCESS_RETRY_MS = 4 * 60 * 60 * 1000;
 const API_FOOTBALL_QUOTA_STATE_KEY = "premier-league-live-v1";
-const STREAM_CATALOG_TIMEOUT_MS = 6_500;
 const FIXTURE_SOURCE_TIMEOUT_MS = 8_000;
 const FOOTBALL_SOURCE_TIMEOUT_MS = 8_000;
 const SAFE_FOOTBALL_QUERY_VALUE = /^[A-Za-z0-9_,.-]+$/;
@@ -845,12 +833,10 @@ async function handleHealth(env) {
     sourceVersion: WORKER_SOURCE_VERSION,
     footballScheduleConfigured: Boolean(env.FOOTBALL_DATA_API_KEY),
     liveScoreCompetitions: ["Premier League"],
-    catalogProviderCount: STREAM_PROVIDERS.length,
     broadcastCatalogSchema: 1,
     broadcastCatalogFamilyCount: 1,
     broadcastRegistrySchema: 1,
     broadcastRegistryEnabled: broadcastRegistryEnabled(env),
-    catalogCoverageMode: "parallel-with-direct-fallback",
     cplFallbackRevision: cplFixtureFallback.revision,
     cricketFixtureRegistryConfigured: Boolean(env.CRICKET_FIXTURES),
     cricketFixtureRefreshMode: "scheduled-adaptive",
@@ -863,172 +849,6 @@ async function handleHealth(env) {
     apiFootballCredentialConfigured,
     premierLeagueLiveScoresConfigured: currentSeasonLiveScoresAvailable,
     liveScoreQuota,
-  });
-}
-
-function embedStPlayerUrl(source, id, streamNo) {
-  return `${EMBED_ST_ORIGIN}/embed/${encodeURIComponent(source)}/${encodeURIComponent(id)}/${streamNo}`;
-}
-
-function sourceRank(source) {
-  const index = SOURCE_PRIORITY.indexOf((source || "").toLowerCase());
-  return index >= 0 ? index : 999;
-}
-
-function heatTierRank(value) {
-  switch ((value || "").toLowerCase()) {
-    case "veryhigh":
-      return 0;
-    case "high":
-      return 1;
-    case "medium":
-      return 2;
-    case "low":
-      return 3;
-    default:
-      return 4;
-  }
-}
-
-const APPROVED_PLAYBACK_EMBED_DOMAINS = [
-  "embed.st", "embedhd.st", "exposestrat.com", "embedsports.top",
-  "streamex.net", "streamex.sh", "streamed.pk", "streamed.su",
-  "pooembed.eu", "score808live.tv", "strmd.st",
-];
-
-function isApprovedPlaybackEmbedURL(value) {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "https:" || url.username || url.password) return false;
-    if (url.port && url.port !== "443") return false;
-    const host = url.hostname.toLowerCase();
-    return APPROVED_PLAYBACK_EMBED_DOMAINS.some(
-      (domain) => host === domain || host.endsWith(`.${domain}`)
-    );
-  } catch {
-    return false;
-  }
-}
-
-async function fetchVariants(provider, source, id) {
-  const startedAt = Date.now();
-  try {
-    return await withDeadline(STREAM_CATALOG_TIMEOUT_MS, async (signal) => {
-      const response = await fetch(
-        `${provider.baseURL}${provider.pathPrefix}/${encodeURIComponent(source)}/${encodeURIComponent(id)}`,
-        {
-          headers: {
-            Accept: "application/json",
-            Referer: provider.baseURL,
-            "User-Agent": IOS_SAFARI_USER_AGENT,
-          },
-          signal,
-        }
-      );
-      if (response.status === 404) {
-        return { provider: provider.label, outcome: "empty", status: 404, elapsedMs: Date.now() - startedAt, variants: [] };
-      }
-      if (!response.ok) {
-        return { provider: provider.label, outcome: "http-error", status: response.status, elapsedMs: Date.now() - startedAt, variants: [] };
-      }
-      const payload = await boundedJSON(response, 512 * 1024, signal);
-      const rawVariants = Array.isArray(payload)
-        ? payload
-        : [payload?.streams, payload?.variants, payload?.data, payload?.result].find(Array.isArray);
-      if (!Array.isArray(rawVariants)) {
-        return { provider: provider.label, outcome: "malformed", status: response.status, elapsedMs: Date.now() - startedAt, variants: [] };
-      }
-      const variants = rawVariants.map((variant) => ({
-        id: variant.id || id,
-        source: variant.source || source,
-        streamNo: variant.streamNo || 1,
-        language: variant.language || "",
-        hd: variant.hd === true,
-        embedUrl: variant.embedUrl,
-        viewers: Number(variant.viewers || 0),
-        heatTier: variant.heatTier,
-        provider: provider.label,
-      }));
-      return { provider: provider.label, outcome: variants.length ? "ok" : "empty", status: response.status,
-        elapsedMs: Date.now() - startedAt, variants };
-    });
-  } catch (error) {
-    return { provider: provider.label, outcome: "request-failed", errorKind: errorKind(error),
-      elapsedMs: Date.now() - startedAt, variants: [] };
-  }
-}
-
-async function handleStreams(url) {
-  const source = url.searchParams.get("source")?.trim();
-  const id = url.searchParams.get("id")?.trim();
-  if (!source || !id) return json({ error: "Missing source or id" }, 400);
-
-  const providerResults = await Promise.all(
-    STREAM_PROVIDERS.map((provider) => fetchVariants(provider, source, id))
-  );
-  const responding = providerResults.filter((result) => result.outcome === "ok" || result.outcome === "empty").length;
-  const coverage = responding === STREAM_PROVIDERS.length
-    ? "complete"
-    : responding > 0 ? "partial" : "fallback-only";
-  const variants = providerResults
-    .flatMap((result) => result.variants)
-    .filter((variant) => isApprovedPlaybackEmbedURL(variant.embedUrl))
-    .filter((variant, index, all) => all.findIndex((item) => item.embedUrl === variant.embedUrl) === index)
-    .sort((a, b) => {
-      const sourceDelta = sourceRank(a.source) - sourceRank(b.source);
-      if (sourceDelta !== 0) return sourceDelta;
-      const heatDelta = heatTierRank(a.heatTier) - heatTierRank(b.heatTier);
-      if (heatDelta !== 0) return heatDelta;
-      if (a.hd !== b.hd) return Number(b.hd) - Number(a.hd);
-      if (a.viewers !== b.viewers) return b.viewers - a.viewers;
-      return a.streamNo - b.streamNo;
-    });
-
-  if (variants.length === 0) {
-    variants.push({
-      id,
-      source,
-      streamNo: 1,
-      language: "",
-      hd: true,
-      embedUrl: `https://embed.st/embed/${encodeURIComponent(source)}/${encodeURIComponent(id)}/1`,
-      viewers: 0,
-      heatTier: "legacy",
-      provider: "Legacy",
-    });
-  }
-
-  if (coverage !== "complete") {
-    logWorkerEvent(responding > 0 ? "warn" : "error", "stream_catalog_coverage", {
-      coverage,
-      responding,
-      attempted: STREAM_PROVIDERS.length,
-      providers: providerResults.map(({ provider, outcome, status, elapsedMs, errorKind: providerErrorKind }) => ({
-        provider, outcome, status: status || null, elapsedMs, errorKind: providerErrorKind || null,
-      })),
-    });
-  }
-  return json(variants, 200, {
-    "Cache-Control": "public, max-age=15, stale-while-revalidate=15, stale-if-error=120",
-    "X-Fotty-Catalog-Attempted": String(STREAM_PROVIDERS.length),
-    "X-Fotty-Catalog-Coverage": coverage,
-    "X-Fotty-Catalog-Responding": String(responding),
-  });
-}
-
-async function handlePlayer(url) {
-  const source = url.searchParams.get("source")?.trim();
-  const id = url.searchParams.get("id")?.trim();
-  const streamNo = Number(url.searchParams.get("streamNo") || "1");
-  if (!source || !id || !Number.isFinite(streamNo) || streamNo < 1) {
-    return json({ error: "Missing source, id, or streamNo" }, 400);
-  }
-
-  // Cloudflare edge IPs get stub HTML from embed.st (NOT FOUND / SANDBOX).
-  // Redirect the browser iframe to the real provider embed instead.
-  return new Response(null, {
-    status: 302,
-    headers: corsHeaders({ Location: embedStPlayerUrl(source, id, streamNo) }),
   });
 }
 
@@ -1585,8 +1405,6 @@ const worker = {
       return result;
     }
     if (url.pathname === "/api/live/broadcasts") return handleBroadcastRegistry(request, url, env);
-    if (url.pathname === "/api/live/streams") return handleStreams(url);
-    if (url.pathname === "/api/embed/player") return handlePlayer(url);
     return json({ error: "Not found" }, 404);
   },
 };

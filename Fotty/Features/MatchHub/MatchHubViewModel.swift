@@ -184,10 +184,10 @@ class MatchHubViewModel: ObservableObject {
         refreshTimer = nil
     }
 
-    func watchLive() {
+    func watchLive(freshDiscovery: Bool = false) {
         if let data = hubData {
             let fallbackEvent = makeFallbackPlaybackEvent(from: data)
-            watchEvent(fallbackEvent, hubData: data)
+            watchEvent(fallbackEvent, hubData: data, freshDiscovery: freshDiscovery)
         }
     }
 
@@ -202,7 +202,7 @@ class MatchHubViewModel: ObservableObject {
         return MatchStartPolicy(event: makeFallbackPlaybackEvent(from: data), status: knownLive).timingAllowsPlayback
     }
     
-    private func watchEvent(_ event: EventReference, hubData data: MatchHubData?) {
+    private func watchEvent(_ event: EventReference, hubData data: MatchHubData?, freshDiscovery: Bool) {
         if let data, !data.fixture.status.isLive,
            data.fixture.status != .scheduled && data.fixture.status != .preMatch { return }
         let knownLive: FootballMatch.MatchStatus? = data?.fixture.status.isLive == true ? .inPlay : nil
@@ -260,7 +260,8 @@ class MatchHubViewModel: ObservableObject {
                 self.activeStreamRequest = request
             }
 
-            let outcome = await LiveStreamResolver.shared.resolvePlayback(for: request, singleStreamDiscovery: true) { progress in
+            let outcome = await LiveStreamResolver.shared.resolvePlayback(for: request, onChoices: nil,
+                singleStreamDiscovery: true, refreshOptionalSources: freshDiscovery) { progress in
                 await MainActor.run {
                     guard self.streamRequestID == requestID else { return }
                     self.streamStatusMessage = progress.userMessage
@@ -280,6 +281,7 @@ class MatchHubViewModel: ObservableObject {
                 self.isFindingStream = false
                 self.streamStatusDetail = nil
                 if webSessions.isEmpty {
+                    self.streamError = LiveStreamResolver.noPlayableMatchMessage
                     self.showPlayer = false
                     self.activeStreamRequest = nil
                     MatchPlaybackFeedback.shared.notReady(event.id)

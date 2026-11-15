@@ -707,8 +707,18 @@ final class LivePlayerViewModel {
         FottyQualityStore.shared.record(category: .playback, name: "terminal_failure", outcome: .failure,
             details: pending.qualityDetails)
         recordWatchTerminal(.failed, failureKind: pending.failureKind)
-        errorTitle = pending.failureKind.title
-        error = pending.failureKind.terminalMessage
+        presentTerminalPlaybackFailure(pending.failureKind)
+    }
+
+    private func presentTerminalPlaybackFailure(_ kind: LivePlaybackFailureKind) {
+        if usesSingleStreamRanking, viewingPlaybackContext == .single, !event.isBroadcastChannel,
+           !isCheckingAdditionalSources, kind != .network {
+            errorTitle = "No playable stream right now"
+            error = "None of the available streams could play this match. Retry to check for a working stream."
+        } else {
+            errorTitle = kind.title
+            error = kind.terminalMessage
+        }
         showControls = true
         transition(to: .failed, phase: "Choose Broadcast Source")
     }
@@ -3407,16 +3417,13 @@ final class LivePlayerViewModel {
                 details: playbackQualityDetails(["failure_kind": failureKind.rawValue])
             )
             recordWatchTerminal(.failed, failureKind: failureKind)
-            errorTitle = failureKind.title
-            error = failureKind.terminalMessage
+            presentTerminalPlaybackFailure(failureKind)
             if viewerExhausted {
                 viewerExhaustedSourceID = source.id
                 shouldSuspendWebPlayback = true
                 errorTitle = "No other broadcast"
                 error = "This source's picture was blocked. Retry to look for another broadcast."
             }
-            showControls = true
-            transition(to: .failed, phase: "Choose Broadcast Source")
         }
     }
 

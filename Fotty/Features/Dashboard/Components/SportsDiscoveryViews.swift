@@ -357,33 +357,15 @@ struct HomeDiscoveryRow: View {
         let homeScore: Int?
         let awayScore: Int?
         let liveDetail: String?
+        let scoreMayBeDelayed: Bool
         let homeBadgeURL: URL?
         let awayBadgeURL: URL?
         let homeBrandURL: URL?
         let awayBrandURL: URL?
 
         @MainActor
-        init(item: HomeSportsDiscovery.Item) {
-            competitionLabel = item.event.sportsFixture?.competitionName ?? item.event.cplCompetitionLabel
-            statusLabel = item.statusLabel
-            homeScore = nil
-            awayScore = nil
-            liveDetail = item.hasConfirmedLiveStatus ? "LIVE" : nil
-            homeBadgeURL = item.event.homeBadgeURL
-            awayBadgeURL = item.event.awayBadgeURL
-            homeBrandURL = TeamBrandService.shared.badgeURL(for: item.event.homeName)
-            awayBrandURL = TeamBrandService.shared.badgeURL(for: item.event.awayName)
-        }
-
-        @MainActor
-        init(item: HomeSportsDiscovery.Item, scoreService: LiveScoreService) {
-            let match = item.sport == "football" && !item.event.hasCatalogIdentityConflict
-                ? scoreService.findMatch(
-                    home: item.event.homeName,
-                    away: item.event.awayName,
-                    near: item.event.kickoffDate
-                )
-                : nil
+        init(item: HomeSportsDiscovery.Item, scoreService: LiveScoreService? = nil) {
+            let match = scoreService.flatMap { Self.footballMatch(for: item.event, scores: $0) }
             if let fixture = item.event.sportsFixture {
                 competitionLabel = fixture.competitionName
             } else if item.event.isCPLFixture || item.event.cricketFixture != nil {
@@ -393,43 +375,75 @@ struct HomeDiscoveryRow: View {
             } else {
                 competitionLabel = item.event.categoryDisplayName
             }
-            if !WatchingSpoilerProtection.shared.protects(item.event), item.phase == .live, item.sport == "football",
-               let score = scoreService.scoreForMatch(
-                    home: item.event.homeName,
-                    away: item.event.awayName,
-                    near: item.event.kickoffDate
-               ), score.status.isLive {
-                let qualifier = scoreService.scoreStatusQualifier.map { " · \($0)" } ?? ""
-                statusLabel = "\(score.homeGoals)–\(score.awayGoals) · \(score.minute ?? score.status.displayText)\(qualifier)"
-                homeScore = score.homeGoals
-                awayScore = score.awayGoals
-                liveDetail = score.minute ?? score.status.displayText
-            } else {
-                statusLabel = item.statusLabel
-                homeScore = nil
-                awayScore = nil
-                liveDetail = item.hasConfirmedLiveStatus ? "LIVE" : nil
-            }
             // The official bootstrap binds stable badge codes to named clubs.
             // Do not let a conflicting listing/cache crest replace that artwork
             // once the same dated PL fixture has been accepted by the score lane.
-            let officialArtworkMatches = !item.event.hasCatalogIdentityConflict && match.map { match in
-                Self.permitsOfficialPremierLeagueArtwork(for: item.event)
-                    && FootballDataPolicy.supportsLiveScores(competition: match.competition)
-                    && FootballDataPolicy.normalizedTeamMatchKey(match.homeTeam.matchingName)
-                        == FootballDataPolicy.normalizedTeamMatchKey(item.event.homeName)
-                    && FootballDataPolicy.normalizedTeamMatchKey(match.awayTeam.matchingName)
-                        == FootballDataPolicy.normalizedTeamMatchKey(item.event.awayName)
-                    && item.event.kickoffDate.flatMap { kickoff in
-                        match.matchDate.map { abs($0.timeIntervalSince(kickoff)) <= 15 * 60 }
-                    } == true
-            } == true
+            let officialArtworkMatches = match.map { FootballDataPolicy.supportsLiveScores(competition: $0.competition) } == true
+            let showsFootball = item.sport == "football" && item.phase == .live
+                && !item.event.hasCatalogIdentityConflict && item.event.sportsFixture?.status.stopsPlayback != true
+                && !WatchingSpoilerProtection.shared.protects(item.event)
+            let fixture = showsFootball ? Self.liveFixture(for: item) : nil
+            let dedicated = showsFootball && officialArtworkMatches ? scoreService?.scoreForMatch(
+                home: item.event.homeName, away: item.event.awayName, near: item.event.kickoffDate) : nil
+            let primary = dedicated?.status.isLive == true ? dedicated : nil
+            // A missing side in the dedicated feed is unknown; 0–0 requires two observed zeros.
+            let primaryGoals = primary == nil ? nil : FootballFixtureLive(home: match?.score.fullTime?.home,
+                away: match?.score.fullTime?.away, clock: nil)
+            let official = fixture?.footballLive
+            let legacyScore = fixture.flatMap { _ in UCLReportedScorePolicy.score(for: item.event, at: item.now) }
+            homeScore = primaryGoals?.home ?? official?.home ?? legacyScore?.home
+            awayScore = primaryGoals?.away ?? official?.away ?? legacyScore?.away
+            let clock = primary?.status == .paused ? "HT" : (primary?.minute ?? official?.clock)
+            liveDetail = clock ?? primary?.status.displayText ?? (item.hasConfirmedLiveStatus ? "LIVE" : nil)
+            scoreMayBeDelayed = primaryGoals == nil && homeScore != nil
+                && (fixture?.footballLiveMayBeDelayed == true || (official?.home == nil && legacyScore != nil))
+            if let homeScore, let awayScore {
+                let qualifier = primaryGoals != nil ? scoreService?.scoreStatusQualifier : (scoreMayBeDelayed ? "May be delayed" : nil)
+                statusLabel = ["\(homeScore)–\(awayScore)", clock ?? primary?.status.displayText ?? item.statusLabel, qualifier]
+                    .compactMap { $0 }.joined(separator: " · ")
+            } else {
+                statusLabel = clock ?? item.statusLabel
+            }
             homeBadgeURL = Self.preferredBadgeURL(provider: item.event.homeBadgeURL,
                 matched: match?.homeTeam.crest.flatMap(URL.init(string:)), sameOfficialFixture: officialArtworkMatches)
             awayBadgeURL = Self.preferredBadgeURL(provider: item.event.awayBadgeURL,
                 matched: match?.awayTeam.crest.flatMap(URL.init(string:)), sameOfficialFixture: officialArtworkMatches)
             homeBrandURL = TeamBrandService.shared.badgeURL(for: item.event.homeName)
             awayBrandURL = TeamBrandService.shared.badgeURL(for: item.event.awayName)
+        }
+
+        @MainActor
+        static func footballMatch(for event: EventReference, scores: LiveScoreService) -> FootballMatch? {
+            guard event.normalizedCategory == "football", !event.hasCatalogIdentityConflict,
+                  let match = scores.findMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate,
+                      maximumKickoffDelta: SportsFixtureCatalog.kickoffTolerance),
+                  FootballDataPolicy.normalizedTeamMatchKey(match.homeTeam.matchingName)
+                      == FootballDataPolicy.normalizedTeamMatchKey(event.homeName),
+                  FootballDataPolicy.normalizedTeamMatchKey(match.awayTeam.matchingName)
+                      == FootballDataPolicy.normalizedTeamMatchKey(event.awayName) else { return nil }
+            if FootballDataPolicy.supportsLiveScores(competition: match.competition) {
+                return permitsOfficialPremierLeagueArtwork(for: event) ? match : nil
+            }
+            if let competition = event.competitionID {
+                guard EventReference(from: match).competitionID == competition else { return nil }
+            }
+            let squads = CatalogPlaybackIdentity.footballSquadIdentity(teamName: match.homeTeam.matchingName)
+                .union(CatalogPlaybackIdentity.footballSquadIdentity(teamName: match.awayTeam.matchingName))
+            return squads == CatalogPlaybackIdentity.footballSquadIdentity(for: event) ? match : nil
+        }
+
+        @MainActor
+        private static func liveFixture(for item: HomeSportsDiscovery.Item) -> SportsFixtureMetadata? {
+            let event = item.event
+            guard let fixture = event.sportsFixture, fixture.sport == "football", fixture.eventKind == .match,
+                  fixture.isLive(at: item.now), event.competitionID == fixture.competitionID,
+                  !event.id.hasPrefix(SportsFixtureCatalog.fixtureIDPrefix) || event.id == fixture.fixtureID,
+                  let home = fixture.participants.first(where: { $0.role == "home" }),
+                  let away = fixture.participants.first(where: { $0.role == "away" }),
+                  FootballDataPolicy.normalizedTeamMatchKey(home.name) == FootballDataPolicy.normalizedTeamMatchKey(event.homeName),
+                  FootballDataPolicy.normalizedTeamMatchKey(away.name) == FootballDataPolicy.normalizedTeamMatchKey(event.awayName)
+            else { return nil }
+            return fixture
         }
 
         static func preferredBadgeURL(provider: URL?, matched: URL?, sameOfficialFixture: Bool) -> URL? {
@@ -922,6 +936,7 @@ struct HomeLiveSpotlight: View {
             if let home = presentation.homeScore, let away = presentation.awayScore {
                 Text("\(home) – \(away)")
                     .font(.system(size: scoreSize, weight: .semibold, design: .rounded))
+                    .accessibilityIdentifier("home-featured-score")
                     .monospacedDigit()
                     .foregroundStyle(FottyTheme.textPrimary)
             } else {
@@ -931,12 +946,19 @@ struct HomeLiveSpotlight: View {
             }
             if let detail = presentation.liveDetail {
                 Text(detail)
+                    .accessibilityIdentifier("home-featured-clock")
                     .font(FottyTheme.typeMeta)
                     .foregroundStyle(FottyTheme.textSecondary)
                     .lineLimit(1)
             }
+            if presentation.scoreMayBeDelayed {
+                Text("May be delayed")
+                    .font(FottyTheme.typeMeta)
+                    .foregroundStyle(FottyTheme.textSecondary)
+            }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home-featured-scoreboard")
     }
 
     private func team(name: String, badge: URL?, brand: URL?) -> some View {

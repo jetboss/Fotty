@@ -100,7 +100,7 @@ final class PlayerChromeUsabilityTests: XCTestCase {
             for compact in [true, false] {
                 let recovery = PlaybackErrorOverlay(title: "Unavailable", message: "Try another source.",
                     viewModel: model, sourceRecoveryButtonTitle: "Choose another source", dismiss: {},
-                    isCompact: compact, onRetry: {}, onShowBroadcastSources: {})
+                    isCompact: compact, retriesDiscovery: true, onRetry: {}, onShowBroadcastSources: {})
                 XCTAssertEqual(recovery.offersAlternateSource, count > 1)
             }
             XCTAssertEqual(model.loadRequestID, attempt)

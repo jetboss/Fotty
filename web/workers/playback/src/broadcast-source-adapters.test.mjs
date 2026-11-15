@@ -464,12 +464,118 @@ test("CS never guesses an unadvertised search or uses a stale fixture as a query
   }
 });
 
-test("CNC hashes encoded IDs and retains exact undated NHL hints without fetching metadata", async () => {
-  const rawID = "cnc:" + "A".repeat(1218) + "==";
-  const h = harness("cncsports", async () => json({ metas: [{ id: rawID, type: "tv", name: "Washington Capitals vs Philadelphia Flyers", behaviorHints: { defaultVideoId: rawID } }] }));
-  const result = await h.run(), row = result.broadcasts[0];
+const cncFootballFixture = hintedFixture({ fixtureID: "sports-fixture:concacaf-nations-league:1",
+  participants: ["Grenada", "St. Kitts and Nevis"], competitionID: "concacaf-nations-league", squad: { ageGroup: "senior", gender: "men" } });
+const cncRaw = "cnc:" + "A".repeat(120) + "==";
+const cncListing = (name = "🔴 Grenada vs Saint Kitts and Nevis", id = cncRaw) =>
+  ({ id, type: "tv", name, behaviorHints: { defaultVideoId: id } });
+const cncMeta = (changes = {}) => ({ id: cncRaw, type: "tv", name: "Grenada vs Saint Kitts and Nevis",
+  description: "📌 Football\n🏆 CONCACAF Nations League\n🕐 Oct 30, 2026 12:00 UTC\n\n📡 Available Servers: 1", ...changes });
+function collectCNCScenario(rows, meta, fixtures = [cncFootballFixture]) {
+  const advert = { ...manifests.cncsports, catalogs: ["cnc_PlayZTVLiveEvents_tv", "cnc_LivXowLiveEvents_tv"]
+    .map((id) => catalog(id, [{ name: "search", isRequired: false }])) };
+  const h = harness("cncsports", async (url) => {
+    if (url.includes("/meta/tv/")) return json({ meta: meta(decodeURIComponent(new URL(url).pathname.split("/").pop().slice(0, -5))) });
+    return json({ metas: rows(url) });
+  }, 8, { allowMeta: true, manifestOverride: advert });
+  return { calls: h.calls, run: (opts = {}) => h.run({ fixtures, ...opts }) };
+}
+
+test("CNC football searches both advertised catalogs, verifies exact pair and UTC, and publishes only the opaque same-ID listing", async () => {
+  const h = collectCNCScenario((url) => url.includes("PlayZTV") && url.endsWith("/search=Grenada.json") ? [cncListing()] : [], () => cncMeta());
+  const result = await h.run(), normalized = await normalizeBroadcastCollection("cncsports", result, now);
+  assert.equal(h.calls.length, 6); assert.equal(h.calls.filter((r) => r.url.endsWith("/search=Grenada.json")).length, 2);
+  assert.equal(result.complete, false); assert.equal(normalized.broadcasts.length, 1);
+  const row = normalized.broadcasts[0]; assert.equal(row.sport, "football"); assert.equal(row.scope, "football");
+  assert.equal(row.competitionID, "concacaf-nations-league"); assert.deepEqual(row.participants, cncFootballFixture.participants);
   assert.match(row.providerEventID, /^cnc-observation:[a-f0-9]{64}$/u); assert.equal(row.streamID, row.providerEventID);
-  assert.equal(row.verification, "undated"); assert.ok(!JSON.stringify(result).includes(rawID)); assert.equal(h.calls.length, 2);
+  assert.equal(row.start, cncFootballFixture.start); assert.equal(row.verification, "dated"); assert.ok(!JSON.stringify(result).includes(cncRaw));
+  assert.equal(associateBroadcasts({ fixtures: [cncFootballFixture], providers: normalized.scopes, broadcasts: [row], now })[0].state, "listed");
+  const shifted = { ...cncFootballFixture, start: "2026-10-30T12:01:00.000Z" };
+  assert.equal(associateBroadcasts({ fixtures: [shifted], providers: normalized.scopes, broadcasts: [row], now })[0].reason, "time-conflict");
+});
+
+test("CNC never infers sport, date, squad or availability from a catalog and holds zero-server siblings", async () => {
+  const descriptions = ["📌 Cricket", "🏆 UEFA Nations League", "🕐 Oct 31, 2026 12:00 UTC", "🕐 Oct 30, 2026 12:01 UTC",
+    "🕐 Oct 30, 2026 12:00", "🕐 Sep 31, 2026 12:00 UTC"];
+  const base = cncMeta();
+  const rejected = [cncMeta({ id: "cnc:OTHER" }), cncMeta({ name: "Grenada vs St. Kitts and Nevis U19" }),
+    ...descriptions.map((line) => cncMeta({ description: base.description.split("\n").map((old) => old.startsWith(line.split(" ")[0]) ? line : old).join("\n") }))];
+  for (const meta of rejected) {
+    const r = await collectCNCScenario(() => [cncListing()], () => meta).run();
+    assert.deepEqual(r.broadcasts, []); assert.ok(r.scopes.every((s) => !s.complete));
+  }
+  const r = await collectCNCScenario(() => [cncListing()], () => cncMeta({ description: base.description.replace("Servers: 1", "Servers: 0") })).run();
+  const n = await normalizeBroadcastCollection("cncsports", r, now);
+  const link = associateBroadcasts({ fixtures: [cncFootballFixture], providers: n.scopes, broadcasts: n.broadcasts, now })[0];
+  assert.equal(link.state, "needsVerification"); assert.equal(link.reason, "unverified-fixture");
+  const conflict = collectCNCScenario(() => [cncListing(), cncListing("🔜 Grenada vs St. Kitts and Nevis Women")], () => base);
+  assert.deepEqual((await conflict.run()).broadcasts, []); assert.equal(conflict.calls.filter((r) => r.url.includes("/meta/tv/")).length, 0);
+});
+
+test("CNC mixed LivXow can confirm NHL nicknames, unrelated rows never inherit NHL; stale fixture hints do not start enrichment", async () => {
+  const fixture = hintedFixture({ sport: "hockey", competitionID: "nhl", participants: ["Washington Capitals", "Philadelphia Flyers"] });
+  const h = collectCNCScenario(() => [cncListing("🔜 Capitals vs Flyers"), cncListing("🔴 Grenada vs Saint Kitts and Nevis", "cnc:BBBB")],
+    () => cncMeta({ name: "Capitals vs Flyers", description: cncMeta().description.replace("Football", "Hockey").replace("CONCACAF Nations League", "NHL") }), [fixture]);
+  const r = await h.run();
+  assert.equal(h.calls.length, 3); assert.equal(r.broadcasts.length, 1); assert.equal(r.broadcasts[0].competitionID, "nhl");
+  assert.deepEqual(r.broadcasts[0].participants, fixture.participants);
+  const stale = collectCNCScenario(() => [cncListing()], () => cncMeta(), [{ ...cncFootballFixture, observedAt: "2026-10-30T10:00:00.000Z" }]);
+  assert.deepEqual((await stale.run()).broadcasts, []); assert.equal(stale.calls.length, 1);
+});
+
+test("CNC verifies three distinct Grenada listings separately, including active rows after the first two, and rejects real ID reuse", async () => {
+  const ids = ["cnc:AAAA", "cnc:BBBB", "cnc:CCCC", "cnc:DDDD"];
+  const rows = ids.map((id, i) => cncListing((i % 2 ? "🔴 " : "🔜 ") + "Grenada vs Saint Kitts and Nevis", id));
+  const run = collectCNCScenario((url) => url.includes("PlayZTV") ? [...rows, cncListing("Grenada vs Uruguay", ids[2])]
+    : [rows[2]], (id) => cncMeta({ id, description: cncMeta().description.replace("Servers: 1", id === ids[0] ? "Servers: 0" : "Servers: 1") }));
+  const raw = await run.run(), n = await normalizeBroadcastCollection("cncsports", raw, now);
+  const links = associateBroadcasts({ fixtures: [cncFootballFixture], providers: n.scopes, broadcasts: n.broadcasts, now });
+  assert.equal(links.filter((l) => l.state === "listed").length, 2); assert.equal(links.filter((l) => l.state === "needsVerification").length, 1);
+  const seen = run.calls.filter((r) => r.url.includes("/meta/")).map((r) => decodeURIComponent(r.url.split("/").pop().slice(0, -5)));
+  assert.deepEqual(seen, [ids[1], ids[3], ids[0]]); assert.ok(!seen.includes(ids[2])); assert.ok(run.calls.length <= 8);
+});
+test("multiple distinct active IDs rotate ahead of upcoming alternatives without exceeding the shared read ceiling", async () => {
+  const rows = Array.from({ length: 10 }, (_, i) => cncListing((i >= 3 ? "🔴 " : "🔜 ") + "Grenada vs Saint Kitts and Nevis", "cnc:ABC" + i));
+  const checked = new Set();
+  for (let cursor = 0; cursor < 3; cursor++) {
+    const h = collectCNCScenario(() => rows, (id) => cncMeta({ id }));
+    const result = await h.run({ cursor });
+    const reads = h.calls.filter((r) => r.url.includes("/meta/")).map((r) => decodeURIComponent(r.url.split("/").pop().slice(0, -5)));
+    assert.equal(h.calls.length, 8); assert.equal(result.broadcasts.length, 5);
+    for (const id of reads) { assert.ok(Number(id.at(-1)) >= 3); checked.add(id); }
+  }
+  assert.equal(checked.size, 7);
+});
+test("CNC reuses both mixed catalogs across live fixtures and rotates finite metadata slots fairly between football and hockey", async () => {
+  const fixtures = Array.from({ length: 7 }, (_, i) => ({ ...cncFootballFixture, fixtureID: "sports:football:" + i,
+    participants: ["Home " + i, "Away " + i] }));
+  fixtures.push({ ...hintedFixture(), fixtureID: "sports:hockey:1", sport: "hockey", competitionID: "nhl",
+    participants: ["Washington Capitals", "Philadelphia Flyers"] });
+  const catalog = fixtures.map((f, i) => cncListing("🔴 " + f.participants.join(" vs "), "cnc:ABC" + i));
+  const meta = (id) => { const i = Number(id.at(-1)), f = fixtures[i];
+    return cncMeta({ id, name: f.participants.join(" vs "), description: f.sport === "hockey"
+      ? "📌 Hockey\n🏆 NHL\n🕐 Oct 30, 2026 12:00 UTC\n\n📡 Available Servers: 1" : cncMeta().description }); };
+  const seen = new Set();
+  for (let cursor = 0; cursor < 7; cursor++) {
+    const h = collectCNCScenario(() => catalog, meta, fixtures);
+    const result = await h.run({ cursor });
+    assert.equal(h.calls.length, 8, "One manifest + two shared catalogs + at most five distinct metadata reads");
+    assert.equal(h.calls.filter((r) => r.url.includes("/search=")).length, 0, "Every fixture is already on the shared page");
+    assert.equal(h.calls.filter((r) => r.url.includes("/meta/")).length, 5);
+    assert.ok(result.broadcasts.some((r) => r.sport === "hockey" && r.verification === "dated"));
+    for (const row of result.broadcasts) seen.add(row.title);
+  }
+  assert.equal(seen.size, 8, "Every simultaneous known pair receives an opportunity inside the existing ceiling");
+});
+test("one missing football catalog or optional search cannot hide an exact listing in its healthy sibling", async () => {
+  const m = { ...manifests.cncsports, catalogs: [catalog("cnc_PlayZTVLiveEvents_tv")] };
+  const h = harness("cncsports", async (url) => url.includes("/meta/")
+    ? json({ meta: cncMeta() }) : json({ metas: [cncListing()] }), 8, { allowMeta: true, manifestOverride: m });
+  const result = await h.run({ fixtures: [cncFootballFixture] });
+  assert.equal(result.broadcasts.length, 1); assert.equal(result.broadcasts[0].verification, "dated");
+  assert.equal(result.scopes[0].complete, false); assert.equal(result.scopes[0].status, "partial");
+  assert.equal(h.calls.length, 3); assert.ok(h.calls.every((r) => !r.url.includes("search=")));
 });
 
 const fsRow = (scope = "football") => ({ id: "dlstreams:event:aaaaaaaaaaaa", type: "tv", name: scope === "football" ? "⚽ England - Premier League : Chelsea vs Tottenham Hotspur" : "🏏 International : India vs New Zealand",
