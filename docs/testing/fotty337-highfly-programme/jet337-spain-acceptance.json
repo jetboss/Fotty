@@ -1,0 +1,41 @@
+{
+  "fixture": "Spain\u2013England",
+  "sport": "football",
+  "competition": "UEFA Nations League",
+  "kickoffUTC": "2026-11-15T19:45:00Z",
+  "build": 337,
+  "watchTapUTC": "2026-11-15T20:03:56.831Z",
+  "watchOutcomeMilliseconds": 40225,
+  "initialSource": "HF1",
+  "initialOutcome": "two local relay HTTP502 responses; upstream boundary invalid_response/-1011 before decoding; actual upstream status unknown",
+  "automaticRecoverySource": "CS2",
+  "intermediateFailures": [
+    "CS1 local relay HTTP502 twice, invalid_response/-1011",
+    "LS1 HTTP404, relay http_status evidence"
+  ],
+  "sameWatchSession": true,
+  "forcedOutage": false,
+  "independentPublisherNotEstablished": true,
+  "programmeObservation": {
+    "broadcasterBug": "ITV1",
+    "onPicture": "UEFA Nations League ESP 0\u20130 ENG",
+    "clockObservations": [
+      "14:40",
+      "15:35"
+    ],
+    "correctProgrammeObserved": true
+  },
+  "nativeContinuity": {
+    "elapsedMs": 92224,
+    "mediaAdvanceMs": 92225,
+    "stalls": 0,
+    "size": [
+      1024,
+      576
+    ]
+  },
+  "audioAudibility": "not observable through Device Hub",
+  "highflyPlaybackPass": false,
+  "wrongProgrammeObserved": false,
+  "highflyAdvertisedDeliveryHost": "www.google.com"
+}

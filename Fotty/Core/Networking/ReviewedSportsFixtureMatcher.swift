@@ -339,7 +339,7 @@ enum ReviewedSportsFixtureMatcher {
         case pair(String, String)
     }
 
-    nonisolated private static func teams(
+    nonisolated static func teams(
         cast rawCast: [String], title: String, sport: String
     ) -> (String, String)? {
         let cast = rawCast.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }

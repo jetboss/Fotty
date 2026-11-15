@@ -1,3 +1,13 @@
+## 2026-11-15 — Separate Highfly renewal identity from ranking and corroborate listing participants
+
+Owner authorized Claude investigation, confirmed repairs and live normal Watch on Jet only; ranking/phone/TestFlight unchanged. Actual Claude approved the frozen four-file patch in three rounds. Preserve historical source_key and all health/ranking code; compare Highfly renewed deliveries using a separate full contract, with only one nonempty reviewed Papacito HTTPS443/m3u/*.m3u8 ft/token credential allowed to rotate. Unknown selectors, raw encoding/order, duplicates, origin/path/fragment and headers remain identity. Existing fixture/provider-event/stream/endpoint/quality/unique-candidate fences remain. No new admission-host ban or transport exception.
+
+Corroborate parseable Highfly catalog names against the primary description using shared aliases/order/squad merging. Preserve incomplete squad labels while retaining explicit women/youth evidence; generic names remain eligible and primary title must still parse. Same-ID conflicts cannot be hidden; unrelated clean listings survive. Meta clean-sibling test is integration coverage, not a new baseline-red defect.
+
+Two baseline regression methods failed. Final exact-source full Catalyst confirmation:2,744 passed,12 opt-in skips,zero failures. First full run had one visual test failure at the immediate NSCache synthetic-badge read; isolated and full unchanged reruns passed, with no baseline/threshold edits. Source review is not programme qualification.
+
+Normal signed337 installed on Jet. Spain–England Home Watch automatically moved from failed HF1/CS1/LS1 to correct ITV1/CS2 after40.225s;92.224s native hold,92.225s advance,zero stalls. Belgium–Italy ended No playable stream. Both HF fixtures offered one Google-hosted delivery and failed before decode.502 was local relay synthesis for invalid_response/URL−1011; upstream status/cause unknown, not a proven provider HTTP502. Potential access/placeholder/redirect causes require evidence; no speculative compatibility change. Earlier335basketball/324rugby initial picture attribution remains unproven; the renewal defect did not cause335's initial picture. PenguPlay's old query-stripped renewal exposure remains a separate open risk. Phone, source settings, ranking, FPL/parked multi-stream and TestFlight untouched. Receipts: testing/fotty337-highfly-programme/.
+
 ## 2026-11-15 — Fix confirmed Watch freeze and incomplete discovery without changing ranking
 
 Actual Claude reviewed three rounds of focused repairs. The Jet335 watchdog

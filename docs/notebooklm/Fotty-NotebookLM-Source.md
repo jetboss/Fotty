@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-15T19:20:51.447585+00:00
-Source digest: 696642386af0790f49e60df7ab14c9d771719b88065bc5e7e3d56e714948bcf1
+Generated: 2026-11-15T20:13:09.192784+00:00
+Source digest: e1b4dae7a6e10fdf356540072c26d14d45c3c414ecf87a71d29f2ce7fd2ac8b6
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,11 +11,9 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-15 Nov: [Jet336 Watch repairs](../testing/fotty336-watch-failures/README.md): confirmed health-store deadlock and two discovery classifications fixed with Claude;2,739 tests pass/12 skips. One normal build installed; channel recovery,90s holds and same-attempt resume pass. Fresh account-match/wrong-programme/audio/independent-backup limits retained. Phone/ranking/TestFlight unchanged.
+15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
-15 Nov: [Jet335 UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md):261 tests pass; Watch/disclosures checked with Claude. Trace/phone/score-motion limits retained.
-
-15 Nov: [Jet334 guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) installed;396 checks, Save/Remind and TV25 hold pass. Live programme/audio pending; source failures retained. Phone/ranking/TestFlight unchanged.
+Prior336: [Watch freeze/discovery repairs](../testing/fotty336-watch-failures/README.md),2,739 passes/12 skips; correct channel holds. Prior335 [UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md) and334 [guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) receipts retain their limits.
 
 14 Nov: [Jet332 retirement](../testing/fotty332-watch-first-retirement/README.md): FPL removed, Watch Two parked; saved data/scores/follows/ranking preserved. Claude approved;2,687 tests pass/12 skips; correct WBBL Watch91s/zero stalls. [Internal TestFlight332](../releases/Fotty-3.0.0-332.md) released to13 existing testers.
 
@@ -881,6 +879,16 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-15 — Separate Highfly renewal identity from ranking and corroborate listing participants
+
+Owner authorized Claude investigation, confirmed repairs and live normal Watch on Jet only; ranking/phone/TestFlight unchanged. Actual Claude approved the frozen four-file patch in three rounds. Preserve historical source_key and all health/ranking code; compare Highfly renewed deliveries using a separate full contract, with only one nonempty reviewed Papacito HTTPS443/m3u/*.m3u8 ft/token credential allowed to rotate. Unknown selectors, raw encoding/order, duplicates, origin/path/fragment and headers remain identity. Existing fixture/provider-event/stream/endpoint/quality/unique-candidate fences remain. No new admission-host ban or transport exception.
+
+Corroborate parseable Highfly catalog names against the primary description using shared aliases/order/squad merging. Preserve incomplete squad labels while retaining explicit women/youth evidence; generic names remain eligible and primary title must still parse. Same-ID conflicts cannot be hidden; unrelated clean listings survive. Meta clean-sibling test is integration coverage, not a new baseline-red defect.
+
+Two baseline regression methods failed. Final exact-source full Catalyst confirmation:2,744 passed,12 opt-in skips,zero failures. First full run had one visual test failure at the immediate NSCache synthetic-badge read; isolated and full unchanged reruns passed, with no baseline/threshold edits. Source review is not programme qualification.
+
+Normal signed337 installed on Jet. Spain–England Home Watch automatically moved from failed HF1/CS1/LS1 to correct ITV1/CS2 after40.225s;92.224s native hold,92.225s advance,zero stalls. Belgium–Italy ended No playable stream. Both HF fixtures offered one Google-hosted delivery and failed before decode.502 was local relay synthesis for invalid_response/URL−1011; upstream status/cause unknown, not a proven provider HTTP502. Potential access/placeholder/redirect causes require evidence; no speculative compatibility change. Earlier335basketball/324rugby initial picture attribution remains unproven; the renewal defect did not cause335's initial picture. PenguPlay's old query-stripped renewal exposure remains a separate open risk. Phone, source settings, ranking, FPL/parked multi-stream and TestFlight untouched. Receipts: testing/fotty337-highfly-programme/.
 
 ## 2026-11-15 — Fix confirmed Watch freeze and incomplete discovery without changing ranking
 

@@ -1,0 +1,29 @@
+{
+  "fixture": "Belgium\u2013Italy",
+  "sport": "football",
+  "competition": "UEFA Nations League",
+  "kickoffUTC": "2026-11-15T19:45:00Z",
+  "build": 337,
+  "watchTapUTC": "2026-11-15T20:06:47.547Z",
+  "initialSource": "HF1",
+  "highflyAdvertisedDeliveryHost": "www.google.com",
+  "highflyObservedEntries": 1,
+  "highflyAdmittedEntries": 1,
+  "highflyAttempts": 2,
+  "highflyFailure": {
+    "preparationHTTPStatus": 502,
+    "statusOrigin": "local relay",
+    "boundary": "upstream_response",
+    "kind": "invalid_response",
+    "domain": "url",
+    "code": -1011,
+    "actualUpstreamHTTPStatus": "unknown"
+  },
+  "finalWatchOutcome": "No playable stream right now",
+  "finalOutcomeTimeUTC": "2026-11-15T20:08:27.804315Z",
+  "highflyPlaybackPass": false,
+  "correctProgrammeObserved": false,
+  "rankingChanged": false,
+  "phoneTouched": false,
+  "testflight": false
+}

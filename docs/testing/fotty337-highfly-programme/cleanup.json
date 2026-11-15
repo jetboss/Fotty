@@ -1,0 +1,10 @@
+{
+  "observedAtUTC": "2026-11-15T20:14:08.752316+00:00",
+  "ownedGateRemoved": true,
+  "rawDevicePreferencesAndIdentifiersRemoved": true,
+  "ownedBuildProductsAndResultsRemoved": true,
+  "ownedKeepAwakeReleasedByDriverFinally": true,
+  "freeDiskBeforeBytes": 26930819072,
+  "freeDiskAfterBytes": 25702379520,
+  "retained": "Redacted test/review/device receipts only; existing user artifacts untouched."
+}

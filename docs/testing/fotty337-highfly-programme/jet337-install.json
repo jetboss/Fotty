@@ -1,0 +1,11 @@
+{
+  "observedAtUTC": "2026-11-15T20:03:39.427456+00:00",
+  "device": "Jet iPad",
+  "installedBuild": "337",
+  "version": "3.0.0",
+  "signatureVerified": true,
+  "executableSHA256": "ddd7e47141c24cfec963f7723230640f584c6b82acf629082465b51880cab09b",
+  "normalRelease": true,
+  "phoneTouched": false,
+  "testflight": false
+}

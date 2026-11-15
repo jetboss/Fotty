@@ -465,6 +465,34 @@ actor HighflySportsAddonClient {
         parts.query = nil
         return PlavioSportsAddonClient.sourceKey(url: parts.url!, headers: headers)
     }
+
+    /// Renewal identity is separate from the historical ranking key above.
+    /// Unknown query fields can select a different programme and must survive.
+    /// Only the reviewed Papacito HLS credential fields may rotate; this does
+    /// not change admission, request URLs, headers or another provider's policy.
+    nonisolated static func descriptorChoiceKey(_ url: URL, headers: [String: String] = [:]) -> String {
+        guard var parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              parts.scheme == "https", parts.port == nil || parts.port == 443,
+              let host = parts.host?.lowercased(),
+              host == "papacito.cfd" || host.hasSuffix(".papacito.cfd"),
+              parts.percentEncodedPath.hasPrefix("/m3u/"), parts.percentEncodedPath.hasSuffix(".m3u8"),
+              let query = parts.percentEncodedQuery else {
+            return PlavioSportsAddonClient.sourceKey(url: url, headers: headers)
+        }
+        let fields = query.split(separator: "&", omittingEmptySubsequences: false).map(String.init)
+        let credentials = fields.filter { $0.hasPrefix("ft=") || $0.hasPrefix("token=") }
+        // Multiple/empty credentials have no reviewed renewal equivalence.
+        // Keep raw encoding and order for every remaining field.
+        guard credentials.count == 1, let credential = credentials.first,
+              let equals = credential.firstIndex(of: "="),
+              credential.index(after: equals) < credential.endIndex else {
+            return PlavioSportsAddonClient.sourceKey(url: url, headers: headers)
+        }
+        let remaining = fields.filter { $0 != credential }
+        parts.percentEncodedQuery = remaining.isEmpty ? nil : remaining.joined(separator: "&")
+        guard let identity = parts.url else { return PlavioSportsAddonClient.sourceKey(url: url, headers: headers) }
+        return PlavioSportsAddonClient.sourceKey(url: identity, headers: headers)
+    }
     nonisolated static func manifestIdentity(for url: URL) -> String {
         url.host?.hasPrefix("sports.") == true ? "community.sports.fly" : "community.sports.streamed.premium"
     }
@@ -673,15 +701,20 @@ actor HighflySportsAddonClient {
                                      fallbackSport: String? = nil) -> ReviewedSportsFixtureMatcher.FixtureIdentity? {
         guard row.type == "sport", row.name.utf8.count <= 1024, row.description.utf8.count <= 4096,
               admitsRowID(row.id), let sport = rowSport(row, fallbackSport: fallbackSport),
-              let title = title(of: row) else { return nil }
+              let title = title(of: row),
+              ReviewedSportsFixtureMatcher.teams(cast: [], title: title, sport: sport) != nil else { return nil }
+        // A generic catalog name supplies no identity. When both fields name
+        // participants explicitly, neither may hide a conflicting pair/squad.
+        let named = ReviewedSportsFixtureMatcher.teams(cast: [], title: row.name, sport: sport)
+        let corroboratingTeams = named.map { [$0.0, $0.1] } ?? []
         if let date = kickoff(of: row) {
-            return ReviewedSportsFixtureMatcher.fixtureIdentity(sport: sport, cast: [], title: title, kickoff: date,
+            return ReviewedSportsFixtureMatcher.fixtureIdentity(sport: sport, cast: corroboratingTeams, title: title, kickoff: date,
                 effectiveID: row.id, resourceType: "sport", programmeMetadata: row.name)
         }
         // Live rows carry no date. The official kickoff stands in only while
         // the official game is inside its live window (never cricket).
         guard let liveKickoff, ReviewedSportsFixtureMatcher.sportKey(sport) != "cricket", isLiveMarked(row) else { return nil }
-        return ReviewedSportsFixtureMatcher.fixtureIdentity(sport: sport, cast: [], title: title, kickoff: liveKickoff,
+        return ReviewedSportsFixtureMatcher.fixtureIdentity(sport: sport, cast: corroboratingTeams, title: title, kickoff: liveKickoff,
             effectiveID: row.id, resourceType: "sport", programmeMetadata: row.name)
     }
     nonisolated private static func sameFixture(_ lhs: StreamPlaybackRequest, _ rhs: StreamPlaybackRequest) -> Bool {

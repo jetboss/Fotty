@@ -1,0 +1,46 @@
+{
+  "observedAtUTC": "2026-11-15T20:12:21.691914+00:00",
+  "checkedPreferences": [
+    {
+      "key": "com.fotty.stream_plugin_states",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "fotty.appearance",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "fotty.home.onlyShowSelectedInterests",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "fotty.sports.followedSportIDs.v1",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "fotty.provider.evidence.configuration.v1",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "sports.tv.favourites.v1",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "fotty.match-reminders.v1",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    }
+  ],
+  "allCheckedUnchanged": true,
+  "finalScreen": "Home / All sports",
+  "sourceOptInsChanged": false,
+  "phoneTouched": false,
+  "testflight": false,
+  "note": "Runtime diagnostics, source health and recent viewing naturally advance; no raw preferences or account links retained."
+}

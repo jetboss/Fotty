@@ -1,0 +1,1302 @@
+[
+  {
+    "timeUTC": "2026-11-15T20:06:40.155012+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "highfly",
+      "offered_count": "1",
+      "admission_completion": "complete",
+      "admitted_count": "1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:40.155456+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "offered_count": "0",
+      "admission_completion": "complete",
+      "admitted_count": "0",
+      "source_family": "penguplay"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:40.593297+00:00",
+    "build": "337",
+    "name": "provider_lookup",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "evidence_empty_responses": "0",
+      "evidence_lookup_id": "local-29",
+      "admission_completion": "complete",
+      "evidence_fixture": "local-4",
+      "evidence_generation": "local-6",
+      "evidence_observed_entries": "1",
+      "evidence_truncated": "true",
+      "source_family": "highfly",
+      "admitted_count": "1",
+      "evidence_read_responses": "1",
+      "evidence_unread_responses": "0",
+      "evidence_reconciled": "false",
+      "evidence_retained_entries": "1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:40.822542+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "offered_count": "1",
+      "admission_completion": "complete",
+      "source_family": "highfly",
+      "admitted_count": "1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:41.028852+00:00",
+    "build": "337",
+    "name": "source_preflight",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "candidate_count": "4",
+      "source_count": "2"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:48.340272+00:00",
+    "build": "337",
+    "name": "watch_requested",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "route": "single",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:48.357513+00:00",
+    "build": "337",
+    "name": "watch_discovery_started",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "route": "single",
+      "attempt_id": "local-31",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:48.682214+00:00",
+    "build": "337",
+    "name": "watch_discovery_plan",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "candidate_count": "7",
+      "source_count": "8"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:48.947794+00:00",
+    "build": "337",
+    "name": "direct_fallback_lookup",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "highfly"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:49.126755+00:00",
+    "build": "337",
+    "name": "direct_fallback_lookup",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "penguplay"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:49.362374+00:00",
+    "build": "337",
+    "name": "direct_fallback_lookup",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "plaviosports"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:49.547492+00:00",
+    "build": "337",
+    "name": "provider_lookup",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "score808",
+      "evidence_truncated": "false",
+      "evidence_read_responses": "0",
+      "evidence_fixture": "local-4",
+      "evidence_reconciled": "false",
+      "admission_completion": "complete",
+      "evidence_retained_entries": "0",
+      "evidence_lookup_id": "local-32",
+      "evidence_observed_entries": "0",
+      "evidence_unread_responses": "0",
+      "evidence_empty_responses": "0"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:49.553505+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "admission_completion": "complete",
+      "source_family": "score808"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:49.807254+00:00",
+    "build": "337",
+    "name": "direct_fallback_lookup",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "cncsports"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:50.414263+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "failure",
+    "durationMilliseconds": null,
+    "details": {
+      "admission_completion": "failed",
+      "source_family": "plaviosports"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:50.655429+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "admission_completion": "complete",
+      "source_family": "plaviosports",
+      "admitted_count": "0",
+      "offered_count": "0"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:51.219398+00:00",
+    "build": "337",
+    "name": "highfly_lookup",
+    "outcome": "success",
+    "durationMilliseconds": null,
+    "details": {
+      "search_scope": "search",
+      "result": "admitted",
+      "listing_count": "1",
+      "candidate_count": "2",
+      "source_family": "highfly"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:51.346319+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "admitted_count": "1",
+      "admission_completion": "complete",
+      "source_family": "highfly",
+      "offered_count": "1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:51.438695+00:00",
+    "build": "337",
+    "name": "provider_lookup",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "evidence_truncated": "true",
+      "evidence_reconciled": "false",
+      "evidence_fixture": "local-4",
+      "admitted_count": "1",
+      "evidence_unread_responses": "0",
+      "evidence_empty_responses": "0",
+      "evidence_read_responses": "1",
+      "evidence_observed_entries": "1",
+      "evidence_generation": "local-6",
+      "evidence_lookup_id": "local-33",
+      "evidence_retained_entries": "1",
+      "admission_completion": "complete",
+      "source_family": "highfly"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:51.802188+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "offered_count": "1",
+      "admission_completion": "complete",
+      "admitted_count": "1",
+      "source_family": "highfly"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:54.592563+00:00",
+    "build": "337",
+    "name": "penguplay_lookup",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "result": "stopped_at_programme_channel",
+      "candidate_count": "0",
+      "reason_code": "no_rows",
+      "source_family": "penguplay"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:54.767597+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "failure",
+    "durationMilliseconds": null,
+    "details": {
+      "admission_completion": "failed",
+      "source_family": "penguplay"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:54.785391+00:00",
+    "build": "337",
+    "name": "provider_lookup",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "evidence_reconciled": "false",
+      "evidence_fixture": "local-4",
+      "evidence_read_responses": "0",
+      "evidence_retained_entries": "0",
+      "evidence_observed_entries": "0",
+      "evidence_lookup_id": "local-34",
+      "evidence_truncated": "false",
+      "source_family": "penguplay",
+      "evidence_unread_responses": "0",
+      "evidence_generation": "local-8",
+      "evidence_empty_responses": "0",
+      "admitted_count": "0",
+      "admission_completion": "failed"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:55.023905+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "penguplay",
+      "admitted_count": "0",
+      "admission_completion": "complete",
+      "offered_count": "0"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:56.089395+00:00",
+    "build": "337",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:56.121409+00:00",
+    "build": "337",
+    "name": "single_audio_transfer",
+    "outcome": "success",
+    "durationMilliseconds": null,
+    "details": {
+      "source_id": "local-35",
+      "source_family": "highfly",
+      "last_observed_stage": "preparing",
+      "source": "HF1",
+      "attempt_id": "local-36",
+      "route": "single",
+      "source_count": "2",
+      "source_index": "1",
+      "result": "enabled"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:56.296684+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "communitysports",
+      "admitted_count": "2",
+      "admission_completion": "complete",
+      "offered_count": "7"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:56.348212+00:00",
+    "build": "337",
+    "name": "attempt_started",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_id": "local-35",
+      "source_family": "highfly",
+      "last_observed_stage": "preparing",
+      "watch_session_id": "local-30",
+      "source": "HF1",
+      "attempt_id": "local-37",
+      "route": "single",
+      "source_count": "2",
+      "source_index": "1",
+      "attempt_number": "1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:56.840491+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "communitysports",
+      "admitted_count": "2",
+      "admission_completion": "complete",
+      "offered_count": "2"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:57.022707+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "failure",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "communitysports",
+      "admission_completion": "failed"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:57.336617+00:00",
+    "build": "337",
+    "name": "source_failure",
+    "outcome": "failure",
+    "durationMilliseconds": 985,
+    "details": {
+      "source_index": "1",
+      "route": "single",
+      "watch_session_id": "local-30",
+      "relay_error_code": "-1011",
+      "last_observed_stage": "preparing",
+      "source_family": "highfly",
+      "source_id": "local-35",
+      "relay_error_domain": "url",
+      "relay_request_phase": "upstream_response",
+      "source": "HF1",
+      "relay_failure_kind": "invalid_response",
+      "preparation_http_status": "502",
+      "relay_failure_resource_category": "unknown",
+      "relay_request_outcome": "failed",
+      "failure_kind": "sourceFailure",
+      "attempt_id": "local-37",
+      "relay_failure_stage": "upstream_response",
+      "preparation_stage": "contract_validation",
+      "preparation_reason": "http_status",
+      "attempt_number": "1",
+      "source_count": "3"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:57.350725+00:00",
+    "build": "337",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "watch_session_id": "local-30",
+      "attempt_id": "local-37"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:57.365246+00:00",
+    "build": "337",
+    "name": "attempt_started",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "HF1",
+      "watch_session_id": "local-30",
+      "source_count": "3",
+      "last_observed_stage": "preparing",
+      "source_family": "highfly",
+      "route": "single",
+      "attempt_number": "2",
+      "attempt_id": "local-38",
+      "source_id": "local-35",
+      "source_index": "1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:57.545114+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "offered_count": "2",
+      "source_family": "communitysports",
+      "admitted_count": "2",
+      "admission_completion": "complete"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:59.159212+00:00",
+    "build": "337",
+    "name": "highfly_lookup",
+    "outcome": "success",
+    "durationMilliseconds": null,
+    "details": {
+      "listing_count": "1",
+      "result": "admitted",
+      "search_scope": "search",
+      "candidate_count": "2",
+      "source_family": "highfly"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:59.330728+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "highfly",
+      "offered_count": "1",
+      "admitted_count": "1",
+      "admission_completion": "complete"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:59.618217+00:00",
+    "build": "337",
+    "name": "provider_delivery",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "evidence_disposition": "admitted",
+      "source_family": "highfly",
+      "evidence_comparison": "noParseableTeams",
+      "evidence_entry_index": "0",
+      "evidence_contract": "local-19",
+      "evidence_lookup_id": "local-39",
+      "source_id": "local-41",
+      "evidence_listing": "local-40",
+      "evidence_generation": "local-6",
+      "evidence_fixture": "local-4",
+      "evidence_has_title": "true",
+      "evidence_has_name": "true"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:06:59.618217+00:00",
+    "build": "337",
+    "name": "provider_lookup",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "evidence_read_responses": "1",
+      "source_family": "highfly",
+      "evidence_reconciled": "true",
+      "admitted_count": "1",
+      "evidence_observed_entries": "1",
+      "evidence_fixture": "local-4",
+      "evidence_lookup_id": "local-39",
+      "evidence_unread_responses": "0",
+      "admission_completion": "complete",
+      "evidence_retained_entries": "1",
+      "evidence_truncated": "false",
+      "evidence_empty_responses": "0",
+      "evidence_generation": "local-6"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:00.224469+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "reviewedtv",
+      "admitted_count": "0",
+      "offered_count": "0",
+      "admission_completion": "complete"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:00.606999+00:00",
+    "build": "337",
+    "name": "source_failure",
+    "outcome": "failure",
+    "durationMilliseconds": 3241,
+    "details": {
+      "relay_failure_resource_category": "unknown",
+      "last_observed_stage": "preparing",
+      "preparation_stage": "contract_validation",
+      "watch_session_id": "local-30",
+      "failure_kind": "sourceFailure",
+      "relay_error_domain": "url",
+      "relay_failure_kind": "invalid_response",
+      "attempt_id": "local-38",
+      "source_id": "local-35",
+      "source_family": "highfly",
+      "source_count": "4",
+      "relay_request_outcome": "failed",
+      "source": "HF1",
+      "attempt_number": "2",
+      "relay_failure_stage": "upstream_response",
+      "relay_request_phase": "upstream_response",
+      "source_index": "1",
+      "route": "single",
+      "relay_error_code": "-1011",
+      "preparation_http_status": "502",
+      "preparation_reason": "http_status"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:00.635384+00:00",
+    "build": "337",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "attempt_id": "local-38",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:00.647241+00:00",
+    "build": "337",
+    "name": "automatic_failover",
+    "outcome": "failure",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "HF1",
+      "watch_session_id": "local-30",
+      "source_count": "4",
+      "failure_kind": "sourceFailure",
+      "last_observed_stage": "preparing",
+      "source_family": "highfly",
+      "route": "single",
+      "attempt_number": "2",
+      "source_id": "local-35",
+      "attempt_id": "local-38",
+      "source_index": "1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:00.784699+00:00",
+    "build": "337",
+    "name": "attempt_started",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "CS2",
+      "watch_session_id": "local-30",
+      "source_count": "4",
+      "last_observed_stage": "preparing",
+      "source_family": "communitysports",
+      "route": "single",
+      "attempt_number": "3",
+      "attempt_id": "local-42",
+      "source_index": "4",
+      "source_id": "local-43"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:04.945899+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "failure",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "cncsports",
+      "admission_completion": "failed"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:05.297198+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "offered_count": "0",
+      "admission_completion": "complete",
+      "source_family": "cncsports",
+      "admitted_count": "0"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:05.310046+00:00",
+    "build": "337",
+    "name": "watch_discovery_timing",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "attempt_id": "local-31",
+      "route": "single",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:05.527254+00:00",
+    "build": "337",
+    "name": "source_discovery_result",
+    "outcome": "success",
+    "durationMilliseconds": 8751,
+    "details": {
+      "result": "exact_fixture_match",
+      "source_family": "communitysports",
+      "stage": "preparing",
+      "attempt_id": "local-31"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:05.656505+00:00",
+    "build": "337",
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "durationMilliseconds": 1859,
+    "details": {
+      "stage": "preparing",
+      "result": "no_exact_fixture_match",
+      "source_family": "plaviosports",
+      "failure_kind": "provider_returned_empty",
+      "attempt_id": "local-31"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:05.921929+00:00",
+    "build": "337",
+    "name": "source_discovery_result",
+    "outcome": "failure",
+    "durationMilliseconds": 16501,
+    "details": {
+      "result": "streams_transport_failure",
+      "stage": "preparing",
+      "source_family": "cncsports",
+      "failure_kind": "provider_timeout",
+      "attempt_id": "local-31"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:06.070464+00:00",
+    "build": "337",
+    "name": "source_failure",
+    "outcome": "failure",
+    "durationMilliseconds": 5284,
+    "details": {
+      "last_observed_stage": "preparing",
+      "preparation_stage": "contract_validation",
+      "watch_session_id": "local-30",
+      "failure_kind": "network",
+      "attempt_id": "local-42",
+      "source_id": "local-43",
+      "source_count": "4",
+      "source": "CS2",
+      "source_family": "communitysports",
+      "relay_request_outcome": "in_flight",
+      "attempt_number": "3",
+      "relay_request_phase": "upstream_response",
+      "source_index": "4",
+      "route": "single",
+      "preparation_reason": "transport_error"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:06.077495+00:00",
+    "build": "337",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "watch_session_id": "local-30",
+      "attempt_id": "local-42"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:06.084976+00:00",
+    "build": "337",
+    "name": "attempt_started",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "CS2",
+      "watch_session_id": "local-30",
+      "source_count": "4",
+      "source_family": "communitysports",
+      "last_observed_stage": "preparing",
+      "route": "single",
+      "attempt_number": "4",
+      "source_id": "local-43",
+      "attempt_id": "local-44",
+      "source_index": "4"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:06.369797+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "offered_count": "1",
+      "admission_completion": "complete",
+      "source_family": "highfly",
+      "admitted_count": "1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:06.497261+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "score808",
+      "admission_completion": "complete",
+      "admitted_count": "1",
+      "offered_count": "1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:06.776845+00:00",
+    "build": "337",
+    "name": "stream_selection",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "communitysports",
+      "admission_completion": "complete",
+      "admitted_count": "2",
+      "offered_count": "2"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:15.060198+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "communitysports",
+      "admitted_count": "3",
+      "admission_completion": "complete",
+      "offered_count": "8"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:16.187980+00:00",
+    "build": "337",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "CS2",
+      "watch_session_id": "local-30",
+      "source_count": "4",
+      "source_family": "communitysports",
+      "last_observed_stage": "preparing",
+      "candidate_count": "0",
+      "route": "single",
+      "attempt_number": "4",
+      "source_id": "local-43",
+      "source_index": "4",
+      "attempt_id": "local-44"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:16.217255+00:00",
+    "build": "337",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {}
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:16.369688+00:00",
+    "build": "337",
+    "name": "audio_activation_evidence",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {}
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:16.499839+00:00",
+    "build": "337",
+    "name": "playback_causal_evidence",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "watch_session_id": "local-30",
+      "source": "CS2",
+      "source_count": "4",
+      "last_observed_stage": "preparing",
+      "source_family": "communitysports",
+      "candidate_count": "0",
+      "route": "single",
+      "attempt_number": "4",
+      "attempt_id": "local-44",
+      "source_index": "4",
+      "source_id": "local-43"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:16.511567+00:00",
+    "build": "337",
+    "name": "audio_preparation_duration",
+    "outcome": "info",
+    "durationMilliseconds": 295,
+    "details": {
+      "watch_session_id": "local-30",
+      "source": "CS2",
+      "source_count": "4",
+      "last_observed_stage": "preparing",
+      "source_family": "communitysports",
+      "route": "single",
+      "attempt_number": "4",
+      "reason_code": "completed",
+      "attempt_id": "local-44",
+      "source_index": "4",
+      "source_id": "local-43"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:38.319277+00:00",
+    "build": "337",
+    "name": "source_failure",
+    "outcome": "failure",
+    "durationMilliseconds": 32220,
+    "details": {
+      "attempt_id": "local-44",
+      "source_id": "local-43",
+      "source_index": "4",
+      "source": "CS2",
+      "last_observed_stage": "preparing",
+      "route": "single",
+      "attempt_number": "4",
+      "source_count": "4",
+      "relay_request_phase": "upstream_response",
+      "watch_session_id": "local-30",
+      "failure_kind": "startupTimeout",
+      "source_family": "communitysports",
+      "relay_request_outcome": "in_flight"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:38.370882+00:00",
+    "build": "337",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "attempt_id": "local-44",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:38.385734+00:00",
+    "build": "337",
+    "name": "automatic_failover",
+    "outcome": "failure",
+    "durationMilliseconds": null,
+    "details": {
+      "watch_session_id": "local-30",
+      "source": "CS2",
+      "source_count": "4",
+      "failure_kind": "startupTimeout",
+      "last_observed_stage": "preparing",
+      "source_family": "communitysports",
+      "route": "single",
+      "attempt_number": "4",
+      "source_id": "local-43",
+      "source_index": "4",
+      "attempt_id": "local-44"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:38.522290+00:00",
+    "build": "337",
+    "name": "attempt_started",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_id": "local-45",
+      "watch_session_id": "local-30",
+      "route": "single",
+      "source_index": "3",
+      "attempt_number": "5",
+      "last_observed_stage": "preparing",
+      "attempt_id": "local-46",
+      "source_family": "communitysports",
+      "source": "CS1",
+      "source_count": "4"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:38.839187+00:00",
+    "build": "337",
+    "name": "source_failure",
+    "outcome": "failure",
+    "durationMilliseconds": 314,
+    "details": {
+      "source_count": "4",
+      "preparation_http_status": "502",
+      "source_id": "local-45",
+      "last_observed_stage": "preparing",
+      "source_family": "communitysports",
+      "relay_error_code": "-1011",
+      "source_index": "3",
+      "relay_error_domain": "url",
+      "relay_request_phase": "upstream_response",
+      "preparation_reason": "http_status",
+      "preparation_stage": "contract_validation",
+      "relay_failure_stage": "upstream_response",
+      "relay_failure_resource_category": "unknown",
+      "relay_failure_kind": "invalid_response",
+      "failure_kind": "sourceFailure",
+      "attempt_id": "local-46",
+      "attempt_number": "5",
+      "route": "single",
+      "relay_request_outcome": "failed",
+      "source": "CS1",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:38.851191+00:00",
+    "build": "337",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "attempt_id": "local-46",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:38.863136+00:00",
+    "build": "337",
+    "name": "attempt_started",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_id": "local-45",
+      "watch_session_id": "local-30",
+      "route": "single",
+      "source_index": "3",
+      "attempt_number": "6",
+      "last_observed_stage": "preparing",
+      "source_family": "communitysports",
+      "attempt_id": "local-47",
+      "source": "CS1",
+      "source_count": "4"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:45.340722+00:00",
+    "build": "337",
+    "name": "stream_admission",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "communitysports",
+      "admitted_count": "4",
+      "admission_completion": "complete",
+      "offered_count": "8"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:45.793630+00:00",
+    "build": "337",
+    "name": "source_failure",
+    "outcome": "failure",
+    "durationMilliseconds": 6926,
+    "details": {
+      "relay_error_domain": "url",
+      "relay_request_outcome": "failed",
+      "source_index": "3",
+      "last_observed_stage": "preparing",
+      "relay_error_code": "-1011",
+      "attempt_id": "local-47",
+      "source": "CS1",
+      "preparation_reason": "http_status",
+      "preparation_http_status": "502",
+      "watch_session_id": "local-30",
+      "relay_failure_resource_category": "unknown",
+      "failure_kind": "sourceFailure",
+      "relay_failure_stage": "upstream_response",
+      "relay_failure_kind": "invalid_response",
+      "preparation_stage": "contract_validation",
+      "attempt_number": "6",
+      "relay_request_phase": "upstream_response",
+      "source_family": "communitysports",
+      "source_count": "4",
+      "route": "single",
+      "source_id": "local-45"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:45.816658+00:00",
+    "build": "337",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "attempt_id": "local-47",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:45.828762+00:00",
+    "build": "337",
+    "name": "automatic_failover",
+    "outcome": "failure",
+    "durationMilliseconds": null,
+    "details": {
+      "source_count": "4",
+      "source_id": "local-45",
+      "watch_session_id": "local-30",
+      "route": "single",
+      "source_index": "3",
+      "failure_kind": "sourceFailure",
+      "attempt_number": "6",
+      "last_observed_stage": "preparing",
+      "source_family": "communitysports",
+      "attempt_id": "local-47",
+      "source": "CS1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:46.278293+00:00",
+    "build": "337",
+    "name": "attempt_started",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source_id": "local-48",
+      "watch_session_id": "local-30",
+      "route": "single",
+      "source_index": "2",
+      "attempt_number": "7",
+      "last_observed_stage": "preparing",
+      "source_family": "score808",
+      "attempt_id": "local-49",
+      "source": "Score808",
+      "source_count": "4"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:07:46.631241+00:00",
+    "build": "337",
+    "name": "audio_preparation_duration",
+    "outcome": "info",
+    "durationMilliseconds": 26,
+    "details": {
+      "source_id": "local-48",
+      "watch_session_id": "local-30",
+      "route": "single",
+      "source_index": "2",
+      "attempt_number": "7",
+      "reason_code": "completed",
+      "last_observed_stage": "preparing",
+      "attempt_id": "local-49",
+      "source_family": "score808",
+      "source": "Score808",
+      "source_count": "4"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:08:06.660611+00:00",
+    "build": "337",
+    "name": "source_failure",
+    "outcome": "failure",
+    "durationMilliseconds": 20382,
+    "details": {
+      "watch_session_id": "local-30",
+      "route": "single",
+      "attempt_number": "7",
+      "source": "Score808",
+      "source_id": "local-48",
+      "attempt_id": "local-49",
+      "source_family": "score808",
+      "failure_kind": "startupTimeout",
+      "last_observed_stage": "preparing",
+      "source_count": "4",
+      "source_index": "2"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:08:06.674764+00:00",
+    "build": "337",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "watch_session_id": "local-30",
+      "attempt_id": "local-49"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:08:06.688965+00:00",
+    "build": "337",
+    "name": "retry_scheduled",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "attempt_number": "7",
+      "source": "Score808",
+      "route": "single",
+      "source_index": "2",
+      "source_id": "local-48",
+      "attempt_id": "local-49",
+      "source_family": "score808",
+      "last_observed_stage": "preparing",
+      "source_count": "4",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:08:07.376142+00:00",
+    "build": "337",
+    "name": "attempt_started",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "Score808",
+      "route": "single",
+      "last_observed_stage": "preparing",
+      "source_index": "2",
+      "source_id": "local-48",
+      "attempt_id": "local-50",
+      "source_family": "score808",
+      "attempt_number": "8",
+      "source_count": "4",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:08:07.686605+00:00",
+    "build": "337",
+    "name": "audio_preparation_duration",
+    "outcome": "info",
+    "durationMilliseconds": 20,
+    "details": {
+      "attempt_number": "8",
+      "source": "Score808",
+      "watch_session_id": "local-30",
+      "route": "single",
+      "source_id": "local-48",
+      "attempt_id": "local-50",
+      "source_family": "score808",
+      "reason_code": "completed",
+      "last_observed_stage": "preparing",
+      "source_count": "4",
+      "source_index": "2"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:08:27.711101+00:00",
+    "build": "337",
+    "name": "source_failure",
+    "outcome": "failure",
+    "durationMilliseconds": 20332,
+    "details": {
+      "route": "single",
+      "source": "Score808",
+      "source_count": "4",
+      "last_observed_stage": "preparing",
+      "source_id": "local-48",
+      "attempt_id": "local-50",
+      "source_family": "score808",
+      "failure_kind": "startupTimeout",
+      "attempt_number": "8",
+      "source_index": "2",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:08:27.744295+00:00",
+    "build": "337",
+    "name": "match_selection_comparison",
+    "outcome": "info",
+    "durationMilliseconds": null,
+    "details": {
+      "attempt_id": "local-50",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:08:27.775491+00:00",
+    "build": "337",
+    "name": "terminal_failure",
+    "outcome": "failure",
+    "durationMilliseconds": null,
+    "details": {
+      "source": "Score808",
+      "route": "single",
+      "source_index": "2",
+      "last_observed_stage": "preparing",
+      "source_id": "local-48",
+      "attempt_id": "local-50",
+      "source_family": "score808",
+      "failure_kind": "startupTimeout",
+      "attempt_number": "8",
+      "source_count": "4",
+      "watch_session_id": "local-30"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T20:08:27.804315+00:00",
+    "build": "337",
+    "name": "watch_outcome",
+    "outcome": "failure",
+    "durationMilliseconds": null,
+    "details": {
+      "source_family": "score808",
+      "failover_count": "3",
+      "route": "single",
+      "failure_kind": "startuptimeout",
+      "terminal_outcome": "failed"
+    }
+  }
+]

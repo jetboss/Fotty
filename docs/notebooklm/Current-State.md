@@ -1,10 +1,8 @@
 # Fotty current state
 
-15 Nov: [Jet336 Watch repairs](../testing/fotty336-watch-failures/README.md): confirmed health-store deadlock and two discovery classifications fixed with Claude;2,739 tests pass/12 skips. One normal build installed; channel recovery,90s holds and same-attempt resume pass. Fresh account-match/wrong-programme/audio/independent-backup limits retained. Phone/ranking/TestFlight unchanged.
+15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
-15 Nov: [Jet335 UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md):261 tests pass; Watch/disclosures checked with Claude. Trace/phone/score-motion limits retained.
-
-15 Nov: [Jet334 guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) installed;396 checks, Save/Remind and TV25 hold pass. Live programme/audio pending; source failures retained. Phone/ranking/TestFlight unchanged.
+Prior336: [Watch freeze/discovery repairs](../testing/fotty336-watch-failures/README.md),2,739 passes/12 skips; correct channel holds. Prior335 [UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md) and334 [guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) receipts retain their limits.
 
 14 Nov: [Jet332 retirement](../testing/fotty332-watch-first-retirement/README.md): FPL removed, Watch Two parked; saved data/scores/follows/ranking preserved. Claude approved;2,687 tests pass/12 skips; correct WBBL Watch91s/zero stalls. [Internal TestFlight332](../releases/Fotty-3.0.0-332.md) released to13 existing testers.
 

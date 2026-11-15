@@ -1,0 +1,22 @@
+{
+  "baseline": "2c3bb62",
+  "checks": [
+    {
+      "path": "Fotty/Core/Networking/LiveSourceHealthStore.swift",
+      "byteIdentical": true,
+      "SHA256": "1be34470783bdf664b22e373db0d922f53e0b8cdd9055d62ef13f06b226c982a"
+    },
+    {
+      "path": "Fotty/Core/Networking/PenguPlaySportsAddonClient.swift",
+      "byteIdentical": true,
+      "SHA256": "d0be2d81fac80d4c25298892fcb08e944833c91b4c17d8319ac07b37c59f527f"
+    },
+    {
+      "path": "Fotty/Core/Networking/HighflySportsAddonClient.swift",
+      "function": "stableChoiceKey",
+      "byteIdentical": true
+    }
+  ],
+  "allEqual": true,
+  "scope": "Static comparison; Highfly descriptor renewal comparison changes separately. Runtime health naturally advances during watching."
+}

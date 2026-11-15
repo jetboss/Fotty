@@ -475,6 +475,11 @@ actor LiveStreamResolver {
     nonisolated static func isSameDescriptorChoice(_ candidate: StreamSession, as previous: StreamSession) -> Bool {
         guard candidate.qualityLabel == previous.qualityLabel,
               candidate.playbackContract.endpoint == previous.playbackContract.endpoint else { return false }
+        if previous.eventBinding?.providerCode == HighflySportsAddonClient.providerCode {
+            guard candidate.eventBinding?.providerCode == HighflySportsAddonClient.providerCode else { return false }
+            return HighflySportsAddonClient.descriptorChoiceKey(candidate.playableURL, headers: candidate.requiredHeaders)
+                == HighflySportsAddonClient.descriptorChoiceKey(previous.playableURL, headers: previous.requiredHeaders)
+        }
         if previous.diagnosticMetadata["source_key_scope"] == "upstream",
            let key = previous.diagnosticMetadata["source_key"] {
             return candidate.diagnosticMetadata["source_key_scope"] == "upstream"

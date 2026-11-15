@@ -22,6 +22,59 @@ final class HighflySportsAddonTests: XCTestCase {
         }
     }
 
+    func testCatalogNameCannotContradictDescriptionParticipants() throws {
+        let good = row()
+        let conflicting = HighflySportsAddonClient.Row(id: good.id, name: "Chelsea vs Fulham",
+            description: good.description, releaseInfo: good.releaseInfo, category: good.category)
+        XCTAssertNotNil(ReviewedSportsFixtureMatcher.participantIdentity(sport: "football", cast: [], title: conflicting.name),
+                        "The contradictory name explicitly identifies another pair")
+        XCTAssertTrue(HighflySportsAddonClient.selectAll(request: request(), rows: [conflicting], now: kickoff).isEmpty,
+                      "A matching description must not hide a different explicit pair in the catalog name")
+        XCTAssertTrue(HighflySportsAddonClient.selectAll(request: request(), rows: [good, conflicting], now: kickoff).isEmpty,
+                      "A same-ID sibling must retain the contradictory catalog evidence")
+        for name in ["Premier League", "Live football", "", "Everton vs Arsenal"] {
+            let generic = HighflySportsAddonClient.Row(id: good.id, name: name, description: good.description,
+                releaseInfo: good.releaseInfo, category: good.category)
+            XCTAssertEqual(HighflySportsAddonClient.selectAll(request: request(), rows: [generic], now: kickoff), [generic],
+                           "A generic or missing name supplies no contradictory participant identity")
+        }
+    }
+
+    func testCatalogNamesPreserveAliasesAndIndependentSquadEvidence() throws {
+        let date = "10 Nov 2026 · 18:00 UTC"
+        func listing(_ name: String, _ description: String) -> HighflySportsAddonClient.Row {
+            .init(id: "streamed:synthetic", name: name, description: description + "\n" + date,
+                  releaseInfo: date, category: "football")
+        }
+        XCTAssertNil(HighflySportsAddonClient.identity(listing("Arsenal vs Everton", "Live football")),
+                     "A generic primary description must not acquire a new name-only fallback")
+        let national = StreamPlaybackRequest(matchID: "national", displayTitle: "Turkey vs Georgia", homeTeam: "Turkey",
+            awayTeam: "Georgia", category: "football", kickoffDate: kickoff)
+        let alias = listing("Georgia vs Türkiye", "Turkey vs Georgia")
+        XCTAssertEqual(HighflySportsAddonClient.selectAll(request: national, rows: [alias], now: kickoff), [alias])
+        let women = StreamPlaybackRequest(matchID: "women", displayTitle: "Arsenal Women vs Everton Women",
+            homeTeam: "Arsenal Women", awayTeam: "Everton Women", category: "football", kickoffDate: kickoff)
+        for (name, description) in [("Arsenal Women vs Everton Women", "Arsenal vs Everton"),
+                                    ("Arsenal vs Everton", "Everton Women vs Arsenal Women")] {
+            let item = listing(name, description)
+            XCTAssertEqual(HighflySportsAddonClient.selectAll(request: women, rows: [item], now: kickoff), [item])
+            XCTAssertTrue(HighflySportsAddonClient.selectAll(request: request(), rows: [item], now: kickoff).isEmpty)
+        }
+        for (name, description) in [("Arsenal Women vs Everton Women", "Arsenal U21 vs Everton U21"),
+                                    ("Arsenal U21 vs Everton U21", "Arsenal Women vs Everton Women")] {
+            XCTAssertTrue(HighflySportsAddonClient.selectAll(request: women, rows: [listing(name, description)], now: kickoff).isEmpty)
+        }
+    }
+
+    func testConflictingMetaDescriptionCannotDiscardACleanListingSibling() async throws {
+        let transport = HighflyTestTransport(mode: .internalMetaConflictWithSibling)
+        let sessions = try await client(transport).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(sessions.first?.eventBinding?.providerEventID, "streamed:synthetic-feed-b")
+        let counts = await transport.counts()
+        XCTAssertEqual(counts.meta, 2, "Both same-ID metadata rereads must be checked independently")
+    }
+
     func testEveryScheduledSportUsesItsOwnHighflyCatalog() {
         for (category, catalog) in [("football", "sports_football"), ("cricket", "sports_cricket"),
                                     ("basketball", "sports_basketball"), ("baseball", "sports_baseball"),
@@ -101,6 +154,69 @@ final class HighflySportsAddonTests: XCTestCase {
         for (value, reason) in refused {
             XCTAssertEqual(HighflySportsAddonClient.deliveryRejection(URL(string: value)!), reason, value)
         }
+    }
+
+    func testQuerySelectedSiblingCannotReplaceTheChosenHighflyDeliveryDuringRenewal() async throws {
+        let transport = HighflyTestTransport(mode: .querySelectedChannels)
+        let resolver = client(transport)
+        let original = try await resolver.resolve(for: request(), now: kickoff)
+        XCTAssertEqual(original.map(\.providerName), ["HF1", "HF2"])
+        XCTAssertEqual(original.map { $0.playableURL.query }, ["channel=one&ft=original", "channel=two&ft=original"],
+                       "Initial admission must preserve both full query-selected deliveries")
+        let first = try XCTUnwrap(original.first), second = try XCTUnwrap(original.last)
+        XCTAssertEqual(first.diagnosticMetadata["source_key"], second.diagnosticMetadata["source_key"],
+                       "Historical ranking keys remain unchanged")
+        XCTAssertNotEqual(HighflySportsAddonClient.descriptorChoiceKey(first.playableURL, headers: first.requiredHeaders),
+                          HighflySportsAddonClient.descriptorChoiceKey(second.playableURL, headers: second.requiredHeaders))
+
+        // Only the other channel survives. Its display ordinal changes, while
+        // listing, path and endpoint remain the same as the selected delivery.
+        let refreshed = try await resolver.resolve(for: request(), now: kickoff.addingTimeInterval(1))
+        XCTAssertEqual(refreshed.count, 1)
+        let sibling = try XCTUnwrap(refreshed.first)
+        XCTAssertEqual(sibling.providerName, "HF1")
+        XCTAssertEqual(sibling.playableURL.query, "channel=two&token=renewed")
+        XCTAssertEqual(sibling.eventBinding?.providerEventID, first.eventBinding?.providerEventID)
+        XCTAssertEqual(sibling.eventBinding?.streamID, first.eventBinding?.streamID)
+        XCTAssertEqual(sibling.playableURL.path, first.playableURL.path)
+        XCTAssertFalse(LiveStreamResolver.isSameDescriptorChoice(sibling, as: first),
+                       "One surviving sibling must not pass unique-candidate renewal for another channel")
+        XCTAssertTrue(LiveStreamResolver.isSameDescriptorChoice(sibling, as: second),
+                      "The same channel still renews across reviewed credential rotation and display renumbering")
+    }
+
+    func testDescriptorChoiceKeyRotatesOnlyReviewedCredentialsAndRetainsRawSelectors() throws {
+        func key(_ value: String, headers: [String: String] = [:]) throws -> String {
+            HighflySportsAddonClient.descriptorChoiceKey(try XCTUnwrap(URL(string: value)), headers: headers)
+        }
+        for origin in ["https://papacito.cfd", "https://edge.papacito.cfd", "https://papacito.cfd:443"] {
+            let base = origin + "/m3u/channel/index.m3u8"
+            XCTAssertEqual(try key(base + "?ft=old"), try key(base + "?token=new"))
+            XCTAssertEqual(try key(base + "?channel=one&ft=old"), try key(base + "?channel=one&token=new"))
+        }
+        for base in ["https://other.example/m3u/channel/index.m3u8", "https://evilpapacito.cfd/m3u/channel/index.m3u8",
+                     "https://papacito.cfd.evil.example/m3u/channel/index.m3u8", "http://papacito.cfd/m3u/channel/index.m3u8",
+                     "https://papacito.cfd:8443/m3u/channel/index.m3u8", "https://papacito.cfd/other/index.m3u8",
+                     "https://papacito.cfd/m3u/channel/index%2Em3u8", "https://papacito.cfd/m3u/channel/index.m3u%38"] {
+            XCTAssertNotEqual(try key(base + "?ft=old"), try key(base + "?token=new"), base)
+        }
+        let base = "https://papacito.cfd/m3u/channel/index.m3u8?"
+        for (left, right) in [
+            ("channel=one&ft=old", "channel=two&token=new"),
+            ("source=one&ft=old", "source=two&token=new"),
+            ("unknown=one&ft=old", "unknown=two&token=new"),
+            ("Channel=one&ft=old", "channel=one&token=new"),
+            ("%63hannel=one&ft=old", "channel=one&token=new"),
+            ("channel=%6Fne&ft=old", "channel=one&token=new"),
+            ("a=one&b=two&ft=old", "b=two&a=one&token=new"),
+            ("channel=one&channel=two&ft=old", "channel=two&channel=one&token=new"),
+            ("FT=old", "FT=new"), ("%66t=old", "%66t=new"),
+            ("ft=old&ft=other", "ft=new&ft=other"),
+            ("token=old&token=other", "token=new&token=other"),
+            ("ft=old&token=other", "ft=new&token=other"), ("ft=", "token=")
+        ] { XCTAssertNotEqual(try key(base + left), try key(base + right), left + " / " + right) }
+        XCTAssertNotEqual(try key(base + "ft=old", headers: ["User-Agent": "Player A"]),
+                          try key(base + "token=new", headers: ["User-Agent": "Player B"]))
     }
 
     func testUnknownRowFieldsAreIgnoredButCredentialsAndDRMAreNot() throws {
@@ -785,7 +901,7 @@ private actor HighflyTestTransport {
         case ownDomain, nullableMetadata, normal, conflictingMeta, disable, changeAccount, badSibling, transportError, headerVariants
         case searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog
         case listingFailsAfterLive, liveFailsListingMatches, secondTeamSearchTimesOut, teamSearchesTimeOut, cancelTeamSearch
-        case secondSearchFails, looseRows, metaFails, looseManifest, twoListings
+        case secondSearchFails, looseRows, metaFails, looseManifest, twoListings, querySelectedChannels, internalMetaConflictWithSibling
         case allCatalogReadsFail, oneCatalogReadFailsWithoutMatch, catalogsEmpty
         case liveSecondPageFails, browseSecondPageFails, liveConflictThenPageFails, liveSecondPageCancelled
         case metadataLabels, contradictoryDuplicate, rejectedThenAdmittedContract, partialStreams, emptyStreams, streamReadFails, streamScanLimit
@@ -876,7 +992,7 @@ private actor HighflyTestTransport {
                 body = ["metas": url.lastPathComponent == "sports_live.json" ? [row] : []]
             case .cancelTeamSearch:
                 throw CancellationError()
-            case .twoListings, .partialStreams:
+            case .twoListings, .partialStreams, .internalMetaConflictWithSibling:
                 var second = row; second["id"] = "streamed:synthetic-feed-b"
                 body = ["metas": url.absoluteString.contains("skip=") || !searching ? [] : [row, second]]
             case .secondLiveCatalog:
@@ -924,7 +1040,10 @@ private actor HighflyTestTransport {
             var meta = row
             if [.undatedLiveRow, .secondLiveCatalog, .listingFailsAfterLive].contains(mode) { meta["description"] = "Arsenal vs Everton\n🔴 Live now"; meta["releaseInfo"] = "LIVE" }
             if mode == .conflictingMeta { meta["name"] = "Different fixture" }
-            if [.twoListings, .partialStreams].contains(mode), url.path.contains("feed-b") { meta["id"] = "streamed:synthetic-feed-b" }
+            if [.twoListings, .partialStreams, .internalMetaConflictWithSibling].contains(mode), url.path.contains("feed-b") { meta["id"] = "streamed:synthetic-feed-b" }
+            if mode == .internalMetaConflictWithSibling, !url.path.contains("feed-b") {
+                meta["description"] = "Chelsea vs Fulham\n10 Nov 2026 · 18:00 UTC"
+            }
             body = ["meta": meta]
         } else {
             streamCount += 1
@@ -935,6 +1054,12 @@ private actor HighflyTestTransport {
             if mode == .twoListings, url.path.contains("feed-b") {
                 deliveries = (1...10).map { ["url": "https://edge\($0).papacito.cfd/m3u/b\($0)/index.m3u8?\(key)=s"] }
                 deliveries.append(["url": "https://papacito.cfd/m3u/synthetic/index.m3u8?\(key)=synthetic"])
+            }
+            if mode == .querySelectedChannels {
+                let base = "https://papacito.cfd/m3u/synthetic/index.m3u8"
+                deliveries = streamCount == 1
+                    ? [["url": base + "?channel=one&ft=original"], ["url": base + "?channel=two&ft=original"]]
+                    : [["url": base + "?channel=two&token=renewed"]]
             }
             if mode == .emptyStreams { deliveries = [] }
             if mode == .metadataLabels {

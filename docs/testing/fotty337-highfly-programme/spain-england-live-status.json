@@ -1,0 +1,34 @@
+{
+  "observedAtUTC": "2026-11-15T20:03:45.501552+00:00",
+  "source": "https://site.api.espn.com/apis/site/v2/sports/soccer/uefa.nations/scoreboard?dates=20261115",
+  "uefaMatchURL": "https://www.uefa.com/uefanationsleague/match/2047904--spain-vs-england/",
+  "eventID": "401861175",
+  "name": "England at Spain",
+  "kickoffUTC": "2026-11-15T19:45Z",
+  "status": {
+    "clock": 900.0,
+    "displayClock": "15'",
+    "period": 1,
+    "type": {
+      "id": "25",
+      "name": "STATUS_FIRST_HALF",
+      "state": "in",
+      "completed": false,
+      "description": "First Half",
+      "detail": "15'",
+      "shortDetail": "15'"
+    }
+  },
+  "teams": [
+    {
+      "name": "Spain",
+      "homeAway": "home",
+      "score": "0"
+    },
+    {
+      "name": "England",
+      "homeAway": "away",
+      "score": "0"
+    }
+  ]
+}
