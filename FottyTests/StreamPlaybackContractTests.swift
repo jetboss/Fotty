@@ -31,7 +31,8 @@ final class StreamPlaybackContractTests: XCTestCase {
         let inventory = [failed, alias, duplicate, different]
         let old = [alias, duplicate, different].map(\.legacySource), proposed = [different, alias, duplicate].map(\.legacySource)
         func compare(_ enabled: Bool) -> LivePlaybackSourcePolicy.MatchOrderComparison {
-            .init(baseline: old, candidate: proposed, inventory: inventory, current: failed.legacySource, fixtureID: fixture, trial: enabled)
+            .init(baseline: old, candidate: proposed, inventory: inventory, current: failed.legacySource,
+                scope: .init(request: StreamPlaybackRequest(matchID: fixture, displayTitle: "", homeTeam: "", awayTeam: "", category: "")), trial: enabled)
         }
         let shadow = compare(false), trial = compare(true)
         XCTAssertEqual(shadow.selected?.id, alias.id)

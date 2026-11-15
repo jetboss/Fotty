@@ -210,8 +210,10 @@ actor LiveStreamResolver {
                     useRegistry: singleStreamDiscovery)
             }
         }
+        // One immutable evidence scope for this discovery's current request.
+        let matchScope = LiveSourceHealthStore.MatchEvidenceScope(request: request)
         let sustainedProviders = foregroundTVLookup && request.preferredEvent?.isBroadcastChannel == false
-            ? LiveSourceHealthStore.sustainedMatchProviders(for: request.matchID) : []
+            ? LiveSourceHealthStore.sustainedMatchProviders(in: matchScope) : []
         var sustainedLanes = Set<Int>()
         for source in plan.optionalSources {
             if sustainedProviders.contains(source.providerCode) { sustainedLanes.insert(lanes.count) }
@@ -252,7 +254,7 @@ actor LiveStreamResolver {
                 let allowed = StreamPluginProviderMatching.allowedPlayerProviderCodes(enabledCodes: enabledNow)
                 let admitted = sessions.filter { session in
                     !session.hasExpiredMediaLease()
-                        && (!singleStreamDiscovery || Self.admitsSingleSession(session, for: request))
+                        && (!singleStreamDiscovery || Self.admitsSingleSession(session, for: request, scope: matchScope))
                         && allowed.contains { StreamPluginProviderMatching.matches(session.legacySource, code: $0) }
                 }
                 guard !Task.isCancelled, !admitted.isEmpty else { return }
@@ -262,7 +264,7 @@ actor LiveStreamResolver {
         let discoveryDeadline = StreamDiscoveryCoordinator.discoveryDeadline(
             singleStreamDiscovery: singleStreamDiscovery,
             optionalProviderCodes: Set(plan.optionalSources.map(\.providerCode)))
-        let collected = await StreamDiscoveryCoordinator.collect(lanes: lanes, deadline: discoveryDeadline,
+        let collected = await StreamDiscoveryCoordinator.collect(matchScope: matchScope, lanes: lanes, deadline: discoveryDeadline,
             preferDirectInitialChoice: singleStreamDiscovery && onChoices != nil, sustainedProviderLanes: sustainedLanes,
             onSessions: publishChoices)
         // A working sibling must not erase the optional lane's result. This
@@ -288,7 +290,7 @@ actor LiveStreamResolver {
             selectionLedgers[family, default: StreamAdmissionLedger()].observe(1)
             let reason: String
             if session.hasExpiredMediaLease(at: selectedAt) { reason = "expired" }
-            else if singleStreamDiscovery && !Self.admitsSingleSession(session, for: request) { reason = "binding" }
+            else if singleStreamDiscovery && !Self.admitsSingleSession(session, for: request, scope: matchScope) { reason = "binding" }
             else if !allowedCodes.contains(where: { StreamPluginProviderMatching.matches(session.legacySource, code: $0) }) { reason = "disabled" }
             else if !selectedIdentities.insert(StreamDeliveryIdentity(url: session.playableURL, headers: session.requiredHeaders)).inserted { reason = "duplicate" }
             else { reason = "admitted" }
@@ -335,9 +337,11 @@ actor LiveStreamResolver {
         return .failure(failure, diagnostics)
     }
 
-    nonisolated static func admitsSingleSession(_ session: StreamSession, for request: StreamPlaybackRequest) -> Bool {
+    /// `scope` is built once from this same request by the discovery owner.
+    nonisolated static func admitsSingleSession(_ session: StreamSession, for request: StreamPlaybackRequest,
+                                                scope: LiveSourceHealthStore.MatchEvidenceScope) -> Bool {
         guard session.matchID == request.matchID, session.validationStatus == .validated,
-              LiveSourceHealthStore.matchEvidence(for: session) != .wrongProgramme else { return false }
+              LiveSourceHealthStore.matchEvidence(for: session, scope: scope) != .wrongProgramme else { return false }
         return session.eventBinding.map { $0.matches(request: request, providerCode: $0.providerCode) } ?? true
     }
 
@@ -425,8 +429,8 @@ actor LiveStreamResolver {
         guard !lanes.isEmpty else { return 0 }
         // Account sources (PenguPlay gathers channel links on request) get the
         // longer budget; free sources keep the original eight seconds.
-        _ = await StreamDiscoveryCoordinator.collect(lanes: lanes,
-            deadline: account.isEmpty ? .seconds(8) : Self.accountPreflightDeadline)
+        _ = await StreamDiscoveryCoordinator.collect(matchScope: LiveSourceHealthStore.MatchEvidenceScope(request: request),
+            lanes: lanes, deadline: account.isEmpty ? .seconds(8) : Self.accountPreflightDeadline)
         // Completed generations ignore abandonment; a parent cancelled before
         // a lane started must still release its metadata-only lease.
         for ticket in tickets { await FixtureStreamDiscoveryIndex.shared.abandon(ticket) }

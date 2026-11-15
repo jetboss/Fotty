@@ -463,11 +463,12 @@ enum BroadcastSourcePickerPolicy {
         enabledProviders: Set<String>? = nil
     ) -> [Int] {
         let request = StreamPlaybackRequest(event: event)
+        let scope = LiveSourceHealthStore.MatchEvidenceScope(request: request)
         let candidates = sessions.indices.filter { index in
             let session = sessions[index]
             guard !failedIDs.contains(session.id), session.matchID == event.id,
                   session.validationStatus == .validated else { return false }
-            let evidence = LiveSourceHealthStore.matchEvidence(for: session, at: now)
+            let evidence = LiveSourceHealthStore.matchEvidence(for: session, scope: scope, at: now)
             guard evidence != .wrongProgramme else { return false }
             if index == currentIndex { return true } // An already displayed item can outlive its lookup receipt.
             guard evidence != .recentlyFailed, evidence != .repeatedlyFailed else { return false }
@@ -476,7 +477,7 @@ enum BroadcastSourcePickerPolicy {
             return session.eventBinding != nil || (hasRecentStart?(session.legacySource) ?? (evidence.hasPlayed))
         }
         let ranked = LiveSourceHealthStore.rankedSingleStreamSessions(candidates.map { sessions[$0] },
-            contextKey: LiveSourceHealthStore.contextKey(for: event), at: now)
+            matchScope: scope, contextKey: LiveSourceHealthStore.contextKey(for: event), at: now)
         let indices = Dictionary(candidates.map { (sessions[$0].id, $0) }, uniquingKeysWith: { first, _ in first })
         let ordered = ranked.compactMap { indices[$0.id] }
         var result = candidates.contains(currentIndex) ? [currentIndex] : Array(ordered.prefix(1))

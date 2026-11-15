@@ -145,6 +145,9 @@ struct SinglePlaybackStartEvidence {
 @MainActor
 final class LivePlayerViewModel {
     let event: AnalyticalDataEngine.EventReference
+    /// Built once from this owner's immutable event; every match-evidence
+    /// read and write by this player is attributed to it.
+    private let matchEvidenceScope: LiveSourceHealthStore.MatchEvidenceScope
     private(set) var providedSessions: [StreamSession]
     private(set) var isCheckingAdditionalSources = false
     private struct PendingSingleDiscoveryFailure {
@@ -529,6 +532,7 @@ final class LivePlayerViewModel {
         backupRefreshInterval: Duration = .seconds(600)
     ) {
         self.event = event
+        matchEvidenceScope = LiveSourceHealthStore.MatchEvidenceScope(request: StreamPlaybackRequest(event: event))
         self.webRetryDelay = webRetryDelay
         self.webBackgroundSuspensionDelay = webBackgroundSuspensionDelay
         self.validateNativeSource = validateNativeSource
@@ -568,12 +572,14 @@ final class LivePlayerViewModel {
         let context = LiveSourceHealthStore.contextKey(for: event)
         let preferred: StreamSource?
         if event.isBroadcastChannel {
-            preferred = LiveSourceHealthStore.rankedSingleStreamSessions(sessions, contextKey: context, applyMatchEvidence: false).first?.legacySource
+            preferred = LiveSourceHealthStore.rankedSingleStreamSessions(sessions, matchScope: nil, contextKey: context,
+                applyMatchEvidence: false).first?.legacySource
         } else {
             let eligible = sessions.filter { $0.matchID == event.id && $0.validationStatus == .validated
-                && LiveSourceHealthStore.matchEvidence(for: $0) != .wrongProgramme }
-            let baseline = LiveSourceHealthStore.rankedSingleStreamSessions(eligible, contextKey: context, applyMatchEvidence: false)
-            let trial = LiveSourceHealthStore.rankedSingleStreamSessions(eligible, contextKey: context)
+                && LiveSourceHealthStore.matchEvidence(for: $0, scope: matchEvidenceScope) != .wrongProgramme }
+            let baseline = LiveSourceHealthStore.rankedSingleStreamSessions(eligible, matchScope: matchEvidenceScope,
+                contextKey: context, applyMatchEvidence: false)
+            let trial = LiveSourceHealthStore.rankedSingleStreamSessions(eligible, matchScope: matchEvidenceScope, contextKey: context)
             preferred = selectedMatchSource(baseline: baseline.map(\.legacySource), trial: trial.map(\.legacySource), after: nil)
         }
         if let preferred,
@@ -1201,7 +1207,7 @@ final class LivePlayerViewModel {
     private var activeDeliveryIsRejectedSingleMatch: Bool {
         guard usesSingleStreamRanking, viewingPlaybackContext == .single, !event.isBroadcastChannel,
               isPlaybackSessionActive, !isPlaybackSessionRetired, let session = activeSession else { return false }
-        return LiveSourceHealthStore.matchEvidence(for: session) == .wrongProgramme
+        return LiveSourceHealthStore.matchEvidence(for: session, scope: matchEvidenceScope) == .wrongProgramme
     }
 
     func toggleFillMode() { isFillMode.toggle(); scheduleAutoHide() }
@@ -2137,7 +2143,7 @@ final class LivePlayerViewModel {
         ensurePlaybackIntervalAttempt()
 
         let wrongProgramme = usesSingleStreamRanking && viewingPlaybackContext == .single && !event.isBroadcastChannel
-            && LiveSourceHealthStore.matchEvidence(for: session) == .wrongProgramme
+            && LiveSourceHealthStore.matchEvidence(for: session, scope: matchEvidenceScope) == .wrongProgramme
         if wrongProgramme || (!ignoringCircuitBreaker && LiveSourceHealthStore.isTemporarilyUnavailable(source)) {
             failedSourceIDs.insert(source.id)
             if let next = nextPlayableSource(after: source),
@@ -3274,9 +3280,9 @@ final class LivePlayerViewModel {
             if usesSingleStreamRanking, viewingPlaybackContext == .single {
                 let eligible = LivePlaybackSourcePolicy.provenAlternativesBeforeNativeStartupRetry(
                     in: sessions, for: event, after: source.id, failureKind: failureKind,
-                    hasDecoded: playbackIntervals.hasDecoded, hasPositivePlayback: { [event] in
+                    hasDecoded: playbackIntervals.hasDecoded, hasPositivePlayback: { [event, matchEvidenceScope] in
                         event.isBroadcastChannel || !AppRuntime.usesPrivateMatchSelection ? LiveSourceHealthStore.hasFreshSingleStreamSuccess(for: $0)
-                            : LiveSourceHealthStore.positiveRecoveryHistory(for: $0, fixtureID: event.id)
+                            : LiveSourceHealthStore.positiveRecoveryHistory(for: $0, scope: matchEvidenceScope)
                     })
                 // Decode and transport errors can arrive without a stall notification.
                 // Once a match played, its replacement need not have prior local history.
@@ -4671,14 +4677,16 @@ final class LivePlayerViewModel {
                     }
                     return true
                 }
-                let ranked = LiveSourceHealthStore.rankedSingleStreamSessions(remaining, contextKey: LiveSourceHealthStore.contextKey(for: current))
+                let scope = matchEvidenceScope
+                let ranked = LiveSourceHealthStore.rankedSingleStreamSessions(remaining, matchScope: scope,
+                    contextKey: LiveSourceHealthStore.contextKey(for: current))
                 let differentOrigins = SourceDeliveryDiversity.prioritisingDifferentOrigin(ranked, after: source)
                 let order = LivePlaybackSourcePolicy.singleStreamRecoveryOrder(ranked: differentOrigins.map(\.legacySource),
                     attempted: attempted.map(\.legacySource), after: source, family: LivePlaybackSourcePolicy.matchPublisher,
-                    hasMeasuredSuccess: { LiveSourceHealthStore.positiveRecoveryHistory(for: $0, fixtureID: current.id) })
-                let healthy = order.filter { LiveSourceHealthStore.matchEvidence(for: $0, fixtureID: current.id).rawValue < LiveSourceHealthStore.MatchEvidence.recentlyFailed.rawValue }
-                let baselineRank = LiveSourceHealthStore.rankedSingleStreamSessions(remaining, contextKey: LiveSourceHealthStore.contextKey(for: current),
-                    applyMatchEvidence: false)
+                    hasMeasuredSuccess: { LiveSourceHealthStore.positiveRecoveryHistory(for: $0, scope: scope) })
+                let healthy = order.filter { LiveSourceHealthStore.matchEvidence(for: $0, scope: scope).rawValue < LiveSourceHealthStore.MatchEvidence.recentlyFailed.rawValue }
+                let baselineRank = LiveSourceHealthStore.rankedSingleStreamSessions(remaining, matchScope: scope,
+                    contextKey: LiveSourceHealthStore.contextKey(for: current), applyMatchEvidence: false)
                 let baseline = LivePlaybackSourcePolicy.singleStreamRecoveryOrder(
                     ranked: SourceDeliveryDiversity.prioritisingDifferentOrigin(baselineRank, after: source).map(\.legacySource),
                     attempted: attempted.map(\.legacySource), after: source)
@@ -4694,7 +4702,7 @@ final class LivePlayerViewModel {
                 admits($0) && $0.id != source.id && !failedSourceIDs.contains($0.id)
                     && (eligibleIDs?.contains($0.id) ?? true)
             }
-            let preferred = LiveSourceHealthStore.rankedSingleStreamSessions(remaining,
+            let preferred = LiveSourceHealthStore.rankedSingleStreamSessions(remaining, matchScope: matchEvidenceScope,
                 contextKey: LiveSourceHealthStore.contextKey(for: event))
             let ranked = SourceDeliveryDiversity.prioritisingDifferentOrigin(preferred, after: source).map(\.legacySource)
             let attempted = sessions.filter { $0.id == source.id || failedSourceIDs.contains($0.id) }.map(\.legacySource)
@@ -4710,7 +4718,7 @@ final class LivePlayerViewModel {
 
     private func selectedMatchSource(baseline: [StreamSource], trial: [StreamSource], after current: StreamSource?) -> StreamSource? {
         let comparison = LivePlaybackSourcePolicy.MatchOrderComparison(baseline: baseline, candidate: trial,
-            inventory: sessions, current: current, fixtureID: event.id, trial: current == nil || AppRuntime.usesPrivateMatchSelection)
+            inventory: sessions, current: current, scope: matchEvidenceScope, trial: current == nil || AppRuntime.usesPrivateMatchSelection)
         var details = comparison.details
         details["watch_session_id"] = playbackCorrelation.sessionID.uuidString
         if current != nil { details["attempt_id"] = loadRequestID.uuidString }
@@ -4723,8 +4731,11 @@ final class LivePlayerViewModel {
 
     private func recordMatchOutcome(_ outcome: LiveSourceHealthStore.MatchOutcome, for source: StreamSource) {
         guard usesSingleStreamRanking, viewingPlaybackContext == .single, !event.isBroadcastChannel else { return }
-        LiveSourceHealthStore.recordMatchOutcome(outcome, for: source, fixtureID: event.id,
-            watchID: playbackCorrelation.sessionID, session: activeSession)
+        // Only this exact source's session may carry renewal identity; any
+        // other active session leaves a source-only write, as before.
+        let session = activeSession.flatMap { $0.id == source.id ? $0 : nil }
+        LiveSourceHealthStore.recordMatchOutcome(outcome, for: source, scope: matchEvidenceScope,
+            watchID: playbackCorrelation.sessionID, session: session)
     }
 
     private func enterLandscapeIfNeeded() { if !didApplyLandscape { didApplyLandscape = true; PlayerOrientationController.enterLandscape() } }

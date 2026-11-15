@@ -1,6 +1,11 @@
 import XCTest
 @testable import Fotty
 
+/// API plumbing: the request-local evidence scope for a bare test fixture ID.
+private func evidenceScope(_ fixtureID: String) -> LiveSourceHealthStore.MatchEvidenceScope {
+    .init(request: StreamPlaybackRequest(matchID: fixtureID, displayTitle: "", homeTeam: "", awayTeam: "", category: ""))
+}
+
 final class FixtureProviderPreflightScheduleTests: XCTestCase {
     func testInterleavedFixturesEachVisitEveryProviderInsteadOfAliasingGlobalCursor() {
         var rotation = FixtureProviderPreflightSchedule()
@@ -103,7 +108,7 @@ final class FixtureStreamDiscoveryIndexTests: XCTestCase {
             timeline: [], providerAttempts: [])
         let result = StreamResolutionSuccess(attemptID: diagnostics.attemptID, sessions: sessions, diagnostics: diagnostics)
         let instant = now
-        let discovery = await StreamDiscoveryCoordinator.collect(lanes: [{ report in
+        let discovery = await StreamDiscoveryCoordinator.collect(matchScope: .init(request: request), lanes: [{ report in
             report(.partialSession(sessions[0]))
             return .success(result)
         }], clock: { instant })
@@ -114,7 +119,7 @@ final class FixtureStreamDiscoveryIndexTests: XCTestCase {
         let cached = try XCTUnwrap(LiveStreamResolver.cachedChannelSessions(for: request, providerCode: "reviewedtv",
             index: index, at: now))
         XCTAssertEqual(cached.map(\.id), sessions.map(\.id))
-        let ranked = LiveSourceHealthStore.rankedSingleStreamSessions(cached, at: now)
+        let ranked = LiveSourceHealthStore.rankedSingleStreamSessions(cached, matchScope: .init(request: request), at: now)
         let all = BroadcastSourcePickerPolicy.matchProjection(ranked, recommended: [0], filter: .all)
         XCTAssertEqual(Set(all.indices.map { ranked[$0].id }), Set(sessions.map(\.id)))
         XCTAssertEqual(Set(ranked.map(\.providerName)), ["TV2"])
@@ -656,7 +661,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let expiring = StreamSession(matchID: "test", playableURL: URL(string: "https://example.test/expiring.m3u8")!,
             streamType: .hls, providerName: "unmeasured-expiry-regression", expiryTime: now.addingTimeInterval(1))
         let first = outcome([expiring]), empty = outcome([]), snapshots = IncrementalSnapshots()
-        let report = await StreamDiscoveryCoordinator.collect(lanes: [
+        let report = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { _ in first },
             { _ in try? await Task.sleep(for: .seconds(60)); return empty }
         ], deadline: .milliseconds(100), preferDirectInitialChoice: true, initialChoiceGrace: .milliseconds(10),
@@ -695,7 +700,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let snapshots = IncrementalSnapshots()
         let firstPublished = expectation(description: "Working sibling publishes while CS still resolves")
         let task = Task {
-            await StreamDiscoveryCoordinator.collect(lanes: [
+            await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
                 { publish in publish(.partialSession(first)); return firstOutcome },
                 { _ in
                     do {
@@ -728,7 +733,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let firstPublished = expectation(description: "First sibling is already visible")
         let childStopped = expectation(description: "CS child is cancelled without waiting32seconds")
         let task = Task {
-            await StreamDiscoveryCoordinator.collect(lanes: [
+            await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
                 { publish in publish(.partialSession(first)); return firstOutcome },
                 { publish in
                     defer { childStopped.fulfill() }
@@ -758,7 +763,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let childStopped = expectation(description: "The owning deadline cancels the unfinished CS child")
         let budget = StreamDiscoveryCoordinator.discoveryDeadline(singleStreamDiscovery: true,
             optionalProviderCodes: ["communitysports"]) / 1000
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { publish in publish(.partialSession(first)); return firstOutcome },
             { publish in
                 defer { childStopped.fulfill() }
@@ -779,7 +784,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
     func testFastIndependentProvidersRetainBothChoices() async {
         let a = session("shared"), b = session("site")
         let one = outcome([a]), two = outcome([b])
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { publish in publish(.session(a)); return one },
             { publish in publish(.session(b)); return two }
         ])
@@ -794,7 +799,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let b = StreamSession(matchID: "test", playableURL: url, streamType: .unknown, providerName: "b",
                               requiredHeaders: ["Referer": "https://example.test/match-b"])
         let one = outcome([a, b])
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [{ publish in
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [{ publish in
             publish(.session(a)); publish(.session(b)); return one
         }])
         XCTAssertEqual(result.sessions.count, 2)
@@ -802,7 +807,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
 
     func testPartialChoiceSurvivesSlowLaneAndIsDeduplicated() async {
         let a = session("shared"), one = outcome([])
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { publish in
                 publish(.session(a)); publish(.session(a))
                 try? await Task.sleep(for: .seconds(60))
@@ -818,7 +823,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
             technicalMessage: "Expired certificate", userMessage: "Cannot connect safely",
             retryable: true, fallbackAllowed: true)
         let finished = outcome([], failure: failure)
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { publish in
                 publish(.failure(failure))
                 try? await Task.sleep(for: .seconds(60))
@@ -833,7 +838,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
     func testMountedWatchCollectsLateBackupAfterEveryLaneHasResponded() async {
         let primary = session("primary"), backup = session("backup")
         let complete = outcome([])
-        let report = await StreamDiscoveryCoordinator.collect(lanes: [
+        let report = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { publish in publish(.session(primary)); return complete },
             { publish in
                 publish(.fairOpportunity)
@@ -849,7 +854,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
     func testFastSharedPageCannotCancelPendingDirectDiscovery() async {
         let a = session("shared"), b = session("site")
         let one = outcome([a]), two = outcome([b])
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { publish in publish(.session(a)); return one },
             { publish in
                 try? await Task.sleep(for: .milliseconds(40))
@@ -863,7 +868,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
     func testCancelledParentDoesNotWaitForDeadline() async {
         let finished = outcome([])
         let task = Task {
-            await StreamDiscoveryCoordinator.collect(lanes: [{ _ in
+            await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [{ _ in
                 try? await Task.sleep(for: .seconds(60))
                 return finished
             }])
@@ -879,7 +884,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let native = StreamSession(matchID: "test", playableURL: URL(string: "https://example.test/direct.m3u8")!,
             streamType: .hls, providerName: "CS1")
         let webResult = outcome([web]), directResult = outcome([native]), snapshots = IncrementalSnapshots()
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { publish in publish(.session(web)); return webResult },
             { _ in try? await Task.sleep(for: .milliseconds(20)); return directResult }
         ], deadline: .seconds(1), preferDirectInitialChoice: true, initialChoiceGrace: .milliseconds(200),
@@ -893,10 +898,10 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let fixture = "direct-proof-" + UUID().uuidString
         let proven = StreamSession(matchID: fixture, playableURL: URL(string: "https://fresh.test/live.m3u8")!,
             streamType: .hls, providerName: "CS1")
-        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: proven.legacySource, fixtureID: fixture, watchID: UUID())
-        XCTAssertTrue(StreamDiscoveryCoordinator.hasCurrentDirectEvidence(proven, at: Date()))
+        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: proven.legacySource, scope: evidenceScope(fixture), watchID: UUID())
+        XCTAssertTrue(StreamDiscoveryCoordinator.hasCurrentDirectEvidence(proven, scope: evidenceScope(fixture), at: Date()))
         let snapshots = IncrementalSnapshots(), ready = outcome([proven]), empty = outcome([])
-        _ = await StreamDiscoveryCoordinator.collect(lanes: [
+        _ = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope(fixture), lanes: [
             { _ in ready }, { _ in
                 try? await Task.sleep(for: .milliseconds(80))
                 let initial = await snapshots.all()
@@ -910,9 +915,9 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
     func testWrongProgrammeCannotWinIncrementalWatchButOtherLaneStillPublishes() async {
         let wrong = session("wrong-programme"), valid = session("other-programme")
         LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: wrong.legacySource,
-            fixtureID: wrong.matchID, watchID: UUID())
+            scope: evidenceScope(wrong.matchID), watchID: UUID())
         let snapshots = IncrementalSnapshots(), bad = outcome([wrong]), good = outcome([valid])
-        _ = await StreamDiscoveryCoordinator.collect(lanes: [
+        _ = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { _ in bad }, { _ in try? await Task.sleep(for: .milliseconds(30)); return good }
         ], deadline: .seconds(1), preferDirectInitialChoice: true, initialChoiceGrace: .zero,
             onSessions: { await snapshots.append($0) })
@@ -928,29 +933,30 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
             streamType: .unknown, providerName: "Score808", requiredHeaders: ["X-Fotty-Web-Embed": "true"])
         let stable = StreamSession(matchID: fixture, playableURL: URL(string: "https://stable.test/live.m3u8")!,
             streamType: .hls, providerName: "CS4")
-        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: stable.legacySource, fixtureID: fixture, watchID: UUID())
-        XCTAssertEqual(LiveSourceHealthStore.sustainedMatchProviders(for: fixture), ["communitysports"])
+        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: stable.legacySource, scope: evidenceScope(fixture), watchID: UUID())
+        XCTAssertEqual(LiveSourceHealthStore.sustainedMatchProviders(in: evidenceScope(fixture)), ["communitysports"])
         let web = outcome([early]), direct = outcome([stable]), snapshots = IncrementalSnapshots()
-        _ = await StreamDiscoveryCoordinator.collect(lanes: [
+        _ = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope(fixture), lanes: [
             { _ in web }, { _ in try? await Task.sleep(for: .milliseconds(60)); return direct }
         ], deadline: .seconds(1), preferDirectInitialChoice: true, initialChoiceGrace: .milliseconds(5),
             sustainedProviderLanes: [1], onSessions: { await snapshots.append($0) })
         let first = await snapshots.all().first ?? []
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions(first).first?.id, stable.id)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions(first, matchScope: evidenceScope(fixture)).first?.id, stable.id)
     }
 
     func testKnownStallCannotMountBeforeLaterMatchBackup() async {
         let stalled = session("recentStall"), backup = session("lateBackup")
         LiveSourceHealthStore.recordMatchOutcome(.stalled, for: stalled.legacySource,
-            fixtureID: stalled.matchID, watchID: UUID())
+            scope: evidenceScope(stalled.matchID), watchID: UUID())
         let early = outcome([stalled]), late = outcome([backup]), snapshots = IncrementalSnapshots()
-        _ = await StreamDiscoveryCoordinator.collect(lanes: [
+        _ = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { _ in early }, { _ in try? await Task.sleep(for: .milliseconds(60)); return late }
         ], deadline: .seconds(1), preferDirectInitialChoice: true, initialChoiceGrace: .milliseconds(5),
             onSessions: { await snapshots.append($0) })
         let published = await snapshots.all()
         XCTAssertEqual(published.first?.map(\.id), [stalled.id, backup.id])
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions(published.first ?? []).first?.id, backup.id)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions(published.first ?? [],
+            matchScope: evidenceScope(stalled.matchID)).first?.id, backup.id)
     }
 
     func testUnprovenEarlyDirectChoiceWaitsForLaterAlternativeDuringInitialGrace() async {
@@ -959,7 +965,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let later = StreamSession(matchID: "test", playableURL: URL(string: "https://example.test/later-choice.m3u8")!,
             streamType: .hls, providerName: "CS5")
         let firstOutcome = outcome([first]), laterOutcome = outcome([later]), snapshots = IncrementalSnapshots()
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { _ in firstOutcome },
             { _ in try? await Task.sleep(for: .milliseconds(20)); return laterOutcome }
         ], deadline: .seconds(1), preferDirectInitialChoice: true, initialChoiceGrace: .milliseconds(200),
@@ -977,7 +983,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let diagnostic = StreamEventRecord(name: .provider1ValidationFailed, matchID: "test", matchTitle: "Test",
             providerName: "CS", attemptID: "test", currentState: .failed)
         let webResult = outcome([web]), directResult = outcome([direct]), snapshots = IncrementalSnapshots()
-        _ = await StreamDiscoveryCoordinator.collect(lanes: [
+        _ = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { publish in
                 publish(.event(diagnostic))
                 try? await Task.sleep(for: .milliseconds(100))
@@ -996,7 +1002,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let webResult = outcome([web]), empty = outcome([]), snapshots = IncrementalSnapshots()
         let published = expectation(description: "Web fallback is released by its finite initial grace")
         let task = Task {
-            await StreamDiscoveryCoordinator.collect(lanes: [
+            await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
                 { _ in webResult }, { _ in try? await Task.sleep(for: .seconds(60)); return empty }
             ], deadline: .milliseconds(200), preferDirectInitialChoice: true, initialChoiceGrace: .milliseconds(20),
                 onSessions: { choices in await snapshots.append(choices); published.fulfill() })
@@ -1012,7 +1018,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let web = StreamSession(matchID: "test", playableURL: URL(string: "https://example.test/embed/score")!,
             streamType: .unknown, providerName: "Score808", requiredHeaders: ["X-Fotty-Web-Embed": "true"])
         let webResult = outcome([web]), snapshots = IncrementalSnapshots()
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [{ _ in webResult }],
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [{ _ in webResult }],
             preferDirectInitialChoice: true, initialChoiceGrace: .seconds(60), onSessions: { await snapshots.append($0) })
         let published = await snapshots.all()
         XCTAssertEqual(published.map { $0.map(\.id) }, [[web.id]])
@@ -1025,7 +1031,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let gate = IncrementalReleaseGate(), snapshots = IncrementalSnapshots()
         let firstPublished = expectation(description: "First choice is visible while the late lane is still pending")
         let task = Task {
-            await StreamDiscoveryCoordinator.collect(lanes: [
+            await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
                 { publish in publish(.partialSession(first)); return firstOutcome },
                 { _ in await gate.wait(); return lateOutcome }
             ], deadline: .seconds(3), onSessions: { choices in
@@ -1054,7 +1060,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
             providerName: "second", requiredHeaders: ["Referer": "https://example.test/second"])
         let completed = outcome([duplicate, differentHeaders, first])
         let snapshots = IncrementalSnapshots()
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [{ publish in
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [{ publish in
             publish(.partialSession(first))
             publish(.session(duplicate))
             publish(.partialSession(differentHeaders))
@@ -1071,7 +1077,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let first = session("terminal-first"), second = session("terminal-second")
         let completed = outcome([first, second])
         let snapshots = IncrementalSnapshots()
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [{ _ in completed }],
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [{ _ in completed }],
             onSessions: { await snapshots.append($0) })
         let published = await snapshots.all()
         XCTAssertEqual(published.map { $0.map(\.id) }, [[first.id, second.id]])
@@ -1084,7 +1090,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let snapshots = IncrementalSnapshots()
         let laneStarted = expectation(description: "Discovery lane has started before cancellation")
         let task = Task {
-            await StreamDiscoveryCoordinator.collect(lanes: [{ publish in
+            await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [{ publish in
                 laneStarted.fulfill()
                 try? await Task.sleep(for: .seconds(60))
                 // A dependency can finish after cancellation. Its buffered
@@ -1108,7 +1114,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let snapshots = IncrementalSnapshots()
         let firstPublished = expectation(description: "First choice has been admitted")
         let task = Task {
-            await StreamDiscoveryCoordinator.collect(lanes: [
+            await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
                 { publish in publish(.partialSession(first)); return firstOutcome },
                 { publish in
                     try? await Task.sleep(for: .seconds(60))
@@ -1135,11 +1141,11 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
             retryable: true, fallbackAllowed: false)
         let empty = outcome([]), failed = outcome([], failure: failure)
         let snapshots = IncrementalSnapshots()
-        let result = await StreamDiscoveryCoordinator.collect(lanes: [
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { publish in publish(.fairOpportunity); return empty },
             { publish in publish(.failure(failure)); return failed }
         ], onSessions: { await snapshots.append($0) })
-        let noLanes = await StreamDiscoveryCoordinator.collect(lanes: [],
+        let noLanes = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [],
             onSessions: { await snapshots.append($0) })
         let published = await snapshots.all()
         XCTAssertTrue(published.isEmpty)
@@ -1162,7 +1168,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
             finalFailureCategory: failure.category)
         let ready = outcome([session("Score808")])
         let broken = outcome([], failure: failure)
-        let report = await StreamDiscoveryCoordinator.collect(lanes: [
+        let report = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { publish in
                 publish(.event(failedEvent)); publish(.attempt(failedAttempt)); return broken
             },

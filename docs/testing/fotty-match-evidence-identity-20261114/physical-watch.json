@@ -1,0 +1,217 @@
+{
+  "build": 329,
+  "version": "3.0.0",
+  "status": "physical Watch completed; cricket passed, football delivery failed",
+  "device": "Jet iPad",
+  "normalSignedReleaseInstalled": true,
+  "stablePreferencesChecked": 8,
+  "stablePreferencesUnchanged": true,
+  "sourceOptInsUnchanged": true,
+  "homeFilterRestored": "All sports",
+  "phoneTouched": false,
+  "fplTouched": false,
+  "multiStreamTouched": false,
+  "testflight": false,
+  "football": {
+    "fixture": "St. Vincent and the Grenadines\u2013Belize",
+    "competition": "CONCACAF Nations League",
+    "kickoffUTC": "2026-11-15T00:00:00Z",
+    "freshStatusUTC": "2026-11-15T00:17:06.818Z",
+    "statusAtCheck": "first half, 16 minutes, 0\u20130",
+    "officialSchedule": "https://www.concacaf.com/competitions/nations-league/matches/8602e31ac0014d8e9c12bd233234fadd/st.-vincent-&-the-grenadines-vs-belize",
+    "statusPublisher": "https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.nations.league/summary?event=401929773",
+    "normalWatch": true,
+    "source": "CS1",
+    "offered": 2,
+    "admitted": 1,
+    "pictureStarted": false,
+    "failureStage": "upstream_response",
+    "failureKind": "invalid_response",
+    "httpStatus": "not present in retained diagnostic",
+    "attemptFailureDurationsMs": [
+      1488,
+      5151,
+      950
+    ],
+    "homeMatchAndWatchRetainedAfterFailure": true,
+    "conclusion": "Transport failure, not a wrong-programme evidence veto; provider cause not established. No playback pass."
+  },
+  "cricket": {
+    "fixture": "Sydney Sixers Women\u2013Melbourne Renegades Women",
+    "competition": "Weber WBBL|12",
+    "format": "T20",
+    "matchNumber": 23,
+    "officialFixture": "CA:40643",
+    "kickoffUTC": "2026-11-15T00:00:00Z",
+    "authoritativeObservationUTC": "2026-11-15T00:24:11.592891Z",
+    "officialStatus": {
+      "isLive": true,
+      "isInProgress": true,
+      "isCompleted": false,
+      "score": "Sixers 1-23 after 5 overs"
+    },
+    "normalMatchCardWatch": true,
+    "selectedSource": "LS1",
+    "provider": "CNC",
+    "programmeObserved": "Sky Sports Cricket picture, Sixers and Renegades uniforms/badges, Dunkley/Kerr batting; score advanced 1-21 at 4.5 to 1-23 at 5 and 1-26 at 5.3 overs, consistent with fresh CA status",
+    "watchToDecodedMs": 14658,
+    "attemptToDecodedMs": 6236,
+    "continuityMs": 90912,
+    "mediaAdvanceMs": 90912,
+    "stalls": 0,
+    "droppedFrames": 0,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "sourceSheet": [
+      "LS1",
+      "LS2",
+      "CS1",
+      "CS2"
+    ],
+    "sourceSheetStayedPaused": true,
+    "pauseResumeVisuallyPassed": true,
+    "sameAttemptAcrossStartHoldResumeClose": true,
+    "attemptStarts": 1,
+    "failureRecords": 0,
+    "audio": "not audibly observable through Device Hub; no audible-audio pass",
+    "otherSources": "listed, not individually played or independence-qualified",
+    "records": [
+      {
+        "name": "watch_requested",
+        "outcome": "info",
+        "durationMilliseconds": null,
+        "utc": "2026-11-15T00:23:28.407392+00:00",
+        "details": {}
+      },
+      {
+        "name": "attempt_started",
+        "outcome": "info",
+        "durationMilliseconds": null,
+        "utc": "2026-11-15T00:23:36.633034+00:00",
+        "details": {
+          "source_family": "cncsports",
+          "last_observed_stage": "preparing",
+          "source": "LS1",
+          "mode": "native"
+        }
+      },
+      {
+        "name": "watch_outcome",
+        "outcome": "success",
+        "durationMilliseconds": 14658,
+        "utc": "2026-11-15T00:23:42.869536+00:00",
+        "details": {
+          "source_family": "cncsports"
+        }
+      },
+      {
+        "name": "decoded_progress",
+        "outcome": "success",
+        "durationMilliseconds": 6236,
+        "utc": "2026-11-15T00:23:42.882417+00:00",
+        "details": {
+          "source_family": "cncsports",
+          "last_observed_stage": "decoded",
+          "source": "LS1",
+          "mode": "native"
+        }
+      },
+      {
+        "name": "native_continuity_90s",
+        "outcome": "success",
+        "durationMilliseconds": 90912,
+        "utc": "2026-11-15T00:25:13.810977+00:00",
+        "details": {
+          "native_access_dropped_frames": "0",
+          "native_presentation_height": "1080",
+          "native_continuity_stalls": "0",
+          "native_access_stalls": "0",
+          "source": "LS1",
+          "last_observed_stage": "decoded",
+          "native_presentation_width": "1920",
+          "mode": "native",
+          "source_family": "cncsports",
+          "native_continuity_media_advance_ms": "90912",
+          "native_continuity_elapsed_ms": "90912"
+        }
+      },
+      {
+        "name": "native_resume",
+        "outcome": "info",
+        "durationMilliseconds": null,
+        "utc": "2026-11-15T00:26:15.132450+00:00",
+        "details": {
+          "native_access_stalls": "0",
+          "native_access_dropped_frames": "0",
+          "mode": "native",
+          "source_family": "cncsports",
+          "last_observed_stage": "decoded",
+          "source": "LS1"
+        }
+      },
+      {
+        "name": "native_resume",
+        "outcome": "info",
+        "durationMilliseconds": null,
+        "utc": "2026-11-15T00:26:15.148863+00:00",
+        "details": {
+          "native_access_stalls": "0",
+          "native_access_dropped_frames": "0",
+          "mode": "native",
+          "source_family": "cncsports",
+          "last_observed_stage": "decoded",
+          "source": "LS1"
+        }
+      },
+      {
+        "name": "native_resume",
+        "outcome": "info",
+        "durationMilliseconds": null,
+        "utc": "2026-11-15T00:26:15.342799+00:00",
+        "details": {
+          "native_access_stalls": "0",
+          "native_access_dropped_frames": "0",
+          "mode": "native",
+          "source_family": "cncsports",
+          "last_observed_stage": "decoded",
+          "source": "LS1"
+        }
+      },
+      {
+        "name": "native_resume",
+        "outcome": "info",
+        "durationMilliseconds": null,
+        "utc": "2026-11-15T00:26:16.217228+00:00",
+        "details": {
+          "native_access_stalls": "0",
+          "native_access_dropped_frames": "0",
+          "mode": "native",
+          "source_family": "cncsports",
+          "last_observed_stage": "decoded",
+          "source": "LS1"
+        }
+      },
+      {
+        "name": "session_closed",
+        "outcome": "info",
+        "durationMilliseconds": null,
+        "utc": "2026-11-15T00:26:27.971346+00:00",
+        "details": {
+          "source_family": "cncsports",
+          "last_observed_stage": "decoded",
+          "source": "LS1",
+          "mode": "native"
+        }
+      }
+    ]
+  },
+  "limits": [
+    "Synthetic reused-ID identity cases are unit-tested, not fabricated in the live catalogue.",
+    "No wrong-match feedback was applied to a correct programme.",
+    "No forced outage, fullscreen or PiP retest; these are not changed by this milestone.",
+    "Brief blank Home content after mirrored scrolling recovered by navigation; root cause unproven and no UI repair claimed.",
+    "Football startup failure displayed Stream Ended Unexpectedly; separate pre-existing owner UI work remains outside this patch."
+  ]
+}

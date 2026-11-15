@@ -5,6 +5,178 @@ import XCTest
 final class CatalogPlaybackIdentityTests: XCTestCase {
     private let kickoff = Date(timeIntervalSince1970: 1_788_548_400)
 
+    /// A new fixture can reuse a provider's raw row ID and rolling media URL.
+    /// Its freshly matched binding must not inherit another fixture's rejection.
+    func testReusedProviderIDDoesNotTransferWrongProgrammeToChangedOpponents() throws {
+        let now = kickoff
+        let fixtureID = "reused-evidence-\(UUID().uuidString)"
+        let host = "identity-red-\(UUID().uuidString.lowercased()).example"
+        let url = try XCTUnwrap(URL(string: "https://\(host)/rolling.m3u8"))
+        let oldEvent = event(id: fixtureID, home: "Liverpool", away: "Chelsea")
+        let newEvent = event(id: fixtureID, home: "Liverpool", away: "Arsenal")
+        let oldRequest = StreamPlaybackRequest(event: oldEvent)
+        let newRequest = StreamPlaybackRequest(event: newEvent)
+        let oldBinding = try XCTUnwrap(binding(for: oldRequest,
+            providerEventID: "nuvio_sport_old", streamID: "nuvio_sport_old"))
+        let newBinding = try XCTUnwrap(binding(for: newRequest,
+            providerEventID: "nuvio_sport_new", streamID: "nuvio_sport_new"))
+        func session(_ binding: StreamEventBinding) -> StreamSession {
+            StreamSession(matchID: fixtureID, playableURL: url, streamType: .hls,
+                providerName: "CS1", createdAt: now, eventBinding: binding)
+        }
+        let rejected = session(oldBinding)
+        let reopenedOriginal = session(oldBinding)
+        let replacement = session(newBinding)
+        let oldScope = LiveSourceHealthStore.MatchEvidenceScope(request: oldRequest)
+        let newScope = LiveSourceHealthStore.MatchEvidenceScope(request: newRequest)
+
+        XCTAssertFalse(ViewingSessionCoordinator.canReuse(oldEvent, for: newEvent),
+            "The existing owner boundary recognizes this as another fixture")
+        XCTAssertTrue(oldBinding.matches(request: oldRequest, providerCode: "communitysports", at: now))
+        XCTAssertTrue(newBinding.matches(request: newRequest, providerCode: "communitysports", at: now))
+        XCTAssertFalse(oldBinding.matches(request: newRequest, providerCode: "communitysports", at: now))
+        XCTAssertNotEqual(rejected.id, replacement.id)
+        XCTAssertEqual(rejected.playableURL, replacement.playableURL)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: replacement, scope: newScope, at: now), .unknown)
+        XCTAssertEqual(LivePlaybackSourcePolicy.admissionForMatchAlternative(replacement,
+            request: newRequest, at: now, enabledProviders: ["communitysports"]), .ready,
+            "The replacement is independently admissible before the unrelated verdict")
+
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: rejected.legacySource,
+            scope: oldScope, watchID: UUID(), at: now, session: rejected)
+
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: rejected, scope: oldScope, at: now), .wrongProgramme)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: reopenedOriginal, scope: oldScope, at: now), .wrongProgramme,
+            "A fresh local session ID must not erase the same fixture's exact-delivery rejection")
+        XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(reopenedOriginal,
+            request: oldRequest, at: now, enabledProviders: ["communitysports"]))
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: replacement, scope: newScope, at: now), .unknown,
+            "Reusing a raw ID and URL cannot transfer Chelsea's rejection to the Arsenal fixture")
+        XCTAssertEqual(LivePlaybackSourcePolicy.admissionForMatchAlternative(replacement,
+            request: newRequest, at: now, enabledProviders: ["communitysports"]), .ready,
+            "The new fixture's valid binding must remain admissible after another fixture was rejected")
+
+        LiveSourceHealthStore.reloadMatchEvidenceForTesting(at: now)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session(oldBinding), scope: oldScope, at: now), .wrongProgramme,
+            "The original fixture's rejection survives a relaunch")
+        XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(session(oldBinding),
+            request: oldRequest, at: now, enabledProviders: ["communitysports"]))
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: replacement, scope: newScope, at: now), .unknown)
+        XCTAssertEqual(LivePlaybackSourcePolicy.admissionForMatchAlternative(replacement,
+            request: newRequest, at: now, enabledProviders: ["communitysports"]), .ready)
+    }
+
+    /// Web/unbound and bound deliveries of one request share that request's
+    /// scope; neither form lets a changed fixture inherit the other's verdict.
+    func testBoundAndUnboundDeliveriesShareOnlyTheCurrentRequestScope() throws {
+        let now = kickoff
+        let fixtureID = "bound-unbound-\(UUID().uuidString)"
+        let url = try XCTUnwrap(URL(string: "https://bound-\(UUID().uuidString.lowercased()).example/rolling.m3u8"))
+        let oldRequest = StreamPlaybackRequest(event: event(id: fixtureID, home: "Liverpool", away: "Chelsea"))
+        let newRequest = StreamPlaybackRequest(event: event(id: fixtureID, home: "Liverpool", away: "Arsenal"))
+        let oldScope = LiveSourceHealthStore.MatchEvidenceScope(request: oldRequest)
+        let newScope = LiveSourceHealthStore.MatchEvidenceScope(request: newRequest)
+        let oldBinding = try XCTUnwrap(binding(for: oldRequest, providerEventID: "nuvio_sport_a", streamID: "nuvio_sport_a"))
+        let newBinding = try XCTUnwrap(binding(for: newRequest, providerEventID: "nuvio_sport_a", streamID: "nuvio_sport_a"))
+        var deliveryURL = url
+        func session(_ binding: StreamEventBinding?) -> StreamSession {
+            StreamSession(matchID: fixtureID, playableURL: deliveryURL, streamType: .hls,
+                providerName: "CS1", createdAt: now, eventBinding: binding)
+        }
+        let unboundRejected = session(nil)
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: unboundRejected.legacySource,
+            scope: oldScope, watchID: UUID(), at: now, session: unboundRejected)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session(nil), scope: oldScope, at: now), .wrongProgramme)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session(oldBinding), scope: oldScope, at: now), .wrongProgramme,
+            "A bound reopen of the same request and delivery sees the unbound rejection")
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session(nil), scope: newScope, at: now), .unknown)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session(newBinding), scope: newScope, at: now), .unknown,
+            "The same raw provider ID, stream ID and URL for changed opponents is another fixture")
+
+        // A separate delivery isolates the bound rejection from the one above.
+        deliveryURL = try XCTUnwrap(URL(string: "https://bound-\(UUID().uuidString.lowercased()).example/rolling.m3u8"))
+        let boundRejected = session(oldBinding)
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: boundRejected.legacySource,
+            scope: oldScope, watchID: UUID(), at: now, session: boundRejected)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session(nil), scope: oldScope, at: now), .wrongProgramme)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session(nil), scope: newScope, at: now), .unknown)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session(newBinding), scope: newScope, at: now), .unknown)
+        XCTAssertEqual(LivePlaybackSourcePolicy.admissionForMatchAlternative(session(newBinding),
+            request: newRequest, at: now, enabledProviders: ["communitysports"]), .ready)
+    }
+
+    /// Losing only the request's kickoff must not lose a verified official
+    /// fixture's identity (its competition prefix is stripped only by the
+    /// matcher's existing guards), nor let an unverified event borrow it.
+    func testVerifiedEventKeepsItsScopeWhenOnlyTheRequestKickoffIsMissing() throws {
+        let fixtureID = "scope-icc-\(UUID().uuidString)"
+        func verified(conflict: Bool = false, id: String? = nil) -> AnalyticalDataEngine.EventReference {
+            let metadata = CricketFixtureMetadata(fixtureID: fixtureID, competitionID: "icc", competitionName: "ICC",
+                format: .t20, status: .live, observedAt: kickoff, verified: true)
+            return AnalyticalDataEngine.EventReference(id: id ?? CricketFixtureCatalog.fixtureIDPrefix + fixtureID,
+                title: "ICC · India vs Australia", category: "cricket", date: Int64(kickoff.timeIntervalSince1970),
+                poster: nil, popular: false,
+                teams: NexusATeams(home: NexusATeam(name: "India", badge: nil), away: NexusATeam(name: "Australia", badge: nil)),
+                hasCatalogIdentityConflict: conflict, cricketFixture: metadata)
+        }
+        let event = verified()
+        let dated = StreamPlaybackRequest(event: event)
+        func undated(_ preferred: AnalyticalDataEngine.EventReference) -> StreamPlaybackRequest {
+            StreamPlaybackRequest(matchID: dated.matchID, displayTitle: dated.displayTitle, homeTeam: dated.homeTeam,
+                awayTeam: dated.awayTeam, category: dated.category, kickoffDate: nil, preferredEvent: preferred)
+        }
+        XCTAssertNotNil(ReviewedSportsFixtureMatcher.requestIdentity(for: dated), "The dated request is a verified identity")
+        XCTAssertNil(undated(event).kickoffDate, "No date is synthesized for the request itself")
+        XCTAssertNil(ReviewedSportsFixtureMatcher.requestIdentity(for: undated(event)),
+            "Evidence extraction must not make an undated request admissible")
+        let scope = LiveSourceHealthStore.MatchEvidenceScope(request: dated)
+        XCTAssertEqual(LiveSourceHealthStore.MatchEvidenceScope(request: undated(event)), scope)
+
+        let delivery = StreamSession(matchID: dated.matchID,
+            playableURL: try XCTUnwrap(URL(string: "https://icc-\(UUID().uuidString.lowercased()).example/live.m3u8")),
+            streamType: .hls, providerName: "CS1", createdAt: kickoff)
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: delivery.legacySource, scope: scope,
+            watchID: UUID(), at: kickoff, session: delivery)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: delivery,
+            scope: .init(request: undated(event)), at: kickoff), .wrongProgramme)
+        for (label, preferred) in [("conflicting event", verified(conflict: true)),
+                                   ("mismatched event ID", verified(id: "cricket-fixture:other-\(UUID().uuidString)"))] {
+            XCTAssertNotEqual(LiveSourceHealthStore.MatchEvidenceScope(request: undated(preferred)), scope, label)
+            XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: delivery,
+                scope: .init(request: undated(preferred)), at: kickoff), .unknown, label)
+        }
+    }
+
+    /// Old raw-ID records stay bounded and expire unchanged. They are never
+    /// relabeled, so they cannot veto a known replacement (nor the original:
+    /// a conservative, one-lifetime loss of history after the upgrade).
+    func testLegacyUnscopedHistoryCannotVetoAKnownReplacement() throws {
+        let now = kickoff
+        let fixtureID = "legacy-\(UUID().uuidString)"
+        let url = try XCTUnwrap(URL(string: "https://legacy-\(UUID().uuidString.lowercased()).example/rolling.m3u8"))
+        let oldRequest = StreamPlaybackRequest(event: event(id: fixtureID, home: "Liverpool", away: "Chelsea"))
+        let newRequest = StreamPlaybackRequest(event: event(id: fixtureID, home: "Liverpool", away: "Arsenal"))
+        let oldBinding = try XCTUnwrap(binding(for: oldRequest, providerEventID: "nuvio_sport_l", streamID: "nuvio_sport_l"))
+        let newBinding = try XCTUnwrap(binding(for: newRequest, providerEventID: "nuvio_sport_l", streamID: "nuvio_sport_l"))
+        let legacy = StreamSession(matchID: fixtureID, playableURL: url, streamType: .hls,
+            providerName: "CS1", createdAt: now, eventBinding: oldBinding)
+        let replacement = StreamSession(matchID: fixtureID, playableURL: url, streamType: .hls,
+            providerName: "CS1", createdAt: now, eventBinding: newBinding)
+        LiveSourceHealthStore.recordLegacyUnscopedMatchOutcomeForTesting(.wrongProgramme, for: legacy, at: now)
+        LiveSourceHealthStore.recordLegacyUnscopedMatchOutcomeForTesting(.sustained, for: replacement, at: now)
+        for reloaded in [false, true] {
+            if reloaded { LiveSourceHealthStore.reloadMatchEvidenceForTesting(at: now) }
+            let newScope = LiveSourceHealthStore.MatchEvidenceScope(request: newRequest)
+            XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: replacement, scope: newScope, at: now), .unknown)
+            XCTAssertEqual(LivePlaybackSourcePolicy.admissionForMatchAlternative(replacement,
+                request: newRequest, at: now, enabledProviders: ["communitysports"]), .ready)
+            XCTAssertTrue(LiveSourceHealthStore.sustainedMatchProviders(in: newScope, at: now).isEmpty,
+                "Legacy positive history does not qualify a scoped fixture either")
+            XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: legacy,
+                scope: .init(request: oldRequest), at: now), .unknown, "Legacy records are not relabeled")
+        }
+    }
+
     func testReviewedChannelBindingsCannotCrossWillowFoxOrFixtureClaims() throws {
         for channel in CricketBroadcastChannel.allCases {
             let canonical = CricketChannelCatalog.event(for: channel, in: [])

@@ -46,17 +46,21 @@ enum StreamDiscoveryCoordinator {
 
     /// A current match failure outranks coarse host history. Conversely, an
     /// exact sustained match need not wait for a host-wide startup sample.
-    static func hasCurrentDirectEvidence(_ session: StreamSession, at now: Date) -> Bool {
+    static func hasCurrentDirectEvidence(_ session: StreamSession, scope: LiveSourceHealthStore.MatchEvidenceScope,
+                                         at now: Date) -> Bool {
         guard session.playbackContract.endpoint == .directMedia,
               !session.hasExpiredMediaLease(at: now) else { return false }
-        switch LiveSourceHealthStore.matchEvidence(for: session, at: now) {
+        switch LiveSourceHealthStore.matchEvidence(for: session, scope: scope, at: now) {
         case .sustained, .recentlyPlayed: return true
         case .unknown: return LiveSourceHealthStore.hasFreshSingleStreamSuccess(for: session.legacySource)
         case .recentlyFailed, .repeatedlyFailed, .wrongProgramme: return false
         }
     }
 
+    /// `matchScope` is the discovery owner's current request scope; every
+    /// match-evidence read in this collection is attributed to it.
     static func collect(
+        matchScope: LiveSourceHealthStore.MatchEvidenceScope,
         lanes: [Lane],
         deadline: Duration = defaultDeadline,
         choiceGrace: Duration = .milliseconds(1500),
@@ -154,22 +158,22 @@ enum StreamDiscoveryCoordinator {
                 // Once mounted, alternatives remain append-only.
                 let availableSessions = report.sessions.filter {
                     !$0.hasExpiredMediaLease(at: clock()) && (!preferDirectInitialChoice
-                        || LiveSourceHealthStore.matchEvidence(for: $0, at: clock()) != .wrongProgramme)
+                        || LiveSourceHealthStore.matchEvidence(for: $0, scope: matchScope, at: clock()) != .wrongProgramme)
                 }
                 let hasProvenDirectChoice = availableSessions.contains {
-                    Self.hasCurrentDirectEvidence($0, at: clock())
+                    Self.hasCurrentDirectEvidence($0, scope: matchScope, at: clock())
                 }
                 // A late backup cannot win the initial ranking once a known
                 // failing route has already mounted. Keep only that first pick
                 // pending, within the same attempt deadline.
                 let onlyPreviouslyFailed = preferDirectInitialChoice && onSessions != nil && !hasPublishedChoices && !availableSessions.isEmpty && availableSessions.allSatisfy {
-                    LiveSourceHealthStore.matchEvidence(for: $0, at: clock()).rawValue >= LiveSourceHealthStore.MatchEvidence.recentlyFailed.rawValue
+                    LiveSourceHealthStore.matchEvidence(for: $0, scope: matchScope, at: clock()).rawValue >= LiveSourceHealthStore.MatchEvidence.recentlyFailed.rawValue
                 }
                 // Returning to the same match: let the provider that already
                 // sustained it answer before mounting an unrelated early page.
                 // A definitive empty completes that lane and releases the wait.
                 let waitingForSustained = !pendingSustainedLanes.isEmpty && !availableSessions.contains {
-                    LiveSourceHealthStore.matchEvidence(for: $0, at: clock()) == .sustained
+                    LiveSourceHealthStore.matchEvidence(for: $0, scope: matchScope, at: clock()) == .sustained
                 }
                 let holdsFirstChoice = preferDirectInitialChoice && onSessions != nil && !hasPublishedChoices
                     && !availableSessions.isEmpty && (waitingForSustained || onlyPreviouslyFailed || (!hasProvenDirectChoice && !initialChoiceGraceEnded)) && !shouldFinish && completed < lanes.count && lanes.count > 1

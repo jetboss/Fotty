@@ -16,20 +16,57 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
             return .init(matchID: event.id, playableURL: url, streamType: .hls, providerName: "FS1",
                 createdAt: now, eventBinding: bound ? binding : nil)
         }
+        let scope = LiveSourceHealthStore.MatchEvidenceScope(request: .init(event: event))
         let original = try choice(5, token: "old"), rotated = try choice(5, token: "new")
-        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: original.legacySource, fixtureID: event.id,
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: original.legacySource, scope: scope,
             watchID: UUID(), at: now, session: original)
         XCTAssertNotEqual(original.id, rotated.id)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: rotated, at: now), .wrongProgramme)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: rotated, scope: scope, at: now), .wrongProgramme)
         XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(rotated, request: .init(event: event), at: now))
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: try choice(6, token: "new"), at: now), .unknown)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: try choice(5, token: "new", stream: "anotherStream"), at: now), .unknown)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: try choice(5, token: "new", bound: false), at: now), .unknown)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: try choice(6, token: "new"), scope: scope, at: now), .unknown)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: try choice(5, token: "new", stream: "anotherStream"), scope: scope, at: now), .unknown)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: try choice(5, token: "new", bound: false), scope: scope, at: now), .unknown)
         let exactAlias = try choice(5, token: "old", bound: false)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: exactAlias, at: now), .wrongProgramme)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: exactAlias, scope: scope, at: now), .wrongProgramme)
         let alternateHeaders = StreamSession(matchID: event.id, playableURL: exactAlias.playableURL, streamType: .hls,
             providerName: "FS1", requiredHeaders: ["Referer": "https://other.example"])
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: alternateHeaders, at: now), .unknown)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: alternateHeaders, scope: scope, at: now), .unknown)
+    }
+
+    /// Postponing the same game is not a new programme. Its admitted channel
+    /// renewal (new token, new local row) keeps the rejection, also after a
+    /// reload, while a changed opponent on the same raw ID does not inherit it.
+    func testWrongProgrammeSurvivesRescheduleWithRenewedTokenButNotChangedOpponent() throws {
+        let id = "sports-fixture:premier-league:reschedule-\(UUID().uuidString)"
+        let now = Date(), original = Int64(now.timeIntervalSince1970) - 60
+        let event = singleDiscoveryFixture(id: id, date: original)
+        let postponed = singleDiscoveryFixture(id: id, date: original + 7_200)
+        let changed = singleDiscoveryFixture(id: id, away: "Arsenal", date: original + 7_200)
+        func choice(_ fixture: EventReference, token: String) throws -> StreamSession {
+            let binding = try XCTUnwrap(StreamEventBinding(request: .init(event: fixture), providerCode: "flixstreams",
+                providerEventID: "event17", streamID: "stream17", manifestRevision: "one",
+                verifiedAt: now, expiresAt: now.addingTimeInterval(90), at: now))
+            let url = try XCTUnwrap(URL(string: "https://free.flixnest.app/dlstreams/stream/dlstreams%3Achannel%3A5.m3u8?t=\(token)"))
+            return .init(matchID: id, playableURL: url, streamType: .hls, providerName: "FS1",
+                createdAt: now, eventBinding: binding)
+        }
+        func scope(_ fixture: EventReference) -> LiveSourceHealthStore.MatchEvidenceScope {
+            .init(request: .init(event: fixture))
+        }
+        XCTAssertEqual(scope(event), scope(postponed), "A kickoff change alone keeps the same evidence scope")
+        XCTAssertNotEqual(scope(event), scope(changed))
+        let rejected = try choice(event, token: "old")
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: rejected.legacySource, scope: scope(event),
+            watchID: UUID(), at: now, session: rejected)
+        let renewed = try choice(postponed, token: "renewed")
+        XCTAssertNotEqual(renewed.eventBinding?.kickoffDate, rejected.eventBinding?.kickoffDate)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: renewed, scope: scope(postponed), at: now), .wrongProgramme)
+        XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(renewed, request: .init(event: postponed), at: now))
+        LiveSourceHealthStore.reloadMatchEvidenceForTesting(at: now)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: renewed, scope: scope(postponed), at: now), .wrongProgramme,
+            "The rescheduled renewal stays rejected after a relaunch")
+        let replacement = try choice(changed, token: "renewed")
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: replacement, scope: scope(changed), at: now), .unknown)
     }
 
     func testOnlyExplicitReportForCurrentSourceRecordsWrongProgramme() async throws {
@@ -50,7 +87,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         XCTAssertEqual(wrong.details["programme_observation"], "viewer_reported_wrong")
         XCTAssertEqual(wrong.details["upstream_independence_evidence"], "unverified")
         XCTAssertEqual(wrong.details["live_event_delay_evidence"], "unmeasured")
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: source, fixtureID: model.event.id), .wrongProgramme)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: source, scope: evidenceScope(model.event)), .wrongProgramme)
     }
 
     func testPictureBlockedIsAFailureNotAWrongProgrammeAndIgnoresStaleTaps() async throws {
@@ -76,8 +113,8 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         model.reportPictureBlocked(for: source.id, expectedAttempt: attempt)
         XCTAssertEqual(blocked().count, 1)
         XCTAssertTrue(programme().isEmpty, "A blocked picture says nothing about which programme it was")
-        XCTAssertNotEqual(LiveSourceHealthStore.matchEvidence(for: source, fixtureID: model.event.id), .wrongProgramme)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: source, fixtureID: model.event.id), .recentlyFailed)
+        XCTAssertNotEqual(LiveSourceHealthStore.matchEvidence(for: source, scope: evidenceScope(model.event)), .wrongProgramme)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: source, scope: evidenceScope(model.event)), .recentlyFailed)
 
         // Recovery is exactly the Wrong-match path; only the recorded evidence differs.
         let twin = try await makePlayer(delay: ControlledWebRetryDelay(), configureSingle: true)
@@ -441,13 +478,13 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
                 model.reportWrongMatch(for: rejected.id, expectedAttempt: UUID())
                 model.reportWrongMatch(for: other?.id ?? UUID(), expectedAttempt: attempt)
                 XCTAssertTrue(viewerWrongMatchRecords(attempt).isEmpty, label)
-                XCTAssertNotEqual(LiveSourceHealthStore.matchEvidence(for: rejected, fixtureID: fixture.event.id),
+                XCTAssertNotEqual(LiveSourceHealthStore.matchEvidence(for: rejected, scope: evidenceScope(fixture.event)),
                     .wrongProgramme, label)
 
                 // The current tap is recorded exactly once, and the viewer stays paused.
                 model.reportWrongMatch(for: rejected.id, expectedAttempt: attempt)
                 XCTAssertEqual(viewerWrongMatchRecords(attempt).count, 1, label)
-                XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: rejected, fixtureID: fixture.event.id),
+                XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: rejected, scope: evidenceScope(fixture.event)),
                     .wrongProgramme, label)
                 XCTAssertFalse(model.userWantsPlayback, label)
                 XCTAssertEqual(model.playbackState, web ? .paused(.webEmbed) : .paused(.native), label)
@@ -475,7 +512,7 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
                     XCTAssertEqual(model.activeSource?.id, next.id, "\(label): the other source on a new attempt")
                     XCTAssertNotEqual(model.playbackState, .failed, label)
                     XCTAssertNotEqual(LiveSourceHealthStore.matchEvidence(for: next.legacySource,
-                        fixtureID: fixture.event.id), .wrongProgramme, "\(label): only the rejected delivery is marked")
+                        scope: evidenceScope(fixture.event)), .wrongProgramme, "\(label): only the rejected delivery is marked")
                 } else {
                     XCTAssertEqual(model.playbackState, .failed, label)
                     XCTAssertEqual(model.errorTitle, "No matching broadcast", label)
@@ -541,8 +578,9 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
             let session = try XCTUnwrap(model.activeSession), attempt = model.loadRequestID
             model.transition(to: .connecting(web ? .webEmbed : .native), phase: "Connecting...")
             LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: session.legacySource,
-                fixtureID: fixture.event.id, watchID: UUID(), at: Date(), session: session)
-            XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session), .wrongProgramme, label)
+                scope: evidenceScope(fixture.event), watchID: UUID(), at: Date(), session: session)
+            XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session, scope: evidenceScope(fixture.event)),
+                .wrongProgramme, label)
             XCTAssertTrue(model.userWantsPlayback, label)
 
             model.togglePlayPause()
@@ -1465,6 +1503,10 @@ final class LivePlayerRetryLifecycleTests: XCTestCase {
         return StreamSession(matchID: event.id, playableURL: URL(string: "https://addon.example/watch/\(suffix)")!,
             streamType: .unknown, providerName: "CS1", requiredHeaders: ["X-Fotty-Web-Embed": "true"],
             expiryTime: expiry, createdAt: verified, eventBinding: bound ? binding : nil)
+    }
+
+    private func evidenceScope(_ event: EventReference) -> LiveSourceHealthStore.MatchEvidenceScope {
+        .init(request: .init(event: event))
     }
 
     private func singleDiscoveryFixture(id: String = "sports-fixture:premier-league:pending-discovery",

@@ -21,16 +21,100 @@ enum LiveSourceHealthStore {
         case sustained, recentlyPlayed, unknown, recentlyFailed, repeatedlyFailed, wrongProgramme
         var hasPlayed: Bool { self == .sustained || self == .recentlyPlayed }
     }
+    /// Immutable attribution for per-match evidence, built once from the
+    /// owner's current request. A raw provider/catalog ID alone cannot tell a
+    /// changed fixture from the original, so the reviewed sport + participant
+    /// identity (or a reviewed channel) and the available competition, squad
+    /// and cricket format/ordinal/Test-day context are all part of the scope.
+    /// Kickoff is deliberately excluded: rescheduling the same game keeps its
+    /// evidence. Missing context is a fixed sentinel, never a wildcard, so a
+    /// later enrichment starts from unknown rather than merging histories.
+    /// A wholly unparseable request receives a separately tagged, request-local
+    /// scope from its exact trimmed text. That proves no programme identity;
+    /// it only keeps such a request from sharing evidence with any other one.
+    /// Only the device HMAC is retained; raw fields stay transient.
+    struct MatchEvidenceScope: Equatable, Sendable {
+        fileprivate let fixture: Data
+        fileprivate let digest: Data
+
+        init(request: StreamPlaybackRequest) {
+            fixture = LiveSourceHealthStore.scopeFixtureDigest(request.matchID)
+            digest = LiveSourceHealthStore.digest(["match-scope.v1", request.matchID]
+                + LiveSourceHealthStore.matchScopeFields(for: request))
+        }
+
+        /// Evidence for a session/fixture outside this scope is never read or written.
+        func admits(_ fixtureID: String) -> Bool {
+            fixture == LiveSourceHealthStore.scopeFixtureDigest(fixtureID)
+        }
+    }
+
+    private static func scopeFixtureDigest(_ fixtureID: String) -> Data {
+        digest(["match-scope-fixture.v1", fixtureID])
+    }
+
+    /// Identity extraction only, never playback admission: an undated request
+    /// is read with its preferred event's own published kickoff, so the
+    /// matcher's existing ID/sport/team/title/verification guards still decide
+    /// whether a verified official prefix may be stripped. No date is invented.
+    private static func identityRequest(_ request: StreamPlaybackRequest) -> StreamPlaybackRequest {
+        guard request.kickoffDate == nil, let event = request.preferredEvent, let kickoff = event.kickoffDate else { return request }
+        return StreamPlaybackRequest(matchID: request.matchID, displayTitle: request.displayTitle,
+            homeTeam: request.homeTeam, awayTeam: request.awayTeam, category: request.category,
+            kickoffDate: kickoff, preferredEvent: event, registryMatch: request.registryMatch, watchID: request.watchID)
+    }
+
+    /// Existing reviewed parsers and structured metadata only: no aliases,
+    /// fuzzy matching or kickoff. Present values are "+"-prefixed and absent
+    /// ones are a bare "-", so a missing field never equals a supplied value.
+    private static func matchScopeFields(for request: StreamPlaybackRequest) -> [String] {
+        func value(_ text: String?) -> String { text.map { "+" + $0 } ?? "-" }
+        func number(_ count: Int?) -> String { value(count.map(String.init)) }
+        let sport = ReviewedSportsFixtureMatcher.sportKey(request.category)
+        let identity: [String]
+        if let channel = CricketBroadcastChannel.identifying(request: request) {
+            identity = ["channel", "cricket", channel.canonicalID]
+        } else if let station = SportsTVStation.identifying(request) {
+            identity = ["channel", "tv", station.id]
+        } else if let pair = ReviewedSportsFixtureMatcher.requestIdentity(for: identityRequest(request))?.pair
+                    // Without any kickoff the request parser reads this exact
+                    // title too; known teams never fall back to the raw ID.
+                    ?? (request.kickoffDate == nil ? ReviewedSportsFixtureMatcher.participantIdentity(
+                        sport: request.category, cast: [request.homeTeam, request.awayTeam],
+                        title: request.displayTitle)?.pair : nil) {
+            identity = ["participants", sport, String(pair.count)] + pair
+        } else {
+            func exact(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
+            identity = ["unresolved", exact(request.category), exact(request.homeTeam),
+                        exact(request.awayTeam), exact(request.displayTitle)]
+        }
+        let event = request.preferredEvent
+        let squad = event?.sportsFixture?.squad
+        var cricket: (format: String?, ordinal: Int?, day: Int?) = (nil, nil, nil)
+        if let fixture = event?.cricketFixture {
+            cricket = (fixture.format.rawValue, fixture.matchOrdinal ?? fixture.context?.matchOrdinal,
+                       fixture.format == .test ? fixture.context?.day : nil)
+        } else if sport == "cricket", let parsed = ReviewedSportsFixtureMatcher.cricketBroadcastContext(request.displayTitle) {
+            cricket = (parsed.format, parsed.ordinal, parsed.day)
+        }
+        return identity + [
+            "competition", value(event?.competitionID), value(event?.cricketFixture?.competitionID),
+            "squad", value(squad?.gender.rawValue), value(squad?.ageGroup),
+            "cricket", value(cricket.format), number(cricket.ordinal), number(cricket.day)]
+    }
+
     private struct MatchDelivery: Hashable {
         let fixture: Data
         let delivery: Data
         init(fixture: Data, delivery: Data) { self.fixture = fixture; self.delivery = delivery }
-        init(_ source: StreamSource, fixtureID: String) {
-            fixture = digest(["fixture", fixtureID])
+        init(_ source: StreamSource, scope: MatchEvidenceScope) {
+            self.init(fixture: scope.digest, delivery: Self.delivery(source))
+        }
+        static func delivery(_ source: StreamSource) -> Data {
             let contract = source.playbackContract ?? .describing(url: source.url, provider: source.provider, headers: source.headers)
             let fields = ["delivery", source.url.absoluteString, contract.endpoint.rawValue, contract.container.rawValue]
                 + transportFields(source)
-            delivery = digest(fields)
+            return digest(fields)
         }
     }
     /// Owner decision 9 Nov 2026 (option A): per-match evidence survives a
@@ -344,13 +428,15 @@ enum LiveSourceHealthStore {
     /// same-choice renewal. FS/SV additionally publish an unambiguous channel
     /// path and finite lease-only query contract, even when discovery gets a new
     /// row ID. Other adapters do not gain a query-stripping heuristic.
-    private static func programmeKeys(for session: StreamSession, at now: Date) -> [Data] {
-        guard let binding = session.eventBinding, binding.fixtureID == session.matchID,
+    /// The key is attributed to the current request's scope, not the raw
+    /// fixture ID, and has no kickoff discriminator: rescheduling the same game
+    /// keeps the rejection. Which renewals are admitted is decided elsewhere.
+    private static func programmeKeys(for session: StreamSession, scope: MatchEvidenceScope) -> [Data] {
+        guard let binding = session.eventBinding, binding.fixtureID == session.matchID, scope.admits(session.matchID),
               binding.providerCode == StreamEventBinding.providerCode(forSessionProviderName: session.providerName) else { return [] }
         let contract = session.playbackContract
-        let base = ["programme", binding.fixtureID, binding.providerCode, binding.resource, binding.resourceType,
-                    binding.providerEventID, binding.streamID, binding.manifestRevision, binding.sport,
-                    binding.kickoffDate.map { String($0.timeIntervalSince1970.bitPattern) } ?? "undated",
+        let base = ["programme.v2", scope.digest.base64EncodedString(), binding.providerCode, binding.resource,
+                    binding.resourceType, binding.providerEventID, binding.streamID, binding.manifestRevision, binding.sport,
                     contract.endpoint.rawValue, contract.container.rawValue, session.qualityLabel ?? ""]
             + transportFields(session.legacySource)
         var keys = [digest(base + ["renewed-row", session.id.uuidString])]
@@ -445,13 +531,17 @@ enum LiveSourceHealthStore {
             wrongProgrammes = restored.wrongProgrammes
         }
     }
-    static func recordMatchOutcome(_ outcome: MatchOutcome, for source: StreamSource, fixtureID: String,
+    /// `scope` must be the owner's current request scope. A supplied session
+    /// must be this exact source and belong to the scope's fixture; otherwise
+    /// nothing is written. A source-only write (nil session) stays valid.
+    static func recordMatchOutcome(_ outcome: MatchOutcome, for source: StreamSource, scope: MatchEvidenceScope,
                                    watchID: UUID, at now: Date = Date(), session: StreamSession? = nil) {
         guard AppRuntime.privateOutageFixture == nil else { return }
+        if let session, session.id != source.id || !scope.admits(session.matchID) { return }
         queue.sync {
-            let key = MatchDelivery(source, fixtureID: fixtureID)
-            if outcome == .wrongProgramme, let session, session.matchID == fixtureID, session.id == source.id {
-                for logical in programmeKeys(for: session, at: now) { wrongProgrammes[logical] = now }
+            let key = MatchDelivery(source, scope: scope)
+            if outcome == .wrongProgramme, let session {
+                for logical in programmeKeys(for: session, scope: scope) { wrongProgrammes[logical] = now }
                 wrongProgrammes = wrongProgrammes.filter { (0...matchObservationLifetime).contains(now.timeIntervalSince($0.value)) }
                 while wrongProgrammes.count > 256, let oldest = wrongProgrammes.min(by: { $0.value < $1.value })?.key {
                     wrongProgrammes.removeValue(forKey: oldest)
@@ -485,38 +575,58 @@ enum LiveSourceHealthStore {
         if last.outcome == .sustained { return .sustained }
         return last.outcome == .decoded ? .recentlyPlayed : .recentlyFailed
     }
-    static func matchEvidence(for source: StreamSource, fixtureID: String, at now: Date = Date()) -> MatchEvidence {
-        queue.sync { evidence(MatchDelivery(source, fixtureID: fixtureID), at: now) }
+    /// Old raw-ID entries remain bounded and expire on their own; their keys
+    /// cannot equal any scoped key, so they are never relabeled or consulted.
+    static func recordLegacyUnscopedMatchOutcomeForTesting(_ outcome: MatchOutcome, for session: StreamSession,
+                                                           at now: Date = Date()) {
+        guard AppRuntime.isAutomatedTesting else { return }
+        queue.sync {
+            let key = MatchDelivery(fixture: digest(["fixture", session.matchID]), delivery: MatchDelivery.delivery(session.legacySource))
+            matchObservations[key, default: []].append(.init(watchID: UUID(), outcome: outcome, at: now,
+                sharedHealthKey: singleStreamEvidenceKey(for: session.legacySource),
+                providerCode: StreamEventBinding.providerCode(forSessionProviderName: session.providerName)))
+            if outcome == .wrongProgramme, let binding = session.eventBinding {
+                let contract = session.playbackContract
+                let legacy = ["programme", binding.fixtureID, binding.providerCode, binding.resource, binding.resourceType,
+                    binding.providerEventID, binding.streamID, binding.manifestRevision, binding.sport,
+                    binding.kickoffDate.map { String($0.timeIntervalSince1970.bitPattern) } ?? "undated",
+                    contract.endpoint.rawValue, contract.container.rawValue, session.qualityLabel ?? ""]
+                    + transportFields(session.legacySource)
+                wrongProgrammes[digest(legacy + ["renewed-row", session.id.uuidString])] = now
+            }
+        }
     }
-    static func matchEvidence(for session: StreamSession, at now: Date = Date()) -> MatchEvidence {
-        queue.sync { evidence(MatchDelivery(session.legacySource, fixtureID: session.matchID),
-            at: now, programme: programmeKeys(for: session, at: now)) }
+    static func matchEvidence(for source: StreamSource, scope: MatchEvidenceScope, at now: Date = Date()) -> MatchEvidence {
+        queue.sync { evidence(MatchDelivery(source, scope: scope), at: now) }
     }
-    static func sustainedMatchProviders(for fixtureID: String, at now: Date = Date()) -> Set<String> {
-        let fixture = digest(["fixture", fixtureID])
-        return queue.sync {
+    static func matchEvidence(for session: StreamSession, scope: MatchEvidenceScope, at now: Date = Date()) -> MatchEvidence {
+        guard scope.admits(session.matchID) else { return .unknown }
+        return queue.sync { evidence(MatchDelivery(session.legacySource, scope: scope),
+            at: now, programme: programmeKeys(for: session, scope: scope)) }
+    }
+    static func sustainedMatchProviders(in scope: MatchEvidenceScope, at now: Date = Date()) -> Set<String> {
+        queue.sync {
             Set(matchObservations.compactMap { key, samples in
-                guard key.fixture == fixture, evidence(key, at: now) == .sustained else { return nil }
+                guard key.fixture == scope.digest, evidence(key, at: now) == .sustained else { return nil }
                 return samples.last?.providerCode
             })
         }
     }
-    private static func unreliableSharedHistory(in fixtureID: String, at now: Date) -> Set<String> {
+    private static func unreliableSharedHistory(in scope: MatchEvidenceScope, at now: Date) -> Set<String> {
         var keys = Set<String>()
-        let fixture = digest(["fixture", fixtureID])
-        for (key, samples) in matchObservations where key.fixture == fixture {
+        for (key, samples) in matchObservations where key.fixture == scope.digest {
             if evidence(key, at: now).rawValue >= MatchEvidence.recentlyFailed.rawValue, let sample = samples.last {
                 keys.insert(sample.sharedHealthKey)
             }
         }
         return keys
     }
-    static func positiveRecoveryHistory(for source: StreamSource, fixtureID: String, at now: Date = Date()) -> Bool {
+    static func positiveRecoveryHistory(for source: StreamSource, scope: MatchEvidenceScope, at now: Date = Date()) -> Bool {
         queue.sync {
-            let status = evidence(MatchDelivery(source, fixtureID: fixtureID), at: now)
+            let status = evidence(MatchDelivery(source, scope: scope), at: now)
             if status != .unknown { return status.hasPlayed }
             let key = singleStreamEvidenceKey(for: source)
-            return !unreliableSharedHistory(in: fixtureID, at: now).contains(key)
+            return !unreliableSharedHistory(in: scope, at: now).contains(key)
                 && singleStreamEvidence(snapshot: loadSnapshots()[key], at: now).tier < 2
         }
     }
@@ -702,8 +812,12 @@ enum LiveSourceHealthStore {
         }
     }
 
+    /// `matchScope` is required at every call site: the owner's current request
+    /// scope, or nil where no match-specific evidence applies (identical to
+    /// `applyMatchEvidence: false`). Sessions for another fixture are unknown.
     static func rankedSingleStreamSessions(
-        _ sessions: [StreamSession], contextKey: String? = nil, at date: Date = Date(), applyMatchEvidence: Bool = true
+        _ sessions: [StreamSession], matchScope: MatchEvidenceScope?, contextKey: String? = nil, at date: Date = Date(),
+        applyMatchEvidence: Bool = true
     ) -> [StreamSession] {
         guard sessions.count > 1 else { return sessions }
         return queue.sync {
@@ -726,11 +840,16 @@ enum LiveSourceHealthStore {
             }
             let deliveryRanks = sessions.map { hasSkyAlternate && $0.providerName == "TV11" ? 1 : 0 }
             let matchContext = sessions.allSatisfy { SportsTVStation.station(id: $0.matchID) == nil }
-            let matchSelection = applyMatchEvidence && matchContext
-            let matchEvidence = matchSelection ? sessions.map { evidence(MatchDelivery($0.legacySource, fixtureID: $0.matchID),
-                at: date, programme: programmeKeys(for: $0, at: date)) } : nil
-            let sharedEvidenceToIgnore = matchSelection && Set(sessions.map(\.matchID)).count == 1
-                ? unreliableSharedHistory(in: sessions[0].matchID, at: date) : []
+            let scope = applyMatchEvidence && matchContext ? matchScope : nil
+            let matchEvidence = scope.map { scope in sessions.map { session -> MatchEvidence in
+                guard scope.admits(session.matchID) else { return .unknown }
+                return evidence(MatchDelivery(session.legacySource, scope: scope), at: date,
+                                programme: programmeKeys(for: session, scope: scope))
+            } }
+            let sharedEvidenceToIgnore = scope.map { scope in
+                Set(sessions.map(\.matchID)).count == 1 && scope.admits(sessions[0].matchID)
+                    ? unreliableSharedHistory(in: scope, at: date) : []
+            } ?? []
             return singleStreamOrder(for: sessions.map(\.legacySource), contextKey: contextKey, at: date,
                 knownLanguages: languages, coldDeliveryRanks: deliveryRanks,
                 evidenceBeforeLanguage: matchContext, matchEvidence: matchEvidence, sharedEvidenceToIgnore: sharedEvidenceToIgnore)

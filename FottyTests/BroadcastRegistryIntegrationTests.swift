@@ -563,7 +563,7 @@ final class BroadcastRegistryIntegrationTests: XCTestCase {
         let snapshots = RegistryChoiceSnapshots(), first = expectation(description: "AS publishes before the TV refresh completes")
         let asOutcome = discoveryOutcome([asChoice]), tvOutcome = discoveryOutcome([tvChoice]), empty = discoveryOutcome([])
         let discovery = Task {
-            await StreamDiscoveryCoordinator.collect(lanes: [
+            await StreamDiscoveryCoordinator.collect(matchScope: .init(request: request), lanes: [
                 { publish in publish(.partialSession(asChoice)); return asOutcome },
                 { _ in
                     _ = await client.refreshForPlayback(at: clock)

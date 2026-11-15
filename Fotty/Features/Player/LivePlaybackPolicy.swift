@@ -709,7 +709,7 @@ enum LivePlaybackSourcePolicy {
         let details: [String: String]
 
         init(baseline: [StreamSource], candidate: [StreamSource], inventory: [StreamSession],
-             current: StreamSource?, fixtureID: String, trial: Bool) {
+             current: StreamSource?, scope: LiveSourceHealthStore.MatchEvidenceScope, trial: Bool) {
             let slots = Dictionary(inventory.enumerated().map { ($0.element.id, $0.offset + 1) }, uniquingKeysWith: { first, _ in first })
             func topSlots(_ order: [StreamSource]) -> String {
                 let values = order.prefix(3).compactMap { slots[$0.id] }.map(String.init)
@@ -718,9 +718,9 @@ enum LivePlaybackSourcePolicy {
             selected = (trial ? candidate : baseline).first
             let reason: String
             if let winner = candidate.first {
-                if let old = baseline.first, LiveSourceHealthStore.matchEvidence(for: old, fixtureID: fixtureID).rawValue
+                if let old = baseline.first, LiveSourceHealthStore.matchEvidence(for: old, scope: scope).rawValue
                     >= LiveSourceHealthStore.MatchEvidence.recentlyFailed.rawValue, old.id != winner.id { reason = "prior_failure" }
-                else if LiveSourceHealthStore.matchEvidence(for: winner, fixtureID: fixtureID).hasPlayed { reason = "played_this_fixture" }
+                else if LiveSourceHealthStore.matchEvidence(for: winner, scope: scope).hasPlayed { reason = "played_this_fixture" }
                 else if let current, LivePlaybackSourcePolicy.matchPublisher(for: current) != LivePlaybackSourcePolicy.matchPublisher(for: winner) { reason = "different_family" }
                 else if let current, let old = SourceDeliveryDiversity.origin(for: current),
                         let new = SourceDeliveryDiversity.origin(for: winner), old != new { reason = "different_origin" }
@@ -770,7 +770,8 @@ enum LivePlaybackSourcePolicy {
         guard session.matchID == request.matchID, session.validationStatus == .validated,
               StreamPluginProviderMatching.isActivePlayerSession(session),
               enabledProviders.map({ $0.contains(where: { StreamPluginProviderMatching.matches(session.legacySource, code: $0) }) }) ?? true,
-              LiveSourceHealthStore.matchEvidence(for: session, at: now) != .wrongProgramme else { return nil }
+              LiveSourceHealthStore.matchEvidence(for: session, scope: .init(request: request), at: now) != .wrongProgramme
+        else { return nil }
         guard let binding = session.eventBinding else {
             // Persisted or web sessions cannot invent a TV programme assignment.
             guard StreamPluginProviderMatching.opaqueProviderFamily(session.providerName) != ReviewedTVPlaylistClient.providerCode,

@@ -1,6 +1,11 @@
 import XCTest
 @testable import Fotty
 
+/// API plumbing: the request-local evidence scope for a bare test fixture ID.
+private func evidenceScope(_ fixtureID: String) -> LiveSourceHealthStore.MatchEvidenceScope {
+    .init(request: StreamPlaybackRequest(matchID: fixtureID, displayTitle: "", homeTeam: "", awayTeam: "", category: ""))
+}
+
 final class LiveSourceHealthScopeTests: XCTestCase {
     func testEquallyReliableCSASAndTVUseMeasuredSpeedWithoutLosingAlternatives() throws {
         let saved = UserDefaults.standard.object(forKey: SinglePlaybackContinuityStore.storageKey)
@@ -22,7 +27,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
                 SinglePlaybackContinuityStore.record(source.legacySource, elapsed: 90, mediaAdvance: 90, stalls: 0, at: now)
             }
             for order in [sources, Array(sources.reversed())] {
-                let ranked = LiveSourceHealthStore.rankedSingleStreamSessions(order)
+                let ranked = LiveSourceHealthStore.rankedSingleStreamSessions(order, matchScope: evidenceScope(fixture))
                 XCTAssertEqual(ranked.first?.providerName, winner)
                 XCTAssertEqual(Set(ranked.map(\.id)), Set(sources.map(\.id)), "Ranking cannot remove alternatives")
             }
@@ -41,12 +46,13 @@ final class LiveSourceHealthScopeTests: XCTestCase {
                 streamType: .hls, providerName: "AS1")
             LiveSourceHealthStore.recordSuccess(for: stable, startupLatencyMs: 6000)
             LiveSourceHealthStore.recordSuccess(for: fast, startupLatencyMs: 500)
-            LiveSourceHealthStore.recordMatchOutcome(.decoded, for: fast.legacySource, fixtureID: fixture, watchID: UUID())
+            let scope = evidenceScope(fixture)
+            LiveSourceHealthStore.recordMatchOutcome(.decoded, for: fast.legacySource, scope: scope, watchID: UUID())
             SinglePlaybackContinuityStore.record(stable.legacySource, elapsed: 90, mediaAdvance: 90, stalls: 0)
-            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([fast, stable]).first?.id, stable.id)
-            LiveSourceHealthStore.recordMatchOutcome(.stalled, for: stable.legacySource, fixtureID: fixture, watchID: UUID())
-            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([stable, fast]).first?.id, fast.id)
-            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([stable, fast]).count, 2)
+            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([fast, stable], matchScope: scope).first?.id, stable.id)
+            LiveSourceHealthStore.recordMatchOutcome(.stalled, for: stable.legacySource, scope: scope, watchID: UUID())
+            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([stable, fast], matchScope: scope).first?.id, fast.id)
+            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([stable, fast], matchScope: scope).count, 2)
         }
     }
 
@@ -63,19 +69,20 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         let now = Date(), watch = UUID()
         try seedSnapshots([healthKey(failing): positiveSnapshot(count: 30, latency: 300, at: now,
             recent: [recentSample(latency: 300, at: now)])])
-        LiveSourceHealthStore.recordMatchOutcome(.decoded, for: failing.legacySource, fixtureID: fixture, watchID: watch, at: now)
-        LiveSourceHealthStore.recordMatchOutcome(.stalled, for: failing.legacySource, fixtureID: fixture, watchID: watch, at: now)
-        LiveSourceHealthStore.recordMatchOutcome(.decoded, for: failing.legacySource, fixtureID: fixture, watchID: watch, at: now)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: failing.legacySource, fixtureID: fixture, at: now), .recentlyFailed)
-        LiveSourceHealthStore.recordMatchOutcome(.failed, for: failing.legacySource, fixtureID: fixture, watchID: UUID(), at: now)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: failing.legacySource, fixtureID: fixture, at: now), .repeatedlyFailed)
-        XCTAssertFalse(LiveSourceHealthStore.positiveRecoveryHistory(for: sibling.legacySource, fixtureID: fixture, at: now))
-        XCTAssertTrue(LiveSourceHealthStore.positiveRecoveryHistory(for: sibling.legacySource, fixtureID: "other-fixture", at: now))
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([failing, backup, sibling], at: now).first?.id, backup.id)
-        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: failing.legacySource, fixtureID: fixture, watchID: UUID(), at: now)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: alias.legacySource, fixtureID: fixture, at: now), .wrongProgramme)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: sibling.legacySource, fixtureID: fixture, at: now), .unknown)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: failing.legacySource, fixtureID: fixture, at: now.addingTimeInterval(86_400)), .unknown)
+        let scope = evidenceScope(fixture)
+        LiveSourceHealthStore.recordMatchOutcome(.decoded, for: failing.legacySource, scope: scope, watchID: watch, at: now)
+        LiveSourceHealthStore.recordMatchOutcome(.stalled, for: failing.legacySource, scope: scope, watchID: watch, at: now)
+        LiveSourceHealthStore.recordMatchOutcome(.decoded, for: failing.legacySource, scope: scope, watchID: watch, at: now)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: failing.legacySource, scope: scope, at: now), .recentlyFailed)
+        LiveSourceHealthStore.recordMatchOutcome(.failed, for: failing.legacySource, scope: scope, watchID: UUID(), at: now)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: failing.legacySource, scope: scope, at: now), .repeatedlyFailed)
+        XCTAssertFalse(LiveSourceHealthStore.positiveRecoveryHistory(for: sibling.legacySource, scope: scope, at: now))
+        XCTAssertTrue(LiveSourceHealthStore.positiveRecoveryHistory(for: sibling.legacySource, scope: evidenceScope("other-fixture"), at: now))
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([failing, backup, sibling], matchScope: scope, at: now).first?.id, backup.id)
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: failing.legacySource, scope: scope, watchID: UUID(), at: now)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: alias.legacySource, scope: scope, at: now), .wrongProgramme)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: sibling.legacySource, scope: scope, at: now), .unknown)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: failing.legacySource, scope: scope, at: now.addingTimeInterval(86_400)), .unknown)
     }
 
     @MainActor
@@ -84,21 +91,22 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         let stable = try rankedSession(provider: "CS3", path: "backup.m3u8", native: true)
         XCTAssertEqual(fast.matchID, stable.matchID)
         let watch = UUID()
-        func record(_ outcome: LiveSourceHealthStore.MatchOutcome, _ session: StreamSession) {
-            LiveSourceHealthStore.recordMatchOutcome(outcome, for: session.legacySource,
-                fixtureID: session.matchID, watchID: watch)
-        }
-        record(.decoded, fast); record(.sustained, stable)
         let event = EventReference(id: fast.matchID, title: "A vs B", category: "football", date: nil,
                                    poster: nil, popular: false, teams: nil)
+        let scope = LiveSourceHealthStore.MatchEvidenceScope(request: StreamPlaybackRequest(event: event))
+        func record(_ outcome: LiveSourceHealthStore.MatchOutcome, _ session: StreamSession) {
+            LiveSourceHealthStore.recordMatchOutcome(outcome, for: session.legacySource,
+                scope: scope, watchID: watch)
+        }
+        record(.decoded, fast); record(.sustained, stable)
         let model = LivePlayerViewModel(event: event, providedSessions: [fast, stable], ownsRemoteCommands: false)
         defer { model.cleanup() }
         XCTAssertTrue(model.configureSingleStreamRanking())
         XCTAssertEqual(model.activeSession?.id, stable.id)
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([fast, stable]).first?.id, stable.id)
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: stable.legacySource, fixtureID: "different-match"), .unknown)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([fast, stable], matchScope: scope).first?.id, stable.id)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: stable.legacySource, scope: evidenceScope("different-match")), .unknown)
         record(.stalled, stable); record(.sustained, stable)
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([fast, stable]).first?.id, fast.id)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([fast, stable], matchScope: scope).first?.id, fast.id)
     }
 
     func testCurrentMatchFailureCannotUseCoarseHostSuccessToBypassDiscoveryGrace() throws {
@@ -106,10 +114,11 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         let now = Date()
         try seedSnapshots([healthKey(direct): positiveSnapshot(count: 3, latency: 600, at: now,
             recent: [recentSample(latency: 600, at: now)])])
-        XCTAssertTrue(StreamDiscoveryCoordinator.hasCurrentDirectEvidence(direct, at: now))
+        let scope = evidenceScope(direct.matchID)
+        XCTAssertTrue(StreamDiscoveryCoordinator.hasCurrentDirectEvidence(direct, scope: scope, at: now))
         LiveSourceHealthStore.recordMatchOutcome(.stalled, for: direct.legacySource,
-            fixtureID: direct.matchID, watchID: UUID(), at: now)
-        XCTAssertFalse(StreamDiscoveryCoordinator.hasCurrentDirectEvidence(direct, at: now))
+            scope: scope, watchID: UUID(), at: now)
+        XCTAssertFalse(StreamDiscoveryCoordinator.hasCurrentDirectEvidence(direct, scope: scope, at: now))
     }
 
     func testKnownFastMatchRouteBeatsUnmeasuredPreferredLanguage() throws {
@@ -118,7 +127,8 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         let now = Date()
         try seedSnapshots([healthKey(measured): positiveSnapshot(count: 1, latency: 1_250, at: now,
             recent: [recentSample(latency: 1_250, at: now)])])
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([unmeasuredEnglish, measured], at: now).first?.id, measured.id)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([unmeasuredEnglish, measured],
+            matchScope: evidenceScope(measured.matchID), at: now).first?.id, measured.id)
     }
 
     @MainActor
@@ -138,16 +148,18 @@ final class LiveSourceHealthScopeTests: XCTestCase {
             else { UserDefaults.standard.removeObject(forKey: CommentaryPreference.storageKey) }
         }
         UserDefaults.standard.set(CommentaryPreference.english.rawValue, forKey: CommentaryPreference.storageKey)
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([tv, cs], at: now).first?.id, cs.id,
+        let scope = LiveSourceHealthStore.MatchEvidenceScope(request: request)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([tv, cs], matchScope: scope, at: now).first?.id, cs.id,
             "A cold Watch must prefer the compatible exact Sky alternate, not its known incompatible TV packaging")
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([tv, cs], at: now.addingTimeInterval(100)).first?.id, tv.id,
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([tv, cs], matchScope: scope,
+            at: now.addingTimeInterval(100)).first?.id, tv.id,
             "Expired channel authority cannot supply the language or cold preference")
         try seedSnapshots([healthKey(cs): positiveSnapshot(count: 1, latency: 1_000, at: now,
             recent: [recentSample(latency: 1_000, at: now)])])
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([tv, cs], at: now).first?.id, cs.id)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([tv, cs], matchScope: scope, at: now).first?.id, cs.id)
         let unbound = StreamSession(matchID: "different-event", playableURL: cs.playableURL,
             streamType: .hls, providerName: "CS1")
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([tv, unbound], at: now).first?.id, tv.id,
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([tv, unbound], matchScope: scope, at: now).first?.id, tv.id,
             "A generic CS label must not inherit Sky's language or channel authority")
     }
 
@@ -180,7 +192,8 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         LiveSourceHealthStore.recordSuccess(for: backup, startupLatencyMs: 1_000)
         XCTAssertTrue(LiveSourceHealthStore.hasFreshSingleStreamSuccess(for: backup.legacySource))
         XCTAssertFalse(LiveSourceHealthStore.hasFreshSingleStreamSuccess(for: main.legacySource))
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([main, backup]).first?.id, backup.id)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([main, backup],
+            matchScope: evidenceScope(main.matchID)).first?.id, backup.id)
         XCTAssertNotEqual(SourceDeliveryDiversity.localDeliveryKey(for: main.legacySource),
                           SourceDeliveryDiversity.localDeliveryKey(for: backup.legacySource))
     }
@@ -445,7 +458,8 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         try seedSnapshots([healthKey(slow): positiveSnapshot(count: 100, latency: 9_000, at: now)])
         UserDefaults.standard.set(["football|all": "communitysports"], forKey: "fotty.live.lastGoodProvider.v1")
         LiveSourceHealthStore.recordSuccess(for: fast, startupLatencyMs: 1_000)
-        let ranked = LiveSourceHealthStore.rankedSingleStreamSessions([slow, fast], contextKey: "football|all", at: Date())
+        let ranked = LiveSourceHealthStore.rankedSingleStreamSessions([slow, fast], matchScope: rankingScope,
+            contextKey: "football|all", at: Date())
         XCTAssertEqual(ranked.map(\.id), [fast.id, slow.id])
         XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSources([slow.legacySource, fast.legacySource],
             contextKey: "football|all").map(\.id), [fast.id, slow.id])
@@ -463,21 +477,21 @@ final class LiveSourceHealthScopeTests: XCTestCase {
             healthKey(quick): positiveSnapshot(count: 1, latency: 1_000, at: now,
                 recent: [recentSample(latency: 1_000, at: now)])
         ])
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([popular, quick], at: now).first?.id, quick.id)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([popular, quick], matchScope: rankingScope, at: now).first?.id, quick.id)
         try seedSnapshots([
             healthKey(popular): positiveSnapshot(count: 100, latency: 1_300, at: now,
                 recent: (0..<12).map { _ in recentSample(latency: 1_300, at: now) }),
             healthKey(quick): positiveSnapshot(count: 1, latency: 1_000, at: now,
                 recent: [recentSample(latency: 1_000, at: now)])
         ])
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([quick, popular], at: now).first?.id, popular.id)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([quick, popular], matchScope: rankingScope, at: now).first?.id, popular.id)
         try seedSnapshots([
             healthKey(popular): positiveSnapshot(count: 100, latency: 1_300, at: now,
                 recent: (0..<12).map { _ in recentSample(latency: 1_300, at: now) }),
             healthKey(quick): positiveSnapshot(count: 3, latency: 1_000, at: now,
                 recent: (0..<3).map { _ in recentSample(latency: 1_000, at: now) })
         ])
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([quick, popular], at: now).first?.id, quick.id,
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([quick, popular], matchScope: rankingScope, at: now).first?.id, quick.id,
             "Three and twelve observations have equal capped confidence within the same bucket")
     }
 
@@ -491,7 +505,7 @@ final class LiveSourceHealthScopeTests: XCTestCase {
             healthKey(slower): positiveSnapshot(count: 4, latency: 3_000, at: now,
                 recent: (0..<4).map { _ in recentSample(latency: 3_000, at: now) })
         ])
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([slower, typical], at: now).first?.id, typical.id)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([slower, typical], matchScope: rankingScope, at: now).first?.id, typical.id)
     }
 
     func testSingleStreamStaleFutureAndCorruptHistoryCannotBoostUnknownWebAboveNative() throws {
@@ -510,7 +524,8 @@ final class LiveSourceHealthScopeTests: XCTestCase {
                          positiveSnapshot(count: 100, latency: 1, at: future), corrupted] {
             try seedSnapshots([healthKey(stale): snapshot])
             UserDefaults.standard.set(["football|all": "communitysports"], forKey: "fotty.live.lastGoodProvider.v1")
-            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([stale, native], contextKey: "football|all", at: now)
+            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([stale, native], matchScope: rankingScope,
+                contextKey: "football|all", at: now)
                 .map(\.id), [native.id, stale.id])
         }
     }
@@ -519,7 +534,8 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         let webAS = try rankedSession(provider: "AS1", path: "web", native: false)
         let nativeCS = try rankedSession(provider: "CS1", path: "native.m3u8", native: true)
         UserDefaults.standard.set(["football|all": "plaviosports"], forKey: "fotty.live.lastGoodProvider.v1")
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([webAS, nativeCS], contextKey: "football|all")
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([webAS, nativeCS], matchScope: rankingScope,
+            contextKey: "football|all")
             .map(\.id), [nativeCS.id, webAS.id])
     }
 
@@ -527,10 +543,10 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         let web = try rankedSession(provider: "Score808", path: "proven", native: false)
         let native = try rankedSession(provider: "AS1", path: "unknown.m3u8", native: true)
         LiveSourceHealthStore.recordSuccess(for: web, startupLatencyMs: 800)
-        let before = LiveSourceHealthStore.rankedSingleStreamSessions([native, web]).map(\.id)
+        let before = LiveSourceHealthStore.rankedSingleStreamSessions([native, web], matchScope: rankingScope).map(\.id)
         XCTAssertEqual(before, [web.id, native.id])
         LiveSourceHealthStore.recordFailure(for: web, wasStall: true, reason: "Another fixture's missing broadcast")
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([native, web]).map(\.id), before)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([native, web], matchScope: rankingScope).map(\.id), before)
         XCTAssertFalse(LiveSourceHealthStore.isTemporarilyUnavailable(web.legacySource))
     }
 
@@ -538,8 +554,10 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         let streamEx = try session(matchID: "a", path: "a", family: "communitysports")
         let score808 = try session(matchID: "b", path: "b", family: "hotel")
         for _ in 0..<10 {
-            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([streamEx, score808]).map(\.id), [streamEx.id, score808.id])
-            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([score808, streamEx]).map(\.id), [score808.id, streamEx.id])
+            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([streamEx, score808],
+                matchScope: evidenceScope(streamEx.matchID)).map(\.id), [streamEx.id, score808.id])
+            XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([score808, streamEx],
+                matchScope: evidenceScope(score808.matchID)).map(\.id), [score808.id, streamEx.id])
         }
         XCTAssertEqual(LiveSourceHealthStore.rankedSessions([streamEx, score808]).first?.id, score808.id,
             "The old Multi ranking still has its original family tie order")
@@ -551,7 +569,8 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         let unknown = try rankedSession(provider: "CS1", path: "unknown", native: false)
         LiveSourceHealthStore.recordSuccess(for: unmeasured, startupLatencyMs: nil)
         LiveSourceHealthStore.recordSuccess(for: measured, startupLatencyMs: 8_000)
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([unknown, unmeasured, measured]).map(\.id),
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([unknown, unmeasured, measured],
+            matchScope: rankingScope).map(\.id),
             [measured.id, unmeasured.id, unknown.id])
         let data = try XCTUnwrap(UserDefaults.standard.data(forKey: "fotty.live.sourceHealth.v1"))
         let saved = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: [String: Any]])
@@ -573,6 +592,8 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         XCTAssertEqual(snapshot["totalStartupMs"] as? Int, (1_000..<1_015).reduce(0, +))
         XCTAssertEqual(Set(recent.flatMap(\.keys)), ["recordedAt", "latencyMs"])
     }
+
+    private var rankingScope: LiveSourceHealthStore.MatchEvidenceScope { evidenceScope("ranking-fixture") }
 
     private func rankedSession(provider: String, path: String, native: Bool) throws -> StreamSession {
         StreamSession(matchID: "ranking-fixture", playableURL: try XCTUnwrap(URL(string: "https://rank.example.test/\(path)")),
@@ -611,20 +632,22 @@ final class LiveSourceHealthScopeTests: XCTestCase {
                                streamType: .hls, providerName: "TV1")
         let wrong = StreamSession(matchID: fixture, playableURL: URL(string: "https://cs.example.test/other.m3u8")!,
                                   streamType: .hls, providerName: "CS2")
-        LiveSourceHealthStore.recordMatchOutcome(.decoded, for: tv.legacySource, fixtureID: fixture, watchID: UUID())
-        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: tv.legacySource, fixtureID: fixture, watchID: UUID())
-        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: wrong.legacySource, fixtureID: fixture, watchID: UUID())
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: tv), .sustained)
+        let scope = evidenceScope(fixture)
+        LiveSourceHealthStore.recordMatchOutcome(.decoded, for: tv.legacySource, scope: scope, watchID: UUID())
+        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: tv.legacySource, scope: scope, watchID: UUID())
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: wrong.legacySource, scope: scope, watchID: UUID())
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: tv, scope: scope), .sustained)
 
         LiveSourceHealthStore.reloadMatchEvidenceForTesting()
 
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: tv), .sustained, "Sustained evidence survives a relaunch")
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: wrong), .wrongProgramme, "A wrong-programme report survives")
-        XCTAssertFalse(LiveSourceHealthStore.sustainedMatchProviders(for: fixture).isEmpty,
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: tv, scope: scope), .sustained, "Sustained evidence survives a relaunch")
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: wrong, scope: scope), .wrongProgramme, "A wrong-programme report survives")
+        XCTAssertFalse(LiveSourceHealthStore.sustainedMatchProviders(in: scope).isEmpty,
                        "The resolver can hold the first choice for the provider that sustained this match")
         let other = StreamSession(matchID: "cricket-fixture:icc:other", playableURL: tv.playableURL,
                                   streamType: .hls, providerName: "TV1")
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: other), .unknown, "Evidence stays scoped to its fixture")
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: other, scope: evidenceScope(other.matchID)), .unknown,
+                       "Evidence stays scoped to its fixture")
     }
 
     func testPersistedMatchEvidenceExpiresAfterSixHours() throws {
@@ -635,14 +658,204 @@ final class LiveSourceHealthScopeTests: XCTestCase {
                                 streamType: .hls, providerName: "TV1")
         let recent = StreamSession(matchID: fixture, playableURL: URL(string: "https://tv.example.test/recent.m3u8")!,
                                    streamType: .hls, providerName: "TV2")
-        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: old.legacySource, fixtureID: fixture, watchID: UUID(),
+        let scope = evidenceScope(fixture)
+        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: old.legacySource, scope: scope, watchID: UUID(),
                                                  at: now.addingTimeInterval(-6 * 3600 + 60))
-        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: recent.legacySource, fixtureID: fixture, watchID: UUID(),
+        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: recent.legacySource, scope: scope, watchID: UUID(),
                                                  at: now.addingTimeInterval(-60))
         LiveSourceHealthStore.reloadMatchEvidenceForTesting(at: now.addingTimeInterval(120))
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: old, at: now.addingTimeInterval(120)), .unknown,
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: old, scope: scope, at: now.addingTimeInterval(120)), .unknown,
                        "Evidence older than six hours is not restored")
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: recent, at: now.addingTimeInterval(120)), .sustained)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: recent, scope: scope, at: now.addingTimeInterval(120)), .sustained)
+    }
+
+    // MARK: Match evidence scope
+
+    private let scopeKickoff = Date(timeIntervalSince1970: 1_788_548_400)
+
+    @MainActor
+    private func scopedRequest(_ id: String, home: String = "Liverpool", away: String = "Chelsea",
+                               category: String = "football", title: String? = nil, kickoff: Date?? = nil,
+                               competitionID: String? = nil, sportsFixture: SportsFixtureMetadata? = nil,
+                               cricketFixture: CricketFixtureMetadata? = nil) -> StreamPlaybackRequest {
+        let start = kickoff ?? scopeKickoff
+        let event = EventReference(id: id, title: title ?? "\(home) vs \(away)", category: category,
+            date: start.map { Int64($0.timeIntervalSince1970) }, poster: nil, popular: false,
+            teams: .init(home: .init(name: home, badge: nil), away: .init(name: away, badge: nil)),
+            cricketFixture: cricketFixture, sportsFixture: sportsFixture, competitionID: competitionID)
+        return StreamPlaybackRequest(matchID: id, displayTitle: event.title ?? "", homeTeam: home, awayTeam: away,
+            category: category, kickoffDate: start, preferredEvent: event)
+    }
+
+    private func scopeDelivery(_ id: String, provider: String = "CS1") -> StreamSession {
+        StreamSession(matchID: id, playableURL: URL(string: "https://scope-\(UUID().uuidString.lowercased()).example.test/live.m3u8")!,
+            streamType: .hls, providerName: provider, declaredPlaybackEndpoint: .directMedia)
+    }
+
+    private func assertScopes(_ id: String, base: StreamPlaybackRequest, same: [(String, StreamPlaybackRequest)],
+                              different: [(String, StreamPlaybackRequest)], file: StaticString = #filePath, line: UInt = #line) {
+        let delivery = scopeDelivery(id)
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: delivery.legacySource,
+            scope: .init(request: base), watchID: UUID(), at: scopeKickoff, session: delivery)
+        for (label, request) in [("rebuilt request", base)] + same {
+            XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: delivery, scope: .init(request: request), at: scopeKickoff),
+                .wrongProgramme, label, file: file, line: line)
+        }
+        for (label, request) in different {
+            XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: delivery, scope: .init(request: request), at: scopeKickoff),
+                .unknown, label, file: file, line: line)
+        }
+    }
+
+    @MainActor
+    func testMatchEvidenceScopeSeparatesChangedFixtureContextWithoutKickoffSplit() {
+        let id = "scope-context-\(UUID().uuidString)"
+        assertScopes(id, base: scopedRequest(id, competitionID: "premier-league"), same: [
+            ("rescheduled kickoff", scopedRequest(id, kickoff: scopeKickoff.addingTimeInterval(7_200), competitionID: "premier-league")),
+            ("known teams without kickoff", scopedRequest(id, kickoff: .some(nil), competitionID: "premier-league"))
+        ], different: [
+            ("changed opponent", scopedRequest(id, away: "Arsenal", competitionID: "premier-league")),
+            ("changed opponent without kickoff", scopedRequest(id, away: "Arsenal", kickoff: .some(nil), competitionID: "premier-league")),
+            ("women's fixture", scopedRequest(id, home: "Liverpool Women", away: "Chelsea Women", competitionID: "premier-league")),
+            ("changed competition", scopedRequest(id, competitionID: "fa-cup")),
+            ("missing competition is a sentinel, not a wildcard", scopedRequest(id)),
+            ("changed sport", scopedRequest(id, category: "basketball", competitionID: "premier-league"))
+        ])
+    }
+
+    @MainActor
+    func testMatchEvidenceScopeSeparatesStructuredSquad() {
+        let id = "scope-squad-\(UUID().uuidString)"
+        func fixture(_ gender: SportsFixtureCatalog.Squad.Gender, _ age: String) -> SportsFixtureMetadata {
+            .init(fixtureID: id, sport: "football", competitionID: "premier-league", competitionName: "Premier League",
+                  eventKind: .match, title: "Liverpool vs Chelsea", participants: [
+                    .init(id: "liverpool", name: "Liverpool"), .init(id: "chelsea", name: "Chelsea")],
+                  squad: .init(gender: gender, ageGroup: age), status: .live, observedAt: scopeKickoff, verified: true)
+        }
+        assertScopes(id, base: scopedRequest(id, sportsFixture: fixture(.men, "senior")), same: [
+            ("rescheduled senior fixture", scopedRequest(id, kickoff: scopeKickoff.addingTimeInterval(3_600),
+                                                         sportsFixture: fixture(.men, "senior")))
+        ], different: [
+            ("under-21 squad", scopedRequest(id, sportsFixture: fixture(.men, "u21"))),
+            ("women's squad", scopedRequest(id, sportsFixture: fixture(.women, "senior")))
+        ])
+    }
+
+    @MainActor
+    func testMatchEvidenceScopeSeparatesCricketFormatOrdinalAndTestDay() {
+        let id = "scope-cricket-\(UUID().uuidString)"
+        func cricket(_ format: CricketFixtureCatalog.Format, ordinal: Int?, day: Int?) -> CricketFixtureMetadata {
+            .init(fixtureID: "icc:scope", competitionID: "icc", competitionName: "ICC", format: format, status: .live,
+                  observedAt: scopeKickoff, verified: true,
+                  context: format == .test ? CricketMatchContext(innings: [], day: day, matchOrdinal: ordinal) : nil,
+                  matchOrdinal: ordinal)
+        }
+        func request(_ fixture: CricketFixtureMetadata?, title: String? = nil, kickoff: Date?? = nil) -> StreamPlaybackRequest {
+            scopedRequest(id, home: "India", away: "England", category: "cricket", title: title, kickoff: kickoff,
+                          cricketFixture: fixture)
+        }
+        assertScopes(id, base: request(cricket(.test, ordinal: 3, day: 2)), same: [
+            ("rescheduled day", request(cricket(.test, ordinal: 3, day: 2), kickoff: scopeKickoff.addingTimeInterval(1_800)))
+        ], different: [
+            ("next Test day", request(cricket(.test, ordinal: 3, day: 3))),
+            ("another Test", request(cricket(.test, ordinal: 4, day: 2))),
+            ("ordinal unknown is not merged", request(cricket(.test, ordinal: nil, day: 2))),
+            ("another format", request(cricket(.odi, ordinal: 3, day: nil))),
+            ("no structured context", request(nil))
+        ])
+        let titled = "scope-cricket-title-\(UUID().uuidString)"
+        func titleRequest(_ title: String) -> StreamPlaybackRequest {
+            scopedRequest(titled, home: "India", away: "England", category: "cricket", title: title)
+        }
+        assertScopes(titled, base: titleRequest("India vs England, 3rd Test, Day 2"), same: [], different: [
+            ("title day", titleRequest("India vs England, 3rd Test, Day 3")),
+            ("title ordinal", titleRequest("India vs England, 4th Test, Day 2")),
+            ("title format", titleRequest("India vs England, 3rd ODI"))
+        ])
+    }
+
+    /// Unparseable text yields a request-local scope only. It proves no
+    /// programme identity: it may keep its own negative evidence, never veto
+    /// a known replacement, other unresolved text, or inherit from them.
+    @MainActor
+    func testUnparseableRequestKeepsOnlyItsOwnRequestLocalEvidence() {
+        let id = "scope-unresolved-\(UUID().uuidString)"
+        let unresolved = scopedRequest(id, home: "TBD", away: "TBD", title: "Semi-final 1")
+        assertScopes(id, base: unresolved, same: [
+            ("same text, whitespace", scopedRequest(id, home: " TBD ", away: "TBD", title: "Semi-final 1 "))
+        ], different: [
+            ("other unresolved text", scopedRequest(id, home: "TBD", away: "TBD", title: "Semi-final 2")),
+            ("known replacement", scopedRequest(id, away: "Arsenal")),
+            ("known original teams", scopedRequest(id))
+        ])
+        let known = scopeDelivery(id)
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: known.legacySource,
+            scope: .init(request: scopedRequest(id)), watchID: UUID(), at: scopeKickoff, session: known)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: known, scope: .init(request: unresolved), at: scopeKickoff),
+            .unknown, "A known rejection cannot be read through an unresolved request")
+    }
+
+    @MainActor
+    func testWriterRequiresSuppliedSessionToBeThisSourceInThisFixture() {
+        let id = "scope-writer-\(UUID().uuidString)"
+        let scope = LiveSourceHealthStore.MatchEvidenceScope(request: scopedRequest(id))
+        let source = scopeDelivery(id), sibling = scopeDelivery(id)
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: source.legacySource, scope: scope,
+            watchID: UUID(), session: sibling)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: source, scope: scope), .unknown,
+            "Another session of the same fixture cannot vouch for this source")
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: sibling, scope: scope), .unknown)
+
+        let foreign = StreamSession(matchID: "scope-writer-other-\(UUID().uuidString)", playableURL: source.playableURL,
+            streamType: .hls, providerName: "CS1", declaredPlaybackEndpoint: .directMedia)
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: foreign.legacySource, scope: scope,
+            watchID: UUID(), session: foreign)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: foreign.legacySource, scope: scope), .unknown,
+            "The same source ID for another fixture is never attributed to this scope")
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: source, scope: scope), .unknown)
+
+        let sourceOnly = scopeDelivery(id)
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: sourceOnly.legacySource, scope: scope, watchID: UUID())
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: sourceOnly, scope: scope), .wrongProgramme,
+            "A source-only write without a session remains valid")
+
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: source.legacySource, scope: scope,
+            watchID: UUID(), session: source)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: source, scope: scope), .wrongProgramme,
+            "The exact source's own session in this fixture is recorded")
+    }
+
+    @MainActor
+    func testScopedReadersStayInsideTheirFixtureAndRejectMismatchedSessions() throws {
+        let id = "scope-readers-\(UUID().uuidString)"
+        let chelsea = LiveSourceHealthStore.MatchEvidenceScope(request: scopedRequest(id))
+        let arsenal = LiveSourceHealthStore.MatchEvidenceScope(request: scopedRequest(id, away: "Arsenal"))
+        let everton = LiveSourceHealthStore.MatchEvidenceScope(request: scopedRequest(id, away: "Everton"))
+        let stable = scopeDelivery(id, provider: "CS4"), fast = scopeDelivery(id, provider: "AS1")
+        LiveSourceHealthStore.recordMatchOutcome(.sustained, for: stable.legacySource, scope: chelsea, watchID: UUID())
+        XCTAssertEqual(LiveSourceHealthStore.sustainedMatchProviders(in: chelsea), ["communitysports"])
+        XCTAssertTrue(LiveSourceHealthStore.sustainedMatchProviders(in: arsenal).isEmpty)
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([fast, stable], matchScope: chelsea).first?.id, stable.id)
+        let unaffected = LiveSourceHealthStore.rankedSingleStreamSessions([fast, stable], matchScope: arsenal).map(\.id)
+        XCTAssertEqual(unaffected, LiveSourceHealthStore.rankedSingleStreamSessions([fast, stable], matchScope: everton).map(\.id))
+        XCTAssertEqual(Set(unaffected), [fast.id, stable.id], "Ranking keeps every alternative")
+
+        LiveSourceHealthStore.recordSuccess(for: fast, startupLatencyMs: 1_000)
+        LiveSourceHealthStore.recordMatchOutcome(.failed, for: fast.legacySource, scope: chelsea, watchID: UUID())
+        LiveSourceHealthStore.recordMatchOutcome(.stalled, for: fast.legacySource, scope: chelsea, watchID: UUID())
+        XCTAssertFalse(LiveSourceHealthStore.positiveRecoveryHistory(for: fast.legacySource, scope: chelsea))
+        XCTAssertTrue(LiveSourceHealthStore.positiveRecoveryHistory(for: fast.legacySource, scope: arsenal))
+        XCTAssertFalse(StreamDiscoveryCoordinator.hasCurrentDirectEvidence(fast, scope: chelsea, at: Date()))
+        XCTAssertTrue(StreamDiscoveryCoordinator.hasCurrentDirectEvidence(fast, scope: arsenal, at: Date()))
+
+        let foreign = StreamSession(matchID: "scope-other-\(UUID().uuidString)", playableURL: fast.playableURL,
+            streamType: .hls, providerName: "AS1", declaredPlaybackEndpoint: .directMedia)
+        LiveSourceHealthStore.recordMatchOutcome(.wrongProgramme, for: foreign.legacySource, scope: arsenal,
+            watchID: UUID(), session: foreign)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: foreign.legacySource, scope: arsenal), .unknown,
+            "A session for another fixture ID is never attributed to this scope")
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: stable, scope: .init(request: scopedRequest(
+            "scope-other-\(UUID().uuidString)"))), .unknown)
     }
 
     func testProgrammeContractFingerprintUsesFullURLAndCanonicalHeaderNames() throws {
@@ -801,16 +1014,18 @@ final class LiveSourceHealthScopeTests: XCTestCase {
         let expiry = CorrectnessExpiry.boundary(now.addingTimeInterval(60))
         for outcome in [LiveSourceHealthStore.MatchOutcome.decoded, .sustained, .wrongProgramme] {
             LiveSourceHealthStore.recordMatchOutcome(outcome, for: session.legacySource,
-                fixtureID: session.matchID, watchID: UUID(), at: now)
+                scope: evidenceScope(session.matchID), watchID: UUID(), at: now)
             XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: session, scope: scope,
                 configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now), .unknown)
         }
-        let order = LiveSourceHealthStore.rankedSingleStreamSessions([session, alternate], at: now).map(\.id)
+        let order = LiveSourceHealthStore.rankedSingleStreamSessions([session, alternate],
+            matchScope: evidenceScope(session.matchID), at: now).map(\.id)
         XCTAssertTrue(LiveSourceHealthStore.recordViewerVerdict(.confirmed, for: session, scope: scope,
             configurationGeneration: generation, attemptID: attempt, expiry: expiry, at: now))
-        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session, at: now), .wrongProgramme,
-                       "New correctness does not rewrite legacy compatibility evidence")
-        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([session, alternate], at: now).map(\.id), order)
+        XCTAssertEqual(LiveSourceHealthStore.matchEvidence(for: session, scope: evidenceScope(session.matchID), at: now),
+                       .wrongProgramme, "New correctness does not rewrite legacy compatibility evidence")
+        XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions([session, alternate],
+            matchScope: evidenceScope(session.matchID), at: now).map(\.id), order)
     }
 
     func testMetadataAndExplicitVerdictsStaySeparateAtTheStoreBoundary() throws {
