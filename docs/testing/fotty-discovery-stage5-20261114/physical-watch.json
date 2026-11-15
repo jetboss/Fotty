@@ -7,11 +7,11 @@
   "testflight": false,
   "build330": {
     "football": {
-      "fixture": "Jamaica–Mexico",
+      "fixture": "Jamaica\u2013Mexico",
       "competition": "CONCACAF Nations League",
       "kickoffUTC": "2026-11-15T01:00:00Z",
       "freshStatusUTC": "2026-11-15T01:18:22.145560Z",
-      "status": "first half18minutes0–0",
+      "status": "first half18minutes0\u20130",
       "schedule": "https://www.concacaf.com/competitions/nations-league/matches/7ce3462f517942558c00087506c0edfb/jamaica-vs-mexico",
       "statusPublisher": "https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.nations.league/summary?event=401929772",
       "normalWatch": true,
@@ -251,20 +251,20 @@
       ]
     },
     "cricket": {
-      "fixture": "Sydney Sixers Women–Melbourne Renegades Women",
+      "fixture": "Sydney Sixers Women\u2013Melbourne Renegades Women",
       "officialFixture": "CA:40643",
       "competition": "Weber WBBL|12",
       "format": "T20",
       "matchNumber": 23,
       "kickoffUTC": "2026-11-15T00:00:00Z",
       "freshStatusUTC": "2026-11-15T01:22:31.880821Z",
-      "officialStatus": "InPlay, Sixers4–136 with2.2oversremaining",
+      "officialStatus": "InPlay, Sixers4\u2013136 with2.2oversremaining",
       "coldHome": "No stream found yet;noWatch before normal pullrefresh",
       "refresh": "Watch returned;expanded detail briefly retained old availabilitytext",
       "normalWatch": true,
       "source": "LS1",
       "sourceFamily": "cncsports",
-      "programmeObserved": "Sky Sports Cricket;Sixers/Renegades uniforms/badges,Ragg/Burns batting,Dottin bowling;5/145at18.5→5/146at19→5/149at19.5",
+      "programmeObserved": "Sky Sports Cricket;Sixers/Renegades uniforms/badges,Ragg/Burns batting,Dottin bowling;5/145at18.5\u21925/146at19\u21925/149at19.5",
       "watchToDecodedMs": 7844,
       "continuityMs": 91707,
       "mediaAdvanceMs": 91685,
@@ -428,7 +428,167 @@
         }
       ],
       "attemptIdentityBasis": "Only playback attempt_started/decoded_progress/native_continuity/native_resume/session_closed records compared; discovery uses a separate ID"
-    }
+    },
+    "stablePreferenceKeysCompared": [
+      "com.fotty.stream_plugin_states",
+      "fotty.appearance",
+      "fotty.home.onlyShowSelectedInterests",
+      "fotty.sports.followedSportIDs.v1"
+    ],
+    "stablePreferencesUnchanged": true,
+    "homeFilterRestored": "All sports"
   },
-  "finalCandidate": "preflight fairness follow-up in progress;330 results retained separately"
+  "finalCandidate": "Normal signed 3.0.0 (331) installed on Jet; current WBBL Watch and native hold passed; broader qualification remains pending.",
+  "build331": {
+    "cricket": {
+      "fixture": "Sydney Sixers Women\u2013Melbourne Renegades Women",
+      "competition": "Weber WBBL|12",
+      "format": "T20",
+      "ordinal": "Match 23",
+      "kickoffUTC": "2026-11-15T00:00:00Z",
+      "official": {
+        "observedUTC": "2026-11-15T01:42:46.140470+00:00",
+        "publisher": "https://apiv2.cricket.com.au/web/fixtures/yearfilter?competitionId=4687&startDateTime=2026-11-14&endDateTime=2026-11-23&limit=50&format=json&jsconfig=eccn%3Atrue",
+        "id": 40643,
+        "name": "Match 23",
+        "startDateTime": "2026-11-15T00:00:00Z",
+        "gameTypeId": 41,
+        "isLive": true,
+        "isInProgress": true,
+        "isCompleted": false,
+        "gameStatusId": "BetweenInnings",
+        "resultText": "Innings Break: Melbourne Renegades Women need 153 runs to win",
+        "homeTeam": {
+          "id": 98,
+          "name": "Sydney Sixers Women",
+          "shortName": "SIX"
+        },
+        "awayTeam": {
+          "id": 101,
+          "name": "Melbourne Renegades Women",
+          "shortName": "REN"
+        },
+        "competition": {
+          "id": 4687,
+          "name": "Weber WBBL|12"
+        }
+      },
+      "normalWatch": true,
+      "watchAvailableWithoutManualRefresh": true,
+      "source": "LS1",
+      "sourceFamily": "CNC",
+      "programme": "Sky Sports Cricket",
+      "watchOutcomeToDecodedMs": 7099,
+      "attemptToDecodedMs": 5087,
+      "firstCandidateMs": 1414,
+      "firstCollectorSnapshotMs": 1415,
+      "correctProgrammeObserved": true,
+      "programmeObservation": "Sky Sports Cricket showed the Renegades target of153, the start of the second innings, and then0/10 after one over. Correct Sixers/Renegades badges and uniforms; North Sydney Oval.",
+      "holdPassed": true,
+      "nativeHoldMs": 92870,
+      "mediaAdvanceMs": 92864,
+      "stalls": 0,
+      "droppedFrames": 0,
+      "presentation": "1920x1080",
+      "singlePlaybackAttempt": true,
+      "audibleAudioConfirmed": false,
+      "audioLimit": "Device Hub does not relay audible sound.",
+      "independentFailoverPassed": false,
+      "records": [
+        {
+          "utc": "2026-11-15T01:43:17.082199+00:00",
+          "name": "watch_requested",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {}
+        },
+        {
+          "utc": "2026-11-15T01:43:18.901687+00:00",
+          "name": "attempt_started",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "last_observed_stage": "preparing",
+            "source_family": "cncsports",
+            "source": "LS1"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:43:23.989042+00:00",
+          "name": "watch_outcome",
+          "outcome": "success",
+          "durationMs": 7099,
+          "details": {
+            "source_family": "cncsports"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:43:24.001451+00:00",
+          "name": "decoded_progress",
+          "outcome": "success",
+          "durationMs": 5087,
+          "details": {
+            "last_observed_stage": "decoded",
+            "source": "LS1",
+            "source_family": "cncsports"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:43:25.275116+00:00",
+          "name": "watch_discovery_timing",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "discovery_first_snapshot_ms": "1415",
+            "discovery_first_candidate_ms": "1414"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:44:56.909245+00:00",
+          "name": "native_continuity_90s",
+          "outcome": "success",
+          "durationMs": 92870,
+          "details": {
+            "native_presentation_height": "1080",
+            "native_presentation_width": "1920",
+            "last_observed_stage": "decoded",
+            "source_family": "cncsports",
+            "native_access_dropped_frames": "0",
+            "native_continuity_stalls": "0",
+            "source": "LS1",
+            "native_continuity_elapsed_ms": "92870",
+            "native_continuity_media_advance_ms": "92864",
+            "native_access_stalls": "0"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:47:42.193312+00:00",
+          "name": "session_closed",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "last_observed_stage": "decoded",
+            "source": "LS1",
+            "source_family": "cncsports"
+          }
+        }
+      ],
+      "controlsScope": "No additional controls regression run on331: the follow-up changes only discovery scheduling. The330 same-attempt Pause/Sources/resume observations are retained separately.",
+      "rotationLimit": "Normal Watch success is not proof that every background preflight slot executed on device."
+    },
+    "preservedPreferences": {
+      "com.fotty.stream_plugin_states": true,
+      "fotty.appearance": true,
+      "fotty.home.onlyShowSelectedInterests": true,
+      "fotty.sports.followedSportIDs.v1": true
+    },
+    "normalBuildLeftInstalled": 331,
+    "homeFilterRestored": "All sports",
+    "ownPlaybackClosed": true,
+    "phoneTouched": false,
+    "fplTouched": false,
+    "multiStreamTouched": false,
+    "sourceOptInsChanged": false,
+    "testflight": false
+  }
 }

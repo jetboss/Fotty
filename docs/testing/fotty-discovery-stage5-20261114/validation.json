@@ -1,8 +1,8 @@
 {
   "stage": 5,
   "base": "536fbaec50dcf63fec3fc98b21fb6c312d33ee4e",
-  "candidateBuild": 330,
-  "status": "tests and signed release passed; normal330 installed on Jet; Watch check in progress",
+  "candidateBuild": 331,
+  "status": "Claude-approved stage5 implementation and preflight follow-up complete; normal signed331 WBBL Watch and native hold passed; broader competition/recovery qualification pending",
   "rankingChanged": false,
   "sourceSettingsChanged": false,
   "phoneTouched": false,
@@ -99,9 +99,92 @@
       "exitCode": 0,
       "sourceUnchanged": true,
       "same317SourceHashesAsFullSuite": true
+    },
+    "stage5-fairness-red-compile": {
+      "passed": true,
+      "exitCode": 0,
+      "counts": null,
+      "assertionFailures": null,
+      "sourceUnchanged": true,
+      "failedTests": [],
+      "skippedTests": []
+    },
+    "stage5-fairness-red": {
+      "passed": false,
+      "exitCode": 65,
+      "counts": {
+        "total": 3,
+        "skipped": 0,
+        "failed": 3,
+        "passed": 0
+      },
+      "assertionFailures": 4,
+      "sourceUnchanged": true,
+      "failedTests": [
+        "-[FottyTests.FixtureProviderPreflightScheduleTests testAccountPreflightCannotStarveFreeProvidersOnTheSameCricketFixture]",
+        "-[FottyTests.FixtureProviderPreflightScheduleTests testPreflightDeadlineUsesStartedLanesRatherThanSkippedAccountTickets]",
+        "-[FottyTests.FixtureProviderPreflightScheduleTests testPreflightProviderRevocationKeepsPendingFreeProviderProgress]"
+      ],
+      "skippedTests": []
+    },
+    "stage5-fairness-green-compile": {
+      "passed": true,
+      "exitCode": 0,
+      "counts": null,
+      "assertionFailures": null,
+      "sourceUnchanged": true,
+      "failedTests": [],
+      "skippedTests": []
+    },
+    "stage5-fairness-green": {
+      "passed": true,
+      "exitCode": 0,
+      "counts": {
+        "total": 68,
+        "skipped": 0,
+        "failed": 0,
+        "passed": 68
+      },
+      "assertionFailures": 0,
+      "sourceUnchanged": true,
+      "failedTests": [],
+      "skippedTests": []
+    },
+    "stage5-final-full": {
+      "passed": true,
+      "exitCode": 0,
+      "counts": {
+        "total": 2819,
+        "skipped": 12,
+        "failed": 0,
+        "passed": 2807
+      },
+      "assertionFailures": 0,
+      "sourceUnchanged": true,
+      "failedTests": [],
+      "skippedTests": [
+        "-[FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistryRefreshReconcilesSavedBaselineWithoutLosingFreshTV]",
+        "-[FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistrySnapshotPassesActualNativeWireValidation]",
+        "-[FottyTests.CNCSportsPhysicalCanaryTests testReviewedCNCDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]",
+        "-[FottyTests.FlixStreamsAddonTests testPhysicalFlixDecodedVideoCanary]",
+        "-[FottyTests.FlixStreamsAddonTests testPhysicalFlixSecondDecodedVideoCanary]",
+        "-[FottyTests.PlavioSportsAddonTests testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]",
+        "-[FottyTests.PlaybackPolicyTests testReferenceHLSMaintainsOneAttemptDuringSoak]",
+        "-[FottyTests.ReviewedRelayThroughputPhysicalTests testSyntheticOneMiBDirectBytesAndGuardedRelayThroughputOnPhysicalDevice]",
+        "-[FottyTests.Score808SiteCatalogTests testOptInCurrentProviderDiscovery]",
+        "-[FottyTests.SourceConnectionToolTests testAllEnabledSourcesForVerifiedFootballFixture]",
+        "-[FottyTests.SourceConnectionToolTests testOptInNHLRegisteredCSMetadata]",
+        "-[FottyTests.SourceConnectionToolTests testReviewedTVExpandedChannelsThroughGuardedDecoder]"
+      ]
+    },
+    "stage5-release331": {
+      "passed": true,
+      "exitCode": 0,
+      "sourceUnchanged": true,
+      "same317SourceHashesAsFinalFullSuite": true
     }
   },
-  "sourceManifestSHA256": "2e98d60d841355b3f0acac4641d4cccdbe44d9ee1e17ceee097367177f1f4cf0",
+  "sourceManifestSHA256": "0b359079f3765b04f491e7a46b630eddd4d21e4af74937b5af0bde8c845b48c5",
   "sourceFileCount": 317,
   "review": {
     "actualClaudeRound": 3,
@@ -109,7 +192,21 @@
     "permissionDenials": 0,
     "remainingP1P2": 0,
     "testsExecutedByClaude": false,
-    "independentReviewP1P2": 0
+    "independentReviewP1P2": 0,
+    "fairnessFollowUp": {
+      "commit": "0bf7eca1f1965e8e82a0fc67fcffb1ca9e91098f",
+      "actualClaudeRound": 1,
+      "complete": true,
+      "permissionDenials": 0,
+      "verdict": "approve",
+      "remainingP1P2": 0,
+      "testsExecutedByClaude": false,
+      "limits": [
+        "Deadline test exercises production helper; actual call wiring reviewed, not integration-injected.",
+        "Frozen packet did not include external preflight caller cadence; skipped-ticket cadence hypothesis remains unproven.",
+        "Passing account rotation tests verify current Highfly/PenguPlay code classification."
+      ]
+    }
   },
   "redControlNotes": [
     "HF/PP production unchanged; CNC old aggregate behavior plus ignored callback argument for regression compilation.",
@@ -119,7 +216,33 @@
   "memoryRefresh": {
     "exportRefreshed": true,
     "privacyChecksPassed": true,
-    "healthCheck": "pre-existing Current-State.md exceeds 8 KB; owner-editing file left untouched"
+    "healthCheck": "pre-existing Current-State.md exceeds 8 KB; owner-editing file left untouched",
+    "finalRunExitCode": 1,
+    "generatedTrackedMirrorRestored": true
   },
-  "implementationCommit": "560ff1f06b4a"
+  "implementationCommit": "560ff1f06b4a",
+  "fairnessRepair": {
+    "redMethodsFailed": 3,
+    "redAssertionFailures": 4,
+    "greenPassed": 68,
+    "maxLanes": 2,
+    "accountStartedDeadlineSeconds": 30,
+    "freeOnlyDeadlineSeconds": 8,
+    "playbackRankingChanged": false,
+    "sourceCommit": "0bf7eca",
+    "build330EvidenceRetained": true
+  },
+  "initial330SourceManifestSHA256": "2e98d60d841355b3f0acac4641d4cccdbe44d9ee1e17ceee097367177f1f4cf0",
+  "implementationCommits": [
+    "560ff1f06b4aa5c837ce6898f3a1c306da661400",
+    "0bf7eca1f1965e8e82a0fc67fcffb1ca9e91098f"
+  ],
+  "sourceManifestEncoding": "SHA256 of Python json.dumps(sourceSHA256, sort_keys=True).encode()",
+  "physicalEvidence": "physical-watch.json",
+  "cleanup": {
+    "ownedOutputRemoved": true,
+    "boundedKeepAwakeStopped": true,
+    "privateSnapshotsRemoved": true,
+    "freeDiskAfterBytes": 30314041344
+  }
 }
