@@ -1,0 +1,14 @@
+{
+  "installedBuild": "333",
+  "version": "3.0.0",
+  "verifiedVia": "Apple devicectl installed-app listing",
+  "allPreferencesIdentical": true,
+  "changedPreferenceCount": 0,
+  "phoneTouched": false,
+  "physicalWatch": "pending-locked-device",
+  "physicalSave": "pending-locked-device",
+  "physicalRemind": "pending-locked-device",
+  "sourceRankingChanged": false,
+  "testFlightChanged": false,
+  "privateStoreFilesIdentical": true
+}

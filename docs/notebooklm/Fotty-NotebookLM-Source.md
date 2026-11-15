@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-15T15:22:06.474995+00:00
-Source digest: a11df2c49a9f50fc2e4f11c6a5f8ceafa0733e95cabd89abc4a5219059c4c28e
+Generated: 2026-11-15T15:47:47.486883+00:00
+Source digest: 63ee36fcdb46018d1af301a64b6b6586a72162472c92b9b22fa9759a0236f6cb
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,7 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-15 Nov: [Sports TV guide](../testing/fotty-sports-tv-guide-20261115/README.md) implemented on an isolated332-based branch. Claude approved; 2,711 full-suite passes/12 skips, then131 focused passes. Devices, ranking and TestFlight unchanged.
+15 Nov: [Sports TV guide](../testing/fotty-sports-tv-guide-20261115/jet333-acceptance.md) on Jet333. Planning fixed; Claude approved, 152 tests pass. Data preserved; physical Watch/Save/Remind pending unlock. Phone/ranking/TestFlight unchanged.
 
 14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Internal TestFlight332 released to the existing13 testers; [release proof](../releases/Fotty-3.0.0-332.md).
 
@@ -881,6 +881,10 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-15 — Keep guide planning separate from current Watch authority
+
+The seven-day TV guide must resolve future linked matches beyond Home’s 72-hour window. Supplement only absent future identities with the existing accepted 14-day Search schedule, using its 24-hour planning receipt lifetime. Current duplicate, conflict and terminal facts retain ownership; current programmes never use planning to obtain playback authority. Preserve all explicit registry fingerprints and expiries without renewing timestamps. This repairs two defects exposed by real Bayern–Köln metadata, rather than relaxing stream admission. Independent Claude review approved; 152 focused tests and normal signed Release 333 passed. Jet installation/version verified, all preferences and private store files identical. Watch/Save/Remind physical checks remain pending because Jet is locked. Phone, ranking, cloud and TestFlight unchanged. [Evidence](../testing/fotty-sports-tv-guide-20261115/jet333-acceptance.md).
 
 ## 2026-11-15 — Implement the approved Sports TV guide first, without changing source ranking
 

@@ -26,9 +26,13 @@ Reference: `fotty-guide-up-next.html`, SHA-256 `d7fa26aa6efe429b10e36f57d35c579a
 - Xcode membership comparison adds the new test exactly once, with no new errors. The 45 existing intentional retired-FPL exclusions still trigger the older broad membership script; this task does not re-enable them. Its 32 tooling tests pass. [Comparison](membership.json).
 - Both test gates removed owned DerivedData, apps, raw logs and result bundles; final free disk was over 28 GiB. No simulators, device interaction, app installation, source-setting mutation, cloud change, Git publication or TestFlight action.
 
+## Jet installation follow-up
+
+The owner subsequently authorized Jet-only installation and Watch/Save/Remind checks. The real metadata preflight exposed and repaired two future-planning gaps;152 additional focused tests and an independent Claude review passed. See [the Jet333 acceptance record](jet333-acceptance.md) for exact installation and physical-check status. Phone and TestFlight remain excluded.
+
 ## Remaining validation and deliberate boundaries
 
-Physical iPhone/iPad interactions, larger text, VoiceOver focus, notification-permission presentation and real Watch playback remain untested under the owner's device hold. No release readiness claim is made. Player Up next and pitch remain outside this guide-first task. Source ranking and provider admission/transport are unchanged.
+The original source gate did not exercise physical interactions, larger text, VoiceOver focus, notification-permission presentation or real Watch playback. The later Jet-only gate is recorded separately above; the phone remains untouched. No release readiness claim is made. Player Up next and pitch remain outside this guide-first task. Source ranking and provider admission/transport are unchanged.
 
 The fixture-linked path requires an explicitly published association and a current canonical fixture. Start-only generic schedules never gain match identity from a similar title. When a source advertises an exact programme start after official kickoff, the existing future-identity policy can temporarily omit fixture actions until that programme begins; direct channel Watch stays available. This retained edge was reviewed as nonblocking and was not used to relax playback eligibility.
 

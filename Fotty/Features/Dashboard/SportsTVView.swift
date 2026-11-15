@@ -352,7 +352,8 @@ struct SportsTVView: View {
 
     private func linkedEvent(_ entry: SportsTVGuidePolicy.Entry, station: SportsTVStation, at now: Date) -> EventReference? {
         SportsTVGuidePolicy.linkedEvent(for: entry, station: station, snapshot: registry.snapshot,
-            catalog: catalog.playbackAdmissionCatalog, at: now)
+            catalog: catalog.playbackAdmissionCatalog,
+            planningCatalog: catalog.searchSchedule(at: now), at: now)
     }
 
     private func watchProgramme(_ entry: SportsTVGuidePolicy.Entry, station: SportsTVStation) {

@@ -199,6 +199,7 @@ enum SportsTVGuidePolicy {
     /// The optional ID on a rendered row is a hint, not a retained authority.
     @MainActor static func linkedEvent(for entry: Entry, station: SportsTVStation,
                                       snapshot: BroadcastRegistrySnapshot?, catalog: [EventReference],
+                                      planningCatalog: [EventReference] = [],
                                       at now: Date) -> EventReference? {
         guard let snapshot, let fixtureID = entry.fixtureID,
               let current = entries(for: station, snapshot: snapshot, at: now).first(where: { $0.id == entry.id }),
@@ -207,9 +208,17 @@ enum SportsTVGuidePolicy {
               let link = fixtureLink(for: broadcast, snapshot: snapshot, at: now), link.fixtureID == fixtureID,
               let provider = snapshot.providers.first(where: { $0.providerCode == broadcast.providerCode && $0.scope == broadcast.scope })
         else { return nil }
-        let candidates = catalog.filter { $0.id == fixtureID }
-        guard candidates.count == 1, let candidate = candidates.first,
-              let event = CurrentEventBroadcastPolicy.currentEvent(for: candidate, in: catalog, at: now),
+        let currentCandidates = catalog.filter { $0.id == fixtureID }
+        // The accepted planning schedule extends beyond Home's three-day window.
+        // It may fill an absent future identity, never replace a current conflict
+        // or supply authority for a programme that has already started.
+        let usesPlanning = current.start > now && currentCandidates.isEmpty
+        let candidates = usesPlanning ? planningCatalog.filter { $0.id == fixtureID } : currentCandidates
+        guard candidates.count == 1, let candidate = candidates.first else { return nil }
+        // Keep all current admission facts, including typed terminal aliases,
+        // in the same identity check as a supplemental planning candidate.
+        let admissionCatalog = usesPlanning ? catalog + [candidate] : catalog
+        guard let event = CurrentEventBroadcastPolicy.currentEvent(for: candidate, in: admissionCatalog, at: now),
               event.id == fixtureID, !event.isBroadcastChannel,
               VerifiedFixtureTerminalPolicy.state(for: event, at: now) == nil else { return nil }
         let match = BroadcastRegistryMatch(broadcast: broadcast, link: link, provider: provider)
@@ -260,12 +269,12 @@ enum SportsTVGuidePolicy {
         if let sports = event.sportsFixture {
             guard event.cricketFixture == nil, sports.verified, sports.fixtureID == event.id,
                   sports.eventKind == .match, sports.status == .scheduled, sports.squad == fingerprint.squad,
-                  (-300...SportsFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(sports.identityReceipt)),
+                  SportsSearchSchedule.isFresh(sports.identityReceipt, at: now),
                   fingerprint.format == nil, fingerprint.day == nil, fingerprint.matchOrdinal == nil, fingerprint.end == nil else { return false }
         } else if let cricket = event.cricketFixture {
             guard cricket.verified, CricketFixtureCatalog.fixtureIDPrefix + cricket.fixtureID == event.id,
                   cricket.status == .scheduled, cricket.format == fingerprint.format, fingerprint.squad == nil,
-                  (-300...CricketFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(cricket.observedAt)) else { return false }
+                  SportsSearchSchedule.isFresh(cricket.observedAt, at: now) else { return false }
             if cricket.format == .test {
                 guard fingerprint.day == cricket.context?.day, fingerprint.matchOrdinal == cricket.context?.matchOrdinal,
                       fingerprint.end == cricket.context?.matchEndsAt.flatMap(BroadcastRegistrySnapshot.date),
