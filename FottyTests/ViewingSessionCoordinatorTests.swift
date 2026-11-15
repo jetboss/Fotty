@@ -876,8 +876,14 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             let audioEnabled = retained.model.isViewingAudioEnabled
             let allowsPiP = retained.model.allowsViewingPiP
             let ownsRemoteCommands = retained.model.ownsRemoteCommands
-            retained.model.isPictureInPictureActive = !web
-            retained.model.isWebPictureInPictureActive = web
+            if web {
+                retained.model.handleWebPictureInPictureActivityChanged(true,
+                    sourceID: try XCTUnwrap(retained.model.activeSource).id, requestID: attempt)
+            } else {
+                retained.model.isPictureInPictureActive = true
+            }
+            XCTAssertTrue(retained.model.isPictureInPictureActive)
+            XCTAssertEqual(retained.model.isWebPictureInPictureActive, web)
             owner.minimize()
             owner.resolutionError = "Existing single-player feedback"
 
@@ -905,7 +911,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             XCTAssertEqual(retained.model.isViewingAudioEnabled, audioEnabled)
             XCTAssertEqual(retained.model.allowsViewingPiP, allowsPiP)
             XCTAssertEqual(retained.model.ownsRemoteCommands, ownsRemoteCommands)
-            XCTAssertEqual(retained.model.isPictureInPictureActive, !web)
+            XCTAssertTrue(retained.model.isPictureInPictureActive)
             XCTAssertEqual(retained.model.isWebPictureInPictureActive, web)
             XCTAssertFalse(owner.expanded)
             XCTAssertFalse(owner.showsSecondMatchPicker)

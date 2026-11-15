@@ -658,6 +658,9 @@ final class MatchReminderTests: XCTestCase {
         let route = try XCTUnwrap(tabs.components(separatedBy: "private func openPendingFPLDestination() {").last)
         XCTAssertTrue(route.contains("selectedTab = .home"))
         XCTAssertTrue(route.contains("matchNavigationStore.pendingFPL = false"))
+        XCTAssertTrue(route.contains("matchNavigationStore.pendingMatchID = nil"))
+        XCTAssertTrue(route.contains("matchNavigationStore.pendingReminderID = nil"))
+        XCTAssertTrue(route.contains("showsSettings = false"))
     }
 
     func testMatchCenterCannotBeginPrematureResolutionEvenViaDirectAction() {

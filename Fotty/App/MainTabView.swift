@@ -336,6 +336,9 @@ struct MainTabView: View {
     private func openPendingFPLDestination() {
         // Old widgets and already delivered notifications remain safe entry points.
         matchNavigationStore.pendingFPL = false
+        matchNavigationStore.pendingMatchID = nil
+        matchNavigationStore.pendingReminderID = nil
+        showsSettings = false
         viewingSession.minimize()
         selectedTab = .home
     }
