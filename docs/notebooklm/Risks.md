@@ -4,6 +4,22 @@ Last updated: 2026-10-24
 
 This registry turns current sharp edges into guardrails for agents.
 
+## Health-store notifications must release serialization — 15 November 2026
+
+- Jet335 froze and was killed by the scene-update watchdog: main waited in
+  `recordSuccess` for the health queue while `recordDeliveryMetadata` held that
+  queue during synchronous UserDefaults notification delivery onto main.
+- Enqueue persistence under the health queue, then drain the shared write buffer
+  outside it. Reads need the pending overlay so reentrant success/reset/migration
+  cannot overwrite newer values. Do not change ranking or renew evidence dates
+  to address this synchronization defect.
+- Hosted tests normally skip persistent programme evidence; they cannot prove
+  this path without the isolated-suite persistence seam. Reentrant tests must
+  join their workers before restoring global store state; fail the test host on
+  an unjoined-worker timeout rather than expose owner defaults to a late write.
+- See [336 evidence](../testing/fotty336-watch-failures/README.md). Provider absence
+  and wrong-programme pictures remain separate from the confirmed app deadlock.
+
 ## Native discovery candidate is not current playback proof — 28 October 2026
 
 - Foreground candidate prechecks cover only enabled reviewed optional providers,

@@ -1,0 +1,46 @@
+{
+  "timeUTC": "2026-11-15T19:20:21.514231+00:00",
+  "checkedPreferences": [
+    {
+      "key": "com.fotty.stream_plugin_states",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "fotty.appearance",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "fotty.home.onlyShowSelectedInterests",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "fotty.sports.followedSportIDs.v1",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "fotty.provider.evidence.configuration.v1",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "sports.tv.favourites.v1",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    },
+    {
+      "key": "fotty.match-reminders.v1",
+      "presentBeforeAndAfter": true,
+      "unchanged": true
+    }
+  ],
+  "savedMatchesUnchangedExceptFreshRuntimeCricketObservation": true,
+  "savedIdentitiesAndSavedAtPreserved": true,
+  "noUserSettingsChanged": true,
+  "phoneTouched": false,
+  "testflight": false,
+  "note": "Runtime source health, playback history and diagnostics legitimately advanced during tests. No raw owner preferences retained."
+}

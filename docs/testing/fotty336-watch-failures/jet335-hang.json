@@ -1,0 +1,177 @@
+{
+  "build": 335,
+  "timeUTC": "2026-11-15T18:42:36Z",
+  "termination": "FRONTBOARD 0x8BADF00D scene-update watchdog 10 seconds",
+  "thermal": "nominal",
+  "faultingThread": 0,
+  "threads": [
+    {
+      "thread": 0,
+      "queue": "com.apple.main-thread",
+      "frames": [
+        {
+          "image": "libsystem_kernel.dylib",
+          "symbol": "kevent_id"
+        },
+        {
+          "image": "libdispatch.dylib",
+          "symbol": "_dispatch_kq_poll"
+        },
+        {
+          "image": "libdispatch.dylib",
+          "symbol": "_dispatch_event_loop_wait_for_ownership"
+        },
+        {
+          "image": "libdispatch.dylib",
+          "symbol": "__DISPATCH_WAIT_FOR_QUEUE__"
+        },
+        {
+          "image": "libdispatch.dylib",
+          "symbol": "_dispatch_sync_f_slow"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "static LiveSourceHealthStore.recordSuccess(for:startupLatencyMs:contextKey:)"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "LivePlayerViewModel.handleSuccessfulStartup(source:reportedLatencyMs:expectedRequestID:)"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "closure #2 in LivePlayerViewModel.loadCurrentSource(ignoringCircuitBreaker:)"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "<deduplicated_symbol>"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "<deduplicated_symbol>"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "<deduplicated_symbol>"
+        },
+        {
+          "image": "libswift_Concurrency.dylib",
+          "symbol": "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+        }
+      ]
+    },
+    {
+      "thread": 2,
+      "queue": "com.fotty.liveSourceHealthStore",
+      "frames": [
+        {
+          "image": "libsystem_kernel.dylib",
+          "symbol": "__psynch_cvwait"
+        },
+        {
+          "image": "libsystem_pthread.dylib",
+          "symbol": "_pthread_cond_wait"
+        },
+        {
+          "image": "Foundation",
+          "symbol": "-[NSOperation waitUntilFinished]"
+        },
+        {
+          "image": "CoreFoundation",
+          "symbol": "_CFXNotificationPost.cold.1"
+        },
+        {
+          "image": "CoreFoundation",
+          "symbol": "_CFXNotificationPost"
+        },
+        {
+          "image": "Foundation",
+          "symbol": "-[NSNotificationCenter postNotificationName:object:userInfo:]"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "closure #1 in static LiveSourceHealthStore.recordDeliveryMetadata(_:for:scope:configurationGeneration:at:)"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "partial apply for closure #1 in static LiveSourceHealthStore.recordDeliveryMetadata(_:for:scope:configurationGeneration:at:)"
+        },
+        {
+          "image": "libswiftDispatch.dylib",
+          "symbol": "partial apply for thunk for @callee_guaranteed () -> (@out A, @error @owned Error)"
+        },
+        {
+          "image": "libswiftDispatch.dylib",
+          "symbol": "partial apply for thunk for @callee_guaranteed () -> (@out A, @error @owned Error)"
+        },
+        {
+          "image": "libswiftDispatch.dylib",
+          "symbol": "closure #1 in closure #1 in OS_dispatch_queue._syncHelper<A>(fn:execute:rescue:)"
+        },
+        {
+          "image": "libswiftDispatch.dylib",
+          "symbol": "partial apply for thunk for @callee_guaranteed () -> ()"
+        },
+        {
+          "image": "libswiftDispatch.dylib",
+          "symbol": "thunk for @escaping @callee_guaranteed () -> ()"
+        },
+        {
+          "image": "libdispatch.dylib",
+          "symbol": "_dispatch_client_callout"
+        },
+        {
+          "image": "libdispatch.dylib",
+          "symbol": "_dispatch_lane_barrier_sync_invoke_and_complete"
+        },
+        {
+          "image": "libswiftDispatch.dylib",
+          "symbol": "implicit closure #2 in implicit closure #1 in OS_dispatch_queue.asyncAndWait<A>(execute:)"
+        },
+        {
+          "image": "libswiftDispatch.dylib",
+          "symbol": "partial apply for implicit closure #2 in implicit closure #1 in OS_dispatch_queue.sync<A>(execute:)"
+        },
+        {
+          "image": "libswiftDispatch.dylib",
+          "symbol": "OS_dispatch_queue._syncHelper<A>(fn:execute:rescue:)"
+        },
+        {
+          "image": "libswiftDispatch.dylib",
+          "symbol": "OS_dispatch_queue.asyncAndWait<A>(execute:)"
+        },
+        {
+          "image": "libswiftDispatch.dylib",
+          "symbol": "OS_dispatch_queue.sync<A>(execute:)"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "StreamLookupEvidence.attaching(to:listingID:index:at:)"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "HighflySportsAddonClient.resolve(for:now:)"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "closure #1 in closure #2 in LiveStreamResolver.refreshedDescriptor(for:request:)"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "<deduplicated_symbol>"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "<deduplicated_symbol>"
+        },
+        {
+          "image": "Fotty",
+          "symbol": "<deduplicated_symbol>"
+        },
+        {
+          "image": "libswift_Concurrency.dylib",
+          "symbol": "completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)"
+        }
+      ]
+    }
+  ]
+}

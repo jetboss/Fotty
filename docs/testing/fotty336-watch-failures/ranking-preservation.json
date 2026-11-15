@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "baseline_commit": "e98f3a0",
+  "source_file": "Fotty/Core/Networking/LiveSourceHealthStore.swift",
+  "comparison": "Source-only comparison of matching static function declarations and bodies, including overloads in source order. No runtime or device claim.",
+  "normalization": {
+    "find": "queue.sync {",
+    "replace": "serialized {",
+    "other_normalization": false
+  },
+  "checks": [
+    {
+      "function": "recordSuccess",
+      "baseline_occurrences": 2,
+      "current_occurrences": 2,
+      "equal": true
+    },
+    {
+      "function": "ranked",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "automaticCandidates",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "hasRecentSuccess",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "rankedSessions",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "rankedSingleStreamSources",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "rankedSingleStreamSessions",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "singleStreamOrder",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "singleStreamEvidence",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "bestSourceIndex",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "bestSessionIndex",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "score",
+      "baseline_occurrences": 2,
+      "current_occurrences": 2,
+      "equal": true
+    },
+    {
+      "function": "computeScore",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "liveScore",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "preferredFamilyRank",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "recordMatchOutcome",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "recordDeliveryMetadata",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    },
+    {
+      "function": "recordViewerVerdict",
+      "baseline_occurrences": 1,
+      "current_occurrences": 1,
+      "equal": true
+    }
+  ],
+  "all_equal": true,
+  "limitations": "The persistence serialization boundary intentionally changed. These comparisons establish unchanged selection, scoring, evidence-mutation and timestamp code within the listed functions; they do not independently establish concurrency correctness."
+}

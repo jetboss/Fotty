@@ -1,0 +1,16 @@
+{
+  "timeUTC": "2026-11-15T19:21:24.109563+00:00",
+  "driverExitCode": 0,
+  "ownedOutputRemoved": true,
+  "ownedGateAbsenceVerified": true,
+  "ownedKeepAwakeStoppedByDriverFinally": true,
+  "freeDiskAfterBytes": 25830662144,
+  "cleaned": [
+    "owned DerivedData and signed build copy",
+    "owned test result bundles and logs",
+    "owned raw Jet preference snapshots and crash data",
+    "owned temporary traces and capture files",
+    "owned memory-finish console log"
+  ],
+  "retained": "redacted repository receipts; installed normal Jet336; existing owner artifacts untouched"
+}

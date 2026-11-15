@@ -1,6 +1,8 @@
 # Fotty current state
 
-15 Nov: [Jet335 UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md) installed;261 focused tests pass. Watch/disclosures checked with Claude; trace/phone/score-motion limits retained. Ranking/TestFlight unchanged.
+15 Nov: [Jet336 Watch repairs](../testing/fotty336-watch-failures/README.md): confirmed health-store deadlock and two discovery classifications fixed with Claude;2,739 tests pass/12 skips. One normal build installed; channel recovery,90s holds and same-attempt resume pass. Fresh account-match/wrong-programme/audio/independent-backup limits retained. Phone/ranking/TestFlight unchanged.
+
+15 Nov: [Jet335 UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md):261 tests pass; Watch/disclosures checked with Claude. Trace/phone/score-motion limits retained.
 
 15 Nov: [Jet334 guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) installed;396 checks, Save/Remind and TV25 hold pass. Live programme/audio pending; source failures retained. Phone/ranking/TestFlight unchanged.
 
@@ -35,14 +37,10 @@ PR114/115 guides deployed; SkyCS1/beINTV17 holds and distinct CBS/Fubo/WillowSpo
 
 ## Cricket matching213/214 and Fox215
 
-PR116/8298f54 deployed2026-11-01.cricket-matching-1 with existingwatchdog:
-439backend/186watchdog checks; bindings/activation/incidents retained. Exact
-CS/Willow cricket identity/IANA/ordinal/current-period guards persist. Jet214
-TV1 passedits actualhold. Fox215 prototype276tests pass butSD/HDpicturewas
-subscriptioncard, notFox;CS404/Flix504. UnqualifiedHTTP/ATS/helper removed216;
-prototype retainedunapplied. Phone215installed16:17UTC, notagentlaunched, away.
-216TV UI59tests passed, sourceacceptance incomplete. History:
-testing/fotty-cricket-matching-2026-11-01/.
+PR116/8298f54 cricket repair deployed1Nov; exact identity/IANA/ordinal/period
+guards persist. Fox215 HTTP prototype was unqualified and removed216. Jet214
+Willow hold passed; programme/audio/source limits remain historical. Details:
+testing/fotty-cricket-matching-2026-11-01/ and Decisions-Log.
 
 ## 1 November broadcast history
 

@@ -337,6 +337,14 @@ actor HighflySportsAddonClient {
                     kickoffOffset = ReviewedSportsFixtureMatcher.kickoffOffsetMinutes(for: requestID, parsed: parsed)
                 }
             }
+            // An unread catalog cannot establish absence. Preserve the existing
+            // definitive rejection when the rows already prove an identity conflict.
+            if supplementaryFailures > 0,
+               request.preferredEvent?.hasCatalogIdentityConflict != true,
+               case .missing = ReviewedSportsFixtureMatcher.select(for: original,
+                    from: Self.screenedCandidates(request: request, requestID: original, rows: rows, now: now)) {
+                throw CommunitySportsAddonError.invalidResponse
+            }
             throw CommunitySportsAddonError.matchNotFound
         }
         stage = "streams"

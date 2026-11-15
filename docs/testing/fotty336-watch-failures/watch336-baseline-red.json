@@ -1,0 +1,25 @@
+{
+  "action": "test",
+  "label": "watch336-baseline-red",
+  "exitCode": 65,
+  "phaseError": null,
+  "passed": false,
+  "sourceUnchanged": true,
+  "freeDiskAfterBytes": 26283257856,
+  "counts": {
+    "total": 4,
+    "skipped": 0,
+    "failed": 2,
+    "passed": 2
+  },
+  "assertionFailures": 39,
+  "skippedTests": [],
+  "failedTests": [
+    "-[FottyTests.HighflySportsAddonTests testFailedCatalogReadsDoNotEstablishAMissingFixture]",
+    "-[FottyTests.StreamDiscoveryCoordinatorTests testEmptySiblingCannotHideActionableAccountOrSecurityFailure]"
+  ],
+  "sourceSnapshotDigest": "fa89fb272718cb53f6351f66426aadd7f07b7fa16a72acc76688c1d5a40977c3",
+  "sourceFileCount": 320,
+  "runtimeLogErrorLineCount": 20,
+  "interpretation": "Baseline production reproduced two discovery failures. Four methods: two failed, two passed."
+}

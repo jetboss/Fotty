@@ -10,7 +10,7 @@ import UIKit
 /// One caller drains outside all store locks; reentrant writes only update the
 /// latest pending value and return. The overlay also keeps a reentrant read
 /// from replacing newer cached state with an older, still-in-flight receipt.
-private final class FottyDefaultsWriteBuffer {
+final class FottyDefaultsWriteBuffer {
     private enum Value {
         case set(Any)
         case remove

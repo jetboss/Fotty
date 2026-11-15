@@ -605,6 +605,45 @@ final class FixtureStreamDiscoveryIndexTests: XCTestCase {
 }
 
 final class StreamDiscoveryCoordinatorTests: XCTestCase {
+    func testEmptySiblingCannotHideActionableAccountOrTLSFailure() {
+        let empty = LiveStreamResolver.communitySportsFailure(from: .streamEntriesEmpty)
+        let timeout = LiveStreamResolver.communitySportsFailure(from:
+            .transportFailure(code: URLError.timedOut.rawValue, stage: .catalog))
+        let unsafe = LiveStreamResolver.communitySportsFailure(from: .unsafeResponse)
+        let auth = StreamFailure(providerName: "HF", category: .authFailed,
+            technicalMessage: "Account rejected", userMessage: "Reconnect your account",
+            retryable: false, fallbackAllowed: true)
+        let tls = StreamTransportFailurePolicy.makeFailure(providerName: "HF",
+            code: .serverCertificateUntrusted, technicalMessage: "TLS rejected",
+            defaultCategory: .manifestUnreachable, defaultUserMessage: "Unavailable",
+            fallbackAllowed: true)
+        for actionable in [auth, tls] {
+            for failures in [[empty, actionable], [actionable, empty], [timeout, empty, actionable],
+                             [unsafe, empty, actionable], [actionable, empty, unsafe]] {
+                let result = LiveStreamResolver.noMatchDeliveryFailure(failures)
+                XCTAssertEqual(result.id, actionable.id)
+                XCTAssertEqual(result.category, actionable.category)
+                XCTAssertEqual(result.userMessage, actionable.userMessage)
+                XCTAssertEqual(result.retryable, actionable.retryable)
+                XCTAssertEqual(result.fallbackAllowed, actionable.fallbackAllowed)
+                XCTAssertEqual(result.redactedMetadata, actionable.redactedMetadata)
+            }
+        }
+    }
+
+    func testUnsafeDescriptorDoesNotDisableRetryForAnEmptySibling() {
+        let empty = LiveStreamResolver.communitySportsFailure(from: .streamEntriesEmpty)
+        let unsafe = LiveStreamResolver.communitySportsFailure(from: .unsafeResponse)
+        XCTAssertFalse(unsafe.retryable)
+        for failures in [[empty, unsafe], [unsafe, empty]] {
+            let result = LiveStreamResolver.noMatchDeliveryFailure(failures)
+            XCTAssertEqual(result.category, .providerReturnedEmpty)
+            XCTAssertEqual(result.redactedMetadata["discovery_result"], "partial_no_stream")
+            XCTAssertTrue(result.retryable)
+        }
+        XCTAssertEqual(LiveStreamResolver.noMatchDeliveryFailure([unsafe]).id, unsafe.id)
+    }
+
     func testMatchWatchKeepsPartialNoStreamSeparateFromAnUnreachableSource() {
         let empty = LiveStreamResolver.communitySportsFailure(from: .streamEntriesEmpty)
         let noMatch = LiveStreamResolver.communitySportsFailure(from: .matchNotFound, providerName: "HF")

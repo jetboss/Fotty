@@ -1,3 +1,28 @@
+## 2026-11-15 — Fix confirmed Watch freeze and incomplete discovery without changing ranking
+
+Actual Claude reviewed three rounds of focused repairs. The Jet335 watchdog
+stack proves a lock inversion: main waits for the health queue while programme
+metadata persistence under that queue waits for main-thread UserDefaults
+notification delivery. Reuse the existing write buffer, enqueue under serialized
+health mutation, drain outside that queue, and read pending writes during reentry.
+Cover nested success, reset and legacy migration with isolated persistent defaults
+and bounded worker lifetime; hosted tests previously disabled this producer.
+Highfly incomplete catalogs no longer establish a definitive missing fixture;
+actual conflicts and fully read empty results remain distinct. Mixed discovery
+errors preserve actionable account/TLS failures without letting a rejected unsafe
+descriptor remove aggregate Retry for other sources. Ranking formula bodies,
+source matching, security and recovery budgets remain unchanged.
+
+Exact final source: 2,739 Catalyst tests passed, 12 existing opt-in/physical skips,
+zero failures; same 320 input hashes in the one normal signed Release336. Jet
+channel Watch recovered from a real stall, then held 92.580 seconds and another
+94.037 seconds after same-attempt Pause/Resume, zero stalls in those intervals.
+Sources and return to Home remained responsive. Fresh account-match playback,
+audible sound and independent backup were not qualified. Baseline HF2's wrong
+programme remains separate and unresolved. Preserve the source-changed earlier
+run and baseline-red receipts rather than counting them as final qualification.
+No phone, cloud, publication or TestFlight. [Evidence](../testing/fotty336-watch-failures/README.md).
+
 ## 2026-11-15 — Polish core Watch feedback and local match motion with Claude
 
 

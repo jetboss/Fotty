@@ -215,6 +215,182 @@ final class StorageRuntimeSafetyTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode([FottyQualityRecord].self, from: repaired), [])
     }
 
+    func testProgrammeMetadataWriteAllowsMainObserverHealthReentryAndKeepsPendingSuccesses() throws {
+        let name = "Fotty.health.metadata-reentrant.\(UUID())"
+        let defaults = try XCTUnwrap(DiagnosticNotifyingDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        try LiveSourceHealthStore.withIsolatedPersistenceForTesting(defaults: defaults) {
+            let fixture = try healthProgrammeFixture()
+            let probe = DiagnosticStoreReentryProbe(mutationLock: NSLock())
+            defaults.observeWrites(withPrefix: "fotty.")
+            let observed = expectation(description: "metadata observer reentered health store")
+            let finished = expectation(description: "metadata writer completed")
+            let token = defaults.changes.addObserver(forName: DiagnosticNotifyingDefaults.changed,
+                object: defaults, queue: .main) { _ in
+                    guard probe.claimFirstObserver() else { return }
+                    defer { observed.fulfill() }
+                    XCTAssertTrue(Thread.isMainThread)
+                    let available = LiveSourceHealthStore.serializationAvailableForTesting()
+                    XCTAssertTrue(available, "Defaults delivery must release the health queue before waiting for main")
+                    guard available else { return } // Baseline fails in 250 ms instead of deadlocking XCTest.
+                    XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: fixture.session, scope: fixture.scope,
+                        configurationGeneration: fixture.generation, attemptID: nil,
+                        expiry: .boundary(fixture.receipt.expiresAt), at: fixture.receipt.comparedAt), .metadataAgrees)
+                    LiveSourceHealthStore.recordSuccess(for: fixture.session, startupLatencyMs: 1_000, contextKey: "first")
+                    XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "highfly", host: "media.example.test"))
+                    LiveSourceHealthStore.recordSuccess(for: fixture.session, startupLatencyMs: 2_000, contextKey: "second")
+                    XCTAssertEqual(LiveSourceHealthStore.score(for: fixture.session, contextKey: "first"),
+                                   LiveSourceHealthStore.score(for: fixture.session) + 18)
+                }
+            defer { defaults.changes.removeObserver(token) }
+            DispatchQueue.global().async {
+                XCTAssertTrue(LiveSourceHealthStore.recordDeliveryMetadata(fixture.receipt, for: fixture.session,
+                    scope: fixture.scope, configurationGeneration: fixture.generation, at: fixture.receipt.comparedAt))
+                finished.fulfill()
+            }
+            waitForHealthWriters([observed, finished])
+            let health = try healthSnapshot(defaults: defaults, key: "web|highfly|media.example.test")
+            XCTAssertEqual(health["successCount"] as? Int, 2)
+            XCTAssertEqual(health["startupSamples"] as? Int, 2)
+            XCTAssertEqual(health["totalStartupMs"] as? Int, 3_000)
+            XCTAssertEqual((health["recentStartupSamples"] as? [[String: Any]])?.count, 2)
+            XCTAssertEqual(defaults.dictionary(forKey: "fotty.live.lastGoodProvider.v1") as? [String: String],
+                           ["first": "highfly", "second": "highfly"])
+            let data = try XCTUnwrap(defaults.data(forKey: "fotty.programme.evidence.v1"))
+            let programme = try JSONDecoder().decode(ProgrammeEvidenceLedger.Snapshot.self, from: data)
+            XCTAssertEqual(programme.metadataReceipts, [fixture.receipt], "Persistence must retain the original evidence and times")
+            XCTAssertTrue(programme.viewerEvidence.isEmpty)
+        }
+    }
+
+    func testProgrammeMetadataObserverCanResetAndPersistOnlyFreshHealth() throws {
+        let name = "Fotty.health.reset-reentrant.\(UUID())"
+        let defaults = try XCTUnwrap(DiagnosticNotifyingDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        try LiveSourceHealthStore.withIsolatedPersistenceForTesting(defaults: defaults) {
+            let fixture = try healthProgrammeFixture()
+            LiveSourceHealthStore.recordSuccess(for: fixture.session, startupLatencyMs: 9_000, contextKey: "old")
+            let probe = DiagnosticStoreReentryProbe(mutationLock: NSLock())
+            defaults.observeWrites(withPrefix: "fotty.")
+            let finished = expectation(description: "metadata reset observer and writer completed")
+            let token = defaults.changes.addObserver(forName: DiagnosticNotifyingDefaults.changed,
+                object: defaults, queue: .main) { _ in
+                    guard probe.claimFirstObserver() else { return }
+                    let available = LiveSourceHealthStore.serializationAvailableForTesting()
+                    XCTAssertTrue(available)
+                    guard available else { return }
+                    LiveSourceHealthStore.resetForTesting()
+                    XCTAssertFalse(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "highfly", host: "media.example.test"))
+                    XCTAssertEqual(LiveSourceHealthStore.programmeCorrectness(for: fixture.session, scope: fixture.scope,
+                        configurationGeneration: fixture.generation, attemptID: nil,
+                        expiry: .boundary(fixture.receipt.expiresAt), at: fixture.receipt.comparedAt), .unknown)
+                    LiveSourceHealthStore.recordSuccess(for: fixture.session, startupLatencyMs: 1_000, contextKey: "fresh")
+                    XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "highfly", host: "media.example.test"))
+                }
+            defer { defaults.changes.removeObserver(token) }
+            DispatchQueue.global().async {
+                XCTAssertTrue(LiveSourceHealthStore.recordDeliveryMetadata(fixture.receipt, for: fixture.session,
+                    scope: fixture.scope, configurationGeneration: fixture.generation, at: fixture.receipt.comparedAt))
+                finished.fulfill()
+            }
+            waitForHealthWriters([finished])
+            let health = try healthSnapshot(defaults: defaults, key: "web|highfly|media.example.test")
+            XCTAssertEqual(health["successCount"] as? Int, 1)
+            XCTAssertEqual(health["startupSamples"] as? Int, 1)
+            XCTAssertEqual(health["totalStartupMs"] as? Int, 1_000)
+            XCTAssertEqual(defaults.dictionary(forKey: "fotty.live.lastGoodProvider.v1") as? [String: String], ["fresh": "highfly"])
+            XCTAssertNil(defaults.object(forKey: "fotty.programme.evidence.v1"))
+            XCTAssertNil(defaults.object(forKey: "fotty.live.matchEvidence.v1"))
+        }
+    }
+
+    func testHealthMigrationReleasesQueueAndDoesNotOverwriteReentrantSuccesses() throws {
+        let name = "Fotty.health.migration-reentrant.\(UUID())"
+        let defaults = try XCTUnwrap(DiagnosticNotifyingDefaults(suiteName: name))
+        defer { defaults.removePersistentDomain(forName: name) }
+        let key = "web|communitysports|media.example.test", lastSuccess = Date().timeIntervalSince1970
+        let legacy: [String: [String: Any]] = [key: [
+            "successCount": 4, "failureCount": 8, "stallCount": 3,
+            "totalStartupMs": 12_000, "startupSamples": 4, "lastSuccessAt": lastSuccess,
+            "consecutiveFailures": 8, "lastFailureAt": lastSuccess, "lastFailureReason": "legacy"
+        ]]
+        defaults.set(try JSONSerialization.data(withJSONObject: legacy), forKey: "fotty.live.sourceHealth.v1")
+        try LiveSourceHealthStore.withIsolatedPersistenceForTesting(defaults: defaults) {
+            let session = StreamSession(matchID: "fixture-health", playableURL: try XCTUnwrap(URL(string: "https://media.example.test/game.m3u8")),
+                                        streamType: .hls, providerName: "CS1")
+            let alternate = StreamSession(matchID: "fixture-health", playableURL: session.playableURL,
+                                          streamType: .hls, providerName: "Score808")
+            let probe = DiagnosticStoreReentryProbe(mutationLock: NSLock())
+            defaults.observeWrites(withPrefix: "fotty.live.")
+            let finished = expectation(description: "migration and reentrant updates completed")
+            let token = defaults.changes.addObserver(forName: DiagnosticNotifyingDefaults.changed,
+                object: defaults, queue: .main) { _ in
+                    guard probe.claimFirstObserver() else { return }
+                    let available = LiveSourceHealthStore.serializationAvailableForTesting()
+                    XCTAssertTrue(available, "Read-triggered migration must also release the queue before delivery")
+                    guard available else { return }
+                    XCTAssertEqual(LiveSourceHealthStore.score(for: session), 112, "Existing positive score is unchanged by migration")
+                    XCTAssertEqual(LiveSourceHealthStore.rankedSessions([alternate, session]).map(\.id), [session.id, alternate.id])
+                    let migrated = try? self.healthSnapshot(defaults: defaults, key: key)
+                    XCTAssertEqual(migrated?["lastSuccessAt"] as? Double, lastSuccess, "Migration must not renew observations")
+                    LiveSourceHealthStore.recordSuccess(for: session, startupLatencyMs: 2_000, contextKey: "first")
+                    _ = LiveSourceHealthStore.score(for: session)
+                    LiveSourceHealthStore.recordSuccess(for: session, startupLatencyMs: 1_000, contextKey: "second")
+                    XCTAssertEqual(LiveSourceHealthStore.score(for: session, contextKey: "first"),
+                                   LiveSourceHealthStore.score(for: session) + 18)
+                }
+            defer { defaults.changes.removeObserver(token) }
+            DispatchQueue.global().async {
+                XCTAssertTrue(LiveSourceHealthStore.hasRecentSuccess(forProviderFamily: "communitysports", host: "media.example.test"))
+                finished.fulfill()
+            }
+            waitForHealthWriters([finished])
+            let health = try healthSnapshot(defaults: defaults, key: key)
+            XCTAssertEqual(health["successCount"] as? Int, 6)
+            XCTAssertEqual(health["startupSamples"] as? Int, 6)
+            XCTAssertEqual(health["totalStartupMs"] as? Int, 15_000)
+            XCTAssertEqual(health["failureCount"] as? Int, 0)
+            XCTAssertEqual(health["stallCount"] as? Int, 0)
+            XCTAssertNil(health["consecutiveFailures"])
+            XCTAssertNil(health["lastFailureAt"])
+            XCTAssertNil(health["lastFailureReason"])
+            XCTAssertEqual(defaults.dictionary(forKey: "fotty.live.lastGoodProvider.v1") as? [String: String],
+                           ["first": "communitysports", "second": "communitysports"])
+        }
+    }
+
+    /// A timed-out global worker cannot be cancelled safely. Do not unwind the
+    /// isolated store scope beneath it: terminate this hosted test process so a
+    /// late callback can never mutate the restored store used by another test.
+    private func waitForHealthWriters(_ expectations: [XCTestExpectation],
+                                      file: StaticString = #filePath, line: UInt = #line) {
+        guard XCTWaiter.wait(for: expectations, timeout: 5) == .completed else {
+            XCTFail("Health-store test worker did not finish; scoped state cannot be restored safely", file: file, line: line)
+            fatalError("Stopping hosted tests before restoring health state under an unjoined writer")
+        }
+    }
+
+    private func healthSnapshot(defaults: UserDefaults, key: String) throws -> [String: Any] {
+        let data = try XCTUnwrap(defaults.data(forKey: "fotty.live.sourceHealth.v1"))
+        let snapshots = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: [String: Any]])
+        return try XCTUnwrap(snapshots[key])
+    }
+
+    private func healthProgrammeFixture() throws -> (session: StreamSession, scope: ProgrammeScope,
+                                                    generation: UUID, receipt: DeliveryMetadataReceipt) {
+        let now = Date(timeIntervalSince1970: 1_800_000_000), generation = UUID()
+        let scope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: "fixture-health"))
+        let bare = StreamSession(matchID: "fixture-health",
+            playableURL: try XCTUnwrap(URL(string: "https://media.example.test/game.m3u8")), streamType: .hls,
+            providerName: "HF1", createdAt: now).recordingDeliveryTransport(cookies: [], at: now)
+        let provenance = try XCTUnwrap(LiveSourceHealthStore.deliveryProvenance(for: bare, scope: scope,
+            listingID: "listing-health", lookupID: UUID(), configurationGeneration: generation, at: now))
+        let session = bare.recordingDeliveryProvenance(provenance, scope: scope, configurationGeneration: generation, at: now)
+        let receipt = DeliveryMetadataReceipt(provenance: provenance, hasName: true, hasTitle: true,
+            comparison: .agrees, comparedAt: now, expiresAt: now.addingTimeInterval(60))
+        return (session, scope, generation, receipt)
+    }
+
     func testOffMainQualityWriteAllowsMainObserverToRecordAndReadSnapshot() throws {
         let name = "Fotty.quality.reentrant.\(UUID())"
         let defaults = try XCTUnwrap(DiagnosticNotifyingDefaults(suiteName: name))

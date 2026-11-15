@@ -1,0 +1,373 @@
+{
+  "build": 335,
+  "scope": "Retained Jet diagnostics for previously observed Watch attempts; no new provider requests or playback",
+  "limitations": [
+    "17:57 Belarus playback detail no longer retained; only cancelled terminal and one failover remain",
+    "18:08 Highfly teams_differ / PenguPlay no_rows do not establish a hidden playable delivery",
+    "Source failures found in code are not proven causes of these attempts"
+  ],
+  "records": [
+    {
+      "timeUTC": "2026-11-15T17:53:35.316158+00:00",
+      "name": "watch_outcome",
+      "outcome": "info",
+      "details": {
+        "failover_count": "0",
+        "terminal_outcome": "cancelled",
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T17:54:41.708670+00:00",
+      "name": "watch_outcome",
+      "outcome": "success",
+      "details": {
+        "failover_count": "0",
+        "source_family": "reviewedtv",
+        "terminal_outcome": "playing",
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T17:58:01.560146+00:00",
+      "name": "watch_outcome",
+      "outcome": "info",
+      "details": {
+        "failover_count": "1",
+        "terminal_outcome": "cancelled",
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:01:18.539409+00:00",
+      "name": "watch_outcome",
+      "outcome": "success",
+      "details": {
+        "failover_count": "0",
+        "source_family": "highfly",
+        "terminal_outcome": "playing",
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:07:17.443113+00:00",
+      "name": "watch_outcome",
+      "outcome": "failure",
+      "details": {
+        "failure_kind": "provider_returned_empty",
+        "failover_count": "0",
+        "terminal_outcome": "no_stream_found",
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:46.731364+00:00",
+      "name": "watch_discovery_started",
+      "outcome": "info",
+      "details": {
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:47.284632+00:00",
+      "name": "direct_fallback_lookup",
+      "outcome": "info",
+      "details": {
+        "source": "penguplay"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:47.505829+00:00",
+      "name": "direct_fallback_lookup",
+      "outcome": "info",
+      "details": {
+        "source": "highfly"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:47.623933+00:00",
+      "name": "direct_fallback_lookup",
+      "outcome": "info",
+      "details": {
+        "source": "cncsports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:47.640620+00:00",
+      "name": "direct_fallback_lookup",
+      "outcome": "info",
+      "details": {
+        "source": "plaviosports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:47.788274+00:00",
+      "name": "stream_admission",
+      "outcome": "info",
+      "details": {
+        "admission_observation": "unread",
+        "source_family": "score808",
+        "admission_completion": "complete"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:47.904534+00:00",
+      "name": "stream_admission",
+      "outcome": "failure",
+      "details": {
+        "admission_observation": "unread",
+        "source_family": "communitysports",
+        "admission_completion": "failed"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:48.052542+00:00",
+      "name": "direct_fallback_lookup",
+      "outcome": "info",
+      "details": {
+        "source": "communitysports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:48.588442+00:00",
+      "name": "stream_admission",
+      "outcome": "failure",
+      "details": {
+        "admission_observation": "unread",
+        "source_family": "cncsports",
+        "admission_completion": "failed"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:48.728676+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "0",
+        "stream_selection_stage": "discovery_cache",
+        "offered_count": "0",
+        "admission_observation": "known",
+        "source_family": "cncsports",
+        "admission_completion": "complete"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:48.824287+00:00",
+      "name": "penguplay_lookup",
+      "outcome": "info",
+      "details": {
+        "source_family": "penguplay",
+        "reason_code": "no_rows",
+        "result": "stopped_at_programme_channel",
+        "candidate_count": "0"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:48.996240+00:00",
+      "name": "stream_admission",
+      "outcome": "failure",
+      "details": {
+        "admission_completion": "failed",
+        "admission_observation": "unread",
+        "source_family": "penguplay"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:49.110291+00:00",
+      "name": "provider_lookup",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "0",
+        "evidence_observed_entries": "0",
+        "evidence_unread_responses": "0",
+        "evidence_unique_contracts": "0",
+        "evidence_read_responses": "0",
+        "evidence_reconciled": "false",
+        "source_family": "penguplay",
+        "evidence_empty_responses": "0",
+        "admission_completion": "failed"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:49.321866+00:00",
+      "name": "stream_admission",
+      "outcome": "failure",
+      "details": {
+        "admission_observation": "unread",
+        "source_family": "communitysports",
+        "admission_completion": "failed"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:49.540719+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "0",
+        "stream_selection_stage": "discovery_cache",
+        "offered_count": "0",
+        "admission_observation": "known",
+        "source_family": "penguplay",
+        "admission_completion": "complete"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:49.570395+00:00",
+      "name": "highfly_lookup",
+      "outcome": "info",
+      "details": {
+        "live_sport_rows": "5",
+        "source_family": "highfly",
+        "reason_code": "teams_differ",
+        "result": "stopped_at_fixture_match",
+        "live_row_count": "34"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:49.798713+00:00",
+      "name": "stream_admission",
+      "outcome": "failure",
+      "details": {
+        "admission_observation": "unread",
+        "source_family": "highfly",
+        "admission_completion": "failed"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:49.798807+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "0",
+        "stream_selection_stage": "discovery_cache",
+        "offered_count": "0",
+        "admission_observation": "known",
+        "source_family": "communitysports",
+        "admission_completion": "complete"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:50.065355+00:00",
+      "name": "provider_lookup",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "0",
+        "evidence_unread_responses": "0",
+        "evidence_unique_contracts": "0",
+        "evidence_read_responses": "0",
+        "evidence_reconciled": "false",
+        "source_family": "highfly",
+        "admission_completion": "failed",
+        "evidence_observed_entries": "0",
+        "evidence_empty_responses": "0"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:50.373012+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "0",
+        "stream_selection_stage": "discovery_cache",
+        "offered_count": "0",
+        "admission_observation": "known",
+        "source_family": "highfly",
+        "admission_completion": "complete"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:51.284093+00:00",
+      "name": "stream_admission",
+      "outcome": "failure",
+      "details": {
+        "admission_observation": "unread",
+        "source_family": "plaviosports",
+        "admission_completion": "failed"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:08:51.431493+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "0",
+        "stream_selection_stage": "discovery_cache",
+        "offered_count": "0",
+        "admission_observation": "known",
+        "source_family": "plaviosports",
+        "admission_completion": "complete"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:09:00.411645+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "0",
+        "stream_selection_stage": "discovery_cache",
+        "offered_count": "0",
+        "admission_observation": "known",
+        "source_family": "reviewedtv",
+        "admission_completion": "complete"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:09:00.423001+00:00",
+      "name": "watch_discovery_timing",
+      "outcome": "info",
+      "details": {
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:09:00.667103+00:00",
+      "name": "source_discovery_result",
+      "outcome": "failure",
+      "details": {
+        "failure_kind": "provider_returned_empty",
+        "source_family": "communitysports",
+        "result": "no_exact_fixture_match"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:09:00.776776+00:00",
+      "name": "source_discovery_result",
+      "outcome": "failure",
+      "details": {
+        "failure_kind": "provider_returned_empty",
+        "source_family": "plaviosports",
+        "result": "no_exact_fixture_match"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:09:00.969626+00:00",
+      "name": "source_discovery_result",
+      "outcome": "failure",
+      "details": {
+        "source_family": "cncsports",
+        "failure_kind": "provider_returned_empty",
+        "result": "no_exact_fixture_match"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:09:01.080174+00:00",
+      "name": "watch_outcome",
+      "outcome": "failure",
+      "details": {
+        "failure_kind": "provider_returned_empty",
+        "failover_count": "0",
+        "terminal_outcome": "no_stream_found",
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:09:01.091000+00:00",
+      "name": "resolution_failure",
+      "outcome": "failure",
+      "details": {
+        "failure_kind": "provider_returned_empty",
+        "route": "optional_single"
+      }
+    }
+  ]
+}

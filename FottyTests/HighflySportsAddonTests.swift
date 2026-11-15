@@ -695,6 +695,68 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertEqual(receipts.values.last?.unreadResponses, 0)
     }
 
+    func testFailedCatalogReadsDoNotEstablishAMissingFixture() async throws {
+        for mode in [HighflyTestTransport.Mode.allCatalogReadsFail, .oneCatalogReadFailsWithoutMatch] {
+            let receipts = HighflyReceiptBox(), transport = HighflyTestTransport(mode: mode)
+            do {
+                _ = try await client(transport, receiptSink: receipts.append).resolve(for: request(), now: kickoff)
+                XCTFail("An incomplete catalog lookup cannot establish that this fixture is absent")
+            } catch {
+                let failure = try XCTUnwrap(error as? CommunitySportsAddonError)
+                XCTAssertEqual(failure, .invalidResponse)
+                XCTAssertEqual(LiveStreamResolver.communitySportsFailure(from: failure).category, .manifestInvalid,
+                               "An unconfirmed lookup must not withdraw prior availability as a definitive miss")
+            }
+            let paths = await transport.catalogs()
+            XCTAssertEqual(Set(paths), Set(["search=Arsenal.json", "search=Everton.json", "sports_live.json", "sports_football.json"]))
+            let counts = await transport.counts()
+            XCTAssertEqual(counts.meta, 0)
+            XCTAssertEqual(counts.stream, 0)
+            let receipt = try XCTUnwrap(receipts.values.last)
+            XCTAssertEqual(receipt.completion, "failed")
+            XCTAssertEqual(receipt.readResponses, 0)
+            XCTAssertEqual(receipt.unreadResponses, 0, "An unread catalog is not an unread stream response")
+            XCTAssertEqual(receipt.knownEmptyResponses, 0)
+            XCTAssertEqual(receipt.admitted, 0)
+            XCTAssertFalse(receipt.isReconciled,
+                           "No stream response was observed, so admission accounting remains unknown")
+        }
+    }
+
+    func testCompletedEmptyCatalogsRemainADefinitiveFixtureMiss() async throws {
+        let transport = HighflyTestTransport(mode: .catalogsEmpty)
+        do {
+            _ = try await client(transport).resolve(for: request(), now: kickoff)
+            XCTFail("A completed empty catalog cannot produce playback")
+        } catch {
+            let failure = try XCTUnwrap(error as? CommunitySportsAddonError)
+            XCTAssertEqual(failure, .matchNotFound)
+            let result = LiveStreamResolver.communitySportsFailure(from: failure)
+            XCTAssertEqual(result.category, .providerReturnedEmpty)
+            XCTAssertEqual(result.redactedMetadata["manifest_result"], "no_exact_fixture_match")
+        }
+        let paths = await transport.catalogs()
+        XCTAssertEqual(Set(paths), Set(["search=Arsenal.json", "search=Everton.json", "sports_live.json", "sports_football.json"]))
+        let counts = await transport.counts()
+        XCTAssertEqual(counts.meta, 0)
+        XCTAssertEqual(counts.stream, 0)
+    }
+
+    func testIncompleteCatalogDoesNotSoftenAnObservedIdentityConflict() async throws {
+        let transport = HighflyTestTransport(mode: .liveConflictThenPageFails)
+        do {
+            _ = try await client(transport).resolve(for: request(), now: kickoff)
+            XCTFail("An unread later page cannot restore a conflicting identity")
+        } catch {
+            let failure = try XCTUnwrap(error as? CommunitySportsAddonError)
+            XCTAssertEqual(failure, .matchNotFound, "Preserve the existing definitive rejection of the conflicting listing")
+            XCTAssertEqual(LiveStreamResolver.communitySportsFailure(from: failure).category, .providerReturnedEmpty)
+        }
+        let counts = await transport.counts()
+        XCTAssertEqual(counts.meta, 0)
+        XCTAssertEqual(counts.stream, 0)
+    }
+
     private func client(_ transport: HighflyTestTransport,
                         generation: HighflySportsAddonClient.Generation? = nil,
                         receiptSink: HighflySportsAddonClient.ReceiptSink? = nil) -> HighflySportsAddonClient {
@@ -724,6 +786,7 @@ private actor HighflyTestTransport {
         case searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog
         case listingFailsAfterLive, liveFailsListingMatches, secondTeamSearchTimesOut, teamSearchesTimeOut, cancelTeamSearch
         case secondSearchFails, looseRows, metaFails, looseManifest, twoListings
+        case allCatalogReadsFail, oneCatalogReadFailsWithoutMatch, catalogsEmpty
         case liveSecondPageFails, browseSecondPageFails, liveConflictThenPageFails, liveSecondPageCancelled
         case metadataLabels, contradictoryDuplicate, rejectedThenAdmittedContract, partialStreams, emptyStreams, streamReadFails, streamScanLimit
     }
@@ -780,6 +843,13 @@ private actor HighflyTestTransport {
             later["description"] = "Arsenal vs Everton\n14 Nov 2026 · 18:00 UTC"; later["releaseInfo"] = "14 Nov 2026 · 18:00 UTC"
             let searching = url.absoluteString.contains("search=")
             switch mode {
+            case .allCatalogReadsFail:
+                throw URLError(.timedOut)
+            case .oneCatalogReadFailsWithoutMatch:
+                if url.lastPathComponent == "search=Everton.json" { throw URLError(.timedOut) }
+                body = ["metas": []]
+            case .catalogsEmpty:
+                body = ["metas": []]
             case .liveSecondPageFails, .browseSecondPageFails, .liveConflictThenPageFails, .liveSecondPageCancelled:
                 let target = mode == .browseSecondPageFails ? "sports_football" : "sports_live"
                 if url.path.contains("/" + target + "/skip=") {

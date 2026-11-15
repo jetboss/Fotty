@@ -1,0 +1,504 @@
+{
+  "build": 335,
+  "observation": "Belarus Watch automatically reached HF2, but actual picture is Real Madrid\u2013Crvena Zvezda basketball; not a correct-programme pass",
+  "records": [
+    {
+      "timeUTC": "2026-11-15T18:36:32.151414+00:00",
+      "name": "watch_requested",
+      "outcome": "info",
+      "details": {
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:32.172306+00:00",
+      "name": "watch_discovery_started",
+      "outcome": "info",
+      "details": {
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:32.445765+00:00",
+      "name": "watch_discovery_plan",
+      "outcome": "info",
+      "details": {
+        "candidate_count": "7"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:32.701326+00:00",
+      "name": "direct_fallback_lookup",
+      "outcome": "info",
+      "details": {
+        "source": "highfly"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:32.839987+00:00",
+      "name": "direct_fallback_lookup",
+      "outcome": "info",
+      "details": {
+        "source": "penguplay"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:32.947069+00:00",
+      "name": "direct_fallback_lookup",
+      "outcome": "info",
+      "details": {
+        "source": "plaviosports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:33.150650+00:00",
+      "name": "direct_fallback_lookup",
+      "outcome": "info",
+      "details": {
+        "source": "cncsports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:33.163253+00:00",
+      "name": "provider_lookup",
+      "outcome": "info",
+      "details": {
+        "evidence_empty_responses": "0",
+        "admission_completion": "complete",
+        "source_family": "score808",
+        "evidence_observed_entries": "0",
+        "evidence_read_responses": "0",
+        "evidence_unread_responses": "0"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:33.171720+00:00",
+      "name": "stream_admission",
+      "outcome": "info",
+      "details": {
+        "source_family": "score808",
+        "admission_completion": "complete"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:33.903249+00:00",
+      "name": "stream_admission",
+      "outcome": "failure",
+      "details": {
+        "source_family": "plaviosports",
+        "admission_completion": "failed"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:34.068115+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "0",
+        "source_family": "plaviosports",
+        "admission_completion": "complete",
+        "offered_count": "0"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:34.500745+00:00",
+      "name": "penguplay_lookup",
+      "outcome": "info",
+      "details": {
+        "candidate_count": "0",
+        "reason_code": "no_rows",
+        "source_family": "penguplay",
+        "result": "stopped_at_programme_channel"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:34.516881+00:00",
+      "name": "stream_admission",
+      "outcome": "failure",
+      "details": {
+        "source_family": "penguplay",
+        "admission_completion": "failed"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:34.638632+00:00",
+      "name": "provider_lookup",
+      "outcome": "info",
+      "details": {
+        "source_family": "penguplay",
+        "admitted_count": "0",
+        "evidence_unread_responses": "0",
+        "evidence_observed_entries": "0",
+        "evidence_read_responses": "0",
+        "evidence_empty_responses": "0",
+        "admission_completion": "failed"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:35.184851+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "source_family": "penguplay",
+        "admitted_count": "0",
+        "admission_completion": "complete",
+        "offered_count": "0"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.144626+00:00",
+      "name": "highfly_lookup",
+      "outcome": "success",
+      "details": {
+        "candidate_count": "2",
+        "result": "admitted",
+        "source_family": "highfly"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.265251+00:00",
+      "name": "stream_admission",
+      "outcome": "info",
+      "details": {
+        "source_family": "highfly",
+        "admitted_count": "7",
+        "admission_completion": "complete",
+        "offered_count": "7"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.444202+00:00",
+      "name": "provider_delivery",
+      "outcome": "info",
+      "details": {
+        "source_family": "highfly"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.444202+00:00",
+      "name": "provider_delivery",
+      "outcome": "info",
+      "details": {
+        "source_family": "highfly"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.444202+00:00",
+      "name": "provider_delivery",
+      "outcome": "info",
+      "details": {
+        "source_family": "highfly"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.444202+00:00",
+      "name": "provider_delivery",
+      "outcome": "info",
+      "details": {
+        "source_family": "highfly"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.444202+00:00",
+      "name": "provider_delivery",
+      "outcome": "info",
+      "details": {
+        "source_family": "highfly"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.444202+00:00",
+      "name": "provider_delivery",
+      "outcome": "info",
+      "details": {
+        "source_family": "highfly"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.444202+00:00",
+      "name": "provider_delivery",
+      "outcome": "info",
+      "details": {
+        "source_family": "highfly"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.444202+00:00",
+      "name": "provider_lookup",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "7",
+        "evidence_unread_responses": "0",
+        "source_family": "highfly",
+        "evidence_observed_entries": "7",
+        "evidence_read_responses": "1",
+        "evidence_empty_responses": "0",
+        "admission_completion": "complete"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.687035+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "7",
+        "source_family": "highfly",
+        "admission_completion": "complete",
+        "offered_count": "7"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.786030+00:00",
+      "name": "stream_admission",
+      "outcome": "info",
+      "details": {
+        "source_family": "cncsports",
+        "admitted_count": "4",
+        "admission_completion": "complete",
+        "offered_count": "87"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.900869+00:00",
+      "name": "match_selection_comparison",
+      "outcome": "info",
+      "details": {}
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:36.909768+00:00",
+      "name": "single_audio_transfer",
+      "outcome": "success",
+      "details": {
+        "route": "single",
+        "source_family": "highfly",
+        "source": "HF2",
+        "result": "enabled"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:37.141339+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "route": "single",
+        "source_family": "highfly",
+        "source": "HF2"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:37.567060+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "source_family": "cncsports",
+        "admitted_count": "4",
+        "admission_completion": "complete",
+        "offered_count": "4"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:38.761986+00:00",
+      "name": "playback_causal_evidence",
+      "outcome": "info",
+      "details": {
+        "route": "single",
+        "source_family": "highfly",
+        "candidate_count": "0",
+        "source": "HF2"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:38.785824+00:00",
+      "name": "audio_activation_evidence",
+      "outcome": "info",
+      "details": {}
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:39.130152+00:00",
+      "name": "audio_activation_evidence",
+      "outcome": "info",
+      "details": {}
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:39.276809+00:00",
+      "name": "playback_causal_evidence",
+      "outcome": "info",
+      "details": {
+        "route": "single",
+        "source_family": "highfly",
+        "candidate_count": "0",
+        "source": "HF2"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:39.288421+00:00",
+      "name": "audio_preparation_duration",
+      "outcome": "info",
+      "details": {
+        "route": "single",
+        "source_family": "highfly",
+        "reason_code": "completed",
+        "source": "HF2"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:39.789426+00:00",
+      "name": "stream_admission",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "7",
+        "source_family": "communitysports",
+        "admission_completion": "complete",
+        "offered_count": "11"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:39.831968+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "admitted_count": "7",
+        "admission_completion": "complete",
+        "offered_count": "7"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:40.273958+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "admitted_count": "7",
+        "admission_completion": "complete",
+        "offered_count": "7"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:40.657902+00:00",
+      "name": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "route": "single",
+        "source_family": "highfly",
+        "source": "HF2",
+        "stage": "media_ready"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:40.670010+00:00",
+      "name": "watch_outcome",
+      "outcome": "success",
+      "details": {
+        "terminal_outcome": "playing",
+        "source_family": "highfly",
+        "route": "single",
+        "failover_count": "0"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:40.682452+00:00",
+      "name": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "route": "single",
+        "source_family": "highfly",
+        "source": "HF2"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:45.900382+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "admitted_count": "0",
+        "source_family": "reviewedtv",
+        "admission_completion": "complete",
+        "offered_count": "0"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:45.915169+00:00",
+      "name": "watch_discovery_timing",
+      "outcome": "info",
+      "details": {
+        "route": "single"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:46.499871+00:00",
+      "name": "source_discovery_result",
+      "outcome": "success",
+      "details": {
+        "source_family": "communitysports",
+        "result": "exact_fixture_match",
+        "stage": "preparing"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:46.513212+00:00",
+      "name": "source_discovery_result",
+      "outcome": "failure",
+      "details": {
+        "source_family": "plaviosports",
+        "stage": "preparing",
+        "failure_kind": "provider_returned_empty",
+        "result": "no_exact_fixture_match"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:46.716837+00:00",
+      "name": "source_discovery_result",
+      "outcome": "success",
+      "details": {
+        "result": "exact_fixture_match",
+        "source_family": "cncsports",
+        "stage": "preparing"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:47.150967+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "source_family": "cncsports",
+        "admitted_count": "4",
+        "admission_completion": "complete",
+        "offered_count": "4"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:47.564971+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "source_family": "highfly",
+        "admitted_count": "7",
+        "admission_completion": "complete",
+        "offered_count": "7"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:48.009087+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "source_family": "score808",
+        "admitted_count": "1",
+        "admission_completion": "complete",
+        "offered_count": "1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-15T18:36:48.020294+00:00",
+      "name": "stream_selection",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "admitted_count": "6",
+        "admission_completion": "complete",
+        "offered_count": "6"
+      }
+    }
+  ]
+}

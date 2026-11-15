@@ -1,0 +1,24 @@
+{
+  "action": "test",
+  "label": "watch336-focused",
+  "exitCode": 65,
+  "phaseError": null,
+  "passed": false,
+  "sourceUnchanged": true,
+  "freeDiskAfterBytes": 25998172160,
+  "counts": {
+    "total": 189,
+    "skipped": 0,
+    "failed": 1,
+    "passed": 188
+  },
+  "assertionFailures": 1,
+  "skippedTests": [],
+  "failedTests": [
+    "-[FottyTests.HighflySportsAddonTests testFailedCatalogReadsDoNotEstablishAMissingFixture]"
+  ],
+  "sourceSnapshotDigest": "6f4ad793bc29548ebf7f668aa3f9d97ec273c250080d55e60f99c88cd21eac5e",
+  "sourceFileCount": 320,
+  "runtimeLogErrorLineCount": 8,
+  "interpretation": "One new test expectation incorrectly called unread stream responses reconciled; corrected to false. No production failure in this run."
+}

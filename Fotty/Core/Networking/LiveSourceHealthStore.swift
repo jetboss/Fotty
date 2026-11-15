@@ -340,7 +340,7 @@ enum LiveSourceHealthStore {
               let provenance = session.deliveryProvenance,
               provenanceMatches(provenance, session: session, scope: scope,
                                 configurationGeneration: configurationGeneration) else { return false }
-        return queue.sync {
+        return serialized {
             let recorded = programmeEvidence.record(ProgrammeEvidence(provenance: provenance, attemptID: attemptID,
                 verdict: verdict, observedAt: now, expiry: expiry), at: now)
             if recorded { persistProgrammeEvidence(at: now) }
@@ -355,7 +355,7 @@ enum LiveSourceHealthStore {
         guard AppRuntime.privateOutageFixture == nil, session.deliveryProvenance == receipt.provenance,
               provenanceMatches(receipt.provenance, session: session, scope: scope,
                                 configurationGeneration: configurationGeneration) else { return false }
-        return queue.sync {
+        return serialized {
             let recorded = programmeEvidence.record(receipt, at: now)
             if recorded { persistProgrammeEvidence(at: now) }
             return recorded
@@ -368,7 +368,7 @@ enum LiveSourceHealthStore {
         guard let provenance = session.deliveryProvenance,
               provenanceMatches(provenance, session: session, scope: scope,
                                 configurationGeneration: configurationGeneration) else { return .unknown }
-        return queue.sync {
+        return serialized {
             programmeEvidence.prune(at: now)
             let correctness = programmeEvidence.correctness(for: provenance, attemptID: attemptID, expiry: expiry, at: now)
             if correctness == .viewerConfirmed || correctness == .viewerRejected {
@@ -379,12 +379,12 @@ enum LiveSourceHealthStore {
     }
 
     static func endProgrammeEvidenceAttempt(_ attemptID: UUID) {
-        queue.sync { programmeEvidence.endAttempt(attemptID) }
+        serialized { programmeEvidence.endAttempt(attemptID) }
     }
 
     private static func loadedProgrammeEvidence(at now: Date = Date()) -> ProgrammeEvidenceLedger {
-        guard evidenceKey.persistent, AppRuntime.privateOutageFixture == nil,
-              let data = UserDefaults.standard.data(forKey: programmeEvidenceDefaultsName) else {
+        guard evidencePersistenceEnabled, AppRuntime.privateOutageFixture == nil,
+              let data = writes.object(forKey: programmeEvidenceDefaultsName) as? Data else {
             return ProgrammeEvidenceLedger()
         }
         return decodeProgrammeEvidence(data, at: now)
@@ -407,14 +407,14 @@ enum LiveSourceHealthStore {
     }
 
     private static func persistProgrammeEvidence(at now: Date) {
-        guard evidenceKey.persistent, AppRuntime.privateOutageFixture == nil,
+        guard evidencePersistenceEnabled, AppRuntime.privateOutageFixture == nil,
               let data = encodedProgrammeEvidence(at: now) else { return }
-        UserDefaults.standard.set(data, forKey: programmeEvidenceDefaultsName)
+        writes.set(data, forKey: programmeEvidenceDefaultsName)
     }
 
     static func reloadProgrammeEvidenceForTesting(at now: Date = Date()) {
         guard AppRuntime.isAutomatedTesting else { return }
-        queue.sync {
+        serialized {
             guard let data = encodedProgrammeEvidence(at: now) else { return }
             programmeEvidence = decodeProgrammeEvidence(data, at: now)
         }
@@ -422,7 +422,7 @@ enum LiveSourceHealthStore {
 
     static func encodedProgrammeEvidenceForTesting(at now: Date = Date()) -> Data? {
         guard AppRuntime.isAutomatedTesting else { return nil }
-        return queue.sync { encodedProgrammeEvidence(at: now) }
+        return serialized { encodedProgrammeEvidence(at: now) }
     }
     /// All bound adapters preserve the exact local row ID only after an admitted
     /// same-choice renewal. FS/SV additionally publish an unambiguous channel
@@ -477,8 +477,8 @@ enum LiveSourceHealthStore {
 
     private static func loadedMatchEvidence(at now: Date = Date())
         -> (observations: [MatchDelivery: [MatchObservation]], wrongProgrammes: [Data: Date]) {
-        guard evidenceKey.persistent, AppRuntime.privateOutageFixture == nil,
-              let data = UserDefaults.standard.data(forKey: matchEvidenceDefaultsName) else { return ([:], [:]) }
+        guard evidencePersistenceEnabled, AppRuntime.privateOutageFixture == nil,
+              let data = writes.object(forKey: matchEvidenceDefaultsName) as? Data else { return ([:], [:]) }
         return decodeMatchEvidence(data, at: now)
     }
 
@@ -503,9 +503,9 @@ enum LiveSourceHealthStore {
 
     /// Called on the store queue after a change.
     private static func persistMatchEvidence() {
-        guard evidenceKey.persistent, AppRuntime.privateOutageFixture == nil,
+        guard evidencePersistenceEnabled, AppRuntime.privateOutageFixture == nil,
               let data = encodedMatchEvidence() else { return }
-        UserDefaults.standard.set(data, forKey: matchEvidenceDefaultsName)
+        writes.set(data, forKey: matchEvidenceDefaultsName)
     }
 
     private static func encodedMatchEvidence() -> Data? {
@@ -524,7 +524,7 @@ enum LiveSourceHealthStore {
     /// through the persisted codec and lifetime filter, then replaces memory.
     static func reloadMatchEvidenceForTesting(at now: Date = Date()) {
         guard AppRuntime.isAutomatedTesting else { return }
-        queue.sync {
+        serialized {
             guard let data = encodedMatchEvidence() else { return }
             let restored = decodeMatchEvidence(data, at: now)
             matchObservations = restored.observations
@@ -538,7 +538,7 @@ enum LiveSourceHealthStore {
                                    watchID: UUID, at now: Date = Date(), session: StreamSession? = nil) {
         guard AppRuntime.privateOutageFixture == nil else { return }
         if let session, session.id != source.id || !scope.admits(session.matchID) { return }
-        queue.sync {
+        serialized {
             let key = MatchDelivery(source, scope: scope)
             if outcome == .wrongProgramme, let session {
                 for logical in programmeKeys(for: session, scope: scope) { wrongProgrammes[logical] = now }
@@ -580,7 +580,7 @@ enum LiveSourceHealthStore {
     static func recordLegacyUnscopedMatchOutcomeForTesting(_ outcome: MatchOutcome, for session: StreamSession,
                                                            at now: Date = Date()) {
         guard AppRuntime.isAutomatedTesting else { return }
-        queue.sync {
+        serialized {
             let key = MatchDelivery(fixture: digest(["fixture", session.matchID]), delivery: MatchDelivery.delivery(session.legacySource))
             matchObservations[key, default: []].append(.init(watchID: UUID(), outcome: outcome, at: now,
                 sharedHealthKey: singleStreamEvidenceKey(for: session.legacySource),
@@ -597,15 +597,15 @@ enum LiveSourceHealthStore {
         }
     }
     static func matchEvidence(for source: StreamSource, scope: MatchEvidenceScope, at now: Date = Date()) -> MatchEvidence {
-        queue.sync { evidence(MatchDelivery(source, scope: scope), at: now) }
+        serialized { evidence(MatchDelivery(source, scope: scope), at: now) }
     }
     static func matchEvidence(for session: StreamSession, scope: MatchEvidenceScope, at now: Date = Date()) -> MatchEvidence {
         guard scope.admits(session.matchID) else { return .unknown }
-        return queue.sync { evidence(MatchDelivery(session.legacySource, scope: scope),
+        return serialized { evidence(MatchDelivery(session.legacySource, scope: scope),
             at: now, programme: programmeKeys(for: session, scope: scope)) }
     }
     static func sustainedMatchProviders(in scope: MatchEvidenceScope, at now: Date = Date()) -> Set<String> {
-        queue.sync {
+        serialized {
             Set(matchObservations.compactMap { key, samples in
                 guard key.fixture == scope.digest, evidence(key, at: now) == .sustained else { return nil }
                 return samples.last?.providerCode
@@ -622,7 +622,7 @@ enum LiveSourceHealthStore {
         return keys
     }
     static func positiveRecoveryHistory(for source: StreamSource, scope: MatchEvidenceScope, at now: Date = Date()) -> Bool {
-        queue.sync {
+        serialized {
             let status = evidence(MatchDelivery(source, scope: scope), at: now)
             if status != .unknown { return status.hasPlayed }
             let key = singleStreamEvidenceKey(for: source)
@@ -653,6 +653,20 @@ enum LiveSourceHealthStore {
     private static let storageKey = "fotty.live.sourceHealth.v1"
     private static let contextStorageKey = "fotty.live.lastGoodProvider.v1"
     private static let queue = DispatchQueue(label: "com.fotty.liveSourceHealthStore")
+    private static var writes = FottyDefaultsWriteBuffer(defaults: .standard)
+    private static var isolatedTestPersistence = false
+    private static var evidencePersistenceEnabled: Bool {
+        evidenceKey.persistent || (AppRuntime.isAutomatedTesting && isolatedTestPersistence)
+    }
+
+    /// Defaults notifications may synchronously wait for main, whose player can
+    /// be waiting for this queue. Enqueue while serialized; deliver only after
+    /// releasing the queue. Pending reads preserve newer reentrant mutations.
+    private static func serialized<T>(_ operation: () -> T) -> T {
+        let (result, pendingWrites) = queue.sync { (operation(), writes) }
+        pendingWrites.drain()
+        return result
+    }
     private static var verifyingSourceKeys = Set<String>()
     /// One queue-owned payload, not a process-lifetime freshness flag. Reading
     /// current bytes first also observes direct defaults replacement/removal.
@@ -664,15 +678,15 @@ enum LiveSourceHealthStore {
     private static var snapshotDecodeCount = 0
 
     static func isVerifying(_ source: StreamSource) -> Bool {
-        queue.sync { verifyingSourceKeys.contains(sourceKey(for: source)) }
+        serialized { verifyingSourceKeys.contains(sourceKey(for: source)) }
     }
 
     static func startVerifying(_ source: StreamSource) {
-        queue.sync { _ = verifyingSourceKeys.insert(sourceKey(for: source)) }
+        serialized { _ = verifyingSourceKeys.insert(sourceKey(for: source)) }
     }
 
     static func stopVerifying(_ source: StreamSource) {
-        queue.sync { _ = verifyingSourceKeys.remove(sourceKey(for: source)) }
+        serialized { _ = verifyingSourceKeys.remove(sourceKey(for: source)) }
     }
 
     /// Sport (+ coarse league hint) bucket used to remember “last good provider”.
@@ -708,7 +722,7 @@ enum LiveSourceHealthStore {
 
     /// Best-first ordering for failover and initial Watch Now pick.
     static func ranked(_ sources: [StreamSource], contextKey: String? = nil) -> [StreamSource] {
-        return queue.sync {
+        return serialized {
             let snapshots = loadSnapshots()
             guard sources.count > 1 else { return sources }
             let lastGood = contextKey.flatMap { loadLastGood()[$0] }
@@ -761,14 +775,14 @@ enum LiveSourceHealthStore {
     }
 
     static func isTemporarilyUnavailable(_ source: StreamSource, at date: Date = Date()) -> Bool {
-        queue.sync {
+        serialized {
             _ = loadSnapshots()
             return false
         }
     }
 
     static func cooldownRemaining(for source: StreamSource, at date: Date = Date()) -> TimeInterval? {
-        queue.sync {
+        serialized {
             _ = loadSnapshots()
             return nil
         }
@@ -783,7 +797,7 @@ enum LiveSourceHealthStore {
         let family = rawFamily.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let normalizedFamily = family == "hotel" ? "score808" : family
         let key = "web|\(normalizedFamily)|\(host.lowercased())"
-        return queue.sync {
+        return serialized {
             guard let lastSuccessAt = loadSnapshots()[key]?.lastSuccessAt else { return false }
             return date.timeIntervalSince1970 - lastSuccessAt <= interval
         }
@@ -807,7 +821,7 @@ enum LiveSourceHealthStore {
         _ sources: [StreamSource], contextKey: String? = nil, at date: Date = Date()
     ) -> [StreamSource] {
         guard sources.count > 1 else { return sources }
-        return queue.sync {
+        return serialized {
             singleStreamOrder(for: sources, contextKey: contextKey, at: date).map { sources[$0] }
         }
     }
@@ -820,7 +834,7 @@ enum LiveSourceHealthStore {
         applyMatchEvidence: Bool = true
     ) -> [StreamSession] {
         guard sessions.count > 1 else { return sessions }
-        return queue.sync {
+        return serialized {
             // A verified alternate delivery of the exact UK Sky station has
             // the station's language too. A CS label alone remains unknown.
             let languages = sessions.map { session -> CommentaryPreference? in
@@ -860,7 +874,7 @@ enum LiveSourceHealthStore {
     /// Positive decoded-start history only. Absence is unknown, never a
     /// provider ban or a claim that another fixture's delivery has failed.
     static func hasFreshSingleStreamSuccess(for source: StreamSource, at date: Date = Date()) -> Bool {
-        queue.sync { singleStreamEvidence(snapshot: loadSnapshots()[singleStreamEvidenceKey(for: source)], at: date).tier < 2 }
+        serialized { singleStreamEvidence(snapshot: loadSnapshots()[singleStreamEvidenceKey(for: source)], at: date).tier < 2 }
     }
 
     private struct SingleStreamEvidence {
@@ -992,7 +1006,7 @@ enum LiveSourceHealthStore {
 
     /// Returns a rounded health score (0-100+) for a given source.
     static func score(for source: StreamSource, contextKey: String? = nil) -> Int {
-        queue.sync {
+        serialized {
             let snapshots = loadSnapshots()
             let snapshot = snapshots[sourceKey(for: source)] ?? Snapshot()
             let lastGood = contextKey.flatMap { loadLastGood()[$0] }
@@ -1019,7 +1033,7 @@ enum LiveSourceHealthStore {
         startupLatencyMs: Int?,
         contextKey: String? = nil
     ) {
-        queue.sync {
+        serialized {
             var snapshots = loadSnapshots()
             // Preserve legacy ranking for other playback contexts, while
             // single-stream TV history belongs to a station, not its shared CDN.
@@ -1076,7 +1090,7 @@ enum LiveSourceHealthStore {
     /// reason string nor a stall supplies fixture-independent outage evidence,
     /// so these must never create a persisted family/host penalty or circuit.
     static func recordFailure(for source: StreamSource, wasStall: Bool, reason: String? = nil) {
-        queue.sync {
+        serialized {
             _ = loadSnapshots()
         }
     }
@@ -1176,7 +1190,7 @@ enum LiveSourceHealthStore {
     }
 
     private static func loadSnapshots() -> [String: Snapshot] {
-        let persistedData = UserDefaults.standard.data(forKey: storageKey)
+        let persistedData = writes.object(forKey: storageKey) as? Data
         if let cached = snapshotCache, cached.persistedData == persistedData {
             return cached.snapshots
         }
@@ -1215,37 +1229,76 @@ enum LiveSourceHealthStore {
     private static func saveSnapshots(_ snapshots: [String: Snapshot]) {
         guard let data = try? JSONEncoder().encode(snapshots) else { return }
         guard AppRuntime.privateOutageFixture == nil else { return }
-        UserDefaults.standard.set(data, forKey: storageKey)
+        writes.set(data, forKey: storageKey)
         snapshotCache = .init(persistedData: data, snapshots: snapshots)
     }
 
     private static func loadLastGood() -> [String: String] {
-        (UserDefaults.standard.dictionary(forKey: contextStorageKey) as? [String: String]) ?? [:]
+        (writes.object(forKey: contextStorageKey) as? [String: String]) ?? [:]
     }
 
     private static func saveLastGood(_ map: [String: String]) {
         guard AppRuntime.privateOutageFixture == nil else { return }
-        UserDefaults.standard.set(map, forKey: contextStorageKey)
+        writes.set(map, forKey: contextStorageKey)
     }
 
     /// Counts actual JSON decoder invocations, not elapsed-time or UI proof.
     /// Test inspection is serialized with reads and unavailable in normal use.
     static func snapshotDecodeCountForTesting() -> Int? {
         guard AppRuntime.isAutomatedTesting else { return nil }
-        return queue.sync { snapshotDecodeCount }
+        return serialized { snapshotDecodeCount }
+    }
+
+    /// Scoped to a hosted test's isolated suite. The synchronous body must join
+    /// any work it starts. Restore all prior memory and storage routing even if
+    /// it throws; never enable persistence with the hosted test's random HMAC
+    /// key against the owner's defaults or touch the Keychain.
+    static func withIsolatedPersistenceForTesting<T>(defaults: UserDefaults, _ body: () throws -> T) rethrows -> T {
+        precondition(AppRuntime.isAutomatedTesting && defaults !== UserDefaults.standard)
+        let isolatedWrites = FottyDefaultsWriteBuffer(defaults: defaults)
+        let previous = queue.sync {
+            let state = (writes, isolatedTestPersistence, verifyingSourceKeys, matchObservations,
+                         wrongProgrammes, programmeEvidence, snapshotCache, snapshotDecodeCount)
+            writes = isolatedWrites
+            isolatedTestPersistence = true
+            verifyingSourceKeys = []
+            matchObservations = [:]
+            wrongProgrammes = [:]
+            programmeEvidence = ProgrammeEvidenceLedger()
+            snapshotCache = nil
+            snapshotDecodeCount = 0
+            return state
+        }
+        defer {
+            isolatedWrites.drain()
+            queue.sync {
+                (writes, isolatedTestPersistence, verifyingSourceKeys, matchObservations,
+                 wrongProgrammes, programmeEvidence, snapshotCache, snapshotDecodeCount) = previous
+            }
+        }
+        return try body()
+    }
+
+    /// A bounded probe lets a synchronous main-observer regression fail without
+    /// deadlocking the test runner by reentering an already occupied queue.
+    static func serializationAvailableForTesting() -> Bool {
+        guard AppRuntime.isAutomatedTesting else { return false }
+        let completed = DispatchSemaphore(value: 0)
+        queue.async { completed.signal() }
+        return completed.wait(timeout: .now() + 0.25) == .success
     }
 
     static func resetForTesting() {
         guard AppRuntime.isAutomatedTesting else { return }
-        queue.sync {
-            UserDefaults.standard.removeObject(forKey: storageKey)
-            UserDefaults.standard.removeObject(forKey: contextStorageKey)
+        serialized {
+            writes.removeObject(forKey: storageKey)
+            writes.removeObject(forKey: contextStorageKey)
             verifyingSourceKeys.removeAll()
             matchObservations.removeAll()
             wrongProgrammes.removeAll()
-            UserDefaults.standard.removeObject(forKey: matchEvidenceDefaultsName)
+            writes.removeObject(forKey: matchEvidenceDefaultsName)
             programmeEvidence = ProgrammeEvidenceLedger()
-            UserDefaults.standard.removeObject(forKey: programmeEvidenceDefaultsName)
+            writes.removeObject(forKey: programmeEvidenceDefaultsName)
             snapshotCache = nil
             snapshotDecodeCount = 0
         }

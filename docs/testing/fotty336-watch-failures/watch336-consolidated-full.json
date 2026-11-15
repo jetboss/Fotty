@@ -1,0 +1,35 @@
+{
+  "action": "test",
+  "label": "watch336-consolidated-full",
+  "exitCode": 0,
+  "phaseError": null,
+  "passed": false,
+  "sourceUnchanged": false,
+  "freeDiskAfterBytes": 25665355776,
+  "counts": {
+    "total": 2751,
+    "skipped": 12,
+    "failed": 0,
+    "passed": 2739
+  },
+  "assertionFailures": 0,
+  "skippedTests": [
+    "-[FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistryRefreshReconcilesSavedBaselineWithoutLosingFreshTV]",
+    "-[FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistrySnapshotPassesActualNativeWireValidation]",
+    "-[FottyTests.CNCSportsPhysicalCanaryTests testReviewedCNCDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]",
+    "-[FottyTests.FlixStreamsAddonTests testPhysicalFlixDecodedVideoCanary]",
+    "-[FottyTests.FlixStreamsAddonTests testPhysicalFlixSecondDecodedVideoCanary]",
+    "-[FottyTests.PlavioSportsAddonTests testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]",
+    "-[FottyTests.PlaybackPolicyTests testReferenceHLSMaintainsOneAttemptDuringSoak]",
+    "-[FottyTests.ReviewedRelayThroughputPhysicalTests testSyntheticOneMiBDirectBytesAndGuardedRelayThroughputOnPhysicalDevice]",
+    "-[FottyTests.Score808SiteCatalogTests testOptInCurrentProviderDiscovery]",
+    "-[FottyTests.SourceConnectionToolTests testAllEnabledSourcesForVerifiedFootballFixture]",
+    "-[FottyTests.SourceConnectionToolTests testOptInNHLRegisteredCSMetadata]",
+    "-[FottyTests.SourceConnectionToolTests testReviewedTVExpandedChannelsThroughGuardedDecoder]"
+  ],
+  "failedTests": [],
+  "sourceSnapshotDigest": "cb5448d7973508470fe91e5e7bc70be288902242c1e7fcf1911fdc78c644f224",
+  "sourceFileCount": 320,
+  "runtimeLogErrorLineCount": 20,
+  "interpretation": "All compiled tests passed, but a test-only worker-lifetime guard changed during the run. This is not final exact-source acceptance; final rerun follows."
+}

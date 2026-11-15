@@ -356,6 +356,17 @@ actor LiveStreamResolver {
     /// Called only after the final session admission filter found nothing. Per-source
     /// causes remain in the diagnostic timeline, including failures from partial checks.
     nonisolated static func noMatchDeliveryFailure(_ failures: [StreamFailure]) -> StreamFailure {
+        let actionable = StreamTransportFailurePolicy.mostActionableFailure(in: failures)
+        // Preserve actionable account/TLS explanations even beside an empty
+        // sibling. A rejected unsafe descriptor is different: it must not
+        // disable aggregate Retry for the other sources that were checked.
+        let accountOrTransport = failures.filter {
+            $0.category == .authFailed || ($0.category == .providerSecurityFailure
+                && $0.redactedMetadata["transport_result"] == "provider_security_failure")
+        }
+        if let cause = StreamTransportFailurePolicy.mostActionableFailure(in: accountOrTransport) {
+            return cause
+        }
         let checked = failures.filter { failure in
             switch failure.category {
             case .providerReturnedEmpty, .invalidMatchMapping, .unsupportedScheme, .invalidURL, .leaseExpired:
@@ -363,9 +374,8 @@ actor LiveStreamResolver {
             default: return false
             }
         }
-        // Keep actionable authentication and security errors (and their
-        // retry semantics). A plain source outage must not sound like a verified miss.
-        if checked.isEmpty, let cause = StreamTransportFailurePolicy.mostActionableFailure(in: failures) {
+        // A plain source outage must not sound like a verified miss.
+        if checked.isEmpty, let cause = actionable {
             switch cause.category {
             case .providerTimeout, .manifestUnreachable, .manifestInvalid, .segmentUnreachable:
                 return StreamFailure(providerName: cause.providerName, category: cause.category,

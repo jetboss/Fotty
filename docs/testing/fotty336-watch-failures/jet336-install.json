@@ -1,0 +1,13 @@
+{
+  "timeUTC": "2026-11-15T19:09:20.713036+00:00",
+  "device": "Jet iPad",
+  "installedBuild": "336",
+  "version": "3.0.0",
+  "normalRelease": true,
+  "strictSignatureVerification": true,
+  "installedAndLaunched": true,
+  "testArguments": false,
+  "phoneTouched": false,
+  "testflight": false,
+  "launchToolRetry": "CLI option ordering corrected before launch; no app failure and no reinstall"
+}

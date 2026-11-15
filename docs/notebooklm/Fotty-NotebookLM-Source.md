@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-15T18:18:08.486205+00:00
-Source digest: c6cb23dfd914d03b4613d15fa7d465b50e8179709346f688af7c31b03e87779e
+Generated: 2026-11-15T19:20:51.447585+00:00
+Source digest: 696642386af0790f49e60df7ab14c9d771719b88065bc5e7e3d56e714948bcf1
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,9 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-15 Nov: [Jet335 UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md) installed;261 focused tests pass. Watch/disclosures checked with Claude; trace/phone/score-motion limits retained. Ranking/TestFlight unchanged.
+15 Nov: [Jet336 Watch repairs](../testing/fotty336-watch-failures/README.md): confirmed health-store deadlock and two discovery classifications fixed with Claude;2,739 tests pass/12 skips. One normal build installed; channel recovery,90s holds and same-attempt resume pass. Fresh account-match/wrong-programme/audio/independent-backup limits retained. Phone/ranking/TestFlight unchanged.
+
+15 Nov: [Jet335 UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md):261 tests pass; Watch/disclosures checked with Claude. Trace/phone/score-motion limits retained.
 
 15 Nov: [Jet334 guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) installed;396 checks, Save/Remind and TV25 hold pass. Live programme/audio pending; source failures retained. Phone/ranking/TestFlight unchanged.
 
@@ -46,14 +48,10 @@ PR114/115 guides deployed; SkyCS1/beINTV17 holds and distinct CBS/Fubo/WillowSpo
 
 ## Cricket matching213/214 and Fox215
 
-PR116/8298f54 deployed2026-11-01.cricket-matching-1 with existingwatchdog:
-439backend/186watchdog checks; bindings/activation/incidents retained. Exact
-CS/Willow cricket identity/IANA/ordinal/current-period guards persist. Jet214
-TV1 passedits actualhold. Fox215 prototype276tests pass butSD/HDpicturewas
-subscriptioncard, notFox;CS404/Flix504. UnqualifiedHTTP/ATS/helper removed216;
-prototype retainedunapplied. Phone215installed16:17UTC, notagentlaunched, away.
-216TV UI59tests passed, sourceacceptance incomplete. History:
-testing/fotty-cricket-matching-2026-11-01/.
+PR116/8298f54 cricket repair deployed1Nov; exact identity/IANA/ordinal/period
+guards persist. Fox215 HTTP prototype was unqualified and removed216. Jet214
+Willow hold passed; programme/audio/source limits remain historical. Details:
+testing/fotty-cricket-matching-2026-11-01/ and Decisions-Log.
 
 ## 1 November broadcast history
 
@@ -883,6 +881,31 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-15 — Fix confirmed Watch freeze and incomplete discovery without changing ranking
+
+Actual Claude reviewed three rounds of focused repairs. The Jet335 watchdog
+stack proves a lock inversion: main waits for the health queue while programme
+metadata persistence under that queue waits for main-thread UserDefaults
+notification delivery. Reuse the existing write buffer, enqueue under serialized
+health mutation, drain outside that queue, and read pending writes during reentry.
+Cover nested success, reset and legacy migration with isolated persistent defaults
+and bounded worker lifetime; hosted tests previously disabled this producer.
+Highfly incomplete catalogs no longer establish a definitive missing fixture;
+actual conflicts and fully read empty results remain distinct. Mixed discovery
+errors preserve actionable account/TLS failures without letting a rejected unsafe
+descriptor remove aggregate Retry for other sources. Ranking formula bodies,
+source matching, security and recovery budgets remain unchanged.
+
+Exact final source: 2,739 Catalyst tests passed, 12 existing opt-in/physical skips,
+zero failures; same 320 input hashes in the one normal signed Release336. Jet
+channel Watch recovered from a real stall, then held 92.580 seconds and another
+94.037 seconds after same-attempt Pause/Resume, zero stalls in those intervals.
+Sources and return to Home remained responsive. Fresh account-match playback,
+audible sound and independent backup were not qualified. Baseline HF2's wrong
+programme remains separate and unresolved. Preserve the source-changed earlier
+run and baseline-red receipts rather than counting them as final qualification.
+No phone, cloud, publication or TestFlight. [Evidence](../testing/fotty336-watch-failures/README.md).
 
 ## 2026-11-15 — Polish core Watch feedback and local match motion with Claude
 
@@ -9180,6 +9203,22 @@ Build-43 scoring/request ownership (2026-08-28): `FPLLiveSquadSummary` has optio
 Last updated: 2026-10-24
 
 This registry turns current sharp edges into guardrails for agents.
+
+## Health-store notifications must release serialization — 15 November 2026
+
+- Jet335 froze and was killed by the scene-update watchdog: main waited in
+  `recordSuccess` for the health queue while `recordDeliveryMetadata` held that
+  queue during synchronous UserDefaults notification delivery onto main.
+- Enqueue persistence under the health queue, then drain the shared write buffer
+  outside it. Reads need the pending overlay so reentrant success/reset/migration
+  cannot overwrite newer values. Do not change ranking or renew evidence dates
+  to address this synchronization defect.
+- Hosted tests normally skip persistent programme evidence; they cannot prove
+  this path without the isolated-suite persistence seam. Reentrant tests must
+  join their workers before restoring global store state; fail the test host on
+  an unjoined-worker timeout rather than expose owner defaults to a late write.
+- See [336 evidence](../testing/fotty336-watch-failures/README.md). Provider absence
+  and wrong-programme pictures remain separate from the confirmed app deadlock.
 
 ## Native discovery candidate is not current playback proof — 28 October 2026
 

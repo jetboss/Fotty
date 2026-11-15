@@ -1,0 +1,596 @@
+[
+  {
+    "timeUTC": "2026-11-15T19:09:23.367080+00:00",
+    "name": "schedule_refresh",
+    "durationMilliseconds": 1801,
+    "outcome": "success",
+    "details": {
+      "result": "empty"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:47.487183+00:00",
+    "name": "watch_requested",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:47.502376+00:00",
+    "name": "watch_discovery_started",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:47.615403+00:00",
+    "name": "watch_discovery_plan",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "candidate_count": "1"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:47.674313+00:00",
+    "name": "direct_fallback_lookup",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "source": "reviewedtv"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:48.986836+00:00",
+    "name": "stream_admission",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "offered_count": "1",
+      "source_family": "reviewedtv",
+      "admitted_count": "1",
+      "admission_completion": "complete"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:49.083663+00:00",
+    "name": "stream_selection",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "offered_count": "1",
+      "source_family": "reviewedtv",
+      "admitted_count": "1",
+      "admission_completion": "complete"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:49.140619+00:00",
+    "name": "single_audio_transfer",
+    "durationMilliseconds": null,
+    "outcome": "success",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "result": "enabled",
+      "last_observed_stage": "preparing",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:49.152308+00:00",
+    "name": "watch_discovery_timing",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:49.232389+00:00",
+    "name": "attempt_started",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "1",
+      "last_observed_stage": "preparing",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:49.536317+00:00",
+    "name": "stream_selection",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "source_family": "reviewedtv",
+      "offered_count": "1",
+      "admitted_count": "1",
+      "admission_completion": "complete"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:50.375881+00:00",
+    "name": "playback_causal_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "1",
+      "handoff_phase": "none",
+      "last_observed_stage": "preparing",
+      "source": "TV25",
+      "candidate_count": "0",
+      "playback_intent": "true"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:50.400074+00:00",
+    "name": "audio_activation_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:50.574457+00:00",
+    "name": "audio_activation_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:50.673058+00:00",
+    "name": "playback_causal_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "1",
+      "last_observed_stage": "preparing",
+      "source": "TV25",
+      "handoff_phase": "none",
+      "candidate_count": "0",
+      "playback_intent": "true"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:50.684540+00:00",
+    "name": "audio_preparation_duration",
+    "durationMilliseconds": 285,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "1",
+      "last_observed_stage": "preparing",
+      "source": "TV25",
+      "reason_code": "completed"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:53.771176+00:00",
+    "name": "playback_stage",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "1",
+      "stage": "media_ready",
+      "source": "TV25",
+      "last_observed_stage": "media_ready"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:53.783693+00:00",
+    "name": "watch_outcome",
+    "durationMilliseconds": 6443,
+    "outcome": "success",
+    "details": {
+      "route": "single",
+      "failover_count": "0",
+      "source_family": "reviewedtv",
+      "terminal_outcome": "playing"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:09:53.795512+00:00",
+    "name": "decoded_progress",
+    "durationMilliseconds": 4551,
+    "outcome": "success",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "1",
+      "last_observed_stage": "decoded",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:39.828722+00:00",
+    "name": "source_failure",
+    "durationMilliseconds": 50581,
+    "outcome": "failure",
+    "details": {
+      "last_observed_stage": "decoded",
+      "source_index": "1",
+      "source_family": "reviewedtv",
+      "route": "single",
+      "failure_kind": "stalled",
+      "attempt_number": "1",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:39.860101+00:00",
+    "name": "stall_observed_duration",
+    "durationMilliseconds": 6201,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "1",
+      "last_observed_stage": "decoded",
+      "source": "TV25",
+      "reason_code": "interrupted"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:39.880491+00:00",
+    "name": "attempt_started",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "2",
+      "last_observed_stage": "preparing",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:40.777203+00:00",
+    "name": "stream_admission",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "offered_count": "1",
+      "source_family": "reviewedtv",
+      "admitted_count": "1",
+      "admission_completion": "complete"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:41.663419+00:00",
+    "name": "playback_causal_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "2",
+      "last_observed_stage": "preparing",
+      "candidate_count": "0",
+      "source": "TV25",
+      "handoff_phase": "none",
+      "playback_intent": "true"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:41.692217+00:00",
+    "name": "audio_activation_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:41.731906+00:00",
+    "name": "audio_activation_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:41.762306+00:00",
+    "name": "playback_causal_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "2",
+      "handoff_phase": "none",
+      "last_observed_stage": "preparing",
+      "source": "TV25",
+      "candidate_count": "0",
+      "playback_intent": "true"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:41.773838+00:00",
+    "name": "audio_preparation_duration",
+    "durationMilliseconds": 82,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "2",
+      "last_observed_stage": "preparing",
+      "source": "TV25",
+      "reason_code": "completed"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:44.634926+00:00",
+    "name": "playback_stage",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "2",
+      "stage": "media_ready",
+      "last_observed_stage": "media_ready",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:10:44.647777+00:00",
+    "name": "decoded_progress",
+    "durationMilliseconds": 4766,
+    "outcome": "success",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "2",
+      "last_observed_stage": "decoded",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:12:17.238570+00:00",
+    "name": "native_continuity_90s",
+    "durationMilliseconds": 92580,
+    "outcome": "success",
+    "details": {
+      "source_family": "reviewedtv",
+      "last_observed_stage": "decoded",
+      "source_index": "1",
+      "native_access_event_count": "1",
+      "native_presentation_width": "1280",
+      "native_continuity_media_advance_ms": "92541",
+      "attempt_number": "2",
+      "source": "TV25",
+      "native_continuity_elapsed_ms": "92580",
+      "native_presentation_height": "720",
+      "route": "single",
+      "native_continuity_stalls": "0"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:14:59.991566+00:00",
+    "name": "playback_causal_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "2",
+      "handoff_phase": "none",
+      "last_observed_stage": "decoded",
+      "candidate_count": "0",
+      "source": "TV25",
+      "playback_intent": "true"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:15:00.006865+00:00",
+    "name": "audio_activation_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "timeUTC": "2026-11-15T19:15:00.112302+00:00",
+    "name": "audio_activation_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {}
+  },
+  {
+    "timeUTC": "2026-11-15T19:15:00.202205+00:00",
+    "name": "playback_causal_evidence",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "2",
+      "last_observed_stage": "decoded",
+      "handoff_phase": "none",
+      "source": "TV25",
+      "candidate_count": "0",
+      "playback_intent": "true"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:15:00.213652+00:00",
+    "name": "audio_preparation_duration",
+    "durationMilliseconds": 207,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "2",
+      "last_observed_stage": "decoded",
+      "reason_code": "completed",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:15:00.254202+00:00",
+    "name": "native_resume",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "last_observed_stage": "decoded",
+      "source_index": "1",
+      "source_family": "reviewedtv",
+      "route": "single",
+      "attempt_number": "2",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:15:00.298655+00:00",
+    "name": "native_resume",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "source_index": "1",
+      "last_observed_stage": "decoded",
+      "source_family": "reviewedtv",
+      "route": "single",
+      "attempt_number": "2",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:15:00.447097+00:00",
+    "name": "native_resume",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "last_observed_stage": "decoded",
+      "source_index": "1",
+      "source_family": "reviewedtv",
+      "route": "single",
+      "attempt_number": "2",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:15:01.349418+00:00",
+    "name": "native_resume",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "source_index": "1",
+      "last_observed_stage": "decoded",
+      "source_family": "reviewedtv",
+      "route": "single",
+      "attempt_number": "2",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:16:35.428834+00:00",
+    "name": "native_continuity_90s",
+    "durationMilliseconds": 94037,
+    "outcome": "success",
+    "details": {
+      "last_observed_stage": "decoded",
+      "source_index": "1",
+      "source_family": "reviewedtv",
+      "native_access_event_count": "1",
+      "native_presentation_width": "1280",
+      "native_continuity_media_advance_ms": "94038",
+      "attempt_number": "2",
+      "source": "TV25",
+      "native_presentation_height": "720",
+      "native_continuity_elapsed_ms": "94037",
+      "route": "single",
+      "native_continuity_stalls": "0"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:18:03.109796+00:00",
+    "name": "session_closed",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "route": "single",
+      "source_family": "reviewedtv",
+      "source_index": "1",
+      "attempt_number": "2",
+      "last_observed_stage": "decoded",
+      "source": "TV25"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:18:03.453816+00:00",
+    "name": "direct_fallback_lookup",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "source": "highfly"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:18:03.519042+00:00",
+    "name": "direct_fallback_lookup",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "source": "penguplay"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:18:03.632382+00:00",
+    "name": "stream_selection",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "offered_count": "0",
+      "source_family": "highfly",
+      "admitted_count": "0",
+      "admission_completion": "complete"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:18:03.671158+00:00",
+    "name": "stream_selection",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "source_family": "penguplay",
+      "offered_count": "0",
+      "admitted_count": "0",
+      "admission_completion": "complete"
+    }
+  },
+  {
+    "timeUTC": "2026-11-15T19:18:03.726272+00:00",
+    "name": "source_preflight",
+    "durationMilliseconds": null,
+    "outcome": "info",
+    "details": {
+      "candidate_count": "4"
+    }
+  }
+]
