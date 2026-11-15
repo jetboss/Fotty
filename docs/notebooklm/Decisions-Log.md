@@ -1,3 +1,25 @@
+## 2026-11-15 — A lost web retirement ACK must not mute every later Watch
+
+Owner reported no audio during Spain–England on Jet337, with picture playing.
+Jet records showed `audio_enabled=false` on every attempt after
+`single_audio_transfer` `web_retirement_timeout` (20:57:32 and 20:59:19). The
+coordinator waits for the old web player's media-suspension ACK before unmuting.
+That ACK never arrived, and the unacknowledged wait was repeated for every later
+Watch until relaunch. "Retry audio" waited on the same lease. Likely cause: the
+removed WKWebView's web process is suspended before it replies.
+
+Decision: a dismantled WebKit surface reports retirement once, on the first of
+WebKit's suspension ACK or the surface's deallocation. A deallocated WKWebView has
+closed its page and cannot keep playing. A one-second hold keeps the normal ACK
+path. Fotty still never unmutes while an old web player could be audible.
+Coordinator audio policy, ranking and providers are unchanged.
+
+Verification: the lost-ACK regression failed on `ff80865` and passes with the
+fix. Full Catalyst FottyTests: 2,759 executed, 12 skipped, 0 failures. Signed
+Release338 installed on Jet (read back 3.0.0/338); the owner confirmed audio
+works. Commit `a612da1` on `claude/single-audio-stale-wait`. Not pushed, no
+TestFlight. Why the first ACK was lost is inferred, not observed.
+
 ## 2026-11-15 — Separate Highfly renewal identity from ranking and corroborate listing participants
 
 Owner authorized Claude investigation, confirmed repairs and live normal Watch on Jet only; ranking/phone/TestFlight unchanged. Actual Claude approved the frozen four-file patch in three rounds. Preserve historical source_key and all health/ranking code; compare Highfly renewed deliveries using a separate full contract, with only one nonempty reviewed Papacito HTTPS443/m3u/*.m3u8 ft/token credential allowed to rotate. Unknown selectors, raw encoding/order, duplicates, origin/path/fragment and headers remain identity. Existing fixture/provider-event/stream/endpoint/quality/unique-candidate fences remain. No new admission-host ban or transport exception.
