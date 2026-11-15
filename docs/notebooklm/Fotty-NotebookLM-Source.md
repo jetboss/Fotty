@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-15T20:13:09.192784+00:00
-Source digest: e1b4dae7a6e10fdf356540072c26d14d45c3c414ecf87a71d29f2ce7fd2ac8b6
+Generated: 2026-11-15T22:01:48.110793+00:00
+Source digest: 48fa9c61c82124cfeae853b89bc9b1de5d41f0846e282cf048c205911a317bc9
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,11 +11,13 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
+15 Nov: [TestFlight338](../releases/Fotty-3.0.0-338.md) VALID, Internal Smoke: Jet338 audio fix plus Codex 333–337.
+
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
 Prior336: [Watch freeze/discovery repairs](../testing/fotty336-watch-failures/README.md),2,739 passes/12 skips; correct channel holds. Prior335 [UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md) and334 [guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) receipts retain their limits.
 
-14 Nov: [Jet332 retirement](../testing/fotty332-watch-first-retirement/README.md): FPL removed, Watch Two parked; saved data/scores/follows/ranking preserved. Claude approved;2,687 tests pass/12 skips; correct WBBL Watch91s/zero stalls. [Internal TestFlight332](../releases/Fotty-3.0.0-332.md) released to13 existing testers.
+14 Nov: [Jet332 retirement](../testing/fotty332-watch-first-retirement/README.md): FPL removed, Watch Two parked; saved data/scores/follows/ranking preserved. Claude approved;2,687 tests pass/12 skips; correct WBBL Watch91s/zero stalls. Shipped as TestFlight332.
 
 Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.md) retains WBBL Watch and Jamaica–Mexico failure evidence.
 
@@ -29,8 +31,8 @@ Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retirement and Watch Two parking are now owner-approved; preserve legacy data, public scores and single-player behavior. Shared3.0.0(332): Internal/Testing, Fotty Internal Smoke,13testers; notes describe FPL removal, Watch Two parking and bug fixes.
-Receipt:releases/Fotty-3.0.0-332.md.
+FPL retirement and Watch Two parking are now owner-approved; preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (338): Internal/Testing, Fotty Internal Smoke (previous 332).
+Receipt: releases/Fotty-3.0.0-338.md.
 
 ## Discovery and retained follow-up
 
@@ -879,6 +881,53 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-15 — Release 3.0.0 (338) to internal TestFlight; narrow release gates with proof
+
+The owner approved the TestFlight release of the Jet338 source. The full
+`tools/ios-ci.sh` gate initially failed membership on 45 retired FPL files that
+`project.yml` deliberately excludes. That failure had existed since `babb924`,
+including on the 332 source. Skipping the check was refused, and the owner chose
+to fix the checker. The gate now removes only literal `.swift` exclusions under
+each target's own root. Patterns never hide Swift files, and an excluded file
+still in Sources is reported (`c3ff3fb`).
+
+The receipt secret scan then rejected 98 lines: Swift-path to SHA-256 maps in
+the 333–337 test receipts, and `fotty.*.vN` UserDefaults key names. With owner
+approval it now also accepts:
+- a receipt digest proven against a committed version of that Swift file in
+  the source repository's history; and
+- a settings name the app's own source uses, alone on its line.
+
+Unproven digests and every other finding still block (`8e7c9c8`).
+
+Verification: ios-ci passed unmodified; receipt 2,072 files, restore-verified
+and compared before upload. Package checks: versions match, signature, no
+XCTest, 2 dSYMs, audio background mode, icons, encryption false, empty API keys.
+Apple VALID, What to Test set, added to Fotty Internal Smoke. Receipt:
+`docs/releases/Fotty-3.0.0-338.md`. No Git push or deployment.
+
+## 2026-11-15 — A lost web retirement ACK must not mute every later Watch
+
+Owner reported no audio during Spain–England on Jet337, with picture playing.
+Jet records showed `audio_enabled=false` on every attempt after
+`single_audio_transfer` `web_retirement_timeout` (20:57:32 and 20:59:19). The
+coordinator waits for the old web player's media-suspension ACK before unmuting.
+That ACK never arrived, and the unacknowledged wait was repeated for every later
+Watch until relaunch. "Retry audio" waited on the same lease. Likely cause: the
+removed WKWebView's web process is suspended before it replies.
+
+Decision: a dismantled WebKit surface reports retirement once, on the first of
+WebKit's suspension ACK or the surface's deallocation. A deallocated WKWebView has
+closed its page and cannot keep playing. A one-second hold keeps the normal ACK
+path. Fotty still never unmutes while an old web player could be audible.
+Coordinator audio policy, ranking and providers are unchanged.
+
+Verification: the lost-ACK regression failed on `ff80865` and passes with the
+fix. Full Catalyst FottyTests: 2,759 executed, 12 skipped, 0 failures. Signed
+Release338 installed on Jet (read back 3.0.0/338); the owner confirmed audio
+works. Commit `a612da1` on `claude/single-audio-stale-wait`. Not pushed, no
+TestFlight. Why the first ACK was lost is inferred, not observed.
 
 ## 2026-11-15 — Separate Highfly renewal identity from ranking and corroborate listing participants
 

@@ -1,3 +1,28 @@
+## 2026-11-15 — Release 3.0.0 (338) to internal TestFlight; narrow release gates with proof
+
+The owner approved the TestFlight release of the Jet338 source. The full
+`tools/ios-ci.sh` gate initially failed membership on 45 retired FPL files that
+`project.yml` deliberately excludes. That failure had existed since `babb924`,
+including on the 332 source. Skipping the check was refused, and the owner chose
+to fix the checker. The gate now removes only literal `.swift` exclusions under
+each target's own root. Patterns never hide Swift files, and an excluded file
+still in Sources is reported (`c3ff3fb`).
+
+The receipt secret scan then rejected 98 lines: Swift-path to SHA-256 maps in
+the 333–337 test receipts, and `fotty.*.vN` UserDefaults key names. With owner
+approval it now also accepts:
+- a receipt digest proven against a committed version of that Swift file in
+  the source repository's history; and
+- a settings name the app's own source uses, alone on its line.
+
+Unproven digests and every other finding still block (`8e7c9c8`).
+
+Verification: ios-ci passed unmodified; receipt 2,072 files, restore-verified
+and compared before upload. Package checks: versions match, signature, no
+XCTest, 2 dSYMs, audio background mode, icons, encryption false, empty API keys.
+Apple VALID, What to Test set, added to Fotty Internal Smoke. Receipt:
+`docs/releases/Fotty-3.0.0-338.md`. No Git push or deployment.
+
 ## 2026-11-15 — A lost web retirement ACK must not mute every later Watch
 
 Owner reported no audio during Spain–England on Jet337, with picture playing.

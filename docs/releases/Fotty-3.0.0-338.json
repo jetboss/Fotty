@@ -1,0 +1,56 @@
+{
+ "version": "3.0.0",
+ "build": 338,
+ "sourceCommit": "99ee2a8",
+ "appQualificationCommit": "a612da1",
+ "sourceSnapshot": {
+  "label": "3.0.0-338",
+  "purpose": "pre-build",
+  "commit": "d6a7a049b089c97fb3bdc06886f86f60f22af6c4",
+  "sourceSHA256": "664b41d58130d4601062003a973ae9dbc5fdee3344d21e16375f1a4250686f91",
+  "bundleSHA256": "24057a967878ac8c18c69b7cb955bc8e4bd34e9d471ec82cd43b1b4731996aa2",
+  "capturedAt": "2026-11-15T21:53:17.472723+00:00"
+ },
+ "snapshotFileCount": 2072,
+ "artifact": {
+  "build": "338",
+  "version": "3.0.0",
+  "appAndExtensionVersionsMatch": true,
+  "signatureVerified": true,
+  "noXCTestBundles": true,
+  "dSYMCount": 2,
+  "usesNonExemptEncryption": false,
+  "executableSHA256": "10bdd5f9b37ad18d907cbcf512a99d41aaa7d8c92b37bdbd27b6ec0aa95005a2"
+ },
+ "extraPackageChecks": {
+  "backgroundAudio": true,
+  "appIconsPresent": true,
+  "embeddedAPIKeysEmpty": true
+ },
+ "apple": {
+  "processingState": "VALID",
+  "group": "Fotty Internal Smoke",
+  "testersNotifiedByTool": true,
+  "notes": "Fixed sound sometimes staying off after a stream failed or you switched matches.\nNew Sports TV guide for planning what to watch.\nFixed a freeze when starting some games, plus stream reliability improvements.",
+  "uploadSucceeded": "2026-11-15T21:58:29Z"
+ },
+ "gates": {
+  "iosCi": "passed unmodified",
+  "fullFottyTests": {
+   "executed": 2759,
+   "skipped": 12,
+   "failures": 0
+  },
+  "membershipCheckerFix": "c3ff3fb",
+  "secretScanNarrowing": "8e7c9c8",
+  "snapshotToolTests": 24
+ },
+ "physical": {
+  "device": "Jet iPad",
+  "build": "3.0.0/338",
+  "ownerConfirmedAudio": true
+ },
+ "cleanup": {
+  "ownedOutputRemoved": true
+ }
+}

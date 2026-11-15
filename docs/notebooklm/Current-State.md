@@ -1,10 +1,12 @@
 # Fotty current state
 
+15 Nov: [TestFlight338](../releases/Fotty-3.0.0-338.md) VALID, Internal Smoke: Jet338 audio fix plus Codex 333–337.
+
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
 Prior336: [Watch freeze/discovery repairs](../testing/fotty336-watch-failures/README.md),2,739 passes/12 skips; correct channel holds. Prior335 [UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md) and334 [guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) receipts retain their limits.
 
-14 Nov: [Jet332 retirement](../testing/fotty332-watch-first-retirement/README.md): FPL removed, Watch Two parked; saved data/scores/follows/ranking preserved. Claude approved;2,687 tests pass/12 skips; correct WBBL Watch91s/zero stalls. [Internal TestFlight332](../releases/Fotty-3.0.0-332.md) released to13 existing testers.
+14 Nov: [Jet332 retirement](../testing/fotty332-watch-first-retirement/README.md): FPL removed, Watch Two parked; saved data/scores/follows/ranking preserved. Claude approved;2,687 tests pass/12 skips; correct WBBL Watch91s/zero stalls. Shipped as TestFlight332.
 
 Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.md) retains WBBL Watch and Jamaica–Mexico failure evidence.
 
@@ -18,8 +20,8 @@ Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retirement and Watch Two parking are now owner-approved; preserve legacy data, public scores and single-player behavior. Shared3.0.0(332): Internal/Testing, Fotty Internal Smoke,13testers; notes describe FPL removal, Watch Two parking and bug fixes.
-Receipt:releases/Fotty-3.0.0-332.md.
+FPL retirement and Watch Two parking are now owner-approved; preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (338): Internal/Testing, Fotty Internal Smoke (previous 332).
+Receipt: releases/Fotty-3.0.0-338.md.
 
 ## Discovery and retained follow-up
 
