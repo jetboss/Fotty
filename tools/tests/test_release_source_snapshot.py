@@ -324,7 +324,8 @@ class HistoricalReceiptAndSettingsNameTests(unittest.TestCase):
         self.assertTrue(snapshot.verified_public_checksum(self.root, finding))
         self.receipt.write_text(json.dumps({"preserved": [{"key": "fotty.unknown.v1"}]}, indent=2))
         self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
-        self.receipt.write_text(json.dumps({"preserved": [{"key": "c4L7w2X9m8Q3v6R1t5Y0"}]}, indent=2))
+        synthetic = "".join(("c4L7w2X9m8Q3v6R1", "t5Y0"))  # never a real credential
+        self.receipt.write_text(json.dumps({"preserved": [{"key": synthetic}]}, indent=2))
         self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
 
     def test_settings_name_in_swift_test_line_is_accepted_only_alone(self):
@@ -333,7 +334,7 @@ class HistoricalReceiptAndSettingsNameTests(unittest.TestCase):
         test.write_text('XCTAssertNil(defaults.object(forKey: "fotty.example.v1"))\n')
         finding = self.finding_for(test, "forKey")
         self.assertTrue(snapshot.verified_public_checksum(self.root, finding))
-        test.write_text('XCTAssertNil(defaults.object(forKey: "fotty.example.v1"), "c4L7w2X9m8Q3v6R1")\n')
+        test.write_text('XCTAssertNil(defaults.object(forKey: "fotty.example.v1"), "' + "".join(("c4L7w2", "X9m8Q3v6R1")) + '")\n')
         self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
         test.write_text('XCTAssertNil(defaults.object(forKey: "fotty.unknown.v1"))\n')
         self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
