@@ -1,0 +1,26 @@
+{
+  "build": 333,
+  "device": "Jet iPad",
+  "date": "2026-11-15",
+  "entry": "Normal Sports TV guide Watch channel",
+  "station": "Sky Sports Premier League",
+  "sourceLabel": "TV25",
+  "nativeDecodedProgress": true,
+  "diagnosticSecondsFromWatchRequestedToDecodedProgress": 6.346,
+  "actualFirstPictureTiming": "not continuously timed; diagnostic startup is separate",
+  "observedHoldStartUTC": "2026-11-15T16:34:02.837Z",
+  "observedHoldSeconds": 98.214,
+  "onScreenClocks": [
+    "02:26",
+    "03:36",
+    "03:59",
+    "04:12"
+  ],
+  "picture": "Advancing football pictures with Sky Sports Premier League watermark",
+  "errorOrSourceChangeDuringObservedHold": false,
+  "audibleSound": "not observable through Device Hub",
+  "officialLiveFixtureQualification": false,
+  "currentFixtureLinkedGuideWatch": "pending; no current linked Reviewed TV programme advertised",
+  "keyboardAccessoryBugObserved": true,
+  "scope": "Channel Watch evidence only; separate failed source receipts retained"
+}

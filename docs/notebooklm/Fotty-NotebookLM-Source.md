@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-15T15:47:47.486883+00:00
-Source digest: 63ee36fcdb46018d1af301a64b6b6586a72162472c92b9b22fa9759a0236f6cb
+Generated: 2026-11-15T17:08:16.242125+00:00
+Source digest: 58aeee6cdf5caca9855c61895c0799c2568a9770bbd0ab4f9a879526963071ab
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,7 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-15 Nov: [Sports TV guide](../testing/fotty-sports-tv-guide-20261115/jet333-acceptance.md) on Jet333. Planning fixed; Claude approved, 152 tests pass. Data preserved; physical Watch/Save/Remind pending unlock. Phone/ranking/TestFlight unchanged.
+15 Nov: [Jet334 guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) installed;396 checks, Save/Remind and TV25 hold pass. Live programme/audio pending; source failures retained. Phone/ranking/TestFlight unchanged.
 
 14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Internal TestFlight332 released to the existing13 testers; [release proof](../releases/Fotty-3.0.0-332.md).
 
@@ -881,6 +881,10 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-15 — Complete the guide’s private Jet gate with four focused repairs
+
+Physical guide checks exposed a future-save continuity warning, retained search keyboard, duplicated punctuation variants of one programme and match wording for channel failures. Keep the saved 14-day planning projection separate from current Watch authority; preserve terminal/conflict/current identity vetoes and original receipts. Dedupe only exact station/start/sport/full event text for presentation, without transferring generic programme identity. Dismiss search focus on Watch and use channel wording for channel lookup failures. Ranking, source opt-ins and playback/transport ownership remain unchanged. Actual Claude approved three rounds. Final focused Catalyst: 396 passed, zero failures/skips. Normal signed Jet334 Save/Remind/cancel, planning retention and TV25 Watch passed; advancing pictures held 96.941 seconds with zero recorded stalls. Audio and current fixture-linked programme Watch remain unverified. Willow/ESPN/Sky Main Event supply failures are retained separately, not reclassified as repaired. Test bookmark/reminder removed; owner data preserved. No phone, cloud, publication or TestFlight. [Evidence](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md).
 
 ## 2026-11-15 — Keep guide planning separate from current Watch authority
 

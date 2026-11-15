@@ -1,0 +1,67 @@
+{
+  "build": 334,
+  "device": "Jet iPad",
+  "date": "2026-11-15",
+  "installation": "Normal signed Release; Apple inventory verified 3.0.0(334)",
+  "localTests": {
+    "passed": 396,
+    "failed": 0,
+    "skipped": 0
+  },
+  "guidePlanning": {
+    "testFixture": "Bayern Munich\u2013FC K\u00f6ln",
+    "officialKickoffUTC": "2026-11-20T19:30:00Z",
+    "programmeStartUTC": "2026-11-20T19:20:00Z",
+    "singleProgrammeObserved": true,
+    "myMatchdayFalseWarningRemoved": true,
+    "planningRowDoesNotOfferWatch": true,
+    "saveOn334": "Changed to Remove from My Matchday; persisted and shown in Matchday",
+    "remindOn334": "Reminder set / 5 minutes before",
+    "storedFireUTC": "2026-11-20T19:25:00Z",
+    "cancel": "Reminder off",
+    "testBookmarkAndReminderRemoved": true,
+    "persistenceObservation": "Immediate preference copy can precede asynchronous persistence; later snapshot confirms cleanup"
+  },
+  "dataPreservation": {
+    "existingSavedIdentityPreserved": true,
+    "ownerSavedCountBefore": 1,
+    "ownerSavedCountAfter": 1,
+    "existingSavedChangedFields": [
+      "/cricketFixture/observedAt"
+    ],
+    "explanation": "Normal refreshed metadata observedAt only; owner save not removed or replaced",
+    "reminderCountBefore": 0,
+    "reminderCountAfter": 0,
+    "checkedPreferenceCount": 6,
+    "changedCheckedPreferenceCount": 0,
+    "sqliteAcrossInstallationByteIdentical": true
+  },
+  "watchReceipt": "guide-watch334-success.json",
+  "exclusions": [
+    "phone",
+    "ranking",
+    "source opt-ins",
+    "cloud deployment",
+    "publication",
+    "TestFlight"
+  ],
+  "channelErrorCopy": {
+    "station": "Sky Sports Main Event",
+    "observedOn334": "No playable stream is available for this channel right now.",
+    "retryAndDismissAvailable": true,
+    "channelPlayback": "No current admitted descriptor; not a playback pass"
+  },
+  "finalUI": {
+    "screen": "Sports TV, Today, All",
+    "queryCleared": true,
+    "orientation": "landscape",
+    "captureKeyboard": "off",
+    "portraitAndLandscapeVisuallyInspected": true
+  },
+  "cleanup": {
+    "ownedGateRemoved": true,
+    "ownedKeepAwakeStopped": true,
+    "freeDiskAfterBytes": 31236308992,
+    "rawPrivateSnapshotsRemoved": true
+  }
+}

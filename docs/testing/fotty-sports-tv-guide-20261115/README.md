@@ -37,3 +37,8 @@ The original source gate did not exercise physical interactions, larger text, Vo
 The fixture-linked path requires an explicitly published association and a current canonical fixture. Start-only generic schedules never gain match identity from a similar title. When a source advertises an exact programme start after official kickoff, the existing future-identity policy can temporarily omit fixture actions until that programme begins; direct channel Watch stays available. This retained edge was reviewed as nonblocking and was not used to relax playback eligibility.
 
 The phone layout deliberately preserves existing personal channel grouping while using programme-led cards; wider iPads use channel/On now/Next columns. The full station sheet retains the seven-day guide beyond the Today/Tomorrow overview. Generic programmes visibly say Watch channel; linked Watch uses the existing match-wide source selection rather than promising the displayed station.
+
+
+## Consolidated private Jet334 follow-up — 15 November
+
+The owner unlocked Jet and authorized the installed-guide checks. Four physically exposed app defects were repaired and reviewed; 396 focused checks and normal signed Release334 passed. Save/Remind/cancellation and Sky Premier League TV25 channel Watch passed on Jet; live programme association and audible audio are not claimed. Earlier source failures remain distinct. See [the final receipt](jet334-acceptance.md), [physical/data preservation](guide334-physical.json) and [channel Watch](guide-watch334-success.json). No phone, ranking, cloud or TestFlight changes.

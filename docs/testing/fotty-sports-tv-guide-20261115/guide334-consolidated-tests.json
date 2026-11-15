@@ -1,0 +1,41 @@
+{
+  "action": "test",
+  "label": "guide334-consolidated-tests",
+  "exitCode": 65,
+  "phaseError": null,
+  "passed": false,
+  "sourceUnchanged": true,
+  "sourceSHA256": {
+    "Fotty/Core/Internal/HybridStreamProvider.swift": "cbdadff1468049300327af6ce438c120972ed6bb34ab5be8f5420577dc75d9f2",
+    "Fotty/Core/Models/CurrentEventBroadcastPolicy.swift": "ccc5bf759b45d99c7d8ceaa9da8637142950b32aff4eea072b7ba6a9a18d5d12",
+    "Fotty/Core/Models/SportsTVExperience.swift": "1feb084513d45e32f4eac612448c6ba5379313c36fde22b02abd95e68c17c8b2",
+    "Fotty/Features/Dashboard/SportsTVView.swift": "600e7c7509a28ee4ede262158ca03e7ae94ea14a06bb4e1e78dcd5d003a9cfb3",
+    "Fotty/Features/Social/ArenaDiscoveryView.swift": "d734b752e327a7395db4da7a1641ff3d44b557d7f3e483706fb13f4a3bc84860",
+    "FottyTests/CommunitySportsAddonTests.swift": "a9bea725ae01e3973584c12fa2c4350513abe9ec408d659a0b152909d130c297",
+    "FottyTests/MatchdayJourneyTests.swift": "10e9fcfa9c20c0260c6b5d8ed0577cc8980e989d9f8f014c120992c2e68f4fa6",
+    "FottyTests/SportsTVExperienceTests.swift": "95c9c195ac5db176c68304eb6b36adcaeafc3d5d27d7ff8b2becce399baa7bc0"
+  },
+  "freeDiskAfterBytes": 30355415040,
+  "counts": {
+    "total": 394,
+    "skipped": 0,
+    "failed": 1,
+    "passed": 393
+  },
+  "assertionFailures": 1,
+  "skippedTests": [],
+  "failedTests": [
+    "-[FottyTests.MatchdayJourneyTests testSavedPlanningRejectsStaleAmbiguousUnverifiedAndChangedIdentity]"
+  ],
+  "errors": [
+    "2026-11-15 12:43:48.524732-0400 Fotty[59820:29680965] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 \"connection to service named com.apple.linkd.autoShortcut\" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}",
+    "2026-11-15 12:43:48.531181-0400 Fotty[59820:29680964] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 \"connection to service named com.apple.linkd.autoShortcut\" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}",
+    "2026-11-15 12:43:48.531211-0400 Fotty[59820:29680964] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 \"connection to service named com.apple.linkd.autoShortcut\" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}",
+    "2026-11-15 12:43:48.536055-0400 Fotty[59820:29681020] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 \"connection to service named com.apple.linkd.autoShortcut\" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}",
+    "2026-11-15 12:43:48.536073-0400 Fotty[59820:29681020] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 \"connection to service named com.apple.linkd.autoShortcut\" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}",
+    "2026-11-15 12:43:48.543170-0400 Fotty[59820:29680964] [Connection] Unable to get synchronousRemoteObjectProxy, error: Error Domain=NSCocoaErrorDomain Code=4097 \"connection to service named com.apple.linkd.autoShortcut\" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}",
+    "2026-11-15 12:43:48.543190-0400 Fotty[59820:29680964] [Connection] Unable to re-register with Process Instance Registry, error: Error Domain=NSCocoaErrorDomain Code=4097 \"connection to service named com.apple.linkd.autoShortcut\" UserInfo={NSDebugDescription=connection to service named com.apple.linkd.autoShortcut}",
+    ": \"Arsenal\", role: nil), Fotty.SportsFixtureCatalog.Participant(id: \"away\", name: \"Liverpool\", role: nil)], squad: Fotty.SportsFixtureCatalog.Squad(gender: Fotty.SportsFixtureCatalog.Squad.Gender.men, ageGroup: \"senior\"), status: Fotty.SportsFixtureCatalog.Status.scheduled, observedAt: 2027-01-15 08:00:00 +0000, verified: true, reportedScore: nil, reportedScoreObservedAt: nil, footballLive: nil, footballLiveMayBeDelayed: nil, identityObservedAt: nil)), competitionID: Optional(\"premier-league\"))\""
+  ],
+  "hashScope": "Changed tracked source files; complete inventory held in local gate receipt"
+}

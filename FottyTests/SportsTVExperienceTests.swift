@@ -871,6 +871,73 @@ final class SportsTVExperienceTests: XCTestCase {
             snapshot: conflicted, catalog: [fixture], at: now))
     }
 
+    func testGuidePunctuationDuplicateKeepsOriginalLinkedProgrammeAndExpiry() throws {
+        let fixture = guideFootballFixture(start: now.addingTimeInterval(5 * 86400))
+        let base = try fixtureGuideSnapshot(fixture), broadcast = try XCTUnwrap(base.broadcasts.first)
+        let station = try XCTUnwrap(SportsTVStation.station(provider: "TV3"))
+        for title in ["Premier League #10 – Arsenal vs. Chelsea", "Premier League: Arsenal vs. Chelsea — live coverage"] {
+            let row = SportsTVGuideItem(id: "punctuation-schedule", channelID: station.id, market: "UY", sport: "football",
+                title: title, start: try XCTUnwrap(fixture.kickoffDate), observedAt: now, expiresAt: now.addingTimeInterval(3600))
+            let snapshot = BroadcastRegistrySnapshot(schemaVersion: 1, revision: "punctuation-guide", generatedAt: now,
+                providers: base.providers, broadcasts: base.broadcasts, links: base.links, tvGuide: [row])
+            let entries = SportsTVGuidePolicy.entries(for: station, snapshot: snapshot, at: now)
+            XCTAssertEqual(entries.map(\.id), [broadcast.id])
+            XCTAssertEqual(entries.first?.title, broadcast.title)
+            XCTAssertEqual(entries.first?.fixtureID, fixture.id)
+            let expired = SportsTVGuidePolicy.entries(for: station, snapshot: snapshot, at: now.addingTimeInterval(600))
+            XCTAssertEqual(expired.map(\.id), [row.id])
+            XCTAssertNil(expired.first?.fixtureID, "The generic schedule never inherits the expired association")
+        }
+    }
+
+    func testExactFullGuideTitleWithSeparatorKeepsOriginalLinkedRow() throws {
+        let fixture = guideFootballFixture(start: now.addingTimeInterval(3600))
+        let base = try fixtureGuideSnapshot(fixture, broadcastTitle: "Arsenal – Chelsea")
+        let broadcast = try XCTUnwrap(base.broadcasts.first), station = try XCTUnwrap(SportsTVStation.station(provider: "TV3"))
+        let row = SportsTVGuideItem(id: "separator-title", channelID: station.id, market: "UY", sport: "football",
+            title: "Arsenal - Chelsea", start: try XCTUnwrap(fixture.kickoffDate), observedAt: now, expiresAt: now.addingTimeInterval(3600))
+        let snapshot = BroadcastRegistrySnapshot(schemaVersion: 1, revision: "separator-guide", generatedAt: now,
+            providers: base.providers, broadcasts: base.broadcasts, links: base.links, tvGuide: [row])
+        let entries = SportsTVGuidePolicy.entries(for: station, snapshot: snapshot, at: now)
+        XCTAssertEqual(entries.map(\.id), [broadcast.id])
+        XCTAssertEqual(entries.first?.fixtureID, fixture.id)
+    }
+
+    func testGuideDedupKeepsDistinctTeamsSquadsPhasesSportsTimesAndStations() throws {
+        let fixture = guideFootballFixture(start: now.addingTimeInterval(3600)), base = try fixtureGuideSnapshot(fixture)
+        let station = try XCTUnwrap(SportsTVStation.station(provider: "TV3"))
+        let otherStation = try XCTUnwrap(SportsTVStation.station(provider: "TV4"))
+        let start = try XCTUnwrap(fixture.kickoffDate)
+        let distinct: [(String, String, TimeInterval)] = [
+            ("Premier League – Arsenal vs. Chelsea Women", "football", 0),
+            ("Premier League – Arsenal vs. Chelsea U21", "football", 0),
+            ("Premier League – Arsenal vs. Chelsea extra-time", "football", 0),
+            ("Premier League – Arsenal vs. Chelsea — extra time", "football", 0),
+            ("Premier League – New Arsenal vs. Chelsea", "football", 0),
+            ("Premier League – Arsenal vs. Chelsea United", "football", 0),
+            ("Premier League – Arsenal vs. Liverpool", "football", 0),
+            ("Premier League – Arsenal vs. Chelsea — highlights", "football", 0),
+            ("Premier League – Arsenal vs. Chelsea", "cricket", 0),
+            ("Premier League – Arsenal vs. Chelsea", "football", 60)
+        ]
+        for (title, sport, offset) in distinct {
+            let row = SportsTVGuideItem(id: "distinct-schedule", channelID: station.id, market: "UY", sport: sport,
+                title: title, start: start.addingTimeInterval(offset), observedAt: now, expiresAt: now.addingTimeInterval(3600))
+            let snapshot = BroadcastRegistrySnapshot(schemaVersion: 1, revision: "distinct-guide", generatedAt: now,
+                providers: base.providers, broadcasts: base.broadcasts, links: base.links, tvGuide: [row])
+            let entries = SportsTVGuidePolicy.entries(for: station, snapshot: snapshot, at: now)
+            XCTAssertEqual(entries.count, 2, title)
+            XCTAssertNil(entries.first(where: { $0.id == row.id })?.fixtureID)
+        }
+        let other = SportsTVGuideItem(id: "other-station", channelID: otherStation.id, market: "UY", sport: "football",
+            title: "Premier League – Arsenal vs. Chelsea", start: start, observedAt: now, expiresAt: now.addingTimeInterval(3600))
+        let snapshot = BroadcastRegistrySnapshot(schemaVersion: 1, revision: "other-station-guide", generatedAt: now,
+            providers: base.providers, broadcasts: base.broadcasts, links: base.links, tvGuide: [other])
+        let entries = SportsTVGuidePolicy.entries(for: otherStation, snapshot: snapshot, at: now)
+        XCTAssertEqual(entries.map(\.id), [other.id])
+        XCTAssertNil(entries.first?.fixtureID)
+    }
+
     func testFutureGuideRejectsChangedDateTeamsSquadAndTerminalCatalogFacts() throws {
         let start = now.addingTimeInterval(3600), fixture = guideFootballFixture(start: now.addingTimeInterval(3600))
         let snapshot = try fixtureGuideSnapshot(fixture)
@@ -1156,12 +1223,13 @@ final class SportsTVExperienceTests: XCTestCase {
     private func fixtureGuideSnapshot(_ fixture: EventReference,
                                       method: BroadcastRegistrySnapshot.MatchMethod = .channelAssignment,
                                       sourceOffset: TimeInterval = 0, startBasis: String? = nil,
-                                      broadcastFormat: CricketFixtureCatalog.Format? = nil) throws -> BroadcastRegistrySnapshot {
+                                      broadcastFormat: CricketFixtureCatalog.Format? = nil,
+                                      broadcastTitle: String? = nil) throws -> BroadcastRegistrySnapshot {
         let channel = try XCTUnwrap(ReviewedTVPlaylistClient.channel(forProviderName: "TV3")), metadata = try XCTUnwrap(fixture.sportsFixture)
         let start = try XCTUnwrap(fixture.kickoffDate), expiry = now.addingTimeInterval(600)
         let broadcast = BroadcastRegistrySnapshot.Broadcast(id: "br:" + String(repeating: "f", count: 64), providerCode: "reviewedtv",
             providerEventID: "reviewed-tv:assignment:" + String(repeating: "f", count: 64), streamID: channel.streamID,
-            resourceType: "tv", scope: "football", kind: .event, sport: "football", title: metadata.title,
+            resourceType: "tv", scope: "football", kind: .event, sport: "football", title: broadcastTitle ?? metadata.title,
             participants: ["Arsenal", fixture.awayName], start: start.addingTimeInterval(sourceOffset), startBasis: startBasis,
             competitionID: metadata.competitionID, squad: metadata.squad, format: broadcastFormat, channelID: channel.channelID, stationMarket: "UY", observedAt: now, expiresAt: expiry,
             verification: .dated, issues: [])

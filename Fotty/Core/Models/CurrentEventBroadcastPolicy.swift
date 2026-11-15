@@ -615,6 +615,40 @@ enum SavedMatchContinuityPolicy {
         currentEvent(for: saved, in: [event]) != nil
     }
 
+    /// An unresolved bookmark may still belong to the accepted planning schedule
+    /// beyond Home's horizon. This is presentation evidence, never Watch admission.
+    static func upcomingPlanningEvent(
+        for saved: SavedMatchRecord,
+        currentCatalog: [EventReference],
+        planningCatalog: [EventReference],
+        at now: Date
+    ) -> EventReference? {
+        guard now.timeIntervalSince1970.isFinite else { return nil }
+        let hasCurrentIdentity = currentCatalog.contains { current in
+            CatalogRouteIdentity.matches(eventID: current.id, requestedID: saved.id)
+                || (saved.sportsFixture != nil && current.sportsFixture?.fixtureID == saved.sportsFixture?.fixtureID)
+                || (saved.cricketFixture != nil && current.cricketFixture?.fixtureID == saved.cricketFixture?.fixtureID)
+        }
+        // Current duplicates, conflicts and typed terminal aliases remain vetoes;
+        // a clean supplemental row must not replace any of those facts.
+        guard !hasCurrentIdentity,
+              let candidate = currentEvent(for: saved, in: planningCatalog),
+              let event = CurrentEventBroadcastPolicy.currentEvent(for: candidate,
+                in: currentCatalog + [candidate], at: now),
+              event.id == saved.id, !event.hasCatalogIdentityConflict, !event.isBroadcastChannel,
+              let start = event.kickoffDate, start > now,
+              start <= now.addingTimeInterval(SportsSearchSchedule.futureHorizon),
+              VerifiedFixtureTerminalPolicy.state(for: event, at: now) == nil else { return nil }
+        if let sports = event.sportsFixture {
+            guard event.cricketFixture == nil, sports.verified, sports.status == .scheduled,
+                  SportsSearchSchedule.isFresh(sports.identityReceipt, at: now) else { return nil }
+        } else if let cricket = event.cricketFixture {
+            guard cricket.verified, cricket.status == .scheduled,
+                  SportsSearchSchedule.isFresh(cricket.observedAt, at: now) else { return nil }
+        } else { return nil }
+        return event
+    }
+
     static func currentEvent(
         for saved: SavedMatchRecord,
         in events: [AnalyticalDataEngine.EventReference]

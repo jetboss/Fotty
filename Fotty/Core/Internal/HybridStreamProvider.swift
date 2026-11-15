@@ -789,7 +789,7 @@ actor LiveStreamResolver {
                 StreamResolutionSuccess(attemptID: attemptID, sessions: sessions, diagnostics: diagnostics)
             )
         } catch {
-            let failure = communitySportsFailure(from: error, providerName: providerName)
+            let failure = communitySportsFailure(from: error, providerName: providerName, request: request)
             if let ticket {
                 if Task.isCancelled || error is CancellationError
                     || Self.isUnassociatedCurrentCricketMiss(error, request: request,
@@ -978,7 +978,8 @@ actor LiveStreamResolver {
         }
     }
 
-    private func communitySportsFailure(from error: Error, providerName: String = "CS") -> StreamFailure {
+    private func communitySportsFailure(from error: Error, providerName: String = "CS",
+                                       request: StreamPlaybackRequest) -> StreamFailure {
         guard let addOnError = error as? CommunitySportsAddonError else {
             return failureFromError(
                 providerName: providerName,
@@ -990,13 +991,15 @@ actor LiveStreamResolver {
             )
         }
 
-        return Self.communitySportsFailure(from: addOnError, providerName: providerName)
+        return Self.communitySportsFailure(from: addOnError, providerName: providerName, request: request)
     }
 
     nonisolated static func communitySportsFailure(from addOnError: CommunitySportsAddonError,
-                                                  providerName: String = "CS") -> StreamFailure {
+                                                  providerName: String = "CS",
+                                                  request: StreamPlaybackRequest? = nil) -> StreamFailure {
         let entryCountKey = providerName == "CS" ? "cs_stream_entry_count" : "addon_stream_entry_count"
         let rejectedCountKey = providerName == "CS" ? "cs_admission_rejected_count" : "addon_admission_rejected_count"
+        let isChannel = request?.preferredEvent?.isBroadcastChannel == true
         switch addOnError {
         case .httpFailure(let statusCode, let stage):
             return StreamFailure(
@@ -1035,7 +1038,9 @@ actor LiveStreamResolver {
                 providerName: providerName,
                 category: .providerReturnedEmpty,
                 technicalMessage: "The optional add-on had no exact playable match at this kickoff.",
-                userMessage: "A matching broadcast could not be confirmed for this match.",
+                userMessage: isChannel
+                    ? "No playable stream is available for this channel right now."
+                    : "A matching broadcast could not be confirmed for this match.",
                 retryable: true,
                 fallbackAllowed: true,
                 redactedMetadata: ["manifest_result": "no_exact_fixture_match"]
@@ -1051,7 +1056,9 @@ actor LiveStreamResolver {
                 providerName: providerName,
                 category: .providerReturnedEmpty,
                 technicalMessage: "The exact fixture matched, but its stream list contained no entries.",
-                userMessage: "The additional sources found this match but have not listed any streams yet.",
+                userMessage: isChannel
+                    ? "No streams are listed for this channel right now."
+                    : "The additional sources found this match but have not listed any streams yet.",
                 retryable: true,
                 fallbackAllowed: true,
                 redactedMetadata: ["manifest_result": "stream_entries_empty",
@@ -1063,7 +1070,9 @@ actor LiveStreamResolver {
                 providerName: providerName,
                 category: .providerReturnedEmpty,
                 technicalMessage: "The exact fixture matched, but none of its bounded entries met the supported delivery contract.",
-                userMessage: "The additional sources found this match, but their streams are not compatible right now. Try another source.",
+                userMessage: isChannel
+                    ? "The streams for this channel are not compatible right now. Try another source."
+                    : "The additional sources found this match, but their streams are not compatible right now. Try another source.",
                 retryable: true,
                 fallbackAllowed: true,
                 redactedMetadata: ["manifest_result": "no_admitted_stream_delivery",

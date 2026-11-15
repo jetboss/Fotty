@@ -34,6 +34,7 @@ struct SportsTVView: View {
     @State private var catalog = MatchListViewModel.shared
     @State private var saved = MyMatchdayStore.shared
     @State private var query = ""
+    @FocusState private var searchFocused: Bool
     @State private var filter = SportsTVLibrary.Filter.all
     @State private var day = SportsTVGuidePolicy.Day.today
     @State private var sport = SportsTVGuidePolicy.SportFilter.all
@@ -107,6 +108,7 @@ struct SportsTVView: View {
             .tint(FottyTheme.accentText)
             .navigationTitle("Sports TV").navigationBarTitleDisplayMode(.large)
             .searchable(text: $query, prompt: "Channels and programmes")
+            .searchFocused($searchFocused)
             .refreshable { _ = await registry.refresh() }
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 if let pending = viewing.pendingSingleEvent, let message = viewing.resolutionMessage {
@@ -362,6 +364,7 @@ struct SportsTVView: View {
               MatchStartPolicy(event: event, status: MatchStartPolicy.currentStatus(for: event, scores: scores)).timingAllowsPlayback else {
             actionError = "The guide has changed. Refresh it and choose the programme again."; return
         }
+        searchFocused = false
         dismissGuide()
         onWatch(event)
     }
@@ -369,6 +372,7 @@ struct SportsTVView: View {
     private func watchChannel(_ station: SportsTVStation) -> some View {
         Button {
             guard viewing.pendingSingleEvent == nil, canWatch(station) else { return }
+            searchFocused = false
             dismissGuide(); onWatch(station.event)
         } label: {
             PendingWatchLabel(title: "Watch channel", symbol: "play.fill", isPending: viewing.pendingSingleEvent?.id == station.event.id)

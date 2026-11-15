@@ -10,11 +10,11 @@ final class MatchdayJourneyTests: XCTestCase {
                                saved: Int = 4, teams: [String] = ["team"],
                                leagues: [String] = ["league"], clashes: Bool = false,
                                sports: [String] = [], registry: String? = nil, discovery: UInt64 = 0,
-                               listing: UInt64 = 0, sources: Set<String> = []) -> MatchdayProjectionKey {
+                               listing: UInt64 = 0, sources: Set<String> = [], fixture: UInt64 = 0) -> MatchdayProjectionKey {
         .init(catalogRevision: catalog, scoreRevisionMilliseconds: score, minuteBucket: minute,
               savedRevision: saved, followedTeams: teams, followedLeagues: leagues,
               showKickoffClashes: clashes, followedSports: sports, registryRevision: registry,
-              discoveryRevision: discovery, listingRevision: listing, enabledSources: sources)
+              discoveryRevision: discovery, listingRevision: listing, enabledSources: sources, fixtureRevision: fixture)
     }
 
     func testMatchdayCheckpointRejectsEveryChangedRequestInputAndCancellation() async {
@@ -24,7 +24,8 @@ final class MatchdayJourneyTests: XCTestCase {
             projectionKey(saved: 9), projectionKey(teams: ["replacement"]),
             projectionKey(leagues: ["replacement"]), projectionKey(clashes: true),
             projectionKey(sports: ["cricket"]), projectionKey(registry: "new-programme"),
-            projectionKey(discovery: 1), projectionKey(listing: 1), projectionKey(sources: ["reviewedtv"])
+            projectionKey(discovery: 1), projectionKey(listing: 1), projectionKey(sources: ["reviewedtv"]),
+            projectionKey(fixture: 1)
         ]
         for current in changed {
             XCTAssertNotEqual(requested, current)
@@ -148,6 +149,142 @@ final class MatchdayJourneyTests: XCTestCase {
                          conflict: Bool = false) -> AnalyticalDataEngine.EventReference {
         .init(id: id, title: title, category: "cricket", date: nil, poster: nil, popular: nil,
               teams: nil, hasCatalogIdentityConflict: conflict)
+    }
+
+    private func planningFixture(id: String? = nil, fixtureID: String = "sports-fixture:premier-league:saved-guide",
+                                 start: Date? = nil, away: String = "Chelsea", awayID: String? = nil,
+                                 status: SportsFixtureCatalog.Status = .scheduled, observedAt: Date? = nil,
+                                 identityObservedAt: Date? = nil, verified: Bool = true, conflict: Bool = false,
+                                 sport: String = "football", gender: SportsFixtureCatalog.Squad.Gender = .men) -> EventReference {
+        let metadata = SportsFixtureMetadata(fixtureID: fixtureID, sport: sport, competitionID: "premier-league",
+            competitionName: "Premier League", eventKind: .match, title: "Arsenal vs " + away,
+            participants: [.init(id: "arsenal", name: "Arsenal"),
+                           .init(id: awayID ?? FootballCompetitionCatalog.canonicalClubID(for: away) ?? away.lowercased(), name: away)],
+            squad: .init(gender: gender, ageGroup: "senior"), status: status,
+            observedAt: observedAt ?? now, verified: verified, identityObservedAt: identityObservedAt)
+        return .init(id: id ?? fixtureID, title: metadata.title, category: sport,
+            date: Int64((start ?? now.addingTimeInterval(5 * 86400)).timeIntervalSince1970), poster: nil, popular: false,
+            teams: .init(home: .init(name: "Arsenal", badge: nil), away: .init(name: away, badge: nil)),
+            hasCatalogIdentityConflict: conflict, sportsFixture: metadata, competitionID: "premier-league")
+    }
+
+    func testSavedFiveDayFixtureRemainsInAcceptedPlanningScheduleOutsideHome() throws {
+        func stamp(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
+        let original = planningFixture(), metadata = try XCTUnwrap(original.sportsFixture)
+        let start = try XCTUnwrap(original.kickoffDate), receipt = now.addingTimeInterval(-4 * 3600)
+        let publisherUpdate = now.addingTimeInterval(-7 * 86400)
+        let row = SportsFixtureCatalog.Fixture(id: original.id, sport: "football", start: stamp(start),
+            status: .scheduled, eventKind: .match, title: original.displayTitle,
+            competitionId: metadata.competitionID, competitionName: metadata.competitionName,
+            participants: metadata.participants, squad: metadata.squad,
+            source: .init(name: "Accepted official schedule", url: "https://example.test/fixtures",
+                observedAt: stamp(receipt), updatedAt: stamp(publisherUpdate), verification: .verified))
+        let snapshot = SportsFixtureCatalog.Snapshot(schemaVersion: 1, complete: true, checkedAt: stamp(receipt),
+            revision: "saved-future", sourceStatus: .verified, fixtures: [row],
+            coverage: [.init(sport: "football", competitionId: metadata.competitionID,
+                competitionName: metadata.competitionName, status: .covered, checkedAt: stamp(receipt),
+                fixtureCount: 1, pendingFixtureCount: 0, nextStart: row.start)])
+        let accepted = try SportsFixtureCatalog.validatedSnapshot(from: JSONEncoder().encode(snapshot), now: now)
+        let home = SportsFixtureCatalog.merging(into: [], snapshot: accepted, at: now)
+        let planning = SportsSearchSchedule.events(sports: accepted, cricket: nil, at: now)
+        XCTAssertTrue(home.isEmpty)
+        let saved = SavedMatchRecord(event: original, savedAt: now.addingTimeInterval(-60))
+        let recognized = try XCTUnwrap(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved,
+            currentCatalog: home, planningCatalog: planning, at: now))
+        XCTAssertEqual(recognized.id, saved.id)
+        XCTAssertEqual(recognized.kickoffDate, start)
+        XCTAssertEqual(recognized.sportsFixture?.identityReceipt, receipt)
+        XCTAssertEqual(recognized.sportsFixture?.observedAt, publisherUpdate)
+        XCTAssertEqual(MatchdayEventStatePolicy.section(for: recognized, at: now), .upcoming)
+        XCTAssertFalse(MatchStartPolicy(event: recognized, now: now).timingAllowsPlayback)
+        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: recognized, in: home, at: now))
+    }
+
+    func testSavedPlanningReschedulePreservesOpaqueIdentityAndOriginalReceipts() throws {
+        let original = planningFixture(id: "provider:saved-future")
+        let savedAt = now.addingTimeInterval(-3600), saved = SavedMatchRecord(event: original, savedAt: savedAt)
+        let changed = planningFixture(start: now.addingTimeInterval(6 * 86400),
+            observedAt: now.addingTimeInterval(-7 * 86400), identityObservedAt: now.addingTimeInterval(-45 * 60))
+        let recognized = try XCTUnwrap(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved,
+            currentCatalog: [], planningCatalog: [changed], at: now))
+        XCTAssertEqual(recognized.id, saved.id, "Planning recognition preserves the saved notification route")
+        XCTAssertEqual(recognized.kickoffDate, changed.kickoffDate)
+        XCTAssertEqual(recognized.sportsFixture, changed.sportsFixture)
+        XCTAssertEqual(saved.savedAt, savedAt)
+        XCTAssertEqual(saved.event.kickoffDate, original.kickoffDate,
+                       "Read-only recognition does not rewrite the stored bookmark")
+    }
+
+    func testSavedPlanningRejectsStaleAmbiguousUnverifiedAndChangedIdentity() {
+        let original = planningFixture(), saved = SavedMatchRecord(event: original, savedAt: now)
+        let rejected = [planningFixture(observedAt: now.addingTimeInterval(-SportsSearchSchedule.receiptFreshness - 1)),
+            planningFixture(observedAt: now.addingTimeInterval(301)),
+            planningFixture(verified: false), planningFixture(conflict: true), planningFixture(away: "Liverpool"),
+            planningFixture(sport: "hockey"), planningFixture(gender: .women),
+            planningFixture(status: .live), planningFixture(status: .cancelled), planningFixture(status: .postponed),
+            planningFixture(start: now), planningFixture(start: now.addingTimeInterval(SportsSearchSchedule.futureHorizon + 1))]
+        for candidate in rejected {
+            XCTAssertNil(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved,
+                currentCatalog: [], planningCatalog: [candidate], at: now))
+        }
+        for planning in [[], [original, original]] {
+            XCTAssertNil(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved,
+                currentCatalog: [], planningCatalog: planning, at: now))
+        }
+        let untyped = event(original.id, at: original.kickoffDate, home: "Arsenal", away: "Chelsea")
+        XCTAssertNil(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved,
+            currentCatalog: [], planningCatalog: [untyped], at: now), "A saved title cannot create planning authority")
+    }
+
+    func testSavedPlanningParticipantLabelCorrectionPreservesStableIdentity() throws {
+        let original = planningFixture(), saved = SavedMatchRecord(event: original, savedAt: now)
+        let awayID = try XCTUnwrap(original.sportsFixture?.participants.last?.id)
+        let renamed = planningFixture(away: "Chelsea Football Club", awayID: awayID)
+        let recognized = try XCTUnwrap(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved,
+            currentCatalog: [], planningCatalog: [renamed], at: now))
+        XCTAssertEqual(recognized.id, saved.id)
+        XCTAssertEqual(recognized.awayName, "Chelsea Football Club")
+        XCTAssertEqual(recognized.sportsFixture?.participants.last?.id, awayID,
+                       "An accepted label correction does not replace the participant")
+    }
+
+    func testSavedPlanningCannotShadowCurrentRowsConflictsOrTypedTerminalAliases() throws {
+        let original = planningFixture(), saved = SavedMatchRecord(event: original, savedAt: now)
+        let currentCatalogs = [[original], [original, original], [planningFixture(conflict: true)],
+            [planningFixture(away: "Liverpool")], [planningFixture(verified: false)],
+            [planningFixture(id: "provider:finished", status: .finished)],
+            [planningFixture(id: "provider:cancelled", status: .cancelled)],
+            [planningFixture(id: "provider:conflicting", away: "Liverpool")]]
+        for current in currentCatalogs {
+            XCTAssertNil(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved,
+                currentCatalog: current, planningCatalog: [original], at: now),
+                "Current ownership is never replaced by supplemental planning")
+        }
+        let unrelated = planningFixture(fixtureID: "sports-fixture:premier-league:other", away: "Liverpool")
+        XCTAssertEqual(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved,
+            currentCatalog: [unrelated], planningCatalog: [original], at: now)?.id, saved.id)
+    }
+
+    func testSavedCricketPlanningKeepsFreshnessAndTerminalAliasVeto() throws {
+        func fixture(id: String = "cricket-fixture:icc:saved-plan", status: CricketFixtureCatalog.Status = .scheduled,
+                     observedAt: Date? = nil) -> EventReference {
+            let metadata = CricketFixtureMetadata(fixtureID: "icc:saved-plan", competitionID: "icc", competitionName: "ICC",
+                format: .odi, status: status, observedAt: observedAt ?? now.addingTimeInterval(-4 * 3600), verified: true)
+            return .init(id: id, title: "New Zealand vs India", category: "cricket",
+                date: Int64(now.addingTimeInterval(5 * 86400).timeIntervalSince1970), poster: nil, popular: false,
+                teams: .init(home: .init(name: "New Zealand", badge: nil), away: .init(name: "India", badge: nil)),
+                cricketFixture: metadata)
+        }
+        let original = fixture(), saved = SavedMatchRecord(event: original, savedAt: now)
+        let recognized = try XCTUnwrap(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved,
+            currentCatalog: [], planningCatalog: [original], at: now))
+        XCTAssertEqual(recognized.cricketFixture?.observedAt, original.cricketFixture?.observedAt)
+        XCTAssertNil(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved, currentCatalog: [],
+            planningCatalog: [fixture(observedAt: now.addingTimeInterval(-SportsSearchSchedule.receiptFreshness - 1))], at: now))
+        let terminal = fixture(id: "provider:cricket-terminal", status: .cancelled, observedAt: now)
+        XCTAssertNil(SavedMatchContinuityPolicy.upcomingPlanningEvent(for: saved,
+            currentCatalog: [terminal], planningCatalog: [original], at: now),
+            "A terminal cricket identity cannot be hidden behind another provider ID")
     }
 
     func testCardLiveLabelsRequireAcceptedRecentOfficialStatus() {

@@ -166,12 +166,30 @@ enum SportsTVGuidePolicy {
         // Presentation de-duplication must not discard the explicit association.
         // Keep that original registry row; never lend its identity to guide text.
         let visibleSchedule = scheduled.filter { schedule in
-            !linked.contains { $0.fixtureID != nil && $0.start == schedule.start && schedule.title.contains($0.title) }
+            !linked.contains { $0.fixtureID != nil && duplicates(schedule, programme: $0) }
         }
         let remaining = linked.filter { row in
-            row.fixtureID != nil || !scheduled.contains { $0.start == row.start && $0.title.contains(row.title) }
+            row.fixtureID != nil || !scheduled.contains { duplicates($0, programme: row) }
         }
         return (visibleSchedule + remaining).sorted { $0.start == $1.start ? $0.id < $1.id : $0.start < $1.start }
+    }
+
+    /// Both rows have already been scoped to the exact station. Compare a whole
+    /// event portion, never a team-name substring or inferred fixture association.
+    private static func duplicates(_ schedule: Entry, programme: Entry) -> Bool {
+        guard schedule.start == programme.start, schedule.sport == programme.sport else { return false }
+        func tokens(_ title: String) -> [String] {
+            title.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        }
+        let expected = tokens(programme.title)
+        guard !expected.isEmpty else { return false }
+        if tokens(schedule.title) == expected { return true }
+        let portions = schedule.title.replacingOccurrences(of: #"\s+[–—-]\s+|:\s+"#,
+            with: "\n", options: .regularExpression).components(separatedBy: "\n").map(tokens)
+        guard let match = portions.firstIndex(of: expected) else { return false }
+        // Preserve squad/phase suffixes and other programmes; the existing
+        // separate live-coverage annotation does not change the event title.
+        return portions.dropFirst(match + 1).allSatisfy { $0 == ["live", "coverage"] }
     }
 
     /// Local calendar days, including a current programme crossing midnight.

@@ -14,6 +14,7 @@ struct MatchdayProjectionKey: Hashable {
     var discoveryRevision: UInt64 = 0
     var listingRevision: UInt64 = 0
     var enabledSources: Set<String> = []
+    var fixtureRevision: UInt64 = 0
 }
 
 /// The same scope control is used by the real screen and bounded native layout
@@ -168,6 +169,7 @@ private struct MatchdayRowPresentation: Identifiable {
     let action: CurrentEventBroadcastPolicy.Action?
     let savedRecord: SavedMatchRecord?
     let isInCurrentSchedule: Bool
+    let isPlanningOnly: Bool
     let section: MatchdayEventStatePolicy.Section
 
     var isLive: Bool { section == .live }
@@ -223,6 +225,7 @@ struct ArenaDiscoveryView: View {
     @State private var matchListViewModel: MatchListViewModel
     @State private var myMatchdayStore: MyMatchdayStore
     @State private var selectedCatalogEvent: AnalyticalDataEngine.EventReference?
+    @State private var selectedDetailsIsPlanningOnly = false
     @State private var pendingDetailsWatch: AnalyticalDataEngine.EventReference?
     @State private var pendingDetailsSourceCheck: AnalyticalDataEngine.EventReference?
     @State private var showsTeams = false
@@ -379,13 +382,13 @@ struct ArenaDiscoveryView: View {
         .sheet(item: $selectedCatalogEvent, onDismiss: completePendingDetailsAction) { event in
             let detailsEvent = CurrentEventBroadcastPolicy.currentEvent(for: event,
                 in: matchListViewModel.playbackAdmissionCatalog) ?? event
-            let action = CurrentEventBroadcastPolicy.action(for: event, in: matchListViewModel.playbackAdmissionCatalog,
+            let action = selectedDetailsIsPlanningOnly ? nil : CurrentEventBroadcastPolicy.action(for: event, in: matchListViewModel.playbackAdmissionCatalog,
                 status: MatchStartPolicy.currentStatus(for: event, scores: liveScoreService))
             CatalogEventDetailsView(event: detailsEvent, onWatch: action.map { _ in {
                 pendingDetailsWatch = event
                 selectedCatalogEvent = nil
             } }, alternateActionTitle: action?.alternateActionTitle,
-                onCheckStreams: optionalSourceCheckAction(for: event))
+                onCheckStreams: selectedDetailsIsPlanningOnly ? nil : optionalSourceCheckAction(for: event))
                 .environment(liveScoreService)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
@@ -753,8 +756,11 @@ struct ArenaDiscoveryView: View {
                     if let action = row.action { watchEvent(action.event) }
                 },
                 alternateActionTitle: row.action?.alternateActionTitle,
-                onDetailsTap: { presentModal { selectedCatalogEvent = event } },
-                onCheckStreams: row.isInCurrentSchedule && !viewing.isTwo ? { checkSources(for: event) } : nil,
+                onDetailsTap: { presentModal {
+                    selectedDetailsIsPlanningOnly = row.isPlanningOnly
+                    selectedCatalogEvent = event
+                } },
+                onCheckStreams: row.isInCurrentSchedule && !row.isPlanningOnly && !viewing.isTwo ? { checkSources(for: event) } : nil,
                 isSaved: row.savedRecord != nil,
                 onSaveTap: { toggleSavedMatch(event) },
                 grouped: true
@@ -879,7 +885,8 @@ struct ArenaDiscoveryView: View {
             registryRevision: BroadcastRegistryClient.shared.snapshot?.revision,
             discoveryRevision: FixtureStreamDiscoveryIndex.shared.revision,
             listingRevision: FixtureCatalogAvailabilityIndex.shared.revision,
-            enabledSources: FixtureStreamDiscoveryIndex.shared.enabledProviderCodes
+            enabledSources: FixtureStreamDiscoveryIndex.shared.enabledProviderCodes,
+            fixtureRevision: matchListViewModel.fixtureCatalogRevision
         )
     }
 
@@ -900,6 +907,7 @@ struct ArenaDiscoveryView: View {
         let providerMatches = matchListViewModel.matches
         let officialMatches = liveScoreService.analysisMatches
         let admissionCatalog = CurrentEventBroadcastPolicy.IndexedCatalog(matchListViewModel.playbackAdmissionCatalog, at: now)
+        let planningCatalog = matchListViewModel.searchSchedule(at: now)
         let savedRecords = myMatchdayStore.savedMatches
         // Freeze value selection/date/receipt inputs before the first suspension.
         let selection = SportsPersonalizationPolicy.prepareSelection(
@@ -924,7 +932,8 @@ struct ArenaDiscoveryView: View {
         func makeRow(
             for event: AnalyticalDataEngine.EventReference,
             isInCurrentSchedule: Bool,
-            savedRecord: SavedMatchRecord?
+            savedRecord: SavedMatchRecord?,
+            isPlanningOnly: Bool = false
         ) -> MatchdayRowPresentation? {
             let canBeFollowed = !event.isBroadcastChannel && !event.hasCatalogIdentityConflict
             let teamFollowed = canBeFollowed && (
@@ -967,10 +976,11 @@ struct ArenaDiscoveryView: View {
                 event: event,
                 reason: reason,
                 reasonIcon: savedRecord == nil ? "star.fill" : "bookmark.fill",
-                action: CurrentEventBroadcastPolicy.action(for: event, in: admissionCatalog.candidates(for: event),
+                action: isPlanningOnly ? nil : CurrentEventBroadcastPolicy.action(for: event, in: admissionCatalog.candidates(for: event),
                     at: now, status: status),
                 savedRecord: savedRecord,
                 isInCurrentSchedule: isInCurrentSchedule,
+                isPlanningOnly: isPlanningOnly,
                 section: section
             )
         }
@@ -990,9 +1000,13 @@ struct ArenaDiscoveryView: View {
         guard await HomeProjectionWorkPolicy.checkpoint(isCurrent: { matchdayProjectionKey == requestKey }) else { return }
         for (index, record) in savedRecords.enumerated() {
             guard !Task.isCancelled else { return }
-            if !representedSavedIDs.contains(record.id),
-               let row = makeRow(for: record.event, isInCurrentSchedule: false, savedRecord: record) {
-                rowsByID[record.id] = row
+            if !representedSavedIDs.contains(record.id) {
+                let planned = SavedMatchContinuityPolicy.upcomingPlanningEvent(for: record,
+                    currentCatalog: admissionCatalog.rows, planningCatalog: planningCatalog, at: now)
+                if let row = makeRow(for: planned ?? record.event, isInCurrentSchedule: planned != nil,
+                                     savedRecord: record, isPlanningOnly: planned != nil) {
+                    rowsByID[record.id] = row
+                }
             }
             if (index + 1).isMultiple(of: 16) {
                 guard await HomeProjectionWorkPolicy.checkpoint(isCurrent: { matchdayProjectionKey == requestKey }) else { return }

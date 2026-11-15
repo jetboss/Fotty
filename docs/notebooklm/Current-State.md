@@ -1,6 +1,6 @@
 # Fotty current state
 
-15 Nov: [Sports TV guide](../testing/fotty-sports-tv-guide-20261115/jet333-acceptance.md) on Jet333. Planning fixed; Claude approved, 152 tests pass. Data preserved; physical Watch/Save/Remind pending unlock. Phone/ranking/TestFlight unchanged.
+15 Nov: [Jet334 guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) installed;396 checks, Save/Remind and TV25 hold pass. Live programme/audio pending; source failures retained. Phone/ranking/TestFlight unchanged.
 
 14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Internal TestFlight332 released to the existing13 testers; [release proof](../releases/Fotty-3.0.0-332.md).
 

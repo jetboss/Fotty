@@ -1,0 +1,30 @@
+{
+  "action": "compile-catalyst",
+  "label": "guide334-catalyst",
+  "exitCode": 65,
+  "phaseError": null,
+  "passed": false,
+  "sourceUnchanged": false,
+  "sourceSHA256": {
+    "Fotty/Core/Internal/HybridStreamProvider.swift": "f5a5f69f02685f9b8e3a3c5c67eaa43a3dd179f6aa05a3f0b2a3eb895ff09213",
+    "Fotty/Core/Models/CurrentEventBroadcastPolicy.swift": "ccc5bf759b45d99c7d8ceaa9da8637142950b32aff4eea072b7ba6a9a18d5d12",
+    "Fotty/Core/Models/SportsTVExperience.swift": "26001768f52eeda32b40b3e53c569adbeb466a3c60de0f9118ae3dfc3f564451",
+    "Fotty/Features/Dashboard/SportsTVView.swift": "600e7c7509a28ee4ede262158ca03e7ae94ea14a06bb4e1e78dcd5d003a9cfb3",
+    "Fotty/Features/Social/ArenaDiscoveryView.swift": "d734b752e327a7395db4da7a1641ff3d44b557d7f3e483706fb13f4a3bc84860",
+    "FottyTests/CommunitySportsAddonTests.swift": "5726c3e0b6beaaf5f607eba985d465732a64eb1064fa92e6c44571d575dbf4ea",
+    "FottyTests/MatchdayJourneyTests.swift": "10e9fcfa9c20c0260c6b5d8ed0577cc8980e989d9f8f014c120992c2e68f4fa6",
+    "FottyTests/SportsTVExperienceTests.swift": "56865546afa3f4173a8b51e49425ca1c59dfb8c9f6b528f77d56edd1f7c22615"
+  },
+  "freeDiskAfterBytes": 31920898048,
+  "counts": null,
+  "assertionFailures": null,
+  "skippedTests": [],
+  "failedTests": [],
+  "errors": [
+    "/Users/jelani/.codex/worktrees/fotty-sports-tv-guide-20261115/Fotty/FottyTests/CommunitySportsAddonTests.swift:2382:102: error: extra argument 'request' in call",
+    "     |                                                                                                      `- error: extra argument 'request' in call",
+    "/Users/jelani/.codex/worktrees/fotty-sports-tv-guide-20261115/Fotty/FottyTests/CommunitySportsAddonTests.swift:2383:102: error: extra argument 'request' in call",
+    "     |                                                                                                      `- error: extra argument 'request' in call"
+  ],
+  "hashScope": "Changed tracked source files; complete inventory held in local gate receipt"
+}

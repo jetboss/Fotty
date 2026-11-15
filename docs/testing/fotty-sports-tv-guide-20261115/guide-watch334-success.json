@@ -1,0 +1,34 @@
+{
+  "build": 334,
+  "device": "Jet iPad",
+  "entry": "Normal Sports TV guide search then Watch channel",
+  "station": "Sky Sports Premier League",
+  "sourceLabel": "TV25",
+  "diagnosticWatchToDecodedSeconds": 7.848646,
+  "observedHoldStartUTC": "2026-11-15T17:01:36.082Z",
+  "observedHoldEndUTC": "2026-11-15T17:03:13.023Z",
+  "observedHoldSeconds": 96.941,
+  "visibleClocks": [
+    "30:07",
+    "30:49",
+    "31:27",
+    "31:39",
+    "31:49"
+  ],
+  "keyboardAccessoryDismissedOnWatch": true,
+  "queryPreservedAfterClose": true,
+  "nativeContinuity": {
+    "native_continuity_media_advance_ms": "92825",
+    "native_continuity_elapsed_ms": "92847",
+    "native_continuity_stalls": "0",
+    "native_access_dropped_frames": "0",
+    "native_presentation_width": "1280",
+    "native_presentation_height": "720",
+    "attempt_number": "1"
+  },
+  "actualFirstPictureTiming": "Not continuously timed; startup number is app decoded-progress telemetry",
+  "audibleSound": "Not observable through Device Hub",
+  "officialLiveFixtureQualification": false,
+  "currentFixtureLinkedGuideWatch": "Pending; no current linked Reviewed TV programme in fresh metadata",
+  "scope": "Channel Watch pass only, earlier source failures retained separately"
+}

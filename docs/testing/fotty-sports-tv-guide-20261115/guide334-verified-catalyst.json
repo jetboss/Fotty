@@ -1,0 +1,25 @@
+{
+  "action": "compile-catalyst",
+  "label": "guide334-verified-catalyst",
+  "exitCode": 0,
+  "phaseError": null,
+  "passed": true,
+  "sourceUnchanged": true,
+  "sourceSHA256": {
+    "Fotty/Core/Internal/HybridStreamProvider.swift": "cbdadff1468049300327af6ce438c120972ed6bb34ab5be8f5420577dc75d9f2",
+    "Fotty/Core/Models/CurrentEventBroadcastPolicy.swift": "ccc5bf759b45d99c7d8ceaa9da8637142950b32aff4eea072b7ba6a9a18d5d12",
+    "Fotty/Core/Models/SportsTVExperience.swift": "72f6938081b1e7aeba275bc80e757579156c4c30fceede08f5d6782561dd3642",
+    "Fotty/Features/Dashboard/SportsTVView.swift": "600e7c7509a28ee4ede262158ca03e7ae94ea14a06bb4e1e78dcd5d003a9cfb3",
+    "Fotty/Features/Social/ArenaDiscoveryView.swift": "d734b752e327a7395db4da7a1641ff3d44b557d7f3e483706fb13f4a3bc84860",
+    "FottyTests/CommunitySportsAddonTests.swift": "a9bea725ae01e3973584c12fa2c4350513abe9ec408d659a0b152909d130c297",
+    "FottyTests/MatchdayJourneyTests.swift": "cc1e583461c82f629e5b01d6dc8837ed9d80d4988f97015c62be46052bc3611f",
+    "FottyTests/SportsTVExperienceTests.swift": "ac8c15f12a82a8baaa929d844f6274805c212026833a39401d76e9518518f6d8"
+  },
+  "freeDiskAfterBytes": 30348484608,
+  "counts": null,
+  "assertionFailures": null,
+  "skippedTests": [],
+  "failedTests": [],
+  "errors": [],
+  "hashScope": "Changed tracked source files; complete inventory held in local gate receipt"
+}

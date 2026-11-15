@@ -2367,6 +2367,31 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertFalse(CommunitySportsFixtureProtocol.paths.contains { $0.hasPrefix("/stream/") })
     }
 
+    @MainActor
+    func testChannelEmptyMessagesPreserveDiscoveryFailureSemantics() throws {
+        let fixture = makeRequest(home: "Chelsea", away: "Brighton", category: "football")
+        let cases: [(CommunitySportsAddonError, String)] = [
+            (.matchNotFound, "No playable stream is available for this channel right now."),
+            (.streamEntriesEmpty, "No streams are listed for this channel right now."),
+            (.streamAdmissionRejected(entryCount: 2), "The streams for this channel are not compatible right now. Try another source.")
+        ]
+        for provider in ["CS-SkyMain", "TV1"] {
+            let station = try XCTUnwrap(SportsTVStation.station(provider: provider))
+            let request = StreamPlaybackRequest(event: station.event)
+            for (error, expectedMessage) in cases {
+                let channelFailure = LiveStreamResolver.communitySportsFailure(from: error, request: request)
+                let fixtureFailure = LiveStreamResolver.communitySportsFailure(from: error, request: fixture)
+                let defaultFailure = LiveStreamResolver.communitySportsFailure(from: error)
+                XCTAssertEqual(channelFailure.userMessage, expectedMessage)
+                XCTAssertEqual(fixtureFailure.userMessage, defaultFailure.userMessage)
+                XCTAssertEqual(channelFailure.category, fixtureFailure.category)
+                XCTAssertEqual(channelFailure.retryable, fixtureFailure.retryable)
+                XCTAssertEqual(channelFailure.fallbackAllowed, fixtureFailure.fallbackAllowed)
+                XCTAssertEqual(channelFailure.redactedMetadata, fixtureFailure.redactedMetadata)
+            }
+        }
+    }
+
     func testUnsafeEntryDoesNotChangeAdmittedSiblingLabelOrSourceIdentity() async throws {
         let session = try makeFixtureSession(streamResponse: .json(["streams": [
             ["url": "http://unreviewed.example/api/manifest", "_source": "unreviewed"],
