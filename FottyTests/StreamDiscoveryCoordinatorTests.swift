@@ -7,6 +7,40 @@ private func evidenceScope(_ fixtureID: String) -> LiveSourceHealthStore.MatchEv
 }
 
 final class FixtureProviderPreflightScheduleTests: XCTestCase {
+    func testAccountPreflightCannotStarveFreeProvidersOnTheSameCricketFixture() {
+        var rotation = FixtureProviderPreflightSchedule()
+        let providers = ["communitysports", "highfly", "cncsports", "penguplay"]
+        for fixture in ["cricket-first", "cricket-second"] {
+            XCTAssertEqual(LiveStreamResolver.preflightProviderCodes(for: fixture, available: providers,
+                schedule: &rotation), ["highfly", "penguplay"])
+        }
+        for fixture in ["cricket-first", "cricket-second"] {
+            let next = LiveStreamResolver.preflightProviderCodes(for: fixture, available: providers,
+                schedule: &rotation)
+            XCTAssertEqual(next, ["communitysports", "cncsports"], "Two account sources must not consume every repeated preflight")
+            XCTAssertLessThanOrEqual(next.count, 2)
+            XCTAssertEqual(LiveStreamResolver.preflightProviderCodes(for: fixture, available: providers,
+                schedule: &rotation), ["highfly", "penguplay"])
+        }
+    }
+
+    func testPreflightProviderRevocationKeepsPendingFreeProviderProgress() {
+        var rotation = FixtureProviderPreflightSchedule()
+        _ = LiveStreamResolver.preflightProviderCodes(for: "cricket", available: ["highfly", "penguplay", "communitysports", "cncsports"],
+            schedule: &rotation)
+        XCTAssertEqual(LiveStreamResolver.preflightProviderCodes(for: "cricket",
+            available: ["highfly", "communitysports", "cncsports"], schedule: &rotation), ["communitysports", "cncsports"])
+    }
+
+    func testPreflightDeadlineUsesStartedLanesRatherThanSkippedAccountTickets() {
+        XCTAssertEqual(LiveStreamResolver.preflightDeadline(availableProviderCodes: ["highfly", "communitysports"],
+            startedProviderCodes: ["communitysports"]), .seconds(8), "An account cooldown must not extend a free-only preflight")
+        XCTAssertEqual(LiveStreamResolver.preflightDeadline(availableProviderCodes: ["highfly", "communitysports"],
+            startedProviderCodes: ["highfly", "communitysports"]), .seconds(30))
+        XCTAssertEqual(LiveStreamResolver.preflightDeadline(availableProviderCodes: ["cncsports"],
+            startedProviderCodes: ["cncsports"]), .seconds(8))
+    }
+
     func testInterleavedFixturesEachVisitEveryProviderInsteadOfAliasingGlobalCursor() {
         var rotation = FixtureProviderPreflightSchedule()
         let providers = ["cs", "as", "fs", "sv"]

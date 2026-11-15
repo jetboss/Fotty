@@ -2,7 +2,7 @@
   "stage": 5,
   "base": "536fbaec50dcf63fec3fc98b21fb6c312d33ee4e",
   "candidateBuild": 330,
-  "status": "local tests passed; signed build and physical check pending",
+  "status": "tests and signed release passed; normal330 installed on Jet; Watch check in progress",
   "rankingChanged": false,
   "sourceSettingsChanged": false,
   "phoneTouched": false,
@@ -93,6 +93,12 @@
         "-[FottyTests.SourceConnectionToolTests testOptInNHLRegisteredCSMetadata]",
         "-[FottyTests.SourceConnectionToolTests testReviewedTVExpandedChannelsThroughGuardedDecoder]"
       ]
+    },
+    "stage5-release330": {
+      "passed": true,
+      "exitCode": 0,
+      "sourceUnchanged": true,
+      "same317SourceHashesAsFullSuite": true
     }
   },
   "sourceManifestSHA256": "2e98d60d841355b3f0acac4641d4cccdbe44d9ee1e17ceee097367177f1f4cf0",
@@ -114,5 +120,6 @@
     "exportRefreshed": true,
     "privacyChecksPassed": true,
     "healthCheck": "pre-existing Current-State.md exceeds 8 KB; owner-editing file left untouched"
-  }
+  },
+  "implementationCommit": "560ff1f06b4a"
 }

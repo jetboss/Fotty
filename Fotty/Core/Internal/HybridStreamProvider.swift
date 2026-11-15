@@ -390,6 +390,19 @@ actor LiveStreamResolver {
     /// No player, media probe, source setting or shared publisher is involved.
     static let accountPreflightDeadline: Duration = .seconds(30)
 
+    nonisolated static func preflightProviderCodes(for fixtureID: String, available: [String],
+        schedule: inout FixtureProviderPreflightSchedule) -> [String] {
+        let account = available.filter(LiveSourceHealthStore.accountProviderCodes.contains)
+        return account + schedule.takeProviders(for: fixtureID,
+            available: available.filter { !account.contains($0) }, limit: max(0, 2 - account.count))
+    }
+
+    nonisolated static func preflightDeadline(availableProviderCodes: [String],
+        startedProviderCodes: [String]) -> Duration {
+        availableProviderCodes.contains(where: LiveSourceHealthStore.accountProviderCodes.contains)
+            ? accountPreflightDeadline : .seconds(8)
+    }
+
     /// Returns how many source lanes ran (diagnostic count only).
     @discardableResult
     func preflightSources(for request: StreamPlaybackRequest) async -> Int {
@@ -406,9 +419,8 @@ actor LiveStreamResolver {
         var tickets: [FixtureStreamDiscoveryIndex.Ticket] = []
         // The owner's account source is checked every time; the free sources
         // share the remaining slot in rotation.
-        let account = sources.map(\.providerCode).filter(LiveSourceHealthStore.accountProviderCodes.contains)
-        let selectedCodes = account + preflightProviderSchedule.takeProviders(for: request.matchID,
-            available: sources.map(\.providerCode).filter { !account.contains($0) }, limit: max(0, 2 - account.count))
+        let selectedCodes = Self.preflightProviderCodes(for: request.matchID,
+            available: sources.map(\.providerCode), schedule: &preflightProviderSchedule)
         for code in selectedCodes {
             guard let source = sources.first(where: { $0.providerCode == code }) else { continue }
             guard let ticket = await FixtureStreamDiscoveryIndex.shared.begin(
@@ -438,7 +450,8 @@ actor LiveStreamResolver {
         // Account sources (PenguPlay gathers channel links on request) get the
         // longer budget; free sources keep the original eight seconds.
         _ = await StreamDiscoveryCoordinator.collect(matchScope: LiveSourceHealthStore.MatchEvidenceScope(request: request),
-            lanes: lanes, deadline: account.isEmpty ? .seconds(8) : Self.accountPreflightDeadline)
+            lanes: lanes, deadline: Self.preflightDeadline(availableProviderCodes: sources.map(\.providerCode),
+                startedProviderCodes: tickets.map(\.providerCode)))
         // Completed generations ignore abandonment; a parent cancelled before
         // a lane started must still release its metadata-only lease.
         for ticket in tickets { await FixtureStreamDiscoveryIndex.shared.abandon(ticket) }

@@ -1,0 +1,433 @@
+{
+  "device": "Jet iPad",
+  "rankingChanged": false,
+  "phoneTouched": false,
+  "fplTouched": false,
+  "multiStreamTouched": false,
+  "testflight": false,
+  "build330": {
+    "football": {
+      "fixture": "Jamaica–Mexico",
+      "competition": "CONCACAF Nations League",
+      "kickoffUTC": "2026-11-15T01:00:00Z",
+      "freshStatusUTC": "2026-11-15T01:18:22.145560Z",
+      "status": "first half18minutes0–0",
+      "schedule": "https://www.concacaf.com/competitions/nations-league/matches/7ce3462f517942558c00087506c0edfb/jamaica-vs-mexico",
+      "statusPublisher": "https://site.api.espn.com/apis/site/v2/sports/soccer/concacaf.nations.league/summary?event=401929772",
+      "normalWatch": true,
+      "watchToDecodedMs": 38628,
+      "correctProgrammeObserved": false,
+      "holdPassed": false,
+      "outcome": "CS1 upstream HTTP failure;CS2 initial timeout then decoded briefly and stalled;CS3 manifest timeouts;automatic recovery exhausted. No physical playback pass.",
+      "noClaimOfProviderRootCause": true,
+      "records": [
+        {
+          "utc": "2026-11-15T01:19:12.293234+00:00",
+          "name": "attempt_started",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "source_family": "communitysports",
+            "source": "CS1",
+            "last_observed_stage": "preparing"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:19:13.159490+00:00",
+          "name": "watch_discovery_timing",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "discovery_first_candidate_ms": "6824",
+            "discovery_first_snapshot_ms": "6825"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:19:13.364615+00:00",
+          "name": "source_failure",
+          "outcome": "failure",
+          "durationMs": 1069,
+          "details": {
+            "source": "CS1",
+            "source_family": "communitysports",
+            "failure_kind": "sourceFailure",
+            "relay_resource_category": "unknown",
+            "last_observed_stage": "preparing",
+            "preparation_stage": "contract_validation",
+            "preparation_reason": "http_status",
+            "relay_request_phase": "upstream_response",
+            "relay_request_outcome": "failed"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:19:13.377717+00:00",
+          "name": "attempt_started",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "source_family": "communitysports",
+            "source": "CS1",
+            "last_observed_stage": "preparing"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:19:20.578640+00:00",
+          "name": "source_failure",
+          "outcome": "failure",
+          "durationMs": 7195,
+          "details": {
+            "source": "CS1",
+            "source_family": "communitysports",
+            "failure_kind": "sourceFailure",
+            "relay_resource_category": "unknown",
+            "last_observed_stage": "preparing",
+            "preparation_stage": "contract_validation",
+            "relay_request_phase": "upstream_response",
+            "preparation_reason": "http_status",
+            "relay_request_outcome": "failed"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:19:20.706042+00:00",
+          "name": "attempt_started",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "source_family": "communitysports",
+            "source": "CS2",
+            "last_observed_stage": "preparing"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:19:25.908148+00:00",
+          "name": "source_failure",
+          "outcome": "failure",
+          "durationMs": 5191,
+          "details": {
+            "source": "CS2",
+            "source_family": "communitysports",
+            "relay_resource_category": "manifest",
+            "failure_kind": "network",
+            "last_observed_stage": "preparing",
+            "preparation_error_domain": "url",
+            "preparation_error_code": "-1001",
+            "preparation_reason": "transport_error",
+            "preparation_stage": "contract_validation",
+            "relay_request_phase": "upstream_response",
+            "relay_request_outcome": "in_flight"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:19:25.959405+00:00",
+          "name": "attempt_started",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "source_family": "communitysports",
+            "source": "CS2",
+            "last_observed_stage": "preparing"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:19:43.419460+00:00",
+          "name": "watch_outcome",
+          "outcome": "success",
+          "durationMs": 38628,
+          "details": {
+            "source_family": "communitysports"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:19:43.439892+00:00",
+          "name": "decoded_progress",
+          "outcome": "success",
+          "durationMs": 17459,
+          "details": {
+            "source_family": "communitysports",
+            "source": "CS2",
+            "last_observed_stage": "decoded"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:20:13.054882+00:00",
+          "name": "source_failure",
+          "outcome": "failure",
+          "durationMs": 47082,
+          "details": {
+            "native_access_stalls": "1",
+            "source_family": "communitysports",
+            "relay_request_phase": "resource",
+            "native_access_dropped_frames": "0",
+            "last_observed_stage": "decoded",
+            "source": "CS2",
+            "relay_resource_category": "unknown",
+            "relay_request_outcome": "completed",
+            "failure_kind": "stalled"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:20:20.056716+00:00",
+          "name": "attempt_started",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "source_family": "communitysports",
+            "source": "CS3",
+            "last_observed_stage": "preparing"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:20:20.836031+00:00",
+          "name": "watch_discovery_timing",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "discovery_initial_wait": "previous_failure",
+            "discovery_first_candidate_ms": "6459",
+            "discovery_first_snapshot_ms": "6461"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:20:25.421319+00:00",
+          "name": "source_failure",
+          "outcome": "failure",
+          "durationMs": 5353,
+          "details": {
+            "source": "CS3",
+            "source_family": "communitysports",
+            "relay_resource_category": "manifest",
+            "failure_kind": "network",
+            "last_observed_stage": "preparing",
+            "preparation_error_domain": "url",
+            "preparation_error_code": "-1001",
+            "preparation_stage": "contract_validation",
+            "preparation_reason": "transport_error",
+            "relay_request_phase": "upstream_response",
+            "relay_request_outcome": "in_flight"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:20:25.472260+00:00",
+          "name": "attempt_started",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "source_family": "communitysports",
+            "source": "CS3",
+            "last_observed_stage": "preparing"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:20:37.113479+00:00",
+          "name": "source_failure",
+          "outcome": "failure",
+          "durationMs": 11628,
+          "details": {
+            "source": "CS3",
+            "source_family": "communitysports",
+            "relay_resource_category": "manifest",
+            "failure_kind": "network",
+            "last_observed_stage": "preparing",
+            "preparation_error_domain": "url",
+            "preparation_error_code": "-1001",
+            "preparation_stage": "contract_validation",
+            "preparation_reason": "transport_error",
+            "relay_request_phase": "upstream_response",
+            "relay_request_outcome": "in_flight"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:20:37.165762+00:00",
+          "name": "terminal_failure",
+          "outcome": "failure",
+          "durationMs": null,
+          "details": {
+            "source_family": "communitysports",
+            "source": "CS3",
+            "failure_kind": "network",
+            "last_observed_stage": "preparing"
+          }
+        }
+      ]
+    },
+    "cricket": {
+      "fixture": "Sydney Sixers Women–Melbourne Renegades Women",
+      "officialFixture": "CA:40643",
+      "competition": "Weber WBBL|12",
+      "format": "T20",
+      "matchNumber": 23,
+      "kickoffUTC": "2026-11-15T00:00:00Z",
+      "freshStatusUTC": "2026-11-15T01:22:31.880821Z",
+      "officialStatus": "InPlay, Sixers4–136 with2.2oversremaining",
+      "coldHome": "No stream found yet;noWatch before normal pullrefresh",
+      "refresh": "Watch returned;expanded detail briefly retained old availabilitytext",
+      "normalWatch": true,
+      "source": "LS1",
+      "sourceFamily": "cncsports",
+      "programmeObserved": "Sky Sports Cricket;Sixers/Renegades uniforms/badges,Ragg/Burns batting,Dottin bowling;5/145at18.5→5/146at19→5/149at19.5",
+      "watchToDecodedMs": 7844,
+      "continuityMs": 91707,
+      "mediaAdvanceMs": 91685,
+      "stalls": 0,
+      "droppedFrames": 0,
+      "resolution": [
+        1920,
+        1080
+      ],
+      "sourceChoices": [
+        "LS1",
+        "LS2",
+        "CS1",
+        "CS2"
+      ],
+      "pauseSourcesResumePassed": true,
+      "sameAttemptAcrossObservedRecords": false,
+      "attemptStarts": 1,
+      "audio": "Not audibly observable through Device Hub;not an audible-audio pass",
+      "records": [
+        {
+          "utc": "2026-11-15T01:24:06.533133+00:00",
+          "name": "watch_requested",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {}
+        },
+        {
+          "utc": "2026-11-15T01:24:08.459366+00:00",
+          "name": "attempt_started",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "source_family": "cncsports",
+            "source": "LS1",
+            "last_observed_stage": "preparing"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:24:14.186552+00:00",
+          "name": "watch_outcome",
+          "outcome": "success",
+          "durationMs": 7844,
+          "details": {
+            "source_family": "cncsports"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:24:14.198772+00:00",
+          "name": "decoded_progress",
+          "outcome": "success",
+          "durationMs": 5727,
+          "details": {
+            "source_family": "cncsports",
+            "source": "LS1",
+            "last_observed_stage": "decoded"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:24:21.403738+00:00",
+          "name": "watch_discovery_timing",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "discovery_first_candidate_ms": "1528",
+            "discovery_first_snapshot_ms": "1528"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:25:45.918864+00:00",
+          "name": "native_continuity_90s",
+          "outcome": "success",
+          "durationMs": 91707,
+          "details": {
+            "source": "LS1",
+            "source_family": "cncsports",
+            "native_continuity_stalls": "0",
+            "last_observed_stage": "decoded",
+            "native_access_stalls": "0",
+            "native_access_dropped_frames": "0",
+            "native_presentation_width": "1920",
+            "native_continuity_elapsed_ms": "91707",
+            "native_continuity_media_advance_ms": "91685",
+            "native_presentation_height": "1080"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:27:51.322855+00:00",
+          "name": "native_resume",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "native_access_stalls": "0",
+            "source_family": "cncsports",
+            "relay_request_phase": "manifest",
+            "native_access_dropped_frames": "0",
+            "last_observed_stage": "decoded",
+            "source": "LS1",
+            "relay_resource_category": "manifest",
+            "relay_request_outcome": "completed"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:27:51.394293+00:00",
+          "name": "native_resume",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "native_access_stalls": "0",
+            "source_family": "cncsports",
+            "relay_request_phase": "manifest",
+            "native_access_dropped_frames": "0",
+            "last_observed_stage": "decoded",
+            "source": "LS1",
+            "relay_resource_category": "manifest",
+            "relay_request_outcome": "completed"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:27:52.942154+00:00",
+          "name": "native_resume",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "native_access_stalls": "0",
+            "source_family": "cncsports",
+            "relay_request_phase": "resource",
+            "native_access_dropped_frames": "0",
+            "last_observed_stage": "decoded",
+            "relay_resource_category": "media",
+            "source": "LS1",
+            "relay_request_outcome": "in_flight"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:27:53.532479+00:00",
+          "name": "native_resume",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "native_access_stalls": "0",
+            "source_family": "cncsports",
+            "relay_request_phase": "resource",
+            "native_access_dropped_frames": "0",
+            "last_observed_stage": "decoded",
+            "source": "LS1",
+            "relay_resource_category": "media",
+            "relay_request_outcome": "in_flight"
+          }
+        },
+        {
+          "utc": "2026-11-15T01:28:13.310221+00:00",
+          "name": "session_closed",
+          "outcome": "info",
+          "durationMs": null,
+          "details": {
+            "source_family": "cncsports",
+            "source": "LS1",
+            "last_observed_stage": "decoded"
+          }
+        }
+      ]
+    }
+  },
+  "finalCandidate": "preflight fairness follow-up in progress;330 results retained separately"
+}
