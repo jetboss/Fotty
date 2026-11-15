@@ -209,6 +209,42 @@ class NativeSourceMembershipTests(unittest.TestCase):
         (self.root / "Fotty/asset.png").write_bytes(b"tiny resource")
         self.assertEqual(self.audit()["Fotty"], 3)
 
+    def write_config(self, excludes, target="Fotty", path=None):
+        lines = ["targets:", f"  {target}:", "    sources:", f"      - path: {path or gate.TARGET_ROOTS[target]}",
+                 "        excludes:"] + [f"          - '{item}'" for item in excludes]
+        (self.root / "project.yml").write_text("\n".join(lines) + "\n")
+
+    def test_reviewed_literal_exclusion_is_not_expected_membership(self):
+        (self.root / "Fotty/Retired/Old.swift").parent.mkdir(parents=True)
+        (self.root / "Fotty/Retired/Old.swift").write_text("// retired\n")
+        self.rejects("missing Sources membership: Fotty/Retired/Old.swift")
+        self.write_config(["Retired/Old.swift"])
+        self.assertEqual(self.audit()["Fotty"], 3)
+
+    def test_excluded_file_still_in_sources_fails(self):
+        self.write_config(["Fotty.swift"])
+        self.rejects("extra or stale Sources membership: Fotty/Fotty.swift")
+
+    def test_glob_exclusion_never_hides_swift_sources(self):
+        (self.root / "Fotty/New.swift").write_text("// new\n")
+        self.write_config(["*.swift", "**/New.swift", "New.swi?t"])
+        self.rejects("missing Sources membership: Fotty/New.swift")
+
+    def test_exclusion_applies_only_to_its_own_target_root(self):
+        (self.root / "Fotty/New.swift").write_text("// new\n")
+        self.write_config(["../Fotty/New.swift"], target="FottyTests")
+        self.rejects("escapes source root")
+        self.write_config(["New.swift"], target="FottyTests")
+        self.rejects("missing Sources membership: Fotty/New.swift")
+        self.write_config(["New.swift"], path="Fotty/Other")
+        self.rejects("missing Sources membership: Fotty/New.swift")
+
+    def test_malformed_source_configuration_fails_closed(self):
+        (self.root / "project.yml").write_text("targets: [unclosed\n")
+        self.rejects("project.yml")
+        (self.root / "project.yml").write_text("targets:\n  Fotty:\n    sources: path\n")
+        self.rejects("project.yml")
+
     def test_object_limit_is_enforced(self):
         oversized = copy.deepcopy(self.project)
         oversized["objects"].update({"EXTRA_" + str(i): {} for i in range(gate.MAX_OBJECTS)})

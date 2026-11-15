@@ -79,6 +79,56 @@ def filesystem_sources(root):
     return inventories
 
 
+WILDCARDS = set("*?[]{}")
+
+
+def reviewed_exclusions(root):
+    """Literal Swift files project.yml excludes from each target's own root.
+
+    XcodeGen omits these from the generated project, so they are not expected
+    Sources members. Only literal ``.swift`` paths under the target's own source
+    folder count; patterns are ignored, so a glob can never hide a Swift file
+    from this gate. A missing project.yml means no exclusions.
+    """
+    config = Path(root) / "project.yml"
+    if not config.exists():
+        return {name: set() for name in TARGET_ROOTS}
+    if config.is_symlink() or not config.is_file() or config.stat().st_size > MAX_PROJECT_BYTES:
+        raise MembershipError("Unsafe or oversized project.yml")
+    script = "require 'yaml'; require 'json'; print JSON.generate(YAML.safe_load(File.read(ARGV[0])))"
+    try:
+        result = subprocess.run(["ruby", "-e", script, str(config)], capture_output=True, timeout=15, check=False)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise MembershipError("Ruby could not read project.yml") from error
+    if result.returncode or len(result.stdout) > MAX_JSON_BYTES:
+        raise MembershipError("project.yml could not be parsed")
+    try:
+        document = json.loads(result.stdout)
+    except (ValueError, UnicodeDecodeError) as error:
+        raise MembershipError("project.yml produced an invalid document") from error
+    targets = document.get("targets", {}) if isinstance(document, dict) else None
+    if not isinstance(targets, dict):
+        raise MembershipError("project.yml targets must be a mapping")
+    exclusions = {name: set() for name in TARGET_ROOTS}
+    for name, directory in TARGET_ROOTS.items():
+        target = targets.get(name, {})
+        sources = target.get("sources", []) if isinstance(target, dict) else None
+        if not isinstance(sources, list):
+            raise MembershipError(f"project.yml {name} sources must be a list")
+        for entry in sources:
+            if not isinstance(entry, dict) or entry.get("path") != directory:
+                continue
+            excludes = entry.get("excludes", [])
+            if not isinstance(excludes, list) or not all(isinstance(item, str) for item in excludes):
+                raise MembershipError(f"project.yml {name} excludes must be a list of paths")
+            for item in excludes:
+                if not item.endswith(".swift") or WILDCARDS & set(item):
+                    continue
+                relative = safe_relative(item, f"project.yml {name} exclude")
+                exclusions[name].add((PurePosixPath(directory) / relative).as_posix())
+    return exclusions
+
+
 def audit_membership(root, project):
     """Return per-target counts or fail closed; accepts parsed plutil JSON."""
     root = Path(root).resolve()
@@ -149,6 +199,8 @@ def audit_membership(root, project):
         raise MembershipError("Native target set does not match the four reviewed source scopes")
 
     expected = filesystem_sources(root)
+    for name, excluded in reviewed_exclusions(root).items():
+        expected[name] -= excluded
     errors = []
     counts = {}
     for name, target in targets.items():
