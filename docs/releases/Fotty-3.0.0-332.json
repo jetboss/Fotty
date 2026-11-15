@@ -1,0 +1,67 @@
+{
+  "version": "3.0.0",
+  "build": 332,
+  "sourceCommit": "0174472",
+  "appQualificationCommit": "9ed874445028abce0ac4c703c8c48c6711ddab55",
+  "sourceSnapshot": {
+    "label": "3.0.0-332",
+    "purpose": "pre-build",
+    "commit": "ca027c82b62ad4e713083ae71b8e41cd3a920bf1",
+    "sourceSHA256": "46236e3db088b7c07c86047799971dfeab6c69ea2b1d14a65298100f29d0c741",
+    "bundleSHA256": "5eceaa396a6a3d83b2107c651b4d77e4e312c3c1680be31804c2c72387f6f1ca",
+    "capturedAt": "2026-11-15T03:02:10.325142+00:00"
+  },
+  "snapshotFileCount": 1986,
+  "artifact": {
+    "build": "332",
+    "version": "3.0.0",
+    "appAndExtensionVersionsMatch": true,
+    "signatureVerified": true,
+    "noXCTestBundles": true,
+    "dSYMCount": 2,
+    "usesNonExemptEncryption": false,
+    "executableSHA256": "93b0997fc95b4a437811f9b8d7dcffa485aa0a9fb452ada737357606c3114742"
+  },
+  "extraPackageChecks": {
+    "backgroundAudio": true,
+    "appIconsPresent": true,
+    "embeddedAPIKeysEmpty": true
+  },
+  "apple": {
+    "listed": true,
+    "build": 332,
+    "id": "b58148de-e929-4a84-83ae-b5ebd1caa5dd",
+    "processingState": "VALID",
+    "usesNonExemptEncryption": false,
+    "expired": false,
+    "betaState": {
+      "autoNotifyEnabled": true,
+      "internalBuildState": "IN_BETA_TESTING",
+      "externalBuildState": "NOT_APPLICABLE"
+    },
+    "groups": [
+      {
+        "id": "bc092013-dea0-4b9c-b986-76e095ecf143",
+        "name": "Fotty Internal Smoke",
+        "internal": true
+      }
+    ],
+    "notes": [
+      {
+        "locale": "en-GB",
+        "text": "Removed the FPL tools to focus on watching sports.\nTemporarily removed Watch Two while we focus on single-stream viewing.\nBug fixes and stability improvements."
+      }
+    ],
+    "checkedAt": "2026-11-15T03:13:26.913Z"
+  },
+  "existingTesterCount": 13,
+  "notes": "Removed the FPL tools to focus on watching sports.\nTemporarily removed Watch Two while we focus on single-stream viewing.\nBug fixes and stability improvements.",
+  "cleanup": {
+    "ownedOutputRemoved": true,
+    "ownedKeepAwakeStopped": true,
+    "freeDiskAfterBytes": 29931659264
+  },
+  "qualification": "docs/testing/fotty332-watch-first-retirement/README.md",
+  "snapshotToolTests": 18,
+  "packagingHistory": "First archive validated but runner hit stdin EOF before upload and cleaned its output. Runner corrected; second archive passed, source comparison passed immediately before the only upload. No app code change."
+}

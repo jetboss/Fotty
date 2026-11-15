@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-15T02:54:56.559547+00:00
-Source digest: 1dacd662cc4d00602a3b8b57b7fec6607f3a55bb39052316e14e383a6b068bb0
+Generated: 2026-11-15T03:14:19.427574+00:00
+Source digest: 3e7e70ca6247078086fb84b1979a28103523077441f29d5d364ac85eb1be8806
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,7 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Ready to prepare a controlled beta, not yet archived/uploaded. Receipt contains exact coverage and limits.
+14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Internal TestFlight332 released to the existing13 testers; [release proof](../releases/Fotty-3.0.0-332.md).
 
 Prior331: [stage5 discovery](../testing/fotty-discovery-stage5-20261114/README.md) passed 2,807 tests/12 skips and WBBL Watch. Jamaica–Mexico transport failure remains historical evidence.
 
@@ -25,8 +25,8 @@ Prior331: [stage5 discovery](../testing/fotty-discovery-stage5-20261114/README.m
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retirement and Watch Two parking are now owner-approved; preserve legacy data, public scores and single-player behavior. Shared2.0.1(206): Internal/Testing, Fotty Internal Smoke,13testers; notes “Bug fixes”.
-Receipt:releases/Fotty-2.0.1-206.md.
+FPL retirement and Watch Two parking are now owner-approved; preserve legacy data, public scores and single-player behavior. Shared3.0.0(332): Internal/Testing, Fotty Internal Smoke,13testers; notes describe FPL removal, Watch Two parking and bug fixes.
+Receipt:releases/Fotty-3.0.0-332.md.
 
 ## Discovery and retained follow-up
 
@@ -879,6 +879,10 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-14 — Release approved build332 to existing internal testers
+
+Owner explicitly authorized TestFlight and replaced the earlier Bug-fixes-only note with a couple of major changes. Uploaded the qualified retirement candidate, saved FPL/Watch Two/bug-fix notes and assigned only the existing Fotty Internal Smoke group (13 testers). Apple reports VALID/IN_BETA_TESTING and auto-notify enabled. No native changes since Jet qualification; ranking and phone untouched. Immutable pre-archive snapshot and pre-upload compare passed; temporary output cleaned. [Release receipt](../releases/Fotty-3.0.0-332.md).
 
 ## 2026-11-14 — Retire fantasy tools, park Watch Two, preserve the sports foundation
 

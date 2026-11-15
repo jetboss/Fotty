@@ -1,3 +1,7 @@
+## 2026-11-14 — Release approved build332 to existing internal testers
+
+Owner explicitly authorized TestFlight and replaced the earlier Bug-fixes-only note with a couple of major changes. Uploaded the qualified retirement candidate, saved FPL/Watch Two/bug-fix notes and assigned only the existing Fotty Internal Smoke group (13 testers). Apple reports VALID/IN_BETA_TESTING and auto-notify enabled. No native changes since Jet qualification; ranking and phone untouched. Immutable pre-archive snapshot and pre-upload compare passed; temporary output cleaned. [Release receipt](../releases/Fotty-3.0.0-332.md).
+
 ## 2026-11-14 — Retire fantasy tools, park Watch Two, preserve the sports foundation
 
 Owner approved removing the active FPL product and parking Watch Two after direct Claude/Codex discussion. Preserve public football data, scores, followed clubs, Matchday, legacy fantasy preferences and encrypted backup compatibility. Remove fantasy UI/engines from app membership rather than deleting saved data or changing the persistence schema. Keep the existing widget kind as passive compatibility and clear only old deadline notifications. Park pairing with immutable default-off guards before mutation; retain its isolated tests and shared single-player ownership/audio/PiP paths. Ranking is unchanged. Implementation and later validation: [build332 receipt](../testing/fotty332-watch-first-retirement/README.md). Phone, source choices and TestFlight excluded.
