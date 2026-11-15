@@ -257,5 +257,102 @@ class SourceReceiptChecksumTests(unittest.TestCase):
             snapshot.secret_scan(self.root)
 
 
+class HistoricalReceiptAndSettingsNameTests(unittest.TestCase):
+    """Receipt digests of committed source versions and settings key names."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix="FottyHistoryTest-")
+        self.addCleanup(self.temp.cleanup)
+        self.history = Path(self.temp.name) / "repo"
+        self.history.mkdir()
+        self.git("init", "-q")
+        self.git("config", "user.name", "Fixture")
+        self.git("config", "user.email", "fixture@example.invalid")
+        self.git("config", "commit.gpgSign", "false")
+        self.key = "Fotty/Features/Player/Example.swift"
+        source = self.history / self.key
+        source.parent.mkdir(parents=True)
+        source.write_text('let name = "fotty.example.v1"\n')
+        self.old = hashlib.sha256(source.read_bytes()).hexdigest()
+        self.git("add", ".")
+        self.git("commit", "-qm", "v1")
+        source.write_text('let name = "fotty.example.v1" // v2\n')
+        self.git("commit", "-qam", "v2")
+        # The scanned root is a history-free copy, like the capture staging tree.
+        self.root = Path(self.temp.name) / "copy"
+        shutil.copytree(self.history, self.root, ignore=shutil.ignore_patterns(".git"))
+        self.receipt = self.root / "docs/testing/fotty-example/compile.json"
+        self.receipt.parent.mkdir(parents=True)
+
+    def git(self, *args):
+        snapshot.run(["git", *args], self.history)
+
+    def finding_for(self, path, needle):
+        line = next(i for i, text in enumerate(path.read_text().splitlines(), 1) if needle in text)
+        return {"File": str(path), "RuleID": "generic-api-key", "StartLine": line, "EndLine": line}
+
+    def write_receipt(self, mapping):
+        self.receipt.write_text(json.dumps({"inputs": mapping}, indent=2))
+        return self.finding_for(self.receipt, list(mapping)[0])
+
+    def test_digest_of_a_committed_version_is_proven_only_with_history(self):
+        finding = self.write_receipt({self.key: self.old})
+        self.assertTrue(snapshot.verified_public_checksum(self.root, finding, history=self.history))
+        self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
+
+    def test_unproven_digest_wrong_location_or_non_swift_key_rejects(self):
+        finding = self.write_receipt({self.key: "a" * 64})
+        self.assertFalse(snapshot.verified_public_checksum(self.root, finding, history=self.history))
+        other = self.root / "docs/other.json"
+        other.write_text(json.dumps({"inputs": {self.key: self.old}}, indent=2))
+        self.assertFalse(snapshot.verified_public_checksum(
+            self.root, self.finding_for(other, self.key), history=self.history))
+        finding = self.write_receipt({"Fotty/notes.txt": self.old})
+        self.assertFalse(snapshot.verified_public_checksum(self.root, finding, history=self.history))
+        finding = self.write_receipt({self.key: self.old})
+        self.assertFalse(snapshot.verified_public_checksum(
+            self.root, finding | {"RuleID": "private-key"}, history=self.history))
+
+    def test_two_mappings_on_one_line_cannot_borrow_proof(self):
+        self.receipt.write_text(f'{{"inputs": {{"{self.key}": "{"b" * 64}", "{self.key}": "{self.old}"}}}}\n')
+        finding = {"File": str(self.receipt), "RuleID": "generic-api-key", "StartLine": 1, "EndLine": 1}
+        self.assertFalse(snapshot.verified_public_checksum(self.root, finding, history=self.history))
+
+    def test_settings_name_in_receipt_is_accepted_only_when_the_app_uses_it(self):
+        self.receipt.write_text(json.dumps({"preserved": [{"key": "fotty.example.v1"}]}, indent=2))
+        finding = self.finding_for(self.receipt, '"key"')
+        self.assertTrue(snapshot.verified_public_checksum(self.root, finding))
+        self.receipt.write_text(json.dumps({"preserved": [{"key": "fotty.unknown.v1"}]}, indent=2))
+        self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
+        self.receipt.write_text(json.dumps({"preserved": [{"key": "c4L7w2X9m8Q3v6R1t5Y0"}]}, indent=2))
+        self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
+
+    def test_settings_name_in_swift_test_line_is_accepted_only_alone(self):
+        test = self.root / "FottyTests/ExampleTests.swift"
+        test.parent.mkdir(parents=True)
+        test.write_text('XCTAssertNil(defaults.object(forKey: "fotty.example.v1"))\n')
+        finding = self.finding_for(test, "forKey")
+        self.assertTrue(snapshot.verified_public_checksum(self.root, finding))
+        test.write_text('XCTAssertNil(defaults.object(forKey: "fotty.example.v1"), "c4L7w2X9m8Q3v6R1")\n')
+        self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
+        test.write_text('XCTAssertNil(defaults.object(forKey: "fotty.unknown.v1"))\n')
+        self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
+        outside = self.root / "docs/Example.swift"
+        outside.write_text('XCTAssertNil(defaults.object(forKey: "fotty.example.v1"))\n')
+        self.assertFalse(snapshot.verified_public_checksum(self.root, self.finding_for(outside, "forKey")))
+
+    @unittest.skipUnless(shutil.which("gitleaks"), "gitleaks not installed")
+    def test_real_scanner_accepts_both_patterns_and_still_blocks_credential(self):
+        self.write_receipt({self.key: self.old})
+        test = self.root / "FottyTests/ExampleTests.swift"
+        test.parent.mkdir(parents=True)
+        test.write_text('XCTAssertNil(defaults.object(forKey: "fotty.example.v1"))\n')
+        snapshot.secret_scan(self.root, history=self.history)
+        key = "".join(("c4L7w2X9m8Q3v6R1", "t5Y0p7B4n9H2s8D6"))
+        (self.root / "fixture.txt").write_text(f'api_key = "{key}"\n')
+        with self.assertRaisesRegex(ValueError, "Secret scan failed"):
+            snapshot.secret_scan(self.root, history=self.history)
+
+
 if __name__ == "__main__":
     unittest.main()

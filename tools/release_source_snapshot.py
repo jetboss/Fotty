@@ -9,7 +9,7 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import re
 import stat
 import subprocess
@@ -89,7 +89,103 @@ def digest(files):
     return hashlib.sha256(json.dumps(files, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def verified_public_checksum(root, finding):
+SWIFT_SOURCE = r"(?:Fotty|FottyTests|FottyUITests|FottyLiveActivityExtension)/[A-Za-z0-9_./ -]+\.swift"
+SETTINGS_NAME = r"fotty\.[A-Za-z0-9._-]+\.v[0-9]+"
+MAX_HISTORY_BLOBS = 512
+
+
+def verified_public_checksum(root, finding, history=None):
+    """Accept only a proven public value; never suppress a file or arbitrary key."""
+    return (verified_current_checksum(root, finding)
+            or verified_historical_checksum(root, finding, history)
+            or verified_settings_name(root, finding))
+
+
+def finding_line(root, finding, directory, suffix):
+    """The single flagged line of a regular file under ``directory``, or None."""
+    path = Path(finding["File"])
+    if not path.is_absolute():
+        path = root / path
+    name = path.resolve().relative_to(root.resolve()).as_posix()
+    line = finding["StartLine"]
+    if (finding["RuleID"] != "generic-api-key" or type(line) is not int
+            or line < 1 or finding["EndLine"] != line
+            or not name.startswith(directory) or not name.endswith(suffix)):
+        return None
+    data = file_data(root, name)
+    if data is None:
+        return None
+    return data[0].decode("utf-8").splitlines()[line - 1].strip()
+
+
+def committed_sha256s(history, path):
+    """SHA-256 of every committed version of ``path`` in the source repository."""
+    log = run(["git", "log", "--all", "--format=", "--raw", "--no-abbrev", "--", path], history).decode()
+    blobs = set()
+    for entry in log.splitlines():
+        fields = entry.split()
+        if len(fields) >= 4 and fields[0].startswith(":"):
+            blobs.update(blob for blob in fields[2:4] if blob.strip("0"))
+    if len(blobs) > MAX_HISTORY_BLOBS:
+        raise ValueError("Source history exceeds bounded proof budget")
+    return {hashlib.sha256(run(["git", "cat-file", "blob", blob], history)).hexdigest() for blob in blobs}
+
+
+def verified_historical_checksum(root, finding, history):
+    """A receipt digest that equals a committed version of the named Swift file.
+
+    Test receipts record hashes of source at the time it was qualified. The hash
+    must be proven against the repository's own history, so an arbitrary 64-hex
+    value beside a Swift path can never pass.
+    """
+    if history is None:
+        return False
+    try:
+        text = finding_line(root, finding, "docs/testing/", ".json")
+        if text is None:
+            return False
+        match = re.fullmatch(r'"(' + SWIFT_SOURCE + r')"\s*:\s*"([a-f0-9]{64})"\s*,?', text)
+        if not match or ".." in PurePosixPath(match.group(1)).parts:
+            return False
+        return match.group(2) in committed_sha256s(Path(history), match.group(1))
+    except (ValueError, OSError, KeyError, IndexError, TypeError, AttributeError, UnicodeDecodeError):
+        return False
+
+
+def verified_settings_name(root, finding):
+    """A UserDefaults key name that the app's own source uses, alone on its line."""
+    try:
+        text = finding_line(root, finding, "docs/testing/", ".json")
+        if text is not None:
+            match = re.fullmatch(r'"key"\s*:\s*"(' + SETTINGS_NAME + r')"\s*,?', text)
+            names = [match.group(1)] if match else []
+        else:
+            text = next((line for directory in ("Fotty/", "FottyTests/")
+                         if (line := finding_line(root, finding, directory, ".swift")) is not None), None)
+            if text is None or "forKey:" not in text:
+                return False
+            names = re.findall(r'"([^"\\]*)"', text)
+            if not names or not all(re.fullmatch(SETTINGS_NAME, name) for name in names):
+                return False
+        if not names:
+            return False
+        return all(app_source_uses(root, name) for name in names)
+    except (ValueError, OSError, KeyError, IndexError, TypeError, AttributeError, UnicodeDecodeError):
+        return False
+
+
+def app_source_uses(root, name):
+    literal = ('"' + name + '"').encode()
+    for path in sorted((root / "Fotty").rglob("*.swift")):
+        if path.is_symlink() or not path.is_file():
+            continue
+        data = file_data(root, path.relative_to(root).as_posix())
+        if data and literal in data[0]:
+            return True
+    return False
+
+
+def verified_current_checksum(root, finding):
     """Prove a copied file's checksum; never suppress a file or arbitrary key."""
     dashboard = "owner-tools/testflight-usage-dashboard/protected-runtime.json"
     source_receipts = {
@@ -143,7 +239,7 @@ def verified_public_checksum(root, finding):
         return False
 
 
-def secret_scan(root):
+def secret_scan(root, history=None):
     # Always scan the actual copied tree, including files originally tracked but
     # now ignored. Do not accept repository-provided scanner overrides.
     env = {k: v for k, v in os.environ.items() if not k.startswith("GITLEAKS_")}
@@ -156,14 +252,14 @@ def secret_scan(root):
         try:
             findings = json.loads(result.stdout)
             if (result.returncode == 1 and isinstance(findings, list) and findings
-                    and all(verified_public_checksum(root, finding) for finding in findings)):
+                    and all(verified_public_checksum(root, finding, history) for finding in findings)):
                 return
         except (ValueError, TypeError):
             pass
         raise ValueError("Secret scan failed; no recovery bundle was published (output withheld)")
 
 
-def verify(folder):
+def verify(folder, history=None):
     receipt = json.loads((folder / "receipt.json").read_text())
     bundle = folder / "source.bundle"
     if hashlib.sha256(bundle.read_bytes()).hexdigest() != receipt["bundleSHA256"]:
@@ -178,7 +274,7 @@ def verify(folder):
         restored = manifest(checkout)
         if restored != receipt["files"] or digest(restored) != receipt["sourceSHA256"]:
             raise ValueError("Restored source does not match receipt")
-        secret_scan(checkout)
+        secret_scan(checkout, history)
     return receipt
 
 
@@ -199,7 +295,7 @@ def capture(root, output, label, purpose):
         files = manifest(root, staging)
         if files != manifest(root):
             raise ValueError("Source changed during capture; retry when editing stops")
-        secret_scan(staging)
+        secret_scan(staging, root)
         run(["git", "init", "--quiet", "-b", f"codex/recovery-{label}"], staging)
         run(["git", "config", "user.name", "Fotty Local Recovery"], staging)
         run(["git", "config", "user.email", "recovery@example.invalid"], staging)
@@ -219,7 +315,7 @@ def capture(root, output, label, purpose):
                    "bundleSHA256": hashlib.sha256(bundle.read_bytes()).hexdigest(),
                    "files": files}
         (package / "receipt.json").write_text(json.dumps(receipt, indent=2) + "\n")
-        verify(package)
+        verify(package, root)
         if files != manifest(root):
             raise ValueError("Source changed during verification; capture not published")
         package.rename(output)
@@ -227,7 +323,7 @@ def capture(root, output, label, purpose):
 
 
 def compare(root, folder):
-    receipt = verify(folder)
+    receipt = verify(folder, root.resolve())
     current = manifest(root.resolve())
     if current != receipt["files"] or digest(current) != receipt["sourceSHA256"]:
         raise ValueError("Working tree differs from recovery receipt; review changes and capture a new candidate")
@@ -244,6 +340,8 @@ def main():
     create.add_argument("--purpose", choices=["post-release-recovery", "pre-build"], required=True)
     check = commands.add_parser("verify")
     check.add_argument("folder", type=Path)
+    check.add_argument("--history-root", type=Path,
+                       help="Source repository whose commits may prove receipt digests")
     match = commands.add_parser("compare")
     match.add_argument("folder", type=Path)
     match.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[1])
@@ -254,7 +352,7 @@ def main():
         elif args.command == "compare":
             receipt = compare(args.root, args.folder)
         else:
-            receipt = verify(args.folder)
+            receipt = verify(args.folder, args.history_root)
         print(json.dumps({k: receipt[k] for k in ("label", "purpose", "commit", "sourceSHA256", "bundleSHA256")}))
         print(f"Verified {len(receipt['files'])} files; one history-free commit; no remote changes.")
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as error:
