@@ -1,0 +1,27 @@
+{
+  "observedUTC": "2026-11-15T02:44:52.685048+00:00",
+  "publisher": "https://apiv2.cricket.com.au/web/fixtures/yearfilter?competitionId=4687&startDateTime=2026-11-14&endDateTime=2026-11-23&limit=50&format=json&jsconfig=eccn%3Atrue",
+  "id": 40643,
+  "name": "Match 23",
+  "startDateTime": "2026-11-15T00:00:00Z",
+  "gameTypeId": 41,
+  "isLive": true,
+  "isInProgress": true,
+  "isCompleted": false,
+  "gameStatusId": "InPlay",
+  "resultText": "Melbourne Renegades Women need 73 runs to win from 6.3 overs with 5 wickets remaining",
+  "homeTeam": {
+    "id": 98,
+    "name": "Sydney Sixers Women",
+    "shortName": "SIX"
+  },
+  "awayTeam": {
+    "id": 101,
+    "name": "Melbourne Renegades Women",
+    "shortName": "REN"
+  },
+  "competition": {
+    "id": 4687,
+    "name": "Weber WBBL|12"
+  }
+}

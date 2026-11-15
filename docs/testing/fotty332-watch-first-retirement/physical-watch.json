@@ -1,0 +1,190 @@
+{
+  "privateBuild": 332,
+  "sourceCommit": "9ed874445028abce0ac4c703c8c48c6711ddab55",
+  "device": "Jet iPad",
+  "app": "normal signed Release",
+  "installedAndVersionVerified": true,
+  "fixture": {
+    "sport": "cricket",
+    "competition": "WBBL Match 23",
+    "teams": [
+      "Sydney Sixers Women",
+      "Melbourne Renegades Women"
+    ],
+    "officialEvidence": "official-live.json",
+    "programmeObservation": "Sky Sports Cricket picture showed the named WBBL chase, target 153, progressing from 5/91 through 5/99 to 5/103."
+  },
+  "source": {
+    "family": "cncsports",
+    "label": "LS1"
+  },
+  "watchOutcomeMilliseconds": 6599,
+  "nativeHold": {
+    "elapsedMilliseconds": 91224,
+    "mediaAdvanceMilliseconds": 91225,
+    "stalls": 0,
+    "droppedFrames": 0,
+    "width": 640,
+    "height": 360
+  },
+  "controls": {
+    "pauseRetainedPicture": true,
+    "sourcesOpenedWhilePaused": true,
+    "displayedChoices": 5,
+    "selectedSourceRetained": true,
+    "resumedAdvancingPicture": true,
+    "attemptStarts": 1,
+    "note": "Resume briefly displayed Reconnecting before advancing. No new attempt_started record; two native_resume receipts retained."
+  },
+  "navigation": {
+    "destinations": [
+      "Home",
+      "TV",
+      "Matchday"
+    ],
+    "activeFPLTabAbsent": true,
+    "watchTwoAndAddMatchAbsent": true,
+    "miniPlayerAcrossDestinations": true,
+    "settingsVersionAndNoActiveFPLCoachVerified": true,
+    "legacyFPLLinkReturnedHomeAndDismissedSettings": true,
+    "legacyLinkPreservedPlayback": true,
+    "savedMatchVisible": true,
+    "finishedState": "Home, All sports; own playback closed"
+  },
+  "preservation": {
+    "protectedPreferencesCompared": 11,
+    "protectedPreferencesUnchanged": false,
+    "changedPreferenceCount": 1,
+    "followTables": {
+      "ZFOLLOWEDTEAMITEM": {
+        "beforeCount": 1,
+        "afterCount": 1,
+        "unchanged": true
+      },
+      "ZFOLLOWEDLEAGUEITEM": {
+        "beforeCount": 3,
+        "afterCount": 3,
+        "unchanged": true
+      }
+    },
+    "storeIntegrity": "ok",
+    "playbackAttemptStarts": 1,
+    "sessionClosures": 1,
+    "protectedPreferencesByteIdentical": 10,
+    "protectedPreferenceCount": 11,
+    "legacyFantasyDataUnchanged": true,
+    "sourceAppearanceAndInterestSettingsUnchanged": true,
+    "savedMatches": {
+      "beforeCount": 1,
+      "afterCount": 1,
+      "allFieldsExceptFeedObservationUnchanged": true,
+      "onlyChangedField": "cricketFixture.observedAt",
+      "observationAdvanced": true,
+      "explanation": "Existing MyMatchdayStore.reconcile updates fresh fixture observations while retaining saved identity and savedAt."
+    },
+    "primaryOwnerChangedPathsPreserved": 46,
+    "primaryHeadUnchanged": true
+  },
+  "limits": [
+    "Audio was not audible through Device Hub; no new audible-audio pass claimed.",
+    "No new fullscreen, PiP or forced-failure drill: their implementation is unchanged by retirement.",
+    "This one correct live cricket route does not qualify all providers, PL or Champions League.",
+    "Physical checks were manual on normal Release; the new UI XCTest journey was not run.",
+    "No phone, Git publication, cloud deployment or TestFlight action."
+  ],
+  "playbackRecords": [
+    {
+      "outcome": "info",
+      "appBuild": "332",
+      "name": "watch_requested",
+      "utc": "2026-11-15T02:45:15.560174+00:00",
+      "details": {}
+    },
+    {
+      "outcome": "info",
+      "appBuild": "332",
+      "name": "attempt_started",
+      "utc": "2026-11-15T02:45:17.216815+00:00",
+      "details": {
+        "source_family": "cncsports",
+        "source": "LS1",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "outcome": "success",
+      "durationMilliseconds": 6599,
+      "name": "watch_outcome",
+      "appBuild": "332",
+      "utc": "2026-11-15T02:45:21.966632+00:00",
+      "details": {
+        "source_family": "cncsports"
+      }
+    },
+    {
+      "outcome": "success",
+      "durationMilliseconds": 4749,
+      "name": "decoded_progress",
+      "appBuild": "332",
+      "utc": "2026-11-15T02:45:21.981401+00:00",
+      "details": {
+        "source_family": "cncsports",
+        "source": "LS1",
+        "last_observed_stage": "decoded"
+      }
+    },
+    {
+      "outcome": "success",
+      "durationMilliseconds": 91224,
+      "name": "native_continuity_90s",
+      "appBuild": "332",
+      "utc": "2026-11-15T02:46:53.239012+00:00",
+      "details": {
+        "native_presentation_height": "360",
+        "native_continuity_stalls": "0",
+        "native_presentation_width": "640",
+        "native_continuity_elapsed_ms": "91224",
+        "last_observed_stage": "decoded",
+        "source_family": "cncsports",
+        "native_access_dropped_frames": "0",
+        "native_continuity_media_advance_ms": "91225",
+        "source": "LS1"
+      }
+    },
+    {
+      "outcome": "info",
+      "appBuild": "332",
+      "name": "native_resume",
+      "utc": "2026-11-15T02:47:47.380603+00:00",
+      "details": {
+        "source_family": "cncsports",
+        "native_access_dropped_frames": "0",
+        "source": "LS1",
+        "last_observed_stage": "decoded"
+      }
+    },
+    {
+      "outcome": "info",
+      "appBuild": "332",
+      "name": "native_resume",
+      "utc": "2026-11-15T02:47:47.913021+00:00",
+      "details": {
+        "source_family": "cncsports",
+        "native_access_dropped_frames": "0",
+        "source": "LS1",
+        "last_observed_stage": "decoded"
+      }
+    },
+    {
+      "outcome": "info",
+      "appBuild": "332",
+      "name": "session_closed",
+      "utc": "2026-11-15T02:49:29.455659+00:00",
+      "details": {
+        "source": "LS1",
+        "source_family": "cncsports",
+        "last_observed_stage": "decoded"
+      }
+    }
+  ]
+}

@@ -1,5 +1,9 @@
 # Fotty current state
 
+14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Ready to prepare a controlled beta, not yet archived/uploaded. Receipt contains exact coverage and limits.
+
+Prior331: [stage5 discovery](../testing/fotty-discovery-stage5-20261114/README.md) passed 2,807 tests/12 skips and WBBL Watch. Jamaica–Mexico transport failure remains historical evidence.
+
 14 Nov: [Jet 324 shared stream acceptance](../testing/fotty324-shared-admission/README.md): common delivery policy, per-entry accounting and separate selection ledgers. 2,678 tests passed, 12 skipped; signed normal 324 installed on Jet. Watch offered 26 choices (HF7/7, CS6/8, PP13/14; CNC unread). HF1 showed wrong rugby; HF2 held correct Vegas–Nashville 92s/zero stalls and recovered after a later failure chain. Programme mismatch cause remains unproven. No phone/FPL/multi/TF changes.
 
 13 Nov history: [323 providers](../testing/fotty323-provider-watch/README.md), [322 CNC](../testing/fotty320-cnc-football/README.md), [319 Watch/Retry](../testing/fotty318-watch-availability/README.md).
@@ -10,8 +14,7 @@
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-Fotty: private iOS/iPadOS sports app prioritizing reliable single playback and native UX.
-FPL/multi work paused. Shared2.0.1(206): Internal/Testing, Fotty Internal Smoke,13testers; notes “Bug fixes”.
+FPL retirement and Watch Two parking are now owner-approved; preserve legacy data, public scores and single-player behavior. Shared2.0.1(206): Internal/Testing, Fotty Internal Smoke,13testers; notes “Bug fixes”.
 Receipt:releases/Fotty-2.0.1-206.md.
 
 ## Discovery and retained follow-up
@@ -41,20 +44,12 @@ testing/fotty-cricket-matching-2026-11-01/.
 
 217–219 added late alternatives, fresh TV discovery, bounded renewal and isolation of regressing rows without renewed leases. Jet Juventus TV4 passed a correct-programme 90-second hold. Willow TV1 alternated between decoded video and HTTP 404 while CS decoded; a later HLS response did not establish recovery. EFL empty-window repair remained local. See audit/Fotty-November-2026-Baseline.md, testing/fotty-liverpool-watch-2026-11-01/ and Decisions-Log.md for individual receipts.
 
-## Watch feedback, fallback and Retry220
+## Watch feedback, fallback and Retry220 history
 
-Watch reserves pending/Cancel feedback before validation; retained paused player
-reopens without restart. Initial predecode timeout prefers an admitted current
-exact alternative with positive history before same-route retry. Explicit Retry
-refreshes index+CS/AS/Flix/CNC/SV metadata, same paths/limits/guards. Failed-pane
-progress/Cancel and owner/attempt/intent/background fences cover second-alert Retry
-and failure-only completions.166focused/26new tests pass0skip; signed app/widget220
-installed/launched Jet. Home feedback and CS1/5failure→CS6decode observed; short
-check isn't90s qualification or new startup-timeout branch proof. Physical Willow/
-picker/Retry pending: shared Device Hub conflicts; Jet XCTest bootstrap timed out
-awaiting UI Automation approval before methods ran. Owner action requested.
-43FPL/multi source hashes+11stable preferences/source choices unchanged. No phone,
-cloud/Git/TF work. Receipt:testing/fotty-watch-retry-2026-11-01/.
+Pending/Cancel feedback, same-player resume, bounded fallback and fresh Retry
+receipts are in [the 220 record](../testing/fotty-watch-retry-2026-11-01/README.md)
+and Decisions-Log. Its physical gaps are dated evidence; current qualification
+is the build332 receipt above. Preserve owner/attempt/intent/background fences.
 
 ## Earlier optional work
 

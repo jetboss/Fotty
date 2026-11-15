@@ -1,0 +1,8 @@
+{
+  "ownedGateRemoved": true,
+  "ownedKeepAwakeStopped": true,
+  "freeDiskBeforeGateBytes": 31291936768,
+  "freeDiskBeforeCleanupBytes": 29540139008,
+  "freeDiskAfterCleanupBytes": 31042928640,
+  "cleanup": "Exact owned gate driver terminated through its cleanup handler after receipts were retained."
+}

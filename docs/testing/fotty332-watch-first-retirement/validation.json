@@ -1,0 +1,79 @@
+{
+  "sourceCommit": "9ed874445028abce0ac4c703c8c48c6711ddab55",
+  "qualificationBase": "cdbe8284eeea4181825d0fde5c6285c16cc0312d",
+  "phases": [
+    {
+      "label": "retirement-compile",
+      "action": "compile-catalyst",
+      "exitCode": 65,
+      "passed": false,
+      "sourceUnchanged": true,
+      "counts": null,
+      "assertionFailures": null,
+      "skippedTests": [],
+      "failedTests": []
+    },
+    {
+      "label": "retirement-compile-final",
+      "action": "compile-catalyst",
+      "exitCode": 0,
+      "passed": true,
+      "sourceUnchanged": true,
+      "counts": null,
+      "assertionFailures": null,
+      "skippedTests": [],
+      "failedTests": []
+    },
+    {
+      "label": "retirement-full",
+      "action": "test",
+      "exitCode": 0,
+      "passed": true,
+      "sourceUnchanged": true,
+      "counts": {
+        "total": 2699,
+        "skipped": 12,
+        "failed": 0,
+        "passed": 2687
+      },
+      "assertionFailures": 0,
+      "skippedTests": [
+        "-[FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistryRefreshReconcilesSavedBaselineWithoutLosingFreshTV]",
+        "-[FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistrySnapshotPassesActualNativeWireValidation]",
+        "-[FottyTests.CNCSportsPhysicalCanaryTests testReviewedCNCDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]",
+        "-[FottyTests.FlixStreamsAddonTests testPhysicalFlixDecodedVideoCanary]",
+        "-[FottyTests.FlixStreamsAddonTests testPhysicalFlixSecondDecodedVideoCanary]",
+        "-[FottyTests.PlavioSportsAddonTests testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]",
+        "-[FottyTests.PlaybackPolicyTests testReferenceHLSMaintainsOneAttemptDuringSoak]",
+        "-[FottyTests.ReviewedRelayThroughputPhysicalTests testSyntheticOneMiBDirectBytesAndGuardedRelayThroughputOnPhysicalDevice]",
+        "-[FottyTests.Score808SiteCatalogTests testOptInCurrentProviderDiscovery]",
+        "-[FottyTests.SourceConnectionToolTests testAllEnabledSourcesForVerifiedFootballFixture]",
+        "-[FottyTests.SourceConnectionToolTests testOptInNHLRegisteredCSMetadata]",
+        "-[FottyTests.SourceConnectionToolTests testReviewedTVExpandedChannelsThroughGuardedDecoder]"
+      ],
+      "failedTests": []
+    }
+  ],
+  "sourceInventorySHA256": "52940465bba055bfff1fe728ff38cef3a2126d810054f7c4b0d5e2bff5a6374a",
+  "initialCompileFailure": "Test-only Web PiP fixture attempted a private-set assignment; repaired through existing callback, then compile/full suite passed.",
+  "runtimeTestCounts": {
+    "passed": 2687,
+    "skipped": 12,
+    "failed": 0
+  },
+  "retiredFeatureSuites": 7,
+  "retiredFeatureMethods": 132,
+  "rehomedPublicDataMethods": 10,
+  "releaseBuild": {
+    "label": "retirement-release332",
+    "action": "build-release",
+    "exitCode": 0,
+    "passed": true,
+    "sourceUnchanged": true
+  },
+  "physical": "passed scoped normal Release retirement and Watch checks",
+  "releaseAndUnitSourceMatch": true,
+  "privateBuild": 332,
+  "physicalReceipt": "physical-watch.json",
+  "betaReadiness": "No retirement-related blocker found. Ready to prepare a controlled internal TestFlight beta; distribution archive/source receipt and Apple upload validation remain separate."
+}

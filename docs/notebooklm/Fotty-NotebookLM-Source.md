@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-14T04:25:05.274071+00:00
-Source digest: baf70e50303486678c00427ff6de237affc45b5e8f3f8abdc8410ce718914a45
+Generated: 2026-11-15T02:54:56.559547+00:00
+Source digest: 1dacd662cc4d00602a3b8b57b7fec6607f3a55bb39052316e14e383a6b068bb0
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -10,6 +10,10 @@ Dated release/history entries are evidence from their recorded time, not live de
 # Source: docs/notebooklm/Current-State.md
 
 # Fotty current state
+
+14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Ready to prepare a controlled beta, not yet archived/uploaded. Receipt contains exact coverage and limits.
+
+Prior331: [stage5 discovery](../testing/fotty-discovery-stage5-20261114/README.md) passed 2,807 tests/12 skips and WBBL Watch. Jamaica–Mexico transport failure remains historical evidence.
 
 14 Nov: [Jet 324 shared stream acceptance](../testing/fotty324-shared-admission/README.md): common delivery policy, per-entry accounting and separate selection ledgers. 2,678 tests passed, 12 skipped; signed normal 324 installed on Jet. Watch offered 26 choices (HF7/7, CS6/8, PP13/14; CNC unread). HF1 showed wrong rugby; HF2 held correct Vegas–Nashville 92s/zero stalls and recovered after a later failure chain. Programme mismatch cause remains unproven. No phone/FPL/multi/TF changes.
 
@@ -21,8 +25,7 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-Fotty: private iOS/iPadOS sports app prioritizing reliable single playback and native UX.
-FPL/multi work paused. Shared2.0.1(206): Internal/Testing, Fotty Internal Smoke,13testers; notes “Bug fixes”.
+FPL retirement and Watch Two parking are now owner-approved; preserve legacy data, public scores and single-player behavior. Shared2.0.1(206): Internal/Testing, Fotty Internal Smoke,13testers; notes “Bug fixes”.
 Receipt:releases/Fotty-2.0.1-206.md.
 
 ## Discovery and retained follow-up
@@ -52,20 +55,12 @@ testing/fotty-cricket-matching-2026-11-01/.
 
 217–219 added late alternatives, fresh TV discovery, bounded renewal and isolation of regressing rows without renewed leases. Jet Juventus TV4 passed a correct-programme 90-second hold. Willow TV1 alternated between decoded video and HTTP 404 while CS decoded; a later HLS response did not establish recovery. EFL empty-window repair remained local. See audit/Fotty-November-2026-Baseline.md, testing/fotty-liverpool-watch-2026-11-01/ and Decisions-Log.md for individual receipts.
 
-## Watch feedback, fallback and Retry220
+## Watch feedback, fallback and Retry220 history
 
-Watch reserves pending/Cancel feedback before validation; retained paused player
-reopens without restart. Initial predecode timeout prefers an admitted current
-exact alternative with positive history before same-route retry. Explicit Retry
-refreshes index+CS/AS/Flix/CNC/SV metadata, same paths/limits/guards. Failed-pane
-progress/Cancel and owner/attempt/intent/background fences cover second-alert Retry
-and failure-only completions.166focused/26new tests pass0skip; signed app/widget220
-installed/launched Jet. Home feedback and CS1/5failure→CS6decode observed; short
-check isn't90s qualification or new startup-timeout branch proof. Physical Willow/
-picker/Retry pending: shared Device Hub conflicts; Jet XCTest bootstrap timed out
-awaiting UI Automation approval before methods ran. Owner action requested.
-43FPL/multi source hashes+11stable preferences/source choices unchanged. No phone,
-cloud/Git/TF work. Receipt:testing/fotty-watch-retry-2026-11-01/.
+Pending/Cancel feedback, same-player resume, bounded fallback and fresh Retry
+receipts are in [the 220 record](../testing/fotty-watch-retry-2026-11-01/README.md)
+and Decisions-Log. Its physical gaps are dated evidence; current qualification
+is the build332 receipt above. Preserve owner/attempt/intent/background fences.
 
 ## Earlier optional work
 
@@ -121,6 +116,10 @@ memory: agent/playbooks/brain-ops.md.
 
 
 # Source: docs/notebooklm/Project-Memory.md
+
+## 14 November 2026: watch-first scope decision
+
+The owner approved removing active FPL tools and parking Watch Two. Keep Home, Sports TV, Matchday, football scores, club follows and all saved data. Legacy fantasy backup compatibility remains; no deletion or schema migration is part of retirement. Pairing may be reconsidered later, but its product entry points are disabled. Ranking remains unchanged. [Implementation and measured results](../testing/fotty332-watch-first-retirement/README.md).
 
 # Fotty Project Memory
 
@@ -880,6 +879,26 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-14 — Retire fantasy tools, park Watch Two, preserve the sports foundation
+
+Owner approved removing the active FPL product and parking Watch Two after direct Claude/Codex discussion. Preserve public football data, scores, followed clubs, Matchday, legacy fantasy preferences and encrypted backup compatibility. Remove fantasy UI/engines from app membership rather than deleting saved data or changing the persistence schema. Keep the existing widget kind as passive compatibility and clear only old deadline notifications. Park pairing with immutable default-off guards before mutation; retain its isolated tests and shared single-player ownership/audio/PiP paths. Ranking is unchanged. Implementation and later validation: [build332 receipt](../testing/fotty332-watch-first-retirement/README.md). Phone, source choices and TestFlight excluded.
+
+## 2026-11-14 — Partial discovery keeps its usable evidence
+
+Stage 5 preserves earlier Highfly live/browse pages after a later read failure and labels incomplete Highfly/PenguPlay coverage honestly. PenguPlay no longer treats an unavailable team search as proven match absence. CNC foreground direct hockey/cricket discovery publishes each independently admitted session only after all metadata conflicts are resolved; an owner deadline cancels the pending lane while preserving acknowledged admissions. Football, registered association authority, opt-ins, transport fences and ranking remain unchanged. Score808 contributes fixture-scoped Web-only lookup evidence without fabricated media counts. One bounded timing record separates first candidate from collector snapshot handoff; no startup wait or caching policy changed. Seven baseline methods failed; the focused run passed 254 (one live-network skip), and full Catalyst passed 2,804 with 12 opt-in/physical skips and zero failures. Claude round 3 and independent review found no P1/P2. Jet330 then exposed account-provider preflight starvation: two account lanes occupied every metadata opportunity. All eligible providers now share the existing two-slot per-fixture rotation; free-only batches use eight seconds and started-account batches retain thirty. Three regression methods reproduced the old failure;68 focused checks and the final full Catalyst suite (2,807 passed,12 skips,zero failures) pass. Actual Claude approved the focused follow-up with no P1/P2. The330 WBBL LS1 picture held91.707s with zero stalls and resumed the same attempt; Jamaica–Mexico CS playback failed after a brief decode. These separate outcomes are retained. Final normal signed Jet 331 opened the same correct WBBL programme through Watch in 7.099s and held 92.870s, with zero stalls or dropped frames. Four checked source/appearance/interest preferences remained unchanged; Home was restored to All sports and owned temporary output was removed. Audible audio and independent failover remain unverified. Physical build and exact coverage are recorded in [the stage 5 receipt](../testing/fotty-discovery-stage5-20261114/README.md); unit counts are not an audible-audio, correct-programme, PL/UCL or independence pass.
+
+## 2026-11-14 — Match evidence belongs to the current fixture, not a raw ID
+
+Per-match playback evidence and wrong-programme renewal keys now use an explicit `MatchEvidenceScope`, built from the owner's current request. Its fields are the raw ID, the reviewed sport and participant pair (or reviewed channel), the competition, the structured squad, and the cricket format, ordinal and Test day. Missing values are fixed sentinels. Kickoff is excluded, so a reschedule keeps the verdict and the renewal key no longer splits on kickoff. A reused provider row ID or rolling URL for changed opponents no longer inherits another fixture's rejection. Unparseable requests get a request-local scope that proves no identity. Legacy raw-ID records are left to expire without relabeling. Ranking, renewal admission, provider policy, `ProgrammeEvidenceLedger` and multi-stream are unchanged. The baseline red was 1 method with 2 assertions. Focused: 383 passed / 2 opt-in skips; full Catalyst: 2,786 passed / 12 opt-in or physical skips / zero failures. Actual Claude round 4 and independent review found no remaining P1/P2. The comparator is byte-identical. Normal signed Jet329 passed correct WBBL LS1 playback (90.912s advancing, 1080p, zero stalls) and same-attempt Pause/Sources/Play. The separate live football CS1 attempt failed its media response; Home retained Watch, and no provider fix or overall readiness is claimed. Eight stable preferences remained unchanged. Physical status is in [the receipt](../testing/fotty-match-evidence-identity-20261114/README.md).
+
+## 2026-11-14 — Delivery evidence slots belong to each provider
+
+The 64-record delivery-sample reserve now selects the newest lookup per provider rather than the newest two globally. A provider's empty/failed lookup invalidates only its own older sample cohort; unrelated searches cannot erase another provider's label evidence merely by being newer. Existing 250-record, playback/audio, watch-outcome and whole-cohort protections stay. The deterministic regression reproduced the failure before the repair; see [validation](../testing/fotty-provider-cohorts-20261114/README.md). Ranking and device builds are unchanged by this source-only follow-up.
+
+## 2026-11-14 — Paused wrong-programme feedback uses the existing session gate
+
+The Sources sheet may accept Wrong match while paused; that report must remain paused. The next explicit Play must re-enter the existing single-match admission path, rather than resume the rejected native item or Web page. If no alternative remains, use the existing exhausted-source hold to unmount the Web page and ignore late callbacks. No second lifecycle owner, source-ranking change or provider exclusion policy was added. Claude implemented in an isolated worktree, Codex cross-reviewed and ran the baseline-red regression, 261 focused checks and the full Catalyst suite (2,773 passed, 12 opt-in/physical skips, zero failures). Physical results and unresolved gates are in [the task receipt](../testing/fotty-lifecycle-roadmap-20261114/README.md). A historical MediaToolbox/CoreFoundation XCTest crash remains unexplained; unchanged audio tests passed, and no audio fix is claimed.
 
 ## 2026-11-14 — Shared acceptance and auditable exclusions, Jet 324
 
@@ -7921,6 +7940,10 @@ This document tracks technical and product decisions to ensure all agents (Curso
 
 
 # Source: docs/notebooklm/Architecture-Map.md
+
+## Current feature retirement ownership — 14 November 2026
+
+`MainTabView` owns Home/TV/Matchday and safe legacy FPL routing. `RetiredFPLSupport` cancels only deadline notifications and reloads the passive legacy widget. `FPLBackupCompatibility` retains the exact stored fantasy DTOs; `FottyPrivateBackup` and the persistent schema are unchanged. `FPLService`, public models and journal storage remain compiled for scores and saved-data compatibility. `ViewingSessionCoordinator.allowsWatchTwo` is immutable and default false; pair entry guards precede any session mutation, while single-player resolution, pause, audio, native fullscreen/PiP and ranking retain their ownership. [Scope and validation](../testing/fotty332-watch-first-retirement/README.md).
 
 Current native follow-on: signed195 is installed onJet. The initial fullscreen request retains inline video until same-window AVKit presentation commits; bounded pending retries/rollback preserve transport ownership.143focused tests and real Lille–Lens native fullscreen/pause/resume/PiP over Home118.773s/systemRestore pass. No phone/FPL/multi/TestFlight change. Final cloud normal collector completed20:01:01UTC. Receipts: docs/testing/fotty194-shared-watch/.
 

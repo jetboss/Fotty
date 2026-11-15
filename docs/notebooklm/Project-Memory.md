@@ -1,3 +1,7 @@
+## 14 November 2026: watch-first scope decision
+
+The owner approved removing active FPL tools and parking Watch Two. Keep Home, Sports TV, Matchday, football scores, club follows and all saved data. Legacy fantasy backup compatibility remains; no deletion or schema migration is part of retirement. Pairing may be reconsidered later, but its product entry points are disabled. Ranking remains unchanged. [Implementation and measured results](../testing/fotty332-watch-first-retirement/README.md).
+
 # Fotty Project Memory
 
 Last updated: 2026-10-01

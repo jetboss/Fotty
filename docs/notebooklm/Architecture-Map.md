@@ -1,3 +1,7 @@
+## Current feature retirement ownership — 14 November 2026
+
+`MainTabView` owns Home/TV/Matchday and safe legacy FPL routing. `RetiredFPLSupport` cancels only deadline notifications and reloads the passive legacy widget. `FPLBackupCompatibility` retains the exact stored fantasy DTOs; `FottyPrivateBackup` and the persistent schema are unchanged. `FPLService`, public models and journal storage remain compiled for scores and saved-data compatibility. `ViewingSessionCoordinator.allowsWatchTwo` is immutable and default false; pair entry guards precede any session mutation, while single-player resolution, pause, audio, native fullscreen/PiP and ranking retain their ownership. [Scope and validation](../testing/fotty332-watch-first-retirement/README.md).
+
 Current native follow-on: signed195 is installed onJet. The initial fullscreen request retains inline video until same-window AVKit presentation commits; bounded pending retries/rollback preserve transport ownership.143focused tests and real Lille–Lens native fullscreen/pause/resume/PiP over Home118.773s/systemRestore pass. No phone/FPL/multi/TestFlight change. Final cloud normal collector completed20:01:01UTC. Receipts: docs/testing/fotty194-shared-watch/.
 
 # Fotty Architecture Map
