@@ -161,11 +161,19 @@ struct LiveWebEmbedPlayerView: UIViewRepresentable {
         webView.pauseAllMediaPlayback(completionHandler: nil)
         // Retired pages cannot restart their own timers/media after the pause.
         // This is teardown only, not a change to active provider controls.
-        webView.setAllMediaPlaybackSuspended(true) { [webView] in
-            // Keep the exact retired surface alive until WebKit acknowledges
-            // suspension; removing SwiftUI's owner must not lose that receipt.
-            withExtendedLifetime(webView) { onPlaybackRetired?() }
+        // WebKit's suspension ACK is the normal receipt. An off-window web
+        // process can be suspended before it replies, and then the receipt
+        // never arrives. Closing the page is the second receipt: once the
+        // last owner releases the exact surface, its document is destroyed
+        // and cannot keep playing. Both paths report retirement once.
+        let receipt = WebSurfaceRetirementReceipt(onPlaybackRetired)
+        WebSurfaceRetirementReceipt.reportClosure(of: webView, to: receipt)
+        let hold = WebSurfaceRetirementHold(webView)
+        webView.setAllMediaPlaybackSuspended(true) { [hold] in
+            receipt.fire()
+            hold.release()
         }
+        hold.release(after: WebSurfaceRetirementHold.grace)
         webView.closeAllMediaPresentations(completionHandler: nil)
         webView.stopLoading()
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "fottyPlayerBridge")
@@ -2232,6 +2240,52 @@ struct LiveWebEmbedPlayerView: UIViewRepresentable {
         }
     }
 }
+
+/// One retirement report for one dismantled WebKit surface. It fires on the
+/// first of WebKit's media-suspension ACK or the surface's deallocation.
+@MainActor
+final class WebSurfaceRetirementReceipt {
+    private var report: (() -> Void)?
+    init(_ report: (() -> Void)?) { self.report = report }
+
+    func fire() {
+        let report = report
+        self.report = nil
+        report?()
+    }
+
+    /// A deallocated WKWebView has closed its page, so its media cannot play.
+    /// The sentinel is owned by the surface and outlives nothing else.
+    static func reportClosure(of webView: WKWebView, to receipt: WebSurfaceRetirementReceipt) {
+        let sentinel = WebSurfaceClosureSentinel { Task { @MainActor in receipt.fire() } }
+        objc_setAssociatedObject(webView, &WebSurfaceClosureSentinel.key, sentinel, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
+    }
+}
+
+private final class WebSurfaceClosureSentinel: NSObject {
+    static var key: UInt8 = 0
+    private let onClose: @Sendable () -> Void
+    init(_ onClose: @escaping @Sendable () -> Void) { self.onClose = onClose }
+    deinit { onClose() }
+}
+
+/// Keeps the exact retired surface alive briefly so WebKit can deliver its
+/// suspension ACK, then lets it close instead of waiting forever.
+@MainActor
+final class WebSurfaceRetirementHold {
+    static let grace: Duration = .seconds(1)
+    private var webView: WKWebView?
+    init(_ webView: WKWebView) { self.webView = webView }
+    var isHolding: Bool { webView != nil }
+    func release() { webView = nil }
+    func release(after delay: Duration) {
+        Task { @MainActor [self] in
+            try? await Task.sleep(for: delay)
+            release()
+        }
+    }
+}
+
 #else
 /// Simulator placeholder — actual provider embeds are validated on physical iOS
 /// devices and by the browser playback-matrix tool.

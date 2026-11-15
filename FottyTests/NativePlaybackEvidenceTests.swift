@@ -437,6 +437,44 @@ final class NativePlaybackRetirementTests: XCTestCase {
         XCTAssertEqual(acknowledgements, 1)
     }
 
+    /// Jet337: the old WebKit process never answered the suspension request,
+    /// so every later Watch stayed muted. A closed page is also a receipt.
+    func testLostWebSuspensionAcknowledgementRetiresOnceWhenTheSurfaceCloses() async throws {
+        var acknowledgements = 0
+        weak var released: RetirementAcknowledgingWebView?
+        do {
+            let webView = RetirementAcknowledgingWebView(frame: .zero)
+            released = webView
+            let coordinator = LiveWebEmbedPlayerView.Coordinator(onPlaybackRetired: { acknowledgements += 1 })
+            coordinator.webView = webView
+            LiveWebEmbedPlayerView.dismantleUIView(webView, coordinator: coordinator)
+            XCTAssertTrue(webView.didSuspendAllMedia)
+        }
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertNotNil(released, "The surface is held briefly so WebKit can still ACK normally")
+        XCTAssertEqual(acknowledgements, 0)
+        for _ in 0..<60 where acknowledgements == 0 {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        XCTAssertNil(released, "After the grace period the exact surface closes")
+        XCTAssertEqual(acknowledgements, 1)
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(acknowledgements, 1)
+    }
+
+    func testWebSuspensionAcknowledgementAfterCloseReceiptDoesNotReportTwice() async throws {
+        var acknowledgements = 0
+        let webView = RetirementAcknowledgingWebView(frame: .zero)
+        let coordinator = LiveWebEmbedPlayerView.Coordinator(onPlaybackRetired: { acknowledgements += 1 })
+        coordinator.webView = webView
+        LiveWebEmbedPlayerView.dismantleUIView(webView, coordinator: coordinator)
+        webView.acknowledgeSuspension()
+        XCTAssertEqual(acknowledgements, 1)
+        try await Task.sleep(for: .milliseconds(1200))
+        webView.acknowledgeSuspension()
+        XCTAssertEqual(acknowledgements, 1)
+    }
+
     private func makeAdoptedCandidate() -> (LivePlayerViewModel, StreamSession, AVPlayer) {
         let event = AnalyticalDataEngine.EventReference(
             id: "native-retirement", title: "Playback test", category: "football",

@@ -2177,6 +2177,44 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         XCTAssertNil(owner.audioTransferTask)
     }
 
+    /// Jet337: a web retirement that timed out kept every later Watch muted.
+    /// Once that exact surface reports retirement, the next Watch is audible
+    /// without waiting again, even if no player was open when it arrived.
+    func testLateWebRetirementAfterCloseDoesNotMuteTheNextWatch() async throws {
+        let factory = ModelFactory()
+        var oldOwner: UUID?
+        var retired = false
+        var captures = 0
+        let owner = ViewingSessionCoordinator(captureWebAudioRevocation: { model in
+            guard model.remoteCommandOwnerID == oldOwner else { return nil }
+            captures += 1
+            return { retired }
+        }, makeModel: factory.make)
+        defer { owner.stop() }
+        let first = event("stale-web-old"), second = event("stale-web-muted"), third = event("stale-web-next")
+        owner.open(event: first, sessions: [session(for: first)])
+        oldOwner = try XCTUnwrap(owner.primary).model.remoteCommandOwnerID
+        owner.open(event: second, sessions: [session(for: second)])
+        let muted = try XCTUnwrap(owner.primary)
+        try await XCTUnwrap(owner.audioTransferTask).value
+        XCTAssertFalse(muted.model.isViewingAudioEnabled)
+        owner.stop()
+
+        retired = true
+        owner.open(event: third, sessions: [session(for: third)])
+        let next = try XCTUnwrap(owner.primary)
+        if let transfer = owner.audioTransferTask { await transfer.value }
+        XCTAssertTrue(next.model.isViewingAudioEnabled)
+        XCTAssertTrue(next.model.ownsRemoteCommands)
+        XCTAssertNil(owner.resolutionError)
+        XCTAssertEqual(captures, 1, "The retired surface is waited on, never re-captured")
+
+        let fourth = event("stale-web-after")
+        owner.open(event: fourth, sessions: [session(for: fourth)])
+        XCTAssertNil(owner.audioTransferTask, "A satisfied retirement is not waited on again")
+        XCTAssertTrue(try XCTUnwrap(owner.primary).model.isViewingAudioEnabled)
+    }
+
     func testRemovedWebPaneStillRequiresItsCapturedRetirementAckBeforeSingleAudio() async throws {
         let factory = ModelFactory(), gate = WebAudioRevocationGate()
         let owner = coordinator(allowsWatchTwo: true, factory: factory, webAudioGate: gate)
