@@ -1,8 +1,10 @@
 # Fotty current state
 
+15 Nov: [core motion](../testing/fotty-core-motion-20261115/README.md): Claude approved;261 local tests pass. Physical gate open; Jet334/ranking unchanged.
+
 15 Nov: [Jet334 guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) installed;396 checks, Save/Remind and TV25 hold pass. Live programme/audio pending; source failures retained. Phone/ranking/TestFlight unchanged.
 
-14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Internal TestFlight332 released to the existing13 testers; [release proof](../releases/Fotty-3.0.0-332.md).
+14 Nov: [Jet332 retirement](../testing/fotty332-watch-first-retirement/README.md): FPL removed, Watch Two parked; saved data/scores/follows/ranking preserved. Claude approved;2,687 tests pass/12 skips; correct WBBL Watch91s/zero stalls. [Internal TestFlight332](../releases/Fotty-3.0.0-332.md) released to13 existing testers.
 
 Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.md) retains WBBL Watch and Jamaica–Mexico failure evidence.
 

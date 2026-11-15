@@ -478,6 +478,7 @@ struct HomeDiscoveryRow: View {
     var onDetails: (() -> Void)? = nil
     var onCheckStreams: (() -> Void)? = nil
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.fottyStreamLookupBusy) private var streamLookupBusy
     @State private var inlineContext = CatalogInlineContextState()
 
@@ -515,11 +516,16 @@ struct HomeDiscoveryRow: View {
         if inlineContext.isExpanded(for: item.id), let onDetails {
             CatalogInlineEventContext(event: item.event, status: item.officialStatus, now: now,
                 canWatchHere: true, isChannelFallback: alternateActionTitle != nil, onMoreDetails: onDetails)
+                .transition(.opacity)
         }
         }
         .padding(.vertical, 10)
         .contentShape(Rectangle())
-        .onChange(of: item.id) { _, _ in inlineContext.reset() }
+        .onChange(of: item.id) { _, _ in
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { inlineContext.reset() }
+        }
         .contextMenu {
             if let inlineDetailsAction {
                 Button(inlineContext.isExpanded(for: item.id) ? "Hide match details" : "Match details",
@@ -536,7 +542,11 @@ struct HomeDiscoveryRow: View {
 
     private var inlineDetailsAction: (() -> Void)? {
         guard onDetails != nil else { return nil }
-        return { inlineContext.toggle(for: item.id) }
+        return {
+            withAnimation(FottyInteractionMotion.disclosure(reduceMotion: reduceMotion)) {
+                inlineContext.toggle(for: item.id)
+            }
+        }
     }
 
     @ViewBuilder
@@ -547,7 +557,7 @@ struct HomeDiscoveryRow: View {
                 eventText.frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(FottyPressButtonStyle())
+            .buttonStyle(FottyPressButtonStyle(dimsWhenDisabled: false))
             .accessibilityElement(children: .combine)
             .accessibilityHint("Opens the broadcast. Touch and hold for match details and saving.")
             .accessibilityIdentifier(item.isOnNow ? "home-watch-now" : "home-event-\(item.id)")
@@ -558,7 +568,7 @@ struct HomeDiscoveryRow: View {
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(FottyPressButtonStyle())
+            .buttonStyle(FottyPressButtonStyle(dimsWhenDisabled: false))
             .accessibilityValue(inlineContext.isExpanded(for: item.id) ? "Expanded" : "Collapsed")
             .accessibilityHint("Shows or hides schedule and broadcast information in this list")
             .accessibilityIdentifier("home-event-\(item.id)")
@@ -591,6 +601,7 @@ struct HomeDiscoveryRow: View {
             }
             Text(presentation.statusLabel)
                 .font(FottyTheme.typeMeta)
+                .monospacedDigit()
                 .foregroundStyle(item.isOnNow ? FottyTheme.accentText : FottyTheme.textSecondary)
                 .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
                 .fixedSize(horizontal: false, vertical: true)
@@ -647,6 +658,7 @@ struct HomeLiveSpotlight: View {
     var onCheckStreams: (() -> Void)? = nil
 
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.fottyPendingWatchEventID) private var pendingWatchEventID
@@ -785,7 +797,7 @@ struct HomeLiveSpotlight: View {
             Button(action: onDetails) {
                 content().contentShape(Rectangle())
             }
-            .buttonStyle(FottyPressButtonStyle())
+            .buttonStyle(FottyPressButtonStyle(dimsWhenDisabled: false))
             .accessibilityElement(children: .combine)
             .accessibilityHint("Opens match details. Touch and hold to save.")
             .accessibilityIdentifier("home-live-details-\(item.id)")
@@ -813,7 +825,7 @@ struct HomeLiveSpotlight: View {
                 .contentShape(Capsule())
             }
             .disabled(streamLookupBusy)
-            .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull))
+            .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull, dimsWhenDisabled: !openingWatch))
             .accessibilityLabel("\(actionTitle) \(item.event.displayTitle)")
             .accessibilityValue(openingWatch ? "Opening broadcast" : "")
             .accessibilityHint("Finds an available broadcast and opens the player.")
@@ -836,7 +848,7 @@ struct HomeLiveSpotlight: View {
                         .frame(minHeight: 44)
                         .background(FottyTheme.accent, in: Capsule())
                 }
-                .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull))
+                .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull, dimsWhenDisabled: !openingWatch))
                 .disabled(streamLookupBusy)
                 .accessibilityLabel(lookup.accessibilityLabel(matchTitle: item.event.displayTitle))
                 .accessibilityValue(openingWatch ? "Opening broadcast" : "")
@@ -934,11 +946,21 @@ struct HomeLiveSpotlight: View {
     private var scoreLockup: some View {
         VStack(spacing: 3) {
             if let home = presentation.homeScore, let away = presentation.awayScore {
-                Text("\(home) – \(away)")
-                    .font(.system(size: scoreSize, weight: .semibold, design: .rounded))
-                    .accessibilityIdentifier("home-featured-score")
-                    .monospacedDigit()
-                    .foregroundStyle(FottyTheme.textPrimary)
+                HStack(spacing: 0) {
+                    Text("\(home)")
+                        .contentTransition(reduceMotion ? .identity : .numericText(value: Double(home)))
+                        .animation(FottyInteractionMotion.score(reduceMotion: reduceMotion), value: home)
+                    Text(" – ")
+                    Text("\(away)")
+                        .contentTransition(reduceMotion ? .identity : .numericText(value: Double(away)))
+                        .animation(FottyInteractionMotion.score(reduceMotion: reduceMotion), value: away)
+                }
+                .font(.system(size: scoreSize, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(FottyTheme.textPrimary)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(home) – \(away)")
+                .accessibilityIdentifier("home-featured-score")
             } else {
                 Text("VS")
                     .font(.fottyScaled(size: 17, weight: .bold, design: .rounded))
@@ -959,6 +981,7 @@ struct HomeLiveSpotlight: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("home-featured-scoreboard")
+        .id(item.event.id)
     }
 
     private func team(name: String, badge: URL?, brand: URL?) -> some View {
@@ -1007,6 +1030,7 @@ struct HomeScheduleRow: View {
     var onCheckStreams: (() -> Void)? = nil
 
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.fottyStreamLookupBusy) private var streamLookupBusy
     // Paired badges and the options menu must leave enough room for both team
     // names. Narrow windows put Watch below instead of squeezing the names.
@@ -1033,11 +1057,16 @@ struct HomeScheduleRow: View {
         if inlineContext.isExpanded(for: item.id), let onDetails {
             CatalogInlineEventContext(event: item.event, status: item.officialStatus, now: now,
                 canWatchHere: true, isChannelFallback: alternateActionTitle != nil, onMoreDetails: onDetails)
+                .transition(.opacity)
         }
         }
         .padding(.vertical, 8)
         .contentShape(Rectangle())
-        .onChange(of: item.id) { _, _ in inlineContext.reset() }
+        .onChange(of: item.id) { _, _ in
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { inlineContext.reset() }
+        }
         .contextMenu {
             if let inlineDetailsAction {
                 Button(inlineContext.isExpanded(for: item.id) ? "Hide match details" : "Match details",
@@ -1052,14 +1081,18 @@ struct HomeScheduleRow: View {
 
     private var inlineDetailsAction: (() -> Void)? {
         guard onDetails != nil else { return nil }
-        return { inlineContext.toggle(for: item.id) }
+        return {
+            withAnimation(FottyInteractionMotion.disclosure(reduceMotion: reduceMotion)) {
+                inlineContext.toggle(for: item.id)
+            }
+        }
     }
 
     @ViewBuilder
     private var eventInformation: some View {
         if currentPolicy.canAttemptPlayback || alternateActionTitle != nil {
             Button(action: onOpen) { compactInformation }
-                .buttonStyle(FottyPressButtonStyle())
+                .buttonStyle(FottyPressButtonStyle(dimsWhenDisabled: false))
                 .disabled(streamLookupBusy)
                 .accessibilityHint("Opens the broadcast. Touch and hold for match details and saving.")
                 .accessibilityIdentifier(item.isOnNow ? "home-watch-now" : "home-event-\(item.id)")
@@ -1069,7 +1102,7 @@ struct HomeScheduleRow: View {
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())
             }
-            .buttonStyle(FottyPressButtonStyle())
+            .buttonStyle(FottyPressButtonStyle(dimsWhenDisabled: false))
             .accessibilityValue(inlineContext.isExpanded(for: item.id) ? "Expanded" : "Collapsed")
             .accessibilityHint("Shows or hides schedule and broadcast information in this list")
             .accessibilityIdentifier("home-event-\(item.id)")
@@ -1193,7 +1226,8 @@ struct HomeScheduleRow: View {
 }
 
 /// Home's "On air now": channels that open right now, each with its own
-/// Watch. Tapping Watch shows "Opening…" at once, like the TV tab.
+/// Watch. Tapping Watch immediately shows the shared fixed-slot spinner; the
+/// title stays stable and accessibility announces "Opening broadcast".
 struct HomeOnAirSection: View {
     let entries: [HomeOnAirPolicy.Entry]
     let columns: Int
@@ -1244,20 +1278,16 @@ struct HomeOnAirSection: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)
             Button { onWatch(event) } label: {
-                Label {
-                    Text(opening ? "Opening…" : "Watch")
-                } icon: {
-                    if opening { ProgressView().controlSize(.small).tint(FottyTheme.textOnAccent) }
-                    else { Image(systemName: "play.fill") }
-                }
-                .font(FottyTheme.typeAction)
-                .padding(.horizontal, 6)
-                .frame(minHeight: 44)
+                PendingWatchLabel(title: "Watch", symbol: "play.fill", isPending: opening)
+                    .font(FottyTheme.typeAction)
+                    .foregroundStyle(FottyTheme.textOnAccent)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .frame(minHeight: 44)
+                    .background(FottyTheme.accent, in: Capsule())
+                    .contentShape(Capsule())
             }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
-            .tint(FottyTheme.accent)
-            .foregroundStyle(FottyTheme.textOnAccent)
+            .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull, dimsWhenDisabled: !opening))
             .disabled(pendingEventID != nil)
             .accessibilityLabel("Watch \(entry.station.title)")
             .accessibilityValue(opening ? "Opening broadcast" : (entry.programme ?? ""))

@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-15T17:08:16.242125+00:00
-Source digest: 58aeee6cdf5caca9855c61895c0799c2568a9770bbd0ab4f9a879526963071ab
+Generated: 2026-11-15T17:43:04.327991+00:00
+Source digest: c1ebb9cf30f06063c4acc34e787ba2b72974cd89f2a31153dc068725c998cff3
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,9 +11,11 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
+15 Nov: [core motion](../testing/fotty-core-motion-20261115/README.md): Claude approved;261 local tests pass. Physical gate open; Jet334/ranking unchanged.
+
 15 Nov: [Jet334 guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) installed;396 checks, Save/Remind and TV25 hold pass. Live programme/audio pending; source failures retained. Phone/ranking/TestFlight unchanged.
 
-14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Internal TestFlight332 released to the existing13 testers; [release proof](../releases/Fotty-3.0.0-332.md).
+14 Nov: [Jet332 retirement](../testing/fotty332-watch-first-retirement/README.md): FPL removed, Watch Two parked; saved data/scores/follows/ranking preserved. Claude approved;2,687 tests pass/12 skips; correct WBBL Watch91s/zero stalls. [Internal TestFlight332](../releases/Fotty-3.0.0-332.md) released to13 existing testers.
 
 Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.md) retains WBBL Watch and Jamaica–Mexico failure evidence.
 
@@ -881,6 +883,23 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-15 — Polish core Watch feedback and local match motion with Claude
+
+The owner redirected effort from deeper TV work to Home→match→Watch polish and
+reaffirmed direct collaboration with Claude. Three actual Claude rounds changed
+the plan to fix tap-time disabled-row dimming and label reflow first. Keep visible
+Watch/Retry wording stable with a fixed scaled spinner slot, full-opacity pending
+controls and readable team information while retaining disabled semantics. Use
+row-local opacity disclosures, explicit non-animated reused-ID resets, hero-only
+fixture-keyed numeric score transitions and overlay-only release fades. Remove
+global Save/filter animation transactions; preserve native player ownership,
+ranking, source choices and saved data. On Air adopts the shared Watch capsule;
+Sports TV is not expanded. Final focused Catalyst: 261 passed, zero failures or
+skips. Current synthetic native hero captures show stable idle/pending geometry
+and visible spinner. Physical smoothness, Reduce Motion/VoiceOver and fixture-swap
+checks remain open. No device packaging/install, phone, cloud or TestFlight.
+Jet remains normal334. [Evidence](../testing/fotty-core-motion-20261115/README.md).
 
 ## 2026-11-15 — Complete the guide’s private Jet gate with four focused repairs
 

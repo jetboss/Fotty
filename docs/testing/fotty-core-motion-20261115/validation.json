@@ -1,0 +1,165 @@
+{
+  "base": "f214db2c97b3d6392125af6e01803c8a809d95bc",
+  "branch": "codex/ui-motion-20261115",
+  "sourceSHA256": {
+    "Fotty/Design/Components.swift": "3fbe63ccfb3aedf91d0da43707336a4fe5b19f586e335e2965e0f4926e82d7f4",
+    "Fotty/Features/Dashboard/Components/DashboardMatchList.swift": "1dca29dfbad1262eddbfe7561a7b4bdcdbc774a6b3b0f03b418ba2309f97ddc6",
+    "Fotty/Features/Dashboard/Components/LiveEventCard.swift": "45d74e220bce1a8f9cd12c43fe2e435719b0e10b9b5449b6768ebe9a4559c412",
+    "Fotty/Features/Dashboard/Components/MatchStartControls.swift": "30644598f8036660c64fdf681e63bd4a156110e95dfa851d1a0c8977cbd44c53",
+    "Fotty/Features/Dashboard/Components/SportsDiscoveryViews.swift": "d00ed1b505619388e58076fe5ad97406d4e59cb3c76ce478b7208968d4ff27f1",
+    "Fotty/Features/Dashboard/SportsDashboardView.swift": "96dbdb75bbb657fc4b4e8104c2de9282a186350a000fbe058054673e24a97c60",
+    "Fotty/Features/Social/ArenaDiscoveryView.swift": "84710883e7f7db8bbe30b073483d9484725d1a4cab69c72197f814cc27fbcf2e",
+    "FottyTests/BetaUsabilityTests.swift": "4aad4590808cf944c663390968e975d9b3f94bc77035cbff9286830718976340",
+    "FottyTests/Fotty25HomeDesignTests.swift": "acecc0e22aaf0d01aa1b18e42d7046f035eaca669da1ca573e0fa459d5ff3390",
+    "FottyTests/WatchTapAcknowledgementTests.swift": "97c01127cc32c2e129eaa2283f3882cfe69d126cdfda1615532f446d99d0dcfc"
+  },
+  "phases": [
+    {
+      "action": "compile-catalyst",
+      "label": "core-motion-compile",
+      "exitCode": 65,
+      "passed": false,
+      "sourceUnchanged": true,
+      "counts": null,
+      "assertionFailures": null,
+      "skippedTests": [],
+      "failedTests": []
+    },
+    {
+      "action": "compile-catalyst",
+      "label": "core-motion-compile-corrected",
+      "exitCode": 0,
+      "passed": true,
+      "sourceUnchanged": true,
+      "counts": null,
+      "assertionFailures": null,
+      "skippedTests": [],
+      "failedTests": []
+    },
+    {
+      "action": "test",
+      "label": "core-motion-focused",
+      "exitCode": 65,
+      "passed": false,
+      "sourceUnchanged": true,
+      "counts": {
+        "total": 261,
+        "skipped": 0,
+        "failed": 2,
+        "passed": 259
+      },
+      "assertionFailures": 2,
+      "skippedTests": [],
+      "failedTests": [
+        "-[FottyTests.BetaUsabilityTests testInlineResolutionUsesInsetsAndNoBlockingDimmerAtEveryEntryPoint]",
+        "-[FottyTests.UsabilityPresentationTests testMatchdayVisibleActionsDoNotAddControlsToPassiveSelectionCards]"
+      ]
+    },
+    {
+      "action": "compile-catalyst",
+      "label": "core-motion-compile-final",
+      "exitCode": 0,
+      "passed": true,
+      "sourceUnchanged": true,
+      "counts": null,
+      "assertionFailures": null,
+      "skippedTests": [],
+      "failedTests": []
+    },
+    {
+      "action": "test",
+      "label": "core-motion-final",
+      "exitCode": 0,
+      "passed": true,
+      "sourceUnchanged": true,
+      "counts": {
+        "total": 261,
+        "skipped": 0,
+        "failed": 0,
+        "passed": 261
+      },
+      "assertionFailures": 0,
+      "skippedTests": [],
+      "failedTests": []
+    }
+  ],
+  "finalResult": {
+    "total": 261,
+    "skipped": 0,
+    "failed": 0,
+    "passed": 261
+  },
+  "hostBinarySHA256": "9fc12f2d705d00d17185bee4ffd69502b0e34a6bba2af2ade34937c6c4037682",
+  "hostVersion": "332",
+  "hostOS": "27.0.1",
+  "images": [
+    {
+      "file": "home-footer-watch-600-opening.png",
+      "sha256": "a43dc057f14db1d4dff33d74707f9099719b6e76746b565cbd89f917dc24350f",
+      "test": "Fotty25HomeDesignTests/testFeaturedWatchKeepsItsBoundsWhilePendingOnNarrowAndWideCards",
+      "captureUTC": "2026-11-15T17:40:31.874000+00:00",
+      "kind": "native-hosted-component",
+      "platform": "Mac Catalyst",
+      "renderer": "UIHostingController.drawHierarchy.v1",
+      "appearance": "dark",
+      "textSize": "large",
+      "syntheticContent": true,
+      "physicalDeviceEvidence": false
+    },
+    {
+      "file": "home-footer-watch-600-idle.png",
+      "sha256": "0744f83a8700eefad358abbc510f44c1e4178d54cdc6b153573d6c67e8212e75",
+      "test": "Fotty25HomeDesignTests/testFeaturedWatchKeepsItsBoundsWhilePendingOnNarrowAndWideCards",
+      "captureUTC": "2026-11-15T17:40:31.829000+00:00",
+      "kind": "native-hosted-component",
+      "platform": "Mac Catalyst",
+      "renderer": "UIHostingController.drawHierarchy.v1",
+      "appearance": "dark",
+      "textSize": "large",
+      "syntheticContent": true,
+      "physicalDeviceEvidence": false
+    },
+    {
+      "file": "home-footer-watch-288-opening.png",
+      "sha256": "bea767d0af77c117ddf92387a0960dba61b78d51dff62b54c195ae5ef05474ae",
+      "test": "Fotty25HomeDesignTests/testFeaturedWatchKeepsItsBoundsWhilePendingOnNarrowAndWideCards",
+      "captureUTC": "2026-11-15T17:40:31.545000+00:00",
+      "kind": "native-hosted-component",
+      "platform": "Mac Catalyst",
+      "renderer": "UIHostingController.drawHierarchy.v1",
+      "appearance": "dark",
+      "textSize": "large",
+      "syntheticContent": true,
+      "physicalDeviceEvidence": false
+    },
+    {
+      "file": "home-footer-watch-288-idle.png",
+      "sha256": "5f963d4622c8b295c6c4fb8986362a1bbbdfddc037a7466035f9cae3c8faa7ea",
+      "test": "Fotty25HomeDesignTests/testFeaturedWatchKeepsItsBoundsWhilePendingOnNarrowAndWideCards",
+      "captureUTC": "2026-11-15T17:40:31.503000+00:00",
+      "kind": "native-hosted-component",
+      "platform": "Mac Catalyst",
+      "renderer": "UIHostingController.drawHierarchy.v1",
+      "appearance": "dark",
+      "textSize": "large",
+      "syntheticContent": true,
+      "physicalDeviceEvidence": false
+    }
+  ],
+  "deviceInteractions": false,
+  "simulatorsUsed": false,
+  "rankingChanged": false,
+  "testflightChanged": false,
+  "notes": [
+    "Initial compile caught a read-only accessibility environment assignment in the new test harness; corrected without changing app logic.",
+    "First test run passed all new geometry/readability cases; two old source-string assertions were already stale on f214db2. Corrected assertions preserve the modal/cancellation contract while accepting the current planning callback.",
+    "Final focused run passed all 261 tests with zero failures/skips.",
+    "Native image inspection establishes static button/spinner appearance and stable bounds, not physical transition smoothness, VoiceOver or playback.",
+    "Old October six-screen ledger is already stale on the baseline and remains historical."
+  ],
+  "cleanup": {
+    "ownedBuildOutputRemoved": true,
+    "ownedKeepAwakeStopped": true,
+    "freeDiskAfterBytes": 32242130944
+  }
+}

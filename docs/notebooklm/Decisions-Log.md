@@ -1,3 +1,20 @@
+## 2026-11-15 — Polish core Watch feedback and local match motion with Claude
+
+The owner redirected effort from deeper TV work to Home→match→Watch polish and
+reaffirmed direct collaboration with Claude. Three actual Claude rounds changed
+the plan to fix tap-time disabled-row dimming and label reflow first. Keep visible
+Watch/Retry wording stable with a fixed scaled spinner slot, full-opacity pending
+controls and readable team information while retaining disabled semantics. Use
+row-local opacity disclosures, explicit non-animated reused-ID resets, hero-only
+fixture-keyed numeric score transitions and overlay-only release fades. Remove
+global Save/filter animation transactions; preserve native player ownership,
+ranking, source choices and saved data. On Air adopts the shared Watch capsule;
+Sports TV is not expanded. Final focused Catalyst: 261 passed, zero failures or
+skips. Current synthetic native hero captures show stable idle/pending geometry
+and visible spinner. Physical smoothness, Reduce Motion/VoiceOver and fixture-swap
+checks remain open. No device packaging/install, phone, cloud or TestFlight.
+Jet remains normal334. [Evidence](../testing/fotty-core-motion-20261115/README.md).
+
 ## 2026-11-15 — Complete the guide’s private Jet gate with four focused repairs
 
 Physical guide checks exposed a future-save continuity warning, retained search keyboard, duplicated punctuation variants of one programme and match wording for channel failures. Keep the saved 14-day planning projection separate from current Watch authority; preserve terminal/conflict/current identity vetoes and original receipts. Dedupe only exact station/start/sport/full event text for presentation, without transferring generic programme identity. Dismiss search focus on Watch and use channel wording for channel lookup failures. Ranking, source opt-ins and playback/transport ownership remain unchanged. Actual Claude approved three rounds. Final focused Catalyst: 396 passed, zero failures/skips. Normal signed Jet334 Save/Remind/cancel, planning retention and TV25 Watch passed; advancing pictures held 96.941 seconds with zero recorded stalls. Audio and current fixture-linked programme Watch remain unverified. Willow/ESPN/Sky Main Event supply failures are retained separately, not reclassified as repaired. Test bookmark/reminder removed; owner data preserved. No phone, cloud, publication or TestFlight. [Evidence](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md).

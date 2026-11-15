@@ -1749,7 +1749,9 @@ struct SportsDashboardView: View {
 
     private func mutateSavedMatch(_ event: AnalyticalDataEngine.EventReference) -> MyMatchdayStore.MutationResult {
         HapticManager.impact(.light)
-        return withAnimation(FottyTheme.springSnappy) { myMatchdayStore.toggle(event) }
+        // Save feedback is local to the control. Do not animate every section
+        // observing the shared store when one match is saved or removed.
+        return myMatchdayStore.toggle(event)
     }
 
     private func queueSearchSelection(

@@ -467,7 +467,7 @@ struct MatchStartControls<Information: View>: View {
                     .frame(minHeight: 44)
                     .background(FottyTheme.accent, in: Capsule())
             }
-            .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull))
+            .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull, dimsWhenDisabled: !isPendingWatch))
             .disabled(streamLookupBusy)
             .accessibilityLabel(state.accessibilityLabel(matchTitle: event.displayTitle))
             .accessibilityValue(isPendingWatch ? "Opening broadcast" : "")
@@ -530,7 +530,7 @@ struct MatchStartControls<Information: View>: View {
                     .frame(minHeight: 44)
                     .background(FottyTheme.accent, in: Capsule())
             }
-            .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull))
+            .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull, dimsWhenDisabled: !isPendingWatch))
             .disabled(streamLookupBusy)
             .accessibilityLabel(MatchActionAccessibility.playbackLabel(
                 title: title, eventTitle: event.displayTitle, isChannel: event.isBroadcastChannel, isRetry: retry
@@ -705,7 +705,7 @@ struct MatchStartControls<Information: View>: View {
                     .frame(minHeight: 44)
                     .background(FottyTheme.accent, in: RoundedRectangle(cornerRadius: FottyTheme.radiusSM))
             }
-            .buttonStyle(FottyPressButtonStyle())
+            .buttonStyle(FottyPressButtonStyle(dimsWhenDisabled: !isPendingWatch))
             .disabled(streamLookupBusy)
             .accessibilityLabel(MatchActionAccessibility.playbackLabel(
                 title: title, eventTitle: event.displayTitle, isChannel: event.isBroadcastChannel, isRetry: retry
@@ -783,13 +783,24 @@ struct PendingWatchLabel: View {
     let title: String
     let symbol: String
     let isPending: Bool
+    @ScaledMetric(relativeTo: .body) private var iconSize: CGFloat = 18
 
     var body: some View {
         Label {
-            Text(isPending ? "Opening…" : title).fixedSize(horizontal: false, vertical: true)
+            // Keep the action's wording and footprint stable at the tap. The
+            // spinner, existing opening panel and accessibility value acknowledge
+            // progress without making a tight match row/hero footer reflow.
+            Text(title).fixedSize(horizontal: false, vertical: true)
         } icon: {
-            if isPending { ProgressView().controlSize(.small).tint(FottyTheme.textOnAccent) }
-            else { Image(systemName: symbol) }
+            ZStack {
+                Image(systemName: symbol).opacity(isPending ? 0 : 1)
+                if isPending {
+                    ProgressView().controlSize(.small).tint(FottyTheme.textOnAccent)
+                        .transition(.identity)
+                }
+            }
+            .frame(width: iconSize, height: iconSize)
+            .accessibilityHidden(true)
         }
     }
 }

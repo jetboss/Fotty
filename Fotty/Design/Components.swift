@@ -407,34 +407,55 @@ struct TrailingScrollArrow: View {
 
 // MARK: - Branded control feedback
 
+/// Brief presentation changes only. Catalog publication and the retained media
+/// surface keep their own non-animated transactions.
+enum FottyInteractionMotion {
+    static func disclosure(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .snappy(duration: 0.22)
+    }
+
+    static func score(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .snappy(duration: 0.20)
+    }
+
+    static func release(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .easeOut(duration: 0.15)
+    }
+}
+
 /// For controls that already supply their own label, surface and hit region.
-/// Keep feedback local to the button: no scaling, delayed animation, or gesture
-/// layer that could compete with scrolling or playback controls.
+/// Press feedback is immediate; only its overlay fades on release. No scaling
+/// or gesture layer can compete with scrolling or playback controls.
 struct FottyPressButtonStyle: ButtonStyle {
     var cornerRadius: CGFloat = FottyTheme.radiusSM
+    var dimsWhenDisabled = true
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .modifier(FottyPressFeedback(isPressed: configuration.isPressed, cornerRadius: cornerRadius))
+            .modifier(FottyPressFeedback(isPressed: configuration.isPressed,
+                cornerRadius: cornerRadius, dimsWhenDisabled: dimsWhenDisabled))
     }
 }
 
 struct FottyPressFeedback: ViewModifier {
     let isPressed: Bool
     var cornerRadius: CGFloat = FottyTheme.radiusSM
+    var dimsWhenDisabled = true
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func body(content: Content) -> some View {
         content
             .overlay {
-                if isPressed && isEnabled {
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(.primary.opacity(0.10))
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(.primary.opacity(0.10))
+                    .opacity(isPressed && isEnabled ? 1 : 0)
+                    .animation(isPressed ? nil : FottyInteractionMotion.release(reduceMotion: reduceMotion),
+                               value: isPressed && isEnabled)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
-            .opacity(isEnabled ? 1 : 0.45)
+            .opacity(isEnabled || !dimsWhenDisabled ? 1 : 0.45)
     }
 }
 

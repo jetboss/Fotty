@@ -52,7 +52,7 @@ final class Fotty25HomeDesignTests: XCTestCase {
         XCTAssertTrue(dashboard.contains("browseSportsSection(discovery, compact: true)"))
         XCTAssertTrue(rows.contains("detailsExpanded: inlineContext.isExpanded(for: item.id)"))
         XCTAssertTrue(rows.contains("MatchStartControls("))
-        XCTAssertTrue(rows.contains(".onChange(of: item.id) { _, _ in inlineContext.reset() }"))
+        XCTAssertTrue(rows.contains(".onChange(of: item.id) { _, _ in\n            var transaction = Transaction(animation: nil)\n            transaction.disablesAnimations = true\n            withTransaction(transaction) { inlineContext.reset() }"))
         let scheduleStart = try XCTUnwrap(rows.range(of: "struct HomeScheduleRow: View"))
         let schedule = rows[scheduleStart.lowerBound...]
         XCTAssertTrue(schedule.contains("ViewThatFits(in: .horizontal)"))
@@ -137,7 +137,18 @@ final class Fotty25HomeDesignTests: XCTestCase {
         XCTAssertTrue(source.contains("\"More events\""))
     }
 
-    private func spotlightActionBounds(title: String?) throws -> CGRect {
+    func testFeaturedWatchKeepsItsBoundsWhilePendingOnNarrowAndWideCards() throws {
+        for width: CGFloat in [288, 343, 600] {
+            for title in ["Watch", "Watch channel"] {
+                let idle = try spotlightActionBounds(title: title, width: width)
+                let pending = try spotlightActionBounds(title: title, width: width, pending: true)
+                XCTAssertEqual(pending, idle,
+                    "The actual hero footer must not move or resize when Watch is acknowledged")
+            }
+        }
+    }
+
+    private func spotlightActionBounds(title: String?, width: CGFloat = 288, pending: Bool = false) throws -> CGRect {
         let now = Date(timeIntervalSince1970: 1_790_000_000)
         let event = EventReference(id: "home-footer-layout-only", title: "Render Home vs Render Away", category: "cricket",
             date: Int64(now.addingTimeInterval(-1_800).timeIntervalSince1970), poster: nil, popular: false,
@@ -147,8 +158,10 @@ final class Fotty25HomeDesignTests: XCTestCase {
             HomeLiveSpotlight(item: item, presentation: .init(item: item), now: now, isSaved: true,
                               onOpen: { XCTFail("A layout test must not open playback") }, onSave: {}, alternateActionTitle: title)
                 .environment(\.colorScheme, .dark)
-                .environment(\.dynamicTypeSize, .large),
-            width: 288, scheme: .dark, type: .large)
+                .environment(\.dynamicTypeSize, .large)
+                .environment(\.fottyPendingWatchEventID, pending ? event.id : nil)
+                .environment(\.fottyStreamLookupBusy, pending),
+            width: width, scheme: .dark, type: .large)
         let pixels = try FottyVisualPixelComparison.Pixels(image: image)
         var minX = pixels.width, minY = pixels.height, maxX = -1, maxY = -1
         for y in 0..<pixels.height {
@@ -163,7 +176,7 @@ final class Fotty25HomeDesignTests: XCTestCase {
         }
         XCTAssertGreaterThanOrEqual(maxX, 0, "The genuine Watch button must be visible in the native component render")
         let attachment = XCTAttachment(image: image)
-        attachment.name = title == "Watch" ? "home-footer-saved-time-narrow" : "home-footer-long-action-narrow"
+        attachment.name = "home-footer-\(title == "Watch" ? "watch" : "alternate")-\(Int(width))-\(pending ? "opening" : "idle")"
         attachment.lifetime = .keepAlways
         add(attachment)
         return CGRect(x: CGFloat(minX), y: CGFloat(minY),

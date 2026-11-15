@@ -1122,10 +1122,8 @@ struct ArenaDiscoveryView: View {
 
     private func toggleSavedMatch(_ event: AnalyticalDataEngine.EventReference) {
         HapticManager.impact(.light)
-        withAnimation(FottyTheme.springSnappy) {
-            if let message = myMatchdayStore.toggle(event).errorMessage {
-                savedMatchError = message
-            }
+        if let message = myMatchdayStore.toggle(event).errorMessage {
+            savedMatchError = message
         }
     }
 

@@ -59,9 +59,7 @@ struct DashboardMatchList: View {
                 FottySectionHeader(title: title, count: events.count)
                 if hasFollowedTeams && !isMultiSelectMode {
                     Button {
-                        withAnimation(FottyTheme.springSnappy) {
-                            showFollowedOnly.toggle()
-                        }
+                        showFollowedOnly.toggle()
                     } label: {
                         Text(showFollowedOnly ? "Following" : "All")
                             .font(FottyTheme.typeMeta)

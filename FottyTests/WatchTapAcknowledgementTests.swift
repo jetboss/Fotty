@@ -1,10 +1,149 @@
 import XCTest
+import SwiftUI
+import UIKit
 @testable import Fotty
 
 /// Scene reservation and admission ordering, not physical first-frame or
 /// decoded playback evidence. No test resolves or starts a media URL.
 @MainActor
 final class WatchTapAcknowledgementTests: XCTestCase {
+    /// These are hosted layout checks, not frame-rate measurements or physical
+    /// Dynamic Type acceptance. The UIKit trait and SwiftUI environment agree.
+    private func hostedSize<Content: View>(of content: Content, width: CGFloat? = nil,
+                                          type: DynamicTypeSize) -> CGSize {
+        let host = UIHostingController(rootView: content
+            .environment(\.dynamicTypeSize, type)
+            .frame(width: width)
+            .fixedSize(horizontal: width == nil, vertical: true))
+        host.loadViewIfNeeded()
+        switch type {
+        case .xxxLarge:
+            host.traitOverrides.preferredContentSizeCategory = .extraExtraExtraLarge
+        case .accessibility3:
+            host.traitOverrides.preferredContentSizeCategory = .accessibilityExtraLarge
+        default:
+            host.traitOverrides.preferredContentSizeCategory = .large
+        }
+        return host.sizeThatFits(in: CGSize(width: width ?? 2_000, height: 2_000))
+    }
+
+    private func pendingAction(title: String, pending: Bool) -> some View {
+        PendingWatchLabel(title: title, symbol: title == "Retry" ? "arrow.clockwise" : "play.fill",
+                          isPending: pending)
+            .font(FottyTheme.typeMeta.weight(.semibold))
+            .fixedSize(horizontal: true, vertical: true)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+    }
+
+    private var longMatchInformation: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text("Brighton & Hove Albion Women")
+            Text("Manchester United Women")
+        }
+        .font(FottyTheme.typeBody)
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    func testPendingWatchLabelKeepsItsIdleFootprintAcrossTitlesAndTextSizes() {
+        for type in [DynamicTypeSize.large, .xxxLarge, .accessibility3] {
+            for title in ["Watch", "Retry", "Watch channel"] {
+                for (context, font) in [("row", FottyTheme.typeMeta.weight(.semibold)),
+                                        ("hero", FottyTheme.typeAction)] {
+                    func size(pending: Bool) -> CGSize {
+                        hostedSize(of: PendingWatchLabel(title: title,
+                            symbol: title == "Retry" ? "arrow.clockwise" : "play.fill", isPending: pending)
+                            .font(font), type: type)
+                    }
+                    let idle = size(pending: false), pending = size(pending: true)
+                    let message = "\(context) \(title) at \(type) must acknowledge Watch without moving its neighbours"
+                    XCTAssertTrue(idle.width.isFinite && idle.height.isFinite)
+                    XCTAssertGreaterThan(idle.width, 0)
+                    XCTAssertGreaterThan(idle.height, 0)
+                    XCTAssertEqual(pending.width, idle.width, accuracy: 0.5, message)
+                    XCTAssertEqual(pending.height, idle.height, accuracy: 0.5, message)
+                }
+            }
+        }
+    }
+
+    func testPendingWatchKeepsLongMatchRowsStableAtActualFitThresholdAndDeviceWidths() {
+        let minimumInformationWidth: CGFloat = 150
+        let spacing: CGFloat = 12
+        for type in [DynamicTypeSize.large, .xxxLarge, .accessibility3] {
+            for title in ["Watch", "Retry", "Watch channel"] {
+                let action = hostedSize(of: pendingAction(title: title, pending: false), type: type)
+                let threshold = minimumInformationWidth + spacing + action.width
+                // Measure the genuine button rather than assuming a particular
+                // font's pixel width. Both sides of the fit boundary matter.
+                for width in [threshold - 1, threshold + 1, 288, 343, 788] {
+                    func rowSize(pending: Bool) -> CGSize {
+                        hostedSize(of: MatchRowLayout(minimumInformationWidth: minimumInformationWidth,
+                            forceStack: type.isAccessibilitySize, spacing: spacing) {
+                                longMatchInformation
+                                pendingAction(title: title, pending: pending)
+                            }, width: width, type: type)
+                    }
+                    let idle = rowSize(pending: false), pending = rowSize(pending: true)
+                    let message = "\(title) at \(width)pt/\(type) must keep its wrapping and row height while pending"
+                    XCTAssertEqual(idle.width, width, accuracy: 0.5)
+                    XCTAssertEqual(pending.width, idle.width, accuracy: 0.5, message)
+                    XCTAssertEqual(pending.height, idle.height, accuracy: 0.5, message)
+                    XCTAssertTrue(pending.height.isFinite)
+                    XCTAssertGreaterThanOrEqual(pending.height, 44)
+
+                    // Guard against making equality pass by always stacking or
+                    // imposing a fixed row height. Real width changes must still
+                    // reflow, and accessibility rows intentionally remain stacked.
+                    let horizontal = !type.isAccessibilitySize && width >= threshold
+                    let informationWidth = horizontal ? width - spacing - action.width : width
+                    let information = hostedSize(of: longMatchInformation, width: informationWidth, type: type)
+                    let expectedHeight = horizontal ? max(information.height, action.height)
+                        : information.height + spacing + action.height
+                    XCTAssertEqual(idle.height, expectedHeight, accuracy: 1,
+                                   "The production layout must still respect its real fit boundary")
+                }
+            }
+        }
+    }
+
+    func testPendingControlStylePreservesReadableLabelWhileOrdinaryDisabledControlsStillDim() throws {
+        for scheme in [ColorScheme.light, .dark] {
+            func render(enabled: Bool, dimsWhenDisabled: Bool) throws -> UIImage {
+                let content = Button {
+                    XCTFail("A static label render must never activate Watch")
+                } label: {
+                    Label("Watch", systemImage: "play.fill")
+                        .font(FottyTheme.typeMeta.weight(.semibold))
+                        .foregroundStyle(FottyTheme.textOnAccent)
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                        .background(FottyTheme.accent, in: Capsule())
+                }
+                .buttonStyle(FottyPressButtonStyle(dimsWhenDisabled: dimsWhenDisabled))
+                .disabled(!enabled)
+                .padding(8)
+                .background(FottyTheme.surface)
+                .environment(\.colorScheme, scheme)
+                let renderer = ImageRenderer(content: content)
+                renderer.scale = 1
+                return try XCTUnwrap(renderer.uiImage)
+            }
+            let enabled = try render(enabled: true, dimsWhenDisabled: false)
+            let pending = try render(enabled: false, dimsWhenDisabled: false)
+            let ordinaryDisabled = try render(enabled: false, dimsWhenDisabled: true)
+            XCTAssertEqual(enabled.size, pending.size)
+            let enabledPixels = try FottyVisualPixelComparison.Pixels(image: enabled)
+            let pendingComparison = try FottyVisualPixelComparison.compare(enabledPixels, .init(image: pending))
+            XCTAssertTrue(pendingComparison.matches,
+                          "A reserved Watch action stays readable while disabled: \(pendingComparison.description)")
+            XCTAssertFalse(try FottyVisualPixelComparison.compare(enabledPixels,
+                .init(image: ordinaryDisabled)).matches,
+                "Ordinary unavailable controls must retain the style's disabled treatment")
+        }
+    }
+
     private func event(_ id: String = "watch-feedback", status: SportsFixtureCatalog.Status = .live,
                        conflict: Bool = false) -> EventReference {
         let now = Date(), fixtureID = "sports-fixture:premier-league:\(id)"

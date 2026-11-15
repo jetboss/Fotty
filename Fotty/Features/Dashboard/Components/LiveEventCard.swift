@@ -14,6 +14,7 @@ struct LiveEventCard: View {
 
     @Environment(LiveScoreService.self) private var scoreService
     @Environment(\.dynamicTypeSize) private var typeSize
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ScaledMetric(relativeTo: .caption) private var categoryFontSize: CGFloat = 12
     @ScaledMetric(relativeTo: .body) private var teamFontSize: CGFloat = 17
     @ScaledMetric(relativeTo: .subheadline) private var detailedTeamFontSize: CGFloat = 15
@@ -106,6 +107,7 @@ struct LiveEventCard: View {
             CatalogInlineEventContext(event: event, status: status,
                 canWatchHere: onWatchTap != nil, isChannelFallback: alternateActionTitle != nil,
                 onMoreDetails: onDetailsTap)
+                .transition(.opacity)
         }
         }
         .padding(.horizontal, 12)
@@ -113,7 +115,11 @@ struct LiveEventCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(minHeight: 76, alignment: .center)
         .contentShape(Rectangle())
-        .onChange(of: event.id) { _, _ in inlineContext.reset() }
+        .onChange(of: event.id) { _, _ in
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { inlineContext.reset() }
+        }
         .if(!grouped) { $0.bentoSurface(cornerRadius: FottyTheme.radiusMD) }
         .contextMenu {
             if let detailsAction = inlineDetailsAction {
@@ -146,7 +152,11 @@ struct LiveEventCard: View {
     /// callback and stay non-interactive, so they never nest a second button.
     private var inlineDetailsAction: (() -> Void)? {
         guard onDetailsTap != nil else { return nil }
-        return { inlineContext.toggle(for: event.id) }
+        return {
+            withAnimation(FottyInteractionMotion.disclosure(reduceMotion: reduceMotion)) {
+                inlineContext.toggle(for: event.id)
+            }
+        }
     }
 
     private func matchCentreAction(_ match: FootballMatch?) -> (() -> Void)? {
@@ -167,7 +177,7 @@ struct LiveEventCard: View {
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(FottyPressButtonStyle())
+            .buttonStyle(FottyPressButtonStyle(dimsWhenDisabled: false))
             .accessibilityValue(inlineContext.isExpanded(for: event.id) ? "Expanded" : "Collapsed")
             .accessibilityHint("Shows or hides schedule and broadcast information in this list. Touch and hold for more options.")
             .accessibilityIdentifier("match-row-\(event.id)")
@@ -177,7 +187,7 @@ struct LiveEventCard: View {
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(FottyPressButtonStyle())
+            .buttonStyle(FottyPressButtonStyle(dimsWhenDisabled: false))
             .accessibilityHint("Opens the match centre. Touch and hold for more options.")
             .accessibilityIdentifier("match-row-\(event.id)")
         } else {
@@ -214,6 +224,7 @@ struct LiveEventCard: View {
         if let score {
             Text("\(score.homeGoals)–\(score.awayGoals)")
                 .font(.fottyScaled(size: 16, weight: .bold, design: .rounded))
+                .monospacedDigit()
                 .foregroundStyle(FottyTheme.textPrimary)
             Text(
                 score.status.isLive && !isLive

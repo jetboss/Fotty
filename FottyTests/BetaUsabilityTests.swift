@@ -989,7 +989,9 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertTrue(home.contains("presentModal { selectedHighlightsMatch = match }"))
         let matchday = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Social/ArenaDiscoveryView.swift"), encoding: .utf8)
         XCTAssertTrue(matchday.contains("if isFindingStream { cancelStreamResolution() }"))
-        XCTAssertTrue(matchday.contains("presentModal { selectedCatalogEvent = event }"))
+        XCTAssertNotNil(matchday.range(of: #"onDetailsTap:\s*\{\s*presentModal\s*\{[^}]*selectedCatalogEvent = event"#,
+                                      options: .regularExpression),
+                            "Match details must still pass through the existing modal/cancellation owner")
     }
 
     @MainActor
@@ -1651,7 +1653,7 @@ final class UsabilityPresentationTests: XCTestCase {
             "Fotty/Features/Dashboard/Components/SportsDiscoveryViews.swift"), encoding: .utf8)
         XCTAssertTrue(rows.contains("onWatch: onOpen"))
         XCTAssertTrue(rows.contains("onDetails: inlineDetailsAction"))
-        XCTAssertTrue(rows.contains(".onChange(of: item.id) { _, _ in inlineContext.reset() }"))
+        XCTAssertTrue(rows.contains(".onChange(of: item.id) { _, _ in\n            var transaction = Transaction(animation: nil)\n            transaction.disablesAnimations = true\n            withTransaction(transaction) { inlineContext.reset() }"))
         XCTAssertTrue(rows.contains("Shows or hides schedule and broadcast information in this list"))
         XCTAssertFalse(rows.contains("selectedCatalogEvent ="))
         XCTAssertFalse(rows.contains("proxy.scrollTo"), "A row disclosure must not move the browsing container")
@@ -1674,10 +1676,12 @@ final class UsabilityPresentationTests: XCTestCase {
         XCTAssertTrue(card.contains(".contextMenu {"))
         XCTAssertTrue(card.contains("CatalogSavedStateLabel(eventID: event.id)"))
         XCTAssertTrue(card.contains("onWatch: onWatchTap"), "Watch keeps its own trailing button")
-        XCTAssertTrue(card.contains(".onChange(of: event.id) { _, _ in inlineContext.reset() }"))
+        XCTAssertTrue(card.contains(".onChange(of: event.id) { _, _ in\n            var transaction = Transaction(animation: nil)\n            transaction.disablesAnimations = true\n            withTransaction(transaction) { inlineContext.reset() }"))
         let matchday = try String(contentsOf: root.appendingPathComponent(
             "Fotty/Features/Social/ArenaDiscoveryView.swift"), encoding: .utf8)
-        XCTAssertTrue(matchday.contains("onDetailsTap: { presentModal { selectedCatalogEvent = event } }"))
+        XCTAssertNotNil(matchday.range(of: #"onDetailsTap:\s*\{\s*presentModal\s*\{[^}]*selectedCatalogEvent = event"#,
+                                      options: .regularExpression),
+                            "Match details must still pass through the existing modal/cancellation owner")
         XCTAssertTrue(matchday.contains("onSaveTap: { toggleSavedMatch(event) }"))
     }
 
