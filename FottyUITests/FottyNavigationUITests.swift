@@ -7,7 +7,6 @@ final class FottyNavigationUITests: XCTestCase {
         continueAfterFailure = false
         app = XCUIApplication()
         let isAppwidePolishAudit = name.contains("testAppwidePolishVisualJourneys")
-        let isFPLWorkspaceAudit = isAppwidePolishAudit || name.contains("testFPLWorkspacesDynamicTypeAccessibilityAudit") || name.contains("testFPLContextSurvivesTabSwitch") || name.contains("testFPLSavedDraftAndPickerRejection") || name.contains("testFPLWideWindowPreservesWorkspace")
         let surfaceOverride: String?
         switch name {
         case let value where value.contains("testMatchCenterDynamicTypeAccessibilityAudit"):
@@ -19,14 +18,10 @@ final class FottyNavigationUITests: XCTestCase {
         }
         let initialTab: String
         switch name {
-        case let value where value.contains("testFPLWorkspacesDynamicTypeAccessibilityAudit") || value.contains("testFPLContextSurvivesTabSwitch") || value.contains("testFPLSavedDraftAndPickerRejection") || value.contains("testFPLWideWindowPreservesWorkspace"):
-            initialTab = "FPL"
         case let value where value.contains("testMatchdayDynamicTypeAccessibilityAudit"):
             initialTab = "Arena"
         case let value where value.contains("testSettings") || value.contains("testBetaSupport"):
             initialTab = "Settings"
-        case let value where value.contains("testBetaFPLInput"):
-            initialTab = "FPL"
         default:
             initialTab = "Home"
         }
@@ -39,19 +34,12 @@ final class FottyNavigationUITests: XCTestCase {
         } else {
             app.launchArguments += ["-fotty.setup.dismissed.v1", "YES"]
         }
-        if name.contains("testBetaFPLInput") || name.contains("testBetaSetup") {
-            app.launchArguments += ["-fotty.user.fplManagerId", "0", "-fotty.fpl.managerId", "0"]
-        }
         let isPhysicalLiveTest = name.contains("testPhysicalLivePlayerAndSourcePresentation")
             && ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] == nil
         if isPhysicalLiveTest {
             app.launchEnvironment["FOTTY_PHYSICAL_LIVE_TEST"] = "1"
         } else {
             app.launchEnvironment["FOTTY_AUTOMATED_TESTING"] = "1"
-        }
-        if isFPLWorkspaceAudit {
-            app.launchEnvironment["FOTTY_FPL_UI_TESTING"] = "1"
-            app.launchArguments += ["-fotty.fpl.smartCoachConsent", "YES"]
         }
         if name.contains("testCricketDiscovery") {
             app.launchEnvironment["FOTTY_CRICKET_UI_TESTING"] = "1"
@@ -106,7 +94,6 @@ final class FottyNavigationUITests: XCTestCase {
         let initialTabID: String
         switch initialTab {
         case "Arena": initialTabID = "tab-arena"
-        case "FPL": initialTabID = "tab-fpl"
         case "Settings": initialTabID = "tab-home"
         default: initialTabID = "tab-home"
         }
@@ -114,8 +101,7 @@ final class FottyNavigationUITests: XCTestCase {
         XCTAssertTrue(initialTabButton.waitForExistence(timeout: 12))
         if initialTab == "Home" {
             // Dashboard audits must not inherit whichever tab a previous manual or
-            // automated session persisted. Selecting Home also keeps heavyweight
-            // FPL loading work out of unrelated accessibility measurements.
+            // automated session persisted.
             tapBetaControl(initialTabButton)
         }
         // Settings is a sheet opened from Home's gear, not a tab.
@@ -151,6 +137,17 @@ final class FottyNavigationUITests: XCTestCase {
 
     /// Current-build native renders and real navigation. Fixtures are explicitly
     /// automated; Catalyst window evidence must not be called iPhone acceptance.
+    func testWatchFirstDestinationsExcludeRetiredFeatures() throws {
+        XCTAssertTrue(app.buttons["tab-home"].exists)
+        XCTAssertTrue(app.buttons["tab-tv"].exists)
+        XCTAssertTrue(app.buttons["tab-arena"].exists)
+        XCTAssertFalse(app.buttons["tab-fpl"].exists)
+        XCTAssertFalse(app.buttons["home-watch-two"].exists)
+        openSettingsFromHome()
+        XCTAssertFalse(app.buttons["Manage in FPL"].exists)
+        captureSurface("Watch-first destinations")
+    }
+
     func testAppwidePolishVisualJourneys() throws {
         let launchArguments = app.launchArguments
         for appearance in ["dark", "light"] {
@@ -186,164 +183,9 @@ final class FottyNavigationUITests: XCTestCase {
             captureSurface("\(appearance)-Appearance")
             tapBetaControl(app.navigationBars.buttons.firstMatch)
 
-            tapBetaControl(app.buttons["tab-fpl"])
-            for workspace in ["gameweek", "squad", "coach", "tools"] {
-                let control = app.buttons["fpl-workspace-\(workspace)"]
-                reveal(control)
-                tapBetaControl(control)
-                XCTAssertTrue(control.isSelected)
-                captureSurface("\(appearance)-FPL-\(workspace)-sample")
-            }
             tapBetaControl(app.buttons["tab-home"])
             XCTAssertTrue(app.buttons["home-sport-all-sports"].waitForExistence(timeout: 5))
         }
-    }
-
-    func testFPLContextSurvivesTabSwitch() throws {
-        let tools = app.buttons["fpl-workspace-tools"]
-        reveal(tools)
-        tapBetaControl(tools)
-        let captain = app.buttons["fpl-tool-Captain"]
-        reveal(captain)
-        tapBetaControl(captain)
-        XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5))
-        let lastCaptain = app.descendants(matching: .any)["fpl-captain-card-5"].firstMatch
-        reveal(lastCaptain)
-        let previousY = lastCaptain.frame.minY
-        openSettingsFromHome()
-        tapBetaControl(app.buttons["tab-fpl"])
-        XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5), "Leaving FPL must not reset the selected tool")
-        XCTAssertTrue(app.staticTexts["Captain"].exists)
-        XCTAssertFalse(app.staticTexts["Loading your FPL team…"].exists)
-        XCTAssertEqual(lastCaptain.frame.minY, previousY, accuracy: 12, "Returning to FPL should restore the tool's scroll position")
-        let allTools = app.buttons["fpl-all-tools"]
-        reveal(allTools)
-        tapBetaControl(allTools)
-        XCTAssertTrue(app.buttons["fpl-tool-Captain"].waitForExistence(timeout: 5))
-        let compare = app.buttons["fpl-tool-Compare players"]
-        reveal(compare)
-        tapBetaControl(compare)
-        let firstPlayer = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Choose first player,")).firstMatch
-        reveal(firstPlayer)
-        tapBetaControl(firstPlayer)
-        let search = app.searchFields.firstMatch
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
-        tapBetaControl(search)
-        search.typeText("Double-Name")
-        let result = app.buttons["fpl-comparison-result-2"]
-        XCTAssertTrue(result.waitForExistence(timeout: 5))
-        tapBetaControl(result)
-        XCTAssertTrue(firstPlayer.label.contains("Test Double-Name"))
-        tapBetaControl(app.buttons["tab-home"])
-        tapBetaControl(app.buttons["tab-fpl"])
-        XCTAssertTrue(firstPlayer.waitForExistence(timeout: 5))
-        XCTAssertTrue(firstPlayer.label.contains("Test Double-Name"), "Comparison selection should survive leaving FPL")
-    }
-
-    func testFPLWideWindowPreservesWorkspace() throws {
-        #if targetEnvironment(macCatalyst)
-        let window = app.windows.firstMatch
-        let originalSize = window.frame.size
-        func resize(_ size: CGSize) {
-            let corner = window.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1))
-                .withOffset(CGVector(dx: -3, dy: -3))
-            let destination = window.coordinate(withNormalizedOffset: .zero)
-                .withOffset(CGVector(dx: size.width - 3, dy: size.height - 3))
-            corner.click(forDuration: 0.2, thenDragTo: destination)
-        }
-        defer { resize(originalSize) }
-        resize(CGSize(width: 1180, height: 780))
-        XCTAssertGreaterThan(window.frame.width, 1000, "Wide layout needs an actual wide window, not a forced environment")
-        let tools = app.buttons["fpl-workspace-tools"]
-        reveal(tools)
-        let summary = app.staticTexts["UI test squad"]
-        XCTAssertLessThan(summary.frame.maxX, app.buttons["fpl-workspace-gameweek"].frame.minX,
-                          "Manager summary must sit beside the workspace")
-        captureSurface("Wide-FPL-current-build-sample")
-        tapBetaControl(tools)
-        let captain = app.buttons["fpl-tool-Captain"]
-        reveal(captain)
-        tapBetaControl(captain)
-        XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5))
-        openSettingsFromHome()
-        XCTAssertLessThan(app.buttons["settings-appearance"].frame.maxX, app.buttons["settings-backup"].frame.minX,
-                          "Wide Settings groups must use both columns")
-        captureSurface("Wide-Settings-current-build")
-        tapBetaControl(app.buttons["tab-fpl"])
-        XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5))
-        resize(CGSize(width: 515, height: 780))
-        XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5), "Resizing must not reset the selected tool")
-        reveal(tools)
-        XCTAssertGreaterThan(tools.frame.minY, summary.frame.maxY, "Narrow windows must stack the summary above navigation")
-        captureSurface("Narrow-FPL-current-build-sample")
-        #else
-        throw XCTSkip("Window resizing is exercised on Catalyst without a simulator")
-        #endif
-    }
-
-    func testFPLSavedDraftAndPickerRejection() throws {
-        let squad = app.buttons["fpl-workspace-squad"]
-        reveal(squad)
-        tapBetaControl(squad)
-        let player = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Test Double-Name")).firstMatch
-        reveal(player)
-        tapBetaControl(player)
-        #if targetEnvironment(macCatalyst)
-        // AppKit exposes this confirmation-sheet action by identifier/title,
-        // not the UILabel-style accessibility label used on iPhone.
-        let replace = app.sheets.buttons["action-button--998"]
-        #else
-        let replace = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Replace Test Double-Name")).firstMatch
-        #endif
-        XCTAssertTrue(replace.waitForExistence(timeout: 5))
-        tapBetaControl(replace)
-        let duplicate = app.buttons["fpl-replacement-3"]
-        XCTAssertTrue(duplicate.waitForExistence(timeout: 5))
-        reveal(duplicate)
-        tapBetaControl(duplicate)
-        let selectionError = app.descendants(matching: .any)["fpl-player-selection-error"]
-        let selectionErrorAppeared = selectionError.waitForExistence(timeout: 5)
-        if !selectionErrorAppeared {
-            let attachment = XCTAttachment(screenshot: app.screenshot())
-            attachment.name = "Missing duplicate-player warning"
-            attachment.lifetime = .keepAlways
-            add(attachment)
-        }
-        XCTAssertTrue(
-            selectionErrorAppeared,
-            "Duplicate selection did not surface validation feedback; pickerOpen=\(duplicate.exists)"
-        )
-        XCTAssertTrue(duplicate.exists, "Rejected replacement must leave the picker open")
-        let search = app.textFields["Search player name or club..."]
-        XCTAssertTrue(search.waitForExistence(timeout: 5))
-        tapBetaControl(search)
-        search.typeText("Replacement")
-        let valid = app.buttons["fpl-replacement-16"]
-        XCTAssertTrue(valid.waitForExistence(timeout: 5))
-        reveal(valid)
-        tapBetaControl(valid)
-        let updated = app.buttons["fpl-squad-player-16"]
-        let workspaceScroll = app.scrollViews.firstMatch
-        if workspaceScroll.exists {
-            for _ in 0..<6 where !updated.exists {
-                workspaceScroll.swipeDown()
-            }
-        }
-        if !updated.exists {
-            let screenshot = XCTAttachment(screenshot: app.screenshot())
-            screenshot.name = "Squad after accepted replacement"
-            screenshot.lifetime = .keepAlways
-            add(screenshot)
-            let hierarchy = XCTAttachment(string: app.debugDescription)
-            hierarchy.name = "Squad hierarchy after accepted replacement"
-            hierarchy.lifetime = .keepAlways
-            add(hierarchy)
-        }
-        reveal(updated)
-        XCTAssertTrue(updated.label.contains("Replacement Defender"), "The replacement control exposed the wrong player")
-        openSettingsFromHome()
-        tapBetaControl(app.buttons["tab-fpl"])
-        XCTAssertTrue(updated.waitForExistence(timeout: 5), "Accepted replacement did not survive the tab switch")
     }
 
     func testHomeDiscoveryFootballScoreAndClock() throws {
@@ -572,17 +414,6 @@ final class FottyNavigationUITests: XCTestCase {
         }
     }
 
-    func testBetaFPLInputAcceptsTeamLinksWithoutAutomaticallyConnecting() {
-        let input = app.textFields["fpl-manager-input"]
-        XCTAssertTrue(input.waitForExistence(timeout: 5))
-        tapBetaControl(input)
-        input.typeText("https://fantasy.premierleague.com/entry/123456/event/2")
-        let find = app.buttons["fpl-find-team"]
-        reveal(find)
-        XCTAssertTrue(find.isEnabled)
-        XCTAssertFalse(app.buttons["fpl-confirm-team"].exists, "Pasting a link must not connect or fetch a team")
-    }
-
     func testBetaSetupStaysFocusedOnMatchdayAndCanBeDismissed() {
         XCTAssertFalse(app.buttons["setup-fpl"].exists)
         let dismiss = app.buttons["setup-dismiss"]
@@ -726,7 +557,7 @@ final class FottyNavigationUITests: XCTestCase {
     }
 
     func testRapidTabSwitchingAndForegroundRecovery() {
-        let tabIDs = ["tab-arena", "tab-fpl", "tab-home"]
+        let tabIDs = ["tab-arena", "tab-tv", "tab-home"]
 
         for _ in 0..<3 {
             for id in tabIDs {
@@ -824,43 +655,6 @@ final class FottyNavigationUITests: XCTestCase {
 
     func testDashboardDynamicTypeAccessibilityAudit() throws {
         try performSurfaceDynamicTypeAudit(surface: "Home", dockTop: app.buttons["tab-home"].frame.minY)
-    }
-
-    func testFPLWorkspacesDynamicTypeAccessibilityAudit() throws {
-        let workspaceLabels = ["Plan", "Squad", "Coach", "Tools"]
-        for (index, label) in workspaceLabels.enumerated() {
-            if index > 0 {
-                app.terminate()
-                app.launchArguments = [
-                    "-fotty.onboarding.hasDismissed", "YES",
-                    "-fotty.selectedTab", "FPL",
-                    "--fotty-fpl-workspace", label
-                ]
-                app.launchEnvironment["FOTTY_AUTOMATED_TESTING"] = "1"
-                app.launchEnvironment["FOTTY_FPL_UI_TESTING"] = "1"
-                app.launch()
-            }
-
-            XCTAssertTrue(app.buttons["tab-fpl"].waitForExistence(timeout: 12), "FPL tab was unavailable")
-            let workspace = app.buttons[label].firstMatch
-            XCTAssertTrue(workspace.waitForExistence(timeout: 15), "FPL \(label) workspace was unavailable")
-
-            if label == "Squad" {
-                XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Test Double-Name")).firstMatch.waitForExistence(timeout: 5), "Squad audit must exercise a populated five-player row, not an empty state")
-            }
-
-            if label == "Coach" {
-                let prompt = app.buttons["Audit my whole squad for the next five gameweeks"]
-                XCTAssertTrue(prompt.waitForExistence(timeout: 5), "Coach quick prompt was unavailable")
-                XCTAssertTrue(
-                    app.descendants(matching: .any)["fpl-coach-response"].waitForExistence(timeout: 5),
-                    "Coach response was not visible"
-                )
-            }
-
-            captureSurface("FPL-\(label)-accessibility-audit-sample")
-            try performSurfaceDynamicTypeAudit(surface: "FPL \(label)", dockTop: app.buttons["tab-fpl"].frame.minY)
-        }
     }
 
     func testMatchdayDynamicTypeAccessibilityAudit() throws {
@@ -1162,7 +956,7 @@ final class FottyNavigationUITests: XCTestCase {
 }
 
 /// Normal owner-device data and real navigation, deliberately independent of
-/// the fixture/FPL setup above. Static UI readiness is not media qualification.
+/// the fixture setup above. Static UI readiness is not media qualification.
 final class Fotty25PhysicalUIJourneyTests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 

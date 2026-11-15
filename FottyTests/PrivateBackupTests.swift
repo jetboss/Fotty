@@ -127,6 +127,126 @@ final class PrivateBackupTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testRetiredFPLLegacyDataSurvivesEncryptedBackupAndRestoreWithoutLosingFields() throws {
+        let source = try makeFixture()
+        let destination = try makeFixture()
+        let now = Date(timeIntervalSince1970: floor(Date().timeIntervalSince1970))
+        // Capture currently selects the calendar season. Keep this compatibility
+        // test in that season without changing the existing old-season behavior.
+        let season = FPLSeasonIdentifier.currentLabel()
+        let prefix = "fotty.fpl.\(season).manager.42."
+        let legacyJSON = """
+        {
+          "managerID": 42,
+          "season": "\(season)",
+          "localDraft": {
+            "picks": [
+              {"element": 11, "position": 1, "multiplier": 2,
+               "is_captain": true, "is_vice_captain": false,
+               "purchase_price": 101, "selling_price": 105, "element_type": 3},
+              {"element": 22, "position": 12, "multiplier": 0,
+               "is_captain": false, "is_vice_captain": true,
+               "purchase_price": 47, "selling_price": 49, "element_type": 2}
+            ],
+            "basedOnGameweek": 6, "targetGameweek": 7, "budgetLimit": 1013
+          },
+          "showsPublishedSquad": true,
+          "scenarios": [{
+            "id": "legacy-scenario", "managerID": 42, "gameweek": 7,
+            "name": "Saved alternative", "routeName": "One transfer",
+            "transfers": ["Former Player → New Player"], "hitCost": 4,
+            "projectedGain": 6.25, "weeklyProjectedGain": {"7": 2.5, "8": 3.75},
+            "breakEvenGameweek": 8, "modelVersion": "legacy-model-3",
+            "downside": "Rotation risk", "verificationItems": ["Check availability"],
+            "createdAt": 800000000
+          }],
+          "decisionJournal": [{
+            "id": "legacy-decision", "managerID": 42, "gameweek": 7,
+            "kind": "Transfer", "title": "Saved transfer decision",
+            "rationale": "Upcoming fixtures", "expectedOutcome": "More starts",
+            "source": "On-device plan", "estimatedPointCost": 4,
+            "createdAt": 800000001, "outcome": "Mixed",
+            "outcomeNote": "One start", "updatedAt": 800000002
+          }],
+          "reviews": [{
+            "gameweek": 6, "points": 68, "overallRank": 12345,
+            "transferCost": 4, "pointsOnBench": 9,
+            "captainName": "Captain Player", "captainPoints": 20,
+            "topScorerName": "Another Player", "topScorerPoints": 12,
+            "recordedAt": 800000003
+          }],
+          "coachProfile": {"riskStyle": "Aggressive", "planningHorizon": 8, "avoidHits": false}
+        }
+        """
+        let legacyData = Data(legacyJSON.utf8)
+        let expected = try JSONDecoder().decode(FottyPrivateBackupPayload.FPLState.self, from: legacyData)
+        let legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: legacyData) as? [String: Any])
+        let draft = try XCTUnwrap(legacy["localDraft"] as? [String: Any])
+        // Seed the old storage representation directly, independently of the
+        // relocated models' encoder, so a changed stored key cannot pass unnoticed.
+        let storedValues: [String: Any] = [
+            "customDraftPicks": try XCTUnwrap(draft["picks"]),
+            "customDraftPicks.context": draft,
+            "planning-scenarios": try XCTUnwrap(legacy["scenarios"]),
+            "decisionJournal": try XCTUnwrap(legacy["decisionJournal"]),
+            "reviews": try XCTUnwrap(legacy["reviews"]),
+            "coachProfile": try XCTUnwrap(legacy["coachProfile"])
+        ]
+        _ = try FottyPrivateBackupService.restore(
+            samplePayload(now: now), modelContext: source.context, defaults: source.defaults,
+            matchday: source.matchday, reminderStore: nil, now: now
+        )
+        var originalBytes: [String: Data] = [:]
+        for (suffix, value) in storedValues {
+            let bytes = try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
+            originalBytes[suffix] = bytes
+            source.defaults.set(bytes, forKey: prefix + suffix)
+        }
+        source.defaults.set(true, forKey: prefix + "customDraftPicks.showPublished")
+        let payload = try FottyPrivateBackupService.capture(
+            modelContext: source.context, defaults: source.defaults, matchday: source.matchday, now: now
+        )
+        XCTAssertEqual(payload.fpl, expected)
+        for (suffix, bytes) in originalBytes {
+            XCTAssertEqual(source.defaults.data(forKey: prefix + suffix), bytes, "Capture mutated \(suffix)")
+        }
+
+        let encrypted = try FottyPrivateBackupCrypto.seal(payload, password: "legacy backup password", iterations: 4)
+        let reopened = try FottyPrivateBackupCrypto.open(
+            encrypted, password: "legacy backup password", minimumIterations: 1
+        )
+        XCTAssertEqual(reopened, payload)
+        let unverifiedDraft = Data("unverified legacy recovery bytes".utf8)
+        destination.defaults.set(unverifiedDraft, forKey: "fotty.fpl.customDraftPicks")
+        destination.defaults.set(Data("another manager's plans".utf8),
+                                 forKey: "fotty.fpl.\(season).manager.99.planning-scenarios")
+        let summary = try FottyPrivateBackupService.restore(
+            reopened, modelContext: destination.context, defaults: destination.defaults,
+            matchday: destination.matchday, reminderStore: nil, now: now
+        )
+        XCTAssertEqual(summary.fplPlans, 4)
+        XCTAssertEqual(destination.defaults.integer(forKey: "fotty.user.fplManagerId"), 42)
+        XCTAssertTrue(destination.defaults.bool(forKey: prefix + "customDraftPicks.showPublished"))
+        for (suffix, bytes) in originalBytes {
+            let restoredBytes = try XCTUnwrap(destination.defaults.data(forKey: prefix + suffix))
+            XCTAssertEqual(
+                try JSONSerialization.jsonObject(with: restoredBytes) as? NSObject,
+                try JSONSerialization.jsonObject(with: bytes) as? NSObject,
+                "Restore changed legacy JSON fields in \(suffix)"
+            )
+        }
+        XCTAssertEqual(destination.defaults.data(forKey: "fotty.fpl.customDraftPicks"), unverifiedDraft)
+        XCTAssertEqual(destination.defaults.data(forKey: "fotty.fpl.\(season).manager.99.planning-scenarios"),
+                       Data("another manager's plans".utf8))
+        let recaptured = try FottyPrivateBackupService.capture(
+            modelContext: destination.context, defaults: destination.defaults,
+            matchday: destination.matchday, now: now
+        )
+        XCTAssertEqual(recaptured.fpl, expected)
+        XCTAssertEqual(recaptured, payload)
+    }
+
     func testAcceptedStrengthBackupSurvivesAnActualFileRoundTrip() throws {
         let payload = samplePayload()
         let password = "correct horse battery"

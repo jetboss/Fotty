@@ -179,7 +179,7 @@ struct SettingsPrivateBackupView: View {
             Button("Restore Backup", role: .destructive, action: restoreReviewedBackup)
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("Followed teams, leagues, saved Matchday items, selected FPL manager and local plans will be replaced. Match reminders will be turned off and Smart Coach consent must be given again.")
+            Text("Followed teams, leagues, saved Matchday items and retained legacy FPL data will be replaced. Match reminders will be turned off. Retired fantasy tools will remain unavailable.")
         }
         .alert("Backup problem", isPresented: Binding(
             get: { backupErrorMessage != nil },
@@ -199,7 +199,7 @@ struct SettingsPrivateBackupView: View {
                 Label("Included", systemImage: "checkmark.shield.fill")
                     .font(FottyTheme.typeAction)
                     .foregroundStyle(FottyTheme.textPrimary)
-                Text("Appearance, Home and alert preferences, followed teams and leagues, saved Matchday identities, your public FPL manager ID, local squad draft, planning scenarios, decision journal, reviews and Coach strategy profile.")
+                Text("Appearance, Home and alert preferences, followed teams and leagues, saved Matchday identities, retained legacy FPL manager ID, squad draft, planning scenarios, decision journal, reviews and Coach strategy profile.")
                     .font(FottyTheme.typeBody)
                     .foregroundStyle(FottyTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -316,7 +316,7 @@ struct SettingsPrivateBackupView: View {
             previewRow("App", "v\(summary.appVersion) (\(summary.appBuild))")
             previewRow("Followed", "\(summary.followedTeams) teams · \(summary.followedLeagues) leagues")
             previewRow("Matchday", "\(summary.savedMatches) saved")
-            previewRow("FPL", summary.managerID.map { "Manager \($0) · \(summary.fplPlans) local plans" } ?? "Not connected")
+            previewRow("Retained FPL data", summary.managerID.map { "Manager \($0) · \(summary.fplPlans) local plans" } ?? "None saved")
             Button(role: .destructive) { confirmsRestore = true } label: {
                 Label("Restore this backup", systemImage: "arrow.clockwise.circle.fill")
                     .font(FottyTheme.typeAction)
@@ -443,7 +443,7 @@ struct SettingsPrivateBackupView: View {
                 modelContext: modelContext
             )
             clearRestoreReview()
-            statusMessage = "Restore complete: \(summary.followedTeams) followed teams, \(summary.savedMatches) Matchday items and \(summary.fplPlans) FPL plans. Check the FPL manager shown, then re-enable only the reminders and Smart Coach access you want."
+            statusMessage = "Restore complete: \(summary.followedTeams) followed teams, \(summary.savedMatches) Matchday items and \(summary.fplPlans) FPL plans. Saved fantasy data is retained without reopening FPL. Re-enable only the match reminders you want."
         } catch {
             errorMessage = error.localizedDescription
         }

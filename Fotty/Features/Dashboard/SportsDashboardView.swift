@@ -1901,7 +1901,7 @@ struct SportsDashboardView: View {
     }
 
     private var canOfferMultiView: Bool {
-        UIDevice.current.userInterfaceIdiom == .pad
+        viewing.allowsWatchTwo && UIDevice.current.userInterfaceIdiom == .pad
             && TwoMatchSelectionPolicy.hasTwoCandidates(in: filteredEvents, where: isMultiViewCandidate(_:))
     }
 
@@ -2072,7 +2072,7 @@ struct SportsDashboardView: View {
     }
 
     private func beginMultiSelectMode() {
-        guard !isFindingAnyStream else { return }
+        guard viewing.allowsWatchTwo, !isFindingAnyStream else { return }
         isMultiSelectMode = true
         selectedMultiEventIDs = []
     }
@@ -2084,7 +2084,7 @@ struct SportsDashboardView: View {
     }
 
     private func toggleMultiSelection(for event: AnalyticalDataEngine.EventReference) {
-        guard !isFindingAnyStream else { return }
+        guard viewing.allowsWatchTwo, !isFindingAnyStream else { return }
         guard isMultiViewCandidate(event) else {
             streamError = "This match is not ready for two-match viewing yet."
             return
@@ -2100,7 +2100,7 @@ struct SportsDashboardView: View {
     }
 
     private func watchSelectedInMultiView() {
-        guard !isFindingAnyStream else { return }
+        guard viewing.allowsWatchTwo, !isFindingAnyStream else { return }
         let events = selectedMultiEvents
         guard events.count == 2, events.allSatisfy({ playbackTimingAllows($0) }) else { return }
 

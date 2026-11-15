@@ -47,6 +47,7 @@ fi
 
 tests=(
   testAppwidePolishVisualJourneys
+  testWatchFirstDestinationsExcludeRetiredFeatures
   testDashboardHitRegionAccessibilityAudit
   testDashboardTextClippingAccessibilityAudit
   testDashboardElementDescriptionAccessibilityAudit
@@ -54,10 +55,6 @@ tests=(
   testDashboardStaleCPLNoticeIsScopedAndDetailsAreOptional
   testDashboardOfflineNoticeDoesNotHideMatches
   testDashboardPartialNoticeDoesNotHideMatches
-  testFPLWorkspacesDynamicTypeAccessibilityAudit
-  testFPLContextSurvivesTabSwitch
-  testFPLWideWindowPreservesWorkspace
-  testFPLSavedDraftAndPickerRejection
   testMatchdayDynamicTypeAccessibilityAudit
   testSettingsDynamicTypeAccessibilityAudit
   testSettingsNotificationPreferencesAreGrouped
@@ -69,7 +66,6 @@ tests=(
   testRapidTabSwitchingAndForegroundRecovery
   testHomeSportSelectionSurvivesTabSwitch
   testBetaSupportOpensNativeHelpAndFeedback
-  testBetaFPLInputAcceptsTeamLinksWithoutAutomaticallyConnecting
   testBetaSetupStaysFocusedOnMatchdayAndCanBeDismissed
   testCricketDiscoverySeparatesChannelsAndSavesWithoutFPL
   testHomeDiscoveryShowsActivityFiltersAndFullLineup

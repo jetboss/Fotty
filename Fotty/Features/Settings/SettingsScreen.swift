@@ -8,7 +8,6 @@ struct SettingsScreen: View {
     @AppStorage(FottyAppearance.storageKey) private var appearance = FottyAppearance.dark.rawValue
     @AppStorage(MatchdayPreferences.showKickoffClashesKey)
     private var showKickoffClashes = MatchdayPreferences.defaultShowKickoffClashes
-    var onOpenFPL: (() -> Void)? = nil
     /// Settings opens as a sheet from Home's gear; Done closes it.
     var onClose: (() -> Void)? = nil
     @StateObject private var viewModel = SettingsViewModel()
@@ -195,12 +194,6 @@ struct SettingsScreen: View {
                     .foregroundStyle(FottyTheme.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                if let onOpenFPL {
-                    SettingsSection(title: "FPL deadline reminders") {
-                        SettingsRow(icon: "calendar.badge.clock", iconColor: FottyTheme.accentText,
-                                    title: "Manage in FPL", action: onOpenFPL)
-                    }
-                }
               }
               .frame(maxWidth: .infinity, alignment: .topLeading)
             }

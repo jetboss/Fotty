@@ -4,6 +4,10 @@ import SwiftUI
 /// never keep a second player alive behind a cover. Presentation is not transport.
 @Observable @MainActor
 final class ViewingSessionCoordinator {
+    /// Watch Two is parked in the product. Tests may explicitly retain its
+    /// ownership coverage without a user preference or runtime enablement path.
+    let allowsWatchTwo: Bool
+
     @MainActor
     struct NativeWatchTwoOperations {
         var prepare: @MainActor (LivePlayerViewModel) async -> PreparedNativeWatchTwoPlayback?
@@ -124,7 +128,8 @@ final class ViewingSessionCoordinator {
     private static let nativePairPreparationFailure = "Both matches need native playback to switch audio. Your current streams are unchanged."
     private static let nativePairRetirementFailure = "The player switch could not finish safely. Choose a source to retry."
 
-    init(handoffPublisher: SportsHandoffPublisher? = nil,
+    init(allowsWatchTwo: Bool = false,
+         handoffPublisher: SportsHandoffPublisher? = nil,
          lastLiveStore: LastLiveMatchStore? = nil,
          nativeWatchTwo: NativeWatchTwoOperations? = nil,
          captureWebAudioRevocation: @escaping @MainActor (LivePlayerViewModel) -> (@MainActor () async -> Bool)? = {
@@ -153,6 +158,7 @@ final class ViewingSessionCoordinator {
     }, cancelPlayback: @escaping @MainActor (StreamPlaybackRequest) async -> Void = {
         LiveStreamResolver.shared.cancelAttempt(for: $0)
     }) {
+        self.allowsWatchTwo = allowsWatchTwo
         self.handoffPublisher = handoffPublisher ?? SportsHandoffPublisher()
         self.lastLiveStore = lastLiveStore ?? .shared
         self.captureWebAudioRevocation = captureWebAudioRevocation
@@ -371,7 +377,7 @@ final class ViewingSessionCoordinator {
     }
 
     func openMulti(slots: [MultiLiveSlot]) {
-        guard slots.count == 2, Set(slots.map(\.id)).count == 2,
+        guard allowsWatchTwo, slots.count == 2, Set(slots.map(\.id)).count == 2,
               slots.allSatisfy({ !$0.sessions.isEmpty && !$0.event.hasCatalogIdentityConflict
                   && !MatchStartPolicy(event: $0.event).isStopped }) else { return }
         cancelNativePairTransfer()
@@ -812,6 +818,7 @@ final class ViewingSessionCoordinator {
     }
 
     func showMatchPicker(replacing paneID: UUID? = nil) {
+        guard allowsWatchTwo else { return }
         if let paneID {
             guard isTwo, let pane = panes.first(where: { $0.id == paneID }), canReplace(pane) else { return }
         } else { guard panes.count == 1 else { return } }
@@ -825,7 +832,8 @@ final class ViewingSessionCoordinator {
     }
 
     func chooseSecond(_ event: EventReference) {
-        guard !panes.contains(where: { Self.representsSameFixture($0.event, as: event) || $0.event.id == event.id }) else { return }
+        guard allowsWatchTwo,
+              !panes.contains(where: { Self.representsSameFixture($0.event, as: event) || $0.event.id == event.id }) else { return }
         let destination: ResolutionDestination
         if let target = matchPickerReplacementID {
             guard isTwo, let pane = panes.first(where: { $0.id == target }), canReplace(pane),
@@ -845,7 +853,7 @@ final class ViewingSessionCoordinator {
     @discardableResult
     func replacePreparedPane(_ targetID: UUID, preserving survivorID: UUID,
                              event: EventReference, sessions: [StreamSession]) -> Bool {
-        guard isTwo, let index = panes.firstIndex(where: { $0.id == targetID }),
+        guard allowsWatchTwo, isTwo, let index = panes.firstIndex(where: { $0.id == targetID }),
               panes.contains(where: { $0.id == survivorID && $0.id != targetID }),
               !sessions.isEmpty, !event.hasCatalogIdentityConflict,
               !MatchStartPolicy(event: event).isStopped,

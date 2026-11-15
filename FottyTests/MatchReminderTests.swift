@@ -578,10 +578,10 @@ final class MatchReminderTests: XCTestCase {
         XCTAssertEqual(h.client.requests.count, 1)
     }
 
-    func testReminderCapLeavesRoomForFPLAndNeverRemovesUnrelatedNotifications() async throws {
+    func testReminderCapNeverRemovesUnrelatedNotifications() async throws {
         let h = try harness(); defer { h.clean() }
-        let fpl = UNNotificationRequest(identifier: "fotty.fpl.deadline.2.120", content: UNMutableNotificationContent(), trigger: nil)
-        h.client.requests[fpl.identifier] = fpl
+        let unrelated = UNNotificationRequest(identifier: "fotty.unrelated.notice", content: UNMutableNotificationContent(), trigger: nil)
+        h.client.requests[unrelated.identifier] = unrelated
         for index in 0..<MatchReminderStore.maximumReminders {
             let result = await h.store.enable(event("m\(index)", start: now.addingTimeInterval(7200)))
             XCTAssertEqual(result, .scheduled)
@@ -589,7 +589,7 @@ final class MatchReminderTests: XCTestCase {
         let overflow = await h.store.enable(event("overflow", start: now.addingTimeInterval(7200)))
         XCTAssertEqual(overflow, .limitReached)
         await h.store.reconcile(events: [])
-        XCTAssertNotNil(h.client.requests[fpl.identifier])
+        XCTAssertNotNil(h.client.requests[unrelated.identifier])
         XCTAssertEqual(h.client.requests.count, MatchReminderStore.maximumReminders + 1)
     }
 
@@ -605,7 +605,7 @@ final class MatchReminderTests: XCTestCase {
         XCTAssertNil(navigation.activeLivePlayerMatchID)
     }
 
-    func testFPLDestinationClearsCompetingMatchRoutes() throws {
+    func testLegacyFPLLinkClearsCompetingMatchRoutesForHomeFallback() throws {
         let navigation = MatchNavigationStore.shared
         defer {
             navigation.pendingMatchID = nil
@@ -615,15 +615,49 @@ final class MatchReminderTests: XCTestCase {
         navigation.pendingMatchID = "old-match"
         navigation.pendingReminderID = "old-reminder"
 
-        navigation.openFPL()
+        let legacyURL = try XCTUnwrap(URL(string: "fotty://fpl"))
+        navigation.open(url: legacyURL)
 
         XCTAssertTrue(navigation.pendingFPL)
         XCTAssertNil(navigation.pendingMatchID)
         XCTAssertNil(navigation.pendingReminderID)
         XCTAssertEqual(
-            FottyDeepLinkDestination.parse(try XCTUnwrap(URL(string: "fotty://fpl"))),
+            FottyDeepLinkDestination.parse(legacyURL),
             .fpl
         )
+        XCTAssertEqual(MainTabView.Tab.restoring("FPL"), .home)
+    }
+
+    func testRetirementCleanupSelectsOnlyLegacyDeadlineNotificationIDs() {
+        let deadlines = ["fotty.fpl.deadline.2.120", "fotty.fpl.deadline.38.1440"]
+        let retained = [
+            MatchReminderRecord.requestID(eventID: "match-42"),
+            "fotty.match.goal.42", "fotty.fpl.deadline", "fotty.fpl.deadline-lookalike.2",
+            "fotty.fpl.plan.2", "other.fotty.fpl.deadline.2", "", "FOTTY.FPL.DEADLINE.2"
+        ]
+        let identifiers = [retained[0], deadlines[0]] + Array(retained.dropFirst()) + [deadlines[1]]
+        XCTAssertEqual(RetiredFPLSupport.deadlineNotificationIDs(in: identifiers), deadlines)
+        XCTAssertTrue(RetiredFPLSupport.deadlineNotificationIDs(in: retained).isEmpty)
+        XCTAssertTrue(RetiredFPLSupport.deadlineNotificationIDs(in: []).isEmpty)
+    }
+
+    func testRetirementCleanupCoversPendingAndDeliveredAlertsAtLaunch() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let notifications = try String(contentsOf: root.appendingPathComponent(
+            "Fotty/Core/Notifications/NotificationManager.swift"), encoding: .utf8)
+        let cleanup = try XCTUnwrap(notifications.components(separatedBy: "enum RetiredFPLSupport {").last)
+            .components(separatedBy: "enum FottyDeepLinkDestination").first ?? ""
+        for operation in ["pendingNotificationRequests()", "deliveredNotifications()",
+                          "removePendingNotificationRequests(withIdentifiers:",
+                          "removeDeliveredNotifications(withIdentifiers:"] {
+            XCTAssertTrue(cleanup.contains(operation), operation)
+        }
+        XCTAssertFalse(cleanup.contains("removeAll"), "Retirement cannot erase ordinary match alerts")
+        let tabs = try String(contentsOf: root.appendingPathComponent("Fotty/App/MainTabView.swift"), encoding: .utf8)
+        XCTAssertTrue(tabs.contains("await RetiredFPLSupport.cancelDeadlineNotifications()"))
+        let route = try XCTUnwrap(tabs.components(separatedBy: "private func openPendingFPLDestination() {").last)
+        XCTAssertTrue(route.contains("selectedTab = .home"))
+        XCTAssertTrue(route.contains("matchNavigationStore.pendingFPL = false"))
     }
 
     func testMatchCenterCannotBeginPrematureResolutionEvenViaDirectAction() {

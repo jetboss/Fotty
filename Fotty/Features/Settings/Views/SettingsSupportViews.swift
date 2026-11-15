@@ -2,24 +2,20 @@ import SwiftUI
 import UIKit
 
 enum FottyHelpContent {
-    static let productScope = "Home helps everyone discover and watch available live sport. My Matchday organizes saved broadcasts and followed teams. FPL is an optional power tool for people who want official-data planning and Coach support; it is never required to browse or watch."
+    static let productScope = "Home helps you discover and watch live sport. Sports TV offers channels, and Matchday organizes saved broadcasts and followed teams."
     static let homePersonalization = "Home shows available broadcasts and upcoming fixtures for your current selection. If Only your interests is on, other teams and competitions are hidden. Use Home interests to change this, or Browse Sports to look beyond your selection. Open a future result in Search or choose Details in Matchday to save it and set a reminder. You can also long-press a match or channel and choose Save to My Matchday, or follow a team, to build your personal list. Use the same menu to remove a saved match. Saving alone does not enable reminders."
     static let matchAlerts = "Match alerts are in-app updates for followed Premier League teams while Home or Matchday is open and refreshing. They are not background push alerts and won't reliably arrive while Fotty is closed or your device is locked."
     static let matchAlertSettingsScope = "For followed Premier League teams, while Home or Matchday is open and refreshing. These are not background push alerts."
     static let scheduledMatchReminders = "Match start reminders are separate: tap Remind me beside a future match. They can arrive with Fotty closed, subject to your notification settings."
-    static let deadlineAlerts = "FPL deadline reminders are separate scheduled notifications. Once enabled in FPL, they can arrive while Fotty is closed, subject to your device's notification settings."
-    static let fplDrafts = "Fotty reads public FPL data. Lineup and transfer plans stay as drafts on this device. Confirm any real changes in official FPL before the deadline."
     static let scores = "Live scores currently cover the Premier League only. Other competitions can still have broadcasts. No score is expected for those competitions; a missing score doesn't mean the broadcast is broken."
     static let playback = "Starts in counts down to the scheduled start, not guaranteed stream availability. A listed source becomes tappable two minutes before the start. Watch checks the broadcast; if none is found, use the inline Retry. Channels remain available separately. During playback, use Try again or choose another numbered source if needed."
     static let matchReminders = "Tap Remind me beside a countdown for a notification five minutes before the scheduled start. This also saves the match to My Matchday. Saving or following alone does not enable start reminders. Tap the filled bell to cancel; removing a saved match also cancels its reminder. Reminders stay on this device, can arrive with Fotty closed, and respect notification settings. Fotty can only update changed or cancelled schedules when it refreshes; it cannot learn a last-minute change while closed. Inside the final five minutes, no late reminder is scheduled."
-    static let fplPoints = "Official points are the published FPL total. Provisional totals estimate pending autosubs, captain changes or bonus and can change until FPL confirms the gameweek. Check the source and last-updated label before making a decision."
     static let testFlight = "Open TestFlight, select Fotty, then choose Send Beta Feedback and paste your report. For a visual issue, take a screenshot in the TestFlight-installed app and use Share Beta Feedback when offered."
 }
 
 enum FottyFeedbackArea: String, CaseIterable, Identifiable {
     case general = "General"
     case playback = "Playback"
-    case fpl = "FPL & Coach"
     case matchday = "Home & Matchday"
     case notifications = "Notifications"
     var id: String { rawValue }
@@ -125,12 +121,9 @@ struct FottyHelpView: View {
                 help("Your first matchday", FottyHelpContent.homePersonalization)
                 help("Watching and recovery", FottyHelpContent.playback)
                 help("Score coverage", FottyHelpContent.scores)
-                help("FPL points", FottyHelpContent.fplPoints)
-                help("Plans aren't submitted transfers", FottyHelpContent.fplDrafts)
                 help("Match alerts", FottyHelpContent.matchAlerts)
                 help("Match start reminders", FottyHelpContent.matchReminders)
-                help("Deadline reminders", FottyHelpContent.deadlineAlerts)
-                help("Your data", "Preferences and saved matches are stored on this device. Sports continuity can sync selected sports preferences and saved match identities only after you enable it. FPL drafts remain local. Smart Coach asks for consent before sending a question and minimized context to its online service.")
+                help("Your data", "Preferences and saved matches are stored on this device. Sports continuity can sync selected sports preferences and saved match identities only after you enable it. Previously saved fantasy data remains on this device and in compatible private backups. FPL tools and Watch Two are not available in this version.")
                 NavigationLink {
                     FottyFeedbackView()
                 } label: {
@@ -543,14 +536,14 @@ struct FottyOwnerStatusView: View {
                 }
                 .accessibilityIdentifier("owner-status-watch-outcomes")
 
-                SettingsSection(title: "Data and FPL on this build") {
+                SettingsSection(title: "Data on this build") {
                     statusRow("Football refresh failures", value: "\(snapshot.currentBuildSummary.footballDataRefreshFailures)")
                     SettingsDivider()
                     statusRow("Match identity conflicts", value: "\(snapshot.currentBuildSummary.matchIdentityConflicts)")
                     SettingsDivider()
-                    statusRow("FPL refresh failures", value: "\(snapshot.currentBuildSummary.fplRefreshFailures)")
+                    statusRow("Legacy FPL refresh failures", value: "\(snapshot.currentBuildSummary.fplRefreshFailures)")
                     SettingsDivider()
-                    statusRow("Paid Coach attempts recorded", value: "\(snapshot.currentBuildSummary.coachModelRequests)")
+                    statusRow("Legacy Coach attempts recorded", value: "\(snapshot.currentBuildSummary.coachModelRequests)")
                 }
 
                 SettingsSection(title: "Apple performance reports") {

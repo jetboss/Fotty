@@ -3,6 +3,27 @@ import UserNotifications
 import Observation
 import UIKit
 import MetricKit
+import WidgetKit
+
+/// Passive compatibility cleanup. No saved fantasy preferences, plans or
+/// credentials are deleted, and ordinary match reminders are never selected.
+enum RetiredFPLSupport {
+    static func deadlineNotificationIDs(in identifiers: [String]) -> [String] {
+        identifiers.filter { $0.hasPrefix("fotty.fpl.deadline.") }
+    }
+
+    static func cancelDeadlineNotifications(center: UNUserNotificationCenter = .current()) async {
+        let pending = await center.pendingNotificationRequests()
+        center.removePendingNotificationRequests(withIdentifiers:
+            deadlineNotificationIDs(in: pending.map(\.identifier)))
+        let delivered = await center.deliveredNotifications()
+        center.removeDeliveredNotifications(withIdentifiers:
+            deadlineNotificationIDs(in: delivered.map { $0.request.identifier }))
+        // Replace any cached pre-retirement deadline timeline with the passive
+        // compatibility entry. This does not touch the Sports Plan widget.
+        WidgetCenter.shared.reloadTimelines(ofKind: "FottyFPLDeadlineWidget")
+    }
+}
 
 enum FottyDeepLinkDestination: Equatable {
     case fpl

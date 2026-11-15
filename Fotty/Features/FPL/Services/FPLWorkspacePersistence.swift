@@ -1,12 +1,5 @@
 import Foundation
 
-struct FPLLocalSquadDraft: Codable, Sendable, Equatable {
-    let picks: [FPLPick]
-    let basedOnGameweek: Int?
-    let targetGameweek: Int?
-    let budgetLimit: Int?
-}
-
 /// Owns season/manager-scoped workspace persistence. Unknown-origin legacy
 /// bytes stay untouched; a new confirmation cannot prove their owner or season.
 /// Mutable UI state and network lifecycle remain in `FPLAdvisorViewModel`.

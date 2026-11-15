@@ -14,7 +14,7 @@ struct SettingsPrivacyView: View {
                                 icon: "internaldrive.fill",
                                 color: FottyTheme.success,
                                 title: "Preferences and planning",
-                                detail: "Followed teams, saved matches, notification choices, public FPL manager ID, local drafts, and Coach history are stored on this device."
+                                detail: "Followed teams, saved matches and notification choices are stored on this device. Previously saved FPL plans and Coach history remain local; the retired tools no longer send Coach questions."
                             )
                             SettingsDivider()
                             privacyDisclosureRow(
@@ -70,26 +70,11 @@ struct SettingsPrivacyView: View {
                         }
 
                         SettingsSection(title: "Network Use") {
-                            NavigationLink {
-                                SettingsCoachAccessView()
-                            } label: {
-                                SettingsRow(icon: "key.fill", iconColor: FottyTheme.accentText,
-                                            title: "Coach Access", subtitle: "Manage this device's private invitation code")
-                            }
-                            .buttonStyle(SettingsRowButtonStyle())
-                            SettingsDivider()
                             privacyDisclosureRow(
                                 icon: "network",
                                 color: .blue,
                                 title: "Football data",
                                 detail: "Fotty contacts configured football-data services to load fixtures, scores, teams, and tables. Football data provided by the Football-Data.org API."
-                            )
-                            SettingsDivider()
-                            privacyDisclosureRow(
-                                icon: "brain.head.profile.fill",
-                                color: .purple,
-                                title: "FPL Smart Coach",
-                                detail: "Only when you send a Coach question, Fotty sends the question, an install ID, your public FPL manager ID, and bounded squad context through Fotty's Cloudflare Worker. Model questions may be processed by DeepSeek. Your FPL password is never requested."
                             )
                             SettingsDivider()
                             privacyDisclosureRow(

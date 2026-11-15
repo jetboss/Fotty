@@ -765,11 +765,11 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         .init(event: event, sessions: [session(for: event, web: web)])
     }
 
-    private func coordinator(factory: ModelFactory,
+    private func coordinator(allowsWatchTwo: Bool = false, factory: ModelFactory,
                              handoffPublisher: SportsHandoffPublisher? = nil,
                              webAudioGate: WebAudioRevocationGate? = nil,
                              nativePairGate: NativePairGate? = nil) -> ViewingSessionCoordinator {
-        ViewingSessionCoordinator(handoffPublisher: handoffPublisher, nativeWatchTwo: nativePairGate?.operations,
+        ViewingSessionCoordinator(allowsWatchTwo: allowsWatchTwo, handoffPublisher: handoffPublisher, nativeWatchTwo: nativePairGate?.operations,
             captureWebAudioRevocation: { model in
                 if let webAudioGate { return webAudioGate.capture(model) }
                 return model.captureWebAudioRevocationWaiter()
@@ -822,6 +822,156 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let preferences = try XCTUnwrap(UserDefaults(suiteName: domain))
         if enabled { preferences.set(true, forKey: LastLiveMatchStore.enablementKey) }
         return (LastLiveMatchStore(defaults: preferences, now: { now }), preferences, domain)
+    }
+
+    func testParkedWatchTwoRejectsEveryEntryWithoutCreatingPlayersOrResolving() async {
+        let factory = ModelFactory()
+        let first = event("parked-first"), second = event("parked-second")
+        let prepared = outcome(for: second, sessions: [session(for: second)])
+        var resolutions = 0, catalogLookups = 0, cancellations = 0
+        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+            resolvePlayback: { _ in resolutions += 1; return prepared },
+            catalogEvent: { request in catalogLookups += 1; return request.preferredEvent },
+            cancelPlayback: { _ in cancellations += 1 })
+        defer { owner.stop() }
+
+        XCTAssertFalse(owner.allowsWatchTwo)
+        owner.openMulti(slots: [slot(first), slot(second)])
+        owner.showMatchPicker()
+        owner.showMatchPicker(replacing: UUID())
+        owner.chooseSecond(second)
+        XCTAssertFalse(owner.replacePreparedPane(UUID(), preserving: UUID(),
+            event: second, sessions: [session(for: second)]))
+        for _ in 0..<8 { await Task.yield() }
+
+        XCTAssertTrue(factory.models.isEmpty)
+        XCTAssertTrue(owner.panes.isEmpty)
+        XCTAssertFalse(owner.isTwo)
+        XCTAssertFalse(owner.showsSecondMatchPicker)
+        XCTAssertNil(owner.matchPickerReplacementID)
+        XCTAssertNil(owner.resolutionMessage)
+        XCTAssertNil(owner.resolutionError)
+        XCTAssertEqual(resolutions, 0)
+        XCTAssertEqual(catalogLookups, 0)
+        XCTAssertEqual(cancellations, 0)
+    }
+
+    func testParkedWatchTwoLeavesPausedSingleOwnerAndPresentationUntouched() async throws {
+        for web in [false, true] {
+            let factory = ModelFactory()
+            let first = event("parked-retained"), second = event("parked-other")
+            let prepared = outcome(for: second, sessions: [session(for: second, web: web)])
+            var resolutions = 0, catalogLookups = 0, cancellations = 0
+            let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+                resolvePlayback: { _ in resolutions += 1; return prepared },
+                catalogEvent: { request in catalogLookups += 1; return request.preferredEvent },
+                cancelPlayback: { _ in cancellations += 1 })
+            defer { owner.stop() }
+            owner.open(event: first, sessions: [session(for: first, web: web)])
+            let retained = try XCTUnwrap(owner.primary)
+            let item = installPausedLocalItem(on: retained.model)
+            let player = retained.model.player, attempt = retained.model.loadRequestID
+            let source = retained.model.activeSession?.id, intent = retained.model.playbackIntentRevision
+            let audioID = owner.audioID
+            let audioEnabled = retained.model.isViewingAudioEnabled
+            let allowsPiP = retained.model.allowsViewingPiP
+            let ownsRemoteCommands = retained.model.ownsRemoteCommands
+            retained.model.isPictureInPictureActive = !web
+            retained.model.isWebPictureInPictureActive = web
+            owner.minimize()
+            owner.resolutionError = "Existing single-player feedback"
+
+            owner.openMulti(slots: [slot(first, web: web), slot(second, web: web)])
+            owner.showMatchPicker()
+            owner.showMatchPicker(replacing: retained.id)
+            owner.chooseSecond(second)
+            XCTAssertFalse(owner.replacePreparedPane(retained.id, preserving: UUID(),
+                event: second, sessions: [session(for: second, web: web)]))
+            for _ in 0..<8 { await Task.yield() }
+
+            XCTAssertEqual(factory.models.count, 1)
+            XCTAssertEqual(owner.panes.map(\.id), [retained.id])
+            XCTAssertTrue(owner.primary?.model === retained.model)
+            XCTAssertTrue(retained.model.player === player)
+            XCTAssertTrue(retained.model.player?.currentItem === item)
+            XCTAssertEqual(retained.model.activeSession?.id, source)
+            XCTAssertEqual(retained.model.loadRequestID, attempt)
+            XCTAssertEqual(retained.model.playbackIntentRevision, intent)
+            XCTAssertEqual(retained.model.playbackState, web ? .paused(.webEmbed) : .paused(.native))
+            XCTAssertFalse(retained.model.userWantsPlayback)
+            XCTAssertFalse(retained.model.isPlaybackSessionRetired)
+            XCTAssertEqual(retained.model.viewingPlaybackContext, .single)
+            XCTAssertEqual(owner.audioID, audioID)
+            XCTAssertEqual(retained.model.isViewingAudioEnabled, audioEnabled)
+            XCTAssertEqual(retained.model.allowsViewingPiP, allowsPiP)
+            XCTAssertEqual(retained.model.ownsRemoteCommands, ownsRemoteCommands)
+            XCTAssertEqual(retained.model.isPictureInPictureActive, !web)
+            XCTAssertEqual(retained.model.isWebPictureInPictureActive, web)
+            XCTAssertFalse(owner.expanded)
+            XCTAssertFalse(owner.showsSecondMatchPicker)
+            XCTAssertNil(owner.matchPickerReplacementID)
+            XCTAssertNil(owner.resolutionMessage)
+            XCTAssertEqual(owner.resolutionError, "Existing single-player feedback")
+            XCTAssertEqual(resolutions, 0)
+            XCTAssertEqual(catalogLookups, 0)
+            XCTAssertEqual(cancellations, 0)
+        }
+    }
+
+    func testParkedWatchTwoCannotCancelPendingSingleDiscovery() async throws {
+        let factory = ModelFactory(), gate = SingleDiscoveryGate()
+        let start = Int64(Date().timeIntervalSince1970) - 60
+        let retainedEvent = event("parked-pending-retained", date: start)
+        let requested = event("parked-pending-requested", date: start)
+        let other = event("parked-pending-other", date: start)
+        let prepared = outcome(for: other, sessions: [session(for: other)])
+        var pairResolutions = 0, singleResolutions = 0, catalogLookups = 0, cancellations = 0
+        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+            resolvePlayback: { _ in pairResolutions += 1; return prepared },
+            discoverSinglePlayback: { request, publish in
+                singleResolutions += 1
+                return await gate.resolve(request, publish: publish)
+            }, currentSingleEvent: { $0 },
+            catalogEvent: { request in catalogLookups += 1; return request.preferredEvent },
+            cancelPlayback: { _ in cancellations += 1 })
+        defer { gate.complete(outcome(for: requested, sessions: [])); owner.stop() }
+        owner.open(event: retainedEvent, sessions: [session(for: retainedEvent)])
+        let retained = try XCTUnwrap(owner.primary)
+        let item = installPausedLocalItem(on: retained.model)
+        owner.watchSingle(requested)
+        await waitForSourceCheck { gate.finish != nil }
+        let pendingMessage = owner.resolutionMessage
+
+        owner.openMulti(slots: [slot(retainedEvent), slot(other)])
+        owner.showMatchPicker()
+        owner.chooseSecond(other)
+        for _ in 0..<8 { await Task.yield() }
+
+        XCTAssertEqual(singleResolutions, 1)
+        XCTAssertEqual(pairResolutions, 0)
+        XCTAssertEqual(catalogLookups, 0)
+        XCTAssertEqual(cancellations, 0)
+        XCTAssertEqual(owner.pendingSingleEvent?.id, requested.id)
+        XCTAssertEqual(owner.resolutionMessage, pendingMessage)
+        XCTAssertEqual(factory.models.count, 1)
+        XCTAssertTrue(owner.primary?.model === retained.model)
+        XCTAssertTrue(retained.model.player?.currentItem === item)
+        XCTAssertFalse(retained.model.userWantsPlayback)
+        XCTAssertFalse(owner.showsSecondMatchPicker)
+
+        let selected = session(for: requested)
+        gate.complete(outcome(for: requested, sessions: [selected]))
+        await waitForSourceCheck { owner.pendingSingleEvent == nil }
+
+        let mounted = try XCTUnwrap(owner.primary)
+        XCTAssertEqual(mounted.event.id, requested.id)
+        XCTAssertEqual(mounted.model.activeSession?.id, selected.id)
+        XCTAssertEqual(mounted.model.viewingPlaybackContext, .single)
+        XCTAssertEqual(factory.models.count, 2)
+        XCTAssertEqual(owner.panes.count, 1)
+        XCTAssertFalse(owner.isTwo)
+        XCTAssertNil(owner.resolutionMessage)
+        XCTAssertNil(owner.resolutionError)
     }
 
     // These inject the existing guarded decoded callback to test capture wiring;
@@ -995,7 +1145,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testRapidSinglePairSingleCannotCapturePairOnlyDecodedPlayback() async throws {
         let now = Date(), factory = ModelFactory()
         let isolated = try isolatedLastLiveStore(enabled: true, now: now)
-        let owner = ViewingSessionCoordinator(lastLiveStore: isolated.store,
+        let owner = ViewingSessionCoordinator(allowsWatchTwo: true, lastLiveStore: isolated.store,
             makeModel: { factory.make(event: $0, sessions: $1) })
         defer {
             owner.stop()
@@ -1120,7 +1270,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         XCTAssertFalse(shared.usesSingleStreamRanking)
         XCTAssertEqual(shared.activeSession?.id, choices.slow.id)
 
-        let factory = ModelFactory(), owner = coordinator(factory: factory)
+        let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         let rightSlow = rankingSession(for: right, provider: "Score808", host: "slow-ranking.example.invalid")
         let rightFast = rankingSession(for: right, provider: "AS1", host: "fast-ranking.example.invalid")
@@ -1614,7 +1764,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     }
 
     func testWatchTwoPreparesCompatibleWebSourceWithoutReplacingPausedRetainedOwner() throws {
-        let factory = ModelFactory(), owner = coordinator(factory: factory)
+        let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         let first = event("retained-web"), second = event("prepared-compatible-web")
         owner.open(event: first, sessions: [session(for: first, web: true)])
@@ -1646,7 +1796,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     }
 
     func testIncompatibleWatchTwoLeavesWorkingSingleSourceAndPauseUntouched() throws {
-        let factory = ModelFactory(), owner = coordinator(factory: factory)
+        let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         let first = event("working-web"), second = event("native-only")
         owner.open(event: first, sessions: [session(for: first, web: true)])
@@ -1680,7 +1830,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testPreparedWatchTwoPairsAdmitOnlyMatchingOriginalEngines() {
         for web in [false, true] {
-            let factory = ModelFactory(), owner = coordinator(factory: factory)
+            let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
             defer { owner.stop() }
             owner.openMulti(slots: [slot(event("first"), web: web), slot(event("second"), web: web)])
             XCTAssertEqual(owner.panes.count, 2)
@@ -1688,7 +1838,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             XCTAssertTrue(owner.panes.allSatisfy { !$0.model.didStartPlayback && $0.model.loadTask == nil })
             XCTAssertNil(owner.resolutionError)
         }
-        let factory = ModelFactory(), owner = coordinator(factory: factory)
+        let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         owner.openMulti(slots: [slot(event("native")), slot(event("web"), web: true)])
         XCTAssertTrue(owner.panes.isEmpty)
@@ -1697,7 +1847,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     }
 
     func testIncompatibleReplacementPreservesBothPausedOwnersAndDisplayRoles() throws {
-        let factory = ModelFactory(), owner = coordinator(factory: factory)
+        let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         owner.openMulti(slots: [slot(event("survivor-web"), web: true), slot(event("target-web"), web: true)])
         let survivor = owner.panes[0], target = owner.panes[1]
@@ -1724,7 +1874,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     }
 
     func testCompatibleReplacementSelectsExistingWebEndpointBeforeMount() throws {
-        let factory = ModelFactory(), owner = coordinator(factory: factory)
+        let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         owner.openMulti(slots: [slot(event("survivor"), web: true), slot(event("target"), web: true)])
         let survivor = owner.panes[0], target = owner.panes[1]
@@ -1746,7 +1896,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     }
 
     func testForcedWebFallbackCannotBeReadmittedAsNativePairOrDisplaceEitherOwner() throws {
-        let factory = ModelFactory(), owner = coordinator(factory: factory)
+        let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         let first = event("forced-web-native-origin"), second = event("native-sibling")
         owner.openMulti(slots: [slot(first), slot(second)])
@@ -1783,7 +1933,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     }
 
     func testAdoptedOriginalWebRouteCannotChangeEngineWhilePiPOrFullscreenOwnsIt() throws {
-        let factory = ModelFactory(), owner = coordinator(factory: factory)
+        let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         let first = event("adopted-web"), second = event("other-web")
         let web = session(for: first, web: true)
@@ -1814,7 +1964,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     }
 
     func testAdoptedNativeReturnsOnlyToItsOriginalWebRouteAndKeepsPauseForWatchTwo() async throws {
-        let factory = ModelFactory(), owner = coordinator(factory: factory)
+        let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         let first = event("adopted-original"), second = event("compatible-web")
         let originalWeb = session(for: first, web: true)
@@ -1848,7 +1998,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     }
 
     func testDiagnosticRouteTracksSingleTwoReplacementAndKeepWithoutChangingAttempts() throws {
-        let factory = ModelFactory(), owner = coordinator(factory: factory)
+        let factory = ModelFactory(), owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         let first = event("diagnostic-first"), second = event("diagnostic-second"), third = event("diagnostic-third")
         owner.open(event: first, sessions: [session(for: first)])
@@ -1870,7 +2020,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testRetainedAudioOwnerIsNotRevokedWhileAddingSecondPane() async throws {
         var activationCount = 0
         var models: [LivePlayerViewModel] = []
-        let owner = ViewingSessionCoordinator(makeModel: { event, sessions in
+        let owner = ViewingSessionCoordinator(allowsWatchTwo: true, makeModel: { event, sessions in
             let model = LivePlayerViewModel(event: event, providedSessions: sessions,
                 ownsRemoteCommands: false, prepareAudioSession: { activationCount += 1; return .completed([]) },
                 configureAudioSession: { .completed([]) })
@@ -1901,7 +2051,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testWebFocusWaitsForOldDecodedOwnerMuteWithoutChangingEitherPausedAttempt() async throws {
         let factory = ModelFactory(), gate = WebAudioRevocationGate()
-        let owner = coordinator(factory: factory, webAudioGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, webAudioGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("web-mute-old"), web: true), slot(event("web-mute-new"), web: true)])
         let old = owner.panes[0], target = owner.panes[1]
@@ -1933,7 +2083,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testFailedWebMuteAckLeavesBothMutedAndSameAudioActionCanRetry() async throws {
         let factory = ModelFactory(), gate = WebAudioRevocationGate()
-        let owner = coordinator(factory: factory, webAudioGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, webAudioGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("web-failed-old"), web: true), slot(event("web-failed-target"), web: true)])
         let old = owner.panes[0], target = owner.panes[1]
@@ -1960,7 +2110,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testWebFocusReversalWaitsForEveryOldMuteAndNeverPromotesSupersededTarget() async throws {
         let factory = ModelFactory(), gate = WebAudioRevocationGate()
-        let owner = coordinator(factory: factory, webAudioGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, webAudioGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("web-reversal-left"), web: true), slot(event("web-reversal-right"), web: true)])
         let left = owner.panes[0], right = owner.panes[1]
@@ -2023,7 +2173,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testRemovedWebPaneStillRequiresItsCapturedRetirementAckBeforeSingleAudio() async throws {
         let factory = ModelFactory(), gate = WebAudioRevocationGate()
-        let owner = coordinator(factory: factory, webAudioGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, webAudioGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("web-retired"), web: true), slot(event("web-survivor"), web: true)])
         let old = owner.panes[0], survivor = owner.panes[1]
@@ -2042,7 +2192,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testReplacementCannotUseTheSupersededWebMuteAckToPromoteItsNewTarget() async throws {
         let factory = ModelFactory(), gate = WebAudioRevocationGate()
-        let owner = coordinator(factory: factory, webAudioGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, webAudioGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("web-replace-left"), web: true), slot(event("web-replace-right"), web: true)])
         let survivor = owner.panes[0], oldTarget = owner.panes[1]
@@ -2069,7 +2219,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testStopRejectsLateWebMuteCompletionWithoutReclaimingAudioOrRemoteCommands() async throws {
         let factory = ModelFactory(), gate = WebAudioRevocationGate()
-        let owner = coordinator(factory: factory, webAudioGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, webAudioGate: gate)
         defer { gate.finishAll() }
         owner.openMulti(slots: [slot(event("web-stop-left"), web: true), slot(event("web-stop-right"), web: true)])
         let old = owner.panes[0], target = owner.panes[1]
@@ -2091,7 +2241,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testKeepingSameAudibleWebOwnerDoesNotWaitForMutedNewPaneOrReclaimItsAudio() throws {
         let factory = ModelFactory(), gate = WebAudioRevocationGate()
-        let owner = coordinator(factory: factory, webAudioGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, webAudioGate: gate)
         defer { owner.stop(); gate.finishAll() }
         let first = event("web-same-audio"), second = event("web-new-muted")
         owner.open(event: first, sessions: [session(for: first, web: true)])
@@ -2107,7 +2257,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testExplicitWebAudioPreflightFailureLeavesBothOriginalStreamsAndFocusUnchanged() async throws {
         for failedIndex in 0...1 {
             let factory = ModelFactory(), gate = NativePairGate()
-            let owner = coordinator(factory: factory, nativePairGate: gate)
+            let owner = coordinator(allowsWatchTwo: true, factory: factory, nativePairGate: gate)
             defer { owner.stop(); gate.finishAll() }
             owner.openMulti(slots: [slot(event("atomic-fail-left"), web: true), slot(event("atomic-fail-right"), web: true)])
             let original = owner.panes, attempts = owner.panes.map { $0.model.loadRequestID }
@@ -2135,7 +2285,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testAtomicWebAudioChangeRetiresBothBeforeAnyNativeStartAndPreservesLogicalLayout() async throws {
         let factory = ModelFactory(), gate = NativePairGate()
-        let owner = coordinator(factory: factory, nativePairGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, nativePairGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("atomic-left"), web: true), slot(event("atomic-right"), web: true)])
         owner.swap()
@@ -2174,7 +2324,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testAtomicNativeUpgradePreservesPausedPaneIntentWithoutPlayingForFrameProof() async throws {
         let factory = ModelFactory(), gate = NativePairGate()
-        let owner = coordinator(factory: factory, nativePairGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, nativePairGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("atomic-playing"), web: true), slot(event("atomic-paused"), web: true)])
         let paused = owner.panes[1]
@@ -2195,7 +2345,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testAtomicPreflightCancellationFromStopKeepReplacementSourceOrPauseRejectsLatePreparation() async throws {
         for action in ["stop", "keep", "replace", "source", "pause", "pause-play", "context"] {
             let factory = ModelFactory(), gate = NativePairGate()
-            let owner = coordinator(factory: factory, nativePairGate: gate)
+            let owner = coordinator(allowsWatchTwo: true, factory: factory, nativePairGate: gate)
             defer { owner.stop(); gate.finishAll() }
             let first = event("atomic-cancel-left"), second = event("atomic-cancel-right")
             var firstSessions = [session(for: first, web: true)]
@@ -2234,7 +2384,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testSelectingOriginalAudioDuringPreflightCancelsUpgradeWithoutMovingFocus() async throws {
         let factory = ModelFactory(), gate = NativePairGate()
-        let owner = coordinator(factory: factory, nativePairGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, nativePairGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("atomic-reverse-left"), web: true), slot(event("atomic-reverse-right"), web: true)])
         let left = owner.panes[0], right = owner.panes[1]
@@ -2256,7 +2406,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testBannerCancelResolutionCancelsPendingAtomicPreflightRatherThanOnlyHidingProgress() async throws {
         let factory = ModelFactory(), gate = NativePairGate()
-        let owner = coordinator(factory: factory, nativePairGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, nativePairGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("atomic-banner-left"), web: true), slot(event("atomic-banner-right"), web: true)])
         let original = owner.panes, attempts = owner.panes.map { $0.model.loadRequestID }
@@ -2285,7 +2435,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testBannerCancelDuringAtomicRetirementCannotAdoptStartOrMoveAudioAfterLateAcknowledgements() async throws {
         let factory = ModelFactory(), gate = NativePairGate()
-        let owner = coordinator(factory: factory, nativePairGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, nativePairGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("atomic-banner-retiring-left"), web: true), slot(event("atomic-banner-retiring-right"), web: true)])
         let original = owner.panes, audioID = owner.audioID
@@ -2308,7 +2458,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testFailedOrCancelledActualWebRetirementCannotAdoptOrStartEitherNativePane() async throws {
         for stop in [false, true] {
             let factory = ModelFactory(), gate = NativePairGate()
-            let owner = coordinator(factory: factory, nativePairGate: gate)
+            let owner = coordinator(allowsWatchTwo: true, factory: factory, nativePairGate: gate)
             defer { owner.stop(); gate.finishAll() }
             owner.openMulti(slots: [slot(event("atomic-retire-left"), web: true), slot(event("atomic-retire-right"), web: true)])
             let original = owner.panes
@@ -2335,7 +2485,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testPartialPausedAdoptionFailureNeverStartsOrReleasesEitherNativeCandidate() async throws {
         let factory = ModelFactory(), gate = NativePairGate()
-        let owner = coordinator(factory: factory, nativePairGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, nativePairGate: gate)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("atomic-adopt-left"), web: true), slot(event("atomic-adopt-right"), web: true)])
         let original = owner.panes
@@ -2352,7 +2502,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testNativeUpgradedOriginalWebPairKeepsNativeEngineWhenRetainedOrReordered() async throws {
         let factory = ModelFactory(), gate = NativePairGate()
-        let owner = coordinator(factory: factory, nativePairGate: gate)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, nativePairGate: gate)
         defer { owner.stop(); gate.finishAll() }
         let first = event("atomic-retain-left"), second = event("atomic-retain-right")
         owner.openMulti(slots: [slot(first, web: true), slot(second, web: true)])
@@ -2376,7 +2526,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testWebAudioPromotionWaitsForLateNativeReconnectAndDisconnectAcknowledgement() async throws {
         let factory = ModelFactory(), gate = NativeAudioIsolationTestGate()
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("native-owner"), web: true), slot(event("web-target"), web: true)])
         let native = owner.panes[0], web = owner.panes[1]
@@ -2404,7 +2554,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testFocusReversalCannotPromoteSupersededWebTargetAfterNativeAck() async throws {
         let factory = ModelFactory(), gate = NativeAudioIsolationTestGate()
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("native-reversal"), web: true), slot(event("web-reversal"), web: true)])
         let native = owner.panes[0], web = owner.panes[1]
@@ -2434,7 +2584,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testRemovingNativePanePreservesItsRetirementBarrierBeforeSingleWebPromotion() async throws {
         let factory = ModelFactory(), gate = NativeAudioIsolationTestGate()
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop(); gate.finishAll() }
         owner.openMulti(slots: [slot(event("removed-native"), web: true), slot(event("remaining-web"), web: true)])
         let native = owner.panes[0], web = owner.panes[1]
@@ -2480,7 +2630,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testReplacingMutedPanePreservesAudibleSurvivorAndSwappedDisplayOrder() throws {
         let factory = ModelFactory()
-        let viewing = coordinator(factory: factory)
+        let viewing = coordinator(allowsWatchTwo: true, factory: factory)
         defer { viewing.stop() }
         viewing.openMulti(slots: [slot(event("first")), slot(event("second"))])
         let survivor = viewing.panes[0], previous = viewing.panes[1]
@@ -2522,7 +2672,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testReplacingAudioPrimaryTransfersOnlyItsRolesAndRetainsPausedSibling() throws {
         let factory = ModelFactory(), client = RecordingHandoffPublisher()
         let publisher = SportsHandoffPublisher(client: client)
-        let owner = coordinator(factory: factory, handoffPublisher: publisher)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, handoffPublisher: publisher)
         defer { owner.stop() }
         owner.openMulti(slots: [slot(event("first")), slot(event("second"))])
         let previous = owner.panes[0], survivor = owner.panes[1]
@@ -2561,7 +2711,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testInvalidPreparedReplacementCannotMutateEitherPane() throws {
         let factory = ModelFactory(), next = event("replacement")
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         owner.openMulti(slots: [slot(event("first")), slot(event("second"))])
         let ids = owner.panes.map(\.id), primary = owner.panes[0], target = owner.panes[1]
@@ -2584,7 +2734,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testTargetPiPOrFullscreenBlocksReplacementButSiblingPiPIsPreserved() throws {
         let factory = ModelFactory(), next = event("replacement")
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         owner.openMulti(slots: [slot(event("first")), slot(event("second"))])
         let survivor = owner.panes[0], target = owner.panes[1]
@@ -2611,7 +2761,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         for action in ["cancel", "keep", "stop"] {
             let factory = ModelFactory(), gate = ResolutionGate(), next = event("replacement")
             let result = outcome(for: next, sessions: [session(for: next)])
-            let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+            let owner = ViewingSessionCoordinator(allowsWatchTwo: true, makeModel: { factory.make(event: $0, sessions: $1) },
                 resolvePlayback: { await gate.resolve($0) }, catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
             defer { gate.completeAll(result); owner.stop() }
             owner.openMulti(slots: [slot(event("first")), slot(event("second"))])
@@ -2636,7 +2786,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let first = event("requested-first"), latest = event("requested-latest")
         let firstResult = outcome(for: first, sessions: [session(for: first)])
         let latestResult = outcome(for: latest, sessions: [session(for: latest)])
-        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+        let owner = ViewingSessionCoordinator(allowsWatchTwo: true, makeModel: { factory.make(event: $0, sessions: $1) },
             resolvePlayback: { await gate.resolve($0) }, catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
         defer { gate.completeAll(latestResult); owner.stop() }
         owner.openMulti(slots: [slot(event("first")), slot(event("second"))])
@@ -2661,7 +2811,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         for failed in [false, true] {
             let factory = ModelFactory(), next = event("replacement")
             let result = outcome(for: next, sessions: [], failed: failed)
-            let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+            let owner = ViewingSessionCoordinator(allowsWatchTwo: true, makeModel: { factory.make(event: $0, sessions: $1) },
                 resolvePlayback: { _ in result }, catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
             defer { owner.stop() }
             owner.openMulti(slots: [slot(event("first")), slot(event("second"))])
@@ -2706,7 +2856,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testAcceptedTerminalReplacementCannotRetireCurrentTarget() {
         let factory = ModelFactory()
-        let viewing = coordinator(factory: factory)
+        let viewing = coordinator(allowsWatchTwo: true, factory: factory)
         defer { viewing.stop() }
         viewing.openMulti(slots: [slot(event("first")), slot(event("second"))])
         let originals = viewing.panes
@@ -2731,7 +2881,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testSuccessfulResolutionReplacesSelectedLogicalPaneAfterSwap() async throws {
         let factory = ModelFactory(), gate = ResolutionGate(), next = event("replacement")
         let result = outcome(for: next, sessions: [session(for: next)])
-        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+        let owner = ViewingSessionCoordinator(allowsWatchTwo: true, makeModel: { factory.make(event: $0, sessions: $1) },
             resolvePlayback: { await gate.resolve($0) }, catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
         defer { gate.completeAll(result); owner.stop() }
         owner.openMulti(slots: [slot(event("first")), slot(event("second"))])
@@ -2915,7 +3065,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
                                    inTwoMatches: Bool = false,
                                    file: StaticString = #filePath, line: UInt = #line) throws {
         let factory = ModelFactory()
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: inTwoMatches, factory: factory)
         defer { owner.stop() }
         owner.open(event: original, sessions: [session(for: original)])
         let retained = try XCTUnwrap(owner.primary, file: file, line: line)
@@ -2944,6 +3094,34 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         XCTAssertFalse(replacement.model.didStartPlayback, file: file, line: line)
     }
 
+    func testParkedWatchTwoStillAllowsConfirmedHandoffAsSinglePlayback() async throws {
+        let factory = ModelFactory()
+        let requested = event("parked-handoff", date: Int64(Date().timeIntervalSince1970) - 60)
+        let selected = session(for: requested)
+        let prepared = outcome(for: requested, sessions: [selected])
+        var resolutions = 0
+        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+            resolvePlayback: { _ in resolutions += 1; return prepared },
+            catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
+        defer { owner.stop() }
+        owner.incomingHandoff = try SportsHandoffIdentity.make(event: requested)
+        owner.incomingEvent = requested
+
+        XCTAssertFalse(owner.allowsWatchTwo)
+        owner.watchIncoming()
+        await waitForSourceCheck { owner.primary?.event.id == requested.id }
+
+        XCTAssertEqual(resolutions, 1)
+        XCTAssertEqual(factory.models.count, 1)
+        XCTAssertEqual(owner.panes.count, 1)
+        XCTAssertEqual(owner.primary?.model.activeSession?.id, selected.id)
+        XCTAssertEqual(owner.primary?.model.viewingPlaybackContext, .single)
+        XCTAssertFalse(owner.isTwo)
+        XCTAssertNil(owner.incomingEvent)
+        XCTAssertNil(owner.incomingHandoff)
+        XCTAssertNil(owner.resolutionError)
+    }
+
     func testOpeningAnotherPrimaryInvalidatesTheOldHandoffOffer() throws {
         let factory = ModelFactory()
         let client = RecordingHandoffPublisher()
@@ -2968,7 +3146,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let factory = ModelFactory()
         let client = RecordingHandoffPublisher()
         let publisher = SportsHandoffPublisher(client: client)
-        let owner = coordinator(factory: factory, handoffPublisher: publisher)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, handoffPublisher: publisher)
         defer { owner.stop() }
         let first = event("first"), second = event("second")
         owner.open(event: first, sessions: [session(for: first)])
@@ -2993,7 +3171,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let factory = ModelFactory()
         let client = RecordingHandoffPublisher()
         let publisher = SportsHandoffPublisher(client: client)
-        let owner = coordinator(factory: factory, handoffPublisher: publisher)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, handoffPublisher: publisher)
         defer { owner.stop() }
         let original = event("reused", home: "Liverpool", away: "Chelsea")
         let changed = event("reused", home: "Liverpool", away: "Arsenal")
@@ -3016,7 +3194,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let factory = ModelFactory()
         let client = RecordingHandoffPublisher()
         let publisher = SportsHandoffPublisher(client: client)
-        let owner = coordinator(factory: factory, handoffPublisher: publisher)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory, handoffPublisher: publisher)
         defer { owner.stop() }
         let first = event("first"), second = event("second")
         owner.openMulti(slots: [slot(first), slot(second)])
@@ -3494,7 +3672,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testTwoPreparedSelectionsKeepRequestedOrderAndReusePrimaryModel() throws {
         let factory = ModelFactory()
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         let first = event("first"), second = event("second")
         owner.open(event: first, sessions: [session(for: first)])
@@ -3529,7 +3707,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testSwapChangesDisplayOrderOnlyAndKeepsBothAttemptsAndAudioFocus() throws {
         let factory = ModelFactory()
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         owner.openMulti(slots: [slot(event("left")), slot(event("right"))])
         let left = owner.panes[0], right = owner.panes[1]
@@ -3561,7 +3739,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testKeepingSecondaryRetiresPrimaryAndTransfersRemoteFocusWithoutRestart() throws {
         let factory = ModelFactory()
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         owner.openMulti(slots: [slot(event("primary")), slot(event("secondary"))])
         let previous = owner.panes[0], survivor = owner.panes[1]
@@ -3599,7 +3777,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testSecondaryNativeOrWebPiPClaimsAudioWithoutReplacingOwnersItemsOrAttempts() throws {
         for web in [false, true] {
             let factory = ModelFactory()
-            let owner = coordinator(factory: factory)
+            let owner = coordinator(allowsWatchTwo: true, factory: factory)
             defer { owner.stop() }
             owner.openMulti(slots: [slot(event("primary"), web: web), slot(event("secondary"), web: web)])
             let primary = owner.panes[0], secondary = owner.panes[1]
@@ -3652,7 +3830,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testOverlappingPiPClaimsWaitForOldStopBeforeTransferringAudioWithoutAnAlert() throws {
         for web in [false, true] {
             let factory = ModelFactory()
-            let owner = coordinator(factory: factory)
+            let owner = coordinator(allowsWatchTwo: true, factory: factory)
             defer { owner.stop() }
             owner.openMulti(slots: [slot(event("old"), web: web), slot(event("new"), web: web)])
             let old = owner.panes[0], next = owner.panes[1]
@@ -3698,7 +3876,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testStopIsIdempotentAndRetiredModelsCannotRestartOnLaterPresentation() throws {
         let factory = ModelFactory()
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory)
         owner.openMulti(slots: [slot(event("first")), slot(event("second"))])
         let old = owner.panes.map(\.model)
         for model in old { installPausedLocalItem(on: model) }
@@ -3742,7 +3920,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testRejectedPreparedSelectionsDoNotRetireTheWorkingOwner() throws {
         let factory = ModelFactory()
-        let owner = coordinator(factory: factory)
+        let owner = coordinator(allowsWatchTwo: true, factory: factory)
         defer { owner.stop() }
         let match = event("current")
         owner.open(event: match, sessions: [session(for: match)])
@@ -3783,7 +3961,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
         for paused in [false, true] {
             let factory = ModelFactory()
-            let owner = coordinator(factory: factory)
+            let owner = coordinator(allowsWatchTwo: true, factory: factory)
             defer { owner.stop() }
             let current = event("current", home: "Liverpool", away: "Chelsea", date: kickoff,
                 fixture: fixture(id: "current", away: "Chelsea", status: .live))

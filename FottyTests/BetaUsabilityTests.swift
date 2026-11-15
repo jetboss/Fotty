@@ -970,10 +970,14 @@ final class BetaUsabilityTests: XCTestCase {
             XCTAssertFalse(source.contains("StreamResolutionOverlay("), path)
         }
         let home = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Dashboard/SportsDashboardView.swift"), encoding: .utf8)
-        for entry in ["watchEvent(_ event:", "watchSelectedInMultiView()", "toggleMultiSelection(for event:"] {
+        for (entry, guardText) in [
+            ("watchEvent(_ event:", "guard !isFindingAnyStream else { return }"),
+            ("watchSelectedInMultiView()", "guard viewing.allowsWatchTwo, !isFindingAnyStream else { return }"),
+            ("toggleMultiSelection(for event:", "guard viewing.allowsWatchTwo, !isFindingAnyStream else { return }")
+        ] {
             let definition = try XCTUnwrap(home.range(of: "private func \(entry)"))
             let body = String(home[definition.upperBound...].prefix(400))
-            XCTAssertTrue(body.contains("guard !isFindingAnyStream else { return }"), entry)
+            XCTAssertTrue(body.contains(guardText), entry)
         }
         XCTAssertTrue(home.contains("multiResolutionTitles = events.map(eventTitle(_:))"),
                       "The lookup panel must keep the pair it actually requested, not a refreshed selection")
@@ -1055,9 +1059,7 @@ final class BetaUsabilityTests: XCTestCase {
             ("Fotty/Features/Player/Components/PlaybackControlsOverlay.swift", "TeamBadgeWindow("),
             ("Fotty/Features/Insights/Views/TacticalPitchView.swift", "TeamIdentityLabel("),
             ("Fotty/Features/Social/Components/LeagueTeamPicker.swift", "TeamBadgeWindow("),
-            ("Fotty/Features/Settings/SettingsManageFollowsView.swift", "TeamBadgeWindow("),
-            ("Fotty/Features/FPL/Views/Components/FPLFixtureTrackerView.swift", "badgeURL: row.team.badgeURL"),
-            ("Fotty/Features/FPL/Views/Components/FPLSquadPitchView.swift", "badgeURL: score.team.badgeURL")
+            ("Fotty/Features/Settings/SettingsManageFollowsView.swift", "TeamBadgeWindow(")
         ]
 
         for (path, contract) in expectations {
@@ -1111,16 +1113,14 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertFalse(settingsComponents.contains("SettingsProfileHeader"))
     }
 
-    func testDiscoveryIsUniversalAndFPLToolsExposeTheirEvidenceLevel() throws {
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        let helpSource = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Settings/Views/SettingsSupportViews.swift"), encoding: .utf8)
-        let fplSource = try String(contentsOf: root.appendingPathComponent("Fotty/Features/FPL/Views/FPLMainView.swift"), encoding: .utf8)
-        XCTAssertTrue(helpSource.contains("FPL is an optional power tool"))
-        for label in ["Official data", "Official fixtures", "Published data", "On-device plan", "Projection", "Estimate", "Advanced solver"] {
-            XCTAssertTrue(fplSource.contains("\"\(label)\""), "FPL tools must preserve the \(label) trust label")
+    func testDiscoveryHelpAndFeedbackDescribeTheRetainedProduct() {
+        for destination in ["Home", "Sports TV", "Matchday"] {
+            XCTAssertTrue(FottyHelpContent.productScope.contains(destination), destination)
         }
-        XCTAssertTrue(fplSource.contains("Plans stay in Fotty"))
-        XCTAssertTrue(fplSource.contains("Confirm changes in official FPL"))
+        XCTAssertFalse(FottyHelpContent.productScope.contains("FPL"))
+        XCTAssertFalse(FottyHelpContent.productScope.contains("Coach"))
+        XCTAssertEqual(FottyFeedbackArea.allCases.map(\.rawValue),
+                       ["General", "Playback", "Home & Matchday", "Notifications"])
     }
 
     func testPersistenceFailureCannotSilentlyPretendToSave() throws {
@@ -1134,16 +1134,24 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertTrue(componentsSource.contains("settings-persistence-warning"))
     }
 
-    func testPrivacyManifestMatchesTheActiveCoachBoundary() throws {
+    func testPrivacyManifestKeepsValidDeclarationsAndRequiredDefaultsReason() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        let manifest = try String(contentsOf: root.appendingPathComponent("Fotty/Resources/PrivacyInfo.xcprivacy"), encoding: .utf8)
-        for dataType in ["UserID", "DeviceID", "OtherUserContent"] {
-            XCTAssertTrue(manifest.contains("NSPrivacyCollectedDataType\(dataType)"))
+        let data = try Data(contentsOf: root.appendingPathComponent("Fotty/Resources/PrivacyInfo.xcprivacy"))
+        let manifest = try XCTUnwrap(PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any])
+        XCTAssertEqual(manifest["NSPrivacyTracking"] as? Bool, false)
+        XCTAssertTrue(try XCTUnwrap(manifest["NSPrivacyTrackingDomains"] as? [String]).isEmpty)
+        let collectedTypes = try XCTUnwrap(manifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]])
+        for declaration in collectedTypes {
+            XCTAssertNotNil(declaration["NSPrivacyCollectedDataType"] as? String)
+            XCTAssertNotNil(declaration["NSPrivacyCollectedDataTypeLinked"] as? Bool)
+            XCTAssertEqual(declaration["NSPrivacyCollectedDataTypeTracking"] as? Bool, false)
+            XCTAssertFalse(try XCTUnwrap(declaration["NSPrivacyCollectedDataTypePurposes"] as? [String]).isEmpty)
         }
-        XCTAssertTrue(manifest.contains("NSPrivacyCollectedDataTypeLinked"))
-        XCTAssertFalse(manifest.contains("NSPrivacyCollectedDataTypeLinkedToUser"))
-        XCTAssertFalse(manifest.contains("NSPrivacyCollectedDataTypeUserContent"))
-        XCTAssertFalse(manifest.contains("NSPrivacyCollectedDataTypeUsageData"))
+        let accessedAPIs = try XCTUnwrap(manifest["NSPrivacyAccessedAPITypes"] as? [[String: Any]])
+        let defaults = try XCTUnwrap(accessedAPIs.first {
+            $0["NSPrivacyAccessedAPIType"] as? String == "NSPrivacyAccessedAPICategoryUserDefaults"
+        })
+        XCTAssertEqual(defaults["NSPrivacyAccessedAPITypeReasons"] as? [String], ["CA92.1"])
     }
 
     func testUIClubNamesPreserveTheirIdentity() {
@@ -1159,18 +1167,6 @@ final class BetaUsabilityTests: XCTestCase {
     func testUIBroadcastLabelsDoNotPromiseFutureMatchesAreLive() {
         XCTAssertEqual(LiveEventCard.broadcastActionLabel(isLive: true), "Watch live")
         XCTAssertEqual(LiveEventCard.broadcastActionLabel(isLive: false), "Watch")
-    }
-
-    @MainActor
-    func testUIPointsLabelsIdentifyTheGameweekAndSource() {
-        XCTAssertEqual(FPLMainView.pointsLabel(live: nil, officialGameweek: 1), "GW 1 points · official")
-        XCTAssertEqual(FPLMainView.pointsLabel(live: nil, officialGameweek: nil), "Official points")
-        for (isFinal, projected, expected) in [(true, false, "final"), (false, false, "live"), (false, true, "projected")] {
-            let summary = FPLLiveSquadSummary(gameweek: 2, totalPoints: 64, officialCurrentPoints: 50, publishedLineupPoints: 50, hasCompleteScoringData: true, transferCost: 0, playersPlayed: 11, playersRemaining: 0, officialBonus: 0, automaticSubs: [], projectedAutomaticSubs: [], projectedCaptainElementID: projected ? 42 : nil, rows: [], isFinal: isFinal)
-            XCTAssertEqual(FPLMainView.pointsLabel(live: summary, officialGameweek: 1), "GW 2 points · \(expected)")
-        }
-        let incomplete = FPLLiveSquadSummary(gameweek: 2, totalPoints: nil, officialCurrentPoints: nil, publishedLineupPoints: nil, hasCompleteScoringData: false, transferCost: 0, playersPlayed: 0, playersRemaining: 0, officialBonus: 0, automaticSubs: [], projectedAutomaticSubs: [], projectedCaptainElementID: nil, rows: [], isFinal: false)
-        XCTAssertEqual(FPLMainView.pointsLabel(live: incomplete, officialGameweek: 1), "GW 2 points · incomplete data")
     }
 
     @MainActor
@@ -1194,202 +1190,6 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertEqual(FottyFixtureDifficulty.label(0), "Difficulty not rated")
     }
 
-    @MainActor
-    func testUIFPLSessionPreservesToolUntilExplicitReset() async throws {
-        let suite = "FottyCoachSessionTests.\(UUID().uuidString)"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        addTeardownBlock { defaults.removePersistentDomain(forName: suite) }
-        defaults.set(true, forKey: "fotty.fpl.smartCoachConsent")
-        let model = FPLAdvisorViewModel(draftDefaults: defaults)
-        XCTAssertNil(model.sendCoachQuestion("Wait for a current workspace"))
-        // Navigation retention starts with a loaded current-season workspace,
-        // not a disconnected model. The operation below remains fully mocked.
-        let deadline = "\(FPLSeasonIdentifier.currentLabel().prefix(4))-08-21T17:30:00Z"
-        let calendarFixture: [String: Any] = [
-            "events": [["id": 1, "name": "Gameweek 1", "deadline_time": deadline,
-                        "deadline_time_epoch": Int(try XCTUnwrap(ISO8601DateFormatter().date(from: deadline)).timeIntervalSince1970),
-                        "finished": false, "is_previous": false, "is_current": true, "is_next": false]],
-            "elements": [], "teams": [], "element_types": [], "total_players": 0
-        ]
-        model.bootstrap = try JSONDecoder().decode(FPLBootstrapResponse.self,
-            from: JSONSerialization.data(withJSONObject: calendarFixture))
-        let session = FPLWorkspaceSession(viewModel: model)
-        let started = expectation(description: "Pending Coach question")
-        var reply: CheckedContinuation<Void, Never>?
-        let request = try XCTUnwrap(model.sendCoachQuestion("Test pending question") { _, _ in
-            await withCheckedContinuation {
-                reply = $0
-                started.fulfill()
-            }
-            throw CancellationError()
-        })
-        await fulfillment(of: [started], timeout: 2)
-        session.workspace = .tools
-        session.selectedTool = .captain
-        session.scrollOffsets["Tools/Captain"] = 200
-        model.coachInputDraft = "Should I keep my captain?"
-        _ = FPLMainView(session: session)
-        _ = FPLMainView(session: session)
-        XCTAssertTrue(session.viewModel === model)
-        XCTAssertEqual(session.workspace, .tools)
-        XCTAssertEqual(session.selectedTool, .captain)
-        XCTAssertEqual(session.scrollOffsets["Tools/Captain"], 200)
-        XCTAssertEqual(model.coachInputDraft, "Should I keep my captain?")
-        XCTAssertTrue(model.isCoachThinking)
-        session.resetNavigation()
-        XCTAssertEqual(session.workspace, .gameweek)
-        XCTAssertNil(session.selectedTool)
-        XCTAssertTrue(session.scrollOffsets.isEmpty)
-        XCTAssertTrue(model.isCoachThinking, "Navigation changes must not cancel a valid question")
-        model.cancelCoachRequest()
-        reply?.resume()
-        await request.value
-    }
-
-    func testManagerIDAcceptsNumbersAndOfficialTeamLinks() {
-        for input in [
-            "123456", "  123456\n", "000123456",
-            "https://fantasy.premierleague.com/entry/123456/event/2",
-            "https://fantasy.premierleague.com/entry/123456/history/",
-            "fantasy.premierleague.com/entry/123456/event/2",
-            "https://FANTASY.PREMIERLEAGUE.COM/entry/123456/",
-            "http://fantasy.premierleague.com/a/entry/123456",
-            "https://fantasy.premierleague.com/api/entry/123456/?x=1#test"
-        ] {
-            XCTAssertEqual(FPLManagerIDParser.parse(input), 123456, input)
-        }
-    }
-
-    func testManagerIDRejectsInvalidAndUntrustedLinksWithoutFetchingThem() {
-        for input in [
-            "", "0", "-1", "+12", "1.5", "12 34", "１２３", "9999999999999999999999999999",
-            "https://example.com/entry/123/",
-            "https://fantasy.premierleague.com.example.com/entry/123/",
-            "https://fantasy.premierleague.com@evil.example/entry/123/",
-            "https://user:password@fantasy.premierleague.com/entry/123/",
-            "https://fantasy.premierleague.com:444/entry/123/",
-            "file://fantasy.premierleague.com/entry/123/",
-            "https://fantasy.premierleague.com/leagues/123/",
-            "https://fantasy.premierleague.com/entry/",
-            "https://fantasy.premierleague.com/entry/0/",
-            "https://fantasy.premierleague.com/?entry=123"
-        ] {
-            XCTAssertNil(FPLManagerIDParser.parse(input), input)
-        }
-    }
-
-    @MainActor
-    func testInvalidManagerInputNeverStartsLookup() async {
-        var calls = 0
-        let model = FPLManagerConnectionModel { id in
-            calls += 1
-            return Self.identity(id)
-        }
-        await model.lookup("not a team")
-        XCTAssertEqual(calls, 0)
-        XCTAssertNotNil(model.errorMessage)
-        XCTAssertFalse(model.isChecking)
-        XCTAssertNil(model.identity)
-    }
-
-    @MainActor
-    func testManagerLookupFailureCanRetryTheSameID() async {
-        var calls = 0
-        let previousSelection = UserDefaults.standard.object(forKey: "fotty.user.fplManagerId") as? Int
-        let model = FPLManagerConnectionModel { id in
-            calls += 1
-            if calls == 1 { throw URLError(.notConnectedToInternet) }
-            return Self.identity(id)
-        }
-        await model.lookup("123")
-        XCTAssertNil(model.identity)
-        XCTAssertTrue(model.errorMessage?.contains("offline") == true)
-        XCTAssertFalse(model.isChecking)
-        await model.lookup("123")
-        XCTAssertEqual(model.identity?.id, 123)
-        XCTAssertNil(model.errorMessage)
-        XCTAssertFalse(model.isChecking)
-        // Checking a team isn't consent to replace the connected manager.
-        XCTAssertEqual(UserDefaults.standard.object(forKey: "fotty.user.fplManagerId") as? Int, previousSelection)
-    }
-
-    @MainActor
-    func testLateManagerLookupCannotReplaceANewerTeam() async {
-        let firstStarted = expectation(description: "First lookup started")
-        var firstReply: CheckedContinuation<FPLManagerIdentity, Error>?
-        let model = FPLManagerConnectionModel { id in
-            if id == 1 {
-                return try await withCheckedThrowingContinuation { continuation in
-                    firstReply = continuation
-                    firstStarted.fulfill()
-                }
-            }
-            return Self.identity(id)
-        }
-        let first = Task { await model.lookup("1") }
-        await fulfillment(of: [firstStarted], timeout: 2)
-        await model.lookup("2")
-        firstReply?.resume(returning: Self.identity(1))
-        await first.value
-        XCTAssertEqual(model.identity?.id, 2)
-        XCTAssertFalse(model.isChecking)
-        XCTAssertNil(model.errorMessage)
-    }
-
-    @MainActor
-    func testCancellingLookupPreventsLateErrorFromRestoringFailureState() async {
-        let started = expectation(description: "Lookup started")
-        var reply: CheckedContinuation<FPLManagerIdentity, Error>?
-        let model = FPLManagerConnectionModel { _ in
-            try await withCheckedThrowingContinuation { continuation in
-                reply = continuation
-                started.fulfill()
-            }
-        }
-        let task = Task { await model.lookup("1") }
-        await fulfillment(of: [started], timeout: 2)
-        model.reset()
-        task.cancel()
-        reply?.resume(throwing: URLError(.badServerResponse))
-        await task.value
-        XCTAssertNil(model.identity)
-        XCTAssertNil(model.errorMessage)
-        XCTAssertFalse(model.isChecking)
-    }
-
-    @MainActor
-    func testMismatchedLookupIdentityIsNotOfferedForConfirmation() async {
-        let model = FPLManagerConnectionModel { _ in Self.identity(99) }
-        await model.lookup("123")
-        XCTAssertNil(model.identity)
-        XCTAssertNotNil(model.errorMessage)
-    }
-
-    @MainActor
-    func testAlreadyCancelledLookupDoesNotResetANewIdentityOrFetch() async {
-        var calls = 0
-        let model = FPLManagerConnectionModel { id in
-            calls += 1
-            return Self.identity(id)
-        }
-        await model.lookup("2")
-        let ready = expectation(description: "Cancelled task ready")
-        var resume: CheckedContinuation<Void, Never>?
-        let task = Task {
-            await withCheckedContinuation { continuation in
-                resume = continuation
-                ready.fulfill()
-            }
-            await model.lookup("1")
-        }
-        await fulfillment(of: [ready], timeout: 2)
-        task.cancel()
-        resume?.resume()
-        await task.value
-        XCTAssertEqual(calls, 1)
-        XCTAssertEqual(model.identity?.id, 2)
-    }
-
     func testFeedbackIncludesBuildAndContextButDiagnosticsAreOptIn() {
         var report = FottyFeedbackReport(
             area: "Playback", expected: "  Resume the match  ", actual: "The picture stayed still",
@@ -1405,7 +1205,7 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertTrue(report.text.contains("recordCount"))
     }
 
-    func testSetupCanBeDismissedAndDoesNotRequireFPLToUseTheApp() {
+    func testSetupCanBeDismissedWithoutBlockingTheApp() {
         XCTAssertTrue(MatchdaySetupPolicy.shouldShow(dismissed: false, followedCount: 0, savedCount: 0))
         XCTAssertFalse(MatchdaySetupPolicy.shouldShow(dismissed: true, followedCount: 0, savedCount: 0))
         XCTAssertFalse(MatchdaySetupPolicy.shouldShow(dismissed: true, followedCount: 1, savedCount: 2))
@@ -1456,8 +1256,6 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertTrue(tabs.contains(".tabBarMinimizeBehavior(.onScrollDown)"),
                       "The configured native tab bar should use the system's compact glass behavior")
         XCTAssertFalse(tabs.contains("FottyTabDock"), "Do not layer a second custom dock beneath the native tab bar")
-        XCTAssertTrue(tabs.contains(".ignoresSafeArea(selectedTab == .fpl ? [] : .keyboard, edges: .bottom)"),
-                      "Inline FPL editors must retain native software-keyboard avoidance")
     }
 
     @MainActor
@@ -1805,28 +1603,12 @@ final class BetaUsabilityTests: XCTestCase {
         return CPLTeam.allCases.filter { legacyCPLTeamMatches($0, in: text) }.count >= 2
     }
 
-    func testHelpKeepsBackgroundAlertsAndOfficialFPLActionsTruthful() {
+    func testHelpKeepsForegroundAlertsAndScheduledMatchRemindersTruthful() {
         XCTAssertTrue(FottyHelpContent.matchAlerts.contains("not background push"))
         XCTAssertTrue(FottyHelpContent.matchAlerts.contains("Premier League"))
-        XCTAssertTrue(FottyHelpContent.deadlineAlerts.contains("scheduled"))
-        XCTAssertTrue(FottyHelpContent.fplDrafts.contains("Confirm any real changes in official FPL"))
+        XCTAssertTrue(FottyHelpContent.scheduledMatchReminders.contains("Fotty closed"))
+        XCTAssertTrue(FottyHelpContent.matchReminders.contains("Saving or following alone does not enable start reminders"))
         XCTAssertTrue(FottyHelpContent.scores.contains("Other competitions can still have broadcasts"))
-        XCTAssertTrue(FottyHelpContent.fplPoints.contains("Provisional"))
-    }
-
-    func testManagerClearResetsLoadingAndErrorAndKeepsDraftStorage() throws {
-        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        let source = try String(contentsOf: root.appendingPathComponent("Fotty/Features/FPL/ViewModels/FPLAdvisorViewModel.swift"), encoding: .utf8)
-        let body = try XCTUnwrap(source.components(separatedBy: "public func clearManagerId()").dropFirst().first)
-            .components(separatedBy: "private func migrateLegacyLocalDataIfNeeded").first ?? ""
-        for reset in ["isLoading = false", "isRefreshing = false", "errorMessage = nil", "bootstrap = nil", "managerId = nil", "rivalPicks = nil", "managerSelectionID = UUID()", "coachInputDraft = \"\"", "isCoachThinking = false", "comparisonPlayer1ID = nil", "comparisonPlayer2ID = nil"] {
-            XCTAssertTrue(body.contains(reset), reset)
-        }
-        XCTAssertFalse(body.contains("removeObject"))
-    }
-
-    private static func identity(_ id: Int) -> FPLManagerIdentity {
-        FPLManagerIdentity(id: id, teamName: "Test team \(id)", managerName: "Test manager", sourceDescription: "Test fixture")
     }
 }
 
@@ -2977,8 +2759,19 @@ final class HomeDiscoveryTests: XCTestCase {
     }
 
     func testNativeTabBarIncludesSportsTVAlongsideHomeAndMatchday() {
-        XCTAssertEqual(MainTabView.Tab.allCases.map(\.displayName), ["Home", "TV", "Matchday", "FPL"],
+        XCTAssertEqual(MainTabView.Tab.allCases.map(\.displayName), ["Home", "TV", "Matchday"],
                        "Settings is not a place to watch sport; Home's gear opens it as a sheet")
+    }
+
+    func testTabRestorationPreservesExistingDestinationsAndRetiresFPLToHome() {
+        XCTAssertEqual(MainTabView.Tab.restoring("Home"), .home)
+        XCTAssertEqual(MainTabView.Tab.restoring("TV"), .tv)
+        XCTAssertEqual(MainTabView.Tab.restoring("Arena"), .social)
+        XCTAssertEqual(MainTabView.Tab.social.rawValue, "Arena",
+                       "Existing Matchday selection must survive the display-name change")
+        for retiredOrUnknown in ["FPL", "fpl", "", "unknown-destination"] {
+            XCTAssertEqual(MainTabView.Tab.restoring(retiredOrUnknown), .home, retiredOrUnknown)
+        }
     }
 
     func testIncreasedContrastImprovesSecondaryInkAndBorderVisibility() {

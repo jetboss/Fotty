@@ -16,14 +16,13 @@ struct MainTabView: View {
     @Environment(\.scenePhase) private var scenePhase
     @Environment(LiveScoreService.self) private var liveScoreService
     @State private var matchNavigationStore = MatchNavigationStore.shared
-    @StateObject private var fplSession = FPLWorkspaceSession()
     @State private var followMigrationError: String?
     @State private var viewingSession = ViewingSessionCoordinator()
     @State private var sourcePreflightSchedule = FixtureStreamPreflightSchedule()
     @State private var sourcePreflightIsLocallyBlocked = false
 
     private var canPreflightSourceMetadata: Bool {
-        scenePhase == .active && selectedTab != .fpl && viewingSession.panes.isEmpty
+        scenePhase == .active && viewingSession.panes.isEmpty
             && viewingSession.resolutionMessage == nil && viewingSession.pendingSingleEvent == nil
             && !sourcePreflightIsLocallyBlocked
     }
@@ -48,14 +47,14 @@ struct MainTabView: View {
         case tv = "TV"
         // Keep the persisted raw value so existing installs retain their selected tab.
         case social = "Arena"
-        case fpl = "FPL"
         
+        static func restoring(_ value: String) -> Tab { Tab(rawValue: value) ?? .home }
+
         var displayName: String {
             switch self {
             case .home: return "Home"
             case .tv: return "TV"
             case .social: return "Matchday"
-            case .fpl: return "FPL"
             }
         }
         
@@ -64,7 +63,6 @@ struct MainTabView: View {
             case .home: return "house"
             case .tv: return "tv"
             case .social: return "calendar"
-            case .fpl: return "chart.line.uptrend.xyaxis"
             }
         }
         
@@ -101,11 +99,9 @@ struct MainTabView: View {
         // Let the background extend under system chrome without letting that
         // chrome change the content's safe-area proposal on iPhone or iPad.
         .background(FottyTheme.background.ignoresSafeArea())
-        // FPL has inline editors and the Coach composer. Let the system shrink
-        // their available space above a docked software keyboard; do not replace
-        // the selected view tree or add keyboard-height observers/padding.
-        .ignoresSafeArea(selectedTab == .fpl ? [] : .keyboard, edges: .bottom)
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .fottyAdaptiveWindow()
+        .task { await RetiredFPLSupport.cancelDeadlineNotifications() }
         .fullScreenCover(isPresented: Binding(
             get: { matchNavigationStore.pendingMatchID != nil },
             set: { if !$0 { matchNavigationStore.pendingMatchID = nil } }
@@ -120,10 +116,8 @@ struct MainTabView: View {
         .onAppear {
             MatchAlertPreferences.synchronize(from: followedTeams)
             // Drop unknown/retired persisted tab ids back to Home.
-            if let persisted = Tab(rawValue: persistedTabRawValue) {
-                selectedTab = persisted
-            } else if !persistedTabRawValue.isEmpty {
-                selectedTab = .home
+            selectedTab = Tab.restoring(persistedTabRawValue)
+            if !persistedTabRawValue.isEmpty, Tab(rawValue: persistedTabRawValue) == nil {
                 persistedTabRawValue = Tab.home.rawValue
             }
             if matchNavigationStore.pendingReminderID != nil { selectedTab = .social }
@@ -144,13 +138,7 @@ struct MainTabView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: FottyPrivateBackupService.restoredNotification)) { _ in
             migrateFollowedTeamKeysIfNeeded()
-            fplSession.resetNavigation()
-            let managerID = UserDefaults.standard.integer(forKey: "fotty.user.fplManagerId")
-            if managerID > 0 {
-                fplSession.viewModel.requestManagerConfirmation(managerID: managerID)
-            } else {
-                fplSession.viewModel.clearManagerId()
-            }
+            // Retired fantasy data is restored passively; never start a manager lookup.
         }
         .onChange(of: selectedTab) { _, newValue in
             persistedTabRawValue = newValue.rawValue
@@ -159,7 +147,8 @@ struct MainTabView: View {
             }
         }
         .onChange(of: persistedTabRawValue) { _, newValue in
-            guard let target = Tab(rawValue: newValue) else { return }
+            let target = Tab.restoring(newValue)
+            if Tab(rawValue: newValue) == nil { persistedTabRawValue = target.rawValue }
             guard selectedTab != target else { return }
             selectedTab = target
         }
@@ -175,7 +164,7 @@ struct MainTabView: View {
                 selectedTab = .social
                 matchNavigationStore.pendingReminderID = url.pathComponents.dropFirst().first
             } else if FottyDeepLinkDestination.parse(url) == .fpl {
-                selectedTab = .fpl
+                openPendingFPLDestination()
             } else {
                 matchNavigationStore.open(url: url)
             }
@@ -319,22 +308,11 @@ struct MainTabView: View {
             }
             .tag(Tab.social)
 
-            FPLMainView(session: fplSession)
-                .tabItem {
-                    Label(Tab.fpl.displayName, systemImage: Tab.fpl.icon)
-                        .accessibilityIdentifier("tab-fpl")
-                }
-                .tag(Tab.fpl)
-
         }
         // Settings is not a place to watch sport: Home's gear opens it here.
         .environment(\.fottyOpenSettings, { showsSettings = true })
         .sheet(isPresented: $showsSettings) {
-            SettingsView(onOpenFPL: {
-                showsSettings = false
-                fplSession.workspace = .gameweek
-                selectedTab = .fpl
-            }, onClose: { showsSettings = false })
+            SettingsView(onClose: { showsSettings = false })
             .presentationDetents([.large])
         }
         // These are real destinations, so let the system own their Liquid Glass
@@ -356,9 +334,10 @@ struct MainTabView: View {
     }
 
     private func openPendingFPLDestination() {
+        // Old widgets and already delivered notifications remain safe entry points.
         matchNavigationStore.pendingFPL = false
-        fplSession.workspace = .gameweek
-        selectedTab = .fpl
+        viewingSession.minimize()
+        selectedTab = .home
     }
     
 }

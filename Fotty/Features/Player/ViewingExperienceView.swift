@@ -298,7 +298,7 @@ struct ViewingExperienceView: View {
         // the toolbar's Minimize/Close identities on the physical iPad.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("viewing-experience")
-        .sheet(isPresented: Binding(get: { viewing.showsSecondMatchPicker }, set: { if !$0 { viewing.dismissMatchPicker() } })) {
+        .sheet(isPresented: Binding(get: { viewing.allowsWatchTwo && viewing.showsSecondMatchPicker }, set: { if !$0 { viewing.dismissMatchPicker() } })) {
             ViewingSecondMatchPicker()
         }
         .sheet(isPresented: Binding(get: { viewing.showsContinuity }, set: { viewing.showsContinuity = $0 })) {
@@ -618,7 +618,7 @@ struct ViewingExperienceView: View {
                     set: { _ = pane.model.selectSinglePlaybackQuality($0) }
                 ))
             }
-            if includesAddMatch {
+            if includesAddMatch && viewing.allowsWatchTwo {
                 Button { viewing.showMatchPicker() } label: { Label("Add match", systemImage: "rectangle.split.2x1") }
                     .accessibilityLabel("Add a second match")
                     .accessibilityIdentifier("viewing-watch-two")
@@ -893,10 +893,12 @@ struct ViewingExperienceView: View {
             .accessibilityLabel("Listen to \(pane.event.displayTitle)").accessibilityValue(viewing.audioID == pane.id ? "Selected" : "Muted")
             .accessibilityIdentifier("viewing-pane-audio-\(pane.event.id)")
         Menu {
-            Button { viewing.showMatchPicker(replacing: pane.id) } label: {
-                Label("Change Match…", systemImage: "arrow.triangle.2.circlepath")
+            if viewing.allowsWatchTwo {
+                Button { viewing.showMatchPicker(replacing: pane.id) } label: {
+                    Label("Change Match…", systemImage: "arrow.triangle.2.circlepath")
+                }
+                .accessibilityIdentifier("viewing-pane-change-\(pane.event.id)")
             }
-            .accessibilityIdentifier("viewing-pane-change-\(pane.event.id)")
             Button { viewing.keepOnly(pane.id) } label: { Label("Keep This Match", systemImage: "rectangle") }
                 .accessibilityLabel("Return to \(pane.event.displayTitle) only")
         } label: { Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44) }

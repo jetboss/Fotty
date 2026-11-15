@@ -3235,7 +3235,7 @@ final class PlaybackPolicyTests: XCTestCase {
         XCTAssertEqual(content.body, "Chelsea 3–2 Fulham")
     }
 
-    func testFPLWidgetAndMatchNotificationDeepLinksHaveTypedDestinations() throws {
+    func testLegacyFPLWidgetAndMatchNotificationDeepLinksRemainRecognized() throws {
         let fplURL = try XCTUnwrap(URL(string: "fotty://fpl"))
         let matchURL = try XCTUnwrap(URL(string: "fotty://match/schedule-42"))
         let liveURL = try XCTUnwrap(URL(string: "fotty://live/schedule-42"))
@@ -3249,7 +3249,7 @@ final class PlaybackPolicyTests: XCTestCase {
         XCTAssertNil(FottyDeepLinkDestination.parse(URL(string: "https://example.com")!))
     }
 
-    func testDeadlineWidgetSmallAndMediumExposeOfficialSourceAndTypedRoute() throws {
+    func testRetiredDeadlineWidgetKeepsInstalledIdentityWithoutNetworkOrCountdown() throws {
         let projectRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -3258,31 +3258,15 @@ final class PlaybackPolicyTests: XCTestCase {
             .appendingPathComponent("FottyFPLDeadlineWidget.swift")
         let source = try String(contentsOf: widgetURL, encoding: .utf8)
 
+        XCTAssertTrue(source.contains("private let kind = \"FottyFPLDeadlineWidget\""))
         XCTAssertTrue(source.contains(".supportedFamilies([.systemSmall, .systemMedium])"))
-        XCTAssertTrue(source.contains("if family == .systemSmall"))
-        XCTAssertTrue(source.contains("Label(entry.sourceStatus, systemImage: \"checkmark.shield.fill\")"))
+        XCTAssertTrue(source.contains("policy: .never"))
+        XCTAssertTrue(source.contains("FPL tools have retired"))
+        XCTAssertTrue(source.contains("Sports Plan"))
         XCTAssertTrue(source.contains(".widgetURL(URL(string: \"fotty://fpl\"))"))
-    }
-
-    func testCoachQuickPromptsUseFocusDismissedSendPath() throws {
-        let projectRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let coachURL = projectRoot
-            .appendingPathComponent("Fotty")
-            .appendingPathComponent("Features/FPL/Views/Components/FPLAICoachView.swift")
-        let source = try String(contentsOf: coachURL, encoding: .utf8)
-
-        XCTAssertTrue(source.contains("Button { sendQuery(prompt) } label:"))
-        let functionStart = try XCTUnwrap(source.range(of: "private func sendQuery(_ query: String)"))
-        let firstMessage = try XCTUnwrap(
-            source.range(
-                of: "viewModel.sendCoachQuestion",
-                range: functionStart.upperBound..<source.endIndex
-            )
-        )
-        let preMessagePath = source[functionStart.lowerBound..<firstMessage.lowerBound]
-        XCTAssertTrue(preMessagePath.contains("isComposerFocused = false"))
+        for retiredWork in ["URLSession", "URLRequest", "bootstrap-static", "style: .timer", "entry.deadline"] {
+            XCTAssertFalse(source.contains(retiredWork), retiredWork)
+        }
     }
 
     @MainActor
