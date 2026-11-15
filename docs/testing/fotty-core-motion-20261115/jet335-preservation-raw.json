@@ -1,0 +1,172 @@
+{
+  "comparison_complete": true,
+  "after_label": "final",
+  "preservation_ok": false,
+  "preferences": {
+    "before_count": 42,
+    "after_count": 42,
+    "unchanged_count": 30,
+    "added_count": 0,
+    "removed_count": 0,
+    "protected_count": 33,
+    "protected_changed_count": 7,
+    "transient_changed_keys": [
+      "Fotty.CricketFixtures.lastKnownGood.v1",
+      "fotty.programme.evidence.v1",
+      "fotty.quality.records.v1"
+    ],
+    "ordinary_use_candidate_changes": [
+      "sports.tv.recent.v1"
+    ]
+  },
+  "saved_matches": {
+    "before_count": 1,
+    "after_count": 1,
+    "storage_exact": false,
+    "logical_equal": false,
+    "identity_order_equal": true,
+    "duplicate_identity_count": {
+      "before": 0,
+      "after": 0
+    },
+    "savedAt_equal": true,
+    "other_fields_equal": true,
+    "observation_field_changes": 1,
+    "observation_regressions_or_type_changes": 0
+  },
+  "reminders": {
+    "before_count": 0,
+    "after_count": 0,
+    "storage_exact": true,
+    "logical_equal": true,
+    "identity_order_equal": true,
+    "duplicate_identity_count": {
+      "before": 0,
+      "after": 0
+    },
+    "savedAt_equal": true,
+    "other_fields_equal": true,
+    "observation_field_changes": 0,
+    "observation_regressions_or_type_changes": 0
+  },
+  "sqlite": {
+    "schema_equal": true,
+    "table_counts": {
+      "ACHANGE": {
+        "before": 3514568,
+        "after": 3520518
+      },
+      "ATRANSACTION": {
+        "before": 17946,
+        "after": 17996
+      },
+      "ATRANSACTIONSTRING": {
+        "before": 2,
+        "after": 2
+      },
+      "ZARENAMESSAGE": {
+        "before": 0,
+        "after": 0
+      },
+      "ZCACHEDMATCH": {
+        "before": 0,
+        "after": 0
+      },
+      "ZCACHEDSTATISTIC": {
+        "before": 0,
+        "after": 0
+      },
+      "ZDIRECTMESSAGE": {
+        "before": 0,
+        "after": 0
+      },
+      "ZFOLLOWEDLEAGUEITEM": {
+        "before": 3,
+        "after": 3
+      },
+      "ZFOLLOWEDTEAMITEM": {
+        "before": 1,
+        "after": 1
+      },
+      "ZMATCHCACHEITEM": {
+        "before": 119,
+        "after": 119
+      },
+      "ZSOCIALACCOUNT": {
+        "before": 0,
+        "after": 0
+      },
+      "ZSOCIALACTIVITYITEM": {
+        "before": 0,
+        "after": 0
+      },
+      "ZSOCIALCONVERSATION": {
+        "before": 0,
+        "after": 0
+      },
+      "ZSOCIALFOLLOWRELATIONSHIP": {
+        "before": 0,
+        "after": 0
+      },
+      "ZSOCIALNOTIFICATIONITEM": {
+        "before": 0,
+        "after": 0
+      },
+      "ZSOCIALPENDINGACTIONITEM": {
+        "before": 0,
+        "after": 0
+      },
+      "ZSOCIALSAFETYACTIONITEM": {
+        "before": 0,
+        "after": 0
+      },
+      "ZUSERPROFILE": {
+        "before": 1,
+        "after": 1
+      },
+      "Z_METADATA": {
+        "before": 1,
+        "after": 1
+      },
+      "Z_MODELCACHE": {
+        "before": 1,
+        "after": 1
+      },
+      "Z_PRIMARYKEY": {
+        "before": 18,
+        "after": 18
+      }
+    },
+    "protected_table_equalities": {
+      "ZARENAMESSAGE": true,
+      "ZDIRECTMESSAGE": true,
+      "ZFOLLOWEDLEAGUEITEM": true,
+      "ZFOLLOWEDTEAMITEM": false,
+      "ZSOCIALACCOUNT": true,
+      "ZSOCIALACTIVITYITEM": true,
+      "ZSOCIALCONVERSATION": true,
+      "ZSOCIALFOLLOWRELATIONSHIP": true,
+      "ZSOCIALNOTIFICATIONITEM": true,
+      "ZSOCIALPENDINGACTIONITEM": true,
+      "ZSOCIALSAFETYACTIONITEM": true,
+      "ZUSERPROFILE": true,
+      "Z_METADATA": true,
+      "Z_MODELCACHE": true
+    },
+    "cache_table_equalities": {
+      "ZCACHEDMATCH": true,
+      "ZCACHEDSTATISTIC": true,
+      "ZMATCHCACHEITEM": false
+    },
+    "quick_check_ok": {
+      "before": true,
+      "after": true
+    },
+    "added_history_rows": {
+      "MatchCacheItem": 5950,
+      "other_entities": 0
+    },
+    "history_scope": "Added row classification only; prior history content is not a protected-data comparison",
+    "read_mode": "mode=ro with existing WAL/SHM; SQLite may touch existing SHM reader bookkeeping"
+  }
+}

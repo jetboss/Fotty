@@ -1,0 +1,17 @@
+{
+  "reduceMotionOriginal": false,
+  "deviceOrientationOriginal": "landscape",
+  "appAppearanceOriginal": "system (rendered light)",
+  "reduceMotionChangedForTest": true,
+  "reduceMotionRestoredObserved": true,
+  "textSliderOriginal": {
+    "x": 1395,
+    "y": 829,
+    "largerAccessibilitySizes": false
+  },
+  "textSliderTest": "rightmost standard size",
+  "appAppearanceTest": "dark",
+  "appAppearanceRestoredObserved": true,
+  "textSizeRestoredObserved": true,
+  "textRestoredObservedUTC": "2026-11-15T18:12:00Z"
+}

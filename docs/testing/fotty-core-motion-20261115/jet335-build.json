@@ -1,0 +1,30 @@
+{
+  "action": "build-release",
+  "label": "motion335-release",
+  "exitCode": 0,
+  "phaseError": null,
+  "passed": true,
+  "sourceUnchanged": true,
+  "freeDiskAfterBytes": 30675513344,
+  "sourceCommit": "b693a0166861930d7cc147269936e46b078cb4da",
+  "build": 335,
+  "version": "3.0.0",
+  "kind": "normal signed private Release",
+  "target": "Jet iPad",
+  "freeDiskBeforeBytes": 32236523520,
+  "sourceFilesComparedAfterPhysicalGate": 320,
+  "sourceMismatchesAfterPhysicalGate": [],
+  "allSourceHashesDigest": "8b5ff575c67ecb581428e4fe63f02c990555b280f1f3517fb7d805896028c1c3",
+  "changedSourceSHA256": {
+    "Fotty/Design/Components.swift": "3fbe63ccfb3aedf91d0da43707336a4fe5b19f586e335e2965e0f4926e82d7f4",
+    "Fotty/Features/Dashboard/Components/DashboardMatchList.swift": "1dca29dfbad1262eddbfe7561a7b4bdcdbc774a6b3b0f03b418ba2309f97ddc6",
+    "Fotty/Features/Dashboard/Components/LiveEventCard.swift": "45d74e220bce1a8f9cd12c43fe2e435719b0e10b9b5449b6768ebe9a4559c412",
+    "Fotty/Features/Dashboard/Components/MatchStartControls.swift": "30644598f8036660c64fdf681e63bd4a156110e95dfa851d1a0c8977cbd44c53",
+    "Fotty/Features/Dashboard/Components/SportsDiscoveryViews.swift": "d00ed1b505619388e58076fe5ad97406d4e59cb3c76ce478b7208968d4ff27f1",
+    "Fotty/Features/Dashboard/SportsDashboardView.swift": "96dbdb75bbb657fc4b4e8104c2de9282a186350a000fbe058054673e24a97c60",
+    "Fotty/Features/Social/ArenaDiscoveryView.swift": "84710883e7f7db8bbe30b073483d9484725d1a4cab69c72197f814cc27fbcf2e",
+    "FottyTests/BetaUsabilityTests.swift": "4aad4590808cf944c663390968e975d9b3f94bc77035cbff9286830718976340",
+    "FottyTests/Fotty25HomeDesignTests.swift": "acecc0e22aaf0d01aa1b18e42d7046f035eaca669da1ca573e0fa459d5ff3390",
+    "FottyTests/WatchTapAcknowledgementTests.swift": "97c01127cc32c2e129eaa2283f3882cfe69d126cdfda1615532f446d99d0dcfc"
+  }
+}

@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-15T17:43:04.327991+00:00
-Source digest: c1ebb9cf30f06063c4acc34e787ba2b72974cd89f2a31153dc068725c998cff3
+Generated: 2026-11-15T18:18:08.486205+00:00
+Source digest: c6cb23dfd914d03b4613d15fa7d465b50e8179709346f688af7c31b03e87779e
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,7 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-15 Nov: [core motion](../testing/fotty-core-motion-20261115/README.md): Claude approved;261 local tests pass. Physical gate open; Jet334/ranking unchanged.
+15 Nov: [Jet335 UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md) installed;261 focused tests pass. Watch/disclosures checked with Claude; trace/phone/score-motion limits retained. Ranking/TestFlight unchanged.
 
 15 Nov: [Jet334 guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) installed;396 checks, Save/Remind and TV25 hold pass. Live programme/audio pending; source failures retained. Phone/ranking/TestFlight unchanged.
 
@@ -23,7 +23,7 @@ Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.
 
 13 Nov history: [323 providers](../testing/fotty323-provider-watch/README.md), [322 CNC](../testing/fotty320-cnc-football/README.md), [319 Watch/Retry](../testing/fotty318-watch-availability/README.md).
 
-12 Nov: Jet 317 fixed the relay deadlock and showed Curaçao–Panama at 0–0 in the 86th minute. Jet 316 fixed Highfly search. Internal TestFlight 287. Dashboard-only alerts. [Earlier Jet checks](../testing/fotty317-football-home-and-relay/README.md).
+12 Nov: [Jet317 relay/316 Highfly history](../testing/fotty317-football-home-and-relay/README.md); dashboard-only alerts.
 
 ## Product and release baseline
 
@@ -885,6 +885,14 @@ Build 42 consolidated the app changes from 36–41.
 # Source: docs/notebooklm/Decisions-Log.md
 
 ## 2026-11-15 — Polish core Watch feedback and local match motion with Claude
+
+
+## 2026-11-15: Jet335 core UI physical follow-up
+- **Decision**: Install the owner-approved UI polish on Jet only; preserve ranking, phone, saved data and TestFlight.
+- **Implementation**: One signed normal Release335 from b693a01; no further source edits or rebuild. Actual Claude reviewed source plus reported physical evidence twice, finding no confirmed defect.
+- **Verification**: Existing261 focused Catalyst tests pass on unchanged source; 320 source/config hashes still match. Observed stable Watch/spinner feedback, cancellation, Home/shared-card disclosures, mini-player coexistence and large standard text/light/dark. Restored System appearance, original text step and Reduce Motion off.
+- **Limits**: Failed Animation Hitches export gives no FPS/hitch result. Phone, spoken VoiceOver, AX3, forced score transitions and live saved-Matchday card remain physically open. One buffering match and no-stream outcomes are retained separately from UI acceptance; channel pictures do not prove audio/programme qualification.
+- **Evidence**: [Jet335 acceptance](../testing/fotty-core-motion-20261115/jet335-acceptance.md), Claude reviews, redacted diagnostics and preservation receipts. No Git/cloud publication or TestFlight.
 
 The owner redirected effort from deeper TV work to Home→match→Watch polish and
 reaffirmed direct collaboration with Claude. Three actual Claude rounds changed

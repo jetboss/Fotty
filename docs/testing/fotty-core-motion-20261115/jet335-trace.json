@@ -1,0 +1,11 @@
+{
+  "capture": "Animation Hitches",
+  "target": "Jet Fotty app process",
+  "timeLimitSeconds": 45,
+  "wallClockFinalizationExceeded": true,
+  "stop": "SIGINT then SIGTERM after bounded wait",
+  "exportExit": 10,
+  "exportError": "Document Missing Template Error",
+  "samplesQualified": false,
+  "claim": "No frame-time or hitch pass inferred"
+}

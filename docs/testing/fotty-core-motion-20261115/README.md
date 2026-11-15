@@ -1,10 +1,15 @@
 # Core viewing UI motion — 15 November 2026
 
+**Current:** normal signed335 is installed on Jet after the separately authorized
+[physical follow-up](jet335-acceptance.md). Watch feedback/disclosures were observed
+on-device; quantified motion, VoiceOver and phone limits remain explicit. The
+source/local gate below is historical and did not itself authorize installation.
+
 Owner direction: focus on the main match-viewing journey, smooth transitions and
 Fotty character; avoid further Sports TV expansion. Actual Claude discussed the
 frozen f214db2 baseline in two read-only rounds before the consolidated pass.
 The source changes are on codex/ui-motion-20261115. No device or distribution
-step is part of this source/local-validation pass. Jet remains on 334.
+step was part of that source/local-validation pass; Jet remained on 334 then.
 
 ## Screen and motion contract
 
@@ -96,5 +101,6 @@ Native component captures are synthetic test content, not an actual live fixture
 [600pt idle](home-footer-watch-600-idle.png),
 [600pt pending](home-footer-watch-600-opening.png).
 
-No iOS package, install, phone interaction, backend work or TestFlight release
-was performed. Jet334 remains installed. Physical motion acceptance is open.
+The source-only gate did not package or install iOS. The later
+[Jet335 follow-up](jet335-acceptance.md) records installation and bounded physical
+checks separately. Phone, backend and TestFlight remain untouched.

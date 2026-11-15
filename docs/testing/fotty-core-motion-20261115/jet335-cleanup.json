@@ -1,0 +1,11 @@
+{
+  "ownedOutputRemoved": true,
+  "ownedKeepAwakeStoppedByGateFinally": true,
+  "finalFreeDiskBytes": 27163381760,
+  "simulatorsUsed": false,
+  "heavyBuildsConcurrent": false,
+  "deviceBuildCount": 1,
+  "temporaryPrivateSnapshotsRemoved": true,
+  "failedTraceRemoved": true,
+  "rawPrivateMaterialCommitted": false
+}

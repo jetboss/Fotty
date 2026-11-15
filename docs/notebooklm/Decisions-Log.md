@@ -1,5 +1,13 @@
 ## 2026-11-15 — Polish core Watch feedback and local match motion with Claude
 
+
+## 2026-11-15: Jet335 core UI physical follow-up
+- **Decision**: Install the owner-approved UI polish on Jet only; preserve ranking, phone, saved data and TestFlight.
+- **Implementation**: One signed normal Release335 from b693a01; no further source edits or rebuild. Actual Claude reviewed source plus reported physical evidence twice, finding no confirmed defect.
+- **Verification**: Existing261 focused Catalyst tests pass on unchanged source; 320 source/config hashes still match. Observed stable Watch/spinner feedback, cancellation, Home/shared-card disclosures, mini-player coexistence and large standard text/light/dark. Restored System appearance, original text step and Reduce Motion off.
+- **Limits**: Failed Animation Hitches export gives no FPS/hitch result. Phone, spoken VoiceOver, AX3, forced score transitions and live saved-Matchday card remain physically open. One buffering match and no-stream outcomes are retained separately from UI acceptance; channel pictures do not prove audio/programme qualification.
+- **Evidence**: [Jet335 acceptance](../testing/fotty-core-motion-20261115/jet335-acceptance.md), Claude reviews, redacted diagnostics and preservation receipts. No Git/cloud publication or TestFlight.
+
 The owner redirected effort from deeper TV work to Home→match→Watch polish and
 reaffirmed direct collaboration with Claude. Three actual Claude rounds changed
 the plan to fix tap-time disabled-row dimming and label reflow first. Keep visible

@@ -1,0 +1,150 @@
+{
+  "candidate": "b693a01",
+  "build": 335,
+  "finding": "Owner saved data, follows, profile, social data and protected source/appearance/interest preferences are preserved. The strict comparator failure remains retained separately.",
+  "strict_comparator": {
+    "receipt": "jet335-preservation-raw.json",
+    "preservation_ok": false,
+    "protected_preference_change_count": 7,
+    "protected_table_inequalities": [
+      "ZFOLLOWEDTEAMITEM"
+    ],
+    "comparator_changed": false
+  },
+  "preferences": {
+    "before_count": 42,
+    "after_count": 42,
+    "exactly_equal_count": 30,
+    "strictly_flagged_runtime_changes": [
+      {
+        "key": "Fotty.BroadcastRegistry.accepted.v1",
+        "classification": "accepted registry cache",
+        "source_write_reference": "Fotty/Core/Networking/BroadcastRegistry.swift:993",
+        "decoded_json_equal": false
+      },
+      {
+        "key": "Fotty.CPLSchedule.lastKnownGood.v1",
+        "classification": "accepted CPL schedule cache",
+        "source_write_reference": "Fotty/Core/Models/CricketCatalog.swift:629",
+        "decoded_json_equal": false
+      },
+      {
+        "key": "Fotty.SportsFixtures.lastKnownGood.v1",
+        "classification": "accepted sports fixture cache",
+        "source_write_reference": "Fotty/Core/Models/SportsFixtureCatalog.swift:690",
+        "decoded_json_equal": false
+      },
+      {
+        "key": "fotty.live.lastGoodProvider.v1",
+        "classification": "runtime playback success context",
+        "source_write_reference": "Fotty/Core/Networking/LiveSourceHealthStore.swift:1061; Fotty/Core/Networking/LiveSourceHealthStore.swift:1228",
+        "structured_value_equal": false
+      },
+      {
+        "key": "fotty.live.matchEvidence.v1",
+        "classification": "runtime match outcome evidence",
+        "source_write_reference": "Fotty/Core/Networking/LiveSourceHealthStore.swift:505",
+        "decoded_json_equal": false
+      },
+      {
+        "key": "fotty.live.sourceHealth.v1",
+        "classification": "runtime source health observations",
+        "source_write_reference": "Fotty/Core/Networking/LiveSourceHealthStore.swift:1056; Fotty/Core/Networking/LiveSourceHealthStore.swift:1218",
+        "decoded_json_equal": false
+      },
+      {
+        "key": "sports.playback.continuity.v1",
+        "classification": "runtime qualified playback hold receipt",
+        "source_write_reference": "Fotty/Core/Models/SportsTVExperience.swift:461",
+        "decoded_json_equal": false
+      }
+    ],
+    "protected_named_equalities": {
+      "com.fotty.stream_plugin_states": true,
+      "fotty.appearance": true,
+      "fotty.home.onlyShowSelectedInterests": true,
+      "fotty.sports.followedSportIDs.v1": true,
+      "fotty.provider.evidence.configuration.v1": true,
+      "sports.tv.favourites.v1": true,
+      "fotty.match-reminders.v1": true
+    },
+    "other_changed_keys": [
+      "Fotty.CricketFixtures.lastKnownGood.v1",
+      "fotty.my-matchday.saved-matches",
+      "fotty.programme.evidence.v1",
+      "fotty.quality.records.v1",
+      "sports.tv.recent.v1"
+    ],
+    "json_ordering_finding": "The six JSON-encoded flagged runtime values differ semantically; JSON key ordering alone does not explain them. The remaining flagged runtime value is a changed structured playback-success context."
+  },
+  "saved_matches": {
+    "before_count": 1,
+    "after_count": 1,
+    "identity_equal": true,
+    "savedAt_equal": true,
+    "all_fields_except_cricket_observedAt_equal": true,
+    "only_changed_field": "cricketFixture.observedAt",
+    "observation_finite_and_forward": true,
+    "json_numeric_types": [
+      "float",
+      "int"
+    ],
+    "normal_refresh_reference": "Fotty/Core/Models/ArenaModels.swift:429",
+    "encoding_reference": "Fotty/Core/Models/ArenaModels.swift:475",
+    "interpretation": "Existing reconciliation preserves savedAt and replaces metadata from the accepted current event; JSONEncoder serializes the refreshed numeric receipt."
+  },
+  "followed_team": {
+    "before_count": 1,
+    "after_count": 1,
+    "only_changed_columns": [
+      "Z_OPT"
+    ],
+    "equal_owner_columns": [
+      "ZALERTSENABLED",
+      "ZCREATEDAT",
+      "ZBADGEURLSTRING",
+      "ZKEY",
+      "ZSPORTCATEGORY",
+      "ZTEAMNAME"
+    ],
+    "row_identity_columns_equal": [
+      "Z_PK",
+      "Z_ENT"
+    ],
+    "owner_fields_exactly_equal_excluding_only_Z_OPT": true,
+    "json_ordering_difference": false,
+    "model_reference": "Fotty/Core/Persistence/SchemaModels.swift:7",
+    "possible_existing_write_path": "Fotty/Core/Social/SportsPersonalizationPolicy.swift:347",
+    "causal_limit": "Z_OPT is framework revision metadata. Existing identity migration can reassign unchanged canonical fields and save; this is a plausible trigger, not proof of this particular revision change."
+  },
+  "other_protected_table_equalities": {
+    "ZARENAMESSAGE": true,
+    "ZDIRECTMESSAGE": true,
+    "ZFOLLOWEDLEAGUEITEM": true,
+    "ZSOCIALACCOUNT": true,
+    "ZSOCIALACTIVITYITEM": true,
+    "ZSOCIALCONVERSATION": true,
+    "ZSOCIALFOLLOWRELATIONSHIP": true,
+    "ZSOCIALNOTIFICATIONITEM": true,
+    "ZSOCIALPENDINGACTIONITEM": true,
+    "ZSOCIALSAFETYACTIONITEM": true,
+    "ZUSERPROFILE": true,
+    "Z_METADATA": true,
+    "Z_MODELCACHE": true
+  },
+  "sqlite_schema_equal": true,
+  "quick_check_ok": {
+    "before": true,
+    "after": true
+  },
+  "added_history_rows": {
+    "MatchCacheItem": 5950,
+    "other_entities": 0
+  },
+  "limits": [
+    "App-container evidence does not verify device-wide text size or Reduce Motion; those require the root operator's observed UI restoration.",
+    "Runtime caches, source-health observations, recent-channel order and playback evidence can change through ordinary use; this finding does not claim all storage bytes were unchanged.",
+    "The original strict failure is retained; this is a separately explained semantic finding, not a rewritten raw pass."
+  ],
+  "privacy": "Counts, equality results, schema/key names and source references only; no private identifiers, titles, URLs or preference values retained."
+}
