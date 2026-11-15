@@ -98,6 +98,8 @@ def verified_public_checksum(root, finding):
         "docs/testing/product-return-discovery-2026-10-29/protected-inputs.json",
         "docs/testing/fotty185-ipad-2026-10-29/source-hashes.json",
         "docs/testing/fotty25-remaining-2026-10-29/source-hashes.json",
+        "docs/testing/fotty-match-evidence-identity-20261114/validation.json",
+        "docs/testing/fotty-provider-cohorts-20261114/validation.json",
     }
     try:
         path = Path(finding["File"])

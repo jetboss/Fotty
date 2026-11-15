@@ -214,6 +214,21 @@ class SourceReceiptChecksumTests(unittest.TestCase):
         self.source.write_text("changed source")
         self.assertFalse(snapshot.verified_public_checksum(self.root, self.finding))
 
+    def test_november_validation_receipts_require_exact_current_source(self):
+        for name in ("fotty-match-evidence-identity-20261114", "fotty-provider-cohorts-20261114"):
+            with self.subTest(receipt=name):
+                target = self.root / "docs/testing" / name / "validation.json"
+                target.parent.mkdir(parents=True)
+                target.write_bytes(self.path.read_bytes())
+                finding = self.finding | {"File": str(target)}
+                self.assertTrue(snapshot.verified_public_checksum(self.root, finding))
+                target.write_text(target.read_text().replace(self.digest, "a" * 64))
+                self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
+                target.write_bytes(self.path.read_bytes())
+                self.source.write_text("changed source")
+                self.assertFalse(snapshot.verified_public_checksum(self.root, finding))
+                self.source.write_text("struct ExampleAccessStore {}\n")
+
     def test_arbitrary_manifest_wrong_rule_and_unproven_digest_reject(self):
         other = self.root / "other.json"
         other.write_bytes(self.path.read_bytes())
