@@ -1,0 +1,23 @@
+{
+  "phase": "passed",
+  "diskFreeBefore": 31242862592,
+  "base": "7f5c8dc70fe06e446105ca290eaabcef07ec23c7",
+  "buildExit": 0,
+  "buildSummary": {
+    "counts": null,
+    "failures": []
+  },
+  "testExit": 0,
+  "testSummary": {
+    "counts": {
+      "total": 2723,
+      "skipped": 12,
+      "failed": 0,
+      "passed": 2711
+    },
+    "failures": []
+  },
+  "diskFreeBeforeCleanup": 30222385152,
+  "diskFreeAfterCleanup": 31129591808,
+  "ownedOutputRemoved": true
+}

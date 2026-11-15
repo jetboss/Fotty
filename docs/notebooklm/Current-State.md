@@ -1,10 +1,12 @@
 # Fotty current state
 
+15 Nov: [Sports TV guide](../testing/fotty-sports-tv-guide-20261115/README.md) implemented on an isolated332-based branch. Claude approved; 2,711 full-suite passes/12 skips, then131 focused passes. Devices, ranking and TestFlight unchanged.
+
 14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Internal TestFlight332 released to the existing13 testers; [release proof](../releases/Fotty-3.0.0-332.md).
 
-Prior331: [stage5 discovery](../testing/fotty-discovery-stage5-20261114/README.md) passed 2,807 tests/12 skips and WBBL Watch. Jamaica–Mexico transport failure remains historical evidence.
+Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.md) retains WBBL Watch and Jamaica–Mexico failure evidence.
 
-14 Nov: [Jet 324 shared stream acceptance](../testing/fotty324-shared-admission/README.md): common delivery policy, per-entry accounting and separate selection ledgers. 2,678 tests passed, 12 skipped; signed normal 324 installed on Jet. Watch offered 26 choices (HF7/7, CS6/8, PP13/14; CNC unread). HF1 showed wrong rugby; HF2 held correct Vegas–Nashville 92s/zero stalls and recovered after a later failure chain. Programme mismatch cause remains unproven. No phone/FPL/multi/TF changes.
+14 Nov: [Jet324 shared admission](../testing/fotty324-shared-admission/README.md) added common delivery policy and accounting. HF1 showed wrong rugby; HF2 held correct Vegas–Nashville92s/zero stalls. Programme mismatch cause remains unproven; receipt retains source counts and recovery evidence.
 
 13 Nov history: [323 providers](../testing/fotty323-provider-watch/README.md), [322 CNC](../testing/fotty320-cnc-football/README.md), [319 Watch/Retry](../testing/fotty318-watch-availability/README.md).
 

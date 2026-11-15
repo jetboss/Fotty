@@ -1,0 +1,27 @@
+{
+  "phase": "failed",
+  "diskFreeBefore": 31345979392,
+  "base": "7f5c8dc70fe06e446105ca290eaabcef07ec23c7",
+  "buildExit": 0,
+  "buildSummary": {
+    "counts": null,
+    "failures": []
+  },
+  "testExit": 65,
+  "testSummary": {
+    "counts": {
+      "total": 2715,
+      "skipped": 12,
+      "failed": 1,
+      "passed": 2702
+    },
+    "failures": [
+      "/Users/jelani/.codex/worktrees/fotty-sports-tv-guide-20261115/Fotty/FottyTests/SportsTVGuidePresentationTests.swift:42: error: -[FottyTests.SportsTVGuidePresentationTests testLongProgrammeNamesWrapOnNarrowPhoneAndGrowWithDynamicType] : XCTAssertGreaterThan failed: (\"88.5\") is not greater than (\"88.5\") - Text must grow and reflow",
+      "Test Case '-[FottyTests.SportsTVGuidePresentationTests testLongProgrammeNamesWrapOnNarrowPhoneAndGrowWithDynamicType]' failed (0.015 seconds)."
+    ]
+  },
+  "error": "Tests failed",
+  "diskFreeBeforeCleanup": 30328549376,
+  "diskFreeAfterCleanup": 31234560000,
+  "ownedOutputRemoved": true
+}

@@ -338,6 +338,7 @@
 		FFBCAD05B2A64DE6654E2401 /* home-phone-light.png in Resources */ = {isa = PBXBuildFile; fileRef = CD0DC49D99917DDCBEA86C0E /* home-phone-light.png */; };
 		830906B78AC56272552EC5FD /* FPLBackupCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9667ADE32F514A1F728AC51 /* FPLBackupCompatibility.swift */; };
 		24D9862D406E84CEDD758A1B /* RetainedFootballDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD68243150EB4CA6C011EC7E /* RetainedFootballDataTests.swift */; };
+		FD780A6445139A3A1BBE4E4F /* SportsTVGuidePresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0243E645EB33DD259363E9 /* SportsTVGuidePresentationTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -713,6 +714,7 @@
 		FFD00EEA3BC8C2AEDD5B9D4F /* FPLAdvisorViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLAdvisorViewModel.swift; sourceTree = "<group>"; };
 		C9667ADE32F514A1F728AC51 /* FPLBackupCompatibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLBackupCompatibility.swift; sourceTree = "<group>"; };
 		FD68243150EB4CA6C011EC7E /* RetainedFootballDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetainedFootballDataTests.swift; sourceTree = "<group>"; };
+		AD0243E645EB33DD259363E9 /* SportsTVGuidePresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsTVGuidePresentationTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -841,6 +843,7 @@
 				4D91E536EDC0DBCC805AE5A7 /* SportsPreferenceSyncTests.swift */,
 				AF80FF69699D892F320CF11B /* SportsReminderBackgroundRefreshTests.swift */,
 				FC73405E7D4E3DF4CECB458C /* SportsSearchScheduleTests.swift */,
+				AD0243E645EB33DD259363E9 /* SportsTVGuidePresentationTests.swift */,
 				26C7DD21FA99A7D2E38A710E /* SportsTVExperienceTests.swift */,
 				BC9CB9708065C5BC27C38E34 /* SportsWidgetSnapshotTests.swift */,
 				C17E46D90F163BF1D98D4802 /* StorageRuntimeSafetyTests.swift */,
@@ -2027,6 +2030,7 @@
 				2A44E602D7FC7C7F1EBD78F6 /* SportsPreferenceSyncTests.swift in Sources */,
 				1399D01534943F01594584B4 /* SportsReminderBackgroundRefreshTests.swift in Sources */,
 				D0B9371779E3260BE8DF952C /* SportsSearchScheduleTests.swift in Sources */,
+				FD780A6445139A3A1BBE4E4F /* SportsTVGuidePresentationTests.swift in Sources */,
 				3F24BA633DDC87771E7D5744 /* SportsTVExperienceTests.swift in Sources */,
 				6FC99DD466284EA36CF9F288 /* SportsWidgetSnapshotTests.swift in Sources */,
 				76D8513735770583FDC69B46 /* StorageRuntimeSafetyTests.swift in Sources */,

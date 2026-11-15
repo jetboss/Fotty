@@ -109,12 +109,26 @@ enum HomeOnAirPolicy {
 }
 
 enum SportsTVGuidePolicy {
+    enum Day: String, CaseIterable, Identifiable, Sendable {
+        case today, tomorrow
+        var id: String { rawValue }
+        var title: String { self == .today ? "Today" : "Tomorrow" }
+    }
+    enum SportFilter: String, CaseIterable, Identifiable, Sendable {
+        case all, football, cricket
+        var id: String { rawValue }
+        var title: String { switch self { case .all: "All"; case .football: "Football"; case .cricket: "Cricket" } }
+        func includes(_ sport: String) -> Bool { self == .all || rawValue == sport }
+    }
+
     struct Entry: Identifiable, Equatable, Sendable {
         let id: String
         let title: String
         let start: Date
         let end: Date?
         let sport: String
+        /// A registry-owned association, never inferred from programme text.
+        var fixtureID: String? = nil
         func isOnNow(at now: Date) -> Bool { end.map { start <= now && now < $0 } ?? false }
         func progress(at now: Date) -> Double? {
             guard isOnNow(at: now), let end, end > start else { return nil }
@@ -146,11 +160,131 @@ enum SportsTVGuidePolicy {
             if $0.kind == .programme, start <= now {
                 guard hasCurrentProgrammeAuthority($0, snapshot: snapshot, at: now) else { return nil }
             }
-            return Entry(id: $0.id, title: $0.title, start: start, end: $0.end, sport: $0.sport)
+            return Entry(id: $0.id, title: $0.title, start: start, end: $0.end, sport: $0.sport,
+                         fixtureID: fixtureLink(for: $0, snapshot: snapshot, at: now)?.fixtureID)
         }
-        // The detailed guide takes precedence over a duplicated football listing.
-        let remaining = linked.filter { row in !scheduled.contains { $0.start == row.start && $0.title.contains(row.title) } }
-        return (scheduled + remaining).sorted { $0.start == $1.start ? $0.id < $1.id : $0.start < $1.start }
+        // Presentation de-duplication must not discard the explicit association.
+        // Keep that original registry row; never lend its identity to guide text.
+        let visibleSchedule = scheduled.filter { schedule in
+            !linked.contains { $0.fixtureID != nil && $0.start == schedule.start && schedule.title.contains($0.title) }
+        }
+        let remaining = linked.filter { row in
+            row.fixtureID != nil || !scheduled.contains { $0.start == row.start && $0.title.contains(row.title) }
+        }
+        return (visibleSchedule + remaining).sorted { $0.start == $1.start ? $0.id < $1.id : $0.start < $1.start }
+    }
+
+    /// Local calendar days, including a current programme crossing midnight.
+    /// Start-only schedules retain their original future-only semantics.
+    static func entries(for station: SportsTVStation, snapshot: BroadcastRegistrySnapshot?, at now: Date,
+                        day: Day, calendar: Calendar = .current, sport: SportFilter = .all) -> [Entry] {
+        guard let date = calendar.date(byAdding: .day, value: day == .today ? 0 : 1, to: now),
+              let interval = calendar.dateInterval(of: .day, for: date) else { return [] }
+        return entries(for: station, snapshot: snapshot, at: now).filter {
+            sport.includes($0.sport) && (($0.start >= interval.start && $0.start < interval.end) || day == .today && $0.isOnNow(at: now))
+        }
+    }
+
+    /// The station contract or a dated advertised programme supplies its sport.
+    /// A name such as “Main Event” is not evidence of a particular sport.
+    static func matches(_ station: SportsTVStation, sport: SportFilter,
+                        snapshot: BroadcastRegistrySnapshot?, at now: Date) -> Bool {
+        if sport == .all { return true }
+        if sport == .cricket, station.isCricket { return true }
+        if ReviewedTVPlaylistClient.channel(forChannelID: station.id)?.sports.contains(sport.rawValue) == true { return true }
+        return entries(for: station, snapshot: snapshot, at: now).contains { sport.includes($0.sport) }
+    }
+
+    /// Revalidate the current registry and catalog when an action is invoked.
+    /// The optional ID on a rendered row is a hint, not a retained authority.
+    @MainActor static func linkedEvent(for entry: Entry, station: SportsTVStation,
+                                      snapshot: BroadcastRegistrySnapshot?, catalog: [EventReference],
+                                      at now: Date) -> EventReference? {
+        guard let snapshot, let fixtureID = entry.fixtureID,
+              let current = entries(for: station, snapshot: snapshot, at: now).first(where: { $0.id == entry.id }),
+              current.fixtureID == fixtureID, current.start == entry.start,
+              let broadcast = snapshot.broadcasts.first(where: { $0.id == current.id && $0.channelID == station.id }),
+              let link = fixtureLink(for: broadcast, snapshot: snapshot, at: now), link.fixtureID == fixtureID,
+              let provider = snapshot.providers.first(where: { $0.providerCode == broadcast.providerCode && $0.scope == broadcast.scope })
+        else { return nil }
+        let candidates = catalog.filter { $0.id == fixtureID }
+        guard candidates.count == 1, let candidate = candidates.first,
+              let event = CurrentEventBroadcastPolicy.currentEvent(for: candidate, in: catalog, at: now),
+              event.id == fixtureID, !event.isBroadcastChannel,
+              VerifiedFixtureTerminalPolicy.state(for: event, at: now) == nil else { return nil }
+        let match = BroadcastRegistryMatch(broadcast: broadcast, link: link, provider: provider)
+        let request = StreamPlaybackRequest(event: event)
+        if current.start <= now {
+            return match.matches(request: request, providerCode: broadcast.providerCode,
+                                 providerEventID: broadcast.providerEventID, streamID: broadcast.streamID, at: now) ? event : nil
+        }
+        // Future Save/Remind needs a known fixture, not present playback authority.
+        // Never move the clock forward to make the playback policy admit it.
+        return futureFixtureMatches(event, broadcast: broadcast, link: link, at: now) ? event : nil
+    }
+
+    private static func fixtureLink(for broadcast: BroadcastRegistrySnapshot.Broadcast,
+                                    snapshot: BroadcastRegistrySnapshot, at now: Date) -> BroadcastRegistrySnapshot.Link? {
+        guard broadcast.kind != .channel, broadcast.verification == .dated, broadcast.issues.isEmpty,
+              broadcast.expiresAt > now,
+              (-300...BroadcastRegistrySnapshot.sourceLifetime).contains(now.timeIntervalSince(broadcast.observedAt)),
+              let provider = snapshot.providers.first(where: { $0.providerCode == broadcast.providerCode && $0.scope == broadcast.scope }),
+              let observed = provider.observedAt, let expiry = provider.expiresAt, expiry > now,
+              (-300...BroadcastRegistrySnapshot.sourceLifetime).contains(now.timeIntervalSince(observed)),
+              [.available, .partial].contains(provider.status) || provider.status == .failed && provider.lastSuccessAt == observed
+        else { return nil }
+        let current = snapshot.links.filter { $0.broadcastID == broadcast.id && $0.expiresAt > now }
+        guard !current.isEmpty, current.allSatisfy({ $0.providerCode == broadcast.providerCode && $0.state == .listed && $0.reason == nil }),
+              let first = current.first, first.fixtureID == first.fixtureFingerprint.fixtureID,
+              current.allSatisfy({ $0.fixtureID == first.fixtureID && $0.fixtureFingerprint == first.fixtureFingerprint }) else { return nil }
+        return first
+    }
+
+    /// Only the explicit registry fingerprint is compared to current official
+    /// metadata. This cannot authorize a stream or turn a station into a match.
+    @MainActor private static func futureFixtureMatches(_ event: EventReference,
+                                                       broadcast: BroadcastRegistrySnapshot.Broadcast,
+                                                       link: BroadcastRegistrySnapshot.Link, at now: Date) -> Bool {
+        let fingerprint = link.fixtureFingerprint
+        guard !event.hasCatalogIdentityConflict, let kickoff = event.kickoffDate, kickoff > now,
+              let sourceStart = broadcast.start, sourceStart > now, broadcast.startBasis == nil,
+              fingerprint.fixtureID == event.id, fingerprint.start == kickoff,
+              let identity = ReviewedSportsFixtureMatcher.requestIdentity(for: .init(event: event)),
+              fingerprint.sport == identity.sport, broadcast.sport == identity.sport,
+              BroadcastRegistrySnapshot.participantPair(fingerprint.participants, sport: identity.sport) == identity.pair,
+              BroadcastRegistrySnapshot.participantPair(broadcast.participants, sport: identity.sport) == identity.pair,
+              fingerprint.competitionID == (event.competitionID ?? event.cricketFixture?.competitionID),
+              broadcast.competitionID == nil || broadcast.competitionID == fingerprint.competitionID,
+              broadcast.squad == nil || fingerprint.squad == nil || broadcast.squad == fingerprint.squad,
+              broadcast.format == fingerprint.format else { return false }
+        if let sports = event.sportsFixture {
+            guard event.cricketFixture == nil, sports.verified, sports.fixtureID == event.id,
+                  sports.eventKind == .match, sports.status == .scheduled, sports.squad == fingerprint.squad,
+                  (-300...SportsFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(sports.identityReceipt)),
+                  fingerprint.format == nil, fingerprint.day == nil, fingerprint.matchOrdinal == nil, fingerprint.end == nil else { return false }
+        } else if let cricket = event.cricketFixture {
+            guard cricket.verified, CricketFixtureCatalog.fixtureIDPrefix + cricket.fixtureID == event.id,
+                  cricket.status == .scheduled, cricket.format == fingerprint.format, fingerprint.squad == nil,
+                  (-300...CricketFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(cricket.observedAt)) else { return false }
+            if cricket.format == .test {
+                guard fingerprint.day == cricket.context?.day, fingerprint.matchOrdinal == cricket.context?.matchOrdinal,
+                      fingerprint.end == cricket.context?.matchEndsAt.flatMap(BroadcastRegistrySnapshot.date),
+                      broadcast.day == fingerprint.day, broadcast.matchOrdinal == fingerprint.matchOrdinal else { return false }
+            } else {
+                guard fingerprint.day == nil, fingerprint.end == nil,
+                      fingerprint.matchOrdinal == nil || fingerprint.matchOrdinal == cricket.matchOrdinal,
+                      broadcast.matchOrdinal == nil || broadcast.matchOrdinal == cricket.matchOrdinal else { return false }
+            }
+        } else { return false }
+        switch link.matchMethod {
+        case .exact:
+            return abs(sourceStart.timeIntervalSince(kickoff)) <= 15 * 60
+        case .programme, .channelAssignment:
+            var utc = Calendar(identifier: .gregorian); utc.timeZone = TimeZone(secondsFromGMT: 0)!
+            return (0...3600).contains(kickoff.timeIntervalSince(sourceStart))
+                && utc.isDate(sourceStart, inSameDayAs: kickoff)
+        case .currentEvent, .testPeriod: return false
+        }
     }
 
     private static func hasCurrentProgrammeAuthority(_ programme: BroadcastRegistrySnapshot.Broadcast,

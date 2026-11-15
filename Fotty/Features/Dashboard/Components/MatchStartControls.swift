@@ -300,6 +300,9 @@ struct MatchStartControls<Information: View>: View {
     var onCheckStreams: (() -> Void)? = nil
     var alternateActionTitle: String? = nil
     var showsReminder = true
+    /// Optional current-source admission for guide-origin reminder enables.
+    /// Cancellation remains available even after a programme link expires.
+    var reminderAdmission: (() -> EventReference?)? = nil
     var compact = false
     var minimumInformationWidth: CGFloat? = nil
     /// The row draws its own status line (see `MatchRowInlineStatus`), so
@@ -323,7 +326,7 @@ struct MatchStartControls<Information: View>: View {
          now: Date? = nil,
          onWatch: (() -> Void)? = nil, alternateActionTitle: String? = nil,
          onCheckStreams: (() -> Void)? = nil,
-         showsReminder: Bool = true, compact: Bool = false,
+         showsReminder: Bool = true, reminderAdmission: (() -> EventReference?)? = nil, compact: Bool = false,
          minimumInformationWidth: CGFloat? = nil,
          embedsInlineStatus: Bool = false,
          @ViewBuilder information: () -> Information) {
@@ -335,6 +338,7 @@ struct MatchStartControls<Information: View>: View {
         self.onCheckStreams = onCheckStreams
         self.alternateActionTitle = alternateActionTitle
         self.showsReminder = showsReminder
+        self.reminderAdmission = reminderAdmission
         self.compact = compact
         self.minimumInformationWidth = minimumInformationWidth
         self.information = information()
@@ -619,8 +623,18 @@ struct MatchStartControls<Information: View>: View {
         }
     }
 
+    /// Invoked at enable/restore time, never while rendering the control.
+    func admittedReminderEvent(_ requested: EventReference) -> EventReference? {
+        guard let reminderAdmission else { return requested }
+        return reminderAdmission()
+    }
+
     private func enableReminder(_ reminderEvent: AnalyticalDataEngine.EventReference, isUndo: Bool = false) {
-        let intentEvent = reminders.eventForIntent(reminderEvent)
+        guard let admitted = admittedReminderEvent(reminderEvent) else {
+            reminderFeedback.showFailure(.failed, eventID: reminderEventID)
+            return
+        }
+        let intentEvent = reminders.eventForIntent(admitted)
         let operation = reminderFeedback.begin(eventID: intentEvent.id, previousRecord: reminderRecord,
             intentRevision: reminders.intentRevision(for: intentEvent.id),
             enablesReminder: true, isUndo: isUndo)

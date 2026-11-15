@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-15T03:14:19.427574+00:00
-Source digest: 3e7e70ca6247078086fb84b1979a28103523077441f29d5d364ac85eb1be8806
+Generated: 2026-11-15T15:22:06.474995+00:00
+Source digest: a11df2c49a9f50fc2e4f11c6a5f8ceafa0733e95cabd89abc4a5219059c4c28e
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,11 +11,13 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
+15 Nov: [Sports TV guide](../testing/fotty-sports-tv-guide-20261115/README.md) implemented on an isolated332-based branch. Claude approved; 2,711 full-suite passes/12 skips, then131 focused passes. Devices, ranking and TestFlight unchanged.
+
 14 Nov evening: [private Jet332](../testing/fotty332-watch-first-retirement/README.md) retires FPL and parks Watch Two. Claude approved; 2,687 tests pass/12 skips/zero failures. Correct live WBBL Watch held 91 seconds without stalls; Pause/Sources/resume, navigation and legacy-link checks passed. Scores, follows, saved data and source settings preserved; ranking/phone unchanged. Internal TestFlight332 released to the existing13 testers; [release proof](../releases/Fotty-3.0.0-332.md).
 
-Prior331: [stage5 discovery](../testing/fotty-discovery-stage5-20261114/README.md) passed 2,807 tests/12 skips and WBBL Watch. Jamaica–Mexico transport failure remains historical evidence.
+Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.md) retains WBBL Watch and Jamaica–Mexico failure evidence.
 
-14 Nov: [Jet 324 shared stream acceptance](../testing/fotty324-shared-admission/README.md): common delivery policy, per-entry accounting and separate selection ledgers. 2,678 tests passed, 12 skipped; signed normal 324 installed on Jet. Watch offered 26 choices (HF7/7, CS6/8, PP13/14; CNC unread). HF1 showed wrong rugby; HF2 held correct Vegas–Nashville 92s/zero stalls and recovered after a later failure chain. Programme mismatch cause remains unproven. No phone/FPL/multi/TF changes.
+14 Nov: [Jet324 shared admission](../testing/fotty324-shared-admission/README.md) added common delivery policy and accounting. HF1 showed wrong rugby; HF2 held correct Vegas–Nashville92s/zero stalls. Programme mismatch cause remains unproven; receipt retains source counts and recovery evidence.
 
 13 Nov history: [323 providers](../testing/fotty323-provider-watch/README.md), [322 CNC](../testing/fotty320-cnc-football/README.md), [319 Watch/Retry](../testing/fotty318-watch-availability/README.md).
 
@@ -879,6 +881,10 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-15 — Implement the approved Sports TV guide first, without changing source ranking
+
+Owner authorized source implementation after the Claude/Codex iPhone/iPad concept; player Up next and pitch are outside this task, and device/TestFlight holds remain. Programme-led cards stack on phones, narrow windows and accessibility sizes; wide iPads show channel/On now/Next. Preserve channel favourites/recent/language grouping, bounded guide refresh and the seven-day station sheet; Today/Tomorrow search is scoped to the visible local day. Explicit fresh unique registry links plus the current canonical fixture can use the existing Watch, Save and Remind paths. Generic schedule rows tune the channel. Future match actions validate fixture fingerprints without admitting future playback. Never infer fixture identity from programme titles. Recheck retained actions, including reminder enable and Undo, before mutation; cancellation remains possible after expiry. Claude reviewed three bounded rounds and approved the final source; full Catalyst and focused final evidence are in [the guide receipt](../testing/fotty-sports-tv-guide-20261115/README.md). No player/source ranking, cloud, opt-in, device or distribution changes.
 
 ## 2026-11-14 — Release approved build332 to existing internal testers
 

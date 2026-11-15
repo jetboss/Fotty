@@ -1,0 +1,9 @@
+{
+  "baselineErrors": 46,
+  "currentErrors": 45,
+  "newErrors": [],
+  "resolved": [
+    "FottyTests: missing Sources membership: FottyTests/SportsTVGuidePresentationTests.swift"
+  ],
+  "note": "Existing retired FPL source files intentionally remain off target; no membership widening in this guide task."
+}
