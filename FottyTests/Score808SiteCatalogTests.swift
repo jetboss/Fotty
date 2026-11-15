@@ -22,13 +22,15 @@ final class Score808SiteCatalogTests: XCTestCase {
         let suite = "Score808-admission-" + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        let store = FottyQualityStore(defaults: defaults, storageKey: "quality")
+        let now = kickoff
+        let store = FottyQualityStore(defaults: defaults, storageKey: "quality", now: { now })
         let listing = Data(("<div class='elfsight-app-\(widgetID)'></div>" + player()).utf8)
         let configurationData = try JSONSerialization.data(withJSONObject: configuration([event()]))
         let resolver = Score808SiteResolver(reader: { url in
             url == Score808SiteResolver.listingPage ? listing : configurationData
         }, qualityStore: store)
-        let session = try await resolver.resolve(for: batchRequest(), now: kickoff)
+        let request = batchRequest()
+        let session = try await resolver.resolve(for: request, now: now)
         XCTAssertNotNil(session)
         XCTAssertEqual(session?.diagnosticMetadata["source_family"], "score808")
         let receipts = store.records().filter { $0.name == "stream_admission" }
@@ -41,6 +43,44 @@ final class Score808SiteCatalogTests: XCTestCase {
         XCTAssertNil(row.admitted)
         XCTAssertEqual(row.firstPictures, 0, "A player page is not decoded playback")
         XCTAssertFalse(receipts[0].details.values.contains { $0.contains("://") })
+
+        let lookup = try XCTUnwrap(store.records().first { $0.name == "provider_lookup" })
+        XCTAssertEqual(lookup.details["evidence_lookup_id"], receipts[0].details["admission_lookup_id"])
+        XCTAssertEqual(lookup.details["evidence_web_only"], "true")
+        XCTAssertEqual(lookup.details["admission_observation"], "unread")
+        XCTAssertNil(lookup.details["offered_count"])
+        XCTAssertNil(lookup.details["admitted_count"])
+        XCTAssertFalse(store.records().contains { $0.name == "provider_delivery" })
+        let fixture = try fixtureDigest(request.matchID)
+        let window = DateInterval(start: now.addingTimeInterval(-1), duration: 2)
+        let counts = store.fixtureLookupCounts(fixture: fixture, provider: .score808, window: window)
+        XCTAssertEqual(counts.lookups, 1)
+        XCTAssertEqual(counts.webOnlyLookups, 1)
+        XCTAssertEqual(counts.observedEntries, 0, "No raw media entries were observed; the offered total remains unknown")
+        XCTAssertEqual(counts.uniqueObservedContracts, 0)
+        XCTAssertEqual(counts.readResponses, 0, "Calendar/player-page reads are not stream-response reads")
+        XCTAssertEqual(counts.unreadResponses, 0)
+        XCTAssertEqual(counts.knownEmptyResponses, 0, "A Web page never proves an empty media response")
+        XCTAssertFalse(counts.isTruncated)
+        let lookupID = try XCTUnwrap(lookup.details["evidence_lookup_id"].flatMap(UUID.init(uuidString:)))
+        store.recordScore808WebLookup(fixtureID: request.matchID, lookupID: lookupID)
+        XCTAssertEqual(store.fixtureLookupCounts(fixture: fixture, provider: .score808, window: window), counts,
+            "Replaying one lookup receipt is not another lookup")
+        XCTAssertEqual(FottyQualityStore(defaults: defaults, storageKey: "quality", now: { now })
+            .fixtureLookupCounts(fixture: fixture, provider: .score808, window: window), counts)
+        XCTAssertEqual(store.fixtureLookupCounts(fixture: fixture, provider: .highfly, window: window).lookups, 0)
+        XCTAssertEqual(store.fixtureLookupCounts(fixture: fixture, provider: .score808,
+            window: .init(start: now.addingTimeInterval(1), duration: 2)).lookups, 0)
+
+        let another = batchRequest(id: "another-private-fixture")
+        _ = try await resolver.resolve(for: another, now: now)
+        XCTAssertEqual(store.fixtureLookupCounts(fixture: try fixtureDigest(another.matchID),
+            provider: .score808, window: window).webOnlyLookups, 1)
+        XCTAssertEqual(store.fixtureLookupCounts(fixture: fixture, provider: .score808, window: window), counts,
+            "Another fixture on the same page keeps its own lookup")
+        for raw in [request.matchID, another.matchID, request.displayTitle, page, "media.example.test"] {
+            XCTAssertFalse(store.exportJSON().contains(raw), "Lookup export keeps only opaque fixture correlation")
+        }
     }
 
     func testWebLookupFailureAndCancellationEachKeepOneUnknownCountReceipt() async throws {
@@ -60,7 +100,33 @@ final class Score808SiteCatalogTests: XCTestCase {
             XCTAssertNil(receipts[0].details["offered_count"])
             XCTAssertEqual(receipts[0].details["admission_completion"], cancelled ? "cancelled" : "failed")
             XCTAssertEqual(receipts[0].details["admission_fetch_failures"], cancelled ? "0" : "1")
+            XCTAssertFalse(store.records().contains { $0.name == "provider_lookup" },
+                "A failed or cancelled read is not a successfully matched Web lookup")
         }
+    }
+
+    func testWebLookupWithoutPlayerEvidenceDoesNotCountASuccessfulPage() async throws {
+        let suite = "Score808-no-player-" + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let now = kickoff
+        let store = FottyQualityStore(defaults: defaults, storageKey: "quality", now: { now })
+        let listing = Data("<div class='elfsight-app-\(widgetID)'></div>".utf8)
+        let configurationData = try JSONSerialization.data(withJSONObject: configuration([event()]))
+        let resolver = Score808SiteResolver(reader: { url in
+            url == Score808SiteResolver.listingPage ? listing : configurationData
+        }, qualityStore: store)
+        let request = batchRequest()
+        let session = try await resolver.resolve(for: request, now: now)
+        XCTAssertNil(session)
+        let records = store.records()
+        XCTAssertEqual(records.filter { $0.name == "stream_admission" }.count, 1)
+        XCTAssertFalse(records.contains { $0.name == "provider_lookup" })
+        let counts = store.fixtureLookupCounts(fixture: try fixtureDigest(request.matchID), provider: .score808,
+            window: .init(start: now.addingTimeInterval(-1), duration: 2))
+        XCTAssertEqual(counts.lookups, 0)
+        XCTAssertEqual(counts.webOnlyLookups, 0)
+        XCTAssertEqual(counts.knownEmptyResponses, 0)
     }
 
     func testCatalogBatchSharesFixedListingAndBootWithoutFetchingSelectedWatchPage() async throws {
@@ -362,6 +428,14 @@ final class Score808SiteCatalogTests: XCTestCase {
             player() + String(repeating: " ", count: 1_000) + "<p>This stream is unavailable</p>"
         ]
         for html in invalid { XCTAssertFalse(Score808SiteCatalog.playerEvidence(in: html), String(html.prefix(120))) }
+    }
+
+    private func fixtureDigest(_ fixtureID: String) throws -> DeviceHMAC {
+        let scope = try XCTUnwrap(LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: fixtureID))
+        guard case .fixture(let digest) = scope else {
+            throw NSError(domain: "Score808SiteCatalogTests", code: 1)
+        }
+        return digest
     }
 
     private func batchRequest(id: String = "score808-batch", home: String = "Ipswich Town", away: String = "Liverpool",

@@ -423,7 +423,40 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         XCTAssertTrue(receipt.isReconciled)
     }
 
-    private func evidenceClient(streams: [String], failures: Set<Int> = [],
+    func testFailedTeamSearchPreservesSiblingAndReportsPartialCoverage() async throws {
+        let receipts = PenguPlayLockedValue<[ProviderLookupReceipt]>([])
+        let client = evidenceClient(streams: [#"{"streams":[{"url":"https://edge.example.com/live.m3u8"}]}"#],
+            failedSearches: ["Tampa Bay Lightning"], sink: { r in receipts.mutate { $0.append(r) } })
+        let sessions = try await client.resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.map(\.providerName), ["PP1"])
+        let receipt = try XCTUnwrap(receipts.value.last)
+        XCTAssertEqual(receipt.completion, "partial")
+        XCTAssertEqual(receipt.admitted, 1)
+        XCTAssertEqual(receipt.unreadResponses, 0)
+        XCTAssertTrue(receipt.isReconciled)
+        let diagnostic = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "penguplay_lookup" })
+        XCTAssertEqual(diagnostic.details["supplementary_failures"], "1")
+    }
+
+    func testAllTeamSearchFailuresAreNotReportedAsAnEmptyCatalog() async throws {
+        let receipts = PenguPlayLockedValue<[ProviderLookupReceipt]>([])
+        let client = evidenceClient(streams: [], failedSearches: ["Buffalo Sabres", "Tampa Bay Lightning"],
+            sink: { r in receipts.mutate { $0.append(r) } })
+        do {
+            _ = try await client.resolve(for: request(), now: kickoff)
+            XCTFail("Failed searches do not establish an absent match")
+        } catch { XCTAssertEqual(error as? CommunitySportsAddonError, .invalidResponse) }
+        let diagnostic = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "penguplay_lookup" })
+        XCTAssertEqual(diagnostic.details["supplementary_failures"], "2")
+        XCTAssertEqual(diagnostic.details["reason_code"], "search_unavailable")
+        let receipt = try XCTUnwrap(receipts.value.last)
+        XCTAssertEqual(receipt.knownEmptyResponses, 0)
+        XCTAssertEqual(receipt.readResponses, 0)
+        XCTAssertEqual(receipt.unreadResponses, 0)
+        XCTAssertEqual(receipt.completion, "failed")
+    }
+
+    private func evidenceClient(streams: [String], failures: Set<Int> = [], failedSearches: Set<String> = [],
                                 generation: Client.Generation? = nil,
                                 sink: @escaping Client.ReceiptSink) -> Client {
         let manifest = #"{"id":"com.penguplay","version":"1.4.0","resources":[{"name":"stream","types":["tv"],"idPrefixes":["pp-live:"]},"catalog"],"catalogs":[{"type":"tv","id":"pp-live-hockey"}]}"#
@@ -434,6 +467,10 @@ final class PenguPlaySportsAddonTests: XCTestCase {
         return Client(configuration: { self.manifestURL }, fetch: { request in
             let url = try XCTUnwrap(request.url)
             let body: String
+            if let search = url.path.components(separatedBy: "/search=").last, url.path.contains("/search="),
+               failedSearches.contains(String(search.dropLast(".json".count)).removingPercentEncoding ?? search) {
+                throw URLError(.timedOut)
+            }
             if url == self.manifestURL { body = manifest }
             else if let index = streamURLs.firstIndex(of: url.absoluteString) {
                 if failures.contains(index) { throw URLError(.timedOut) }

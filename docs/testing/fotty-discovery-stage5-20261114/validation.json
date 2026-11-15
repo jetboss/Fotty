@@ -1,0 +1,118 @@
+{
+  "stage": 5,
+  "base": "536fbaec50dcf63fec3fc98b21fb6c312d33ee4e",
+  "candidateBuild": 330,
+  "status": "local tests passed; signed build and physical check pending",
+  "rankingChanged": false,
+  "sourceSettingsChanged": false,
+  "phoneTouched": false,
+  "fplTouched": false,
+  "multiStreamTouched": false,
+  "published": false,
+  "testflight": false,
+  "checks": {
+    "stage5-red": {
+      "passed": false,
+      "exitCode": 65,
+      "counts": {
+        "total": 7,
+        "skipped": 0,
+        "failed": 7,
+        "passed": 0
+      },
+      "assertionFailures": 20,
+      "sourceUnchanged": true,
+      "failedTests": [
+        "-[FottyTests.CNCSportsAddonTests testProgressiveAndDefaultLookupsPreserveSessionOrderAndLabels]",
+        "-[FottyTests.CNCSportsAddonTests testProgressiveHockeyAndCricketKeepAcknowledgedChoiceAfterSiblingCancellation]",
+        "-[FottyTests.HighflySportsAddonTests testLaterBrowsePageFailureKeepsTheExactMatchFromTheFirstPage]",
+        "-[FottyTests.HighflySportsAddonTests testLaterLivePageFailureKeepsTheExactMatchFromTheFirstPage]",
+        "-[FottyTests.HighflySportsAddonTests testSearchFailureWithSuccessfulFallbackStillReportsPartialCoverage]",
+        "-[FottyTests.PenguPlaySportsAddonTests testAllTeamSearchFailuresAreNotReportedAsAnEmptyCatalog]",
+        "-[FottyTests.PenguPlaySportsAddonTests testFailedTeamSearchPreservesSiblingAndReportsPartialCoverage]"
+      ],
+      "skippedTests": []
+    },
+    "stage5-green-compile": {
+      "passed": false,
+      "exitCode": 65,
+      "counts": null,
+      "assertionFailures": null,
+      "sourceUnchanged": true,
+      "failedTests": [],
+      "skippedTests": []
+    },
+    "stage5-green-compile2": {
+      "passed": true,
+      "exitCode": 0,
+      "counts": null,
+      "assertionFailures": null,
+      "sourceUnchanged": true,
+      "failedTests": [],
+      "skippedTests": []
+    },
+    "stage5-focused": {
+      "passed": true,
+      "exitCode": 0,
+      "counts": {
+        "total": 255,
+        "skipped": 1,
+        "failed": 0,
+        "passed": 254
+      },
+      "assertionFailures": 0,
+      "sourceUnchanged": true,
+      "failedTests": [],
+      "skippedTests": [
+        "-[FottyTests.Score808SiteCatalogTests testOptInCurrentProviderDiscovery]"
+      ]
+    },
+    "stage5-full": {
+      "passed": true,
+      "exitCode": 0,
+      "counts": {
+        "total": 2816,
+        "skipped": 12,
+        "failed": 0,
+        "passed": 2804
+      },
+      "assertionFailures": 0,
+      "sourceUnchanged": true,
+      "failedTests": [],
+      "skippedTests": [
+        "-[FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistryRefreshReconcilesSavedBaselineWithoutLosingFreshTV]",
+        "-[FottyTests.BroadcastRegistryIntegrationTests testOptInProductionRegistrySnapshotPassesActualNativeWireValidation]",
+        "-[FottyTests.CNCSportsPhysicalCanaryTests testReviewedCNCDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]",
+        "-[FottyTests.FlixStreamsAddonTests testPhysicalFlixDecodedVideoCanary]",
+        "-[FottyTests.FlixStreamsAddonTests testPhysicalFlixSecondDecodedVideoCanary]",
+        "-[FottyTests.PlavioSportsAddonTests testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]",
+        "-[FottyTests.PlaybackPolicyTests testReferenceHLSMaintainsOneAttemptDuringSoak]",
+        "-[FottyTests.ReviewedRelayThroughputPhysicalTests testSyntheticOneMiBDirectBytesAndGuardedRelayThroughputOnPhysicalDevice]",
+        "-[FottyTests.Score808SiteCatalogTests testOptInCurrentProviderDiscovery]",
+        "-[FottyTests.SourceConnectionToolTests testAllEnabledSourcesForVerifiedFootballFixture]",
+        "-[FottyTests.SourceConnectionToolTests testOptInNHLRegisteredCSMetadata]",
+        "-[FottyTests.SourceConnectionToolTests testReviewedTVExpandedChannelsThroughGuardedDecoder]"
+      ]
+    }
+  },
+  "sourceManifestSHA256": "2e98d60d841355b3f0acac4641d4cccdbe44d9ee1e17ceee097367177f1f4cf0",
+  "sourceFileCount": 317,
+  "review": {
+    "actualClaudeRound": 3,
+    "complete": true,
+    "permissionDenials": 0,
+    "remainingP1P2": 0,
+    "testsExecutedByClaude": false,
+    "independentReviewP1P2": 0
+  },
+  "redControlNotes": [
+    "HF/PP production unchanged; CNC old aggregate behavior plus ignored callback argument for regression compilation.",
+    "CNC stable-order fixture also used a rejected .test destination; replaced with a distinct admitted HTTPS fixture before green run. Late-response negative fixtures made admissible too.",
+    "Green compile1 found a test reference to the source filename instead of its LiveStreamResolver actor; corrected without production change."
+  ],
+  "memoryRefresh": {
+    "exportRefreshed": true,
+    "privacyChecksPassed": true,
+    "healthCheck": "pre-existing Current-State.md exceeds 8 KB; owner-editing file left untouched"
+  }
+}

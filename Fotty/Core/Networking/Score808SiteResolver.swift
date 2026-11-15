@@ -38,6 +38,9 @@ final class Score808SiteResolver: NSObject, URLSessionTaskDelegate, @unchecked S
             let result = try await resolvePage(for: request, now: now)
             try Task.checkCancellation()
             completion = "complete"
+            if result != nil {
+                qualityStore.recordScore808WebLookup(fixtureID: request.matchID, lookupID: ledger.id)
+            }
             return result
         } catch {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {

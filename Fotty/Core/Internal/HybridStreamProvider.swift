@@ -267,6 +267,14 @@ actor LiveStreamResolver {
         let collected = await StreamDiscoveryCoordinator.collect(matchScope: matchScope, lanes: lanes, deadline: discoveryDeadline,
             preferDirectInitialChoice: singleStreamDiscovery && onChoices != nil, sustainedProviderLanes: sustainedLanes,
             onSessions: publishChoices)
+        if singleStreamDiscovery {
+            var timing = ["attempt_id": attemptID, "route": "single"]
+            if let watchID = request.watchID { timing["watch_session_id"] = watchID.uuidString }
+            if let value = collected.timing.firstCandidateMilliseconds { timing["discovery_first_candidate_ms"] = String(value) }
+            if let value = collected.timing.firstSnapshotMilliseconds { timing["discovery_first_snapshot_ms"] = String(value) }
+            if let reason = collected.timing.firstWaitReason { timing["discovery_initial_wait"] = reason.rawValue }
+            FottyQualityStore.shared.record(category: .playback, name: "watch_discovery_timing", outcome: .info, details: timing)
+        }
         // A working sibling must not erase the optional lane's result. This
         // bounded local receipt is discovery evidence, not playback or health
         // scoring, and has no fixture, URL, header or response-body fields.
@@ -661,6 +669,15 @@ actor LiveStreamResolver {
             else { ticket = await FixtureStreamDiscoveryIndex.shared.begin(
                 for: request, providerCode: providerCode, preflight: false) }
         } else { ticket = nil }
+        // Only the foreground single-stream owner accepts partial direct CNC
+        // results. Registry-scoped reads retain their own association checks.
+        let directProgress: (@Sendable (StreamSession) async -> Bool)?
+        if source.dispatch == .cncSports, useDiscoveryIndex, preflightTicket == nil {
+            directProgress = { session in
+                await Self.publishDirectOptionalSession(session, request: request, providerCode: providerCode,
+                    enabledCodes: { await StreamPluginRegistry.shared.enabledProviderCodes() }, report: report)
+            }
+        } else { directProgress = nil }
         do {
             guard !needsFreshTVAssociation || !registered.isEmpty else {
                 if tvCheckFailed { throw CommunitySportsAddonError.invalidResponse }
@@ -691,7 +708,7 @@ actor LiveStreamResolver {
                     FottyQualityStore.shared.record(category: .playback, name: "direct_fallback_lookup",
                         outcome: .info, details: ["source": providerCode, "mode": "registry_empty_direct_fallback"])
                     sessions = try await resolveOptionalAdapter(source, request: request, forceRefresh: useDiscoveryIndex,
-                        forceFreshMetadata: refreshOptionalSources)
+                        forceFreshMetadata: refreshOptionalSources, onSession: directProgress)
                 } else {
                     // The registry is a hint, not a gate. When every registered
                     // association misses (stale cloud row, joined TV channel that
@@ -707,7 +724,7 @@ actor LiveStreamResolver {
                             FottyQualityStore.shared.record(category: .playback, name: "direct_fallback_lookup",
                                 outcome: .info, details: ["source": providerCode, "mode": "registry_miss_direct_fallback"])
                             return try await self.resolveOptionalAdapter(source, request: request, forceRefresh: true,
-                                forceFreshMetadata: refreshMetadata)
+                                forceFreshMetadata: refreshMetadata, onSession: directProgress)
                         }
                     }
                     sessions = try await self.resolveRegisteredOptionalSessions(for: request,
@@ -804,6 +821,20 @@ actor LiveStreamResolver {
             )
             return .failure(failure, diagnostics)
         }
+    }
+
+    nonisolated static func publishDirectOptionalSession(_ session: StreamSession,
+        request: StreamPlaybackRequest, providerCode: String,
+        enabledCodes: @escaping @Sendable () async -> [String],
+        clock: @escaping @Sendable () -> Date = { Date() },
+        report: StreamDiscoveryCoordinator.Reporter) async -> Bool {
+        guard !Task.isCancelled else { return false }
+        let enabled = await enabledCodes(), now = clock()
+        guard !Task.isCancelled, enabled.contains(providerCode),
+              !session.hasExpiredMediaLease(at: now),
+              session.eventBinding?.matches(request: request, providerCode: providerCode, at: now) == true else { return false }
+        report(.partialSession(session))
+        return true
     }
 
     @MainActor
@@ -918,12 +949,14 @@ actor LiveStreamResolver {
 
     private func resolveOptionalAdapter(_ source: CuratedStreamSourceCatalog.Definition,
         request: StreamPlaybackRequest, forceRefresh: Bool,
-        forceFreshMetadata: Bool = false) async throws -> [StreamSession] {
+        forceFreshMetadata: Bool = false,
+        onSession: (@Sendable (StreamSession) async -> Bool)? = nil) async throws -> [StreamSession] {
         switch source.dispatch {
         case .highfly: return try await HighflySportsAddonClient.shared.resolve(for: request)
         case .penguPlay: return try await PenguPlaySportsAddonClient.shared.resolve(for: request)
         case .reviewedTV: return try await ReviewedTVPlaylistClient.shared.resolve(for: request)
-        case .cncSports: return try await CNCSportsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
+        case .cncSports: return try await CNCSportsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata,
+            onSession: onSession)
         case .flixStreams: return try await FlixStreamsAddonClient.shared.resolve(for: request, forceRefresh: forceFreshMetadata)
         case .plavioSports: return try await PlavioSportsAddonClient.shared.resolve(for: request, forceRefresh: forceRefresh)
         case .communitySports: return try await CommunitySportsAddonClient.shared.resolve(for: request, forceRefresh: forceRefresh)

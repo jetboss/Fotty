@@ -160,7 +160,7 @@ actor HighflySportsAddonClient {
         // One lookup receipt per eligible request: the stage reached, never titles or URLs.
         var stage = "manifest"
         var finished = false
-        var admission = StreamAdmissionLedger(), fetchFailures = 0
+        var admission = StreamAdmissionLedger(), fetchFailures = 0, supplementaryFailures = 0
         let configurationGeneration = await generation(manifestURL)
         var evidence = StreamLookupEvidence(request: request, provider: .highfly, lookupID: admission.id,
             configurationGeneration: configurationGeneration, at: now)
@@ -168,7 +168,7 @@ actor HighflySportsAddonClient {
         var cancelled = false, listingsLimited = false
         defer {
             let completion = cancelled || Task.isCancelled ? "cancelled" : (!finished ? "failed" :
-                (listingsLimited || admission.dispositions["limit", default: 0] > 0 ? "limited" : (fetchFailures > 0 ? "partial" : "complete")))
+                (listingsLimited || admission.dispositions["limit", default: 0] > 0 ? "limited" : (fetchFailures > 0 || supplementaryFailures > 0 ? "partial" : "complete")))
             admission.finish(admitted: finished ? sessions.count : 0, completion: completion)
             FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, ledger: admission,
                 completion: completion, fetchFailures: fetchFailures)
@@ -182,7 +182,6 @@ actor HighflySportsAddonClient {
         var requestPair: String?, candidatePairs: [String] = []
         var listingCount: Int?
         var listingSpan: String?, liveCatalog: String?
-        var supplementaryFailures = 0
         var liveRows: Int?, liveShape: String?, liveSameSport: Int?, liveCategories: String?, liveRestShape: String?
         var liveLayout: String?
         defer {
@@ -261,8 +260,8 @@ actor HighflySportsAddonClient {
             var live: [Row] = []
             for catalog in manifest.catalogs.filter({ $0.type == "sport" && $0.id.lowercased().contains("live") }).prefix(2) {
                 guard catalog.id.range(of: #"^[A-Za-z0-9_.-]{1,64}$"#, options: .regularExpression) != nil else { continue }
-                // Paging is per catalog. A supplementary read that fails or is
-                // unsafe drops only that catalog, never a match found elsewhere.
+                // Paging is per catalog. A later failed page leaves earlier
+                // validated rows (including their identity conflicts) intact.
                 var catalogRows: [Row] = []
                 do {
                     for _ in 0..<Self.browsePageLimit {
@@ -274,7 +273,7 @@ actor HighflySportsAddonClient {
                         if page.metas.count < 100 { break }
                     }
                 } catch is CancellationError { cancelled = true; throw CancellationError() }
-                catch { supplementaryFailures += 1; catalogRows = [] }
+                catch { supplementaryFailures += 1 }
                 live += catalogRows
             }
             liveRows = live.count
@@ -306,7 +305,7 @@ actor HighflySportsAddonClient {
                         if page.metas.count < 100 { break }
                     }
                 } catch is CancellationError { cancelled = true; throw CancellationError() }
-                catch { supplementaryFailures += 1; browsed = [] }
+                catch { supplementaryFailures += 1 }
             } else { searchScope = "search_and_live" }
             // Diagnostic: the hour span the listing covers relative to now
             // (e.g. "20_170" means it starts 20 h ahead, so live games are absent).

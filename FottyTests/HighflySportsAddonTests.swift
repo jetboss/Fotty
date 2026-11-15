@@ -641,6 +641,60 @@ final class HighflySportsAddonTests: XCTestCase {
         XCTAssertTrue(receipt.isReconciled)
     }
 
+    func testLaterLivePageFailureKeepsTheExactMatchFromTheFirstPage() async throws {
+        let receipts = HighflyReceiptBox(), transport = HighflyTestTransport(mode: .liveSecondPageFails)
+        let sessions = try await client(transport, receiptSink: receipts.append).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.map(\.providerName), ["HF1"])
+        let paths = await transport.catalogs()
+        XCTAssertTrue(paths.contains("skip=100.json"))
+        XCTAssertFalse(paths.contains("sports_football.json"), "A failed later page does not erase the earlier live match")
+        let receipt = try XCTUnwrap(receipts.values.last)
+        XCTAssertEqual(receipt.completion, "partial")
+        XCTAssertEqual(receipt.readResponses, 1)
+        XCTAssertEqual(receipt.unreadResponses, 0, "An unread catalog page is not an unread stream response")
+        XCTAssertEqual(receipt.admitted, 1)
+        XCTAssertTrue(receipt.isReconciled)
+    }
+
+    func testLaterBrowsePageFailureKeepsTheExactMatchFromTheFirstPage() async throws {
+        let receipts = HighflyReceiptBox(), transport = HighflyTestTransport(mode: .browseSecondPageFails)
+        let sessions = try await client(transport, receiptSink: receipts.append).resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.map(\.providerName), ["HF1"])
+        XCTAssertEqual(receipts.values.last?.completion, "partial")
+        let diagnostic = try XCTUnwrap(FottyQualityStore.shared.records().last { $0.name == "highfly_lookup" })
+        XCTAssertEqual(diagnostic.details["supplementary_failures"], "1")
+        XCTAssertNotEqual(diagnostic.details["listing_span_h"], "empty")
+    }
+
+    func testFailedLaterPageDoesNotUndoAConflictingDuplicateVeto() async throws {
+        let transport = HighflyTestTransport(mode: .liveConflictThenPageFails)
+        do {
+            _ = try await client(transport).resolve(for: request(), now: kickoff)
+            XCTFail("Retaining partial pages must retain their same-ID conflicts too")
+        } catch { XCTAssertTrue(error is CommunitySportsAddonError) }
+        let counts = await transport.counts()
+        XCTAssertEqual(counts.stream, 0)
+    }
+
+    func testLaterPageCancellationDoesNotStartPlaybackFromEarlierRows() async throws {
+        let transport = HighflyTestTransport(mode: .liveSecondPageCancelled)
+        do {
+            _ = try await client(transport).resolve(for: request(), now: kickoff)
+            XCTFail("Cancellation is not a supplementary page failure")
+        } catch { XCTAssertTrue(error is CancellationError) }
+        let counts = await transport.counts()
+        XCTAssertEqual(counts.stream, 0)
+    }
+
+    func testSearchFailureWithSuccessfulFallbackStillReportsPartialCoverage() async throws {
+        let receipts = HighflyReceiptBox()
+        let sessions = try await client(HighflyTestTransport(mode: .teamSearchesTimeOut), receiptSink: receipts.append)
+            .resolve(for: request(), now: kickoff)
+        XCTAssertEqual(sessions.count, 1)
+        XCTAssertEqual(receipts.values.last?.completion, "partial")
+        XCTAssertEqual(receipts.values.last?.unreadResponses, 0)
+    }
+
     private func client(_ transport: HighflyTestTransport,
                         generation: HighflySportsAddonClient.Generation? = nil,
                         receiptSink: HighflySportsAddonClient.ReceiptSink? = nil) -> HighflySportsAddonClient {
@@ -670,6 +724,7 @@ private actor HighflyTestTransport {
         case searchOmitsLive, listingOmitsLive, liveCatalogOnly, undatedLiveRow, secondLiveCatalog
         case listingFailsAfterLive, liveFailsListingMatches, secondTeamSearchTimesOut, teamSearchesTimeOut, cancelTeamSearch
         case secondSearchFails, looseRows, metaFails, looseManifest, twoListings
+        case liveSecondPageFails, browseSecondPageFails, liveConflictThenPageFails, liveSecondPageCancelled
         case metadataLabels, contradictoryDuplicate, rejectedThenAdmittedContract, partialStreams, emptyStreams, streamReadFails, streamScanLimit
     }
     private let premium: Bool
@@ -725,6 +780,24 @@ private actor HighflyTestTransport {
             later["description"] = "Arsenal vs Everton\n14 Nov 2026 · 18:00 UTC"; later["releaseInfo"] = "14 Nov 2026 · 18:00 UTC"
             let searching = url.absoluteString.contains("search=")
             switch mode {
+            case .liveSecondPageFails, .browseSecondPageFails, .liveConflictThenPageFails, .liveSecondPageCancelled:
+                let target = mode == .browseSecondPageFails ? "sports_football" : "sports_live"
+                if url.path.contains("/" + target + "/skip=") {
+                    if mode == .liveSecondPageCancelled { throw CancellationError() }
+                    throw URLError(.timedOut)
+                }
+                if url.path.hasSuffix("/" + target + ".json") {
+                    var page = (0..<99).map { i -> [String: Any] in
+                        var other = later; other["id"] = "streamed:filler\(i)"; return other
+                    }
+                    if mode == .liveConflictThenPageFails {
+                        var conflict = row; conflict["releaseInfo"] = "14 Nov 2026 · 18:00 UTC"
+                        conflict["description"] = "Arsenal vs Everton\n14 Nov 2026 · 18:00 UTC"
+                        page[0] = conflict
+                    }
+                    page.append(row)
+                    body = ["metas": page]
+                } else { body = ["metas": []] }
             case .secondTeamSearchTimesOut:
                 if url.lastPathComponent == "search=Everton.json" { throw URLError(.timedOut) }
                 body = ["metas": url.lastPathComponent == "search=Arsenal.json" ? [row] : []]

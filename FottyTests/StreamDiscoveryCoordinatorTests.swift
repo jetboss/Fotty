@@ -616,6 +616,21 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         }
     }
 
+    private final class SequenceMonotonicClock: @unchecked Sendable {
+        private let lock = NSLock()
+        private let values: [TimeInterval]
+        private var index = 0
+        init(_ values: [TimeInterval]) {
+            precondition(!values.isEmpty)
+            self.values = values
+        }
+        func now() -> TimeInterval {
+            lock.lock(); defer { lock.unlock() }
+            defer { index += 1 }
+            return values[min(index, values.count - 1)]
+        }
+    }
+
     private actor IncrementalSnapshots {
         private var values: [[StreamSession]] = []
 
@@ -654,6 +669,47 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
             createdAt: Date(), completedAt: Date(), timeline: [], providerAttempts: [])
         if let failure { return .failure(failure, diagnostics) }
         return .success(StreamResolutionSuccess(attemptID: "test", sessions: sessions, diagnostics: diagnostics))
+    }
+
+    func testDiscoveryTimingSeparatesFirstCandidateAndFirstActualPublicationWithoutReordering() async {
+        let first = session("timed-first"), second = session("timed-second")
+        let completed = outcome([first, second]), snapshots = IncrementalSnapshots()
+        let clock = SequenceMonotonicClock([100, 100.125, 100.5])
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [{ _ in completed }],
+            preferDirectInitialChoice: true, initialChoiceGrace: .seconds(60),
+            monotonicNow: { clock.now() }, onSessions: { await snapshots.append($0) })
+        let published = await snapshots.all()
+        XCTAssertEqual(published.map { $0.map(\.id) }, [[first.id, second.id]])
+        XCTAssertEqual(result.sessions.map(\.id), [first.id, second.id])
+        XCTAssertEqual(result.timing.firstCandidateMilliseconds, 125)
+        XCTAssertEqual(result.timing.firstSnapshotMilliseconds, 500)
+        XCTAssertNil(result.timing.firstWaitReason, "A single completed lane does not incur initial-choice grace")
+    }
+
+    func testDiscoveryTimingWithoutConsumerDoesNotClaimPublication() async {
+        let choice = session("timed-no-consumer"), completed = outcome([choice])
+        let clock = SequenceMonotonicClock([100, 100.125, 100.5])
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [{ _ in completed }],
+            monotonicNow: { clock.now() })
+        XCTAssertEqual(result.sessions.map(\.id), [choice.id])
+        XCTAssertEqual(result.timing.firstCandidateMilliseconds, 125)
+        XCTAssertNil(result.timing.firstSnapshotMilliseconds)
+        XCTAssertNil(result.timing.firstWaitReason)
+    }
+
+    func testDiscoveryTimingRejectsInvalidOrUnboundedClockValuesWithoutHidingChoices() async {
+        let choice = session("timed-invalid-clock"), completed = outcome([choice])
+        for invalid in [TimeInterval.nan, .infinity, 99, 3_701] {
+            let clock = SequenceMonotonicClock([100, invalid, invalid]), snapshots = IncrementalSnapshots()
+            let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [{ _ in completed }],
+                monotonicNow: { clock.now() }, onSessions: { await snapshots.append($0) })
+            let published = await snapshots.all()
+            XCTAssertEqual(published.map { $0.map(\.id) }, [[choice.id]])
+            XCTAssertEqual(result.sessions.map(\.id), [choice.id])
+            XCTAssertNil(result.timing.firstCandidateMilliseconds)
+            XCTAssertNil(result.timing.firstSnapshotMilliseconds)
+            XCTAssertNil(result.timing.firstWaitReason)
+        }
     }
 
     func testKnownMediaExpiryIsRecheckedBeforeTheFirstChoiceCanBePublished() async {
@@ -936,12 +992,13 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         LiveSourceHealthStore.recordMatchOutcome(.sustained, for: stable.legacySource, scope: evidenceScope(fixture), watchID: UUID())
         XCTAssertEqual(LiveSourceHealthStore.sustainedMatchProviders(in: evidenceScope(fixture)), ["communitysports"])
         let web = outcome([early]), direct = outcome([stable]), snapshots = IncrementalSnapshots()
-        _ = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope(fixture), lanes: [
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope(fixture), lanes: [
             { _ in web }, { _ in try? await Task.sleep(for: .milliseconds(60)); return direct }
         ], deadline: .seconds(1), preferDirectInitialChoice: true, initialChoiceGrace: .milliseconds(5),
             sustainedProviderLanes: [1], onSessions: { await snapshots.append($0) })
         let first = await snapshots.all().first ?? []
         XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions(first, matchScope: evidenceScope(fixture)).first?.id, stable.id)
+        XCTAssertEqual(result.timing.firstWaitReason, .sustainedProvider)
     }
 
     func testKnownStallCannotMountBeforeLaterMatchBackup() async {
@@ -949,7 +1006,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         LiveSourceHealthStore.recordMatchOutcome(.stalled, for: stalled.legacySource,
             scope: evidenceScope(stalled.matchID), watchID: UUID())
         let early = outcome([stalled]), late = outcome([backup]), snapshots = IncrementalSnapshots()
-        _ = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { _ in early }, { _ in try? await Task.sleep(for: .milliseconds(60)); return late }
         ], deadline: .seconds(1), preferDirectInitialChoice: true, initialChoiceGrace: .milliseconds(5),
             onSessions: { await snapshots.append($0) })
@@ -957,6 +1014,7 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         XCTAssertEqual(published.first?.map(\.id), [stalled.id, backup.id])
         XCTAssertEqual(LiveSourceHealthStore.rankedSingleStreamSessions(published.first ?? [],
             matchScope: evidenceScope(stalled.matchID)).first?.id, backup.id)
+        XCTAssertEqual(result.timing.firstWaitReason, .previousFailure)
     }
 
     func testUnprovenEarlyDirectChoiceWaitsForLaterAlternativeDuringInitialGrace() async {
@@ -965,14 +1023,18 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let later = StreamSession(matchID: "test", playableURL: URL(string: "https://example.test/later-choice.m3u8")!,
             streamType: .hls, providerName: "CS5")
         let firstOutcome = outcome([first]), laterOutcome = outcome([later]), snapshots = IncrementalSnapshots()
+        let clock = SequenceMonotonicClock([100, 100.125, 100.5])
         let result = await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
             { _ in firstOutcome },
             { _ in try? await Task.sleep(for: .milliseconds(20)); return laterOutcome }
         ], deadline: .seconds(1), preferDirectInitialChoice: true, initialChoiceGrace: .milliseconds(200),
-            onSessions: { await snapshots.append($0) })
+            monotonicNow: { clock.now() }, onSessions: { await snapshots.append($0) })
         let published = await snapshots.all()
         XCTAssertEqual(published.first?.map(\.id), [first.id, later.id])
         XCTAssertEqual(result.sessions.count, 2)
+        XCTAssertEqual(result.timing.firstCandidateMilliseconds, 125)
+        XCTAssertEqual(result.timing.firstSnapshotMilliseconds, 500)
+        XCTAssertEqual(result.timing.firstWaitReason, .unprovenChoice)
     }
 
     func testEarlyDiagnosticsDoNotConsumeInitialCandidateGrace() async {
@@ -1029,12 +1091,13 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         let first = session("first"), late = session("late")
         let firstOutcome = outcome([first]), lateOutcome = outcome([late])
         let gate = IncrementalReleaseGate(), snapshots = IncrementalSnapshots()
+        let clock = SequenceMonotonicClock([100, 100.125, 100.5, 101])
         let firstPublished = expectation(description: "First choice is visible while the late lane is still pending")
         let task = Task {
             await StreamDiscoveryCoordinator.collect(matchScope: evidenceScope("test"), lanes: [
                 { publish in publish(.partialSession(first)); return firstOutcome },
                 { _ in await gate.wait(); return lateOutcome }
-            ], deadline: .seconds(3), onSessions: { choices in
+            ], deadline: .seconds(3), monotonicNow: { clock.now() }, onSessions: { choices in
                 await snapshots.append(choices)
                 if choices.count == 1 { firstPublished.fulfill() }
             })
@@ -1048,6 +1111,9 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         XCTAssertEqual(published.map { $0.map(\.id) }, [[first.id], [first.id, late.id]])
         XCTAssertEqual(result.sessions.map(\.id), [first.id, late.id])
         XCTAssertEqual(result.exitReason, .completed)
+        XCTAssertEqual(result.timing.firstCandidateMilliseconds, 125)
+        XCTAssertEqual(result.timing.firstSnapshotMilliseconds, 500, "Later snapshots must not overwrite the first publication")
+        XCTAssertNil(result.timing.firstWaitReason)
     }
 
     func testIncrementalSnapshotsDeduplicateDeliveriesButPreserveDistinctRequiredHeaders() async {
@@ -1151,6 +1217,8 @@ final class StreamDiscoveryCoordinatorTests: XCTestCase {
         XCTAssertTrue(published.isEmpty)
         XCTAssertTrue(result.sessions.isEmpty)
         XCTAssertTrue(noLanes.sessions.isEmpty)
+        XCTAssertEqual(result.timing, .init())
+        XCTAssertEqual(noLanes.timing, .init())
         XCTAssertEqual(result.exitReason, .completed)
         XCTAssertEqual(result.failures.count, 2)
     }

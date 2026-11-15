@@ -5,6 +5,23 @@ import XCTest
 /// Every store here is an isolated defaults suite; nothing reaches the network.
 @MainActor
 final class WatchOutcomeRecordTests: XCTestCase {
+    func testDiscoveryTimingKeepsOnlyBoundedValuesAndFiniteWaitReasons() throws {
+        let watchID = UUID(), attemptID = UUID()
+        store.record(category: .playback, name: "watch_discovery_timing", outcome: .info,
+            details: ["watch_session_id": watchID.uuidString, "attempt_id": attemptID.uuidString,
+                "discovery_first_candidate_ms": "1200", "discovery_first_snapshot_ms": "7200",
+                "discovery_initial_wait": "unproven_choice"])
+        let row = try XCTUnwrap(store.records().last)
+        XCTAssertEqual(row.details["discovery_first_candidate_ms"], "1200")
+        XCTAssertEqual(row.details["discovery_first_snapshot_ms"], "7200")
+        XCTAssertEqual(row.details["discovery_initial_wait"], "unproven_choice")
+        XCTAssertEqual(row.details["watch_session_id"], watchID.uuidString)
+        store.record(category: .playback, name: "watch_discovery_timing", outcome: .info,
+            details: ["discovery_first_candidate_ms": "-1", "discovery_first_snapshot_ms": "3600001",
+                "discovery_initial_wait": "private-provider-label"])
+        XCTAssertEqual(store.records().last?.details, [:])
+    }
+
     func testProviderReceiptsDeduplicateLookupsButCountRepeatedReadsAndUniqueContractsSeparately() throws {
         let first = try evidenceReceipt()
         store.recordProviderLookup(first)

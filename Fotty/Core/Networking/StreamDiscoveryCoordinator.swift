@@ -25,6 +25,22 @@ enum StreamDiscoveryCoordinator {
     typealias Reporter = @Sendable (Update) -> Void
     typealias Lane = @Sendable (@escaping Reporter) async -> StreamResolutionOutcome
 
+    /// Attempt-local timings only; no provider, fixture or delivery identifiers.
+    /// A collected candidate is not necessarily eligible or playback-ready.
+    struct Timing: Sendable, Equatable {
+        enum InitialWaitReason: String, Sendable {
+            case unprovenChoice = "unproven_choice"
+            case sustainedProvider = "sustained_provider"
+            case previousFailure = "previous_failure"
+        }
+        var firstCandidateMilliseconds: Int?
+        // Time the collector hands its first snapshot to the caller. The
+        // caller still applies current enablement/binding filters; this does
+        // not claim the viewer saw a choice or the player started.
+        var firstSnapshotMilliseconds: Int?
+        var firstWaitReason: InitialWaitReason?
+    }
+
     struct Report {
         enum ExitReason: String { case completed, deadline, choiceGrace, cancelled }
         var sessions: [StreamSession] = []
@@ -34,6 +50,7 @@ enum StreamDiscoveryCoordinator {
         var reachedDeadline = false
         var exitReason: ExitReason = .completed
         var incompleteLanes = 0
+        var timing = Timing()
     }
 
     private enum Event: Sendable {
@@ -68,8 +85,17 @@ enum StreamDiscoveryCoordinator {
         initialChoiceGrace: Duration = .seconds(6),
         sustainedProviderLanes: Set<Int> = [],
         clock: @escaping @Sendable () -> Date = { Date() },
+        monotonicNow: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
         onSessions: (@Sendable ([StreamSession]) async -> Void)? = nil
     ) async -> Report {
+        let startedAt = monotonicNow()
+        func elapsedMilliseconds() -> Int? {
+            let elapsed = monotonicNow() - startedAt
+            // Invalid clocks or an unexpectedly long collection are unknown,
+            // never an overflowing or fabricated latency measurement.
+            guard elapsed.isFinite, (0...3_600).contains(elapsed) else { return nil }
+            return Int((elapsed * 1_000).rounded())
+        }
         guard !Task.isCancelled else {
             var report = Report(); report.exitReason = .cancelled
             return report
@@ -111,6 +137,9 @@ enum StreamDiscoveryCoordinator {
             }
             func add(_ session: StreamSession) {
                 if seen.insert(StreamDeliveryIdentity(url: session.playableURL, headers: session.requiredHeaders)).inserted {
+                    if report.sessions.isEmpty {
+                        report.timing.firstCandidateMilliseconds = elapsedMilliseconds()
+                    }
                     report.sessions.append(session)
                 }
             }
@@ -177,6 +206,10 @@ enum StreamDiscoveryCoordinator {
                 }
                 let holdsFirstChoice = preferDirectInitialChoice && onSessions != nil && !hasPublishedChoices
                     && !availableSessions.isEmpty && (waitingForSustained || onlyPreviouslyFailed || (!hasProvenDirectChoice && !initialChoiceGraceEnded)) && !shouldFinish && completed < lanes.count && lanes.count > 1
+                if holdsFirstChoice, report.timing.firstWaitReason == nil {
+                    report.timing.firstWaitReason = waitingForSustained ? .sustainedProvider
+                        : onlyPreviouslyFailed ? .previousFailure : .unprovenChoice
+                }
                 if holdsFirstChoice && !startedInitialChoiceGrace {
                     startedInitialChoiceGrace = true
                     group.addTask {
@@ -186,6 +219,9 @@ enum StreamDiscoveryCoordinator {
                 }
                 if !holdsFirstChoice, !availableSessions.isEmpty, !Task.isCancelled,
                    !hasPublishedChoices || availableSessions.count != previousCount {
+                    if !hasPublishedChoices, onSessions != nil {
+                        report.timing.firstSnapshotMilliseconds = elapsedMilliseconds()
+                    }
                     await onSessions?(availableSessions)
                     hasPublishedChoices = true
                 }

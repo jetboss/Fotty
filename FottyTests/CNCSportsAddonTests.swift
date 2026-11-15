@@ -8,6 +8,285 @@ final class CNCSportsAddonTests: XCTestCase {
     private let secondID = "cnc:" + String(repeating: "B", count: 1218) + "=="
     private let delivery = "https://edgestream7.pro/hls/offline_fixture.m3u8"
 
+    private actor ProgressiveSessions {
+        private var values: [StreamSession] = []
+        func append(_ session: StreamSession) { values.append(session) }
+        func snapshot() -> [StreamSession] { values }
+    }
+
+    @MainActor
+    func testDiscoveryDeadlineRetainsAnAcknowledgedCNCChoiceAndItsPartialReceipt() async throws {
+        let suite = "CNC.coordinator-deadline." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        let slow = CNCFixtureGate("CNC second stream held beyond discovery deadline")
+        let session = try progressiveFixtureSession(cricket: false, second: .controlled(slow))
+        let client = CNCSportsAddonClient(session: session, qualityStore: store)
+        let fixture = request(), now = kickoff
+        let scope = LiveSourceHealthStore.MatchEvidenceScope(request: fixture)
+        let published = ProgressiveSessions()
+        defer {
+            slow.respond(.failure(URLError(.cancelled)))
+            session.invalidateAndCancel(); CNCFixtureProtocol.reset()
+            defaults.removePersistentDomain(forName: suite)
+        }
+
+        let result = await StreamDiscoveryCoordinator.collect(matchScope: scope, lanes: [{ report in
+            do {
+                let choices = try await client.resolve(for: fixture, now: now, onSession: { choice in
+                    guard !Task.isCancelled,
+                          choice.eventBinding?.matches(request: fixture, providerCode: "cncsports", at: now) == true
+                    else { return false }
+                    report(.partialSession(choice))
+                    return true
+                })
+                let diagnostics = StreamAttemptDiagnostics(attemptID: "cnc-progressive-deadline",
+                    matchID: fixture.matchID, matchTitle: fixture.displayTitle, finalState: .readyToPlay,
+                    createdAt: now, completedAt: now, timeline: [], providerAttempts: [])
+                return .success(StreamResolutionSuccess(attemptID: diagnostics.attemptID,
+                    sessions: choices, diagnostics: diagnostics))
+            } catch {
+                let failure = StreamFailure(providerName: "LS", category: .navigationCancelled,
+                    technicalMessage: "The owning discovery ended its CNC lane.",
+                    userMessage: "Discovery ended.", retryable: true, fallbackAllowed: true)
+                let diagnostics = StreamAttemptDiagnostics(attemptID: "cnc-progressive-deadline",
+                    matchID: fixture.matchID, matchTitle: fixture.displayTitle, finalState: .failed,
+                    createdAt: now, completedAt: now, timeline: [], providerAttempts: [])
+                return .failure(failure, diagnostics)
+            }
+        }],
+        // One lane with incremental publication bypasses choice-grace exits.
+        // Its second offline response remains held until after the real owner
+        // deadline. There is no sub-second expectation or scheduling sleep.
+        deadline: .seconds(3), preferDirectInitialChoice: true, clock: { now },
+        onSessions: { choices in
+            for choice in choices { await published.append(choice) }
+        })
+
+        XCTAssertTrue(CNCFixtureProtocol.paths.contains(streamPath(secondID)),
+            "The admitted first listing was followed by a genuinely pending sibling")
+        XCTAssertTrue(result.reachedDeadline)
+        XCTAssertEqual(result.exitReason, .deadline)
+        XCTAssertEqual(result.incompleteLanes, 1)
+        XCTAssertEqual(result.sessions.map(\.providerName), ["LS1"])
+        XCTAssertTrue(result.sessions.first?.eventBinding?.matches(request: fixture,
+            providerCode: "cncsports", at: now) == true)
+        let beforeLateResponse = await published.snapshot()
+        XCTAssertEqual(beforeLateResponse.map(\.id), result.sessions.map(\.id),
+            "The collector publishes and retains the same independently admitted choice")
+
+        // collect waits for cancelled child cleanup. A subsequently delivered
+        // fixture response cannot append a second choice or change accounting.
+        slow.respond(try .json(["streams": [["url": "https://edgestream7.pro/hls/deadline.m3u8"]]]))
+        let afterLateResponse = await published.snapshot()
+        XCTAssertEqual(afterLateResponse.map(\.id), beforeLateResponse.map(\.id))
+        let receipts = store.records().filter { $0.name == "stream_admission" }
+        XCTAssertEqual(receipts.count, 1)
+        let details = try XCTUnwrap(receipts.first).details
+        XCTAssertEqual(details["offered_count"], "1")
+        XCTAssertEqual(details["admitted_count"], "1")
+        XCTAssertEqual(details["admission_withdrawn_count"], "0")
+        XCTAssertEqual(details["admission_completion"], "partial")
+        XCTAssertEqual(details["admission_fetch_failures"], "0")
+        XCTAssertEqual(details["admission_reconciled"], "yes")
+    }
+
+
+    @MainActor
+    func testProgressiveHockeyAndCricketKeepAcknowledgedChoiceAfterSiblingCancellation() async throws {
+        for cricket in [false, true] {
+            let suite = "CNC.progressive." + UUID().uuidString
+            let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+            let store = FottyQualityStore(defaults: defaults)
+            let slow = CNCFixtureGate("second stream request")
+            let fixture = cricket ? wbblRequest() : request()
+            let now = try XCTUnwrap(fixture.kickoffDate)
+            let session = try progressiveFixtureSession(cricket: cricket, second: .controlled(slow))
+            let client = CNCSportsAddonClient(session: session, qualityStore: store)
+            let observed = ProgressiveSessions()
+            let operation = Task {
+                try await client.resolve(for: fixture, now: now, onSession: { choice in
+                    await observed.append(choice)
+                    return true
+                })
+            }
+            defer {
+                operation.cancel(); slow.respond(.failure(URLError(.cancelled)))
+                session.invalidateAndCancel(); CNCFixtureProtocol.reset()
+                defaults.removePersistentDomain(forName: suite)
+            }
+            // Reaching listing two proves listing one's callback has completed;
+            // no sleep or real transport timeout establishes the ordering.
+            await fulfillment(of: [slow.started], timeout: 3)
+            let before = await observed.snapshot()
+            XCTAssertEqual(before.map(\.providerName), ["LS1"])
+            XCTAssertTrue(before.first?.eventBinding?.matches(request: fixture,
+                providerCode: "cncsports", at: now) == true)
+            operation.cancel()
+            slow.respond(try .json(["streams": [["url": "https://edgestream7.pro/hls/second.m3u8"]]]))
+            do { _ = try await operation.value; XCTFail("Cancellation cannot return an aggregate success") }
+            catch { XCTAssertTrue(error is CancellationError || (error as? URLError)?.code == .cancelled) }
+            let after = await observed.snapshot()
+            XCTAssertEqual(after.map(\.id), before.map(\.id), "A late sibling cannot publish after cancellation")
+            let receipts = store.records().filter { $0.name == "stream_admission" }
+            XCTAssertEqual(receipts.count, 1)
+            let details = try XCTUnwrap(receipts.first).details
+            XCTAssertEqual(details["offered_count"], "1", "An unread sibling has no invented entry count")
+            XCTAssertEqual(details["admitted_count"], "1")
+            XCTAssertEqual(details["admission_withdrawn_count"], "0")
+            XCTAssertEqual(details["admission_completion"], "partial")
+            XCTAssertEqual(details["admission_fetch_failures"], "0")
+            XCTAssertEqual(details["admission_reconciled"], "yes")
+        }
+    }
+
+    @MainActor
+    func testProgressiveCancellationWithoutAcknowledgementWithdrawsTheObservedChoice() async throws {
+        let suite = "CNC.unacknowledged." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        let slow = CNCFixtureGate("unacknowledged sibling")
+        let session = try progressiveFixtureSession(cricket: false, second: .controlled(slow))
+        let client = CNCSportsAddonClient(session: session, qualityStore: store)
+        let observed = ProgressiveSessions(), fixture = request(), now = kickoff
+        let operation = Task {
+            try await client.resolve(for: fixture, now: now, onSession: { choice in
+                await observed.append(choice)
+                return false
+            })
+        }
+        defer {
+            operation.cancel(); slow.respond(.failure(URLError(.cancelled)))
+            session.invalidateAndCancel(); CNCFixtureProtocol.reset()
+            defaults.removePersistentDomain(forName: suite)
+        }
+        await fulfillment(of: [slow.started], timeout: 3)
+        let offered = await observed.snapshot()
+        XCTAssertEqual(offered.count, 1)
+        operation.cancel()
+        slow.respond(try .json(["streams": [["url": "https://edgestream7.pro/hls/declined.m3u8"]]]))
+        do { _ = try await operation.value; XCTFail("Expected cancellation") }
+        catch { XCTAssertTrue(error is CancellationError || (error as? URLError)?.code == .cancelled) }
+        let final = await observed.snapshot()
+        XCTAssertEqual(final.map(\.id), offered.map(\.id))
+        let details = try XCTUnwrap(store.records().first { $0.name == "stream_admission" }).details
+        XCTAssertEqual(details["offered_count"], "1")
+        XCTAssertEqual(details["admitted_count"], "0")
+        XCTAssertEqual(details["admission_withdrawn_count"], "1")
+        XCTAssertEqual(details["admission_completion"], "cancelled")
+        XCTAssertEqual(details["admission_fetch_failures"], "0")
+        XCTAssertEqual(details["admission_reconciled"], "yes")
+    }
+
+    func testProgressiveCancellationBeforeFirstResponseNeverPublishes() async throws {
+        let suite = "CNC.unread-cancelled." + UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let store = FottyQualityStore(defaults: defaults)
+        let slow = CNCFixtureGate("first stream request")
+        let session = try fixtureSession(streams: .controlled(slow))
+        let client = CNCSportsAddonClient(session: session, qualityStore: store)
+        let observed = ProgressiveSessions(), fixture = request(), now = kickoff
+        let operation = Task {
+            try await client.resolve(for: fixture, now: now, onSession: { choice in
+                await observed.append(choice)
+                return true
+            })
+        }
+        defer {
+            operation.cancel(); slow.respond(.failure(URLError(.cancelled)))
+            session.invalidateAndCancel(); CNCFixtureProtocol.reset()
+            defaults.removePersistentDomain(forName: suite)
+        }
+        await fulfillment(of: [slow.started], timeout: 3)
+        operation.cancel()
+        slow.respond(try .json(["streams": [["url": delivery]]]))
+        do { _ = try await operation.value; XCTFail("Expected cancellation") }
+        catch { XCTAssertTrue(error is CancellationError || (error as? URLError)?.code == .cancelled) }
+        let choices = await observed.snapshot()
+        XCTAssertTrue(choices.isEmpty)
+        let details = try XCTUnwrap(store.records().first { $0.name == "stream_admission" }).details
+        XCTAssertNil(details["offered_count"])
+        XCTAssertEqual(details["admission_observation"], "unread")
+        XCTAssertEqual(details["admission_completion"], "cancelled")
+        XCTAssertEqual(details["admission_fetch_failures"], "0")
+    }
+
+    @MainActor
+    func testProgressiveAndDefaultLookupsPreserveSessionOrderAndLabels() async throws {
+        let session = try progressiveFixtureSession(cricket: false,
+            second: .json(["streams": [["url": "https://edgestream7.pro/hls/offline_fixture_second.m3u8"]]]))
+        defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        let client = CNCSportsAddonClient(session: session)
+        let observed = ProgressiveSessions()
+        let progressive = try await client.resolve(for: request(), now: kickoff, onSession: { choice in
+            await observed.append(choice)
+            return true
+        })
+        let published = await observed.snapshot()
+        XCTAssertEqual(published.map(\.id), progressive.map(\.id), "Final collection cannot renumber or duplicate emitted choices")
+        XCTAssertEqual(progressive.map(\.providerName), ["LS1", "LS2"])
+        let aggregate = try await client.resolve(for: request(), now: kickoff, forceRefresh: true)
+        XCTAssertEqual(aggregate.map(\.playableURL), progressive.map(\.playableURL))
+        XCTAssertEqual(aggregate.map(\.providerName), progressive.map(\.providerName))
+    }
+
+    @MainActor
+    private func progressiveFixtureSession(cricket: Bool, second: CNCFixtureProtocol.Response) throws -> URLSession {
+        var manifest = manifestJSON()
+        manifest["catalogs"] = [CNCSportsAddonClient.catalogID, CNCSportsAddonClient.cricketCatalogID].map {
+            ["id": $0, "type": "tv"]
+        }
+        let name = cricket ? "🔜 " + wbblName : "🔴 Blackhawks vs Canadiens"
+        let metadataName = cricket ? wbblName : "Blackhawks vs Canadiens"
+        let descriptionText = cricket ? wbblDescription : description()
+        let session = try fixtureSession(manifest: .json(manifest),
+            meta: .json(["meta": metadataJSON(name: metadataName, description: descriptionText)]),
+            streams: .json(["streams": [cricket ? wbblStreamJSON() : streamJSON()]]))
+        let catalog = cricket ? "/catalog/tv/" + CNCSportsAddonClient.cricketCatalogID + ".json" : catalogPath
+        CNCFixtureProtocol.setResponse(try .json(["metas": [catalogJSON(name: name), catalogJSON(id: secondID, name: name)]]), for: catalog)
+        CNCFixtureProtocol.setResponse(try .json(["meta": metadataJSON(id: secondID,
+            name: metadataName, description: descriptionText)]), for: metaPath(secondID))
+        CNCFixtureProtocol.setResponse(second, for: streamPath(secondID))
+        return session
+    }
+
+    func testForegroundPartialPublicationRechecksEnablementIdentityAndCancellation() async throws {
+        let transport = try fixtureSession()
+        defer { transport.invalidateAndCancel(); CNCFixtureProtocol.reset() }
+        let fixture = request(), now = kickoff
+        let choices = try await CNCSportsAddonClient(session: transport).resolve(for: fixture, now: now)
+        let choice = try XCTUnwrap(choices.first)
+        let reported = expectation(description: "Only the current enabled choice is handed to discovery")
+        let accepted = await LiveStreamResolver.publishDirectOptionalSession(choice, request: fixture,
+            providerCode: "cncsports", enabledCodes: { ["cncsports"] }, clock: { now }, report: { update in
+                if case .partialSession(let offered) = update { XCTAssertEqual(offered.id, choice.id); reported.fulfill() }
+                else { XCTFail("Expected one partial choice") }
+            })
+        XCTAssertTrue(accepted)
+        await fulfillment(of: [reported], timeout: 3)
+        for (codes, scoped, checkedAt) in [([String](), fixture, now),
+            (["cncsports"], request(at: now.addingTimeInterval(24 * 3600)), now),
+            (["cncsports"], fixture, now.addingTimeInterval(StreamEventBinding.metadataLifetime + 1))] {
+            let accepted = await LiveStreamResolver.publishDirectOptionalSession(choice, request: scoped,
+                providerCode: "cncsports", enabledCodes: { codes }, clock: { checkedAt },
+                report: { _ in XCTFail("Disabled, changed or expired authority must not publish") })
+            XCTAssertFalse(accepted)
+        }
+        let reading = expectation(description: "Enablement read suspended")
+        let operation = Task {
+            await LiveStreamResolver.publishDirectOptionalSession(choice, request: fixture,
+                providerCode: "cncsports", enabledCodes: {
+                    reading.fulfill()
+                    do { try await Task.sleep(for: .seconds(30)) } catch { }
+                    return ["cncsports"]
+                }, clock: { now }, report: { _ in XCTFail("A late enabled result cannot publish after cancellation") })
+        }
+        await fulfillment(of: [reading], timeout: 3)
+        operation.cancel()
+        let cancelledAccepted = await operation.value
+        XCTAssertFalse(cancelledAccepted)
+    }
+
     func testPartialFetchReceiptSurvivesBothSuccessfulAndThrowingAggregateLookups() async throws {
         let suite = "CNCSports.partial." + UUID().uuidString
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -563,9 +842,18 @@ final class CNCSportsAddonTests: XCTestCase {
                       metadataJSON(description: description(time: "20:00")), metadataJSON(id: secondID)] {
             let session = try fixtureSession(meta: .json(["meta": value]))
             defer { session.invalidateAndCancel(); CNCFixtureProtocol.reset() }
-            do { _ = try await CNCSportsAddonClient(session: session).resolve(for: request()); XCTFail("Expected no source") }
+            let observed = ProgressiveSessions()
+            do {
+                _ = try await CNCSportsAddonClient(session: session).resolve(for: request(), onSession: { choice in
+                    await observed.append(choice)
+                    return true
+                })
+                XCTFail("Expected no source")
+            }
             catch { XCTAssertTrue(error is CommunitySportsAddonError) }
             XCTAssertFalse(CNCFixtureProtocol.paths.contains { $0.hasPrefix("/stream/") })
+            let choices = await observed.snapshot()
+            XCTAssertTrue(choices.isEmpty, "Invalid metadata cannot publish a progressive choice")
         }
     }
 

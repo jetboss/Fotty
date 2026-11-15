@@ -617,10 +617,11 @@ final class FottyQualityStore {
     private static let evidenceDetailKeys: Set<String> = evidenceCountKeys.union([
         "evidence_schema", "evidence_fixture", "evidence_lookup_id", "evidence_generation",
         "evidence_listing", "evidence_contract", "evidence_has_name", "evidence_has_title",
-        "evidence_comparison", "evidence_disposition", "evidence_truncated", "evidence_reconciled"
+        "evidence_comparison", "evidence_disposition", "evidence_truncated", "evidence_reconciled", "evidence_web_only"
     ])
 
     private static let allowedDetailKeys: Set<String> = [
+        "discovery_first_candidate_ms", "discovery_first_snapshot_ms", "discovery_initial_wait",
         "mode", "failure_kind", "recovery_kind", "feed", "source",
         "model", "route", "result", "reason_code", "token_count",
         "source_family", "source_key", "attempt_id", "watch_session_id",
@@ -799,6 +800,34 @@ final class FottyQualityStore {
         persistLocked(Self.pruned(values, now: now()))
     }
 
+    /// A successfully matched Web page is one lookup, never an enumerated
+    /// media response. Keep its raw offered/admitted counts unavailable and
+    /// correlate only the device-local fixture digest and lookup UUID.
+    func recordScore808WebLookup(fixtureID: String, lookupID: UUID) {
+        guard AppRuntime.privateOutageFixture == nil,
+              case .fixture(let fixture)? = LiveSourceHealthStore.fixtureProgrammeScope(fixtureID: fixtureID) else { return }
+        let timestamp = now()
+        guard timestamp.timeIntervalSinceReferenceDate.isFinite else { return }
+        let details = ["source_family": "score808", "evidence_schema": "1",
+            "evidence_fixture": fixture.bytes.map { String(format: "%02x", $0) }.joined(),
+            "evidence_lookup_id": lookupID.uuidString.lowercased(), "evidence_web_only": "true",
+            "admission_completion": "complete", "admission_observation": "unread", "admission_reconciled": "unknown",
+            "evidence_observed_entries": "0", "evidence_unique_contracts": "0", "evidence_retained_entries": "0",
+            "evidence_read_responses": "0", "evidence_unread_responses": "0", "evidence_empty_responses": "0",
+            "evidence_truncated": "false", "evidence_reconciled": "false"]
+        let record = FottyQualityRecord(id: UUID(), timestamp: timestamp, category: .playback,
+            name: "provider_lookup", outcome: .info, durationMilliseconds: nil, details: details,
+            appVersion: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown",
+            appBuild: Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "unknown")
+        lock.lock()
+        defer { lock.unlock(); writes.drain() }
+        var values = decodedRecordsLocked()
+        guard !values.contains(where: { $0.name == "provider_lookup" && $0.details["source_family"] == "score808"
+            && $0.details["evidence_lookup_id"] == lookupID.uuidString.lowercased() }) else { return }
+        values.append(record)
+        persistLocked(Self.pruned(values, now: timestamp))
+    }
+
     /// Totals describe retained receipts only. A contract seen in repeated
     /// lookups counts once; response entries still count on each distinct read.
     func fixtureLookupCounts(fixture: DeviceHMAC, provider: EvidenceProvider,
@@ -807,10 +836,11 @@ final class FottyQualityStore {
         let rows = records().filter { $0.category == .playback && $0.details["evidence_fixture"] == hex
             && $0.details["source_family"] == provider.rawValue && window.contains($0.timestamp) }
         var lookups = Set<String>(), contracts = Set<String>()
-        var observed = 0, read = 0, unread = 0, empty = 0, truncated = false
+        var observed = 0, read = 0, unread = 0, empty = 0, webOnly = 0, truncated = false
         for row in rows where row.name == "provider_lookup" {
             guard let lookup = row.details["evidence_lookup_id"], UUID(uuidString: lookup) != nil,
                   lookups.insert(lookup).inserted else { continue }
+            if provider == .score808, row.details["evidence_web_only"] == "true" { webOnly += 1 }
             func count(_ key: String) -> Int {
                 guard let value = row.details[key], let number = Int(value),
                       StreamAdmissionLedger.validCount.contains(number) else { truncated = true; return 0 }
@@ -828,7 +858,7 @@ final class FottyQualityStore {
         }
         return .init(fixture: fixture, provider: provider, window: window, lookups: lookups.count,
             observedEntries: observed, uniqueObservedContracts: contracts.count, readResponses: read,
-            unreadResponses: unread, knownEmptyResponses: empty, webOnlyLookups: 0, isTruncated: truncated)
+            unreadResponses: unread, knownEmptyResponses: empty, webOnlyLookups: webOnly, isTruncated: truncated)
     }
 
     /// Session filtering is a separate unit from provider response entries.
@@ -1234,7 +1264,7 @@ final class FottyQualityStore {
         case "evidence_fixture", "evidence_listing", "evidence_contract":
             return value.utf8.count == 64 && value.utf8.allSatisfy { (48...57).contains($0) || (97...102).contains($0) }
         case "evidence_lookup_id", "evidence_generation": return UUID(uuidString: value) != nil
-        case "evidence_has_name", "evidence_has_title", "evidence_truncated", "evidence_reconciled":
+        case "evidence_has_name", "evidence_has_title", "evidence_truncated", "evidence_reconciled", "evidence_web_only":
             return value == "true" || value == "false"
         case "evidence_comparison": return MetadataComparison(rawValue: value) != nil
         case "evidence_disposition": return StreamAdmissionLedger.reasons.contains(value)
@@ -1321,7 +1351,8 @@ final class FottyQualityStore {
             return LocalStreamProxyFailureEvidence.Kind(rawValue: value) != nil
         case "relay_http_status", "preparation_http_status", "relay_request_http_status":
             return Int(value).map { (100...599).contains($0) } ?? false
-        case "relay_failure_age_ms", "relay_request_age_ms", "relay_request_elapsed_ms", "native_startup_elapsed_ms", "native_startup_deadline_ms":
+        case "discovery_initial_wait": return ["unproven_choice", "sustained_provider", "previous_failure"].contains(value)
+        case "relay_failure_age_ms", "relay_request_age_ms", "relay_request_elapsed_ms", "native_startup_elapsed_ms", "native_startup_deadline_ms", "discovery_first_candidate_ms", "discovery_first_snapshot_ms":
             return Int(value).map { (0...3_600_000).contains($0) } ?? false
         case "native_item_status":
             return ["unknown", "ready", "failed", "other"].contains(value)

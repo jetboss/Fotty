@@ -224,14 +224,14 @@ actor PenguPlaySportsAddonClient {
         // One lookup receipt per eligible request: the stage reached, never titles or URLs.
         var stage = "manifest"
         var finished = false
-        var admission = StreamAdmissionLedger(), fetchFailures = 0
+        var admission = StreamAdmissionLedger(), fetchFailures = 0, searchFailures = 0
         var evidence = StreamLookupEvidence(request: request, provider: .penguPlay, lookupID: admission.id,
             configurationGeneration: configurationGeneration, at: now)
         var sessions: [StreamSession] = [], seen: Set<StreamDeliveryIdentity> = []
         var cancelled = false, listingsLimited = false
         defer {
             let completion = cancelled || Task.isCancelled ? "cancelled" : (!finished ? "failed" :
-                (listingsLimited || admission.dispositions["limit", default: 0] > 0 ? "limited" : (fetchFailures > 0 ? "partial" : "complete")))
+                (listingsLimited || admission.dispositions["limit", default: 0] > 0 ? "limited" : (fetchFailures > 0 || searchFailures > 0 ? "partial" : "complete")))
             admission.finish(admitted: finished ? sessions.count : 0, completion: completion)
             FottyQualityStore.shared.recordStreamAdmission(sourceFamily: Self.providerCode, ledger: admission,
                 completion: completion, fetchFailures: fetchFailures)
@@ -242,7 +242,10 @@ actor PenguPlaySportsAddonClient {
         var missReason: String?, rowCount: Int?
         defer {
             var details = ["source_family": Self.providerCode, "stage": stage, "result": finished ? "admitted" : "stopped_at_" + stage]
-            if !finished, let failure = lastReadFailure ?? missReason { details["reason_code"] = failure }
+            if searchFailures > 0 { details["supplementary_failures"] = String(searchFailures) }
+            if !finished, searchFailures > 0, stage == "programme_channel" {
+                details["reason_code"] = "search_unavailable"
+            } else if !finished, let failure = lastReadFailure ?? missReason { details["reason_code"] = failure }
             if let rowCount { details["candidate_count"] = "\(rowCount)" }
             FottyQualityStore.shared.record(category: .playback, name: "penguplay_lookup", outcome: finished ? .success : .info,
                 details: details)
@@ -265,7 +268,7 @@ actor PenguPlaySportsAddonClient {
                 if page.metas.count > remaining { evidence.markTruncated() }
                 rows += page.metas.prefix(remaining)
             } catch is CancellationError { cancelled = true; throw CancellationError() }
-            catch { lastReadFailure = nil; continue } // Keep the other team's rows.
+            catch { searchFailures += 1; lastReadFailure = nil; continue } // Keep the other team's rows.
         }
         stage = "fixture_match"
         var viaChannel: CricketBroadcastChannel? = channelTile
@@ -284,7 +287,10 @@ actor PenguPlaySportsAddonClient {
                 // Exact listing missed: only a current reviewed programme names the channel.
                 stage = "programme_channel"
                 let channels = sport == "cricket" ? await programmeChannels(request) : []
-                guard channels.count == 1 else { throw CommunitySportsAddonError.matchNotFound }
+                guard channels.count == 1 else {
+                    // An unread team search is not proof that the match is absent.
+                    throw searchFailures > 0 ? CommunitySportsAddonError.invalidResponse : .matchNotFound
+                }
                 viaChannel = channels.first
             }
             stage = "channel_row"
