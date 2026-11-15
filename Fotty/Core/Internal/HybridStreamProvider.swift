@@ -393,13 +393,14 @@ actor LiveStreamResolver {
     nonisolated static func preflightProviderCodes(for fixtureID: String, available: [String],
         schedule: inout FixtureProviderPreflightSchedule) -> [String] {
         let account = available.filter(LiveSourceHealthStore.accountProviderCodes.contains)
-        return account + schedule.takeProviders(for: fixtureID,
-            available: available.filter { !account.contains($0) }, limit: max(0, 2 - account.count))
+        // Account sources get the first opportunity, then join the same
+        // bounded rotation. Two accounts must not starve every free source.
+        return schedule.takeProviders(for: fixtureID,
+            available: account + available.filter { !account.contains($0) }, limit: 2)
     }
 
-    nonisolated static func preflightDeadline(availableProviderCodes: [String],
-        startedProviderCodes: [String]) -> Duration {
-        availableProviderCodes.contains(where: LiveSourceHealthStore.accountProviderCodes.contains)
+    nonisolated static func preflightDeadline(startedProviderCodes: [String]) -> Duration {
+        startedProviderCodes.contains(where: LiveSourceHealthStore.accountProviderCodes.contains)
             ? accountPreflightDeadline : .seconds(8)
     }
 
@@ -417,8 +418,8 @@ actor LiveStreamResolver {
         guard !sources.isEmpty else { return 0 }
         var lanes: [StreamDiscoveryCoordinator.Lane] = []
         var tickets: [FixtureStreamDiscoveryIndex.Ticket] = []
-        // The owner's account source is checked every time; the free sources
-        // share the remaining slot in rotation.
+        // Every enabled source gets a turn in this fixture's two-lane budget.
+        // Ticket cooldowns and request caps still apply after selection.
         let selectedCodes = Self.preflightProviderCodes(for: request.matchID,
             available: sources.map(\.providerCode), schedule: &preflightProviderSchedule)
         for code in selectedCodes {
@@ -447,11 +448,11 @@ actor LiveStreamResolver {
             }
         }
         guard !lanes.isEmpty else { return 0 }
-        // Account sources (PenguPlay gathers channel links on request) get the
-        // longer budget; free sources keep the original eight seconds.
+        // Started account sources (PenguPlay gathers channel links on request)
+        // get the longer budget; a free-only batch keeps eight seconds even
+        // when an eligible account's ticket was skipped by its cooldown.
         _ = await StreamDiscoveryCoordinator.collect(matchScope: LiveSourceHealthStore.MatchEvidenceScope(request: request),
-            lanes: lanes, deadline: Self.preflightDeadline(availableProviderCodes: sources.map(\.providerCode),
-                startedProviderCodes: tickets.map(\.providerCode)))
+            lanes: lanes, deadline: Self.preflightDeadline(startedProviderCodes: tickets.map(\.providerCode)))
         // Completed generations ignore abandonment; a parent cancelled before
         // a lane started must still release its metadata-only lease.
         for ticket in tickets { await FixtureStreamDiscoveryIndex.shared.abandon(ticket) }

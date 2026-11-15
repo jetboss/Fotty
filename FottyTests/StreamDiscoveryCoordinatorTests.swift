@@ -33,12 +33,15 @@ final class FixtureProviderPreflightScheduleTests: XCTestCase {
     }
 
     func testPreflightDeadlineUsesStartedLanesRatherThanSkippedAccountTickets() {
-        XCTAssertEqual(LiveStreamResolver.preflightDeadline(availableProviderCodes: ["highfly", "communitysports"],
-            startedProviderCodes: ["communitysports"]), .seconds(8), "An account cooldown must not extend a free-only preflight")
-        XCTAssertEqual(LiveStreamResolver.preflightDeadline(availableProviderCodes: ["highfly", "communitysports"],
-            startedProviderCodes: ["highfly", "communitysports"]), .seconds(30))
-        XCTAssertEqual(LiveStreamResolver.preflightDeadline(availableProviderCodes: ["cncsports"],
-            startedProviderCodes: ["cncsports"]), .seconds(8))
+        var rotation = FixtureProviderPreflightSchedule()
+        let selected = LiveStreamResolver.preflightProviderCodes(for: "cricket",
+            available: ["highfly", "communitysports"], schedule: &rotation)
+        XCTAssertEqual(selected, ["highfly", "communitysports"])
+        let startedAfterAccountCooldown = selected.filter { $0 != "highfly" }
+        XCTAssertEqual(LiveStreamResolver.preflightDeadline(startedProviderCodes: startedAfterAccountCooldown),
+            .seconds(8), "An account cooldown must not extend a free-only preflight")
+        XCTAssertEqual(LiveStreamResolver.preflightDeadline(startedProviderCodes: selected), .seconds(30))
+        XCTAssertEqual(LiveStreamResolver.preflightDeadline(startedProviderCodes: ["cncsports"]), .seconds(8))
     }
 
     func testInterleavedFixturesEachVisitEveryProviderInsteadOfAliasingGlobalCursor() {

@@ -281,7 +281,7 @@
         "CS2"
       ],
       "pauseSourcesResumePassed": true,
-      "sameAttemptAcrossObservedRecords": false,
+      "sameAttemptAcrossObservedRecords": true,
       "attemptStarts": 1,
       "audio": "Not audibly observable through Device Hub;not an audible-audio pass",
       "records": [
@@ -426,7 +426,8 @@
             "last_observed_stage": "decoded"
           }
         }
-      ]
+      ],
+      "attemptIdentityBasis": "Only playback attempt_started/decoded_progress/native_continuity/native_resume/session_closed records compared; discovery uses a separate ID"
     }
   },
   "finalCandidate": "preflight fairness follow-up in progress;330 results retained separately"
