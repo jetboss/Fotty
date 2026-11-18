@@ -1,3 +1,24 @@
+## 2026-11-18 — Post-3.0 cleanup: FPL sources, privacy manifest, registry cache
+
+Owner-approved maintenance after reviewing an outside "2x better" plan with
+Codex. No ranking, admission or user-visible behaviour changed.
+
+- `20c299c`: deleted the 45 Swift files `project.yml` already excluded after the
+  FPL retirement, their excludes and orphaned project entries. Compiled
+  membership is unchanged. README and developer handoff now describe 3.0.
+- `a601e16` + `ed302a9`: the app manifest now declares app-group UserDefaults
+  `1C8F.1`, SystemBootTime `35F9.1` (`systemUptime`) and FileTimestamp `C617.1`
+  (Caches pruning); the widget extension has its own manifest (`1C8F.1`). The
+  first commit broke a test pinning the old incomplete list; the test now
+  guards the complete declarations.
+- `b84c2bc`: the broadcast registry snapshot (1.6 MiB observed, 4 MiB cap)
+  moved from UserDefaults to `Caches/BroadcastRegistry/accepted-v1.json`,
+  atomically replaced and read off the main actor. The legacy preferences
+  copy migrates unchanged and is removed only after a successful write.
+  Purged or corrupt files behave as a cold start. Full CI: 2,750 passed,
+  12 existing skips, 0 failures. Launch-time benefit is not yet measured on
+  a device.
+
 ## 2026-11-15 — Release 3.0.0 (338) to internal TestFlight; narrow release gates with proof
 
 The owner approved the TestFlight release of the Jet338 source. The full
