@@ -1,9 +1,13 @@
 # Fotty developer handoff
 
-Reviewed 10 October 2026. Fotty Sports Hub is a private iOS and iPadOS sports app
-with discovery, optional third-party playback, personal Matchday planning and
-an existing FPL workspace. Current work prioritizes usability, performance and
-maintenance; FPL feature development is paused.
+Updated 17 November 2026 for 3.0.0 (338). Fotty Sports Hub is a private iOS
+and iPadOS sports app with discovery, a Sports TV guide, personal Matchday
+planning and optional third-party playback of one match at a time. The FPL
+workspace was retired in 3.0 (build 332). Its UI, engines and tests were deleted
+from the tree on 17 November; Git history keeps them. Public FPL scores and
+`Core/Persistence/FPLBackupCompatibility.swift` remain so older saved data still
+reads. Two-match viewing (Watch Two) is parked: `MultiLivePlayerView.swift`
+still compiles, but it is not a supported feature.
 
 The code is suitable for incremental improvement. Preserve the working product
 and its recognizable badges and sport artwork. Establish the source being
@@ -11,50 +15,16 @@ reviewed before restructuring it, and change one ownership boundary at a time.
 
 ## Source and installed versions
 
-Jet iPad now has signed, optimized 2.0.1 build137 installed, with independent
-installed-app readback. Its exact real CS2 gate proves brief native progress and
-responsive controls, followed by recorded decoded-stage failure/retry; CS1 fails
-and falls back. Final Home/Matchday/Search passes. CS PiP stops before start on
-that actual replaced item; the passive Watch Two gate loses the runner/session
-before120 seconds, not a proven app crash or full-soak pass.
-See [`releases/Fotty-2.0.1-137.md`](releases/Fotty-2.0.1-137.md)
-and [`releases/Fotty-2.0.1-136.md`](releases/Fotty-2.0.1-136.md). Earlier device
-acceptance stays dated, not qualification of newer binaries. Owner phones remain
-on125 and shared TestFlight remains121. No new distribution authority.
+Do not rely on this file for build or device state. The current release,
+installed builds and open problems live in
+[`notebooklm/Current-State.md`](notebooklm/Current-State.md), with per-release
+receipts under [`releases/`](releases/). The test counts and build numbers
+further down this file are dated October history from the 2.0.1 era.
 
-The local workspace contains substantial uncommitted work predating this pass.
-Do not reset it or assume a checkout of GitHub contains every current repair.
-Local recovery destinations identify the maintenance boundaries:
-
-- Before: `backups/release-source/stabilization-20261010-before`.
-- After: `backups/release-source/stabilization-20261010-after`.
-- After coordinator/audio cleanup: `backups/release-source/ownership-20261010-after`.
-- Reviewed component capture: `backups/release-source/2.0.1-129-components-reviewed`.
-- Build 129 pre-build source: `backups/release-source/2.0.1-129`.
-- First137 reachability pre-build source:
-  `backups/release-source/2.0.1-137-ui-reachability`.
-- Final installed137 passive-canary pre-build source:
-  `backups/release-source/2.0.1-137-passive-canary-final`.
-
-Each completed capture contains a `source.bundle` and `receipt.json`. The receipt
-hashes every selected file and executable mode. The recovery tool verifies a
-restorable single-commit bundle and scans the copied tree for secrets. It does
-not change this repository's Git index, branch or history. Ignored credentials,
-signing inputs, local account data and build products are not recovery inputs.
-These bundles are deliberately ignored, not uploaded or automatically shared.
-
-Verify the bundle before restoring it into a new review directory:
-
-```bash
-python3 -B tools/release_source_snapshot.py verify \
-  backups/release-source/ownership-20261010-after
-git clone backups/release-source/ownership-20261010-after/source.bundle \
-  <new-review-directory>
-```
-
-A recovery capture establishes the captured working tree, not historical binary
-provenance. Shared releases require a new pre-build capture and a source compare
-before upload; see [`notebooklm/Workflow.md`](notebooklm/Workflow.md).
+Shared releases require a pre-build source capture and a source compare before
+upload; see [`notebooklm/Workflow.md`](notebooklm/Workflow.md) and
+`tools/release_source_snapshot.py`. A capture establishes the captured working
+tree, not historical binary provenance.
 
 ## Current ownership
 

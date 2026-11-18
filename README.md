@@ -1,7 +1,16 @@
 # Fotty Sports Hub
 
-Fotty is an iOS-first live sports companion with match-day discovery, optional
-third-party playback, personal Matchday planning and an FPL decision workspace.
+Fotty 3.0 is an iOS-first live sports companion: match-day discovery across
+sports, a Sports TV guide, personal Matchday planning and optional third-party
+playback of one match at a time.
+
+Retired in 3.0: the FPL workspace was removed in build 332. Only public scores
+and the legacy backup types needed to read older saved data remain. Two-match
+viewing (Watch Two) is parked: its code still compiles, but it is not a
+supported feature.
+
+For what is current, read
+[`docs/notebooklm/Current-State.md`](docs/notebooklm/Current-State.md).
 
 ## Agent access
 
@@ -38,5 +47,18 @@ separate gates.
 The retired Android/TWA and homelab/P2P products are not part of this repository's supported graph.
 
 ## Documentation
+- Current state: `docs/notebooklm/Current-State.md`
 - Product Memory: `docs/notebooklm/Project-Memory.md`
 - Decisions Log: `docs/notebooklm/Decisions-Log.md`
+
+## Shorthand used in the notes
+
+The dated notes use compact labels:
+
+- **`Jet337`**: private build 337 installed on the owner's iPad ("Jet iPad").
+- **`TestFlight338`**: build 338 shared through internal TestFlight.
+- **Provider labels**: `CS` Community Sports, `AS` Additional (Plavio) Sports,
+  `LS` CNC Sports, `FS` Flix Streams, `TV` reviewed TV, `HF` Highfly,
+  `PP` PenguPlay. A number names the source position, so `CS2` is the second
+  Community Sports stream.
+- **`PR114`**: GitHub pull request 114.
