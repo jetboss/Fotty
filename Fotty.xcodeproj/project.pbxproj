@@ -294,6 +294,7 @@
 		830906B78AC56272552EC5FD /* FPLBackupCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9667ADE32F514A1F728AC51 /* FPLBackupCompatibility.swift */; };
 		24D9862D406E84CEDD758A1B /* RetainedFootballDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD68243150EB4CA6C011EC7E /* RetainedFootballDataTests.swift */; };
 		FD780A6445139A3A1BBE4E4F /* SportsTVGuidePresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD0243E645EB33DD259363E9 /* SportsTVGuidePresentationTests.swift */; };
+		A82F7C5F0C8F3FCC2282BFFB /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A9F983A83BCEF44FF6EB4AD1 /* PrivacyInfo.xcprivacy */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -625,6 +626,7 @@
 		C9667ADE32F514A1F728AC51 /* FPLBackupCompatibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FPLBackupCompatibility.swift; sourceTree = "<group>"; };
 		FD68243150EB4CA6C011EC7E /* RetainedFootballDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RetainedFootballDataTests.swift; sourceTree = "<group>"; };
 		AD0243E645EB33DD259363E9 /* SportsTVGuidePresentationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsTVGuidePresentationTests.swift; sourceTree = "<group>"; };
+		A9F983A83BCEF44FF6EB4AD1 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -652,6 +654,7 @@
 				6536B55927C2A731F9E9068A /* FottyLiveActivityWidget.swift */,
 				F71CC365261B6BF474F8F812 /* FottySportsPlanWidget.swift */,
 				430E0FD9FF05C3837A012567 /* Info.plist */,
+				A9F983A83BCEF44FF6EB4AD1 /* PrivacyInfo.xcprivacy */,
 			);
 			path = FottyLiveActivityExtension;
 			sourceTree = "<group>";
@@ -1501,6 +1504,7 @@
 			buildConfigurationList = C5B59C0F34DCAC04F0DCFB65 /* Build configuration list for PBXNativeTarget "FottyLiveActivityExtension" */;
 			buildPhases = (
 				162D9DA5F9DD8F8D60CDE772 /* Sources */,
+				88F9F5646FF609C7E989C2E1 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -1589,6 +1593,14 @@
 				633E8512AD38132143CA083E /* reviewed-tv-guide-snapshot.json in Resources */,
 				DE2633C4456949B426C02793 /* sources-phone-dark.png in Resources */,
 				6AD172300B9A28554ED34462 /* sources-phone-large-text.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		88F9F5646FF609C7E989C2E1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A82F7C5F0C8F3FCC2282BFFB /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
