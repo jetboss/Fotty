@@ -840,23 +840,68 @@ struct BroadcastRegistryMatch: Equatable, Sendable {
     }
 }
 
+/// Holds the accepted registry snapshot (observed at 1.6 MiB, capped at 4 MiB)
+/// as one file in Caches. Earlier builds kept it in UserDefaults, which loads
+/// and rewrites the whole preferences domain. File I/O stays off the main actor
+/// and is serialized here, so a later write cannot interleave with an earlier one.
+actor BroadcastRegistryCacheStore {
+    static let legacyDefaultsKey = "Fotty.BroadcastRegistry.accepted.v1"
+    private let fileURL: URL?
+    private var memory: Data?
+
+    /// `nil` keeps the snapshot in memory only (tests and previews).
+    init(fileURL: URL?) { self.fileURL = fileURL }
+
+    static func ephemeral() -> BroadcastRegistryCacheStore { .init(fileURL: nil) }
+
+    static func applicationCaches() -> BroadcastRegistryCacheStore {
+        let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+        return .init(fileURL: caches?.appendingPathComponent("BroadcastRegistry", isDirectory: true)
+            .appendingPathComponent("accepted-v1.json"))
+    }
+
+    /// Returns nil for a missing, unreadable or oversized file; callers then
+    /// behave exactly as on a cold start.
+    func read() -> Data? {
+        guard let fileURL else { return memory }
+        guard let handle = try? FileHandle(forReadingFrom: fileURL) else { return nil }
+        defer { try? handle.close() }
+        guard let data = try? handle.read(upToCount: BroadcastRegistrySnapshot.maximumBytes + 1),
+              !data.isEmpty, data.count <= BroadcastRegistrySnapshot.maximumBytes else { return nil }
+        return data
+    }
+
+    /// Atomic replace, so a crash mid-write leaves the previous file intact.
+    @discardableResult
+    func write(_ data: Data) -> Bool {
+        guard data.count <= BroadcastRegistrySnapshot.maximumBytes else { return false }
+        guard let fileURL else { memory = data; return true }
+        do {
+            try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try data.write(to: fileURL, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+}
+
 /// One foreground-owned metadata refresh. Source choices remain local opt-ins;
 /// a failed/cancelled read never renews cached association/source receipts.
 @MainActor
 @Observable
 final class BroadcastRegistryClient {
-    static let shared = BroadcastRegistryClient()
+    static let shared = BroadcastRegistryClient(cacheStore: .applicationCaches())
     static let refreshInterval: TimeInterval = 300
-    private static let cacheKey = "Fotty.BroadcastRegistry.accepted.v1"
     private(set) var snapshot: BroadcastRegistrySnapshot?
     private(set) var isRefreshing = false
     enum RefreshFailure: String, Equatable, Sendable { case network, response, validation, rejectedSnapshot, joinTimeout }
     private(set) var lastRefreshFailure: RefreshFailure?
     @ObservationIgnored private let defaults: UserDefaults
+    @ObservationIgnored private let cacheStore: BroadcastRegistryCacheStore
     @ObservationIgnored private let fetch: (URLRequest) async throws -> (Data, URLResponse)
     @ObservationIgnored private var lastAttempt: Date?
     @ObservationIgnored private var preparedIndex: BroadcastRegistrySnapshot.LookupIndex?
-    @ObservationIgnored private var pendingCacheData: Data?
     @ObservationIgnored private var didLoadCache = false
     @ObservationIgnored private var refreshGeneration: UUID?
     @ObservationIgnored private var lastPlaybackRefreshAttempt: Date?
@@ -874,10 +919,12 @@ final class BroadcastRegistryClient {
         let encoded: Data?
     }
 
+    /// `defaults` is read only to migrate a snapshot saved by earlier builds.
     init(defaults: UserDefaults = .standard,
+         cacheStore: BroadcastRegistryCacheStore = .ephemeral(),
          fetch: ((URLRequest) async throws -> (Data, URLResponse))? = nil) {
         self.defaults = defaults
-        pendingCacheData = defaults.data(forKey: Self.cacheKey)
+        self.cacheStore = cacheStore
         if let fetch { self.fetch = fetch }
         else {
             let configuration = URLSessionConfiguration.ephemeral
@@ -990,7 +1037,7 @@ final class BroadcastRegistryClient {
             snapshot = prepared.snapshot
             preparedIndex = prepared.index
             lastRefreshFailure = nil
-            if let encoded = prepared.encoded { defaults.set(encoded, forKey: Self.cacheKey) }
+            if let encoded = prepared.encoded { await persist(encoded) }
             return prepared.snapshot
         } catch {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
@@ -1046,11 +1093,27 @@ final class BroadcastRegistryClient {
 
     private func primeCache(at now: Date, generation: UUID) async {
         guard !didLoadCache else { return }
-        guard let data = pendingCacheData else { didLoadCache = true; return }
+        let stored = await cacheStore.read()
+        let legacy = stored == nil ? defaults.data(forKey: BroadcastRegistryCacheStore.legacyDefaultsKey) : nil
+        guard !Task.isCancelled, refreshGeneration == generation else { return }
+        guard let data = stored ?? legacy else { didLoadCache = true; return }
         let prepared = try? await Self.prepare(data, at: now, cached: true, previous: nil, persist: false)
         guard !Task.isCancelled, refreshGeneration == generation else { return }
-        didLoadCache = true; pendingCacheData = nil
+        didLoadCache = true
         if let prepared { snapshot = prepared.snapshot; preparedIndex = prepared.index }
+        // Move, never drop: the preferences copy goes only once the file holds it.
+        if let legacy, prepared != nil { await persist(legacy) }
+        else if stored != nil, prepared != nil { retireLegacyDefaults() }
+    }
+
+    private func persist(_ encoded: Data) async {
+        if await cacheStore.write(encoded) { retireLegacyDefaults() }
+    }
+
+    private func retireLegacyDefaults() {
+        if defaults.object(forKey: BroadcastRegistryCacheStore.legacyDefaultsKey) != nil {
+            defaults.removeObject(forKey: BroadcastRegistryCacheStore.legacyDefaultsKey)
+        }
     }
 
     private nonisolated static func prepare(_ data: Data, at now: Date, cached: Bool,

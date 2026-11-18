@@ -817,7 +817,8 @@ final class BroadcastRegistryTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suite) }
         let payload = try validated().encoded()
         var calls = 0, failure: Error?
-        let client = BroadcastRegistryClient(defaults: defaults) { request in
+        let store = BroadcastRegistryCacheStore.ephemeral()
+        let client = BroadcastRegistryClient(defaults: defaults, cacheStore: store) { request in
             calls += 1
             XCTAssertEqual(request.url?.path, "/api/live/broadcasts")
             XCTAssertNil(request.httpBody)
@@ -838,7 +839,7 @@ final class BroadcastRegistryTests: XCTestCase {
         failure = nil
         _ = await client.refresh(at: now.addingTimeInterval(4))
         XCTAssertEqual(calls, 4, "A cancelled owner cannot retain a completed refresh throttle")
-        let restored = BroadcastRegistryClient(defaults: defaults) { _ in XCTFail("Cache load must not fetch"); throw URLError(.unknown) }
+        let restored = BroadcastRegistryClient(defaults: defaults, cacheStore: store) { _ in XCTFail("Cache load must not fetch"); throw URLError(.unknown) }
         XCTAssertNil(restored.cachedSnapshot(at: now.addingTimeInterval(5)), "A row getter must not decode a cold multi-megabyte cache")
         let loaded = await restored.loadCached(at: now.addingTimeInterval(5))
         XCTAssertEqual(loaded, first)
@@ -861,6 +862,108 @@ final class BroadcastRegistryTests: XCTestCase {
             let result = await client.refresh(at: now)
             XCTAssertNil(result)
             XCTAssertNil(client.cachedSnapshot(at: now))
+        }
+    }
+
+    // MARK: File-backed snapshot persistence
+
+    private func temporaryCacheFile() throws -> URL {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FottyRegistryCache-\(UUID().uuidString)", isDirectory: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        // A nested, not-yet-created directory proves the store creates its parent.
+        return directory.appendingPathComponent("BroadcastRegistry/accepted-v1.json")
+    }
+
+    nonisolated private static func registryResponse(_ payload: Data, for request: URLRequest) -> (Data, URLResponse) {
+        (payload, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
+            headerFields: ["Content-Type": "application/json"])!)
+    }
+
+    func testRefreshPersistsAcceptedSnapshotToCacheFileNotPreferences() async throws {
+        let suite = "Fotty.BroadcastRegistryTests.\(UUID().uuidString)", defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let file = try temporaryCacheFile(), payload = try validated().encoded()
+        let client = BroadcastRegistryClient(defaults: defaults, cacheStore: .init(fileURL: file)) {
+            Self.registryResponse(payload, for: $0)
+        }
+        let refreshed = await client.refresh(at: now)
+        let result = try XCTUnwrap(refreshed)
+        XCTAssertNil(defaults.object(forKey: BroadcastRegistryCacheStore.legacyDefaultsKey),
+            "The multi-megabyte snapshot must not be written into the preferences domain")
+        let persisted = try Data(contentsOf: file)
+        XCTAssertEqual(try BroadcastRegistrySnapshot.validated(from: persisted, at: now, cached: true), result)
+
+        let coldDefaults = try XCTUnwrap(UserDefaults(suiteName: suite + ".cold"))
+        defer { coldDefaults.removePersistentDomain(forName: suite + ".cold") }
+        let restored = BroadcastRegistryClient(defaults: coldDefaults, cacheStore: .init(fileURL: file)) { _ in
+            XCTFail("Cache load must not fetch"); throw URLError(.unknown)
+        }
+        let loaded = await restored.loadCached(at: now.addingTimeInterval(5))
+        XCTAssertEqual(loaded, result, "A relaunch restores the accepted snapshot from the cache file alone")
+    }
+
+    func testLegacyPreferencesSnapshotMigratesToCacheFileOnce() async throws {
+        let suite = "Fotty.BroadcastRegistryTests.\(UUID().uuidString)", defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let file = try temporaryCacheFile(), legacy = try validated().encoded()
+        defaults.set(legacy, forKey: BroadcastRegistryCacheStore.legacyDefaultsKey)
+        let client = BroadcastRegistryClient(defaults: defaults, cacheStore: .init(fileURL: file)) { _ in
+            XCTFail("Cache load must not fetch"); throw URLError(.unknown)
+        }
+        XCTAssertNil(client.cachedSnapshot(at: now), "Construction must not decode or move the legacy snapshot")
+        let loaded = await client.loadCached(at: now.addingTimeInterval(5))
+        XCTAssertEqual(loaded, try validated())
+        XCTAssertEqual(try Data(contentsOf: file), legacy, "The legacy bytes move to the cache file unchanged")
+        XCTAssertNil(defaults.object(forKey: BroadcastRegistryCacheStore.legacyDefaultsKey),
+            "The preferences copy is removed only after the file write succeeds")
+
+        let restored = BroadcastRegistryClient(defaults: defaults, cacheStore: .init(fileURL: file)) { _ in
+            XCTFail("Cache load must not fetch"); throw URLError(.unknown)
+        }
+        let reloaded = await restored.loadCached(at: now.addingTimeInterval(6))
+        XCTAssertEqual(reloaded, loaded)
+    }
+
+    func testLegacyPreferencesSnapshotStaysWhenCacheFileCannotBeWritten() async throws {
+        let suite = "Fotty.BroadcastRegistryTests.\(UUID().uuidString)", defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let file = try temporaryCacheFile(), legacy = try validated().encoded()
+        // A regular file where the parent directory should be makes every write fail.
+        let parent = file.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: parent.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("x".utf8).write(to: parent)
+        defaults.set(legacy, forKey: BroadcastRegistryCacheStore.legacyDefaultsKey)
+        let client = BroadcastRegistryClient(defaults: defaults, cacheStore: .init(fileURL: file)) { _ in
+            XCTFail("Cache load must not fetch"); throw URLError(.unknown)
+        }
+        let loaded = await client.loadCached(at: now.addingTimeInterval(5))
+        XCTAssertEqual(loaded, try validated(), "A failed migration still serves the legacy snapshot")
+        XCTAssertEqual(defaults.data(forKey: BroadcastRegistryCacheStore.legacyDefaultsKey), legacy,
+            "The only saved copy is never discarded before a replacement exists")
+    }
+
+    func testUnreadableOrOversizedCacheFileFallsBackToNetwork() async throws {
+        for contents in [Data("not json".utf8), Data(count: BroadcastRegistrySnapshot.maximumBytes + 1)] {
+            let suite = "Fotty.BroadcastRegistryTests.\(UUID().uuidString)", defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+            defer { defaults.removePersistentDomain(forName: suite) }
+            let file = try temporaryCacheFile(), payload = try validated().encoded()
+            try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try contents.write(to: file)
+            let store = BroadcastRegistryCacheStore(fileURL: file)
+            let stored = await store.read()
+            if contents.count > BroadcastRegistrySnapshot.maximumBytes { XCTAssertNil(stored, "Oversized files are not read into memory") }
+            var calls = 0
+            let client = BroadcastRegistryClient(defaults: defaults, cacheStore: store) { request in
+                calls += 1; return Self.registryResponse(payload, for: request)
+            }
+            let cached = await client.loadCached(at: now)
+            XCTAssertNil(cached)
+            let refreshed = await client.refresh(at: now)
+            XCTAssertEqual(refreshed, try validated())
+            XCTAssertEqual(calls, 1)
+            XCTAssertEqual(try BroadcastRegistrySnapshot.validated(from: Data(contentsOf: file), at: now, cached: true), refreshed,
+                "A successful refresh replaces the unusable file")
         }
     }
 

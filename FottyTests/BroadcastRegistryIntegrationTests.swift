@@ -529,7 +529,8 @@ final class BroadcastRegistryIntegrationTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: domain) }
         defaults.set(try registryData(baseline), forKey: "Fotty.BroadcastRegistry.accepted.v1")
         let candidateData = try registryData(candidate)
-        let client = BroadcastRegistryClient(defaults: defaults, fetch: { request in
+        let store = BroadcastRegistryCacheStore.ephemeral()
+        let client = BroadcastRegistryClient(defaults: defaults, cacheStore: store, fetch: { request in
             (candidateData, HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil,
                 headerFields: ["Content-Type": "application/json"])!)
         })
@@ -541,7 +542,9 @@ final class BroadcastRegistryIntegrationTests: XCTestCase {
         XCTAssertEqual(client.lookup(for: .init(event: freshTV.event), enabledProviderCodes: ["reviewedtv"], at: clock).count, 1)
         XCTAssertEqual(result?.broadcasts.first { $0.id == row.id }, row)
         XCTAssertEqual(result?.links.filter { $0.broadcastID == row.id }, [priorLink])
-        let persisted = try XCTUnwrap(defaults.data(forKey: "Fotty.BroadcastRegistry.accepted.v1"))
+        XCTAssertNil(defaults.object(forKey: "Fotty.BroadcastRegistry.accepted.v1"), "The legacy preferences copy is retired")
+        let stored = await store.read()
+        let persisted = try XCTUnwrap(stored)
         let restored = try BroadcastRegistrySnapshot.validated(from: persisted, at: clock)
         XCTAssertEqual(restored, result)
         XCTAssertTrue(restored.lookup(for: csRequest, enabledProviderCodes: ["communitysports"],
