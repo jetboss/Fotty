@@ -1149,11 +1149,33 @@ final class BetaUsabilityTests: XCTestCase {
             XCTAssertEqual(declaration["NSPrivacyCollectedDataTypeTracking"] as? Bool, false)
             XCTAssertFalse(try XCTUnwrap(declaration["NSPrivacyCollectedDataTypePurposes"] as? [String]).isEmpty)
         }
-        let accessedAPIs = try XCTUnwrap(manifest["NSPrivacyAccessedAPITypes"] as? [[String: Any]])
-        let defaults = try XCTUnwrap(accessedAPIs.first {
-            $0["NSPrivacyAccessedAPIType"] as? String == "NSPrivacyAccessedAPICategoryUserDefaults"
-        })
-        XCTAssertEqual(defaults["NSPrivacyAccessedAPITypeReasons"] as? [String], ["CA92.1"])
+        // Every required-reason API the app calls is declared with its exact reason:
+        // app-only and app-group preferences, systemUptime elapsed-time measurement,
+        // and modification dates read while pruning files in Caches.
+        XCTAssertEqual(try accessedAPIReasons(in: manifest), [
+            "NSPrivacyAccessedAPICategoryUserDefaults": ["CA92.1", "1C8F.1"],
+            "NSPrivacyAccessedAPICategorySystemBootTime": ["35F9.1"],
+            "NSPrivacyAccessedAPICategoryFileTimestamp": ["C617.1"]
+        ])
+
+        // The widget extension ships its own manifest for the shared app-group preferences.
+        let extensionData = try Data(contentsOf: root.appendingPathComponent("FottyLiveActivityExtension/PrivacyInfo.xcprivacy"))
+        let extensionManifest = try XCTUnwrap(PropertyListSerialization.propertyList(from: extensionData, format: nil) as? [String: Any])
+        XCTAssertEqual(extensionManifest["NSPrivacyTracking"] as? Bool, false)
+        XCTAssertTrue(try XCTUnwrap(extensionManifest["NSPrivacyCollectedDataTypes"] as? [[String: Any]]).isEmpty)
+        XCTAssertEqual(try accessedAPIReasons(in: extensionManifest),
+            ["NSPrivacyAccessedAPICategoryUserDefaults": ["1C8F.1"]])
+    }
+
+    private func accessedAPIReasons(in manifest: [String: Any]) throws -> [String: [String]] {
+        let declarations = try XCTUnwrap(manifest["NSPrivacyAccessedAPITypes"] as? [[String: Any]])
+        var reasons: [String: [String]] = [:]
+        for declaration in declarations {
+            let type = try XCTUnwrap(declaration["NSPrivacyAccessedAPIType"] as? String)
+            XCTAssertNil(reasons[type], "\(type) is declared once")
+            reasons[type] = try XCTUnwrap(declaration["NSPrivacyAccessedAPITypeReasons"] as? [String])
+        }
+        return reasons
     }
 
     func testUIClubNamesPreserveTheirIdentity() {
