@@ -8,10 +8,10 @@ struct LiveWebEmbedPlayerView: UIViewRepresentable {
     let isMuted: Bool
     let isSuspended: Bool
     /// The standard player must leave the provider's play, pause, and unmute
-    /// controls alone. MultiView opts into Fotty-controlled audio focus.
+    /// controls alone unless Fotty explicitly manages audio focus.
     var providerControlsAudio = false
     /// Fit is the safe default because sports graphics and scoreboards often sit
-    /// at the video edges. MultiView can explicitly opt into a cropped Fill mode.
+    /// at the video edges. A caller can explicitly opt into a cropped Fill mode.
     var isFillMode = false
     let attemptID: UUID
     var playbackCommand: WebPlaybackCommand? = nil
@@ -21,8 +21,8 @@ struct LiveWebEmbedPlayerView: UIViewRepresentable {
     /// True grants after the current WK acquire ACK. False revokes that grant
     /// immediately; balancing the public false setter completes separately.
     var onNativeTransferSuspensionChanged: (UUID, Bool) -> Void = { _, _ in }
-    /// Watch Two waits for the decoded Web owner to confirm managed muting
-    /// before another pane may become audible. This never requests Play.
+    /// The coordinator waits for the decoded Web owner to confirm managed muting
+    /// before another owner may become audible. This never requests Play.
     var webAudioRevocationID: UUID? = nil
     var onWebAudioRevocationAcknowledged: (UUID) -> Void = { _ in }
     var onSurfaceTapped: (() -> Void)? = nil
@@ -897,7 +897,7 @@ struct LiveWebEmbedPlayerView: UIViewRepresentable {
                 } catch (e) {}
             }
 
-            // Explicit Watch Two ownership transition; presentation, ordinary
+            // Explicit audio-ownership transition; presentation, ordinary
             // provider taps and scroll updates never change the audio policy.
             window.__fottySetAudioOwnership = function(managed, muted) {
                 if (typeof managed !== 'boolean' || typeof muted !== 'boolean') return;

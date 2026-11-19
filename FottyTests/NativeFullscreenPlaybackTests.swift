@@ -295,7 +295,7 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
 
     func testForegroundPiPObservationRejectsPausedStaleRetiredAndNonSingleOwners() throws {
         for rejection in ["pause", "source", "attempt", "player", "item", "missing-item", "failed-item",
-                          "terminal", "network-wait", "web", "watch-two", "diagnostic", "retired"] {
+                          "terminal", "network-wait", "web", "retired"] {
             let model = makeModel()
             defer { model.cleanup() }
             let item = FullscreenForegroundObservationItem(asset: AVMutableComposition())
@@ -317,8 +317,6 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
             case "terminal": model.error = "Controlled terminal result"; model.transition(to: .failed)
             case "network-wait": model.pendingRetryAfterNetworkRestore = true
             case "web": model.forceWebEmbedSourceIDs.insert(try XCTUnwrap(model.activeSource?.id))
-            case "watch-two": model.setViewingPlaybackContext(.watchTwo(engine: .native))
-            case "diagnostic": model.setViewingDiagnosticRoute(.watchTwo)
             default: model.cleanup()
             }
             let source = model.activeSource?.id, attempt = model.loadRequestID
@@ -342,14 +340,14 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
         let source = model.activeSource?.id, attempt = model.loadRequestID
         model.isPictureInPictureAvailable = true
         model.isPictureInPictureActive = true
-        let backgroundIntent = model.nativeWatchTwoIntentID
+        let backgroundIntent = model.playbackIntentRevision
         model.handleScenePhaseChange(.background)
         model.handleFullscreenRateCommand(0, reason: .setRateCalled, session: session)
         XCTAssertFalse(model.userWantsPlayback)
         XCTAssertFalse(model.isPlaybackWatchdogArmed)
         model.handleFullscreenRateCommand(1, reason: .setRateCalled, session: session)
         XCTAssertTrue(model.userWantsPlayback)
-        XCTAssertNotEqual(model.nativeWatchTwoIntentID, backgroundIntent)
+        XCTAssertNotEqual(model.playbackIntentRevision, backgroundIntent)
         XCTAssertFalse(model.isPlaybackWatchdogArmed, "Background Play does not grant background recovery")
         model.handleScenePhaseChange(.active)
         XCTAssertTrue(model.isPlaybackWatchdogArmed)
@@ -363,20 +361,6 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
         XCTAssertNil(model.loadTask)
     }
 
-    func testWatchTwoPiPForegroundDoesNotAcquireSinglePlaybackObservation() throws {
-        let model = makeModel()
-        defer { model.cleanup() }
-        model.setViewingPlaybackContext(.watchTwo(engine: .native))
-        model.isPictureInPictureAvailable = true
-        model.isPictureInPictureActive = true
-        model.handleScenePhaseChange(.background)
-        model.handleScenePhaseChange(.active)
-        XCTAssertFalse(model.isPlaybackWatchdogArmed)
-        XCTAssertNil(model.playbackWatchdogTask)
-        XCTAssertNil(model.foregroundResumeValidationTask)
-        XCTAssertNil(model.loadTask)
-    }
-
     func testPausedIncidentRetiresAfterVerifiedResumeEvenWhenTheAttemptAlreadyDecoded() async throws {
         let validation = FullscreenSourceValidationBarrier()
         let model = makeModel(validateNativeSource: validation.wait)
@@ -387,7 +371,7 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
         let source = try XCTUnwrap(model.activeSource), attempt = model.loadRequestID
         player.setSeconds(1)
         XCTAssertTrue(model.observeSingleNativeResumeProgress(player: player, item: item,
-            sourceID: source.id, requestID: attempt, intentID: model.nativeWatchTwoIntentID,
+            sourceID: source.id, requestID: attempt, intentID: model.playbackIntentRevision,
             startSeconds: 0, currentSeconds: 1))
         let controls = try openControls(model)
         model.isPictureInPictureAvailable = true
@@ -402,7 +386,7 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
         XCTAssertNil(model.loadTask, "Consuming a paused incident cannot recover automatically")
 
         model.handleFullscreenRateCommand(1, reason: .setRateCalled, session: controls)
-        let intent = model.nativeWatchTwoIntentID
+        let intent = model.playbackIntentRevision
         XCTAssertTrue(model.userWantsPlayback)
         XCTAssertTrue(model.isPlaying)
         XCTAssertEqual(player.playCount, 0, "AVKit's explicit Play must not be repeated by the model")
@@ -517,7 +501,7 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
         model.player = player
         let session = try openControls(model)
         let attempt = model.loadRequestID
-        let oldIntent = model.nativeWatchTwoIntentID
+        let oldIntent = model.playbackIntentRevision
         model.handleFullscreenRateCommand(0, reason: .setRateCalled, session: session)
         model.handleFullscreenRateCommand(1, reason: .setRateCalled, session: session)
         let resume = try XCTUnwrap(model.foregroundResumeValidationTask)
@@ -525,7 +509,7 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
         let clock = ContinuousClock(), deadline = ContinuousClock.now + .seconds(2)
         while delay.pendingCount == 0, clock.now < deadline { await Task.yield() }
         guard delay.pendingCount == 1 else { return XCTFail("The existing resume observation did not reach its controlled deadline") }
-        XCTAssertNotEqual(model.nativeWatchTwoIntentID, oldIntent)
+        XCTAssertNotEqual(model.playbackIntentRevision, oldIntent)
         XCTAssertFalse(model.observeSingleNativeResumeProgress(player: player, item: item,
             sourceID: try XCTUnwrap(model.activeSource?.id), requestID: attempt, intentID: oldIntent,
             startSeconds: 0, currentSeconds: 1), "A queued pre-Pause sample cannot claim resumed evidence")
@@ -551,7 +535,7 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
         XCTAssertNil(model.audioPreparationTask)
         XCTAssertFalse(model.observeSingleNativeResumeProgress(player: player, item: item,
             sourceID: try XCTUnwrap(model.activeSource?.id), requestID: attempt,
-            intentID: model.nativeWatchTwoIntentID, startSeconds: 1, currentSeconds: 2))
+            intentID: model.playbackIntentRevision, startSeconds: 1, currentSeconds: 2))
         XCTAssertEqual(FottyQualityStore.shared.records().filter { $0.name == "decoded_progress" && $0.details["attempt_id"] == attempt.uuidString }.count, 1)
     }
 
@@ -576,29 +560,28 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
             }
             XCTAssertFalse(model.observeSingleNativeResumeProgress(player: player, item: item,
                 sourceID: try XCTUnwrap(model.activeSource?.id), requestID: attempt,
-                intentID: model.nativeWatchTwoIntentID, startSeconds: start, currentSeconds: current), rejection)
+                intentID: model.playbackIntentRevision, startSeconds: start, currentSeconds: current), rejection)
             XCTAssertFalse(FottyQualityStore.shared.records().contains { $0.name == "decoded_progress" && $0.details["attempt_id"] == attempt.uuidString }, rejection)
             XCTAssertEqual(player.playCount, 0, rejection)
             XCTAssertNil(model.loadTask, rejection)
         }
     }
 
-    func testResumeVideoObservationRejectsReplacedOwnersAndDoesNotTouchWatchTwo() throws {
-        for rejection in ["source", "attempt", "player", "item", "intent", "watch-two", "retired"] {
+    func testResumeVideoObservationRejectsReplacedOwners() throws {
+        for rejection in ["source", "attempt", "player", "item", "intent", "retired"] {
             let model = makeModel()
             defer { model.cleanup() }
             let item = FullscreenDiagnosticReadyItem(asset: AVMutableComposition())
             let player = FullscreenDiagnosticProgressPlayer(playerItem: item)
             model.player = player
             let source = try XCTUnwrap(model.activeSource?.id), attempt = model.loadRequestID
-            let intent = model.nativeWatchTwoIntentID
+            let intent = model.playbackIntentRevision
             switch rejection {
             case "source": model.currentSourceIndex = (model.currentSourceIndex + 1) % model.sessions.count
             case "attempt": model.cancelLoading(); model.transition(to: .playing(.native), phase: "Controlled current transport")
             case "player": model.player = AVPlayer(playerItem: FullscreenDiagnosticReadyItem(asset: AVMutableComposition()))
             case "item": player.replaceCurrentItem(with: FullscreenDiagnosticReadyItem(asset: AVMutableComposition()))
             case "intent": model.togglePlayPause(); model.handleNativeTimeControlStatusChanged(.playing)
-            case "watch-two": model.setViewingDiagnosticRoute(.watchTwo)
             case "retired": model.cleanup()
             default: break
             }
@@ -1872,24 +1855,6 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
             XCTAssertEqual(player.plays, 0)
             model.togglePlayPause(); gate.advance(); await task.value
         }
-    }
-
-    func testSingleResumeCannotActAfterLeavingSinglePlayerContext() async throws {
-        let gate = SingleResumeTestClock(), model = makeModel(timing: gate.timing)
-        defer { model.cleanup(); gate.finish() }
-        model.player = nil; XCTAssertTrue(model.configureSingleStreamRanking())
-        let item = SingleResumeTestItem(asset: AVMutableComposition()); item.ranges = [(20,40)]
-        let player = SingleResumeTestPlayer(playerItem: item); model.player = player
-        model.beginSingleNativeResume(for: try XCTUnwrap(model.activeSource), player: player, item: item)
-        let task = try XCTUnwrap(model.foregroundResumeValidationTask)
-        await gate.waitForSample()
-        model.setViewingPlaybackContext(.watchTwo(engine: .native))
-        let state = model.playbackState
-        player.completeSeek(); gate.advance(); await task.value
-        XCTAssertEqual(model.playbackState, state)
-        XCTAssertEqual(player.plays, 0)
-        XCTAssertEqual(player.immediatePlays, 0)
-        XCTAssertNil(model.loadTask)
     }
 
     func testSingleResumeReplacementCannotRecoverTheOldItem() async throws {

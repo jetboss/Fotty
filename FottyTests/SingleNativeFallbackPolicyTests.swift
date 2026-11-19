@@ -139,9 +139,9 @@ final class SingleNativeFallbackPolicyTests: XCTestCase {
         }
     }
 
-    func testProvenAlternativeDoesNotChangeSharedOrNativeWatchTwoStartupRetry() async throws {
+    func testProvenAlternativeDoesNotChangeSharedStartupRetry() async throws {
         let restore = preserveHealthDefaults(); defer { restore() }
-        for context in ["shared", "watch_two"] {
+        for context in ["shared"] {
             let fixture = try willowFixture()
             LiveSourceHealthStore.recordSuccess(for: fixture.cs, startupLatencyMs: 3_000)
             var validated: [URL] = [], renewals = 0
@@ -152,10 +152,6 @@ final class SingleNativeFallbackPolicyTests: XCTestCase {
                 refreshSourceDescriptor: { selected, _ in renewals += 1; return selected })
             defer { model.cleanup() }
             owner = model; model.didApplyLandscape = true
-            if context == "watch_two" {
-                XCTAssertTrue(model.configureSingleStreamRanking())
-                XCTAssertTrue(model.prepareForViewingPlaybackContext(.watchTwo(engine: .native)))
-            }
             model.currentSourceIndex = try XCTUnwrap(model.sessions.firstIndex { $0.id == fixture.tv.id })
             model.transition(to: .connecting(.native), phase: "Buffering...")
             model.handleSourceStartupFailure(fixture.tv.legacySource, reason: "Native readiness timeout.", expectedRequestID: model.loadRequestID,

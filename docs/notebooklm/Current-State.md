@@ -20,7 +20,7 @@ Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retirement and Watch Two parking are now owner-approved; preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (338): Internal/Testing, Fotty Internal Smoke (previous 332).
+FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (338): Internal/Testing, Fotty Internal Smoke (previous 332).
 Receipt: releases/Fotty-3.0.0-338.md.
 
 ## Discovery and retained follow-up

@@ -136,54 +136,13 @@ final class ApplePlatformBaselineTests: XCTestCase {
         XCTAssertTrue(nativePreparation.contains("configureNativeLivePlaybackItem(item)"))
         XCTAssertTrue(webEmbed.contains("await MediaAudioSession.configureForPlayback()"))
         XCTAssertTrue(webEmbed.contains("loadingGeneration == generation"))
-        let multi = try source("Fotty/Features/Player/MultiLivePlayerView.swift")
-        XCTAssertTrue(multi.contains("await MediaAudioPlaybackGate.prepareNative"))
-        XCTAssertTrue(multi.contains("expected: identity, currentIdentity: { audioPlaybackIdentity }"))
-        XCTAssertTrue(multi.contains("playbackMayStart: { playbackMayStart && error == nil }"))
-        XCTAssertTrue(multi.contains("cancelAudioPreparation()\n        finishObservedStall(.failed)\n        player?.pause()\n        stallValidationTask?.cancel()\n        foregroundResumeValidationTask?.cancel()\n        webRetryOwner.cancel()\n        stopPlaybackWatchdog()\n        failedSourceIDs.insert(failedSource.id)"),
-                      "Source exhaustion must revoke pending audio before publishing a terminal failure")
     }
 
-    func testMultiViewRotationPreservesPlayerIdentity() throws {
-        let multiView = try source("Fotty/Features/Player/MultiLivePlayerView.swift")
-        XCTAssertTrue(multiView.contains("let adaptiveLayout: AnyLayout"))
-        XCTAssertTrue(multiView.contains("AnyLayout(HStackLayout(spacing: 8))"))
-        XCTAssertTrue(multiView.contains("AnyLayout(VStackLayout(spacing: 8))"))
-        XCTAssertFalse(
-            multiView.contains("if isLandscape {\n                            HStack"),
-            "Switching container branches recreates both WKWebViews and loses playback during rotation"
-        )
-    }
-
-    func testWebDocumentsAreIsolatedByAttemptInBothPlaybackSurfaces() throws {
-        for path in ["Fotty/Features/Player/LivePlayerView.swift",
-                     "Fotty/Features/Player/MultiLivePlayerView.swift"] {
-            let player = try source(path)
-            XCTAssertTrue(player.contains("let attemptID = " + (path.contains("MultiLive") ? "loadRequestID" : "viewModel.loadRequestID")))
-            XCTAssertTrue(player.contains(".id(attemptID)"),
-                          "An old provider document must not share a WebView with a new source/retry")
-        }
-    }
-
-    func testMultiViewKeepsPerPanelSourceAndAudioControlsVisible() throws {
-        let multiView = try source("Fotty/Features/Player/MultiLivePlayerView.swift")
-        XCTAssertTrue(multiView.contains("Text(\"Source \\(currentSourceIndex + 1)\")"))
-        XCTAssertTrue(multiView.contains("Changes only the stream in panel"))
-        XCTAssertTrue(multiView.contains("Switches audio to this panel"))
-        XCTAssertTrue(multiView.contains("panelHeader(layout: chromeLayout)"),
-                      "Every panel must render its persistent adaptive control header")
-        XCTAssertTrue(multiView.contains("private func panelHeader(layout: MultiLivePanelChromeLayout)"))
-        XCTAssertTrue(multiView.contains("private var sourceMenu: some View"))
-        XCTAssertTrue(multiView.contains("private var audioButton: some View"))
-        XCTAssertTrue(multiView.contains(".frame(width: geometry.size.width)"),
-                      "Controls must use the allocated panel width, not a compressed fitted-video width")
-        XCTAssertTrue(multiView.contains("multiview-video-surface-"))
-        XCTAssertTrue(multiView.contains("layoutMode: MultiViewLayoutMode = .focus"))
-        XCTAssertTrue(multiView.contains("isFillMode = false"))
-        XCTAssertFalse(
-            multiView.contains("if showControls"),
-            "Per-panel source selection must not disappear behind auto-hidden playback chrome"
-        )
+    func testWebDocumentsAreIsolatedByAttempt() throws {
+        let player = try source("Fotty/Features/Player/LivePlayerView.swift")
+        XCTAssertTrue(player.contains("let attemptID = viewModel.loadRequestID"))
+        XCTAssertTrue(player.contains(".id(attemptID)"),
+                      "An old provider document must not share a WebView with a new source/retry")
     }
 
     func testAppAndExtensionReleaseIdentityCannotDrift() throws {

@@ -155,7 +155,7 @@ final class NativePlaybackPreparationTests: XCTestCase {
     func testObservedNativeWindowCannotRenewWithoutCurrentOwnerIdentityEvidenceOrBudget() async throws {
         for window in ["frozen", "advancing"] {
             let conditions = ["no_evidence", "no_decoded", "old_callback", "budget", "pause", "cancel", "background",
-                "multi", "numeric_only", "http403", "unsupported", "invalid_identity", "finished", "cancelled"]
+                "numeric_only", "http403", "unsupported", "invalid_identity", "finished", "cancelled"]
                 + (window == "advancing" ? ["unsafe"] : [])
             for condition in conditions {
                 let fixture = try descriptorFixture(); var refreshes = 0
@@ -179,7 +179,6 @@ final class NativePlaybackPreparationTests: XCTestCase {
                     nativePlaylistIsNonAdvancing: { _ in window == "frozen" && condition != "no_evidence" },
                     nativePlaylistIsAdvancing: { _ in window == "advancing" && condition != "no_evidence" })
                 model.didApplyLandscape = true; XCTAssertTrue(model.configureSingleStreamRanking())
-                if condition == "multi" { XCTAssertTrue(model.prepareForViewingPlaybackContext(.watchTwo(engine: .native))) }
                 model.player = AVPlayer(playerItem: AVPlayerItem(url: URL(fileURLWithPath: "/dev/null")))
                 model.streamProxy = LocalStreamProxy(headers: [:], cookies: [], selectedMediaURL: session.playableURL)
                 model.transition(to: .playing(.native), phase: "Playing")
@@ -295,7 +294,6 @@ final class NativePlaybackPreparationTests: XCTestCase {
         }
         XCTAssertEqual(budget(.single, true), .csMatchRenewal)
         XCTAssertEqual(budget(.single, false), .standard)
-        XCTAssertEqual(budget(.watchTwo(engine: .native), true), .standard)
         let clock = NativePlaybackStartupDeadline(startedAt: 0, budget: budget(.single, true))
         XCTAssertGreaterThan(clock.remaining(at: CommunitySportsAddonClient.streamTransportDeadline) ?? 0, 0)
         XCTAssertEqual(clock.remaining(at: 32), 0)

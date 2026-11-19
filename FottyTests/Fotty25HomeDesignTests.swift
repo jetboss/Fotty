@@ -129,8 +129,6 @@ final class Fotty25HomeDesignTests: XCTestCase {
         XCTAssertLessThan(heading.lowerBound, browse.lowerBound)
         XCTAssertTrue(source[recovery.upperBound..<heading.lowerBound].contains("} else if !sections.upcoming.isEmpty || sections.nextClub == nil {"),
                       "Empty selections use recovery; an already featured next-club fixture need not duplicate an empty Up Next section")
-        XCTAssertTrue(source.contains("if isMultiSelectMode && items.isEmpty && channelEvents(applyingHomeInterests: true).isEmpty"),
-                      "The existing multi-selection empty presentation remains outside the normal Home entry list")
         XCTAssertTrue(source.contains("case .selectionEmpty:\n            emptyState(applyingHomeInterests: true)"))
         XCTAssertFalse(source.contains("\"Also live\""),
                        "A listed broadcast alone must not make its section claim verified live status")

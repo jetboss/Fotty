@@ -90,35 +90,3 @@ enum NativePlaybackPreparation {
             mediaProbeEvidence: evidence, declaredPlaybackEndpoint: .directMedia)
     }
 }
-
-/// Prepared media is paused and disconnected. Only the scene's atomic pair
-/// transaction may consume it after BOTH original Web owners acknowledge teardown.
-@MainActor
-final class PreparedNativeWatchTwoPlayback {
-    let modelID: UUID
-    let sourceID: UUID
-    let requestID: UUID
-    let intentID: UUID
-    let wantsPlayback: Bool
-    let context: ViewingPlaybackContext
-    let session: StreamSession
-    let player: AVPlayer
-    let item: AVPlayerItem
-    let isolation: NativePlayerAudioIsolation
-    let proxy: LocalStreamProxy?
-    let delivery: NativeWebPlaybackCandidate?
-    var retirementBegan = false
-    var webRetired = false
-    var adopted = false
-    var started = false
-    var discarded = false
-
-    init(model: LivePlayerViewModel, session: StreamSession, player: AVPlayer,
-         item: AVPlayerItem, isolation: NativePlayerAudioIsolation, proxy: LocalStreamProxy? = nil,
-         delivery: NativeWebPlaybackCandidate? = nil) {
-        modelID = model.remoteCommandOwnerID; sourceID = session.id; requestID = model.loadRequestID
-        intentID = model.nativeWatchTwoIntentID; wantsPlayback = model.userWantsPlayback
-        context = model.viewingPlaybackContext; self.session = session; self.player = player
-        self.item = item; self.isolation = isolation; self.proxy = proxy; self.delivery = delivery
-    }
-}

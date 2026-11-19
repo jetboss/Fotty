@@ -1,3 +1,19 @@
+## 2026-11-19 — Delete Watch Two; rebuild two-match viewing later
+
+Owner chose "Delete, rebuild later" over keeping the parked code. Removed the
+two-match view (`MultiLivePlayerView`), Home's "Watch two" selection mode, the
+viewing coordinator's pair API (`openMulti`, picker, swap, replacement, native
+pair transfer) and the player's native pair preflight/adoption. About 3,780
+app lines and 3,830 test lines (net) are gone; Git history keeps them.
+
+Single-match behaviour is unchanged. `ViewingPlaybackContext` keeps only
+`.single`, so existing single-ownership fences are untouched; collapsing it
+belongs with the player split. The pair intent token is now
+`playbackIntentRevision` (same semantics). Pair-only tests were deleted;
+mixed tests keep their single cases. Two single-match tests now cover the
+audio handover wait that only pair tests exercised. Full CI: 2,633 passed,
+12 existing skips, 0 failures. No device run.
+
 ## 2026-11-18 — Post-3.0 cleanup: FPL sources, privacy manifest, registry cache
 
 Owner-approved maintenance after reviewing an outside "2x better" plan with

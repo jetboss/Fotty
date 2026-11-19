@@ -75,39 +75,6 @@ final class StorageRuntimeSafetyTests: XCTestCase {
         XCTAssertEqual(writer.records().map(\.name), ["fresh"])
     }
 
-    func testNativePairPreflightTypedDiagnosticsSurvivePersistedQualityRoundTrip() throws {
-        let name = "Fotty.quality.native-pair.\(UUID())"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
-        let store = FottyQualityStore(defaults: defaults)
-        let stages: [NativeWatchTwoPreflightStage] = [.admission, .proxy, .validation, .isolation, .readiness, .registration]
-        let outcomes: [NativeWatchTwoPreflightOutcome] = [.notEligible, .unsupported, .noCandidate,
-            .staleCandidate, .staleOwner, .cancelled, .proxyFailed, .validationRejected, .isolationFailed,
-            .readinessFailed, .readinessTimeout, .registrationRejected, .prepared]
-        let expected = outcomes.enumerated().map { index, outcome in
-            ["mode": "native_pair_preflight", "preparation_stage": stages[index % stages.count].rawValue,
-             "preparation_reason": outcome.rawValue, "native_item_status": "failed",
-             "native_error_domain": NativePlaybackErrorDomain.coreMedia.rawValue, "native_error_code": "-12312"]
-        }
-        for details in expected {
-            store.record(category: .playback, name: "native_pair_preflight", outcome: .info, details: details)
-        }
-        let legacy = ["preparation_stage": PlaybackPreparationDiagnostic.Stage.urlPreparation.rawValue,
-                      "preparation_reason": PlaybackPreparationDiagnostic.Reason.proxyStartup.rawValue]
-        store.record(category: .playback, name: "legacy_preparation", outcome: .failure, details: legacy)
-
-        let persisted = try XCTUnwrap(defaults.data(forKey: "fotty.quality.records.v1"))
-        let decoded = try JSONDecoder().decode([FottyQualityRecord].self, from: persisted)
-        let reloaded = FottyQualityStore(defaults: defaults).records()
-
-        XCTAssertEqual(decoded, reloaded, "Evidence must survive storage, not merely the writer's in-memory cache")
-        XCTAssertEqual(Array(reloaded.prefix(expected.count)).map(\.details), expected)
-        XCTAssertEqual(Set(reloaded.compactMap { $0.details["preparation_stage"] }).intersection(Set(stages.map(\.rawValue))),
-            Set(stages.map(\.rawValue)))
-        XCTAssertEqual(Set(reloaded.prefix(outcomes.count).compactMap { $0.details["preparation_reason"] }), Set(outcomes.map(\.rawValue)))
-        XCTAssertEqual(reloaded.last?.details, legacy, "Existing preparation diagnostics keep their finite vocabulary")
-    }
-
     func testNativePairPreflightDiagnosticsRejectUnknownVocabularyURLsAndCredentialsWhenPersisted() throws {
         let name = "Fotty.quality.native-pair-privacy.\(UUID())"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
@@ -129,62 +96,6 @@ final class StorageRuntimeSafetyTests: XCTestCase {
         XCTAssertEqual(decoded.map(\.details), Array(repeating: ["mode": "native_pair_preflight"], count: rejected.count))
         let serialized = try XCTUnwrap(String(data: persisted, encoding: .utf8))
         for value in rejected { XCTAssertFalse(serialized.contains(value), "Arbitrary provider text must never enter the persisted receipt") }
-    }
-
-    func testNativePairPreflightPersistsTypedCandidateErrorLogAndRelayEvidenceWithoutPrivateText() throws {
-        let name = "Fotty.quality.native-pair-evidence.\(UUID())"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
-        defer { defaults.removePersistentDomain(forName: name) }
-        let now = Date()
-        let store = FottyQualityStore(defaults: defaults, now: { now })
-        let privateURL = "https://private.example.invalid/playlist?token=credential_secret"
-        let itemComment = "Media Entry URL not match previous playlist for MEDIA-SEQUENCE 18: \(privateURL)"
-        let logComment = "Media Entry time value does not match previous playlist for MEDIA-SEQUENCE 19: raw_provider_comment \(privateURL)"
-        let network = NSError(domain: NSURLErrorDomain, code: URLError.networkConnectionLost.rawValue,
-            userInfo: [NSLocalizedDescriptionKey: "credential_secret \(privateURL)"])
-        let media = NSError(domain: "CoreMediaErrorDomain", code: -12_312,
-            userInfo: [NSUnderlyingErrorKey: network, "NSDescription": itemComment])
-        let item = NSError(domain: "AVFoundationErrorDomain", code: -11_867,
-            userInfo: [NSUnderlyingErrorKey: media])
-        let candidate = PlayerDiagnosticService().snapshot(error: item, trigger: .itemStatusFailed,
-            logDomain: "CoreMediaErrorDomain", logCode: -12_312, logComment: logComment)
-        let relay = LocalStreamProxyFailureEvidence(stage: .upstreamResponse, kind: .httpStatus,
-            statusCode: 503, errorCode: nil, errorDomain: .http,
-            recordedAt: now.addingTimeInterval(-0.5))
-        var details = ["mode": "native_pair_preflight",
-            "preparation_stage": NativeWatchTwoPreflightStage.readiness.rawValue,
-            "preparation_reason": NativeWatchTwoPreflightOutcome.readinessFailed.rawValue,
-            "native_item_status": "failed"]
-        details.merge(candidate.qualityDetails) { _, observed in observed }
-        details.merge(relay.qualityDetails(now: now)) { _, observed in observed }
-        store.record(category: .playback, name: "native_pair_preflight", outcome: .failure, details: details)
-
-        let persisted = try XCTUnwrap(defaults.data(forKey: "fotty.quality.records.v1"))
-        let decoded = try JSONDecoder().decode([FottyQualityRecord].self, from: persisted)
-        XCTAssertEqual(decoded, FottyQualityStore(defaults: defaults, now: { now }).records())
-        let receipt = try XCTUnwrap(decoded.first)
-        XCTAssertEqual(decoded.count, 1)
-        XCTAssertEqual(receipt.name, "native_pair_preflight")
-        XCTAssertEqual(receipt.details, details, "Candidate and relay evidence must survive the persisted receipt together")
-        XCTAssertEqual(receipt.details["native_failure_trigger"], "item_status_failed")
-        XCTAssertEqual(receipt.details["native_error_domain"], "avfoundation")
-        XCTAssertEqual(receipt.details["native_error_code"], "-11867")
-        XCTAssertEqual(receipt.details["native_underlying_domain"], "url")
-        XCTAssertEqual(receipt.details["native_underlying_code"], "-1005")
-        XCTAssertEqual(receipt.details["native_error_depth"], "3")
-        XCTAssertEqual(receipt.details["native_hls_issue"], "segment_uri_changed")
-        XCTAssertEqual(receipt.details["native_log_domain"], "coremedia")
-        XCTAssertEqual(receipt.details["native_log_code"], "-12312")
-        XCTAssertEqual(receipt.details["native_log_hls_issue"], "segment_duration_changed")
-        XCTAssertEqual(receipt.details["relay_failure_stage"], "upstream_response")
-        XCTAssertEqual(receipt.details["relay_failure_kind"], "http_status")
-        XCTAssertEqual(receipt.details["relay_http_status"], "503")
-        XCTAssertEqual(receipt.details["relay_error_domain"], "http")
-        XCTAssertEqual(receipt.details["relay_failure_age_ms"], "500")
-        let serialized = try XCTUnwrap(String(data: persisted, encoding: .utf8))
-        for privateValue in [privateURL, "private.example", "credential_secret", "raw_provider_comment", "MEDIA-SEQUENCE"] {
-            XCTAssertFalse(serialized.contains(privateValue), "Only finite typed evidence may be persisted")
-        }
     }
 
     func testQualitySnapshotStillExpiresWhileAppRemainsOpen() throws {

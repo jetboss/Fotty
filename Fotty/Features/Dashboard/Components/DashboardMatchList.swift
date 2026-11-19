@@ -1,43 +1,10 @@
 import SwiftUI
 
-enum TwoMatchSelectionPolicy {
-    static let limit = 2
-
-    /// A lazy collection's prefix/count can revisit its predicate. Eligibility
-    /// includes clock and score checks, so evaluate each row at most once.
-    static func hasTwoCandidates<Events: Sequence>(
-        in events: Events,
-        where isCandidate: (Events.Element) -> Bool
-    ) -> Bool {
-        var count = 0
-        for event in events where isCandidate(event) {
-            count += 1
-            if count == limit { return true }
-        }
-        return false
-    }
-
-    static func toggled(_ selectedIDs: [String], eventID: String) -> [String] {
-        if selectedIDs.contains(eventID) {
-            return selectedIDs.filter { $0 != eventID }
-        }
-        guard selectedIDs.count < limit else { return selectedIDs }
-        return selectedIDs + [eventID]
-    }
-
-    static func position(of eventID: String, in selectedIDs: [String]) -> Int? {
-        selectedIDs.firstIndex(of: eventID).map { $0 + 1 }
-    }
-}
-
 struct DashboardMatchList: View {
     let title: String
     let events: [AnalyticalDataEngine.EventReference]
     @Binding var showFollowedOnly: Bool
     let hasFollowedTeams: Bool
-
-    let isMultiSelectMode: Bool
-    @Binding var selectedMultiEventIDs: [String]
 
     let onEventTap: (AnalyticalDataEngine.EventReference) -> Void
     let onInfoTap: (FootballMatch) -> Void
@@ -57,7 +24,7 @@ struct DashboardMatchList: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 8) {
                 FottySectionHeader(title: title, count: events.count)
-                if hasFollowedTeams && !isMultiSelectMode {
+                if hasFollowedTeams {
                     Button {
                         showFollowedOnly.toggle()
                     } label: {
@@ -236,81 +203,17 @@ struct DashboardMatchList: View {
     @ViewBuilder
     private func eventRow(_ event: AnalyticalDataEngine.EventReference) -> some View {
         Group {
-            if isMultiSelectMode {
-                Button { onEventTap(event) } label: {
-                    ZStack(alignment: .topTrailing) {
-                        // Selection mode has one action. Do not nest the card's
-                        // Details or Watch controls inside this button.
-                        LiveEventCard(event: event)
-                            .overlay {
-                                RoundedRectangle(cornerRadius: FottyTheme.radiusMD, style: .continuous)
-                                    .strokeBorder(
-                                        selectedMultiEventIDs.contains(event.id)
-                                            ? FottyTheme.accentText : FottyTheme.border,
-                                        lineWidth: selectedMultiEventIDs.contains(event.id) ? 2 : 1
-                                    )
-                            }
-                        multiSelectBadge(for: event)
-                            .padding(8)
-                    }
-                    .contentShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD))
-                }
-                .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusMD))
-                .disabled(streamLookupBusy)
-                .accessibilityRepresentation {
-                    // The visual card's countdown/Watch metadata must not
-                    // override this mode's single selection action.
-                    Button { onEventTap(event) } label: {
-                        Text(event.title ?? "\(event.homeName) versus \(event.awayName)")
-                    }
-                    .disabled(streamLookupBusy)
-                    .accessibilityValue(selectionAccessibilityValue(for: event))
-                    .accessibilityAddTraits(selectedMultiEventIDs.contains(event.id) ? .isSelected : [])
-                    .accessibilityHint("Selects or removes this match from the two-match view")
-                    .accessibilityIdentifier("multiview-candidate-\(event.id)")
-                }
-            } else {
-                LiveEventCard(
-                    event: event,
-                    onInfoTap: onInfoTap,
-                    onWatchTap: canWatchEvent(event) ? { onEventTap(event) } : nil,
-                    alternateActionTitle: alternateActionTitle(event),
-                    onDetailsTap: !canWatchEvent(event) ? { onEventTap(event) } : nil,
-                    isSaved: isSavedEvent(event),
-                    onSaveTap: { onToggleSaved(event) }
-                )
-                .accessibilityHint(canWatchEvent(event) ? "Opens the available broadcast" : "Opens match information")
-            }
+            LiveEventCard(
+                event: event,
+                onInfoTap: onInfoTap,
+                onWatchTap: canWatchEvent(event) ? { onEventTap(event) } : nil,
+                alternateActionTitle: alternateActionTitle(event),
+                onDetailsTap: !canWatchEvent(event) ? { onEventTap(event) } : nil,
+                isSaved: isSavedEvent(event),
+                onSaveTap: { onToggleSaved(event) }
+            )
+            .accessibilityHint(canWatchEvent(event) ? "Opens the available broadcast" : "Opens match information")
         }
         .onAppear { onAppearEvent(event) }
-    }
-
-    @ViewBuilder
-    private func multiSelectBadge(for event: AnalyticalDataEngine.EventReference) -> some View {
-        if let position = TwoMatchSelectionPolicy.position(of: event.id, in: selectedMultiEventIDs) {
-            Text("\(position)")
-                .font(.fottyScaled(size: 13, weight: .bold))
-                .foregroundStyle(FottyTheme.textOnAccent)
-                .frame(width: 30, height: 30)
-                .background(Circle().fill(FottyTheme.accent))
-                .overlay(Circle().strokeBorder(.white.opacity(0.55), lineWidth: 1))
-                .shadow(color: .black.opacity(0.3), radius: 5, y: 2)
-                .accessibilityHidden(true)
-        } else {
-            Image(systemName: "plus")
-                .font(.fottyScaled(size: 12, weight: .bold))
-                .foregroundStyle(FottyTheme.textPrimary)
-                .frame(width: 30, height: 30)
-                .background(Circle().fill(FottyTheme.surfaceElevated))
-                .overlay(Circle().strokeBorder(FottyTheme.borderStrong, lineWidth: 1))
-                .accessibilityHidden(true)
-        }
-    }
-
-    private func selectionAccessibilityValue(for event: AnalyticalDataEngine.EventReference) -> String {
-        guard let position = TwoMatchSelectionPolicy.position(of: event.id, in: selectedMultiEventIDs) else {
-            return "Not selected"
-        }
-        return position == 1 ? "Selected first" : "Selected second"
     }
 }

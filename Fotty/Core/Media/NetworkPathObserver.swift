@@ -5,7 +5,7 @@ import Network
 /// main actor to a handler the owner supplies; the observer never retains its
 /// owner, so a player that is dropped without `stop()` is still released.
 ///
-/// Extracted from `LivePlayerViewModel` and `MultiLivePlayerView` (player
+/// Extracted from `LivePlayerViewModel` and the former Watch Two view (player
 /// shrink slice 1, 9 Nov 2026). The previous view-model closure captured the
 /// whole player strongly (AUDIT.md §2.1-D).
 @MainActor

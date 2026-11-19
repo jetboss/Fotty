@@ -108,44 +108,6 @@ final class PlayerChromeUsabilityTests: XCTestCase {
         }
     }
 
-    func testFocusRequiresAnActuallyWideLandscapeWindow() {
-        XCTAssertTrue(MultiLiveLayoutPolicy.canFocus(in: CGSize(width: 1180, height: 820)))
-        XCTAssertTrue(MultiLiveLayoutPolicy.canFocus(in: CGSize(width: 900, height: 600)))
-        for size in [CGSize(width: 899, height: 600), CGSize(width: 900, height: 900),
-                     CGSize(width: 820, height: 1180), CGSize(width: 393, height: 852)] {
-            XCTAssertFalse(MultiLiveLayoutPolicy.canFocus(in: size), "No enlargement in \(size)")
-        }
-    }
-
-    func testRecoveryUsesTheBoundedRemainingPaneInsteadOfTheFittedVideoWidth() {
-        let pane = CGSize(width: 820, height: 250)
-        let chrome = MultiLivePanelChromeLayout.inline.reservedHeight(controlHeight: 44)
-        let video = MultiLiveLayoutPolicy.surfaceSize(in: pane, chromeHeight: chrome, isRecovering: false)
-        let recovery = MultiLiveLayoutPolicy.surfaceSize(in: pane, chromeHeight: chrome, isRecovering: true)
-        XCTAssertEqual(video.height, 193)
-        XCTAssertEqual(video.width / video.height, 16.0 / 9.0, accuracy: 0.001)
-        XCTAssertEqual(recovery, CGSize(width: 820, height: 193))
-        XCTAssertLessThan(video.width, recovery.width)
-        XCTAssertEqual(recovery.height + chrome, pane.height)
-    }
-
-    func testAccessibilityRecoveryReservesScaledControlsAndNeverOverflowsAPane() {
-        let pane = CGSize(width: 352, height: 450)
-        let chrome = MultiLivePanelChromeLayout.accessibility.reservedHeight(controlHeight: 88)
-        let recovery = MultiLiveLayoutPolicy.surfaceSize(in: pane, chromeHeight: chrome, isRecovering: true)
-        XCTAssertEqual(recovery, CGSize(width: 352, height: 161))
-        XCTAssertEqual(MultiLiveLayoutPolicy.surfaceSize(in: CGSize(width: 352, height: 200),
-            chromeHeight: chrome, isRecovering: true).height, 0)
-    }
-
-    func testOneSourceRecoveryIsDirectRatherThanAnotherChoiceMenu() {
-        XCTAssertEqual(MultiLiveRecoveryAction.action(sourceCount: 0), .none)
-        XCTAssertEqual(MultiLiveRecoveryAction.action(sourceCount: 1), .retry)
-        for count in [2, 6, 20] {
-            XCTAssertEqual(MultiLiveRecoveryAction.action(sourceCount: count), .chooseSource)
-        }
-    }
-
     @MainActor
     func testPortraitIdentityDoesNotInventTeamsForChannelsOrSingleEvents() {
         for title in ["Willow Cricket", "Fox Cricket", "Cricket highlights", "Golf championship"] {

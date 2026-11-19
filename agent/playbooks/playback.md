@@ -48,7 +48,7 @@ Use this when touching player startup, AVPlayer, WKWebView embeds, stream select
   permission for arbitrary origins/paths/headers. Typed notWebReady is a browser
   hint, not a native-HLS veto. Physical qualification is recorded separately in
   testing/fotty203-as-football-2026-10-31/.
-- Main playback and MultiView share typed endpoint routing. Never infer a web
+- Playback uses typed endpoint routing. Never infer a web
   wrapper's media type from a nested query URL or send an explicit HLS endpoint
   to WebKit as recovery. Preserve source attribution through native handoff.
 - Native validation must recheck source/attempt/cancellation after awaiting.
@@ -73,12 +73,7 @@ Use this when touching player startup, AVPlayer, WKWebView embeds, stream select
 - Public-address DNS preflight is not address pinning. Do not describe it as
   complete DNS-rebinding protection or weaken transport checks for compatibility.
 - Block provider popup windows, top-level click-throughs, `embed.st/ad.html`, and known nuisance hosts without removing generic overlays or player controls.
-- In the standard web player, provider controls are canonical. Never place a parent tap gesture above the WKWebView, add a duplicate unmute button, remove its mute prompt, or continuously force mute/volume state. App-controlled web mute synchronization is limited to MultiView focus and explicitly muted diagnostics.
-- In MultiView, keep source choice and audio focus as explicit 44-point controls.
-  Do not add a whole-panel tap gesture above a web player or show Fotty Play/Pause
-  for a web source that only the provider can control. Native panels may retain
-  their real AVPlayer transport button. Positive source health may rank candidates,
-  but absence of prior success must not hide an otherwise eligible manual pair.
+- In the standard web player, provider controls are canonical. Never place a parent tap gesture above the WKWebView, add a duplicate unmute button, remove its mute prompt, or continuously force mute/volume state. App-controlled web mute synchronization is limited to the audio-focus handover between viewing owners and explicitly muted diagnostics.
 
 ## Common Failure Points
 

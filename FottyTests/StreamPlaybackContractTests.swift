@@ -308,15 +308,16 @@ final class StreamPlaybackContractTests: XCTestCase {
         let session = StreamSession(matchID: "contract", playableURL: try XCTUnwrap(URL(string:
             "https://embed.example/opaque")), streamType: .unknown, providerName: "Fixture",
             declaredPlaybackEndpoint: .directMedia)
-        let event = AnalyticalDataEngine.EventReference(id: "contract", title: "Fixture", category: "football",
-            date: 0, poster: nil, popular: false, teams: nil)
-        let slot = MultiLiveSlot(event: event, sessions: [session])
-        XCTAssertEqual(slot.recoveryAction(for: session.legacySource, reason: "Failed to start",
-            countsAsStall: false, isNetworkReachable: true, webStartupRetryCount: 0,
-            webStallRetryCount: 0, nativeStartupRetryCount: 0), .retryNativeStartup(.startupTimeout))
-        XCTAssertEqual(slot.recoveryAction(for: session.legacySource, reason: "Failed to start",
-            countsAsStall: false, isNetworkReachable: true, webStartupRetryCount: 0,
-            webStallRetryCount: 0, nativeStartupRetryCount: 1), .exhaustSource(.startupTimeout))
+        func action(nativeRetries: Int) -> LivePlaybackRecoveryPolicy.Action {
+            LivePlaybackRecoveryPolicy.action(for: .init(
+                reason: "Failed to start", countsAsStall: false, isNetworkReachable: true,
+                isNativeHandoff: false, isWebEmbed: LivePlaybackSourcePolicy.isWebEmbed(session),
+                isForcedWebEmbed: false, webStartupRetryCount: 0, webStallRetryCount: 0,
+                isDirectMedia: session.playbackContract.endpoint == .directMedia,
+                nativeStartupRetryCount: nativeRetries))
+        }
+        XCTAssertEqual(action(nativeRetries: 0), .retryNativeStartup(.startupTimeout))
+        XCTAssertEqual(action(nativeRetries: 1), .exhaustSource(.startupTimeout))
     }
 
     func testValidationResultKeepsInjectedSuccessSeparateFromObservedSuccess() {

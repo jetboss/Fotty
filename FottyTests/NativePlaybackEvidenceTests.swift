@@ -170,14 +170,10 @@ final class NativePlaybackEvidenceTests: XCTestCase {
         XCTAssertTrue(CNCSportsAddonClient.isReviewedNativeSession(session))
         XCTAssertEqual(NativePlaybackStartupDeadline.budget(for: session, context: .single,
             isNativeHandoff: false), .reviewedLSSingleStream)
-        for context: ViewingPlaybackContext in [.watchTwo(engine: .native), .watchTwo(engine: .web)] {
-            XCTAssertEqual(NativePlaybackStartupDeadline.budget(for: session, context: context,
-                isNativeHandoff: false), .standard)
-        }
         XCTAssertEqual(NativePlaybackStartupDeadline.budget(for: session, context: .single,
             isNativeHandoff: true), .standard)
         XCTAssertEqual(NativePlaybackStartupDeadline(startedAt: 0).budget.seconds, 20,
-                       "Unprofiled native, handoff and pair constructors retain the existing budget")
+                       "Unprofiled native and handoff constructors retain the existing budget")
     }
 
     func testReviewedLSStartupProfileRejectsSpoofedOrAlteredContracts() {
@@ -287,72 +283,6 @@ final class NativePlaybackEvidenceTests: XCTestCase {
         XCTAssertFalse(proof.observe(seconds: 1, width: 1280, height: 720))
         XCTAssertFalse(proof.observe(seconds: 1, width: 1280, height: 720))
         XCTAssertTrue(proof.observe(seconds: 1.04, width: 1280, height: 720))
-    }
-
-    func testWatchTwoTransientInactiveOverlayPreservesBothPlaybackOwners() {
-        for phase: ScenePhase in [.active, .inactive] {
-            XCTAssertTrue(MultiLiveScenePolicy.isForeground(phase))
-            XCTAssertFalse(MultiLiveScenePolicy.shouldSuspendWebPlayback(
-                phase, isNetworkReachable: true
-            ))
-        }
-        XCTAssertFalse(MultiLiveScenePolicy.isForeground(.background))
-        XCTAssertTrue(MultiLiveScenePolicy.shouldSuspendWebPlayback(
-            .background, isNetworkReachable: true
-        ))
-        XCTAssertTrue(MultiLiveScenePolicy.shouldSuspendWebPlayback(
-            .inactive, isNetworkReachable: false
-        ))
-    }
-
-    func testWatchTwoTypedNativeSourceGetsOneSameSourceRetryBeforeExhaustion() {
-        for type: StreamType in [.hls, .mp4] {
-            let session = makeSession(type: type)
-            let slot = MultiLiveSlot(event: makeEvent(), sessions: [session])
-            XCTAssertEqual(recovery(slot: slot, session: session, retryCount: 0),
-                           .retryNativeStartup(.startupTimeout))
-            XCTAssertEqual(recovery(slot: slot, session: session, retryCount: 1),
-                           .exhaustSource(.startupTimeout))
-        }
-    }
-
-    func testWatchTwoExplicitRejectionAndNativeStallDoNotReceiveStartupRetry() {
-        let session = makeSession(type: .hls)
-        let slot = MultiLiveSlot(event: makeEvent(), sessions: [session])
-        XCTAssertEqual(recovery(slot: slot, session: session, retryCount: 0,
-                                reason: "Broadcast is unavailable"),
-                       .exhaustSource(.providerUnavailable))
-        XCTAssertEqual(recovery(slot: slot, session: session, retryCount: 0,
-                                reason: "Frozen.", countsAsStall: true),
-                       .exhaustSource(.stalled))
-        XCTAssertEqual(slot.recoveryAction(
-            for: session.legacySource, reason: "Network offline", countsAsStall: false,
-            isNetworkReachable: false, webStartupRetryCount: 0,
-            webStallRetryCount: 0, nativeStartupRetryCount: 0
-        ), .waitForNetwork(.network))
-    }
-
-    func testWatchTwoWebWrapperStillUsesIndependentBoundedWebBudget() {
-        let session = makeSession(type: .unknown, web: true)
-        let slot = MultiLiveSlot(event: makeEvent(), sessions: [session])
-        XCTAssertEqual(recovery(slot: slot, session: session, retryCount: 1),
-                       .retryWebStartup(.startupTimeout))
-        XCTAssertEqual(slot.recoveryAction(
-            for: session.legacySource, reason: "Failed to start", countsAsStall: false,
-            isNetworkReachable: true, webStartupRetryCount: 1,
-            webStallRetryCount: 0, nativeStartupRetryCount: 0
-        ), .exhaustSource(.startupTimeout))
-    }
-
-    private func recovery(
-        slot: MultiLiveSlot, session: StreamSession, retryCount: Int,
-        reason: String = "Failed to start", countsAsStall: Bool = false
-    ) -> LivePlaybackRecoveryPolicy.Action {
-        slot.recoveryAction(
-            for: session.legacySource, reason: reason, countsAsStall: countsAsStall,
-            isNetworkReachable: true, webStartupRetryCount: 0,
-            webStallRetryCount: 0, nativeStartupRetryCount: retryCount
-        )
     }
 
     private func makeSession(type: StreamType, web: Bool = false) -> StreamSession {

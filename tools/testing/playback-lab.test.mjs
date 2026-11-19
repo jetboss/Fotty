@@ -8,11 +8,11 @@ const clone = () => structuredClone(playbackLab);
 
 test("every controlled scenario points to a real XCTest without claiming execution or physical proof", async () => {
   const result = await checkLab(root);
-  assert.equal(result.scenarios, 8);
+  assert.equal(result.scenarios, 7);
   assert.ok(result.selectedTests >= 20);
   assert.equal(result.xctestExecutionVerified, false);
   assert.equal(result.decodedPlaybackVerified, false);
-  assert.equal(physicalGates.length, 5);
+  assert.equal(physicalGates.length, 3);
 });
 
 test("missing test implementations cannot silently turn the lab green", async () => {

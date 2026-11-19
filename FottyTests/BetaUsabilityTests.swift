@@ -915,8 +915,9 @@ final class BetaUsabilityTests: XCTestCase {
 
     func testWatchEntryPointsPresentFeedbackBeforeResolving() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        // Home's single Watch delegates to the scene coordinator, which owns the
+        // repeated-tap guard for the same pending match (checked below).
         let paths = [
-            "Fotty/Features/Dashboard/SportsDashboardView.swift",
             "Fotty/Features/MatchHub/MatchHubViewModel.swift",
             "Fotty/Features/Player/ViewingSessionCoordinator.swift"
         ]
@@ -939,15 +940,11 @@ final class BetaUsabilityTests: XCTestCase {
         let dashboard = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Dashboard/SportsDashboardView.swift"), encoding: .utf8)
         let resolver = try String(contentsOf: root.appendingPathComponent("Fotty/Core/UI/Shared/StreamResolutionOverlay.swift"), encoding: .utf8)
         let playerLoading = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Player/Components/LoadingStateOverlay.swift"), encoding: .utf8)
-        let multiPlayer = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Player/MultiLivePlayerView.swift"), encoding: .utf8)
 
         XCTAssertTrue(dashboard.contains("SportLoadingView(category: selectedSportTab"))
         XCTAssertTrue(resolver.contains("SportLoadingView(category: sportCategory"))
         XCTAssertTrue(playerLoading.contains("SportLoadingView("))
         XCTAssertTrue(playerLoading.contains("category: viewModel.event.normalizedCategory"))
-        XCTAssertTrue(multiPlayer.contains("SportLoadingView(category: slot.event.normalizedCategory"))
-        XCTAssertTrue(multiPlayer.contains("SportLoadingView(category: HomeSportsDiscovery.allSports"))
-        XCTAssertTrue(multiPlayer.contains(".allowsHitTesting(false)"), "Decorative loading must not acquire the player's taps")
         XCTAssertFalse(FileManager.default.fileExists(
             atPath: root.appendingPathComponent("Fotty/Features/Dashboard/PlaybackWarmupView.swift").path
         ))
@@ -971,17 +968,12 @@ final class BetaUsabilityTests: XCTestCase {
         }
         let home = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Dashboard/SportsDashboardView.swift"), encoding: .utf8)
         for (entry, guardText) in [
-            ("watchEvent(_ event:", "guard !isFindingAnyStream else { return }"),
-            ("watchSelectedInMultiView()", "guard viewing.allowsWatchTwo, !isFindingAnyStream else { return }"),
-            ("toggleMultiSelection(for event:", "guard viewing.allowsWatchTwo, !isFindingAnyStream else { return }")
+            ("watchEvent(_ event:", "guard !isFindingAnyStream else { return }")
         ] {
             let definition = try XCTUnwrap(home.range(of: "private func \(entry)"))
             let body = String(home[definition.upperBound...].prefix(400))
             XCTAssertTrue(body.contains(guardText), entry)
         }
-        XCTAssertTrue(home.contains("multiResolutionTitles = events.map(eventTitle(_:))"),
-                      "The lookup panel must keep the pair it actually requested, not a refreshed selection")
-        XCTAssertTrue(home.contains(".disabled(selectedMultiEventIDs.count != 2 || isFindingAnyStream)"))
         XCTAssertTrue(home.contains("if isFindingAnyStream { cancelCurrentResolution() }"),
                       "A modal destination must revoke the older lookup before presenting")
         XCTAssertTrue(home.contains("presentModal { showsSearch = true }"))
@@ -2632,45 +2624,6 @@ final class HomeDiscoveryTests: XCTestCase {
         XCTAssertEqual(SportIdentity.symbol(for: "all-sports"), "square.grid.2x2.fill")
         XCTAssertEqual(SportIdentity.symbol(for: "motor_sports"), "flag.checkered")
         XCTAssertNotEqual(SportIdentity.symbol(for: "American Football"), SportIdentity.symbol(for: "football"))
-    }
-
-    func testTwoMatchEligibilityIsSinglePassAndStopsAfterSecondCandidate() {
-        let cases: [[Bool]] = [[], [false], [true], [false, true],
-                              [true, true], [false, true, false, true, true]]
-        for candidates in cases {
-            var visited: [Int] = []
-            let actual = TwoMatchSelectionPolicy.hasTwoCandidates(in: candidates.indices) { index in
-                visited.append(index)
-                return candidates[index]
-            }
-            XCTAssertEqual(actual, candidates.filter { $0 }.count >= 2)
-            let second = candidates.indices.filter { candidates[$0] }.dropFirst().first
-            XCTAssertEqual(visited, Array(candidates.indices.prefix(second.map { $0 + 1 } ?? candidates.count)))
-        }
-    }
-
-    func testTwoMatchEligibilityVisitsNoCandidateCatalogOnlyOnce() {
-        var calls = 0
-        XCTAssertFalse(TwoMatchSelectionPolicy.hasTwoCandidates(in: 0..<3_000) { _ in
-            calls += 1
-            return false
-        })
-        XCTAssertEqual(calls, 3_000)
-    }
-
-    func testTwoMatchSelectionPreservesOrderAndCapsAtTwo() {
-        var selection: [String] = []
-        selection = TwoMatchSelectionPolicy.toggled(selection, eventID: "first")
-        selection = TwoMatchSelectionPolicy.toggled(selection, eventID: "second")
-        XCTAssertEqual(selection, ["first", "second"])
-        XCTAssertEqual(TwoMatchSelectionPolicy.position(of: "second", in: selection), 2)
-
-        XCTAssertEqual(
-            TwoMatchSelectionPolicy.toggled(selection, eventID: "third"),
-            ["first", "second"],
-            "A third tap must not silently replace either chosen match"
-        )
-        XCTAssertEqual(TwoMatchSelectionPolicy.toggled(selection, eventID: "first"), ["second"])
     }
 
     @MainActor

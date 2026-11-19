@@ -31,14 +31,4 @@ final class NativeHandoffTests: XCTestCase {
         XCTAssertEqual(NativeHandoffCandidateDiagnostic.itemStatusLabel(.failed), "failed")
     }
 
-    func testPreflightReceiptOutcome() {
-        XCTAssertEqual(NativeWatchTwoPreflightOutcome.prepared.qualityOutcome(retained: true), .success)
-        XCTAssertEqual(NativeWatchTwoPreflightOutcome.cancelled.qualityOutcome(retained: false), .info)
-        XCTAssertEqual(NativeWatchTwoPreflightOutcome.staleOwner.qualityOutcome(retained: false), .info)
-        for outcome: NativeWatchTwoPreflightOutcome in [.notEligible, .unsupported, .noCandidate, .staleCandidate,
-            .proxyFailed, .validationRejected, .isolationFailed, .readinessFailed, .readinessTimeout,
-            .registrationRejected, .prepared] {
-            XCTAssertEqual(outcome.qualityOutcome(retained: false), .failure, outcome.rawValue)
-        }
-    }
 }

@@ -7,11 +7,6 @@ private struct CatalogClockKey: Hashable {
     let contentRevision: Int
 }
 
-private struct IndexedMultiResolution: Sendable {
-    let index: Int
-    let outcome: StreamResolutionOutcome
-}
-
 struct SportsDashboardView: View {
     let isActive: Bool
     @Environment(\.fottyWideLayout) private var usesWideLayout
@@ -40,23 +35,13 @@ struct SportsDashboardView: View {
     @State private var pendingSearchSelection: PendingSearchSelection?
     @State private var discoveryDate = HomeSportsDiscovery.automatedClockDate ?? Date()
     @State private var showPlayer = false
-    @State private var showMultiPlayer = false
     @State private var streamSessions: [StreamSession] = []
-    @State private var multiViewSlots: [MultiLiveSlot] = []
-    @State private var activeMultiRequests: [StreamPlaybackRequest] = []
     @State private var streamEvent: AnalyticalDataEngine.EventReference? = nil
     @State private var isFindingStream = false
-    @State private var isFindingMultiStreams = false
-    @State private var multiResolutionTitles: [String] = []
     @State private var streamError: String? = nil
     @State private var streamStatusMessage = "Looking for a playable stream..."
-    @State private var multiStreamStatusMessage = "Preparing two-match view..."
     @State private var streamTask: Task<Void, Never>?
-    @State private var multiStreamTask: Task<Void, Never>?
     @State private var streamRequestID = UUID()
-    @State private var multiStreamRequestID = UUID()
-    @State private var isMultiSelectMode = false
-    @State private var selectedMultiEventIDs: [String] = []
     @State private var savedMatchError: String?
     @State private var selectedCatalogEvent: AnalyticalDataEngine.EventReference? = nil
     @State private var pendingDetailsWatch: AnalyticalDataEngine.EventReference?
@@ -144,11 +129,6 @@ struct SportsDashboardView: View {
         NavigationStack {
             mainContent
                 .toolbar(.hidden, for: .navigationBar)
-                .safeAreaInset(edge: .top, spacing: 0) {
-                    if isMultiSelectMode {
-                        multiSelectChrome
-                    }
-                }
                 .navigationDestination(isPresented: $showsFullLineup) {
                     fullLineup
                 }
@@ -157,9 +137,9 @@ struct SportsDashboardView: View {
                     SettingsManageLeaguesView(previewEvents: matchListViewModel?.playbackCatalog ?? [])
                 }
         }
-        .environment(\.fottyStreamLookupBusy, isFindingAnyStream || (!viewing.isTwo && viewing.resolutionMessage != nil))
-        .environment(\.fottySceneOwnsSingleWatch, !isMultiSelectMode && !viewing.isTwo)
-        .environment(\.fottyPendingWatchEventID, !isMultiSelectMode && !viewing.isTwo ? viewing.pendingSingleEvent?.id : nil)
+        .environment(\.fottyStreamLookupBusy, isFindingAnyStream || viewing.resolutionMessage != nil)
+        .environment(\.fottySceneOwnsSingleWatch, true)
+        .environment(\.fottyPendingWatchEventID, viewing.pendingSingleEvent?.id)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let pending = viewing.pendingSingleEvent, let message = viewing.resolutionMessage {
                 StreamResolutionPanel(sportCategory: pending.normalizedCategory,
@@ -168,12 +148,12 @@ struct SportsDashboardView: View {
                     onCancel: { viewing.cancelPendingSingleDiscovery() })
             } else if isFindingAnyStream {
                 StreamResolutionPanel(
-                    sportCategory: isFindingMultiStreams ? HomeSportsDiscovery.allSports : (streamEvent?.normalizedCategory ?? selectedSportTab),
-                    competition: isFindingMultiStreams ? nil : SportMotionContext.competition(for: streamEvent),
-                    statusMessage: isFindingMultiStreams ? multiStreamStatusMessage : streamStatusMessage,
+                    sportCategory: streamEvent?.normalizedCategory ?? selectedSportTab,
+                    competition: SportMotionContext.competition(for: streamEvent),
+                    statusMessage: streamStatusMessage,
                     subtitle: streamEvent.map { eventTitle($0) },
-                    isMultiStream: isFindingMultiStreams,
-                    multiTitles: multiResolutionTitles,
+                    isMultiStream: false,
+                    multiTitles: [],
                     onCancel: cancelCurrentResolution
                 )
             }
@@ -197,18 +177,12 @@ struct SportsDashboardView: View {
         .dashboardPresentationLayers(
             selectedHighlightsMatch: $selectedHighlightsMatch,
             showPlayer: $showPlayer,
-            showMultiPlayer: $showMultiPlayer,
             streamEvent: streamEvent,
             streamSessions: streamSessions,
-            multiViewSlots: multiViewSlots,
-            liveScoreService: liveScoreService,
-            onMultiPlaybackUnavailable: { eventID in
-                MatchPlaybackFeedback.shared.notReady(eventID)
-            }
+            liveScoreService: liveScoreService
         )
         .sheet(item: $selectedCatalogEvent, onDismiss: completePendingDetailsAction) { event in
-            let detailsEvent = isMultiSelectMode || viewing.isTwo ? event
-                : CurrentEventBroadcastPolicy.currentEvent(for: event,
+            let detailsEvent = CurrentEventBroadcastPolicy.currentEvent(for: event,
                     in: matchListViewModel?.playbackAdmissionCatalog ?? []) ?? event
             CatalogEventDetailsView(event: detailsEvent, onWatch: canOpenBroadcast(event) ? {
                 pendingDetailsWatch = event
@@ -271,18 +245,10 @@ struct SportsDashboardView: View {
             pendingDetailsSourceCheck = nil
             viewing.cancelOptionalSourceLookup()
             streamTask?.cancel()
-            multiStreamTask?.cancel()
             streamRequestID = UUID()
-            multiStreamRequestID = UUID()
             isFindingStream = false
-            isFindingMultiStreams = false
-            multiResolutionTitles = []
-            isMultiSelectMode = false
-            selectedMultiEventIDs = []
             streamSessions = []
             streamStatusMessage = "Looking for a playable stream..."
-            multiStreamStatusMessage = "Preparing two-match view..."
-            cancelActiveMultiStreamRequests()
         }
         .task(id: catalogProjectionKey) {
             await rebuildCatalogProjection()
@@ -291,7 +257,7 @@ struct SportsDashboardView: View {
             rebuildSportActivityProjection()
         }
         .preference(key: FixturePreflightActivityPreferenceKey.self,
-                    value: isActive && (isFindingAnyStream || isMultiSelectMode))
+                    value: isActive && isFindingAnyStream)
         .task(id: isActive && scenePhase == .active) {
             if matchListViewModel == nil {
                 matchListViewModel = MatchListViewModel.shared
@@ -435,7 +401,7 @@ struct SportsDashboardView: View {
         let items = discoveryRankingSnapshot?.items(matching: discoveryRankingKey, home: true) ?? prioritizedDiscoveryItems(
             scopedItems(in: schedule, applyingHomeInterests: true, personalization: personalization),
             equalizeSelectedInterests: usesPersonalizedWindow,
-            personalization: personalization, preservingLegacyOrder: isMultiSelectMode
+            personalization: personalization
         )
         let personalizedUpcomingLimit = UIDevice.current.userInterfaceIdiom == .pad ? 4 : 3
         var sections = schedule.homeSections(
@@ -466,7 +432,7 @@ struct SportsDashboardView: View {
         let catalogNoticeDate = HomeSportsDiscovery.automatedClockDate ?? Date()
         // Read layout/state dependencies before entering the escaping lazy
         // content closure. The sequence itself must update on a width change.
-        let onAir: [HomeOnAirPolicy.Entry] = isMultiSelectMode || showFollowedOnly
+        let onAir: [HomeOnAirPolicy.Entry] = showFollowedOnly
             || ![HomeSportsDiscovery.allSports, "cricket"].contains(selectedSportTab) ? []
             : HomeOnAirPolicy.entries(library: tvLibrary, commentary: CommentaryPreference(rawValue: tvCommentary) ?? .english,
                 snapshot: tvRegistry.snapshot, sport: selectedSportTab == HomeSportsDiscovery.allSports ? nil : "cricket",
@@ -519,15 +485,8 @@ struct SportsDashboardView: View {
                         .accessibilityLabel("Clear followed-teams filter")
                 }
 
-                if isMultiSelectMode {
-                    homeMatchList(
-                        events: filteredEvents.filter(isMultiViewCandidate(_:)),
-                        usesMultiColumnGrid: false
-                    )
-                } else {
-                    ForEach(entries) { entry in
-                        homeEntry(entry)
-                    }
+                ForEach(entries) { entry in
+                    homeEntry(entry)
                 }
 
                 if !viewing.isActive, let event = lastLiveEvent(at: discoveryDate) {
@@ -541,11 +500,7 @@ struct SportsDashboardView: View {
                     cricketDiscovery(applyingHomeInterests: true)
                 }
 
-                if isMultiSelectMode && items.isEmpty && channelEvents(applyingHomeInterests: true).isEmpty {
-                    emptyState(applyingHomeInterests: true)
-                }
-
-                if !isMultiSelectMode { MatchdaySetupCard() }
+                MatchdaySetupCard()
 
                 Spacer(minLength: 16)
             }
@@ -617,9 +572,8 @@ struct SportsDashboardView: View {
     private var projectedPersonalizationSelection: SportsPersonalizationPolicy.PreparedSelection? { projectionCoordinator.packet?.base.selection }
     private var personalizationFactsCache: HomePersonalizationFactsCache? { projectionCoordinator.packet?.base.factsCache }
     private var discoveryRankingSnapshot: HomeDiscoveryRankingSnapshot? {
-        // The cached Home presentation order includes cricket intervals. The
-        // existing multi-select fallback keeps its legacy candidate ordering.
-        isMultiSelectMode ? nil : projectionCoordinator.packet?.scope.ranking
+        // The cached Home presentation order includes cricket intervals.
+        projectionCoordinator.packet?.scope.ranking
     }
     private var homeSportActivities: [HomeSportsDiscovery.SportActivity]? { projectionCoordinator.packet?.scope.homeActivities }
     private var fullLineupSportActivities: [HomeSportsDiscovery.SportActivity]? { projectionCoordinator.packet?.scope.lineupActivities }
@@ -1273,7 +1227,7 @@ struct SportsDashboardView: View {
 
     private func onAirSection(_ entries: [HomeOnAirPolicy.Entry], columns: Int) -> some View {
         HomeOnAirSection(entries: entries, columns: columns,
-            pendingEventID: !isMultiSelectMode && !viewing.isTwo ? viewing.pendingSingleEvent?.id : nil) { event in
+            pendingEventID: viewing.pendingSingleEvent?.id) { event in
             SportsTVWatchPolicy.watch(event, using: viewing,
                 currentCatalog: { MatchListViewModel.shared.playbackAdmissionCatalog })
         }
@@ -1397,7 +1351,7 @@ struct SportsDashboardView: View {
         let personalization = discoveryPersonalizationContext
         let items = discoveryRankingSnapshot?.items(matching: discoveryRankingKey, home: false) ?? prioritizedDiscoveryItems(
             scopedItems(in: schedule, applyingHomeInterests: false, personalization: personalization),
-            personalization: personalization, preservingLegacyOrder: isMultiSelectMode
+            personalization: personalization
         )
         return ScrollView {
             LazyVStack(alignment: .leading, spacing: FottyTheme.spacingMD) {
@@ -1589,25 +1543,6 @@ struct SportsDashboardView: View {
                 .accessibilityIdentifier("home-settings")
             }
 
-            if canOfferMultiView {
-                Button(action: beginMultiSelectMode) {
-                    Label("Watch two", systemImage: "rectangle.split.2x1")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(minHeight: 32)
-                }
-                // Let the native control own its adaptive fill, contrast and
-                // pressed state instead of a faint custom material outline.
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
-                .controlSize(.regular)
-                .tint(FottyTheme.textPrimary)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-                .accessibilityLabel("Watch two matches")
-                .accessibilityHint("Select two matches to watch together")
-                .accessibilityIdentifier("home-watch-two")
-                .disabled(isFindingAnyStream)
-            }
         }
     }
 
@@ -1618,104 +1553,16 @@ struct SportsDashboardView: View {
         return f
     }()
 
-    private var multiSelectChrome: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            if typeSize.isAccessibilitySize {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        multiSelectTitleBlock
-                        Spacer(minLength: 4)
-                        multiSelectCancelButton
-                    }
-                    multiSelectStartButton
-                }
-            } else {
-                HStack(spacing: 10) {
-                    multiSelectCancelButton
-                    multiSelectTitleBlock
-                    Spacer(minLength: 4)
-                    multiSelectStartButton
-                }
-            }
-
-            HStack(spacing: 6) {
-                ForEach(0..<2, id: \.self) { index in
-                    Capsule()
-                        .fill(index < selectedMultiEventIDs.count ? FottyTheme.accent : FottyTheme.borderStrong)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 3)
-                }
-            }
-        }
-        .buttonStyle(FottyPressButtonStyle())
-        .padding(.horizontal, FottyTheme.bentoInset)
-        .padding(.vertical, 8)
-        .background(FottyTheme.surfaceElevated.shadow(color: .black.opacity(0.18), radius: 10, y: 4))
-    }
-
-    private var multiSelectCancelButton: some View {
-        Button(action: cancelMultiSelectMode) {
-            Label("Cancel", systemImage: "xmark")
-                .font(FottyTheme.typeAction)
-                .foregroundStyle(FottyTheme.textSecondary)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-        }
-        .accessibilityIdentifier("multiview-cancel-selection")
-    }
-
-    private var multiSelectTitleBlock: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text("Choose two matches")
-                .font(.fottyScaled(size: 15, weight: .bold))
-                .foregroundStyle(FottyTheme.textPrimary)
-            multiSelectCount
-        }
-    }
-
-    private var multiSelectStartButton: some View {
-        Button(action: watchSelectedInMultiView) {
-            Label("Start", systemImage: "play.fill")
-                .font(FottyTheme.typeAction)
-                .foregroundStyle(selectedMultiEventIDs.count == 2 ? FottyTheme.textOnAccent : FottyTheme.textTertiary)
-                .padding(.horizontal, 14)
-                .frame(maxWidth: typeSize.isAccessibilitySize ? .infinity : nil, minHeight: 44)
-                .background(
-                    Capsule().fill(selectedMultiEventIDs.count == 2 ? FottyTheme.accent : FottyTheme.surfaceSubtle)
-                )
-                .contentShape(Capsule())
-        }
-        .disabled(selectedMultiEventIDs.count != 2 || isFindingAnyStream)
-        .accessibilityLabel("Start two-match view")
-        .accessibilityHint("Opens both selected broadcasts together")
-        .accessibilityIdentifier("multiview-start")
-    }
-
-    private var multiSelectCount: some View {
-        Text("\(selectedMultiEventIDs.count) of 2 selected")
-            .font(FottyTheme.typeMeta)
-            .foregroundStyle(FottyTheme.textSecondary)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
     private func homeMatchList(
         events: [AnalyticalDataEngine.EventReference],
         usesMultiColumnGrid: Bool = UIDevice.current.userInterfaceIdiom == .pad
     ) -> some View {
         DashboardMatchList(
-            title: isMultiSelectMode ? "Ready to watch" : "Match schedule",
+            title: "Match schedule",
             events: events,
             showFollowedOnly: $showFollowedOnly,
             hasFollowedTeams: !followedTeams.isEmpty,
-            isMultiSelectMode: isMultiSelectMode,
-            selectedMultiEventIDs: $selectedMultiEventIDs,
-            onEventTap: { event in
-                guard !isMultiSelectMode else {
-                    toggleMultiSelection(for: event)
-                    return
-                }
-                openEvent(event)
-            },
+            onEventTap: { event in openEvent(event) },
             onInfoTap: { match in presentModal { selectedHighlightsMatch = match } },
             onAppearEvent: { _ in },
             canWatchEvent: canOpenBroadcast(_:),
@@ -1776,16 +1623,15 @@ struct SportsDashboardView: View {
     }
 
     private func rowSourceCheckAction(for event: EventReference) -> (() -> Void)? {
-        guard !isMultiSelectMode, !viewing.isTwo else { return nil }
         // "Today so far" rows (stumps, breaks) carry no action or lookup status.
         if CricketActivityPresentationPolicy.activity(for: event, at: discoveryDate)?.suppressesLiveBadge == true { return nil }
         return { checkSources(for: event) }
     }
 
     private func optionalSourceCheckAction(for event: EventReference) -> (() -> Void)? {
-        guard isActive, scenePhase == .active, !isFindingAnyStream, !viewing.isTwo else { return nil }
+        guard isActive, scenePhase == .active, !isFindingAnyStream else { return nil }
         return {
-            guard isActive, scenePhase == .active, !isFindingAnyStream, !viewing.isTwo else { return }
+            guard isActive, scenePhase == .active, !isFindingAnyStream else { return }
             pendingDetailsWatch = nil
             pendingDetailsSourceCheck = event
             selectedCatalogEvent = nil
@@ -1808,18 +1654,17 @@ struct SportsDashboardView: View {
     }
 
     private func checkSources(for event: EventReference) {
-        guard isActive, scenePhase == .active, !isFindingAnyStream,
-              !isMultiSelectMode, !viewing.isTwo else { return }
+        guard isActive, scenePhase == .active, !isFindingAnyStream else { return }
         viewing.checkOptionalSources(for: event, discover: { request, publish in
             await LiveStreamResolver.shared.resolvePlayback(for: request, onChoices: publish)
         }) { requested, phase in
             let sceneOwned = phase == .completion && viewing.hasMountedOptionalSourceLookup(for: requested)
-            guard !Task.isCancelled, !viewing.isTwo,
-                  sceneOwned || (isActive && scenePhase == .active && !isFindingAnyStream && !isMultiSelectMode) else { return nil }
+            guard !Task.isCancelled,
+                  sceneOwned || (isActive && scenePhase == .active && !isFindingAnyStream) else { return nil }
             let codes = Set(await StreamPluginRegistry.shared.enabledProviderCodes())
             let stillSceneOwned = phase == .completion && viewing.hasMountedOptionalSourceLookup(for: requested)
-            guard !Task.isCancelled, !viewing.isTwo,
-                  stillSceneOwned || (isActive && scenePhase == .active && !isFindingAnyStream && !isMultiSelectMode) else { return nil }
+            guard !Task.isCancelled,
+                  stillSceneOwned || (isActive && scenePhase == .active && !isFindingAnyStream) else { return nil }
             let now = Date()
             return OptionalSourceLookupPolicy.event(for: requested,
                 in: matchListViewModel?.playbackAdmissionCatalog ?? [], enabledProviderCodes: codes, at: now,
@@ -1902,21 +1747,6 @@ struct SportsDashboardView: View {
         )
     }
 
-    private var canOfferMultiView: Bool {
-        viewing.allowsWatchTwo && UIDevice.current.userInterfaceIdiom == .pad
-            && TwoMatchSelectionPolicy.hasTwoCandidates(in: filteredEvents, where: isMultiViewCandidate(_:))
-    }
-
-    /// A match can join "Watch two" when its normal Watch action is available
-    /// (stations, the registry, or a fresh lookup through enabled sources) and
-    /// its timing suits two-match viewing. Until 9 Nov this required a shared
-    /// catalog source, which no match has had since that catalog closed.
-    private func isMultiViewCandidate(_ event: AnalyticalDataEngine.EventReference) -> Bool {
-        guard !HomeMatchPriority.isFinished(event, scoreService: liveScoreService),
-              HomeMatchPriority.isMultiViewTimingEligible(event, scoreService: liveScoreService) else { return false }
-        return broadcastAction(for: event) != nil
-    }
-
     private func cplChannelActionTitle(_ event: AnalyticalDataEngine.EventReference) -> String? {
         // Ordinary rows never need the catalog-wide channel fallback search. Keeping that resolver in every
         // lazy-row body made the first scroll pay O(rows × catalog) work.
@@ -1925,12 +1755,10 @@ struct SportsDashboardView: View {
     }
 
     private func canOpenBroadcast(_ event: AnalyticalDataEngine.EventReference) -> Bool {
-        if isMultiSelectMode { return isMultiViewCandidate(event) }
-        return broadcastAction(for: event) != nil
+        broadcastAction(for: event) != nil
     }
 
-    /// The normal Watch action. Two-match selection and replacement use the
-    /// same rule; they no longer depend on shared-catalog sources.
+    /// The normal Watch action; it no longer depends on shared-catalog sources.
     private func broadcastAction(for event: EventReference) -> CurrentEventBroadcastPolicy.Action? {
         CurrentEventBroadcastPolicy.action(for: event, in: matchListViewModel?.playbackAdmissionCatalog ?? [], at: discoveryDate,
                                           status: MatchStartPolicy.currentStatus(for: event, scores: liveScoreService, now: discoveryDate))
@@ -2003,16 +1831,7 @@ struct SportsDashboardView: View {
         }
     }
 
-    private var isFindingAnyStream: Bool {
-        isFindingStream || isFindingMultiStreams
-    }
-
-    private var selectedMultiEvents: [AnalyticalDataEngine.EventReference] {
-        let allMatches = matchListViewModel?.matches ?? []
-        return selectedMultiEventIDs.compactMap { selectedID in
-            allMatches.first { $0.id == selectedID }
-        }
-    }
+    private var isFindingAnyStream: Bool { isFindingStream }
 
     private var followedTeamKeys: Set<String> {
         preparedPersonalizationSelection.teamKeys
@@ -2073,206 +1892,6 @@ struct SportsDashboardView: View {
                 ? liveScoreService.findMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate) : nil)
     }
 
-    private func beginMultiSelectMode() {
-        guard viewing.allowsWatchTwo, !isFindingAnyStream else { return }
-        isMultiSelectMode = true
-        selectedMultiEventIDs = []
-    }
-
-    private func cancelMultiSelectMode() {
-        if isFindingMultiStreams { cancelCurrentResolution() }
-        isMultiSelectMode = false
-        selectedMultiEventIDs = []
-    }
-
-    private func toggleMultiSelection(for event: AnalyticalDataEngine.EventReference) {
-        guard viewing.allowsWatchTwo, !isFindingAnyStream else { return }
-        guard isMultiViewCandidate(event) else {
-            streamError = "This match is not ready for two-match viewing yet."
-            return
-        }
-
-        let updated = TwoMatchSelectionPolicy.toggled(selectedMultiEventIDs, eventID: event.id)
-        if updated == selectedMultiEventIDs, !selectedMultiEventIDs.contains(event.id) {
-            streamError = "Two matches are already selected. Remove one before choosing another."
-            return
-        }
-        selectedMultiEventIDs = updated
-        HapticManager.impact(.light)
-    }
-
-    private func watchSelectedInMultiView() {
-        guard viewing.allowsWatchTwo, !isFindingAnyStream else { return }
-        let events = selectedMultiEvents
-        guard events.count == 2, events.allSatisfy({ playbackTimingAllows($0) }) else { return }
-
-        #if DEBUG
-        if ProcessInfo.processInfo.environment["FOTTY_MULTIVIEW_UI_TESTING"] == "1" {
-            let sessions = events.map { event in
-                (1...2).compactMap { index -> StreamSession? in
-                    guard let url = URL(string: "https://www.score808live.tv/embed/fotty-ui-\(event.id)/\(index)") else {
-                        return nil
-                    }
-                    return StreamSession(
-                        matchID: event.id,
-                        title: "Source \(index)",
-                        playableURL: url,
-                        streamType: .unknown,
-                        providerName: "Score808",
-                        qualityLabel: "UI fixture"
-                    )
-                }
-            }
-            multiViewSlots = zip(events, sessions).map { MultiLiveSlot(event: $0.0, sessions: $0.1) }
-            selectedMultiEventIDs = []
-            isMultiSelectMode = false
-            showMultiPlayer = true
-            return
-        }
-        #endif
-
-        multiStreamTask?.cancel()
-        cancelActiveMultiStreamRequests()
-
-        let requestID = UUID()
-        multiStreamRequestID = requestID
-        isFindingMultiStreams = true
-        multiResolutionTitles = events.map(eventTitle(_:))
-        streamError = nil
-        multiStreamStatusMessage = "Finding two playable broadcasts..."
-        let requests = events.map(StreamPlaybackRequest.init(event:))
-        activeMultiRequests = requests
-
-        multiStreamTask = Task {
-            defer {
-                if multiStreamRequestID == requestID {
-                    isFindingMultiStreams = false
-                    activeMultiRequests = []
-                }
-            }
-            do {
-                try await StreamResolutionPresentation.waitForFeedbackFrame()
-            } catch {
-                return
-            }
-            guard !Task.isCancelled, multiStreamRequestID == requestID else { return }
-            let indexedOutcomes = await resolveMultiViewRequests(requests, requestID: requestID)
-
-            guard !Task.isCancelled, multiStreamRequestID == requestID else {
-                cancelRequests(requests)
-                return
-            }
-
-            if let failed = indexedOutcomes.first(where: {
-                if case .failure = $0.outcome { return true }
-                return false
-            }), case .failure(let failure, let diagnostics) = failed.outcome {
-                recordMultiResolutionFailure(failure, diagnostics: diagnostics)
-                await MainActor.run {
-                    guard !Task.isCancelled, multiStreamRequestID == requestID else { return }
-                    multiStreamStatusMessage = "Preparing two-match view..."
-                    streamError = "\(requests[failed.index].displayTitle) could not be prepared. \(failure.userMessage)"
-                }
-                return
-            }
-
-            let successes = indexedOutcomes.compactMap { result -> (Int, StreamResolutionSuccess)? in
-                guard case .success(let success) = result.outcome else { return nil }
-                return (result.index, success)
-            }.sorted { $0.0 < $1.0 }
-
-            guard successes.count == 2 else {
-                await MainActor.run {
-                    guard !Task.isCancelled, multiStreamRequestID == requestID else { return }
-                    streamError = "One of these matches stopped preparing. Please try again."
-                }
-                return
-            }
-
-            let firstSuccess = successes[0].1
-            let secondSuccess = successes[1].1
-            switch (firstSuccess.sessions.isEmpty, secondSuccess.sessions.isEmpty) {
-            case (false, false):
-                guard !firstSuccess.sessions.isEmpty, !secondSuccess.sessions.isEmpty else {
-                    await MainActor.run {
-                        guard !Task.isCancelled, multiStreamRequestID == requestID else { return }
-                        streamError = "One of these matches did not return a playable broadcast. Choose another pair or try again."
-                    }
-                    return
-                }
-
-                await MainActor.run {
-                    guard !Task.isCancelled, multiStreamRequestID == requestID else { return }
-                    multiViewSlots = [
-                        MultiLiveSlot(event: events[0], sessions: firstSuccess.sessions),
-                        MultiLiveSlot(event: events[1], sessions: secondSuccess.sessions)
-                    ]
-                    selectedMultiEventIDs = []
-                    isMultiSelectMode = false
-                    multiStreamStatusMessage = "Preparing two-match view..."
-                    showMultiPlayer = true
-                }
-            default:
-                await MainActor.run {
-                    guard !Task.isCancelled, multiStreamRequestID == requestID else { return }
-                    multiStreamStatusMessage = "Preparing two-match view..."
-                    streamError = "One of these matches did not return a playable broadcast. Choose another pair or try again."
-                }
-            }
-        }
-    }
-
-    private func resolveMultiViewRequests(
-        _ requests: [StreamPlaybackRequest],
-        requestID: UUID
-    ) async -> [IndexedMultiResolution] {
-        await withTaskGroup(of: IndexedMultiResolution.self, returning: [IndexedMultiResolution].self) { group in
-            for (index, request) in requests.enumerated() {
-                group.addTask {
-                    let outcome = await LiveStreamResolver.shared.resolvePlayback(for: request) { _ in
-                        await MainActor.run {
-                            guard multiStreamRequestID == requestID else { return }
-                            multiStreamStatusMessage = "Preparing both matches..."
-                        }
-                    }
-                    return IndexedMultiResolution(index: index, outcome: outcome)
-                }
-            }
-
-            var results: [IndexedMultiResolution] = []
-            for await result in group {
-                results.append(result)
-                if case .failure = result.outcome {
-                    group.cancelAll()
-                    for (index, request) in requests.enumerated() where index != result.index {
-                        await LiveStreamResolver.shared.cancelAttempt(for: request)
-                    }
-                    break
-                }
-            }
-            return results
-        }
-    }
-
-    private func recordMultiResolutionFailure(
-        _ failure: StreamFailure,
-        diagnostics: StreamAttemptDiagnostics
-    ) {
-        FottyQualityStore.shared.record(
-            category: .playback,
-            name: "resolution_failure",
-            outcome: .failure,
-            details: [
-                "route": "multiview",
-                "mode": "resolution",
-                "attempt_id": diagnostics.attemptID,
-                "failure_kind": failure.category.rawValue
-            ]
-        )
-    }
-
-
-
     private func lastLiveEvent(at now: Date) -> EventReference? {
         lastLiveStore.eligibleEvent(in: matchListViewModel?.playbackCatalog ?? [], at: now) { event in
             guard event.normalizedCategory == "football",
@@ -2283,7 +1902,7 @@ struct SportsDashboardView: View {
     }
 
     private func openLastLiveMatch(_ event: EventReference) {
-        guard !viewing.isTwo, !isFindingAnyStream, selectedHighlightsMatch == nil else { return }
+        guard !isFindingAnyStream, selectedHighlightsMatch == nil else { return }
         HapticManager.impact(.light)
         MatchPlaybackFeedback.shared.attempting(event.id)
         streamError = nil
@@ -2303,51 +1922,23 @@ struct SportsDashboardView: View {
         guard !isFindingAnyStream else { return }
         pendingDetailsSourceCheck = nil
         viewing.cancelOptionalSourceLookup()
-        if !isMultiSelectMode, !viewing.isTwo {
-            guard selectedHighlightsMatch == nil else { return }
-            HapticManager.impact(.light)
-            MatchPlaybackFeedback.shared.attempting(event.id)
-            streamError = nil
-            viewing.watchSingle(event, admission: { requested in
-                guard isActive, scenePhase == .active, !isFindingAnyStream, selectedHighlightsMatch == nil else { return nil }
-                return CurrentEventBroadcastPolicy.action(for: requested,
-                    in: matchListViewModel?.playbackAdmissionCatalog ?? [],
-                    status: MatchStartPolicy.currentStatus(for: requested, scores: liveScoreService))?.event
-            })
-            return
-        }
-        guard playbackTimingAllows(event) else { return }
-        guard !(isFindingStream && streamEvent?.id == event.id) else { return }
-        // Prevent launching the player if we are trying to show highlights or chat.
         guard selectedHighlightsMatch == nil else { return }
-        if viewing.reopenRetainedSingle(event: event, catalog: matchListViewModel?.playbackCatalog ?? [],
-            status: MatchStartPolicy.currentStatus(for: event, scores: liveScoreService)) {
-            HapticManager.impact(.light)
-            streamError = nil
-            return
-        }
         HapticManager.impact(.light)
         MatchPlaybackFeedback.shared.attempting(event.id)
         streamError = nil
-        viewing.watchSingle(event)
+        viewing.watchSingle(event, admission: { requested in
+            guard isActive, scenePhase == .active, !isFindingAnyStream, selectedHighlightsMatch == nil else { return nil }
+            return CurrentEventBroadcastPolicy.action(for: requested,
+                in: matchListViewModel?.playbackAdmissionCatalog ?? [],
+                status: MatchStartPolicy.currentStatus(for: requested, scores: liveScoreService))?.event
+        })
     }
 
 
     /// Future rows stay inline. A supported source can be tried only inside
     /// the pre-start window; useful match information is a separate action.
     private func openEvent(_ event: AnalyticalDataEngine.EventReference) {
-        if !isMultiSelectMode, !viewing.isTwo {
-            watchEvent(event)
-            return
-        }
-        // Recheck at the tap, rather than using the last display clock's action.
-        if let action = CurrentEventBroadcastPolicy.action(for: event, in: matchListViewModel?.playbackAdmissionCatalog ?? [],
-                status: MatchStartPolicy.currentStatus(for: event, scores: liveScoreService)) {
-            watchEvent(action.event)
-            return
-        }
-        // Upcoming rows retain their inline countdown; no empty player or extra
-        // detail sheet appears merely because a previously visible action expired.
+        watchEvent(event)
     }
 
     private func playbackTimingAllows(_ event: AnalyticalDataEngine.EventReference) -> Bool {
@@ -2371,35 +1962,15 @@ struct SportsDashboardView: View {
 
     private func cancelCurrentResolution() {
         streamTask?.cancel()
-        multiStreamTask?.cancel()
         let pendingEvent = streamEvent
         streamRequestID = UUID()
-        multiStreamRequestID = UUID()
         isFindingStream = false
-        isFindingMultiStreams = false
-        multiResolutionTitles = []
         streamEvent = nil
         streamSessions = []
         streamStatusMessage = "Looking for a playable stream..."
-        multiStreamStatusMessage = "Preparing two-match view..."
         if let event = pendingEvent {
             let request = StreamPlaybackRequest(event: event)
             Task {
-                await LiveStreamResolver.shared.cancelAttempt(for: request)
-            }
-        }
-        cancelActiveMultiStreamRequests()
-    }
-
-    private func cancelActiveMultiStreamRequests() {
-        cancelRequests(activeMultiRequests)
-        activeMultiRequests = []
-    }
-
-    private func cancelRequests(_ requests: [StreamPlaybackRequest]) {
-        guard !requests.isEmpty else { return }
-        Task {
-            for request in requests {
                 await LiveStreamResolver.shared.cancelAttempt(for: request)
             }
         }

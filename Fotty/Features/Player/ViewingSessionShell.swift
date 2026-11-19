@@ -119,11 +119,8 @@ struct ViewingSessionShell<Content: View>: View {
         // result. The provider document doesn't reflow into a 46-point window.
         let source = viewing.expanded ? target.size : (expandedSizes[pane.id] ?? CGSize(width: 320, height: 180))
         return LivePlayerView(viewModel: pane.model, isSurfaceOnly: true,
-            publishesLiveActivity: viewing.panes.count == 1, usesManagedAudio: viewing.isTwo,
-            physicalMeasurementIdentifier: viewing.isTwo
-                ? "native-measurement-pane-\((viewing.panes.firstIndex(where: { $0.id == pane.id }) ?? 0) + 1)"
-                : "native-playback-measurement",
-            onRetryDiscovery: viewing.isTwo ? nil : { viewing.retrySinglePlaybackDiscovery(for: pane.model) },
+            publishesLiveActivity: viewing.panes.count == 1,
+            onRetryDiscovery: { viewing.retrySinglePlaybackDiscovery(for: pane.model) },
             retryDiscoveryMessage: viewing.singlePlaybackRetryMessage(for: pane.model),
             onCancelRetryDiscovery: { viewing.cancelSinglePlaybackRetry(for: pane.model) },
             onClose: { viewing.stop() })

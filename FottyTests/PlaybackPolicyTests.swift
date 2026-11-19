@@ -1043,9 +1043,6 @@ final class PlaybackPolicyTests: XCTestCase {
         let event = AnalyticalDataEngine.EventReference(
             id: "routing", title: "CS routing test", category: "football",
             date: 0, poster: nil, popular: false, teams: nil)
-        let slot = MultiLiveSlot(event: event, sessions: [web, native])
-        XCTAssertTrue(slot.isWebEmbed(web.legacySource))
-        XCTAssertFalse(slot.isWebEmbed(native.legacySource))
     }
 
     func testDirectNativeRecoveryIsBoundedAndCannotInventAWebFallback() {
@@ -3372,36 +3369,6 @@ final class PlaybackPolicyTests: XCTestCase {
     }
 
     @MainActor
-    func testMultiViewTimingRequiresLiveOrImminentKickoff() {
-        let now = Date()
-        let imminent = makeScheduleEvent(id: "multi-imminent", kickoff: now.addingTimeInterval(2 * 60))
-        let tooEarly = makeScheduleEvent(id: "multi-too-early", kickoff: now.addingTimeInterval(2 * 3_600))
-        let inPlay = makeScheduleEvent(id: "multi-in-play", kickoff: now.addingTimeInterval(-20 * 60))
-
-        XCTAssertTrue(
-            HomeMatchPriority.isMultiViewTimingEligible(
-                imminent,
-                scoreService: .shared,
-                now: now
-            )
-        )
-        XCTAssertFalse(
-            HomeMatchPriority.isMultiViewTimingEligible(
-                tooEarly,
-                scoreService: .shared,
-                now: now
-            )
-        )
-        XCTAssertTrue(
-            HomeMatchPriority.isMultiViewTimingEligible(
-                inPlay,
-                scoreService: .shared,
-                now: now
-            )
-        )
-    }
-
-    @MainActor
     func testMyMatchdaySavePersistsThePlayableCatalogSnapshot() throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: "FottyTests.MyMatchday"))
         let key = "saved-match-persistence"
@@ -3434,15 +3401,14 @@ final class PlaybackPolicyTests: XCTestCase {
     }
 
     @MainActor
-    func testNativeCandidateDiscoveryIsPassiveInSingleAndWatchTwo() throws {
-        for context: ViewingPlaybackContext in [.single, .watchTwo(engine: .web)] {
+    func testNativeCandidateDiscoveryIsPassive() throws {
+        do {
             var validations = 0
             let model = try makeExplicitTransferTestModel(validate: { _, _ in
                 validations += 1
                 return .invalid("Discovery must never validate media")
             })
             defer { model.cleanup() }
-            model.setViewingPlaybackContext(context)
             let source = try XCTUnwrap(model.activeSource?.id), request = model.loadRequestID
             let candidate = NativeWebPlaybackCandidate(url: URL(string: "https://example.invalid/passive.m3u8")!, headers: [:])
 
@@ -3458,186 +3424,8 @@ final class PlaybackPolicyTests: XCTestCase {
             XCTAssertEqual(model.activeSource?.id, source)
             XCTAssertEqual(model.playbackState, .playing(.webEmbed))
             XCTAssertNil(model.webPlaybackCommand)
-            XCTAssertEqual(model.canRequestNativePlaybackTransfer, context == .single)
+            XCTAssertTrue(model.canRequestNativePlaybackTransfer)
         }
-    }
-
-    @MainActor
-    func testWatchTwoRejectsExplicitNativeTransferBeforeValidationOrDecoderCreation() throws {
-        var validations = 0
-        let model = try makeExplicitTransferTestModel(validate: { _, _ in
-            validations += 1
-            return .invalid("Watch Two must not start a native transfer")
-        })
-        defer { model.cleanup() }
-        model.setViewingPlaybackContext(.watchTwo(engine: .web))
-        let source = try XCTUnwrap(model.activeSource?.id), request = model.loadRequestID
-        model.handleNativePlaybackCandidate(.init(url: URL(string: "https://example.invalid/watch-two.m3u8")!, headers: [:]),
-            sourceID: source, requestID: request)
-
-        model.requestNativePlaybackTransfer()
-
-        XCTAssertFalse(model.canRequestNativePlaybackTransfer)
-        XCTAssertFalse(model.isNativePlaybackTransferInProgress)
-        XCTAssertNil(model.nativeHandoffTask)
-        XCTAssertNil(model.player)
-        XCTAssertEqual(validations, 0)
-        XCTAssertEqual(model.loadRequestID, request)
-        XCTAssertEqual(model.activeSource?.id, source)
-        XCTAssertTrue(model.userWantsPlayback)
-        XCTAssertEqual(model.playbackState, .playing(.webEmbed))
-    }
-
-    @MainActor
-    func testIncompatibleManualLoadAndRecoveryCallbackPreserveOwnedWatchTwoAttempt() throws {
-        let model = try makeExplicitTransferTestModel(includeNative: true)
-        defer { model.cleanup() }
-        XCTAssertTrue(model.prepareForViewingPlaybackContext(.watchTwo(engine: .web)))
-        let originalIndex = model.currentSourceIndex
-        let nativeIndex = try XCTUnwrap(model.sessions.firstIndex { $0.streamType == .hls })
-        let nativeSource = model.sessions[nativeIndex].legacySource
-        let originalSource = try XCTUnwrap(model.activeSource)
-        let request = model.loadRequestID
-        let nativeScore = LiveSourceHealthStore.score(for: nativeSource)
-        let originalScore = LiveSourceHealthStore.score(for: originalSource)
-
-        model.selectSourceManually(at: nativeIndex)
-        XCTAssertEqual(model.currentSourceIndex, originalIndex)
-        // A stale UI/raw index must also be fenced by actual load admission.
-        model.currentSourceIndex = nativeIndex
-        model.loadCurrentSource(ignoringCircuitBreaker: true)
-        model.handleSourceStartupFailure(nativeSource, reason: "Provider reports this broadcast is unavailable",
-            expectedRequestID: request)
-
-        XCTAssertEqual(model.currentSourceIndex, originalIndex)
-        XCTAssertEqual(model.activeSource?.id, originalSource.id)
-        XCTAssertEqual(model.loadRequestID, request)
-        XCTAssertNil(model.loadTask)
-        XCTAssertNil(model.player)
-        XCTAssertEqual(model.playbackState, .playing(.webEmbed))
-        XCTAssertTrue(model.userWantsPlayback)
-        XCTAssertTrue(model.failedSourceIDs.isEmpty)
-        XCTAssertEqual(model.autoFailoverCount, 0)
-        XCTAssertNil(model.lastFailureReason)
-        XCTAssertEqual(LiveSourceHealthStore.score(for: nativeSource), nativeScore)
-        XCTAssertEqual(LiveSourceHealthStore.score(for: originalSource), originalScore)
-    }
-
-    @MainActor
-    func testWatchTwoAutomaticRecoveryDoesNotTryOrPenalizeOtherEngineSource() throws {
-        let model = try makeExplicitTransferTestModel(includeNative: true)
-        defer { model.cleanup() }
-        XCTAssertTrue(model.prepareForViewingPlaybackContext(.watchTwo(engine: .web)))
-        let original = try XCTUnwrap(model.activeSource), request = model.loadRequestID
-        let native = try XCTUnwrap(model.sessions.first { $0.streamType == .hls }).legacySource
-        let nativeScore = LiveSourceHealthStore.score(for: native)
-
-        model.handleSourceStartupFailure(original, reason: "Provider reports this broadcast is unavailable",
-            expectedRequestID: request)
-
-        XCTAssertEqual(model.activeSource?.id, original.id)
-        XCTAssertEqual(model.loadRequestID, request)
-        XCTAssertEqual(model.autoFailoverCount, 0)
-        XCTAssertNil(model.loadTask)
-        XCTAssertNil(model.player)
-        XCTAssertEqual(model.failedSourceIDs, [original.id], "Only the actually attempted failed source is penalized")
-        XCTAssertFalse(model.failedSourceIDs.contains(native.id))
-        XCTAssertEqual(LiveSourceHealthStore.score(for: native), nativeScore)
-        XCTAssertEqual(model.playbackState, .failed)
-    }
-
-    @MainActor
-    func testNativeWatchTwoRecoveryCannotForceOpaqueSourceIntoWebEngine() throws {
-        let event = makePlaybackTestEvent()
-        let session = StreamSession(matchID: event.id, title: "Opaque Native Route",
-            playableURL: URL(string: "https://example.invalid/opaque-live")!, streamType: .unknown,
-            providerName: "Score808")
-        let model = LivePlayerViewModel(event: event, providedSessions: [session], ownsRemoteCommands: false,
-            prepareAudioSession: { XCTFail("No audio activation expected"); return .completed([]) },
-            configureAudioSession: { XCTFail("No audio configuration expected"); return .completed([]) },
-            validateNativeSource: { _, _ in XCTFail("No media validation expected"); return .invalid("Unexpected validation") })
-        defer { model.cleanup() }
-        XCTAssertTrue(model.prepareForViewingPlaybackContext(.watchTwo(engine: .native)))
-        model.transition(to: .playing(.native), phase: "Playing")
-        let source = try XCTUnwrap(model.activeSource), request = model.loadRequestID
-        let score = LiveSourceHealthStore.score(for: source)
-
-        model.handleSourceStartupFailure(source, reason: "Startup timeout: no decoded video", expectedRequestID: request)
-
-        XCTAssertFalse(model.forceWebEmbedSourceIDs.contains(source.id))
-        XCTAssertFalse(model.isUsingWebEmbed)
-        XCTAssertEqual(model.sessions[model.currentSourceIndex].id, source.id)
-        XCTAssertEqual(model.activeSource?.id, source.id)
-        XCTAssertEqual(model.loadRequestID, request)
-        XCTAssertNil(model.loadTask)
-        XCTAssertNil(model.player)
-        XCTAssertTrue(model.failedSourceIDs.isEmpty)
-        XCTAssertEqual(model.autoFailoverCount, 0)
-        XCTAssertEqual(LiveSourceHealthStore.score(for: source), score)
-        XCTAssertEqual(model.playbackState, .failed)
-    }
-
-    @MainActor
-    func testOriginalWebReturnForWatchTwoPreservesAcceptedPauseAndExactEndpoint() async throws {
-        let gate = NativeAudioIsolationTestGate()
-        let (model, player) = try await makeIsolatedAdoptedHandoff(gate: gate)
-        defer { model.cleanup(); gate.finishAll() }
-        let original = model.sessions[model.currentSourceIndex]
-        model.togglePlayPause()
-        XCTAssertFalse(model.userWantsPlayback)
-
-        model.setViewingPlaybackContext(.watchTwo(engine: .web))
-        let load = try XCTUnwrap(model.loadTask)
-        await load.value
-
-        XCTAssertNil(model.nativeHandoffSession)
-        XCTAssertTrue(model.isUsingWebEmbed)
-        XCTAssertEqual(model.sessions[model.currentSourceIndex].id, original.id)
-        XCTAssertEqual(model.sessions[model.currentSourceIndex].playableURL, original.playableURL)
-        XCTAssertEqual(model.activeSession?.playableURL, original.playableURL)
-        XCTAssertFalse(model.userWantsPlayback)
-        XCTAssertTrue(model.isWebPlaybackUserPaused)
-        XCTAssertEqual(model.webPlaybackCommand?.shouldPlay, false)
-        XCTAssertEqual(model.playbackState, .paused(.webEmbed))
-        XCTAssertEqual(player.playCount, 0)
-        XCTAssertEqual(model.autoFailoverCount, 0)
-        XCTAssertTrue(model.failedSourceIDs.isEmpty)
-    }
-
-    @MainActor
-    func testExplicitRetryRenewsFailedNativeRetirementBeforeUnblockingOriginalWeb() async throws {
-        let gate = NativeAudioIsolationTestGate()
-        let (model, _) = try await makeIsolatedAdoptedHandoff(gate: gate)
-        defer { model.cleanup(); gate.finishAll() }
-        let original = model.sessions[model.currentSourceIndex]
-        model.handleWebPlaybackRetired(sourceID: original.id, requestID: model.loadRequestID)
-        await waitForHandoffAudio { gate.calls == [true, false] && gate.pendingCount == 1 }
-        model.setViewingPlaybackContext(.watchTwo(engine: .web))
-        let firstLoad = try XCTUnwrap(model.loadTask)
-        gate.completeNext()
-        await waitForHandoffAudio { gate.calls == [true, false, true] && gate.pendingCount == 1 }
-        gate.completeNext(false)
-        await firstLoad.value
-        XCTAssertEqual(model.playbackState, .failed)
-        XCTAssertTrue(model.shouldSuspendWebPlayback)
-        let failedAttempt = model.loadRequestID
-
-        model.selectSourceManually(at: model.currentSourceIndex)
-        let retry = try XCTUnwrap(model.loadTask)
-        await waitForHandoffAudio { gate.calls == [true, false, true, true] && gate.pendingCount == 1 }
-        XCTAssertNotEqual(model.loadRequestID, failedAttempt)
-        XCTAssertEqual(model.sessions[model.currentSourceIndex].id, original.id)
-        XCTAssertEqual(model.sessions[model.currentSourceIndex].playableURL, original.playableURL)
-        XCTAssertTrue(model.shouldSuspendWebPlayback, "An explicit retry is not a successful retirement ACK")
-        gate.completeNext()
-        await retry.value
-
-        XCTAssertFalse(model.shouldSuspendWebPlayback)
-        XCTAssertNil(model.error)
-        XCTAssertTrue(model.userWantsPlayback)
-        XCTAssertTrue(model.isUsingWebEmbed)
-        XCTAssertEqual(model.autoFailoverCount, 0)
-        XCTAssertTrue(model.failedSourceIDs.isEmpty)
     }
 
     @MainActor
@@ -3676,8 +3464,8 @@ final class PlaybackPolicyTests: XCTestCase {
     }
 
     @MainActor
-    func testNativeTransferAcknowledgementCannotOutlivePauseContextAttemptOrCancellation() async throws {
-        for revoke in ["pause", "context", "attempt", "cancel", "cleanup"] {
+    func testNativeTransferAcknowledgementCannotOutlivePauseAttemptOrCancellation() async throws {
+        for revoke in ["pause", "attempt", "cancel", "cleanup"] {
             let validation = ExplicitTransferValidationGate()
             let model = try makeExplicitTransferTestModel(validate: { _, _ in await validation.wait() })
             defer { model.cleanup(); validation.finishAll() }
@@ -3692,7 +3480,6 @@ final class PlaybackPolicyTests: XCTestCase {
             XCTAssertTrue(model.nativeTransferSuspensionAcknowledged(id, sourceID: source, requestID: request))
             switch revoke {
             case "pause": model.togglePlayPause()
-            case "context": model.setViewingPlaybackContext(.watchTwo(engine: .web))
             case "attempt": model.loadCurrentSource(ignoringCircuitBreaker: true)
             case "cleanup": model.cleanup()
             default: model.cancelNativePlaybackTransfer()
@@ -3712,8 +3499,8 @@ final class PlaybackPolicyTests: XCTestCase {
     }
 
     @MainActor
-    func testContextChangeAndCancellationSynchronouslyPauseRegisteredNativeCandidate() async throws {
-        for revoke in ["context", "cancel"] {
+    func testCancellationSynchronouslyPausesRegisteredNativeCandidate() async throws {
+        do {
             let validation = ExplicitTransferValidationGate()
             let model = try makeExplicitTransferTestModel(validate: { _, _ in await validation.wait() })
             defer { model.cleanup(); validation.finishAll() }
@@ -3733,12 +3520,11 @@ final class PlaybackPolicyTests: XCTestCase {
             XCTAssertEqual(candidate.pauseCount, 0)
             XCTAssertTrue(model.nativeTransferSuspensionAcknowledged(id, sourceID: source, requestID: request))
 
-            if revoke == "context" { model.setViewingPlaybackContext(.watchTwo(engine: .web)) }
-            else { model.cancelNativePlaybackTransfer() }
+            model.cancelNativePlaybackTransfer()
 
             // No yield/await: revocation must stop this decoder before the
             // caller can mount or promote any replacement Web surface.
-            XCTAssertEqual(candidate.pauseCount, 1, revoke)
+            XCTAssertEqual(candidate.pauseCount, 1)
             XCTAssertFalse(model.isNativePlaybackTransferInProgress)
             XCTAssertFalse(model.canRequestNativePlaybackTransfer)
             model.handleNativeTransferSuspensionChanged(id, suspended: true, sourceID: source, requestID: request)
@@ -3837,22 +3623,6 @@ final class PlaybackPolicyTests: XCTestCase {
         _ = model.revokeViewingAudioForTransfer()
         XCTAssertNil(model.captureWebAudioRevocationWaiter())
         XCTAssertNil(model.webAudioRevocationID)
-    }
-
-    @MainActor
-    func testMountedWebAudioOwnerSurvivesReturnToSinglePlayback() async throws {
-        let model = try await makeMountedWebAudioRevocationModel(mounted: false)
-        defer { model.cleanup() }
-        let source = try XCTUnwrap(model.activeSource?.id), request = model.loadRequestID
-        model.setViewingPlaybackContext(.watchTwo(engine: .web))
-        model.handleWebPlaybackMounted(sourceID: source, requestID: request)
-        model.setViewingPlaybackContext(.single)
-        model.cancelLoading()
-        _ = model.revokeViewingAudioForTransfer()
-        let wait = try XCTUnwrap(model.captureWebAudioRevocationWaiter())
-        model.handleWebPlaybackRetired(sourceID: source, requestID: request)
-        let retired = await wait()
-        XCTAssertTrue(retired, "Changing layout cannot erase an actual mounted audio owner")
     }
 
     @MainActor
@@ -4150,17 +3920,14 @@ final class PlaybackPolicyTests: XCTestCase {
         let source = try XCTUnwrap(model.activeSource?.id), request = model.loadRequestID
         let state = model.playbackState
         XCTAssertTrue(model.isViewingAudioEnabled)
-        XCTAssertFalse(model.shouldManageWebAudio(inWatchTwo: false))
-        XCTAssertTrue(model.shouldManageWebAudio(inWatchTwo: true))
+        XCTAssertFalse(model.shouldManageWebAudio)
 
         model.setViewingAudioEnabled(false)
 
-        XCTAssertTrue(model.shouldManageWebAudio(inWatchTwo: false),
-                      "A pane retained alone must not undo a pending old-owner mute")
-        XCTAssertTrue(model.shouldManageWebAudio(inWatchTwo: true))
+        XCTAssertTrue(model.shouldManageWebAudio,
+                      "A single owner must not undo a pending old-owner mute")
         model.setViewingAudioEnabled(true)
-        XCTAssertFalse(model.shouldManageWebAudio(inWatchTwo: false))
-        XCTAssertTrue(model.shouldManageWebAudio(inWatchTwo: true))
+        XCTAssertFalse(model.shouldManageWebAudio)
         XCTAssertEqual(model.activeSource?.id, source)
         XCTAssertEqual(model.loadRequestID, request)
         XCTAssertEqual(model.playbackState, state)
@@ -5090,43 +4857,6 @@ private final class TeardownRecordingWebView: WKWebView {
 
     override func stopLoading() {
         events.append("stop-loading")
-    }
-}
-
-final class MultiLivePanelChromeLayoutTests: XCTestCase {
-    func testFocusSidebarSeparatesIdentityFromSourceAndAudioInsteadOfCompressingOneRow() {
-        for width: CGFloat in [320, 375, 599] {
-            let layout = MultiLivePanelChromeLayout.layout(width: width, isAccessibilitySize: false)
-            XCTAssertEqual(layout, .stacked)
-            XCTAssertEqual(layout.rowCount, 2)
-            XCTAssertEqual(layout.reservedHeight(controlHeight: 44), 107)
-        }
-        for width: CGFloat in [600, 820, 1180] {
-            let layout = MultiLivePanelChromeLayout.layout(width: width, isAccessibilitySize: false)
-            XCTAssertEqual(layout, .inline)
-            XCTAssertEqual(layout.reservedHeight(controlHeight: 44), 57)
-        }
-    }
-
-    func testAccessibilityChromeAddsControlRowAndReservesScaledHeightWithoutShrinkingTargets() {
-        for width: CGFloat in [320, 600, 1180] {
-            let layout = MultiLivePanelChromeLayout.layout(width: width, isAccessibilitySize: true)
-            XCTAssertEqual(layout, .accessibility)
-            XCTAssertEqual(layout.rowCount, 3)
-            XCTAssertEqual(layout.reservedHeight(controlHeight: 88), 289)
-            XCTAssertEqual(layout.reservedHeight(controlHeight: 20), 157, "The 44-point minimum is independent of a small text category")
-        }
-    }
-
-    func testFittedVideoDoesNotCompressOrChangeAllocatedPanelChromeWidth() {
-        let allocatedWidth: CGFloat = 820
-        let availableHeight: CGFloat = 250
-        let layout = MultiLivePanelChromeLayout.layout(width: allocatedWidth, isAccessibilitySize: false)
-        let videoHeight = min(max(0, availableHeight - layout.reservedHeight(controlHeight: 44)), allocatedWidth * 9 / 16)
-        let videoWidth = min(allocatedWidth, videoHeight * 16 / 9)
-        XCTAssertLessThan(videoWidth, 600, "The height-fitted video can be narrower than an otherwise wide panel")
-        XCTAssertEqual(layout, .inline, "Header composition must keep the allocated width, not the narrower fitted video width")
-        XCTAssertLessThanOrEqual(videoHeight + layout.reservedHeight(controlHeight: 44), availableHeight)
     }
 }
 

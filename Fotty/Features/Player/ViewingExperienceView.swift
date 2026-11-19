@@ -46,23 +46,23 @@ struct ViewingMiniPlayer: View {
             HStack(spacing: 8) {
                 HStack(spacing: 2) {
                     ForEach(viewing.panes) { item in
-                        ViewingSurfaceSlot(id: item.id).frame(width: viewing.isTwo ? 46 : 78, height: 44)
+                        ViewingSurfaceSlot(id: item.id).frame(width: 78, height: 44)
                     }
                 }.clipShape(.rect(cornerRadius: 8))
                 Button { viewing.expand() } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(pane.event.displayTitle).font(.subheadline.weight(.semibold)).lineLimit(placement == .inline ? 1 : 2)
-                        if placement != .inline { Text(viewing.isTwo ? "Two matches · Tap to return" : ViewingPlaybackCopy.status(pane.model)).font(.caption).foregroundStyle(.secondary) }
+                        if placement != .inline { Text(ViewingPlaybackCopy.status(pane.model)).font(.caption).foregroundStyle(.secondary) }
                     }
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel(viewing.isTwo ? "Return to Watch Two" : "Return to \(pane.event.displayTitle)")
+                .accessibilityLabel("Return to \(pane.event.displayTitle)")
                 .accessibilityIdentifier("viewing-mini-expand")
                 // Web controls belong to the provider; restore them rather than
                 // expose an unverified generic app transport command here.
-                if !viewing.isTwo && !pane.model.isUsingWebEmbed {
+                if !pane.model.isUsingWebEmbed {
                     Button { pane.model.togglePlayPause() } label: {
                         Image(systemName: pane.model.userWantsPlayback ? "pause.fill" : "play.fill").frame(width: 44, height: 44)
                     }
@@ -110,7 +110,6 @@ enum ViewingPlaybackCopy {
 
 /// Presentation-only identity for the single watch screen. Accessibility sizes
 /// move the score below the names rather than compressing the names or badges.
-/// Watch Two retains its existing separate identity/layout contract.
 struct SinglePlayerMatchIdentity: View {
     let event: EventReference
     let status: String
@@ -276,7 +275,7 @@ struct ViewingExperienceView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            if !viewing.isTwo, let pane = viewing.primary {
+            if let pane = viewing.primary {
                 singleStage(pane, size: proxy.size)
                     .onAppear { lastStageWidth = proxy.size.width }
                     .onChange(of: proxy.size.width) { _, width in
@@ -288,19 +287,15 @@ struct ViewingExperienceView: View {
             } else {
             VStack(spacing: 0) {
                 toolbar
-                if viewing.isTwo { twoMatches(size: proxy.size) }
             }
             .background(FottyTheme.background)
-            .preferredColorScheme(viewing.isTwo ? nil : .dark)
+            .preferredColorScheme(.dark)
             }
         }
         // Give the container its own AX node so its identifier cannot replace
         // the toolbar's Minimize/Close identities on the physical iPad.
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("viewing-experience")
-        .sheet(isPresented: Binding(get: { viewing.allowsWatchTwo && viewing.showsSecondMatchPicker }, set: { if !$0 { viewing.dismissMatchPicker() } })) {
-            ViewingSecondMatchPicker()
-        }
         .sheet(isPresented: Binding(get: { viewing.showsContinuity }, set: { viewing.showsContinuity = $0 })) {
             ViewingContinuitySheet()
         }
@@ -335,9 +330,6 @@ struct ViewingExperienceView: View {
             showsTabletDetails = false
             showsInfoPanel = false
             singleFeedbackContext = nil
-        }
-        .onChange(of: viewing.isTwo) { _, isTwo in
-            if isTwo { singleFeedbackContext = nil }
         }
     }
 
@@ -487,7 +479,7 @@ struct ViewingExperienceView: View {
     }
 
     private func optionsControl(_ pane: ViewingSessionCoordinator.Pane) -> some View {
-        singleOptions(pane, showsFocusOption: false, includesAddMatch: true)
+        singleOptions(pane, showsFocusOption: false)
             .buttonStyle(.plain).font(.title3.weight(.medium))
             .foregroundStyle(stageChromeStyle)
     }
@@ -582,14 +574,13 @@ struct ViewingExperienceView: View {
             Button { viewing.minimize() } label: { Image(systemName: "chevron.down").frame(width: 44, height: 44) }
                 .accessibilityLabel("Minimize player and browse").accessibilityIdentifier("viewing-minimize")
             VStack(alignment: .leading, spacing: 3) {
-                Text(viewing.isTwo ? "Watch Two" : (viewing.primary?.event.displayTitle ?? "Watch"))
+                Text(viewing.primary?.event.displayTitle ?? "Watch")
                     .font(.headline).fixedSize(horizontal: false, vertical: true)
-                if viewing.isTwo { Text("Two matches · One audio focus").font(.caption).foregroundStyle(.secondary) }
             }
             Spacer(minLength: 4)
             // Fullscreen stays a direct media action, not a buried layout menu.
             // Keep it outside the retained video layer's hit-testing region.
-            if !viewing.isTwo, let pane = viewing.primary, !pane.model.isUsingWebEmbed {
+            if let pane = viewing.primary, !pane.model.isUsingWebEmbed {
                 Button { pane.model.beginNativeFullscreen() } label: {
                     Image(systemName: "arrow.up.left.and.arrow.down.right").frame(width: 44, height: 44)
                 }
@@ -597,7 +588,7 @@ struct ViewingExperienceView: View {
                 .accessibilityLabel("Open native fullscreen player")
                 .accessibilityIdentifier("viewing-native-fullscreen")
             }
-            if focusVideo && !viewing.isTwo {
+            if focusVideo {
                 Button { focusVideo = false } label: { Image(systemName: "arrow.down.right.and.arrow.up.left").frame(width: 44, height: 44) }
                     .accessibilityLabel("Show match companion")
                     .accessibilityIdentifier("viewing-exit-focus")
@@ -609,19 +600,13 @@ struct ViewingExperienceView: View {
         .background(FottyTheme.surfaceSubtle)
     }
 
-    private func singleOptions(_ pane: ViewingSessionCoordinator.Pane, showsFocusOption: Bool = true,
-                               includesAddMatch: Bool = false) -> some View {
+    private func singleOptions(_ pane: ViewingSessionCoordinator.Pane, showsFocusOption: Bool = true) -> some View {
         Menu {
             if pane.model.canChooseSinglePlaybackQuality {
                 SinglePlaybackQualityMenu(selection: Binding(
                     get: { pane.model.singlePlaybackQuality.preference },
                     set: { _ = pane.model.selectSinglePlaybackQuality($0) }
                 ))
-            }
-            if includesAddMatch && viewing.allowsWatchTwo {
-                Button { viewing.showMatchPicker() } label: { Label("Add match", systemImage: "rectangle.split.2x1") }
-                    .accessibilityLabel("Add a second match")
-                    .accessibilityIdentifier("viewing-watch-two")
             }
             if pane.model.isNativePlaybackTransferInProgress {
                 Button { pane.model.cancelNativePlaybackTransfer() } label: {
@@ -690,20 +675,6 @@ struct ViewingExperienceView: View {
             .accessibilityIdentifier("viewing-options")
     }
 
-    private func identity(_ pane: ViewingSessionCoordinator.Pane) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            badgePair(pane.event)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(pane.event.displayTitle).font(.headline).fixedSize(horizontal: false, vertical: true)
-                Text(ViewingPlaybackCopy.status(pane.model)).font(.subheadline).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            if let score = score(for: pane.event) {
-                Text("\(score.homeGoals)–\(score.awayGoals)").font(.title2.weight(.semibold)).monospacedDigit()
-            }
-        }
-    }
-
     @ViewBuilder private func badgePair(_ event: EventReference) -> some View {
         if !event.isBroadcastChannel && !event.awayName.isEmpty {
             HStack(spacing: 2) {
@@ -718,7 +689,7 @@ struct ViewingExperienceView: View {
 
     private func companion(_ pane: ViewingSessionCoordinator.Pane, showsHeading: Bool = true) -> some View {
         TimelineView(.periodic(from: .now, by: 30)) { tick in
-        if !viewing.isTwo, let guide = SinglePlayerStationGuideProjection(event: pane.event,
+        if let guide = SinglePlayerStationGuideProjection(event: pane.event,
             snapshot: broadcastRegistry.snapshot, at: tick.date) {
             stationGuide(guide)
         } else {
@@ -727,7 +698,7 @@ struct ViewingExperienceView: View {
             Picker("Match companion", selection: $companionTab) {
                 ForEach(CompanionTab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }.pickerStyle(.segmented)
-            if companionTab == .live, !viewing.isTwo, WatchingSpoilerProtection.shared.protects(pane.event) {
+            if companionTab == .live, WatchingSpoilerProtection.shared.protects(pane.event) {
                 Label("Spoiler-safe watching", systemImage: "eye.slash").foregroundStyle(.secondary)
             } else if companionTab == .live, let current = CurrentSportsMatchContextPolicy.event(for: pane.event,
                 in: MatchListViewModel.shared.matchContextCatalog, at: tick.date) {
@@ -827,7 +798,7 @@ struct ViewingExperienceView: View {
 
     private func score(for event: EventReference) -> LiveScoreService.LiveScore? {
         guard event.normalizedCategory == "football",
-              viewing.isTwo || !WatchingSpoilerProtection.shared.protects(event) else { return nil }
+              !WatchingSpoilerProtection.shared.protects(event) else { return nil }
         return scores.scoreForMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate)
     }
 
@@ -842,161 +813,6 @@ struct ViewingExperienceView: View {
         case .listedNow: return "Broadcast listed · Match status not confirmed"
         case .awaitingConfirmation: return "Waiting for a current match update"
         case .timeToBeConfirmed: return "Start time not confirmed"
-        }
-    }
-
-    private func twoMatches(size: CGSize) -> some View {
-        ScrollView {
-            let columns = ViewingExperienceLayout.usesTwoColumns(width: size.width, accessibility: typeSize.isAccessibilitySize)
-            let layout = columns ? AnyLayout(HStackLayout(alignment: .top, spacing: 16)) : AnyLayout(VStackLayout(spacing: 20))
-            VStack(alignment: .leading, spacing: 16) {
-                layout {
-                    ForEach(viewing.displayPanes) { pane in
-                        VStack(alignment: .leading, spacing: 10) {
-                            identity(pane)
-                            ViewingSurfaceSlot(id: pane.id).aspectRatio(16/9, contentMode: .fit).clipShape(.rect(cornerRadius: 14))
-                            ViewThatFits(in: .horizontal) {
-                                HStack { panelActions(pane) }
-                                VStack(alignment: .leading, spacing: 8) {
-                                    panelActions(pane, sourceOnly: true)
-                                    HStack { panelActions(pane, controlsOnly: true) }
-                                }
-                                VStack(alignment: .leading) { panelActions(pane) }
-                            }
-                            .buttonStyle(FottySecondaryButtonStyle())
-                        }.frame(maxWidth: .infinity)
-                    }
-                }
-                HStack {
-                    Button { viewing.swap() } label: { Label("Swap", systemImage: "arrow.left.arrow.right") }
-                        .accessibilityIdentifier("viewing-swap")
-                    Spacer()
-                    Button("Return to one match") { if let id = viewing.primaryID { viewing.keepOnly(id) } }
-                        .accessibilityIdentifier("viewing-return-one")
-                }.buttonStyle(FottySecondaryButtonStyle())
-                if let audio = viewing.panes.first(where: { $0.id == viewing.audioID }) {
-                    Label("Audio: \(audio.event.displayTitle)", systemImage: "speaker.wave.2").font(.caption).foregroundStyle(.secondary)
-                }
-            }.padding(16)
-        }
-        .background(ViewingViewportMarker())
-    }
-
-    @ViewBuilder private func panelActions(_ pane: ViewingSessionCoordinator.Pane, sourceOnly: Bool = false, controlsOnly: Bool = false) -> some View {
-        if !controlsOnly {
-        Button { pane.model.showSourceSelector = true } label: { Label("Sources", systemImage: "antenna.radiowaves.left.and.right") }
-            .accessibilityLabel("Sources for \(pane.event.displayTitle)").accessibilityIdentifier("viewing-pane-source-\(pane.event.id)")
-            .accessibilityValue(pane.model.activeSession?.providerName ?? "No source selected")
-        }
-        if !sourceOnly {
-        Button { viewing.selectAudio(to: pane.id) } label: { Label("Audio", systemImage: viewing.audioID == pane.id ? "speaker.wave.2.fill" : "speaker.slash") }
-            .accessibilityLabel("Listen to \(pane.event.displayTitle)").accessibilityValue(viewing.audioID == pane.id ? "Selected" : "Muted")
-            .accessibilityIdentifier("viewing-pane-audio-\(pane.event.id)")
-        Menu {
-            if viewing.allowsWatchTwo {
-                Button { viewing.showMatchPicker(replacing: pane.id) } label: {
-                    Label("Change Match…", systemImage: "arrow.triangle.2.circlepath")
-                }
-                .accessibilityIdentifier("viewing-pane-change-\(pane.event.id)")
-            }
-            Button { viewing.keepOnly(pane.id) } label: { Label("Keep This Match", systemImage: "rectangle") }
-                .accessibilityLabel("Return to \(pane.event.displayTitle) only")
-        } label: { Image(systemName: "ellipsis").frame(minWidth: 44, minHeight: 44) }
-            .accessibilityLabel("Options for \(pane.event.displayTitle)")
-            .accessibilityIdentifier("viewing-pane-options-\(pane.event.id)")
-        }
-    }
-}
-
-struct ViewingSecondMatchPicker: View {
-    @Environment(ViewingSessionCoordinator.self) private var viewing
-    @Environment(\.dismiss) private var dismiss
-    @Environment(LiveScoreService.self) private var scores
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var prepared: ViewingMatchPickerPolicy.Prepared?
-    @State private var query = ""
-    @State private var sport = HomeSportsDiscovery.allSports
-    @State private var preparationID = UUID()
-    @State private var projectionDate = Date()
-    private var catalog: MatchListViewModel { .shared }
-    private var candidates: [EventReference] { prepared?.results(query: query, sport: sport) ?? [] }
-    private var inputKey: String {
-        "\(catalog.contentRevision)|\(scores.lastRefresh?.timeIntervalSince1970 ?? 0)|\(Int(projectionDate.timeIntervalSince1970 / 60))|\(viewing.panes.map { $0.id.uuidString }.joined(separator: ","))"
-    }
-    var body: some View {
-        NavigationStack {
-            List {
-                if let prepared, prepared.sports.count > 1 {
-                    Picker("Sport", selection: $sport) {
-                        Text("All sports").tag(HomeSportsDiscovery.allSports)
-                        ForEach(prepared.sports, id: \.self) { category in
-                            Text(AnalyticalDataEngine.categoryDisplayName(for: category)).tag(category)
-                        }
-                    }
-                    .accessibilityIdentifier("viewing-match-picker-sport")
-                }
-                ForEach(candidates) { event in
-                Button { viewing.chooseSecond(event) } label: {
-                    HStack(spacing: 12) {
-                        if event.isBroadcastChannel || event.awayName.isEmpty {
-                            SportEmblem(category: event.normalizedCategory, size: 30)
-                        } else {
-                            HStack(spacing: 2) {
-                                TeamBadgeWindow(teamName: event.homeName, badgeURL: event.homeBadgeURL, size: 26, triggerSearch: true)
-                                TeamBadgeWindow(teamName: event.awayName, badgeURL: event.awayBadgeURL, size: 26, triggerSearch: true)
-                            }
-                        }
-                        VStack(alignment: .leading) {
-                            Text(event.displayTitle).foregroundStyle(FottyTheme.textPrimary)
-                            Text(event.categoryDisplayName).font(.caption).foregroundStyle(.secondary)
-                        }
-                        Spacer()
-                        Image(systemName: viewing.matchPickerReplacementID == nil ? "plus.circle" : "arrow.triangle.2.circlepath")
-                            .foregroundStyle(FottyTheme.accentText)
-                    }.frame(minHeight: 44)
-                }
-                .accessibilityIdentifier("viewing-second-match-\(event.id)")
-                }
-            }
-            .searchable(text: $query, prompt: "Teams, competition or sport")
-            .overlay {
-                if prepared == nil { ProgressView("Finding matches…") }
-                else if candidates.isEmpty {
-                    ContentUnavailableView(query.isEmpty && sport == HomeSportsDiscovery.allSports ? "No other broadcast yet" : "No matching broadcast",
-                        systemImage: "play.tv", description: Text("Your current viewing stays unchanged."))
-                }
-            }
-            .navigationTitle(viewing.matchPickerReplacementID == nil ? "Add a second match" : "Change match")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .task(id: inputKey) {
-                let generation = UUID(); preparationID = generation
-                let key = inputKey
-                guard let next = await ViewingMatchPickerPolicy.prepare(events: catalog.matches,
-                    catalog: catalog.playbackCatalog, excluding: viewing.panes.map(\.event), now: projectionDate,
-                    status: { event in
-                        guard event.normalizedCategory == "football" else { return nil }
-                        return scores.findMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate)
-                            .flatMap { scores.currentStatus(for: $0) }
-                    }, leagueName: { event in
-                        guard event.normalizedCategory == "football" else { return nil }
-                        let match = scores.findMatch(home: event.homeName, away: event.awayName, near: event.kickoffDate)
-                        let league = AnalyticalDataEngine.footballLeagueTab(for: event, officialMatch: match)
-                        return league == .all || league == .other ? nil : league.displayName
-                    }, isCurrent: { preparationID == generation && inputKey == key }),
-                    !Task.isCancelled, preparationID == generation, inputKey == key else { return }
-                prepared = next
-                if sport != HomeSportsDiscovery.allSports, !next.sports.contains(sport) { sport = HomeSportsDiscovery.allSports }
-            }
-            .task(id: scenePhase) {
-                guard scenePhase == .active else { return }
-                projectionDate = Date()
-                while !Task.isCancelled {
-                    do { try await Task.sleep(for: .seconds(60)) }
-                    catch { return }
-                    projectionDate = Date()
-                }
-            }
         }
     }
 }

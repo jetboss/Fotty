@@ -139,15 +139,6 @@ final class ViewingPlanTests: XCTestCase {
 final class ViewingExperienceLayoutTests: XCTestCase {
     private let aspect: CGFloat = 16.0 / 9.0
 
-    func testVideoFirstCompositionIsOnlyForSinglePlayerOnIPad() {
-        XCTAssertTrue(ViewingExperienceLayout.usesVideoFirstSinglePlayer(isPad: true, isTwo: false))
-        XCTAssertFalse(ViewingExperienceLayout.usesVideoFirstSinglePlayer(isPad: false, isTwo: false),
-                       "The tablet presentation must not replace the existing phone branch")
-        XCTAssertFalse(ViewingExperienceLayout.usesVideoFirstSinglePlayer(isPad: true, isTwo: true),
-                       "Single-player polish must not select a different two-player layout")
-        XCTAssertFalse(ViewingExperienceLayout.usesVideoFirstSinglePlayer(isPad: false, isTwo: true))
-    }
-
     func testOrdinaryTabletWidthsUseTheWholeStageWithoutReservingACompanionRail() {
         for width: CGFloat in [819, 820, 1024, 1180] {
             let available = CGSize(width: width, height: 700)

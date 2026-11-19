@@ -43,20 +43,13 @@ export const playbackLab = [
     "NativeFullscreenPlaybackTests/testRetainedPiPPauseSurvivesBackgroundStopAndForegroundWithoutNewPlay",
     "NativeFullscreenPlaybackTests/testRetainedPiPPlayPreservesTransportAndRejectsStaleLeaseWithoutDuplicatePlay",
     "PlaybackPolicyTests/testWebPictureInPictureWinsBackgroundSuspensionRace"
-  ] },
-  { id: "watch-two", evidence: "state-ownership", tests: [
-    "ViewingSessionCoordinatorTests/testAtomicWebAudioChangeRetiresBothBeforeAnyNativeStartAndPreservesLogicalLayout",
-    "ViewingSessionCoordinatorTests/testFailedOrCancelledActualWebRetirementCannotAdoptOrStartEitherNativePane",
-    "NativeWatchTwoTransitionTests/testDeliberatelyPausedPaneRemainsPausedThroughoutNativeCommitAndStart"
   ] }
 ];
 
 export const physicalGates = [
   "First decoded frame and a continuous displayed clock on an authorized stream",
   "Native fullscreen entry, pause/play and inline return retain the same player/item/attempt",
-  "PiP continues outside Fotty for at least 60 seconds, then restores without duplicate audio",
-  "Watch Two has two advancing pictures, usable independent sources and verified selected audio",
-  "A real compatible Web/Web to native/native conversion is separately qualified; safe refusal is not a pass"
+  "PiP continues outside Fotty for at least 60 seconds, then restores without duplicate audio"
 ];
 
 export function selectionFor(scenarios = playbackLab) {

@@ -4,33 +4,6 @@ import SwiftUI
 /// never keep a second player alive behind a cover. Presentation is not transport.
 @Observable @MainActor
 final class ViewingSessionCoordinator {
-    /// Watch Two is parked in the product. Tests may explicitly retain its
-    /// ownership coverage without a user preference or runtime enablement path.
-    let allowsWatchTwo: Bool
-
-    @MainActor
-    struct NativeWatchTwoOperations {
-        var prepare: @MainActor (LivePlayerViewModel) async -> PreparedNativeWatchTwoPlayback?
-        var isCurrent: @MainActor (LivePlayerViewModel, PreparedNativeWatchTwoPlayback) -> Bool
-        var beginRetirement: @MainActor (LivePlayerViewModel, PreparedNativeWatchTwoPlayback) -> Bool
-        var waitForRetirement: @MainActor (LivePlayerViewModel, PreparedNativeWatchTwoPlayback) async -> Bool
-        var adopt: @MainActor (LivePlayerViewModel, PreparedNativeWatchTwoPlayback) -> Bool
-        var start: @MainActor (LivePlayerViewModel, PreparedNativeWatchTwoPlayback) -> Void
-        var discard: @MainActor (LivePlayerViewModel, PreparedNativeWatchTwoPlayback) -> Void
-        var releaseAudioHold: @MainActor (LivePlayerViewModel, PreparedNativeWatchTwoPlayback) -> Void
-
-        static var live: Self {
-            .init(prepare: { await $0.prepareNativeWatchTwoCandidate() },
-                isCurrent: { $0.nativeWatchTwoPreparationIsCurrent($1) },
-                beginRetirement: { $0.beginNativeWatchTwoRetirement($1) },
-                waitForRetirement: { await $0.waitForNativeWatchTwoRetirement($1) },
-                adopt: { $0.adoptNativeWatchTwoCandidate($1) },
-                start: { $0.startNativeWatchTwoCandidate($1) },
-                discard: { $0.discardNativeWatchTwoCandidate($1) },
-                releaseAudioHold: { $0.releaseNativeWatchTwoAudioHold($1) })
-        }
-    }
-
     struct Pane: Identifiable, Sendable {
         let id: UUID
         let model: LivePlayerViewModel
@@ -60,9 +33,6 @@ final class ViewingSessionCoordinator {
     private(set) var expanded = true
     private(set) var primaryID: UUID?
     private(set) var audioID: UUID?
-    private(set) var swapped = false
-    var showsSecondMatchPicker = false
-    private(set) var matchPickerReplacementID: UUID?
     var showsContinuity = false
     var resolutionMessage: String?
     var resolutionError: String? {
@@ -102,11 +72,6 @@ final class ViewingSessionCoordinator {
     }
     @ObservationIgnored private var webAudioRetirements: [UUID: WebAudioRetirement] = [:]
     @ObservationIgnored private let captureWebAudioRevocation: @MainActor (LivePlayerViewModel) -> (@MainActor () async -> Bool)?
-    @ObservationIgnored private let nativeWatchTwo: NativeWatchTwoOperations
-    @ObservationIgnored private(set) var nativePairTransferTask: Task<Void, Never>?
-    @ObservationIgnored private var nativePairTransferGeneration = UUID()
-    @ObservationIgnored private var nativePairRequestedAudioID: UUID?
-    @ObservationIgnored private var nativePairRetirementStarted = false
     @ObservationIgnored private let makeModel: @MainActor (EventReference, [StreamSession]) -> LivePlayerViewModel
     @ObservationIgnored private let resolvePlayback: @MainActor (StreamPlaybackRequest) async -> StreamResolutionOutcome
     typealias SingleDiscovery = @MainActor (StreamPlaybackRequest, @escaping @Sendable ([StreamSession]) async -> Void) async -> StreamResolutionOutcome
@@ -116,22 +81,10 @@ final class ViewingSessionCoordinator {
     @ObservationIgnored private let catalogEvent: @MainActor (StreamPlaybackRequest) async -> EventReference?
     @ObservationIgnored private let cancelPlayback: @MainActor (StreamPlaybackRequest) async -> Void
 
-    private enum ResolutionDestination {
-        case single
-        case second(retaining: UUID)
-        case replacement(target: UUID, survivor: UUID)
-    }
-
     private static let singleAudioTransferFailure = "Audio is still reconnecting. Retry audio without restarting the stream."
-    private static let audioTransferFailure = "Audio couldn’t switch safely. Tap Audio on either match to retry."
-    private static let nativePairProgress = "Switching players…"
-    private static let nativePairPreparationFailure = "Both matches need native playback to switch audio. Your current streams are unchanged."
-    private static let nativePairRetirementFailure = "The player switch could not finish safely. Choose a source to retry."
 
-    init(allowsWatchTwo: Bool = false,
-         handoffPublisher: SportsHandoffPublisher? = nil,
+    init(handoffPublisher: SportsHandoffPublisher? = nil,
          lastLiveStore: LastLiveMatchStore? = nil,
-         nativeWatchTwo: NativeWatchTwoOperations? = nil,
          captureWebAudioRevocation: @escaping @MainActor (LivePlayerViewModel) -> (@MainActor () async -> Bool)? = {
         $0.captureWebAudioRevocationWaiter()
     },
@@ -158,11 +111,9 @@ final class ViewingSessionCoordinator {
     }, cancelPlayback: @escaping @MainActor (StreamPlaybackRequest) async -> Void = {
         LiveStreamResolver.shared.cancelAttempt(for: $0)
     }) {
-        self.allowsWatchTwo = allowsWatchTwo
         self.handoffPublisher = handoffPublisher ?? SportsHandoffPublisher()
         self.lastLiveStore = lastLiveStore ?? .shared
         self.captureWebAudioRevocation = captureWebAudioRevocation
-        self.nativeWatchTwo = nativeWatchTwo ?? .live
         self.makeModel = makeModel
         self.resolvePlayback = resolvePlayback
         self.discoverSinglePlayback = discoverSinglePlayback
@@ -174,8 +125,6 @@ final class ViewingSessionCoordinator {
 
     var primary: Pane? { panes.first { $0.id == primaryID } }
     var isActive: Bool { !panes.isEmpty }
-    var isTwo: Bool { panes.count == 2 }
-    var displayPanes: [Pane] { swapped ? panes.reversed() : panes }
 
     var canRetrySingleDiscovery: Bool { singleDiscoveryRecovery?.retryable == true }
     var canManageSingleDiscoverySources: Bool { singleDiscoveryRecovery?.category == .noProviderAvailable }
@@ -289,7 +238,6 @@ final class ViewingSessionCoordinator {
     private func openSingle(event: EventReference, sessions: [StreamSession], preservingResolution: Bool, watchID: UUID? = nil) {
         guard !sessions.isEmpty, !event.hasCatalogIdentityConflict,
               !MatchStartPolicy(event: event).isStopped else { return }
-        cancelNativePairTransfer()
         resolutionError = nil
         if !preservingResolution { cancelResolution() }
         if !preservingResolution, let existing = panes.first(where: {
@@ -305,9 +253,8 @@ final class ViewingSessionCoordinator {
         if let watchID { pane.model.bindSingleWatchDiagnostics(watchID) }
         pane.model.configureSingleStreamRanking()
         pane.model.setViewingAudioEnabled(false)
-        pane.model.setViewingPlaybackContext(.single)
         pane.model.setViewingDiagnosticRoute(.single)
-        panes = [pane]; primaryID = pane.id; expanded = true; swapped = false
+        panes = [pane]; primaryID = pane.id; expanded = true
         MatchNavigationStore.shared.livePlayerDidAppear(matchID: event.id)
         listen(to: pane.id)
         beginLastLiveCapture(for: pane)
@@ -376,107 +323,8 @@ final class ViewingSessionCoordinator {
             && model.player?.currentItem?.status != .failed
     }
 
-    func openMulti(slots: [MultiLiveSlot]) {
-        guard allowsWatchTwo, slots.count == 2, Set(slots.map(\.id)).count == 2,
-              slots.allSatisfy({ !$0.sessions.isEmpty && !$0.event.hasCatalogIdentityConflict
-                  && !MatchStartPolicy(event: $0.event).isStopped }) else { return }
-        cancelNativePairTransfer()
-        cancelResolution()
-        let previous = panes
-        let next = slots.map { slot in
-            previous.first { Self.canReuse($0.event, for: slot.event) }
-                ?? Pane(id: UUID(), model: makeModel(slot.event, slot.sessions))
-        }
-        guard preparePair(next, retaining: previous) else {
-            for pane in next where !previous.contains(where: { $0.id == pane.id }) { pane.model.cleanup() }
-            return
-        }
-        if primaryID != next.first?.id { handoffPublisher.stop() }
-        // Revoke old media and remote ownership before a replacement is claimed.
-        for pane in previous where !next.contains(where: { $0.id == pane.id }) {
-            revokeAudio(of: pane)
-            pane.model.cleanup()
-        }
-        for pane in next where !previous.contains(where: { $0.id == pane.id }) {
-            pane.model.setRemoteCommandOwnership(false)
-            pane.model.setViewingAudioEnabled(false)
-            pane.model.setViewingPiPOwnership(false)
-        }
-        panes = next; primaryID = next[0].id; expanded = true; swapped = false
-        for pane in next { pane.model.setViewingDiagnosticRoute(.watchTwo) }
-        MatchNavigationStore.shared.livePlayerDidAppear(matchID: next[0].event.id)
-        listen(to: next.contains(where: { $0.id == audioID }) ? audioID! : next[0].id)
-    }
-
-    /// Admission is decided before any retained pane changes engine or a new
-    /// surface mounts. An incompatible choice is not a failing provider.
-    private func preparePair(_ proposed: [Pane], retaining previous: [Pane]) -> Bool {
-        let retained = proposed.filter { pane in previous.contains(where: { $0.id == pane.id }) }
-        let preferred = retained.first(where: { $0.id == audioID })
-            ?? retained.first(where: { $0.id == primaryID }) ?? retained.first ?? proposed.first
-        guard let preferred, let engine = pairingEngine(for: preferred.model) else {
-            reportIncompatiblePlayers()
-            return false
-        }
-        let context = ViewingPlaybackContext.watchTwo(engine: engine)
-        for pane in retained {
-            guard pairingEngine(for: pane.model) == engine else {
-                reportIncompatiblePlayers()
-                return false
-            }
-            if pane.model.activePlaybackEngine != engine {
-                // The only supported retained-engine conversion is an adopted
-                // native handoff returning to its exact original Web endpoint.
-                // A forced Web fallback cannot silently become native again.
-                guard engine == .web, pane.model.selectedPlaybackEngine == .web,
-                      pane.model.activePlaybackEngine == .native else {
-                    reportIncompatiblePlayers()
-                    return false
-                }
-                guard canChangePlaybackEngine(pane) else { return false }
-            }
-        }
-        for pane in proposed where !retained.contains(where: { $0.id == pane.id }) {
-            guard pane.model.prepareForViewingPlaybackContext(context) else {
-                reportIncompatiblePlayers()
-                return false
-            }
-        }
-        // These setters may retire an adopted native handoff back to its exact
-        // original Web route. Commit only after every other admission succeeds.
-        for pane in retained {
-            if pane.model.activePlaybackEngine != engine {
-                revokeAudio(of: pane)
-            }
-            pane.model.setViewingPlaybackContext(context)
-        }
-        resolutionError = nil
-        return true
-    }
-
-    private func canChangePlaybackEngine(_ pane: Pane) -> Bool {
-        guard !pane.model.isPictureInPictureActive, !pane.model.isWebPictureInPictureActive,
-              pane.model.nativeFullscreen == nil else {
-            resolutionError = "Return from fullscreen or Picture in Picture before changing this match's player."
-            return false
-        }
-        return true
-    }
-
-    private func pairingEngine(for model: LivePlayerViewModel) -> ViewingPlaybackEngine? {
-        if model.viewingPlaybackContext == .watchTwo(engine: .native), model.activePlaybackEngine == .native {
-            return .native
-        }
-        return model.selectedPlaybackEngine
-    }
-
-    private func reportIncompatiblePlayers() {
-        resolutionError = "These broadcasts use different players. Choose another source or watch this match on its own."
-    }
-
     func minimize() { guard isActive else { return }; expanded = false }
     func expand() { guard isActive else { return }; expanded = true }
-    func swap() { guard isTwo else { return }; swapped.toggle() }
 
     static func canReuse(_ retained: EventReference, for requested: EventReference) -> Bool {
         guard retained.id == requested.id,
@@ -484,169 +332,6 @@ final class ViewingSessionCoordinator {
               SportsHandoffIdentity.qualifiers(for: retained) == SportsHandoffIdentity.qualifiers(for: requested)
         else { return false }
         return CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: requested), in: [retained]) != nil
-    }
-
-    /// Duplicate exclusion is broader than media-owner reuse. A verified
-    /// canonical fixture may replace a provider ID while identifying the same
-    /// dated match; that must not become the "other" match in Watch Two.
-    /// This never authorizes reuse of that differently identified player.
-    static func representsSameFixture(_ first: EventReference, as second: EventReference) -> Bool {
-        if canReuse(first, for: second) { return true }
-        guard !first.hasCatalogIdentityConflict, !second.hasCatalogIdentityConflict,
-              !first.isBroadcastChannel, !second.isBroadcastChannel,
-              first.normalizedCategory == second.normalizedCategory,
-              SportsHandoffIdentity.qualifiers(for: first) == SportsHandoffIdentity.qualifiers(for: second),
-              let firstStart = first.kickoffDate, let secondStart = second.kickoffDate,
-              abs(firstStart.timeIntervalSince(secondStart)) <= CatalogPlaybackIdentity.kickoffTolerance,
-              first.competitionID == nil || second.competitionID == nil || first.competitionID == second.competitionID else { return false }
-        return CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: first), in: [second]) != nil
-            && CatalogPlaybackIdentity.matchingEvent(for: StreamPlaybackRequest(event: second), in: [first]) != nil
-    }
-
-    /// The Audio button is a deliberate playback-engine transition. Scene and
-    /// PiP ownership still use listen(to:) without initiating a pair restart.
-    func selectAudio(to id: UUID) {
-        guard panes.contains(where: { $0.id == id }) else { return }
-        if nativePairTransferTask != nil {
-            if nativePairRequestedAudioID == id || nativePairRetirementStarted { return }
-            cancelNativePairTransfer()
-        }
-        guard isTwo, audioID != nil, audioID != id,
-              panes.allSatisfy({ $0.model.activePlaybackEngine == .web }) else {
-            listen(to: id)
-            return
-        }
-        beginNativePairTransfer(audioID: id)
-    }
-
-    private struct NativePairSnapshot: Sendable {
-        let pane: Pane
-        let sourceID: UUID
-        let requestID: UUID
-        let intentID: UUID
-        let wantsPlayback: Bool
-    }
-
-    private func nativePairSnapshotsAreCurrent(_ snapshots: [NativePairSnapshot]) -> Bool {
-        panes.count == 2 && snapshots.count == 2 && snapshots.allSatisfy { snapshot in
-            panes.contains(where: { $0.id == snapshot.pane.id && $0.model === snapshot.pane.model })
-                && !snapshot.pane.model.isPlaybackSessionRetired
-                && snapshot.pane.model.activeSource?.id == snapshot.sourceID
-                && snapshot.pane.model.loadRequestID == snapshot.requestID
-                && snapshot.pane.model.nativeWatchTwoIntentID == snapshot.intentID
-                && snapshot.pane.model.userWantsPlayback == snapshot.wantsPlayback
-                && !snapshot.pane.model.isPictureInPictureActive
-                && !snapshot.pane.model.isWebPictureInPictureActive
-                && snapshot.pane.model.nativeFullscreen == nil
-        }
-    }
-
-    private func beginNativePairTransfer(audioID requestedAudioID: UUID) {
-        guard panes.allSatisfy({ canChangePlaybackEngine($0) }) else { return }
-        let snapshots = panes.compactMap { pane -> NativePairSnapshot? in
-            guard let sourceID = pane.model.activeSource?.id else { return nil }
-            return NativePairSnapshot(pane: pane, sourceID: sourceID,
-                requestID: pane.model.loadRequestID, intentID: pane.model.nativeWatchTwoIntentID,
-                wantsPlayback: pane.model.userWantsPlayback)
-        }
-        guard snapshots.count == 2 else { return }
-        cancelNativePairTransfer()
-        let generation = nativePairTransferGeneration
-        nativePairRequestedAudioID = requestedAudioID
-        resolutionError = nil
-        resolutionMessage = Self.nativePairProgress
-        nativePairTransferTask = Task { [weak self] in
-            guard let self else { return }
-            var prepared: [(NativePairSnapshot, PreparedNativeWatchTwoPlayback)] = []
-            defer {
-                for (snapshot, candidate) in prepared { self.nativeWatchTwo.discard(snapshot.pane.model, candidate) }
-                if self.nativePairTransferGeneration == generation {
-                    self.nativePairTransferTask = nil
-                    self.nativePairRequestedAudioID = nil
-                    self.nativePairRetirementStarted = false
-                    if self.resolutionMessage == Self.nativePairProgress { self.resolutionMessage = nil }
-                }
-            }
-            for snapshot in snapshots {
-                guard let candidate = await self.nativeWatchTwo.prepare(snapshot.pane.model) else {
-                    if !Task.isCancelled, self.nativePairTransferGeneration == generation,
-                       self.nativePairSnapshotsAreCurrent(snapshots) {
-                        self.resolutionError = Self.nativePairPreparationFailure
-                    }
-                    return
-                }
-                prepared.append((snapshot, candidate))
-                guard !Task.isCancelled, self.nativePairTransferGeneration == generation,
-                      self.nativePairSnapshotsAreCurrent(snapshots),
-                      prepared.allSatisfy({ self.nativeWatchTwo.isCurrent($0.0.pane.model, $0.1) }) else { return }
-            }
-            // No old transport/audio ownership changes occur until both paused
-            // preflights have passed. Both retire before either candidate adopts.
-            self.cancelAudioTransfer()
-            self.nativePairRetirementStarted = true
-            for (snapshot, candidate) in prepared {
-                guard self.nativeWatchTwo.beginRetirement(snapshot.pane.model, candidate) else {
-                    self.resolutionError = Self.nativePairRetirementFailure
-                    return
-                }
-            }
-            for snapshot in snapshots {
-                snapshot.pane.model.setRemoteCommandOwnership(false)
-                snapshot.pane.model.setViewingAudioEnabled(false)
-                snapshot.pane.model.setViewingPiPOwnership(false)
-            }
-            for (snapshot, candidate) in prepared {
-                let retired = await self.nativeWatchTwo.waitForRetirement(snapshot.pane.model, candidate)
-                guard !Task.isCancelled, self.nativePairTransferGeneration == generation,
-                      self.nativePairSnapshotsAreCurrent(snapshots),
-                      prepared.allSatisfy({ self.nativeWatchTwo.isCurrent($0.0.pane.model, $0.1) }) else { return }
-                guard retired else {
-                    self.resolutionError = Self.nativePairRetirementFailure
-                    return
-                }
-            }
-            for (snapshot, candidate) in prepared {
-                guard self.nativeWatchTwo.adopt(snapshot.pane.model, candidate) else {
-                    self.resolutionError = Self.nativePairRetirementFailure
-                    return
-                }
-            }
-            for (snapshot, candidate) in prepared { self.nativeWatchTwo.start(snapshot.pane.model, candidate) }
-            for (snapshot, candidate) in prepared { self.nativeWatchTwo.releaseAudioHold(snapshot.pane.model, candidate) }
-            self.listen(to: requestedAudioID)
-        }
-        observeNativePairSources(generation: generation, snapshots: snapshots)
-    }
-
-    private func observeNativePairSources(generation: UUID, snapshots: [NativePairSnapshot]) {
-        withObservationTracking {
-            for snapshot in snapshots {
-                _ = snapshot.pane.model.activeSource?.id
-                _ = snapshot.pane.model.loadRequestID
-                _ = snapshot.pane.model.nativeWatchTwoIntentID
-                _ = snapshot.pane.model.userWantsPlayback
-                _ = snapshot.pane.model.isPictureInPictureActive
-                _ = snapshot.pane.model.isWebPictureInPictureActive
-                _ = snapshot.pane.model.nativeFullscreen
-            }
-        } onChange: { [weak self] in
-            Task { @MainActor in
-                guard let self, self.nativePairTransferTask != nil,
-                      self.nativePairTransferGeneration == generation else { return }
-                if self.nativePairSnapshotsAreCurrent(snapshots) {
-                    self.observeNativePairSources(generation: generation, snapshots: snapshots)
-                } else { self.cancelNativePairTransfer() }
-            }
-        }
-    }
-
-    private func cancelNativePairTransfer() {
-        nativePairTransferGeneration = UUID()
-        nativePairTransferTask?.cancel()
-        nativePairTransferTask = nil
-        nativePairRequestedAudioID = nil
-        nativePairRetirementStarted = false
-        if resolutionMessage == Self.nativePairProgress { resolutionMessage = nil }
     }
 
     func listen(to id: UUID) {
@@ -690,7 +375,7 @@ final class ViewingSessionCoordinator {
                 guard !Task.isCancelled, self.audioTransferGeneration == generation else { return }
                 guard muted else {
                     self.recordSingleAudioTransfer(selected, result: "web_retirement_timeout", outcome: .failure)
-                    self.resolutionError = self.isTwo ? Self.audioTransferFailure : Self.singleAudioTransferFailure
+                    self.resolutionError = Self.singleAudioTransferFailure
                     return
                 }
                 if self.webAudioRetirements[identity]?.revision == barrier.revision {
@@ -702,7 +387,7 @@ final class ViewingSessionCoordinator {
                 guard !Task.isCancelled, self.audioTransferGeneration == generation else { return }
                 guard disconnected else {
                     self.recordSingleAudioTransfer(selected, result: "native_retirement_failed", outcome: .failure)
-                    self.resolutionError = self.isTwo ? Self.audioTransferFailure : Self.singleAudioTransferFailure
+                    self.resolutionError = Self.singleAudioTransferFailure
                     return
                 }
                 if self.audioRetirements[barrier.identity]?.revision == barrier.revision {
@@ -724,7 +409,7 @@ final class ViewingSessionCoordinator {
     }
 
     private func promoteAudio(_ pane: Pane) {
-        if resolutionError == Self.audioTransferFailure || resolutionError == Self.singleAudioTransferFailure {
+        if resolutionError == Self.singleAudioTransferFailure {
             resolutionError = nil
         }
         let wasEnabled = pane.model.isViewingAudioEnabled
@@ -778,17 +463,14 @@ final class ViewingSessionCoordinator {
 
     func keepOnly(_ id: UUID) {
         guard let survivor = panes.first(where: { $0.id == id }) else { return }
-        cancelNativePairTransfer()
         resolutionError = nil
         cancelResolution()
-        dismissMatchPicker()
         if primaryID != id { handoffPublisher.stop() }
         for pane in panes where pane.id != id {
             revokeAudio(of: pane)
             pane.model.cleanup()
         }
-        panes = [survivor]; primaryID = id; swapped = false; expanded = true
-        survivor.model.setViewingPlaybackContext(.single)
+        panes = [survivor]; primaryID = id; expanded = true
         survivor.model.setViewingDiagnosticRoute(.single)
         MatchNavigationStore.shared.livePlayerDidAppear(matchID: survivor.event.id)
         listen(to: id)
@@ -801,7 +483,6 @@ final class ViewingSessionCoordinator {
 
     private func retirePlayback(preservingResolution: Bool) {
         cancelLastLiveCapture()
-        cancelNativePairTransfer()
         if !preservingResolution { cancelResolution() }
         cancelAudioTransfer()
         if let primary {
@@ -812,97 +493,15 @@ final class ViewingSessionCoordinator {
             revokeAudio(of: pane)
             pane.model.cleanup()
         }
-        panes = []; primaryID = nil; audioID = nil; swapped = false
-        dismissMatchPicker(); showsContinuity = false
+        panes = []; primaryID = nil; audioID = nil
+        showsContinuity = false
         handoffPublisher.stop()
-    }
-
-    func showMatchPicker(replacing paneID: UUID? = nil) {
-        guard allowsWatchTwo else { return }
-        if let paneID {
-            guard isTwo, let pane = panes.first(where: { $0.id == paneID }), canReplace(pane) else { return }
-        } else { guard panes.count == 1 else { return } }
-        matchPickerReplacementID = paneID
-        showsSecondMatchPicker = true
-    }
-
-    func dismissMatchPicker() {
-        showsSecondMatchPicker = false
-        matchPickerReplacementID = nil
-    }
-
-    func chooseSecond(_ event: EventReference) {
-        guard allowsWatchTwo,
-              !panes.contains(where: { Self.representsSameFixture($0.event, as: event) || $0.event.id == event.id }) else { return }
-        let destination: ResolutionDestination
-        if let target = matchPickerReplacementID {
-            guard isTwo, let pane = panes.first(where: { $0.id == target }), canReplace(pane),
-                  let survivor = panes.first(where: { $0.id != target }) else { return }
-            destination = .replacement(target: target, survivor: survivor.id)
-        } else {
-            guard panes.count == 1, let primary else { return }
-            destination = .second(retaining: primary.id)
-        }
-        dismissMatchPicker()
-        resolve(event: event, destination: destination)
-    }
-
-    /// Commit a prepared replacement into its logical slot, never through
-    /// openMulti (which resets display order and reclaims every pane's audio).
-    /// Preparation owns no third decoder; only mounting starts the new model.
-    @discardableResult
-    func replacePreparedPane(_ targetID: UUID, preserving survivorID: UUID,
-                             event: EventReference, sessions: [StreamSession]) -> Bool {
-        guard allowsWatchTwo, isTwo, let index = panes.firstIndex(where: { $0.id == targetID }),
-              panes.contains(where: { $0.id == survivorID && $0.id != targetID }),
-              !sessions.isEmpty, !event.hasCatalogIdentityConflict,
-              !MatchStartPolicy(event: event).isStopped,
-              !panes.contains(where: { $0.event.id == event.id || Self.representsSameFixture($0.event, as: event) }),
-              canReplace(panes[index]) else { return false }
-        cancelNativePairTransfer()
-        cancelResolution()
-        let previous = panes[index]
-        let replacement = Pane(id: UUID(), model: makeModel(event, sessions))
-        guard let survivor = panes.first(where: { $0.id == survivorID }),
-              preparePair([survivor, replacement], retaining: [survivor]) else {
-            replacement.model.cleanup()
-            return false
-        }
-        replacement.model.setViewingDiagnosticRoute(.watchTwo)
-        // Establish muted/unclaimed state before the retained surface can mount.
-        replacement.model.setRemoteCommandOwnership(false)
-        replacement.model.setViewingAudioEnabled(false)
-        replacement.model.setViewingPiPOwnership(false)
-        let transfersAudio = audioID == previous.id
-        let transfersPrimary = primaryID == previous.id
-        revokeAudio(of: previous)
-        previous.model.cleanup()
-        panes[index] = replacement
-        if transfersPrimary {
-            handoffPublisher.stop()
-            MatchNavigationStore.shared.livePlayerDidDisappear(matchID: previous.event.id)
-            primaryID = replacement.id
-            MatchNavigationStore.shared.livePlayerDidAppear(matchID: event.id)
-        }
-        if transfersAudio {
-            listen(to: replacement.id)
-        }
-        return true
-    }
-
-    private func canReplace(_ pane: Pane) -> Bool {
-        guard !pane.model.isPictureInPictureActive, !pane.model.isWebPictureInPictureActive,
-              pane.model.nativeFullscreen == nil else {
-            resolutionError = "Return from fullscreen or Picture in Picture before changing this match."
-            return false
-        }
-        return true
     }
 
     func watchIncoming() {
         guard let event = incomingEvent else { return }
         incomingEvent = nil; incomingHandoff = nil
-        resolve(event: event, destination: .single)
+        resolve(event: event)
     }
 
     /// Scene-owned single discovery survives the browsing view being covered.
@@ -1072,7 +671,7 @@ final class ViewingSessionCoordinator {
         discover: SingleDiscovery? = nil,
         currentEvent: @escaping @MainActor (EventReference, OptionalSourceLookupPolicy.Phase) async -> EventReference?
     ) -> Bool {
-        guard !isTwo, resolutionMessage == nil, optionalSourceLookupGeneration == nil else { return false }
+        guard resolutionMessage == nil, optionalSourceLookupGeneration == nil else { return false }
         cancelResolution()
         let generation = UUID()
         resolutionGeneration = generation
@@ -1110,7 +709,7 @@ final class ViewingSessionCoordinator {
                 WatchOutcomeRecorder.shared.finish(watchID: generation, .failed, failureKind: "fixture_changed")
                 return
             }
-            guard !Task.isCancelled, self.resolutionGeneration == generation, !self.isTwo else { return }
+            guard !Task.isCancelled, self.resolutionGeneration == generation else { return }
             if self.reopenRetainedSingle(event: admitted, catalog: [admitted]) {
                 self.recordRetainedWatch(generation)
                 return
@@ -1192,12 +791,12 @@ final class ViewingSessionCoordinator {
         currentEvent: @escaping @MainActor (EventReference, OptionalSourceLookupPolicy.Phase) async -> EventReference?
     ) async -> OptionalSourceAcceptance {
         guard !Task.isCancelled, resolutionGeneration == generation,
-              optionalSourceLookupGeneration == generation, !isTwo else { return .changed }
+              optionalSourceLookupGeneration == generation else { return .changed }
         guard let latest = await currentEvent(event, .completion),
               Self.canReuse(event, for: latest), event.kickoffDate == latest.kickoffDate,
               !latest.hasCatalogIdentityConflict, !MatchStartPolicy(event: latest).isStopped else { return .changed }
         guard !Task.isCancelled, resolutionGeneration == generation,
-              optionalSourceLookupGeneration == generation, !isTwo else { return .changed }
+              optionalSourceLookupGeneration == generation else { return .changed }
         // Read the latest local enablement after the async admission check.
         // No suspension may separate this filter from mounting/appending.
         let enabled = Set(enabledProviders().compactMap {
@@ -1255,7 +854,7 @@ final class ViewingSessionCoordinator {
         } catch { resolutionError = "This viewing offer has expired or is not supported." }
     }
 
-    private func resolve(event: EventReference, destination: ResolutionDestination) {
+    private func resolve(event: EventReference) {
         cancelResolution()
         let generation = UUID(); resolutionGeneration = generation
         let request = StreamPlaybackRequest(event: event)
@@ -1276,16 +875,7 @@ final class ViewingSessionCoordinator {
                     self.resolutionError = "This fixture is no longer available to watch. Your current viewing is unchanged."
                     return
                 }
-                switch destination {
-                case .second(let retainedID):
-                    guard self.panes.count == 1, let current = self.panes.first(where: { $0.id == retainedID }) else { return }
-                    self.openMulti(slots: [MultiLiveSlot(event: current.event, sessions: current.model.sessions),
-                                          MultiLiveSlot(event: currentEvent, sessions: result.sessions)])
-                case .replacement(let target, let survivor):
-                    self.replacePreparedPane(target, preserving: survivor, event: currentEvent, sessions: result.sessions)
-                case .single:
-                    self.open(event: currentEvent, sessions: result.sessions)
-                }
+                self.open(event: currentEvent, sessions: result.sessions)
             case .failure(let failure, _): self.resolutionError = failure.userMessage
             }
         }
@@ -1297,7 +887,6 @@ final class ViewingSessionCoordinator {
         if singleSourceDiscoveryPaneID == nil, optionalSourceLookupPaneID == nil {
             WatchOutcomeRecorder.shared.finish(watchID: resolutionGeneration, .cancelled)
         }
-        cancelNativePairTransfer()
         if let pane = panes.first(where: { $0.id == optionalSourceLookupPaneID }) {
             pane.model.setSingleSourceDiscoveryActive(false, completed: false)
         }
@@ -1320,9 +909,6 @@ final class ViewingSessionCoordinator {
 
 enum ViewingExperienceLayout {
     static func usesCompanion(width: CGFloat, accessibility: Bool) -> Bool { width >= 820 && !accessibility }
-    static func usesTwoColumns(width: CGFloat, accessibility: Bool) -> Bool { width >= 700 && !accessibility }
-
-    static func usesVideoFirstSinglePlayer(isPad: Bool, isTwo: Bool) -> Bool { isPad && !isTwo }
 
     /// Wide windows show info beside the picture; narrower ones use a sheet.
     static func usesInfoPanel(width: CGFloat, accessibility: Bool) -> Bool { width >= 900 && !accessibility }
@@ -1335,69 +921,5 @@ enum ViewingExperienceLayout {
         let aspect: CGFloat = 16.0 / 9.0
         let height = min(available.height, available.width / aspect)
         return CGSize(width: min(available.width, height * aspect), height: height)
-    }
-}
-
-/// One cancellable, presentation-only snapshot. Search uses Home's existing
-/// vocabulary; eligibility still uses the complete catalog/conflict evidence.
-@MainActor
-enum ViewingMatchPickerPolicy {
-    @MainActor
-    struct Prepared {
-        let events: [EventReference]
-        let search: HomeSportsSearch.Index
-
-        var sports: [String] { Set(events.map { $0.normalizedCategory }).sorted() }
-
-        func results(query: String, sport: String = "all-sports") -> [EventReference] {
-            let matches: Set<String>?
-            if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { matches = nil }
-            else { matches = Set(search.results(query: query).map(\.id)) }
-            return events.filter {
-                (sport == HomeSportsDiscovery.allSports || $0.normalizedCategory == sport)
-                    && (matches?.contains($0.id) ?? true)
-            }
-        }
-    }
-
-    static func prepare(events: [EventReference], catalog: [EventReference],
-                        excluding retained: [EventReference], now: Date = Date(),
-                        status: (EventReference) -> FootballMatch.MatchStatus? = { _ in nil },
-                        leagueName: ((EventReference) -> String?)? = nil,
-                        discoveryIndex: FixtureStreamDiscoveryIndex? = nil,
-                        isCurrent: () -> Bool = { true },
-                        checkpoint: () async -> Bool = { await HomeSportsSearch.checkpoint(isCurrent: { true }) }) async -> Prepared? {
-        guard !Task.isCancelled, isCurrent(), await checkpoint(), isCurrent() else { return nil }
-        var admitted: [EventReference] = []
-        var seen = Set<String>()
-        for (index, event) in events.enumerated() {
-            guard !Task.isCancelled, isCurrent() else { return nil }
-            if !retained.contains(where: { $0.id == event.id || ViewingSessionCoordinator.representsSameFixture($0, as: event) }),
-               let action = CurrentEventBroadcastPolicy.action(for: event, in: catalog, at: now, status: status(event),
-                   discoveryIndex: discoveryIndex),
-               !action.isChannelFallback, seen.insert(action.event.id).inserted {
-                admitted.append(action.event)
-            }
-            if (index + 1).isMultiple(of: 16) {
-                guard await checkpoint(), !Task.isCancelled, isCurrent() else { return nil }
-            }
-        }
-        guard await checkpoint(), !Task.isCancelled, isCurrent() else { return nil }
-        let discovery = HomeSportsDiscovery(events: admitted, now: now, terminalEvents: catalog, status: status)
-        // Include directly selected channels without claiming a named programme.
-        let visibleIDs = Set(discovery.items.map(\.id) + discovery.channels.map(\.id))
-        let rows = admitted.filter { visibleIDs.contains($0.id) }
-        guard await checkpoint(), !Task.isCancelled, isCurrent() else { return nil }
-        // The existing cooperative search preparer avoids blocking playback for
-        // whole-catalog normalization. Nonempty "catalog" requests preparation;
-        // the actual user query is applied only to the resulting immutable index.
-        guard let search = await HomeSportsSearch.prepareForQuery(in: discovery, query: "catalog", leagueName: { event in
-            if let leagueName { return leagueName(event) }
-            guard event.normalizedCategory == "football" else { return nil }
-            let league = AnalyticalDataEngine.footballLeagueTab(for: event)
-            return league == .all || league == .other ? nil : league.displayName
-        }, isCurrent: isCurrent),
-              !Task.isCancelled, isCurrent() else { return nil }
-        return Prepared(events: rows, search: search)
     }
 }

@@ -6,8 +6,8 @@ playback of one match at a time.
 
 Retired in 3.0: the FPL workspace was removed in build 332. Only public scores
 and the legacy backup types needed to read older saved data remain. Two-match
-viewing (Watch Two) is parked: its code still compiles, but it is not a
-supported feature.
+viewing (Watch Two) was removed on 19 November 2026; a future version would be
+rebuilt on the simplified single player rather than revived from history.
 
 For what is current, read
 [`docs/notebooklm/Current-State.md`](docs/notebooklm/Current-State.md).

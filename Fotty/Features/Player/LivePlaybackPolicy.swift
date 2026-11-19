@@ -213,22 +213,6 @@ struct NativePlaybackFrameProgress {
     }
 }
 
-/// Control Center and other transient overlays do not move a player into the
-/// background. Both player layouts use this boundary without changing PiP policy.
-enum MultiLiveScenePolicy {
-    static func isForeground(_ phase: ScenePhase) -> Bool {
-        switch phase {
-        case .active, .inactive: return true
-        case .background: return false
-        @unknown default: return false
-        }
-    }
-
-    static func shouldSuspendWebPlayback(_ phase: ScenePhase, isNetworkReachable: Bool) -> Bool {
-        !isForeground(phase) || !isNetworkReachable
-    }
-}
-
 enum LivePlaybackPolicy {
     /// Provider embeds can spend several seconds negotiating a manifest after
     /// the document and player chrome have loaded. The old 10-second cutoff

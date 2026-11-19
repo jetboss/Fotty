@@ -209,10 +209,9 @@ enum FottyQualityOutcome: String, Codable {
     case failure
 }
 
-/// Builds the small, privacy-safe playback context shared by the normal player
-/// and Watch Two. The quality store applies a second allowlist before anything
-/// is retained, but keeping construction here prevents the two playback paths
-/// from drifting or accidentally adding a fixture name or URL.
+/// Builds the small, privacy-safe playback context for the player. The quality
+/// store applies a second allowlist before anything is retained, but keeping
+/// construction here prevents accidentally adding a fixture name or URL.
 /// A watch/panel owns this value. Reloads get new attempts, not new sessions.
 /// This is diagnostic bookkeeping only; it never drives recovery or admission.
 struct FottyPlaybackCorrelation {
@@ -273,7 +272,7 @@ enum FottyPlaybackDiagnosticHandoffPhase: String, Equatable, Sendable {
     case decoding, awaitingWebRetirement = "awaiting_web_retirement"
 }
 
-enum FottyPlaybackDiagnosticRoute: String { case single, watchTwo = "watch_two" }
+enum FottyPlaybackDiagnosticRoute: String { case single }
 
 /// A bounded, attempt-bound admission gate for passive diagnostic records.
 /// Repeated transport states are not new edges. Callers must reject stale
@@ -1333,10 +1332,8 @@ final class FottyQualityStore {
             return NativeHLSPlaylistIssue(rawValue: value) != nil
         case "preparation_stage":
             return PlaybackPreparationDiagnostic.Stage(rawValue: value) != nil
-                || NativeWatchTwoPreflightStage(rawValue: value) != nil
         case "preparation_reason":
             return PlaybackPreparationDiagnostic.Reason(rawValue: value) != nil
-                || NativeWatchTwoPreflightOutcome(rawValue: value) != nil
         case "native_error_domain", "native_underlying_domain", "native_log_domain", "relay_error_domain",
              "preparation_error_domain", "preparation_underlying_domain":
             return NativePlaybackErrorDomain(rawValue: value) != nil

@@ -18,9 +18,10 @@ enum ViewingPlaybackAudioPolicy {
 }
 
 enum ViewingPlaybackEngine: Equatable { case web, native }
+/// Watch Two was removed on 19 Nov 2026; every model is a single viewing owner.
+/// The context stays explicit so existing single-ownership fences are unchanged.
 enum ViewingPlaybackContext: Equatable {
     case single
-    case watchTwo(engine: ViewingPlaybackEngine)
 }
 
 /// Finite reasons why an initial observation ended without granting a source
@@ -237,16 +238,10 @@ final class LivePlayerViewModel {
     @ObservationIgnored private weak var preparingNativeTransferPlayer: AVPlayer?
     @ObservationIgnored private var preparingNativeTransferPlayerID: UUID?
     private var cachedNativeCandidate: (candidate: NativeWebPlaybackCandidate, sourceID: UUID, requestID: UUID)?
-    @ObservationIgnored private var preparedNativeWatchTwo: PreparedNativeWatchTwoPlayback?
-    @ObservationIgnored private(set) var nativeWatchTwoPreflightOutcome: NativeWatchTwoPreflightOutcome?
-    private(set) var isRetiringWebForNativeWatchTwo = false
-    private var nativeWatchTwoAudioHeld = false
-    @ObservationIgnored private var nativeWatchTwoDelivery: NativeWebPlaybackCandidate?
     @ObservationIgnored private var retiredWebOwner: (sourceID: UUID, requestID: UUID)?
-    private var nativeWatchTwoIntentRevision = UUID()
-    var nativeWatchTwoIntentID: UUID { nativeWatchTwoIntentRevision }
+    private var playbackIntentToken = UUID()
     var shouldDisplayWebPlayback: Bool {
-        isUsingWebEmbed && !isRetiringWebForNativeWatchTwo
+        isUsingWebEmbed
             && (viewerExhaustedSourceID == nil || viewerExhaustedSourceID != activeSource?.id)
     }
     /// A source the viewer reported blocked, or a wrong-programme delivery,
@@ -276,7 +271,7 @@ final class LivePlayerViewModel {
     @ObservationIgnored private var diagnosticCandidateCount = 0
 
     /// Standard WebKit controls remain canonical. The retained host uses this
-    /// only for explicitly selected Watch Two audio focus / diagnostic muting.
+    /// only for single-view audio focus / diagnostic muting.
     var webMute: Bool {
         ViewingPlaybackAudioPolicy.isMuted(isEnabled: isViewingAudioEnabled,
                                            diagnosticMute: AppRuntime.shouldMutePlaybackForTesting)
@@ -321,7 +316,7 @@ final class LivePlayerViewModel {
     // intent separate so recovery cannot turn a deliberate native pause into Play.
     private(set) var userWantsPlayback = true {
         didSet {
-            if oldValue != userWantsPlayback { nativeWatchTwoIntentRevision = UUID() }
+            if oldValue != userWantsPlayback { playbackIntentToken = UUID() }
             if !userWantsPlayback {
                 disarmSingleDiscoveryContinuation()
                 singleContinuityTask?.cancel(); singleContinuityTask = nil
@@ -435,7 +430,7 @@ final class LivePlayerViewModel {
     var audioPreparationTask: Task<Void, Never>?
     private var audioIntentID = UUID()
     /// Read-only ownership fence for scene-owned explicit single Retry work.
-    var playbackIntentRevision: UUID { nativeWatchTwoIntentRevision }
+    var playbackIntentRevision: UUID { playbackIntentToken }
     var pictureInPicturePreparationTask: Task<Void, Never>?
     private var pictureInPicturePreparationID = UUID()
     var foregroundResumeValidationTask: Task<Void, Never>?
@@ -561,7 +556,7 @@ final class LivePlayerViewModel {
     }
 
     /// Explicitly opted in by a new single-player destination, not the shared
-    /// initializer: Watch Two models also start with a `.single` context.
+    /// initializer.
     /// Picking an initial index must never reload or replace a running owner.
     @discardableResult
     func configureSingleStreamRanking() -> Bool {
@@ -599,7 +594,7 @@ final class LivePlayerViewModel {
     }
 
     /// Only actual current native HLS item variants expose this choice. A
-    /// provider's quality label, Web source or shared pair initializer cannot.
+    /// provider's quality label or Web source cannot.
     var canChooseSinglePlaybackQuality: Bool {
         guard let player, let item = player.currentItem, let source = activeSource,
               ownsSinglePlaybackQualityItem(player: player, item: item, sourceID: source.id, requestID: loadRequestID) else { return false }
@@ -765,9 +760,7 @@ final class LivePlayerViewModel {
         applyViewingAudioState()
     }
 
-    func shouldManageWebAudio(inWatchTwo: Bool) -> Bool {
-        inWatchTwo || !isViewingAudioEnabled
-    }
+    var shouldManageWebAudio: Bool { !isViewingAudioEnabled }
 
     /// Captured synchronously before a pane is removed or cleaned up. A later
     /// Web promotion must wait for a noncancellable reconnect to be reconciled.
@@ -863,54 +856,6 @@ final class LivePlayerViewModel {
         return isUsingWebEmbed ? .web : .native
     }
 
-    private func admits(_ session: StreamSession) -> Bool {
-        guard case .watchTwo(let engine) = viewingPlaybackContext else { return true }
-        if engine == .native, nativeHandoffSession?.id == session.id,
-           !forceWebEmbedSourceIDs.contains(session.id) { return true }
-        return (forceWebEmbedSourceIDs.contains(session.id) || LivePlaybackSourcePolicy.isWebEmbed(session)
-            ? ViewingPlaybackEngine.web : .native) == engine
-    }
-
-    /// Only unmounted models may choose a compatible original endpoint here.
-    /// Positive history is not required and no endpoint is invented or hidden.
-    func prepareForViewingPlaybackContext(_ context: ViewingPlaybackContext) -> Bool {
-        guard !didStartPlayback, !isPlaybackSessionRetired else { return false }
-        if case .watchTwo(let engine) = context {
-            if selectedPlaybackEngine != engine {
-                guard let index = sessions.firstIndex(where: {
-                    (LivePlaybackSourcePolicy.isWebEmbed($0) ? ViewingPlaybackEngine.web : .native) == engine
-                }) else { return false }
-                currentSourceIndex = index
-            }
-        }
-        viewingPlaybackContext = context
-        lastAdmittedSourceIndex = currentSourceIndex
-        return selectedSession != nil
-    }
-
-    func setViewingPlaybackContext(_ context: ViewingPlaybackContext) {
-        guard !isPlaybackSessionRetired, viewingPlaybackContext != context else { return }
-        viewingPlaybackContext = context
-        cancelNativePlaybackTransfer()
-        if context == .single, isRetiringWebForNativeWatchTwo, nativeHandoffSession == nil {
-            loadCurrentSource(ignoringCircuitBreaker: true)
-            return
-        }
-        // A Web-origin source promoted in single view returns only to its own
-        // exact original endpoint before entering a Web/Web pair.
-        if case .watchTwo(engine: .web) = context, hasAdoptedNativeHandoff,
-           selectedPlaybackEngine == .web {
-            let wanted = userWantsPlayback
-            withModelOwnedNativeRateCommand { player?.pause() }
-            retireNativeAudioIsolation()
-            nativeHandoffSession = nil
-            loadCurrentSource(ignoringCircuitBreaker: true)
-            userWantsPlayback = wanted
-            isWebPlaybackUserPaused = !wanted
-            if !wanted { webPlaybackCommand = .init(id: UUID(), shouldPlay: false) }
-        }
-    }
-
     var canRequestNativePlaybackTransfer: Bool {
         guard viewingPlaybackContext == .single, explicitNativeTransferID == nil, nativeTransferSuspensionID == nil,
               nativeHandoffTask == nil, nativeAudioIsolationBackend.isSupported,
@@ -935,7 +880,7 @@ final class LivePlayerViewModel {
 
     func cancelNativePlaybackTransfer() {
         // Cancellation must revoke the decoder synchronously, before a new
-        // Watch Two Web surface can mount—not after a polling await unwinds.
+        // Web surface can mount—not after a polling await unwinds.
         preparingNativeTransferPlayer?.pause()
         explicitNativeTransferID = nil
         nativeHandoffTask?.cancel()
@@ -1489,12 +1434,7 @@ final class LivePlayerViewModel {
         nativeHandoffTask = nil
         nativeTransferTaskID = nil
         retireNativeAudioIsolation()
-        // An admitted native pair may retry its captured current source, but
-        // must not silently turn that pane back into a Web sibling.
-        if viewingPlaybackContext != .watchTwo(engine: .native) {
-            nativeHandoffSession = nil
-            nativeWatchTwoDelivery = nil
-        }
+        nativeHandoffSession = nil
         nativeCandidateLedger.reset()
         failedSourceIDs.removeAll(); autoFailoverCount = 0
         webStartupRetryAttemptsBySource.removeAll(); webStallRetryAttemptsBySource.removeAll()
@@ -1943,7 +1883,7 @@ final class LivePlayerViewModel {
         foregroundResumeValidationTask?.cancel()
         stallValidationTask?.cancel()
         stopPlaybackWatchdog()
-        let token = UUID(), request = loadRequestID, intent = nativeWatchTwoIntentID
+        let token = UUID(), request = loadRequestID, intent = playbackIntentRevision
         // The samples fence on source too; the seek callback never did (see
         // PLAYER-SHRINK-PLAN.md, "Fence scopes that differ today").
         let sampleFence = PlaybackAttempt(requestID: request, scope: [.source, .playbackIntent],
@@ -2052,7 +1992,7 @@ final class LivePlayerViewModel {
     private func scheduleNativeResumeValidation(for source: StreamSource, player: AVPlayer,
                                                 item: AVPlayerItem, requestID: UUID, reason: String) {
         let start = player.currentTime().seconds
-        let observationIntent = nativeWatchTwoIntentID
+        let observationIntent = playbackIntentRevision
         foregroundResumeValidationTask?.cancel()
         foregroundResumeValidationTask = Task {
             try? await timing.wait(for: PlaybackProgressPolicy.resumeValidationDelay)
@@ -2082,17 +2022,13 @@ final class LivePlayerViewModel {
         guard !isPlaybackSessionRetired else { return }
         // Any new load (Retry, a chosen source or failover) ends the blocked hold.
         viewerExhaustedSourceID = nil
-        guard let selectedSession, admits(selectedSession) else {
+        guard let selectedSession else {
             if sessions.indices.contains(lastAdmittedSourceIndex) { currentSourceIndex = lastAdmittedSourceIndex }
             showPlaybackBanner("Choose a source using the same player, or watch this match on its own.")
             return
         }
         retireNativeFullscreenForTransportChange()
         lastAdmittedSourceIndex = currentSourceIndex
-        if let preparedNativeWatchTwo { discardNativeWatchTwoCandidate(preparedNativeWatchTwo) }
-        self.preparedNativeWatchTwo = nil
-        isRetiringWebForNativeWatchTwo = false
-        nativeWatchTwoAudioHeld = false
         webAudioRevocationID = nil
         currentWebAudioRevocation = nil
         didStartPlayback = true
@@ -2467,7 +2403,6 @@ final class LivePlayerViewModel {
 
     private func queueNativeHandoffAudioClaim(explicitAVKitPlay: Bool = false) {
         guard isPlaybackSessionActive, !isPlaybackSessionRetired, hasAdoptedNativeHandoff,
-              !nativeWatchTwoAudioHeld,
               !nativeHandoffAwaitingWebRetirement, isViewingAudioEnabled, userWantsPlayback,
               isPlaying || explicitAVKitPlay, error == nil, playbackState != .failed,
               let expectedPlayer = player, let item = expectedPlayer.currentItem,
@@ -2644,19 +2579,6 @@ final class LivePlayerViewModel {
     }
 
     private func preparePlaybackURL(for session: StreamSession, requestID: UUID) async throws -> URL {
-        // A same-source native-pair Retry must preserve the captured WK-scoped
-        // cookies; the shared HTTP cookie store is not the WebKit cookie store.
-        if nativeHandoffSession?.id == session.id, let delivery = nativeWatchTwoDelivery,
-           delivery.url == session.playableURL {
-            let prepared = try await prepareNativeHandoffURL(for: delivery)
-            guard !Task.isCancelled, isCurrent(requestID: requestID, sourceID: session.id) else {
-                prepared.proxy?.stop()
-                throw CancellationError()
-            }
-            streamProxy = prepared.proxy
-            return prepared.url
-        }
-
         let remoteURL = session.playableURL
 
         // Reviewed CS wrapper rotation also needs stable local segment URIs,
@@ -3252,15 +3174,6 @@ final class LivePlayerViewModel {
             return
 
         case .returnNativeHandoffToWeb:
-            guard viewingPlaybackContext != .watchTwo(engine: .native) else {
-                cancelAudioPreparation()
-                withModelOwnedNativeRateCommand { player?.pause() }
-                errorTitle = "Choose Another Source"
-                error = "This source couldn’t continue in Watch Two. Retry it, choose another source or watch this match on its own."
-                transition(to: .failed, phase: "Choose Broadcast Source")
-                showControls = true
-                return
-            }
             retireNativeAudioIsolation()
             nativeHandoffSession = nil
             forceWebEmbedSourceIDs.insert(source.id)
@@ -3275,13 +3188,6 @@ final class LivePlayerViewModel {
             return
 
         case .tryWebFallback:
-            guard viewingPlaybackContext != .watchTwo(engine: .native) else {
-                errorTitle = "Choose Another Source"
-                error = "This source needs a different player. Choose another source or watch this match on its own."
-                transition(to: .failed, phase: "Choose Broadcast Source")
-                showControls = true
-                return
-            }
             forceWebEmbedSourceIDs.insert(source.id)
             loadCurrentSource()
             return
@@ -3481,7 +3387,7 @@ final class LivePlayerViewModel {
     }
 
     func handleWebEmbedFailure(sourceID: UUID, requestID: UUID, reason: String) {
-        guard !isRetiringWebForNativeWatchTwo, let source = activeSource,
+        guard let source = activeSource,
               isCurrent(requestID: requestID, sourceID: sourceID),
               isUsingWebEmbed,
               !isWebPlaybackUserPaused else { return }
@@ -3496,7 +3402,7 @@ final class LivePlayerViewModel {
     }
 
     func handleWebEmbedPlaybackStarted(sourceID: UUID, requestID: UUID, startupLatencyMs: Int) {
-        guard !isRetiringWebForNativeWatchTwo, isPlaybackSessionActive, !isAppBackgrounded,
+        guard isPlaybackSessionActive, !isAppBackgrounded,
               !isWebPlaybackUserPaused, let source = activeSource,
               isCurrent(requestID: requestID, sourceID: sourceID),
               isUsingWebEmbed, viewerExhaustedSourceID != sourceID else { return }
@@ -3509,7 +3415,7 @@ final class LivePlayerViewModel {
     }
 
     func handleWebEmbedPlaybackRecovered(sourceID: UUID, requestID: UUID) {
-        guard !isRetiringWebForNativeWatchTwo, isPlaybackSessionActive, !isAppBackgrounded,
+        guard isPlaybackSessionActive, !isAppBackgrounded,
               isCurrent(requestID: requestID, sourceID: sourceID),
               isUsingWebEmbed, viewerExhaustedSourceID != sourceID,
               !isWebPlaybackUserPaused else { return }
@@ -3533,7 +3439,6 @@ final class LivePlayerViewModel {
     ) {
         // UIKit dismantling already rejects its own teardown messages. A real
         // Pause delivered before that boundary still revokes the captured intent.
-        if isRetiringWebForNativeWatchTwo, case .playing = state { return }
         guard isPlaybackSessionActive, !isAppBackgrounded,
               isCurrent(requestID: requestID, sourceID: sourceID),
               isUsingWebEmbed, isVideoReadyForDisplay,
@@ -3575,240 +3480,6 @@ final class LivePlayerViewModel {
         // Discovery is passive. A muted second decoder can still interrupt
         // WebKit, so only an explicit single-view action may start this transfer.
         cachedNativeCandidate = (candidate, sourceID, requestID)
-    }
-
-    /// No Play or shared audio operation is permitted during this preflight.
-    /// Both original pictures remain mounted until the coordinator commits.
-    func prepareNativeWatchTwoCandidate() async -> PreparedNativeWatchTwoPlayback? {
-        let began = Date()
-        let initialDetails = playbackQualityDetails()
-        var outcome = NativeWatchTwoPreflightOutcome.notEligible
-        var stage = NativeWatchTwoPreflightStage.admission
-        var proxy: LocalStreamProxy?
-        var candidatePlayer: AVPlayer?
-        var isolation: NativePlayerAudioIsolation?
-        var retained = false
-        defer {
-            nativeWatchTwoPreflightOutcome = outcome
-            var details = initialDetails.merging([
-                "mode": "native_pair_preflight", "preparation_stage": stage.rawValue,
-                "preparation_reason": outcome.rawValue
-            ]) { _, new in new }
-            if let item = candidatePlayer?.currentItem {
-                details["native_item_status"] = NativeHandoffCandidateDiagnostic.itemStatusLabel(item.status)
-                if let error = item.error as NSError? {
-                    details["native_error_domain"] = NativePlaybackErrorDomain(error.domain).rawValue
-                    details["native_error_code"] = String(error.code)
-                }
-                if item.status == .failed {
-                    details.merge(diagnosticService.analyze(item, trigger: .itemStatusFailed).qualityDetails) { _, new in new }
-                }
-            }
-            // This preflight owns a different relay from the active Web stream.
-            // Capture its bounded receipt before cleanup, never the active owner's.
-            details.merge(proxy?.diagnosticDetails() ?? [:]) { _, new in new }
-            FottyQualityStore.shared.record(category: .playback, name: "native_pair_preflight",
-                outcome: outcome.qualityOutcome(retained: retained),
-                durationMilliseconds: Int(Date().timeIntervalSince(began) * 1000), details: details)
-            if !retained {
-                candidatePlayer?.pause(); proxy?.stop()
-                if let barrier = isolation?.request(disconnected: true) { rememberNativeAudioRetirement(barrier) }
-            }
-        }
-        guard nativeAudioIsolationBackend.isSupported else { outcome = .unsupported; return nil }
-        guard case .watchTwo(engine: .web) = viewingPlaybackContext,
-              preparedNativeWatchTwo == nil,
-              isPlaybackSessionActive, !isPlaybackSessionRetired, isUsingWebEmbed,
-              isVideoReadyForDisplay, !isAppBackgrounded, !isWebPictureInPictureActive,
-              nativeFullscreen == nil, nativeHandoffTask == nil, let selected = selectedSession else { return nil }
-        guard let cached = cachedNativeCandidate else { outcome = .noCandidate; return nil }
-        guard cached.sourceID == selected.id, cached.requestID == loadRequestID else {
-            outcome = .staleCandidate; return nil
-        }
-        let request = loadRequestID, intent = nativeWatchTwoIntentID
-        let wanted = userWantsPlayback
-        func current() -> Bool {
-            !Task.isCancelled && isPlaybackSessionActive && !isPlaybackSessionRetired
-                && viewingPlaybackContext == .watchTwo(engine: .web) && isUsingWebEmbed
-                && isCurrent(PlaybackAttempt(requestID: request, scope: [.source, .playbackIntent],
-                    sourceID: selected.id, playbackIntent: intent))
-                && userWantsPlayback == wanted
-                && !isAppBackgrounded && !isWebPictureInPictureActive && nativeFullscreen == nil
-        }
-        func stillCurrent() -> Bool {
-            guard current() else {
-                outcome = Task.isCancelled ? .cancelled : .staleOwner
-                return false
-            }
-            return true
-        }
-        // Validate the same scoped delivery AVPlayer will use. A fresh direct
-        // probe omits captured WK cookies and can reject an otherwise valid HLS.
-        // The existing relay retains cookie scope and all origin/redirect checks.
-        stage = .proxy
-        guard let preparedURL = try? await prepareNativeHandoffURL(for: cached.candidate) else {
-            outcome = Task.isCancelled ? .cancelled : .proxyFailed; return nil
-        }
-        proxy = preparedURL.proxy
-        guard stillCurrent() else { return nil }
-        let headers = proxy == nil ? cached.candidate.headers : [:]
-        stage = .validation
-        let validation = await validateNativeSource(preparedURL.url, headers)
-        guard stillCurrent() else { return nil }
-        guard validation.isValid else { outcome = .validationRejected; return nil }
-        let session = NativePlaybackPreparation.capturedSession(from: selected, candidate: cached.candidate,
-                                                               evidence: validation.mediaEvidence)
-        let item = NativePlaybackPreparation.makeItem(url: preparedURL.url, headers: headers,
-                                                      session: session, evidence: validation.mediaEvidence)
-        let candidate = AVPlayer(playerItem: item)
-        candidatePlayer = candidate
-        candidate.isMuted = true; candidate.automaticallyWaitsToMinimizeStalling = true
-        MediaAudioSession.configureNativeBackgroundPlayback(candidate)
-        let controller = makeNativeAudioIsolation(player: candidate, item: item,
-            sourceID: selected.id, requestID: request)
-        isolation = controller
-        stage = .isolation
-        let disconnected = await controller.request(disconnected: true).wait()
-        guard stillCurrent() else { return nil }
-        guard disconnected else { outcome = .isolationFailed; return nil }
-        stage = .readiness
-        let ready = await waitForSourceReadiness(item, timeoutSeconds: 7)
-        guard stillCurrent() else { return nil }
-        guard ready else {
-            outcome = item.status == .failed ? .readinessFailed : .readinessTimeout
-            return nil
-        }
-        let prepared = PreparedNativeWatchTwoPlayback(model: self, session: session,
-            player: candidate, item: item, isolation: controller, proxy: proxy, delivery: cached.candidate)
-        stage = .registration
-        guard registerNativeWatchTwoPreparation(prepared) else { outcome = .registrationRejected; return nil }
-        retained = true
-        outcome = .prepared
-        return prepared
-    }
-
-    @discardableResult
-    func registerNativeWatchTwoPreparation(_ prepared: PreparedNativeWatchTwoPlayback) -> Bool {
-        guard preparedNativeWatchTwo == nil, nativeAudioIsolationBackend.isSupported,
-              prepared.modelID == remoteCommandOwnerID, prepared.sourceID == activeSource?.id,
-              prepared.requestID == loadRequestID, prepared.intentID == nativeWatchTwoIntentID,
-              prepared.wantsPlayback == userWantsPlayback,
-              prepared.context == .watchTwo(engine: .web), viewingPlaybackContext == prepared.context,
-              isPlaybackSessionActive, !isPlaybackSessionRetired, isUsingWebEmbed,
-              !isAppBackgrounded, !isWebPictureInPictureActive, nativeFullscreen == nil,
-              prepared.player.currentItem === prepared.item, prepared.player.rate == 0,
-              prepared.player.isMuted, prepared.isolation.player === prepared.player,
-              prepared.isolation.item === prepared.item,
-              prepared.isolation.currentBarrier?.isSatisfiedDisconnection == true,
-              !prepared.discarded, !prepared.adopted else { return false }
-        preparedNativeWatchTwo = prepared
-        return true
-    }
-
-    func nativeWatchTwoPreparationIsCurrent(_ prepared: PreparedNativeWatchTwoPlayback) -> Bool {
-        guard !Task.isCancelled, isPlaybackSessionActive, !isPlaybackSessionRetired,
-              preparedNativeWatchTwo === prepared, !prepared.discarded,
-              prepared.modelID == remoteCommandOwnerID, prepared.sourceID == activeSource?.id,
-              prepared.requestID == loadRequestID, prepared.intentID == nativeWatchTwoIntentID,
-              prepared.wantsPlayback == userWantsPlayback,
-              !isAppBackgrounded, !isWebPictureInPictureActive, !isPictureInPictureActive,
-              nativeFullscreen == nil, prepared.player.currentItem === prepared.item else { return false }
-        return prepared.adopted
-            ? (viewingPlaybackContext == .watchTwo(engine: .native) || viewingPlaybackContext == .single)
-                && player === prepared.player
-            : viewingPlaybackContext == prepared.context && isUsingWebEmbed
-    }
-
-    func beginNativeWatchTwoRetirement(_ prepared: PreparedNativeWatchTwoPlayback) -> Bool {
-        guard nativeWatchTwoPreparationIsCurrent(prepared), !prepared.retirementBegan else { return false }
-        prepared.retirementBegan = true
-        cancelPendingWebRetry(); loadTask?.cancel(); stopPlaybackWatchdog()
-        stallValidationTask?.cancel(); foregroundResumeValidationTask?.cancel()
-        isRetiringWebForNativeWatchTwo = true
-        transition(to: .connecting(.native), phase: "Switching players…")
-        // Removing the actual representable invokes its public suspension and
-        // teardown acknowledgement. No native decoder or audio starts here.
-        return true
-    }
-
-    func waitForNativeWatchTwoRetirement(_ prepared: PreparedNativeWatchTwoPlayback) async -> Bool {
-        for _ in 0..<60 {
-            guard nativeWatchTwoPreparationIsCurrent(prepared), prepared.retirementBegan else { return false }
-            if prepared.webRetired { return true }
-            do { try await Task.sleep(for: .milliseconds(50)) } catch { return false }
-        }
-        return prepared.webRetired && nativeWatchTwoPreparationIsCurrent(prepared)
-    }
-
-    func adoptNativeWatchTwoCandidate(_ prepared: PreparedNativeWatchTwoPlayback) -> Bool {
-        guard nativeWatchTwoPreparationIsCurrent(prepared), prepared.retirementBegan,
-              prepared.webRetired, !prepared.adopted else { return false }
-        nativeWatchTwoAudioHeld = true
-        nativeHandoffSession = prepared.session
-        nativeWatchTwoDelivery = prepared.delivery
-        viewingPlaybackContext = .watchTwo(engine: .native)
-        forceWebEmbedSourceIDs.remove(prepared.sourceID)
-        nativeHandoffAwaitingWebRetirement = false
-        nativeHandoffAudioMuteHeld = true
-        player = prepared.player
-        nativeHandoffAudioMuteHeld = true
-        nativeAudioIsolation = prepared.isolation
-        streamProxy?.stop(); streamProxy = prepared.proxy
-        prepared.adopted = true
-        isVideoReadyForDisplay = false; error = nil
-        configureItemFailureObservers(for: prepared.item, source: prepared.session.legacySource,
-            requestID: prepared.requestID)
-        transition(to: prepared.wantsPlayback ? .connecting(.native) : .paused(.native),
-            phase: prepared.wantsPlayback ? "Starting broadcast…" : "Paused")
-        applyViewingAudioState()
-        return true
-    }
-
-    func startNativeWatchTwoCandidate(_ prepared: PreparedNativeWatchTwoPlayback) {
-        guard nativeWatchTwoPreparationIsCurrent(prepared), prepared.adopted,
-              prepared.webRetired, !prepared.started else { return }
-        prepared.started = true
-        guard prepared.wantsPlayback else { return } // Never probe a deliberately paused pane.
-        let request = loadRequestID, source = prepared.session.legacySource, intent = audioIntentID
-        initialNativeStartupRequestID = request
-        loadTask = Task { [weak self] in
-            guard let self else { return }
-            defer { if initialNativeStartupRequestID == request { initialNativeStartupRequestID = nil } }
-            guard nativeWatchTwoPreparationIsCurrent(prepared),
-                  await requestPlaybackStart(player: prepared.player) else { return }
-            let deadline = NativePlaybackStartupDeadline(startedAt: timing.monotonicNow())
-            let result = await waitForInitialNativeStartup(player: prepared.player, item: prepared.item,
-                source: source, requestID: request, intentID: intent, deadline: deadline)
-            guard nativeWatchTwoPreparationIsCurrent(prepared), userWantsPlayback else { return }
-            switch result {
-            case .started: handleSuccessfulStartup(source: source, expectedRequestID: request)
-            case .failed: handleNativeItemFailure(prepared.item, source: source, requestID: request, trigger: .itemStatusFailed)
-            case .timedOut:
-                handleSourceStartupFailure(source, reason: "Native pair startup timeout.", expectedRequestID: request,
-                    diagnosticDetails: nativeStartupTimeoutDetails(player: prepared.player, item: prepared.item, deadline: deadline))
-            case .abandoned, .invalidTiming, .waiting: break
-            }
-        }
-    }
-
-    func releaseNativeWatchTwoAudioHold(_ prepared: PreparedNativeWatchTwoPlayback) {
-        guard nativeWatchTwoPreparationIsCurrent(prepared), prepared.adopted, prepared.started else { return }
-        nativeWatchTwoAudioHeld = false
-    }
-
-    func discardNativeWatchTwoCandidate(_ prepared: PreparedNativeWatchTwoPlayback) {
-        guard !prepared.adopted, !prepared.discarded else { return }
-        prepared.discarded = true
-        prepared.player.pause(); prepared.proxy?.stop()
-        rememberNativeAudioRetirement(prepared.isolation.request(disconnected: true))
-        if preparedNativeWatchTwo === prepared {
-            preparedNativeWatchTwo = nil
-            if prepared.retirementBegan, loadRequestID == prepared.requestID, !isPlaybackSessionRetired {
-                errorTitle = "Player Switch Interrupted"
-                error = "Choose a source to retry, or watch one match."
-                transition(to: .failed, phase: "Choose Broadcast Source")
-            }
-        }
     }
 
     private func beginNativePlaybackTransfer(
@@ -4076,10 +3747,6 @@ final class LivePlayerViewModel {
         if isCurrent(PlaybackAttempt(requestID: requestID, sourceID: sourceID)) {
             retiredWebOwner = (sourceID, requestID)
         }
-        if let prepared = preparedNativeWatchTwo, prepared.retirementBegan,
-           prepared.sourceID == sourceID, prepared.requestID == requestID {
-            prepared.webRetired = true
-        }
         // This callback is issued only after the exact old WK public teardown
         // suspension ACK. A removed pane must not leave the next owner waiting
         // on fields that cleanup has already replaced.
@@ -4205,10 +3872,6 @@ final class LivePlayerViewModel {
 
     func selectSourceManually(at index: Int) {
         guard sessions.indices.contains(index) else { return }
-        guard admits(sessions[index]) else {
-            showPlaybackBanner("Choose a source using the same player, or watch this match on its own.")
-            return
-        }
         if usesSingleStreamRanking, viewingPlaybackContext == .single, !event.isBroadcastChannel {
             let selected = sessions[index]
             guard let current = LivePlaybackSourcePolicy.currentMatchForSwitch(event, in: MatchListViewModel.shared.playbackAdmissionCatalog),
@@ -4425,7 +4088,7 @@ final class LivePlayerViewModel {
         stopPlaybackWatchdog(); isPlaybackWatchdogArmed = true
         let requestID = loadRequestID
         let observationPlayer = player, observationItem = player?.currentItem
-        let observationIntent = nativeWatchTwoIntentID
+        let observationIntent = playbackIntentRevision
         var observationSecond = observationPlayer?.currentTime().seconds
         playbackWatchdogTask = Task {
             while !Task.isCancelled {
@@ -4706,7 +4369,7 @@ final class LivePlayerViewModel {
                 return chosen
             }
             let remaining = sessions.filter {
-                admits($0) && $0.id != source.id && !failedSourceIDs.contains($0.id)
+                $0.id != source.id && !failedSourceIDs.contains($0.id)
                     && (eligibleIDs?.contains($0.id) ?? true)
             }
             let preferred = LiveSourceHealthStore.rankedSingleStreamSessions(remaining, matchScope: matchEvidenceScope,
@@ -4716,7 +4379,7 @@ final class LivePlayerViewModel {
             return LivePlaybackSourcePolicy.singleStreamRecoveryOrder(ranked: ranked, attempted: attempted, after: source).first
         }
         return LivePlaybackSourcePolicy.nextAutomaticSource(
-            in: sessions.filter(admits).map(\.legacySource),
+            in: sessions.map(\.legacySource),
             after: source,
             excluding: failedSourceIDs,
             contextKey: LiveSourceHealthStore.contextKey(for: event)
@@ -4943,10 +4606,6 @@ final class LivePlayerViewModel {
         descriptorNegotiationRequestID = nil
         pausedDescriptorNegotiationSourceID = nil
         nativeForegroundObservationLease = nil
-        if let preparedNativeWatchTwo { discardNativeWatchTwoCandidate(preparedNativeWatchTwo) }
-        preparedNativeWatchTwo = nil
-        nativeWatchTwoDelivery = nil
-        nativeWatchTwoAudioHeld = false
         webAudioRevocationID = nil
         cancelNativePlaybackTransfer()
         retireNativeFullscreenForTransportChange()

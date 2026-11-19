@@ -340,9 +340,9 @@ struct ArenaDiscoveryView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
         }
-        .environment(\.fottyStreamLookupBusy, isFindingStream || (!viewing.isTwo && viewing.resolutionMessage != nil))
-        .environment(\.fottySceneOwnsSingleWatch, !viewing.isTwo)
-        .environment(\.fottyPendingWatchEventID, !viewing.isTwo ? viewing.pendingSingleEvent?.id : nil)
+        .environment(\.fottyStreamLookupBusy, isFindingStream || viewing.resolutionMessage != nil)
+        .environment(\.fottySceneOwnsSingleWatch, true)
+        .environment(\.fottyPendingWatchEventID, viewing.pendingSingleEvent?.id)
         .preference(key: FixturePreflightActivityPreferenceKey.self, value: isActive && isFindingStream)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let pending = viewing.pendingSingleEvent, let message = viewing.resolutionMessage {
@@ -760,7 +760,7 @@ struct ArenaDiscoveryView: View {
                     selectedDetailsIsPlanningOnly = row.isPlanningOnly
                     selectedCatalogEvent = event
                 } },
-                onCheckStreams: row.isInCurrentSchedule && !row.isPlanningOnly && !viewing.isTwo ? { checkSources(for: event) } : nil,
+                onCheckStreams: row.isInCurrentSchedule && !row.isPlanningOnly ? { checkSources(for: event) } : nil,
                 isSaved: row.savedRecord != nil,
                 onSaveTap: { toggleSavedMatch(event) },
                 grouped: true
@@ -1128,9 +1128,9 @@ struct ArenaDiscoveryView: View {
     }
 
     private func optionalSourceCheckAction(for event: EventReference) -> (() -> Void)? {
-        guard isActive, scenePhase == .active, !isFindingStream, !viewing.isTwo else { return nil }
+        guard isActive, scenePhase == .active, !isFindingStream else { return nil }
         return {
-            guard isActive, scenePhase == .active, !isFindingStream, !viewing.isTwo else { return }
+            guard isActive, scenePhase == .active, !isFindingStream else { return }
             pendingDetailsWatch = nil
             pendingDetailsSourceCheck = event
             selectedCatalogEvent = nil
@@ -1146,28 +1146,21 @@ struct ArenaDiscoveryView: View {
         }
         guard let event = pendingDetailsWatch else { return }
         pendingDetailsWatch = nil
-        if !viewing.isTwo {
-            guard isActive else { return }
-            watchEvent(event)
-            return
-        }
-        guard isActive,
-              let action = CurrentEventBroadcastPolicy.action(for: event, in: matchListViewModel.playbackAdmissionCatalog,
-                status: MatchStartPolicy.currentStatus(for: event, scores: liveScoreService)) else { return }
-        watchEvent(action.event)
+        guard isActive else { return }
+        watchEvent(event)
     }
 
     private func checkSources(for event: EventReference) {
-        guard isActive, scenePhase == .active, !isFindingStream, !viewing.isTwo else { return }
+        guard isActive, scenePhase == .active, !isFindingStream else { return }
         viewing.checkOptionalSources(for: event, discover: { request, publish in
             await LiveStreamResolver.shared.resolvePlayback(for: request, onChoices: publish)
         }) { requested, phase in
             let sceneOwned = phase == .completion && viewing.hasMountedOptionalSourceLookup(for: requested)
-            guard !Task.isCancelled, !viewing.isTwo,
+            guard !Task.isCancelled,
                   sceneOwned || (isActive && scenePhase == .active && !isFindingStream) else { return nil }
             let codes = Set(await StreamPluginRegistry.shared.enabledProviderCodes())
             let stillSceneOwned = phase == .completion && viewing.hasMountedOptionalSourceLookup(for: requested)
-            guard !Task.isCancelled, !viewing.isTwo,
+            guard !Task.isCancelled,
                   stillSceneOwned || (isActive && scenePhase == .active && !isFindingStream) else { return nil }
             let now = Date()
             return OptionalSourceLookupPolicy.event(for: requested,
@@ -1179,31 +1172,15 @@ struct ArenaDiscoveryView: View {
     private func watchEvent(_ event: AnalyticalDataEngine.EventReference) {
         pendingDetailsSourceCheck = nil
         viewing.cancelOptionalSourceLookup()
-        if !viewing.isTwo {
-            guard !isFindingStream else { return }
-            HapticManager.impact(.light)
-            MatchPlaybackFeedback.shared.attempting(event.id)
-            streamError = nil
-            viewing.watchSingle(event, admission: { requested in
-                guard isActive, scenePhase == .active, !isFindingStream else { return nil }
-                return CurrentEventBroadcastPolicy.action(for: requested, in: matchListViewModel.playbackAdmissionCatalog,
-                    status: MatchStartPolicy.currentStatus(for: requested, scores: liveScoreService))?.event
-            })
-            return
-        }
-        guard playbackTimingAllows(event) else { return }
-        guard !(isFindingStream && streamEvent?.id == event.id) else { return }
-        if viewing.reopenRetainedSingle(event: event, catalog: matchListViewModel.playbackCatalog,
-            status: MatchStartPolicy.currentStatus(for: event, scores: liveScoreService)) {
-            if isFindingStream { cancelStreamResolution() }
-            streamError = nil
-            HapticManager.impact(.light)
-            return
-        }
+        guard !isFindingStream else { return }
         HapticManager.impact(.light)
         MatchPlaybackFeedback.shared.attempting(event.id)
         streamError = nil
-        viewing.watchSingle(event)
+        viewing.watchSingle(event, admission: { requested in
+            guard isActive, scenePhase == .active, !isFindingStream else { return nil }
+            return CurrentEventBroadcastPolicy.action(for: requested, in: matchListViewModel.playbackAdmissionCatalog,
+                status: MatchStartPolicy.currentStatus(for: requested, scores: liveScoreService))?.event
+        })
     }
 
 

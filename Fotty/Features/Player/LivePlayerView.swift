@@ -735,7 +735,6 @@ struct LivePlayerView: View {
 
     let isSurfaceOnly: Bool
     let publishesLiveActivity: Bool
-    var usesManagedAudio = false
     var physicalMeasurementIdentifier = "native-playback-measurement"
     private let onClose: (() -> Void)?
     private var onRetryDiscovery: (() -> Void)? = nil
@@ -751,7 +750,7 @@ struct LivePlayerView: View {
         self.onClose = nil
     }
 
-    init(viewModel: LivePlayerViewModel, isSurfaceOnly: Bool, publishesLiveActivity: Bool, usesManagedAudio: Bool,
+    init(viewModel: LivePlayerViewModel, isSurfaceOnly: Bool, publishesLiveActivity: Bool,
          physicalMeasurementIdentifier: String = "native-playback-measurement",
          onRetryDiscovery: (() -> Void)? = nil,
          retryDiscoveryMessage: String? = nil,
@@ -760,7 +759,6 @@ struct LivePlayerView: View {
         self._viewModel = State(initialValue: viewModel)
         self.isSurfaceOnly = isSurfaceOnly
         self.publishesLiveActivity = publishesLiveActivity
-        self.usesManagedAudio = usesManagedAudio
         self.physicalMeasurementIdentifier = physicalMeasurementIdentifier
         self.onRetryDiscovery = onRetryDiscovery
         self.retryDiscoveryMessage = retryDiscoveryMessage
@@ -779,7 +777,7 @@ struct LivePlayerView: View {
     }
 
     private func signalPrivateSourceLoss(_ blocked: UUID) {
-        guard AppRuntime.privateOutageFixture == viewModel.event.id, !usesManagedAudio,
+        guard AppRuntime.privateOutageFixture == viewModel.event.id,
               viewModel.activeSource?.id == blocked, let item = viewModel.player?.currentItem,
               privateFailedAttempt != viewModel.loadRequestID else { return }
         privateFailedAttempt = viewModel.loadRequestID
@@ -806,13 +804,13 @@ struct LivePlayerView: View {
     private var sourceSelectorSheet: some View {
         let wrongMatchAction: ((UUID) -> Void)?
         let pictureBlockedAction: ((UUID) -> Void)?
-        if !AppRuntime.usesPrivateMatchSelection || usesManagedAudio || viewModel.event.isBroadcastChannel {
+        if !AppRuntime.usesPrivateMatchSelection || viewModel.event.isBroadcastChannel {
             wrongMatchAction = nil
         } else {
             let displayedAttempt = viewModel.loadRequestID
             wrongMatchAction = { sourceID in viewModel.reportWrongMatch(for: sourceID, expectedAttempt: displayedAttempt) }
         }
-        if !AppRuntime.usesPrivateMatchSelection || usesManagedAudio {
+        if !AppRuntime.usesPrivateMatchSelection {
             pictureBlockedAction = nil
         } else {
             let displayedAttempt = viewModel.loadRequestID
@@ -820,7 +818,7 @@ struct LivePlayerView: View {
         }
         let rightMatchAction: ((UUID) -> Void)?
         let rightMatchPresentation: (() -> LivePlayerViewModel.RightMatchPresentation)?
-        if !AppRuntime.usesPrivateMatchSelection || usesManagedAudio || viewModel.event.isBroadcastChannel {
+        if !AppRuntime.usesPrivateMatchSelection || viewModel.event.isBroadcastChannel {
             rightMatchAction = nil; rightMatchPresentation = nil
         } else if let sourceID = viewModel.activeSource?.id {
             let displayedAttempt = viewModel.loadRequestID
@@ -841,7 +839,7 @@ struct LivePlayerView: View {
             currentPlaybackHasError: viewModel.error != nil,
             currentPlaybackMode: viewModel.isUsingWebEmbed ? .webEmbed : .native,
             isCheckingAdditionalSources: viewModel.isCheckingAdditionalSources,
-            usesSinglePlayerPresentation: !usesManagedAudio,
+            usesSinglePlayerPresentation: true,
             viewingContext: viewModel.event.isBroadcastChannel ? .channel : .match,
             recommendedIndices: recommendedMatchIndices,
             onWrongMatch: wrongMatchAction,
@@ -890,7 +888,7 @@ struct LivePlayerView: View {
         .overlay(alignment: .bottomLeading) {
             // Affect only the selected delivery for the duration of this private drill;
             // an ordinary same-source retry cannot silently turn a continuing outage into a pass.
-            if !usesManagedAudio, viewModel.viewingPlaybackContext == .single,
+            if viewModel.viewingPlaybackContext == .single,
                AppRuntime.privateOutageFixture == viewModel.event.id {
                 Text("Recovery trace").font(.caption2)
                     .accessibilityIdentifier("private-recovery-trace")
@@ -1007,7 +1005,7 @@ struct LivePlayerView: View {
             if viewModel.shouldDisplayWebPlayback, let source = viewModel.activeSource {
                 let attemptID = viewModel.loadRequestID
                 let documentOwner = viewModel
-                let managesAudio = viewModel.shouldManageWebAudio(inWatchTwo: usesManagedAudio)
+                let managesAudio = viewModel.shouldManageWebAudio
                 LiveWebEmbedPlayerView(
                     url: source.url,
                     referer: source.headers["Referer"] ?? source.url.absoluteString,
@@ -1257,7 +1255,7 @@ struct LivePlayerView: View {
     }
 
     private var liveActivityMatchStatus: String {
-        if !usesManagedAudio, let status = CricketActivityPresentationPolicy.playerStatus(for: viewModel.event, at: Date()) {
+        if let status = CricketActivityPresentationPolicy.playerStatus(for: viewModel.event, at: Date()) {
             return status
         }
         if let score = scoreService.scoreForMatch(
@@ -1371,7 +1369,7 @@ struct LivePlayerView: View {
     }
 
     private var playerStatusText: String {
-        if !usesManagedAudio, let status = CricketActivityPresentationPolicy.playerStatus(for: viewModel.event, at: Date()) {
+        if let status = CricketActivityPresentationPolicy.playerStatus(for: viewModel.event, at: Date()) {
             return status
         }
         if let score = scoreService.scoreForMatch(
@@ -1396,7 +1394,7 @@ struct LivePlayerView: View {
     }
 
     private var recommendedMatchIndices: [Int]? {
-        guard AppRuntime.usesPrivateMatchSelection, !usesManagedAudio, !viewModel.event.isBroadcastChannel else { return nil }
+        guard AppRuntime.usesPrivateMatchSelection, !viewModel.event.isBroadcastChannel else { return nil }
         var failed = viewModel.failedSourceIDs
         if viewModel.error != nil, let active = viewModel.activeSession { failed.insert(active.id) }
         return BroadcastSourcePickerPolicy.recommendations(sessions: viewModel.sessions,
@@ -1443,7 +1441,7 @@ struct LivePlayerView: View {
                 if indices.isEmpty {
                     emptyBroadcastState
                 }
-                if !usesManagedAudio, !viewModel.event.isBroadcastChannel, indices.count < viewModel.sessions.count {
+                if !viewModel.event.isBroadcastChannel, indices.count < viewModel.sessions.count {
                     Button("Browse sources") { viewModel.showSourceSelector = true }
                         .frame(minHeight: 44)
                 }

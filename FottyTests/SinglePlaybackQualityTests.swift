@@ -246,33 +246,6 @@ final class SinglePlaybackQualityTests: XCTestCase {
         }
     }
 
-    func testLeavingSingleRestoresOriginalItemBeforePairedReuseAndLateInspectionCannotLeak() async throws {
-        let variants = ladder
-        let controller = SinglePlaybackQualityController(loadVariants: { _ in variants })
-        let model = model(controller: controller)
-        defer { model.cleanup() }
-        let item = item(), player = AVPlayer()
-        item.preferredPeakBitRate = 3_000_000
-        player.replaceCurrentItem(with: item)
-        model.player = player
-        try confirm(model)
-        await waitFor { model.canChooseSinglePlaybackQuality }
-        XCTAssertTrue(model.selectSinglePlaybackQuality(.dataSaver))
-        let request = model.loadRequestID
-
-        model.setViewingPlaybackContext(.watchTwo(engine: .native))
-
-        XCTAssertEqual(item.preferredPeakBitRate, 3_000_000, "Restore synchronously before a retained item enters paired mode")
-        XCTAssertEqual(item.preferredMaximumResolution, .zero)
-        XCTAssertEqual(controller.preference, .auto)
-        XCTAssertFalse(model.canChooseSinglePlaybackQuality)
-        XCTAssertFalse(model.selectSinglePlaybackQuality(.dataSaver))
-        XCTAssertTrue(model.player === player)
-        XCTAssertTrue(player.currentItem === item)
-        XCTAssertEqual(model.loadRequestID, request)
-        XCTAssertNil(model.loadTask)
-    }
-
     func testPairInitializerAndWebListedHDNeverInspectOrExposeNativeQuality() async throws {
         for web in [false, true] {
             var calls = 0

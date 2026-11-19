@@ -81,7 +81,6 @@ enum FixtureDateGrouper {
 
 enum HomeMatchPriority {
     static let startingSoonWindow: TimeInterval = 6 * 3600
-    static let multiViewPregameWindow: TimeInterval = 2 * 60
 
     @MainActor
     static func isLive(
@@ -120,20 +119,6 @@ enum HomeMatchPriority {
         let now = Date()
         return kickoff >= now.addingTimeInterval(-60)
             && kickoff <= now.addingTimeInterval(startingSoonWindow)
-    }
-
-    /// MultiView should be offered only when two broadcasts can reasonably be
-    /// expected to start now. Catalog sources can be published many hours in
-    /// advance, but their presence alone is not a promise that media is live.
-    @MainActor
-    static func isMultiViewTimingEligible(
-        _ event: AnalyticalDataEngine.EventReference,
-        scoreService: LiveScoreService,
-        now: Date = Date()
-    ) -> Bool {
-        if isLive(event, scoreService: scoreService, now: now) { return true }
-        guard let kickoff = event.kickoffDate else { return false }
-        return kickoff > now && kickoff <= now.addingTimeInterval(multiViewPregameWindow)
     }
 
     @MainActor

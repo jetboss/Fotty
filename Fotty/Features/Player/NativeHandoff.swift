@@ -1,30 +1,10 @@
 import AVFoundation
 
-// Web-to-native handoff and Watch Two support types (player shrink slice 6,
-// 9 Nov 2026). The two enums and `NativeHandoffCandidateDiagnostic` moved here
-// unchanged from `LivePlayerViewModel.swift`. The orchestration that uses them
-// stays in the view model: the transfer and Watch Two paths use 68 to 76 of
-// its members each, about half of them private, so they are not a clean
-// controller seam (see docs/PLAYER-SHRINK-PLAN.md).
-
-enum NativeWatchTwoPreflightStage: String {
-    case admission, proxy, validation, isolation, readiness, registration
-}
-
-enum NativeWatchTwoPreflightOutcome: String {
-    case notEligible = "not_eligible", unsupported = "unsupported", noCandidate = "no_candidate"
-    case staleCandidate = "stale_candidate", staleOwner = "stale_owner", cancelled
-    case proxyFailed = "proxy_failed", validationRejected = "validation_rejected"
-    case isolationFailed = "isolation_failed", readinessFailed = "readiness_failed"
-    case readinessTimeout = "readiness_timeout", registrationRejected = "registration_rejected", prepared
-
-    /// Receipt outcome for a preflight: a retained candidate succeeded; losing
-    /// ownership or cancellation is informational; anything else failed.
-    func qualityOutcome(retained: Bool) -> FottyQualityOutcome {
-        if retained { return .success }
-        return self == .cancelled || self == .staleOwner ? .info : .failure
-    }
-}
+// Web-to-native handoff support types (player shrink slice 6, 9 Nov 2026).
+// `NativeHandoffCandidateDiagnostic` moved here unchanged from
+// `LivePlayerViewModel.swift`; the orchestration that uses it stays in the view
+// model (see docs/PLAYER-SHRINK-PLAN.md). Watch Two's preflight types were
+// removed with Watch Two on 19 Nov 2026.
 
 /// Composition only: callers capture the exact candidate item and relay before
 /// retiring them. No active-player lookup, playback decision or invented cause.

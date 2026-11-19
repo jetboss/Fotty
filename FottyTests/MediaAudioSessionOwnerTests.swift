@@ -40,16 +40,14 @@ final class MediaAudioSessionOwnerTests: XCTestCase {
         XCTAssertEqual(evidence.values.count, MediaAudioSessionOwner.maximumDiagnosedActivations * 2)
     }
 
-    func testPreparationEvidenceKeepsPreAwaitRouteAndAudioContext() async throws {
+    func testPreparationEvidenceKeepsPreAwaitAudioContext() async throws {
         let delay = ControlledAudioPreparation()
         let (model, player) = try makeNativeModel(preparation: delay.wait)
         defer { model.cleanup(); delay.completeAll() }
-        model.setViewingDiagnosticRoute(.watchTwo)
         model.setViewingAudioEnabled(false)
         let request = model.loadRequestID
         let task = Task { await model.requestPlaybackStart(player: player) }
         await waitUntil("causal preparation started") { delay.pendingCount == 1 }
-        model.setViewingDiagnosticRoute(.single)
         model.setViewingAudioEnabled(true)
         delay.completeAll()
         let started = await task.value
@@ -58,7 +56,7 @@ final class MediaAudioSessionOwnerTests: XCTestCase {
             $0.name == "playback_causal_evidence" && $0.details["attempt_id"] == request.uuidString
         }
         XCTAssertEqual(records.count, 2)
-        XCTAssertTrue(records.allSatisfy { $0.details["route"] == "watch_two" && $0.details["audio_enabled"] == "false" })
+        XCTAssertTrue(records.allSatisfy { $0.details["route"] == "single" && $0.details["audio_enabled"] == "false" })
         XCTAssertEqual(records.first?.details["diagnostic_operation_id"], records.last?.details["diagnostic_operation_id"])
         XCTAssertTrue(records.allSatisfy { $0.details["diagnostic_purpose"] == "native_start" && $0.details["variant_key"] == nil })
     }
@@ -513,103 +511,6 @@ final class MediaAudioSessionOwnerTests: XCTestCase {
         XCTAssertEqual(player.playCount, 1)
         XCTAssertFalse(model.isLoading)
         XCTAssertTrue(model.failedSourceIDs.isEmpty)
-    }
-
-    func testMultiSuspendedNativeFirstStartClearsLoadingOnlyAfterPreparedForegroundResume() async {
-        let delay = ControlledAudioPreparation()
-        let player = AudioSpyPlayer()
-        let request = UUID(), source = UUID()
-        var intent = UUID(), foreground = true, userWantsPlayback = true
-        var isLoading = true, isPlaying = true, audioFocused = false
-        var appliedAudioFocus: Bool?
-        let currentIdentity = {
-            MediaAudioPlaybackIdentity(requestID: request, sourceID: source, intentID: intent,
-                                       player: player, item: nil)
-        }
-        let initialIdentity = currentIdentity()
-        let startup = Task {
-            await MediaAudioPlaybackGate.prepareNative(using: delay.wait, expected: initialIdentity,
-                currentIdentity: currentIdentity, playbackMayStart: { foreground && userWantsPlayback })
-        }
-        await waitUntil("Multi initial preparation started") { delay.pendingCount == 1 }
-        foreground = false
-        intent = UUID() // The actual panel's background boundary revokes this start.
-        isPlaying = false
-        delay.completeAll()
-        let startedInBackground = await startup.value
-        XCTAssertFalse(startedInBackground)
-        XCTAssertTrue(isLoading)
-        XCTAssertEqual(player.playCount, 0)
-
-        foreground = true
-        let resumedIdentity = currentIdentity()
-        let resumed = Task {
-            await MultiLiveNativeAudioResume.resume(using: delay.wait, expected: resumedIdentity,
-                currentIdentity: currentIdentity, playbackMayStart: { foreground && userWantsPlayback },
-                player: player,
-                isLoading: Binding(get: { isLoading }, set: { isLoading = $0 }),
-                isPlaying: Binding(get: { isPlaying }, set: { isPlaying = $0 }),
-                updateAudio: { appliedAudioFocus = audioFocused })
-        }
-        await waitUntil("Multi foreground preparation started") { delay.pendingCount == 1 }
-        XCTAssertTrue(isLoading)
-        XCTAssertFalse(isPlaying)
-        audioFocused = true
-        delay.completeAll()
-        let didResume = await resumed.value
-        XCTAssertTrue(didResume)
-        XCTAssertEqual(player.playCount, 1)
-        XCTAssertFalse(isLoading, "A canceled first-start task must not leave a permanent spinner")
-        XCTAssertTrue(isPlaying)
-        XCTAssertEqual(appliedAudioFocus, true, "Resume must apply current audio focus, not the captured pane")
-
-        // A new explicit pause during a later wait cannot publish playing or
-        // clear a new loading surface after its permission has been revoked.
-        isLoading = true
-        isPlaying = false
-        let paused = Task {
-            await MultiLiveNativeAudioResume.resume(using: delay.wait, expected: resumedIdentity,
-                currentIdentity: currentIdentity, playbackMayStart: { foreground && userWantsPlayback },
-                player: player,
-                isLoading: Binding(get: { isLoading }, set: { isLoading = $0 }),
-                isPlaying: Binding(get: { isPlaying }, set: { isPlaying = $0 }), updateAudio: {})
-        }
-        await waitUntil("Multi pending resume started") { delay.pendingCount == 1 }
-        userWantsPlayback = false
-        delay.completeAll()
-        let resumedAfterPause = await paused.value
-        XCTAssertFalse(resumedAfterPause)
-        XCTAssertEqual(player.playCount, 1)
-        XCTAssertTrue(isLoading)
-        XCTAssertFalse(isPlaying)
-    }
-
-    func testMultiTerminalErrorDeniesLateAudioResumeWithoutPublishingPlaying() async {
-        let delay = ControlledAudioPreparation()
-        let player = AudioSpyPlayer()
-        let identity = MediaAudioPlaybackIdentity(requestID: UUID(), sourceID: UUID(), intentID: UUID(),
-                                                  player: player, item: nil)
-        var terminalError: String?
-        var isLoading = true, isPlaying = false, appliedAudio = false
-        let task = Task {
-            await MultiLiveNativeAudioResume.resume(using: delay.wait, expected: identity,
-                currentIdentity: { identity }, playbackMayStart: { terminalError == nil }, player: player,
-                isLoading: Binding(get: { isLoading }, set: { isLoading = $0 }),
-                isPlaying: Binding(get: { isPlaying }, set: { isPlaying = $0 }),
-                updateAudio: { appliedAudio = true })
-        }
-        await waitUntil("Multi terminal test preparation started") { delay.pendingCount == 1 }
-        // The pane's terminal handler has published the error and ended loading;
-        // exact item/source identity alone cannot authorize the late completion.
-        terminalError = "This broadcast is unavailable"
-        isLoading = false
-        delay.completeAll()
-        let resumed = await task.value
-        XCTAssertFalse(resumed)
-        XCTAssertEqual(player.playCount, 0)
-        XCTAssertFalse(appliedAudio)
-        XCTAssertFalse(isLoading)
-        XCTAssertFalse(isPlaying)
     }
 
     func testColdSingleRemotePauseRevokesFirstActivationAndDuplicatePlayDoesNotForkIt() async throws {

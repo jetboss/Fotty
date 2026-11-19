@@ -116,8 +116,6 @@ final class SinglePlaybackFeedbackContextTests: XCTestCase {
         XCTAssertNil(SinglePlaybackFeedbackContext.make(model: shared))
         let single = model()
         defer { single.cleanup() }
-        single.setViewingPlaybackContext(.watchTwo(engine: .native))
-        XCTAssertNil(SinglePlaybackFeedbackContext.make(model: single))
         single.cleanup()
         XCTAssertNil(SinglePlaybackFeedbackContext.make(model: single))
     }

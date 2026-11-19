@@ -200,7 +200,7 @@ struct LiveEventCard: View {
             TeamBadgeWindow(teamName: name, badgeURL: crest, size: 27, glowEnabled: false, showsFrame: false)
             Text(MatchCardFormatting.denseTeamName(name))
                 // Active browsing/planning rows follow the approved quieter
-                // hierarchy. Passive/Watch Two cards retain their prior type.
+                // hierarchy. Passive cards retain their prior type.
                 .font(.system(size: onDetailsTap == nil ? teamFontSize : detailedTeamFontSize,
                               weight: .semibold))
                 .foregroundStyle(FottyTheme.textPrimary)

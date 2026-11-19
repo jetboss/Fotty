@@ -183,9 +183,6 @@ final class SingleRetryDiscoveryTests: XCTestCase {
         foreign.error = "Foreign failure"
         XCTAssertFalse(owner.retrySinglePlaybackDiscovery(for: foreign))
         active.error = "Failed"
-        active.setViewingPlaybackContext(.watchTwo(engine: .native))
-        XCTAssertFalse(owner.retrySinglePlaybackDiscovery(for: active))
-        active.setViewingPlaybackContext(.single)
         active.cleanup()
         XCTAssertFalse(owner.retrySinglePlaybackDiscovery(for: active))
         XCTAssertEqual(freshCalls, 0)

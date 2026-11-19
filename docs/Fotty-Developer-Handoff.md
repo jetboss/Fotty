@@ -6,8 +6,8 @@ planning and optional third-party playback of one match at a time. The FPL
 workspace was retired in 3.0 (build 332). Its UI, engines and tests were deleted
 from the tree on 17 November; Git history keeps them. Public FPL scores and
 `Core/Persistence/FPLBackupCompatibility.swift` remain so older saved data still
-reads. Two-match viewing (Watch Two) is parked: `MultiLivePlayerView.swift`
-still compiles, but it is not a supported feature.
+reads. Two-match viewing (Watch Two) was removed on 19 November 2026; Git
+history keeps it. The viewing coordinator and player now own one match only.
 
 The code is suitable for incremental improvement. Preserve the working product
 and its recognizable badges and sport artwork. Establish the source being
