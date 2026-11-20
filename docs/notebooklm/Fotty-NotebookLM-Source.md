@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-20T23:09:04.511378+00:00
-Source digest: 6e91114e633ae32e81fa76ae72db8b6b853ba988c448a9381dfde2a2f842e73b
+Generated: 2026-11-20T23:30:46.388221+00:00
+Source digest: 0b1ae25dbf31f2ef6f5ca7d8c35148ddbc21816de958057404f6d4b0b05e0b1f
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -881,6 +881,24 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-20 — Search from Matchday; two review items left for the owner
+
+Matchday's header gains a Search button (`matchday-search`). It asks
+`MatchNavigationStore.openSearch()`; the app switches to Home, which opens its
+existing Search sheet once active. Search, its Watch/details/source-check
+actions and its data stay owned by Home, so nothing is duplicated. TV keeps its
+own channel search. A system Search tab was not used because it would need a
+second copy of Home's Watch admission and source-check code.
+
+Not done, owner decision needed: (1) moving the notification Match Hub's Watch
+onto the shared coordinator would change how that match is identified for
+Watch (it builds its request from official fixture data, not the schedule);
+(2) folding Matchday's "Awaiting confirmation" and "Time to be confirmed" into
+"Later" would blur confirmed vs unconfirmed fixtures, which the UI standard
+keeps distinct. Also corrected the 20 Nov UI review: real Home already lists
+live matches and Up next above the sport grid; the "tiles first" images were
+a visual-test composition, not Home.
 
 ## 2026-11-20 — Source rows say how each source did for this match
 
