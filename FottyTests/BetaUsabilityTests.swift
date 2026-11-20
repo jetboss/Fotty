@@ -657,6 +657,26 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertTrue(dashboard.contains("accessibilityIdentifier(\"home-search\")"))
         XCTAssertTrue(search.contains("let discovery: HomeSportsDiscovery"))
         XCTAssertFalse(search.contains("AnalyticalDataEngine.allLiveEvents"))
+
+        // Matchday reaches the same Home-owned Search; it never builds a second one.
+        let matchday = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Social/ArenaDiscoveryView.swift"),
+                                  encoding: .utf8)
+        XCTAssertTrue(matchday.contains("accessibilityIdentifier(\"matchday-search\")"))
+        XCTAssertTrue(matchday.contains("navigation.openSearch()"))
+        XCTAssertFalse(matchday.contains("SearchView("))
+        XCTAssertTrue(dashboard.contains("isActive && navigation.pendingSearch"))
+    }
+
+    @MainActor
+    func testSearchRequestFromAnotherTabIsOneShot() {
+        let store = MatchNavigationStore.shared
+        let (fpl, search) = (store.pendingFPL, store.pendingSearch)
+        defer { store.pendingFPL = fpl; store.pendingSearch = search }
+        store.pendingFPL = true
+        store.pendingSearch = false
+        store.openSearch()
+        XCTAssertTrue(store.pendingSearch)
+        XCTAssertFalse(store.pendingFPL, "Opening Search replaces an older retired-FPL request")
     }
 
     @MainActor

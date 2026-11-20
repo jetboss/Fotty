@@ -1,3 +1,21 @@
+## 2026-11-20 — Search from Matchday; two review items left for the owner
+
+Matchday's header gains a Search button (`matchday-search`). It asks
+`MatchNavigationStore.openSearch()`; the app switches to Home, which opens its
+existing Search sheet once active. Search, its Watch/details/source-check
+actions and its data stay owned by Home, so nothing is duplicated. TV keeps its
+own channel search. A system Search tab was not used because it would need a
+second copy of Home's Watch admission and source-check code.
+
+Not done, owner decision needed: (1) moving the notification Match Hub's Watch
+onto the shared coordinator would change how that match is identified for
+Watch (it builds its request from official fixture data, not the schedule);
+(2) folding Matchday's "Awaiting confirmation" and "Time to be confirmed" into
+"Later" would blur confirmed vs unconfirmed fixtures, which the UI standard
+keeps distinct. Also corrected the 20 Nov UI review: real Home already lists
+live matches and Up next above the sport grid; the "tiles first" images were
+a visual-test composition, not Home.
+
 ## 2026-11-20 — Source rows say how each source did for this match
 
 Owner asked to make the player's Sources sheet easier to choose from. Each row

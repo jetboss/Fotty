@@ -67,6 +67,8 @@ final class MatchNavigationStore {
     var pendingMatchID: String?
     var pendingReminderID: String?
     var pendingFPL = false
+    /// Search lives on Home; other tabs ask for it here and Home opens it.
+    var pendingSearch = false
     private(set) var activeLivePlayerMatchID: String?
 
     private init() {}
@@ -84,6 +86,11 @@ final class MatchNavigationStore {
         pendingFPL = false
         pendingMatchID = nil
         pendingReminderID = id
+    }
+
+    func openSearch() {
+        pendingFPL = false
+        pendingSearch = true
     }
 
     func openFPL() {

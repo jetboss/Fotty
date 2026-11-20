@@ -29,6 +29,7 @@ struct SportsDashboardView: View {
     @State private var showsAllSports = false
     @State private var allSportsAppliesHomeInterests = true
     @State private var showsSearch = false
+    @State private var navigation = MatchNavigationStore.shared
     @State private var showsInterestEditor = false
     @State private var showsClubPicker = false
     @State private var homeResultsRequest = 0
@@ -219,6 +220,11 @@ struct SportsDashboardView: View {
             viewing.cancelPendingSingleDiscovery()
             pendingDetailsSourceCheck = nil
             viewing.cancelOptionalSourceLookup()
+        }
+        .onChange(of: isActive && navigation.pendingSearch, initial: true) { _, ready in
+            guard ready else { return }
+            navigation.pendingSearch = false
+            presentModal { showsSearch = true }
         }
         .task(id: catalogProjectionKey) {
             await rebuildCatalogProjection()

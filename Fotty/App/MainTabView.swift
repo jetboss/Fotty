@@ -129,6 +129,10 @@ struct MainTabView: View {
         .onChange(of: matchNavigationStore.pendingFPL) { _, pending in
             if pending { openPendingFPLDestination() }
         }
+        .onChange(of: matchNavigationStore.pendingSearch) { _, pending in
+            // Home owns Search and its Watch/details actions; it opens the sheet once active.
+            if pending { selectedTab = .home }
+        }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name("tabBarVisibilityChanged"))) { notification in
             if let isVisible = notification.userInfo?["isVisible"] as? Bool {
                 withAnimation(reduceMotion ? nil : FottyTheme.springSnappy) {

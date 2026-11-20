@@ -464,6 +464,19 @@ struct ArenaDiscoveryView: View {
                 .accessibilityLabel("Jump to a Matchday section")
                 .accessibilityIdentifier("matchday-day-jump")
             }
+            Button { navigation.openSearch() } label: {
+                Image(systemName: "magnifyingglass")
+                    .font(.fottyScaled(size: 15, weight: .bold))
+                    .foregroundStyle(FottyTheme.textPrimary)
+                    .frame(width: 44, height: 44)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay { Circle().strokeBorder(FottyTheme.borderStrong, lineWidth: 0.5) }
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusFull))
+            .accessibilityLabel("Search sports")
+            .accessibilityHint("Opens Search on Home for every sport, team, league, match and channel")
+            .accessibilityIdentifier("matchday-search")
             Button(action: onBrowseHome) {
                 Text("Browse")
                     .font(FottyTheme.typeAction)
