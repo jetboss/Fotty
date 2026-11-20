@@ -389,6 +389,82 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         }
     }
 
+    func testBrowsingDiscoveryFailureIsShownInlineWithItsMatchAndActions() async throws {
+        let match = event("inline-discovery-failure", home: "Arsenal", away: "Spurs",
+            date: Int64(Date().timeIntervalSince1970) - 60, competition: "premier-league")
+        for (category, retryable) in [(StreamFailureCategory.providerTimeout, true), (.noProviderAvailable, false)] {
+            let factory = ModelFactory()
+            let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+                discoverSinglePlayback: { _, _ in
+                    self.discoveryFailure(for: match, category: category, retryable: retryable)
+                }, currentSingleEvent: { $0 }, catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
+            defer { owner.stop() }
+            owner.watchSingle(match)
+            await waitForSourceCheck { owner.singleDiscoveryRecovery != nil }
+
+            let failure = try XCTUnwrap(owner.inlineSingleDiscoveryFailure, "\(category)")
+            XCTAssertEqual(failure.event.id, match.id)
+            XCTAssertEqual(failure.message, owner.resolutionError)
+            XCTAssertEqual(failure.canRetry, retryable)
+            XCTAssertEqual(failure.canManageSources, category == .noProviderAvailable)
+
+            if failure.canManageSources {
+                owner.manageInlineDiscoverySources()
+                XCTAssertTrue(owner.showsSourceSettings)
+                XCTAssertNil(owner.inlineSingleDiscoveryFailure)
+                XCTAssertNil(owner.resolutionError)
+            } else {
+                owner.dismissInlineDiscoveryFailure()
+                XCTAssertNil(owner.inlineSingleDiscoveryFailure)
+                XCTAssertNil(owner.resolutionError)
+                XCTAssertFalse(owner.showsSourceSettings)
+            }
+        }
+    }
+
+    func testInlineDiscoveryFailureNeverReturnsAsAnAlertOverTheReopenedPlayer() async throws {
+        let factory = ModelFactory()
+        let match = event("inline-under-mini-player", date: Int64(Date().timeIntervalSince1970) - 60)
+        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+            discoverSinglePlayback: { _, _ in
+                self.discoveryFailure(for: match, category: .providerTimeout, retryable: true)
+            }, currentSingleEvent: { $0 }, catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
+        defer { owner.stop() }
+        let retained = event("inline-retained")
+        owner.open(event: retained, sessions: [session(for: retained)])
+        owner.minimize()
+        owner.watchSingle(match)
+        await waitForSourceCheck { owner.singleDiscoveryRecovery != nil }
+        XCTAssertNotNil(owner.inlineSingleDiscoveryFailure, "Behind the mini-player the tab owns the failure")
+
+        owner.expand()
+
+        XCTAssertTrue(owner.expanded)
+        XCTAssertNil(owner.resolutionError, "Expanding must not turn the browsing failure into an alert")
+        XCTAssertNil(owner.inlineSingleDiscoveryFailure)
+        XCTAssertEqual(owner.primary?.event.id, retained.id)
+    }
+
+    func testDiscoveryFailureBehindAnExpandedPlayerKeepsTheShellAlert() async throws {
+        let factory = ModelFactory()
+        let match = event("expanded-alert-failure", date: Int64(Date().timeIntervalSince1970) - 60)
+        let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
+            discoverSinglePlayback: { _, _ in
+                self.discoveryFailure(for: match, category: .providerTimeout, retryable: true)
+            }, currentSingleEvent: { $0 }, catalogEvent: { $0.preferredEvent }, cancelPlayback: { _ in })
+        defer { owner.stop() }
+        let retained = event("expanded-retained")
+        owner.open(event: retained, sessions: [session(for: retained)])
+        XCTAssertTrue(owner.expanded)
+        owner.watchSingle(match)
+        await waitForSourceCheck { owner.singleDiscoveryRecovery != nil }
+
+        XCTAssertNotNil(owner.resolutionError)
+        XCTAssertNil(owner.inlineSingleDiscoveryFailure, "No tab is visible; the shell alert remains the owner")
+        owner.dismissInlineDiscoveryFailure()
+        XCTAssertNotNil(owner.resolutionError, "Inline dismissal must not consume an alert-owned failure")
+    }
+
     func testCancelledLateAndMountedSingleFailuresNeverAttachRecoveryAlert() async throws {
         for action in ["cancel", "mounted", "navigation", "duplicate", "user", "background"] {
             let factory = ModelFactory(), gate = SingleDiscoveryGate()

@@ -38,7 +38,6 @@ struct SportsDashboardView: View {
     @State private var streamSessions: [StreamSession] = []
     @State private var streamEvent: AnalyticalDataEngine.EventReference? = nil
     @State private var isFindingStream = false
-    @State private var streamError: String? = nil
     @State private var streamStatusMessage = "Looking for a playable stream..."
     @State private var streamTask: Task<Void, Never>?
     @State private var streamRequestID = UUID()
@@ -144,7 +143,7 @@ struct SportsDashboardView: View {
             if let pending = viewing.pendingSingleEvent, let message = viewing.resolutionMessage {
                 StreamResolutionPanel(sportCategory: pending.normalizedCategory,
                     competition: SportMotionContext.competition(for: pending), statusMessage: message,
-                    subtitle: pending.displayTitle, isMultiStream: false, multiTitles: [],
+                    subtitle: pending.displayTitle,
                     onCancel: { viewing.cancelPendingSingleDiscovery() })
             } else if isFindingAnyStream {
                 StreamResolutionPanel(
@@ -152,19 +151,18 @@ struct SportsDashboardView: View {
                     competition: SportMotionContext.competition(for: streamEvent),
                     statusMessage: streamStatusMessage,
                     subtitle: streamEvent.map { eventTitle($0) },
-                    isMultiStream: false,
-                    multiTitles: [],
                     onCancel: cancelCurrentResolution
                 )
+            } else if let failure = viewing.inlineSingleDiscoveryFailure {
+                WatchFailurePanel(matchTitle: failure.event.displayTitle, message: failure.message,
+                    onRetry: failure.canRetry ? { viewing.retrySingleDiscovery() } : nil,
+                    onManageSources: failure.canManageSources ? { viewing.manageInlineDiscoverySources() } : nil,
+                    onDetails: failure.event.isBroadcastChannel ? nil : {
+                        viewing.dismissInlineDiscoveryFailure()
+                        presentModal { selectedCatalogEvent = failure.event }
+                    },
+                    onDismiss: { viewing.dismissInlineDiscoveryFailure() })
             }
-        }
-        .alert("Stream Not Available", isPresented: .init(
-            get: { streamError != nil },
-            set: { if !$0 { streamError = nil } }
-        )) {
-            Button("OK") { streamError = nil }
-        } message: {
-            Text(streamError ?? "")
         }
         .alert("Couldn't update My Matchday", isPresented: .init(
             get: { savedMatchError != nil },
@@ -1905,7 +1903,6 @@ struct SportsDashboardView: View {
         guard !isFindingAnyStream, selectedHighlightsMatch == nil else { return }
         HapticManager.impact(.light)
         MatchPlaybackFeedback.shared.attempting(event.id)
-        streamError = nil
         viewing.watchSingle(event, admission: { requested in
             let now = Date()
             discoveryDate = now
@@ -1925,7 +1922,6 @@ struct SportsDashboardView: View {
         guard selectedHighlightsMatch == nil else { return }
         HapticManager.impact(.light)
         MatchPlaybackFeedback.shared.attempting(event.id)
-        streamError = nil
         viewing.watchSingle(event, admission: { requested in
             guard isActive, scenePhase == .active, !isFindingAnyStream, selectedHighlightsMatch == nil else { return nil }
             return CurrentEventBroadcastPolicy.action(for: requested,

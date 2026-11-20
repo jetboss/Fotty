@@ -97,8 +97,6 @@ struct MatchHubView: View {
                     competition: SportMotionContext.competition(for: viewModel.catalogEvent ?? viewModel.playerEvent),
                     statusMessage: viewModel.streamStatusMessage,
                     subtitle: viewModel.playerEvent.map { "\($0.homeName) vs \($0.awayName)" },
-                    isMultiStream: false,
-                    multiTitles: [],
                     onCancel: {
                         viewModel.cancelStreamLookup()
                     }
@@ -143,7 +141,7 @@ struct MatchHubView: View {
                 if showModalDismissButton { dismiss() }
             }
         }
-        .alert("Broadcast unavailable", isPresented: Binding(get: { viewModel.streamError != nil }, set: { _ in viewModel.streamError = nil })) {
+        .alert("Broadcast not ready", isPresented: Binding(get: { viewModel.streamError != nil }, set: { _ in viewModel.streamError = nil })) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(viewModel.streamError ?? "Unknown error")

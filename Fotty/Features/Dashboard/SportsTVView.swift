@@ -114,8 +114,13 @@ struct SportsTVView: View {
                 if let pending = viewing.pendingSingleEvent, let message = viewing.resolutionMessage {
                     StreamResolutionPanel(sportCategory: pending.normalizedCategory,
                         competition: SportMotionContext.competition(for: pending), statusMessage: message,
-                        subtitle: pending.displayTitle, isMultiStream: false, multiTitles: [],
+                        subtitle: pending.displayTitle,
                         onCancel: { viewing.cancelPendingSingleDiscovery() })
+                } else if let failure = viewing.inlineSingleDiscoveryFailure {
+                    WatchFailurePanel(matchTitle: failure.event.displayTitle, message: failure.message,
+                        onRetry: failure.canRetry ? { viewing.retrySingleDiscovery() } : nil,
+                        onManageSources: failure.canManageSources ? { viewing.manageInlineDiscoverySources() } : nil,
+                        onDismiss: { viewing.dismissInlineDiscoveryFailure() })
                 }
             }
             .sheet(item: guideSelection) { selected in

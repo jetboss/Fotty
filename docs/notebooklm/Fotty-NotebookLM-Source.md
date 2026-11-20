@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-15T22:01:48.110793+00:00
-Source digest: 48fa9c61c82124cfeae853b89bc9b1de5d41f0846e282cf048c205911a317bc9
+Generated: 2026-11-20T18:43:10.587164+00:00
+Source digest: 48b8135def5ba1e918fc10d007410b0257f432168d7c5022345de18926d290eb
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -31,7 +31,7 @@ Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retirement and Watch Two parking are now owner-approved; preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (338): Internal/Testing, Fotty Internal Smoke (previous 332).
+FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (338): Internal/Testing, Fotty Internal Smoke (previous 332).
 Receipt: releases/Fotty-3.0.0-338.md.
 
 ## Discovery and retained follow-up
@@ -881,6 +881,61 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-20 — A failed Watch stays on screen as an inline panel
+
+Owner asked to fix the Watch "dead end" after a UI review. When a lookup
+started from Home, Matchday or TV finds nothing, the modal "Broadcast not
+ready" alert is replaced by `WatchFailurePanel` in the same bottom spot as the
+"looking" panel. It names the match, keeps the provider's reason and offers
+Try again (when retryable), Sources (no provider enabled), Match details and
+Dismiss. VoiceOver announces it, as the alert did.
+
+The actions call the existing coordinator owners (`retrySingleDiscovery`,
+`manageSingleDiscoverySources`); ranking, admission, retry fences and backup
+order are unchanged. Failures behind an expanded player and non-discovery
+errors keep the shell alert. Expanding the mini-player clears an inline
+failure so it never reappears as an alert. Also removed Home's and Matchday's
+unreachable "Stream Not Available" alerts, the lookup panel's leftover
+two-match parameters, and renamed Match Hub's alert to "Broadcast not ready".
+Not yet checked on a device.
+
+## 2026-11-19 — Delete Watch Two; rebuild two-match viewing later
+
+Owner chose "Delete, rebuild later" over keeping the parked code. Removed the
+two-match view (`MultiLivePlayerView`), Home's "Watch two" selection mode, the
+viewing coordinator's pair API (`openMulti`, picker, swap, replacement, native
+pair transfer) and the player's native pair preflight/adoption. About 3,780
+app lines and 3,830 test lines (net) are gone; Git history keeps them.
+
+Single-match behaviour is unchanged. `ViewingPlaybackContext` keeps only
+`.single`, so existing single-ownership fences are untouched; collapsing it
+belongs with the player split. The pair intent token is now
+`playbackIntentRevision` (same semantics). Pair-only tests were deleted;
+mixed tests keep their single cases. Two single-match tests now cover the
+audio handover wait that only pair tests exercised. Full CI: 2,633 passed,
+12 existing skips, 0 failures. No device run.
+
+## 2026-11-18 — Post-3.0 cleanup: FPL sources, privacy manifest, registry cache
+
+Owner-approved maintenance after reviewing an outside "2x better" plan with
+Codex. No ranking, admission or user-visible behaviour changed.
+
+- `20c299c`: deleted the 45 Swift files `project.yml` already excluded after the
+  FPL retirement, their excludes and orphaned project entries. Compiled
+  membership is unchanged. README and developer handoff now describe 3.0.
+- `a601e16` + `ed302a9`: the app manifest now declares app-group UserDefaults
+  `1C8F.1`, SystemBootTime `35F9.1` (`systemUptime`) and FileTimestamp `C617.1`
+  (Caches pruning); the widget extension has its own manifest (`1C8F.1`). The
+  first commit broke a test pinning the old incomplete list; the test now
+  guards the complete declarations.
+- `b84c2bc`: the broadcast registry snapshot (1.6 MiB observed, 4 MiB cap)
+  moved from UserDefaults to `Caches/BroadcastRegistry/accepted-v1.json`,
+  atomically replaced and read off the main actor. The legacy preferences
+  copy migrates unchanged and is removed only after a successful write.
+  Purged or corrupt files behave as a cold start. Full CI: 2,750 passed,
+  12 existing skips, 0 failures. Launch-time benefit is not yet measured on
+  a device.
 
 ## 2026-11-15 — Release 3.0.0 (338) to internal TestFlight; narrow release gates with proof
 
@@ -11552,7 +11607,7 @@ Use this when touching player startup, AVPlayer, WKWebView embeds, stream select
   permission for arbitrary origins/paths/headers. Typed notWebReady is a browser
   hint, not a native-HLS veto. Physical qualification is recorded separately in
   testing/fotty203-as-football-2026-10-31/.
-- Main playback and MultiView share typed endpoint routing. Never infer a web
+- Playback uses typed endpoint routing. Never infer a web
   wrapper's media type from a nested query URL or send an explicit HLS endpoint
   to WebKit as recovery. Preserve source attribution through native handoff.
 - Native validation must recheck source/attempt/cancellation after awaiting.
@@ -11577,12 +11632,7 @@ Use this when touching player startup, AVPlayer, WKWebView embeds, stream select
 - Public-address DNS preflight is not address pinning. Do not describe it as
   complete DNS-rebinding protection or weaken transport checks for compatibility.
 - Block provider popup windows, top-level click-throughs, `embed.st/ad.html`, and known nuisance hosts without removing generic overlays or player controls.
-- In the standard web player, provider controls are canonical. Never place a parent tap gesture above the WKWebView, add a duplicate unmute button, remove its mute prompt, or continuously force mute/volume state. App-controlled web mute synchronization is limited to MultiView focus and explicitly muted diagnostics.
-- In MultiView, keep source choice and audio focus as explicit 44-point controls.
-  Do not add a whole-panel tap gesture above a web player or show Fotty Play/Pause
-  for a web source that only the provider can control. Native panels may retain
-  their real AVPlayer transport button. Positive source health may rank candidates,
-  but absence of prior success must not hide an otherwise eligible manual pair.
+- In the standard web player, provider controls are canonical. Never place a parent tap gesture above the WKWebView, add a duplicate unmute button, remove its mute prompt, or continuously force mute/volume state. App-controlled web mute synchronization is limited to the audio-focus handover between viewing owners and explicitly muted diagnostics.
 
 ## Common Failure Points
 

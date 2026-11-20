@@ -9,7 +9,6 @@ struct ViewingSessionShell<Content: View>: View {
     @State private var currentSlotIDs: Set<UUID> = []
     @State private var expandedSizes: [UUID: CGSize] = [:]
     @State private var contentViewport = CGRect.zero
-    @State private var showsPlaybackSourceSettings = false
 
     var body: some View {
         GeometryReader { rootGeometry in
@@ -70,7 +69,9 @@ struct ViewingSessionShell<Content: View>: View {
         }
         .background(ViewingSceneLeaseMarker(onSceneDisconnect: { viewing.stop() })
             .frame(width: 0, height: 0).allowsHitTesting(false).accessibilityHidden(true))
-        .alert("Broadcast not ready", isPresented: Binding(get: { viewing.resolutionError != nil }, set: { if !$0 { viewing.resolutionError = nil } })) {
+        .alert("Broadcast not ready", isPresented: Binding(get: {
+            viewing.resolutionError != nil && viewing.inlineSingleDiscoveryFailure == nil
+        }, set: { if !$0 { viewing.resolutionError = nil } })) {
             if viewing.canRetrySingleAudio {
                 Button("Retry audio") { viewing.retrySingleAudio() }
             }
@@ -79,17 +80,17 @@ struct ViewingSessionShell<Content: View>: View {
             }
             if viewing.canManageSingleDiscoverySources {
                 Button("Manage sources") {
-                    if viewing.manageSingleDiscoverySources() { showsPlaybackSourceSettings = true }
+                    if viewing.manageSingleDiscoverySources() { viewing.showsSourceSettings = true }
                 }
             }
             Button("OK") { viewing.resolutionError = nil }
         } message: { Text(viewing.resolutionError ?? "") }
-        .sheet(isPresented: $showsPlaybackSourceSettings) {
+        .sheet(isPresented: Binding(get: { viewing.showsSourceSettings }, set: { viewing.showsSourceSettings = $0 })) {
             NavigationStack {
                 StreamPluginsSettingsView()
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") { showsPlaybackSourceSettings = false }
+                            Button("Done") { viewing.showsSourceSettings = false }
                         }
                     }
             }

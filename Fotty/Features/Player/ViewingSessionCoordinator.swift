@@ -34,6 +34,8 @@ final class ViewingSessionCoordinator {
     private(set) var primaryID: UUID?
     private(set) var audioID: UUID?
     var showsContinuity = false
+    /// Playback source settings, opened from a failed lookup's Sources action.
+    var showsSourceSettings = false
     var resolutionMessage: String?
     var resolutionError: String? {
         // Every new assignment owns its own alert, including equal messages.
@@ -125,6 +127,34 @@ final class ViewingSessionCoordinator {
 
     var primary: Pane? { panes.first { $0.id == primaryID } }
     var isActive: Bool { !panes.isEmpty }
+
+    /// A failed browsing lookup the tab shows inline where its "looking"
+    /// panel was, instead of a modal alert. Failures behind an expanded
+    /// player, and non-discovery errors, keep the shell's alert.
+    struct InlineDiscoveryFailure {
+        let event: EventReference
+        let message: String
+        let canRetry: Bool
+        let canManageSources: Bool
+    }
+
+    var inlineSingleDiscoveryFailure: InlineDiscoveryFailure? {
+        guard !(isActive && expanded), pendingSingleEvent == nil, resolutionMessage == nil,
+              let message = resolutionError, let recovery = singleDiscoveryRecovery else { return nil }
+        return .init(event: recovery.event, message: message, canRetry: recovery.retryable,
+                     canManageSources: recovery.category == .noProviderAvailable)
+    }
+
+    /// Sources on the inline panel: the same owner as the alert's action.
+    func manageInlineDiscoverySources() {
+        guard inlineSingleDiscoveryFailure != nil, manageSingleDiscoverySources() else { return }
+        showsSourceSettings = true
+    }
+
+    func dismissInlineDiscoveryFailure() {
+        guard inlineSingleDiscoveryFailure != nil else { return }
+        resolutionError = nil
+    }
 
     var canRetrySingleDiscovery: Bool { singleDiscoveryRecovery?.retryable == true }
     var canManageSingleDiscoverySources: Bool { singleDiscoveryRecovery?.category == .noProviderAvailable }
@@ -324,7 +354,13 @@ final class ViewingSessionCoordinator {
     }
 
     func minimize() { guard isActive else { return }; expanded = false }
-    func expand() { guard isActive else { return }; expanded = true }
+    func expand() {
+        guard isActive else { return }
+        // An inline failure belongs to the browsing screen; it must not
+        // reappear as an alert over the player being returned to.
+        dismissInlineDiscoveryFailure()
+        expanded = true
+    }
 
     static func canReuse(_ retained: EventReference, for requested: EventReference) -> Bool {
         guard retained.id == requested.id,

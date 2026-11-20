@@ -991,8 +991,7 @@ final class BetaUsabilityTests: XCTestCase {
         for width in [288.0, 388.0, 704.0] {
             let panel = StreamResolutionPanel(sportCategory: "cricket",
                 statusMessage: "Looking for a playable stream…",
-                subtitle: "Trinbago Knight Riders vs Saint Lucia Kings", isMultiStream: false,
-                multiTitles: [], onCancel: {})
+                subtitle: "Trinbago Knight Riders vs Saint Lucia Kings", onCancel: {})
             let normal = UIHostingController(rootView: panel.environment(\.dynamicTypeSize, .large))
                 .sizeThatFits(in: CGSize(width: width, height: 2_000))
             let expanded = UIHostingController(rootView: panel.environment(\.dynamicTypeSize, .accessibility3))
@@ -1023,6 +1022,32 @@ final class BetaUsabilityTests: XCTestCase {
             XCTAssertEqual(size.width, width, accuracy: 1, "Feedback width \(width): \(size)")
             XCTAssertTrue(size.height.isFinite && size.height >= 88, "Stacked text/actions retain their touch regions: width \(width), \(size)")
         }
+    }
+
+    @MainActor
+    func testWatchFailurePanelKeepsMatchNameAndActionsAtNarrowAndAccessibilityWidths() {
+        for width in [288.0, 388.0, 704.0] {
+            let panel = WatchFailurePanel(matchTitle: "Trinbago Knight Riders vs Saint Lucia Kings",
+                message: "No playable stream is available for this match right now.",
+                onRetry: {}, onManageSources: {}, onDetails: {}, onDismiss: {})
+            let normal = UIHostingController(rootView: panel.environment(\.dynamicTypeSize, .large))
+                .sizeThatFits(in: CGSize(width: width, height: 2_000))
+            let expanded = UIHostingController(rootView: panel.environment(\.dynamicTypeSize, .accessibility3))
+                .sizeThatFits(in: CGSize(width: width, height: 2_000))
+            XCTAssertEqual(normal.width, width, accuracy: 1, "Failure panel width \(width): \(normal)")
+            XCTAssertEqual(expanded.width, width, accuracy: 1, "Failure panel width \(width): \(expanded)")
+            // Title, match, reason and at least one 44-point action row.
+            XCTAssertTrue(normal.height.isFinite && normal.height >= 44 + 60, "Failure panel width \(width): \(normal)")
+            XCTAssertGreaterThanOrEqual(expanded.height, normal.height,
+                "Accessibility sizes stack actions rather than shrinking them: width \(width)")
+
+            let dismissOnly = WatchFailurePanel(matchTitle: "Sky Sports Cricket",
+                message: "No supported stream is available for this channel right now.", onDismiss: {})
+            let compact = UIHostingController(rootView: dismissOnly).sizeThatFits(in: CGSize(width: width, height: 2_000))
+            XCTAssertLessThan(compact.height, normal.height, "Without actions the panel does not reserve an empty action row")
+        }
+        XCTAssertEqual(WatchFailurePanel.title, "No stream found yet",
+            "The panel uses the same words as the row's lookup state")
     }
 
     func testBadgeProviderCatalogUsesCurrentLeagueNames() throws {

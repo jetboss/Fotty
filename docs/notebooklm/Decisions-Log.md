@@ -1,3 +1,21 @@
+## 2026-11-20 — A failed Watch stays on screen as an inline panel
+
+Owner asked to fix the Watch "dead end" after a UI review. When a lookup
+started from Home, Matchday or TV finds nothing, the modal "Broadcast not
+ready" alert is replaced by `WatchFailurePanel` in the same bottom spot as the
+"looking" panel. It names the match, keeps the provider's reason and offers
+Try again (when retryable), Sources (no provider enabled), Match details and
+Dismiss. VoiceOver announces it, as the alert did.
+
+The actions call the existing coordinator owners (`retrySingleDiscovery`,
+`manageSingleDiscoverySources`); ranking, admission, retry fences and backup
+order are unchanged. Failures behind an expanded player and non-discovery
+errors keep the shell alert. Expanding the mini-player clears an inline
+failure so it never reappears as an alert. Also removed Home's and Matchday's
+unreachable "Stream Not Available" alerts, the lookup panel's leftover
+two-match parameters, and renamed Match Hub's alert to "Broadcast not ready".
+Not yet checked on a device.
+
 ## 2026-11-19 — Delete Watch Two; rebuild two-match viewing later
 
 Owner chose "Delete, rebuild later" over keeping the parked code. Removed the

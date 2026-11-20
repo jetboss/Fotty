@@ -1142,7 +1142,6 @@ struct LivePlayerView: View {
                 StreamResolutionPanel(sportCategory: viewModel.event.normalizedCategory,
                     competition: SportMotionContext.competition(for: viewModel.event),
                     statusMessage: retryDiscoveryMessage, subtitle: viewModel.event.displayTitle,
-                    isMultiStream: false, multiTitles: [],
                     onCancel: { onCancelRetryDiscovery?() })
             } else if let error = viewModel.error {
                 PlaybackErrorOverlay(
