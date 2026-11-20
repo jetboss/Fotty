@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-20T18:43:10.587164+00:00
-Source digest: 48b8135def5ba1e918fc10d007410b0257f432168d7c5022345de18926d290eb
+Generated: 2026-11-20T22:54:01.212805+00:00
+Source digest: 08a52bae88ebb2fc875952f787a0d0b22f7183e7a562d313fb0ca2e415bb36e5
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -881,6 +881,19 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-20 — Remove Home and Matchday's unused second Watch lookup
+
+Owner approved finishing the UI-review clean-up. Home and Matchday each kept an
+older screen-owned stream lookup (`isFindingStream`, `streamEvent`,
+`showPlayer`, `cancelCurrentResolution`/`cancelStreamResolution`) that nothing
+started any more, since every Watch goes through `ViewingSessionCoordinator`.
+Removed it, Home's never-called `homeMatchList`/`liveCard`, the Match Hub cover
+they fed (`selectedHighlightsMatch`), and the files `DashboardMatchList.swift`
+and `DashboardPresentationLayers.swift`. User-visible behaviour is unchanged.
+The source-reading usability test now checks that each screen's
+`presentModal` cancels the coordinator's pending lookup, instead of pinning the
+removed code.
 
 ## 2026-11-20 — A failed Watch stays on screen as an inline panel
 

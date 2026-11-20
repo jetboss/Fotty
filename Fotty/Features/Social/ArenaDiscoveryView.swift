@@ -241,13 +241,6 @@ struct ArenaDiscoveryView: View {
     @State private var viewingPlanProjection: ViewingPlanPolicy.Projection?
     @State private var viewMode = MatchdayViewMode.defaultMode
 
-    @State private var showPlayer = false
-    @State private var streamEvent: AnalyticalDataEngine.EventReference?
-    @State private var streamSessions: [StreamSession] = []
-    @State private var isFindingStream = false
-    @State private var streamStatusMessage = "Looking for a playable stream..."
-    @State private var streamTask: Task<Void, Never>?
-    @State private var streamRequestID = UUID()
 
     @MainActor
     init(isActive: Bool = true, matchListViewModel: MatchListViewModel? = nil,
@@ -339,24 +332,15 @@ struct ArenaDiscoveryView: View {
             }
             .toolbar(.hidden, for: .navigationBar)
         }
-        .environment(\.fottyStreamLookupBusy, isFindingStream || viewing.resolutionMessage != nil)
+        .environment(\.fottyStreamLookupBusy, viewing.resolutionMessage != nil)
         .environment(\.fottySceneOwnsSingleWatch, true)
         .environment(\.fottyPendingWatchEventID, viewing.pendingSingleEvent?.id)
-        .preference(key: FixturePreflightActivityPreferenceKey.self, value: isActive && isFindingStream)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if let pending = viewing.pendingSingleEvent, let message = viewing.resolutionMessage {
                 StreamResolutionPanel(sportCategory: pending.normalizedCategory,
                     competition: SportMotionContext.competition(for: pending), statusMessage: message,
                     subtitle: pending.displayTitle,
                     onCancel: { viewing.cancelPendingSingleDiscovery() })
-            } else if isFindingStream {
-                StreamResolutionPanel(
-                    sportCategory: streamEvent?.normalizedCategory ?? HomeSportsDiscovery.allSports,
-                    competition: SportMotionContext.competition(for: streamEvent),
-                    statusMessage: streamStatusMessage,
-                    subtitle: streamEvent.map(eventTitle(_:)),
-                    onCancel: cancelStreamResolution
-                )
             } else if let failure = viewing.inlineSingleDiscoveryFailure {
                 WatchFailurePanel(matchTitle: failure.event.displayTitle, message: failure.message,
                     onRetry: failure.canRetry ? { viewing.retrySingleDiscovery() } : nil,
@@ -391,11 +375,6 @@ struct ArenaDiscoveryView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .onChange(of: showPlayer) { _, show in
-            guard show else { return }
-            if let streamEvent { viewing.open(event: streamEvent, sessions: streamSessions) }
-            resetPlayerPresentation()
-        }
         .task(id: matchdayProjectionKey) {
             await rebuildMatchdayProjection()
         }
@@ -428,7 +407,6 @@ struct ArenaDiscoveryView: View {
             pendingDetailsSourceCheck = nil
             viewing.cancelOptionalSourceLookup()
             liveScoreService.releasePolling(owner: scorePollingOwner)
-            cancelStreamResolution()
         }
         .onChange(of: isActive) { _, active in
             if !active {
@@ -1126,9 +1104,9 @@ struct ArenaDiscoveryView: View {
     }
 
     private func optionalSourceCheckAction(for event: EventReference) -> (() -> Void)? {
-        guard isActive, scenePhase == .active, !isFindingStream else { return nil }
+        guard isActive, scenePhase == .active else { return nil }
         return {
-            guard isActive, scenePhase == .active, !isFindingStream else { return }
+            guard isActive, scenePhase == .active else { return }
             pendingDetailsWatch = nil
             pendingDetailsSourceCheck = event
             selectedCatalogEvent = nil
@@ -1149,17 +1127,17 @@ struct ArenaDiscoveryView: View {
     }
 
     private func checkSources(for event: EventReference) {
-        guard isActive, scenePhase == .active, !isFindingStream else { return }
+        guard isActive, scenePhase == .active else { return }
         viewing.checkOptionalSources(for: event, discover: { request, publish in
             await LiveStreamResolver.shared.resolvePlayback(for: request, onChoices: publish)
         }) { requested, phase in
             let sceneOwned = phase == .completion && viewing.hasMountedOptionalSourceLookup(for: requested)
             guard !Task.isCancelled,
-                  sceneOwned || (isActive && scenePhase == .active && !isFindingStream) else { return nil }
+                  sceneOwned || (isActive && scenePhase == .active) else { return nil }
             let codes = Set(await StreamPluginRegistry.shared.enabledProviderCodes())
             let stillSceneOwned = phase == .completion && viewing.hasMountedOptionalSourceLookup(for: requested)
             guard !Task.isCancelled,
-                  stillSceneOwned || (isActive && scenePhase == .active && !isFindingStream) else { return nil }
+                  stillSceneOwned || (isActive && scenePhase == .active) else { return nil }
             let now = Date()
             return OptionalSourceLookupPolicy.event(for: requested,
                 in: matchListViewModel.playbackAdmissionCatalog, enabledProviderCodes: codes, at: now,
@@ -1170,11 +1148,10 @@ struct ArenaDiscoveryView: View {
     private func watchEvent(_ event: AnalyticalDataEngine.EventReference) {
         pendingDetailsSourceCheck = nil
         viewing.cancelOptionalSourceLookup()
-        guard !isFindingStream else { return }
         HapticManager.impact(.light)
         MatchPlaybackFeedback.shared.attempting(event.id)
         viewing.watchSingle(event, admission: { requested in
-            guard isActive, scenePhase == .active, !isFindingStream else { return nil }
+            guard isActive, scenePhase == .active else { return nil }
             return CurrentEventBroadcastPolicy.action(for: requested, in: matchListViewModel.playbackAdmissionCatalog,
                 status: MatchStartPolicy.currentStatus(for: requested, scores: liveScoreService))?.event
         })
@@ -1185,38 +1162,7 @@ struct ArenaDiscoveryView: View {
         viewing.cancelPendingSingleDiscovery()
         pendingDetailsSourceCheck = nil
         viewing.cancelOptionalSourceLookup()
-        if isFindingStream { cancelStreamResolution() }
         action()
-    }
-
-    private func cancelStreamResolution() {
-        streamTask?.cancel()
-        let pendingEvent = streamEvent
-        streamRequestID = UUID()
-        isFindingStream = false
-        streamStatusMessage = "Looking for a playable stream..."
-        if !showPlayer {
-            streamEvent = nil
-            streamSessions = []
-        }
-        if let pendingEvent {
-            Task {
-                await LiveStreamResolver.shared.cancelAttempt(
-                    for: StreamPlaybackRequest(event: pendingEvent)
-                )
-            }
-        }
-    }
-
-    private func playbackTimingAllows(_ event: AnalyticalDataEngine.EventReference) -> Bool {
-        MatchStartPolicy(event: event,
-            status: MatchStartPolicy.currentStatus(for: event, scores: liveScoreService)).timingAllowsPlayback
-    }
-
-    private func resetPlayerPresentation() {
-        streamEvent = nil
-        streamSessions = []
-        showPlayer = false
     }
 
     private func eventTitle(_ event: AnalyticalDataEngine.EventReference) -> String {

@@ -78,7 +78,6 @@
 		403C6042E817965D4396CFF5 /* NativePlaybackPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4DB0337E89BEA82006304998 /* NativePlaybackPreparation.swift */; };
 		40A9B775128F8EAC04CEBBD8 /* LocalDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9835157AD52174C23356FA4 /* LocalDataStore.swift */; };
 		41524985B046584DCE4FED4D /* CricketActivityPresentationPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A34D2C8D4379679DDC2D6E7E /* CricketActivityPresentationPolicy.swift */; };
-		41EA67CF75A098B5B5519B52 /* DashboardPresentationLayers.swift in Sources */ = {isa = PBXBuildFile; fileRef = A68694E12F247D9B0EE68A79 /* DashboardPresentationLayers.swift */; };
 		42378BF8D7063F349ECD9568 /* MomentumChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B04FA40F02A55FA4F3735D5C /* MomentumChartView.swift */; };
 		425193EA637C973972182A28 /* SingleNativeFallbackPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A09EF2739E6E8E114395AA7D /* SingleNativeFallbackPolicyTests.swift */; };
 		443D761FF5B5308A0DAB85B4 /* FootballModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81621DF315356CD7D48CB5D9 /* FootballModels.swift */; };
@@ -190,7 +189,6 @@
 		A6165FE6123E6A12766BD3D0 /* SportsCatalogRefreshTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F9AFE4FBB7700B97A06CC59 /* SportsCatalogRefreshTests.swift */; };
 		A64D8ABB317A8444150DF87B /* StreamPlaybackContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A007870FC84E4830F88A28 /* StreamPlaybackContractTests.swift */; };
 		A6D740E0A87928E7A4AA5408 /* TeamOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48070512128334AFE9A5E436 /* TeamOnboardingView.swift */; };
-		A8200217854B58BDD73D655E /* DashboardMatchList.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05175585BE0D61CF49DA85AA /* DashboardMatchList.swift */; };
 		A894C14DC954F51D86E9AF2B /* Config.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7E553E386AFCFF192D788D1 /* Config.swift */; };
 		A93B35730661C9673AE42A6F /* controls-light.png in Resources */ = {isa = PBXBuildFile; fileRef = AF6617BD4F69751E0958807C /* controls-light.png */; };
 		A948E051CA336C8A2B744A01 /* LivePlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0153BF3AE2368FA4C1937E8D /* LivePlayerView.swift */; };
@@ -342,7 +340,6 @@
 		02955FE0753F5A30EF48767C /* APIFootballProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIFootballProvider.swift; sourceTree = "<group>"; };
 		032DE88FFDFAE4043EE14BD7 /* PlaybackProgressPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackProgressPolicyTests.swift; sourceTree = "<group>"; };
 		0358C1299510CEB2A81BF269 /* SettingsScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsScreen.swift; sourceTree = "<group>"; };
-		05175585BE0D61CF49DA85AA /* DashboardMatchList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardMatchList.swift; sourceTree = "<group>"; };
 		0549E31DBE9C3A8C7795F93B /* FottyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyApp.swift; sourceTree = "<group>"; };
 		06BF2B4AABB6C7B63C8D128A /* FottyImagePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FottyImagePipeline.swift; sourceTree = "<group>"; };
 		09345D5A5EB0E00A8E407CA7 /* HybridStreamProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HybridStreamProvider.swift; sourceTree = "<group>"; };
@@ -521,7 +518,6 @@
 		A567B850EE852F541DC23EAA /* LivePlayerRetryLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LivePlayerRetryLifecycleTests.swift; sourceTree = "<group>"; };
 		A6224401155F9E951B9A0627 /* PenguPlaySportsAddonClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PenguPlaySportsAddonClient.swift; sourceTree = "<group>"; };
 		A6337E176CBF569BE6D54978 /* NetworkPathObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPathObserver.swift; sourceTree = "<group>"; };
-		A68694E12F247D9B0EE68A79 /* DashboardPresentationLayers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardPresentationLayers.swift; sourceTree = "<group>"; };
 		A6BC711C9A2C01F37332B8FD /* SportsTeamIdentity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SportsTeamIdentity.swift; sourceTree = "<group>"; };
 		A7B3295D9F806350EAF7C766 /* SingleRetryDiscoveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleRetryDiscoveryTests.swift; sourceTree = "<group>"; };
 		A9835157AD52174C23356FA4 /* LocalDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDataStore.swift; sourceTree = "<group>"; };
@@ -1251,8 +1247,6 @@
 			children = (
 				7257FC77A3CC4B9CC60858EC /* CatalogRefreshNotice.swift */,
 				A34D2C8D4379679DDC2D6E7E /* CricketActivityPresentationPolicy.swift */,
-				05175585BE0D61CF49DA85AA /* DashboardMatchList.swift */,
-				A68694E12F247D9B0EE68A79 /* DashboardPresentationLayers.swift */,
 				B23FC6E44164FC2235618C4A /* FixtureDateGrouper.swift */,
 				8D505FBB21CC2D37D42E49BE /* FootballQuotaBanner.swift */,
 				6F3B8540B57E80F7EB32E022 /* HeroMatchCarousel.swift */,
@@ -1626,8 +1620,6 @@
 				F00607BBF4F5B81A302471AF /* CricketMatchContextView.swift in Sources */,
 				66449D851A095454405275E9 /* CurrentEventBroadcastPolicy.swift in Sources */,
 				63377CC7E814C9E7CB88FE72 /* CurrentSportsMatchContextView.swift in Sources */,
-				A8200217854B58BDD73D655E /* DashboardMatchList.swift in Sources */,
-				41EA67CF75A098B5B5519B52 /* DashboardPresentationLayers.swift in Sources */,
 				E9A993D64A5A1B9B4F2C6EAE /* Date+LiveKickoffFormatting.swift in Sources */,
 				31D65019BD3AD7D707CAF92F /* FPLDecisionJournalStore.swift in Sources */,
 				F0025D2FA9D44620611E65B5 /* FPLModels.swift in Sources */,

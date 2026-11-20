@@ -34,13 +34,6 @@ struct SportsDashboardView: View {
     @State private var homeResultsRequest = 0
     @State private var pendingSearchSelection: PendingSearchSelection?
     @State private var discoveryDate = HomeSportsDiscovery.automatedClockDate ?? Date()
-    @State private var showPlayer = false
-    @State private var streamSessions: [StreamSession] = []
-    @State private var streamEvent: AnalyticalDataEngine.EventReference? = nil
-    @State private var isFindingStream = false
-    @State private var streamStatusMessage = "Looking for a playable stream..."
-    @State private var streamTask: Task<Void, Never>?
-    @State private var streamRequestID = UUID()
     @State private var savedMatchError: String?
     @State private var selectedCatalogEvent: AnalyticalDataEngine.EventReference? = nil
     @State private var pendingDetailsWatch: AnalyticalDataEngine.EventReference?
@@ -49,7 +42,6 @@ struct SportsDashboardView: View {
     @Environment(ViewingSessionCoordinator.self) private var viewing
     @Environment(\.fottyOpenSettings) private var openSettings
     @State private var scorePollingOwner = UUID()
-    @State private var selectedHighlightsMatch: FootballMatch? = nil
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.modelContext) private var modelContext
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -136,7 +128,7 @@ struct SportsDashboardView: View {
                     SettingsManageLeaguesView(previewEvents: matchListViewModel?.playbackCatalog ?? [])
                 }
         }
-        .environment(\.fottyStreamLookupBusy, isFindingAnyStream || viewing.resolutionMessage != nil)
+        .environment(\.fottyStreamLookupBusy, viewing.resolutionMessage != nil)
         .environment(\.fottySceneOwnsSingleWatch, true)
         .environment(\.fottyPendingWatchEventID, viewing.pendingSingleEvent?.id)
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -145,14 +137,6 @@ struct SportsDashboardView: View {
                     competition: SportMotionContext.competition(for: pending), statusMessage: message,
                     subtitle: pending.displayTitle,
                     onCancel: { viewing.cancelPendingSingleDiscovery() })
-            } else if isFindingAnyStream {
-                StreamResolutionPanel(
-                    sportCategory: streamEvent?.normalizedCategory ?? selectedSportTab,
-                    competition: SportMotionContext.competition(for: streamEvent),
-                    statusMessage: streamStatusMessage,
-                    subtitle: streamEvent.map { eventTitle($0) },
-                    onCancel: cancelCurrentResolution
-                )
             } else if let failure = viewing.inlineSingleDiscoveryFailure {
                 WatchFailurePanel(matchTitle: failure.event.displayTitle, message: failure.message,
                     onRetry: failure.canRetry ? { viewing.retrySingleDiscovery() } : nil,
@@ -172,13 +156,6 @@ struct SportsDashboardView: View {
         } message: {
             Text(savedMatchError ?? "")
         }
-        .dashboardPresentationLayers(
-            selectedHighlightsMatch: $selectedHighlightsMatch,
-            showPlayer: $showPlayer,
-            streamEvent: streamEvent,
-            streamSessions: streamSessions,
-            liveScoreService: liveScoreService
-        )
         .sheet(item: $selectedCatalogEvent, onDismiss: completePendingDetailsAction) { event in
             let detailsEvent = CurrentEventBroadcastPolicy.currentEvent(for: event,
                     in: matchListViewModel?.playbackAdmissionCatalog ?? []) ?? event
@@ -242,11 +219,6 @@ struct SportsDashboardView: View {
             viewing.cancelPendingSingleDiscovery()
             pendingDetailsSourceCheck = nil
             viewing.cancelOptionalSourceLookup()
-            streamTask?.cancel()
-            streamRequestID = UUID()
-            isFindingStream = false
-            streamSessions = []
-            streamStatusMessage = "Looking for a playable stream..."
         }
         .task(id: catalogProjectionKey) {
             await rebuildCatalogProjection()
@@ -254,8 +226,6 @@ struct SportsDashboardView: View {
         .task(id: homeSportActivityProjectionKey) {
             rebuildSportActivityProjection()
         }
-        .preference(key: FixturePreflightActivityPreferenceKey.self,
-                    value: isActive && isFindingAnyStream)
         .task(id: isActive && scenePhase == .active) {
             if matchListViewModel == nil {
                 matchListViewModel = MatchListViewModel.shared
@@ -1544,48 +1514,6 @@ struct SportsDashboardView: View {
         }
     }
 
-    private static let upNextDateFormatterLock = NSLock()
-    private static let upNextDateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "h:mm a"
-        return f
-    }()
-
-    private func homeMatchList(
-        events: [AnalyticalDataEngine.EventReference],
-        usesMultiColumnGrid: Bool = UIDevice.current.userInterfaceIdiom == .pad
-    ) -> some View {
-        DashboardMatchList(
-            title: "Match schedule",
-            events: events,
-            showFollowedOnly: $showFollowedOnly,
-            hasFollowedTeams: !followedTeams.isEmpty,
-            onEventTap: { event in openEvent(event) },
-            onInfoTap: { match in presentModal { selectedHighlightsMatch = match } },
-            onAppearEvent: { _ in },
-            canWatchEvent: canOpenBroadcast(_:),
-            alternateActionTitle: cplChannelActionTitle(_:),
-            isSavedEvent: { myMatchdayStore.contains(event: $0) },
-            onToggleSaved: toggleSavedMatch,
-            usesMultiColumnGrid: usesMultiColumnGrid
-        )
-    }
-
-    private func liveCard(
-        for event: AnalyticalDataEngine.EventReference
-    ) -> some View {
-        LiveEventCard(
-            event: event,
-            onInfoTap: { match in presentModal { selectedHighlightsMatch = match } },
-            onWatchTap: canOpenBroadcast(event) ? { openEvent(event) } : nil,
-            alternateActionTitle: cplChannelActionTitle(event),
-            onDetailsTap: { presentModal { selectedCatalogEvent = event } },
-            onCheckStreams: rowSourceCheckAction(for: event),
-            isSaved: myMatchdayStore.contains(event: event),
-            onSaveTap: { toggleSavedMatch(event) }
-        )
-    }
-
     private func toggleSavedMatch(_ event: AnalyticalDataEngine.EventReference) {
         if let message = mutateSavedMatch(event).errorMessage {
             savedMatchError = message
@@ -1627,9 +1555,9 @@ struct SportsDashboardView: View {
     }
 
     private func optionalSourceCheckAction(for event: EventReference) -> (() -> Void)? {
-        guard isActive, scenePhase == .active, !isFindingAnyStream else { return nil }
+        guard isActive, scenePhase == .active else { return nil }
         return {
-            guard isActive, scenePhase == .active, !isFindingAnyStream else { return }
+            guard isActive, scenePhase == .active else { return }
             pendingDetailsWatch = nil
             pendingDetailsSourceCheck = event
             selectedCatalogEvent = nil
@@ -1652,17 +1580,17 @@ struct SportsDashboardView: View {
     }
 
     private func checkSources(for event: EventReference) {
-        guard isActive, scenePhase == .active, !isFindingAnyStream else { return }
+        guard isActive, scenePhase == .active else { return }
         viewing.checkOptionalSources(for: event, discover: { request, publish in
             await LiveStreamResolver.shared.resolvePlayback(for: request, onChoices: publish)
         }) { requested, phase in
             let sceneOwned = phase == .completion && viewing.hasMountedOptionalSourceLookup(for: requested)
             guard !Task.isCancelled,
-                  sceneOwned || (isActive && scenePhase == .active && !isFindingAnyStream) else { return nil }
+                  sceneOwned || (isActive && scenePhase == .active) else { return nil }
             let codes = Set(await StreamPluginRegistry.shared.enabledProviderCodes())
             let stillSceneOwned = phase == .completion && viewing.hasMountedOptionalSourceLookup(for: requested)
             guard !Task.isCancelled,
-                  stillSceneOwned || (isActive && scenePhase == .active && !isFindingAnyStream) else { return nil }
+                  stillSceneOwned || (isActive && scenePhase == .active) else { return nil }
             let now = Date()
             return OptionalSourceLookupPolicy.event(for: requested,
                 in: matchListViewModel?.playbackAdmissionCatalog ?? [], enabledProviderCodes: codes, at: now,
@@ -1829,8 +1757,6 @@ struct SportsDashboardView: View {
         }
     }
 
-    private var isFindingAnyStream: Bool { isFindingStream }
-
     private var followedTeamKeys: Set<String> {
         preparedPersonalizationSelection.teamKeys
     }
@@ -1900,7 +1826,6 @@ struct SportsDashboardView: View {
     }
 
     private func openLastLiveMatch(_ event: EventReference) {
-        guard !isFindingAnyStream, selectedHighlightsMatch == nil else { return }
         HapticManager.impact(.light)
         MatchPlaybackFeedback.shared.attempting(event.id)
         viewing.watchSingle(event, admission: { requested in
@@ -1916,14 +1841,12 @@ struct SportsDashboardView: View {
     }
 
     private func watchEvent(_ event: AnalyticalDataEngine.EventReference) {
-        guard !isFindingAnyStream else { return }
         pendingDetailsSourceCheck = nil
         viewing.cancelOptionalSourceLookup()
-        guard selectedHighlightsMatch == nil else { return }
         HapticManager.impact(.light)
         MatchPlaybackFeedback.shared.attempting(event.id)
         viewing.watchSingle(event, admission: { requested in
-            guard isActive, scenePhase == .active, !isFindingAnyStream, selectedHighlightsMatch == nil else { return nil }
+            guard isActive, scenePhase == .active else { return nil }
             return CurrentEventBroadcastPolicy.action(for: requested,
                 in: matchListViewModel?.playbackAdmissionCatalog ?? [],
                 status: MatchStartPolicy.currentStatus(for: requested, scores: liveScoreService))?.event
@@ -1937,39 +1860,13 @@ struct SportsDashboardView: View {
         watchEvent(event)
     }
 
-    private func playbackTimingAllows(_ event: AnalyticalDataEngine.EventReference) -> Bool {
-        MatchStartPolicy(event: event,
-            status: MatchStartPolicy.currentStatus(for: event, scores: liveScoreService)).timingAllowsPlayback
-    }
-
-    private func eventTitle(_ event: AnalyticalDataEngine.EventReference) -> String {
-        event.displayTitle
-    }
-
     /// A new modal destination owns the user's attention. Cancel before it
     /// opens so a late lookup cannot request a competing player presentation.
     private func presentModal(_ action: () -> Void) {
         viewing.cancelPendingSingleDiscovery()
         pendingDetailsSourceCheck = nil
         viewing.cancelOptionalSourceLookup()
-        if isFindingAnyStream { cancelCurrentResolution() }
         action()
-    }
-
-    private func cancelCurrentResolution() {
-        streamTask?.cancel()
-        let pendingEvent = streamEvent
-        streamRequestID = UUID()
-        isFindingStream = false
-        streamEvent = nil
-        streamSessions = []
-        streamStatusMessage = "Looking for a playable stream..."
-        if let event = pendingEvent {
-            let request = StreamPlaybackRequest(event: event)
-            Task {
-                await LiveStreamResolver.shared.cancelAttempt(for: request)
-            }
-        }
     }
 
     private func emptyStateMessage(applyingHomeInterests: Bool) -> String {

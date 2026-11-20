@@ -1,3 +1,16 @@
+## 2026-11-20 — Remove Home and Matchday's unused second Watch lookup
+
+Owner approved finishing the UI-review clean-up. Home and Matchday each kept an
+older screen-owned stream lookup (`isFindingStream`, `streamEvent`,
+`showPlayer`, `cancelCurrentResolution`/`cancelStreamResolution`) that nothing
+started any more, since every Watch goes through `ViewingSessionCoordinator`.
+Removed it, Home's never-called `homeMatchList`/`liveCard`, the Match Hub cover
+they fed (`selectedHighlightsMatch`), and the files `DashboardMatchList.swift`
+and `DashboardPresentationLayers.swift`. User-visible behaviour is unchanged.
+The source-reading usability test now checks that each screen's
+`presentModal` cancels the coordinator's pending lookup, instead of pinning the
+removed code.
+
 ## 2026-11-20 — A failed Watch stays on screen as an inline panel
 
 Owner asked to fix the Watch "dead end" after a UI review. When a lookup

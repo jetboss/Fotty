@@ -967,20 +967,18 @@ final class BetaUsabilityTests: XCTestCase {
             XCTAssertFalse(source.contains("StreamResolutionOverlay("), path)
         }
         let home = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Dashboard/SportsDashboardView.swift"), encoding: .utf8)
-        for (entry, guardText) in [
-            ("watchEvent(_ event:", "guard !isFindingAnyStream else { return }")
-        ] {
-            let definition = try XCTUnwrap(home.range(of: "private func \(entry)"))
-            let body = String(home[definition.upperBound...].prefix(400))
-            XCTAssertTrue(body.contains(guardText), entry)
+        let matchday = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Social/ArenaDiscoveryView.swift"), encoding: .utf8)
+        // Watch lookups are owned by the scene coordinator; a modal destination
+        // must revoke a pending lookup before presenting.
+        for (name, source) in [("Home", home), ("Matchday", matchday)] {
+            let definition = try XCTUnwrap(source.range(of: "private func presentModal("), name)
+            let body = String(source[definition.upperBound...].prefix(300))
+            XCTAssertTrue(body.contains("viewing.cancelPendingSingleDiscovery()"),
+                          "A modal destination must revoke the older lookup before presenting: \(name)")
+            XCTAssertFalse(source.contains("isFindingStream"), "\(name) has no second, screen-owned lookup")
         }
-        XCTAssertTrue(home.contains("if isFindingAnyStream { cancelCurrentResolution() }"),
-                      "A modal destination must revoke the older lookup before presenting")
         XCTAssertTrue(home.contains("presentModal { showsSearch = true }"))
         XCTAssertTrue(home.contains("presentModal { showsAllSports = true }"))
-        XCTAssertTrue(home.contains("presentModal { selectedHighlightsMatch = match }"))
-        let matchday = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Social/ArenaDiscoveryView.swift"), encoding: .utf8)
-        XCTAssertTrue(matchday.contains("if isFindingStream { cancelStreamResolution() }"))
         XCTAssertNotNil(matchday.range(of: #"onDetailsTap:\s*\{\s*presentModal\s*\{[^}]*selectedCatalogEvent = event"#,
                                       options: .regularExpression),
                             "Match details must still pass through the existing modal/cancellation owner")
