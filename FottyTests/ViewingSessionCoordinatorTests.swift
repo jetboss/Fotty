@@ -1686,14 +1686,24 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
     func testSourcePresentationUsesListedMetadataWithoutInventedCapabilitiesOrRawTitles() {
         XCTAssertNil(BroadcastSourcePresentation.description(qualityLabel: nil, currentMode: nil))
         XCTAssertNil(BroadcastSourcePresentation.description(qualityLabel: "auto", currentMode: nil))
-        XCTAssertEqual(BroadcastSourcePresentation.description(qualityLabel: "English · HD", currentMode: nil), "Listed: English · HD")
-        XCTAssertEqual(BroadcastSourcePresentation.description(qualityLabel: "French - 1080p", currentMode: .native), "Native player · Listed: French · Full HD")
+        XCTAssertEqual(BroadcastSourcePresentation.description(qualityLabel: "English · HD", currentMode: nil), "Listed as English · HD")
+        XCTAssertEqual(BroadcastSourcePresentation.description(qualityLabel: "French - 1080p", currentMode: .native), "Native player · Listed as French · Full HD")
         XCTAssertEqual(BroadcastSourcePresentation.description(qualityLabel: nil, currentMode: .webEmbed), "Web player")
-        XCTAssertEqual(BroadcastSourcePresentation.description(qualityLabel: "provider-HD", currentMode: nil), "Listed: HD")
+        XCTAssertEqual(BroadcastSourcePresentation.description(qualityLabel: "provider-HD", currentMode: nil), "Listed as HD")
         for value in ["https://example.invalid/English-HD.m3u8", "user@example.invalid HD", String(repeating: "HD ", count: 100)] {
             XCTAssertTrue(BroadcastSourcePresentation.listedMetadata(value).isEmpty)
         }
         XCTAssertNil(BroadcastSourcePresentation.description(qualityLabel: "PIP supported reliable best live", currentMode: nil))
+
+        // Each source's own record for this match, in plain words; unknown adds nothing.
+        XCTAssertEqual(BroadcastSourcePresentation.statusNote(.sustained)?.text, "Played well for this match")
+        XCTAssertEqual(BroadcastSourcePresentation.statusNote(.recentlyPlayed)?.text, "Played for this match")
+        XCTAssertEqual(BroadcastSourcePresentation.statusNote(.recentlyFailed)?.text, "Didn't play just now")
+        XCTAssertEqual(BroadcastSourcePresentation.statusNote(.repeatedlyFailed)?.text, "Failed more than once for this match")
+        XCTAssertEqual(BroadcastSourcePresentation.statusNote(.wrongProgramme)?.text, "Reported showing a different match")
+        XCTAssertNil(BroadcastSourcePresentation.statusNote(.unknown))
+        XCTAssertTrue(BroadcastSourcePresentation.statusNote(.sustained)?.isPositive == true)
+        XCTAssertTrue(BroadcastSourcePresentation.statusNote(.recentlyFailed)?.isPositive == false)
     }
 
     func testPreparedOpenClaimsOneOwnerWithoutStartingTransport() throws {

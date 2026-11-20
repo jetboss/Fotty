@@ -22,6 +22,8 @@ struct LiveStreamSelectorSheet: View {
     /// time and provider setup, neither of which is observable.
     let rightMatchPresentation: (() -> LivePlayerViewModel.RightMatchPresentation)?
     let programmeEvidence: ProgrammeEvidencePresentation
+    /// What this device saw each source do for this match. Shown, never ranked here.
+    let sourceStatus: [UUID: LiveSourceHealthStore.MatchEvidence]
     let onSelect: (Int) -> Void
     @State private var selection: BroadcastSourcePickerPolicy.Filter = .automatic
     
@@ -42,6 +44,7 @@ struct LiveStreamSelectorSheet: View {
         onRightMatch: ((UUID) -> Void)? = nil,
         rightMatchPresentation: (() -> LivePlayerViewModel.RightMatchPresentation)? = nil,
         programmeEvidence: ProgrammeEvidencePresentation = .empty,
+        sourceStatus: [UUID: LiveSourceHealthStore.MatchEvidence] = [:],
         onSelect: @escaping (Int) -> Void
     ) {
         self.sessions = sessions
@@ -58,6 +61,7 @@ struct LiveStreamSelectorSheet: View {
         self.onRightMatch = onRightMatch
         self.rightMatchPresentation = rightMatchPresentation
         self.programmeEvidence = programmeEvidence
+        self.sourceStatus = sourceStatus
         self.onSelect = onSelect
     }
     
@@ -245,6 +249,7 @@ struct LiveStreamSelectorSheet: View {
                     isCoolingDown: LiveSourceHealthStore.isTemporarilyUnavailable(session.legacySource),
                     currentMode: index == currentSourceIndex ? currentPlaybackMode : nil,
                     usesJoinedPresentation: true,
+                    status: sourceStatus[session.id],
                     evidenceNote: programmeEvidence.labelNote(for: session.id)) {
                     if index != currentSourceIndex
                         || failedSessionIDs.contains(session.id)
@@ -519,6 +524,8 @@ struct SessionRow: View {
     var isCoolingDown = false
     var currentMode: LivePlaybackMode? = nil
     var usesJoinedPresentation = false
+    /// This device's own record of the source for this match, in plain words.
+    var status: LiveSourceHealthStore.MatchEvidence? = nil
     /// A fixed phrase about the provider's own label; never a title or URL.
     var evidenceNote: String? = nil
     let action: () -> Void
@@ -547,6 +554,12 @@ struct SessionRow: View {
                         Text(sourceDescription)
                             .font(.caption)
                             .foregroundStyle(FottyTheme.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let status, let note = BroadcastSourcePresentation.statusNote(status) {
+                        Label(note.text, systemImage: note.symbol)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(note.isPositive ? FottyTheme.success : FottyTheme.textSecondary)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     if let evidenceNote {
@@ -594,7 +607,8 @@ struct SessionRow: View {
         .accessibilityIdentifier("broadcast-source-\(displayNumber)")
         .accessibilityValue(session.providerName)
         .accessibilityLabel(BroadcastSourcePresentation.accessibilityLabel(title: sourceTitle, provider: session.providerName,
-            number: displayNumber, description: [sourceDescription, evidenceNote].compactMap { $0 }.joined(separator: ". "),
+            number: displayNumber, description: [sourceDescription, status.flatMap { BroadcastSourcePresentation.statusNote($0)?.text },
+                evidenceNote].compactMap { $0 }.joined(separator: ". "),
             action: actionLabel))
         .accessibilityAddTraits(isActive ? .isSelected : [])
         .accessibilityHint(isFailed || isCoolingDown
@@ -662,12 +676,13 @@ enum BroadcastSourcePresentation {
     static func watchDescription(provider: String, qualityLabel: String?) -> String? {
         // Codes remain secondary for support. Display metadata comes from our
         // closed station inventory and reviewed tokens, never provider prose.
+        // The support code is last: it identifies a source, it doesn't describe it.
         var parts: [String] = []
-        if StreamPluginProviderMatching.opaqueProviderFamily(provider) != nil { parts.append(provider) }
         let listed = listedMetadata(qualityLabel)
         if let station = SportsTVStation.station(provider: provider), station.language != .any,
            !listed.contains(station.language.title) { parts.append(station.language.title) }
-        if !listed.isEmpty { parts.append("Listed: " + listed.joined(separator: " · ")) }
+        if !listed.isEmpty { parts.append(listedPhrase(listed)) }
+        if StreamPluginProviderMatching.opaqueProviderFamily(provider) != nil { parts.append(provider) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }
 
@@ -675,8 +690,32 @@ enum BroadcastSourcePresentation {
         var parts: [String] = []
         if let currentMode { parts.append(currentMode == .native ? "Native player" : "Web player") }
         let listed = listedMetadata(qualityLabel)
-        if !listed.isEmpty { parts.append("Listed: \(listed.joined(separator: " · "))") }
+        if !listed.isEmpty { parts.append(listedPhrase(listed)) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+
+    /// The provider's own listing, not decoded quality: keep that visible.
+    static func listedPhrase(_ listed: [String]) -> String {
+        "Listed as " + listed.joined(separator: " · ")
+    }
+
+    struct StatusNote: Equatable {
+        let text: String
+        let symbol: String
+        let isPositive: Bool
+    }
+
+    /// What this device saw the source do for this match. Ranking and
+    /// recommendations are decided elsewhere; this only explains them.
+    static func statusNote(_ evidence: LiveSourceHealthStore.MatchEvidence) -> StatusNote? {
+        switch evidence {
+        case .sustained: .init(text: "Played well for this match", symbol: "checkmark.circle", isPositive: true)
+        case .recentlyPlayed: .init(text: "Played for this match", symbol: "checkmark.circle", isPositive: true)
+        case .recentlyFailed: .init(text: "Didn't play just now", symbol: "exclamationmark.circle", isPositive: false)
+        case .repeatedlyFailed: .init(text: "Failed more than once for this match", symbol: "exclamationmark.circle", isPositive: false)
+        case .wrongProgramme: .init(text: "Reported showing a different match", symbol: "flag", isPositive: false)
+        case .unknown: nil
+        }
     }
 
     static func listedMetadata(_ raw: String?) -> [String] {

@@ -134,7 +134,7 @@ final class SportsTVExperienceTests: XCTestCase {
         XCTAssertEqual(BroadcastSourcePresentation.watchTitle(provider: "TV1", number: 2), "Willow Cricket")
         XCTAssertEqual(BroadcastSourcePresentation.watchTitle(provider: "CS4", number: 3), "Broadcast 3")
         XCTAssertEqual(BroadcastSourcePresentation.watchDescription(provider: "CS4", qualityLabel: "English · HD"),
-            "CS4 · Listed: English · HD")
+            "Listed as English · HD · CS4")
         XCTAssertNil(BroadcastSourcePresentation.watchDescription(provider: "unreviewed", qualityLabel: "https://private.invalid/HD"))
         XCTAssertFalse((BroadcastSourcePresentation.watchDescription(provider: "TV1", qualityLabel: nil) ?? "").contains("Native"))
     }

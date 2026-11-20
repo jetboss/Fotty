@@ -1,3 +1,17 @@
+## 2026-11-20 — Source rows say how each source did for this match
+
+Owner asked to make the player's Sources sheet easier to choose from. Each row
+now shows this device's own record for that source and match, read from the
+same `LiveSourceHealthStore.matchEvidence` recommendations already use:
+"Played well for this match", "Played for this match", "Didn't play just now",
+"Failed more than once for this match" or "Reported showing a different match"
+(nothing when unknown). The provider's listing reads "Listed as HD" instead of
+"Listed: HD", and the support code (e.g. CS4) moved to the end of the line.
+
+Display only: source order, recommendations, the Recommended/All filter,
+failover and ranking are unchanged. The visual baseline rows carry no listing
+or status, so their pixels are unchanged. Not checked on a device.
+
 ## 2026-11-20 — Remove Home and Matchday's unused second Watch lookup
 
 Owner approved finishing the UI-review clean-up. Home and Matchday each kept an

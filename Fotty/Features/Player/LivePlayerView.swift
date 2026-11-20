@@ -847,6 +847,7 @@ struct LivePlayerView: View {
             onRightMatch: rightMatchAction,
             rightMatchPresentation: rightMatchPresentation,
             programmeEvidence: programmeEvidence,
+            sourceStatus: sourceStatusSnapshot,
             onSelect: selectBroadcastSession
         )
         .presentationDetents([.medium, .large])
@@ -1390,6 +1391,16 @@ struct LivePlayerView: View {
         case .available:
             return "Broadcast available"
         }
+    }
+
+    /// The same per-match record recommendations use, read for display only.
+    private var sourceStatusSnapshot: [UUID: LiveSourceHealthStore.MatchEvidence] {
+        guard !viewModel.event.isBroadcastChannel else { return [:] }
+        let scope = LiveSourceHealthStore.MatchEvidenceScope(request: StreamPlaybackRequest(event: viewModel.event))
+        let now = Date()
+        return Dictionary(viewModel.sessions.map {
+            ($0.id, LiveSourceHealthStore.matchEvidence(for: $0, scope: scope, at: now))
+        }, uniquingKeysWith: { first, _ in first })
     }
 
     private var recommendedMatchIndices: [Int]? {

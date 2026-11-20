@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-20T22:54:01.212805+00:00
-Source digest: 08a52bae88ebb2fc875952f787a0d0b22f7183e7a562d313fb0ca2e415bb36e5
+Generated: 2026-11-20T23:09:04.511378+00:00
+Source digest: 6e91114e633ae32e81fa76ae72db8b6b853ba988c448a9381dfde2a2f842e73b
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -881,6 +881,20 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-20 — Source rows say how each source did for this match
+
+Owner asked to make the player's Sources sheet easier to choose from. Each row
+now shows this device's own record for that source and match, read from the
+same `LiveSourceHealthStore.matchEvidence` recommendations already use:
+"Played well for this match", "Played for this match", "Didn't play just now",
+"Failed more than once for this match" or "Reported showing a different match"
+(nothing when unknown). The provider's listing reads "Listed as HD" instead of
+"Listed: HD", and the support code (e.g. CS4) moved to the end of the line.
+
+Display only: source order, recommendations, the Recommended/All filter,
+failover and ranking are unchanged. The visual baseline rows carry no listing
+or status, so their pixels are unchanged. Not checked on a device.
 
 ## 2026-11-20 — Remove Home and Matchday's unused second Watch lookup
 
