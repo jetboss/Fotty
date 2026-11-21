@@ -6,6 +6,7 @@ import { SPORTS_EVENT_SOURCES } from "../web/workers/playback/src/sports-fixture
 import { auditSportsSnapshot, failedSportsAudit, sportsAuditFindingMessages } from "./audit-sports-fixtures-policy.mjs";
 import { sportsFindingKey } from "./audit-sports-fixtures-github.mjs";
 import { collectSportsFixtureCrosscheck } from "./sports-fixture-crosscheck.mjs";
+import { auditSportsHistory, collectESPNLiveMismatches } from "./sports-fixture-watchdog.mjs";
 
 const arg = (name, fallback = "") => process.argv.find((value) => value.startsWith(`--${name}=`))?.slice(name.length + 3) || fallback;
 const now = Date.parse(arg("at", new Date().toISOString()));
@@ -37,6 +38,18 @@ try {
     if (!arg("fixture-file") && !process.argv.includes("--skip-crosscheck")) {
       report.crosscheck = await collectSportsFixtureCrosscheck(body, { now });
       report.findings.push(...report.crosscheck.findings);
+      // Owner decision (21 Nov 2026): history and ESPN live checks.
+      const fetchJSON = async (url) => {
+        const signal = AbortSignal.timeout(15_000);
+        const response = await fetch(url, { headers: { Accept: "application/json", "User-Agent": "Fotty sports fixture monitor/1.0" },
+          redirect: "error", signal });
+        if (!response.ok) throw Object.assign(new Error("Comparison unavailable"), { status: response.status });
+        return boundedJSON(response, 2 * 1024 * 1024, signal);
+      };
+      const base = new URL(process.env.FOTTY_WORKER_BASE_URL || "https://fotty-playback-v3.adaptive-rhubarb.workers.dev");
+      try { report.findings.push(...auditSportsHistory(await fetchJSON(new URL("/api/sports/history", base)), { now })); }
+      catch (error) { if (error?.status !== 404) report.findings.push({ code: "history-unreadable", actionable: false }); }
+      report.findings.push(...await collectESPNLiveMismatches(body, { now, fetchJSON }));
       report.failed = report.findings.length > 0;
       report.actionable = report.findings.some((finding) => finding.actionable);
     }

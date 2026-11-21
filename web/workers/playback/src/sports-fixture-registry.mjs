@@ -3,6 +3,10 @@ import { admitSportsCollectionIsolated, descriptorCompetitions, fixtureInstant, 
 import { boundedFixtureScores } from "./ucl-reported-score-policy.mjs";
 
 const STATE_KEY = "sports-source-v1";
+// Owner decision (21 Nov 2026): every refresh outcome is kept so a failure can
+// be explained afterwards. Codes and counts only; never URLs or bodies.
+const HISTORY_KEY = "sports-source-history-v1";
+export const SPORTS_HISTORY_LIMIT = 60;
 const RETRY_MS = 5 * 60_000;
 const FAILURE_CODES = new Map([
   ["Sports schedule upstream unavailable", "upstream-unavailable"],
@@ -129,8 +133,9 @@ function previousCohort(previous, descriptor, competitionId) {
 }
 
 function retainedAccepted(accepted, preserveAdmission = false) {
+  if (accepted && preserveAdmission) return accepted;
   return accepted && { ...accepted, fixtures: accepted.fixtures.map((fixture) => ({ ...fixture,
-    source: { ...fixture.source, verification: preserveAdmission && fixture.source.verification !== "held" ? fixture.source.verification : "held" } })) };
+    source: { ...fixture.source, verification: "held" } })) };
 }
 
 export async function refreshSportsSource(previous, descriptor, now, collect) {
@@ -164,9 +169,10 @@ export async function refreshSportsSource(previous, descriptor, now, collect) {
       const old = previousCohort(previous, descriptor, id);
       return [id, { ...old, consecutiveFailures: old.consecutiveFailures + 1, failure }];
     }));
-    return { ...previous, ...(previous?.accepted ? { accepted: retainedAccepted(previous.accepted, stage === "collection"
-      && (["TimeoutError", "AbortError"].includes(failure.kind) || failure.code === "upstream-unavailable"
-        && ([408, 429].includes(failure.httpStatus) || failure.httpStatus >= 500))) } : {}), cohorts,
+    // Owner decision (21 Nov 2026): a failed read never makes accepted facts
+    // look worse. Any collection failure keeps them as they were; only an
+    // admission failure (disagreeing evidence) holds them.
+    return { ...previous, ...(previous?.accepted ? { accepted: retainedAccepted(previous.accepted, stage === "collection") } : {}), cohorts,
       consecutiveFailures: (previous?.consecutiveFailures || 0) + 1, failure, ...attempt,
       nextAttemptAt: new Date(now.getTime() + RETRY_MS).toISOString() };
   }
@@ -250,6 +256,21 @@ export async function assembleSportsSnapshot(descriptors, states, now) {
   return { ...snapshot, revision: await sportsRevision(snapshot.fixtures, coverage) };
 }
 
+/** One bounded history row per refresh: outcome, failure code and counts. */
+export function sportsHistoryEntry(state, now) {
+  const fixtures = state?.accepted?.fixtures || [];
+  const failure = state?.failure;
+  return { at: now.toISOString(), outcome: state?.consecutiveFailures ? "unavailable" : "covered",
+    ...(failure ? { failure: { stage: String(failure.stage || ""), code: String(failure.code || failure.kind || "unknown"),
+      ...(Number.isInteger(failure.httpStatus) ? { httpStatus: failure.httpStatus } : {}) } } : {}),
+    consecutiveFailures: state?.consecutiveFailures || 0, conflict: Boolean(state?.conflict),
+    fixtureCount: fixtures.length, liveCount: fixtures.filter((row) => row.status === "live").length,
+    heldCount: fixtures.filter((row) => row.source?.verification === "held").length,
+    espnLiveCount: fixtures.filter((row) => row.liveEvidence === "espn").length,
+    unavailableCompetitions: Object.entries(state?.cohorts || {})
+      .filter(([, cohort]) => cohort?.consecutiveFailures).map(([id]) => id).sort() };
+}
+
 // One object per reviewed source group. Its own serialized requests cannot
 // amplify quota usage, while another league's failure cannot stop its refresh.
 export class SportsFixtureRegistry {
@@ -266,6 +287,11 @@ export class SportsFixtureRegistry {
     const next = await refreshSportsSource(previous, descriptor, now,
       (source, instant) => this.options.collect(source, instant, this.env));
     await this.state.storage.put(STATE_KEY, next);
+    try {
+      const history = await this.state.storage.get(HISTORY_KEY);
+      await this.state.storage.put(HISTORY_KEY,
+        [...(Array.isArray(history) ? history : []), sportsHistoryEntry(next, now)].slice(-SPORTS_HISTORY_LIMIT));
+    } catch { /* History never blocks a refresh. */ }
     console.log(JSON.stringify({ event: "sports_fixture_refresh", sourceGroup: descriptor.id,
       outcome: next.consecutiveFailures ? "unavailable" : "covered", fixtureCount: next.accepted?.fixtures.length || 0,
       consecutiveFailures: next.consecutiveFailures || 0, conflict: Boolean(next.conflict),
@@ -279,6 +305,10 @@ export class SportsFixtureRegistry {
     if (request.method === "POST" && url.pathname === "/refresh") {
       const next = await this.enqueue(() => this.refresh(descriptor));
       return Response.json({ ok: !next.consecutiveFailures, nextAttemptAt: next.nextAttemptAt });
+    }
+    if (request.method === "GET" && url.pathname === "/history") {
+      const history = await this.state.storage.get(HISTORY_KEY);
+      return Response.json(Array.isArray(history) ? history : []);
     }
     if (request.method !== "GET" || url.pathname !== "/fixtures") return Response.json({ error: "Not found" }, { status: 404 });
     let current = await this.state.storage.get(STATE_KEY);
