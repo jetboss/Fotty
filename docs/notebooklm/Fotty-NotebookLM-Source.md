@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-21T17:56:03.766836+00:00
-Source digest: 111e8c823fa1473b68614f9d53a646b2b26793f999c3ee64b210f5776abfd117
+Generated: 2026-11-21T19:28:59.257991+00:00
+Source digest: 5317a9ec9bf40abca78b09f96086be36ddcb1ff02446f62ab5bb9cec3c21fa5c
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,7 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-21 Nov: [TestFlight343](../releases/Fotty-3.0.0-343.md) VALID (prior 342): live score overrides Start unconfirmed; HF 20 s. Worker (PR137): per-league schedules, older copies never hold a league, ESPN live layer for 5 European competitions.
+21 Nov: [TestFlight344](../releases/Fotty-3.0.0-344.md) VALID (prior 343): bad reads never break confirmed matches (6 h grace; live to kickoff+3 h); app ESPN backup; never "delayed". Worker 0a92e849 (PR137): failed reads keep facts; /api/sports/history; 10-min monitor.
 
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
@@ -29,7 +29,7 @@ Prior336: [Watch freeze/discovery repairs](../testing/fotty336-watch-failures/RE
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (343): Internal/Testing, Fotty Internal Smoke (previous 342).
+FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (344): Internal/Testing, Fotty Internal Smoke (previous 343).
 Receipt: releases/Fotty-3.0.0-338.md.
 
 ## Discovery and retained follow-up
@@ -879,6 +879,56 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-21 — Owner decision: a bad read never breaks a confirmed match
+
+Trigger: at 18:25 UTC Jet stored a fixture read in which almost every league
+was "unavailable"; for ~15 minutes live Newcastle–Arsenal showed "No stream
+listed" and live Sevilla–Betis/Parma–Roma "Start unconfirmed". The exact
+cause was not captured (nothing recorded why a league failed). The owner
+approved all four parts of an "iron clad" fix:
+
+1. **Confirmed facts survive bad reads (rule change).** App: scheduled/live
+   rows of a league whose latest read failed, was missing, older or
+   disagreed stay confirmed for 6 h after the league's last accepted read
+   (`confirmationGrace`); only Worker-held rows (two disagreeing
+   observations) or a newer accepted fact change them. A confirmed LIVE
+   receipt stays in play until 3 h after kickoff (`isInPlay`); score and
+   minute still need a current read (kept rows show no score). Worker: any
+   collection failure keeps accepted facts and markers unchanged; only an
+   admission failure holds them. Unsupported leagues are no longer turned
+   into "unavailable" by the app. Tests that pinned the old rule were
+   updated to the new one with an expiry case kept (SportsFixtureCatalog,
+   HomeTerminalReconciliation, three Worker policy tests).
+2. **App ESPN live layer.** When a football league's server read is stale
+   (>12 min) or failed during a live window, the app reads ESPN's public
+   scoreboard (90 s per league) and applies scheduled → live, score and
+   minute from a unique role-aligned match within 5 min of kickoff. Never
+   finishes, cancels or adds fixtures; not persisted. ESPN was already an
+   app host (team badges).
+3. **Diagnostics, history, watchdog.** App records `sports_fixture_refresh`
+   failures and per-league `sports_lane_unavailable` reasons (missing,
+   server_unavailable, older_receipt, rows_disagree) and recoveries. Live
+   matches re-read every 2 min. Worker: the public read now gives each
+   league store 2.5 s plus one 3.5 s retry (was a silent 1.5 s timeout) and
+   logs failures; each group keeps 60 refresh outcomes at
+   `/api/sports/history`. The sports monitor runs every 10 min, reads that
+   history and flags ESPN in-play matches the feed doesn't show live.
+4. **Replay tests.** Jet's real 18:25 snapshot and the next good read are a
+   permanent app test.
+
+Worker deployed as 0a92e849 (rollback 7df94532) from PR #137's branch.
+
+## 2026-11-21 — Owner decision: Fotty never says a score is delayed
+
+The owner ruled that no score or feed label may say "delayed". Removed:
+"May be delayed" on Home/Matchday live rows and the featured scoreboard, the
+Champions League reported-score caption (now just "Football-data.org"), the
+"Delayed" feed qualifier for fallback score modes, and the quota banner's
+delayed wording (now "Using backup scores … coming from a backup source").
+The match header's stale state reads "Waiting for update". The internal
+`scoreMayBeDelayed`/`usesDelayedData` facts are unchanged; only the wording
+is gone. Cricket's "Start delayed" is a real match state and stays.
 
 ## 2026-11-21 — Plan 3 (older copies never hold a league) and plan 1 (ESPN live layer)
 

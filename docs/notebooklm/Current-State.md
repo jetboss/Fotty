@@ -1,6 +1,6 @@
 # Fotty current state
 
-21 Nov: [TestFlight344](../releases/Fotty-3.0.0-344.md) VALID (prior 343): bad reads never break confirmed matches (6 h grace; live to kickoff+3 h); app ESPN backup; never "delayed". Worker 0a92e849 (PR137): failed reads keep facts; /api/sports/history; 10-min monitor.
+21 Nov: [TestFlight344](../releases/Fotty-3.0.0-344.md) VALID: bad reads never break confirmed matches (6 h grace; live to kickoff+3 h); app ESPN backup; never "delayed". Worker 0a92e849 (PR137): failed reads keep facts; /api/sports/history; 10-min monitor.
 
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
