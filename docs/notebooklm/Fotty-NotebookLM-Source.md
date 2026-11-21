@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-21T15:59:49.797247+00:00
-Source digest: a4f6621bf9f99db04a527e694f000dcb6fc6bb9778bfea3394c803a3a9487c02
+Generated: 2026-11-21T16:00:08.859935+00:00
+Source digest: 4a1fbc4cec2b50aea657246e254aa349f030e1430627ad32aecc81152a866d54
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,17 +11,13 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-21 Nov: [TestFlight341](../releases/Fotty-3.0.0-341.md) VALID, Internal Smoke: unconfirmed-status fix, inline Watch failure panel, source status lines, Matchday Search, match page Find in Fotty.
-
-15 Nov: [TestFlight338](../releases/Fotty-3.0.0-338.md) VALID, Internal Smoke: Jet338 audio fix plus Codex 333–337.
+21 Nov: [TestFlight341](../releases/Fotty-3.0.0-341.md) VALID (prior 338). Soak: HF renewal 20 s; Worker football schedules per league (deployed on 3c3a2e5).
 
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
 Prior336: [Watch freeze/discovery repairs](../testing/fotty336-watch-failures/README.md),2,739 passes/12 skips; correct channel holds. Prior335 [UI](../testing/fotty-core-motion-20261115/jet335-acceptance.md) and334 [guide](../testing/fotty-sports-tv-guide-20261115/jet334-acceptance.md) receipts retain their limits.
 
 14 Nov: [Jet332 retirement](../testing/fotty332-watch-first-retirement/README.md): FPL removed, Watch Two parked; saved data/scores/follows/ranking preserved. Claude approved;2,687 tests pass/12 skips; correct WBBL Watch91s/zero stalls. Shipped as TestFlight332.
-
-Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.md) retains WBBL Watch and Jamaica–Mexico failure evidence.
 
 14 Nov: [Jet324 shared admission](../testing/fotty324-shared-admission/README.md) added common delivery policy and accounting. HF1 showed wrong rugby; HF2 held correct Vegas–Nashville92s/zero stalls. Programme mismatch cause remains unproven; receipt retains source counts and recovery evidence.
 
