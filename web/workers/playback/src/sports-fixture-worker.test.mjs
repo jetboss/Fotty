@@ -246,3 +246,42 @@ test("a held per-league row is named in coverage and the snapshot still assemble
   assert.deepEqual(lane.heldFixtureIds, ["sports-fixture:premier-league:560643"]);
   assert.equal(snapshot.fixtures.find((fixture) => fixture.id.endsWith(":560643")).status, "finished");
 });
+
+test("an older publisher copy never holds a league: finished stays finished, live stays live", async () => {
+  // 21 Nov: a stale football-data replica sent Lazio-Lecce as IN_PLAY and
+  // Parma-Roma as TIMED, both with older lastUpdated than the accepted rows.
+  const descriptor = SPORTS_SOURCES.find((source) => source.id === "football-data");
+  const env = { FOOTBALL_DATA_API_KEY: "test" };
+  const lazio = (status, lastUpdated) => ({ id: 558528, utcDate: "2026-11-21T14:00:00Z", status, lastUpdated,
+    competition: { code: "SA" }, homeTeam: { id: 110, name: "SS Lazio" }, awayTeam: { id: 5890, name: "US Lecce" } });
+  const parma = (status, lastUpdated) => ({ id: 558526, utcDate: "2026-11-21T17:00:00Z", status, lastUpdated,
+    competition: { code: "SA" }, homeTeam: { id: 112, name: "Parma Calcio 1913" }, awayTeam: { id: 100, name: "AS Roma" } });
+  const collect = (rows) => (source, at) => collectSportsSource(source, at, env, async (url) => {
+    const code = url.pathname.split("/").at(-2);
+    const matches = code === "SA" ? rows : [];
+    return Response.json({ filters: { season: "2026" }, competition: { code },
+      resultSet: { count: matches.length, ...(matches.length ? { first: "2026-11-21", last: "2026-11-21" } : {}) }, matches });
+  });
+  const first = new Date("2026-11-21T17:29:30Z"), second = new Date("2026-11-21T17:35:00Z");
+  const accepted = await refreshSportsSource(null, descriptor, first,
+    collect([lazio("FINISHED", "2026-11-21T15:57:31Z"), parma("IN_PLAY", "2026-11-21T17:29:14Z")]));
+  const stale = await refreshSportsSource(accepted, descriptor, second,
+    collect([lazio("IN_PLAY", "2026-11-21T15:40:00Z"), parma("TIMED", "2026-11-21T00:20:36Z")]));
+  const snapshot = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, stale]]), second);
+  const lane = snapshot.coverage.find((coverage) => coverage.competitionId === "serie-a");
+  assert.equal(lane.status, "covered");
+  assert.equal(lane.sync.failure, undefined);
+  assert.equal(lane.heldFixtureIds, undefined);
+  const byID = new Map(snapshot.fixtures.map((fixture) => [fixture.id, fixture]));
+  assert.equal(byID.get("sports-fixture:serie-a:558528").status, "finished");
+  assert.equal(byID.get("sports-fixture:serie-a:558526").status, "live");
+  assert.equal(byID.get("sports-fixture:serie-a:558526").source.updatedAt, "2026-11-21T17:29:14.000Z");
+
+  // A genuinely newer contradiction is still refused: un-finishing with a newer stamp.
+  const newer = await refreshSportsSource(accepted, descriptor, second,
+    collect([lazio("IN_PLAY", "2026-11-21T17:34:00Z"), parma("IN_PLAY", "2026-11-21T17:34:30Z")]));
+  const refused = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, newer]]), second);
+  const refusedLane = refused.coverage.find((coverage) => coverage.competitionId === "serie-a");
+  assert.equal(refusedLane.sync.failure.code, "terminal-rollback");
+  assert.equal(refused.fixtures.find((fixture) => fixture.id.endsWith(":558526")).status, "live");
+});
