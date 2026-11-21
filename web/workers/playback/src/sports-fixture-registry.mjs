@@ -206,9 +206,13 @@ export async function assembleSportsSnapshot(descriptors, states, now) {
       if (descriptor.sourceName && source.name !== descriptor.sourceName) throw new Error("Invalid sports admission provenance");
       if (descriptor.sourceURL) {
         const actual = new URL(source.url), expected = new URL(descriptor.sourceURL);
+        // football-data rows come from the per-league endpoint of a listed code.
+        const footballLeague = descriptor.adapter === "football-data"
+          && /^\/v4\/competitions\/([A-Z0-9]+)\/matches$/.exec(actual.pathname)?.[1];
         const pathMatches = descriptor.adapter === "nhl"
           ? actual.pathname.startsWith(`${expected.pathname}/`) && /^\d{4}-\d{2}-\d{2}$/.test(actual.pathname.slice(expected.pathname.length + 1))
-          : actual.pathname === expected.pathname;
+          : actual.pathname === expected.pathname
+            || Boolean(footballLeague && descriptor.codes?.[footballLeague] === fixture.competitionId);
         if (actual.origin !== expected.origin || !pathMatches) throw new Error("Invalid sports admission provenance");
       }
       seen.add(fixture.id);

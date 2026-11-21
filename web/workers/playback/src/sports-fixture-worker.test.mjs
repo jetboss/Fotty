@@ -196,3 +196,29 @@ test("a wholly partial service exposes validated fresh rows without masking held
   const heldOnly = await refreshSportsSource(partial, source, now, async () => { throw new Error("publisher unavailable"); });
   assert.equal((await responseFor(heldOnly)).status, 503);
 });
+
+test("per-league football-data rows assemble into the public snapshot (21 Nov 503 regression)", async () => {
+  // Per-league rows carry /v4/competitions/{CODE}/matches as their source.
+  // The snapshot used to accept only /v4/matches and failed the whole feed.
+  const descriptor = SPORTS_SOURCES.find((source) => source.id === "football-data");
+  const now = new Date("2026-11-21T15:40:00Z");
+  const env = { FOOTBALL_DATA_API_KEY: "test" };
+  const collect = (source, at) => collectSportsSource(source, at, env, async (url) => {
+    const code = url.pathname.split("/").at(-2);
+    const matches = code === "PL" ? [{ id: 560642, utcDate: "2026-11-21T15:00:00Z", status: "IN_PLAY", minute: 40,
+      lastUpdated: "2026-11-21T15:39:00Z", competition: { code: "PL" }, score: { fullTime: { home: 1, away: 1 } },
+      homeTeam: { id: 61, name: "Chelsea FC" }, awayTeam: { id: 341, name: "Leeds United FC" } }] : [];
+    return Response.json({ filters: { season: "2026" }, competition: { code },
+      resultSet: { count: matches.length, ...(matches.length ? { first: "2026-11-21", last: "2026-11-21" } : {}) }, matches });
+  });
+  const admitted = await refreshSportsSource(null, descriptor, now, collect);
+  const snapshot = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, admitted]]), now);
+  const fixture = snapshot.fixtures.find((row) => row.id === "sports-fixture:premier-league:560642");
+  assert.equal(fixture.status, "live");
+  assert.equal(new URL(fixture.source.url).pathname, "/v4/competitions/PL/matches");
+
+  // A league path that doesn't belong to the row's competition is still refused.
+  const forged = { ...admitted, accepted: { ...admitted.accepted, fixtures: admitted.accepted.fixtures.map((row) =>
+    ({ ...row, source: { ...row.source, url: "https://api.football-data.org/v4/competitions/CL/matches" } })) } };
+  await assert.rejects(() => assembleSportsSnapshot([descriptor], new Map([[descriptor.id, forged]]), now), /provenance/);
+});
