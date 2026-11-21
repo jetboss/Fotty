@@ -585,3 +585,68 @@ test("schedule collection never asks Cloudflare to cache a provider response (21
   }
   assert.equal(result.fixtures[0].status, "live");
 });
+
+// ESPN live layer (owner decision 21 Nov 2026).
+const overlayNow = new Date("2026-11-21T17:35:00Z");
+const saRow = (overrides = {}) => ({ id: 558526, utcDate: "2026-11-21T17:30:00Z", status: "TIMED", lastUpdated: "2026-11-21T00:20:36Z",
+  competition: { code: "SA" }, homeTeam: { id: 112, name: "Parma Calcio 1913", shortName: "Parma" },
+  awayTeam: { id: 100, name: "AS Roma", shortName: "Roma" }, ...overrides });
+const liveEspnEvent = (overrides = {}) => ({ id: "735001", date: "2026-11-21T17:30Z",
+  status: { displayClock: "5'", type: { name: "STATUS_FIRST_HALF", state: "in", completed: false, shortDetail: "5'" } },
+  competitions: [{ competitors: [
+    { homeAway: "home", score: "1", team: { displayName: "Parma", shortDisplayName: "Parma", name: "Parma" } },
+    { homeAway: "away", score: "0", team: { displayName: "AS Roma", shortDisplayName: "Roma", name: "Roma" } }] }], ...overrides });
+function overlayFetch({ rows = [saRow()], events = [liveEspnEvent()], espnStatus = 200, calls = [] } = {}) {
+  return async (url, init) => {
+    calls.push(String(url));
+    if (url.hostname === "site.api.espn.com") {
+      if (espnStatus !== 200) return new Response("unavailable", { status: espnStatus });
+      return json({ leagues: [{ slug: url.pathname.split("/").at(-2) }], events });
+    }
+    return footballFetch(rows)(url, init);
+  };
+}
+const collectAt = (impl, env = { FOOTBALL_DATA_API_KEY: "test" }) => collectSportsSource(source("football-data"), overlayNow, env, impl);
+
+test("ESPN live layer turns a late football-data kickoff live with score and minute", async () => {
+  const calls = [];
+  const result = await collectAt(overlayFetch({ calls }));
+  const fixture = result.fixtures.find((row) => row.id === "sports-fixture:serie-a:558526");
+  assert.equal(fixture.status, "live");
+  assert.equal(fixture.liveEvidence, "espn");
+  assert.deepEqual(fixture.footballLive, { home: 1, away: 0, clock: "5′" });
+  assert.equal(fixture.source.updatedAt, overlayNow.toISOString());
+  assert.equal(new URL(fixture.source.url).hostname, "api.football-data.org", "Provenance stays football-data");
+  assert.deepEqual(calls.filter((url) => url.includes("espn")).map((url) => new URL(url).pathname),
+    ["/apis/site/v2/sports/soccer/ita.1/scoreboard"], "Only leagues with a match in its live window ask ESPN");
+});
+
+test("ESPN live layer refuses wrong kickoff, wrong team, swapped roles, ambiguity and non-live states", async () => {
+  const cases = [
+    liveEspnEvent({ date: "2026-11-21T17:45Z" }),
+    liveEspnEvent({ competitions: [{ competitors: [
+      { homeAway: "home", score: "1", team: { displayName: "Parma" } }, { homeAway: "away", score: "0", team: { displayName: "Lazio" } }] }] }),
+    liveEspnEvent({ competitions: [{ competitors: [
+      { homeAway: "home", score: "1", team: { displayName: "AS Roma" } }, { homeAway: "away", score: "0", team: { displayName: "Parma" } }] }] }),
+    liveEspnEvent({ status: { displayClock: "FT", type: { name: "STATUS_FULL_TIME", state: "post", completed: true } } }),
+  ];
+  for (const event of cases) {
+    const result = await collectAt(overlayFetch({ events: [event] }));
+    assert.equal(result.fixtures[0].status, "scheduled", JSON.stringify(event.date));
+    assert.equal(result.fixtures[0].liveEvidence, undefined);
+  }
+  const twice = await collectAt(overlayFetch({ events: [liveEspnEvent(), liveEspnEvent({ id: "735002" })] }));
+  assert.equal(twice.fixtures[0].status, "scheduled", "Two ESPN events for one fixture is ambiguous");
+});
+
+test("ESPN failures, other leagues, out-of-window rows and the switch never change the schedule", async () => {
+  const failed = await collectAt(overlayFetch({ espnStatus: 503 }));
+  assert.equal(failed.fixtures[0].status, "scheduled", "An ESPN outage leaves football-data's schedule intact");
+  const premier = await collectAt(overlayFetch({ rows: [saRow({ competition: { code: "PL" } })] }));
+  assert.equal(premier.fixtures[0].status, "scheduled", "The Premier League uses the official FPL feed instead");
+  const calls = [];
+  await collectAt(overlayFetch({ rows: [saRow({ utcDate: "2026-11-22T17:30:00Z" })], calls }));
+  assert.equal(calls.some((url) => url.includes("espn")), false, "No live-window match, no ESPN request");
+  const off = await collectAt(overlayFetch(), { FOOTBALL_DATA_API_KEY: "test", FOTTY_FOOTBALL_LIVE_OVERLAY: "0" });
+  assert.equal(off.fixtures[0].status, "scheduled");
+});
