@@ -266,7 +266,7 @@ export function admitSportsCollectionIsolated(collection, previous, descriptor, 
   // This is only an exact semantic contradiction, never an ID alias or a
   // same-team heuristic (different starts/squads/titles stay independent).
   for (const { fixture, prior: oldRows } of resurrectedTerminalRows(candidate, previous)) {
-    const issue = { failure: new Error("Terminal fixture status regressed") };
+    const issue = { failure: Object.assign(new Error("Terminal fixture status regressed"), { fixtureId: fixture.id }) };
     blocked.add(fixture.id);
     for (const old of oldRows) retain(old, issue);
     const displaced = oldByID.get(fixture.id);
@@ -283,7 +283,7 @@ export function admitSportsCollectionIsolated(collection, previous, descriptor, 
       } else fresh.set(fixture.id, result.fixture);
     } catch (error) {
       if (error.message !== "Terminal fixture status regressed") throw error;
-      retain(old, { failure: error });
+      retain(old, { failure: Object.assign(error, { fixtureId: fixture.id }) });
     }
   }
   for (const old of previous?.fixtures || []) {
