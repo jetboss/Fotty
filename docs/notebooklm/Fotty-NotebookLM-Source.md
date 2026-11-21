@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-21T16:00:08.859935+00:00
-Source digest: 4a1fbc4cec2b50aea657246e254aa349f030e1430627ad32aecc81152a866d54
+Generated: 2026-11-21T16:20:28.074452+00:00
+Source digest: f9b6bb8907c9ff01f8789e7b04936b8bb8d798d45ce49788e30f78183bc58af1
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,7 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-21 Nov: [TestFlight341](../releases/Fotty-3.0.0-341.md) VALID (prior 338). Soak: HF renewal 20 s; Worker football schedules per league (deployed on 3c3a2e5).
+21 Nov: [TestFlight342](../releases/Fotty-3.0.0-342.md) VALID (prior 341): HF renewal 20 s, live scores while watching. Worker football schedules per league (deployed on 3c3a2e5; brief 503 fixed).
 
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
@@ -29,7 +29,7 @@ Prior336: [Watch freeze/discovery repairs](../testing/fotty336-watch-failures/RE
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (341): Internal/Testing, Fotty Internal Smoke (previous 338).
+FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (342): Internal/Testing, Fotty Internal Smoke (previous 341).
 Receipt: releases/Fotty-3.0.0-338.md.
 
 ## Discovery and retained follow-up
@@ -879,6 +879,19 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-21 — Internal TestFlight 3.0.0 (342); Worker per-league outage
+
+Released 3.0.0 (342) from `d50c108` to Fotty Internal Smoke with the 341
+procedure (full ios-ci, receipt + compare, key-free archive, package checks).
+Owner approved per-league football-data requests. Deploying them caused a
+~12-minute `/api/sports/fixtures` 503: `assembleSportsSnapshot` accepted only
+`/v4/matches` as a football source path, and stored rows already carried the
+per-league path, so a rollback could not help. Fixed forward (`b9f643d` on the
+worker branch) with a regression test that assembles a real per-league row.
+Lesson: runtime tests with empty provider replies never exercised assembly;
+Worker changes that alter stored row shape need a populated end-to-end test
+before deploy. Receipt: docs/releases/Fotty-3.0.0-342.md.
 
 ## 2026-11-21 — Stale football schedule: Worker stops edge-caching; app polls live scores on screen
 

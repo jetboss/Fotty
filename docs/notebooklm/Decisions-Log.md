@@ -1,3 +1,16 @@
+## 2026-11-21 — Internal TestFlight 3.0.0 (342); Worker per-league outage
+
+Released 3.0.0 (342) from `d50c108` to Fotty Internal Smoke with the 341
+procedure (full ios-ci, receipt + compare, key-free archive, package checks).
+Owner approved per-league football-data requests. Deploying them caused a
+~12-minute `/api/sports/fixtures` 503: `assembleSportsSnapshot` accepted only
+`/v4/matches` as a football source path, and stored rows already carried the
+per-league path, so a rollback could not help. Fixed forward (`b9f643d` on the
+worker branch) with a regression test that assembles a real per-league row.
+Lesson: runtime tests with empty provider replies never exercised assembly;
+Worker changes that alter stored row shape need a populated end-to-end test
+before deploy. Receipt: docs/releases/Fotty-3.0.0-342.md.
+
 ## 2026-11-21 — Stale football schedule: Worker stops edge-caching; app polls live scores on screen
 
 Mid-match every 15:00 Premier League game showed "Start unconfirmed". The
