@@ -855,7 +855,15 @@ class LiveScoreService {
     }
 
     func currentStatus(for match: FootballMatch, at now: Date = Date()) -> FootballMatch.MatchStatus? {
-        guard match.status.isLive else { return match.status }
+        guard match.status.isLive else {
+            // Scores only poll while Matchday is open. A pre-kickoff "scheduled"
+            // value not re-read since kickoff says nothing about the match now;
+            // let the official fixture feed decide instead of showing it as an
+            // unconfirmed start while the match is being played.
+            if Self.isStaleUpcoming(match.status, kickoff: kickoffDateIndex.date(for: match.utcDate),
+                                    readAt: lastRefresh, now: now) { return nil }
+            return match.status
+        }
         guard let kickoff = kickoffDateIndex.date(for: match.utcDate),
               FootballDataPolicy.supportsLiveScores(competition: match.competition) else { return nil }
         let key = "premier-league|" + FootballDataPolicy.canonicalFixtureMatchKey(
@@ -864,6 +872,15 @@ class LiveScoreService {
             liveFeedAvailable: feedMode != .unavailable && feedMode != .inactive, now: now)
     }
     
+    /// An upcoming status is current only if the feed was read after kickoff
+    /// within the same 10 minutes that live statuses are trusted for.
+    nonisolated static func isStaleUpcoming(_ status: FootballMatch.MatchStatus, kickoff: Date?,
+                                            readAt: Date?, now: Date) -> Bool {
+        guard status.isUpcoming, let kickoff, kickoff <= now else { return false }
+        guard let readAt, readAt >= kickoff else { return true }
+        return !(0...600).contains(now.timeIntervalSince(readAt))
+    }
+
     func scoreForMatch(home: String, away: String) -> LiveScore? {
         let key = makeKey(home: home, away: away)
         if let match = findMatch(home: home, away: away) {

@@ -355,6 +355,37 @@ final class FootballScoreReceiptTests: XCTestCase {
         XCTAssertFalse(try XCTUnwrap(stale.findMatch(home: event.homeName, away: event.awayName)).status.isLive)
     }
 
+    func testUpcomingScoreStatusNotReadSinceKickoffNoLongerOverridesOtherEvidence() {
+        let kickoff = now
+        XCTAssertFalse(LiveScoreService.isStaleUpcoming(.timed, kickoff: kickoff, readAt: now.addingTimeInterval(-3_600),
+            now: now.addingTimeInterval(-60)), "Before kickoff an upcoming status is simply current")
+        XCTAssertTrue(LiveScoreService.isStaleUpcoming(.timed, kickoff: kickoff, readAt: now.addingTimeInterval(-3_600),
+            now: now.addingTimeInterval(20 * 60)), "Read before kickoff: says nothing about the match now")
+        XCTAssertFalse(LiveScoreService.isStaleUpcoming(.scheduled, kickoff: kickoff, readAt: now.addingTimeInterval(5 * 60),
+            now: now.addingTimeInterval(8 * 60)), "Re-read after kickoff and still scheduled: a real delay")
+        XCTAssertTrue(LiveScoreService.isStaleUpcoming(.scheduled, kickoff: kickoff, readAt: now.addingTimeInterval(5 * 60),
+            now: now.addingTimeInterval(16 * 60)), "Older than the 10 minutes live statuses get")
+        XCTAssertTrue(LiveScoreService.isStaleUpcoming(.timed, kickoff: kickoff, readAt: nil, now: now.addingTimeInterval(60)))
+        for status in [FootballMatch.MatchStatus.inPlay, .paused, .finished, .postponed, .cancelled] {
+            XCTAssertFalse(LiveScoreService.isStaleUpcoming(status, kickoff: kickoff, readAt: nil,
+                now: now.addingTimeInterval(3_600)), "\(status) keeps its own rules")
+        }
+    }
+
+    func testScheduledScoreReadBeforeKickoffIsUnknownOnceTheMatchShouldHaveStarted() async throws {
+        let clock = ReceiptClock(now)
+        let service = service(clock: clock, feed: ReceiptProvider([.success([])]),
+            scheduled: row(.scheduled, kickoff: now.addingTimeInterval(60)))
+        await service.refresh()
+        let match = try XCTUnwrap(service.findMatch(home: "Chelsea", away: "Bournemouth"))
+        XCTAssertTrue(service.currentStatus(for: match, at: clock.read())?.isUpcoming == true)
+
+        // Matchday closed: scores are not polled again while the match is watched elsewhere.
+        clock.advance(20 * 60)
+        XCTAssertNil(service.currentStatus(for: match, at: clock.read()),
+                     "A pre-kickoff schedule must not label a playing match as an unconfirmed start")
+    }
+
     func testOfficialAbbreviationIdentityRetainsDatedKickoffGuard() async throws {
         let service = service(clock: ReceiptClock(now), feed: ReceiptProvider([.success([try palaceOfficialRow()])]),
             scheduled: row(.scheduled, kickoff: now.addingTimeInterval(60)))

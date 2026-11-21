@@ -1,3 +1,23 @@
+## 2026-11-21 — A playing match no longer shows "Start unconfirmed" from a stale schedule
+
+Owner watched Man City vs Fulham and saw "Start unconfirmed". Cause: live
+scores poll only while Matchday is open, so the score feed's pre-kickoff
+"scheduled" value stayed in memory after kickoff. Because a score status takes
+precedence over the official fixture feed, Home, Matchday, details and the
+player controls showed the playing match as an unconfirmed start even though
+the official fixture feed said live. `LiveScoreService.currentStatus` now
+treats an upcoming status as unknown once kickoff has passed unless the feed
+was re-read after kickoff within 10 minutes (the window live statuses already
+get); the official fixture feed then decides. A genuinely delayed kickoff,
+re-read after kickoff, still shows as unconfirmed. Live/terminal precedence and
+score polling budgets are unchanged.
+
+Also: while a match plays, `MainTabView` refreshes schedules every 90 s on any
+tab (Home already did this only while open), so cricket's 10-minute play-phase
+evidence no longer expires into "Play status unconfirmed" when watching from TV
+or Matchday. Each feed's updater still enforces its own polling interval; no
+background refresh was added.
+
 ## 2026-11-20 — Match page has no Watch of its own; "Find in Fotty" hands off to Search
 
 Owner chose to remove the notification match page's separate Watch. The page

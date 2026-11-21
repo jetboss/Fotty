@@ -268,6 +268,17 @@ struct MainTabView: View {
                 catch { return }
             }
         }
+        .task(id: viewingSession.isActive && scenePhase == .active) {
+            // Home refreshes match status every 90 s only while it is the open
+            // tab. While a match plays from TV, Matchday or the mini-player, keep
+            // the same cadence so live status doesn't expire into "unconfirmed".
+            // Each feed's updater still enforces its own polling interval.
+            guard viewingSession.isActive, scenePhase == .active, !AppRuntime.isAutomatedTesting else { return }
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(90)) } catch { return }
+                await MatchListViewModel.shared.refreshIfNeeded()
+            }
+        }
         .task(id: scenePhase) {
             guard scenePhase == .active, !AppRuntime.isAutomatedTesting else { return }
             viewingSession.handoffPublisher.expireIfNeeded()

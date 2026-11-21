@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-21T02:30:42.549025+00:00
-Source digest: 10f41b6acb8f6c140a3c430bdec386162d354018f8091c04298933985ced2147
+Generated: 2026-11-21T13:22:47.486031+00:00
+Source digest: 09b242cafb4a410eed8873e02bb74081fce575752988246d5fee459f3de99ca1
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -881,6 +881,26 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-21 — A playing match no longer shows "Start unconfirmed" from a stale schedule
+
+Owner watched Man City vs Fulham and saw "Start unconfirmed". Cause: live
+scores poll only while Matchday is open, so the score feed's pre-kickoff
+"scheduled" value stayed in memory after kickoff. Because a score status takes
+precedence over the official fixture feed, Home, Matchday, details and the
+player controls showed the playing match as an unconfirmed start even though
+the official fixture feed said live. `LiveScoreService.currentStatus` now
+treats an upcoming status as unknown once kickoff has passed unless the feed
+was re-read after kickoff within 10 minutes (the window live statuses already
+get); the official fixture feed then decides. A genuinely delayed kickoff,
+re-read after kickoff, still shows as unconfirmed. Live/terminal precedence and
+score polling budgets are unchanged.
+
+Also: while a match plays, `MainTabView` refreshes schedules every 90 s on any
+tab (Home already did this only while open), so cricket's 10-minute play-phase
+evidence no longer expires into "Play status unconfirmed" when watching from TV
+or Matchday. Each feed's updater still enforces its own polling interval; no
+background refresh was added.
 
 ## 2026-11-20 — Match page has no Watch of its own; "Find in Fotty" hands off to Search
 
