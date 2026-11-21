@@ -98,7 +98,7 @@ extension AnalyticalDataEngine.EventReference {
             return .available
         }
         if let sportsFixture {
-            if sportsFixture.isLive(at: now) { return .live }
+            if sportsFixture.isInPlay(at: now, kickoff: kickoff) { return .live }
             if sportsFixture.verified, sportsFixture.status == .scheduled, kickoff > now { return .upcoming }
             return .available
         }

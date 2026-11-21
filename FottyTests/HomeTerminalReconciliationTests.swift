@@ -76,10 +76,16 @@ final class HomeTerminalReconciliationTests: XCTestCase {
         let initial = HomeSportsDiscovery(events: [event], now: now) { _ in .inPlay }
         XCTAssertEqual(initial.homeSections(from: initial.items, diverseUpcoming: false,
             featuredLiveLimit: 3).featuredLive.map(\.id), [event.id])
+        // Owner decision (21 Nov 2026): a confirmed LIVE receipt stays in play
+        // until three hours after kickoff even when it misses refreshes.
+        let missedRefresh = HomeSportsDiscovery(events: [event], now: now)
+        XCTAssertEqual(missedRefresh.homeSections(from: missedRefresh.items, diverseUpcoming: false,
+            featuredLiveLimit: 3).featuredLive.map(\.id), [event.id])
         // Reconstruct from retained catalog, just as both refresh and cold start
         // do when the live-score receipt is no longer usable.
+        let afterWindow = kickoff.addingTimeInterval(SportsFixtureMetadata.confirmedInPlayWindow + 600)
         for _ in 0..<2 {
-            let refreshed = HomeSportsDiscovery(events: [event], now: now)
+            let refreshed = HomeSportsDiscovery(events: [event], now: afterWindow)
             let sections = refreshed.homeSections(from: refreshed.items, diverseUpcoming: false,
                 featuredLiveLimit: 3, followedTeamKeys: [TeamFollowKey.make(name: "Chelsea", category: "football")])
             XCTAssertTrue(sections.featuredLive.isEmpty)

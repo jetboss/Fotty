@@ -1,3 +1,42 @@
+## 2026-11-21 — Owner decision: a bad read never breaks a confirmed match
+
+Trigger: at 18:25 UTC Jet stored a fixture read in which almost every league
+was "unavailable"; for ~15 minutes live Newcastle–Arsenal showed "No stream
+listed" and live Sevilla–Betis/Parma–Roma "Start unconfirmed". The exact
+cause was not captured (nothing recorded why a league failed). The owner
+approved all four parts of an "iron clad" fix:
+
+1. **Confirmed facts survive bad reads (rule change).** App: scheduled/live
+   rows of a league whose latest read failed, was missing, older or
+   disagreed stay confirmed for 6 h after the league's last accepted read
+   (`confirmationGrace`); only Worker-held rows (two disagreeing
+   observations) or a newer accepted fact change them. A confirmed LIVE
+   receipt stays in play until 3 h after kickoff (`isInPlay`); score and
+   minute still need a current read (kept rows show no score). Worker: any
+   collection failure keeps accepted facts and markers unchanged; only an
+   admission failure holds them. Unsupported leagues are no longer turned
+   into "unavailable" by the app. Tests that pinned the old rule were
+   updated to the new one with an expiry case kept (SportsFixtureCatalog,
+   HomeTerminalReconciliation, three Worker policy tests).
+2. **App ESPN live layer.** When a football league's server read is stale
+   (>12 min) or failed during a live window, the app reads ESPN's public
+   scoreboard (90 s per league) and applies scheduled → live, score and
+   minute from a unique role-aligned match within 5 min of kickoff. Never
+   finishes, cancels or adds fixtures; not persisted. ESPN was already an
+   app host (team badges).
+3. **Diagnostics, history, watchdog.** App records `sports_fixture_refresh`
+   failures and per-league `sports_lane_unavailable` reasons (missing,
+   server_unavailable, older_receipt, rows_disagree) and recoveries. Live
+   matches re-read every 2 min. Worker: the public read now gives each
+   league store 2.5 s plus one 3.5 s retry (was a silent 1.5 s timeout) and
+   logs failures; each group keeps 60 refresh outcomes at
+   `/api/sports/history`. The sports monitor runs every 10 min, reads that
+   history and flags ESPN in-play matches the feed doesn't show live.
+4. **Replay tests.** Jet's real 18:25 snapshot and the next good read are a
+   permanent app test.
+
+Worker deployed as 0a92e849 (rollback 7df94532) from PR #137's branch.
+
 ## 2026-11-21 — Owner decision: Fotty never says a score is delayed
 
 The owner ruled that no score or feed label may say "delayed". Removed:

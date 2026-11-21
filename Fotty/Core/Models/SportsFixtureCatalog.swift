@@ -8,6 +8,12 @@ enum SportsFixtureCatalog {
     static let fixtureIDPrefix = "sports-fixture:"
     static let kickoffTolerance: TimeInterval = 15 * 60
     static let statusFreshness: TimeInterval = 30 * 60
+    /// Owner decision (21 Nov 2026): a failed, missing, older or odd read of a
+    /// league never makes its confirmed matches look worse. Scheduled and live
+    /// rows keep their confirmation for this long after the league's last
+    /// accepted read. Only an explicit hold (two disagreeing observations) or a
+    /// newer accepted fact changes them.
+    static let confirmationGrace: TimeInterval = 6 * 3600
 
     enum SourceStatus: String, Codable, Sendable {
         case verified, partial, unavailable
@@ -30,7 +36,10 @@ enum SportsFixtureCatalog {
         let ageGroup: String
     }
     struct Source: Codable, Equatable, Sendable {
-        enum Verification: String, Codable, Sendable { case verified, held }
+        /// `retained` is app-only: a row kept unchanged through a failed read
+        /// (owner decision, 21 Nov 2026). It stays confirmed within
+        /// `confirmationGrace` but never supplies a current score or minute.
+        enum Verification: String, Codable, Sendable { case verified, held, retained }
         let name: String
         let url: String
         let observedAt: String
@@ -265,14 +274,19 @@ enum SportsFixtureCatalog {
                     fixtureCount: retained.count, pendingFixtureCount: next.pendingFixtureCount, nextStart: next.nextStart))
                 fixtures += retained
             }
+            else if let next, next.status == .unsupported, nextRows.isEmpty, oldRows.isEmpty {
+                // A lane the server does not cover is not a failed read.
+                coverage.append(next)
+            }
             else if let previous {
-                // Failure changes availability, never the last accepted time.
+                // Failure changes availability, never the last accepted time or
+                // the accepted facts (owner decision, 21 Nov 2026).
                 let failed = next == nil || next?.status != .covered || !identitiesAgree
                 coverage.append(.init(sport: previous.sport, competitionId: previous.competitionId,
                     competitionName: previous.competitionName, status: failed ? .unavailable : previous.status,
                     checkedAt: previous.checkedAt, fixtureCount: oldRows.count,
                     pendingFixtureCount: previous.pendingFixtureCount, nextStart: previous.nextStart))
-                fixtures += failed ? oldRows.map { held($0) } : oldRows
+                fixtures += failed ? oldRows.map(retained) : oldRows
             } else if let next { coverage.append(next); fixtures += nextRows }
         }
         // The cache union is bounded just like a transported snapshot.
@@ -282,6 +296,37 @@ enum SportsFixtureCatalog {
         return .init(schemaVersion: 1, complete: true, checkedAt: checkedAt, revision: candidate.revision,
                      sourceStatus: coverage.contains(where: { $0.status == .unavailable }) ? .partial : candidate.sourceStatus,
                      fixtures: fixtures, coverage: coverage)
+    }
+
+    /// Why each league in `accepted` is unavailable after reading `candidate`
+    /// (competition ID → reason code). Diagnostics only: no names or URLs.
+    static func laneFailures(candidate: Snapshot, accepted: Snapshot) -> [String: String] {
+        let incoming = Dictionary(candidate.coverage.map { ($0.competitionKey, $0) }, uniquingKeysWith: { first, _ in first })
+        var failures: [String: String] = [:]
+        for lane in accepted.coverage where lane.status == .unavailable {
+            guard let next = incoming[lane.competitionKey] else { failures[lane.competitionId] = "missing"; continue }
+            switch next.status {
+            case .covered:
+                failures[lane.competitionId] = (next.receiptDate ?? .distantPast) < (lane.receiptDate ?? .distantPast)
+                    ? "older_receipt" : "rows_disagree"
+            case .unavailable: failures[lane.competitionId] = "server_unavailable"
+            case .unsupported: failures[lane.competitionId] = "server_unsupported"
+            }
+        }
+        return failures
+    }
+
+    /// A row explicitly verified by an earlier read keeps its facts after a
+    /// failed read, marked so its live score is not re-presented as current.
+    private static func retained(_ fixture: Fixture) -> Fixture {
+        guard fixture.source.verification == .verified else { return fixture }
+        let source = Source(name: fixture.source.name, url: fixture.source.url, observedAt: fixture.source.observedAt,
+                            updatedAt: fixture.source.updatedAt, correctionConfirmedAt: fixture.source.correctionConfirmedAt,
+                            verification: .retained)
+        return Fixture(id: fixture.id, sport: fixture.sport, start: fixture.start, status: fixture.status,
+                       eventKind: fixture.eventKind, title: fixture.title, competitionId: fixture.competitionId,
+                       competitionName: fixture.competitionName, participants: fixture.participants,
+                       squad: fixture.squad, source: source, reportedScore: fixture.reportedScore, footballLive: fixture.footballLive)
     }
 
     private static func held(_ fixture: Fixture, markLegacy: Bool = false) -> Fixture {
@@ -300,11 +345,13 @@ enum SportsFixtureCatalog {
 
     static func pollingInterval(snapshot: Snapshot?, now: Date) -> TimeInterval {
         guard let snapshot, snapshot.sourceStatus.verifiesCurrentRows,
-              !snapshot.coverage.contains(where: { $0.status == .unavailable }) else { return 5 * 60 }
+              !snapshot.coverage.contains(where: { $0.status == .unavailable }) else { return SportsFixtureUpdater.retryInterval }
         for fixture in snapshot.fixtures where !fixture.status.stopsPlayback {
             guard let kickoff = fixture.kickoff else { continue }
             let age = now.timeIntervalSince(kickoff)
-            if fixture.status == .live || (-1800...12 * 3600).contains(age) { return 5 * 60 }
+            // Matches in play follow the server's five-minute refresh closely.
+            if fixture.status == .live || (-600...3 * 3600).contains(age) { return 2 * 60 }
+            if (-1800...12 * 3600).contains(age) { return 5 * 60 }
             if (-24 * 3600..<0).contains(age) { return 15 * 60 }
         }
         return 4 * 3600
@@ -491,21 +538,33 @@ enum SportsFixtureCatalog {
 
     private static func fixtureMetadata(for fixture: Fixture, in snapshot: Snapshot,
                                         at now: Date = .init()) -> SportsFixtureMetadata {
-        let covered = snapshot.coverage.first { $0.competitionKey == fixture.competitionKey }?.status == .covered
+        let laneCoverage = snapshot.coverage.first { $0.competitionKey == fixture.competitionKey }
+        // A league whose latest read failed keeps its last confirmed scheduled
+        // and live facts within `confirmationGrace` of its last accepted read.
+        let retained = laneCoverage?.status == .unavailable && fixture.source.verification != .held
+            && (fixture.status == .scheduled || fixture.status == .live)
+            && laneCoverage?.receiptDate.map { (-300...confirmationGrace).contains(now.timeIntervalSince($0)) } == true
+        let covered = laneCoverage?.status == .covered || retained
         let identityObservedAt = date(fixture.source.observedAt) ?? .distantPast
         let observedAt = min(identityObservedAt, fixture.source.updatedAt.flatMap(date) ?? .distantFuture)
-        let verifiedRow = fixture.source.verification == .verified
-            && (covered || (-300...statusFreshness).contains(now.timeIntervalSince(identityObservedAt)))
+        let freshVerifiedRow = fixture.source.verification == .verified
+            && (-300...statusFreshness).contains(now.timeIntervalSince(identityObservedAt))
+        let verifiedRow = fixture.source.verification == .verified && (covered || freshVerifiedRow)
+        // A row kept through a failed read stays confirmed, but its score and
+        // minute are never shown again until a current read supplies them.
+        let liveFactsCurrent = laneCoverage?.status == .covered || freshVerifiedRow
+        let footballLive = liveFactsCurrent ? fixture.footballLive : nil
+        let reportedScore = liveFactsCurrent ? fixture.reportedScore : nil
         let sport = ["motor-sports", "motorsports"].contains(fixture.sport) ? "motorsport" : fixture.sport
         return SportsFixtureMetadata(fixtureID: fixture.id, sport: sport,
             competitionID: fixture.competitionId, competitionName: fixture.competitionName,
             eventKind: fixture.eventKind, title: fixture.title, participants: fixture.participants, squad: fixture.squad,
             status: fixture.status, observedAt: observedAt,
-            verified: (verifiedRow || (fixture.source.verification == nil && covered))
-                && snapshot.sourceStatus.verifiesCurrentRows, reportedScore: fixture.reportedScore,
-            reportedScoreObservedAt: fixture.reportedScore == nil ? nil : date(fixture.source.observedAt),
-            identityObservedAt: identityObservedAt, footballLive: fixture.footballLive,
-            footballLiveMayBeDelayed: fixture.footballLive != nil && fixture.source.name == "football-data.org")
+            verified: (verifiedRow || ((fixture.source.verification == nil || fixture.source.verification == .retained) && covered))
+                && snapshot.sourceStatus.verifiesCurrentRows, reportedScore: reportedScore,
+            reportedScoreObservedAt: reportedScore == nil ? nil : date(fixture.source.observedAt),
+            identityObservedAt: identityObservedAt, footballLive: footballLive,
+            footballLiveMayBeDelayed: footballLive != nil && fixture.source.name == "football-data.org")
     }
 
     @MainActor
@@ -632,6 +691,16 @@ struct SportsFixtureMetadata: Codable, Equatable, Sendable {
     func isLive(at now: Date) -> Bool {
         verified && status == .live && (-300...SportsFixtureCatalog.statusFreshness).contains(now.timeIntervalSince(observedAt))
     }
+    /// Owner decision (21 Nov 2026): a match confirmed LIVE after kickoff stays
+    /// in play until three hours after kickoff unless a newer fact ends it. A
+    /// missed refresh must not drop it to "Start unconfirmed". Score and minute
+    /// display still require the fresh `isLive` receipt.
+    static let confirmedInPlayWindow: TimeInterval = 3 * 3600
+    func isInPlay(at now: Date, kickoff: Date?) -> Bool {
+        if isLive(at: now) { return true }
+        guard let kickoff, verified, status == .live, observedAt >= kickoff.addingTimeInterval(-300) else { return false }
+        return (0..<Self.confirmedInPlayWindow).contains(now.timeIntervalSince(kickoff))
+    }
     /// A verified LIVE receipt that aged past `statusFreshness` without any
     /// newer status (for example one failed fixture refresh mid-match). It is
     /// never displayed as confirmed LIVE, but it keeps the fixture eligible for
@@ -657,15 +726,100 @@ final class SportsFixtureUpdater {
     private var lastAttempt: Date?
     private var retryAt: Date?
     private var isRefreshing = false
+    /// The app's own ESPN live layer for leagues whose server read is stale or
+    /// failed during a live window (owner decision, 21 Nov 2026).
+    private let liveFallbackEnabled: Bool
+    private var isFetchingFallback = false
+    private var fallbackReads: [String: SportsFixtureCatalog.LiveFallback.Read] = [:]
+    private var lastFallbackResults: [String: String] = [:]
     init(defaults: UserDefaults = .standard,
-         fetch: @escaping (URLRequest) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(for: $0) }) {
-        self.defaults = defaults; self.fetch = fetch
+         fetch: @escaping (URLRequest) async throws -> (Data, URLResponse) = { try await URLSession.shared.data(for: $0) },
+         liveFallbackEnabled: Bool = !AppRuntime.isAutomatedTesting) {
+        self.defaults = defaults; self.fetch = fetch; self.liveFallbackEnabled = liveFallbackEnabled
     }
+    /// A failed or partial read is retried within this interval; Home and the
+    /// viewing session call `refresh` every 90 s, which honours it.
+    static let retryInterval: TimeInterval = 5 * 60
+    private var lastLaneFailures: [String: String] = [:]
+    private var recordsDiagnostics: Bool { !AppRuntime.isAutomatedTesting }
+
+    /// One receipt per failed read and per league whose failure starts or
+    /// changes reason, so the 250-record buffer is never flooded. Competition
+    /// IDs and reason codes only.
+    private func recordOutcome(result: String, failures: [String: String]?, serverStatus: String?) {
+        guard recordsDiagnostics else { return }
+        let store = FottyQualityStore.shared
+        if result != "accepted" || failures?.isEmpty == false {
+            var details = ["feed": "sports_fixtures", "result": result,
+                           "source_count": String(failures?.count ?? 0)]
+            if let serverStatus { details["mode"] = serverStatus }
+            store.record(category: .footballData, name: "sports_fixture_refresh",
+                         outcome: result == "accepted" ? .info : .failure, details: details)
+        }
+        guard let failures else { return }
+        for (competition, reason) in failures.sorted(by: { $0.key < $1.key }) where lastLaneFailures[competition] != reason {
+            store.record(category: .footballData, name: "sports_lane_unavailable", outcome: .failure,
+                         details: ["feed": "sports_fixtures", "source": competition, "reason_code": reason])
+        }
+        for competition in lastLaneFailures.keys where failures[competition] == nil {
+            store.record(category: .footballData, name: "sports_lane_recovered", outcome: .recovered,
+                         details: ["feed": "sports_fixtures", "source": competition])
+        }
+        lastLaneFailures = failures
+    }
+
     func cachedSnapshot(now: Date = .init()) -> SportsFixtureCatalog.Snapshot? {
         guard let data = defaults.data(forKey: Self.cacheKey) else { return nil }
         return try? SportsFixtureCatalog.validatedSnapshot(from: data, now: now)
     }
     func refresh(now: Date = .init(), force: Bool = false) async -> SportsFixtureCatalog.Snapshot? {
+        let base = await refreshServerSnapshot(now: now, force: force)
+        return await applyingLiveFallback(to: base, now: now)
+    }
+
+    /// Leagues whose server read is stale or failed while one of their matches
+    /// is in its live window get ESPN's live status, score and minute. Only
+    /// scheduled → live and live updates; never finished, cancelled or a new
+    /// fixture. The result is never persisted as a server receipt.
+    private func applyingLiveFallback(to snapshot: SportsFixtureCatalog.Snapshot?, now: Date) async -> SportsFixtureCatalog.Snapshot? {
+        guard liveFallbackEnabled, let snapshot else { return snapshot }
+        let leagues = SportsFixtureCatalog.LiveFallback.leaguesNeedingFallback(in: snapshot, at: now)
+        fallbackReads = fallbackReads.filter { leagues.contains($0.key) }
+        guard !leagues.isEmpty else { return snapshot }
+        if !isFetchingFallback {
+            isFetchingFallback = true
+            defer { isFetchingFallback = false }
+            for league in leagues.sorted() {
+                if let read = fallbackReads[league], (0..<SportsFixtureCatalog.LiveFallback.readInterval).contains(now.timeIntervalSince(read.observedAt)) { continue }
+                guard let url = SportsFixtureCatalog.LiveFallback.scoreboardURL(for: league, at: now) else { continue }
+                var result = "applied"
+                do {
+                    var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 6)
+                    request.setValue("application/json", forHTTPHeaderField: "Accept")
+                    let (data, response) = try await fetch(request)
+                    try Task.checkCancellation()
+                    guard (response as? HTTPURLResponse)?.statusCode == 200,
+                          data.count <= SportsFixtureCatalog.LiveFallback.maximumPayloadBytes else { throw URLError(.badServerResponse) }
+                    let events = try SportsFixtureCatalog.LiveFallback.events(from: data, league: league)
+                    fallbackReads[league] = .init(events: events, observedAt: now)
+                    if events.isEmpty { result = "none_in_play" }
+                } catch {
+                    if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled { return snapshot }
+                    fallbackReads[league] = .init(events: [], observedAt: now)
+                    result = "failed"
+                }
+                if recordsDiagnostics, lastFallbackResults[league] != result {
+                    FottyQualityStore.shared.record(category: .footballData, name: "sports_live_fallback",
+                        outcome: result == "failed" ? .failure : .info,
+                        details: ["feed": "espn", "source": league, "result": result])
+                }
+                lastFallbackResults[league] = result
+            }
+        }
+        return SportsFixtureCatalog.LiveFallback.overlay(snapshot, reads: fallbackReads, at: now)
+    }
+
+    private func refreshServerSnapshot(now: Date, force: Bool) async -> SportsFixtureCatalog.Snapshot? {
         let cached = cachedSnapshot(now: now)
         guard !isRefreshing else { return cached }
         if !force {
@@ -686,14 +840,181 @@ final class SportsFixtureUpdater {
             let accepted = SportsFixtureCatalog.accepting(candidate, over: cached)
             let rejected = cached.map { accepted == $0 && candidate != $0 } ?? false
             retryAt = !candidate.sourceStatus.verifiesCurrentRows || rejected || accepted.coverage.contains(where: { $0.status == .unavailable })
-                ? now.addingTimeInterval(5 * 60) : nil
+                ? now.addingTimeInterval(Self.retryInterval) : nil
             defaults.set(try JSONEncoder().encode(accepted), forKey: Self.cacheKey)
+            recordOutcome(result: rejected ? "unchanged" : "accepted",
+                          failures: SportsFixtureCatalog.laneFailures(candidate: candidate, accepted: accepted),
+                          serverStatus: candidate.sourceStatus.rawValue)
             return accepted
         } catch {
             if Task.isCancelled || error is CancellationError || (error as? URLError)?.code == .cancelled {
                 lastAttempt = nil; retryAt = nil
-            } else { retryAt = now.addingTimeInterval(5 * 60) }
+            } else {
+                retryAt = now.addingTimeInterval(Self.retryInterval)
+                recordOutcome(result: error is SportsFixtureCatalog.ValidationError ? "invalid" : "failed",
+                              failures: nil, serverStatus: nil)
+            }
             return cached
+        }
+    }
+}
+
+// MARK: - App ESPN live layer (owner decision, 21 Nov 2026)
+
+extension SportsFixtureCatalog {
+    enum LiveFallback {
+        struct Event: Equatable, Sendable {
+            let kickoff: Date
+            let homeNames: [String]
+            let awayNames: [String]
+            let homeScore: Int?
+            let awayScore: Int?
+            let clock: String?
+        }
+        struct Read: Equatable, Sendable {
+            let events: [Event]
+            let observedAt: Date
+        }
+
+        /// Fotty competition → ESPN soccer league slug.
+        static let leagues: [String: String] = [
+            "premier-league": "eng.1", "champions-league": "uefa.champions", "la-liga": "esp.1",
+            "serie-a": "ita.1", "bundesliga": "ger.1", "ligue-1": "fra.1",
+        ]
+        static let readInterval: TimeInterval = 90
+        static let maximumPayloadBytes = 1_500_000
+        /// The server refreshes every five minutes; older than this is stale.
+        static let staleLaneAge: TimeInterval = 12 * 60
+        private static let teamNameNoise: Set<String> = ["fc", "cf", "ac", "as", "ss", "ssc", "sc", "us", "afc", "cd", "ud",
+            "sd", "rcd", "rc", "club", "calcio", "de", "del", "la", "le", "sv", "vfl", "vfb", "tsg", "fsv", "bsc", "osc",
+            "ogc", "fk", "sk", "rb", "stade"]
+
+        static func leaguesNeedingFallback(in snapshot: Snapshot, at now: Date) -> Set<String> {
+            var result = Set<String>()
+            for lane in snapshot.coverage where lane.sport == "football" && leagues[lane.competitionId] != nil {
+                let stale = lane.status != .covered
+                    || (lane.receiptDate.map { now.timeIntervalSince($0) > staleLaneAge } ?? true)
+                guard stale, snapshot.fixtures.contains(where: { candidate($0, lane: lane.competitionKey, at: now) }) else { continue }
+                result.insert(lane.competitionId)
+            }
+            return result
+        }
+
+        private static func candidate(_ fixture: Fixture, lane: String, at now: Date) -> Bool {
+            guard fixture.competitionKey == lane, fixture.eventKind == .match, fixture.source.verification != .held,
+                  fixture.status == .scheduled || fixture.status == .live, let kickoff = fixture.kickoff else { return false }
+            return kickoff <= now.addingTimeInterval(5 * 60) && kickoff >= now.addingTimeInterval(-3 * 3600)
+        }
+
+        static func scoreboardURL(for league: String, at now: Date) -> URL? {
+            guard let slug = leagues[league] else { return nil }
+            // ESPN pages follow the US Eastern calendar day.
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = TimeZone(identifier: "UTC") ?? .gmt
+            let day = calendar.dateComponents([.year, .month, .day], from: now.addingTimeInterval(-5 * 3600))
+            guard let year = day.year, let month = day.month, let date = day.day else { return nil }
+            return URL(string: String(format: "https://site.api.espn.com/apis/site/v2/sports/soccer/%@/scoreboard?dates=%04d%02d%02d",
+                                      slug, year, month, date))
+        }
+
+        static func events(from data: Data, league: String) throws -> [Event] {
+            guard let slug = leagues[league],
+                  let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  (root["leagues"] as? [[String: Any]])?.first?["slug"] as? String == slug,
+                  let events = root["events"] as? [[String: Any]] else { throw URLError(.cannotParseResponse) }
+            return events.prefix(200).compactMap { event -> Event? in
+                guard let status = event["status"] as? [String: Any], let type = status["type"] as? [String: Any],
+                      type["state"] as? String == "in", type["completed"] as? Bool == false,
+                      let kickoff = (event["date"] as? String).flatMap(espnDate),
+                      let competition = (event["competitions"] as? [[String: Any]])?.first,
+                      let competitors = competition["competitors"] as? [[String: Any]], competitors.count == 2,
+                      let home = competitors.first(where: { $0["homeAway"] as? String == "home" }),
+                      let away = competitors.first(where: { $0["homeAway"] as? String == "away" }) else { return nil }
+                func names(_ side: [String: Any]) -> [String] {
+                    let team = side["team"] as? [String: Any] ?? [:]
+                    return ["displayName", "shortDisplayName", "name"].compactMap { team[$0] as? String }
+                }
+                func score(_ side: [String: Any]) -> Int? {
+                    guard let text = side["score"] as? String, (1...2).contains(text.count), text.allSatisfy(\.isASCII) else { return nil }
+                    return Int(text)
+                }
+                let homeNames = names(home), awayNames = names(away)
+                guard !homeNames.isEmpty, !awayNames.isEmpty else { return nil }
+                let clock = type["name"] as? String == "STATUS_HALFTIME" ? "HT"
+                    : minute(status["displayClock"] as? String) ?? minute(type["shortDetail"] as? String)
+                return Event(kickoff: kickoff, homeNames: homeNames, awayNames: awayNames,
+                             homeScore: score(home), awayScore: score(away), clock: clock)
+            }
+        }
+
+        /// Rows are updated only from a unique role-aligned match within five
+        /// minutes of the official kickoff; anything ambiguous is left as is.
+        static func overlay(_ snapshot: Snapshot, reads: [String: Read], at now: Date) -> Snapshot {
+            var updates: [String: Fixture] = [:]
+            for (league, read) in reads where (0..<staleLaneAge).contains(now.timeIntervalSince(read.observedAt)) {
+                guard let lane = snapshot.coverage.first(where: { $0.sport == "football" && $0.competitionId == league }) else { continue }
+                let rows = snapshot.fixtures.filter { candidate($0, lane: lane.competitionKey, at: now) }
+                var pairs: [(event: Int, row: Int)] = []
+                for (eventIndex, event) in read.events.enumerated() {
+                    for (rowIndex, row) in rows.enumerated() {
+                        let participants = orderedParticipants(row.participants)
+                        guard participants.count == 2, participants[0].role == "home", participants[1].role == "away",
+                              let kickoff = row.kickoff, abs(kickoff.timeIntervalSince(event.kickoff)) <= 5 * 60,
+                              sameTeam([participants[0].name], event.homeNames),
+                              sameTeam([participants[1].name], event.awayNames) else { continue }
+                        pairs.append((eventIndex, rowIndex))
+                    }
+                }
+                for pair in pairs where pairs.filter({ $0.event == pair.event || $0.row == pair.row }).count == 1 {
+                    let row = rows[pair.row], event = read.events[pair.event]
+                    let stamp = ISO8601DateFormatter().string(from: read.observedAt)
+                    let source = Source(name: "ESPN", url: "https://www.espn.com/soccer/", observedAt: stamp, updatedAt: stamp,
+                                        verification: .verified)
+                    updates[row.id] = Fixture(id: row.id, sport: row.sport, start: row.start, status: .live,
+                        eventKind: row.eventKind, title: row.title, competitionId: row.competitionId,
+                        competitionName: row.competitionName, participants: row.participants, squad: row.squad,
+                        source: source, reportedScore: nil,
+                        footballLive: FootballFixtureLive(home: event.homeScore, away: event.awayScore, clock: event.clock))
+                }
+            }
+            guard !updates.isEmpty else { return snapshot }
+            return Snapshot(schemaVersion: snapshot.schemaVersion, complete: snapshot.complete, checkedAt: snapshot.checkedAt,
+                            revision: snapshot.revision, sourceStatus: snapshot.sourceStatus,
+                            fixtures: snapshot.fixtures.map { updates[$0.id] ?? $0 }, coverage: snapshot.coverage)
+        }
+
+        static func teamTokens(_ value: String) -> Set<String> {
+            let folded = value.replacingOccurrences(of: "ß", with: "ss")
+                .folding(options: [.diacriticInsensitive, .caseInsensitive, .widthInsensitive], locale: Locale(identifier: "en_US_POSIX"))
+                .lowercased()
+            let tokens = folded.split { !($0.isASCII && ($0.isLetter || $0.isNumber)) }.map(String.init)
+            return Set(tokens.filter { !teamNameNoise.contains($0) && !$0.allSatisfy(\.isNumber) })
+        }
+
+        static func sameTeam(_ ours: [String], _ theirs: [String]) -> Bool {
+            for left in ours.map(teamTokens) where !left.isEmpty {
+                for right in theirs.map(teamTokens) where !right.isEmpty {
+                    if left.isSubset(of: right) || right.isSubset(of: left) { return true }
+                }
+            }
+            return false
+        }
+
+        static func minute(_ value: String?) -> String? {
+            guard let value = value?.trimmingCharacters(in: .whitespaces), !value.isEmpty, value.count <= 12,
+                  let match = value.wholeMatch(of: #/(\d{1,3})['′]?(?:\s*\+\s*(\d{1,2})['′]?)?/#),
+                  let base = Int(match.1), (0...150).contains(base) else { return nil }
+            if let extra = match.2.flatMap({ Int($0) }) {
+                guard (1...99).contains(extra) else { return nil }
+                return "\(base)+\(extra)′"
+            }
+            return "\(base)′"
+        }
+
+        static func espnDate(_ value: String) -> Date? {
+            // ESPN omits seconds ("2026-11-21T19:45Z").
+            let normalized = value.wholeMatch(of: #/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}Z/#) != nil ? String(value.dropLast()) + ":00Z" : value
+            return date(normalized)
         }
     }
 }

@@ -354,7 +354,7 @@ struct HomeSportsDiscovery {
                         let kickoff = event.kickoffDate, kickoff > now { phase = .upcoming }
                 else { phase = .unconfirmed }
             } else if let fixture = event.sportsFixture, official == nil {
-                if fixture.isLive(at: now) { phase = .live }
+                if fixture.isInPlay(at: now, kickoff: event.kickoffDate) { phase = .live }
                 else if fixture.verified, fixture.status == .scheduled, let kickoff = event.kickoffDate, kickoff > now { phase = .upcoming }
                 else if VerifiedFixtureStartingPolicy.contains(event, at: now) { phase = .upcoming }
                 else { phase = .unconfirmed }

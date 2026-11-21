@@ -40,7 +40,7 @@ struct MatchStartPolicy {
     var upcomingStart: Date? {
         guard !event.isBroadcastChannel, !isStopped, !hasUnconfirmedFixtureStart, !hasStartedVerifiedCoverage, status?.isLive != true,
               event.cricketFixture?.isLive(at: now) != true,
-              event.sportsFixture?.isLive(at: now) != true,
+              event.sportsFixture?.isInPlay(at: now, kickoff: event.kickoffDate) != true,
               let date = event.kickoffDate, date > now else { return nil }
         return date
     }
@@ -50,7 +50,7 @@ struct MatchStartPolicy {
     var timingAllowsPlayback: Bool {
         guard !isStopped else { return false }
         if event.isBroadcastChannel || status?.isLive == true || event.cricketFixture?.isLive(at: now) == true
-            || event.sportsFixture?.isLive(at: now) == true { return true }
+            || event.sportsFixture?.isInPlay(at: now, kickoff: event.kickoffDate) == true { return true }
         // A disputed kickoff cannot invent availability without a descriptor.
         if hasUnconfirmedFixtureStart { return false }
         if hasStartedVerifiedCoverage { return true }

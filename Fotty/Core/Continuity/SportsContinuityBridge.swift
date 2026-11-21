@@ -430,7 +430,7 @@ final class SportsContinuityBridge {
                 if fixture.isLive(at: now) { phase = .live; observedAt = fixture.observedAt }
                 else if fixture.status == .scheduled, event.kickoffDate.map({ $0 > now }) == true { phase = .scheduled }
             } else if let fixture = event.sportsFixture, fixture.verified {
-                if fixture.isLive(at: now) { phase = .live; observedAt = fixture.observedAt }
+                if fixture.isInPlay(at: now, kickoff: event.kickoffDate) { phase = .live; observedAt = fixture.observedAt }
                 else if fixture.status == .scheduled, event.kickoffDate.map({ $0 > now }) == true { phase = .scheduled }
             } else if let start = event.kickoffDate, start > now { phase = .scheduled }
             let row = SportsWidgetSnapshot.Match(id: saved.id, homeName: event.homeName, awayName: event.awayName,

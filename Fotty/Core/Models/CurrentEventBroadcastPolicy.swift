@@ -573,7 +573,7 @@ enum MatchdayEventStatePolicy {
         } else if let fixture = event.sportsFixture {
             if fixture.status == .finished || fixture.status == .cancelled { return .recent }
             if fixture.status == .postponed { return .timeToBeConfirmed }
-            if fixture.isLive(at: now) { return .live }
+            if fixture.isInPlay(at: now, kickoff: event.kickoffDate) { return .live }
             if !fixture.verified || fixture.status != .scheduled || event.kickoffDate.map({ $0 <= now }) == true {
                 return event.kickoffDate == nil ? .timeToBeConfirmed : .awaitingConfirmation
             }

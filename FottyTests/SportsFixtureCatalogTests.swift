@@ -5,6 +5,9 @@ import XCTest
 final class SportsFixtureCatalogTests: XCTestCase {
     private let now = ISO8601DateFormatter().date(from: "2026-09-30T14:00:00Z")!
     private func stamp(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
+    /// A league whose last accepted read is older than the owner-approved
+    /// confirmation grace (21 Nov 2026): its retained rows are unconfirmed.
+    private var expiredLaneReceipt: Date { now.addingTimeInterval(-SportsFixtureCatalog.confirmationGrace - 600) }
     private func fixture(_ nativeID: String = "1", sport: String = "basketball", competition: String = "nba",
                          status: SportsFixtureCatalog.Status = .scheduled, kind: SportsFixtureCatalog.EventKind = .match,
                          hours: Double = 1, observedAt: Date? = nil,
@@ -200,17 +203,149 @@ final class SportsFixtureCatalogTests: XCTestCase {
         XCTAssertEqual(try SportsFixtureCatalog.validatedSnapshot(from: JSONEncoder().encode(accepted), now: now), accepted)
     }
 
-    func testUnavailableExplicitReceiptExpiresAndWholeFailureDemotesEveryRow() throws {
-        let current = fixture(verification: .verified)
+    /// Owner decision (21 Nov 2026): a failed read keeps confirmed facts for
+    /// `confirmationGrace` after the league's last accepted read, then expires.
+    // MARK: Owner decision (21 Nov 2026): a bad read never breaks a confirmed match
+
+    /// Jet's stored fixture copy at 18:25 UTC on 21 Nov 2026 (trimmed to the
+    /// affected match). Every league had been marked unavailable, so a live
+    /// Newcastle–Arsenal showed "No stream listed" and other live matches
+    /// "Start unconfirmed" for about fifteen minutes.
+    private let arsenalIncidentCache = #"{"checkedAt":"2026-11-21T18:25:06.846Z","complete":true,"coverage":[{"competitionId":"nba","competitionName":"National Basketball Association","fixtureCount":0,"pendingFixtureCount":0,"sport":"basketball","status":"unavailable"},{"checkedAt":"2026-11-21T18:20:04.611Z","competitionId":"premier-league","competitionName":"Premier League","fixtureCount":1,"nextStart":"2026-11-22T14:00:00.000Z","pendingFixtureCount":0,"sport":"football","status":"unavailable"}],"fixtures":[{"competitionId":"premier-league","competitionName":"Premier League","eventKind":"match","footballLive":{"away":1,"home":0},"id":"sports-fixture:premier-league:560651","participants":[{"id":"football-data:67","name":"Newcastle United FC","role":"home"},{"id":"football-data:57","name":"Arsenal FC","role":"away"}],"source":{"name":"football-data.org","observedAt":"2026-11-21T18:20:04.611Z","updatedAt":"2026-11-21T18:19:23.000Z","url":"https://api.football-data.org/v4/competitions/PL/matches?dateFrom=2026-11-20&dateTo=2026-11-28"},"sport":"football","squad":{"ageGroup":"senior","gender":"men"},"start":"2026-11-21T17:30:00.000Z","status":"live","title":"Newcastle United FC vs Arsenal FC"}],"revision":"d0913569faf071c2ff2392405a3019ef083dfaac94e2147301aa39d3021a276f","schemaVersion":1,"sourceStatus":"partial"}"#
+    /// The Worker's next good read (18:30 UTC), trimmed the same way.
+    private let arsenalIncidentRecovery = #"{"checkedAt":"2026-11-21T18:30:58.123Z","complete":true,"coverage":[{"checkedAt":"2026-11-21T18:30:58.122Z","competitionId":"premier-league","competitionName":"Premier League","fixtureCount":1,"nextStart":"2026-11-22T14:00:00.000Z","pendingFixtureCount":0,"sport":"football","status":"covered"},{"checkedAt":null,"competitionId":"nba","competitionName":"National Basketball Association","fixtureCount":0,"pendingFixtureCount":0,"sport":"basketball","status":"unsupported"}],"fixtures":[{"competitionId":"premier-league","competitionName":"Premier League","eventKind":"match","footballLive":{"away":1,"home":0},"id":"sports-fixture:premier-league:560651","participants":[{"id":"football-data:67","name":"Newcastle United FC","role":"home"},{"id":"football-data:57","name":"Arsenal FC","role":"away"}],"source":{"name":"football-data.org","observedAt":"2026-11-21T18:30:58.122Z","updatedAt":"2026-11-21T18:22:35.000Z","url":"https://api.football-data.org/v4/competitions/PL/matches?dateFrom=2026-11-20&dateTo=2026-11-28"},"sport":"football","squad":{"ageGroup":"senior","gender":"men"},"start":"2026-11-21T17:30:00.000Z","status":"live","title":"Newcastle United FC vs Arsenal FC"}],"revision":"71ea8070974d87cd287e881ad7b3ef211f78ea85fe6d71968fd407d7702c5775","schemaVersion":1,"sourceStatus":"verified"}"#
+
+    func testReplayOfTheArsenalIncidentKeepsTheLiveMatchConfirmed() throws {
+        let at = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-11-21T18:33:35Z"))
+        let cached = try SportsFixtureCatalog.validatedSnapshot(from: Data(arsenalIncidentCache.utf8), now: at)
+        let event = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: cached, at: at).first)
+        let metadata = try XCTUnwrap(event.sportsFixture)
+        XCTAssertTrue(metadata.verified)
+        XCTAssertTrue(metadata.isInPlay(at: at, kickoff: event.kickoffDate))
+        XCTAssertEqual(MatchdayEventStatePolicy.section(for: event, at: at), .live)
+        XCTAssertNotEqual(MatchStartPolicy(event: event, now: at).title, "Start unconfirmed")
+        XCTAssertEqual(HomeSportsDiscovery(events: [event], now: at).items.first?.phase, .live)
+        let next = try SportsFixtureCatalog.validatedSnapshot(from: Data(arsenalIncidentRecovery.utf8), now: at)
+        let accepted = SportsFixtureCatalog.accepting(next, over: cached)
+        XCTAssertEqual(accepted.coverage.first { $0.competitionId == "premier-league" }?.status, .covered)
+        XCTAssertEqual(accepted.coverage.first { $0.competitionId == "nba" }?.status, .unsupported)
+        XCTAssertEqual(accepted.sourceStatus, .verified)
+        XCTAssertTrue(SportsFixtureCatalog.laneFailures(candidate: next, accepted: accepted).isEmpty)
+    }
+
+    func testUnsupportedLeagueIsNotAFailedRead() {
+        let unsupported = SportsFixtureCatalog.Coverage(sport: "rugby", competitionId: "rugby-prem", competitionName: "Rugby",
+            status: .unsupported, checkedAt: nil, fixtureCount: 0, pendingFixtureCount: 0, nextStart: nil)
+        func adding(_ base: SportsFixtureCatalog.Snapshot) -> SportsFixtureCatalog.Snapshot {
+            .init(schemaVersion: 1, complete: true, checkedAt: base.checkedAt, revision: base.revision,
+                  sourceStatus: base.sourceStatus, fixtures: base.fixtures, coverage: base.coverage + [unsupported])
+        }
+        let first = adding(snapshot([fixture()]))
+        let second = SportsFixtureCatalog.accepting(adding(snapshot([fixture()], receipt: now.addingTimeInterval(60))), over: first)
+        XCTAssertEqual(second.coverage.first { $0.competitionId == "rugby-prem" }?.status, .unsupported)
+        XCTAssertEqual(second.sourceStatus, .verified)
+    }
+
+    func testLaneFailureReasonsNameTheCauseAndKeepConfirmedFacts() throws {
+        let old = snapshot([fixture()], receipt: now)
+        let failed = snapshot([], receipt: now.addingTimeInterval(60), status: .partial, unavailable: ["nba"])
+        let kept = SportsFixtureCatalog.accepting(failed, over: old)
+        XCTAssertEqual(SportsFixtureCatalog.laneFailures(candidate: failed, accepted: kept), ["nba": "server_unavailable"])
+        XCTAssertTrue(try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: kept, at: now).first).sportsFixture?.verified ?? false)
+        let disagreeing = snapshot([fixture(hours: 3, observedAt: now.addingTimeInterval(60))], receipt: now.addingTimeInterval(60))
+        let refused = SportsFixtureCatalog.accepting(disagreeing, over: old)
+        XCTAssertEqual(SportsFixtureCatalog.laneFailures(candidate: disagreeing, accepted: refused), ["nba": "rows_disagree"])
+        XCTAssertEqual(refused.fixtures.first?.start, old.fixtures.first?.start)
+        XCTAssertTrue(try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: refused, at: now).first).sportsFixture?.verified ?? false)
+        let missing = SportsFixtureCatalog.Snapshot(schemaVersion: 1, complete: true, checkedAt: stamp(now.addingTimeInterval(60)),
+            revision: "other-1", sourceStatus: .verified, fixtures: [], coverage: [.init(sport: "hockey", competitionId: "nhl",
+                competitionName: "NHL", status: .covered, checkedAt: stamp(now.addingTimeInterval(60)), fixtureCount: 0,
+                pendingFixtureCount: 0, nextStart: nil)])
+        XCTAssertEqual(SportsFixtureCatalog.laneFailures(candidate: missing, accepted: SportsFixtureCatalog.accepting(missing, over: old)),
+                       ["nba": "missing"])
+    }
+
+    func testConfirmedLiveMatchStaysInPlayThroughMissedReadsUntilThreeHoursAfterKickoff() throws {
+        let event = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: snapshot([fixture(status: .live, hours: -1)]), at: now).first)
+        let metadata = try XCTUnwrap(event.sportsFixture)
+        let later = now.addingTimeInterval(SportsFixtureCatalog.statusFreshness + 600)
+        XCTAssertFalse(metadata.isLive(at: later), "Score and minute still need a fresh receipt")
+        XCTAssertTrue(metadata.isInPlay(at: later, kickoff: event.kickoffDate))
+        XCTAssertEqual(MatchdayEventStatePolicy.section(for: event, at: later), .live)
+        let kickoff = try XCTUnwrap(event.kickoffDate)
+        let afterWindow = kickoff.addingTimeInterval(SportsFixtureMetadata.confirmedInPlayWindow + 1)
+        XCTAssertNotEqual(MatchdayEventStatePolicy.section(for: event, at: afterWindow), .live)
+        let early = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: snapshot([fixture(status: .live, hours: 1)]), at: now).first)
+        XCTAssertFalse(try XCTUnwrap(early.sportsFixture).isInPlay(at: now.addingTimeInterval(7200), kickoff: early.kickoffDate),
+                       "A LIVE status published before kickoff is not evidence the match is under way")
+    }
+
+    private let espnScoreboard = #"{"leagues":[{"slug":"eng.1"}],"events":[{"date":"2026-09-30T13:00Z","status":{"displayClock":"58'","type":{"name":"STATUS_IN_PROGRESS","state":"in","completed":false,"shortDetail":"58'"}},"competitions":[{"competitors":[{"homeAway":"home","score":"1","team":{"displayName":"Arsenal","shortDisplayName":"Arsenal","name":"Arsenal"}},{"homeAway":"away","score":"0","team":{"displayName":"Leeds United","shortDisplayName":"Leeds","name":"Leeds United"}}]}]},{"date":"2026-09-30T13:00Z","status":{"displayClock":"FT","type":{"name":"STATUS_FULL_TIME","state":"post","completed":true}},"competitions":[{"competitors":[{"homeAway":"home","score":"2","team":{"displayName":"Chelsea"}},{"homeAway":"away","score":"2","team":{"displayName":"Fulham"}}]}]}]}"#
+
+    func testAppESPNLayerFillsOnlyAStaleLeagueFromAUniqueRoleAlignedMatch() throws {
+        let row = arsenalFixture(start: now.addingTimeInterval(-3600), receipt: now.addingTimeInterval(-1800))
+        let stale = snapshot([row], receipt: now.addingTimeInterval(-1800))
+        XCTAssertEqual(SportsFixtureCatalog.LiveFallback.leaguesNeedingFallback(in: stale, at: now), ["premier-league"])
+        let fresh = snapshot([arsenalFixture(start: now.addingTimeInterval(-3600))], receipt: now)
+        XCTAssertTrue(SportsFixtureCatalog.LiveFallback.leaguesNeedingFallback(in: fresh, at: now).isEmpty,
+                      "A current server read is never overridden")
+        let events = try SportsFixtureCatalog.LiveFallback.events(from: Data(espnScoreboard.utf8), league: "premier-league")
+        XCTAssertEqual(events.count, 1, "Only matches ESPN reports in progress")
+        XCTAssertEqual(events.first?.clock, "58′")
+        XCTAssertThrowsError(try SportsFixtureCatalog.LiveFallback.events(from: Data(espnScoreboard.utf8), league: "la-liga"))
+        let overlaid = SportsFixtureCatalog.LiveFallback.overlay(stale, reads: ["premier-league": .init(events: events, observedAt: now)], at: now)
+        let event = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: overlaid, at: now).first)
+        let metadata = try XCTUnwrap(event.sportsFixture)
+        XCTAssertTrue(metadata.isLive(at: now))
+        XCTAssertEqual(metadata.footballLive?.home, 1)
+        XCTAssertEqual(metadata.footballLive?.away, 0)
+        XCTAssertEqual(metadata.footballLive?.clock, "58′")
+        XCTAssertEqual(MatchdayEventStatePolicy.section(for: event, at: now), .live)
+        let event0 = try XCTUnwrap(events.first)
+        let reversed = SportsFixtureCatalog.LiveFallback.Event(kickoff: event0.kickoff, homeNames: event0.awayNames,
+            awayNames: event0.homeNames, homeScore: 0, awayScore: 1, clock: nil)
+        let moved = SportsFixtureCatalog.LiveFallback.Event(kickoff: event0.kickoff.addingTimeInterval(20 * 60),
+            homeNames: event0.homeNames, awayNames: event0.awayNames, homeScore: 1, awayScore: 0, clock: nil)
+        for unusable in [[reversed], [moved], [event0, event0]] {
+            XCTAssertEqual(SportsFixtureCatalog.LiveFallback.overlay(stale,
+                reads: ["premier-league": .init(events: unusable, observedAt: now)], at: now), stale)
+        }
+        XCTAssertEqual(SportsFixtureCatalog.LiveFallback.overlay(stale, reads: ["premier-league": .init(events: events,
+            observedAt: now.addingTimeInterval(-SportsFixtureCatalog.LiveFallback.staleLaneAge))], at: now), stale,
+            "An old ESPN read is not current evidence")
+    }
+
+    func testESPNNameMinuteAndDateParsingMatchTheWorker() {
+        typealias Layer = SportsFixtureCatalog.LiveFallback
+        XCTAssertTrue(Layer.sameTeam(["Parma Calcio 1913"], ["Parma"]))
+        XCTAssertTrue(Layer.sameTeam(["Real Betis Balompié"], ["Real Betis"]))
+        XCTAssertTrue(Layer.sameTeam(["FC Bayern München"], ["Bayern Munchen"]))
+        XCTAssertFalse(Layer.sameTeam(["Manchester United FC"], ["Manchester City"]))
+        XCTAssertEqual(Layer.minute("90'+3'"), "90+3′")
+        XCTAssertEqual(Layer.minute("45'"), "45′")
+        XCTAssertNil(Layer.minute("FT"))
+        XCTAssertEqual(Layer.espnDate("2026-11-21T19:45Z"), ISO8601DateFormatter().date(from: "2026-11-21T19:45:00Z"))
+        XCTAssertEqual(Layer.scoreboardURL(for: "serie-a", at: ISO8601DateFormatter().date(from: "2026-11-22T03:00:00Z")!)?.absoluteString,
+            "https://site.api.espn.com/apis/site/v2/sports/soccer/ita.1/scoreboard?dates=20261121")
+    }
+
+    func testFailedReadKeepsConfirmedFactsUntilTheGraceExpires() throws {
+        let current = fixture(hours: 8, verification: .verified)
         let accepted = snapshot([current], status: .partial, unavailable: ["nba"])
-        let expiredAt = now.addingTimeInterval(SportsFixtureCatalog.statusFreshness + 1)
+        let withinGrace = now.addingTimeInterval(SportsFixtureCatalog.statusFreshness + 1)
+        let kept = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: accepted, at: withinGrace).first)
+        XCTAssertTrue(kept.sportsFixture?.verified ?? false)
+        XCTAssertNotNil(MatchStartPolicy(event: kept, now: withinGrace).upcomingStart)
+        let expiredAt = now.addingTimeInterval(SportsFixtureCatalog.confirmationGrace + 1)
         let expired = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: accepted, at: expiredAt).first)
         XCTAssertFalse(expired.sportsFixture?.verified ?? true)
         XCTAssertNil(MatchStartPolicy(event: expired, now: expiredAt).upcomingStart)
         let failed = SportsFixtureCatalog.accepting(snapshot([], status: .partial, unavailable: ["nba"]), over: accepted)
-        XCTAssertEqual(failed.fixtures.first?.source.verification, .held)
+        XCTAssertEqual(failed.fixtures.first?.source.verification, .retained)
         XCTAssertEqual(failed.fixtures.first?.source.observedAt, current.source.observedAt)
-        XCTAssertFalse(try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: failed, at: now).first).sportsFixture?.verified ?? true)
+        XCTAssertTrue(try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: failed, at: now).first).sportsFixture?.verified ?? false)
+        XCTAssertTrue(SportsFixtureCatalog.terminalEvents(from: snapshot([fixture(status: .finished, hours: -2)], status: .partial,
+            unavailable: ["nba"])).isEmpty, "Retention covers scheduled and live rows only, never new terminal evidence")
     }
 
     func testPerRowAdmissionRejectsReceiptReplaySchedulingChangesAndTerminalResurrection() {
@@ -259,7 +394,8 @@ final class SportsFixtureCatalogTests: XCTestCase {
         for (sport, competition) in [("basketball", "nba"), ("baseball", "mlb"), ("hockey", "nhl"), ("motorsport", "f1")] {
             let kind: SportsFixtureCatalog.EventKind = sport == "motorsport" ? .session : .match
             let event = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: snapshot([
-                fixture(sport: sport, competition: competition, kind: kind)], status: .partial, unavailable: [competition]), at: now).first)
+                fixture(sport: sport, competition: competition, kind: kind)], status: .partial, unavailable: [competition],
+                laneReceipt: expiredLaneReceipt), at: now).first)
             XCTAssertEqual(HomeSportsDiscovery(events: [event], now: now).items.first?.phase, .unconfirmed, sport)
             XCTAssertEqual(MatchdayEventStatePolicy.section(for: event, at: now), .awaitingConfirmation, sport)
             XCTAssertNil(MatchStartPolicy(event: event, now: now).upcomingStart, sport)
@@ -269,14 +405,16 @@ final class SportsFixtureCatalogTests: XCTestCase {
     }
 
     private func reviewedLeague(_ league: String, id: String = "one", hours: Double = 1,
-                                status: SportsFixtureCatalog.Status = .scheduled) -> SportsFixtureCatalog.Fixture {
+                                status: SportsFixtureCatalog.Status = .scheduled,
+                                verification: SportsFixtureCatalog.Source.Verification? = nil) -> SportsFixtureCatalog.Fixture {
         let sport = league == "mlb" ? "baseball" : "hockey"
         let pair = league == "mlb" ? ("Atlanta Braves", "Los Angeles Dodgers") : ("Buffalo Sabres", "Minnesota Wild")
         return .init(id: "sports-fixture:\(league):\(id)", sport: sport, start: stamp(now.addingTimeInterval(hours * 3600)),
             status: status, eventKind: .match, title: "\(pair.0) vs \(pair.1)", competitionId: league, competitionName: league.uppercased(),
             participants: [.init(id: "home", name: pair.0, role: "home"), .init(id: "away", name: pair.1, role: "away")],
             squad: .init(gender: .men, ageGroup: "senior"),
-            source: .init(name: "Official schedule", url: "https://example.com/fixtures", observedAt: stamp(now)))
+            source: .init(name: "Official schedule", url: "https://example.com/fixtures", observedAt: stamp(now),
+                          verification: verification))
     }
     private func unmarkedProvider(_ row: SportsFixtureCatalog.Fixture, id: String = "plain-provider",
                                   seconds: Double = 0, competition: String? = nil, title: String? = nil) -> EventReference {
@@ -357,7 +495,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
         }
         let raw = arsenalProvider(row)
         let held = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row], status: .partial,
-            unavailable: [row.competitionId]), at: now)
+            unavailable: [row.competitionId], laneReceipt: expiredLaneReceipt), at: now)
         XCTAssertEqual(held.count, 2)
         let second = arsenalFixture(id: "second")
         let ambiguous = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row, second]), at: now)
@@ -388,8 +526,12 @@ final class SportsFixtureCatalogTests: XCTestCase {
             let doubleheader = SportsFixtureCatalog.merging(into: [raw],
                 snapshot: snapshot([row, reviewedLeague(league, id: "second")]), at: now)
             XCTAssertEqual(doubleheader.count, 3)
-            let held = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row], status: .partial, unavailable: [league]), at: now)
-            XCTAssertEqual(held.count, 2, "A held official identity cannot authorize a new unmarked league join")
+            let held = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([row], status: .partial, unavailable: [league],
+                laneReceipt: expiredLaneReceipt), at: now)
+            XCTAssertEqual(held.count, 2, "An expired official identity cannot authorize a new unmarked league join")
+            let explicitlyHeld = SportsFixtureCatalog.merging(into: [raw], snapshot: snapshot([reviewedLeague(league, verification: .held)],
+                status: .partial, unavailable: [league]), at: now)
+            XCTAssertEqual(explicitlyHeld.count, 2, "A held official identity cannot authorize a new unmarked league join")
         }
     }
 
@@ -709,7 +851,12 @@ final class SportsFixtureCatalogTests: XCTestCase {
     }
 
     func testStaleLiveDoesNotAdvertiseLiveAndPostponedBlocksWatch() throws {
-        let stale = fixture(status: .live, hours: -1, observedAt: now.addingTimeInterval(-1801))
+        // Owner decision (21 Nov 2026): in play until three hours after kickoff.
+        let missedRefresh = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],
+            snapshot: snapshot([fixture(status: .live, hours: -1, observedAt: now.addingTimeInterval(-1801))]), at: now).first)
+        XCTAssertEqual(missedRefresh.broadcastTiming(at: now), .live)
+        XCTAssertEqual(HomeSportsDiscovery(events: [missedRefresh], now: now).items.first?.phase, .live)
+        let stale = fixture(status: .live, hours: -3.2, observedAt: now.addingTimeInterval(-7200))
         let row = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: snapshot([stale]), at: now).first)
         XCTAssertEqual(row.broadcastTiming(at: now), .available)
         XCTAssertEqual(HomeSportsDiscovery(events: [row], now: now).items.first?.phase, .unconfirmed)
@@ -835,8 +982,11 @@ final class SportsFixtureCatalogTests: XCTestCase {
         }
         let future = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: snapshot([fixture()]), at: now).first)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: future, at: now), .upcoming)
-        let stale = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],
+        let missedRefresh = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],
             snapshot: snapshot([fixture(status: .live, hours: -1, observedAt: now.addingTimeInterval(-1801))]), at: now).first)
+        XCTAssertEqual(MatchdayEventStatePolicy.section(for: missedRefresh, at: now), .live, "Owner decision, 21 Nov 2026")
+        let stale = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],
+            snapshot: snapshot([fixture(status: .live, hours: -3.2, observedAt: now.addingTimeInterval(-7200))]), at: now).first)
         XCTAssertEqual(MatchdayEventStatePolicy.section(for: stale, at: now), .awaitingConfirmation)
         for status in [SportsFixtureCatalog.Status.finished, .cancelled] {
             let ended = try XCTUnwrap(SportsFixtureCatalog.terminalEvents(from: snapshot([fixture(status: status, hours: -1)])).first)
@@ -892,8 +1042,13 @@ final class SportsFixtureCatalogTests: XCTestCase {
         XCTAssertNil(CurrentEventBroadcastPolicy.action(for: live, in: [live], at: now),
                      "Confirmed in-play status must not invent a source")
 
-        let stale = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],
+        // Owner decision (21 Nov 2026): a confirmed LIVE receipt that missed a
+        // refresh stays in play until three hours after kickoff.
+        let missedRefresh = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],
             snapshot: snapshot([fixture(status: .live, hours: -1, observedAt: now.addingTimeInterval(-1801))]), at: now).first)
+        XCTAssertEqual(MatchdayEventStatePolicy.section(for: missedRefresh, at: now), .live)
+        let stale = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],
+            snapshot: snapshot([fixture(status: .live, hours: -3.2, observedAt: now.addingTimeInterval(-7200))]), at: now).first)
         let unverified = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],
             snapshot: snapshot([fixture(status: .live, hours: -1)], status: .lastKnownGood), at: now).first)
         for row in [stale, unverified] {
