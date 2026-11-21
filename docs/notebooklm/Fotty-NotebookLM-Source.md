@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-21T17:05:27.511332+00:00
-Source digest: fc41393b5130f8618910321658ce3b67631a6fcbc2506b2b9fb8af394845a16e
+Generated: 2026-11-21T17:56:03.766836+00:00
+Source digest: 111e8c823fa1473b68614f9d53a646b2b26793f999c3ee64b210f5776abfd117
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,7 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-21 Nov: [TestFlight343](../releases/Fotty-3.0.0-343.md) VALID (prior 342): live score overrides Start unconfirmed; HF renewal 20 s. Worker per-league schedules + held-row IDs (PR137; brief 503 fixed).
+21 Nov: [TestFlight343](../releases/Fotty-3.0.0-343.md) VALID (prior 342): live score overrides Start unconfirmed; HF 20 s. Worker (PR137): per-league schedules, older copies never hold a league, ESPN live layer for 5 European competitions.
 
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
@@ -879,6 +879,32 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-21 — Plan 3 (older copies never hold a league) and plan 1 (ESPN live layer)
+
+Owner approved plans 1 and 3 (plan 2, a paid provider, waits for revenue).
+
+- Plan 3: a stale football-data replica sent Lazio–Lecce as IN_PLAY and
+  Parma–Roma as TIMED with older `lastUpdated` than the accepted rows; the
+  Worker held them and marked Serie A unavailable while Parma–Roma was live.
+  An older publisher copy is now ignored (accepted facts stay verified, no
+  hold, no publisher-stale failure); newer contradictions are still refused.
+  The app's "held rows are unverified" rule was deliberately left unchanged:
+  it also gates identity joins and score display (pinned tests).
+- Plan 1: La Liga, Serie A, Bundesliga, Ligue 1 and the Champions League have
+  no free official live feed (the Premier League uses the official FPL feed in
+  the app). ESPN's public scoreboard, already used for MLS and national teams,
+  is a live layer on football-data rows only: scheduled → live with score and
+  minute when ESPN says in progress, kickoff within five minutes and both
+  teams match in role, uniquely. It never finishes, cancels, adds or removes a
+  fixture; provenance stays football-data with `liveEvidence: "espn"`; one
+  4 s-bounded request per league with a live-window match; failures ignored;
+  `FOTTY_FOOTBALL_LIVE_OVERLAY=0` disables it.
+
+After both deploys the 17:55 UTC feed was fully `verified`, all six leagues
+covered, every live match live with score. Worker lineage: PR #137
+(`claude/worker-no-edge-cache` on `3c3a2e5`); the same commits are on this
+baseline. 664 web tests (deployed lineage), 668 (baseline).
 
 ## 2026-11-21 — Internal TestFlight 3.0.0 (343): live score overrides "Start unconfirmed"
 

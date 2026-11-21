@@ -1,6 +1,6 @@
 # Fotty current state
 
-21 Nov: [TestFlight343](../releases/Fotty-3.0.0-343.md) VALID (prior 342): live score overrides Start unconfirmed; HF renewal 20 s. Worker per-league schedules + held-row IDs (PR137; brief 503 fixed).
+21 Nov: [TestFlight343](../releases/Fotty-3.0.0-343.md) VALID (prior 342): live score overrides Start unconfirmed; HF 20 s. Worker (PR137): per-league schedules, older copies never hold a league, ESPN live layer for 5 European competitions.
 
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 

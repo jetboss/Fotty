@@ -1,3 +1,29 @@
+## 2026-11-21 — Plan 3 (older copies never hold a league) and plan 1 (ESPN live layer)
+
+Owner approved plans 1 and 3 (plan 2, a paid provider, waits for revenue).
+
+- Plan 3: a stale football-data replica sent Lazio–Lecce as IN_PLAY and
+  Parma–Roma as TIMED with older `lastUpdated` than the accepted rows; the
+  Worker held them and marked Serie A unavailable while Parma–Roma was live.
+  An older publisher copy is now ignored (accepted facts stay verified, no
+  hold, no publisher-stale failure); newer contradictions are still refused.
+  The app's "held rows are unverified" rule was deliberately left unchanged:
+  it also gates identity joins and score display (pinned tests).
+- Plan 1: La Liga, Serie A, Bundesliga, Ligue 1 and the Champions League have
+  no free official live feed (the Premier League uses the official FPL feed in
+  the app). ESPN's public scoreboard, already used for MLS and national teams,
+  is a live layer on football-data rows only: scheduled → live with score and
+  minute when ESPN says in progress, kickoff within five minutes and both
+  teams match in role, uniquely. It never finishes, cancels, adds or removes a
+  fixture; provenance stays football-data with `liveEvidence: "espn"`; one
+  4 s-bounded request per league with a live-window match; failures ignored;
+  `FOTTY_FOOTBALL_LIVE_OVERLAY=0` disables it.
+
+After both deploys the 17:55 UTC feed was fully `verified`, all six leagues
+covered, every live match live with score. Worker lineage: PR #137
+(`claude/worker-no-edge-cache` on `3c3a2e5`); the same commits are on this
+baseline. 664 web tests (deployed lineage), 668 (baseline).
+
 ## 2026-11-21 — Internal TestFlight 3.0.0 (343): live score overrides "Start unconfirmed"
 
 Owner saw Jet (341) show a running score and "Start unconfirmed" on one line.
