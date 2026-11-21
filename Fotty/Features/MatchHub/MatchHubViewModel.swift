@@ -14,18 +14,8 @@ class MatchHubViewModel: ObservableObject {
     @Published var catalogEvent: EventReference?
     @Published var isLoading = true
     @Published var errorMessage: String?
-    
-    @Published var isFindingStream = false
-    @Published var streamSessions: [StreamSession] = []
-    @Published var streamError: String?
-    @Published var streamStatusMessage = "Looking for a playable stream..."
-    @Published var streamStatusDetail: String?
-    @Published var showPlayer = false
-    @Published var playerEvent: EventReference?
-    
-    private var streamTask: Task<Void, Never>?
-    private var activeStreamRequest: StreamPlaybackRequest?
-    private var streamRequestID = UUID()
+
+
     private var dataTask: Task<Void, Never>?
     private var dataRequestID = UUID()
     private let repository: any MatchHubDataLoading
@@ -127,8 +117,7 @@ class MatchHubViewModel: ObservableObject {
                 }
 
                 self.errorMessage = "Match details could not be refreshed. Check your connection and try again."
-                if self.isFindingStream { self.cancelStreamLookup() }
-                self.refreshNotice = oldCatalog == nil ? nil : "This listing could not be verified. Saved details remain, but Watch is paused until a successful refresh."
+                self.refreshNotice = oldCatalog == nil ? nil : "This listing could not be verified. Saved details remain."
                 self.isLoading = false
             }
         }
@@ -164,17 +153,8 @@ class MatchHubViewModel: ObservableObject {
 
     func stop() {
         pauseDataRefresh()
-        streamTask?.cancel()
-        streamTask = nil
-        if let request = activeStreamRequest {
-            Task {
-                await LiveStreamResolver.shared.cancelAttempt(for: request)
-            }
-        }
-        activeStreamRequest = nil
     }
 
-    /// Scene inactivity must not tear down an already presented player or PiP.
     func pauseDataRefresh() {
         dataTask?.cancel()
         dataRequestID = UUID()
@@ -184,143 +164,15 @@ class MatchHubViewModel: ObservableObject {
         refreshTimer = nil
     }
 
-    func watchLive(freshDiscovery: Bool = false) {
-        if let data = hubData {
-            let fallbackEvent = makeFallbackPlaybackEvent(from: data)
-            watchEvent(fallbackEvent, hubData: data, freshDiscovery: freshDiscovery)
-        }
-    }
-
-    /// Watch is offered exactly when tapping it would start a lookup: the
-    /// fixture is live or about to start and its timing allows playback. Until
-    /// 9 Nov this needed shared-catalog providers, which no match had after
-    /// that catalog closed on 27 Oct.
-    var canWatchLive: Bool {
+    /// The match page has no Watch of its own. While the match can still be
+    /// watched it offers Search for the home team; the shared Watch path then
+    /// identifies and plays whatever match the viewer picks there.
+    var findInFottyQuery: String? {
         guard let data = hubData,
-              data.fixture.status.isLive || data.fixture.status == .scheduled || data.fixture.status == .preMatch else { return false }
-        let knownLive: FootballMatch.MatchStatus? = data.fixture.status.isLive ? .inPlay : nil
-        return MatchStartPolicy(event: makeFallbackPlaybackEvent(from: data), status: knownLive).timingAllowsPlayback
-    }
-    
-    private func watchEvent(_ event: EventReference, hubData data: MatchHubData?, freshDiscovery: Bool) {
-        if let data, !data.fixture.status.isLive,
-           data.fixture.status != .scheduled && data.fixture.status != .preMatch { return }
-        let knownLive: FootballMatch.MatchStatus? = data?.fixture.status.isLive == true ? .inPlay : nil
-        guard MatchStartPolicy(event: event, status: knownLive).timingAllowsPlayback else { return }
-        guard !(isFindingStream && playerEvent?.id == event.id) else { return }
-        HapticManager.impact(.light)
-        MatchPlaybackFeedback.shared.attempting(event.id)
-        if let inFlightRequest = activeStreamRequest {
-            Task {
-                await LiveStreamResolver.shared.cancelAttempt(for: inFlightRequest)
-            }
-        }
-
-        streamTask?.cancel()
-        let requestID = UUID()
-        streamRequestID = requestID
-        let baseRequest = data.map { makePlaybackRequest(from: $0, preferredEvent: event) }
-            ?? StreamPlaybackRequest(event: event)
-        activeStreamRequest = baseRequest
-        
-        isFindingStream = true
-        playerEvent = event
-        streamError = nil
-        streamSessions = []
-        streamStatusMessage = "Looking for a playable stream..."
-        streamStatusDetail = nil
-
-        streamTask = Task {
-            do {
-                try await StreamResolutionPresentation.waitForFeedbackFrame()
-            } catch {
-                return
-            }
-            guard !Task.isCancelled, self.streamRequestID == requestID else { return }
-            // Complete dated fixture requests already have independent adapter
-            // identity. Do not await a failed master catalog before those lanes.
-            let matchedEvent: EventReference
-            if ReviewedSportsFixtureMatcher.requestIdentity(for: baseRequest) != nil {
-                matchedEvent = event
-            } else {
-                matchedEvent = await lookupCatalog(baseRequest) ?? event
-            }
-            guard !Task.isCancelled, streamRequestID == requestID else { return }
-            guard MatchStartPolicy(event: matchedEvent, status: knownLive).timingAllowsPlayback else {
-                isFindingStream = false
-                activeStreamRequest = nil
-                return
-            }
-            let request = data.map { makePlaybackRequest(from: $0, preferredEvent: matchedEvent) }
-                ?? StreamPlaybackRequest(event: matchedEvent)
-
-            await MainActor.run {
-                guard self.streamRequestID == requestID else { return }
-                self.playerEvent = matchedEvent
-                self.activeStreamRequest = request
-            }
-
-            let outcome = await LiveStreamResolver.shared.resolvePlayback(for: request, onChoices: nil,
-                singleStreamDiscovery: true, refreshOptionalSources: freshDiscovery) { progress in
-                await MainActor.run {
-                    guard self.streamRequestID == requestID else { return }
-                    self.streamStatusMessage = progress.userMessage
-                    self.streamStatusDetail = progress.technicalMessage
-                }
-            }
-
-            guard !Task.isCancelled, self.streamRequestID == requestID else {
-                await LiveStreamResolver.shared.cancelAttempt(for: request)
-                return
-            }
-
-            switch outcome {
-            case .success(let success):
-                let webSessions = success.sessions.filter(StreamPluginProviderMatching.isActivePlayerSession)
-                self.streamSessions = webSessions
-                self.isFindingStream = false
-                self.streamStatusDetail = nil
-                if webSessions.isEmpty {
-                    self.streamError = LiveStreamResolver.noPlayableMatchMessage
-                    self.showPlayer = false
-                    self.activeStreamRequest = nil
-                    MatchPlaybackFeedback.shared.notReady(event.id)
-                } else {
-                    self.showPlayer = true
-                }
-            case .failure(let failure, _):
-                self.activeStreamRequest = nil
-                self.streamError = failure.userMessage
-                MatchPlaybackFeedback.shared.notReady(event.id)
-                self.isFindingStream = false
-            }
-        }
-    }
-
-    func cancelStreamLookup() {
-        streamTask?.cancel()
-        if let request = activeStreamRequest {
-            Task {
-                await LiveStreamResolver.shared.cancelAttempt(for: request)
-            }
-        }
-        activeStreamRequest = nil
-        isFindingStream = false
-        streamStatusDetail = nil
-    }
-
-    private func makeFallbackPlaybackEvent(from data: MatchHubData) -> EventReference {
-        EventReference(
-            id: data.fixture.id,
-            title: "\(data.homeTeam.displayName) vs \(data.awayTeam.displayName)",
-            category: "football",
-            date: Int64(data.fixture.utcDate.timeIntervalSince1970),
-            poster: data.fixture.competition.emblemURL?.absoluteString,
-            popular: Config.Arena.discoveryLeagueIds.contains(data.fixture.competition.id),
-            teams: NexusATeams(
-                home: NexusATeam(name: data.homeTeam.displayName, badge: data.homeTeam.crestURL?.absoluteString),
-                away: NexusATeam(name: data.awayTeam.displayName, badge: data.awayTeam.crestURL?.absoluteString)
-            ))
+              data.fixture.status.isLive || data.fixture.status == .scheduled || data.fixture.status == .preMatch
+        else { return nil }
+        let name = data.homeTeam.displayName.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
     }
 
     static func catalogRouteRequest(fixtureID: String) -> StreamPlaybackRequest {
@@ -332,18 +184,6 @@ class MatchHubViewModel: ObservableObject {
             category: "",
             kickoffDate: nil,
             preferredEvent: nil
-        )
-    }
-    
-    private func makePlaybackRequest(from data: MatchHubData, preferredEvent: EventReference) -> StreamPlaybackRequest {
-        StreamPlaybackRequest(
-            matchID: data.identity.routeID,
-            displayTitle: preferredEvent.title ?? "\(data.homeTeam.displayName) vs \(data.awayTeam.displayName)",
-            homeTeam: data.homeTeam.displayName,
-            awayTeam: data.awayTeam.displayName,
-            category: preferredEvent.normalizedCategory,
-            kickoffDate: data.fixture.utcDate,
-            preferredEvent: preferredEvent
         )
     }
     

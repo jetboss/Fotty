@@ -1,9 +1,10 @@
 import SwiftUI
 
 struct MatchHubHeader: View {
-    @Environment(\.fottyStreamLookupBusy) private var streamLookupBusy
     let data: MatchHubData?
-    let onWatchLive: (() -> Void)?
+    /// The match page has no Watch of its own: this hands the team to Search,
+    /// where the shared Watch path plays whatever match is picked.
+    let onFindInFotty: (() -> Void)?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     
     var body: some View {
@@ -68,8 +69,8 @@ struct MatchHubHeader: View {
             }
             
             // Context-aware CTA
-            if data?.fixture.status.isLive == true, onWatchLive != nil {
-                watchLiveButton
+            if onFindInFotty != nil {
+                findInFottyButton
             }
         }
         .foregroundStyle(FottyTheme.textPrimary)
@@ -180,16 +181,17 @@ struct MatchHubHeader: View {
     }
     
     @ViewBuilder
-    private var watchLiveButton: some View {
+    private var findInFottyButton: some View {
         Button {
             HapticManager.impact(.medium)
-            onWatchLive?()
+            onFindInFotty?()
         } label: {
-            Label("Watch live", systemImage: "play.fill")
+            Label("Find in Fotty", systemImage: "magnifyingglass")
         }
-        .disabled(streamLookupBusy)
         .buttonStyle(FottyPrimaryButtonStyle())
         .padding(.top, 6)
+        .accessibilityHint("Closes this page and searches Fotty for this team's match, where you can watch it")
+        .accessibilityIdentifier("match-center-find")
     }
 }
 

@@ -935,10 +935,10 @@ final class BetaUsabilityTests: XCTestCase {
 
     func testWatchEntryPointsPresentFeedbackBeforeResolving() throws {
         let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-        // Home's single Watch delegates to the scene coordinator, which owns the
-        // repeated-tap guard for the same pending match (checked below).
+        // Every Watch delegates to the scene coordinator, which owns the
+        // repeated-tap guard for the same pending match (checked below). The
+        // match page has no Watch of its own (MatchReminderTests checks that).
         let paths = [
-            "Fotty/Features/MatchHub/MatchHubViewModel.swift",
             "Fotty/Features/Player/ViewingSessionCoordinator.swift"
         ]
 
@@ -979,8 +979,7 @@ final class BetaUsabilityTests: XCTestCase {
         XCTAssertFalse(panel.contains("technicalSummary"), "Provider diagnostics are not everyday loading copy")
         XCTAssertFalse(panel.contains("\\.colorScheme, .dark"), "Browsing feedback must honor app appearance")
         for path in ["Fotty/Features/Dashboard/SportsDashboardView.swift",
-                     "Fotty/Features/Social/ArenaDiscoveryView.swift",
-                     "Fotty/Features/MatchHub/MatchHubView.swift"] {
+                     "Fotty/Features/Social/ArenaDiscoveryView.swift"] {
             let source = try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8)
             XCTAssertTrue(source.contains(".safeAreaInset(edge: .bottom, spacing: 0)"), path)
             XCTAssertTrue(source.contains("StreamResolutionPanel("), path)

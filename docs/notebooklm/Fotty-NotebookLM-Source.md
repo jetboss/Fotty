@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-20T23:30:46.388221+00:00
-Source digest: 0b1ae25dbf31f2ef6f5ca7d8c35148ddbc21816de958057404f6d4b0b05e0b1f
+Generated: 2026-11-21T02:30:42.549025+00:00
+Source digest: 10f41b6acb8f6c140a3c430bdec386162d354018f8091c04298933985ced2147
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -881,6 +881,19 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-20 — Match page has no Watch of its own; "Find in Fotty" hands off to Search
+
+Owner chose to remove the notification match page's separate Watch. The page
+(opened by goal/kickoff alerts and `fotty://match/…`) resolved streams itself
+from scores-feed fixture data, outside the shared coordinator: no current
+admission check, no Watch outcome record and its own failure pop-up. Its
+lookup (`watchLive`, stream state, `StreamResolutionPanel`, "Broadcast not
+ready" alert, retry line) is deleted. While the fixture is live or scheduled,
+the header offers "Find in Fotty": the page closes and Home's Search opens with
+the home team's name, so the viewer picks the match and the shared Watch plays
+it. The viewer, not Fotty, now links the scores-feed match to the schedule, so
+no identity rule changed. Score, timeline, lineups and stats are unchanged.
 
 ## 2026-11-20 — Search from Matchday; two review items left for the owner
 

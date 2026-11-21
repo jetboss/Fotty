@@ -1,3 +1,16 @@
+## 2026-11-20 — Match page has no Watch of its own; "Find in Fotty" hands off to Search
+
+Owner chose to remove the notification match page's separate Watch. The page
+(opened by goal/kickoff alerts and `fotty://match/…`) resolved streams itself
+from scores-feed fixture data, outside the shared coordinator: no current
+admission check, no Watch outcome record and its own failure pop-up. Its
+lookup (`watchLive`, stream state, `StreamResolutionPanel`, "Broadcast not
+ready" alert, retry line) is deleted. While the fixture is live or scheduled,
+the header offers "Find in Fotty": the page closes and Home's Search opens with
+the home team's name, so the viewer picks the match and the shared Watch plays
+it. The viewer, not Fotty, now links the scores-feed match to the schedule, so
+no identity rule changed. Score, timeline, lineups and stats are unchanged.
+
 ## 2026-11-20 — Search from Matchday; two review items left for the owner
 
 Matchday's header gains a Search button (`matchday-search`). It asks

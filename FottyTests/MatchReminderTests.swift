@@ -663,14 +663,36 @@ final class MatchReminderTests: XCTestCase {
         XCTAssertTrue(route.contains("showsSettings = false"))
     }
 
-    func testMatchCenterCannotBeginPrematureResolutionEvenViaDirectAction() {
-        let match = event(start: Date().addingTimeInterval(7200))
-        let model = MatchHubViewModel(testEvent: match)
-        model.watchLive()
-        XCTAssertFalse(model.isFindingStream)
-        XCTAssertFalse(model.showPlayer)
-        XCTAssertNil(model.playerEvent)
-        XCTAssertTrue(model.streamSessions.isEmpty)
+    func testMatchCenterHasNoWatchOfItsOwnAndHandsOffToSearch() throws {
+        // A catalog-only page has no official fixture, so it offers no hand-off.
+        let model = MatchHubViewModel(testEvent: event(start: Date().addingTimeInterval(7200)))
+        XCTAssertNil(model.findInFottyQuery)
+
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let viewModel = try String(contentsOf: root.appendingPathComponent("Fotty/Features/MatchHub/MatchHubViewModel.swift"), encoding: .utf8)
+        let view = try String(contentsOf: root.appendingPathComponent("Fotty/Features/MatchHub/MatchHubView.swift"), encoding: .utf8)
+        let tabs = try String(contentsOf: root.appendingPathComponent("Fotty/App/MainTabView.swift"), encoding: .utf8)
+        // One Watch path: the match page never resolves or opens playback itself.
+        for forbidden in ["LiveStreamResolver", "resolvePlayback", "StreamSession"] {
+            XCTAssertFalse(viewModel.contains(forbidden), forbidden)
+        }
+        XCTAssertFalse(view.contains("viewing.open("))
+        XCTAssertFalse(view.contains("StreamResolutionPanel("))
+        XCTAssertTrue(view.contains("MatchNavigationStore.shared.searchAfterMatchPage = query"))
+        XCTAssertTrue(tabs.contains("matchNavigationStore.openSearch(query: query)"),
+                      "Search opens only after the full-screen match page has closed")
+    }
+
+    @MainActor
+    func testSearchRequestCarriesTheMatchPageQueryOnce() {
+        let store = MatchNavigationStore.shared
+        let saved = (store.pendingSearch, store.pendingSearchQuery, store.searchAfterMatchPage)
+        defer { (store.pendingSearch, store.pendingSearchQuery, store.searchAfterMatchPage) = saved }
+        store.openSearch(query: "Arsenal")
+        XCTAssertTrue(store.pendingSearch)
+        XCTAssertEqual(store.pendingSearchQuery, "Arsenal")
+        store.openSearch()
+        XCTAssertNil(store.pendingSearchQuery, "A plain Search request never reuses an older team")
     }
 
     func testFailureFeedbackIsPerEventAndExplicitRetryClearsIt() {

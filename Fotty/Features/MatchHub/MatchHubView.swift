@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct MatchHubView: View {
-    @Environment(ViewingSessionCoordinator.self) private var viewing
     @StateObject private var viewModel: MatchHubViewModel
     @Environment(LiveScoreService.self) private var liveScoreService
     @Environment(\.dismiss) private var dismiss
@@ -26,11 +25,11 @@ struct MatchHubView: View {
         ZStack {
             FottyTheme.background.ignoresSafeArea()
             
-            if viewModel.isLoading && !viewModel.isFindingStream {
+            if viewModel.isLoading {
                 SportLoadingView(
-                    category: viewModel.catalogEvent?.normalizedCategory ?? viewModel.playerEvent?.normalizedCategory ?? "football",
+                    category: viewModel.catalogEvent?.normalizedCategory ?? "football",
                     size: 60,
-                    competition: SportMotionContext.competition(for: viewModel.catalogEvent ?? viewModel.playerEvent)
+                    competition: SportMotionContext.competition(for: viewModel.catalogEvent)
                 )
             } else if let data = viewModel.hubData {
                 // One scroll surface keeps an expanded header and every insight
@@ -39,18 +38,12 @@ struct MatchHubView: View {
                   VStack(spacing: 12) {
                     MatchHubHeader(
                         data: data,
-                        onWatchLive: viewModel.canWatchLive ? { viewModel.watchLive() } : nil
+                        onFindInFotty: viewModel.findInFottyQuery.map { query in {
+                            MatchNavigationStore.shared.searchAfterMatchPage = query
+                            dismiss()
+                        } }
                     )
                     .padding(.top, 6)
-
-                    if let event = viewModel.playerEvent,
-                       MatchPlaybackFeedback.shared.notReadyIDs.contains(event.id) {
-                        Button("No stream found yet · Retry") { viewModel.watchLive(freshDiscovery: true) }
-                            .disabled(viewModel.isFindingStream)
-                            .font(FottyTheme.typeMeta)
-                            .foregroundStyle(FottyTheme.accentText)
-                            .frame(minHeight: 44)
-                    }
 
                     if let notice = viewModel.refreshNotice {
                         Text(notice).font(FottyTheme.typeMeta)
@@ -70,10 +63,7 @@ struct MatchHubView: View {
                     Text(notice).font(FottyTheme.typeMeta).foregroundStyle(FottyTheme.textSecondary)
                         .padding(.horizontal)
                 }
-                CatalogMatchHubView(
-                    event: event,
-                    onWatchLive: nil
-                )
+                CatalogMatchHubView(event: event)
                 .refreshable { await viewModel.refresh() }
                 }
                 .padding(.top, 6)
@@ -88,20 +78,6 @@ struct MatchHubView: View {
                 }
             }
             
-        }
-        .environment(\.fottyStreamLookupBusy, viewModel.isFindingStream)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if viewModel.isFindingStream {
-                StreamResolutionPanel(
-                    sportCategory: viewModel.catalogEvent?.normalizedCategory ?? viewModel.playerEvent?.normalizedCategory ?? "football",
-                    competition: SportMotionContext.competition(for: viewModel.catalogEvent ?? viewModel.playerEvent),
-                    statusMessage: viewModel.streamStatusMessage,
-                    subtitle: viewModel.playerEvent.map { "\($0.homeName) vs \($0.awayName)" },
-                    onCancel: {
-                        viewModel.cancelStreamLookup()
-                    }
-                )
-            }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             if showModalDismissButton {
@@ -133,19 +109,6 @@ struct MatchHubView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .onChange(of: viewModel.showPlayer) { _, show in
-            guard show else { return }
-            if let event = viewModel.playerEvent {
-                viewing.open(event: event, sessions: viewModel.streamSessions)
-                viewModel.showPlayer = false
-                if showModalDismissButton { dismiss() }
-            }
-        }
-        .alert("Broadcast not ready", isPresented: Binding(get: { viewModel.streamError != nil }, set: { _ in viewModel.streamError = nil })) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text(viewModel.streamError ?? "Unknown error")
-        }
         .onAppear {
             viewModel.resume()
         }
@@ -161,7 +124,6 @@ struct MatchHubView: View {
 
 private struct CatalogMatchHubView: View {
     let event: EventReference
-    let onWatchLive: (() -> Void)?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(LiveScoreService.self) private var scoreService
 
@@ -208,7 +170,7 @@ private struct CatalogMatchHubView: View {
                         )
                     }
 
-                    MatchStartControls(event: event, onWatch: onWatchLive)
+                    MatchStartControls(event: event, onWatch: nil)
                 }
                 .padding(16)
                 .background(FottyTheme.surface)

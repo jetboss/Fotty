@@ -69,6 +69,9 @@ final class MatchNavigationStore {
     var pendingFPL = false
     /// Search lives on Home; other tabs ask for it here and Home opens it.
     var pendingSearch = false
+    var pendingSearchQuery: String?
+    /// Set by the match page; opened once that full-screen page has closed.
+    var searchAfterMatchPage: String?
     private(set) var activeLivePlayerMatchID: String?
 
     private init() {}
@@ -88,8 +91,9 @@ final class MatchNavigationStore {
         pendingReminderID = id
     }
 
-    func openSearch() {
+    func openSearch(query: String? = nil) {
         pendingFPL = false
+        pendingSearchQuery = query
         pendingSearch = true
     }
 

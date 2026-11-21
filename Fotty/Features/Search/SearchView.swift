@@ -469,6 +469,8 @@ struct SearchView: View {
     var catalogRevision = 0
     var scheduledEvents: (() -> [EventReference])? = nil
     var scheduleRevision = 0
+    /// Opens with this text instead of the restored query (e.g. a match page's team).
+    var initialQuery: String? = nil
 
     @SceneStorage(BrowsingStateKey.searchQuery) private var restoredQuery = ""
     // The native field owns an immediate editing buffer. Scene restoration is
@@ -584,7 +586,8 @@ struct SearchView: View {
         .accessibilityIdentifier("global-sports-search")
         .onAppear {
             guard !didRestoreQuery else { return }
-            query = String(restoredQuery.prefix(SportsSearchHistory.maximumQueryLength))
+            let requested = initialQuery.map(SportsSearchHistory.cleanedQuery) ?? ""
+            query = String((requested.isEmpty ? restoredQuery : requested).prefix(SportsSearchHistory.maximumQueryLength))
             didRestoreQuery = true
         }
         .onDisappear { checkpointQuery() }

@@ -30,6 +30,7 @@ struct SportsDashboardView: View {
     @State private var allSportsAppliesHomeInterests = true
     @State private var showsSearch = false
     @State private var navigation = MatchNavigationStore.shared
+    @State private var searchInitialQuery: String?
     @State private var showsInterestEditor = false
     @State private var showsClubPicker = false
     @State private var homeResultsRequest = 0
@@ -169,7 +170,10 @@ struct SportsDashboardView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
-        .sheet(isPresented: $showsSearch, onDismiss: completePendingSearchSelection) {
+        .sheet(isPresented: $showsSearch, onDismiss: {
+            searchInitialQuery = nil
+            completePendingSearchSelection()
+        }) {
             SearchView(
                 discovery: discovery,
                 isSaved: { myMatchdayStore.contains(event: $0) },
@@ -187,7 +191,8 @@ struct SportsDashboardView: View {
                 onRefresh: { await matchListViewModel?.refresh(); discoveryDate = Date() },
                 catalogRevision: discoveryProjectionRevision,
                 scheduledEvents: { matchListViewModel?.searchSchedule(at: Date()) ?? [] },
-                scheduleRevision: matchListViewModel?.contentRevision ?? 0
+                scheduleRevision: matchListViewModel?.contentRevision ?? 0,
+                initialQuery: searchInitialQuery
             )
             .environment(liveScoreService)
             .presentationDragIndicator(.visible)
@@ -224,6 +229,8 @@ struct SportsDashboardView: View {
         .onChange(of: isActive && navigation.pendingSearch, initial: true) { _, ready in
             guard ready else { return }
             navigation.pendingSearch = false
+            searchInitialQuery = navigation.pendingSearchQuery
+            navigation.pendingSearchQuery = nil
             presentModal { showsSearch = true }
         }
         .task(id: catalogProjectionKey) {

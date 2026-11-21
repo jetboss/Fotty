@@ -105,7 +105,14 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: Binding(
             get: { matchNavigationStore.pendingMatchID != nil },
             set: { if !$0 { matchNavigationStore.pendingMatchID = nil } }
-        )) {
+        ), onDismiss: {
+            // The match page has no Watch of its own; "Find in Fotty" hands the
+            // team to Search so the shared Watch path plays whatever is picked.
+            if let query = matchNavigationStore.searchAfterMatchPage {
+                matchNavigationStore.searchAfterMatchPage = nil
+                matchNavigationStore.openSearch(query: query)
+            }
+        }) {
             if let matchID = matchNavigationStore.pendingMatchID {
                 NavigationStack {
                     MatchHubView(fixtureId: matchID, showModalDismissButton: true)
