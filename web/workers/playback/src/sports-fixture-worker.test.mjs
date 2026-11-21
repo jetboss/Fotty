@@ -285,3 +285,44 @@ test("an older publisher copy never holds a league: finished stays finished, liv
   assert.equal(refusedLane.sync.failure.code, "terminal-rollback");
   assert.equal(refused.fixtures.find((fixture) => fixture.id.endsWith(":558526")).status, "live");
 });
+
+test("an ESPN-live row admits, assembles, survives a lagging football-data copy and hands over", async () => {
+  const descriptor = SPORTS_SOURCES.find((source) => source.id === "football-data");
+  const env = { FOOTBALL_DATA_API_KEY: "test" };
+  const sa = (status, lastUpdated) => ({ id: 558526, utcDate: "2026-11-21T17:30:00Z", status, lastUpdated,
+    competition: { code: "SA" }, homeTeam: { id: 112, name: "Parma Calcio 1913", shortName: "Parma" },
+    awayTeam: { id: 100, name: "AS Roma", shortName: "Roma" } });
+  const event = { id: "735001", date: "2026-11-21T17:30Z",
+    status: { displayClock: "12'", type: { name: "STATUS_FIRST_HALF", state: "in", completed: false } },
+    competitions: [{ competitors: [{ homeAway: "home", score: "0", team: { displayName: "Parma" } },
+      { homeAway: "away", score: "1", team: { displayName: "AS Roma" } }] }] };
+  const collect = (row, espn) => (source, at) => collectSportsSource(source, at, env, async (url) => {
+    if (url.hostname === "site.api.espn.com") return Response.json({ leagues: [{ slug: "ita.1" }], events: espn ? [espn] : [] });
+    const code = url.pathname.split("/").at(-2);
+    const matches = code === "SA" ? [row] : [];
+    return Response.json({ filters: { season: "2026" }, competition: { code },
+      resultSet: { count: matches.length, ...(matches.length ? { first: "2026-11-21", last: "2026-11-21" } : {}) }, matches });
+  });
+  const t1 = new Date("2026-11-21T17:40:00Z"), t2 = new Date("2026-11-21T17:45:00Z"), t3 = new Date("2026-11-21T17:50:00Z");
+  const first = await refreshSportsSource(null, descriptor, t1, collect(sa("TIMED", "2026-11-21T00:20:36Z"), event));
+  let snapshot = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, first]]), t1);
+  let row = snapshot.fixtures.find((fixture) => fixture.id.endsWith(":558526"));
+  assert.equal(row.status, "live");
+  assert.deepEqual(row.footballLive, { home: 0, away: 1, clock: "12′" });
+  assert.equal(snapshot.coverage.find((lane) => lane.competitionId === "serie-a").status, "covered");
+
+  // ESPN briefly unavailable, football-data still lagging: the accepted live row stays live.
+  const second = await refreshSportsSource(first, descriptor, t2, collect(sa("TIMED", "2026-11-21T00:20:36Z"), null));
+  snapshot = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, second]]), t2);
+  row = snapshot.fixtures.find((fixture) => fixture.id.endsWith(":558526"));
+  assert.equal(row.status, "live");
+  assert.equal(snapshot.coverage.find((lane) => lane.competitionId === "serie-a").status, "covered");
+
+  // football-data catches up with a newer stamp: its own row takes over.
+  const third = await refreshSportsSource(second, descriptor, t3, collect(sa("IN_PLAY", "2026-11-21T17:49:30Z"), null));
+  snapshot = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, third]]), t3);
+  row = snapshot.fixtures.find((fixture) => fixture.id.endsWith(":558526"));
+  assert.equal(row.status, "live");
+  assert.equal(row.liveEvidence, undefined);
+  assert.equal(row.source.updatedAt, "2026-11-21T17:49:30.000Z");
+});
