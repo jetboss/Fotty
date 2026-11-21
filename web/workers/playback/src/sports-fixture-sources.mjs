@@ -219,17 +219,32 @@ async function efl(descriptor, context) {
 async function football(descriptor, context) {
   const { windowStart, windowEnd, observedAt, env, get } = context;
   check(typeof env.FOOTBALL_DATA_API_KEY === "string" && env.FOOTBALL_DATA_API_KEY.length > 0, "Football schedule credential unavailable");
-  const url = new URL(descriptor.sourceURL);
-  url.searchParams.set("competitions", Object.keys(descriptor.codes).join(","));
-  url.searchParams.set("limit", "500");
-  url.searchParams.set("dateFrom", windowStart.slice(0, 10));
-  // football-data v4 dateTo is exclusive; the MLB equivalent is inclusive.
-  url.searchParams.set("dateTo", windowEnd.slice(0, 10));
-  const data = await get(url, { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY });
-  check(Array.isArray(data.matches) && data.matches.length < 500 && count(data.resultSet?.count)
-    && data.resultSet.count === data.matches.length, "Football schedule incomplete");
-  check(data.filters?.dateFrom === url.searchParams.get("dateFrom") && data.filters?.dateTo === url.searchParams.get("dateTo"), "Football schedule window mismatch");
-  check(typeof data.filters?.competitions === "string" && data.filters.competitions.split(",").sort().join(",") === Object.keys(descriptor.codes).sort().join(","), "Football competition filter unavailable");
+  // One request per league. On 21 Nov the combined /v4/matches body kept
+  // in-play Premier League rows at their 00:20 values for hours while
+  // /v4/competitions/PL/matches was current, freezing every live status.
+  // The per-league endpoint's dateTo is inclusive and it does not echo date
+  // filters, so the window is proved from resultSet and every row instead.
+  const dateFrom = windowStart.slice(0, 10);
+  const dateTo = new Date(Date.parse(windowEnd) - DAY).toISOString().slice(0, 10);
+  const matches = [];
+  for (const code of Object.keys(descriptor.codes)) {
+    const url = new URL(`competitions/${code}/matches`, descriptor.sourceURL.replace(/matches$/, ""));
+    url.searchParams.set("dateFrom", dateFrom);
+    url.searchParams.set("dateTo", dateTo);
+    const data = await get(url, { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY });
+    check(Array.isArray(data.matches) && data.matches.length < 500 && count(data.resultSet?.count)
+      && data.resultSet.count === data.matches.length, "Football schedule incomplete");
+    check(data.competition?.code === code, "Football competition filter unavailable");
+    const inWindow = (day) => typeof day === "string" && day.slice(0, 10) >= dateFrom && day.slice(0, 10) <= dateTo;
+    check(data.matches.length === 0 || inWindow(data.resultSet.first) && inWindow(data.resultSet.last), "Football schedule window mismatch");
+    for (const row of data.matches) {
+      check(inWindow(row.utcDate), "Football schedule window mismatch");
+      check(row.competition === undefined || row.competition?.code === code, "Unexpected football competition");
+      matches.push({ ...row, competition: { ...row.competition, code }, sourceHref: url.href });
+    }
+  }
+  check(matches.length < 500, "Football schedule incomplete");
+  const data = { matches };
   unique(data.matches, (row) => row.id);
   const mapping = { SCHEDULED: "scheduled", TIMED: "scheduled", IN_PLAY: "live", PAUSED: "live", EXTRA_TIME: "live", PENALTY_SHOOTOUT: "live",
     FINISHED: "finished", POSTPONED: "postponed", SUSPENDED: "postponed", CANCELLED: "cancelled", AWARDED: "finished" };
@@ -244,7 +259,7 @@ async function football(descriptor, context) {
     // SCHEDULED means a rough date; TIMED means a confirmed kickoff in v4.
     const fixture = row.status === "SCHEDULED" ? null : normalize(descriptor, row.id, row.utcDate, status,
       [participant("football-data", row.homeTeam?.id, row.homeTeam?.name, "home"),
-        participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, url.href, updatedAt, compID);
+        participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, row.sourceHref, updatedAt, compID);
     const reportedScore = fixture ? normalizeUCLReportedScore(row, fixture) : undefined;
     if (reportedScore) fixture.reportedScore = reportedScore;
     if (fixture?.status === "live" && updatedAt) {

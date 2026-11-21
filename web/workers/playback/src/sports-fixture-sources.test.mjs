@@ -50,9 +50,16 @@ const wnbaPayload = (rows = [wnbaRow()], overrides = {}) => ({ meta: { time: now
   leagueSchedule: { leagueId: "10", seasonYear: "2026", gameDates: [{ games: rows }] }, ...overrides });
 const footballRow = (overrides = {}) => ({ id: 111, utcDate: start, status: "TIMED", lastUpdated: "2026-09-29T12:00:00Z",
   competition: { code: "PL" }, homeTeam: { id: 1, name: "Home" }, awayTeam: { id: 2, name: "Away" }, ...overrides });
+// football-data's per-league endpoint: echoes only the season, reports the
+// returned date span in resultSet, and lists only that league's rows.
 function footballFetch(rows = [footballRow()], mutate = (data) => data) {
-  return async (url) => json(mutate({ filters: { dateFrom: url.searchParams.get("dateFrom"), dateTo: url.searchParams.get("dateTo"), competitions: url.searchParams.get("competitions") },
-    resultSet: { count: rows.length }, matches: rows }));
+  return async (url) => {
+    const code = String(url.pathname).split("/").at(-2);
+    const selected = rows.filter((row) => (row.competition?.code ?? "PL") === code);
+    const days = selected.map((row) => row.utcDate.slice(0, 10)).sort();
+    return json(mutate({ filters: { season: "2026" }, competition: { code },
+      resultSet: { count: selected.length, ...(days.length ? { first: days[0], last: days.at(-1) } : {}) }, matches: selected }, code));
+  };
 }
 
 const eflRow = (overrides = {}) => ({ type: "match", id: "g2687775", attributes: {
@@ -470,16 +477,21 @@ test("WNBA publisher generation is distinct from successful receipt and stale li
   await assert.rejects(() => collect("wnba", () => live({ "Last-Modified": "2026-09-30T15:55:00Z" })), /timestamp invalid/);
 });
 
-test("football reuses one credentialed six-league bulk request with exclusive end and source timestamp", async () => {
+test("football asks each of the six leagues separately with an inclusive end and source timestamp", async () => {
+  // Owner decision 21 Nov: the combined /matches body went hours stale for
+  // in-play rows; the per-league endpoint stayed current. Six requests a sync.
   const calls = [];
   const result = await collect("football-data", async (url, init) => {
     calls.push({ url, init });
     return footballFetch()(url);
   }, { FOOTBALL_DATA_API_KEY: "test-secret" });
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].url.searchParams.get("competitions"), "PL,CL,PD,SA,BL1,FL1");
-  assert.equal(calls[0].url.searchParams.get("dateTo"), "2026-10-08");
-  assert.equal(calls[0].init.headers["X-Auth-Token"], "test-secret");
+  assert.deepEqual(calls.map(({ url }) => url.pathname), ["PL", "CL", "PD", "SA", "BL1", "FL1"].map((code) => `/v4/competitions/${code}/matches`));
+  for (const { url, init } of calls) {
+    assert.equal(url.searchParams.get("dateFrom"), "2026-09-29");
+    assert.equal(url.searchParams.get("dateTo"), "2026-10-07");
+    assert.equal(url.searchParams.get("competitions"), null);
+    assert.equal(init.headers["X-Auth-Token"], "test-secret");
+  }
   assert.equal(result.fixtures[0].competitionId, "premier-league");
   assert.equal(result.fixtures[0].source.updatedAt, "2026-09-29T12:00:00.000Z");
   assert.ok(!JSON.stringify(result).includes("test-secret"));
@@ -493,32 +505,37 @@ test("existing six-league request adds delayed reported goals only to explicit r
   footballRow({ id: 1003, competition: { code: "CL" }, status: "TIMED", score: { duration: "REGULAR", fullTime: { home: null, away: null } } })];
   let calls = 0;
   const result = await collect("football-data", async (url) => { calls++; return footballFetch(rows)(url); }, { FOOTBALL_DATA_API_KEY: "test-secret" });
-  assert.equal(calls, 1);
+  assert.equal(calls, 6);
+  const byID = new Map(result.fixtures.map((fixture) => [fixture.id.split(":").at(-1), fixture]));
+  result.fixtures = ["1001", "1002", "1003"].map((id) => byID.get(id));
   assert.deepEqual(result.fixtures[0].reportedScore, { home: 2, away: 0, publisherUpdatedAt: now.toISOString() });
   assert.equal(result.fixtures[1].reportedScore, undefined);
   assert.equal(result.fixtures[2].reportedScore, undefined);
 });
 
-test("six licensed football scopes share one request and never use duplicate website adapters", async () => {
+test("six licensed football scopes use one request each and never use duplicate website adapters", async () => {
   const descriptor = source("football-data");
   const rows = Object.keys(descriptor.codes).map((code, index) => footballRow({ id: 200 + index, competition: { code } }));
   let calls = 0;
   const result = await collect("football-data", async (url) => { calls++; return footballFetch(rows)(url); }, { FOOTBALL_DATA_API_KEY: "test-secret" });
-  assert.equal(calls, 1);
+  assert.equal(calls, 6);
   assert.deepEqual(result.fixtures.map((fixture) => fixture.competitionId).sort(), Object.values(descriptor.codes).sort());
   assert.deepEqual(Object.keys(result.pendingByCompetition).sort(), Object.values(descriptor.codes).sort());
   assert.ok(["la-liga", "serie-a", "bundesliga", "ligue-1"].every((id) => !source(id)));
-  await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data,
-    filters: { ...data.filters, competitions: "PL,CL" } })), { FOOTBALL_DATA_API_KEY: "test-secret" }), /filter/);
+  await assert.rejects(() => collect("football-data", footballFetch([], (data, code) => ({ ...data,
+    competition: { code: code === "CL" ? "PL" : code } })), { FOOTBALL_DATA_API_KEY: "test-secret" }), /filter/);
 });
 
 test("football refuses missing credential, ignored scope, count/window mismatch and rough dates", async () => {
   await assert.rejects(() => collect("football-data", footballFetch()), /credential/);
   const env = { FOOTBALL_DATA_API_KEY: "test-secret" };
-  await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data, filters: { ...data.filters, competitions: "BSA" } })), env), /filter/);
+  await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data, competition: { code: "BSA" } })), env), /filter/);
   await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data, resultSet: { count: 1 } })), env), /incomplete/);
-  await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data, filters: { ...data.filters, dateTo: "2026-10-01" } })), env), /window/);
-  await assert.rejects(() => collect("football-data", footballFetch([footballRow({ competition: { code: "BSA" } })]), env), /competition/);
+  await assert.rejects(() => collect("football-data", footballFetch([footballRow()], (data) => data.matches.length
+    ? { ...data, resultSet: { ...data.resultSet, last: "2026-10-20" } } : data), env), /window/);
+  await assert.rejects(() => collect("football-data", footballFetch([footballRow({ utcDate: "2026-10-20T15:00:00Z" })]), env), /window/);
+  await assert.rejects(() => collect("football-data", footballFetch([footballRow()], (data) => ({ ...data,
+    matches: data.matches.map((row) => ({ ...row, competition: { code: "BSA" } })) })), env), /competition/);
   assert.equal((await collect("football-data", footballFetch([footballRow({ status: "SCHEDULED" })]), env)).pendingFixtureCount, 1);
 });
 
