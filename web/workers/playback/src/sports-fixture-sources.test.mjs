@@ -554,3 +554,17 @@ test("whole collection deadline stops an uncooperative fetch and revokes all tra
   await assert.rejects(() => collect("mlb", async (_url, init) => { signal = init.signal; return new Promise(() => {}); }), /Deadline/);
   assert.equal(signal.aborted, true);
 });
+
+test("schedule collection never asks Cloudflare to cache a provider response (21 Nov stale PL rows)", async () => {
+  const seen = [];
+  const fetchImpl = async (url, init) => {
+    seen.push(init);
+    return footballFetch([footballRow({ status: "IN_PLAY", lastUpdated: now.toISOString() })])(url, init);
+  };
+  const result = await collect("football-data", fetchImpl, { FOOTBALL_DATA_API_KEY: "test" });
+  assert.ok(seen.length > 0);
+  for (const init of seen) {
+    assert.equal(init.cf, undefined, "An edge-cached body can only be an older copy for a 5-minute collector");
+  }
+  assert.equal(result.fixtures[0].status, "live");
+});

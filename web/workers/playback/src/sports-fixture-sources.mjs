@@ -112,8 +112,12 @@ export function sportsFixtureWindow(now) {
 async function requestJSON(url, deadline, fetchImpl, headers = {}, withHeaders = false, allowEFLEmpty = false) {
   // Workers supports manual/follow, not the Node fetch "error" mode. Never
   // follow a redirect with a credential or accept an alternate publisher.
+  // No edge cache: the collector polls at most every 5 minutes, so a cached
+  // body can only ever be an older copy. On 21 Nov a stale football-data body
+  // (rows last updated at 00:20) published in-play Premier League matches as
+  // "scheduled" and made a finished match look regressed, freezing the league.
   const response = await abortable(() => fetchImpl(url, { signal: deadline.signal, redirect: "manual",
-    headers: { Accept: "application/json", ...headers }, cf: { cacheEverything: true, cacheTtl: 60 } }), deadline.signal);
+    headers: { Accept: "application/json", ...headers } }), deadline.signal);
   // EFL's published Match Centre API returns this exact JSON error, rather
   // than a 200 empty list, when the requested Cup window has no matches. This
   // exception belongs only to that exact activated adapter and request route.
