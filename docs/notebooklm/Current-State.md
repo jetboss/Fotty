@@ -1,6 +1,6 @@
 # Fotty current state
 
-21 Nov: [TestFlight343](../releases/Fotty-3.0.0-343.md) VALID (prior 342): live score overrides Start unconfirmed; HF 20 s. Worker (PR137): per-league schedules, older copies never hold a league, ESPN live layer for 5 European competitions.
+21 Nov: [TestFlight344](../releases/Fotty-3.0.0-344.md) VALID (prior 343): bad reads never break confirmed matches (6 h grace; live to kickoff+3 h); app ESPN backup; never "delayed". Worker 0a92e849 (PR137): failed reads keep facts; /api/sports/history; 10-min monitor.
 
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
@@ -18,7 +18,7 @@ Prior336: [Watch freeze/discovery repairs](../testing/fotty336-watch-failures/RE
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (343): Internal/Testing, Fotty Internal Smoke (previous 342).
+FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (344): Internal/Testing, Fotty Internal Smoke (previous 343).
 Receipt: releases/Fotty-3.0.0-338.md.
 
 ## Discovery and retained follow-up
