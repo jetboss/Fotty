@@ -1,3 +1,15 @@
+## 2026-11-21 — Internal TestFlight 3.0.0 (343): live score overrides "Start unconfirmed"
+
+Owner saw Jet (341) show a running score and "Start unconfirmed" on one line.
+`MatchStartPolicy.title` added the label whenever the schedule row was
+unverified; the Worker had held correct Premier League rows during its
+two-observation correction window after the day's stale data and version
+switches. A live or paused score now confirms the start. The Worker hold
+cleared itself; new coverage fields name held/conflicted rows (IDs only) so
+the next hold is diagnosable without guessing. Released 343 to Internal
+Smoke. One timing-sensitive player test failed once and passed on an
+unchanged re-run; recorded as flaky. Receipt: docs/releases/Fotty-3.0.0-343.md.
+
 ## 2026-11-21 — Internal TestFlight 3.0.0 (342); Worker per-league outage
 
 Released 3.0.0 (342) from `d50c108` to Fotty Internal Smoke with the 341

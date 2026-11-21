@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-21T16:20:28.074452+00:00
-Source digest: f9b6bb8907c9ff01f8789e7b04936b8bb8d798d45ce49788e30f78183bc58af1
+Generated: 2026-11-21T17:05:27.511332+00:00
+Source digest: fc41393b5130f8618910321658ce3b67631a6fcbc2506b2b9fb8af394845a16e
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -11,7 +11,7 @@ Dated release/history entries are evidence from their recorded time, not live de
 
 # Fotty current state
 
-21 Nov: [TestFlight342](../releases/Fotty-3.0.0-342.md) VALID (prior 341): HF renewal 20 s, live scores while watching. Worker football schedules per league (deployed on 3c3a2e5; brief 503 fixed).
+21 Nov: [TestFlight343](../releases/Fotty-3.0.0-343.md) VALID (prior 342): live score overrides Start unconfirmed; HF renewal 20 s. Worker per-league schedules + held-row IDs (PR137; brief 503 fixed).
 
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
 
@@ -29,7 +29,7 @@ Prior336: [Watch freeze/discovery repairs](../testing/fotty336-watch-failures/RE
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (342): Internal/Testing, Fotty Internal Smoke (previous 341).
+FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (343): Internal/Testing, Fotty Internal Smoke (previous 342).
 Receipt: releases/Fotty-3.0.0-338.md.
 
 ## Discovery and retained follow-up
@@ -879,6 +879,18 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-21 — Internal TestFlight 3.0.0 (343): live score overrides "Start unconfirmed"
+
+Owner saw Jet (341) show a running score and "Start unconfirmed" on one line.
+`MatchStartPolicy.title` added the label whenever the schedule row was
+unverified; the Worker had held correct Premier League rows during its
+two-observation correction window after the day's stale data and version
+switches. A live or paused score now confirms the start. The Worker hold
+cleared itself; new coverage fields name held/conflicted rows (IDs only) so
+the next hold is diagnosable without guessing. Released 343 to Internal
+Smoke. One timing-sensitive player test failed once and passed on an
+unchanged re-run; recorded as flaky. Receipt: docs/releases/Fotty-3.0.0-343.md.
 
 ## 2026-11-21 — Internal TestFlight 3.0.0 (342); Worker per-league outage
 
