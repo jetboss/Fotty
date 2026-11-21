@@ -492,6 +492,25 @@ final class FootballScoreReceiptTests: XCTestCase {
         XCTAssertTrue(tabs.contains("liveScoreService.updatePollingDemand(owner: viewingScorePollingOwner"))
     }
 
+    /// Jet 21 Nov: "1–3 · 69' · Official FPL · Start unconfirmed". A held
+    /// (unverified) schedule row must not contradict a live score.
+    func testLiveScoreEvidenceNeverShowsStartUnconfirmed() {
+        let kickoff = now.addingTimeInterval(-69 * 60)
+        let held = SportsFixtureMetadata(
+            fixtureID: "sports-fixture:premier-league:560642", sport: "football", competitionID: "premier-league",
+            competitionName: "Premier League", eventKind: .match, title: "Chelsea vs Leeds",
+            participants: [.init(id: "chelsea", name: "Chelsea", role: "home"), .init(id: "leeds", name: "Leeds", role: "away")],
+            squad: .init(gender: .men, ageGroup: "senior"), status: .live, observedAt: now.addingTimeInterval(-40 * 60), verified: false)
+        let event = EventReference(id: held.fixtureID, title: held.title, category: "football",
+            date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
+            teams: .init(home: .init(name: "Chelsea", badge: nil), away: .init(name: "Leeds", badge: nil)),
+            sportsFixture: held, competitionID: held.competitionID)
+        XCTAssertNotEqual(MatchStartPolicy(event: event, now: now, status: .inPlay).title, "Start unconfirmed")
+        XCTAssertNotEqual(MatchStartPolicy(event: event, now: now, status: .paused).title, "Start unconfirmed")
+        // Without live evidence the honest label stays.
+        XCTAssertEqual(MatchStartPolicy(event: event, now: now, status: nil).title, "Start unconfirmed")
+    }
+
     func testOfficialAbbreviationIdentityRetainsDatedKickoffGuard() async throws {
         let service = service(clock: ReceiptClock(now), feed: ReceiptProvider([.success([try palaceOfficialRow()])]),
             scheduled: row(.scheduled, kickoff: now.addingTimeInterval(60)))

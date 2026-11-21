@@ -93,7 +93,9 @@ struct MatchStartPolicy {
             }
         }
         if let status, isStopped { return status.displayText }
-        if hasUnconfirmedFixtureStart { return "Start unconfirmed" }
+        // Live score evidence confirms the start: an unverified or held schedule
+        // row must not add "Start unconfirmed" beside a running score (21 Nov).
+        if hasUnconfirmedFixtureStart, status?.isLive != true { return "Start unconfirmed" }
         if let start = upcomingStart { return Self.startLabel(start, now: now) }
         if SportsTVStation.canResolve(event, discoveryIndex: discoveryIndex) { return "Watch" }
         if CricketChannelPlaybackPolicy.canResolve(event, discoveryIndex: discoveryIndex) { return "Watch channel" }
