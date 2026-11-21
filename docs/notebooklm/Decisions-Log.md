@@ -1,3 +1,13 @@
+## 2026-11-21 — Internal TestFlight 3.0.0 (341)
+
+Owner asked for the unconfirmed-status fix on TestFlight. Released 3.0.0 (341)
+from `27d4717` (baseline `5050b55` plus the build bump) to Fotty Internal
+Smoke, following the 338 procedure: full ios-ci on the release source, a
+pre-build source receipt and pre-upload compare, a key-free archive with
+package checks, then `tools/testflight-upload.sh`. Apple: VALID, notes set,
+testers notified. The status fix, failure panel and match page hand-off were
+not observed on a device. Receipt: docs/releases/Fotty-3.0.0-341.md.
+
 ## 2026-11-21 — A playing match no longer shows "Start unconfirmed" from a stale schedule
 
 Owner watched Man City vs Fulham and saw "Start unconfirmed". Cause: live

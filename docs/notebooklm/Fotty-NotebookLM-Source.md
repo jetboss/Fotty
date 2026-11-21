@@ -1,7 +1,7 @@
 # Fotty NotebookLM Master Source
 
-Generated: 2026-11-21T13:22:47.486031+00:00
-Source digest: 09b242cafb4a410eed8873e02bb74081fce575752988246d5fee459f3de99ca1
+Generated: 2026-11-21T13:42:22.122731+00:00
+Source digest: d857398c0b3c5bb9d796deeadc66590167fe5956e0f78722e18a03d76291ce87
 
 Defensively redacted local export. Review before sharing; pattern checks are not a privacy guarantee.
 Dated release/history entries are evidence from their recorded time, not live deployment authority.
@@ -10,6 +10,8 @@ Dated release/history entries are evidence from their recorded time, not live de
 # Source: docs/notebooklm/Current-State.md
 
 # Fotty current state
+
+21 Nov: [TestFlight341](../releases/Fotty-3.0.0-341.md) VALID, Internal Smoke: unconfirmed-status fix, inline Watch failure panel, source status lines, Matchday Search, match page Find in Fotty.
 
 15 Nov: [TestFlight338](../releases/Fotty-3.0.0-338.md) VALID, Internal Smoke: Jet338 audio fix plus Codex 333–337.
 
@@ -31,7 +33,7 @@ Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (338): Internal/Testing, Fotty Internal Smoke (previous 332).
+FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (341): Internal/Testing, Fotty Internal Smoke (previous 338).
 Receipt: releases/Fotty-3.0.0-338.md.
 
 ## Discovery and retained follow-up
@@ -881,6 +883,16 @@ Build 42 consolidated the app changes from 36–41.
 
 
 # Source: docs/notebooklm/Decisions-Log.md
+
+## 2026-11-21 — Internal TestFlight 3.0.0 (341)
+
+Owner asked for the unconfirmed-status fix on TestFlight. Released 3.0.0 (341)
+from `27d4717` (baseline `5050b55` plus the build bump) to Fotty Internal
+Smoke, following the 338 procedure: full ios-ci on the release source, a
+pre-build source receipt and pre-upload compare, a key-free archive with
+package checks, then `tools/testflight-upload.sh`. Apple: VALID, notes set,
+testers notified. The status fix, failure panel and match page hand-off were
+not observed on a device. Receipt: docs/releases/Fotty-3.0.0-341.md.
 
 ## 2026-11-21 — A playing match no longer shows "Start unconfirmed" from a stale schedule
 

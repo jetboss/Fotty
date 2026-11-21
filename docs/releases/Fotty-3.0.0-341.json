@@ -1,0 +1,48 @@
+{
+ "version": "3.0.0",
+ "build": 341,
+ "sourceCommit": "27d4717",
+ "appQualificationCommit": "5050b55",
+ "sourceSnapshot": {
+  "label": "3.0.0-341",
+  "purpose": "pre-build",
+  "commit": "fe8450863dffdd2758baab3bdea58a89f4f78d4b",
+  "sourceSHA256": "d8c932a80c7050ec976af1e2870e983a78b12ae6c1d9eeafc2f66f680d02e8e5",
+  "bundleSHA256": "4b64f7a9f119ff025d9dc8d10807012733726d238bb7038d42b723e1adb2ed89"
+ },
+ "snapshotFileCount": 2025,
+ "artifact": {
+  "build": "341",
+  "version": "3.0.0",
+  "appAndExtensionVersionsMatch": true,
+  "signatureVerified": true,
+  "noXCTestBundles": true,
+  "dSYMCount": 2,
+  "privacyManifests": 2,
+  "usesNonExemptEncryption": false,
+  "executableSHA256": "fdf26648a38bc4f4767a7f94a2be9644a164fb3e4d432e81b137030e5ec56718"
+ },
+ "extraPackageChecks": {
+  "backgroundAudio": true,
+  "appIconsPresent": true,
+  "embeddedAPIKeysEmpty": true
+ },
+ "apple": {
+  "processingState": "VALID",
+  "group": "Fotty Internal Smoke",
+  "testersNotifiedByTool": true,
+  "notes": "Fixed a match you're watching sometimes showing \"Start unconfirmed\".\nWhen Watch can't find a stream you now get Try again and Match details instead of a pop-up.\nSources show whether each one played for this match. Search is on Matchday too.\nMatch alerts open a score page with Find in Fotty.",
+  "uploadSucceeded": "2026-11-21T13:38:28Z"
+ },
+ "gates": {
+  "iosCi": "passed unmodified",
+  "fullFottyTests": {"executed": 2653, "passed": 2641, "skipped": 12, "failures": 0}
+ },
+ "physical": {
+  "device": "Jet iPad",
+  "builds": ["339", "340"],
+  "observed": ["Matchday Search", "source status lines", "CS1 to Willow fallback", "Fox Cricket playback"],
+  "notObserved": ["failure panel", "match page Find in Fotty", "unconfirmed status fix"]
+ },
+ "cleanup": {"ownedOutputRemoved": true}
+}

@@ -1,5 +1,7 @@
 # Fotty current state
 
+21 Nov: [TestFlight341](../releases/Fotty-3.0.0-341.md) VALID, Internal Smoke: unconfirmed-status fix, inline Watch failure panel, source status lines, Matchday Search, match page Find in Fotty.
+
 15 Nov: [TestFlight338](../releases/Fotty-3.0.0-338.md) VALID, Internal Smoke: Jet338 audio fix plus Codex 333–337.
 
 15 Nov: [Jet337 Highfly integrity](../testing/fotty337-highfly-programme/README.md): Claude approved participant corroboration and query-safe renewal, preserving ranking.2,744 tests pass/12 skips; first visual-cache failure retained. Normal337 installed. Spain Watch recovered to correct CS2,92s/zero stalls. HF on Spain/Belgium supplied Google-hosted deliveries and failed predecode; Belgium exhausted backups. Initial wrong-programme cause/HF qualification remain open. Phone/TestFlight unchanged.
@@ -20,7 +22,7 @@ Prior331: [discovery receipt](../testing/fotty-discovery-stage5-20261114/README.
 
 [4Nov core viewing priorities](../testing/fotty-core-viewing-priorities.md).
 
-FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (338): Internal/Testing, Fotty Internal Smoke (previous 332).
+FPL retired; Watch Two deleted 19 Nov (owner: rebuild later). Preserve legacy data, public scores and single-player behavior. Shared 3.0.0 (341): Internal/Testing, Fotty Internal Smoke (previous 338).
 Receipt: releases/Fotty-3.0.0-338.md.
 
 ## Discovery and retained follow-up
