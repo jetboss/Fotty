@@ -27,17 +27,16 @@ struct FootballQuotaBanner: View {
     }
 
     private var title: String {
-        if scoreService.hasQuotaError { return "Live scores may be delayed" }
-        if scoreService.isUsingDelayedScoreFallback { return "Using delayed scores" }
+        if scoreService.hasQuotaError || scoreService.isUsingDelayedScoreFallback { return "Using backup scores" }
         return "Live scores unavailable"
     }
 
     private var message: String {
         if scoreService.hasQuotaError {
-            return "Premier League scores are using a delayed backup. Schedules and broadcasts still work."
+            return "Premier League scores are coming from a backup source. Schedules and broadcasts still work."
         }
         if scoreService.isUsingDelayedScoreFallback {
-            return "Premier League scores may update later than usual. Schedules and broadcasts still work."
+            return "Premier League scores are coming from a backup source. Schedules and broadcasts still work."
         }
         return "Premier League scores could not be refreshed. Schedules and streams remain available."
     }

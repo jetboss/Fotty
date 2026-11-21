@@ -97,7 +97,6 @@ enum LiveScoreFeedMode: String, Sendable {
     var statusQualifier: String? {
         switch self {
         case .officialFPL: return "Official FPL"
-        case .delayedFallback, .quotaFallback: return "Delayed"
         default: return nil
         }
     }

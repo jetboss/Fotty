@@ -1,3 +1,14 @@
+## 2026-11-21 — Owner decision: Fotty never says a score is delayed
+
+The owner ruled that no score or feed label may say "delayed". Removed:
+"May be delayed" on Home/Matchday live rows and the featured scoreboard, the
+Champions League reported-score caption (now just "Football-data.org"), the
+"Delayed" feed qualifier for fallback score modes, and the quota banner's
+delayed wording (now "Using backup scores … coming from a backup source").
+The match header's stale state reads "Waiting for update". The internal
+`scoreMayBeDelayed`/`usesDelayedData` facts are unchanged; only the wording
+is gone. Cricket's "Start delayed" is a real match state and stays.
+
 ## 2026-11-21 — Plan 3 (older copies never hold a league) and plan 1 (ESPN live layer)
 
 Owner approved plans 1 and 3 (plan 2, a paid provider, waits for revenue).

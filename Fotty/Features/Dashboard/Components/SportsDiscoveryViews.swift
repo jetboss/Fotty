@@ -398,7 +398,8 @@ struct HomeDiscoveryRow: View {
             scoreMayBeDelayed = primaryGoals == nil && homeScore != nil
                 && (fixture?.footballLiveMayBeDelayed == true || (official?.home == nil && legacyScore != nil))
             if let homeScore, let awayScore {
-                let qualifier = primaryGoals != nil ? scoreService?.scoreStatusQualifier : (scoreMayBeDelayed ? "May be delayed" : nil)
+                // Owner decision 2026-11-21: never label a score as delayed.
+                let qualifier = primaryGoals != nil ? scoreService?.scoreStatusQualifier : nil
                 statusLabel = ["\(homeScore)–\(awayScore)", clock ?? primary?.status.displayText ?? item.statusLabel, qualifier]
                     .compactMap { $0 }.joined(separator: " · ")
             } else {
@@ -972,11 +973,6 @@ struct HomeLiveSpotlight: View {
                     .font(FottyTheme.typeMeta)
                     .foregroundStyle(FottyTheme.textSecondary)
                     .lineLimit(1)
-            }
-            if presentation.scoreMayBeDelayed {
-                Text("May be delayed")
-                    .font(FottyTheme.typeMeta)
-                    .foregroundStyle(FottyTheme.textSecondary)
             }
         }
         .accessibilityElement(children: .combine)

@@ -17,7 +17,7 @@ struct UCLReportedScoreView: View {
                 teamRow(home: true, goals: score.home)
                 teamRow(home: false, goals: score.away)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("May be delayed · Football-data.org")
+                    Text("Football-data.org")
                     Text("Reported \(publishedAt.formatted(.dateTime.day().month(.abbreviated).hour().minute()))")
                 }
                 .font(.caption)

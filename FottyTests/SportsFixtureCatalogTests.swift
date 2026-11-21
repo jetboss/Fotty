@@ -114,7 +114,7 @@ final class SportsFixtureCatalogTests: XCTestCase {
         let event = try decodedFootballEvent(facts, publisherUpdate: now, publisher: "football-data.org")
         let score = HomeDiscoveryRow.Presentation(item: .init(event: event, phase: .live, officialStatus: nil, now: now))
         XCTAssertTrue(score.scoreMayBeDelayed)
-        XCTAssertEqual(score.statusLabel, "2–1 · 70′ · May be delayed")
+        XCTAssertEqual(score.statusLabel, "2–1 · 70′") // Owner decision: never say delayed.
     }
 
     func testValidatedReceiptAndOldJSONCompatibility() throws {

@@ -233,7 +233,7 @@ struct DataQualityIndicator: View {
         case .official: return "Official FPL"
         case .verified: return "Live data"
         case .degraded: return "Partial data"
-        case .stale: return "Update delayed"
+        case .stale: return "Waiting for update"
         case .fallback: return "Schedule available"
         }
     }
