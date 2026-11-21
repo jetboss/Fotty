@@ -66,6 +66,7 @@ test("dedicated EFL activation does not activate ESPN website feeds or WNBA", as
   assert.equal(calls.some((name) => name.endsWith(":nba") || name.endsWith(":wnba") || name.includes("tennis-atp")), false);
 });
 
+// Owner decision (21 Nov 2026): a failed read keeps accepted facts as they were.
 test("EFL uses existing durable admission and preserves accepted Cup facts after collection failure", async () => {
   const descriptor = SPORTS_SOURCES.find((source) => source.id === "efl-carabao-cup");
   const now = new Date("2026-10-28T20:12:35Z");
@@ -87,8 +88,8 @@ test("EFL uses existing durable admission and preserves accepted Cup facts after
   const failed = await refreshSportsSource(admitted, descriptor, later, async () => { throw new Error("Sports schedule upstream unavailable"); });
   const retained = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, failed]]), later);
   assert.equal(retained.coverage[0].status, "unavailable");
-  assert.equal(retained.fixtures[0].source.verification, "held");
-  assert.equal(retained.fixtures[0].footballLive, undefined);
+  assert.equal(retained.fixtures[0].source.verification, undefined, "A failed read never holds accepted facts");
+  assert.equal(retained.fixtures[0].footballLive, undefined, "A score is never republished from a failed read");
   assert.equal(retained.fixtures[0].source.observedAt, now.toISOString());
   assert.equal(retained.fixtures[0].start, current.fixtures[0].start);
   assert.equal(retained.fixtures[0].competitionId, "carabao-cup");
@@ -153,7 +154,7 @@ test("a hung registry GET expires while other source receipts remain available",
   assert.equal(body.coverage.find((row) => row.competitionId === "premier-league").status, "unavailable");
   assert.equal(body.coverage.find((row) => row.competitionId === "atp").status, "unsupported");
   assert.equal(body.coverage.find((row) => row.competitionId === "wnba").status, "unsupported");
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 4, "The hung group is retried once before it is reported unavailable");
 });
 
 test("a wholly partial service exposes validated fresh rows without masking held conflicts", async () => {
@@ -193,8 +194,11 @@ test("a wholly partial service exposes validated fresh rows without masking held
     const state = structuredClone(partial); corrupt(state);
     assert.equal((await responseFor(state)).status, 503, "a marker alone cannot bypass complete admitted provenance");
   }
-  const heldOnly = await refreshSportsSource(partial, source, now, async () => { throw new Error("publisher unavailable"); });
-  assert.equal((await responseFor(heldOnly)).status, 503);
+  // Owner decision (21 Nov 2026): a failed read keeps the verified fresh row.
+  const failedRead = await refreshSportsSource(partial, source, now, async () => { throw new Error("publisher unavailable"); });
+  const kept = await responseFor(failedRead);
+  assert.equal(kept.status, 200);
+  assert.equal((await kept.json()).fixtures.find((row) => row.id.endsWith(":2")).source.verification, "verified");
 });
 
 test("per-league football-data rows assemble into the public snapshot (21 Nov 503 regression)", async () => {
