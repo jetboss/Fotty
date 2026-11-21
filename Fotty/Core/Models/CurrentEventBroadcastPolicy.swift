@@ -607,6 +607,40 @@ enum MatchdayEventStatePolicy {
     }
 }
 
+/// Private self-check for status labels that drift while a match plays: the
+/// player is showing a match that should have started, yet the label shared by
+/// Matchday, details and the player isn't LIVE. Returns short codes only (never
+/// a title, team or URL) so the quality store can keep them; it changes nothing.
+@MainActor
+enum PlaybackStatusConsistency {
+    static let grace: TimeInterval = 5 * 60
+
+    static func contradiction(for event: EventReference, status: FootballMatch.MatchStatus?,
+                              isPlaying: Bool, at now: Date) -> [String: String]? {
+        guard isPlaying, !event.isBroadcastChannel, let kickoff = event.kickoffDate,
+              now.timeIntervalSince(kickoff) >= grace else { return nil }
+        let section = MatchdayEventStatePolicy.section(for: event, at: now, status: status)
+        let reason: String
+        switch section {
+        case .awaitingConfirmation: reason = "playing_start_unconfirmed"
+        case .upcoming: reason = "playing_upcoming"
+        case .timeToBeConfirmed: reason = "playing_time_tbc"
+        case .live, .listedNow, .recent, .channel: return nil
+        }
+        let official: String
+        if let fixture = event.sportsFixture {
+            official = fixture.isLive(at: now) ? "official_live" : "official_\(fixture.status.rawValue)"
+        } else if let cricket = event.cricketFixture {
+            official = cricket.isLive(at: now) ? "official_live" : "official_\(cricket.status.rawValue)"
+        } else {
+            official = "official_none"
+        }
+        let scores = status.map { $0.isLive ? "scores_live" : ($0.isUpcoming ? "scores_upcoming" : "scores_other") }
+            ?? "scores_none"
+        return ["reason_code": reason, "feed": scores, "stage": official, "mode": event.normalizedCategory]
+    }
+}
+
 /// Saved/reminded identity can follow a changed start under its existing exact
 /// catalog ID. Playback rematching retains its stricter dated admission rule.
 @MainActor

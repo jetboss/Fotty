@@ -1,3 +1,50 @@
+## 2026-11-21 — Stale football schedule: Worker stops edge-caching; app polls live scores on screen
+
+Mid-match every 15:00 Premier League game showed "Start unconfirmed". The
+Worker's sports-fixture feed published them as "scheduled" with a source
+`updatedAt` of 00:20 while its own score proxy (per-competition endpoint) had
+them IN_PLAY. The same stale body made Man City–Fulham look un-finished, so
+"Terminal fixture status regressed" held the whole Premier League and La Liga.
+Owner approved both fixes:
+
+- Worker: the schedule collector no longer asks Cloudflare to cache provider
+  responses (`cacheEverything`/60 s). It polls at most every 5 minutes, so the
+  cache could only ever return an older copy. If football-data's combined
+  `/matches` endpoint itself proves stale, per-competition requests are next.
+  661 web unit tests pass. Deployed separately.
+- App: Home and Matchday already requested live scores while open; the player
+  now also requests them while a football match in its live window (kickoff
+  −10 min to +3 h) plays on any tab (TV had none). Polling interval and budget
+  logic are unchanged; only which screens ask for it. The decisive fix for the
+  observed labels is the Worker's schedule, not the app.
+
+Owner also asked about alternatives to the Worker approach: recommended taking
+live status from official live feeds in the app, making Workers degrade per
+row instead of freezing a league, and a match-window watchdog; a paid single
+provider is an owner spending decision.
+
+## 2026-11-21 — Soak test findings; Highfly recovery gets time to fetch a fresh link
+
+Owner asked for a real-match soak and match-day tests. Chelsea vs Leeds on Jet
+(build 341 source, started from Matchday): LIVE labels held for the whole match
+(the unconfirmed fix works), but a mid-match drop left 15+ minutes of black
+screen while two goals were scored. Fotty's own diagnostics showed every
+Highfly retry cancelled 2–15 s into its fresh-link lookup:
+`LiveStreamResolver.refreshedDescriptor` raced each non-CS renewal against a
+shared 6 s timer, while a whole Highfly Watch measures 4.5–12 s on Jet.
+Owner approved giving Highfly its own 20 s renewal deadline (Community Sports
+keeps 24 s, others keep 6 s). Ranking, failover order and the fences are
+unchanged; only how long a Highfly renewal may run before it counts as failed.
+
+Also added: match-day timeline tests (minute by minute, stale score feed, every
+label), a private `status_contradiction` quality record when a playing match's
+label isn't LIVE five minutes after kickoff (codes only), and tests for the
+any-tab refresh. Other soak findings are recorded for follow-up, not changed:
+a holding card counted as "played"; kickoff drops matches to Matchday's bottom
+"Awaiting confirmation"; Matchday Live showed one of four live matches; the
+minute freezes off Matchday; no action in the last five minutes before
+kickoff; TV guide unavailable; diagnostics keep only 250 events.
+
 ## 2026-11-21 — Internal TestFlight 3.0.0 (341)
 
 Owner asked for the unconfirmed-status fix on TestFlight. Released 3.0.0 (341)

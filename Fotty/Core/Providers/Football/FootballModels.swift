@@ -343,6 +343,19 @@ enum FootballScheduleFreshnessPolicy {
 
 /// Demand is owned by a visible surface, not by whichever tab disappears last.
 /// Releasing one owner must never cancel another visible consumer's polling.
+/// A football match whose live score could matter now: kicked off within the
+/// last three hours, or starting in the next ten minutes. Screens use it to ask
+/// for live scores only while such a match is on screen.
+@MainActor
+enum FootballLiveWindowPolicy {
+    static func isInLiveWindow(_ event: AnalyticalDataEngine.EventReference, at now: Date) -> Bool {
+        guard event.normalizedCategory == "football", !event.isBroadcastChannel,
+              let kickoff = event.kickoffDate else { return false }
+        let elapsed = now.timeIntervalSince(kickoff)
+        return elapsed >= -10 * 60 && elapsed <= 3 * 3600
+    }
+}
+
 struct LiveScorePollingDemand {
     private(set) var owners: Set<UUID> = []
     var isNeeded: Bool { !owners.isEmpty }

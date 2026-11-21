@@ -64,6 +64,24 @@ struct ViewingSessionShell<Content: View>: View {
             }
         }
         .environment(viewing)
+        .task(id: viewing.primary?.id) {
+            // Once a minute while a match plays, privately note any status label
+            // that contradicts playback (e.g. "Start unconfirmed" mid-match), so
+            // drift shows up in diagnostics instead of only when someone notices.
+            guard let pane = viewing.primary, !AppRuntime.isAutomatedTesting else { return }
+            var reported = Set<String>()
+            while !Task.isCancelled {
+                do { try await Task.sleep(for: .seconds(60)) } catch { return }
+                guard viewing.primary?.id == pane.id else { return }
+                let now = Date()
+                let status = MatchStartPolicy.currentStatus(for: pane.event, scores: LiveScoreService.shared, now: now)
+                guard let details = PlaybackStatusConsistency.contradiction(for: pane.event, status: status,
+                        isPlaying: pane.model.isPlaying, at: now),
+                      reported.insert(details.values.sorted().joined(separator: "|")).inserted else { continue }
+                FottyQualityStore.shared.record(category: .matchIdentity, name: "status_contradiction",
+                    outcome: .failure, details: details)
+            }
+        }
         .onChange(of: viewing.panes.filter { $0.model.isPictureInPictureActive || $0.model.isWebPictureInPictureActive }.map(\.id)) { _, _ in
             viewing.reconcilePictureInPictureOwnership()
         }

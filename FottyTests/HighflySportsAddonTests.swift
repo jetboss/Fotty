@@ -12,6 +12,22 @@ final class HighflySportsAddonTests: XCTestCase {
         .init(id: id, name: name, description: name + "\n" + date, releaseInfo: date, category: "football")
     }
 
+    /// Soak test 21 Nov: every Highfly recovery was cancelled 2–15 s into its
+    /// fresh-link lookup by the shared 6 s cap, so a dropped match never came
+    /// back on Highfly. Highfly gets its own deadline; others are unchanged.
+    func testHighflyFreshLinkLookupIsNotCutOffByTheSharedSixSecondCap() {
+        XCTAssertEqual(LiveStreamResolver.descriptorRenewalDeadline(providerCode: "highfly", isChannel: false), 20)
+        XCTAssertEqual(LiveStreamResolver.descriptorRenewalDeadline(providerCode: "highfly", isChannel: true), 20)
+        XCTAssertGreaterThan(LiveStreamResolver.highflyDescriptorRenewalDeadline, 12,
+            "Must exceed a whole measured Highfly Watch (4.5–12 s on Jet)")
+        XCTAssertEqual(LiveStreamResolver.descriptorRenewalDeadline(providerCode: "communitysports", isChannel: false),
+            CommunitySportsAddonClient.streamTransportDeadline)
+        XCTAssertEqual(LiveStreamResolver.descriptorRenewalDeadline(providerCode: "communitysports", isChannel: true), 6)
+        for provider in ["penguplay", "plaviosports", "cncsports", "flixstreams"] {
+            XCTAssertEqual(LiveStreamResolver.descriptorRenewalDeadline(providerCode: provider, isChannel: false), 6, provider)
+        }
+    }
+
     func testExactFixtureAndDuplicateRowsDoNotInventProgrammeIdentity() throws {
         let good = row()
         XCTAssertEqual(try HighflySportsAddonClient.select(request: request(), rows: [good, good], now: kickoff), good)

@@ -386,6 +386,112 @@ final class FootballScoreReceiptTests: XCTestCase {
                      "A pre-kickoff schedule must not label a playing match as an unconfirmed start")
     }
 
+    /// The official fixture feed as the app holds it: refreshed every few
+    /// minutes while anything plays, so its receipt is at most 5 minutes old.
+    private func officialEvent(_ status: SportsFixtureCatalog.Status, kickoff: Date, observedAt: Date) -> EventReference {
+        let id = "sports-fixture:premier-league:timeline"
+        let metadata = SportsFixtureMetadata(
+            fixtureID: id, sport: "football", competitionID: "premier-league",
+            competitionName: "Premier League", eventKind: .match, title: "Chelsea vs Bournemouth",
+            participants: [.init(id: "chelsea", name: "Chelsea", role: "home"),
+                           .init(id: "bournemouth", name: "Bournemouth", role: "away")],
+            squad: .init(gender: .men, ageGroup: "senior"), status: status,
+            observedAt: observedAt, verified: true)
+        return .init(id: id, title: metadata.title, category: "football",
+            date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false,
+            teams: .init(home: .init(name: "Chelsea", badge: nil), away: .init(name: "Bournemouth", badge: nil)),
+            sportsFixture: metadata, competitionID: metadata.competitionID)
+    }
+
+    /// Match-day timeline: minute by minute from 30 minutes before kickoff to
+    /// the end, while the viewer watches from a tab that never re-reads scores
+    /// (the score feed was last read before kickoff). Every label the app shows
+    /// for the playing match must stay LIVE: Home, Matchday, details, player.
+    func testMatchDayTimelineKeepsAPlayingMatchLiveWhileScoresGoStale() async throws {
+        let kickoff = now.addingTimeInterval(30 * 60)
+        let clock = ReceiptClock(now)
+        let scores = service(clock: clock, feed: ReceiptProvider([.success([])]),
+            scheduled: row(.scheduled, kickoff: kickoff))
+        await scores.refresh()
+
+        for minute in -30...95 {
+            let t = kickoff.addingTimeInterval(Double(minute) * 60)
+            let receiptAge = Double(((minute % 5) + 5) % 5) * 60
+            let official: SportsFixtureCatalog.Status = minute < 1 ? .scheduled : .live
+            let event = officialEvent(official, kickoff: kickoff, observedAt: t.addingTimeInterval(-receiptAge))
+            let status = MatchStartPolicy.currentStatus(for: event, scores: scores, now: t)
+            let label = MatchdayEventStatePolicy.presentationLabel(for: event, at: t, status: status)
+            let home = HomeSportsDiscovery(events: [event], now: t) { _ in status }
+            let item = try XCTUnwrap(home.items.first, "minute \(minute)")
+            if minute < 0 {
+                XCTAssertEqual(label, "Upcoming", "minute \(minute)")
+                XCTAssertEqual(item.phase, .upcoming, "minute \(minute)")
+            } else if minute >= 1 {
+                XCTAssertEqual(label, "LIVE", "minute \(minute)")
+                XCTAssertEqual(item.phase, .live, "minute \(minute)")
+                XCTAssertNotEqual(item.prominentStatusLabel, "Start unconfirmed", "minute \(minute)")
+                XCTAssertNil(PlaybackStatusConsistency.contradiction(for: event, status: status, isPlaying: true, at: t),
+                             "minute \(minute)")
+            }
+        }
+    }
+
+    func testStatusContradictionIsRecordedOnlyForAPlayingMatchPastKickoffWithoutLive() {
+        let kickoff = now.addingTimeInterval(-20 * 60)
+        // The official feed's receipt has expired, and no score is known: the
+        // label falls back to "Start unconfirmed" while video plays.
+        let stale = officialEvent(.live, kickoff: kickoff, observedAt: now.addingTimeInterval(-31 * 60))
+        let details = PlaybackStatusConsistency.contradiction(for: stale, status: nil, isPlaying: true, at: now)
+        XCTAssertEqual(details?["reason_code"], "playing_start_unconfirmed")
+        XCTAssertEqual(details?["feed"], "scores_none")
+        XCTAssertEqual(details?["stage"], "official_live")
+        XCTAssertEqual(details?["mode"], "football")
+        XCTAssertFalse((details ?? [:]).values.contains { $0.contains("Chelsea") }, "Codes only, never names")
+
+        XCTAssertNil(PlaybackStatusConsistency.contradiction(for: stale, status: nil, isPlaying: false, at: now))
+        XCTAssertNil(PlaybackStatusConsistency.contradiction(for: stale, status: nil, isPlaying: true,
+            at: kickoff.addingTimeInterval(4 * 60)), "Feeds get five minutes to report a kickoff")
+        let fresh = officialEvent(.live, kickoff: kickoff, observedAt: now.addingTimeInterval(-60))
+        XCTAssertNil(PlaybackStatusConsistency.contradiction(for: fresh, status: nil, isPlaying: true, at: now))
+    }
+
+    func testSchedulesKeepRefreshingOnEveryTabWhileAMatchPlays() throws {
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let tabs = try String(contentsOf: root.appendingPathComponent("Fotty/App/MainTabView.swift"), encoding: .utf8)
+        let loop = try XCTUnwrap(tabs.components(separatedBy: ".task(id: viewingSession.isActive && scenePhase == .active) {").dropFirst().first)
+        let body = String(loop.prefix(900))
+        XCTAssertTrue(body.contains(".seconds(90)"))
+        XCTAssertTrue(body.contains("MatchListViewModel.shared.refreshIfNeeded()"),
+                      "Live status evidence must not expire while a match plays from TV or Matchday")
+        let shell = try String(contentsOf: root.appendingPathComponent("Fotty/Features/Player/ViewingSessionShell.swift"), encoding: .utf8)
+        XCTAssertTrue(shell.contains("name: \"status_contradiction\""))
+    }
+
+    /// 21 Nov: the schedule feed published in-play Premier League matches as
+    /// "scheduled", and live scores only refreshed on Matchday, so Home and the
+    /// player showed "Start unconfirmed". Live scores are now also requested
+    /// while a football match in its live window plays on any tab.
+    func testLiveScoresAreRequestedWhileAFootballMatchIsLiveOnScreen() throws {
+        let kickoff = now
+        func football(_ start: Date) -> EventReference {
+            .init(id: "live-window", title: "Chelsea vs Leeds", category: "football",
+                  date: Int64(start.timeIntervalSince1970), poster: nil, popular: false, teams: nil)
+        }
+        XCTAssertTrue(FootballLiveWindowPolicy.isInLiveWindow(football(kickoff), at: kickoff.addingTimeInterval(40 * 60)))
+        XCTAssertTrue(FootballLiveWindowPolicy.isInLiveWindow(football(kickoff), at: kickoff.addingTimeInterval(-5 * 60)))
+        XCTAssertFalse(FootballLiveWindowPolicy.isInLiveWindow(football(kickoff), at: kickoff.addingTimeInterval(-30 * 60)))
+        XCTAssertFalse(FootballLiveWindowPolicy.isInLiveWindow(football(kickoff), at: kickoff.addingTimeInterval(4 * 3600)))
+        let cricket = EventReference(id: "c", title: "A vs B", category: "cricket",
+            date: Int64(kickoff.timeIntervalSince1970), poster: nil, popular: false, teams: nil)
+        XCTAssertFalse(FootballLiveWindowPolicy.isInLiveWindow(cricket, at: kickoff.addingTimeInterval(600)))
+
+        let root = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        // Home and Matchday already ask while open; the player now asks on every
+        // tab (TV had no score refresh at all while a match played).
+        let tabs = try String(contentsOf: root.appendingPathComponent("Fotty/App/MainTabView.swift"), encoding: .utf8)
+        XCTAssertTrue(tabs.contains("liveScoreService.updatePollingDemand(owner: viewingScorePollingOwner"))
+    }
+
     func testOfficialAbbreviationIdentityRetainsDatedKickoffGuard() async throws {
         let service = service(clock: ReceiptClock(now), feed: ReceiptProvider([.success([try palaceOfficialRow()])]),
             scheduled: row(.scheduled, kickoff: now.addingTimeInterval(60)))

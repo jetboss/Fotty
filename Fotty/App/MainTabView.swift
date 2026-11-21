@@ -20,6 +20,7 @@ struct MainTabView: View {
     @State private var viewingSession = ViewingSessionCoordinator()
     @State private var sourcePreflightSchedule = FixtureStreamPreflightSchedule()
     @State private var sourcePreflightIsLocallyBlocked = false
+    @State private var viewingScorePollingOwner = UUID()
 
     private var canPreflightSourceMetadata: Bool {
         scenePhase == .active && viewingSession.panes.isEmpty
@@ -267,6 +268,13 @@ struct MainTabView: View {
                 do { try await Task.sleep(for: .seconds(sourcePreflightSchedule.delay(at: Date()))) }
                 catch { return }
             }
+        }
+        // A football match playing on any tab keeps its live score current,
+        // so the player and mini-player never fall back to "Start unconfirmed".
+        .onChange(of: scenePhase == .active && viewingSession.primary.map {
+            FootballLiveWindowPolicy.isInLiveWindow($0.event, at: Date())
+        } == true, initial: true) { _, watchingFootball in
+            liveScoreService.updatePollingDemand(owner: viewingScorePollingOwner, isActive: watchingFootball)
         }
         .task(id: viewingSession.isActive && scenePhase == .active) {
             // Home refreshes match status every 90 s only while it is the open

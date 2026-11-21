@@ -501,6 +501,19 @@ actor LiveStreamResolver {
             && ["communitysports", "plaviosports", "cncsports", "flixstreams", "highfly", "penguplay"].contains(provider)
     }
 
+    /// How long a backup's fresh-link lookup may run before it counts as failed.
+    /// Highfly re-reads its manifest, search, listing and streams for every
+    /// fresh link; measured on Jet a whole Highfly Watch takes 4.5–12 s, so the
+    /// shared 6 s cap cancelled every Highfly recovery mid-lookup (soak test,
+    /// 21 Nov). Community Sports keeps its transport deadline; others keep 6 s.
+    nonisolated static let highflyDescriptorRenewalDeadline: TimeInterval = 20
+
+    nonisolated static func descriptorRenewalDeadline(providerCode: String, isChannel: Bool) -> TimeInterval {
+        if providerCode == "communitysports", !isChannel { return CommunitySportsAddonClient.streamTransportDeadline }
+        if providerCode == "highfly" { return highflyDescriptorRenewalDeadline }
+        return 6
+    }
+
     func refreshedDescriptor(for session: StreamSession, request: StreamPlaybackRequest) async -> StreamSession? {
         guard Self.supportsDescriptorRenewal(session) else { return nil }
         if let binding = session.eventBinding, binding.usesRegistryAssociation {
@@ -580,7 +593,9 @@ actor LiveStreamResolver {
                 } catch { return nil }
             }
             group.addTask {
-                do { try await Task.sleep(for: .seconds(binding.providerCode == "communitysports" && request.preferredEvent?.isBroadcastChannel == false ? CommunitySportsAddonClient.streamTransportDeadline : 6)) } catch { return nil }
+                let deadline = Self.descriptorRenewalDeadline(providerCode: binding.providerCode,
+                    isChannel: request.preferredEvent?.isBroadcastChannel == true)
+                do { try await Task.sleep(for: .seconds(deadline)) } catch { return nil }
                 return nil
             }
             defer { group.cancelAll() }
