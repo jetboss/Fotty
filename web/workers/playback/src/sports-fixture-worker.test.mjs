@@ -222,3 +222,27 @@ test("per-league football-data rows assemble into the public snapshot (21 Nov 50
     ({ ...row, source: { ...row.source, url: "https://api.football-data.org/v4/competitions/CL/matches" } })) } };
   await assert.rejects(() => assembleSportsSnapshot([descriptor], new Map([[descriptor.id, forged]]), now), /provenance/);
 });
+
+test("a held per-league row is named in coverage and the snapshot still assembles", async () => {
+  // End to end with populated stored rows (lesson from the 21 Nov 503).
+  const descriptor = SPORTS_SOURCES.find((source) => source.id === "football-data");
+  const env = { FOOTBALL_DATA_API_KEY: "test" };
+  const row = (status) => ({ id: 560643, utcDate: "2026-11-21T12:30:00Z", status,
+    lastUpdated: status === "FINISHED" ? "2026-11-21T14:27:00Z" : "2026-11-21T15:04:00Z",
+    competition: { code: "PL" }, homeTeam: { id: 65, name: "Manchester City FC" }, awayTeam: { id: 63, name: "Fulham FC" } });
+  const collect = (status) => (source, at) => collectSportsSource(source, at, env, async (url) => {
+    const code = url.pathname.split("/").at(-2);
+    const matches = code === "PL" ? [row(status)] : [];
+    return Response.json({ filters: { season: "2026" }, competition: { code },
+      resultSet: { count: matches.length, ...(matches.length ? { first: "2026-11-21", last: "2026-11-21" } : {}) }, matches });
+  });
+  const first = new Date("2026-11-21T15:00:00Z"), second = new Date("2026-11-21T15:05:00Z");
+  const finished = await refreshSportsSource(null, descriptor, first, collect("FINISHED"));
+  const regressed = await refreshSportsSource(finished, descriptor, second, collect("IN_PLAY"));
+  const snapshot = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, regressed]]), second);
+  const lane = snapshot.coverage.find((coverage) => coverage.competitionId === "premier-league");
+  assert.equal(lane.sync.failure.code, "terminal-rollback");
+  assert.equal(lane.sync.failure.fixtureId, "sports-fixture:premier-league:560643");
+  assert.deepEqual(lane.heldFixtureIds, ["sports-fixture:premier-league:560643"]);
+  assert.equal(snapshot.fixtures.find((fixture) => fixture.id.endsWith(":560643")).status, "finished");
+});

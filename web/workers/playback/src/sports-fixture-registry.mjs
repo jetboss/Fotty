@@ -76,6 +76,11 @@ export function sportsFailureInfo(error, stage) {
   if (Number.isInteger(error?.fixtureHTTPStatus) && error.fixtureHTTPStatus >= 100 && error.fixtureHTTPStatus <= 599) {
     value.httpStatus = error.fixtureHTTPStatus;
   }
+  // Public fixture IDs only (e.g. sports-fixture:premier-league:560643), so an
+  // operator can see which row an admission rule is holding.
+  if (typeof error?.fixtureId === "string" && /^sports-fixture:[a-z0-9-]{1,60}:[A-Za-z0-9_-]{1,40}$/.test(error.fixtureId)) {
+    value.fixtureId = error.fixtureId;
+  }
   return value;
 }
 
@@ -100,6 +105,11 @@ export function sourceCoverage(descriptor, state, now = new Date()) {
       ...(fixtures.filter((fixture) => fixture.status === "scheduled").map((fixture) => fixture.start).sort()[0]
         ? { nextStart: fixtures.filter((fixture) => fixture.status === "scheduled").map((fixture) => fixture.start).sort()[0] } : {}),
       ...(status === "unsupported" && descriptor.reason ? { reason: descriptor.reason } : {}),
+      // Which public rows are held or awaiting a repeat correction, by ID only.
+      ...(fixtures.some((fixture) => fixture.source?.verification === "held")
+        ? { heldFixtureIds: fixtures.filter((fixture) => fixture.source?.verification === "held").map((fixture) => fixture.id).slice(0, 20) } : {}),
+      ...(Object.keys(state?.conflict?.fixtures || {}).some((id) => fixtures.some((fixture) => fixture.id === id))
+        ? { conflictFixtureIds: Object.keys(state.conflict.fixtures).filter((id) => fixtures.some((fixture) => fixture.id === id)).slice(0, 20) } : {}),
       sync: { consecutiveFailures: failures, lastAttemptAt: state?.lastAttemptAt || null,
         lastSuccessAt: receipt || null, conflict: cohort ? Boolean(cohort.conflict) : Boolean(state?.conflict),
         ...(cohort?.failure || !cohort && state?.failure ? { failure: cohort?.failure || state.failure } : {}) } };
