@@ -662,3 +662,70 @@ test("ESPN failures, other leagues, out-of-window rows and the switch never chan
   const off = await collectAt(overlayFetch(), { FOOTBALL_DATA_API_KEY: "test", FOTTY_FOOTBALL_LIVE_OVERLAY: "0" });
   assert.equal(off.fixtures[0].status, "scheduled");
 });
+
+// Owner decision (22 Nov 2026): ESPN backs up the rate-limited NHL API.
+import { refreshSportsSource, assembleSportsSnapshot } from "./sports-fixture-registry.mjs";
+
+const nhlESPN = (state, overrides = {}) => ({ leagues: [{ slug: "nhl" }], events: [{ date: "2026-09-30T17:00Z",
+  status: { type: { name: state === "in" ? "STATUS_IN_PROGRESS" : state === "post" ? "STATUS_FINAL" : "STATUS_SCHEDULED",
+    state, completed: state === "post" } },
+  competitions: [{ competitors: [{ homeAway: "home", team: { displayName: "Home Team" } },
+    { homeAway: "away", team: { displayName: "Away Team" } }] }], ...overrides }] });
+const refusedNHL = (espn, nhlStatus = 429) => async (url) => {
+  if (String(url).startsWith("https://api-web.nhle.com/")) return new Response("{}", { status: nhlStatus });
+  if (String(url).startsWith("https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard")) {
+    return espn instanceof Error ? Promise.reject(espn) : json(espn);
+  }
+  throw new Error(`unexpected ${url}`);
+};
+
+test("a refused NHL API keeps accepted games and takes only their status from ESPN", async () => {
+  const accepted = await collect("nhl", nhlFetch());
+  const previous = { fixtures: accepted.fixtures };
+  const live = await collectSportsSource(source("nhl"), now, {}, refusedNHL(nhlESPN("in")), { previous });
+  assert.equal(live.fixtures.length, 1);
+  assert.equal(live.fixtures[0].id, accepted.fixtures[0].id);
+  assert.equal(live.fixtures[0].status, "live");
+  assert.equal(live.fixtures[0].liveEvidence, "espn");
+  assert.equal(live.fixtures[0].source.url, accepted.fixtures[0].source.url, "NHL provenance is kept");
+  assert.equal(live.fixtures[0].source.observedAt, now.toISOString());
+  assert.deepEqual(live.fixtures[0].participants, accepted.fixtures[0].participants);
+  const finished = await collectSportsSource(source("nhl"), now, {}, refusedNHL(nhlESPN("post")), { previous });
+  assert.equal(finished.fixtures[0].status, "finished");
+  const reactivated = await collectSportsSource(source("nhl"), now, {}, refusedNHL(nhlESPN("in")),
+    { previous: { fixtures: [{ ...accepted.fixtures[0], status: "finished" }] } });
+  assert.equal(reactivated.fixtures[0].status, "finished", "A finished game never becomes active again");
+  for (const unusable of [nhlESPN("in", { date: "2026-09-30T18:00Z" }),
+    { ...nhlESPN("in"), events: [...nhlESPN("in").events, ...nhlESPN("in").events] },
+    nhlESPN("in", { competitions: [{ competitors: [{ homeAway: "home", team: { displayName: "Away Team" } },
+      { homeAway: "away", team: { displayName: "Home Team" } }] }] })]) {
+    const kept = await collectSportsSource(source("nhl"), now, {}, refusedNHL(unusable), { previous });
+    assert.equal(kept.fixtures[0].status, "scheduled", "A moved, duplicated or reversed ESPN game changes nothing");
+    assert.equal(kept.fixtures[0].liveEvidence, undefined);
+  }
+});
+
+test("without accepted games, a usable ESPN board, or a rate-limit/server refusal the NHL failure stands", async () => {
+  const accepted = await collect("nhl", nhlFetch());
+  const previous = { fixtures: accepted.fixtures };
+  await assert.rejects(() => collectSportsSource(source("nhl"), now, {}, refusedNHL(nhlESPN("in"))), /upstream unavailable/);
+  await assert.rejects(() => collectSportsSource(source("nhl"), now, {}, refusedNHL(new Error("down")), { previous }), /upstream unavailable/);
+  await assert.rejects(() => collectSportsSource(source("nhl"), now, {}, refusedNHL({ leagues: [{ slug: "nba" }], events: [] }), { previous }),
+    /upstream unavailable/);
+  await assert.rejects(() => collectSportsSource(source("nhl"), now, {}, refusedNHL(nhlESPN("in"), 404), { previous }), /upstream unavailable/);
+  const recovered = await collectSportsSource(source("nhl"), now, {}, refusedNHL(nhlESPN("in"), 503), { previous });
+  assert.equal(recovered.fixtures[0].status, "live");
+});
+
+test("an ESPN-backed NHL refresh is admitted and assembles into the public snapshot", async () => {
+  // Ten minutes after the accepted 17:00 start, while the NHL API refuses.
+  const descriptor = source("nhl"), later = new Date("2026-09-30T17:10:00Z");
+  const first = await refreshSportsSource(null, descriptor, now, (item, at) => collectSportsSource(item, at, {}, nhlFetch()));
+  const backed = await refreshSportsSource(first, descriptor, later,
+    (item, at, accepted) => collectSportsSource(item, at, {}, refusedNHL(nhlESPN("in")), { previous: accepted }));
+  assert.equal(backed.consecutiveFailures, 0);
+  const snapshot = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, backed]]), later);
+  assert.equal(snapshot.coverage[0].status, "covered");
+  assert.equal(snapshot.coverage[0].checkedAt, later.toISOString());
+  assert.equal(snapshot.fixtures[0].status, "live");
+});

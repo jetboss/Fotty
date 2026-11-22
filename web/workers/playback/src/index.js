@@ -56,8 +56,9 @@ function effectiveSportsSources(env) {
 }
 export class SportsFixtureRegistry extends BaseSportsFixtureRegistry {
   constructor(state, env) {
-    super(state, env, { descriptors: effectiveSportsSources(env), collect: (source, now, environment) =>
-      PRIMARY_SPORTS_SOURCE_IDS.has(source.id) ? collectSportsSource(source, now, environment) : collectSportsEventSource(source, now, environment) });
+    super(state, env, { descriptors: effectiveSportsSources(env), collect: (source, now, environment, accepted) =>
+      PRIMARY_SPORTS_SOURCE_IDS.has(source.id) ? collectSportsSource(source, now, environment, fetch, { previous: accepted })
+        : collectSportsEventSource(source, now, environment) });
   }
 }
 
