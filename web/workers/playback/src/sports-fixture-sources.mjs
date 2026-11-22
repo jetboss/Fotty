@@ -423,15 +423,22 @@ async function nhlFromESPN(descriptor, context) {
     && fixture.sport === descriptor.sport && typeof fixture.source?.url === "string"
     && fixture.source.url.startsWith(`${descriptor.sourceURL}/`));
   if (!accepted.length) return null;
+  // ESPN's NHL board accepts one US Eastern day per request (a range is
+  // HTTP 400). Read today plus the days of games starting within 8 hours
+  // before to 30 hours after now: at most three requests.
+  const now = context.now.getTime();
   const day = (instant) => new Date(instant - 5 * 3_600_000).toISOString().slice(0, 10).replaceAll("-", "");
-  const url = new URL("https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard");
-  url.searchParams.set("dates", `${day(Date.parse(context.windowStart))}-${day(Date.parse(context.windowEnd))}`);
-  url.searchParams.set("limit", "500");
-  let events;
+  const days = [...new Set([day(now), ...accepted.map((fixture) => Date.parse(fixture.start))
+    .filter((start) => start >= now - 8 * 3_600_000 && start <= now + 30 * 3_600_000).map(day)])].sort().slice(0, 3);
+  let events = [];
   try {
-    const data = await context.getOverlay(url);
-    if (data?.leagues?.[0]?.slug !== "nhl" || !Array.isArray(data.events) || data.events.length > 500) return null;
-    events = data.events;
+    for (const date of days) {
+      const url = new URL("https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard");
+      url.searchParams.set("dates", date);
+      const data = await context.getOverlay(url);
+      if (data?.leagues?.[0]?.slug !== "nhl" || !Array.isArray(data.events) || data.events.length > 100) return null;
+      events = events.concat(data.events);
+    }
   } catch { return null; }
   const games = events.flatMap((event) => {
     const competitors = event?.competitions?.[0]?.competitors;

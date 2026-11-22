@@ -674,6 +674,8 @@ const nhlESPN = (state, overrides = {}) => ({ leagues: [{ slug: "nhl" }], events
 const refusedNHL = (espn, nhlStatus = 429) => async (url) => {
   if (String(url).startsWith("https://api-web.nhle.com/")) return new Response("{}", { status: nhlStatus });
   if (String(url).startsWith("https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard")) {
+    // ESPN rejects a date range for the NHL board, as on 22 Nov.
+    if (!/^\d{8}$/.test(new URL(url).searchParams.get("dates") || "")) return new Response("{}", { status: 400 });
     return espn instanceof Error ? Promise.reject(espn) : json(espn);
   }
   throw new Error(`unexpected ${url}`);
