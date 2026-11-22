@@ -42,6 +42,20 @@ test("the international football switch enables only the three national-team fee
   assert.equal(calls.some((name) => name.endsWith(":nba") || name.endsWith(":mls") || name.includes("tennis-atp")), false);
 });
 
+test("the NBA switch enables only the NBA ESPN feed (owner decision, 22 Nov 2026)", async () => {
+  const calls = []; const waits = [];
+  const env = { FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "0", FOTTY_SPORTS_NBA_ENABLED: "1",
+    SPORTS_FIXTURES: { idFromName(name) { return name; }, get(name) { return { async fetch() { calls.push(name); return Response.json({ ok: true }); } }; } },
+    CRICKET_FIXTURES: { idFromName(name) { return name; }, get() { return { async fetch() { return Response.json({ ok: true }); } }; } } };
+  await worker.scheduled({}, env, { waitUntil(value) { waits.push(value); } });
+  await Promise.all(waits);
+  assert.ok(calls.some((name) => name.endsWith(":nba")));
+  for (const id of ["wnba", "nfl", "mls", "college-basketball-men", "college-basketball-women", "uefa-nations-league"]) {
+    assert.equal(calls.some((name) => name.endsWith(`:${id}`)), false, id);
+  }
+  assert.equal(calls.some((name) => name.includes("tennis-atp")), false);
+});
+
 test("one failing source group does not stop later cricket/sports refresh groups", async () => {
   const calls = []; const waits = [];
   const env = { FOTTY_SPORTS_FIXTURES_ENABLED: "1", FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED: "1", FOTTY_SPORTS_WNBA_ENABLED: "1", FOTTY_SPORTS_EFL_ENABLED: "1",
