@@ -1,3 +1,19 @@
+## 2026-11-22 — Owner decision: ESPN backs up the NHL schedule
+
+The NHL API has refused most Worker refreshes with HTTP 429 since at least
+20 Nov (34 of 56 in the Worker history on 21–22 Nov). It answers normally
+from a home connection, so it limits Cloudflare's shared Worker egress;
+sending its two weekly pages one after another (ad7d473a) did not help.
+Owner approved ESPN as a backup: when the NHL API returns 429 or a server
+error, the last accepted NHL schedule is kept with its own IDs, teams, times
+and NHL provenance, and each game's status comes from ESPN's public NHL
+scoreboard (unique same-team match within 15 min of the accepted start,
+`liveEvidence: "espn"`). ESPN never adds, moves or renames a game; terminal
+games never reactivate; without accepted games or a usable board the failure
+stands. Worker 655ee2ed (rollback ad7d473a). The 21 Nov "frozen feed" seen by
+a kickoff watcher was the watcher re-reading old files while the Mac slept,
+not a Worker fault; the Worker history showed refreshes throughout.
+
 ## 2026-11-21 — Owner decision: a bad read never breaks a confirmed match
 
 Trigger: at 18:25 UTC Jet stored a fixture read in which almost every league
