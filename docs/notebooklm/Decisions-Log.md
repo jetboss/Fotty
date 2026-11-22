@@ -1,3 +1,16 @@
+## 2026-11-22 — Owner decision: listings-first Watch
+
+Owner approved listing-only Watch, reviewed with Codex: one fresh,
+identifiable listing from an enabled stream source offers Watch even during a
+schedule outage; official data only enriches (confirmed time, LIVE, score,
+reminders, terminal state). This reverses the post-StreamEx rule that only a
+verified official fixture could offer Watch. Player ranking, corroboration and
+wrong-match protection are unchanged. Design, phases (shadow, Jet pilot,
+retire the gate, server consolidation) and the acceptance test are in
+[LISTINGS-FIRST-WATCH](../plans/LISTINGS-FIRST-WATCH.md). StreamEx's website
+is back but its catalog API is not; it may return only as one source among
+several.
+
 ## 2026-11-22 — Owner decisions: sport scope and NBA schedule from ESPN
 
 The owner keeps **football, cricket and basketball**; NHL is not a priority
