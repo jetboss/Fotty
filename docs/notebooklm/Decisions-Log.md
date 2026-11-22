@@ -1,3 +1,27 @@
+## 2026-11-22 — Owner decisions: sport scope and NBA schedule from ESPN
+
+The owner keeps **football, cricket and basketball**; NHL is not a priority
+and other sports probably are not. Basketball had no working schedule source
+(NBA and college feeds were gated behind the shared public-website switch;
+WNBA is blocked at the edge), so every basketball game was an unconfirmed
+listing. Owner approved ESPN's public NBA scoreboard: the existing ESPN NBA
+collector now has its own `FOTTY_SPORTS_NBA_ENABLED` switch (like
+national-team football); every other public feed stays off. Live check: 68
+NBA games in the 9-day window, 3 live, lane covered. Worker 52e0d986
+(rollback 7b281d66). The app already merges a stream listing and an official
+row with the same teams and start, so no duplicate rows are expected; not yet
+observed on a device.
+
+Architecture discussion (with Codex): the incidents come from the design
+(request-time assembly across Durable Objects, rules duplicated in Worker and
+app, whole-source failures), not from Cloudflare. Agreed direction: first make
+the rules surgical (per-league/row isolation, validate at write, accept newer
+kickoffs, expire stale LIVE instead of rejecting, keep `correctionConfirmedAt`
+for current builds), then a single scheduled job publishing static files per
+league for football, cricket and NBA, replacing the five Durable Objects.
+Loosening the Watch gate stays an owner decision (the broadcast registry also
+depends on verified fixtures).
+
 ## 2026-11-22 — Owner decision: ESPN backs up the NHL schedule
 
 The NHL API has refused most Worker refreshes with HTTP 429 since at least
