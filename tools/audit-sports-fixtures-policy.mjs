@@ -18,6 +18,10 @@ export const sportsAuditFindingMessages = Object.freeze({
   "same-upstream-refresh-required": "A fresh league schedule has current match evidence that an old accepted snapshot cannot verify; a source refresh is required before classifying an omission or correction.",
   "comparison-source-unavailable": "The bounded league-schedule comparison could not obtain complete source evidence.",
   "comparison-receipt-stale": "The league-schedule comparison returned stale evidence; it cannot establish an omission.",
+  "recent-lane-failure": "A schedule source group was unavailable in the Worker's refresh history within the last two hours.",
+  "history-unreadable": "The Worker's refresh history for a source group could not be read.",
+  "espn-live-mismatch": "ESPN reports a match in play that Fotty's fixture feed does not show as live ten or more minutes after kickoff.",
+  "espn-comparison-unavailable": "The ESPN live comparison could not obtain a valid scoreboard.",
 });
 function requireValue(value) { if (!value) throw new Error("Invalid sports snapshot"); }
 export function failedSportsAudit(code, now = Date.now()) {

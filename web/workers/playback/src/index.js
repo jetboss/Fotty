@@ -7,6 +7,7 @@
  *   GET /api/cricket/cpl-fixtures
  *   GET /api/cricket/fixtures
  *   GET /api/sports/fixtures
+ *   GET /api/sports/history
  *   GET /health
  *
  * Browser playback stays on the provider origin. Fotty does not mirror or
@@ -78,22 +79,61 @@ async function mapSportsSources(operation, sources = ALL_SPORTS_SOURCES) {
   return results;
 }
 
+function sportsReadFailure(error) {
+  return ["TimeoutError", "AbortError"].includes(error?.name) ? "timeout"
+    : error?.message === "Sports registry unavailable" ? "http" : "error";
+}
+
+/** Per-group refresh history (newest last): outcome, failure code and counts. */
+async function handleSportsHistory(env) {
+  if (!sportsFixturesEnabled(env)) return json({ error: "Sports fixtures unavailable" }, 503);
+  const deadline = coachDeadline(undefined, 8_000);
+  try {
+    const sources = effectiveSportsSources(env).filter((source) => source.supported !== false);
+    const entries = await Promise.all(sources.map(async (source) => {
+      try {
+        const history = await withDeadline(4_000, async (signal) => {
+          const request = new Request(`https://sports-registry.invalid/history?source=${encodeURIComponent(source.id)}`);
+          const response = await abortable(() => sportsRegistryStub(env, source).fetch(request), signal);
+          if (!response.ok) throw new Error("Sports registry unavailable");
+          return boundedJSON(response, 256 * 1024, signal);
+        }, deadline.signal);
+        return [source.id, Array.isArray(history) ? history : []];
+      } catch (error) { return [source.id, { readFailure: sportsReadFailure(error) }]; }
+    }));
+    return new Response(JSON.stringify({ schemaVersion: 1, checkedAt: new Date().toISOString(), sources: Object.fromEntries(entries) }),
+      { headers: corsHeaders({ "Content-Type": "application/json", "Cache-Control": "no-store" }) });
+  } finally { deadline.dispose(); }
+}
+
 async function handleSportsFixtures(env) {
   if (!sportsFixturesEnabled(env)) return json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable", activation: "pending" }, 503);
   const deadline = coachDeadline(undefined, 12_000);
   try {
     const sources = effectiveSportsSources(env);
-    const pairs = await mapSportsSources(async (source) => {
+    // Stored-state reads are cheap and independent: read every group at once.
+    // A slow read (for example while the five-minute cron refreshes that
+    // group) gets one retry before the league is reported unavailable, and
+    // every such failure is logged (21 Nov 2026: a silent 1.5 s timeout made
+    // most leagues "unavailable" right after a cron run).
+    const readState = (source, milliseconds) => withDeadline(milliseconds, async (signal) => {
+      const response = await abortable(() => sportsRegistryStub(env, source).fetch(sportsRegistryRequest(source)), signal);
+      if (!response.ok) throw new Error("Sports registry unavailable");
+      return boundedJSON(response, 1024 * 1024, signal);
+    }, deadline.signal);
+    const pairs = await Promise.all(sources.map(async (source) => {
       if (source.supported === false) return [source.id, undefined];
-      try {
-        const state = await withDeadline(1_500, async (signal) => {
-          const response = await abortable(() => sportsRegistryStub(env, source).fetch(sportsRegistryRequest(source)), signal);
-          if (!response.ok) throw new Error("Sports registry unavailable");
-          return boundedJSON(response, 1024 * 1024, signal);
-        }, deadline.signal);
-        return [source.id, state];
-      } catch { return [source.id, { consecutiveFailures: 1 }]; }
-    }, sources);
+      try { return [source.id, await readState(source, 2_500)]; } catch (first) {
+        try {
+          const state = await readState(source, 3_500);
+          logWorkerEvent("warn", "sports_registry_read_retried", { sourceGroup: source.id, reason: sportsReadFailure(first) });
+          return [source.id, state];
+        } catch (second) {
+          logWorkerEvent("warn", "sports_registry_read_failed", { sourceGroup: source.id, reason: sportsReadFailure(second) });
+          return [source.id, { consecutiveFailures: 1 }];
+        }
+      }
+    }));
     const snapshot = await assembleSportsSnapshot(sources, new Map(pairs), new Date());
     const body = JSON.stringify(snapshot);
     if (new TextEncoder().encode(body).byteLength > 2 * 1024 * 1024) throw new Error("Sports snapshot exceeded bound");
@@ -1567,6 +1607,7 @@ const worker = {
     }
     if (url.pathname === "/api/cricket/fixtures" || url.pathname === "/api/cricket/fixtures/") return handleCricketFixtures(env);
     if (url.pathname === "/api/sports/fixtures" || url.pathname === "/api/sports/fixtures/") return handleSportsFixtures(env);
+    if (url.pathname === "/api/sports/history" || url.pathname === "/api/sports/history/") return handleSportsHistory(env);
     if (url.pathname === "/api/live/catalog") {
       // Fixed reviewed adapters; query strings can never select an upstream.
       if (url.search) return json({ error: "Unsupported catalog query" }, 400);

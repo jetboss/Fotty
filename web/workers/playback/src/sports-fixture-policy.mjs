@@ -39,7 +39,7 @@ export function descriptorCompetitions(descriptor) {
   return competitions;
 }
 
-export function validateSportsFixture(fixture, now, descriptor) {
+export function validateSportsFixture(fixture, now, descriptor, { olderCopy = false } = {}) {
   requireValue(fixture && typeof fixture === "object", "Fixture record missing");
   const competitions = descriptorCompetitions(descriptor);
   const competition = competitions.find((row) => row.id === fixture.competitionId);
@@ -71,7 +71,9 @@ export function validateSportsFixture(fixture, now, descriptor) {
   if (fixture.source.updatedAt !== undefined) {
     const updatedAt = fixtureInstant(fixture.source.updatedAt);
     requireValue(updatedAt <= now.getTime() + 5 * MINUTE, "Publisher timestamp is in future");
-    if (fixture.status === "live") requireValue(updatedAt >= now.getTime() - 30 * MINUTE, "Publisher live evidence stale");
+    // An older copy of an accepted row is ignored at admission; it must not
+    // fail the whole collection for carrying an old live stamp.
+    if (fixture.status === "live" && !olderCopy) requireValue(updatedAt >= now.getTime() - 30 * MINUTE, "Publisher live evidence stale");
   }
   if (fixture.source.correctionConfirmedAt !== undefined) requireValue(fixtureInstant(fixture.source.correctionConfirmedAt) <= observedAt,
     "Correction confirmation is newer than its source receipt");
@@ -163,8 +165,9 @@ function validatedCollection(collection, previous, descriptor, now) {
       "Pending competition count mismatch");
   }
   const ids = new Set(), identities = new Set(), publisherIDs = new Set();
+  const previousByID = new Map((previous?.fixtures || []).map((fixture) => [fixture.id, fixture]));
   const fixtures = collection.fixtures.map((fixture) => {
-    validateSportsFixture(fixture, now, descriptor);
+    validateSportsFixture(fixture, now, descriptor, { olderCopy: olderPublisherCopy(fixture, previousByID.get(fixture.id)) });
     requireValue(fixture.source.observedAt === collection.observedAt && !ids.has(fixture.id), "Source duplicate/receipt mismatch");
     ids.add(fixture.id);
     const semantic = sportsSnapshotIdentity(fixture), publisherID = footballPublisherID(fixture, descriptor);
@@ -185,6 +188,11 @@ function activeInWindow(fixture, now) {
   const window = fixtureWindow(now);
   const boundary = fixture.status === "live" && fixture.eventKind !== "match" ? window.start - 6 * DAY : window.start;
   return Date.parse(fixture.start) >= boundary && Date.parse(fixture.start) < window.end && !TERMINAL.has(fixture.status);
+}
+
+function olderPublisherCopy(fixture, old) {
+  if (!old || fixture.source?.updatedAt === undefined || old.source?.updatedAt === undefined) return false;
+  return fixtureInstant(fixture.source.updatedAt) < fixtureInstant(old.source.updatedAt);
 }
 
 function correctionFacts(fixture, old) {
@@ -266,7 +274,7 @@ export function admitSportsCollectionIsolated(collection, previous, descriptor, 
   // This is only an exact semantic contradiction, never an ID alias or a
   // same-team heuristic (different starts/squads/titles stay independent).
   for (const { fixture, prior: oldRows } of resurrectedTerminalRows(candidate, previous)) {
-    const issue = { failure: new Error("Terminal fixture status regressed") };
+    const issue = { failure: Object.assign(new Error("Terminal fixture status regressed"), { fixtureId: fixture.id }) };
     blocked.add(fixture.id);
     for (const old of oldRows) retain(old, issue);
     const displaced = oldByID.get(fixture.id);
@@ -275,6 +283,15 @@ export function admitSportsCollectionIsolated(collection, previous, descriptor, 
   for (const fixture of candidate.fixtures) {
     if (blocked.has(fixture.id)) continue;
     const old = oldByID.get(fixture.id);
+    // An older publisher copy of an accepted row is stale, not a correction or
+    // a regression: keep the accepted facts verified for this collection and
+    // hold nothing (21 Nov: one stale football-data replica un-finished Lazio-
+    // Lecce and un-started Parma-Roma, holding Serie A while Parma-Roma was live).
+    if (olderPublisherCopy(fixture, old)) {
+      const { verification: _held, ...source } = old.source;
+      fresh.set(fixture.id, { ...old, source: { ...source, observedAt: candidate.observedAt } });
+      continue;
+    }
     try {
       const result = admitRecord(fixture, old, candidate.observedAt, prior[fixture.id]);
       if (result.conflict) {
@@ -283,7 +300,7 @@ export function admitSportsCollectionIsolated(collection, previous, descriptor, 
       } else fresh.set(fixture.id, result.fixture);
     } catch (error) {
       if (error.message !== "Terminal fixture status regressed") throw error;
-      retain(old, { failure: error });
+      retain(old, { failure: Object.assign(error, { fixtureId: fixture.id }) });
     }
   }
   for (const old of previous?.fixtures || []) {

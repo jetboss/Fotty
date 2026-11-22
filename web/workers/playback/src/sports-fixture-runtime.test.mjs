@@ -39,8 +39,9 @@ async function workerBundle() {
   return bundle;
 }
 function syntheticResponse(source, url) {
-  if (source === "football-data") return Response.json({ filters: { dateFrom: url.searchParams.get("dateFrom"),
-    dateTo: url.searchParams.get("dateTo"), competitions: url.searchParams.get("competitions") }, resultSet: { count: 0 }, matches: [] });
+  // Per-league endpoint (owner decision 21 Nov): echoes the season only.
+  if (source === "football-data") return Response.json({ filters: { season: "2026" },
+    competition: { code: url.pathname.split("/").at(-2) }, resultSet: { count: 0 }, matches: [] });
   if (source === "mlb") return Response.json({ totalGames: 0, totalItems: 0, totalEvents: 0, dates: [] });
   if (source === "nhl") {
     const date = url.pathname.split("/").at(-1);
@@ -106,7 +107,7 @@ test("actual workerd admits every eligible primary source through the exported D
   const namespace = await miniflare.getDurableObjectNamespace("SPORTS_FIXTURES");
   const refreshed = await Promise.all(sources.map((source) => refresh(namespace, source)));
   assert.ok(refreshed.every((result) => result.body.ok === true));
-  assert.equal(requests.length, 5); // Football one, MLB one, NHL two, WNBA one.
+  assert.equal(requests.length, 10); // Football six (one per league), MLB one, NHL two, WNBA one.
   assert.deepEqual([...new Set(requests.map((request) => request.source))].sort(), [...sources].sort());
   const response = await miniflare.dispatchFetch("https://runtime-test.invalid/api/sports/fixtures");
   assert.equal(response.status, 200);
