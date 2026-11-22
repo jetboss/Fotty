@@ -420,6 +420,18 @@ test("MLB only genuine empty and complete schedule envelopes are accepted", asyn
   assert.equal(result.pendingFixtureCount, 1);
 });
 
+test("NHL weekly pages are requested one after another, never as a burst", async () => {
+  const inner = nhlFetch(); let inFlight = 0, peak = 0; const started = [];
+  const result = await collect("nhl", async (url, init) => {
+    inFlight++; peak = Math.max(peak, inFlight); started.push(Date.now());
+    try { await new Promise((resolve) => setTimeout(resolve, 20)); return await inner(url, init); } finally { inFlight--; }
+  });
+  assert.equal(result.fixtures.length, 1);
+  assert.equal(peak, 1);
+  assert.equal(started.length, 2);
+  assert.ok(started[1] - started[0] >= 900, "The second page waits about a second after the first completes");
+});
+
 test("NHL checks every calendar day and total across two bounded weeks", async () => {
   const result = await collect("nhl", nhlFetch());
   assert.equal(result.fixtures[0].id, "sports-fixture:nhl:2026020010");

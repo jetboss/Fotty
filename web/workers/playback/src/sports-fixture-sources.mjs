@@ -398,9 +398,19 @@ async function mlb(descriptor, context) {
   });
 }
 
+export const NHL_PAGE_GAP_MS = 1_000;
+
 async function nhl(descriptor, context) {
   const { windowStart, observedAt, get } = context;
-  const pages = await Promise.all([0, 7].map(async (offset) => {
+  // The two weekly pages are requested one after another, never as a
+  // simultaneous burst: the NHL API rate-limits Worker traffic (HTTP 429 on
+  // most refreshes, 20-22 Nov 2026).
+  const pages = [];
+  for (const offset of [0, 7]) {
+    if (pages.length) await new Promise((resolve) => setTimeout(resolve, NHL_PAGE_GAP_MS));
+    pages.push(await nhlPage(offset));
+  }
+  async function nhlPage(offset) {
     const date = new Date(Date.parse(windowStart) + offset * DAY).toISOString().slice(0, 10);
     const url = `${descriptor.sourceURL}/${date}`;
     const data = await get(url);
@@ -412,7 +422,7 @@ async function nhl(descriptor, context) {
     });
     check(rows.length === data.numberOfGames && rows.length <= 200, "NHL total count mismatch");
     return rows.map((row) => ({ row, url }));
-  }));
+  }
   const rows = pages.flat();
   unique(rows, ({ row }) => row.id);
   return rows.map(({ row, url }) => {
