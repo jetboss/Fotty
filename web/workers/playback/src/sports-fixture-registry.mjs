@@ -143,7 +143,7 @@ export async function refreshSportsSource(previous, descriptor, now, collect) {
   const attempt = { lastAttemptAt: now.toISOString(), lastAttemptScope: competitionScope(descriptor) };
   let stage = "collection";
   try {
-    const collection = await collect(descriptor, now);
+    const collection = await collect(descriptor, now, previous?.accepted);
     stage = "admission";
     const result = admitSportsCollectionIsolated(collection, previous?.accepted, descriptor, now, previous?.conflict);
     const cohorts = Object.fromEntries(descriptorCompetitions(descriptor).map(({ id }) => {
@@ -285,7 +285,7 @@ export class SportsFixtureRegistry {
     const previous = await this.state.storage.get(STATE_KEY);
     if (!refreshDue(descriptor, previous, now)) return previous;
     const next = await refreshSportsSource(previous, descriptor, now,
-      (source, instant) => this.options.collect(source, instant, this.env));
+      (source, instant, accepted) => this.options.collect(source, instant, this.env, accepted));
     await this.state.storage.put(STATE_KEY, next);
     try {
       const history = await this.state.storage.get(HISTORY_KEY);
