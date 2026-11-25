@@ -97,7 +97,10 @@ test("reviewed TV adds one bounded official current-week RSS read without mixing
     : new Response(espnFeed(), { headers: { "content-type": "application/rss+xml; charset=UTF-8" } }));
   const result = await h.run({ fixtures: [footballHint] });
   assert.equal(h.calls.length, 2); assert.equal(h.count(), 2);
-  assert.equal(h.calls[1].url, "https://latinamerica.espnpressroom.com/feed/?s=programaci%C3%B3n+destacada");
+  const archive = new URL(h.calls[1].url);
+  assert.equal(archive.origin + archive.pathname, "https://latinamerica.espnpressroom.com/feed/");
+  assert.equal(archive.searchParams.get("s"), '"programación destacada del" "octubre"');
+  assert.equal(archive.searchParams.get("year"), "2026");
   assert.equal(h.calls[1].init.headers.Accept, "application/rss+xml, application/xml, text/xml");
   assert.deepEqual(result.scopes.map((s) => [s.scope, s.status]), [["cricket", "available"], ["football", "partial"]]);
   const source = await normalizeBroadcastCollection("reviewedtv", result, now);

@@ -5,13 +5,13 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     func testCuratedCatalogOwnsItsRegistrationAndDispatchIdentities() {
         let definitions = CuratedStreamSourceCatalog.all
         XCTAssertEqual(definitions.map(\.providerCode),
-                       ["score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv", "highfly"])
+                       ["communitysports", "plaviosports", "cncsports", "flixstreams", "reviewedtv", "highfly"])
         XCTAssertEqual(Set(definitions.map(\.providerCode)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.manifestID)).count, definitions.count)
         XCTAssertEqual(Set(definitions.map(\.manifestFilename)).count, definitions.count)
-        XCTAssertEqual(Set(definitions.map(\.provider)), Set(CuratedStreamSourceCatalog.Provider.allCases))
+        XCTAssertEqual(Set(definitions.map(\.provider)), Set(CuratedStreamSourceCatalog.Provider.allCases).subtracting([.score808]))
         XCTAssertEqual(definitions.map(\.dispatch),
-                       [.score808, .communitySports, .plavioSports, .cncSports, .flixStreams, .reviewedTV, .highfly])
+                       [.communitySports, .plavioSports, .cncSports, .flixStreams, .reviewedTV, .highfly])
         XCTAssertEqual(StreamPluginProviderMatching.activePlayerProviderCodes, definitions.map(\.providerCode))
         XCTAssertEqual(CuratedStreamSourceCatalog.optionalSources.map(\.discoveryName), ["CS", "AS", "LS", "FS", "TV", "HF"])
     }
@@ -30,7 +30,7 @@ final class AdditionalSportsIntegrationTests: XCTestCase {
     func testCuratedCatalogRetainsExistingDefaultsAndDoesNotRegisterProviderCodeSubstitution() throws {
         let definitions = CuratedStreamSourceCatalog.all
         for definition in definitions {
-            XCTAssertEqual(definition.defaultEnabled, definition.providerCode == "score808")
+            XCTAssertEqual(definition.defaultEnabled, definition.providerCode == "communitysports")
             XCTAssertEqual(StreamPluginRegistry.isEnabledByDefault(providerCode: definition.providerCode), definition.defaultEnabled)
         }
         let fs = try XCTUnwrap(CuratedStreamSourceCatalog.definition(forProviderCode: "flixstreams"))

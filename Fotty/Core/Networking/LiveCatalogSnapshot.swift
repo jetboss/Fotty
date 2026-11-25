@@ -77,13 +77,12 @@ enum FixtureSourceCatalogCollector {
             }
             return Lane(providerCode: definition.providerCode) { requests, now in
                 switch definition.dispatch {
-                case .score808: return try await Score808CatalogClient.shared.catalogMatches(for: requests, now: now)
                 case .communitySports: return try await CommunitySportsAddonClient.shared.catalogMatches(for: requests, now: now)
                 case .plavioSports: return try await PlavioSportsAddonClient.shared.catalogMatches(for: requests, now: now)
                 case .cncSports: return try await CNCSportsAddonClient.shared.catalogMatches(for: requests, now: now)
                 case .flixStreams: return try await FlixStreamsAddonClient.shared.catalogMatches(for: requests, now: now)
                 case .highfly: return try await HighflySportsAddonClient.shared.catalogMatches(for: requests, now: now)
-                case .reviewedTV: return requests.map { .init(matchID: $0.matchID, outcome: .unsupported) }
+                case .score808, .reviewedTV: return requests.map { .init(matchID: $0.matchID, outcome: .unsupported) }
                 }
             }
         }

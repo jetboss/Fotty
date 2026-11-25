@@ -415,7 +415,7 @@ test("approved registry configuration retains its own binding/migration and enab
   assert.match(config, /name = "BROADCAST_REGISTRY"\s+class_name = "BroadcastRegistry"/);
   assert.match(config, /tag = "broadcast-registry-v1"\s+new_sqlite_classes = \[ "BroadcastRegistry" \]/);
   const providers = enabledBroadcastProviders({ FOTTY_BROADCAST_REGISTRY_SOURCES: "communitysports,plaviosports,score808" });
-  assert.deepEqual(providers.map((p) => [p.providerCode, p.maxRequestsPerDay]), [["score808", 96], ["communitysports", 288], ["plaviosports", 288]]);
+  assert.deepEqual(providers.map((p) => [p.providerCode, p.maxRequestsPerDay]), [["communitysports", 288], ["plaviosports", 288]]);
 });
 
 

@@ -3,7 +3,7 @@ import { WORKER_SOURCE_VERSION } from "../../web/workers/playback/src/worker-ver
 
 export const OBSERVER_REVISION = "2026-10-11.watchdog-1";
 // Match the active collector. The prepared coverage candidate is not deployed.
-export const CONFIGURATION_REVISION = "2026-11-11.streamex-retired-1";
+export const CONFIGURATION_REVISION = "2026-11-24.score808-retired-1";
 export const COLLECTION_INTERVAL_MS = 15 * 60_000;
 export const CONFIRMATION_WINDOWS = 2;
 export const WORKER_ORIGIN = "https://fotty-playback-v3.adaptive-rhubarb.workers.dev";
@@ -12,7 +12,6 @@ export const PROVIDERS = Object.freeze([
   // Third read is allowed only for one exactly matched current official fixture's
   // descriptor; returned delivery/media URLs are never fetched by this observer.
   { source: "cs", kind: "cs", origin: "https://nuviosports.xyz", path: "/manifest.json", maxRequestsPerDay: 288 },
-  { source: "score808", kind: "score808", origin: "https://www.score808live.tv", path: "/score808-live-football-scores-real-time-match-updates-results/", maxRequestsPerDay: 96 },
   // Already admitted by the native AS adapter. At the reviewed15-minute cadence,
   // one manifest plus both advertised catalogs uses at most288 reads/day. Check
   // both scopes together so missing-check fences cannot reset their streaks.
@@ -21,7 +20,7 @@ export const PROVIDERS = Object.freeze([
 // StreamEx was retired from the app on 9 Nov 2026 and is no longer probed.
 // Its sources stay admitted as inactive so persisted incidents remain valid
 // (validateLedger rejects records from unadmitted sources); they never alert.
-export const RETIRED_SOURCES = Object.freeze(["streamex-primary", "streamex-mirror", "streamed-backup"]);
+export const RETIRED_SOURCES = Object.freeze(["streamex-primary", "streamex-mirror", "streamed-backup", "score808"]);
 export const FIXTURE_SCOPES = Object.freeze([
   "premier-league", "champions-league", "la-liga", "serie-a", "bundesliga", "ligue-1", "mlb", "nhl", "carabao-cup",
   "cpl", "west-indies", "icc",

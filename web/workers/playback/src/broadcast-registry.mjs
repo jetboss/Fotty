@@ -7,7 +7,7 @@ import { REVIEWED_TV_GUIDE_KEY, validateReviewedTVGuide, currentReviewedTVGuide 
 import { reviewedTVGuideAssignments } from "./reviewed-tv-guide-assignments.mjs";
 
 const KEY = "shared-broadcast-registry-v1", minute = 60_000, day = 86_400_000;
-export const DEFAULT_BROADCAST_REGISTRY_PROVIDERS = Object.freeze(BROADCAST_PROVIDER_CODES.map((providerCode) => Object.freeze({
+export const DEFAULT_BROADCAST_REGISTRY_PROVIDERS = Object.freeze(BROADCAST_PROVIDER_CODES.filter((code) => !["score808", "streamex"].includes(code)).map((providerCode) => Object.freeze({
   providerCode, maxRequestsPerDay: providerCode === "reviewedtv" ? 576 : ["communitysports", "plaviosports"].includes(providerCode) ? 288 : 96,
 })));
 const blank = () => ({ version: 1, providers: {}, budgets: {}, cursor: 0 });

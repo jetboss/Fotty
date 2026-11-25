@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { boundedJSON } from "../web/workers/playback/src/coach-safety.mjs";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,9 +10,10 @@ import {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const vectorsPath = resolve(root, "shared/reference-data/provider-football-identity-vectors.json");
-const vectors = JSON.parse(await readFile(vectorsPath, "utf8"));
+const isMain = Boolean(process.argv[1]) && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 const runLive = process.argv.includes("--live");
 const allowUnavailable = process.argv.includes("--allow-unavailable");
+const allowNoFootball = process.argv.includes("--allow-no-football");
 
 const domestic = [
   ["premierLeague", ["premier league", "english premier", "premier-league", "epl"]],
@@ -47,7 +49,7 @@ function eventTeams(event) {
 
 function eventText(event) {
   const sourceIds = event.sourceIds ?? event.sources?.map((source) => source.id) ?? [];
-  return [event.id, event.title, ...sourceIds].filter(Boolean).join(" ").toLowerCase();
+  return [event.id, event.title, event.tournament, ...sourceIds].filter(Boolean).join(" ").toLowerCase();
 }
 
 function classify(event) {
@@ -71,47 +73,19 @@ function classify(event) {
   return { competition: "other", conflict: false };
 }
 
-if (vectors.schemaVersion !== 1 || !Array.isArray(vectors.cases) || vectors.cases.length === 0) {
-  throw new Error("Provider identity regression vectors are missing or invalid.");
-}
-for (const vector of vectors.cases) {
-  const actual = classify(vector.event);
-  if (actual.competition !== vector.expectedCompetition || actual.conflict !== vector.expectedIdentityConflict) {
-    throw new Error(`${vector.name}: expected ${vector.expectedCompetition}/${vector.expectedIdentityConflict}, got ${actual.competition}/${actual.conflict}`);
-  }
-}
-console.log(`Provider identity vectors passed (${vectors.cases.length}).`);
-
-if (runLive) {
-  const endpoints = [
-    "https://www.streamex.net/api/live/matches/all",
-    "https://streamex.sh/api/live/matches/all",
-    "https://streamed.pk/api/matches/all",
-  ];
-  const payloads = [];
-  for (const endpoint of endpoints) {
-    try {
-      const response = await fetch(endpoint, {
-        headers: { Accept: "application/json", Referer: new URL(endpoint).origin },
-        signal: AbortSignal.timeout(8_000),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const body = await response.json();
-      const events = Array.isArray(body) ? body : body.matches;
-      if (!Array.isArray(events)) throw new Error("response was not an event array");
-      payloads.push({ host: new URL(endpoint).host, events });
-    } catch (error) {
-      console.warn(`Provider metadata unavailable (${new URL(endpoint).host}): ${error.message}`);
-    }
-  }
-  if (payloads.length === 0 && !allowUnavailable) {
-    throw new Error("No provider metadata endpoint was reachable; release identity drift audit cannot be completed.");
-  }
-
+// Counts football rows and identity conflicts. A row without a readable
+// sport is counted as unreadable, never skipped: a renamed field once let
+// the live audit "pass" while checking zero football listings.
+export function auditProviderPayloads(payloads) {
   const failures = new Map();
+  let footballCount = 0;
+  let unreadableCount = 0;
   for (const payload of payloads) {
     for (const event of payload.events) {
-      if ((event.category || "").toLowerCase() !== "football") continue;
+      const sport = event?.sport ?? event?.category;
+      if (typeof sport !== "string" || sport.trim() === "") { unreadableCount += 1; continue; }
+      if (!["football", "soccer"].includes(sport.trim().toLowerCase())) continue;
+      footballCount += 1;
       const text = eventText(event);
       const marker = domestic.find(([, markers]) => containsAny(text, markers));
       if (!marker || containsAny(text, nonDomestic)) continue;
@@ -122,11 +96,60 @@ if (runLive) {
       failures.set(key, { competition: marker[0], home, away, host: payload.host });
     }
   }
-  if (failures.size > 0) {
-    for (const failure of failures.values()) {
-      console.error(`Unresolved provider identity: ${failure.competition} | ${failure.home} vs ${failure.away} | ${failure.host}`);
-    }
-    throw new Error(`${failures.size} live provider competition identity conflict(s) found.`);
+  return { footballCount, unreadableCount, failures: [...failures.values()] };
+}
+
+// The release verdict for one live run. Only a run that read every row and
+// checked at least one football listing (or was told none is acceptable)
+// can pass.
+export function liveAuditVerdict({ footballCount, unreadableCount, failures }, { feeds, allowNoFootball = false }) {
+  if (failures.length > 0) return { ok: false, kind: "conflict", message: `${failures.length} live provider competition identity conflict(s) found.` };
+  if (unreadableCount > 0) return { ok: false, kind: "unreadable", message: `${unreadableCount} provider row(s) had no readable sport field; the feed format may have changed, so identity was not fully checked.` };
+  if (footballCount === 0) return { ok: allowNoFootball, kind: "noFootball", message: `No football coverage in ${feeds} reachable feed(s): identity was not checked.` };
+  return { ok: true, kind: "passed", message: `Live provider identity audit passed across ${feeds} reachable feed(s) and ${footballCount} football listings.` };
+}
+
+async function checkCurrentSchedule() {
+  const url = new URL("https://www.streamex.hn/api/live/schedule");
+  const signal = AbortSignal.timeout(8_000);
+  let response;
+  try {
+    response = await fetch(url, { headers: { Accept: "application/json", Referer: url.origin, "User-Agent": "Fotty/3.0" },
+      redirect: "error", signal });
+  } catch (error) {
+    if (!allowUnavailable) throw error;
+    console.warn("Current schedule unreachable. Skipping live identity check (--allow-unavailable).");
+    return;
   }
-  console.log(`Live provider identity audit passed across ${payloads.length} reachable feed(s).`);
+  if (!response.ok) {
+    if (!allowUnavailable) throw new Error(`Current schedule returned HTTP ${response.status}.`);
+    console.warn(`Current schedule returned HTTP ${response.status}. Skipping live identity check (--allow-unavailable).`);
+    return;
+  }
+  if (response.headers.get("content-type")?.split(";")[0] !== "application/json") throw new Error("Expected JSON schedule metadata.");
+  const { events } = await boundedJSON(response, 4 * 1024 * 1024, signal);
+  if (!Array.isArray(events) || events.length > 2_000) throw new Error("Invalid schedule event array.");
+
+  const summary = auditProviderPayloads([{ host: url.host, events }]);
+  for (const failure of summary.failures) {
+    console.error(`Unresolved provider identity: ${failure.competition} | ${failure.home} vs ${failure.away} | ${failure.host}`);
+  }
+  const verdict = liveAuditVerdict(summary, { feeds: 1, allowNoFootball });
+  if (!verdict.ok) throw new Error(verdict.message);
+  console.log(verdict.message);
+}
+
+if (isMain) {
+  const vectors = JSON.parse(await readFile(vectorsPath, "utf8"));
+  if (vectors.schemaVersion !== 1 || !Array.isArray(vectors.cases) || vectors.cases.length === 0) {
+    throw new Error("Provider identity regression vectors are missing or invalid.");
+  }
+  for (const vector of vectors.cases) {
+    const actual = classify(vector.event);
+    if (actual.competition !== vector.expectedCompetition || actual.conflict !== vector.expectedIdentityConflict) {
+      throw new Error(`${vector.name}: expected ${vector.expectedCompetition}/${vector.expectedIdentityConflict}, got ${actual.competition}/${actual.conflict}`);
+    }
+  }
+  console.log(`Provider identity vectors passed (${vectors.cases.length}).`);
+  if (runLive) await checkCurrentSchedule();
 }

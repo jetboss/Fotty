@@ -1674,9 +1674,9 @@ final class CommunitySportsAddonTests: XCTestCase {
         XCTAssertTrue(LivePlaybackSourcePolicy.isWebEmbed(sessions[1].legacySource))
     }
 
-    func testCommunitySportsPluginIsOptInAndCatalogNamesAreMapped() {
-        XCTAssertFalse(StreamPluginRegistry.isEnabledByDefault(providerCode: "communitysports"))
-        XCTAssertTrue(StreamPluginRegistry.isEnabledByDefault(providerCode: "score808"))
+    func testCommunitySportsIsTheDefaultAndCatalogNamesAreMapped() {
+        XCTAssertTrue(StreamPluginRegistry.isEnabledByDefault(providerCode: "communitysports"))
+        XCTAssertFalse(StreamPluginRegistry.isEnabledByDefault(providerCode: "score808"))
         XCTAssertEqual(CommunitySportsAddonClient.catalogID(for: "American Football"),
                        "nuvio_sports_american_football")
         XCTAssertEqual(CommunitySportsAddonClient.catalogID(for: "boxing"), "nuvio_sports_mma")
@@ -1688,7 +1688,7 @@ final class CommunitySportsAddonTests: XCTestCase {
         let (manifest, _) = try StreamPluginBundle.loadManifest(named: "community_sports_manifest")
         XCTAssertEqual(manifest.allowedDomains, ["nuviosports.xyz"])
         XCTAssertEqual(manifest.providerCode, "communitysports")
-        XCTAssertFalse(StreamPluginRegistry.isEnabledByDefault(providerCode: manifest.providerCode))
+        XCTAssertTrue(StreamPluginRegistry.isEnabledByDefault(providerCode: manifest.providerCode))
     }
 
     func testHTTPManifestOutageRetainsStatusAndStopsBeforeCatalogLookup() async throws {

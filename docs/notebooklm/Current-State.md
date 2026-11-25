@@ -1,5 +1,7 @@
 # Fotty current state
 
+25 Nov 2026 — The deployed registry and watchdog have retired Score808. The app uses Community Sports for fresh installations and honors existing provider choices. The Champions League monitor checks the official schedule. The ESPN Uruguay guide matched nine upcoming fixtures locally. Live backup playback on Jet is pending.
+
 10 Nov: normal Jet **265** installed; clear stumps/break labels, neutral icons and player status. 94 focused tests and signed Release pass; Home/details/scorecard stumps verified on Jet. Highfly Premium remains configured/enabled from264; live test pending resumed play and a fresh delivery (latest response Streams Unavailable). [Receipt](../testing/fotty-source-research-2026-11-10/jet265-cricket-status.json). Pengu/StreamNexus review-only. Preserve discovery/undeployed Worker edits. Phone/FPL/multi untouched; no TestFlight. Alerts dashboard-only. History below.
 
 ## Product and release baseline

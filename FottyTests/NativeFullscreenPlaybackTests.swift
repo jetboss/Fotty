@@ -1970,7 +1970,7 @@ final class NativeFullscreenPlaybackTests: XCTestCase {
         let sessions = (1...2).map { index in
             StreamSession(matchID: event.id,
                 playableURL: URL(string: "https://example.invalid/fullscreen-\(index).m3u8")!,
-                streamType: .hls, providerName: "Score808")
+                streamType: .hls, providerName: "FS1")
         }
         let model = LivePlayerViewModel(event: event, providedSessions: sessions,
             ownsRemoteCommands: false, prepareAudioSession: prepareAudio,

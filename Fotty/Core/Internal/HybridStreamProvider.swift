@@ -202,12 +202,6 @@ actor LiveStreamResolver {
         let plan = await CuratedStreamSourceCatalog.discoveryPlan(for: request,
             enabledProviderCodes: Set(enabled), allowDeferredTVLookup: foregroundTVLookup)
         var lanes: [StreamDiscoveryCoordinator.Lane] = []
-        if plan.score808SiteEligible {
-            lanes.append { report in
-                await self.resolveScore808Site(for: request, attemptID: attemptID, report: report,
-                    useRegistry: singleStreamDiscovery)
-            }
-        }
         let sustainedProviders = foregroundTVLookup && request.preferredEvent?.isBroadcastChannel == false
             ? LiveSourceHealthStore.sustainedMatchProviders(for: request.matchID) : []
         var sustainedLanes = Set<Int>()
@@ -323,11 +317,7 @@ actor LiveStreamResolver {
         guard !Task.isCancelled else { return }
         let enabled = Set(await StreamPluginRegistry.shared.enabledProviderCodes())
         let plan = await CuratedStreamSourceCatalog.discoveryPlan(for: request, enabledProviderCodes: enabled)
-        var sources = plan.optionalSources
-        if plan.score808SiteEligible,
-           let score808 = CuratedStreamSourceCatalog.definition(forProviderCode: "score808") {
-            sources.append(score808)
-        }
+        let sources = plan.optionalSources
         guard !sources.isEmpty else { return }
         var lanes: [StreamDiscoveryCoordinator.Lane] = []
         var tickets: [FixtureStreamDiscoveryIndex.Ticket] = []
@@ -342,21 +332,6 @@ actor LiveStreamResolver {
                 for: request, providerCode: source.providerCode, preflight: true) else { continue }
             tickets.append(ticket)
             lanes.append { report in
-                if source.providerCode == "score808" {
-                    let result = await self.resolveScore808Site(for: request,
-                        attemptID: UUID().uuidString, report: report, useRegistry: true)
-                    if Task.isCancelled {
-                        await FixtureStreamDiscoveryIndex.shared.abandon(ticket)
-                    } else {
-                        switch result {
-                        case .success(let success):
-                            await FixtureStreamDiscoveryIndex.shared.complete(ticket, sessions: success.sessions)
-                        case .failure(let failure, _):
-                            await FixtureStreamDiscoveryIndex.shared.complete(ticket, sessions: [], failure: failure)
-                        }
-                    }
-                    return result
-                }
                 return await self.resolveOptionalSports(for: request, attemptID: UUID().uuidString,
                     source: source, report: report, useDiscoveryIndex: true, preflightTicket: ticket)
             }
@@ -781,13 +756,8 @@ actor LiveStreamResolver {
     func inspectSourceConnection(_ source: CuratedStreamSourceCatalog.Definition,
         request: StreamPlaybackRequest) async -> StreamResolutionOutcome {
         let id = UUID().uuidString
-        switch source.dispatch {
-        case .score808:
-            return await resolveScore808Site(for: request, attemptID: id, report: { _ in }, useRegistry: false)
-        default:
-            return await resolveOptionalSports(for: request, attemptID: id, source: source,
-                report: { _ in }, useDiscoveryIndex: false)
-        }
+        return await resolveOptionalSports(for: request, attemptID: id, source: source,
+            report: { _ in }, useDiscoveryIndex: false)
     }
     #endif
 
@@ -938,84 +908,6 @@ actor LiveStreamResolver {
                 redactedMetadata: ["manifest_result": "invalid_addon_contract"]
             )
         }
-    }
-
-    private func resolveScore808Site(
-        for request: StreamPlaybackRequest, attemptID: String,
-        report: @escaping StreamDiscoveryCoordinator.Reporter,
-        useRegistry: Bool = false
-    ) async -> StreamResolutionOutcome {
-        let startedAt = Date()
-        let result: Result<[StreamSession], StreamFailure>
-        do {
-            let registered = useRegistry ? await BroadcastRegistryClient.shared.lookup(for: request,
-                enabledProviderCodes: ["score808"], at: Date()) : []
-            var choices: [StreamSession] = [], lastError: Error?
-            if registered.isEmpty {
-                if let session = try await Score808SiteResolver().resolve(for: request) { choices = [session] }
-            } else {
-                for association in registered.prefix(2) {
-                    do {
-                        if let session = try await Score808SiteResolver().resolve(for: request.usingRegistryMatch(association)),
-                           let binding = session.eventBinding,
-                           association.matches(request: request, providerCode: "score808",
-                            providerEventID: binding.providerEventID, streamID: binding.streamID, at: Date()),
-                           binding.matches(request: request, providerCode: "score808") {
-                            choices.append(session); report(.partialSession(session))
-                        }
-                    } catch { try Task.checkCancellation(); lastError = error }
-                }
-                if choices.isEmpty {
-                    // Registry is a hint, not a gate: a stale or unbound Score808
-                    // association falls back to the same exact site lookup used
-                    // when the registry is empty. Identity checks are unchanged.
-                    try Task.checkCancellation()
-                    FottyQualityStore.shared.record(category: .playback, name: "direct_fallback_lookup",
-                        outcome: .info, details: ["source": "score808", "mode": "registry_miss_direct_fallback"])
-                    do {
-                        if let session = try await Score808SiteResolver().resolve(for: request) { choices = [session] }
-                    } catch { try Task.checkCancellation(); lastError = lastError ?? error }
-                }
-            }
-            try Task.checkCancellation()
-            if !choices.isEmpty { result = .success(deduplicatedSessions(choices)) }
-            else if let lastError { throw lastError }
-            else {
-                result = .failure(StreamFailure(providerName: "Score808", category: .providerReturnedEmpty,
-                    technicalMessage: "No fresh unambiguous site event and configured player matched.",
-                    userMessage: "Fotty checked the available broadcast sources, but none has a playable stream for this match yet. Try again shortly.",
-                    retryable: true, fallbackAllowed: true))
-            }
-        } catch {
-            result = .failure(failureFromError(providerName: "Score808", fallbackAllowed: true,
-                defaultUserMessage: "The available broadcast sources could not provide a playable stream just now. Please try again.",
-                error: error, defaultCategory: .manifestUnreachable,
-                redactedMetadata: ["discovery": "direct_site"]))
-        }
-        var attempts: [StreamProviderAttemptLog] = []
-        let failure: StreamFailure?
-        let sessions: [StreamSession]
-        switch result {
-        case .success(let found):
-            found.forEach { report(.session($0)) }
-            sessions = found
-            failure = nil
-        case .failure(let error):
-            report(.failure(error))
-            sessions = []
-            failure = error
-        }
-        attempts.append(StreamProviderAttemptLog(providerName: "Score808",
-            responseTimeMs: Int(Date().timeIntervalSince(startedAt) * 1000),
-            resolvedStreamType: .unknown, urlShape: "score808_site",
-            requiredHeaders: true, validationResult: failure == nil ? "matched_player_page" : "failed",
-            manifestResult: "direct_site_calendar", segmentResult: "awaiting_decoded_web_playback",
-            finalFailureCategory: failure?.category))
-        let diagnostics = makeDiagnostics(attemptID: attemptID, request: request,
-            finalState: failure == nil ? .readyToPlay : .failed,
-            timeline: [], providerAttempts: attempts, startedAt: startedAt)
-        if let failure { return .failure(failure, diagnostics) }
-        return .success(StreamResolutionSuccess(attemptID: attemptID, sessions: sessions, diagnostics: diagnostics))
     }
 
     /// Resolution is owned by the caller's structured task. Cancelling that task only

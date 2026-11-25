@@ -16,9 +16,13 @@ async function sports(code = "PL", overrides = {}) {
   const source = SPORTS_SOURCES.find((row) => row.id === "football-data");
   const value = await collectSportsSource(source, new Date(NOW), { FOOTBALL_DATA_API_KEY: "offline-placeholder" }, async (url) => {
     assert.equal(url.origin, "https://api.football-data.org");
-    return Response.json({ filters: { dateFrom: url.searchParams.get("dateFrom"), dateTo: url.searchParams.get("dateTo"), competitions: url.searchParams.get("competitions") },
-      resultSet: { count: 1 }, matches: [{ id: 111, utcDate: iso(NOW - 1800_000), status: "IN_PLAY", lastUpdated: iso(),
-        competition: { code }, homeTeam: { id: 1, name: "Liverpool" }, awayTeam: { id: 2, name: "Chelsea" }, ...overrides }] });
+    const league = /^\/v4\/competitions\/([A-Z0-9]+)\/matches$/.exec(url.pathname)?.[1];
+    assert.ok(Object.hasOwn(source.codes, league));
+    const kickoff = iso(NOW - 1800_000);
+    const matches = league === code ? [{ id: 111, utcDate: kickoff, status: "IN_PLAY", lastUpdated: iso(),
+      competition: { code }, homeTeam: { id: 1, name: "Liverpool" }, awayTeam: { id: 2, name: "Chelsea" }, ...overrides }] : [];
+    return Response.json({ competition: { code: league }, resultSet: { count: matches.length,
+      first: matches.at(0)?.utcDate, last: matches.at(-1)?.utcDate }, matches });
   });
   return { schemaVersion: 1, complete: true, checkedAt: iso(), revision: "offline-factory-sports", sourceStatus: "verified", fixtures: value.fixtures,
     coverage: SPORTS_SOURCES.filter((s) => s.id !== "wnba").flatMap((s) => s.competitions.map((c) => ({ competitionId: c.id,
@@ -278,6 +282,6 @@ test("collector callbacks reuse exactly existing metadata requests and contain n
   let returnedCricket;
   await collectFixtureReceipts({ request, now: NOW, onCricketSnapshot: (v) => { returnedCricket = v; } });
   await probeSources({ request, now: NOW, onCatalog: (p) => packets.push(p) });
-  assert.deepEqual(returnedCricket, cricketBody); assert.equal(calls.length, 9);
+  assert.deepEqual(returnedCricket, cricketBody); assert.equal(calls.length, 8); assert.ok(calls.every(url => !String(url).includes("score808")));
   assert.deepEqual(packets.map((p) => [p.source, p.scope]), [["cs", "mixed"], ["as", "football"], ["as", "cricket"]]);
 });

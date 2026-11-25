@@ -275,15 +275,7 @@ enum OptionalSourceLookupPolicy {
               CommunitySportsAddonClient.catalogID(for: current.normalizedCategory) != "nuvio_sports_live",
               hasNamedPair(current) else { return nil }
 
-        // Score808 already resolves a dated football fixture through its own
-        // public calendar, independently of the primary provider's catalog.
-        // Its existing enabled state/window must also permit this explicit
-        // check; requiring an optional add-on would strand verified cup rows
-        // whenever the primary provider has no listing. No Watch is invented.
-        let hasReviewedScore808Lookup = enabled.contains("score808")
-            && Score808LateDiscoveryPolicy.isLookupWindow(kickoffDate: current.kickoffDate,
-                category: current.normalizedCategory, at: now)
-        guard hasReviewedOptionalLookup || hasReviewedScore808Lookup else { return nil }
+        guard hasReviewedOptionalLookup else { return nil }
 
         let timing = MatchStartPolicy(event: current, now: now, status: status, discoveryIndex: discoveryIndex, broadcastRegistry: registry)
         guard !timing.isStopped, phase == .preflight || timing.timingAllowsPlayback else { return nil }
@@ -473,8 +465,7 @@ enum FixtureSourceLookupPresentation {
         if let kickoff = event.kickoffDate, kickoff > now, candidateCount == 0, !hasConfirmedAvailability { return nil }
         let plan = CuratedStreamSourceCatalog.discoveryPlan(for: StreamPlaybackRequest(event: event),
             enabledProviderCodes: canonical, at: now)
-        var relevant = Set(plan.optionalSources.map(\.providerCode))
-        if plan.score808SiteEligible { relevant.insert("score808") }
+        let relevant = Set(plan.optionalSources.map(\.providerCode))
         let completed = !relevant.isEmpty && relevant.allSatisfy { code in
             guard let provider = providers.first(where: { $0.providerCode == code }) else { return false }
             switch provider.outcome {
