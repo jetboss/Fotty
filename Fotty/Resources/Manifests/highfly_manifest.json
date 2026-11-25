@@ -1,0 +1,10 @@
+{
+  "id": "highfly-extension",
+  "name": "Highfly",
+  "providerCode": "highfly",
+  "version": "1.0.0",
+  "author": "Fotty Core",
+  "description": "Football, cricket, basketball, baseball, hockey and American football with your Highfly account. Adding your setup link enables this source automatically.",
+  "iconName": "play.rectangle.fill",
+  "allowedDomains": ["sports.highfly.to", "premium.highfly.to", "premium-us2.highfly.to", "premium-eu1.highfly.to", "sports.highfly.dev", "premium.highfly.dev", "premium-us2.highfly.dev", "premium-eu1.highfly.dev"]
+}

@@ -1,0 +1,8 @@
+{
+  "privateFPLPreferences": 6,
+  "privateFPLValuesChanged": 2,
+  "sourceChoicesPreserved": true,
+  "protectedSourceFiles": 52,
+  "protectedSourceFilesChanged": 0,
+  "privateFPLValueChangeNote": "Four tracked values unchanged. Two existing runtime cache values (manager reviews and matchday context) changed while the normal app was running; no FPL source edits or FPL UI operations were performed. No cached values were rolled back."
+}

@@ -114,11 +114,37 @@ function document(html) {
 const wbblClubs = new Map(Object.entries({ Strikers: "Adelaide Strikers Women", Heat: "Brisbane Heat Women",
   Hurricanes: "Hobart Hurricanes Women", Renegades: "Melbourne Renegades Women", Stars: "Melbourne Stars Women",
   Scorchers: "Perth Scorchers Women", Sixers: "Sydney Sixers Women", Thunder: "Sydney Thunder Women" }));
-function identity(title) {
-  const pair = /^Live: WBBL: ([A-Za-z]+) v ([A-Za-z]+)$/u.exec(title);
-  if (!pair || pair[1] === pair[2] || !wbblClubs.has(pair[1]) || !wbblClubs.has(pair[2])) return null;
-  return { competitionID: "wbbl", format: "T20", squad: { gender: "women", ageGroup: "senior" },
-    participants: [wbblClubs.get(pair[1]), wbblClubs.get(pair[2])] };
+// Abu Dhabi T10 2026 franchises as Fox's guide shortens them; values are the
+// exact ESPN names published by the T10 cricket cohort.
+const t10Clubs = new Map(Object.entries({ Aces: "Arabian Aces", Bulls: "UAE Bulls", Champions: "Royal Desert Champions",
+  Eagles: "Emirates Eagles", Lions: "Yas Lions", Tigers: "United Tigers" }));
+const competitions = [
+  { prefix: "Live: WBBL: ", clubs: wbblClubs, competitionID: "wbbl", format: "T20", squad: { gender: "women", ageGroup: "senior" } },
+  { prefix: "Live: Abu Dhabi T10 League: ", clubs: t10Clubs, competitionID: "abu-dhabi-t10", format: "T10",
+    squad: { gender: "men", ageGroup: "senior" } },
+];
+// Fox publishes "Live: <competition>: A v B" and repeats the pair as the
+// episode line, sometimes after "S2024 , Ep14 ,". Long titles are cut short
+// ("Live: Abu Dhabi T10 League: Champions v"), so the episode line must carry
+// the full pair and the title must be an exact leading part of it.
+function identity(title, content = title + " " + title.replace(/^Live: [^:]+: /u, "")) {
+  for (const c of competitions) {
+    if (!title.startsWith(c.prefix) || !content.startsWith(title + " ")) continue;
+    const episode = content.slice(title.length + 1).replace(/^S20\d{2} , Ep[1-9]\d{0,2} , /u, "");
+    const pair = /^([A-Za-z]+) v ([A-Za-z]+)$/u.exec(episode);
+    if (!pair || pair[1] === pair[2] || !c.clubs.has(pair[1]) || !c.clubs.has(pair[2])) return null;
+    const full = c.prefix + episode;
+    if (!full.startsWith(title) || title.length < c.prefix.length + pair[1].length + 2) return null;
+    return { competitionID: c.competitionID, format: c.format, squad: { ...c.squad },
+      participants: [c.clubs.get(pair[1]), c.clubs.get(pair[2])] };
+  }
+  return null;
+}
+function knownMatch(m) {
+  const c = competitions.find((x) => x.competitionID === m?.competitionID);
+  return !!c && m.format === c.format && m.squad?.gender === c.squad.gender && m.squad?.ageGroup === c.squad.ageGroup
+    && Array.isArray(m.participants) && m.participants.length === 2 && m.participants[0] !== m.participants[1]
+    && m.participants.every((name) => [...c.clubs.values()].includes(name)) ? c : null;
 }
 
 export function parseFoxCricketProgrammes(html, { now = new Date() } = {}) {
@@ -135,9 +161,8 @@ export function parseFoxCricketProgrammes(html, { now = new Date() } = {}) {
   return { channelID: FOX_CRICKET_GUIDE.channelID, market: FOX_CRICKET_GUIDE.market,
     observedAt: now.toISOString(), expiresAt: new Date(+now + FOX_CRICKET_GUIDE.lifetime).toISOString(),
     programmes: ordered.map((row, i) => {
-      const title = row.titles[0], candidate = identity(title), next = ordered[i + 1];
-      const contentMatches = row.contents[0] === title || row.contents[0] === title + " " + title.replace(/^Live: WBBL: /u, "");
-      const match = contentMatches ? candidate : null;
+      const title = row.titles[0], next = ordered[i + 1];
+      const match = typeof row.contents[0] === "string" ? identity(title, row.contents[0]) : null;
       const end = next && next.start - row.start <= 12 * 60 * minute ? new Date(next.start).toISOString() : undefined;
       return { programmeID: row.programmeID, title, start: new Date(row.start).toISOString(),
         ...(end ? { end, endBasis: "next-published-programme" } : {}),
@@ -153,10 +178,8 @@ export function isFoxCricketProgramme(row, providerCode = row?.providerCode) {
     && row.kind === "programme" && row.channelID === FOX_CRICKET_GUIDE.channelID
     && row.streamID === FOX_CRICKET_GUIDE.streamID
     && /^reviewed-tv:fox-programme:[a-f0-9]{64}$/u.test(row.providerEventID ?? "")
-    && row.competitionID === "wbbl" && row.format === "T20" && row.matchOrdinal === undefined && row.day === undefined
-    && row.squad?.gender === "women" && row.squad?.ageGroup === "senior"
-    && Array.isArray(row.participants) && row.participants.length === 2 && row.participants[0] !== row.participants[1]
-    && row.participants.every((name) => [...wbblClubs.values()].includes(name)) && row.stationMarket === undefined;
+    && knownMatch(row) !== null && row.matchOrdinal === undefined && row.day === undefined
+    && row.stationMarket === undefined;
 }
 
 export async function foxCricketBroadcasts(html, { now = new Date() } = {}) {
@@ -191,11 +214,12 @@ export function reviewFoxCricketCoverage(guide, fixtures, now = new Date()) {
     || fixtures.some((f) => !f || typeof f !== "object")) return invalid();
   return guide.programmes.filter((p) => p.classification === "live-match-listing").map((p) => {
     const m = p.match, start = Date.parse(p.start);
-    const expected = typeof p.title === "string" ? identity(p.title) : null;
-    if (!m || !expected || m.competitionID !== expected.competitionID || m.format !== expected.format
-      || m.squad?.gender !== expected.squad.gender || m.squad?.ageGroup !== expected.squad.ageGroup
-      || !Array.isArray(m.participants) || m.participants.length !== 2
-      || m.participants.some((name, index) => name !== expected.participants[index])
+    const known = knownMatch(m);
+    // The structured pair must reproduce Fox's (possibly shortened) title.
+    const short = known && m.participants.map((name) => [...known.clubs].find(([, full]) => full === name)?.[0]);
+    const expectedTitle = known && known.prefix + short.join(" v ");
+    if (!known || typeof p.title !== "string" || !expectedTitle.startsWith(p.title)
+      || p.title.length < known.prefix.length + short[0].length + 2
       || typeof p.start !== "string" || !Number.isFinite(start)) return invalid();
     const pair = (names) => Array.isArray(names) && names.length === 2 && [...names].sort().join("\n") === [...m.participants].sort().join("\n");
     const candidates = fixtures.filter((f) => f.sport === "cricket" && f.competitionID === m.competitionID

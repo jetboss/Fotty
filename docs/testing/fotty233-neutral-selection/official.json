@@ -1,0 +1,41 @@
+{
+  "checkedAt": "2026-11-04T09:49:28.061Z",
+  "official": [
+    {
+      "id": "271651",
+      "teams": [
+        "New Zealand",
+        "India"
+      ],
+      "status": "Match Ended",
+      "live": false,
+      "date": "11/4/2026",
+      "time": "02:00",
+      "format": "ODI",
+      "competition": "India in New Zealand, 5 ODI Series, 2026",
+      "ordinal": "1st ODI"
+    },
+    {
+      "id": "275772",
+      "teams": [
+        "United Arab Emirates",
+        "Oman"
+      ],
+      "status": "Play In Progress",
+      "live": true,
+      "date": "11/4/2026",
+      "time": "05:30",
+      "format": "ODI",
+      "competition": "ICC CWC League 2, 2023-27",
+      "ordinal": "Match 145"
+    }
+  ],
+  "registry": {
+    "generatedAt": "2026-11-04T09:47:34.998Z",
+    "fixture": "cricket-fixture:icc:275772",
+    "provider": "communitysports",
+    "state": "listed",
+    "method": "current-event",
+    "title": "🔴 LIVE: United Arab Emirates vs Oman"
+  }
+}

@@ -1,0 +1,226 @@
+{
+  "build": 221,
+  "scope": "Private Jet iPad only",
+  "workerChecks": {
+    "passed": 80,
+    "publishedInThisPass": false
+  },
+  "localNative": {
+    "focused": {
+      "passed": 392,
+      "failed": 0,
+      "skipped": 0
+    },
+    "finalDigestAndRecovery": {
+      "passed": 141,
+      "failed": 0,
+      "skipped": 0
+    },
+    "overlappingSuites": true,
+    "liveHandoffAndRegistry": {
+      "passed": 265,
+      "failed": 0,
+      "skipped": 0,
+      "overlapsOtherSuites": true
+    },
+    "pickerSubset": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "physical": {
+    "status": "Two correct programmes pictured. Final Detroit\u2013Florida transport test and strict forced source-loss test passed. An earlier uninterrupted Boston hold failed.",
+    "results": [
+      {
+        "window": "2026-11-03 00:12Z",
+        "fixture": "Vegas at Boston",
+        "stage": "normal Home Watch \u2192 discovery",
+        "result": "No picture; Broadcast not ready appeared before fault injection.",
+        "forcedFailureInjected": false
+      },
+      {
+        "window": "2026-11-03 00:15Z",
+        "fixture": "Detroit at Florida",
+        "stage": "normal Home Watch \u2192 discovery",
+        "result": "CS conflicting_fixture_match/invalid_match_mapping. CNC no_exact_fixture_match/provider_returned_empty. No picture."
+      },
+      {
+        "window": "2026-11-03 00:28Z",
+        "fixture": "Vegas at Boston",
+        "path": "corrected private 221, normal Home Watch",
+        "programme": "CS4 broadcaster score graphic: VGK 0, BOS 1, first period, 9:26 remaining.",
+        "result": "Correct advancing video; AV entered waiting around 60 s into the uninterrupted 90 s check. This hold failed. No controlled fault had yet been requested.",
+        "recoveryPass": false,
+        "macSupplement": "Contemporaneous Mac route-shape check: CS1 HLS master, CS2 HTTP 404. Mac responses do not prove iPad playback."
+      },
+      {
+        "window": "2026-11-03 00:31Z",
+        "fixture": "Detroit at Florida",
+        "path": "corrected private 221, normal Home Watch",
+        "programme": "CS1 broadcaster scoreboard: Detroit 1, Florida 0, 5:42 left in the first period.",
+        "result": "Actual video. XCTest runner received SIGKILL at ~47s of the test. No app crash or source failure was established by that signal. Its hold and Pause/Play did not complete."
+      },
+      {
+        "window": "2026-11-03 00:33\u201300:35Z",
+        "fixture": "Detroit at Florida",
+        "path": "manual Home Watch on Jet with fixture-scoped, private AV item fault",
+        "primary": "CS1 visibly playing across >90s of elapsed observation. At the cut, broadcaster showed shot attempts Red Wings 6, Panthers 20. Not a continuous sampled AV receipt.",
+        "forcedFailureInjectedAt": "2026-11-03T00:35:14.512Z",
+        "backup": "Alternative marker and decoded CS2 pictured by 00:35:33.291Z. Selection verified in the normal picker; no manual source selection.",
+        "independence": "Both CS, no independent publisher proved.",
+        "backupProgramme": "By 00:36:23Z the CS2 Sportcast picture reproduced the Red Wings\u2013Panthers shot-attempt graphic (6\u201320), as seen on CS1 before failure; both teams identified independently of the app title.",
+        "manualBackupHold": "The replacement remained visibly on the same game beyond 90s; these were sampled pictures, not a continuous AV counter recording.",
+        "transport": "The recovered mini-player changed from Playing to Paused on tap and back to Playing on resume; no source was manually selected. This is visual evidence only."
+      },
+      {
+        "window": "2026-11-03 00:40\u201300:41Z",
+        "fixture": "Detroit at Florida",
+        "path": "Jet 221, normal Watch \u2192 CS1 \u2192 mini-player Pause/Play",
+        "result": "Passed. Pause stopped media-clock advancement. Play resumed native video on the same AV player, item and attempt. No new source choice or restart.",
+        "programme": "Actual Detroit\u2013Florida scoreboard: 1\u20131, 1:29 in the first period.",
+        "picker": "Rendered picker showed 1 recommended \u00b7 6 available and Show all 6 sources. One recommendation does not mean only one match source."
+      },
+      {
+        "window": "2026-11-03 00:41\u201300:46Z",
+        "fixture": "Detroit at Florida",
+        "path": "Final signed Jet 221, normal Home Watch, real media; fixture-scoped primary AV failure held until replacement.",
+        "xctest": {
+          "passed": 1,
+          "failed": 0,
+          "skipped": 0
+        },
+        "primary": {
+          "delivery": "CS1",
+          "mediaAdvanceSeconds": 90.879,
+          "uninterruptedNativeHoldAtLeastSeconds": 90,
+          "programmeEvidence": "Detroit\u2013Florida 1\u20131 at 40.5s in 1st (shots 5\u201312), followed by a Panthers local ad."
+        },
+        "forcedRecovery": {
+          "triggerTestElapsedSeconds": 125.15,
+          "readyByTestElapsedSeconds": 137.49,
+          "maxSecondsToAdvancingReplacement": 12.34,
+          "manualSelection": false,
+          "betweenIndependentPublishers": false
+        },
+        "replacement": {
+          "delivery": "CS2",
+          "mediaAdvanceSeconds": 90.851,
+          "uninterruptedNativeHoldAtLeastSeconds": 90,
+          "programmeEvidence": "Same teams, score 1\u20131, shots 5\u201312 at 43.5s left in 1st, then the same local advertiser with a different broadcaster overlay. Feeds were not synchronized; arena delay unknown."
+        },
+        "qualification": "Same event and different CS route, not a separate publisher. No audio or league-wide availability claim."
+      }
+    ],
+    "signedInstalledBuild": "221",
+    "eligibleGames": [
+      {
+        "fixture": "Boston Bruins vs Vegas Golden Knights",
+        "programmePin": "sports-fixture:nhl:2026020232",
+        "official": "https://api-web.nhle.com/v1/gamecenter/2026020232/play-by-play"
+      },
+      {
+        "fixture": "Florida Panthers vs Detroit Red Wings",
+        "programmePin": "sports-fixture:nhl:2026020233",
+        "official": "https://api-web.nhle.com/v1/gamecenter/2026020233/play-by-play"
+      }
+    ],
+    "testStartVerifiedAt": "2026-11-03T00:10:04Z",
+    "decodedOrHeldAtPrompt": false,
+    "returnedToNormalLaunch": true,
+    "ownerSettingsCheck": "9 selected preference keys compared unchanged; no source opt-in was changed by the gate. No private values retained."
+  },
+  "priorityWindows": [
+    {
+      "competition": "UEFA Champions League",
+      "plannedCheck": "2026-11-03T18:05:00Z",
+      "teams": "Shakhtar\u2013Sporting / Galatasaray\u2013Stuttgart",
+      "status": "pending actual game and programme"
+    },
+    {
+      "competition": "ICC ODI",
+      "plannedCheck": "2026-11-04T02:25:00Z",
+      "teams": "New Zealand\u2013India",
+      "status": "pending actual game and programme"
+    },
+    {
+      "competition": "Premier League",
+      "plannedCheck": "2026-11-06T20:25:00Z",
+      "teams": "Everton\u2013Coventry",
+      "status": "pending actual game and programme"
+    }
+  ],
+  "independentPublisherRecovery": "unproven",
+  "publicRelease": false,
+  "providerRekey": {
+    "observationTime": "2026-11-03T00:14:55Z",
+    "identity": "Both pregame CS IDs returned different live IDs despite unchanged exact teams and UTC starts. The current original hockey catalog independently listed the new IDs; fresh metadata IDs and video IDs agreed.",
+    "compatibleDescriptorShapeCounts": {
+      "Vegas\u2013Boston": 14,
+      "Detroit\u2013Florida": 5
+    },
+    "proofBoundary": "Descriptor shape only; not a correct-programme observation or successful playback.",
+    "correctedResolver": {
+      "Vegas at Boston": {
+        "freshNativeHLSAdmitted": 6,
+        "boundToNewLiveID": 6
+      },
+      "Detroit at Florida": {
+        "freshNativeHLSAdmitted": 6,
+        "boundToNewLiveID": 6
+      },
+      "proof": "Actual registered resolver; metadata only. Does not establish decoded playback."
+    }
+  },
+  "laterNamedWindows": [
+    {
+      "checkedAt": "2026-11-04T02:44:38Z",
+      "timeTobago": "2026-11-03 22:44",
+      "fixture": "New Zealand vs India, first ODI, senior men, 4 November 2026",
+      "installedNormalBuild": "3.0.0(230)",
+      "buildReplaced": false,
+      "officialEvidence": {
+        "ICC": "Original schedule: match271651, 02:00UTC, ODI, ordinal1, Play In Progress, live true, first_ball_bowled true, New Zealand34/1 at6.4overs",
+        "BCCI": "Match centre independently reported live22/0 at4.2overs",
+        "links": [
+          "https://www.icc-cricket.com/matches/271651/new-zealand-vs-india",
+          "https://www.bcci.tv/matches/cc8cbfea-e555-420c-8180-c55c3aab89e9/new-zealand-vs-india"
+        ]
+      },
+      "fottyFixture": {
+        "status": "scheduled",
+        "sourceStatus": "last-known-good",
+        "observedAt": "2026-11-02T23:56:38.959Z",
+        "latestAttempt": "2026-11-04T02:43:40.404Z",
+        "failure": "collection / validation-or-runtime-failure",
+        "iccConsecutiveFailures": 6344
+      },
+      "broadcastRegistry": {
+        "generatedAt": "2026-11-04T02:44:38.200Z",
+        "currentCSRow": {
+          "start": "2026-11-04T01:30:00.000Z",
+          "format": "ODI",
+          "ordinal": 1,
+          "observedAt": "2026-11-04T02:10:29.102Z",
+          "expiresAt": "2026-11-04T06:10:29.102Z",
+          "verification": "dated",
+          "issues": []
+        },
+        "otherCSRow": "Expired at2026-11-03T07:55:30.784Z; not eligible",
+        "linksToNamedOfficialFixture": 0,
+        "decodedPlaybackProven": false
+      },
+      "physical": {
+        "entry": "Normal Home Search, exact New Zealand query",
+        "observed": "First ODI row Start unconfirmed / No stream listed; no Watch. Another row is November6, not this match.",
+        "refresh": "Tapped once; later screen contaminated by concurrent input not generated by agent, so post-refresh state not qualified",
+        "ownerInterference": "Additional typing appeared; released Device Hub keyboard capture and stopped device interaction",
+        "ninetySecondHold": "Not run: no eligible normal Watch route",
+        "independentOutage": "Not run: no eligible primary and no verified independent backup",
+        "sourcePreferencesChanged": false
+      },
+      "result": "Acceptance blocked by stale deployed official cricket facts and absent registry association despite a current CS metadata row. The collection validation/runtime cause needs diagnosis; media failure not established.",
+      "restrictions": "No app/source edits, build, install, media fetch, phone, FPL, multi-stream, cloud publication or TestFlight."
+    }
+  ]
+}

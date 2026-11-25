@@ -1,0 +1,87 @@
+{
+  "schema": "fotty.competitor-public-study.v1",
+  "product": "DAZN",
+  "dateLocal": "2026-10-29",
+  "scope": "Public GB web response + region-scoped official help. No native binary/runtime, sign-in, entitlement or media test.",
+  "artifacts": [
+    {
+      "sourceURL": "https://www.dazn.com/en-GB/home",
+      "responseStatus": 200,
+      "bytes": 812122,
+      "sha256": "4bd6d8f66a2575347da975515d5c775ceb1bb4218fd9db3a59482114a5b3a15f",
+      "receivedUTC": "2026-10-29T13:29:12.271657+00:00",
+      "format": "text/html",
+      "client": "bounded unauthenticated urllib GET; User-Agent Mozilla/5.0",
+      "executed": false,
+      "externalScriptSourcesObserved": 0
+    },
+    {
+      "sourceURL": "https://www.dazn.com/en-GB/home/1v6wfsuklslh2127cp0i8rzyim/c463f2i88tln1hza1i020grqh",
+      "responseStatus": 200,
+      "bytes": 805670,
+      "sha256": "d870d0a38b8003f81adb6d55de8e8be3e8c0369e071134d3f3eb193efa062fac",
+      "receivedUTC": "2026-10-29T13:31:31.140464+00:00",
+      "format": "text/html",
+      "client": "bounded unauthenticated urllib GET; User-Agent Mozilla/5.0",
+      "executed": false,
+      "externalScriptSourcesObserved": 0
+    },
+    {
+      "sourceURL": "https://www.dazn.com/en-GB/schedule",
+      "responseStatus": 200,
+      "bytes": 473105,
+      "sha256": "539a8b334aa8586c20de152abe0f0533cc60709ea352ab6a9d11165e799b6bcd",
+      "receivedUTC": "2026-10-29T13:32:03.436423+00:00",
+      "format": "text/html",
+      "client": "bounded unauthenticated urllib GET; User-Agent Mozilla/5.0",
+      "executed": false,
+      "externalScriptSourcesObserved": 0
+    }
+  ],
+  "totalHTMLBytes": 2090897,
+  "publicResponseFindings": [
+    {
+      "id": "DZ-SSR-01",
+      "kind": "observed-external-response",
+      "source": "home.html",
+      "observed": "Separate current/upcoming events, linear live-TV, competition and replay/highlight collections are present in served markup.",
+      "exactLabels": [
+        "Live and Coming Up",
+        "Live TV",
+        "Full Event Replays & Highlights",
+        "All Sports"
+      ],
+      "limitation": "Text/structure from response, not visual layout, interactivity, actual event-live status or personalised signed-in home."
+    },
+    {
+      "id": "DZ-SSR-02",
+      "kind": "observed-external-response",
+      "source": "event.html",
+      "observed": "Following a real served event link yields event-specific description with Sign up and More details actions, rather than decoded playback.",
+      "exactPrimaryAction": "Sign up",
+      "limitation": "Entitlement not exercised; signup not submitted; no determination of paid/free eligibility."
+    },
+    {
+      "id": "DZ-SSR-03",
+      "kind": "observed-external-response",
+      "source": "schedule.html",
+      "observed": "Schedule response includes date/month/day structure; sampled date text is October29Thursday.",
+      "limitation": "No calendar interaction or freshness/fixture correctness qualification."
+    }
+  ],
+  "REAStatus": {
+    "analyzedByThisAgent": true,
+    "initialBoundary": "Initial server-rendered GB responses supplied no external JS; JSON-LD was not substituted for executable code.",
+    "followUp": "Root observed real catalogue chunks in browser after automatic TT redirect. Those exact three chunks were fetched and analyzed inertly.",
+    "receipt": "rea-static-evidence.json",
+    "nativeOrPaidPlayerTest": false
+  },
+  "nativeArtifact": "No /Applications/DAZN.app at the bounded named check; no device inspection.",
+  "exclusions": [
+    "No accounts, payments or subscriptions",
+    "No media, DRM or access workarounds",
+    "No Fotty code/settings/device changes",
+    "No FPL/fantasy or multi-stream study",
+    "No measured startup, reliability, latency, memory or accessibility result"
+  ]
+}

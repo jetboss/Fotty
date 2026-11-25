@@ -104,3 +104,21 @@ test("coverage review validates structured input without depending on property i
   assert.throws(() => review(g, [null], now), /invalid-fox-guide/u);
   assert.throws(() => review(g, [fixture()], +now), /invalid-fox-guide/u);
 });
+
+test("Fox's season/episode prefix and the Abu Dhabi T10 listing resolve; shortened titles need the full episode pair", () => {
+  const wbbl = parse(page(event("Live: WBBL: Strikers v Heat", undefined, undefined, "S2024 , Ep14 , Strikers v Heat")), { now }).programmes[0];
+  assert.equal(wbbl.classification, "live-match-listing");
+  assert.deepEqual(wbbl.match.participants, ["Adelaide Strikers Women", "Brisbane Heat Women"]);
+  const t10 = parse(page(event("Live: Abu Dhabi T10 League: Champions v", undefined, undefined, "Champions v Bulls")), { now }).programmes[0];
+  assert.equal(t10.classification, "live-match-listing");
+  assert.equal(t10.match.competitionID, "abu-dhabi-t10"); assert.equal(t10.match.format, "T10");
+  assert.deepEqual(t10.match.squad, { gender: "men", ageGroup: "senior" });
+  assert.deepEqual(t10.match.participants, ["Royal Desert Champions", "UAE Bulls"]);
+  for (const [title, subtitle] of [
+    ["Live: Abu Dhabi T10 League: Champions v", "Aces v Bulls"],        // episode disagrees with the title
+    ["Live: Abu Dhabi T10 League: Champ", "Champions v Bulls"],         // title cut inside the first team
+    ["Live: Abu Dhabi T10 League: Champions v", "Champions v Strikers"], // other competition's club
+    ["Live: Abu Dhabi T10 League: Champions v", "S2024 , Ep3 , Champions v Bulls Replay"],
+    ["Abu Dhabi T10 League: Champions v Bulls", "Champions v Bulls"],   // not live
+  ]) assert.equal(parse(page(event(title, undefined, undefined, subtitle)), { now }).programmes[0].match, undefined, title + " / " + subtitle);
+});

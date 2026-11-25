@@ -16,8 +16,8 @@ const KNOWN_PUBLIC_SHORT_NAMES = new Set([
   "UAE",
   "USA",
 ]);
-export const TEAM_UPDATING_LABEL = "Team updating";
-export const FIXTURE_UPDATING_TITLE = "Fixture details updating";
+const TEAM_UPDATING_LABEL = "Team updating";
+const FIXTURE_UPDATING_TITLE = "Fixture details updating";
 
 export interface FixtureTeamLabels {
   home: string;
@@ -27,7 +27,7 @@ export interface FixtureTeamLabels {
   isUpdating: boolean;
 }
 
-export function cleanFixtureTitle(value?: string) {
+function cleanFixtureTitle(value?: string) {
   return (value || "")
     .replace(/\s+/g, " ")
     .replace(/\s+vs\s+/i, " vs. ")
@@ -35,13 +35,13 @@ export function cleanFixtureTitle(value?: string) {
     .trim();
 }
 
-export function isPlaceholderTeamName(value?: string) {
+function isPlaceholderTeamName(value?: string) {
   const name = value?.trim();
   if (!name) return true;
   return PLACEHOLDER_TEAM_RE.test(name);
 }
 
-export function isRoughProviderTeamName(value?: string) {
+function isRoughProviderTeamName(value?: string) {
   const name = cleanFixtureTitle(value).replace(/\./g, "").trim();
   if (!name) return true;
   const compact = name.replace(/\s+/g, "");
@@ -49,11 +49,11 @@ export function isRoughProviderTeamName(value?: string) {
   return ROUGH_PROVIDER_TOKEN_RE.test(compact);
 }
 
-export function isPublicFixtureTeamName(value?: string) {
+function isPublicFixtureTeamName(value?: string) {
   return !isPlaceholderTeamName(value) && !isRoughProviderTeamName(value);
 }
 
-export function splitFixtureTitle(value?: string) {
+function splitFixtureTitle(value?: string) {
   const title = cleanFixtureTitle(value);
   const parts = title.split(TEAM_SEPARATOR_RE).map((part) => part.trim()).filter(Boolean);
   if (parts.length < 2) return undefined;
@@ -78,7 +78,7 @@ function teamFromName(name?: string, fallbackBadge?: string): TeamReference | un
   };
 }
 
-export function normalizeFixtureMatch(match: ScrapedMatch): ScrapedMatch {
+function normalizeFixtureMatch(match: ScrapedMatch): ScrapedMatch {
   if (match.kind !== "fixture") {
     return {
       ...match,

@@ -1,65 +1,29 @@
-## Channel market and cohort identity
-
-A source response cohort does not redefine an explicitly advertised NETWORKS
-channel as a match. CS main-Willow observations preserve that channel identity
-across cricket, live and networks cohorts. The optional `stationMarket: "US"`
-field is emitted only for the exact reviewed NETWORKS/type/channel/three-line
-US country contract. Unknown, UK and conflicting market records remain useful
-for channel browsing but cannot inherit the main-US programme. Withdrawal or
-same-ID contradiction removes market proof without renewing an old receipt.
-
-The native lookup can join a current verified programme to other enabled
-channel deliveries using both original facts. Programme metadata remains
-usable independently of the TV1 playback opt-in. Fresh CS NETWORKS/meta and
-station checks still precede descriptor resolution; no generic channel alone
-grants Watch and no historical programme is extended.
-
-## 30 October association repair
-
-The registry joins all reviewed source families to accepted official fixtures.
-Exact whole-Test listings use the unchanged original-start fence; day-qualified
-Test and linear programme joins require current official ordinal/day/end and a
-10-minute authority expiry. ICC now emits that bounded additive context.
-
-AS uses the original explicitly dated soccer section despite decorative emoji,
-and compares the same advertised metadata clock rather than a display channel
-count. CS decorative status prefixes do not change team identity. FS retains
-literal cricket format/ordinal/day facts. Genuine dates, squads and Test-day
-conflicts remain rejected.
-
-The eighth metadata lane, `reviewedtv`, is fixed to TV Passport's main Willow
-station `willow-cricket/15964`. A selected IANA timezone and explicit dated
-start/duration identify a current Test programme; main Willow is mapped to the
-already reviewed TV1 channel. Review, highlights, replay, hidden markup,
-ambiguous clocks and stale/overlapping intervals provide no fixture authority.
-The cloud never fetches a media playlist or retains delivery URLs. Its new
-metadata-only cap is 576 actual reads/day, with one guide read normally and at
-most two across the verified timezone/date boundary. Existing seven budgets,
-shared eight-read cycle ceiling, durable records and activation flags remain.
-
-Native clients opt into the eighth lane with the exact capability header
-`X-Fotty-Broadcast-Capabilities: reviewedtv-programme-v1`. Default schema1 reads
-retain the seven-family compatibility projection and original timestamps.
-Both profiles are cache-separated. This prevents a new lane from invalidating
-older strict native snapshots.
-
-A reachable Willow channel is independent of a current programme association.
-The 30 October guide's verified Test slots ended at 15:00 UTC; parsing those
-slots with an injected historical clock proves the contract, not current live
-playback. A current day-qualified source still needs matching official facts.
+Current native follow-on: signed195 is installed onJet. The initial fullscreen request retains inline video until same-window AVKit presentation commits; bounded pending retries/rollback preserve transport ownership.143focused tests and real Lille–Lens native fullscreen/pause/resume/PiP over Home118.773s/systemRestore pass. No phone/FPL/multi/TestFlight change. Final cloud normal collector completed20:01:01UTC. Receipts: docs/testing/fotty194-shared-watch/.
 
 # Shared broadcast registry
 
-Owner approved activation on30October2026. This source sets activation ON for
-the reviewed seven-provider registry. Deployment and live acceptance require
-separate receipts; an enabled configuration is not proof that a stream plays.
+## Current deployment — 31 October 2026
+
+Protected main `b91812f` (PR111; PR110 preceding) is deployed as playback
+`07650a86-59c0-4187-ab79-92554ec247e5`, source identity
+`2026-10-31.broadcast-matching-1`, with matching watchdog
+`f8ec2d9e-15d1-4266-b39c-fefc5a458665`. All21/3bindings, original activation and129
+retained notices are preserved. Actual normal collector completion15:21:02UTC
+is later than the paired deployment. Eight reviewed metadata families remain ON;
+this does not mean eight working independently qualified suppliers.
+
+Native202 is installed privately onJet:49final discovery/order tests pass. Actual
+PL HomeWatch→CS2 and>121s correct-programme hold pass; startup remains slow.
+201nativefullscreen/pause/resume/PiP/Restore passed on unchanged presentation code.
+AS compatibility and intermittent refresh cause remain unresolved. Jet only. Phone, FPL, multi-stream
+and TestFlight remain unchanged. Receipts: testing/fotty201-football-watch-2026-10-31/.
 
 ## Ownership and data flow
 
 The existing playback Worker owns a new `BroadcastRegistry` Durable Object,
 named `shared-broadcast-registry-v1`. It reads accepted Sports and Cricket
-registry snapshots, collects bounded metadata from the seven reviewed source
-adapters, and retains explicit source observations and canonical fixture links.
+registry snapshots, collects bounded metadata from eight reviewed adapters,
+and retains explicit source observations and canonical fixture links.
 Official fixtures remain the authority for match identity and status. A source
 listing cannot manufacture a fixture, change its kickoff or make it LIVE.
 
@@ -75,8 +39,10 @@ Reviewed source metadata ─ observations┘                         │
 ```
 
 The server allowlist is `streamex`, `score808`, `communitysports`,
-`plaviosports`, `cncsports`, `flixstreams` and `streamvix`. These are seven
-reviewed adapter identities, not seven proven independent working suppliers.
+`plaviosports`, `cncsports`, `flixstreams`, `streamvix` and `reviewedtv`.
+These are reviewed metadata identities, not eight proven independent working
+suppliers. `reviewedtv` supplies fixed-station programme metadata; it does not
+supply media URLs or enable TV1 playback.
 In particular, the StreamEx primary/mirror/backup profiles remain one family.
 Collection on the server does not enable a provider on anyone's device.
 `BroadcastRegistryClient` filters lookup through current local source choices;
@@ -87,7 +53,11 @@ directive. Query parameters are rejected. Public requests cannot trigger
 collection; POST is rejected. While the flag, binding or allowlist is invalid,
 the endpoint returns unavailable/pending rather than an invented empty catalog.
 Native metadata refresh is bounded to one attempt per five minutes, with
-accepted-cache fallback and original receipt times preserved.
+accepted-cache fallback and original receipt times preserved. Native 194 sends
+`X-Fotty-Broadcast-Capabilities: reviewedtv-programme-v1` to receive the eighth
+lane. Default schema 1 reads retain the original seven-family projection for
+older strict clients. The two profiles have separate cache identities; neither
+projection renews original observations or changes local source choices.
 
 ## Automatic collection and request budget
 
@@ -109,7 +79,8 @@ not borrow or reset the existing watchdog's budget.
 | --- | ---: |
 | CS / `communitysports` | 288 |
 | AS / `plaviosports` | 288 |
-| Each of the other five adapters | 96 |
+| Each of the other five original adapters | 96 |
+| Programme metadata / `reviewedtv` | 576 |
 
 The next attempt is the slower of the demand interval and the budget floor:
 
@@ -130,7 +101,10 @@ Failures also receive exponential backoff, starting at five minutes and capped
 at one hour, without shortening a longer budget/demand interval. Collection for
 a budget-exhausted provider defers until a valid later budget day; other providers
 continue. Existing facts retain only their original expiry. Rotation cursors
-persist across runs.
+persist across runs. The new programme lane normally reads one fixed guide
+page, or at most two when UTC and the verified selected guide timezone cross a
+date boundary. Its 576-read daily cap supports that bounded active cadence;
+the original seven caps and shared eight-read cycle ceiling are unchanged.
 
 Once explicitly activated, this collection runs in Cloudflare while the Mac
 is asleep and all apps are closed. It uses no local Codex schedule, AI jobs or
@@ -204,24 +178,63 @@ of persisting those payloads. These hashes are not executable CNC IDs. CNC's
 ordinary fresh guarded native lookup remains separate; a safe cloud-to-native
 executable CNC association remains pending.
 
+## Verified early limited-overs coverage
+
+The ordinary exact start fence remains15minutes. An optional typed schema1
+`startRelation: "early-coverage"` additionally supports an ODI/T20 source event
+starting more than15 and at most60minutes before its one unique accepted official
+fixture. Require exact teams/squad/format, sameUTCdate, fresh current same-ID
+metadata and all existing expiry/conflict/security checks. Keep both official
+kickoff and source start unchanged. Late clocks, adjacent dates, Test/T10/unknown
+format and ambiguous fixtures stay rejected. `matchMethod` remains `exact` for
+backward schema compatibility. This does not establish actual cricket playback.
+
+Fixture identity receipt is distinct from the publisher's last status change:
+a successful current official fetch can verify identity without declaring LIVE
+or renewing old status. Native LIVE/terminal authority still uses the strict
+status observation. Typed temporary collector failures may retain the original
+accepted verified identity for at most30minutes, never past conflicts/holds and
+never by renewing its receipt or status.
+
 ## Test matches and linear programmes
 
-The canonical Test kickoff remains the original match start. A daily source
-occurrence may associate only with explicit, fresh official Test ordinal, day
-and whole-match end, matching source format/ordinal/day and an explicit source
-UTC start inside that official interval. The implementation does not derive a
-daily date from today's clock, shift the original kickoff or reinterpret stale
-Day 3 as Day 4. The additive ICC `context.matchOrdinal` and `matchEndsAt` contract
-is staged; deployed receipts lacking those fields cannot qualify this gate.
+The canonical Test kickoff remains the original match start. An exact whole-Test
+`event` without a day qualifier may match that original UTC kickoff within the
+unchanged 15-minute fence. Known ordinal, squad, date and format conflicts still
+veto it. A day-qualified Test occurrence or linear programme instead requires
+explicit, current official ordinal, day and whole-match end, matching source
+facts and a source start inside that official interval. ICC now emits the bounded
+additive `context.matchOrdinal` and `matchEndsAt` authority. Daily/programme
+authority expires within ten minutes; no source moves kickoff or derives a day
+from today's clock. Older receipts without the required facts remain ineligible.
 
-Canonical Willow and Fox channel inventory is useful independently. It is not
-programme association. The bounded official Willow investigation found dated
-programme/session structure but no verified timezone/absolute UTC contract:
-requests with timezone `5.5` and `0` returned identical intervals. Distributor
-channel metadata supplied no station/timezone authority. No Willow programme
-adapter or fixture links are activated. Foxtel's inaccessible guide was not
-bypassed. A publisher-supported UTC interval, exact linear channel and current
-programme/day/ordinal remain prerequisites.
+The eighth adapter, `reviewedtv`, reads only TV Passport's main-US Willow station
+`willow-cricket/15964`. Its explicitly selected IANA timezone, dated start and
+duration establish a current Test programme on `cricket-channel:willow`, mapped
+to the already reviewed TV1 channel. Only `start <= now < end` qualifies. Replays,
+highlights, review shows, hidden markup, ambiguous clocks, stale facts and
+overlapping programmes supply no fixture authority. The cloud never fetches a
+media playlist. Historical-clock parsing proves a contract, not current playback:
+the verified 30 October Test slots ended at 15:00 UTC.
+
+Native 194 may privately join that current programme to another enabled reviewed
+channel delivery while retaining both original programme and channel receipts.
+Guide metadata is independent of the TV1 playback opt-in. For CS, the optional
+schema 1 field `stationMarket: "US"` is emitted only from the exact main-Willow
+NETWORKS/type/channel and strict three-line US-country contract. Channel identity
+survives its fetched `cricket`, `live` or `networks` cohort; a cohort cannot turn
+a NETWORKS channel into a fixture. Missing, UK, unknown or conflicting market
+proof remains browsable but cannot grant fixture Watch. Fresh same-ID NETWORKS
+catalogue, metadata and US-station proof are still required before a descriptor.
+The finite lease expires with the earliest original fact, programme end or
+90-second binding; neither guide nor channel alone certifies decoded playback.
+
+Earlier official-Willow timezone probes returned identical intervals for `5.5`
+and `0`; their negative programme-admission conclusion is superseded only by the
+reviewed TV Passport contract above. It does not authorize other stations,
+regions or Fox programmes. Foxtel's inaccessible guide was not bypassed, and a
+generic Willow/Fox channel remains independently useful without identifying the
+programme it carries.
 
 ## Activation and verification
 
@@ -230,17 +243,17 @@ The owner-approved backend gate preserves existing services:
 1. Freeze/review the candidate and run the focused registry, adapter, Worker
    integration, native schema/identity and protected-input checks. Final counts
    belong in the accompanying build receipt, not this design document.
-2. Bump the playback source version from the current source identity
-   `2026-10-29.broadcast-catalog-1`; align the existing version/contract watchdog
-   compatibility guard before interpreting new notices. This does not activate
-   extra email/account/alert work.
-3. Apply the additive `broadcast-registry-v1` SQLite Durable Object migration
-   and `BROADCAST_REGISTRY` binding. Preserve all existing Durable Objects,
-   accepted snapshots, source settings, secrets, FPL flags and other activation
-   flags. Do not recreate or clear existing state.
-4. Set `FOTTY_BROADCAST_REGISTRY_ENABLED="1"` with the explicit reviewed seven-code
-   `FOTTY_BROADCAST_REGISTRY_SOURCES` allowlist. Confirm existing account/runtime
-   limits without enabling new accounts or spending. No unknown provider is
+2. For a future change, advance from the deployed source identity
+   `2026-10-30.match-source-association-2` and align the existing version/contract
+   watchdog guard before interpreting notices. The current compatible deployment
+   is recorded above. This does not activate extra email/account/alert work.
+3. Preserve the deployed `broadcast-registry-v1` SQLite Durable Object migration
+   and `BROADCAST_REGISTRY` binding. Apply only a separately reviewed new migration
+   if a future change needs one. Preserve all existing objects, accepted snapshots,
+   source settings, secrets, FPL flags and activation; do not recreate or clear state.
+4. Preserve `FOTTY_BROADCAST_REGISTRY_ENABLED="1"` and the explicit reviewed
+   eight-code `FOTTY_BROADCAST_REGISTRY_SOURCES` allowlist above. Confirm current
+   account/runtime limits without new accounts or spending. No unknown provider is
    admitted by the general flag.
 5. Verify the deployed source identity, public read-only schema, original
    receipts, bounded counters/cursors, later normal cron plus alarm continuation
@@ -260,9 +273,15 @@ Implementation owners: `broadcast-registry.mjs` (durability/scheduling),
 `broadcast-registry-policy.mjs` (pure association),
 `broadcast-source-adapters.mjs` (reviewed metadata), playback `index.js` /
 `wrangler.toml` (wiring), and native `BroadcastRegistry.swift`,
-`CatalogPlaybackIdentity.swift` / `HybridStreamProvider.swift` (fresh execution).
-See [the candidate plan](../testing/fotty191-broadcast-registry/Plan.md) and
-[Willow evidence](../testing/fotty191-broadcast-registry/willow-epg-research.json).
+`CatalogPlaybackIdentity.swift` / `HybridStreamProvider.swift` (fresh execution),
+plus `ReviewedTVPlaylistClient.swift` and `CommunitySportsAddonClient.swift`
+(programme-constrained channel delivery).
+See [the current 194 receipts](../testing/fotty194-shared-watch/), the
+[original registry plan](../testing/fotty191-broadcast-registry/Plan.md) and
+[historical Willow probes](../testing/fotty191-broadcast-registry/willow-epg-research.json).
+The initial seven-provider, cloud-OFF and staged-ICC descriptions in older
+receipts are historical and superseded by this deployment; they are not current
+activation instructions.
 
 
 ## Cricket matching repair — 1 November 2026

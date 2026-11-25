@@ -1,0 +1,34 @@
+[
+  {
+    "category": "playback",
+    "durationMilliseconds": 946,
+    "outcome": "failure",
+    "appVersion": "2.0.1",
+    "appBuild": "183",
+    "name": "source_discovery_result",
+    "time": "2026-10-29T00:37:04.267889+00:00",
+    "details": {
+      "result": "no_exact_fixture_match",
+      "stage": "preparing",
+      "failure_kind": "provider_returned_empty",
+      "source_family": "communitysports"
+    }
+  },
+  {
+    "category": "playback",
+    "durationMilliseconds": 4166,
+    "outcome": "failure",
+    "appVersion": "2.0.1",
+    "appBuild": "183",
+    "name": "source_discovery_result",
+    "time": "2026-10-29T00:37:04.344945+00:00",
+    "details": {
+      "stage": "preparing",
+      "addon_stream_entry_count": "2",
+      "addon_admission_rejected_count": "2",
+      "source_family": "cncsports",
+      "result": "no_admitted_stream_delivery",
+      "failure_kind": "provider_returned_empty"
+    }
+  }
+]

@@ -1,0 +1,6 @@
+{
+  "issue": "Configured xctestrun was moved away from its relative TESTROOT products directory.",
+  "impact": "Test host could not be found; no provider or playback test executed.",
+  "repair": "Keep configured xctestrun beside the original generated product.",
+  "sourceFailure": false
+}

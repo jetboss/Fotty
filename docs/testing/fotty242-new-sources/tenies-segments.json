@@ -1,0 +1,20 @@
+[
+  {
+    "channel": "ASTRO CRICKET HD",
+    "playlistStatus": 200,
+    "segmentHost": "cdnlivetv.tv",
+    "segmentStatus": 200,
+    "bytesRead": 2097153,
+    "contentType": "video/mp2t",
+    "redirectHost": null
+  },
+  {
+    "channel": "Sky Sports Premier League FHD UK",
+    "playlistStatus": 200,
+    "segmentHost": "cdnlivetv.tv",
+    "segmentStatus": 200,
+    "bytesRead": 2097153,
+    "contentType": "video/mp2t",
+    "redirectHost": null
+  }
+]

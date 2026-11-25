@@ -1,0 +1,17 @@
+{
+  "nativePassed": 103,
+  "nativePhysicalSkipped": 1,
+  "focusedCanonicalPassed": 148,
+  "isolatedPublishedPassed": 129,
+  "runtimePassed": 16,
+  "workerBundles": "passed",
+  "ci": "all checks passed on final PR head",
+  "installedNormalRelease": 241,
+  "installedDevice": "Jet iPad",
+  "visualVersionConfirmed": true,
+  "liveFootballDecodedQualification": "pending",
+  "liveCricketDecodedQualification": "pending",
+  "testFlightRelease": false,
+  "freshnessRepairChecksPassed": 179,
+  "finalWorkerRevision": "2026-11-04.plaviolive-2"
+}

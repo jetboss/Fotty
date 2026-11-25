@@ -1,0 +1,190 @@
+{
+  "observedAtUTC": "2026-10-31T22:42:33.805Z",
+  "profiles": [
+    {
+      "profile": "v2",
+      "status": 200,
+      "generatedAt": "2026-10-31T22:42:14.372Z",
+      "vary": "X-Fotty-Broadcast-Capabilities, X-Fotty-Broadcast-Assignments",
+      "totalRecords": 2616,
+      "reviewedTVRecords": 40,
+      "footballAssignments": 40,
+      "willowProgrammes": 0,
+      "providers": [
+        {
+          "providerCode": "reviewedtv",
+          "scope": "cricket",
+          "status": "empty",
+          "complete": true,
+          "observedAt": "2026-10-31T22:40:22.893Z",
+          "lastSuccessAt": "2026-10-31T22:40:22.893Z",
+          "expiresAt": "2026-11-01T02:40:22.893Z",
+          "nextAttemptAt": "2026-10-31T22:55:22.893Z"
+        },
+        {
+          "providerCode": "reviewedtv",
+          "scope": "football",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-10-31T22:40:22.893Z",
+          "lastSuccessAt": "2026-10-31T22:40:22.893Z",
+          "expiresAt": "2026-11-01T02:40:22.893Z",
+          "nextAttemptAt": "2026-10-31T22:55:22.893Z"
+        }
+      ],
+      "listedTVLinks": [
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        },
+        {
+          "method": "channel-assignment",
+          "startRelation": "channel-coverage"
+        }
+      ]
+    },
+    {
+      "profile": "v1",
+      "status": 200,
+      "generatedAt": "2026-10-31T22:42:20.602Z",
+      "vary": "X-Fotty-Broadcast-Capabilities, X-Fotty-Broadcast-Assignments",
+      "totalRecords": 2576,
+      "reviewedTVRecords": 0,
+      "footballAssignments": 0,
+      "willowProgrammes": 0,
+      "providers": [
+        {
+          "providerCode": "reviewedtv",
+          "scope": "cricket",
+          "status": "empty",
+          "complete": true,
+          "observedAt": "2026-10-31T22:40:22.893Z",
+          "lastSuccessAt": "2026-10-31T22:40:22.893Z",
+          "expiresAt": "2026-11-01T02:40:22.893Z",
+          "nextAttemptAt": "2026-10-31T22:55:22.893Z"
+        }
+      ],
+      "listedTVLinks": []
+    },
+    {
+      "profile": "legacy",
+      "status": 200,
+      "generatedAt": "2026-10-31T22:42:26.771Z",
+      "vary": "X-Fotty-Broadcast-Capabilities, X-Fotty-Broadcast-Assignments",
+      "totalRecords": 2576,
+      "reviewedTVRecords": 0,
+      "footballAssignments": 0,
+      "willowProgrammes": 0,
+      "providers": [],
+      "listedTVLinks": []
+    }
+  ]
+}

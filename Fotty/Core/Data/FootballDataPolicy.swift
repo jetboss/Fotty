@@ -1,5 +1,73 @@
 import Foundation
 
+/// Reconciles facts, not refresh attempts. A healthy empty live response revokes
+/// in-play evidence; only an explicit accepted terminal row supplies full-time.
+enum FootballScoreSnapshotPolicy {
+    struct Row {
+        let data: MatchHubData
+        let status: FottyMatchStatus
+    }
+    struct Projection {
+        let schedule: [Row]
+        let scores: [Row]
+        let terminal: [String: MatchHubData]
+        let liveObservations: [String: Date]
+    }
+
+    static func key(_ data: MatchHubData) -> String {
+        // Covered provider competition IDs differ, so use their reviewed scope
+        // rather than the raw numeric ID. Other competitions retain their ID.
+        let competition = FootballDataPolicy.supportsLiveScores(competition: data.fixture.competition)
+            ? "premier-league" : data.fixture.competition.id
+        return competition + "|" + data.identity.matchKey
+    }
+
+    static func project(schedule: [MatchHubData], live: FootballLiveSnapshot?,
+                        retainedTerminal: [String: MatchHubData], at now: Date) -> Projection {
+        var terminal = retainedTerminal.filter {
+            (-3 * 86_400...4 * 86_400).contains($0.value.fixture.utcDate.timeIntervalSince(now))
+        }
+        for data in schedule + (live?.matches ?? []) where isAcceptedTerminal(data, at: now) {
+            let identity = key(data)
+            if terminal[identity].map({ $0.lastUpdated <= data.lastUpdated }) ?? true { terminal[identity] = data }
+        }
+        var observations: [String: Date] = [:]
+        if let live, live.refreshSucceeded, live.mode != .unavailable, live.mode != .inactive,
+           let receipt = live.observedAt, (0...600).contains(now.timeIntervalSince(receipt)) {
+            for data in live.matches where data.fixture.status.isLive
+                && FootballDataPolicy.supportsLiveScores(competition: data.fixture.competition)
+                && data.dataQuality != .stale && data.dataQuality != .degraded {
+                let observation = min(receipt, data.lastUpdated)
+                guard data.lastUpdated <= now,
+                      (0...600).contains(now.timeIntervalSince(observation)), terminal[key(data)] == nil else { continue }
+                observations[key(data)] = observation
+            }
+        }
+        func row(_ data: MatchHubData) -> Row {
+            if let final = terminal[key(data)] { return Row(data: final, status: final.fixture.status) }
+            // Keep schedule identity for discovery, without calling a missing or
+            // stale active observation finished, live, or a delayed start.
+            let unauthorizedActive = data.fixture.status.isLive && observations[key(data)] == nil
+            let unauthorizedTerminal = data.fixture.status.isFinished || data.fixture.status == .cancelled
+            let status: FottyMatchStatus = unauthorizedActive || unauthorizedTerminal ? .unknown : data.fixture.status
+            return Row(data: data, status: status)
+        }
+        let scheduleRows = schedule.map(row)
+        var scoreRows = (live?.matches ?? []).map(row)
+        let present = Set(scoreRows.map { key($0.data) })
+        scoreRows += terminal.filter { !present.contains($0.key) }.map { Row(data: $0.value, status: $0.value.fixture.status) }
+        return Projection(schedule: scheduleRows, scores: scoreRows, terminal: terminal, liveObservations: observations)
+    }
+
+    private static func isAcceptedTerminal(_ data: MatchHubData, at now: Date) -> Bool {
+        let status = data.fixture.status
+        return (status.isFinished || status == .cancelled)
+            && data.dataQuality != .stale && data.dataQuality != .degraded
+            && data.lastUpdated <= now.addingTimeInterval(300)
+            && (-3 * 86_400...4 * 86_400).contains(data.fixture.utcDate.timeIntervalSince(now))
+    }
+}
+
 /// Filters a provider response to the exact caller-requested window. Empty
 /// windows remain empty; production must never widen to unrelated season data.
 enum FootballFixtureWindowPolicy {
@@ -38,6 +106,18 @@ enum LiveScoreFeedMode: String, Sendable {
 /// Documents which provider backs each Fotty surface and how often we call it.
 /// See `FootballRepository` for TTLs and cooldowns.
 enum FootballDataPolicy {
+    /// Only the stable-code crest route emitted by the official PL bootstrap
+    /// qualifies for official artwork precedence. A numeric team ID from a
+    /// different provider must never be used to construct this route.
+    static func isOfficialPremierLeagueCrestURL(_ url: URL?) -> Bool {
+        guard let url, let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              parts.scheme == "https", parts.host == "resources.premierleague.com",
+              parts.user == nil, parts.password == nil, parts.port == nil,
+              parts.query == nil, parts.fragment == nil else { return false }
+        return parts.path.range(of: #"^/premierleague/badges/100/t[1-9][0-9]*\.png$"#,
+                                options: .regularExpression) != nil
+    }
+
     enum LiveScoreCompetition: CaseIterable, Equatable {
         case premierLeague
         case championsLeague
@@ -266,6 +346,6 @@ enum FootballDataPolicy {
     static var matchHubScoresProvider: String { "API-Football (\(liveScoreCoverageLabel))" }
     /// Lineups, formations, team news — TheSportsDB (no API-Football quota).
     static let enrichmentsProvider = "TheSportsDB"
-    /// Emergency only when schedule is empty — same narrow live-score allowlist (2h cooldown).
+    /// Explicit premium request only — never triggered by a valid empty schedule.
     static var premiumFallbackProvider: String { "API-Football \(liveScoreCoverageLabel) (emergency)" }
 }

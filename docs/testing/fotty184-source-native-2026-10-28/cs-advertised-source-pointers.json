@@ -1,0 +1,33 @@
+{
+  "at": "2026-10-29T01:05:43.404Z",
+  "additionalRequests": 1,
+  "version": "3.1.3",
+  "keys": [
+    "id",
+    "version",
+    "name",
+    "description",
+    "logo",
+    "types",
+    "resources",
+    "catalogs",
+    "config",
+    "idPrefixes",
+    "behaviorHints",
+    "stremioAddonsConfig"
+  ],
+  "codePointers": [],
+  "resources": [
+    "catalog",
+    "meta",
+    "stream"
+  ],
+  "advertisedHockey": true,
+  "advertisedLive": true,
+  "retention": {
+    "redactedCopy": true,
+    "sourceFile": "cs-advertised-source-pointers.json",
+    "omittedFieldCount": 1,
+    "scope": "Metadata and bounded HLS-master observations only; no decoded-playback qualification."
+  }
+}

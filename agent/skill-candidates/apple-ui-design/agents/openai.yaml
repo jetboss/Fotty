@@ -1,0 +1,6 @@
+interface:
+  display_name: "Apple UI Design"
+  short_description: "Native iPhone and iPad design with visual verification"
+  default_prompt: "Use $apple-ui-design to refine this interface against Apple guidance while preserving its character and verifying the native result."
+policy:
+  allow_implicit_invocation: true

@@ -4,34 +4,28 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WEB_DIR="$ROOT_DIR/web"
 
-choose_node() {
-  local candidate
-  for candidate in \
-    /opt/homebrew/opt/node@24/bin/node \
-    /opt/homebrew/opt/node/bin/node \
-    /usr/local/bin/node \
-    "$(command -v node 2>/dev/null || true)"
-  do
-    if [[ -n "$candidate" && -x "$candidate" && "$candidate" != /Applications/Codex.app/* ]]; then
-      "$candidate" -e "const major=Number(process.versions.node.split('.')[0]); process.exit(major >= 24 && process.platform === 'darwin' ? 0 : 1)" 2>/dev/null && {
-        printf '%s\n' "$candidate"
-        return 0
-      }
-    fi
-  done
-  return 1
-}
+source "$ROOT_DIR/tools/lib/web-node.sh"
+NODE_MAJOR="$(tr -d '[:space:]' < "$WEB_DIR/.nvmrc")"
+if ! [[ "$NODE_MAJOR" =~ ^[0-9]+$ ]]; then
+  echo "web/.nvmrc must name the supported Node major." >&2
+  exit 1
+fi
 
-NODE_BIN="$(choose_node || true)"
+NODE_BIN="$(fotty_select_web_node "$NODE_MAJOR" \
+  "${XDG_DATA_HOME:-$HOME/.local/share}/fotty/toolchains/node$NODE_MAJOR/bin/node" \
+  /opt/homebrew/opt/node@"$NODE_MAJOR"/bin/node \
+  /opt/homebrew/opt/node/bin/node \
+  /usr/local/bin/node \
+  "$(command -v node 2>/dev/null || true)" || true)"
 if [[ -z "$NODE_BIN" ]]; then
-  cat >&2 <<'EOF'
-No suitable local Node 24+ binary found.
+  cat >&2 <<EOF
+No suitable local Node $NODE_MAJOR.x binary found (required by web/.nvmrc).
 
 Codex's bundled Node is signed with the hardened runtime and cannot load
-Next's ad-hoc signed native SWC/lightningcss modules on macOS. Install Node 24
+Next's ad-hoc signed native SWC/lightningcss modules on macOS. Install Node $NODE_MAJOR
 with Homebrew, then rerun:
 
-  brew install node@24
+  brew install node@$NODE_MAJOR
 EOF
   exit 1
 fi

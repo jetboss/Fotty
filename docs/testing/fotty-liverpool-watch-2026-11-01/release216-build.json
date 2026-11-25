@@ -1,0 +1,10 @@
+{
+  "appBuild": "216",
+  "appVersion": "2.0.1",
+  "widgetBuilds": [
+    "216"
+  ],
+  "signatureValid": true,
+  "ATSExceptionDomains": 0,
+  "buildPassed": true
+}

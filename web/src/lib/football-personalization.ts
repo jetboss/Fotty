@@ -26,13 +26,13 @@ const TOP_DOMESTIC_LEAGUES = new Set<FootballLeagueTab>([
   "ligue1",
 ]);
 
-export function leagueStringToTab(league?: string): FootballLeagueTab | null {
+function leagueStringToTab(league?: string): FootballLeagueTab | null {
   if (!league?.trim()) return null;
   const key = league.toLowerCase().trim();
   return LEAGUE_STRING_TO_TAB[key] ?? null;
 }
 
-export function inferLeagueTabFromTeamName(name: string): FootballLeagueTab | null {
+function inferLeagueTabFromTeamName(name: string): FootballLeagueTab | null {
   const stub: ScrapedMatch = {
     title: name,
     cid: name,
@@ -44,14 +44,14 @@ export function inferLeagueTabFromTeamName(name: string): FootballLeagueTab | nu
   return tab;
 }
 
-export function domesticLeagueTabForTeam(team: TrackedTeamEntry): FootballLeagueTab | null {
+function domesticLeagueTabForTeam(team: TrackedTeamEntry): FootballLeagueTab | null {
   const fromLeague = leagueStringToTab(team.league);
   if (fromLeague && fromLeague !== "championsLeague") return fromLeague;
   return inferLeagueTabFromTeamName(team.name);
 }
 
 /** Leagues implied by tracked clubs, in follow order, with UCL after the first top-league domestic pick. */
-export function collectPreferredLeagueTabs(trackedTeams: TrackedTeamEntry[]): FootballLeagueTab[] {
+function collectPreferredLeagueTabs(trackedTeams: TrackedTeamEntry[]): FootballLeagueTab[] {
   const order: FootballLeagueTab[] = [];
   const seen = new Set<FootballLeagueTab>();
 
@@ -83,23 +83,6 @@ export function defaultLeagueTabForUser(
   fallback: FootballLeagueTab = "premierLeague"
 ): FootballLeagueTab {
   return collectPreferredLeagueTabs(trackedTeams)[0] ?? fallback;
-}
-
-export function buildHeadlinesFeed(trackedTeams: TrackedTeamEntry[]): { query: string; label: string } {
-  if (trackedTeams.length === 0) {
-    return { query: "Premier League football", label: "Premier League" };
-  }
-
-  if (trackedTeams.length === 1) {
-    const team = trackedTeams[0];
-    return { query: `${team.name} football`, label: team.name };
-  }
-
-  const names = trackedTeams.slice(0, 3).map((team) => `"${team.name}"`);
-  return {
-    query: `(${names.join(" OR ")}) football`,
-    label: `Your clubs (${trackedTeams.length})`,
-  };
 }
 
 export function footballLeaguePersonalizationHint(trackedTeams: TrackedTeamEntry[]): string | null {

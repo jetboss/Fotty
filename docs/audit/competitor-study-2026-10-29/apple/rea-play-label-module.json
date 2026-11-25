@@ -1,0 +1,216 @@
+{
+  "evidence_id": "ev_2605a9a55fab9d20f186fb0f203d152dcdc82836d53eee01ffb19822a8aabb14",
+  "subject": {
+    "name": "apple-focused",
+    "digest": {
+      "sha256": "5197afaaabf8d9c0fdf0e29769bc10efa5081216184aab407114a629eea26f9a"
+    },
+    "format": "directory",
+    "architecture": null,
+    "local_path": "/private/tmp/fotty-five-benchmark-iigkvln5/apple-focused"
+  },
+  "provider": {
+    "id": "rea-analysis-view",
+    "name": "REA analysis view projection",
+    "version": "1"
+  },
+  "analysis_profile": null,
+  "predicate_type": "rea.analysis-view",
+  "operation": "inspect_analysis_view",
+  "parameters": {
+    "parent_evidence_id": "ev_52cc7d09af9777bf1450b07e9014f021f892989470a79adfd72e02bc26c51423",
+    "view": {
+      "kind": "item",
+      "collection": "modules",
+      "selector": {
+        "node_id": "jag_node_7ff1da2edd186c3ad183c78d0d859df0fe759cf38168fc0acbc767098d98e35b"
+      }
+    }
+  },
+  "raw_result": null,
+  "normalized_result": {
+    "kind": "item",
+    "view": {
+      "kind": "item",
+      "collection": "modules",
+      "selector": {
+        "node_id": "jag_node_7ff1da2edd186c3ad183c78d0d859df0fe759cf38168fc0acbc767098d98e35b"
+      }
+    },
+    "item": {
+      "node_id": "jag_node_7ff1da2edd186c3ad183c78d0d859df0fe759cf38168fc0acbc767098d98e35b",
+      "kind": "javascript-module",
+      "path": "play-label.js",
+      "identity": {
+        "strategy": "artifact-local-key",
+        "stability": "artifact-version",
+        "artifact_sha256": "fdc2830ce49376971c409069b0bee7cb62593c4c7f1c0dadcd01aedd787e6445",
+        "namespace": "source-module",
+        "key": "5197afaaabf8d9c0fdf0e29769bc10efa5081216184aab407114a629eea26f9a:play-label.js"
+      },
+      "hashes": [
+        "5197afaaabf8d9c0fdf0e29769bc10efa5081216184aab407114a629eea26f9a"
+      ],
+      "exports": [],
+      "source_ranges": [
+        {
+          "kind": "source-range",
+          "source": "play-label.js",
+          "start": {
+            "line": 1,
+            "column": 0
+          },
+          "end": {
+            "line": 1,
+            "column": 202
+          }
+        }
+      ],
+      "observations": [
+        {
+          "observation_id": "jag_observation_73e0875ec2c892fcc29677bb1a29b53a648e3aebe2b1a0cdcdc6ea3f2013c724",
+          "label": "play-label.js",
+          "properties": {
+            "semantic_role": "source-module",
+            "path": "play-label.js",
+            "container_sha256": "5197afaaabf8d9c0fdf0e29769bc10efa5081216184aab407114a629eea26f9a",
+            "logical_module_key": "play-label.js",
+            "module_format": "unknown",
+            "import_relationships": 0,
+            "export_relationships": 0,
+            "export_names": [],
+            "omitted_export_names": 0
+          },
+          "evidence": {
+            "authority": "ast-static-analysis",
+            "state": "observed",
+            "confidence": "exact",
+            "artifact": {
+              "available": true,
+              "artifact_id": "art_fdc2830ce49376971c409069b0bee7cb62593c4c7f1c0dadcd01aedd787e6445",
+              "sha256": "fdc2830ce49376971c409069b0bee7cb62593c4c7f1c0dadcd01aedd787e6445"
+            },
+            "location": {
+              "available": true,
+              "value": {
+                "kind": "source-range",
+                "source": "play-label.js",
+                "start": {
+                  "line": 1,
+                  "column": 0
+                },
+                "end": {
+                  "line": 1,
+                  "column": 202
+                }
+              }
+            },
+            "extractor": {
+              "name": "rea-javascript-artifact-reconstruction",
+              "version": "1",
+              "operation": "recover-source-module",
+              "executable_sha256": null
+            },
+            "coverage": {
+              "status": "complete",
+              "truncated": false,
+              "omitted_count": 0,
+              "limits": []
+            },
+            "limitations": [
+              "Cross-function mutation and dynamic property resolution remain unknown.",
+              "Local call, argument, return, and closure relations are static candidates and do not prove runtime invocation.",
+              "Promise ownership covers explicit unshadowed Promise construction, static factories, aggregation, chaining, and await syntax only.",
+              "Return sites include only direct callable returns; nested callable returns remain separate.",
+              "Values and aliases were recovered from inert syntax only; no JavaScript was executed."
+            ],
+            "evidence_ids": []
+          }
+        }
+      ]
+    },
+    "parent_evidence_id": "ev_52cc7d09af9777bf1450b07e9014f021f892989470a79adfd72e02bc26c51423",
+    "parent_operation": "analyze_javascript_application",
+    "parent_digest": "52cc7d09af9777bf1450b07e9014f021f892989470a79adfd72e02bc26c51423",
+    "view_digest": "90f3c7c49c2556f40ab2ece992617a0016e89a83070b35108755e98d9e1b27f8",
+    "artifact": {
+      "path": "/private/tmp/fotty-five-benchmark-iigkvln5/apple-focused",
+      "sha256": "5197afaaabf8d9c0fdf0e29769bc10efa5081216184aab407114a629eea26f9a"
+    },
+    "coverage": {
+      "status": "complete-within-view",
+      "examined": 1,
+      "total": 6,
+      "next_offset": null,
+      "exhausted": true
+    },
+    "limitations": [
+      "Boundary extraction covers unshadowed JSON/global coercions plus parse and validation method candidates.",
+      "Child-process extraction covers asynchronous node:child_process creation, literal argv/env/stdio options, exit/error listeners, and kill signals.",
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Configuration extraction covers process.env, process.argv, node:fs reads, and direct logical defaults.",
+      "Event extraction covers EventEmitter-style literal registrations, removals, and dispatch candidates; dynamic names remain unknown.",
+      "Function fingerprints are static candidates; equal digests can remain ambiguous and do not prove behavioral equivalence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Local data flow does not claim control-flow-sensitive reaching definitions or arbitrary dynamic property resolution.",
+      "Promise ownership covers explicit unshadowed Promise construction, static factories, aggregation, chaining, and await syntax only.",
+      "Request extraction covers fetch, WebSocket, node:http/node:https construction, direct option fields, and exact local response consumers.",
+      "Resource extraction covers built-in filesystem/network acquisition and exact local close/destroy/end handles.",
+      "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+      "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+      "The semantic graph contains static syntax observations and conservative relationship candidates; it does not claim runtime execution.",
+      "Timer extraction covers global or node:timers scheduling and exact local-handle cancellation.",
+      "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+    ],
+    "unknowns": [
+      "59 semantic graph unknowns remain in the parent Evidence.",
+      "Boundary extraction covers unshadowed JSON/global coercions plus parse and validation method candidates.",
+      "Child-process extraction covers asynchronous node:child_process creation, literal argv/env/stdio options, exit/error listeners, and kill signals.",
+      "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+      "Configuration extraction covers process.env, process.argv, node:fs reads, and direct logical defaults.",
+      "Event extraction covers EventEmitter-style literal registrations, removals, and dispatch candidates; dynamic names remain unknown.",
+      "Function fingerprints are static candidates; equal digests can remain ambiguous and do not prove behavioral equivalence.",
+      "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+      "Local data flow does not claim control-flow-sensitive reaching definitions or arbitrary dynamic property resolution.",
+      "Promise ownership covers explicit unshadowed Promise construction, static factories, aggregation, chaining, and await syntax only.",
+      "Request extraction covers fetch, WebSocket, node:http/node:https construction, direct option fields, and exact local response consumers.",
+      "Resource extraction covers built-in filesystem/network acquisition and exact local close/destroy/end handles.",
+      "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+      "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+      "The semantic graph contains static syntax observations and conservative relationship candidates; it does not claim runtime execution.",
+      "Timer extraction covers global or node:timers scheduling and exact local-handle cancellation.",
+      "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code.",
+      "semantic_graph.coverage.status is unknown"
+    ]
+  },
+  "confidence": "derived",
+  "authority": "shipped-artifact",
+  "environment": null,
+  "limitations": [
+    "Boundary extraction covers unshadowed JSON/global coercions plus parse and validation method candidates.",
+    "Child-process extraction covers asynchronous node:child_process creation, literal argv/env/stdio options, exit/error listeners, and kill signals.",
+    "CommonJS and ESM binding relationships were recovered from inert syntax and resolved only within the inventoried artifact container.",
+    "Configuration extraction covers process.env, process.argv, node:fs reads, and direct logical defaults.",
+    "Event extraction covers EventEmitter-style literal registrations, removals, and dispatch candidates; dynamic names remain unknown.",
+    "Function fingerprints are static candidates; equal digests can remain ambiguous and do not prove behavioral equivalence.",
+    "JavaScript and HTML were parsed as inert text; bundle bootstrap code was never executed.",
+    "Local data flow does not claim control-flow-sensitive reaching definitions or arbitrary dynamic property resolution.",
+    "Promise ownership covers explicit unshadowed Promise construction, static factories, aggregation, chaining, and await syntax only.",
+    "Request extraction covers fetch, WebSocket, node:http/node:https construction, direct option fields, and exact local response consumers.",
+    "Resource extraction covers built-in filesystem/network acquisition and exact local close/destroy/end handles.",
+    "Static imports, entrypoints, workers, endpoints, and storage relationships do not prove runtime execution.",
+    "Static paths and relationships may remain unresolved when expressions are dynamic or obfuscated.",
+    "The semantic graph contains static syntax observations and conservative relationship candidates; it does not claim runtime execution.",
+    "Timer extraction covers global or node:timers scheduling and exact local-handle cancellation.",
+    "Webpack/Rspack factories were recovered from AST literals; REA did not invoke push handlers or bundle bootstrap code."
+  ],
+  "locations": [
+    {
+      "kind": "artifact-path",
+      "path": "/private/tmp/fotty-five-benchmark-iigkvln5/apple-focused"
+    }
+  ],
+  "evidence_links": [
+    "ev_52cc7d09af9777bf1450b07e9014f021f892989470a79adfd72e02bc26c51423"
+  ]
+}

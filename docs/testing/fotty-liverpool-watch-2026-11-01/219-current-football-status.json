@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-11-01T20:24:20.417285+00:00",
+  "purpose": "219 fresh eligible current football status; no inference from kickoff",
+  "matches": [
+    {
+      "publisher": "ESPN",
+      "competition": "ita.1",
+      "teams": "Napoli at Juventus",
+      "kickoffUTC": "2026-11-01T19:45Z",
+      "state": "in",
+      "completed": false,
+      "detail": "39'"
+    },
+    {
+      "publisher": "ESPN",
+      "competition": "esp.1",
+      "teams": "Real Sociedad at Athletic Club",
+      "kickoffUTC": "2026-11-01T20:00Z",
+      "state": "in",
+      "completed": false,
+      "detail": "19'"
+    }
+  ]
+}

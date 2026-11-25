@@ -1,0 +1,549 @@
+{
+  "proof": "Real accepted official snapshot crossed with one fresh fixed-origin ESPN RSS through production normalization and association; metadata only",
+  "checkedAtUTC": "2026-10-31T22:25:26.117Z",
+  "officialSnapshotFetchedAtUTC": "2026-10-31T22:23:42.000Z",
+  "officialSnapshotStatus": "partial",
+  "officialSnapshotRevision": "fa91d5a337ef48abb00ae1fa2de8b03566e2377852040c97eea940fbea249308",
+  "verificationBasis": "Only covered competition receipts and an absent-or-verified per-record source verification; scheduled/live status preserved from accepted snapshot",
+  "source": {
+    "name": "ESPN Latin America South official weekly RSS, URUGUAY section",
+    "httpStatus": 200,
+    "bytes": 955819,
+    "bodySHA256": "4a9d2ab1acbdee8fbdf2b94763e01f6ee9314bb16177c2c74b4e54e94e7b7ec6",
+    "assignmentCount": 40,
+    "timeZone": "America/Montevideo"
+  },
+  "coverageReceipts": [
+    {
+      "competitionID": "premier-league",
+      "status": "covered",
+      "checkedAt": "2026-10-31T22:07:07.000Z",
+      "fixtureCount": 15,
+      "pendingFixtureCount": 0,
+      "conflict": false
+    },
+    {
+      "competitionID": "champions-league",
+      "status": "covered",
+      "checkedAt": "2026-10-31T22:07:07.000Z",
+      "fixtureCount": 18,
+      "pendingFixtureCount": 0,
+      "conflict": false
+    }
+  ],
+  "admittedOfficialFootballFixtures": 63,
+  "allFootballLinks": {
+    "listed": 28,
+    "conflicting": 0,
+    "needsVerification": 0
+  },
+  "PLUCLAssociations": [
+    {
+      "fixtureID": "sports-fixture:premier-league:560631",
+      "competitionID": "premier-league",
+      "officialTeams": [
+        "Liverpool FC",
+        "Arsenal FC"
+      ],
+      "sourceTeams": [
+        "Liverpool",
+        "Arsenal"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-01T16:30:00.000Z",
+      "fixtureStartUTC": "2026-11-01T16:30:00.000Z",
+      "coverageLeadMinutes": 0,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:premier-league:560622",
+      "competitionID": "premier-league",
+      "officialTeams": [
+        "Newcastle United FC",
+        "Everton FC"
+      ],
+      "sourceTeams": [
+        "Newcastle United",
+        "Everton"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-02T20:00:00.000Z",
+      "fixtureStartUTC": "2026-11-02T20:00:00.000Z",
+      "coverageLeadMinutes": 0,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn5-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575377",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "FK Shakhtar Donetsk",
+        "Sporting Clube de Portugal"
+      ],
+      "sourceTeams": [
+        "Shakhtar",
+        "Sporting CP"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-03T17:30:00.000Z",
+      "fixtureStartUTC": "2026-11-03T17:45:00.000Z",
+      "coverageLeadMinutes": 15,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn5-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575378",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "Galatasaray SK",
+        "VfB Stuttgart"
+      ],
+      "sourceTeams": [
+        "Galatasaray",
+        "Stuttgart"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-03T17:30:00.000Z",
+      "fixtureStartUTC": "2026-11-03T17:45:00.000Z",
+      "coverageLeadMinutes": 15,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575379",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "Feyenoord Rotterdam",
+        "FC Internazionale Milano"
+      ],
+      "sourceTeams": [
+        "Feyenoord",
+        "Inter"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-03T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn7-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575380",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "FC Barcelona",
+        "Aston Villa FC"
+      ],
+      "sourceTeams": [
+        "Barcelona",
+        "Aston Villa"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-03T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575381",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "Club Atlético de Madrid",
+        "FC Bayern München"
+      ],
+      "sourceTeams": [
+        "Atlético de Madrid",
+        "Bayern Munich"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-03T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn2-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575382",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "Villarreal CF",
+        "Paris Saint-Germain FC"
+      ],
+      "sourceTeams": [
+        "Villarreal",
+        "PSG"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-03T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn5-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575383",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "Manchester United FC",
+        "AS Roma"
+      ],
+      "sourceTeams": [
+        "Manchester United",
+        "Roma"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-03T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn3-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575384",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "FK Bodø/Glimt",
+        "Lille OSC"
+      ],
+      "sourceTeams": [
+        "Bodo/Glimt",
+        "Lille"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-03T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn4-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575385",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "LASK Linz",
+        "ŠK Slovan Bratislava"
+      ],
+      "sourceTeams": [
+        "LASK Linz",
+        "Slovan Bratislava"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-03T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn6-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575387",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "Fenerbahçe SK",
+        "Liverpool FC"
+      ],
+      "sourceTeams": [
+        "Fenerbahce",
+        "Liverpool"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-04T17:30:00.000Z",
+      "fixtureStartUTC": "2026-11-04T17:45:00.000Z",
+      "coverageLeadMinutes": 15,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn2-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575388",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "RB Leipzig",
+        "Manchester City FC"
+      ],
+      "sourceTeams": [
+        "RB Leipzig",
+        "Manchester City"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-04T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575389",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "SK Slavia Praha",
+        "Arsenal FC"
+      ],
+      "sourceTeams": [
+        "Slavia Praha",
+        "Arsenal"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-04T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn5-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575390",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "PSV",
+        "Club Brugge KV"
+      ],
+      "sourceTeams": [
+        "PSV",
+        "Club Brugge"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-04T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn4-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575391",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "Borussia Dortmund",
+        "Real Betis Balompié"
+      ],
+      "sourceTeams": [
+        "Borussia Dortmund",
+        "Real Betis"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-04T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn2-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575392",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "FC Porto",
+        "SSC Napoli"
+      ],
+      "sourceTeams": [
+        "Porto",
+        "Napoli"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-04T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn7-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575393",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "Racing Club de Lens",
+        "Como 1907"
+      ],
+      "sourceTeams": [
+        "Lens",
+        "Como"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-04T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn3-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    },
+    {
+      "fixtureID": "sports-fixture:champions-league:575394",
+      "competitionID": "champions-league",
+      "officialTeams": [
+        "Viking FK",
+        "Sabah FK"
+      ],
+      "sourceTeams": [
+        "Viking",
+        "Sabah"
+      ],
+      "officialStatus": "scheduled",
+      "coverageStartUTC": "2026-11-04T19:30:00.000Z",
+      "fixtureStartUTC": "2026-11-04T20:00:00.000Z",
+      "coverageLeadMinutes": 30,
+      "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+      "channelID": "sports-channel:espn6-latinamerica-south",
+      "stationMarket": "UY",
+      "state": "listed",
+      "matchMethod": "channel-assignment",
+      "startRelation": "channel-coverage",
+      "expiresAt": "2026-10-31T22:35:26.117Z"
+    }
+  ],
+  "unmatchedUpcomingPLUCLAssignments": [
+    {
+      "competitionID": "champions-league",
+      "sourceTeams": [
+        "AEK Athenas",
+        "Real Madrid"
+      ],
+      "coverageStartUTC": "2026-11-04T17:30:00.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "diagnosis": {
+        "code": "unreviewed-source-alias",
+        "sourceCanonicalClub": null,
+        "officialCanonicalClub": "aekathens",
+        "officialFixtureID": "sports-fixture:champions-league:575386",
+        "officialTeams": [
+          "PAE AEK",
+          "Real Madrid CF"
+        ],
+        "officialFixtureStartUTC": "2026-11-04T17:45:00.000Z",
+        "sourceCodeChanged": false
+      }
+    }
+  ],
+  "physicalPlaybackQualified": false,
+  "backendDeployed": false,
+  "PLUCLSummary": {
+    "listedPremierLeague": 2,
+    "listedChampionsLeague": 17,
+    "conflicts": 0,
+    "unmatchedUpcomingChampionsLeague": 1
+  },
+  "sourceLocalAliasReplay": {
+    "proof": "Replay of the exact already-received22:25:26 metadata assignment through current parser and production registry join; NOT a new full-RSS verification",
+    "replayedAtUTC": "2026-10-31T22:28:05.826Z",
+    "originalMetadataObservedAtUTC": "2026-10-31T22:25:26.117Z",
+    "additionalNetworkRequests": 0,
+    "rawSourceProgramme": "14:30 ESPN y Disney+ Plan Premium / UEFA Champions League #4 – AEK Athenas vs. Real Madrid",
+    "rawSourceTitle": "AEK Athenas vs Real Madrid",
+    "normalizedParticipants": [
+      "AEK Athens",
+      "Real Madrid"
+    ],
+    "providerEventIdentityUnchanged": true,
+    "oldJoinCount": 0,
+    "officialFixtureID": "sports-fixture:champions-league:575386",
+    "officialTeams": [
+      "PAE AEK",
+      "Real Madrid CF"
+    ],
+    "officialStatus": "scheduled",
+    "officialObservedAtUTC": "2026-10-31T22:07:07.000Z",
+    "coverageStartUTC": "2026-11-04T17:30:00.000Z",
+    "fixtureStartUTC": "2026-11-04T17:45:00.000Z",
+    "coverageLeadMinutes": 15,
+    "channelID": "sports-channel:espn-latinamerica-south",
+    "stationMarket": "UY",
+    "state": "listed",
+    "matchMethod": "channel-assignment",
+    "startRelation": "channel-coverage",
+    "expiresAt": "2026-10-31T22:35:26.117Z",
+    "centralCatalogueChanged": false,
+    "nativeCodeChanged": false,
+    "physicalPlaybackQualified": false
+  },
+  "afterReviewedAliasReplaySummary": {
+    "listedPremierLeague": 2,
+    "listedChampionsLeague": 18,
+    "conflicts": 0,
+    "proofBasis": "The original full-feed receipt supports two PL and17UCL joins; the separately labelled exact-row replay supports the remaining AEK UCL join. No additional full-feed fetch."
+  }
+}

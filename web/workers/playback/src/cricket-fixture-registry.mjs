@@ -5,9 +5,11 @@ import cplFallback from "../../../public/data/cpl-2026-fixtures.json" with { typ
 import { validateCPLManifest } from "./cpl-fixture-policy.mjs";
 import { boundedCricketContexts } from "./cricket-context-policy.mjs";
 import { appendCACricket, refreshCACricket } from "./cricket-australia-fixtures.mjs";
+import { appendT10, refreshT10 } from "./cricket-espn-t10.mjs";
 
 const STATE_KEY = "cricket-registry-v1";
 const CA_STORAGE_ENTRY = "cricket-australia-wbbl-v1";
+const T10_STORAGE_ENTRY = "espn-abu-dhabi-t10-v1";
 const MINUTE = 60_000;
 const ICC_COHORTS = Object.freeze(["west-indies", "icc"]);
 const FAILURE_CODES = new Map([
@@ -270,6 +272,11 @@ export class CricketFixtureRegistry {
       const nextCA = await refreshCACricket(previousCA, now, this.options.collectCA);
       if (nextCA !== previousCA) await this.state.storage.put(CA_STORAGE_ENTRY, nextCA);
     }
+    if (this.env.CRICKET_T10_ENABLED === "true") {
+      const previousT10 = await this.state.storage.get(T10_STORAGE_ENTRY);
+      const nextT10 = await refreshT10(previousT10, now, this.options.collectT10);
+      if (nextT10 !== previousT10) await this.state.storage.put(T10_STORAGE_ENTRY, nextT10);
+    }
     const previous = await this.state.storage.get(STATE_KEY);
     if (previous && Date.parse(previous.nextAttemptAt) > now.getTime()) return previous;
     const next = await refreshCricketState(previous, now, this.options.collectICC || collectICC, this.options.collectCPL);
@@ -295,18 +302,21 @@ export class CricketFixtureRegistry {
     if (!current) current = await this.enqueue(() => this.refresh());
     else if (Date.parse(current.nextAttemptAt) <= Date.now()) this.state.waitUntil(this.enqueue(() => this.refresh()));
     const domestic = this.env.CRICKET_WBBL_ENABLED === "true" ? await this.state.storage.get(CA_STORAGE_ENTRY) : undefined;
-    if (!current?.snapshot && domestic?.status !== "covered") return Response.json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable",
+    const t10 = this.env.CRICKET_T10_ENABLED === "true" ? await this.state.storage.get(T10_STORAGE_ENTRY) : undefined;
+    // Either healthy additive cohort may supply the fallback snapshot.
+    if (!current?.snapshot && domestic?.status !== "covered" && t10?.status !== "covered") return Response.json({ schemaVersion: 1, complete: false, sourceStatus: "unavailable",
       sync: { consecutiveFailures: current?.consecutiveFailures || 0, cohorts: current?.cohorts,
         ...(current?.failure ? { failure: current.failure } : {}), lastAttemptAt: current?.lastAttemptAt } }, { status: 503 });
     // Optional context remains additive on the schema1 route. Older clients
     // ignore the new fixture key; the original fixture count/receipts survive.
-    if (this.env.CRICKET_WBBL_ENABLED === "true" && (!domestic || Date.parse(domestic.nextAttemptAt) <= Date.now()))
+    if ((this.env.CRICKET_WBBL_ENABLED === "true" && (!domestic || Date.parse(domestic.nextAttemptAt) <= Date.now()))
+      || (this.env.CRICKET_T10_ENABLED === "true" && (!t10 || Date.parse(t10.nextAttemptAt) <= Date.now())))
       this.state.waitUntil(this.enqueue(() => this.refresh()));
     const base = current.snapshot ?? { schemaVersion: 1, complete: true, sourceStatus: "unavailable",
       checkedAt: current.lastAttemptAt, revision: "cricket-base-unavailable", fixtures: [],
       coverage: CRICKET_COMPETITIONS.map(({ id, name }) => ({ competitionId: id, competitionName: name,
         checkedAt: "1970-01-01T00:00:00.000Z", status: "unavailable", fixtureCount: 0, expectedFixtureCount: 0 })),
       sync: { consecutiveFailures: current.consecutiveFailures, lastAttemptAt: current.lastAttemptAt } };
-    return Response.json(boundedCricketContexts(appendCACricket(base, domestic)));
+    return Response.json(boundedCricketContexts(appendT10(appendCACricket(base, domestic), t10)));
   }
 }

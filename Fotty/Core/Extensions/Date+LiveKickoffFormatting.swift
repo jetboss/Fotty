@@ -1,71 +1,120 @@
 import Foundation
 
-private enum FottyDateFormatters {
-    private static let lock = NSLock()
+/// Foundation's formatter classes are mutable reference types. Keep the
+/// existing synchronous formatting API while making the synchronization
+/// visible to Swift's concurrency checker; every access remains serialized by
+/// the same lock that protected these values before the migration.
+private final class LockedFormatter<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value
 
-    private static let primaryLineFormatter: DateFormatter = {
+    init(_ value: Value) {
+        self.value = value
+    }
+
+    func withValue<Result>(_ body: (inout Value) -> Result) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return body(&value)
+    }
+}
+
+/// Fixture validation and merging parse the same receipt formats repeatedly.
+/// Reuse the configured formatters without changing admission rules or sharing
+/// unsynchronized mutable Foundation objects with background validators.
+enum CatalogISO8601DateParser {
+    private final class CachedDate {
+        let value: Date?
+        init(_ value: Date?) { self.value = value }
+    }
+
+    private static let formatters = LockedFormatter({
+        let fractional = ISO8601DateFormatter()
+        fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let wholeSeconds = ISO8601DateFormatter()
+        wholeSeconds.formatOptions = [.withInternetDateTime]
+        let results = NSCache<NSString, CachedDate>()
+        results.countLimit = 512
+        results.totalCostLimit = 128 * 1024
+        return (fractional: fractional, wholeSeconds: wholeSeconds, results: results)
+    }())
+
+    static func date(_ value: String) -> Date? {
+        formatters.withValue { pair in
+            // These immutable ISO8601 configurations use GMT, not the current
+            // device zone. Cache only the exact string's parse result, never a
+            // fixture's now-relative validation or admission decision.
+            let key: NSString? = value.utf8.count <= 256 ? (value as NSString) : nil
+            if let key, let cached = pair.results.object(forKey: key) { return cached.value }
+            let date = pair.fractional.date(from: value) ?? pair.wholeSeconds.date(from: value)
+            if let key {
+                pair.results.setObject(CachedDate(date), forKey: key, cost: key.length * 2)
+            }
+            return date
+        }
+    }
+}
+
+private enum FottyDateFormatters {
+
+    private static let primaryLineFormatter = LockedFormatter<DateFormatter>({
         let f = DateFormatter()
         f.dateFormat = "MMM d • h:mm a"
         return f
-    }()
+    }())
 
-    private static let relativeFormatter: RelativeDateTimeFormatter = {
+    private static let relativeFormatter = LockedFormatter<RelativeDateTimeFormatter>({
         let f = RelativeDateTimeFormatter()
         f.unitsStyle = .short
         return f
-    }()
+    }())
 
-    private static let dayOfWeekFormatter: DateFormatter = {
+    private static let dayOfWeekFormatter = LockedFormatter<DateFormatter>({
         let f = DateFormatter()
         f.dateFormat = "EEE"
         return f
-    }()
+    }())
 
-    private static let timeOnlyFormatter: DateFormatter = {
+    private static let timeOnlyFormatter = LockedFormatter<DateFormatter>({
         let f = DateFormatter()
         f.dateStyle = .none
         f.timeStyle = .short
         return f
-    }()
+    }())
 
     static func formatPrimaryLine(for date: Date, timeZone: TimeZone) -> String {
-        lock.lock()
-        defer { lock.unlock() }
-        if primaryLineFormatter.timeZone != timeZone {
-            primaryLineFormatter.timeZone = timeZone
+        primaryLineFormatter.withValue { formatter in
+            if formatter.timeZone != timeZone { formatter.timeZone = timeZone }
+            return formatter.string(from: date)
         }
-        return primaryLineFormatter.string(from: date)
     }
 
     static func formatRelative(for date: Date, relativeTo now: Date) -> String {
-        lock.lock()
-        defer { lock.unlock() }
-        return relativeFormatter.localizedString(for: date, relativeTo: now)
+        relativeFormatter.withValue { formatter in
+            formatter.localizedString(for: date, relativeTo: now)
+        }
     }
 
     static func formatDayOfWeek(for date: Date) -> String {
-        lock.lock()
-        defer { lock.unlock() }
-        return dayOfWeekFormatter.string(from: date)
+        dayOfWeekFormatter.withValue { formatter in
+            formatter.string(from: date)
+        }
     }
 
     static func formatTimeOnly(for date: Date, timeZone: TimeZone) -> String {
-        lock.lock()
-        defer { lock.unlock() }
-        if timeOnlyFormatter.timeZone != timeZone {
-            timeOnlyFormatter.timeZone = timeZone
+        timeOnlyFormatter.withValue { formatter in
+            if formatter.timeZone != timeZone { formatter.timeZone = timeZone }
+            return formatter.string(from: date)
         }
-        return timeOnlyFormatter.string(from: date)
     }
 }
 
 extension Date {
     /// Matches the near-term live feed window (see `EventReference.passesNearTermLiveListWindow`).
     func liveKickoffRelativeSnippet(relativeTo now: Date = .init()) -> String? {
-        let pastGrace: TimeInterval = 36 * 3600
-        let futureHorizon: TimeInterval = 48 * 3600
         let t = timeIntervalSince(now)
-        if t < -pastGrace || t > futureHorizon { return nil }
+        if t < -CatalogTimingPolicy.retentionPastGrace
+            || t > CatalogTimingPolicy.retentionFutureHorizon { return nil }
         return FottyDateFormatters.formatRelative(for: self, relativeTo: now)
     }
 

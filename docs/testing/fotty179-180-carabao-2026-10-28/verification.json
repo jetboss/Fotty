@@ -1,0 +1,77 @@
+{
+  "build": 180,
+  "device": "Jet iPad",
+  "system": "iPadOS27.2",
+  "signedReleaseCompile": "passed",
+  "signature": "deep strict passed",
+  "installedVersion": "2.0.1(180)",
+  "productionInputs": {
+    "count": 313,
+    "changedFrom178": [
+      "Fotty.xcodeproj/project.pbxproj",
+      "Fotty/Core/Models/CurrentEventBroadcastPolicy.swift",
+      "Fotty/Core/Models/SportsFixtureCatalog.swift",
+      "Fotty/Core/Networking/PlavioSportsAddonClient.swift",
+      "Fotty/Core/Social/SportsPersonalizationPolicy.swift",
+      "FottyTests/CricketFixtureCatalogTests.swift",
+      "FottyTests/PlavioSportsAddonTests.swift",
+      "FottyTests/SportsFixtureCatalogTests.swift",
+      "FottyTests/SportsPersonalizationTests.swift"
+    ],
+    "other304InputsUnchanged": true
+  },
+  "preservation": {
+    "prelaunchPlistSlots": 34,
+    "prelaunchExactEquality": true,
+    "phoneTouched": false,
+    "FPLChanged": false,
+    "multiStreamChanged": false,
+    "testFlightReleased": false
+  },
+  "nativeTests": {
+    "fixturePersonalizationAndLookup": {
+      "uniqueCases": 112,
+      "firstPass": 111,
+      "firstFailure": "New test incorrectly renamed Liverpool to Arsenal without changing participant ID; corrected fixture only, production identity unchanged",
+      "affectedLookupRerunPassed": 21,
+      "countsOverlap": true
+    },
+    "ASMetadata": {
+      "passed": 52,
+      "skipped": 1,
+      "failed": 0,
+      "skipIsNotPlaybackPass": true
+    }
+  },
+  "backend": {
+    "pullRequest": "https://github.com/jetboss/Fotty/pull/91",
+    "mergedCommit": "c3ebfa018689bbcdfba02ab4c3ae4d897aa52dc9",
+    "isolatedFocusedPassed": 67,
+    "protectedCIPassed": true,
+    "sourceVersion": "2026-10-28.efl-cup-1",
+    "deploymentID": "b3ff08d7-fe97-4ff4-87d8-eaad28792ad4",
+    "cupCoveredFixtures": 8,
+    "newFeeds": "Official EFL metadata only"
+  },
+  "watchdog": {
+    "sameCodeCompatibilityDeployment": "d8c5e8cf-8de8-4321-9b04-43772349a0d0",
+    "offlineTestsPassed": 95,
+    "runtimeTestsPassed": 13,
+    "activationPreserved": true,
+    "expectedVersionAligned": true,
+    "observerRun": "https://github.com/jetboss/Fotty/actions/runs/40766151178",
+    "observerPassed": true,
+    "directChatAlertBridgeImplemented": false
+  },
+  "physical": {
+    "normalLaunch": true,
+    "HomeLiverpoolChelseaCarabaoLIVEObserved": true,
+    "matchingBadgesObserved": true,
+    "checkStreamsAffordanceObservedOn179": true,
+    "remoteTapDispatchUnverified": true,
+    "decodedPlaybackVerified": false,
+    "noNewProviderQualified": true
+  },
+  "binarySHA256": "00a603c43b9fad00159785b376a0b3141074311e747970ee54e09742a5dc7dd0",
+  "ownerHold": "No further builds or installs until usable playback is established. Build180 preceded this instruction."
+}

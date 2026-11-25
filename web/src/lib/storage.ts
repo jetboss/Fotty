@@ -33,7 +33,7 @@ export interface TrackedTeamEntry {
   createdAt: string;
 }
 
-export interface CollabInquiryEntry {
+interface CollabInquiryEntry {
   packageId: string;
   packageTitle: string;
   organization?: string;
@@ -42,15 +42,6 @@ export interface CollabInquiryEntry {
   audienceSize?: string;
   useCase?: string;
   matchFocus?: string;
-  createdAt: string;
-}
-
-export interface SupportPledgeEntry {
-  plan: string;
-  title: string;
-  amount?: number;
-  contact?: string;
-  note?: string;
   createdAt: string;
 }
 
@@ -67,8 +58,7 @@ const LEGACY_WATCH_HISTORY_KEY = "fotty.web.watchHistory";
 const RECENT_MATCHES_KEY = "fotty.web.recentMatches";
 const REMINDERS_KEY = "fotty.web.reminders";
 export const TRACKED_TEAMS_KEY = "fotty.web.trackedTeams";
-export const COLLAB_INQUIRIES_KEY = "fotty.web.collabInquiries.v1"; // gitleaks:allow -- localStorage namespace
-export const SUPPORT_PLEDGES_KEY = "fotty.web.supportPledges.v1";
+const COLLAB_INQUIRIES_KEY = "fotty.web.collabInquiries.v1"; // gitleaks:allow -- localStorage namespace
 const PREFERENCES_KEY = "fotty.web.preferences";
 const STORAGE_EVENT = "fotty:storage";
 
@@ -121,7 +111,7 @@ function reminderKey(reminder: Pick<ReminderEntry, "id" | "startsAt">) {
   return `${reminder.id}:${reminder.startsAt}`;
 }
 
-export function trackedTeamId(name: string) {
+function trackedTeamId(name: string) {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "team";
 }
 
@@ -157,32 +147,8 @@ function sanitizeTrackedTeams(teams: TrackedTeamEntry[]) {
     .slice(0, 40);
 }
 
-function mediaKey(item: Pick<MediaItem, "type" | "id">) {
-  return `${item.type}:${item.id}`;
-}
-
 export function getFavorites(): FavoriteItem[] {
   return readList<FavoriteItem>(FAVORITES_KEY);
-}
-
-export function isFavorite(item: Pick<MediaItem, "type" | "id">): boolean {
-  const key = mediaKey(item);
-  return getFavorites().some((favorite) => mediaKey(favorite) === key);
-}
-
-export function toggleFavorite(item: MediaItem): boolean {
-  const key = mediaKey(item);
-  const favorites = getFavorites();
-  const existingIndex = favorites.findIndex((favorite) => mediaKey(favorite) === key);
-
-  if (existingIndex >= 0) {
-    favorites.splice(existingIndex, 1);
-    writeList(FAVORITES_KEY, favorites);
-    return false;
-  }
-
-  writeList(FAVORITES_KEY, [{ ...item, savedAt: new Date().toISOString() }, ...favorites].slice(0, 80));
-  return true;
 }
 
 /** Drops pre-sports-only media history (movies/TV) from localStorage. */
@@ -268,7 +234,7 @@ export function removeTrackedTeam(team: Pick<TrackedTeamEntry, "id"> | string) {
   );
 }
 
-export function getCollabInquiries(): CollabInquiryEntry[] {
+function getCollabInquiries(): CollabInquiryEntry[] {
   return readList<CollabInquiryEntry>(COLLAB_INQUIRIES_KEY).slice(0, 30);
 }
 
@@ -278,19 +244,6 @@ export function saveCollabInquiry(inquiry: Omit<CollabInquiryEntry, "createdAt">
     createdAt: inquiry.createdAt || new Date().toISOString(),
   };
   writeList(COLLAB_INQUIRIES_KEY, [entry, ...getCollabInquiries()].slice(0, 30));
-  return entry;
-}
-
-export function getSupportPledges(): SupportPledgeEntry[] {
-  return readList<SupportPledgeEntry>(SUPPORT_PLEDGES_KEY).slice(0, 20);
-}
-
-export function saveSupportPledge(pledge: Omit<SupportPledgeEntry, "createdAt"> & { createdAt?: string }) {
-  const entry: SupportPledgeEntry = {
-    ...pledge,
-    createdAt: pledge.createdAt || new Date().toISOString(),
-  };
-  writeList(SUPPORT_PLEDGES_KEY, [entry, ...getSupportPledges()].slice(0, 20));
   return entry;
 }
 
@@ -351,17 +304,4 @@ export function subscribeToStorage(callback: (key: string) => void) {
     window.removeEventListener(STORAGE_EVENT, customHandler as EventListener);
     window.removeEventListener("storage", storageHandler);
   };
-}
-
-export interface WatchHistoryEntry extends MediaItem {
-  watchedAt: string;
-  progress?: number;
-}
-
-export function getWatchHistory(): WatchHistoryEntry[] {
-  return [];
-}
-
-export function recordWatch(item: MediaItem, progress = 0.1) {
-  // Static export dummy stub
 }

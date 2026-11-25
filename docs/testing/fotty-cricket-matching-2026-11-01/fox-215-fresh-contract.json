@@ -1,0 +1,61 @@
+{
+  "observedUTC": "2026-11-01T15:26:04.762Z",
+  "scope": "Exact approved Fox SD original metadata and one root manifest",
+  "requestInventory": {
+    "originalMetadata": 1,
+    "rootManifest": 1,
+    "segments": 0,
+    "keys": 0
+  },
+  "originalIdentity": {
+    "tvgID": "foxcricket.in",
+    "label": "CR | Fox Cricket 501"
+  },
+  "checks": {
+    "approvedRootContract": true,
+    "reviewedChildrenOnly": false,
+    "opaquePrefixEqualityToRoot": true,
+    "literalFourSegmentMediaPlaylist": true
+  },
+  "drift": [
+    "advertised-child-contract-drift"
+  ],
+  "redaction": "No full URLs, opaque capabilities, numeric stream paths, segment names or query values retained.",
+  "originalMetadataHTTP": 200,
+  "originalMetadataBytes": 159715,
+  "root": {
+    "scheme": "http:",
+    "fqdn": "y3fqd48g.megatv.fun",
+    "port": 80,
+    "pathShape": "/iptv/<opaque14>/<approved-numeric-channel>/index.m3u8"
+  },
+  "publicDNSAddresses": 1,
+  "socketAddressPinned": true,
+  "rootHTTP": 200,
+  "rootContentType": "application/x-mpegURL",
+  "connectionUsedValidatedAddress": true,
+  "rootElapsedMilliseconds": 496,
+  "rootBytes": 499,
+  "playlist": {
+    "kind": "media",
+    "mediaSequence": 214410,
+    "targetDurationSeconds": 10,
+    "segments": 4,
+    "keyTags": 0,
+    "endList": false
+  },
+  "childContracts": [
+    {
+      "scheme": "http:",
+      "fqdn": "77.72.23.43",
+      "port": 80,
+      "pathShape": "/iptv/<opaque14>/<numeric3>/<opaque16>.ts",
+      "queryKeys": [
+        "md5"
+      ],
+      "count": 4
+    }
+  ],
+  "outcome": "actionable-contract-drift",
+  "completedUTC": "2026-11-01T15:26:07.308Z"
+}

@@ -1,0 +1,114 @@
+{
+  "build": 232,
+  "naturalFailure": "CS1 stalled before a deliberate pause; CoreMedia -12888",
+  "failureAtUTC": "2026-11-04T08:58:25.254134Z",
+  "alternative": "TV1",
+  "advancingAtUTC": "2026-11-04T08:58:30.505009Z",
+  "failureToAdvancingSeconds": 5.251,
+  "replacementHoldSeconds": 92.455,
+  "replacementStalls": 0,
+  "events": [
+    {
+      "utc": "2026-11-04T08:58:25.254134+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 36830,
+      "details": {
+        "relay_retained_failed_count": "0",
+        "native_log_code": "-12888",
+        "native_access_transfer_ms": "3321",
+        "relay_evicted_request_count": "0",
+        "relay_request_phase": "resource",
+        "native_access_dropped_frames": "0",
+        "relay_request_age_ms": "4017",
+        "source_family": "communitysports",
+        "native_access_indicated_bitrate": "3710000",
+        "relay_playlist_rewritten_target_ms": "6000",
+        "relay_playlist_rewritten_change": "advanced",
+        "relay_playlist_rewritten_last_digest": "625334f8d10d65224e92854f998c0a57",
+        "relay_playlist_samples": "9",
+        "relay_playlist_upstream_endlist": "false",
+        "relay_request_elapsed_ms": "344",
+        "native_access_stalls": "1",
+        "source": "CS1",
+        "relay_playlist_rewritten_endlist": "false",
+        "native_access_observed_bitrate": "32383911",
+        "relay_request_http_status": "200",
+        "relay_resource_basis": "response",
+        "relay_retained_request_count": "18",
+        "relay_playlist_rewritten_sequence": "479141",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_playlist_upstream_kind": "media",
+        "relay_playlist_rewritten_segments": "4",
+        "relay_playlist_upstream_last_digest": "7f83c29f7787c3b134bdcc62a979fdf5",
+        "relay_playlist_metadata_preserved": "true",
+        "relay_playlist_upstream_target_ms": "6000",
+        "relay_playlist_upstream_segments": "4",
+        "relay_playlist_upstream_sequence": "479141",
+        "relay_playlist_rewritten_kind": "media",
+        "native_access_bytes": "11932736",
+        "relay_retained_completed_count": "18",
+        "relay_retained_cancelled_count": "0",
+        "relay_request_outcome": "completed",
+        "relay_request_method": "GET",
+        "native_log_domain": "coremedia",
+        "failure_kind": "stalled",
+        "relay_retained_in_flight_count": "0",
+        "native_failure_trigger": "stall_timeout",
+        "relay_playlist_age_ms": "4376",
+        "relay_resource_category": "media"
+      }
+    },
+    {
+      "utc": "2026-11-04T08:58:25.308166+00:00",
+      "event": "automatic_failover",
+      "outcome": "failure",
+      "durationMilliseconds": null,
+      "details": {
+        "source": "CS1",
+        "source_family": "communitysports",
+        "failure_kind": "stalled"
+      }
+    },
+    {
+      "utc": "2026-11-04T08:58:30.505009+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "durationMilliseconds": 5132,
+      "details": {
+        "source": "TV1",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "utc": "2026-11-04T09:00:02.972424+00:00",
+      "event": "native_continuity_90s",
+      "outcome": "success",
+      "durationMilliseconds": 92455,
+      "details": {
+        "native_access_dropped_frames": "0",
+        "native_presentation_height": "720",
+        "native_access_observed_bitrate": "48255505",
+        "native_access_transfer_ms": "7992",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "native_access_bytes": "18153280",
+        "native_continuity_stalls": "0",
+        "native_access_stalls": "0",
+        "native_continuity_media_advance_ms": "92455",
+        "native_continuity_elapsed_ms": "92455",
+        "native_access_event_count": "1",
+        "native_access_indicated_bitrate": "1700000"
+      }
+    }
+  ],
+  "independence": "Different Fotty family and delivery; ultimate publisher independence not established; both Willow programme",
+  "publisherSamples": {
+    "sampleWindowSeconds": 49.244,
+    "mediaSequenceStart": 479153,
+    "mediaSequenceEnd": 479157,
+    "newMediaDurationSeconds": 20.96,
+    "overlappingURIsAndDurationsStable": true,
+    "meaning": "The advertised publisher playlist added substantially less media than elapsed wall time in this bounded sample. No app rewrite can create missing media; continued upstream pacing remains a qualification limitation."
+  }
+}

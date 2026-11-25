@@ -1,0 +1,74 @@
+{
+  "recordedAt": "2026-11-04T16:02:59.679984+00:00",
+  "scope": "Local native Fox WBBL guide-to-CS matching, capability projection and bounded date-selection hint. No device work, source changes on devices, publication or deployment in this gate.",
+  "nativeTests": {
+    "result": "Passed",
+    "totalTestCount": 222,
+    "passedTests": 222,
+    "failedTests": 0,
+    "skippedTests": 0
+  },
+  "previousNativeRun": {
+    "result": "Failed",
+    "totalTestCount": 222,
+    "passedTests": 220,
+    "failedTests": 2,
+    "skippedTests": 0,
+    "testFailures": [
+      {
+        "failureText": "XCTUnwrap failed: expected non-nil value of type \"BroadcastRegistryMatch\"",
+        "targetName": "FottyTests",
+        "testIdentifier": 94,
+        "testIdentifierString": "CommunitySportsAddonTests/testFoxGuideRejectsUnknownMarketAndChangedFreshMetaBeforeRequestingMedia()",
+        "testIdentifierURL": "test://com.apple.xcode/Fotty/FottyTests/CommunitySportsAddonTests/testFoxGuideRejectsUnknownMarketAndChangedFreshMetaBeforeRequestingMedia",
+        "testName": "testFoxGuideRejectsUnknownMarketAndChangedFreshMetaBeforeRequestingMedia()"
+      },
+      {
+        "failureText": "XCTAssertEqual failed: (\"0\") is not equal to (\"1\") - A guide-only record must not become a fake TV delivery",
+        "targetName": "FottyTests",
+        "testIdentifier": 96,
+        "testIdentifierString": "CommunitySportsAddonTests/testFoxProgrammeResolvesFreshAUChannelThroughExistingMatchAndKeepsGuideLease()",
+        "testIdentifierURL": "test://com.apple.xcode/Fotty/FottyTests/CommunitySportsAddonTests/testFoxProgrammeResolvesFreshAUChannelThroughExistingMatchAndKeepsGuideLease",
+        "testName": "testFoxProgrammeResolvesFreshAUChannelThroughExistingMatchAndKeepsGuideLease()"
+      }
+    ]
+  },
+  "previousFailureExplanation": "Two new test fixtures supplied a squad field in the canonical cricket fingerprint, unlike loadBroadcastRegistryFixtures and the native cricket schema. Corrected the test data after inspecting both real paths; production admission was not weakened. Earlier test-helper actor annotation compile errors were corrected.",
+  "backendTests": {
+    "passed": 296,
+    "failed": 0,
+    "skipped": 0
+  },
+  "watchdogTests": {
+    "passed": 251,
+    "failed": 0,
+    "skipped": 0
+  },
+  "bundles": {
+    "playback": "passed dry-run",
+    "watchdog": "passed dry-run"
+  },
+  "workerCandidate": "2026-11-04.fox-programmes-1",
+  "activation": "off; separate owner approval pending",
+  "deviceBuild": "Jet normal Release 237 retained; no phone operations",
+  "physicalFoxMatchAcceptance": "pending; replay/channel proof is separate",
+  "policy": "Reviewed Fox WBBL programme identity can join an enabled fresh exact Australian CS channel. No entitlement is fabricated; explicit unknown/denied/restricted programme policies still prevent automatic event use. No media guard changed.",
+  "budgets": "Maximum 3 reviewed-TV requests per collection; existing 576/day budget. A fresh original-page timezone hint avoids a duplicate Willow day fetch. If cold date correction consumes the extra slot and ESPN is needed, Fox is deferred for that cycle. Failed collection does not renew hints or programme leases.",
+  "compatibility": "Fox guide rows and AU channel proof require fox-cricket-v1 capability. Older clients retain generic Fox channel without new market proof. Rollback must keep the compatible state reader; disabling the Fox flag does not make historical AU records readable by an older strict Worker. Do not reset registry state.",
+  "sourceHashes": {
+    "Fotty/Core/Networking/BroadcastRegistry.swift": "325f48c74c5ec42fd47ae34aa0c6920267e7a6d2e9ad7c4ddc5e9c47d278db3a",
+    "Fotty/Core/Networking/CommunitySportsAddonClient.swift": "ee70769a9496269c2c48902a2169f823a93012db9d099e094aa6374a83769c0e",
+    "Fotty/Core/Networking/ReviewedTVPlaylistClient.swift": "faf19e9a9306855c2da89be614e76877a936134d257be73404ab7622e89b57ea",
+    "FottyTests/CommunitySportsAddonTests.swift": "fa4e4aa0efed266022efcb1a4879a2bfeca2b30daf587eb4521493bd499a28c9",
+    "web/workers/playback/src/fox-cricket-programmes.test.mjs": "7493d179366d30584b5c61923f69c9d94423ed8dba09fe33d39959e404f6f890",
+    "web/workers/playback/src/fox-cricket-programmes.mjs": "48c5d5d00cf21a460d88140467a6cf0a604821049f3a585d13f1f36df6b9cfe7",
+    "web/workers/playback/src/fox-cricket-registry.test.mjs": "7923055b1ae2052c009282c3ef8208ff836454878b178d90221be6ca1885c103",
+    "web/workers/playback/src/broadcast-source-adapters.mjs": "9c443d5a3599cb9668a06afa663b8a725164fc2a683c7c3e2906b031bce16342",
+    "web/workers/playback/src/broadcast-registry-policy.mjs": "48eff707e44a06e65c81d4864d2157d3e32739c7ff3319bd80a7f23852d160cd",
+    "web/workers/playback/src/broadcast-registry.mjs": "aedc95969af9bfa17c5d84b8b06afaa9dfc4da7dec3a7bfa1f2c93f26ae53d92",
+    "web/workers/playback/src/index.js": "8a44dfc219050665fa8fb0100efa431d284996eb03b1c65a74dcf42938ed4844",
+    "web/workers/playback/src/worker-version.mjs": "0658e7fd60469c2d632b4fe8f1338d5a73b30f129c2cbbc63d0c5ab185ecf411",
+    "web/workers/playback/src/broadcast-registry.test.mjs": "8715d8ee02cdb6b34950789e2055edfc1dc982295a78bc87fa9f601c740206a0",
+    "web/workers/playback/src/broadcast-registry-worker.test.mjs": "986d7b20f216d178eb0c73edaf146efb0a629e2315df04a407cd03a4a0a142ed"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "date": "2026-10-29",
+  "build": 186,
+  "deviceScope": "authorized physical iPad only",
+  "overallAcceptance": "partial",
+  "phases": [
+    { "phase": "ui", "total": 4, "passed": 2, "failed": 2, "skipped": 0 },
+    { "phase": "ui-retry", "total": 2, "passed": 1, "failed": 1, "skipped": 0 },
+    { "phase": "native-gate", "total": 2, "passed": 0, "failed": 1, "skipped": 1 },
+    { "phase": "native-final", "total": 2, "passed": 1, "failed": 0, "skipped": 1 }
+  ],
+  "distinctAcceptedFlows": [
+    "reminder and continuity consent controls",
+    "actual Matchday day jump",
+    "Home interests preview and sport browsing",
+    "separate native seven-key complete Cricket Search with settled results"
+  ],
+  "search": {
+    "originalCompleteStringReplacementAttempts": 2,
+    "originalCompleteStringReplacementFailures": 2,
+    "firstObservedPartialQuery": "cri",
+    "nativeSevenKeyQuery": "passed",
+    "rapidInputAcceptance": "open",
+    "causality": "Unresolved XCTest delivery versus native handling; neither a proven harness-only issue nor a confirmed manual-user typing defect. The native-key pass does not replace the original failure."
+  },
+  "reviewedFixtureLookup": {
+    "normalExistingFixtureAndDetailsRouteReached": true,
+    "realCheckStreamsActionReached": true,
+    "playerObserved": false,
+    "finalTestOutcome": "skipped before native playback, fullscreen or PiP",
+    "playbackClassification": "unqualified; neither playback pass nor playback failure"
+  },
+  "testOnlyCorrections": [
+    "reveal lazy native List controls before asserting reachability",
+    "exact unique semantic fallback when a descendant test identifier is overwritten",
+    "observe actual software-key case rather than assume lowercase"
+  ],
+  "sourceIntegrity": {
+    "originalManifestInputs": 332,
+    "matchingInputs": 331,
+    "soleChangedInput": "FottyUITests/PlaybackPerformanceUITests.swift",
+    "productionSourceUnchanged": true,
+    "protectedInputs": 45,
+    "protectedInputsUnchanged": 45
+  },
+  "preferenceComparison": {
+    "initialBackgroundInstall": { "compared": 34, "equal": 34 },
+    "afterActualNavigation": { "present": 34, "equal": 30, "different": 4 },
+    "unchangedProtectedGroups": {
+      "FPLSlots": 6,
+      "sourceState": true,
+      "matchedSportsContinuityReminderFollowSlots": 9
+    },
+    "allPostTestPreferencesUnchanged": false,
+    "rawKeysAndValuesRetainedHere": false
+  },
+  "remainingAcceptance": [
+    "complete-string rapid Search input",
+    "native decoded single-source playback and correct programme",
+    "native fullscreen and PiP",
+    "supported adaptive Quality",
+    "normal Report sheet, classifier and keyboard",
+    "installed widget behavior and permitted single-iPad sync",
+    "fresh live-context presentation",
+    "actual OS background reminder execution and delivery"
+  ],
+  "backendContextActivation": "not activated",
+  "normalBuild186Retained": true,
+  "ownedUITestRunnerRemoved": true,
+  "cleanupReceipt": "physical186-cleanup.json",
+  "phoneTouched": false,
+  "FPLFeatureChanges": false,
+  "multiStreamFeatureChanges": false,
+  "testFlightRelease": false,
+  "privateIdentifiersPreferencesScreenshotsMediaURLsOrTokensRetainedHere": false
+}

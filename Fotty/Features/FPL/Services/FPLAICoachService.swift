@@ -110,8 +110,10 @@ public enum FPLAICoachService {
                 players: players
             )
             evidence = [
-                "Official current points: \(live.officialCurrentPoints.map(String.init) ?? "unknown").",
-                "Published lineup points: \(live.publishedLineupPoints.map(String.init) ?? "unknown").",
+                "Published GW points before transfers: \(live.officialPointsBeforeTransfers.map(String.init) ?? "unknown").",
+                "Published or calculated net baseline: \(live.officialNetPoints.map(String.init) ?? "unknown").",
+                "Calculated published lineup points after transfers: \(live.publishedLineupPoints.map(String.init) ?? "unknown").",
+                "Displayed net contribution: \(live.totalPoints.map(String.init) ?? "unknown").",
                 "Transfer cost: \(live.transferCost)."
             ]
             if let projectedCaptainID = live.projectedCaptainElementID,
@@ -174,7 +176,7 @@ public enum FPLAICoachService {
             actions: actions,
             model: "Fotty FPL Rules Engine",
             verifiedAt: verifiedAt,
-            officialDataStatus: freshness?.source.rawValue ?? "Device snapshot",
+            officialDataStatus: freshness?.source.displayName ?? "Saved FPL data",
             source: .rulesEngine,
             usage: .zero
         )
@@ -269,7 +271,14 @@ public enum FPLAICoachService {
         if isScoringQuery(query) {
             guard let live, live.hasCompleteScoringData,
                   let totalPoints = live.totalPoints,
-                  let officialPoints = live.officialCurrentPoints else { return unavailableScoringAnswer(live) }
+                  let baseline = live.officialNetPoints else { return unavailableScoringAnswer(live) }
+            let publishedDescription: String
+            if let published = live.officialPointsBeforeTransfers {
+                publishedDescription = "Official FPL currently shows **\(published) points\(live.transferCost > 0 ? " before transfers" : "")**."
+            } else {
+                publishedDescription = "The published lineup's calculated contribution is **\(baseline) net points** after transfer costs. An independent published GW total is unavailable."
+            }
+            let transferDescription = live.transferCost > 0 ? " after the \(live.transferCost)-point transfer cost" : ""
             let names = Dictionary(uniqueKeysWithValues: players.map { ($0.id, $0.webName) })
             let substitutions = live.displayedAutomaticSubs.map {
                 "\(names[$0.elementIn] ?? "Player \($0.elementIn)") for \(names[$0.elementOut] ?? "Player \($0.elementOut)")"
@@ -279,9 +288,12 @@ public enum FPLAICoachService {
                 if let captainID = live.projectedCaptainElementID {
                     pendingRules.append("\(names[captainID] ?? "the vice-captain") inheriting the captain multiplier")
                 }
-                return "### Provisional FPL total\n\nOfficial FPL currently shows **\(officialPoints) points**. Fotty's deterministic rules engine projects **\(totalPoints) points** after \(pendingRules.joined(separator: ", ")). This remains provisional until official FPL publishes the pending rules or completes its data check."
+                return "### Provisional FPL total\n\n\(publishedDescription) Fotty's deterministic rules engine projects **\(totalPoints) points**\(transferDescription) after \(pendingRules.joined(separator: ", ")). This remains provisional until official FPL publishes the pending rules or completes its data check."
             }
-            return "### Official live total\n\nOfficial FPL currently shows **\(totalPoints) points**.\(substitutions.isEmpty ? " No additional eligible automatic substitution is proven by the current snapshot." : " Automatic substitutions: \(substitutions.joined(separator: ", ")).")"
+            let totalDescription = live.transferCost > 0
+                ? "\(publishedDescription) That contributes **\(totalPoints) net points**\(transferDescription)."
+                : publishedDescription
+            return "### \(live.isFinal ? "Final" : "Current") gameweek total\n\n\(totalDescription)\(substitutions.isEmpty ? " No additional eligible automatic substitution is proven by the current snapshot." : " Automatic substitutions: \(substitutions.joined(separator: ", ")).")"
         }
 
         if query.contains("rival") || query.contains("mini-league") || query.contains("league") {
@@ -296,7 +308,10 @@ public enum FPLAICoachService {
             if isUnlimited {
                 return "### Transfer cost check\n\nThe Gameweek 1 deadline has not passed, so transfers are currently unlimited. Fotty only saves a local draft; confirm the final squad in official FPL."
             }
-            let estimate = freeTransfers.map { "Fotty's public-history estimate is \($0.count) free transfer(s). " } ?? "Fotty could not estimate the current free-transfer count. "
+            let estimate = freeTransfers.map { value in
+                let noun = value.count == 1 ? "transfer" : "transfers"
+                return "Fotty estimates \(value.count) free \(noun). "
+            } ?? "Fotty could not estimate the current free-transfer count. "
             return "### Transfer cost check\n\n\(estimate)This remains an estimate because the public API is not the authenticated transfer screen. Do not take a hit based only on Fotty's rating difference; confirm your free transfers and the move in official FPL."
         }
 
@@ -461,14 +476,16 @@ public enum FPLAICoachService {
     static func isScoringQuery(_ query: String) -> Bool {
         // Keep this factual routing contract aligned with the Worker. Advice
         // about future transfers/captains still belongs to the reasoning model.
+        let anotherPeriod = #"\b(?:next|future|upcoming|last|previous)\s+(?:gameweek|week)\b|\b(?:predict|prediction|expected)\b"#
+        guard query.range(of: anotherPeriod, options: [.regularExpression, .caseInsensitive]) == nil else { return false }
         let pattern = #"auto(?:matic)?[-\s]?sub|substitut|bench.*(?:point|replace|come on)|(?:point|total|score).*(?:bench|sub|replace|did not play|didn't play|no minutes)|(?:did not play|didn't play|no minutes).*(?:point|total|sub|replace)|how many (?:gameweek )?points|correct (?:gameweek )?(?:points|total)|gameweek points"#
-        let currentScoreRequest = #"\b(?:what(?:['’]s| is| are)|check|verify|show)\s+(?:my|the)\s+(?:current|live)\s+(?:gameweek\s+)?(?:points|total|score)\b"#
+        let currentScoreRequest = #"\b(?:what(?:['’]s| is| are)|check|verify|show)\s+(?:my|the)\s+(?:(?:current|live)\s+)?(?:(?:gameweek|total)\s+)?(?:points|total|score)\b"#
         return query.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
             || query.range(of: currentScoreRequest, options: [.regularExpression, .caseInsensitive]) != nil
     }
 
     private static func unavailableScoringAnswer(_ live: FPLLiveSquadSummary?) -> String {
-        let published = live?.officialCurrentPoints.map { "The published official snapshot shows **\($0) points**, but player data is incomplete. " }
+        let published = live?.officialPointsBeforeTransfers.map { "The published official snapshot shows **\($0) points\((live?.transferCost ?? 0) > 0 ? " before transfers" : "")**\((live?.transferCost ?? 0) > 0 ? " (\(live?.officialNetPoints.map(String.init) ?? "unknown") net points after transfer costs)" : ""), but player data is incomplete. " }
             ?? "I cannot verify your gameweek total because official scoring data is unavailable or incomplete. "
         return published + "Missing statistics do not mean a player failed to appear. Refresh Live Points before checking automatic substitutions or a corrected total."
     }

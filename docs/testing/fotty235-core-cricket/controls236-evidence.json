@@ -1,0 +1,353 @@
+{
+  "build": 236,
+  "unitTests": {
+    "passed": 94,
+    "failed": 0,
+    "skipped": 0
+  },
+  "physicalControls": {
+    "autoHideDuringPlayback": true,
+    "pauseRetainsPlay": true,
+    "resumeAutoHides": true,
+    "sourcePickerDismissalAutoHides": true,
+    "observationUTC": "2026-11-04T14:39:12Z/2026-11-04T14:41:33Z"
+  },
+  "events": [
+    {
+      "timeUTC": "2026-11-04T14:32:30.511588+00:00",
+      "name": "watch_requested",
+      "outcome": "info",
+      "details": {}
+    },
+    {
+      "timeUTC": "2026-11-04T14:32:31.130142+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "mode": "native"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:32:32.546329+00:00",
+      "name": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "relay_request_phase": "upstream_response",
+        "relay_request_outcome": "failed",
+        "source_family": "reviewedtv",
+        "relay_request_http_status": "404",
+        "source": "TV1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:32:35.141144+00:00",
+      "name": "automatic_failover",
+      "outcome": "failure",
+      "details": {
+        "source": "TV1",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:32:35.233307+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "CS1",
+        "source_family": "communitysports",
+        "mode": "native"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:32:38.356667+00:00",
+      "name": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "CS1",
+        "source_family": "communitysports",
+        "mode": "native"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:33:08.354389+00:00",
+      "name": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "relay_request_outcome": "completed",
+        "relay_playlist_metadata_preserved": "true",
+        "native_access_stalls": "1",
+        "source": "CS1",
+        "native_failure_trigger": "stall_timeout",
+        "source_family": "communitysports",
+        "relay_playlist_rewritten_change": "advanced",
+        "relay_request_phase": "resource",
+        "relay_playlist_upstream_change": "advanced",
+        "native_log_code": "-12888",
+        "relay_request_http_status": "200",
+        "native_log_domain": "coremedia"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:33:08.386882+00:00",
+      "name": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "source": "CS1",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:33:08.404928+00:00",
+      "name": "stall_observed_duration",
+      "outcome": "failure",
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:33:58.817331+00:00",
+      "name": "watch_requested",
+      "outcome": "info",
+      "details": {}
+    },
+    {
+      "timeUTC": "2026-11-04T14:33:59.114784+00:00",
+      "name": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS1",
+        "mode": "native"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:33:59.192207+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_family": "reviewedtv",
+        "source": "TV1",
+        "mode": "native"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:34:00.452271+00:00",
+      "name": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "relay_request_phase": "upstream_response",
+        "source_family": "reviewedtv",
+        "relay_request_outcome": "failed",
+        "relay_request_http_status": "404",
+        "source": "TV1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:34:00.482919+00:00",
+      "name": "automatic_failover",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "source": "TV1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:34:00.550746+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS1",
+        "mode": "native"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:34:03.378432+00:00",
+      "name": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS1",
+        "mode": "native"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:34:33.406168+00:00",
+      "name": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source": "CS1",
+        "native_log_code": "-12888",
+        "source_family": "communitysports",
+        "relay_playlist_metadata_preserved": "true",
+        "relay_request_outcome": "completed",
+        "native_failure_trigger": "stall_timeout",
+        "native_access_stalls": "1",
+        "relay_playlist_rewritten_change": "advanced",
+        "native_log_domain": "coremedia",
+        "relay_request_phase": "resource",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_request_http_status": "200"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:34:33.438812+00:00",
+      "name": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "source": "CS1",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:34:33.456742+00:00",
+      "name": "stall_observed_duration",
+      "outcome": "failure",
+      "details": {
+        "source": "CS1",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:34:58.752087+00:00",
+      "name": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "CS1",
+        "mode": "native",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:35:42.953074+00:00",
+      "name": "watch_requested",
+      "outcome": "info",
+      "details": {}
+    },
+    {
+      "timeUTC": "2026-11-04T14:35:49.478743+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "CS1",
+        "mode": "native",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:35:52.352457+00:00",
+      "name": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "CS1",
+        "mode": "native",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:37:25.541526+00:00",
+      "name": "native_continuity_90s",
+      "outcome": "success",
+      "details": {
+        "mode": "native",
+        "native_access_stalls": "0",
+        "source_family": "communitysports",
+        "native_access_dropped_frames": "0",
+        "source": "CS1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:39:56.081032+00:00",
+      "name": "native_resume",
+      "outcome": "info",
+      "details": {
+        "source": "CS1",
+        "native_access_dropped_frames": "0",
+        "source_family": "communitysports",
+        "relay_playlist_metadata_preserved": "true",
+        "native_resume_action": "started",
+        "native_resume_elapsed_ms": "0",
+        "native_failure_trigger": "stall_timeout",
+        "native_access_stalls": "0",
+        "relay_playlist_rewritten_change": "advanced",
+        "mode": "native",
+        "relay_request_phase": "destination_validation",
+        "relay_playlist_upstream_change": "advanced"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:39:56.098265+00:00",
+      "name": "native_resume",
+      "outcome": "info",
+      "details": {
+        "source": "CS1",
+        "native_access_dropped_frames": "0",
+        "source_family": "communitysports",
+        "relay_playlist_metadata_preserved": "true",
+        "native_resume_action": "outside_window",
+        "native_resume_elapsed_ms": "0",
+        "native_failure_trigger": "stall_timeout",
+        "native_access_stalls": "0",
+        "relay_playlist_rewritten_change": "advanced",
+        "mode": "native",
+        "relay_request_phase": "upstream_response",
+        "relay_playlist_upstream_change": "advanced"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:39:57.184126+00:00",
+      "name": "native_resume",
+      "outcome": "info",
+      "details": {
+        "source": "CS1",
+        "native_access_dropped_frames": "0",
+        "source_family": "communitysports",
+        "relay_playlist_metadata_preserved": "true",
+        "native_resume_action": "window_rejoined",
+        "native_resume_elapsed_ms": "1085",
+        "native_access_stalls": "0",
+        "native_failure_trigger": "stall_timeout",
+        "relay_playlist_rewritten_change": "advanced",
+        "mode": "native",
+        "relay_request_phase": "resource",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_request_http_status": "206"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:39:58.151975+00:00",
+      "name": "native_resume",
+      "outcome": "info",
+      "details": {
+        "source": "CS1",
+        "native_access_dropped_frames": "0",
+        "source_family": "communitysports",
+        "relay_playlist_metadata_preserved": "true",
+        "native_resume_action": "resumed",
+        "native_resume_elapsed_ms": "2043",
+        "native_failure_trigger": "stall_timeout",
+        "native_access_stalls": "0",
+        "relay_playlist_rewritten_change": "advanced",
+        "mode": "native",
+        "relay_request_phase": "resource",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_request_http_status": "206"
+      }
+    },
+    {
+      "timeUTC": "2026-11-04T14:41:30.622422+00:00",
+      "name": "native_continuity_90s",
+      "outcome": "success",
+      "details": {
+        "source": "CS1",
+        "native_access_dropped_frames": "0",
+        "mode": "native",
+        "native_access_stalls": "0",
+        "source_family": "communitysports"
+      }
+    }
+  ]
+}

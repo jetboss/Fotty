@@ -5,9 +5,576 @@ while the Apple bundle build number increases for every distributed build.
 
 ## [Unreleased]
 
+- Private Jet iPad 2.0.1 (214): repair source-qualified CS/Willow limited-overs matching and explicit official match-number handling; group Willow/Fox/Sky Cricket inside Sports TV while preserving their existing resolvers and personal order. Publish approved PR116 cricket Worker/watchdog repair with activation/state retained. Fox delivery and fresh live-match acceptance remain separate open gates; no TestFlight release.
+
+- Private Jet iPad 2.0.1 (212): add qualified English beIN SPORTS XTRA through the existing reviewed TV adapter. Preserve existing stations, source choices and delivery guards; exclude CBS Golazo, Fubo Sports Network and separate Willow Sports after their current media returned403. No TestFlight release.
+
+- Private Jet iPad 2.0.1 (210): add the verified CS Sky Sports Football delivery to normal Watch, prefer it over the incompatible TV feed on a cold tie, scope single-player TV startup history to each station, renew a verified frozen TV window once, and ignore late failures after a terminal attempt.
+
+- Private Jet iPad candidate 2.0.1 (141): match official football scores and
+  freshness by full club identity while retaining short display labels and
+  squad/date safeguards. Stabilize equivalent CS segment wrappers only for
+  the verified maintainer contract, retaining signed tokens, original media,
+  captured headers and existing destination checks. Add finite native HLS
+  failure classification and regression tests. Device playback and PiP
+  qualification are a separate private gate; no TestFlight release. The longer
+  build139 device check exposed the same wrapper rotation on a verified TikTok
+  CDN image segment;140 includes that exact-host compatibility regression.
+  Build141 also retains available CS upstreams within the six-choice cap,
+  preserving admission, delivery order, signed URLs and runtime profiles.
+
+- Prepare private Jelani-iPhone build 2.0.1 (124) with the source-qualified
+  all-sport status, cache/identity, stream/bookmark continuity and compact
+  upcoming/channel row repairs. Backend registry/polling/monitor changes remain
+  staged and are not activated by this phone-only installation. Preserve the
+  data container, existing source flags, badges and sport artwork; no TestFlight,
+  other-device installation, new feed activation or FPL feature work.
+
+- Release internal TestFlight 2.0.1 (111), consolidating the privately validated
+  101–110 app-wide polish and reliability work into one shared candidate. The
+  batch includes adaptive iPhone/iPad layouts, native Liquid Glass navigation,
+  badge-led Home hierarchy, compact live/up-next presentation, consistent sports
+  artwork, Watch Two improvements, quieter truthful catalog/fixture messaging,
+  interest-filter recovery and corrected CPL playoff identity. Production Worker
+  source `2026-09-20.worker-stability-1` is already deployed with bounded upstream
+  calls, structured observability, direct catalog fallback and exact-version
+  health monitoring. Keep the release internal-only and preserve the existing
+  Fotty Internal Smoke group. Apple processed the build, accepted the established
+  compliance declaration and shows it as Testing with focused English (U.K.)
+  notes saved. Build 100 remains the fallback; exact TestFlight device acceptance
+  remains separate.
+
+- Private Jelani-iPhone build 2.0.1 (109): use the working Liquid Glass surface
+  as Fotty's real Home/Matchday/FPL/Settings tab bar instead of layering an empty
+  native bar behind a custom dock. Recompose three-column sport tiles so artwork
+  sits above full-width labels, and render paired-badge fixtures with one readable
+  line per team plus scaled reflow before countdown/reminder actions. Full
+  simulator-free CI, the 361-point rendered grid contract and signed optimized
+  device gate pass. CoreDevice confirms 109 running; exact-build light and dark
+  screenshots verify the native tab bar and match-name correction. No TestFlight
+  or iPad action.
+
+- Private Jelani-iPhone build 2.0.1 (107): complete the physical Home verification
+  started in 105 and remove an iOS 27 empty Liquid Glass tab capsule above Fotty's
+  custom dock. Root destinations now remain alive in a layered container without
+  an underlying system `TabView`; only the selected layer is visible, interactive
+  or exposed to accessibility. Remove the redundant sport-tile checkmark. Full
+  simulator-free CI and the signed optimized device gate pass; CoreDevice confirms
+  107 running on Jelani's iPhone and a fresh physical screenshot confirms the
+  capsule is gone. No TestFlight or iPad action.
+
+- Private Jelani-iPhone build 2.0.1 (105): implement the owner-approved
+  Apple-inspired Home hierarchy natively. A real-badge live panel now leads,
+  Up Next uses compact paired-badge rows, Browse Sports follows with full-colour
+  Apple equipment artwork, and Search/Watch Two use restrained material chrome.
+  Existing stream, reminder, sorting, interests, Matchday and player ownership
+  remain unchanged. The focused rendered phone-grid regression and complete
+  simulator-free iOS CI gate pass. The signed optimized build installs in place
+  and CoreDevice reports 2.0.1 (105) on Jelani's iPhone; launch/visual acceptance
+  remains pending because the phone re-locked. No TestFlight or iPad action.
+
+- Prepare private Fotty 2.0.1 (104) as the playback-confidence candidate. Carry
+  forward build 103's video-first Watch Two layout and add the missing
+  build-scoped quality evidence for both MultiView panels: attempts, decoded
+  starts, in-place recoveries, automatic source changes, terminal failures and
+  startup time now use the same privacy-safe contract as the normal player.
+  Add a release-identity regression so the app, Live Activity extension,
+  Xcode project and XcodeGen source cannot silently diverge. Complete
+  simulator-free CI passes, as do the live PL/Champions League fixture contract,
+  official CPL schedule comparison and three-feed football identity audit.
+  Repair the opt-in playback soak after dead-code cleanup removed its old URL
+  helper; the gate now owns a reachable public Apple HLS fixture and the final
+  120-second run keeps one request, source and player item with decoded progress
+  and zero automatic failovers.
+  Exact Jet iPad interaction and signed-install evidence are recorded in the
+  release note; no TestFlight upload is part of this private qualification.
+
+- Private Jet iPad build 2.0.0 (101): complete the post-100 app-wide
+  Apple-aligned UI pass across Home, Matchday, Search, FPL, Settings, Match Hub
+  and player presentation. Preserve existing sports art, grid and playback
+  ownership while improving adaptive labels, control feedback, contrast,
+  large-text layouts, Coach keyboard avoidance and source-retry consistency.
+  The source gate passes 586 Catalyst tests with two opt-in skips and an unsigned
+  iOS Release compile. A signed optimized Release is installed in place on Jet
+  iPad only; app/extension identity, signatures, 60-second launch stability,
+  zero Fotty crash logs and physical landscape Home, Matchday, FPL onboarding
+  and Settings presentation pass with retained data.
+  Subsequent device acceptance confirms the connected FPL manager ID and
+  current-season confirmation persist across a full Fotty terminate/relaunch;
+  the connected Live workspace reopens without re-entry. No TestFlight upload,
+  tester change or data reset.
+
+- Release internal TestFlight 2.0.0 (100), batching opt-in CS playback and the
+  post-93 feedback/reminder work using official Xcode 27 (27A266a), following
+  rejection of 99's beta SDK. 581 units pass, two opt-in skips; iOS Release,
+  signed archive and upload pass. Apple confirms Testing for the existing
+  11-person Fotty Internal Smoke group with CS test notes saved. Build 93 remains
+  available. Temporary output/installer removed; exact-device acceptance remains
+  open. See release 100.
+
+- Candidate 2.0.0 (99) batches opt-in CS playback and post-93 feedback/reminder
+  work. Full units: 581 pass, two opt-in skips; iOS Release and signed archive
+  pass. Apple rejected the installed old beta SDK, so it is not on TestFlight.
+  Xcode update approved; candidate 100 follows. Source receipt retained and
+  temporary output removed; see release 99.
+
+- Private Jet iPad build 2.0.0 (98): integrate opt-in CS options with shared
+  native/web routing, bounded native retry, cancelled-attempt protection,
+  deferred PiP callbacks, exact Live-catalog fallback/conflict admission and
+  private source attribution. Focused tests: 181 pass, one opt-in soak skip;
+  signed Release and install/launch checks pass. Owner confirmed CS2 playback,
+  controls, source switching and PiP on Jet iPad. Other-source/iPhone/long-soak
+  acceptance remains open. No TestFlight upload; see release 98.
+
+- Source-only follow-up after 93: include bounded, dated MetricKit scrolling/hang
+  summaries in the existing opt-in feedback export, with unknown/mixed build
+  attribution, expiry, clearing and no raw traces or automatic upload. Full
+  Catalyst gate: 546 pass, zero failures, two opt-in skips; iOS Release passes.
+  Add tested history-free source recovery and pre-upload drift comparison, a
+  verified 17 MB local post-release recovery bundle, and an independent build-93
+  acceptance/report-receipt ledger. The owner-approved private GitHub recovery
+  copy subsequently passed a fresh download/restore; backups are manual and real
+  tester acceptance remains open. No new app install or distribution; see the
+  9 September field-readiness audit.
+
+- Release internal TestFlight build 2.0.0 (93), batching the private
+  82–92 UI work: compact Home and sport tiles, app-wide grouping and team
+  identity, adaptive iPad layouts, optional kickoff-clash hints, consistent
+  current/upcoming clocks, quieter routine refreshes and shaded sport loading
+  animations with evidence-gated Champions League styling. No playback
+  transport, provider, backend or tester-access changes in this release task.
+  Full Catalyst units: 538 pass, two opt-in checks skip; four refreshed UI checks
+  pass after one unchanged test-clock retry. Public Xcode 26.6 signs and uploads
+  the archive; Apple confirms Internal / Testing for the unchanged eight-person
+  Fotty Internal Smoke group, with focused testing notes. Build 81 stays available.
+  The 2.3 GB owned release output is removed. See release 93; direct device
+  acceptance of private 92 is not certification of the TestFlight artifact.
+
+- Correct the native Home design after build 82's visual rejection: local
+  Dynamic Type-aware point sizes instead of semantic font buckets, smaller
+  equal-height sports tiles without reserved blank title lines, compact Fotty
+  header with plain Search, and phone overflow in the header instead of a
+  separate row. Keep badges, side Watch and reminder controls. Real iPhone
+  comparison of intermediate build 83 caught four-column Pro Max layout;
+  cap phones at three columns while retaining adaptive iPad capacity. Add
+  native-rendered grid height and wide-phone column regression checks.
+
+- Local calm-Home UI batch: remove the repeated masthead tagline and interests
+  subtitle, use a compact interests row and quieter grouped match rows, and keep
+  badges, side-aligned Watch and opt-in reminders. Fresh listings show no routine
+  status banner; meaningful update warnings are shorter and check times are
+  behind Update details. CPL warnings follow the displayed fixtures in Home,
+  Search and Matchday. Automated UI fixtures now exercise fresh, stale, offline
+  and partial states rather than hiding notices. No new distributed build.
+
+- Prepare internal candidate 2.0.0 (81) from one reproducible product graph.
+  FPL squad replacement now rejects the currently selected player and any player
+  already in the squad, keeps the chooser open with an accessible explanation,
+  and preserves a valid saved replacement across navigation. Automated FPL data
+  remains isolated from real account freshness rules. Add stable identifiers for
+  Home interests, sport/event status, match-start controls and FPL squad rows;
+  tighten the Catalyst contrast audit to numeric colour contracts and retain
+  failure-only UI evidence plus richer release-gate diagnostics. The exact
+  candidate replays from clean remote ancestry with no omitted files and passes
+  secret scanning, 22 memory tests, the complete simulator-free public-Xcode
+  unit/Release gate, and all 20 Xcode 27 Catalyst UI journeys. Build 80 remains
+  the rollback. Public Xcode 26.6 archived and uploaded the internal-only build;
+  Apple completed processing, accepted the established no-listed-encryption
+  declaration, saved focused What to Test notes, and shows build 81 Testing for
+  the unchanged seven-person `Fotty Internal Smoke` group. Real Champions
+  League match-time playback and hands-on TestFlight iPhone/iPad acceptance
+  remain separate gates.
+
+- Prepare internal candidate 2.0.0 (80) and harden the 2026/27 Champions League
+  path after build 79. All 36 official club
+  identities now resolve across the 17 formal football-data.org name variants;
+  source-free official fixtures join Home, Search and My Matchday before stream
+  publication without exposing Watch. Different provider IDs for the exact same
+  reviewed teams/kickoff collapse to one source-backed row. Add an imminent UCL
+  CI preflight across the official schedule, three catalog mirrors and Worker
+  variants. Protected PR 21 publishes a daily 72-hour report plus a dedicated
+  30-minute match-window workflow; its policy rejects the Worker's synthetic
+  Legacy fallback and includes the player-supported Admin source. The hosted
+  preflight found all 18 Matchday 1 fixtures with three concrete variants each,
+  and the complete simulator-free policy suite plus public-Xcode 26.6 signed
+  Release compile pass. Public Xcode 26.6 archived and uploaded the internal-only
+  build; Apple processed it, the established no-listed-encryption declaration
+  and focused notes were saved, and build 80 is Testing for the unchanged
+  seven-person `Fotty Internal Smoke` group. Build 79 remains the rollback.
+  Live UCL score/alert coverage and real match-time device playback remain
+  separate gates.
+
+- Release internal candidate 2.0.0 (79). My Matchday now builds one
+  revision-keyed presentation projection instead of re-running official-match,
+  interest, status, playback and sort work whenever SwiftUI redraws. Per-frame
+  scroll-offset persistence and root-tab animation are removed. Settings keeps
+  action/state, privacy, destructive and recovery copy while removing repeated
+  instructions and built-in source version details. The complete simulator-free
+  policy suite, live identity audit and generic iOS Release compile pass. The
+  signed build installed on Jelani's iPhone and Jet iPad; automatic iPhone
+  launch was denied because it was locked, while the iPad installation and
+  launch succeeded. Public Xcode 26.6 archived and uploaded the same source;
+  Apple processed it, the established no-listed-encryption declaration was
+  saved, and build 79 is Testing for the unchanged seven-person
+  `Fotty Internal Smoke` group. Hands-on Matchday acceptance remains open and
+  temporary build products were removed.
+
+- Allocate private iPhone candidate 2.0.0 (78) after physical tracing proved the
+  failing cricket PiP session is WebKit-owned. The confirmed HTML video now
+  reports its PiP lifecycle to Fotty; WebKit PiP cancels scene-background media
+  suspension and prevents the asynchronous native handoff from dismantling the
+  owning web view. Ordinary non-PiP background playback still suspends after a
+  bounded grace window. WebKit execution/bridge/lifecycle regressions and the
+  complete simulator-free unit/Release gate pass. The signed optimized build is
+  installed only on Jelani's iPhone; the owner repeated the previously failing
+  provider PiP path and confirmed it is fixed. Build 78 is the accepted private
+  baseline, TestFlight remains build 75, and all temporary products were removed.
+
+- Allocate private iPhone candidate 2.0.0 (76). Native Picture in Picture now
+  survives the scene-background/AVKit-active callback race and observes the
+  retained player's time-control state so the system PiP Pause and Play buttons
+  remain aligned with Fotty and Now Playing. Four focused PiP regressions, the
+  complete simulator-free unit/Release gate and ten selected Catalyst UI checks
+  pass. One signed optimized Release app installed in place and launched only on
+  Jelani's iPhone; TestFlight build 75 and every other device are unchanged.
+  Hands-on testing rejected build 76: its PiP window still could not resume a
+  native cricket stream while Fotty was backgrounded. TestFlight build 75 is
+  still the shared fallback; build 76 must not be promoted.
+
+## [2.0.0 (75)] - 2026-09-06 - fixture freshness and daily-use internal beta
+
+- Promote the complete private reliability batch after build 55: personalised
+  three-day Home, audience-led live ordering, catalog performance work, one-tap
+  cricket discovery, playback lifecycle/controls, connected Matchday journeys,
+  current FPL workspaces and honest recovery states.
+- Deploy the fixture-freshness Worker from clean ancestry, publish the protected
+  daily CPL/PL/CL/provider monitor, and verify 39 CPL, 380 Premier League and 144
+  Champions League fixtures in production.
+- Pass the live provider audits, complete simulator-free native gate, generic
+  Release compile and signed Xcode 26.6 archive. Apple accepted and processed
+  the internal-only upload; established encryption compliance and focused notes
+  are saved, and build 75 is Testing for the existing seven-person
+  `Fotty Internal Smoke` group. See `docs/releases/Fotty-2.0.0-75.md`.
+
+- Harden fixture freshness for CPL, Premier League and Champions League. CPL
+  content revisions are now separate from successful verification receipts;
+  last-known-good fallbacks cannot masquerade as current or downgrade a verified
+  cache. Failed/old schedule checks surface a refresh warning, stale official
+  football analysis is removed from authoritative matching, and the daily
+  provider monitor now validates complete live PL/CL season feeds. The Worker,
+  protected monitor and app behavior are active in internal build 75.
+
+- Allocate private iPad candidate 2.0.0 (74). Personalized Home now presents
+  selected live events followed by up to three days of selected fixtures in
+  kickoff order, capped at three upcoming rows on iPhone and four on iPad. The
+  shared catalog retains the full 72-hour window, while broad Home preserves its
+  six-hour feature window, two-row later cap and prior 48-hour later boundary.
+  Final simulator-free tests and generic Release pass; the signed optimized
+  build installed/launched only on Jet iPad and visually shows the saved-interest
+  state plus `Next 3 days`. iPhone 70 and TestFlight 55 are unchanged.
+
+- Allocate private iPad candidate 2.0.0 (73). Home now offers one compact,
+  truthful interests entry point and an opt-in `Only show my interests on Home`
+  mode backed by the existing favorite-team and competition records. Full lineup
+  and Search retain the complete catalog, empty or unavailable preferences fail
+  open, competition selection does not enable alerts, and encrypted backups
+  remain compatible with older files. The complete simulator-free suite and
+  generic Release pass; the signed optimized build installed/launched only on
+  Jet iPad and its default broad-Home state is visually present. The owner then
+  confirmed PL/UCL/CPL filtering and a relevant one-day fixture on hardware.
+  TestFlight 55 and Jelani's iPhone 70 are unchanged.
+
+- Allocate private iPad candidate 2.0.0 (72). Home now reserves its prominent
+  live positions for the audience's ranked interests, keeps every other live
+  event under a compact counted More live disclosure and preserves the complete
+  Full lineup. Exact same-kickoff aliases from the reviewed team catalog merge
+  without fuzzy matching, preventing duplicate fixtures from consuming featured
+  positions. The complete simulator-free suite and generic Release pass; the
+  signed optimized build installed/launched on Jet iPad, the duplicate was
+  visually absent, and the normal app survived a 60-second hold. Hands-on
+  interaction acceptance remains open; iPhone 70 and TestFlight 55 are unchanged.
+
+- Replace the physically rejected Home scroll path with private optimized
+  iPhone build 70. Flatten fixture/date content into one stable lazy sequence,
+  remove absolute pixel-offset restoration, precompute score/competition/badge
+  presentation, bound normal row geometry, use the shared catalog clock instead
+  of per-row timelines, and cache custom row measurements. Full simulator-free
+  tests and generic Release pass; the signed app installed/launched and survived
+  a process hold on Jelani's iPhone. Hands-on cold-scroll acceptance is pending;
+  Jet iPad and TestFlight 55 are unchanged.
+
+- Supersede physically rejected private build 68 with optimized iPhone build
+  69. Restrict catalog-wide channel fallback to source-less CPL rows, cancel
+  badge loads after their final visible waiter disappears, use a 24-hour badge
+  catalog freshness window, parse remote league maps off MainActor and remove
+  per-row regex normalization. Full simulator-free tests/Release and signed
+  install/launch pass; hands-on cold-scroll acceptance remains pending.
+
+- Allocate private performance candidate 2.0.0 (68) and install its signed,
+  optimized Release app on Jelani's iPhone. Global badge refresh no longer
+  invalidates every catalog row; requests are coalesced/downsampled in bounded
+  caches, Home projections are revision-cached and SwiftData replacement runs
+  off MainActor without a catalog-wide animation. Add signposts, bounded
+  MetricKit summaries and a self-cleaning physical performance gate. Full
+  simulator-free tests and generic Release pass; cold-scroll acceptance remains
+  open. Jet iPad and TestFlight 55 are unchanged.
+
+- Allocate private iPhone candidate 2.0.0 (64). A native UIKit toolbar now owns
+  Pause/Sources touches above WebKit, and Pause clears the earlier surface tap
+  used to reveal controls before enforcing user-paused state. The simulator-free
+  gate passes; a decoded Groningen–Twente stream physically held at 76:05,
+  Fotty Play and provider Play both resumed, and Sources opened. Jet iPad now
+  runs build 64, but its provider-dependent UI runner never reached a player;
+  cross-device controls remain a manual gate and TestFlight remains 55.
+
+- Allocate private playback-control candidate 2.0.0 (61), installed from one
+  signed artifact on Jelani's iPhone and Jet iPad. Web chrome now remains
+  tappable above the provider and an explicit Pause resists scripted provider
+  restarts while allowing a genuine provider Play tap. The complete
+  simulator-free gate passes; exact-device control acceptance remains pending
+  and TestFlight stays on build 55.
+
+- Allocate private candidate 2.0.0 (59), install the same signed app on Jelani's
+  iPhone and Jet iPad, launch both, and retain both main app/Live Activity
+  processes through a 60-second hold. Signed Release smoke passes; TestFlight
+  remains 55 and hands-on acceptance remains open.
+
+- Preserve Home sport/league/cricket/following filters and Home/Search/Matchday
+  browsing positions across navigation, without adding another state owner.
+- Reflow Settings and the FPL deadline action at accessibility text sizes; let
+  Playback Sources inherit Light/Dark/System and keep diagnostics secondary.
+- Verify Matchday writes before publishing success, keep failed removals and
+  their reminders intact, roll back reminder creation when its save fails, and
+  refuse misleading follow edits while SwiftData is using temporary storage.
+- Self-check encrypted exports before Files handoff, stop a failed Matchday
+  restore before replacing follows, and make feedback preparation distinct from
+  confirmed delivery. The simulator-free gate passes 486 tests with two planned
+  skips, generic iOS Release, and seven affected Catalyst journeys. UI automation
+  now isolates retained Home state between test processes. Batch 4 remains local
+  pending the dated physical gates.
+
+- Refresh Rival Race and selected player histories from coherent current FPL
+  evidence, retaining labeled previous results on failure without extra pollers.
+- Protect season/manager identity, preserve unknown-origin legacy plans/chats,
+  bound planners to real gameweeks, qualify chip windows and unify wildcard budget.
+- Give journal decisions explicit targets and preserve historical evidence dates.
+- Resolve named players before Coach shortlisting, bound follow-up/history work,
+  and validate optional complete transfer routes without treating prose as verified.
+- Keep factual Coach answers available locally with cloud consent off; distinguish
+  raw published GW points from net points after transfer hits exactly once.
+- FPL batch remains local pending the documented device/live-model checks.
+- Qualify this local batch with 481 passing native tests (two intentional live/
+  soak skips), generic unsigned iOS Release, 135 web/Worker tests and Worker
+  dry-run. Reused temporary native/packaging output removed after verification.
+
+- Connect Home, Search and saved Matchday to one current Watch action, including
+  one-tap reviewed CPL channel alternatives without an extra selection screen.
+- Preserve saved/reminded intent through catalog omissions and reschedules;
+  distinguish changed starts, checked scores, listed starts and stale coverage.
+- Make multisport team identities and Favorite Leagues work consistently across
+  onboarding, Following and Matchday, with recoverable isolated migration.
+- Collect provider discovery incrementally with fair bounded opportunities;
+  preserve partial conflict evidence and stop penalizing unrelated matches for
+  one failed stream. Refresh Match Hub score/insights as one owned snapshot.
+- This connected-journey batch remains local, with verification and remaining
+  device checks in the dated connected-sports implementation record.
+
+- Restrict native media relay access to loopback/session routes, scope credentials
+  and redirects, and bound its requests, manifests and lifecycle. DNS preflight is
+  not address pinning; real-provider physical qualification remains open.
+- Add revocable private Coach access with device-only secure storage, mandatory
+  configured limits, one cancellable deadline and a persisted group allowance of
+  50 paid attempts per UTC day. New backend configuration stays paid disabled;
+  nothing is activated or deployed by these source changes.
+- Preserve unfinished manager/season transfer plans with Undo and explicit refresh
+  conflicts; validate combined suggestions and final saves against complete squad
+  and current budget rules. Backup restore clears replaced working staging.
+- Pass the combined simulator-free native unit/iOS Release gate, all 83 web/Worker
+  tests and a Worker packaging dry-run. See the dated foundation implementation
+  record and product execution roadmap; the full roadmap is not yet complete.
+
+- Replace one-team fuzzy playback admission with strict fixture identity and
+  quarantine conflicting provider IDs without duplicate visible rows.
+- Own and cancel delayed playback retries across pause, recovery, dismissal,
+  source changes, backgrounding and network transitions.
+- Bind web playback/native handoff to visible main-player media and eligible
+  parent frames; preserve background resume and reject unrelated ad/resource evidence.
+- Retain distinct same-language, HD/SD, URL-query and required-header delivery
+  alternatives under the existing bounded discovery limits.
+- Refresh coherent FPL gameweek/fixtures/published-picks/live snapshots across
+  deadlines and full time, with complete-snapshot retention and age-aware stale labels.
+- Add controlled lifecycle/identity/media/FPL regressions. These local changes
+  are not included in installed build 58 or TestFlight 55; see the dated reliability audit.
+
+## [2.0.0 (58)] - 2026-09-04 - private direct Score808 candidate
+
+- Replace unverified cross-provider ID guessing with the actual site's published
+  team/kickoff/Watch mapping, bounded trusted-page reads and configured-player checks.
+- Keep the provider's player context and controls while fitting it to Fotty's
+  viewport; exclude unrelated ad media from this route's playback/handoff ownership.
+- Resolve the direct site alongside shared providers, retaining already-found
+  choices and actionable failures. Report discovery deadlines truthfully.
+- Add adversarial matching, transport, cancellation and media-ownership tests;
+  the opt-in real-site discovery check passes. See the build-58 record for gates
+  and physical acceptance status. No TestFlight upload is included.
+
+## [2.0.0 (57)] - 2026-09-04 - private late Score808 discovery candidate
+
+Historical candidate, not an accepted fix: its donor and stub-rejection claims
+below were disproved by the follow-up direct-site investigation and superseded
+in build 58.
+
+- Treat Score808 as a late-availability provider: an explicit Watch tap within
+  30 minutes of football kickoff refreshes catalog metadata even when another
+  source was already cached.
+- When that refreshed catalog still omits Score808, probe one verified
+  `admin`-identity `hotel` route and expose it only after normal player-page
+  validation succeeds. Do not advertise it early or retain an empty stub.
+- Pass the complete simulator-free Catalyst unit and generic iOS Release gate,
+  then install and launch the signed build only on Jet iPad. TestFlight remains
+  build 55.
+
+## [2.0.0 (56)] - 2026-09-04 - private provider trust diagnostics candidate
+
+- Preserve provider certificate/trust failures when every advertised embed
+  fails, and explain that Fotty cannot open the provider safely instead of
+  claiming that no stream exists.
+- Surface the resolver's real failure message consistently from Home,
+  Matchday and Match Hub. Apple networking's `NSURLErrorDomain -1202` form is
+  covered alongside native `URLError` values.
+- Pass the complete simulator-free Catalyst unit and generic iOS Release gate,
+  then install the separately signed build only on Jet iPad. CoreDevice reports
+  Fotty Sports Hub 2.0.0 (56) with both the app and Live Activity extension
+  running. TestFlight remains build 55.
+
+## [2.0.0 (55)] - 2026-09-03 - internal Fotty Sports Hub identity release
+
+- Rename the public-facing product to **Fotty Sports Hub** so the name matches
+  the app's football, cricket, basketball, baseball, hockey, tennis and other
+  sports coverage. Keep the established `FOTTY` wordmark and accepted F/pitch
+  icon as the primary visual identity.
+- Show `SPORTS HUB` in the Home masthead, use the full product name for the
+  installed app, extension, Settings version identity, web install manifest and
+  primary web metadata, while retaining natural short-form `Fotty` references.
+- Preserve bundle IDs, target/scheme/module names, `fotty://` deep links,
+  storage keys, `.fottybackup` compatibility, backend names and signing. This
+  is a user-facing rename, not a data or application-identity migration.
+- Web/Worker units pass 71/71, lint is clean, the production web build passes,
+  and the complete simulator-free Catalyst unit/generic iOS Release gate
+  passes. The current three-feed identity audit and signed Xcode 26.6 archive
+  also pass. Apple processed the internal-only upload, saved compliance and
+  focused testing notes, and shows build 55 as Internal / Testing for only
+  `Fotty Internal Smoke`. See `docs/releases/Fotty-2.0.0-55.md`.
+- Send an owner-approved Fotty-only App Store Connect invitation to
+  `jhamol61@gmail.com` with the Marketing role and no Create Apps permission.
+  Internal group membership remains unchanged until the invitation is accepted.
+
+## [2.0.0 (54)] - 2026-09-03 - internal one-tap CPL release
+
+- Promote the owner-accepted build-53 CPL discovery and one-tap channel route
+  to internal TestFlight without changing its truth boundary: trusted started
+  fixtures say `On now · listed start`, exact match sources stay preferred,
+  Fox is the one-tap fallback and Willow remains a separate channel row.
+- The current catalog/live-identity gate, Xcode 26.6 signed archive, matching
+  app/extension metadata and strict signature verification pass. Apple accepted
+  and processed the internal-only upload; the existing `Fotty Internal Smoke`
+  group and focused English (U.K.) notes are assigned. See
+  `docs/releases/Fotty-2.0.0-54.md`.
+- Send Fotty-only App Store Connect invitations to two owner-selected accounts
+  with the qualifying Marketing role. They remain pending until accepted and
+  cannot be added to the internal TestFlight group yet.
+
+## [2.0.0 (53)] - 2026-09-03 - private one-tap CPL candidate
+
+- Count a started trusted CPL fixture as `On now · listed start` even when its
+  exact match source is absent, fixing Cricket incorrectly advertising tomorrow
+  during a current match. Generic source-less and unknown-time events remain
+  excluded.
+- Remove build 52's extra channel-selection sheet. One tap on a source-less
+  current CPL fixture now opens the preferred active Fox Cricket channel; Willow
+  remains in the ordinary channel list for manual use. Exact match sources still
+  take priority, and Fotty does not claim independent programme confirmation.
+- Full simulator-free unit/policy and generic Release gates pass. The signed
+  build is installed only on Jelani's iPhone; CoreDevice reports 2.0.0 (53) with
+  the normal app running. During the current CPL match, the owner confirmed the
+  corrected on-now label and one-tap broadcast route with no intermediate sheet.
+  TestFlight remains build 51. See
+  `docs/releases/Fotty-2.0.0-53.md`.
+
+## [2.0.0 (52)] - 2026-09-03 - private CPL channel-options candidate
+
+- Keep exact team-and-kickoff sources as the preferred CPL Watch path, but stop
+  source-less current fixtures dead-ending while playable Fox Cricket or Willow
+  Cricket rows exist elsewhere in the same catalog. Home, the full schedule and
+  Search now offer a clearly labelled channel-options sheet during the match
+  window. It warns that channel programming is unconfirmed and never silently
+  attaches or substitutes a generic channel for a fixture.
+- The complete simulator-free policy/Release gate passes. A separately signed
+  build is installed only on Jelani's iPhone, where CoreDevice reports 2.0.0
+  (52), launches the normal app and observes it for 60 seconds. TestFlight stays
+  at build 51; physical CPL option/playback acceptance remains required. See
+  `docs/releases/Fotty-2.0.0-52.md`.
+- Superseded immediately by private build 53 after physical use showed two
+  unacceptable UX gaps: Cricket still said tomorrow during the current match,
+  and opening that match required a second channel-selection tap.
+
+## [2.0.0 (51)] - 2026-09-03 - internal TestFlight reliability candidate
+
+- Replace the manually refreshed CPL-only snapshot path with a validated remote
+  manifest, last-known-good device cache and daily fail-closed official/current
+  source monitor that prepares schedule changes for review. A partial or
+  conflicting source cannot overwrite the app's trusted fixtures.
+- Stop completed CPL T20 rows lingering into the following day: the continuity
+  allowance is now eight hours after listed start instead of 36 hours. Preserve
+  CPL's official 10:00 a.m. Guyana time for Match 28 despite a current verifier's
+  five-hour discrepancy. See
+  `docs/audit/Fotty-CPL-Fixture-Reliability-2026-09-03.md`.
+- Deploy Worker source `2026-09-03.cpl-fixtures-3` as Cloudflare version
+  `2b988894-e84a-45ac-b60f-23e2a8eac498`; production health and the public CPL
+  route return the expected source identity, 39 fixtures and official Match 28
+  start. Merge protected PR #16 after repository, web, iOS and CodeQL gates pass,
+  then prove the published daily monitor through a successful manual run.
+- Install the complete milestone directly on Jelani's iPhone 15 Pro Max as
+  2.0.0 (51). CoreDevice independently verifies the version, normal launch and a
+  60-second process hold. A fresh Xcode 26.6 archive then passes matching
+  app/extension versions and strict signing; Apple's internal-only upload is
+  accepted at 18:07 AST. Processing and the prior built-in-encryption-only
+  declaration complete. The owner-approved testing notes are saved, only Fotty
+  Internal Smoke is assigned, and App Store Connect independently shows build 51
+  **Internal / Testing**. The group now has three testers and eight builds; the
+  already-qualified Marketing account `kevon.samuel32@gmail.com` was added and
+  is **Invited**, without broadening its permissions. No simulator, iPad install
+  or connected-phone change occurs during the TestFlight release. See
+  `docs/releases/Fotty-2.0.0-51.md`.
+
+## [2.0.0 (50)] - 2026-09-01 - private iPhone 16e Graphify candidate
+
+- Continue the Graphify hotspot phase by extracting deterministic playback failure/source policy while retaining one `LivePlayerViewModel` owner for AVPlayer, WebKit, proxy, attempt, task and PiP lifecycle. Preserve same-attempt network recovery, same-source native return, bounded web retries and failover order; remove the unused duplicate source selector/logger/imports. Focused playback contracts and the complete simulator-free native gate pass.
+- Begin the Graphify hotspot phase by extracting manager-scoped FPL workspace persistence and pure derived decision-state computation from `FPLAdvisorViewModel` without changing its observable API or creating another state owner. Remove duplicate full-load/live-refresh recomputation; focused FPL trust tests and the complete simulator-free native gate pass.
+- Complete a Graphify-led dead-code and optimization milestone. The supported graph drops from 464 to 380 scanned code files, 6,437 to 5,769 nodes, 16,886 to 15,005 edges and 291 to 250 communities, with no import cycles before or after.
+- Physically remove the retired TWA/Android and homelab roots, Hybrid P2P/Ace/warmup implementation, disconnected v1 web UI, duplicate web playback/session/token stack, dead module APIs and obsolete one-off provider research scripts. Preserve only explicit unsafe-source rejection and installed-schema compatibility boundaries.
+- Final simulator-free iOS unit/Release, clean web lint, 66/66 web/Worker units, production Next build and Worker dry-run pass. No version bump, install, TestFlight upload, deployment or publication is included. See `docs/audit/Fotty-Graphify-Dead-Code-and-Optimization-2026-08-31.md`.
+- Approved reliability-first next phase: fresh tester evidence, data/Coach confidence, compatibility/recovery, then measured personalization/operating decisions and branding. See `docs/NEXT-PHASE-PLAN.md`; this is not a claim that every phase is implemented.
+- Adopt the whole-app qualification direction: make discovery/playback the universal promise, retain FPL as an optional first-class workspace, keep Gameweek/Squad/Coach primary, and label every secondary FPL tool by evidence maturity.
+- Remove unreachable social/chat/profile, old insights/highlights, mock-match, stream-debug and validation surfaces. Remove the unused avatar/photo UI and photo-library permission while retaining old SwiftData type metadata only for installed-store compatibility.
+- Warn visibly when persistent storage falls back to a non-saving in-memory session. Reconcile the Apple privacy manifest to public FPL ID, installation ID and opt-in Coach content using the current manifest schema.
+- Add a non-secret Worker `sourceVersion` health field for future deployment verification and define a 3–5 tester, seven-day private qualification with the iOS/iPadOS 26.4 minimum retained for this cycle. These changes are local: no Worker deployment, device install or TestFlight upload is included.
+- Allocate build 50 because private build 49 was already consumed before these source changes. Pair and register only the connected physical iPhone 16e, then install the strictly signed app with matching 2.0.0 (50) Live Activity extension. CoreDevice independently reports build 50, launches the normal app and observes a 60-second process hold. This is private installation evidence only; TestFlight remains build 48 and no other device, tester or service changed. See `docs/releases/Fotty-2.0.0-50.md`.
+
+## [2.0.0 (49)] - 2026-08-31 - private iPhone badge reliability candidate
+
+- Repair the corrupted live-provider badge-token URL used by build 48. The corrected endpoint returns valid image data for all 164 unique football, baseball and basketball badge tokens in the current 297-event feed.
+- Publish completed league catalogs incrementally instead of blocking valid ESPN results behind an optional slow provider, retry a failed cold bootstrap after a bounded cooldown, and try known team artwork when an explicit provider image fails.
+- Expand exact fallback coverage for the current live catalog: 144/144 empty-provider football names, 30/30 MLB names, 52/52 American-football names and 16/16 rugby names. Ambiguous rugby shorthand such as Bulldogs and Broncos stays scoped to rugby rather than cross-wiring another sport.
+- Focused regressions and the full simulator-free native gate pass. At the owner's request, the shared archive was interrupted before completion and the upload phase never ran. A separately built signed Debug artifact was installed in place only on Jelani's iPhone, where CoreDevice reports 2.0.0 (49) and a normal launch. Build 48 remains the newest TestFlight build. Small corrections now use this private pre-test lane; TestFlight waits for a meaningful multi-day milestone batch.
+
+## [2.0.0 (48)] - 2026-08-31 - premium identity, motion and recovery
+
+- Complete the six-step premium identity and motion plan: audit every reachable team badge, repair shared football aliases and major basketball/baseball/hockey/cricket coverage, add stable monogram fallbacks, and give Football, Cricket and Tennis distinct contextual loading motion that respects Reduce Motion. The live badge audit resolves all 272 referenced image URLs and rejects suspicious identity collisions; no runtime badge-scraping dependency is introduced. See `docs/audit/Fotty-Badge-and-Sport-Motion-Audit-2026-08-31.md`.
+- Add an explicit local-only private backup flow under Settings → Privacy so the owner can export and restore Fotty preferences and manager-scoped planning data through the system Files picker. The format is versioned and validated before import; it does not upload data or create a cloud account. See `docs/audit/Fotty-Private-Product-Recovery-2026-08-30.md`.
 - Installed the merged native PiP background-continuity correction and current Home search/football-identity pipeline only on Jet iPad as private build 47. The signed app and Live Activity extension both report 2.0.0 (47); CoreDevice independently confirms installation and a 60-second foreground process hold passes. This uniquely numbered direct Debug candidate is not TestFlight build 46 and does not certify PiP until a real native stream survives another app for 60 seconds plus lock/unlock without source replacement or duplicate audio. See `docs/releases/Fotty-2.0.0-47.md`.
 - Replace symptom-level football league filtering with one generated Swift/TypeScript club resolver, kickoff-bounded official-fixture competition reconciliation, redacted on-device identity diagnostics, shared provider payload regressions and a fail-closed live metadata drift gate. Exact Chelsea–Brighton and newly exposed Deportivo/Bundesliga 2 variants pass across all three reachable feeds; full native policy and generic iOS Release gates plus 87 web/Worker tests pass. This pipeline is installed only on Jet iPad in private build 47; physical discovery/league-placement acceptance and shared TestFlight distribution remain outstanding. See `docs/audit/Fotty-Football-Identity-Pipeline-2026-08-30.md` and `docs/releases/Fotty-2.0.0-47.md`.
-- Approved reliability-first next phase: fresh tester evidence, data/Coach confidence, compatibility/recovery, then measured personalization/operating decisions and branding. See `docs/NEXT-PHASE-PLAN.md`; this is not a claim that every phase is implemented.
+- Apple accepted the internal-only build-48 upload at 12:03:54 AST. Processing, the built-in-encryption declaration and testing notes completed; App Store Connect independently shows **Internal / Testing** for only the existing Fotty Internal Smoke group with two invitations. Exact TestFlight installation and physical iPhone/iPad acceptance remain outstanding. See `docs/releases/Fotty-2.0.0-48.md`.
 
 ## [2.0.0 (46)] - 2026-08-30 - single product graph correction
 

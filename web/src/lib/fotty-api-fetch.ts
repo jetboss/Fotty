@@ -10,7 +10,7 @@ import { FOTTY_DEFAULTS } from "@/lib/fotty-config";
  *
  * Catalog JSON baked into the static export (`/api/matches`, football, etc.) stays same-origin.
  */
-export function getPublicFottyApiBase() {
+function getPublicFottyApiBase() {
   const configured = process.env.NEXT_PUBLIC_FOTTY_API_BASE?.trim();
   if (configured) return configured.replace(/\/$/, "");
   // Always fall back to the public playback Worker so static FTP Watch can resolve
@@ -59,18 +59,12 @@ function isRemotePlaybackPath(pathname: string) {
   return (
     pathname === "/api/live/streams" ||
     pathname.startsWith("/api/live/streams?") ||
-    pathname.startsWith("/api/embed/") ||
-    pathname === "/api/stream" ||
-    pathname.startsWith("/api/stream/") ||
-    pathname === "/api/status" ||
-    pathname.startsWith("/api/status?") ||
-    pathname === "/api/p2p/health" ||
-    pathname.startsWith("/api/p2p/health?")
+    pathname.startsWith("/api/embed/")
   );
 }
 
 /** Same-origin path, or absolute Worker URL for playback-only APIs. */
-export function resolveFottyApiUrl(path: string): string {
+function resolveFottyApiUrl(path: string): string {
   const resolved = resolveRequestPath(path);
   const { pathname } = splitPath(resolved);
   const base = getPublicFottyApiBase();
@@ -82,7 +76,7 @@ export function resolveFottyApiUrl(path: string): string {
 
 /**
  * Fetch Fotty API paths.
- * - Playback routes (`/api/live/*`, `/api/embed/*`, …): remote Worker when configured.
+ * - Playback routes (`/api/live/*`, `/api/embed/*`): remote Worker when configured.
  * - Catalog routes (`/api/matches`, football, …): same-origin static JSON / local Next.
  * Never falls back to a retired homelab host.
  */

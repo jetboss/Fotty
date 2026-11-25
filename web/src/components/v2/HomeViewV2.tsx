@@ -84,11 +84,7 @@ export function HomeViewV2({ initialMatches = [] }: HomeViewV2Props) {
   const { markUpdated } = useMatchFeedPoll(silentRefresh, 45_000, true);
 
   useEffect(() => {
-    if (initialMatches.length > 0) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
+    if (initialMatches.length > 0) return;
     FottyAPI.fetchMatchesFresh()
       .then((data) => {
         if (data.length > 0) {

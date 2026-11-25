@@ -1,0 +1,260 @@
+{
+  "schema": "fotty.rea.reference-study.v1",
+  "date": "2026-10-28",
+  "scope": "Read-only established-player delivery, timeline authority and presentation ownership study. No app/device/provider/runtime/media changes.",
+  "source": "Shaka Player official npm distribution",
+  "license": "Apache-2.0",
+  "officialRelease": "https://github.com/shaka-project/shaka-player/releases/tag/v5.3.2",
+  "version": "5.3.2",
+  "commit": "6892f3fc3aa941399d0dc6d130b84d2e83beee7d",
+  "REA": {
+    "fullArtifact": {
+      "summaryEvidence": "ev_f71c9f860c02593c6c84e2039403072a6698e5a23fa5eea977d83b8cd01b5234",
+      "parentEvidence": "ev_65e55e18d4b933a589c6453cc2f76030735d388d72586ae2d3d7489f4e58c557",
+      "bytes": 1199153,
+      "sha256": "57dc50e2b2ae848b784dea3b7a25216828e391a276c47f357ec17b57d6be00b6",
+      "parsedJavaScriptFiles": 1,
+      "parsedASTNodes": 399005,
+      "parseFailures": 0,
+      "scope": "Published compiled UI bundle; no execution",
+      "maxHeapMiB": 384,
+      "timeoutMilliseconds": 60000,
+      "limit": "Full bundle exhausted owned semantic worker heap; application/semantic graph partial. No broad negative/reachability claim."
+    },
+    "exactByteFragments": {
+      "summaryEvidence": "ev_e1e0db5560f9cfd35100df74dc0364c40028aa3275b54a26753bc4441068a7f2",
+      "parentEvidence": "ev_600ad28c26d3ef63c220d884e85bf93a291899ea9b87c4b9c48bb14d1f8d7d74",
+      "bytes": 4980,
+      "parseFailures": 0,
+      "scope": "Two contiguous unmodified slices of published compiled bundle, byte ranges retained in provenance",
+      "applicationCoverage": "complete within fragments",
+      "semanticCoverage": "unknown/partial; 426 unknowns, external owners/dependencies excluded"
+    },
+    "focusedViews": [
+      {
+        "evidence": "ev_1ae8a8698398bec6b2fb8478ed8da952e63e00ea257ce23e71430d9a94a25511",
+        "query": "requestPictureInPicture property, backward provenance",
+        "status": "found",
+        "summary": {
+          "total_seed_matches": 1,
+          "traversed_nodes": 1,
+          "traversed_relations": 0,
+          "traversed_functions": 1,
+          "traversed_modules": 1,
+          "relevant_unknowns": 1
+        },
+        "limit": "One property receiver observed; dynamic external owner unresolved. Does not establish runtime/native AVKit behavior."
+      },
+      {
+        "evidence": "ev_7a014fab023bf36c02877963707ed18a54393c9cc1ecb4b0e6c66cbd4e40401c",
+        "query": "headers property, forward influence",
+        "status": "ambiguous",
+        "summary": {
+          "total_seed_matches": 2,
+          "traversed_nodes": 2,
+          "traversed_relations": 0,
+          "traversed_functions": 2,
+          "traversed_modules": 1,
+          "relevant_unknowns": 2
+        },
+        "limit": "Two distinct property receivers are unresolved; flow not proven by trace. Selected compiled control flow manually corroborated against byte-matched release source."
+      }
+    ]
+  },
+  "findings": [
+    {
+      "question": "Compatible delivery contracts without global host loosening",
+      "observed": "Compiled function yh clones original headers before per-attempt filter invocation, selects URI index within request.attempt, selects scheme plugin, scopes common token by selected URI host, and uses an abortable bounded backoff. Recoverable retry increments request.attempt; critical/aborted paths stop.",
+      "sources": [
+        {
+          "path": "lib/net/networking_engine.js",
+          "lines": "330-346, 478-552, 669-730"
+        }
+      ],
+      "inferenceForFotty": "Keep each exact selected delivery's reviewed URL, headers and grant together. Re-derive headers from the original reviewed source contract after a redirect/alternate URI; never inherit first-origin headers or admission from another source. Preserve current exact-host/path/TLS/public-IP rules rather than enabling general Shaka-like arbitrary URI dispatch.",
+      "currentRepairMapping": "CNC adapter reviewed HLS contract and source-local endpoint validation; StreamSession.renewingDelivery drops obsolete profiles. This does not justify broad host, HTTP, token or DRM exceptions."
+    },
+    {
+      "question": "Freshness and conflicting metadata authority",
+      "observed": "Release HLS parser evicts relative to the first segment still advertised by the playlist and clamps live edge to advertised segments. EXT-X-ENDLIST is tracked per active playlist before presentation converts to VOD.",
+      "sources": [
+        {
+          "path": "lib/hls/hls_parser.js",
+          "lines": "640-695, 4420-4428"
+        }
+      ],
+      "inferenceForFotty": "Do not promote wall-clock kickoff, a source LIVE label, a successful manifest fetch or a progressing player clock into sports identity/current-status authority. Keep official fixture state and exact provider event binding separate from delivery readiness, metadata TTL and actual transport expiry. An expired 90-second metadata receipt alone does not revoke an otherwise unexpired selected stream.",
+      "currentRepairMapping": "Existing exact date/team/squad/competition binding and source refresh conflict checks remain required. This player library supplies no football/cricket schedule authority; no claim that it prevents wrong live-sports listings."
+    },
+    {
+      "question": "Single-player fullscreen/PiP ownership",
+      "observed": "Compiled q.hd / SR / kS presentation paths request PiP/fullscreen on the same a.u media element, exit the incompatible presentation first, and dispatch presentation errors; selected path does not call load or replace media source. Published source likewise uses this.localVideo_.",
+      "sources": [
+        {
+          "path": "ui/controls.js",
+          "lines": "1102-1288"
+        }
+      ],
+      "inferenceForFotty": "Keep one selected playback attempt and AVPlayerItem while changing presentation. Fullscreen/PiP callbacks must be owner-correlated, and presentation failures must not silently restart source discovery or consume transport retry budget.",
+      "currentRepairMapping": "Preserve NativeFullscreenSession/player/item ownership and source UUID. Validate with physical iPad same-item receipts; web API static evidence is not native PiP proof."
+    }
+  ],
+  "verificationLimits": [
+    "Published compiled file was byte-identical via jsDelivr and unpkg, both pinned to official package version; npm archive SRI was recorded but not verified because the 26.5 MB full archive was not downloaded.",
+    "Four matching published source files byte-match registry gitHead source commit. This is source correspondence, not a reproducible build proof for the compiled bundle.",
+    "Artifact text was parsed inertly; no shipped code execution, accounts, device interaction, stream/media requests, playback, audio, fullscreen or PiP runtime observation.",
+    "Shaka browser networking intentionally supports arbitrary configured origins; Fotty must retain its stricter reviewed source safety boundary.",
+    "No new Fotty defect or passing physical source is claimed by this reference study."
+  ],
+  "recommendedScope": "Use the three patterns as focused review/test criteria for current CNC/CS and single-player repairs; no new library, broad rewrite, feature scope or security exception is recommended.",
+  "provenance": {
+    "package": "shaka-player",
+    "version": "5.3.2",
+    "license": "Apache-2.0",
+    "gitHead": "6892f3fc3aa941399d0dc6d130b84d2e83beee7d",
+    "dist": {
+      "shasum": "cff175c3bc3c8c55e99d93bbe172451435c4e626",
+      "tarball": "https://registry.npmjs.org/shaka-player/-/shaka-player-5.3.2.tgz",
+      "fileCount": 708,
+      "integrity": "sha512-Fwf9OFMv1P3as/SJeDq1bIGDeRLamfC+fppojIbF+rBLq0C1FVpDCnRg2V/ZlkiwBoCxcn48Rk2Oqsg1HZYe0Q==",
+      "signatures": [
+        {
+          "sig": "MEQCIHlQeizMx/D7ZiN51LaW4bwV3lfmuZL71Y5xwi7vNPRCAiA3yFO2v5O6YCnE20TB6gEtMCiepnHvk/SJJS6UzRX9Ag==",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        },
+        {
+          "sig": "MEUCIQCkVCo56QRbUWQtMbR4P1QrUuqUf8VGKXilIhBiwah9TQIgfYz0mmMiZKXKOg42gVZPPHZf2gQUuBhyDEr+lUad1Ig=",
+          "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+        }
+      ],
+      "attestations": {
+        "url": "https://registry.npmjs.org/-/npm/v1/attestations/shaka-player@5.3.2",
+        "provenance": {
+          "predicateType": "https://slsa.dev/provenance/v1"
+        }
+      },
+      "unpackedSize": 97250181
+    },
+    "downloads": [
+      {
+        "path": "artifact/shaka-player.ui.js",
+        "url": "https://cdn.jsdelivr.net/npm/shaka-player@5.3.2/dist/shaka-player.ui.js",
+        "bytes": 1199153,
+        "sha256": "57dc50e2b2ae848b784dea3b7a25216828e391a276c47f357ec17b57d6be00b6"
+      },
+      {
+        "path": "source/pip_button.js",
+        "url": "https://cdn.jsdelivr.net/npm/shaka-player@5.3.2/ui/pip_button.js",
+        "bytes": 6228,
+        "sha256": "2d97062faaab824b75ae027ca16542533fe90045843d333c5672c2363d7b2023"
+      },
+      {
+        "path": "source/controls.js",
+        "url": "https://cdn.jsdelivr.net/npm/shaka-player@5.3.2/ui/controls.js",
+        "bytes": 103179,
+        "sha256": "da850e772f29cf104a1985a4999d2f2cbc77d2fcfa326565192c4afeb7c12c3b"
+      },
+      {
+        "path": "source/networking_engine.js",
+        "url": "https://cdn.jsdelivr.net/npm/shaka-player@5.3.2/lib/net/networking_engine.js",
+        "bytes": 34309,
+        "sha256": "b15e41983c1c6de10c04eac2558f7c386125a44e66a018075ef524f93bb6794f"
+      },
+      {
+        "path": "source/hls_parser.js",
+        "url": "https://cdn.jsdelivr.net/npm/shaka-player@5.3.2/lib/hls/hls_parser.js",
+        "bytes": 237748,
+        "sha256": "67fdd3f7016c867675ad066e5d5eb5e9986779f1287fb5925abb0bf27994cb2c"
+      }
+    ],
+    "derivedFragments": [
+      {
+        "path": "fragments/delivery-contract.js",
+        "source": "artifact/shaka-player.ui.js",
+        "sourceUTF16Start": 112293,
+        "sourceUTF16EndExclusive": 114301,
+        "sourceByteStart": 112293,
+        "sourceByteEndExclusive": 114301,
+        "sha256": "c8f58bd28e757584eaf238531e0cec27eff9af86186d49e39c8cba6118e0174a",
+        "bytes": 2008,
+        "transformation": "contiguous original UTF-8 bytes; no wrapper, renaming or execution"
+      },
+      {
+        "path": "fragments/presentation-owner.js",
+        "source": "artifact/shaka-player.ui.js",
+        "sourceUTF16Start": 969089,
+        "sourceUTF16EndExclusive": 972061,
+        "sourceByteStart": 969089,
+        "sourceByteEndExclusive": 972061,
+        "sha256": "6490481e9b702ec8415bd69b31830370d9cb97aaf4f094a2cbb4f94540963230",
+        "bytes": 2972,
+        "transformation": "contiguous original UTF-8 bytes; no wrapper, renaming or execution"
+      }
+    ],
+    "sourceCommitChecks": [
+      {
+        "sourcePath": "ui/pip_button.js",
+        "sourceCommit": "6892f3fc3aa941399d0dc6d130b84d2e83beee7d",
+        "publishedNpmByteMatch": true,
+        "sha256": "2d97062faaab824b75ae027ca16542533fe90045843d333c5672c2363d7b2023"
+      },
+      {
+        "sourcePath": "ui/controls.js",
+        "sourceCommit": "6892f3fc3aa941399d0dc6d130b84d2e83beee7d",
+        "publishedNpmByteMatch": true,
+        "sha256": "da850e772f29cf104a1985a4999d2f2cbc77d2fcfa326565192c4afeb7c12c3b"
+      },
+      {
+        "sourcePath": "lib/net/networking_engine.js",
+        "sourceCommit": "6892f3fc3aa941399d0dc6d130b84d2e83beee7d",
+        "publishedNpmByteMatch": true,
+        "sha256": "b15e41983c1c6de10c04eac2558f7c386125a44e66a018075ef524f93bb6794f"
+      },
+      {
+        "sourcePath": "lib/hls/hls_parser.js",
+        "sourceCommit": "6892f3fc3aa941399d0dc6d130b84d2e83beee7d",
+        "publishedNpmByteMatch": true,
+        "sha256": "67fdd3f7016c867675ad066e5d5eb5e9986779f1287fb5925abb0bf27994cb2c"
+      }
+    ],
+    "secondRegistryCDNCheck": {
+      "url": "https://unpkg.com/shaka-player@5.3.2/dist/shaka-player.ui.js",
+      "bytes": 1199153,
+      "sha256": "57dc50e2b2ae848b784dea3b7a25216828e391a276c47f357ec17b57d6be00b6",
+      "matchesPrimaryArtifact": true,
+      "archiveSRIverified": false
+    }
+  },
+  "followupProxyReview": {
+    "scope": "Read-only focused audit of the observed CS HLS overlap complaint; no relay/policy/test changes or new runtime work.",
+    "allowedObservation": {
+      "native_log_hls_issue": "segment_uri_changed",
+      "native_log_domain": "coremedia",
+      "native_log_code": "-12312"
+    },
+    "sourceSnapshotCheck": "LocalStreamProxy.swift, LocalStreamProxyPolicy.swift and LocalStreamProxyTests.swift exactly matched candidate184 Source at inspection.",
+    "finding": "No confirmed local URI-registration defect. Equal absolute URLs keep route identity; reviewed equivalent wrappers keep their first immutable destination; rewrite is serialized and atomic; sequence/timing tags remain intact; caching is disabled. Only LRU eviction then re-registration changes a former route; no permitted receipt established that 4096-entry threshold was reached.",
+    "sourceLocations": [
+      {
+        "path": "Fotty/Core/Networking/LocalStreamProxyPolicy.swift",
+        "lines": "333-379",
+        "purpose": "Stable existing URL/alias registration and bounded LRU replacement"
+      },
+      {
+        "path": "Fotty/Core/Networking/LocalStreamProxy.swift",
+        "lines": "76-90, 410-414, 497-507, 557-560",
+        "purpose": "Per-item policy, cache-off, locked rewrite, checked redirect and no-store responses"
+      },
+      {
+        "path": "FottyTests/LocalStreamProxyTests.swift",
+        "lines": "154-318, 557-603",
+        "purpose": "Existing worker-rotation, signature, eviction, real fixture relay, unchanged overlap and final redirect-base coverage; inspected, not rerun"
+      }
+    ],
+    "limits": "Apple overlap complaint alone cannot attribute the change to local mapping or publisher. Last32 request receipts with zero failed requests do not prove playlist consistency or the cause of terminal playback.",
+    "deferredProposal": {
+      "status": "Not implemented; parent halted proposal after another agent corroborated an old-item/new-attempt lifecycle race. Validate that concrete repair first.",
+      "outline": "If still needed: bounded passive per-relay observer, at most32 exact original playlist URIs and last32 full EXTINF segment identities per URI; compare overlapping media/discontinuity sequences before/after successful rewrite. Export fixed vocabulary and bounded counts/age only; never media URLs/tokens/persistent hashes. Exclude unsupported delta/byterange/partial-only/ambiguous forms. No playlist, timeline, safety, HTTP or retry behavior changes."
+    }
+  }
+}

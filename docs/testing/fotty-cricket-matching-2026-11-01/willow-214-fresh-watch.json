@@ -1,0 +1,104 @@
+{
+  "checkedAtUTC": "2026-11-01T13:52:16.756449+00:00",
+  "normalTVWatch": "Willow Cricket",
+  "observedPicture": "Willow watermark; advancing Afghanistan/Zimbabwe footage and cricket interviews; no claim it is the scheduled third T20I",
+  "freshWatchAfterInitialFailure": true,
+  "newPositive90SecondNativeContinuitySamples": 1,
+  "records": [
+    {
+      "atUTC": "2026-11-01T13:48:50.651850+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "route": "single",
+        "source_family": "reviewedtv",
+        "source": "TV1",
+        "attempt_number": "1",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:48:52.228286+00:00",
+      "event": "source_discovery_result",
+      "outcome": "success",
+      "details": {
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:48:52.439663+00:00",
+      "event": "playback_causal_evidence",
+      "outcome": "info",
+      "details": {
+        "route": "single",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "attempt_number": "1",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:48:52.446338+00:00",
+      "event": "audio_activation_evidence",
+      "outcome": "info",
+      "details": {}
+    },
+    {
+      "atUTC": "2026-11-01T13:48:52.585575+00:00",
+      "event": "audio_activation_evidence",
+      "outcome": "info",
+      "details": {}
+    },
+    {
+      "atUTC": "2026-11-01T13:48:52.669607+00:00",
+      "event": "playback_causal_evidence",
+      "outcome": "info",
+      "details": {
+        "source_family": "reviewedtv",
+        "source": "TV1",
+        "last_observed_stage": "preparing",
+        "attempt_number": "1",
+        "route": "single"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:48:52.675834+00:00",
+      "event": "audio_preparation_duration",
+      "outcome": "info",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "preparing",
+        "attempt_number": "1",
+        "route": "single",
+        "source": "TV1"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:48:56.847193+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "media_ready",
+        "attempt_number": "1",
+        "route": "single",
+        "source": "TV1"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:48:56.866022+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "decoded",
+        "attempt_number": "1",
+        "route": "single",
+        "source": "TV1"
+      }
+    }
+  ],
+  "sourceChangesDuringObservedHold": "none manually requested",
+  "decodedFrameCountInstrumented": false,
+  "liveFixtureMatchingPass": false
+}

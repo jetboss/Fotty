@@ -1,4 +1,5 @@
 import { abortable, boundedJSON, coachDeadline } from "./coach-safety.mjs";
+import { normalizeUCLReportedScore } from "./ucl-reported-score-policy.mjs";
 
 const DAY = 86_400_000;
 const MAX_BYTES = 2_000_000;
@@ -41,6 +42,11 @@ export const SPORTS_SOURCES = Object.freeze([
   espn("college-basketball-men", "NCAA Division I Men's Basketball", "basketball", "basketball/mens-college-basketball", "41", { group: "50", ageGroup: "college" }),
   espn("college-basketball-women", "NCAA Division I Women's Basketball", "basketball", "basketball/womens-college-basketball", "54", { group: "50", gender: "women", ageGroup: "college" }),
   espn("mls", "Major League Soccer", "football", "soccer/usa.1", "770"),
+  // National-team football. The same exact team/date admission applies;
+  // League IDs and slugs were read from ESPN's own scoreboard on 10 Nov 2026.
+  espn("uefa-nations-league", "UEFA Nations League", "football", "soccer/uefa.nations", "2395"),
+  espn("international-friendlies", "International Friendlies", "football", "soccer/fifa.friendly", "3922"),
+  espn("concacaf-nations-league", "Concacaf Nations League", "football", "soccer/concacaf.nations.league", "19267"),
 ]);
 
 function check(condition, message) { if (!condition) throw new Error(message); }
@@ -79,18 +85,45 @@ function normalize(descriptor, id, start, status, teams, observedAt, url, update
     source: { name: descriptor.sourceName, url, observedAt, ...(updatedAt ? { updatedAt } : {}) } };
 }
 
+// Football clocks are observations, never time elapsed since the scheduled start.
+// Both ESPN (45'+2') and the EFL (45' +2') publish a base minute and added time.
+function footballMinute(value, injuryTime) {
+  if (typeof value === "string") {
+    const match = /^(\d{1,3})['′]?(?:\s*\+\s*(\d{1,2})['′]?)?$/.exec(value.trim());
+    if (!match) return undefined;
+    value = Number(match[1]);
+    if (match[2] !== undefined) injuryTime = Number(match[2]);
+  }
+  if (!count(value) || value > 150 || (injuryTime != null && (!count(injuryTime) || injuryTime > 99))) return undefined;
+  return injuryTime ? `${value}+${injuryTime}′` : `${value}′`;
+}
+function attachFootballLive(fixture, home, away, clock) {
+  if (fixture?.sport !== "football" || fixture.status !== "live") return;
+  const hasScore = count(home) && home <= 99 && count(away) && away <= 99;
+  if (clock || hasScore) fixture.footballLive = { ...(hasScore ? { home, away } : {}), ...(clock ? { clock } : {}) };
+}
+
 export function sportsFixtureWindow(now) {
   check(now instanceof Date && Number.isFinite(now.getTime()), "Invalid collection time");
   const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
   return { windowStart: new Date(today - DAY).toISOString(), windowEnd: new Date(today + 8 * DAY).toISOString() };
 }
 
-async function requestJSON(url, deadline, fetchImpl, headers = {}, withHeaders = false) {
+async function requestJSON(url, deadline, fetchImpl, headers = {}, withHeaders = false, allowEFLEmpty = false) {
   // Workers supports manual/follow, not the Node fetch "error" mode. Never
   // follow a redirect with a credential or accept an alternate publisher.
+  // No edge cache: the collector polls at most every 5 minutes, so a cached
+  // body can only ever be an older copy. On 21 Nov a stale football-data body
+  // (rows last updated at 00:20) published in-play Premier League matches as
+  // "scheduled" and made a finished match look regressed, freezing the league.
   const response = await abortable(() => fetchImpl(url, { signal: deadline.signal, redirect: "manual",
-    headers: { Accept: "application/json", ...headers }, cf: { cacheEverything: true, cacheTtl: 60 } }), deadline.signal);
-  if (!response.ok || response.redirected || response.status >= 300 && response.status < 400) {
+    headers: { Accept: "application/json", ...headers } }), deadline.signal);
+  // EFL's published Match Centre API returns this exact JSON error, rather
+  // than a 200 empty list, when the requested Cup window has no matches. This
+  // exception belongs only to that exact activated adapter and request route.
+  const eflEmptyResponse = allowEFLEmpty && withHeaders && response.status === 404
+    && url.origin === "https://multi-club-matches.webapi.gc.eflservices.co.uk" && url.pathname === "/v2/matches";
+  if ((!response.ok && !eflEmptyResponse) || response.redirected || response.status >= 300 && response.status < 400) {
     throw Object.assign(new Error("Sports schedule upstream unavailable"), { fixtureHTTPStatus: response.status });
   }
   const contentType = response.headers.get("content-type") || "";
@@ -99,8 +132,16 @@ async function requestJSON(url, deadline, fetchImpl, headers = {}, withHeaders =
   const wnbaText = String(url) === "https://cdn.wnba.com/static/json/staticData/scheduleLeagueV2.json" && /^text\/plain(?:\s*;|$)/i.test(contentType);
   check(wnbaText || /(?:^|\/)json(?:\s*;|$)|\+json(?:\s*;|$)/i.test(contentType), "Sports schedule is not JSON");
   const data = await boundedJSON(response, MAX_BYTES, deadline.signal);
+  if (eflEmptyResponse) {
+    const error = data?.errors?.[0];
+    check(data && !Array.isArray(data) && Object.keys(data).length === 1
+      && Array.isArray(data.errors) && data.errors.length === 1
+      && error && !Array.isArray(error) && Object.keys(error).length === 3
+      && error.detail === "No matches found" && error.title === "Not Found" && error.status === "404",
+    "EFL empty-window response unrecognized");
+  }
   return withHeaders ? { data, lastModified: response.headers.get("last-modified"), age: response.headers.get("age"),
-    date: response.headers.get("date") } : data;
+    date: response.headers.get("date"), ...(eflEmptyResponse ? { emptyEFLWindow: true } : {}) } : data;
 }
 
 async function efl(descriptor, context) {
@@ -114,7 +155,16 @@ async function efl(descriptor, context) {
   url.search = new URLSearchParams({ from: date(new Date(windowStart)),
     to: date(new Date(Date.parse(windowEnd) - 1000)), competitionID: descriptor.publisherCompetitionID,
     seasonID: String(season), "page.size": "100" });
-  const { data, date: responseDate, age } = await getWithHeaders(url);
+  const { data, date: responseDate, age, emptyEFLWindow } = await getWithHeaders(url);
+  const generated = new Date(responseDate);
+  check(typeof responseDate === "string" && generated.toUTCString() === responseDate
+    && generated.getTime() <= now.getTime() + 300_000
+    && now.getTime() - generated.getTime() <= 6 * 3600_000, "EFL publisher receipt invalid");
+  check(age === null || /^\d+$/.test(age) && Number.isSafeInteger(Number(age)), "EFL response age invalid");
+  // No fixture, synthetic self-link or kickoff is manufactured from the error.
+  // Durable admission still protects a previously accepted active fixture from
+  // disappearing merely because a later publisher response is empty.
+  if (emptyEFLWindow) return [];
   check(Array.isArray(data.data) && data.data.length < 100 && count(data.meta?.totalCount)
     && data.meta.totalCount === data.meta.count && data.meta.count === data.data.length, "EFL schedule incomplete");
   const self = typeof data.links?.self === "string" ? new URL(data.links.self) : null;
@@ -124,11 +174,6 @@ async function efl(descriptor, context) {
       && self.searchParams.get(key) === value)
     && [...self.searchParams.keys()].every((key) => url.searchParams.has(key))
     && !data.links.next && !data.links.prev, "EFL schedule scope mismatch");
-  const generated = new Date(responseDate);
-  check(typeof responseDate === "string" && generated.toUTCString() === responseDate
-    && generated.getTime() <= now.getTime() + 300_000
-    && now.getTime() - generated.getTime() <= 6 * 3600_000, "EFL publisher receipt invalid");
-  check(age === null || /^\d+$/.test(age) && Number.isSafeInteger(Number(age)), "EFL response age invalid");
   unique(data.data, (row) => row.id);
   const periods = { PreMatch: "scheduled", FirstHalf: "live", HalfTime: "live", SecondHalf: "live",
     ExtraFirstHalf: "live", ExtraHalfTime: "live", ExtraSecondHalf: "live", ShootOut: "live", Penalties: "live",
@@ -162,6 +207,11 @@ async function efl(descriptor, context) {
       squad: { gender: "men", ageGroup: "senior" },
       source: { name: "EFL", url: url.href, observedAt, updatedAt: generated.toISOString() },
     };
+    if (fixture?.status === "live") {
+      const phase = { HalfTime: "HT", ExtraHalfTime: "HT", ShootOut: "PEN", Penalties: "PEN" }[item.matchPeriod];
+      const clock = phase ?? footballMinute(item.formattedMatchTime) ?? footballMinute(item.matchMinutes);
+      attachFootballLive(fixture, item.homeTeam.score, item.awayTeam.score, clock);
+    }
     return { start, fixture };
   });
 }
@@ -169,21 +219,37 @@ async function efl(descriptor, context) {
 async function football(descriptor, context) {
   const { windowStart, windowEnd, observedAt, env, get } = context;
   check(typeof env.FOOTBALL_DATA_API_KEY === "string" && env.FOOTBALL_DATA_API_KEY.length > 0, "Football schedule credential unavailable");
-  const url = new URL(descriptor.sourceURL);
-  url.searchParams.set("competitions", Object.keys(descriptor.codes).join(","));
-  url.searchParams.set("limit", "500");
-  url.searchParams.set("dateFrom", windowStart.slice(0, 10));
-  // football-data v4 dateTo is exclusive; the MLB equivalent is inclusive.
-  url.searchParams.set("dateTo", windowEnd.slice(0, 10));
-  const data = await get(url, { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY });
-  check(Array.isArray(data.matches) && data.matches.length < 500 && count(data.resultSet?.count)
-    && data.resultSet.count === data.matches.length, "Football schedule incomplete");
-  check(data.filters?.dateFrom === url.searchParams.get("dateFrom") && data.filters?.dateTo === url.searchParams.get("dateTo"), "Football schedule window mismatch");
-  check(typeof data.filters?.competitions === "string" && data.filters.competitions.split(",").sort().join(",") === Object.keys(descriptor.codes).sort().join(","), "Football competition filter unavailable");
+  // One request per league. On 21 Nov the combined /v4/matches body kept
+  // in-play Premier League rows at their 00:20 values for hours while
+  // /v4/competitions/PL/matches was current, freezing every live status.
+  // The per-league endpoint's dateTo is inclusive and it does not echo date
+  // filters, so the window is proved from resultSet and every row instead.
+  const dateFrom = windowStart.slice(0, 10);
+  const dateTo = new Date(Date.parse(windowEnd) - DAY).toISOString().slice(0, 10);
+  const matches = [];
+  for (const code of Object.keys(descriptor.codes)) {
+    const url = new URL(`competitions/${code}/matches`, descriptor.sourceURL.replace(/matches$/, ""));
+    url.searchParams.set("dateFrom", dateFrom);
+    url.searchParams.set("dateTo", dateTo);
+    const data = await get(url, { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY });
+    check(Array.isArray(data.matches) && data.matches.length < 500 && count(data.resultSet?.count)
+      && data.resultSet.count === data.matches.length, "Football schedule incomplete");
+    check(data.competition?.code === code, "Football competition filter unavailable");
+    const inWindow = (day) => typeof day === "string" && day.slice(0, 10) >= dateFrom && day.slice(0, 10) <= dateTo;
+    check(data.matches.length === 0 || inWindow(data.resultSet.first) && inWindow(data.resultSet.last), "Football schedule window mismatch");
+    for (const row of data.matches) {
+      check(inWindow(row.utcDate), "Football schedule window mismatch");
+      check(row.competition === undefined || row.competition?.code === code, "Unexpected football competition");
+      matches.push({ ...row, competition: { ...row.competition, code }, sourceHref: url.href });
+    }
+  }
+  check(matches.length < 500, "Football schedule incomplete");
+  const data = { matches };
   unique(data.matches, (row) => row.id);
   const mapping = { SCHEDULED: "scheduled", TIMED: "scheduled", IN_PLAY: "live", PAUSED: "live", EXTRA_TIME: "live", PENALTY_SHOOTOUT: "live",
     FINISHED: "finished", POSTPONED: "postponed", SUSPENDED: "postponed", CANCELLED: "cancelled", AWARDED: "finished" };
-  return data.matches.map((row) => {
+  const liveNames = new Map();
+  const rows = data.matches.map((row) => {
     check(identifier(row.id), "Invalid upstream fixture identity");
     const compID = descriptor.codes[row.competition?.code];
     check(compID, "Unexpected football competition");
@@ -192,11 +258,106 @@ async function football(descriptor, context) {
     const updatedAt = row.lastUpdated === undefined ? undefined : utc(row.lastUpdated);
     if (updatedAt) check(Date.parse(updatedAt) <= context.now.getTime() + 15 * 60_000, "Football update timestamp invalid");
     // SCHEDULED means a rough date; TIMED means a confirmed kickoff in v4.
-    return { fixture: row.status === "SCHEDULED" ? null : normalize(descriptor, row.id, row.utcDate, status,
+    const fixture = row.status === "SCHEDULED" ? null : normalize(descriptor, row.id, row.utcDate, status,
       [participant("football-data", row.homeTeam?.id, row.homeTeam?.name, "home"),
-        participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, url.href, updatedAt, compID),
+        participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, row.sourceHref, updatedAt, compID);
+    const reportedScore = fixture ? normalizeUCLReportedScore(row, fixture) : undefined;
+    if (reportedScore) fixture.reportedScore = reportedScore;
+    if (fixture?.status === "live" && updatedAt) {
+      const shootout = row.status === "PENALTY_SHOOTOUT" || row.score?.duration === "PENALTY_SHOOTOUT";
+      const phase = shootout ? "PEN" : row.status === "PAUSED" ? "HT" : undefined;
+      const clock = phase ?? footballMinute(row.minute, row.injuryTime) ?? (row.status === "EXTRA_TIME" ? "ET" : undefined);
+      // football-data's cumulative fullTime includes penalties. Subtract its
+      // explicit shootout totals to preserve match goals as the score advances.
+      const matchGoals = (side) => {
+        const total = row.score?.fullTime?.[side];
+        if (!shootout) return total;
+        const penalties = row.score?.penalties?.[side];
+        return count(total) && count(penalties) && total >= penalties ? total - penalties : undefined;
+      };
+      attachFootballLive(fixture, matchGoals("home"), matchGoals("away"), clock);
+    }
+    if (fixture) liveNames.set(fixture.id, { home: [row.homeTeam?.name, row.homeTeam?.shortName],
+      away: [row.awayTeam?.name, row.awayTeam?.shortName] });
+    return { fixture,
       start: row.utcDate, competitionId: compID };
   });
+  if (env.FOTTY_FOOTBALL_LIVE_OVERLAY !== "0" && context.getOverlay) {
+    await overlayESPNFootballLive(rows.flatMap((row) => row.fixture ? [row.fixture] : []), liveNames, context);
+  }
+  return rows;
+}
+
+// Owner decision 21 Nov 2026: football-data marks kickoffs late (Newcastle-
+// Arsenal still TIMED five minutes in) and the big European leagues have no
+// free official live feed. ESPN's public scoreboard, already used for MLS and
+// national teams, is a live layer only: it can turn a scheduled row live and
+// add score/minute, never finish, cancel, add or remove a fixture. A row is
+// touched only when ESPN says in progress, kickoff agrees within five minutes
+// and both teams match in their roles, uniquely. ESPN failures are ignored.
+const ESPN_LIVE_LEAGUES = Object.freeze({ "champions-league": "uefa.champions", "la-liga": "esp.1",
+  "serie-a": "ita.1", "bundesliga": "ger.1", "ligue-1": "fra.1" });
+const TEAM_NAME_NOISE = new Set(["fc", "cf", "ac", "as", "ss", "ssc", "sc", "us", "afc", "cd", "ud", "sd", "rcd", "rc",
+  "club", "calcio", "de", "del", "la", "le", "sv", "vfl", "vfb", "tsg", "fsv", "bsc", "osc", "ogc", "fk", "sk", "rb", "stade"]);
+
+export function teamNameTokens(value) {
+  if (typeof value !== "string") return new Set();
+  return new Set(value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/ß/g, "ss")
+    .split(/[^a-z0-9]+/).filter((token) => token && !TEAM_NAME_NOISE.has(token) && !/^\d+$/.test(token)));
+}
+
+export function sameTeamName(ours, theirs) {
+  for (const left of ours.map(teamNameTokens)) for (const right of theirs.map(teamNameTokens)) {
+    if (!left.size || !right.size) continue;
+    if ([...left].every((token) => right.has(token)) || [...right].every((token) => left.has(token))) return true;
+  }
+  return false;
+}
+
+async function overlayESPNFootballLive(fixtures, names, context) {
+  const now = context.now.getTime();
+  const candidates = fixtures.filter((fixture) => ESPN_LIVE_LEAGUES[fixture.competitionId] && fixture.status === "scheduled"
+    && Date.parse(fixture.start) <= now + 5 * 60_000 && Date.parse(fixture.start) >= now - 3 * 3_600_000);
+  const leagues = [...new Set(candidates.map((fixture) => fixture.competitionId))];
+  await Promise.all(leagues.map(async (competitionId) => {
+    let events;
+    try {
+      const url = new URL(`https://site.api.espn.com/apis/site/v2/sports/soccer/${ESPN_LIVE_LEAGUES[competitionId]}/scoreboard`);
+      // ESPN pages follow the US Eastern calendar day.
+      url.searchParams.set("dates", new Date(now - 5 * 3_600_000).toISOString().slice(0, 10).replaceAll("-", ""));
+      const data = await context.getOverlay(url);
+      if (data?.leagues?.[0]?.slug !== ESPN_LIVE_LEAGUES[competitionId] || !Array.isArray(data.events)) return;
+      events = data.events;
+    } catch { return; }
+    const inPlay = events.flatMap((event) => {
+      const match = event?.competitions?.[0];
+      const state = event?.status?.type;
+      if (state?.state !== "in" || state.completed !== false || !Array.isArray(match?.competitors) || match.competitors.length !== 2) return [];
+      const side = (role) => match.competitors.find((item) => item?.homeAway === role);
+      const home = side("home"), away = side("away");
+      const kickoff = Date.parse(event.date);
+      if (!home?.team || !away?.team || !Number.isFinite(kickoff)) return [];
+      return [{ kickoff, home, away, status: event.status }];
+    });
+    const local = candidates.filter((fixture) => fixture.competitionId === competitionId);
+    const pairs = [];
+    for (const event of inPlay) for (const fixture of local) {
+      const teams = names.get(fixture.id);
+      if (!teams || Math.abs(Date.parse(fixture.start) - event.kickoff) > 5 * 60_000) continue;
+      const espnNames = (item) => [item.team.displayName, item.team.shortDisplayName, item.team.name];
+      if (sameTeamName(teams.home, espnNames(event.home)) && sameTeamName(teams.away, espnNames(event.away))) pairs.push({ event, fixture });
+    }
+    for (const { event, fixture } of pairs) {
+      if (pairs.filter((pair) => pair.event === event || pair.fixture === fixture).length !== 1) continue;
+      const score = (item) => typeof item.score === "string" && /^\d{1,2}$/.test(item.score) ? Number(item.score) : undefined;
+      const phase = event.status.type.name === "STATUS_HALFTIME" ? "HT" : undefined;
+      const clock = phase ?? footballMinute(event.status.displayClock) ?? footballMinute(event.status.type.shortDetail);
+      fixture.status = "live";
+      fixture.source = { ...fixture.source, updatedAt: context.observedAt };
+      fixture.liveEvidence = "espn";
+      attachFootballLive(fixture, score(event.home), score(event.away), clock);
+    }
+  }));
 }
 
 async function mlb(descriptor, context) {
@@ -363,7 +524,18 @@ async function espnDaily(descriptor, context) {
       return participant(`espn:${descriptor.path.split("/")[1]}`, item.team.id, item.team.displayName, role);
     };
     const teams = [team("home"), team("away")];
-    return { start, fixture: match.timeValid ? normalize(descriptor, row.id, start, status, teams, observedAt, url) : null,
+    const fixture = match.timeValid ? normalize(descriptor, row.id, start, status, teams, observedAt, url) : null;
+    if (fixture?.sport === "football" && status === "live") {
+      const score = (role) => {
+        const value = match.competitors.find((item) => item.homeAway === role).score;
+        return typeof value === "string" && /^\d{1,2}$/.test(value) ? Number(value) : value;
+      };
+      const phase = row.status.type.name === "STATUS_HALFTIME" ? "HT" : undefined;
+      const clock = phase ?? footballMinute(row.status.displayClock) ?? footballMinute(row.status.type.shortDetail)
+        ?? (row.status.type.name === "STATUS_OVERTIME" ? "ET" : undefined);
+      attachFootballLive(fixture, score("home"), score("away"), clock);
+    }
+    return { start, fixture,
       providerID: row.id, group, agreement: JSON.stringify({ uid: row.uid, start, status, timeValid: match.timeValid,
         participants: match.competitors.map((item) => ({ role: item.homeAway, id: item.team.id, name: item.team.displayName }))
           .sort((a, b) => a.role.localeCompare(b.role)), squad: { gender: descriptor.gender, ageGroup: descriptor.ageGroup } }) };
@@ -388,13 +560,27 @@ export async function collectSportsSource(descriptor, now, env = {}, fetchImpl =
   try {
     const context = { ...window, observedAt, now, env,
       get: (url, headers) => requestJSON(url, deadline, fetchImpl, headers),
-      getWithHeaders: (url) => requestJSON(url, deadline, fetchImpl, {}, true) };
+      getWithHeaders: (url) => requestJSON(url, deadline, fetchImpl, {}, true, known.id === "efl-carabao-cup"),
+      // The live layer has its own short bound so it can never consume the
+      // collection's deadline or fail the schedule it decorates.
+      getOverlay: async (url) => {
+        const overlayDeadline = coachDeadline(undefined, 4_000);
+        try { return await requestJSON(url, overlayDeadline, fetchImpl); } finally { overlayDeadline.dispose(); }
+      } };
     const adapters = { "football-data": football, efl, mlb, nhl, wnba, espn: espnDaily };
     const rows = await abortable(() => adapters[known.adapter](known, context), deadline.signal);
     const relevant = rows.filter((row) => Date.parse(row.start) >= Date.parse(window.windowStart) && Date.parse(row.start) < Date.parse(window.windowEnd));
     const fixtures = relevant.flatMap((row) => row.fixture ? [row.fixture] : []).sort((a, b) => a.start.localeCompare(b.start) || a.id.localeCompare(b.id));
     const pendingByCompetition = Object.fromEntries(known.competitions.map((item) => [item.id, 0]));
-    for (const row of relevant) if (!row.fixture) pendingByCompetition[row.competitionId || known.competitions[0].id]++;
-    return { fixtures, pendingFixtureCount: relevant.length - fixtures.length, pendingByCompetition, observedAt, ...window };
+    const pendingStartsByCompetition = Object.fromEntries(known.competitions.map((item) => [item.id, []]));
+    for (const row of relevant) if (!row.fixture) {
+      const id = row.competitionId || known.competitions[0].id;
+      pendingByCompetition[id]++;
+      // A provisional publisher date is internal polling evidence only. It
+      // does not become a fixture, confirmed kickoff, countdown or reminder.
+      pendingStartsByCompetition[id].push(new Date(row.start).toISOString());
+    }
+    return { fixtures, pendingFixtureCount: relevant.length - fixtures.length, pendingByCompetition,
+      pendingStartsByCompetition, observedAt, ...window };
   } finally { deadline.dispose(); }
 }

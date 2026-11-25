@@ -1,0 +1,44 @@
+{
+  "build": 195,
+  "signedAppAndWidgetVerified": true,
+  "installedOnJet": true,
+  "sourceClosureUnchanged": true,
+  "protectedFilesCompared": 50,
+  "protectedFilesUnchanged": true,
+  "privateFPLKeysCompared": 6,
+  "privateFPLValuesPreserved": true,
+  "sourceFlagsPreserved": true,
+  "samePresentationAndAttemptAcrossSystemRestore": true,
+  "presentationEvents": [
+    {
+      "at": "2026-10-30T20:19:23.955987+00:00",
+      "event": "presented"
+    },
+    {
+      "at": "2026-10-30T20:19:51.922918+00:00",
+      "event": "finish_transport_revoked"
+    },
+    {
+      "at": "2026-10-30T20:23:41.942462+00:00",
+      "event": "presented"
+    },
+    {
+      "at": "2026-10-30T20:25:07.262618+00:00",
+      "event": "pip_will_start"
+    },
+    {
+      "at": "2026-10-30T20:25:08.377498+00:00",
+      "event": "pip_did_start"
+    },
+    {
+      "at": "2026-10-30T20:30:31.558723+00:00",
+      "event": "restore_retained"
+    },
+    {
+      "at": "2026-10-30T20:30:32.329673+00:00",
+      "event": "pip_did_stop"
+    }
+  ],
+  "phoneTouched": false,
+  "testFlightReleased": false
+}

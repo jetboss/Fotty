@@ -1,0 +1,45 @@
+{
+  "checkedAt": "2026-10-28T20:29:36.823Z",
+  "snapshotCheckedAt": "2026-10-28T20:28:44.993Z",
+  "cup": {
+    "sport": "football",
+    "competitionId": "carabao-cup",
+    "competitionName": "Carabao Cup",
+    "status": "covered",
+    "checkedAt": "2026-10-28T20:28:44.993Z",
+    "fixtureCount": 8,
+    "pendingFixtureCount": 0,
+    "nextStart": "2026-10-29T19:45:00.000Z",
+    "sync": {
+      "consecutiveFailures": 0,
+      "lastAttemptAt": "2026-10-28T20:28:44.993Z",
+      "lastSuccessAt": "2026-10-28T20:28:44.993Z",
+      "conflict": false
+    }
+  },
+  "match": {
+    "id": "sports-fixture:carabao-cup:g2687775",
+    "title": "Liverpool vs Chelsea",
+    "competitionId": "carabao-cup",
+    "start": "2026-10-28T20:00:00.000Z",
+    "status": "live",
+    "participants": [
+      {
+        "id": "efl:team:liverpool",
+        "name": "Liverpool",
+        "role": "home"
+      },
+      {
+        "id": "efl:team:chelsea",
+        "name": "Chelsea",
+        "role": "away"
+      }
+    ],
+    "source": {
+      "name": "EFL",
+      "url": "https://multi-club-matches.webapi.gc.eflservices.co.uk/v2/matches?from=2026-10-27+00%3A00%3A00Z&to=2026-11-04+23%3A59%3A59Z&competitionID=2&seasonID=2026&page.size=100",
+      "observedAt": "2026-10-28T20:28:44.993Z",
+      "updatedAt": "2026-10-28T20:28:46.000Z"
+    }
+  }
+}

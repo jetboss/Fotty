@@ -1,0 +1,156 @@
+{
+  "build": "226",
+  "completion": "physical_collection_complete_review_each_delivery",
+  "fixtureID": "sports-fixture:champions-league:575377",
+  "fixtureStatus": "live",
+  "kickoffUTC": "2026-11-03T17:45:00Z",
+  "liveStatusAuthority": "independent_espn_exact_fixture_in_progress",
+  "mode": "physical",
+  "observedAtUTC": "2026-11-03T19:05:48Z",
+  "rows": [
+    {
+      "catalog": "catalog_failed",
+      "deliveries": [],
+      "elapsedMilliseconds": 1707,
+      "failureCategory": "unknown",
+      "provider": "streamex",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [
+        {
+          "endpoint": "webPage",
+          "label": "Score808",
+          "result": "not_tested"
+        }
+      ],
+      "elapsedMilliseconds": 1290,
+      "provider": "score808",
+      "registeredMatches": 1,
+      "resolution": "descriptors_admitted"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [
+        {
+          "endpoint": "directMedia",
+          "label": "CS1",
+          "result": "not_tested"
+        },
+        {
+          "endpoint": "directMedia",
+          "label": "CS2",
+          "result": "not_tested"
+        },
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "relay_request_outcome": "completed"
+          },
+          "frames": 881,
+          "label": "CS3",
+          "phase": "completed",
+          "progressSeconds": 89.94,
+          "recheck": {
+            "currentBinding": 6,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 2,
+            "sameStream": 6
+          },
+          "result": "decoded_90_seconds_programme_review_required",
+          "startupSeconds": 3.899
+        },
+        {
+          "endpoint": "directMedia",
+          "label": "CS4",
+          "result": "not_tested"
+        },
+        {
+          "endpoint": "directMedia",
+          "label": "CS5",
+          "result": "not_tested"
+        },
+        {
+          "endpoint": "directMedia",
+          "label": "CS6",
+          "result": "not_tested"
+        }
+      ],
+      "elapsedMilliseconds": 2480,
+      "provider": "communitysports",
+      "registeredMatches": 1,
+      "resolution": "descriptors_admitted"
+    },
+    {
+      "catalog": "catalog_failed",
+      "deliveries": [],
+      "elapsedMilliseconds": 112,
+      "failureCategory": "manifest_invalid",
+      "failureStage": "invalid_addon_contract",
+      "provider": "plaviosports",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "unsupported_sport",
+      "deliveries": [],
+      "elapsedMilliseconds": 0,
+      "provider": "cncsports",
+      "registeredMatches": 0,
+      "resolution": "unsupported_sport"
+    },
+    {
+      "catalog": "failed(Fotty.StreamFailureCategory.manifestUnreachable)",
+      "deliveries": [],
+      "elapsedMilliseconds": 904,
+      "failureCategory": "manifest_unreachable",
+      "failureStage": "catalog_http_failure",
+      "provider": "flixstreams",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "catalog_failed",
+      "contractChecks": {
+        "catalogCount": true,
+        "configuration": true,
+        "genres": true,
+        "id": true,
+        "nativeValidationAccepted": true,
+        "resources": true,
+        "tv": true
+      },
+      "deliveries": [],
+      "elapsedMilliseconds": 874,
+      "failureCategory": "invalid_match_mapping",
+      "failureStage": "conflicting_fixture_match",
+      "provider": "streamvix",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [
+        {
+          "endpoint": "directMedia",
+          "label": "TV6",
+          "result": "not_tested"
+        }
+      ],
+      "elapsedMilliseconds": 368,
+      "provider": "reviewedtv",
+      "registeredMatches": 1,
+      "resolution": "descriptors_admitted"
+    }
+  ],
+  "schemaVersion": 1,
+  "sequence": 11,
+  "title": "FK Shakhtar Donetsk vs Sporting Clube de Portugal",
+  "toolRevision": "2026-10-31.connection-2",
+  "executionExitCode": 0,
+  "executionState": "collection_complete"
+}

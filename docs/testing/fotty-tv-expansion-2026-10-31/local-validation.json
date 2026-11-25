@@ -1,0 +1,41 @@
+{
+  "privateBuild": "206",
+  "nativeFocused": {
+    "passed": 82,
+    "failed": 0,
+    "skipped": 0
+  },
+  "backendFull": {
+    "passed": 519,
+    "failed": 0,
+    "skipped": 0
+  },
+  "watchdog": {
+    "passed": 186,
+    "failed": 0,
+    "skipped": 0
+  },
+  "bundles": {
+    "playbackDryRun": true,
+    "watchdogDryRun": true
+  },
+  "backendVersionCandidate": "2026-10-31.tv-football-1",
+  "cloudDeploymentApproved": true,
+  "cloudDeployed": true,
+  "normalLiveMatchWatchQualified": false,
+  "limits": {
+    "tvReadsPerDay": 576,
+    "readsPerCycle": 8,
+    "programmeFactLifetimeMinutes": 10
+  },
+  "excluded": [
+    "ownerPhone",
+    "FPL",
+    "multi-stream",
+    "TestFlight"
+  ],
+  "focusTVRegistryTests": 133,
+  "normalJetAppRestored": true,
+  "normalCloudCollectionVerified": true,
+  "cloudCommit": "7d74c40289a23be5443f0d6ed72ea36112c71510"
+}

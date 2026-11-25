@@ -1,0 +1,397 @@
+{
+  "build": "205",
+  "completion": "physical_collection_complete_review_each_delivery",
+  "fixtureID": "sports-fixture:premier-league:560628",
+  "fixtureStatus": "live",
+  "kickoffUTC": "2026-10-31T20:00:00Z",
+  "liveStatusAuthority": "independent_espn_exact_fixture_in_progress",
+  "mode": "physical",
+  "observedAtUTC": "2026-10-31T21:17:07Z",
+  "rows": [
+    {
+      "catalog": "catalog_failed",
+      "deliveries": [],
+      "elapsedMilliseconds": 1044,
+      "failureCategory": "unknown",
+      "provider": "streamex",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [
+        {
+          "endpoint": "webPage",
+          "label": "Score808",
+          "result": "manual_web_gate_required"
+        }
+      ],
+      "elapsedMilliseconds": 998,
+      "provider": "score808",
+      "registeredMatches": 1,
+      "resolution": "descriptors_admitted"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [
+        {
+          "endpoint": "directMedia",
+          "label": "CS1",
+          "recheck": {
+            "resolutionFailed": 1
+          },
+          "result": "unavailable_on_fresh_recheck"
+        },
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "relay_error_code": "-1001",
+            "relay_error_domain": "url",
+            "relay_failure_kind": "timeout",
+            "relay_failure_resource_category": "unknown",
+            "relay_failure_stage": "upstream_response",
+            "relay_request_outcome": "completed",
+            "relay_same_resource_later_completed": "true"
+          },
+          "frames": 878,
+          "label": "CS2",
+          "phase": "completed",
+          "progressSeconds": 93.54,
+          "recheck": {
+            "currentBinding": 6,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 2,
+            "sameStream": 6
+          },
+          "result": "decoded_90_seconds_programme_review_required",
+          "startupSeconds": 23.665
+        },
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "native_error_domain": "url",
+            "native_failure_trigger": "item_status_failed",
+            "native_underlying_code": "-16848",
+            "native_underlying_domain": "osstatus",
+            "relay_error_code": "0",
+            "relay_error_domain": "other",
+            "relay_failure_kind": "destination_denied",
+            "relay_failure_resource_category": "manifest",
+            "relay_failure_stage": "manifest",
+            "relay_request_outcome": "failed",
+            "relay_same_resource_later_completed": "false"
+          },
+          "frames": 0,
+          "label": "CS3",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 6,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 3,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "native_error_domain": "url",
+            "native_failure_trigger": "item_status_failed",
+            "native_underlying_code": "-12884",
+            "native_underlying_domain": "coremedia",
+            "relay_request_outcome": "in_flight"
+          },
+          "frames": 0,
+          "label": "CS4",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 6,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 1,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "label": "CS5",
+          "recheck": {
+            "currentBinding": 6,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 3,
+            "sameStream": 6
+          },
+          "result": "unavailable_on_fresh_recheck"
+        },
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "native_error_domain": "url",
+            "native_failure_trigger": "item_status_failed",
+            "native_underlying_code": "-16848",
+            "native_underlying_domain": "osstatus",
+            "relay_error_code": "0",
+            "relay_error_domain": "other",
+            "relay_failure_kind": "destination_denied",
+            "relay_failure_resource_category": "manifest",
+            "relay_failure_stage": "manifest",
+            "relay_request_outcome": "failed",
+            "relay_same_resource_later_completed": "false"
+          },
+          "frames": 0,
+          "label": "CS6",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 6,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 3,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        }
+      ],
+      "elapsedMilliseconds": 16182,
+      "provider": "communitysports",
+      "registeredMatches": 1,
+      "resolution": "descriptors_admitted"
+    },
+    {
+      "catalog": "notListed",
+      "deliveries": [],
+      "elapsedMilliseconds": 207,
+      "failureCategory": "provider_returned_empty",
+      "failureStage": "no_exact_fixture_match",
+      "provider": "plaviosports",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "unsupported_sport",
+      "deliveries": [],
+      "elapsedMilliseconds": 0,
+      "provider": "cncsports",
+      "registeredMatches": 0,
+      "resolution": "unsupported_sport"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "native_error_domain": "url",
+            "native_failure_trigger": "item_status_failed",
+            "native_underlying_code": "-16848",
+            "native_underlying_domain": "osstatus",
+            "relay_failure_kind": "http_status",
+            "relay_failure_resource_category": "manifest",
+            "relay_failure_stage": "upstream_response",
+            "relay_http_status": "502",
+            "relay_request_outcome": "failed",
+            "relay_same_resource_later_completed": "false"
+          },
+          "frames": 0,
+          "httpStatus": 502,
+          "label": "FS1",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "native_error_domain": "url",
+            "native_failure_trigger": "item_status_failed",
+            "native_underlying_code": "-16848",
+            "native_underlying_domain": "osstatus",
+            "relay_failure_kind": "http_status",
+            "relay_failure_resource_category": "manifest",
+            "relay_failure_stage": "upstream_response",
+            "relay_http_status": "502",
+            "relay_request_outcome": "failed",
+            "relay_same_resource_later_completed": "false"
+          },
+          "frames": 0,
+          "httpStatus": 502,
+          "label": "FS2",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "native_error_domain": "url",
+            "native_failure_trigger": "item_status_failed",
+            "native_underlying_code": "-16848",
+            "native_underlying_domain": "osstatus",
+            "relay_failure_kind": "http_status",
+            "relay_failure_resource_category": "manifest",
+            "relay_failure_stage": "upstream_response",
+            "relay_http_status": "502",
+            "relay_request_outcome": "failed",
+            "relay_same_resource_later_completed": "false"
+          },
+          "frames": 0,
+          "httpStatus": 502,
+          "label": "FS3",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "native_error_domain": "url",
+            "native_failure_trigger": "item_status_failed",
+            "native_underlying_code": "-16850",
+            "native_underlying_domain": "osstatus",
+            "relay_failure_kind": "http_status",
+            "relay_failure_resource_category": "manifest",
+            "relay_failure_stage": "upstream_response",
+            "relay_http_status": "504",
+            "relay_request_outcome": "failed",
+            "relay_same_resource_later_completed": "false"
+          },
+          "frames": 0,
+          "httpStatus": 504,
+          "label": "FS4",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "native_error_domain": "url",
+            "native_failure_trigger": "item_status_failed",
+            "native_underlying_code": "-16848",
+            "native_underlying_domain": "osstatus",
+            "relay_failure_kind": "http_status",
+            "relay_failure_resource_category": "manifest",
+            "relay_failure_stage": "upstream_response",
+            "relay_http_status": "502",
+            "relay_request_outcome": "failed",
+            "relay_same_resource_later_completed": "false"
+          },
+          "frames": 0,
+          "httpStatus": 502,
+          "label": "FS5",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "failureDetails": {
+            "native_error_domain": "url",
+            "native_failure_trigger": "item_status_failed",
+            "native_underlying_code": "-16848",
+            "native_underlying_domain": "osstatus",
+            "relay_failure_kind": "http_status",
+            "relay_failure_resource_category": "manifest",
+            "relay_failure_stage": "upstream_response",
+            "relay_http_status": "502",
+            "relay_request_outcome": "failed",
+            "relay_same_resource_later_completed": "false"
+          },
+          "frames": 0,
+          "httpStatus": 502,
+          "label": "FS6",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        }
+      ],
+      "elapsedMilliseconds": 7401,
+      "provider": "flixstreams",
+      "registeredMatches": 0,
+      "resolution": "descriptors_admitted"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [],
+      "elapsedMilliseconds": 1248,
+      "failureCategory": "provider_returned_empty",
+      "failureStage": "stream_entries_empty",
+      "provider": "streamvix",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "unsupported_sport",
+      "deliveries": [],
+      "elapsedMilliseconds": 0,
+      "provider": "reviewedtv",
+      "registeredMatches": 0,
+      "resolution": "unsupported_sport"
+    }
+  ],
+  "schemaVersion": 1,
+  "sequence": 32,
+  "title": "Aston Villa FC vs Fulham FC",
+  "toolRevision": "2026-10-31.connection-2",
+  "executionExitCode": 0,
+  "executionState": "collection_complete"
+}

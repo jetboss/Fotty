@@ -1,0 +1,80 @@
+{
+  "build": 191,
+  "normalFoxAttemptStartedUTC": "2026-10-30T14:48:31Z",
+  "playbackAttemptIdentityCount": 2,
+  "sourceIdentityCount": 1,
+  "watchIdentityCount": 1,
+  "newTerminalFailureCount": 0,
+  "newAttemptCount": 1,
+  "playerItemObjectIdentityInstrumented": false,
+  "events": [
+    {
+      "timeUTC": "2026-10-30T14:48:31.071Z",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T14:48:34.167Z",
+      "name": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "last_observed_stage": "decoded",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T14:52:16.265Z",
+      "name": "native_presentation",
+      "outcome": "info",
+      "details": {
+        "native_presentation_event": "presented",
+        "native_pip_active": "false",
+        "native_app_backgrounded": "false"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T14:56:48.084Z",
+      "name": "native_presentation",
+      "outcome": "info",
+      "details": {
+        "native_presentation_event": "pip_will_start",
+        "native_pip_active": "true",
+        "native_app_backgrounded": "false"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T14:56:48.909Z",
+      "name": "native_presentation",
+      "outcome": "info",
+      "details": {
+        "native_presentation_event": "pip_did_start",
+        "native_pip_active": "true",
+        "native_app_backgrounded": "false"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T14:59:13.870Z",
+      "name": "native_presentation",
+      "outcome": "info",
+      "details": {
+        "native_presentation_event": "restore_retained",
+        "native_pip_active": "true",
+        "native_app_backgrounded": "false"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T14:59:14.663Z",
+      "name": "native_presentation",
+      "outcome": "info",
+      "details": {
+        "native_presentation_event": "pip_did_stop",
+        "native_pip_active": "false",
+        "native_app_backgrounded": "false"
+      }
+    }
+  ]
+}

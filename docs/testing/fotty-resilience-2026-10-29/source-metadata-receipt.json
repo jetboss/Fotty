@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "checkedAtUTC": "2026-10-29T23:24:43.666Z",
+  "currentTargets": {
+    "premierLeague": {
+      "authoritativeDay": "2026-10-29",
+      "events": 0,
+      "receiptUTC": "2026-10-29T23:18:56.923Z"
+    },
+    "championsLeague": {
+      "authoritativeDay": "2026-10-29",
+      "events": 0,
+      "receiptUTC": "2026-10-29T23:18:57.008Z"
+    },
+    "cricket": {
+      "ICCAdvertisedRows": 59,
+      "ICCReturnedRows": 59,
+      "ICCReceiptUTC": "2026-10-29T23:19:46.668Z",
+      "ongoing": [
+        {
+          "teams": [
+            "South Africa",
+            "Australia"
+          ],
+          "competition": "Australia in South Africa, 3 Test Series, 2026",
+          "format": "Test",
+          "ordinal": "3rd Test",
+          "startUTC": "2026-10-27T08:30:00.000Z",
+          "phase": "Stumps",
+          "day": 3,
+          "onBreak": true
+        },
+        {
+          "teams": [
+            "Bangladesh",
+            "West Indies"
+          ],
+          "competition": "West Indies in Bangladesh, 2 Test Series, 2026",
+          "format": "Test",
+          "ordinal": "1st Test",
+          "startUTC": "2026-10-28T03:30:00.000Z",
+          "phase": "Stumps",
+          "day": 2,
+          "onBreak": true
+        }
+      ]
+    },
+    "eligibleLiveTarget": "None currently corroborated for the requested PL/mens-UCL/supported international-cricket gate; elapsed kickoff or add-on LIVE text was not authority."
+  },
+  "nextCricketCandidate": {
+    "teams": [
+      "New Zealand",
+      "India"
+    ],
+    "ordinal": "4th T20I",
+    "format": "T20I",
+    "date": "2026-10-30",
+    "officialUTC": "07:00",
+    "officialEvidence": [
+      "Fresh admitted ICC payload",
+      "https://www.bcci.tv/matches/f88ed94d-d276-4c4d-81b9-c8c8c8fa10ef/new-zealand-vs-india/match-details"
+    ],
+    "CSCatalogUTC": "07:30",
+    "CSMetaUTC": "07:30",
+    "catalogMetaIdentityMatches": true,
+    "metaReceiptUTC": "2026-10-29T23:24:43.666Z",
+    "result": "Future timing conflict,30min beyond15min guard. Not admissible; no stream descriptor requested."
+  },
+  "sources": {
+    "AS": {
+      "version": "1.9.98",
+      "footballRows": 144,
+      "cricketRows": 15,
+      "DLHD": {
+        "samePairMetaIdentityMatches": true,
+        "metaBytes": 235,
+        "explicitCalendarDate": false,
+        "clock": "19:45 UK time",
+        "result": "Cannot derive source date from fetch time, official fixture or opaque ID."
+      },
+      "Roxie": {
+        "samePairMetaIdentityMatches": true,
+        "metaBytes": 187,
+        "dateLabel": "October29,2026 12:45PM(site time)",
+        "explicitTimezone": false,
+        "result": "Calendar date present but timezone uncorroborated. Do not assume Pacific/fixed offset."
+      },
+      "maintainerEvidence": {
+        "directorySubmitter": "kotlinsyd",
+        "publicRepositoryList": 0,
+        "oldPlavioRepositoryHTTP": 404,
+        "backendSourceIdentified": false
+      },
+      "publishedConfigurationFamilies": [
+        "DaddyLive",
+        "RoxieStreams",
+        "CNC"
+      ],
+      "result": "No safe date-contract admission repair identified from current metadata/config artifact."
+    },
+    "CS": {
+      "version": "3.1.3",
+      "footballRows": 100,
+      "cricketRows": 23,
+      "upcomingRows": 100,
+      "searchAdvertised": true,
+      "result": "Search reaches the future NZ-India row beyond current/upcoming100-row projections, but its dated meta confirms the30min source conflict. No provider-wide absence inference."
+    },
+    "SV": {
+      "version": "12.4.23",
+      "catalogRows": 0,
+      "originalScheduleDay": "Thursday29Oct2026-ScheduleTimeUKGMTT",
+      "originalTargetPLorUCLRows": 0,
+      "result": "Pending event availability; original schedule is Daddy-derived, so not established independent supply from AS/CS Daddy."
+    },
+    "CNC": {
+      "version": "2.16.30",
+      "reviewedLivXowRows": 51,
+      "targetFootballRow": "Everton-Newcastle, finished Cup example only",
+      "nativeAdmittedSport": "NHL only",
+      "result": "No current target-sport exact/compatible delivery proof; AS configuration explicitly includes CNC, so wrapper label is not independence."
+    },
+    "FS": {
+      "version": "1.0.0",
+      "firstReviewedSoccerPageHTTP": 503,
+      "receiptUTC": "2026-10-29T23:20:56.534Z",
+      "remainingPagesNotRetried": true,
+      "result": "Catalog-stage failure at this route/time; no current descriptor, decoded playback or upstream-independence proof."
+    }
+  },
+  "independence": "No two independently qualified PL/UCL/cricket delivery families demonstrated. AS config's family selections and SV's published Daddy ancestry establish overlap; descriptor ancestry for FS/CNC remains unknown. Different wrappers/hosts/labels do not prove independent failure domains.",
+  "repairCriteria": [
+    "Require explicit source calendar-date+timezone authority with exact advertised catalog/meta linkage before AS new-family admission.",
+    "Preserve CS30min conflict until source publishes a verified correction or another exact separately dated delivery; do not widen shared timing fence.",
+    "Treat SV empty catalog as pending; FS503 as bounded catalog failure; do not retry unsupported account/HTTP/DRM routes.",
+    "Qualify family-by-family real-adapter/guarded-relay90second decoded programme, normal picker, native fullscreen/PiP and outage drill only within a newly verified live target."
+  ],
+  "scope": "Bounded source metadata and public producer-artifact investigation; no physical playback or live source qualification.",
+  "supersedingFinding": "Later original-Daddy schedule corroboration established a DLHD-only explicit dated-section authority; the native repair and its gates are tracked separately. Earlier AS result describes the catalog/meta/config alone.",
+  "privacy": "No delivery URLs, tokens, private identifiers or raw media responses retained."
+}

@@ -1,0 +1,82 @@
+{
+  "date": "2026-11-10",
+  "scope": "Source-only additions after review of build 262 and existing uncommitted backend changes. No device operation, deployment or release.",
+  "priority": [
+    "Premier League",
+    "UEFA Champions League",
+    "cricket"
+  ],
+  "added": [
+    {
+      "name": "Fubo Sports",
+      "provider": "TV27",
+      "catalog": "https://github.com/abusaeeidx/IPTV-Scraper-Zilla/blob/main/LGTV.m3u",
+      "classification": "Compatible new Sports TV delivery; physical acceptance pending",
+      "evidence": {
+        "master": "HTTP 200, HLS, nine variants",
+        "variant": "HTTP 200, HLS, ten segments",
+        "bounded_media_probe": "2,000,000-byte prefix in memory; ffprobe H.264 1920x1080 and AAC; ffmpeg decoded three video frames",
+        "limits": "Prefix decode is not a 90-second native playback, audio, correct-programme or independent match-backup pass."
+      },
+      "integration": "Existing reviewedtv opt-in, bounded fresh M3U fetch, exact published label plus dummy ID, reviewed HTTPS host/path, guarded relay, same-station descriptor renewal. No programme inferred from a generic channel.",
+      "coverage": "English Sports TV only; no Premier League, UCL or cricket assignment established."
+    }
+  ],
+  "not_added": [
+    {
+      "name": "TVPass USA Network / FS1",
+      "result": "DNS resolution failed on selected endpoints; pending upstream availability."
+    },
+    {
+      "name": "Moveonjoy FS1",
+      "result": "TLS certificate expired; no downgrade or certificate bypass."
+    },
+    {
+      "name": "Pixelsports ESPN USA / TNT",
+      "result": "HTTP 403 with advertised headers; TNT USA is not TNT Sports UK."
+    },
+    {
+      "name": "Yupptv Willow Sports",
+      "result": "HTTP 403; station differs from Willow Cricket."
+    },
+    {
+      "name": "CBS Sports HQ via LGTV",
+      "result": "Master and variant HLS responded; session/device/ad query contract not reviewed, EXT-X-KEY present but encryption method not inspected. No media decode. Pending, not declared DRM-incompatible."
+    },
+    {
+      "name": "CricHD / SportsWebcast / FSTV24v2 catalogs",
+      "result": "Placeholder or empty listings; no eligible delivery, not a failed playback test."
+    }
+  ],
+  "existing_sources": {
+    "AS_PlavioLive": "Fresh manifest 2.1.6 and later football/cricket catalogs responded. Earlier HTTP error is not proof of a paid plan. Existing Fotty adapter already sets explicit User-Agent/Accept. No new adapter defect proven or code changed.",
+    "CS": "Upstream now advertises additional provider labels; Fotty already consumes dynamic labels through reviewed routes. No missing-provider filter proven.",
+    "other_reviewed_candidates": "Access-gated, empty, overlapping or external-only leads remain unqualified; no accounts created and no new credentials or routes enabled."
+  },
+  "verification": {
+    "status": "Passed",
+    "platform": "Mac Catalyst; local test host, no physical-device test",
+    "suites": [
+      "ReviewedTVPlaylistClientTests",
+      "SportsTVExperienceTests"
+    ],
+    "tests": 60,
+    "failures": 0,
+    "skips": 0,
+    "source_membership": "Passed",
+    "diff_whitespace": "Passed",
+    "owned_temporary_output": "Removed in finally block",
+    "free_disk_after": "16 GiB",
+    "physical_acceptance": "Not performed; no installation in this task"
+  },
+  "preserved": [
+    "Recent official-fixture and direct-discovery repairs",
+    "Existing uncommitted Worker changes",
+    "Phone and iPad settings/builds",
+    "FPL",
+    "multi-stream",
+    "source opt-ins",
+    "TestFlight",
+    "cloud activation"
+  ]
+}

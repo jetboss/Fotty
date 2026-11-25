@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Radio } from "lucide-react";
 import type { ScrapedMatch } from "@/lib/api";
 import { buildWatchHref, formatKickoff } from "@/lib/live";
 import { estimateMatchClock } from "@/lib/match-clock";
 import { fixtureTeamLabels, isEventFixture, isKnockoutBracketTbd } from "@/lib/fixture-normalization";
-import { isOptimizedImageSrc } from "@/lib/image-hosts";
 import { cn } from "@/lib/utils";
 import {
   fixtureCardBadgeLabel,
@@ -55,7 +53,6 @@ export function PosterCard(props: PosterCardProps) {
 function FixturePosterCard({ match, returnTo, className, onHover, layout = "rail" }: PosterCardProps) {
   const watchReturnTo = returnTo ?? v2HomePath();
   const labels = fixtureTeamLabels(match);
-  const poster = match.poster?.trim();
   const phase = fixtureCardPhase(match);
   const isLive = phase === "live";
   const isClickable = fixtureCardIsClickable(match);
@@ -87,8 +84,6 @@ function FixturePosterCard({ match, returnTo, className, onHover, layout = "rail
   // Short kickoff label for center column between team names
   const kickoffLabel = formatKickoff(match.startsAt) ?? "";
   const centerMeta = isLive ? (clock || "Live now") : kickoffLabel;
-
-  const [posterError, setPosterError] = useState(false);
 
   const card = (
     <article

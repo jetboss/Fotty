@@ -216,11 +216,18 @@ public enum FPLDecisionEngine {
         let projectedPoints: Int? = hasCompleteScoringData ? picks.picks.reduce(-transferCost) { total, pick in
             total + (liveByID[pick.element]?.totalPoints ?? 0) * max(0, resolution.multipliers[pick.element] ?? pick.multiplier)
         } : nil
-        let officialCurrentPoints = matchesGameweek ? (picks.entryHistory?.points ?? publishedLineupPoints) : nil
+        let officialPointsBeforeTransfers = matchesGameweek ? picks.entryHistory?.points : nil
+        let officialCurrentPoints = matchesGameweek ? (officialPointsBeforeTransfers ?? publishedLineupPoints) : nil
+        // FPL's published GW points are before transfer costs (official Help:
+        // total vs sum of GW points; the Points UI sums player multipliers).
+        // Preserve that published field, but compare/display net contribution.
+        // The player-derived fallback already deducted the cost above.
+        let officialNetPoints = matchesGameweek
+            ? (officialPointsBeforeTransfers.map { $0 - transferCost } ?? publishedLineupPoints) : nil
         let usesProjection = picks.automaticSubs.isEmpty
             && (!resolution.projectedSubs.isEmpty || resolution.projectedCaptainElementID != nil)
             && !(gameweek.finished && gameweek.dataChecked == true)
-        let displayedPoints = usesProjection ? projectedPoints : officialCurrentPoints
+        let displayedPoints = usesProjection ? projectedPoints : officialNetPoints
         let activePicks = uniqueScoringRows(picks.picks, id: \.element).values.filter {
             matchesGameweek && max(0, resolution.multipliers[$0.element] ?? $0.multiplier) > 0
         }
@@ -260,7 +267,8 @@ public enum FPLDecisionEngine {
             projectedAutomaticSubs: resolution.projectedSubs,
             projectedCaptainElementID: resolution.projectedCaptainElementID,
             rows: rows.sorted { $0.pick.position < $1.pick.position },
-            isFinal: gameweek.finished && gameweek.dataChecked == true
+            isFinal: gameweek.finished && gameweek.dataChecked == true,
+            officialPointsBeforeTransfers: officialPointsBeforeTransfers
         )
     }
 

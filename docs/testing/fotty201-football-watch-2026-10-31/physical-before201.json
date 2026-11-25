@@ -1,0 +1,54 @@
+{
+  "fixtureAuthority": {
+    "publisher": "football-data.org",
+    "snapshotObservedAt": "2026-10-31T15:44:42.855Z",
+    "PLFixturesLive": [
+      "Manchester City\u2013Brighton",
+      "Bournemouth\u2013Leeds"
+    ],
+    "kickoffUTC": "2026-10-31T15:00:00Z"
+  },
+  "build199": {
+    "fixture": "Manchester City\u2013Brighton",
+    "entry": "normal Home Watch",
+    "tapAt": "2026-10-31T15:18:14.045Z",
+    "firstDecodedAt": "2026-10-31T15:19:55.566604Z",
+    "startupSeconds": 101.522,
+    "selectedAutomatically": "CS5",
+    "correctProgrammeObservedAt": "2026-10-31T15:20:39.259Z",
+    "programmeClock": "18:51",
+    "laterObservationAt": "2026-10-31T15:27:12.319Z",
+    "laterProgrammeClock": "25:23",
+    "correctProgrammeHoldSeconds": 393.06,
+    "verdict": "playback passed, startup performance failed"
+  },
+  "build200": {
+    "fixture": "Bournemouth\u2013Leeds",
+    "entry": "normal Home Watch",
+    "tapAt": "2026-10-31T15:35:03.653Z",
+    "firstAttemptAt": "2026-10-31T15:35:06.184231Z",
+    "firstSource": "FS1",
+    "directFirst": true,
+    "choicesEventually": 13,
+    "defect": "untried web family jumped ahead of remaining direct alternatives",
+    "laterNativeDecodedAt": "2026-10-31T15:37:41.804377Z",
+    "correctProgramme90SecondHold": "not independently observed; no acceptance claim",
+    "laterFailure": "CS4 media404 at15:44:27UTC"
+  },
+  "AS": {
+    "observedAt": "2026-10-31T15:48:47.725Z",
+    "version": "1.9.130",
+    "footballRows": 29,
+    "ManCityBrightonPresent": true,
+    "BournemouthLeedsPresent": true,
+    "family": "Roxie",
+    "clockAuthority": "site time with no verified timezone",
+    "nativeQualification": "pending compatibility; not a decoded-playback pass"
+  },
+  "constraints": {
+    "phoneTouched": false,
+    "FPLTouched": false,
+    "multiStreamTouched": false,
+    "TestFlight": false
+  }
+}

@@ -1,5 +1,10 @@
 # Fotty — daily-use evidence and next product phase
 
+Current execution order: the owner approved the broader
+[private product execution plan](FOTTY-PRODUCT-EXECUTION-PLAN.md) on 4 September
+2026. Use that document for new work. The dated milestones below are historical
+context and must not override current release records or restore retired code.
+
 Approved: 28 August 2026. This is the execution order accepted after the
 product-gap discussion, not a claim that every phase is complete.
 
@@ -10,10 +15,30 @@ FPL workspace earn trust through verified facts and useful, testable advice.
 Preserve badges, compact rows, optional appearance, provider-owned controls,
 Home discovery and personal My Matchday. No broad redesign is part of this pass.
 
-Normal releases use the existing internal TestFlight group. No new testers,
-account roles, external submission, paid service, official FPL transaction,
-Git publication or name change is implied. The old local Git ancestry must
-remain unpublished. No simulators; sequential builds and bounded cleanup.
+Fotty is a private, invite-only product. Normal shared releases use the existing
+internal TestFlight group; an explicitly authorized private cable build may be
+used for a narrow physical check. Public App Store distribution and external
+TestFlight are not active product goals. No new testers, account roles, paid
+service, official FPL transaction, Git publication or name change is implied.
+No simulators; sequential builds and bounded cleanup.
+
+## Current 2.0 qualification direction — approved 31 August 2026
+
+Discovery and truthful playback are Fotty's universal promise. FPL remains a
+first-class optional power tool: Gameweek, Squad and Coach are primary, while
+Tools is secondary and labels official facts, projections, estimates, published
+data, on-device plans and advanced solvers explicitly.
+
+The unreachable community/chat/profile, old insights/highlights, mock-match and
+debug-validation surfaces are retired from the production graph. Compatibility
+model metadata remains temporarily so existing private SwiftData stores stay
+readable. The checked-in iOS/iPadOS 26.4 minimum is intentional for this private
+cycle and must not be broadened without real older-device qualification.
+
+The next expansion is limited to 3–5 trusted testers for one seven-day daily-use
+qualification after the exact candidate closes its physical and backend-identity
+entry gates. The complete protocol is
+[`docs/beta/PRIVATE-QUALIFICATION-2.0.md`](beta/PRIVATE-QUALIFICATION-2.0.md).
 
 ## 1. Ship and qualify the reliability patch — superseded by build 45; physical acceptance open
 
@@ -51,8 +76,8 @@ These observations do not establish zero crashes, zero sessions or report delive
 ## 2. Observe a fresh tester round — awaiting exact-build acceptance
 
 First use the existing group to verify physical playback, retained data and one
-received TestFlight report. Then the owner selects the next small group of
-5–10 trusted testers, including differing screen sizes and FPL experience.
+received TestFlight report. Then the owner selects a qualification group of
+3–5 trusted testers, including differing screen sizes and FPL experience.
 Do not invite people or expand their permissions without specific authorization.
 
 Give outcomes, not directions to the right buttons. Record whether each task
@@ -86,18 +111,21 @@ This does not complete strategic-model evaluation or the physical tester round.
 Exit: reproduced defects have regressions; accepted advice states its evidence,
 uncertainty and actions; unknown totals stay unknown; no hindsight leakage.
 
-## 4. Compatibility and recovery — assess before changing the promise
+## 4. Compatibility and recovery — encrypted backup implemented; physical acceptance open
 
 - The distributed minimum remains iOS/iPadOS 26.4. A lower-target compile probe
   is diagnostic only. The unchanged normal Release app/extension pass an iOS 18
   compile probe; [the assessment](audit/Fotty-Device-Compatibility-2026-08-28.md)
   identifies the required older-device and Review Safe checks. No support promise
   changes until those pass.
-- Start recovery with a versioned, previewable backup/restore design. Define
-  exactly which preferences, follows, saves and manager-scoped plans transfer.
-  Exclude credentials, cached provider URLs, consent grants and diagnostics by
-  default. Validate before mutation, preserve the old state on failure, and
-  never silently re-enable reminders or AI consent on another device.
+- A versioned, previewable, password-encrypted backup/restore workflow now
+  transfers preferences, follows, saved Matchday identity and manager-scoped
+  local FPL plans. It excludes credentials, Coach conversations, cached provider
+  URLs/source identifiers, consent grants, reminders and diagnostics. Restore
+  validates the complete payload before mutation, replaces only the documented
+  state, clears AI consent and leaves reminders off. Four focused regressions
+  and the complete simulator-free iOS CI gate pass. Files-app export/import and
+  a real-device restore remain human acceptance, not inferred evidence.
 - Optional sync follows only if the backup workflow and tester demand justify
   its account, privacy, conflict resolution and operating costs.
 
@@ -114,16 +142,18 @@ uncertainty and actions; unknown totals stay unknown; no hindsight leakage.
   cannot discover a reschedule while Fotty is closed; better copy cannot change
   that architectural limit.
 
-## 6. Distribution and identity — owner decisions
+## 6. Private distribution and identity — owner decision recorded
 
 The working promise is broad sports discovery/watch with a particularly strong
 FPL companion. Evaluate a new name against that promise; do not rename binaries,
 bundle IDs, domains or Apple listings until one is selected.
 
-Before wider/public distribution, document permission for the relevant content
-and services and select a supportable distribution path. An internal beta is not
-proof of authorization or App Store acceptance. This is not an instruction to
-purchase a licensing package, disguise functionality or submit externally.
+The owner decided on 30 August 2026 that Fotty stays private. Keep access
+invite-only through the internal group or an explicitly authorized private
+device build. Do not spend product time on public-review workarounds, disguise
+functionality, create an external group or submit publicly unless the owner
+later makes a new explicit decision. Internal distribution still does not prove
+authorization for third-party content; provider limitations remain visible.
 
 ## Definition of progress
 

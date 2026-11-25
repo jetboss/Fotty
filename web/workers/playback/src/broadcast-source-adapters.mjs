@@ -2,7 +2,7 @@
 // A retained observation is not a playable URL, current programme or LIVE fact.
 import { canonicalFootballClubId } from "../../../src/lib/football-competition-catalog.generated.ts";
 import { parseReviewedTVProgrammes, reviewedTVProgrammeURL } from "./reviewed-tv-programmes.mjs";
-import { parseReviewedTVESPNFeed, REVIEWED_TV_ESPN_SOURCE } from "./reviewed-tv-espn.mjs";
+import { espnGuideFeedURL, parseReviewedTVESPNFeed, REVIEWED_TV_ESPN_SOURCE } from "./reviewed-tv-espn.mjs";
 import { FOX_CRICKET_GUIDE, foxCricketGuideURL, foxCricketBroadcasts } from "./fox-cricket-programmes.mjs";
 export const BROADCAST_SOURCE_CODES = Object.freeze([
   "streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix", "reviewedtv",
@@ -22,7 +22,7 @@ const sport = (v) => ({ soccer: "football", football: "football", cricket: "cric
   motorsport: "motorsport", golf: "golf", tennis: "tennis", darts: "darts", college: "college", other: "other" })[String(v).toLowerCase()] ?? "unknown";
 const CS_SCOPES = Object.freeze(["football", "cricket", "basketball", "baseball", "hockey", "american-football", "rugby", "fight", "motorsport", "golf", "tennis", "darts", "college", "other"]);
 const CS_SUFFIX = (s) => s === "american-football" ? "american_football" : s === "fight" ? "mma" : s;
-const ORIGINS = Object.freeze({ communitysports: "https://nuviosports.xyz", plaviosports: "https://hd.plavio.site",
+const ORIGINS = Object.freeze({ communitysports: "https://nuviosports.xyz", plaviosports: "https://addon.plavio.site",
   cncsports: "https://cncverse.dpdns.org", flixstreams: "https://free.flixnest.app", streamvix: "https://streamvix.hayd.uk" });
 const SCORE_LISTING = "https://www.score808live.tv/score808-live-football-scores-real-time-match-updates-results/";
 const SV_ORIGINAL = "https://raw.githubusercontent.com/qwertyuiop8899/logo/main/daddyliveSchedule.json";
@@ -130,7 +130,7 @@ function safeRows(body, maximum) {
   return body.metas;
 }
 function manifest(m, code) {
-  const expected = { communitysports: "community.nuvio.live-sports", plaviosports: "community.plaviohd",
+  const expected = { communitysports: "community.nuvio.live-sports", plaviosports: "community.plaviohd.private",
     cncsports: "com.cncverse.stremiobridge", flixstreams: "org.flixstreams.free", streamvix: "org.prisonmike.streamvix" }[code];
   if (!object(m) || m.id !== expected || !version(m.version) || m.behaviorHints?.configurationRequired === true
     || !Array.isArray(m.catalogs) || m.catalogs.length > (code === "communitysports" ? 600 : 64)
@@ -286,7 +286,12 @@ function asRow(row, scope, now, originals = []) {
   const lines = typeof row.description === "string" ? row.description.split("\n") : [];
   if (scope === "cricket") {
     if (JSON.stringify(row.genres) !== '["Cricket"]') issues.push("identity-conflict");
-    if (lines.length === 2 && name.startsWith(lines[0] + " - ")) {
+    if (/^plaviohdtv-cnc-(?:sportzx|playztv|livxow)-[0-9]{1,12}$/u.test(row.id)
+        && /^Starts [0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2} UTC$/u.test(row.description ?? "")) {
+      facts.participants = pair(name);
+      if (facts.participants.length !== 2) issues.push("unverified-fixture");
+      facts.start = utc(row.description.slice(7, 17) + "T" + row.description.slice(18, 23) + ":00Z");
+    } else if (lines.length === 2 && name.startsWith(lines[0] + " - ")) {
       facts.participants = pair(lines[0]); Object.assign(facts, cricketLabel(row.name.slice((lines[0] + " - ").length)));
       facts.start = englishUTC(lines[1]);
       if (!facts.format || facts.format === "Test" && !facts.day) issues.push("format-conflict");
@@ -715,7 +720,7 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
       if (needsESPN) {
         await cohort("football", async () => {
           const parsed = await parseReviewedTVESPNFeed(
-            await read(REVIEWED_TV_ESPN_SOURCE.feedURL, REVIEWED_TV_ESPN_SOURCE.maxBytes, "xml"), { now });
+            await read(espnGuideFeedURL(now).href, REVIEWED_TV_ESPN_SOURCE.maxBytes, "xml"), { now });
           tvGuide = parsed.tvGuide;
           return parsed.broadcasts;
         }, (row) => row, false);
@@ -751,9 +756,15 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
           return await cohort(scope, async () => { advertised(m, name); return safeRows(await read(ORIGINS[providerCode] + "/catalog/tv/" + name + ".json", 700 * KiB), 600); },
             (row) => csRow(row, scope, now), false);
         };
-        for (const scope of ["live", "networks", "football", "cricket"]) await readScope(scope);
+        // Live freshness: a live fixture reads only the live scope plus its own
+        // sport cohort (~2-3 reads), so the cadence can drop from 40 to ~15
+        // minutes within the daily budget instead of waiting through a live half.
+        // Quiet/soon periods keep the full set and the extra searches.
+        const liveSports = new Set(hints.filter((f) => f.status === "live").map((f) => f.sport));
+        const livePriority = liveSports.size > 0;
+        for (const scope of livePriority ? ["live", ...liveSports] : ["live", "networks", "football", "cricket"]) await readScope(scope);
         let channelSearchRead = false;
-        if (!broadcasts.some((row) => row.kind === "channel" && row.channelID === "cricket-channel:willow" && row.stationMarket === "US")) {
+        if (!livePriority && !broadcasts.some((row) => row.kind === "channel" && row.channelID === "cricket-channel:willow" && row.stationMarket === "US")) {
           const key = searchableCatalog(m, "networks");
           if (key && read.count() < 8) {
             channelSearchRead = true;
@@ -762,7 +773,7 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
             (row) => csRow(row, "networks", now), false);
           }
         }
-        const uncovered = hints.filter((f) => searchableCatalog(m, f.sport) && !broadcasts.some((b) => b.kind !== "channel" && b.verification === "dated"
+        const uncovered = livePriority ? [] : hints.filter((f) => searchableCatalog(m, f.sport) && !broadcasts.some((b) => b.kind !== "channel" && b.verification === "dated"
           && b.sport === f.sport && samePair(b.participants, f.participants, f.sport)
           && (f.format === "Test" ? b.format === "Test" && b.matchOrdinal === f.matchOrdinal && b.day === f.day && b.start >= f.start && f.end && b.start < f.end
             : Math.abs(Date.parse(b.start) - Date.parse(f.start)) <= 15 * 60_000)));
@@ -779,7 +790,7 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
             if (ok) hintAdvanced = 1;
           }
         }
-        for (let n = 0; n < Math.min(3, rotating.length) && read.count() < 8; n++) if (await readScope(rotating[(offset + n) % rotating.length])) advanced++;
+        if (!livePriority) for (let n = 0; n < Math.min(3, rotating.length) && read.count() < 8; n++) if (await readScope(rotating[(offset + n) % rotating.length])) advanced++;
         cursor = (((safeCursor >>> 8) + hintAdvanced) % 256) * 256 + (rotating.length ? (offset + advanced) % rotating.length : 0);
       } else if (providerCode === "plaviosports") {
         let originals = [], originalRead = false; const rawRows = [];

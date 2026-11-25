@@ -1,0 +1,28 @@
+{
+  "build": "216",
+  "normalPickerSelection": "CS1",
+  "programmeObserved": "Liverpool\u2013Arsenal halftime0\u20131, Sky Sports Premier League; native advancing picture",
+  "automaticRecoveryPassed": false,
+  "records": [
+    {
+      "name": "attempt_started",
+      "utc": "2026-11-01T17:24:26.173075+00:00",
+      "outcome": "info",
+      "source_count": "15",
+      "source": "CS1",
+      "source_family": "communitysports"
+    },
+    {
+      "name": "decoded_progress",
+      "utc": "2026-11-01T17:24:40.578649+00:00",
+      "outcome": "success",
+      "source_count": "15",
+      "source_family": "communitysports",
+      "source": "CS1"
+    }
+  ],
+  "nativePositiveContinuitySampleUTC": [
+    "2026-11-01T17:26:12.882122+00:00"
+  ],
+  "qualification": "Normal adapter/relay/picker, native decoded programme observed and current-session positive90-second continuity sample; manual selection only, automatic recovery failed"
+}

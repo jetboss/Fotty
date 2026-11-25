@@ -1,0 +1,74 @@
+{
+  "base": "70e8b10d23d16d132e8f16559eb80d9b82441c43",
+  "version": "2026-10-29.sports-context-1",
+  "files": [
+    {
+      "path": "web/package.json",
+      "added": 1,
+      "removed": 1,
+      "sha256": "3f8dd40d1c8168780c479345da4bb889a4436de582fe43be9377707716192582"
+    },
+    {
+      "path": "web/workers/playback/src/cricket-context-policy.mjs",
+      "added": 149,
+      "removed": 0,
+      "sha256": "f0d428530ba54ac8a330e0dde5c0756db50b99589a1fa5b05435d19b8ff24328"
+    },
+    {
+      "path": "web/workers/playback/src/cricket-fixture-policy.mjs",
+      "added": 8,
+      "removed": 4,
+      "sha256": "83949129b29c1ac6f52a8454f34139cfec5c5e86055b5b1849dd16051ac1795c"
+    },
+    {
+      "path": "web/workers/playback/src/cricket-fixture-policy.test.mjs",
+      "added": 223,
+      "removed": 0,
+      "sha256": "df380509ab343d1eea75e6d2116673fdfa53a712c0551482df2e2be3a404c007"
+    },
+    {
+      "path": "web/workers/playback/src/cricket-fixture-registry.mjs",
+      "added": 6,
+      "removed": 3,
+      "sha256": "e79487dfde81d019dbfe45bf864e9182e47b6469de11627e9260bad033a96423"
+    },
+    {
+      "path": "web/workers/playback/src/sports-fixture-registry.mjs",
+      "added": 4,
+      "removed": 3,
+      "sha256": "544ea0656bec771e2624458f1e82afce55003317fee49ea9d21d199343157279"
+    },
+    {
+      "path": "web/workers/playback/src/sports-fixture-sources.mjs",
+      "added": 6,
+      "removed": 3,
+      "sha256": "67b4e1bad08834561584454dcc657be831aefbe188bf797ea85796ab3c6b8f73"
+    },
+    {
+      "path": "web/workers/playback/src/sports-fixture-sources.test.mjs",
+      "added": 14,
+      "removed": 0,
+      "sha256": "2f33a4f170e9ed4033f6cf6299f8bdeee33c8af62e37f5b88552518d3686adc1"
+    },
+    {
+      "path": "web/workers/playback/src/ucl-reported-score-policy.mjs",
+      "added": 61,
+      "removed": 0,
+      "sha256": "4556d15a5757424cdf5442128f2279620b10bc15e0578833b1d1dcdff64f6aeb"
+    },
+    {
+      "path": "web/workers/playback/src/ucl-reported-score-policy.test.mjs",
+      "added": 97,
+      "removed": 0,
+      "sha256": "ee02c843fb641b5e45d51d0369d7d59433aa1a91ab72ee7e9aabec05a3f4a254"
+    },
+    {
+      "path": "web/workers/playback/src/worker-version.mjs",
+      "added": 1,
+      "removed": 1,
+      "sha256": "613103793074066d190e6cbf8edb29364b8e967d9a2e42515e6bbda8d3a8289e"
+    }
+  ],
+  "unchangedArchivedFiles": 377,
+  "patchSHA256": "f92991d6f20c2c3192a589a61c43fa9b0bf8b3ffbb3243c016034a01271d78d5"
+}

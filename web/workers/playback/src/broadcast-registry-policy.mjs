@@ -302,7 +302,7 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
     && same(pair(f.participants, "cricket"), pair(fixture.participants, "cricket"))
     && stamp(f.start) !== null && Math.abs(Date.parse(f.start) - Date.parse(fixture.start)) < day).length === 1;
   const limitedOversRelation = (fixture, start) => {
-    const limit = fixture.format === "ODI" ? 12 * 60 * minute : 6 * 60 * minute;
+    const limit = fixture.format === "ODI" ? 12 * 60 * minute : fixture.format === "T10" ? 3 * 60 * minute : 6 * 60 * minute;
     const delta = start - Date.parse(fixture.start);
     return time - Date.parse(fixture.observedAt) <= 10 * minute && uniqueCurrentOwner(fixture)
       && (fixture.status === "live" && Date.parse(fixture.start) <= time && time - Date.parse(fixture.start) <= limit
@@ -324,6 +324,19 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
       const assignment = isReviewedTVScheduledAssignment(broadcast);
       if (broadcast.providerCode === "reviewedtv" && broadcast.kind !== "programme" && !assignment) continue;
       const currentListing = isCurrentCricketListing(broadcast);
+      // PlavioLive's CNC envelope supplies an exact UTC start and full pair,
+      // but no format. A unique fresh official ODI/T20 owns the format; retain
+      // the source's missing format rather than manufacturing provider facts.
+      const exactPlavioCricket = broadcast.providerCode === "plaviosports"
+        && broadcast.kind === "event" && broadcast.scope === "cricket" && broadcast.sport === "cricket"
+        && /^plaviohdtv-cnc-(?:sportzx|playztv|livxow)-[0-9]{1,12}$/u.test(broadcast.providerEventID)
+        && broadcast.streamID === broadcast.providerEventID && broadcast.format === undefined
+        && broadcast.day === undefined && broadcast.matchOrdinal === undefined
+        && !broadcast.issues?.length && broadcast.verification === "dated"
+        && ["ODI", "T20"].includes(fixture.format) && broadcast.start === fixture.start
+        // Exact dated joins use normalizeRegistryFixtures freshness and the
+        // original receipt-based expiry below, unlike synthetic current listings.
+        && uniqueCurrentOwner(fixture);
       let state = "listed", reason, startRelation, method = currentListing ? "current-event" : assignment ? "channel-assignment" : broadcast.kind === "programme" ? "programme" : "exact";
       const fail = (next, value) => { if (state === "listed" || next === "conflicting") { state = next; reason = value; } };
       if (!providers.has(broadcast.providerCode) || stamp(broadcast.observedAt) === null || stamp(broadcast.expiresAt) === null) continue;
@@ -342,13 +355,14 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
       if (fixture.sport === "cricket") {
         // An explicitly identified series match must never attach to another ordinal.
         if (fixture.matchOrdinal && broadcast.matchOrdinal && fixture.matchOrdinal !== broadcast.matchOrdinal) fail("conflicting", "ordinal-conflict");
-        if ((!currentListing && !broadcast.format) || !fixture.format) fail("needsVerification", "format-conflict");
-        else if (!currentListing && broadcast.format !== fixture.format) fail("conflicting", "format-conflict");
+        if ((!currentListing && !exactPlavioCricket && !broadcast.format) || !fixture.format) fail("needsVerification", "format-conflict");
+        else if (!currentListing && !exactPlavioCricket && broadcast.format !== fixture.format) fail("conflicting", "format-conflict");
       }
       if (currentListing) {
         if (fixture.status !== "live" || !["ODI", "T20"].includes(fixture.format)
           || !limitedOversRelation(fixture, time)) fail("needsVerification", "unverified-fixture");
-      } else if (broadcast.kind === "programme" && ["ODI", "T20"].includes(fixture.format)) {
+      } else if (broadcast.kind === "programme" && (["ODI", "T20"].includes(fixture.format)
+        || fixture.format === "T10" && isFoxCricketProgramme(broadcast))) {
         if (!limitedOversRelation(fixture, Date.parse(broadcast.start))) fail("conflicting", "time-conflict");
         const reviewedDomestic = (isFoxCricketProgramme(broadcast)
           || broadcast.providerCode === "reviewedtv" && broadcast.channelID === "cricket-channel:willow"
@@ -356,7 +370,12 @@ export function associateBroadcasts({ fixtures, ambiguityFixtures = fixtures, br
           && broadcast.competitionID === "wbbl" && fixture.competitionID === "wbbl"
           && /^cricket-fixture:ca:\d+$/u.test(fixture.fixtureID) && fixture.format === "T20"
           && broadcast.squad?.gender === "women" && broadcast.squad?.ageGroup === "senior"
-          && broadcast.participants.every((v) => /\bWomen$/u.test(v)) && broadcast.matchOrdinal === undefined;
+          && broadcast.participants.every((v) => /\bWomen$/u.test(v)) && broadcast.matchOrdinal === undefined
+          // Fox's Abu Dhabi T10 listing has no ordinal; the unique current ESPN
+          // fixture of the same pair, format and competition owns it.
+          || isFoxCricketProgramme(broadcast) && broadcast.competitionID === "abu-dhabi-t10"
+          && fixture.competitionID === "abu-dhabi-t10" && /^cricket-fixture:espn-cricket:\d+$/u.test(fixture.fixtureID)
+          && fixture.format === "T10" && broadcast.format === "T10" && broadcast.matchOrdinal === undefined;
         // The unique current official occurrence above can replace only the
         // absent ordinal in this reviewed domestic programme contract.
         if (!reviewedDomestic) {

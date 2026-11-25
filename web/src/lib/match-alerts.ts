@@ -3,25 +3,25 @@ import { buildReminderPayload, formatKickoff, matchKey } from "@/lib/live";
 import { matchIncludesTeam } from "@/lib/team-name-match";
 import type { ReminderEntry, TrackedTeamEntry } from "@/lib/storage";
 import { hasReminder, saveReminder } from "@/lib/storage";
-import { buildWatchPageHref, isP2PContentId } from "@/lib/watch-session";
+import { buildWatchPageHref } from "@/lib/watch-session";
 
 /** Notify once when a tracked fixture is 2–48 hours away. */
-export const TRACKED_UPCOMING_MIN_MS = 2 * 60 * 60 * 1000;
-export const TRACKED_UPCOMING_MAX_MS = 48 * 60 * 60 * 1000;
+const TRACKED_UPCOMING_MIN_MS = 2 * 60 * 60 * 1000;
+const TRACKED_UPCOMING_MAX_MS = 48 * 60 * 60 * 1000;
 
 /** Notify once in the final 15 minutes before kickoff. */
-export const TRACKED_SOON_MS = 15 * 60 * 1000;
+const TRACKED_SOON_MS = 15 * 60 * 1000;
 
 /** Saved reminders: same 15-minute pre-kickoff window. */
-export const REMINDER_SOON_MS = 15 * 60 * 1000;
+const REMINDER_SOON_MS = 15 * 60 * 1000;
 
 export type MatchAlertKind = "tracked-upcoming" | "tracked-soon" | "reminder-soon";
 
-export function matchAlertKey(kind: MatchAlertKind, reminder: { id: string; startsAt: string }) {
+function matchAlertKey(kind: MatchAlertKind, reminder: { id: string; startsAt: string }) {
   return `${kind}:${reminder.id}:${reminder.startsAt}`;
 }
 
-export function findNextTrackedFixture(matches: ScrapedMatch[], teamName: string) {
+function findNextTrackedFixture(matches: ScrapedMatch[], teamName: string) {
   const now = Date.now();
   let next: ScrapedMatch | null = null;
   let nextKickoff = Number.POSITIVE_INFINITY;
@@ -77,7 +77,7 @@ export function collectTrackedTeamAlerts(
       buildReminderPayload(match, "/")?.href ||
       buildWatchPageHref(
         new URLSearchParams({
-          ...(isP2PContentId(match.cid) ? { cid: match.cid } : { id: match.cid }),
+          id: match.id || match.cid,
         })
       );
     const baseKey = `${matchKey(match)}:${match.startsAt}`;

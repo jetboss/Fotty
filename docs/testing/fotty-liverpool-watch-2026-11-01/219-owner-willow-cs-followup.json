@@ -1,0 +1,244 @@
+{
+  "reviewedAtUTC": "2026-11-01T22:48:30.202325+00:00",
+  "ownerReport": "Willow worked earlier; current Willow TV option failing while CS works; Watch tap sometimes lacks immediate feedback",
+  "scope": "Read-only current Jet219 diagnostics and source review; no screen control, installation, code changes, phone, FPL, multi or TestFlight",
+  "events": [
+    {
+      "timeUTC": "2026-11-01T22:37:19.033154+00:00",
+      "event": "attempt_started",
+      "details": {
+        "source_family": "reviewedtv",
+        "source_index": "1",
+        "source": "TV1",
+        "last_observed_stage": "preparing",
+        "source_count": "1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:37:41.081000+00:00",
+      "event": "source_failure",
+      "details": {
+        "native_startup_deadline_ms": "20000",
+        "native_failure_trigger": "readiness_timeout",
+        "source": "TV1",
+        "last_observed_stage": "preparing",
+        "native_startup_elapsed_ms": "20215",
+        "source_family": "reviewedtv",
+        "source_count": "2",
+        "failure_kind": "startupTimeout",
+        "source_index": "1",
+        "native_item_status": "unknown"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:37:41.113689+00:00",
+      "event": "attempt_started",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "preparing",
+        "source": "TV1",
+        "source_count": "2",
+        "source_index": "1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:37:57.885560+00:00",
+      "event": "attempt_started",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "source_count": "2",
+        "source_index": "2"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:38:01.528119+00:00",
+      "event": "decoded_progress",
+      "details": {
+        "last_observed_stage": "decoded",
+        "source_count": "2",
+        "source_index": "2",
+        "source": "CS1",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:38:06.084017+00:00",
+      "event": "attempt_started",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_count": "2",
+        "source_index": "1",
+        "source": "TV1",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:38:28.048096+00:00",
+      "event": "source_failure",
+      "details": {
+        "native_startup_deadline_ms": "20000",
+        "native_failure_trigger": "readiness_timeout",
+        "source": "TV1",
+        "last_observed_stage": "preparing",
+        "native_startup_elapsed_ms": "20001",
+        "source_family": "reviewedtv",
+        "source_count": "2",
+        "failure_kind": "startupTimeout",
+        "source_index": "1",
+        "native_item_status": "unknown"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:38:28.080962+00:00",
+      "event": "attempt_started",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_count": "2",
+        "source_index": "1",
+        "source": "TV1",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:38:35.141585+00:00",
+      "event": "decoded_progress",
+      "details": {
+        "source_family": "reviewedtv",
+        "source_count": "2",
+        "source_index": "1",
+        "last_observed_stage": "decoded",
+        "source": "TV1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:38:47.496158+00:00",
+      "event": "attempt_started",
+      "details": {
+        "source_family": "communitysports",
+        "source_count": "2",
+        "source_index": "2",
+        "last_observed_stage": "preparing",
+        "source": "CS1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:39:08.740275+00:00",
+      "event": "source_failure",
+      "details": {
+        "native_startup_deadline_ms": "20000",
+        "native_failure_trigger": "readiness_timeout",
+        "source": "CS1",
+        "last_observed_stage": "preparing",
+        "native_startup_elapsed_ms": "20086",
+        "source_family": "communitysports",
+        "source_count": "2",
+        "failure_kind": "startupTimeout",
+        "source_index": "2",
+        "native_item_status": "unknown"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:39:08.772719+00:00",
+      "event": "attempt_started",
+      "details": {
+        "source_family": "communitysports",
+        "source_count": "2",
+        "last_observed_stage": "preparing",
+        "source_index": "2",
+        "source": "CS1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:39:13.520403+00:00",
+      "event": "decoded_progress",
+      "details": {
+        "last_observed_stage": "decoded",
+        "source": "CS1",
+        "source_family": "communitysports",
+        "source_count": "2",
+        "source_index": "2"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:39:18.425768+00:00",
+      "event": "attempt_started",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "source_count": "2",
+        "source_index": "1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:39:19.872802+00:00",
+      "event": "source_failure",
+      "details": {
+        "source": "TV1",
+        "preparation_http_status": "404",
+        "source_count": "2",
+        "source_family": "reviewedtv",
+        "source_index": "1",
+        "last_observed_stage": "preparing",
+        "failure_kind": "providerUnavailable",
+        "preparation_reason": "http_status"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:39:19.906651+00:00",
+      "event": "automatic_failover",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "source_count": "2",
+        "failure_kind": "providerUnavailable",
+        "source_index": "1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:39:20.030783+00:00",
+      "event": "attempt_started",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "source_family": "communitysports",
+        "source_count": "2",
+        "source_index": "2"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T22:39:22.775331+00:00",
+      "event": "session_closed",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "source_family": "communitysports",
+        "source_count": "2",
+        "source_index": "2"
+      }
+    }
+  ],
+  "freshPublisherAndDeliveryCheck": {
+    "checkedAtUTC": "2026-11-01T22:46:40.756734+00:00",
+    "source": "Willow TV1",
+    "reviewedPublisher": "iptv-org/iptv streams/us.m3u",
+    "currentPublishedDeliveryMatchesRecordedFailure": true,
+    "requestMethod": "GET",
+    "deliveryHTTPStatus": 200,
+    "deliveryContentType": "application/vnd.apple.mpegurl",
+    "startsWithHLSHeader": true,
+    "mediaSegmentsFetched": 0,
+    "redirectsFollowed": false,
+    "limits": "Current publicly advertised delivery only; no proof of historical22:39 cause, decoded playback or sustained uptime. DNS preflight is not address pinning."
+  },
+  "findings": {
+    "tapAcknowledgement": "Home current-admission and retained-player validation can run on main actor before pending/loading state; duration unmeasured. TV already has pending inset and duplicate-tap guard. Some expired tap guards return silently.",
+    "retryOrdering": "Existing native startup policy retries the failed choice once before already-admitted alternative. This can spend about40s before fallback; does not establish cause of TV1 failure.",
+    "sourceFreshness": "TV playlist client has no persistent playlist cache; selected TV descriptor has90s lifetime. Logs lack renewal markers for the22:39 manual selection. Currently published locator matches the failed variant and returns200/HLS at22:46; historical404 cause remains unproven.",
+    "successfulDecodeLimits": "TV1 andCS1 both decoded in owner session; short playback before manual reselection is not a90s stable hold."
+  },
+  "ownedTemporaryDiagnosticsRemoved": true
+}

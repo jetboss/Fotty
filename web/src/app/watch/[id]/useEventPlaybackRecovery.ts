@@ -20,7 +20,6 @@ type UseEventPlaybackRecoveryArgs = {
   startTimeoutMs: number;
   onLoadTimeout: () => void;
   onStartTimeout: () => void;
-  setEventFrameTimedOut: (value: boolean) => void;
 };
 
 /**
@@ -41,17 +40,14 @@ export function useEventPlaybackRecovery({
   startTimeoutMs,
   onLoadTimeout,
   onStartTimeout,
-  setEventFrameTimedOut,
 }: UseEventPlaybackRecoveryArgs) {
   const onLoadTimeoutRef = useRef(onLoadTimeout);
   const onStartTimeoutRef = useRef(onStartTimeout);
-  const setTimedOutRef = useRef(setEventFrameTimedOut);
 
   useEffect(() => {
     onLoadTimeoutRef.current = onLoadTimeout;
     onStartTimeoutRef.current = onStartTimeout;
-    setTimedOutRef.current = setEventFrameTimedOut;
-  }, [onLoadTimeout, onStartTimeout, setEventFrameTimedOut]);
+  }, [onLoadTimeout, onStartTimeout]);
 
   useEffect(() => {
     if (
@@ -67,7 +63,6 @@ export function useEventPlaybackRecovery({
     }
 
     const timer = window.setTimeout(() => {
-      setTimedOutRef.current(true);
       onLoadTimeoutRef.current();
     }, loadTimeoutMs);
 

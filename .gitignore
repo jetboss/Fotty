@@ -8,6 +8,8 @@ data/devices.json
 
 # iOS
 .env.ios.local
+.env.asc.local
+*.p8
 .build/
 **/.build/
 .DerivedData/
@@ -77,3 +79,9 @@ web/public/audit_*.png
 web/public/*preview*.png
 web/public/watch_real_user.png
 FottyAndroid/screenshot_fix.png
+
+# Local agent/tool state
+.codex/
+.wrangler/
+**/.wrangler/
+_to_delete/

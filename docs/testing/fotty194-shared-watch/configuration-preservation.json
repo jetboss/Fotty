@@ -1,0 +1,15 @@
+{
+  "fotty-playback-v3": {
+    "bindingsPreserved": true,
+    "bindingCount": 21
+  },
+  "fotty-watchdog": {
+    "bindingsPreserved": true,
+    "bindingCount": 3
+  },
+  "playbackVersion": "2026-10-30.match-source-association-2",
+  "expectedWatchdogVersion": "2026-10-30.match-source-association-2",
+  "watchdogActive": "active",
+  "originalActivationPreserved": true,
+  "notificationCount": 127
+}

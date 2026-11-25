@@ -1,12 +1,19 @@
 import SwiftUI
 
 public struct FPLMultiGWPlannerView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .caption) private var gameweekMinimumWidth: CGFloat = 96
     @ObservedObject var viewModel: FPLAdvisorViewModel
     @State private var selectedGameweek = 0
     @State private var horizon = 5
     @State private var pendingScenarioRoute: FPLDraftRoute?
     @State private var scenarioName = ""
     @State private var isNamingScenario = false
+    private var headerLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(spacing: 8))
+    }
 
     public init(viewModel: FPLAdvisorViewModel) {
         self.viewModel = viewModel
@@ -24,21 +31,24 @@ public struct FPLMultiGWPlannerView: View {
         .onAppear {
             horizon = viewModel.coachProfile.planningHorizon
         }
+        .onChange(of: planningWeeks) { _, weeks in
+            selectedGameweek = min(selectedGameweek, max(0, weeks.count - 1))
+        }
     }
 
     private var plannerHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
+            headerLayout {
                 Label("Multi-gameweek planner", systemImage: "calendar.badge.clock")
                     .font(.headline.weight(.black))
                     .foregroundStyle(FottyTheme.textPrimary)
-                Spacer()
+                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
                 Picker("Horizon", selection: $horizon) {
                     Text("5 GW").tag(5)
                     Text("8 GW").tag(8)
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 150)
+                .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? .infinity : 150)
                 .onChange(of: horizon) { _, newValue in
                     var profile = viewModel.coachProfile
                     profile.planningHorizon = newValue
@@ -47,25 +57,29 @@ public struct FPLMultiGWPlannerView: View {
                 }
             }
 
-            Text("Compare your squad and transfer options over the coming gameweeks. GW\(startGameweek) uses FPL's next-gameweek points estimate where available. Later weeks use Fotty's model, not guaranteed points.")
+            Text(planningWeeks.isEmpty
+                 ? "No upcoming gameweek is available. Refresh FPL to continue."
+                 : "Compare your squad and transfer options across \(planningWeeks.count) gameweeks. Later weeks use Fotty estimates.")
                 .font(.caption)
                 .foregroundStyle(FottyTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 7) {
-                    ForEach(0..<horizon, id: \.self) { offset in
-                        let selected = selectedGameweek == offset
-                        Button("GW\(startGameweek + offset)") {
-                            selectedGameweek = offset
+                    ForEach(Array(planningWeeks.enumerated()), id: \.element) { item in
+                        let selected = selectedGameweek == item.offset
+                        Button("GW\(item.element)") {
+                            selectedGameweek = item.offset
                         }
                         .font(.caption.weight(.black))
                         .foregroundStyle(selected ? FottyTheme.textOnAccent : FottyTheme.textSecondary)
                         .padding(.horizontal, 11)
                         .padding(.vertical, 7)
+                        .frame(minHeight: 44)
                         .background(selected ? FottyTheme.accent : FottyTheme.surfaceElevated)
                         .clipShape(Capsule())
-                        .buttonStyle(.plain)
+                        .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusXL))
+                        .accessibilityAddTraits(selected ? .isSelected : [])
                     }
                 }
             }
@@ -121,10 +135,10 @@ public struct FPLMultiGWPlannerView: View {
                         .font(.caption2)
                         .foregroundStyle(FottyTheme.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
-                    HStack(spacing: 6) {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: gameweekMinimumWidth), spacing: 6)], alignment: .leading, spacing: 6) {
                         ForEach(route.weeklyProjectedGain.keys.sorted(), id: \.self) { gameweek in
                             Text("GW\(gameweek) \(signed(route.weeklyProjectedGain[gameweek] ?? 0))")
-                                .font(.fottyScaled(size: 9, weight: .bold))
+                                .font(FottyTheme.typeCaption.weight(.semibold))
                                 .foregroundStyle(FottyTheme.textSecondary)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 4)
@@ -199,17 +213,19 @@ public struct FPLMultiGWPlannerView: View {
                                 viewModel.removeScenario(id: scenario.id)
                             } label: {
                                 Image(systemName: "trash")
+                                    .frame(minWidth: 44, minHeight: 44)
+                                    .contentShape(Rectangle())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(FottyPressButtonStyle())
                             .accessibilityLabel("Delete \(scenario.name)")
                         }
                         Text(scenario.transfers.isEmpty ? "Roll transfer" : scenario.transfers.joined(separator: " • "))
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(FottyTheme.textSecondary)
-                        HStack(spacing: 6) {
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: gameweekMinimumWidth), spacing: 6)], alignment: .leading, spacing: 6) {
                             ForEach(scenario.weeklyProjectedGain.keys.sorted(), id: \.self) { gameweek in
                                 Text("GW\(gameweek) \(signed(scenario.weeklyProjectedGain[gameweek] ?? 0))")
-                                    .font(.fottyScaled(size: 9, weight: .bold))
+                                    .font(FottyTheme.typeCaption.weight(.semibold))
                                     .foregroundStyle(FottyTheme.textSecondary)
                             }
                         }
@@ -232,7 +248,7 @@ public struct FPLMultiGWPlannerView: View {
     private var squadProjectionCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text("CURRENT SQUAD • GW\(startGameweek + selectedGameweek)")
+                Text("CURRENT SQUAD • \(selectedTargetGameweek.map { "GW\($0)" } ?? "NO UPCOMING WEEK")")
                     .font(.caption.weight(.black))
                     .foregroundStyle(FottyTheme.textTertiary)
                 Spacer()
@@ -270,14 +286,14 @@ public struct FPLMultiGWPlannerView: View {
     @ViewBuilder
     private var chipInventoryCard: some View {
         let definitions = viewModel.bootstrap?.chips ?? []
-        let usages = viewModel.managerHistory?.chips ?? []
+        let usages = viewModel.managerHistory?.chips
         VStack(alignment: .leading, spacing: 9) {
             HStack {
                 Text("OFFICIAL CHIP WINDOWS")
                     .font(.caption.weight(.black))
                     .foregroundStyle(FottyTheme.textTertiary)
                 Spacer()
-                Text("No invented optimal weeks")
+                Text(selectedTargetGameweek.map { "Planning GW\($0)" } ?? "No target week")
                     .font(.caption2)
                     .foregroundStyle(FottyTheme.textTertiary)
             }
@@ -287,8 +303,11 @@ public struct FPLMultiGWPlannerView: View {
                     .foregroundStyle(FottyTheme.textSecondary)
             } else {
                 ForEach(definitions) { chip in
-                    let used = usages.contains { normalized($0.name) == normalized(chip.name) && $0.event >= chip.startEvent && $0.event <= chip.stopEvent }
-                    HStack {
+                    let availability = FPLChipAvailabilityPolicy.availability(chip: chip,
+                        targetGameweek: selectedTargetGameweek, events: viewModel.bootstrap?.events ?? [],
+                        usages: usages, managerStartedEvent: viewModel.managerSummary?.startedEvent)
+                    VStack(alignment: .leading, spacing: 3) {
+                     HStack {
                         VStack(alignment: .leading, spacing: 1) {
                             Text(chipName(chip.name))
                                 .font(.subheadline.weight(.bold))
@@ -298,9 +317,14 @@ public struct FPLMultiGWPlannerView: View {
                                 .foregroundStyle(FottyTheme.textTertiary)
                         }
                         Spacer()
-                        Text(used ? "USED" : "AVAILABLE")
+                        Text(availability.status.rawValue)
                             .font(.fottyScaled(size: 9, weight: .black))
-                            .foregroundStyle(used ? FottyTheme.textTertiary : FottyTheme.success)
+                            .foregroundStyle(availability.status == .eligible ? FottyTheme.success : FottyTheme.textTertiary)
+                     }
+                     Text(availability.explanation)
+                        .font(.caption2)
+                        .foregroundStyle(FottyTheme.textSecondary)
+                        .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(.vertical, 4)
                 }
@@ -319,10 +343,10 @@ public struct FPLMultiGWPlannerView: View {
             Text(viewModel.freeTransferEstimate?.explanation ?? "Fotty could not estimate free transfers from the public history.")
                 .font(.caption2)
                 .foregroundStyle(FottyTheme.textSecondary)
-            Text("FPL public endpoints do not expose your authenticated selling prices or pending private transfers. Confirm affordability, free transfers, deadlines and every final action in official FPL.")
+            Text("Selling prices and pending transfers may be unavailable. Confirm cost and deadline in official FPL.")
                 .font(.caption2)
                 .foregroundStyle(FottyTheme.textSecondary)
-            Text("Projection model: \(FPLProjectionEngine.modelVersion). Expected minutes are estimates, not lineup news.")
+            Text("Expected minutes are estimates, not confirmed lineups.")
                 .font(.caption2)
                 .foregroundStyle(FottyTheme.textSecondary)
         }
@@ -333,12 +357,19 @@ public struct FPLMultiGWPlannerView: View {
     }
 
     private var startGameweek: Int {
-        viewModel.gameweekPhase == .planning
-            ? (viewModel.currentGameweek?.id ?? viewModel.nextGameweek?.id ?? 1)
-            : (viewModel.nextGameweek?.id ?? ((viewModel.currentGameweek?.id ?? 0) + 1))
+        viewModel.planningGameweek
+    }
+
+    private var planningWeeks: [Int] {
+        FPLPlanningBounds.gameweeks(start: startGameweek, horizon: horizon, events: viewModel.bootstrap?.events ?? [])
+    }
+
+    private var selectedTargetGameweek: Int? {
+        planningWeeks.indices.contains(selectedGameweek) ? planningWeeks[selectedGameweek] : nil
     }
 
     private var squadProjections: [FPLPlayerProjection] {
+        guard !planningWeeks.isEmpty else { return [] }
         let ids = Set(viewModel.picks?.picks.map(\.element) ?? [])
         return (viewModel.bootstrap?.elements ?? [])
             .filter { ids.contains($0.id) }
@@ -347,7 +378,7 @@ public struct FPLMultiGWPlannerView: View {
                     player: $0,
                     fixtures: viewModel.fixtures,
                     startGameweek: startGameweek,
-                    horizon: horizon
+                    horizon: planningWeeks.count
                 )
             }
             .sorted {

@@ -1,0 +1,119 @@
+{
+  "checkedUTC": "2026-10-29T17:37:26.146Z",
+  "http": 200,
+  "bytes": 226890,
+  "rows": 59,
+  "total": 59,
+  "normalizedFixtures": 59,
+  "live": [
+    {
+      "id": "icc:269792",
+      "competition": "icc",
+      "teams": [
+        "South Africa",
+        "Australia"
+      ],
+      "startUTC": "2026-10-27T08:30:00.000Z",
+      "status": "live",
+      "contextPresent": true,
+      "phase": "stumps",
+      "innings": [
+        {
+          "number": 1,
+          "teamBound": true,
+          "runs": 329,
+          "wickets": 10,
+          "overs": "82.3"
+        },
+        {
+          "number": 2,
+          "teamBound": true,
+          "runs": 429,
+          "wickets": 10,
+          "overs": "125.1"
+        },
+        {
+          "number": 3,
+          "teamBound": true,
+          "runs": 140,
+          "wickets": 4,
+          "overs": "47.0"
+        }
+      ],
+      "rawOptionalIDs": {
+        "battingPresent": true,
+        "bowlingPresent": true,
+        "superOver": false
+      },
+      "teamBindingPassed": true
+    },
+    {
+      "id": "icc:274665",
+      "competition": "west-indies",
+      "teams": [
+        "Bangladesh",
+        "West Indies"
+      ],
+      "startUTC": "2026-10-28T03:30:00.000Z",
+      "status": "live",
+      "contextPresent": true,
+      "phase": "stumps",
+      "innings": [
+        {
+          "number": 1,
+          "teamBound": true,
+          "runs": 272,
+          "wickets": 10,
+          "overs": "97.4"
+        },
+        {
+          "number": 2,
+          "teamBound": true,
+          "runs": 134,
+          "wickets": 4,
+          "overs": "48.0"
+        }
+      ],
+      "rawOptionalIDs": {
+        "battingPresent": true,
+        "bowlingPresent": true,
+        "superOver": false
+      },
+      "teamBindingPassed": true
+    },
+    {
+      "id": "icc:274661",
+      "competition": "icc",
+      "teams": [
+        "Afghanistan",
+        "Zimbabwe"
+      ],
+      "startUTC": "2026-10-29T14:30:00.000Z",
+      "status": "live",
+      "contextPresent": true,
+      "phase": "in-play",
+      "innings": [
+        {
+          "number": 1,
+          "teamBound": true,
+          "runs": 221,
+          "wickets": 7,
+          "overs": "20.0"
+        },
+        {
+          "number": 2,
+          "teamBound": true,
+          "runs": 134,
+          "wickets": 5,
+          "overs": "15.0"
+        }
+      ],
+      "rawOptionalIDs": {
+        "battingPresent": true,
+        "bowlingPresent": true,
+        "superOver": false
+      },
+      "teamBindingPassed": true
+    }
+  ]
+}

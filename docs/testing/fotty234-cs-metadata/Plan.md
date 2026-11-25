@@ -1,0 +1,27 @@
+# CS metadata/registry freshness repair — build 234
+
+Owner-approved native repair and Jet iPad real-match Watch check. Phone, FPL, multi-stream and TestFlight excluded. No cloud or Git publication.
+
+Confirmed cause: registry and native wire validation admit the reviewed CS dynamic FanCode current-listing generated clock for four hours; the actual native same-ID resolver used ten minutes. CS original meta at 4 November 10:03:38 UTC returned HTTP200, Cache-Control public,max-age=14400,stale-while-revalidate=300 and released09:51:07.249UTC. Exact title/cast/ID matched UAE–Oman while fresh ICC confirmed live ODI, CWC League2 Match145, start05:30UTC. This is cached generated-listing age, not original fixture kickoff or the official status observation age.
+
+Repair: use the existing BroadcastRegistrySnapshot.sourceLifetime for only that reviewed current-listing metadata contract. Preserve the separate official live <=10min receipt, unique exact pair, ID/envelope/squad/format, future-clock and all transport/descriptor rules. Recheck association expiry after awaited reads and cap the resulting binding by actual source/generated clock and registry expiry; receiving a response cannot renew official authority.
+
+Regression: cached ages601s/25min/2h/near4h, expired4h/future5min boundaries, no descriptor fetch on invalid identity/expired listing, source and official evidence expiry bounds. Existing terminal/scheduled/stale official rejection tests retained. Backend99checks pass without backend changes. One signed Release candidate for normal Watch; focused units use the project's Debug unit-test scheme (the initial UI-only scheme excluded FottyTests and executed none). live correct-programme90second hold required for physical acceptance. Pending until recorded in README.
+
+## Second independently reproduced boundary defect
+
+Normal Home still withheld Watch after the metadata repair. A bounded replay of actual public accepted fixture/registry records matched when their official observations aligned. Varying only the age of the device official receipt reproduced failed lookup at240/300/599seconds while both cloud link and device status were still fresh. The matcher compared the cloud link expiry against the device's independently refreshed observedAt, wrongly requiring near-identical refresh clocks. Check each against its own expiry instead; the adapter caps its binding at min(device official receipt+600s, registry link expiry, source receipt expiry, generated listing expiry,90s binding budget). No stale official/live identity tolerance is extended.
+
+The first focused independent-clock regression failed three assertions; after the fix the188 native tests passed. Preserve initial failure separately. The original187 passes covered only the first repair. An additional bound assertion uses a newer cloud expiry than the nearly-expired device receipt, proving it cannot renew that receipt. Final suite/physical acceptance pending.
+
+## Third confirmed boundary defect: preflight before registry readiness
+
+A temporary redacted on-device trace at10:49UTC recorded CS preflight with registeredCount=0 and no_exact_fixture_match. Seconds later the same Home fixture had one valid raw registry association, but eligibleCount=0 because that unassociated miss had set a newer availabilityWithdrawalAt. The generated-clock catalog cannot independently date its row, so its absence cannot withdraw that separately joined exact registry ID. This was confirmed with temporary tracing, not inferred solely from missing UI. Temporary diagnostic UI/resolver code is removed from the normal candidate.
+
+Repair: the CS lane for fresh verified live ODI/T20 fixtures joins the existing bounded registry owner when its initial association lookup is empty. Other providers remain concurrent. The eight-second preflight deadline still cancels its own wait. If registry authority is still absent, only an unassociated matchNotFound abandons the preflight ticket instead of declaring a definitive negative. Actual scoped misses, conflicts, empty stream lists, incompatible deliveries and HTTP rejections retain their prior handling. A regression replays the delayed single shared fetch, confirms one request and the exact returned ID, then proves a pending catalog miss cannot hide the later Watch action.
+
+## Separate live media failure preserved
+
+At10:36:56UTC the normal Match Details Watch action for official-live UAE–Oman reached CS1/native playback. Two attempts failed before decoded frames. Native/relay evidence: master200, child manifest403, CoreMedia-12660/URL-1102, zero media bytes. At10:38:47UTC a bounded direct request to the original advertised child playlist with the same advertised headers also returned403 (37bytes, not HLS); original master200/HLS. This is an upstream delivery rejection, not proof that the registry/metadata repair failed. No access or security workaround is authorized or applied. No90second or correct-programme pass can be claimed.
+
+Final cold-start guard also distinguishes a stale cached local official receipt from provider absence. It does not initiate registry-backed playback with expired authority; the cold-start regression explicitly requires Watch remain unavailable until official evidence is fresh. Source eligibility and late registry arrival remain separate from proof of decoded media. Final expanded suite:230 executed/228 passed/2 optional production-input skips/0 failures.

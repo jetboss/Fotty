@@ -1,0 +1,329 @@
+{
+  "build": 218,
+  "target": "Jet iPad",
+  "acceptedRegistryBefore": "2026-11-01T16:24:25.517Z",
+  "acceptedRegistryAfter": "2026-11-01T19:33:47.073Z",
+  "HomeObservation": "Initial primary warning visible while backup collection pending; cleared after source checks completed; normal Watch returned on NHL row. No manual refresh/dismissal used.",
+  "terminalObservation": "Elche left Home after official terminal update; no concurrent status contradiction established.",
+  "normalWatch": "Elche selected once; automatically resolved TV+CS+AS+FS. Stopped once fresh independent FT was verified; no decoded-playback acceptance claimed for that late run.",
+  "events": [
+    {
+      "time": "2026-11-01T19:30:34.270183+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_index": "1",
+        "source_count": "1",
+        "source_family": "reviewedtv",
+        "source": "TV4"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:37.682782+00:00",
+      "event": "source_discovery_result",
+      "outcome": "success",
+      "durationMilliseconds": 4070,
+      "details": {
+        "source_family": "communitysports",
+        "stage": "preparing",
+        "result": "exact_fixture_match"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:37.861018+00:00",
+      "event": "source_discovery_result",
+      "outcome": "success",
+      "durationMilliseconds": 997,
+      "details": {
+        "source_family": "plaviosports",
+        "result": "exact_fixture_match",
+        "stage": "preparing"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:38.010387+00:00",
+      "event": "source_discovery_result",
+      "outcome": "success",
+      "durationMilliseconds": 1875,
+      "details": {
+        "stage": "preparing",
+        "result": "exact_fixture_match",
+        "source_family": "flixstreams"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:39.467334+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 5191,
+      "details": {
+        "failure_kind": "network",
+        "preparation_reason": "transport_error",
+        "source_index": "1",
+        "source_count": "14",
+        "source": "TV4",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:39.493355+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_index": "1",
+        "source_count": "14",
+        "source_family": "reviewedtv",
+        "source": "TV4"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:44.961445+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 5457,
+      "details": {
+        "failure_kind": "network",
+        "preparation_reason": "transport_error",
+        "source_index": "1",
+        "source_count": "14",
+        "source": "TV4",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:45.180678+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_index": "9",
+        "source_count": "14",
+        "source_family": "communitysports",
+        "source": "CS1"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:50.553368+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 5358,
+      "details": {
+        "failure_kind": "network",
+        "preparation_reason": "transport_error",
+        "source_index": "9",
+        "source_count": "14",
+        "source_family": "communitysports",
+        "source": "CS1"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:50.585356+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_index": "9",
+        "source_count": "14",
+        "source_family": "communitysports",
+        "source": "CS1"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:56.406388+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 5810,
+      "details": {
+        "source_count": "14",
+        "failure_kind": "network",
+        "source_family": "communitysports",
+        "source": "CS1",
+        "source_index": "9",
+        "preparation_reason": "transport_error"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:56.636917+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_index": "2",
+        "source_count": "14",
+        "source_family": "plaviosports",
+        "source": "AS1"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:57.330330+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 691,
+      "details": {
+        "source_count": "14",
+        "failure_kind": "accessDenied",
+        "preparation_http_status": "403",
+        "source_family": "plaviosports",
+        "source": "AS1",
+        "source_index": "2",
+        "preparation_reason": "http_status"
+      }
+    },
+    {
+      "time": "2026-11-01T19:30:57.354238+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_index": "3",
+        "source_count": "14",
+        "source_family": "flixstreams",
+        "source": "FS1"
+      }
+    },
+    {
+      "time": "2026-11-01T19:31:02.705057+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 5337,
+      "details": {
+        "source_count": "14",
+        "source_family": "flixstreams",
+        "failure_kind": "network",
+        "source": "FS1",
+        "source_index": "3",
+        "preparation_reason": "transport_error"
+      }
+    },
+    {
+      "time": "2026-11-01T19:31:02.738672+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_count": "14",
+        "source_family": "flixstreams",
+        "source_index": "3",
+        "source": "FS1"
+      }
+    },
+    {
+      "time": "2026-11-01T19:31:09.556342+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 6807,
+      "details": {
+        "source_count": "14",
+        "failure_kind": "network",
+        "source_family": "flixstreams",
+        "source": "FS1",
+        "source_index": "3",
+        "preparation_reason": "transport_error"
+      }
+    },
+    {
+      "time": "2026-11-01T19:31:09.757590+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_count": "14",
+        "source_family": "communitysports",
+        "source_index": "13",
+        "source": "CS5"
+      }
+    },
+    {
+      "time": "2026-11-01T19:31:18.159777+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "durationMilliseconds": 8400,
+      "details": {
+        "source_count": "14",
+        "source_family": "communitysports",
+        "source_index": "13",
+        "source": "CS5"
+      }
+    },
+    {
+      "time": "2026-11-01T19:32:40.844729+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 91078,
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS5",
+        "source_count": "14",
+        "failure_kind": "sourceFailure",
+        "source_index": "13"
+      }
+    },
+    {
+      "time": "2026-11-01T19:32:40.898979+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS5",
+        "source_count": "14",
+        "source_index": "13"
+      }
+    },
+    {
+      "time": "2026-11-01T19:32:52.128542+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 11216,
+      "details": {
+        "source_count": "14",
+        "source_family": "communitysports",
+        "failure_kind": "network",
+        "source": "CS5",
+        "source_index": "13",
+        "preparation_reason": "transport_error"
+      }
+    },
+    {
+      "time": "2026-11-01T19:32:52.251876+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_family": "flixstreams",
+        "source": "FS2",
+        "source_count": "14",
+        "source_index": "4"
+      }
+    },
+    {
+      "time": "2026-11-01T19:32:59.290017+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "durationMilliseconds": 7024,
+      "details": {
+        "failure_kind": "network",
+        "source": "FS2",
+        "source_index": "4",
+        "source_family": "flixstreams",
+        "preparation_reason": "transport_error",
+        "source_count": "14"
+      }
+    },
+    {
+      "time": "2026-11-01T19:32:59.321795+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "durationMilliseconds": null,
+      "details": {
+        "source_family": "flixstreams",
+        "source": "FS2",
+        "source_count": "14",
+        "source_index": "4"
+      }
+    }
+  ],
+  "phone": "215 unchanged; owner reported using another source earlier, specific identity unstated."
+}

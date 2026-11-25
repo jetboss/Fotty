@@ -1,0 +1,62 @@
+[
+  {
+    "source": "hockey",
+    "at": "2026-10-29T00:39:12.356Z",
+    "count": 41,
+    "relevantCount": 1,
+    "matches": [
+      {
+        "idHash": "78b4e0e6b2cc",
+        "name": "⏱️ philadelphia flyers vs washington capitals",
+        "type": "tv",
+        "cast": [
+          "Philadelphia Flyers",
+          "Washington Capitals"
+        ],
+        "genres": [
+          "HOCKEY"
+        ],
+        "released": "2026-10-29T23:30:00.000Z",
+        "description": "🏆 League: NHL\n📅 Category: HOCKEY\n⏰ Status: ⏱️ Kickoff at 11:30 PM (in 22h 56m)",
+        "defaultIDDiffers": false
+      }
+    ]
+  },
+  {
+    "source": "live",
+    "at": "2026-10-29T00:39:12.522Z",
+    "count": 100,
+    "relevantCount": 0,
+    "matches": []
+  },
+  {
+    "source": "nhl",
+    "at": "2026-10-29T00:39:12.547Z",
+    "currentDate": "2026-10-28",
+    "matches": [
+      {
+        "id": 2026020199,
+        "start": "2026-10-28T23:30:00Z",
+        "state": "LIVE",
+        "scheduleState": "OK",
+        "period": 2,
+        "clock": {
+          "timeRemaining": "15:33",
+          "secondsRemaining": 933,
+          "running": true,
+          "inIntermission": false
+        },
+        "home": {
+          "name": "Capitals",
+          "abbrev": "WSH",
+          "score": 1
+        },
+        "away": {
+          "name": "Flyers",
+          "abbrev": "PHI",
+          "score": 0
+        }
+      }
+    ]
+  }
+]

@@ -1,0 +1,11 @@
+{
+  "result": "Passed",
+  "totalTestCount": 93,
+  "passedTests": 92,
+  "failedTests": 0,
+  "skippedTests": 1,
+  "expectedFailures": 0,
+  "scope": "Current-source Catalyst PlavioSportsAddonTests + ReviewedSportsFixtureMatcherTests + one owned offline real-page parser contract test. No live playback proof.",
+  "sourceTests": "15 new DLHD regressions plus existing AS/cricket/matcher behavior. Actual617269-byte public homepage parsed offline; finished Cup used for schema only.",
+  "skippedReason": "The existing reviewed-AS decoded-playback canary requires an explicitly pinned live source on a physical iOS device. It was not run on Catalyst and is not counted as a playback pass."
+}

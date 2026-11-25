@@ -1,0 +1,57 @@
+{
+  "build": 226,
+  "device": "Jet iPad",
+  "Galatasaray-Stuttgart": {
+    "entry": "normal match Watch",
+    "primary": "CS1",
+    "primaryAdvanceSeconds": 91.338,
+    "primaryPicture": "commercials during sampled window; programme not positively identified",
+    "forcedFailure": "local AV item failure held on selected route",
+    "replacement": "CS3",
+    "faultToObservedAdvancingPictureSeconds": 24.3,
+    "replacementAdvanceSeconds": 92.013,
+    "replacementPicture": "GAL 2\u20130 STU at 45:00 +0:25",
+    "publisherIndependence": false,
+    "secondHalf": {
+      "primary": "CS1 commercial near same ad sequence as earlier; programme unverified on primary",
+      "primaryAdvanceSeconds": 91.354,
+      "forcedSwitch": "CS1 to CS3",
+      "recoverySeconds": 21.6,
+      "replacementAdvanceSeconds": 91.66,
+      "scoreboard": "GAL 2\u20130 STU 49:17"
+    },
+    "finalCandidate": {
+      "initial": "CS1 failed its primary continuity hold twice at 8.3 and 31.23 seconds. Overall continuity test failed.",
+      "naturalRecovery": "TV2 transport failure, CS2 renewal unavailable, CS3 held 92.04 seconds. GAL 2\u20130 STU at 79:45.",
+      "forcedRecovery": "CS3 cut, CS4 advanced 91.15 seconds. GAL 2\u20130 STU at 81:39. No manual switch."
+    }
+  },
+  "Shakhtar-Sporting": {
+    "initialPrimary": "CS1 showed correct game; interrupted hold at 27.05s",
+    "firstStallRepair": "CS1 stalled after 26.90s; new CS1 attempt stalled after 12.72s",
+    "earlyCut": "CS1 to CS3 automatically after 28.93s, CS3 advanced 91.905s; SHK 0\u20131 SPO at 65:10; no primary hold claimed",
+    "finalNatural": "CS1 failed after 18.71s. TV6 transport failure, CS2 HTTP rejection, CS3 sustained 91.512s; SHK 0\u20131 SPO at 71:36. No manual selection.",
+    "secondOutage": "CS3 cut after its successful hold; CS4 started but its native item changed after 2.05s, failed continuity acceptance.",
+    "independence": "CS1/3/4 are the same provider, original source paths may differ. TV6 independently timed out on upstream manifest.",
+    "finalEarlyCut": {
+      "primary": "CS1",
+      "replacement": "CS3",
+      "secondsToAdvancingReplacement": 11.26,
+      "replacementAdvanceSeconds": 91.46,
+      "picture": "SHK 0\u20131 SPO at 76:15",
+      "recoverySequence": [
+        "CS1 decoded then failed",
+        "TV6 upstream transport failure",
+        "CS2 HTTP rejection",
+        "CS3 advancing match video"
+      ],
+      "earlierUnsuccessfulRetriesPreserved": true
+    }
+  },
+  "tests": {
+    "finalFocusedJetPassed": 152,
+    "finalFocusedJetFailures": 0,
+    "broaderIntermediateRun": "168 passed; one unrelated Home source-text test could not read the Mac checkout on iPad. Both text assertions passed on the checkout."
+  },
+  "restoration": "Signed build 226 reinstalled and launched normally on Jet."
+}

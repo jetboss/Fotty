@@ -1,0 +1,45 @@
+{
+  "observedAt": "2026-11-04T15:21:48.812Z",
+  "guideBytes": 250035,
+  "programmeCount": 24,
+  "officialFixtureCount": 10,
+  "current": [
+    {
+      "programmeID": "183790224",
+      "title": "WBBL: Heat v Sixers",
+      "start": "2026-11-04T13:00:00.000Z",
+      "end": "2026-11-04T16:00:00.000Z",
+      "endBasis": "next-published-programme",
+      "classification": "non-live-programme"
+    }
+  ],
+  "review": [
+    {
+      "programmeID": "183882957",
+      "title": "Live: WBBL: Strikers v Heat",
+      "start": "2026-11-05T04:40:00.000Z",
+      "result": "corroborated",
+      "fixtureID": "cricket-fixture:ca:40630",
+      "officialStart": "2026-11-05T04:40:00.000Z",
+      "officialStatus": "scheduled",
+      "coverageLeadMinutes": 0
+    },
+    {
+      "programmeID": "183882958",
+      "title": "Live: WBBL: Thunder v Scorchers",
+      "start": "2026-11-05T08:00:00.000Z",
+      "result": "corroborated",
+      "fixtureID": "cricket-fixture:ca:40631",
+      "officialStart": "2026-11-05T08:10:00.000Z",
+      "officialStatus": "scheduled",
+      "coverageLeadMinutes": 10
+    }
+  ],
+  "scope": "metadata-only; no registry activation or playback qualification",
+  "focusedTests": {
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0
+  },
+  "integration": "Local metadata parser/coverage review only; cloud collection and native Fox programme join remain pending."
+}

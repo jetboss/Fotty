@@ -41,6 +41,7 @@ print_section "Memory Health"
 
 print_section "Project Memory Files"
 for path in \
+  "$ROOT/docs/notebooklm/Current-State.md" \
   "$ROOT/docs/notebooklm/Project-Memory.md" \
   "$ROOT/docs/notebooklm/Decisions-Log.md" \
   "$ROOT/docs/notebooklm/Architecture-Map.md" \
@@ -58,7 +59,7 @@ printf '%s\n' "$selected_playbooks" | while IFS= read -r playbook; do
 done
 
 print_section "Local Memory Brief"
-"$ROOT/tools/ask-brain.sh" "For this Fotty task: $TASK. Return prior decisions, risks, likely files, and verification checks."
+"$ROOT/tools/ask-brain.sh" "$TASK"
 
 print_section "Git Working Tree"
 (

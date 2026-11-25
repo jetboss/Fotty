@@ -1,0 +1,39 @@
+{
+  "nativeGates": [
+    {
+      "gate": "native-final",
+      "result": "Passed",
+      "passedTests": 189,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 189
+    },
+    {
+      "gate": "native-validation",
+      "result": "Passed",
+      "passedTests": 30,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 30
+    },
+    {
+      "gate": "native-tv-final",
+      "result": "Passed",
+      "passedTests": 169,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "totalTestCount": 169
+    }
+  ],
+  "nativeCountsOverlap": true,
+  "protectedBackend": {
+    "tests": 439,
+    "passed": 439
+  },
+  "watchdog": {
+    "tests": 186,
+    "passed": 186
+  },
+  "workerBundles": "both pass",
+  "physicalPlaybackQualification": "separate; not established by these unit checks"
+}

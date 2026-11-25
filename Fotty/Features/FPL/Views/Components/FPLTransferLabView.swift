@@ -1,6 +1,9 @@
 import SwiftUI
 
 public struct FPLTransferLabView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .subheadline) private var routeMinimumWidth: CGFloat = 132
+    @ScaledMetric(relativeTo: .caption) private var gameweekMinimumWidth: CGFloat = 96
     @ObservedObject private var viewModel: FPLAdvisorViewModel
     private let onStageRoute: (FPLDraftRoute) -> Void
     @State private var selectedRouteID: String?
@@ -30,7 +33,7 @@ public struct FPLTransferLabView: View {
                     Label("TRANSFER LAB", systemImage: "flask.fill")
                         .font(FottyTheme.typeSectionTitle)
                         .foregroundStyle(FottyTheme.textPrimary)
-                    Text("Compare doing nothing, one move, and a two-move route on the same modeled horizon.")
+                    Text("Compare no transfer, one move and two-move routes.")
                         .font(FottyTheme.typeMeta)
                         .foregroundStyle(FottyTheme.textSecondary)
                 }
@@ -50,7 +53,7 @@ public struct FPLTransferLabView: View {
                     .foregroundStyle(FottyTheme.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: 72)
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 132), spacing: 8)], spacing: 8) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: routeMinimumWidth), spacing: 8)], spacing: 8) {
                     ForEach(viewModel.planningRoutes) { route in
                         routeChoice(route)
                     }
@@ -60,10 +63,6 @@ public struct FPLTransferLabView: View {
                     routeDetail(route)
                 }
             }
-
-            Text("Projections are Fotty estimates. Free transfers, selling prices, and submitted changes must be confirmed in official FPL.")
-                .font(FottyTheme.typeCaption)
-                .foregroundStyle(FottyTheme.textTertiary)
 
             if let statusMessage {
                 Label(statusMessage, systemImage: "checkmark.circle.fill")
@@ -96,7 +95,7 @@ public struct FPLTransferLabView: View {
                 Text(route.name)
                     .font(FottyTheme.typeModuleTitle)
                     .foregroundStyle(selected ? FottyTheme.textOnAccent : FottyTheme.textPrimary)
-                    .lineLimit(2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                 Text("\(route.transfers.count) move\(route.transfers.count == 1 ? "" : "s")")
                     .font(FottyTheme.typeCaption)
                     .foregroundStyle(selected ? FottyTheme.textOnAccent.opacity(0.75) : FottyTheme.textSecondary)
@@ -113,9 +112,10 @@ public struct FPLTransferLabView: View {
                     .strokeBorder(selected ? Color.clear : FottyTheme.border, lineWidth: 1)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusMD))
         .accessibilityLabel("\(route.name), \(route.transfers.count) moves, modeled \(route.projectedGain.formatted(.number.precision(.fractionLength(1)))) points, estimated hit \(route.hitCost)")
         .accessibilityHint("Shows this route's evidence and downside")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     private func routeDetail(_ route: FPLDraftRoute) -> some View {
@@ -154,11 +154,11 @@ public struct FPLTransferLabView: View {
                 Text("WEEK-BY-WEEK NET EFFECT")
                     .font(FottyTheme.typeCaption)
                     .foregroundStyle(FottyTheme.textTertiary)
-                HStack(spacing: 6) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: gameweekMinimumWidth), spacing: 6)], alignment: .leading, spacing: 6) {
                     ForEach(route.weeklyProjectedGain.keys.sorted(), id: \.self) { gameweek in
                         let value = route.weeklyProjectedGain[gameweek] ?? 0
                         Text("GW\(gameweek) \(value >= 0 ? "+" : "")\(value.formatted(.number.precision(.fractionLength(1))))")
-                            .font(.system(size: 9, weight: .bold))
+                            .font(FottyTheme.typeCaption.weight(.semibold))
                             .foregroundStyle(value >= 0 ? FottyTheme.success : FottyTheme.accentText)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 4)

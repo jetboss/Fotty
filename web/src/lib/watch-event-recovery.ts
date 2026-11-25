@@ -2,7 +2,7 @@
  * Pure helpers for event-embed failover. Keep timer/UI effects in the watch hook.
  */
 
-export type EventGuideSource = {
+type EventGuideSource = {
   id?: string;
   eventIndex?: number;
   diagnosticsSafeId?: string;
@@ -13,7 +13,7 @@ export type EventStreamGuide = {
   recommended?: EventGuideSource | null;
 };
 
-export function markFailedEventSource(
+function markFailedEventSource(
   failedIds: Set<string>,
   source: EventGuideSource | undefined
 ): Set<string> {

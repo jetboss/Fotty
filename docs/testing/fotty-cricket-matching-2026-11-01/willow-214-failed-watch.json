@@ -1,0 +1,333 @@
+{
+  "records": [
+    {
+      "event": "attempt_started",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:34:46.958607+00:00",
+      "details": {
+        "last_observed_stage": "preparing",
+        "route": "single",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "attempt_number": "1"
+      }
+    },
+    {
+      "event": "playback_causal_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:34:49.064118+00:00",
+      "details": {
+        "last_observed_stage": "preparing",
+        "route": "single",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "attempt_number": "1"
+      }
+    },
+    {
+      "event": "audio_activation_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:34:49.090859+00:00",
+      "details": {}
+    },
+    {
+      "event": "source_discovery_result",
+      "outcome": "success",
+      "atUTC": "2026-11-01T13:34:49.134468+00:00",
+      "details": {
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "event": "audio_activation_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:34:49.321649+00:00",
+      "details": {}
+    },
+    {
+      "event": "playback_causal_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:34:49.368316+00:00",
+      "details": {
+        "last_observed_stage": "preparing",
+        "route": "single",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "attempt_number": "1"
+      }
+    },
+    {
+      "event": "audio_preparation_duration",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:34:49.381629+00:00",
+      "details": {
+        "last_observed_stage": "preparing",
+        "route": "single",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "attempt_number": "1"
+      }
+    },
+    {
+      "event": "playback_stage",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:34:53.260664+00:00",
+      "details": {
+        "last_observed_stage": "media_ready",
+        "route": "single",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "attempt_number": "1"
+      }
+    },
+    {
+      "event": "decoded_progress",
+      "outcome": "success",
+      "atUTC": "2026-11-01T13:34:53.278941+00:00",
+      "details": {
+        "last_observed_stage": "decoded",
+        "route": "single",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "attempt_number": "1"
+      }
+    },
+    {
+      "event": "source_failure",
+      "outcome": "failure",
+      "atUTC": "2026-11-01T13:35:51.272735+00:00",
+      "details": {
+        "source_family": "reviewedtv",
+        "attempt_number": "1",
+        "last_observed_stage": "decoded",
+        "failure_kind": "stalled",
+        "route": "single",
+        "relay_failure_stage": "upstream_response",
+        "source": "TV1",
+        "relay_failure_kind": "timeout"
+      }
+    },
+    {
+      "event": "automatic_failover",
+      "outcome": "failure",
+      "atUTC": "2026-11-01T13:35:51.306197+00:00",
+      "details": {
+        "attempt_number": "1",
+        "route": "single",
+        "last_observed_stage": "decoded",
+        "source": "TV1",
+        "source_family": "reviewedtv",
+        "failure_kind": "stalled"
+      }
+    },
+    {
+      "event": "stall_observed_duration",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:35:51.340052+00:00",
+      "details": {
+        "attempt_number": "1",
+        "route": "single",
+        "last_observed_stage": "decoded",
+        "source": "TV1",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "event": "attempt_started",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:35:51.351876+00:00",
+      "details": {
+        "attempt_number": "2",
+        "route": "single",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "event": "playback_causal_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:35:52.327195+00:00",
+      "details": {
+        "source": "CS1",
+        "attempt_number": "2",
+        "route": "single",
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "event": "audio_activation_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:35:52.383833+00:00",
+      "details": {}
+    },
+    {
+      "event": "audio_activation_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:35:52.416291+00:00",
+      "details": {}
+    },
+    {
+      "event": "playback_causal_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:35:52.447595+00:00",
+      "details": {
+        "attempt_number": "2",
+        "route": "single",
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source": "CS1"
+      }
+    },
+    {
+      "event": "audio_preparation_duration",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:35:52.459751+00:00",
+      "details": {
+        "attempt_number": "2",
+        "route": "single",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "event": "source_failure",
+      "outcome": "failure",
+      "atUTC": "2026-11-01T13:36:12.516169+00:00",
+      "details": {
+        "source_family": "communitysports",
+        "attempt_number": "2",
+        "last_observed_stage": "preparing",
+        "failure_kind": "startupTimeout",
+        "route": "single",
+        "source": "CS1"
+      }
+    },
+    {
+      "event": "attempt_started",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:36:12.550132+00:00",
+      "details": {
+        "attempt_number": "3",
+        "route": "single",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "event": "playback_causal_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:36:14.915144+00:00",
+      "details": {
+        "source_family": "communitysports",
+        "attempt_number": "3",
+        "route": "single",
+        "last_observed_stage": "preparing",
+        "source": "CS1"
+      }
+    },
+    {
+      "event": "audio_activation_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:36:14.944200+00:00",
+      "details": {}
+    },
+    {
+      "event": "audio_activation_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:36:14.981634+00:00",
+      "details": {}
+    },
+    {
+      "event": "playback_causal_evidence",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:36:15.009623+00:00",
+      "details": {
+        "attempt_number": "3",
+        "route": "single",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "event": "audio_preparation_duration",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:36:15.021049+00:00",
+      "details": {
+        "attempt_number": "3",
+        "route": "single",
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source": "CS1"
+      }
+    },
+    {
+      "event": "playback_stage",
+      "outcome": "info",
+      "atUTC": "2026-11-01T13:36:24.513137+00:00",
+      "details": {
+        "route": "single",
+        "last_observed_stage": "media_ready",
+        "source": "CS1",
+        "source_family": "communitysports",
+        "attempt_number": "3"
+      }
+    },
+    {
+      "event": "decoded_progress",
+      "outcome": "success",
+      "atUTC": "2026-11-01T13:36:24.551084+00:00",
+      "details": {
+        "route": "single",
+        "last_observed_stage": "decoded",
+        "source": "CS1",
+        "attempt_number": "3",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "event": "source_failure",
+      "outcome": "failure",
+      "atUTC": "2026-11-01T13:37:09.094700+00:00",
+      "details": {
+        "route": "single",
+        "last_observed_stage": "decoded",
+        "relay_request_http_status": "200",
+        "attempt_number": "3",
+        "source": "CS1",
+        "failure_kind": "stalled",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "event": "terminal_failure",
+      "outcome": "failure",
+      "atUTC": "2026-11-01T13:37:09.129674+00:00",
+      "details": {
+        "route": "single",
+        "last_observed_stage": "decoded",
+        "failure_kind": "stalled",
+        "source": "CS1",
+        "source_family": "communitysports",
+        "attempt_number": "3"
+      }
+    },
+    {
+      "event": "stall_observed_duration",
+      "outcome": "failure",
+      "atUTC": "2026-11-01T13:37:09.147639+00:00",
+      "details": {
+        "route": "single",
+        "last_observed_stage": "decoded",
+        "source": "CS1",
+        "source_family": "communitysports",
+        "attempt_number": "3"
+      }
+    }
+  ],
+  "scope": "Normal TV Willow Watch, first picture then terminal stall; not qualified"
+}

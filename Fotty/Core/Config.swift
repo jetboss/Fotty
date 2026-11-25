@@ -1,10 +1,51 @@
 import Foundation
+import OSLog
+
+/// Stable signpost categories for Instruments and device Console. These are
+/// intentionally few and coarse: enough to identify a slow catalog phase
+/// without adding per-row measurement overhead to the scroll path itself.
+enum FottyPerformanceTrace {
+    static let logger = Logger(subsystem: "com.jelani.Fotty", category: "Performance")
+    static let catalog = OSSignposter(subsystem: "com.jelani.Fotty", category: "Catalog")
+    static let persistence = OSSignposter(subsystem: "com.jelani.Fotty", category: "Persistence")
+}
+
+enum FottyBrand {
+    /// The compact name remains the wordmark and natural in-sentence reference.
+    static let shortName = "Fotty"
+    static let wordmark = "FOTTY"
+
+    /// The public product name makes the all-sports scope explicit.
+    static let displayName = "Fotty Sports Hub"
+    static let descriptor = "SPORTS HUB"
+}
 
 enum AppRuntime {
+    /// Ordinary builds measure the trial decisions without applying the trial order.
+    /// Removing the private build flag rolls both ranking and picker presentation back.
+    static var usesPrivateMatchSelection: Bool {
+        #if FOTTY_PRIVATE_OUTAGE_DRILL && os(iOS) && !targetEnvironment(macCatalyst) && !targetEnvironment(simulator)
+        return ProcessInfo.processInfo.environment["FOTTY_DRILL_ORDINARY_SELECTION"] != "1"
+        #else
+        return false
+        #endif
+    }
     /// Physical-device playback checks need production refresh/resolution while
     /// still suppressing provider audio during the automated run.
     static var isPhysicalLiveTesting: Bool {
         ProcessInfo.processInfo.environment["FOTTY_PHYSICAL_LIVE_TEST"] == "1"
+    }
+
+    /// Only compiled into a private physical qualification build. There is no network or persisted switch.
+    static var privateOutageFixture: String? {
+        #if FOTTY_PRIVATE_OUTAGE_DRILL && os(iOS) && !targetEnvironment(macCatalyst) && !targetEnvironment(simulator)
+        guard isPhysicalLiveTesting, let id = ProcessInfo.processInfo.environment["FOTTY_PRIVATE_OUTAGE_FIXTURE"],
+              id.utf8.count <= 160, id.hasPrefix("sports-fixture:") || id.hasPrefix("cricket-fixture:")
+                || ["sports-channel:fox-sports-1-us", "sports-channel:sky-sports-cricket"].contains(id) else { return nil }
+        return id
+        #else
+        return nil
+        #endif
     }
 
     /// Keeps hosted unit/UI tests deterministic and prevents them from exercising
@@ -31,6 +72,11 @@ enum Config {
     static let webAppURLString = "https://fotty.pixel-invoice.com"
     /// Public edge boundary; provider credentials remain Worker secrets.
     private static let defaultEdgeAPIBaseURLString = "https://fotty-playback-v3.adaptive-rhubarb.workers.dev"
+    /// Fixed, reviewed Stremio-protocol add-on boundary for the optional CS lane.
+    /// The add-on never supplies Fotty fixtures; it is queried only after a user
+    /// opens an exact Fotty match. Override in a scheme for local contract tests.
+    private static let defaultCommunitySportsManifestURLString =
+        "https://nuviosports.xyz/manifest.json"
 
     private static func configuredValue(_ key: String) -> String {
         let environmentValue = ProcessInfo.processInfo.environment[key]?
@@ -130,6 +176,15 @@ enum Config {
         normalizedHTTPSURL(from: fplCoachProxyBaseURLString)
     }
 
+    static var communitySportsManifestURLString: String {
+        let raw = configuredValue("FOTTY_COMMUNITY_SPORTS_MANIFEST_URL")
+        return raw.isEmpty ? defaultCommunitySportsManifestURLString : raw
+    }
+
+    static var communitySportsManifestURL: URL? {
+        normalizedHTTPSURL(from: communitySportsManifestURLString)
+    }
+
     /// When true (default), football-data.org schedule/WC calls prefer `/api/football/matches` on the web host.
     static var prefersFootballDataProxy: Bool {
         let raw = ProcessInfo.processInfo.environment["FOTTY_FOOTBALL_PROXY_ENABLED"]?
@@ -139,54 +194,6 @@ enum Config {
             return !(raw == "0" || raw == "false" || raw == "no" || raw == "off")
         }
         return true
-    }
-
-    enum P2P {
-        private static func environmentValue(_ key: String) -> String? {
-            let raw = ProcessInfo.processInfo.environment[key]?.trimmingCharacters(in: .whitespacesAndNewlines)
-            return (raw?.isEmpty == false) ? raw : nil
-        }
-
-        static var serverBaseURLString: String {
-            environmentValue("FOTTY_P2P_SERVER_URL") ?? "https://p2p.pixel-invoice.com"
-        }
-
-        static var scraperBaseURLString: String {
-            environmentValue("FOTTY_P2P_SCRAPER_URL") ?? "https://scraper.pixel-invoice.com"
-        }
-
-        static var serverBaseURL: URL? {
-            normalizedHTTPURL(from: serverBaseURLString)
-        }
-
-        static var scraperBaseURL: URL? {
-            normalizedHTTPURL(from: scraperBaseURLString)
-        }
-
-        /// Optional LAN/homelab mirror for `/matches` when upstream CDN is empty. Uses scraper host + `/matches`.
-        static var homelabMatchesMirrorURL: URL? {
-            guard let base = scraperBaseURL else { return nil }
-            return base.appendingPathComponent("matches")
-        }
-
-        static var accessClientID: String? {
-            environmentValue("FOTTY_P2P_CF_ACCESS_CLIENT_ID")
-        }
-
-        static var accessClientSecret: String? {
-            environmentValue("FOTTY_P2P_CF_ACCESS_CLIENT_SECRET")
-        }
-
-        static var edgeHeaders: [String: String] {
-            guard let clientID = accessClientID,
-                  let clientSecret = accessClientSecret else {
-                return [:]
-            }
-            return [
-                "CF-Access-Client-Id": clientID,
-                "CF-Access-Client-Secret": clientSecret
-            ]
-        }
     }
 
     /// Extra API-Football league fixtures merged into `FootballRepository.getPremiumFixtures` (e.g. a major tournament).

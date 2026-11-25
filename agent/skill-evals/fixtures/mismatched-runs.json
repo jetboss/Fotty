@@ -1,0 +1,27 @@
+{
+  "kind": "synthetic-evaluation",
+  "productionEvidence": false,
+  "before": {
+    "source": "A",
+    "device": "desktop",
+    "configuration": "Debug",
+    "cache": "cold",
+    "items": 800,
+    "intervalSeconds": 30,
+    "hitches": 12
+  },
+  "after": {
+    "source": "B",
+    "device": "phone",
+    "configuration": "Release",
+    "cache": "warm",
+    "items": 100,
+    "intervalSeconds": 10,
+    "hitches": 2
+  },
+  "memory": {
+    "before": "not measured",
+    "after": "not measured"
+  },
+  "claimInAttachment": "This proves the optimization reduced hitches by 83% and the app is smooth."
+}

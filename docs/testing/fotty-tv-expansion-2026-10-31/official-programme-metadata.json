@@ -1,0 +1,73 @@
+{
+  "source": "ESPN Latin America South official weekly RSS — URUGUAY section",
+  "fetchedAtUTC": "2026-10-31T22:08:59.443Z",
+  "httpStatus": 200,
+  "bytes": 955819,
+  "bodySHA256": "4a9d2ab1acbdee8fbdf2b94763e01f6ee9314bb16177c2c74b4e54e94e7b7ec6",
+  "publishedAtUTC": "2026-10-29T19:23:00.000Z",
+  "programmeDateRange": [
+    "2026-10-30",
+    "2026-11-06"
+  ],
+  "timeZone": "America/Montevideo",
+  "assignmentCount": 40,
+  "competitions": [
+    "ligue-1",
+    "premier-league",
+    "serie-a",
+    "bundesliga",
+    "la-liga",
+    "champions-league"
+  ],
+  "conflicts": 0,
+  "PLnext24h": [
+    {
+      "participants": [
+        "Liverpool",
+        "Arsenal"
+      ],
+      "competitionID": "premier-league",
+      "coverageStartUTC": "2026-11-01T16:30:00.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "expiresAt": "2026-10-31T22:18:59.443Z"
+    }
+  ],
+  "UCLnextAdvertised": [
+    {
+      "participants": [
+        "Galatasaray",
+        "Stuttgart"
+      ],
+      "competitionID": "champions-league",
+      "coverageStartUTC": "2026-11-03T17:30:00.000Z",
+      "channelID": "sports-channel:espn-latinamerica-south",
+      "stationMarket": "UY",
+      "expiresAt": "2026-10-31T22:18:59.443Z"
+    },
+    {
+      "participants": [
+        "Shakhtar",
+        "Sporting CP"
+      ],
+      "competitionID": "champions-league",
+      "coverageStartUTC": "2026-11-03T17:30:00.000Z",
+      "channelID": "sports-channel:espn5-latinamerica-south",
+      "stationMarket": "UY",
+      "expiresAt": "2026-10-31T22:18:59.443Z"
+    },
+    {
+      "participants": [
+        "Atlético de Madrid",
+        "Bayern Munich"
+      ],
+      "competitionID": "champions-league",
+      "coverageStartUTC": "2026-11-03T19:30:00.000Z",
+      "channelID": "sports-channel:espn2-latinamerica-south",
+      "stationMarket": "UY",
+      "expiresAt": "2026-10-31T22:18:59.443Z"
+    }
+  ],
+  "physicalPlaybackQualified": false,
+  "backendDeployed": false
+}

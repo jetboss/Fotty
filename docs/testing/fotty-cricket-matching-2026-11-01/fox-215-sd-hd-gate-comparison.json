@@ -1,0 +1,26 @@
+{
+  "startedUTC": "2026-11-01T16:05:55.024Z",
+  "scope": "Compare only fresh original public Fox SD/HD descriptors after native SD subscription-card observation; no media requests",
+  "metadata": {
+    "http": 200,
+    "bytes": 159715,
+    "observedUTC": "2026-11-01T16:05:55.460Z"
+  },
+  "comparison": {
+    "sameOpaqueCapability": false,
+    "sameChannelComponent": true,
+    "sameFullPath": false,
+    "sameOrigin": false,
+    "sdComponents": 4,
+    "hdComponents": 4,
+    "sdRootShape": true,
+    "hdRootShape": true,
+    "bothNoUserInfo": true,
+    "bothNoQuery": true,
+    "bothNoFragment": true
+  },
+  "outcome": "descriptors-differ-independence-not-yet-established",
+  "mediaRequests": 0,
+  "completedUTC": "2026-11-01T16:05:55.462Z",
+  "redaction": "No URLs, hosts, capabilities, numeric channel values, query values or private identifiers retained."
+}

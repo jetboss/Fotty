@@ -1,0 +1,46 @@
+{
+  "completion": "channel_collection_complete_not_match_watch_qualification",
+  "deliveries": [
+    {
+      "endpoint": "directMedia",
+      "failureDetails": {
+        "relay_request_outcome": "completed"
+      },
+      "frames": 879,
+      "label": "TV3",
+      "phase": "completed",
+      "progressSeconds": 89.99,
+      "result": "decoded_90_seconds_channel_programme_review_required",
+      "startupSeconds": 1.98
+    },
+    {
+      "endpoint": "directMedia",
+      "failureDetails": {
+        "relay_request_outcome": "in_flight"
+      },
+      "frames": 879,
+      "label": "TV4",
+      "phase": "completed",
+      "progressSeconds": 89.957,
+      "result": "decoded_90_seconds_channel_programme_review_required",
+      "startupSeconds": 1.77
+    },
+    {
+      "endpoint": "directMedia",
+      "failureDetails": {
+        "relay_request_outcome": "completed"
+      },
+      "frames": 879,
+      "label": "TV7",
+      "phase": "completed",
+      "progressSeconds": 89.99,
+      "result": "decoded_90_seconds_channel_programme_review_required",
+      "startupSeconds": 1.674
+    }
+  ],
+  "normalMatchWatchQualified": false,
+  "observedAtUTC": "2026-10-31T22:31:44Z",
+  "schemaVersion": 1,
+  "scope": "reviewed_channel_transport_only",
+  "executionExitCode": 0
+}

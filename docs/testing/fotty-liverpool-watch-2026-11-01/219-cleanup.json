@@ -1,0 +1,12 @@
+{
+  "checkedAt": "2026-11-01T20:38:28.326715+00:00",
+  "ownedGateRemoved": true,
+  "ownedAllocatedBytesRemoved": 1586180096,
+  "freeBytesBefore": 7830446080,
+  "freeBytesAfter": 9362006016,
+  "ownedKeepAwakeStopped": true,
+  "preExistingCachesOrOtherTaskOutputsDeleted": false,
+  "durableOfficialNode24RuntimePreserved": true,
+  "canonicalWebNodeModulesAndNextPreserved": true,
+  "temporaryPrivatePrefsMediaMetadataSigningLogsAndResultBundlesRemoved": true
+}

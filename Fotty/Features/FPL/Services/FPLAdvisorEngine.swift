@@ -107,6 +107,17 @@ public struct RivalGapAnalysis: Sendable {
     public let rivalUniqueLivePoints: Int
     public let hasOfficialLiveSnapshot: Bool
     public let tacticalAdvice: String
+    public var checkedAt: Date? = nil
+    public var isFinalComparison = false
+    public var pointsAreProjected = false
+    public var myTransferCost = 0
+    public var rivalTransferCost = 0
+    public var myCaptainMultiplier = 0
+    public var rivalCaptainMultiplier = 0
+
+    public var scoringLabel: String {
+        isFinalComparison ? "Final official points" : (pointsAreProjected ? "Provisional · projected substitutions/captaincy" : "Official published points · not final")
+    }
 
     /// Positive means your published unique players currently lead the rival's.
     public var uniquePlayerSwing: Int { myUniqueLivePoints - rivalUniqueLivePoints }
@@ -422,7 +433,8 @@ public enum FPLAdvisorEngine {
         gameweek: Int = 0,
         phase: FPLGameweekPhase = .unavailable,
         eventLive: FPLEventLiveResponse? = nil,
-        fixtures: [FPLFixture] = []
+        fixtures: [FPLFixture] = [],
+        scoringSnapshot: FPLRivalScoringSnapshot? = nil
     ) -> RivalGapAnalysis {
         let myIds = Set(myPicks.map(\.element))
         let rivalIds = Set(rivalPicks.map(\.element))
@@ -431,8 +443,14 @@ public enum FPLAdvisorEngine {
         let diffRivalIds = rivalIds.subtracting(myIds)
         let sharedIds = myIds.intersection(rivalIds)
         let playerByID = Dictionary(uniqueKeysWithValues: allScores.map { ($0.player.id, $0.player.webName) })
-        let myCaptainName = myPicks.first(where: \.isCaptain).flatMap { playerByID[$0.element] }
-        let rivalCaptainName = rivalPicks.first(where: \.isCaptain).flatMap { playerByID[$0.element] }
+        func captainName(_ picks: [FPLPick], summary: FPLLiveSquadSummary?) -> String? {
+            if let summary {
+                return summary.rows.first(where: { $0.effectiveMultiplier > 1 })?.player.webName
+            }
+            return picks.first(where: \.isCaptain).flatMap { playerByID[$0.element] }
+        }
+        let myCaptainName = captainName(myPicks, summary: scoringSnapshot?.own)
+        let rivalCaptainName = captainName(rivalPicks, summary: scoringSnapshot?.rival)
         
         let myDiffScores = allScores.filter { diffMyIds.contains($0.player.id) }
         let rivalThreatScores = allScores.filter { diffRivalIds.contains($0.player.id) }
@@ -448,7 +466,7 @@ public enum FPLAdvisorEngine {
             guard gameweek > 0, let player = scoresByID[playerID]?.player else { return false }
             return fixtures.contains {
                 $0.event == gameweek
-                    && !$0.finished
+                    && !$0.finished && $0.finishedProvisional != true
                     && ($0.teamH == player.team || $0.teamA == player.team)
             }
         }
@@ -480,7 +498,7 @@ public enum FPLAdvisorEngine {
             advice = "The gap is \(abs(deficit)) points. Let squad quality and the transfer horizon drive the move rather than forcing a differential."
         }
         
-        return RivalGapAnalysis(
+        var analysis = RivalGapAnalysis(
             rivalName: "\(rivalEntry.entryName) (\(rivalEntry.managerName))",
             gameweek: gameweek,
             phase: phase,
@@ -489,22 +507,30 @@ public enum FPLAdvisorEngine {
             myPoints: myEntry.total,
             rivalPoints: rivalEntry.total,
             pointDeficit: deficit,
-            myGameweekPoints: myEntry.eventTotal,
-            rivalGameweekPoints: rivalEntry.eventTotal,
-            gameweekDeficit: rivalEntry.eventTotal - myEntry.eventTotal,
+            myGameweekPoints: scoringSnapshot?.own.totalPoints ?? myEntry.eventTotal,
+            rivalGameweekPoints: scoringSnapshot?.rival.totalPoints ?? rivalEntry.eventTotal,
+            gameweekDeficit: (scoringSnapshot?.rival.totalPoints ?? rivalEntry.eventTotal) - (scoringSnapshot?.own.totalPoints ?? myEntry.eventTotal),
             strategyMode: mode,
             myDifferentials: myDiffScores,
             rivalThreats: rivalThreatScores,
             sharedPlayers: sharedScores,
             myCaptainName: myCaptainName,
             rivalCaptainName: rivalCaptainName,
-            myPlayersRemaining: remainingCount(myPicks),
-            rivalPlayersRemaining: remainingCount(rivalPicks),
-            myUniqueLivePoints: uniqueLivePoints(myPicks, uniqueIDs: diffMyIds),
-            rivalUniqueLivePoints: uniqueLivePoints(rivalPicks, uniqueIDs: diffRivalIds),
+            myPlayersRemaining: scoringSnapshot?.own.playersRemaining ?? remainingCount(myPicks),
+            rivalPlayersRemaining: scoringSnapshot?.rival.playersRemaining ?? remainingCount(rivalPicks),
+            myUniqueLivePoints: scoringSnapshot.map { $0.own.rows.filter { diffMyIds.contains($0.id) }.reduce(0) { $0 + $1.multipliedPoints } } ?? uniqueLivePoints(myPicks, uniqueIDs: diffMyIds),
+            rivalUniqueLivePoints: scoringSnapshot.map { $0.rival.rows.filter { diffRivalIds.contains($0.id) }.reduce(0) { $0 + $1.multipliedPoints } } ?? uniqueLivePoints(rivalPicks, uniqueIDs: diffRivalIds),
             hasOfficialLiveSnapshot: eventLive != nil,
             tacticalAdvice: advice
         )
+        analysis.checkedAt = scoringSnapshot?.checkedAt
+        analysis.isFinalComparison = scoringSnapshot.map { $0.own.isFinal && $0.rival.isFinal } ?? false
+        analysis.pointsAreProjected = scoringSnapshot.map { $0.own.pointsAreProjected || $0.rival.pointsAreProjected } ?? false
+        analysis.myTransferCost = scoringSnapshot?.own.transferCost ?? 0
+        analysis.rivalTransferCost = scoringSnapshot?.rival.transferCost ?? 0
+        analysis.myCaptainMultiplier = scoringSnapshot?.own.rows.map(\.effectiveMultiplier).max() ?? 0
+        analysis.rivalCaptainMultiplier = scoringSnapshot?.rival.rows.map(\.effectiveMultiplier).max() ?? 0
+        return analysis
     }
     
     // MARK: - Fixture Grid

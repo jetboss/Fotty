@@ -1,3 +1,4 @@
+import { espnGuideFeedURL } from "./reviewed-tv-espn.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { parseReviewedTVESPNFeed as parse, REVIEWED_TV_ESPN_SOURCE as source } from "./reviewed-tv-espn.mjs";
@@ -143,4 +144,12 @@ test("reviewed multi-sport guide preserves exact dated linear programmes while m
   assert.ok(result.tvGuide.every(r=>r.market==="UY" && !r.end && !r.fixtureID));
   assert.ok(result.tvGuide.find(r=>r.sport==="baseball").title.includes("si es necesario"));
   assert.equal(result.tvGuide.find(r=>r.sport==="tennis").start,"2026-11-03T14:00:00.000Z");
+});
+
+test("the Uruguay calendar controls month selection and does not exclude prior-year publications at New Year", () => {
+  assert.equal(espnGuideFeedURL(new Date("2027-01-01T02:00:00Z")).searchParams.get("s"), '"programación destacada del" "diciembre"');
+  const january = espnGuideFeedURL(new Date("2027-01-04T12:00:00Z"));
+  assert.equal(january.searchParams.get("s"), '"programación destacada del" "enero"');
+  assert.equal(january.searchParams.has("year"), false);
+  assert.equal(espnGuideFeedURL(new Date("2027-01-20T12:00:00Z")).searchParams.get("year"), "2027");
 });

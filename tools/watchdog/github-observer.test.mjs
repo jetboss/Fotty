@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS } from "./manifest.mjs";
 import { runGitHubObserver, createGitHubClient, collectWorkflowObservations, statusObservations,
-  cloudNotifications, WORKFLOWS, CORRECTED_BASELINE, WATCHDOG_STATUS_URL, OWNER, runDeliveryCanary } from "./github-observer.mjs";
+  cloudNotifications, WORKFLOWS, CORRECTED_BASELINE, WATCHDOG_STATUS_URL, runDeliveryCanary } from "./github-observer.mjs";
 import { createPolicy, emptyLedger, applyObservation } from "./incident-policy.mjs";
 
 const NOW = Date.parse("2026-10-11T12:00:00Z"), WINDOW = COLLECTION_INTERVAL_MS;
@@ -106,29 +106,6 @@ test("real 201 issue creation, restart persistence and token isolation", async (
   assert.ok(api.calls.every((call) => !call.url.includes("fixture-secret")));
   assert.ok(api.calls.every((call) => ["GET", "POST", "PATCH"].includes(call.method)));
 });
-test("historical three-count observer ledger delivers retained notice under the new threshold", async () => {
-  const api = fixture(); await invoke(api, NOW);
-  const expected = { ...EXPECTED_VERSIONS, configurationRevision: '2026-10-11.admitted-metadata-1' };
-  const previous = createPolicy({ environment: 'github-observer', windowMs: 30 * 60_000, failureWindows: 3,
-    maxReceiptAgeMs: 31 * 3600_000, limits: { active: 16, resolved: 16, outbox: 64, ledgerBytes: 24_000 },
-    admittedSources: [{ source: 'observer', stages: ['liveness'], activation: 'active', expected }] });
-  let old = emptyLedger(previous);
-  for (let n = 0; n < 3; n++) { const at = NOW - (3 - n) * 30 * 60_000;
-    old = applyObservation(old, { environment: 'github-observer', source: 'observer', stage: 'liveness',
-      failureClass: 'status-transport', facts: {}, outcome: 'failure', observedAt: at, versions: expected }, previous, at).state; }
-  assert.equal(Object.values(old.incidents)[0].failureCount, 3);
-  const issue = api.issues.find((row) => row.body.includes('fotty-watchdog-observer-ledger-v1'));
-  const start = issue.body.indexOf('```json\n') + '```json\n'.length, end = issue.body.indexOf('\n```', start);
-  issue.body = issue.body.slice(0, start) + JSON.stringify({ schema: 1, ledger: old, deliveredCloud: [] }) + issue.body.slice(end);
-  const result = await invoke(api, NOW);
-  assert.equal(result.pending, 0); assert.equal(result.delivered, 1);
-  const current = ledger(api).ledger;
-  assert.equal(current.outbox[0].id, old.outbox[0].id); assert.equal(current.notificationSequence, old.notificationSequence);
-  const record = Object.values(current.incidents)[0]; assert.equal(record.generation, 1); assert.notEqual(record.state, 'resolved');
-  assert.equal(record.firstFailureAt, Object.values(old.incidents)[0].firstFailureAt);
-  assert.equal(ownerComments(api).length, 1);
-});
-
 test("CLI-compatible default reads GITHUB_TOKEN, not an unrelated environment variable", async () => {
   const api = fixture(), prior = process.env.GITHUB_TOKEN;
   process.env.GITHUB_TOKEN = "environment-fixture-token";
@@ -138,25 +115,6 @@ test("CLI-compatible default reads GITHUB_TOKEN, not an unrelated environment va
   } finally { if (prior === undefined) delete process.env.GITHUB_TOKEN; else process.env.GITHUB_TOKEN = prior; }
 });
 
-test("transport outage is suspect and quiet until two independent windows", async () => {
-  const api = fixture();
-  const check = (now) => runGitHubObserver({ token: "fixture", request: api.request, now, statusRequest: async () => { throw new Error("private provider URL"); } });
-  await check(NOW); await check(NOW);
-  assert.equal(alerts(api).length, 0);
-  await check(NOW + WINDOW);
-  assert.equal(alerts(api).length, 1);
-  assert.equal(Object.values(ledger(api).ledger.incidents)[0].state, "confirmed");
-  assert.ok(!api.issues.some((issue) => issue.body.includes("private provider URL")));
-});
-
-test("wrong revisions cannot deliver cloud events or clear held liveness incidents", async () => {
-  const api = fixture(), bad = status(NOW, { observerRevision: "old", notifications: [notice()] });
-  for (let i = 0; i < 3; i++) await invoke(api, NOW + i * WINDOW, bad);
-  assert.equal(alerts(api).length, 1);
-  assert.equal(ledger(api).deliveredCloud.length, 0);
-  assert.equal(alerts(api)[0].body.includes('"failureClass":"status-contract"'), true);
-});
-
 test("pending activation is quiet; liveness means attempted/completed, never accepted fixtures", () => {
   const inactive = statusObservations(status(NOW, { activation: "pending", lastAttemptedAt: null, lastCompletedAt: null }), NOW);
   assert.ok(inactive.every((row) => row.outcome === "inactive"));
@@ -164,17 +122,6 @@ test("pending activation is quiet; liveness means attempted/completed, never acc
   assert.deepEqual(rows.filter((row) => row.failureClass === "missing_run").map((row) => [row.facts.dimension, row.outcome]),
     [["completed", "failure"], ["attempted", "failure"]]);
   assert.ok(rows.every((row) => row.acceptedAt === undefined && row.facts.dimension !== "accepted"));
-});
-
-test("missing scheduled completion confirms after two rechecks, then requires two fresh recovery windows", async () => {
-  const api = fixture(), old = NOW - 80 * 60_000;
-  for (let i = 0; i < 3; i++) await invoke(api, NOW + i * WINDOW, status(NOW, { lastAttemptedAt: old, lastCompletedAt: old }));
-  assert.equal(alerts(api).length, 2);
-  await invoke(api, NOW + 3 * WINDOW); await invoke(api, NOW + 3 * WINDOW);
-  assert.ok(alerts(api).every((issue) => issue.state === "open"));
-  await invoke(api, NOW + 4 * WINDOW);
-  assert.ok(alerts(api).every((issue) => issue.state === "closed"));
-  assert.equal(alerts(api).length, 2);
 });
 
 test("workflow failure on uncorrected older head is unknown, not a new current incident", async () => {
@@ -202,219 +149,12 @@ test("workflow publication gaps are inactive; published empty runs use reviewed 
   assert.equal(rows.find((row) => row.source === "workflow-provider" && row.failureClass === "missing_run").outcome, "unknown");
 });
 
-test("cloud delivery retries failed issue POST after restart, never erasing Worker notices", async () => {
-  const api = fixture(); api.failAlerts(1);
-  const body = status(NOW, { notifications: [notice()] });
-  const first = await invoke(api, NOW, body);
-  assert.equal(first.pending, 1); assert.equal(ledger(api).deliveredCloud.length, 0);
-  const retry = await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice()] }));
-  assert.equal(retry.delivered, 1); assert.equal(ledger(api).deliveredCloud.length, 1); assert.equal(alerts(api).length, 1);
-  const duplicate = await invoke(api, NOW + 2 * WINDOW, status(NOW + 2 * WINDOW, { notifications: [notice()] }));
-  assert.equal(duplicate.delivered, 0); assert.equal(alerts(api).length, 1);
-  assert.ok(api.calls.every((call) => !new URL(call.url).pathname.endsWith("/run")));
-});
-
-test("ambiguous committed POST is deduplicated by issue marker/event hash on restart", async () => {
-  const api = fixture(); api.failAlerts(1, true);
-  await invoke(api, NOW, status(NOW, { notifications: [notice()] }));
-  assert.equal(alerts(api).length, 1); assert.equal(ledger(api).deliveredCloud.length, 0);
-  await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice()] }));
-  assert.equal(alerts(api).length, 1); assert.equal(ledger(api).deliveredCloud.length, 1);
-});
-
-test("failed confirmation delivery cannot be overtaken by recovery on the same incident", async () => {
-  for (const ambiguous of [false, true]) {
-    const api = fixture(); api.failAlerts(1, ambiguous);
-    const events = [notice(), notice(2, "resolved")];
-    const first = await invoke(api, NOW, status(NOW, { notifications: events }));
-    assert.equal(first.pending, 2); assert.equal(ledger(api).deliveredCloud.length, 0);
-    assert.ok(alerts(api).every((issue) => issue.state === "open"));
-    await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: events }));
-    assert.equal(alerts(api).length, 1); assert.equal(alerts(api)[0].state, "closed");
-    assert.equal(ledger(api).deliveredCloud.length, 2);
-    await invoke(api, NOW + 2 * WINDOW, status(NOW + 2 * WINDOW, { notifications: events }));
-    assert.equal(alerts(api)[0].state, "closed");
-  }
-});
-
-test("independent retained confirmation/recovery also preserves delivery order after failed writes", async () => {
-  const api = fixture(); api.failAlerts(4);
-  const outage = (now) => runGitHubObserver({ token: "fixture", request: api.request, now,
-    statusRequest: async () => { throw new Error("Fixture outage"); } });
-  for (let i = 0; i < 3; i++) await outage(NOW + i * WINDOW);
-  await invoke(api, NOW + 3 * WINDOW);
-  const recovering = await invoke(api, NOW + 4 * WINDOW);
-  assert.equal(recovering.pending, 2); assert.equal(alerts(api).length, 0);
-  const outbox = ledger(api).ledger.outbox;
-  assert.deepEqual(outbox.map((row) => row.type), ["confirmed", "resolved"]);
-  await invoke(api, NOW + 5 * WINDOW);
-  assert.equal(alerts(api).length, 1); assert.equal(alerts(api)[0].state, "closed");
-  await invoke(api, NOW + 6 * WINDOW);
-  assert.equal(alerts(api)[0].state, "closed"); assert.equal(alerts(api).length, 1);
-});
-
-test("cloud resolution upserts/closes same stable incident issue, not another invitation", async () => {
-  const api = fixture(); await invoke(api, NOW, status(NOW, { notifications: [notice()] }));
-  alerts(api)[0].body += "\nOwner note: keep this context.";
-  await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice(), notice(2, "resolved")] }));
-  assert.equal(alerts(api).length, 1); assert.equal(alerts(api)[0].state, "closed");
-  assert.equal(ledger(api).deliveredCloud.length, 2);
-  assert.ok(alerts(api)[0].body.includes("Fotty watchdog resolved: cs / manifest / schema."));
-  assert.ok(!alerts(api)[0].body.includes("Fotty watchdog confirmed:"));
-  assert.ok(alerts(api)[0].body.endsWith("Owner note: keep this context."));
-});
-
-test("each new transition verifies owner assignment and one event-marked bot mention before delivery", async () => {
-  const api = fixture();
-  const first = await invoke(api, NOW, status(NOW, { notifications: [notice()] }));
-  assert.equal(first.delivered, 1);
-  assert.deepEqual(alerts(api)[0].assignees, [{ login: OWNER, type: "User" }]);
-  assert.equal(ownerComments(api).length, 1);
-  assert.match(ownerComments(api)[0].body, /^<!-- fotty-watchdog-owner-event-v1:[a-f0-9]{64} -->\n@jetboss Fotty watchdog confirmed:/);
-  assert.match(ownerComments(api)[0].body, /human reading or email receipt is not confirmed/);
-  const writes = api.calls.filter((call) => call.method !== "GET" && !JSON.parse(call.body).body?.includes("fotty-watchdog-observer-ledger-v1"));
-  assert.ok(JSON.parse(writes[0].body).body.includes('"pendingEventHash"'));
-  assert.ok(!JSON.parse(writes[0].body).body.includes('"eventHashes":["'));
-  assert.ok(new URL(writes[1].url).pathname.endsWith("/comments"));
-  assert.ok(!JSON.parse(writes[2].body).body.includes('"pendingEventHash"'));
-  await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice(), notice(2, "resolved")] }));
-  assert.equal(ownerComments(api).length, 2);
-  assert.match(ownerComments(api)[1].body, /@jetboss Fotty watchdog resolved:/);
-  await invoke(api, NOW + 2 * WINDOW, status(NOW + 2 * WINDOW, { notifications: [notice(), notice(2, "resolved")] }));
-  assert.equal(ownerComments(api).length, 2);
-});
-
-test("a failed owner comment is pending, is not acknowledged, and blocks overtaking recovery", async () => {
-  const api = fixture(); api.failComments(1);
-  const notifications = [notice(), notice(2, "resolved")];
-  const failed = await invoke(api, NOW, status(NOW, { notifications }));
-  assert.equal(failed.pending, 2); assert.equal(failed.delivered, 0);
-  assert.equal(ledger(api).deliveredCloud.length, 0);
-  assert.equal(issuePayload(alerts(api)[0]).eventHashes.length, 0);
-  assert.match(issuePayload(alerts(api)[0]).pendingEventHash, /^[a-f0-9]{64}$/);
-  assert.equal(alerts(api)[0].state, "open");
-  const retry = await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications }));
-  assert.equal(retry.pending, 0); assert.equal(retry.delivered, 2);
-  assert.equal(ownerComments(api).length, 2); assert.equal(alerts(api)[0].state, "closed");
-});
-
-test("ambiguous comment or final receipt writes retry without duplicate mentions", async () => {
-  for (const phase of ["comment", "commit"]) {
-    const api = fixture();
-    if (phase === "comment") api.failComments(1, true); else api.failCommits(1, true);
-    const first = await invoke(api, NOW, status(NOW, { notifications: [notice()] }));
-    assert.equal(first.pending, 1); assert.equal(ledger(api).deliveredCloud.length, 0);
-    assert.equal(ownerComments(api).length, 1);
-    const second = await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice()] }));
-    assert.equal(second.pending, 0); assert.equal(ledger(api).deliveredCloud.length, 1);
-    assert.equal(ownerComments(api).length, 1);
-    assert.equal(api.calls.filter((call) => call.method === "POST" && new URL(call.url).pathname.endsWith("/comments")).length, 1);
-  }
-});
-
-test("GitHub rejecting owner assignment cannot be recorded as delivered", async () => {
-  const api = fixture(); api.omitAssignee = true;
-  const failed = await invoke(api, NOW, status(NOW, { notifications: [notice()] }));
-  assert.equal(failed.pending, 1); assert.equal(ledger(api).deliveredCloud.length, 0);
-  assert.equal(ownerComments(api).length, 0);
-  api.omitAssignee = false;
-  const retry = await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice()] }));
-  assert.equal(retry.delivered, 1); assert.equal(ownerComments(api).length, 1);
-});
-
-test("a human comment with the event marker cannot stand in for verified bot delivery", async () => {
-  const api = fixture(); api.failComments(1);
-  await invoke(api, NOW, status(NOW, { notifications: [notice()] }));
-  const attempted = api.calls.find((call) => call.method === "POST" && new URL(call.url).pathname.endsWith("/comments"));
-  api.comments.set(alerts(api)[0].number, [{ id: 900, user: { login: "human", type: "User" }, body: JSON.parse(attempted.body).body }]);
-  const count = api.calls.length;
-  const retry = await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice()] }));
-  assert.equal(retry.pending, 1); assert.equal(ledger(api).deliveredCloud.length, 0);
-  assert.equal(api.calls.slice(count).filter((call) => call.method === "POST" && new URL(call.url).pathname.endsWith("/comments")).length, 0);
-});
-
-test("full comment discovery fails closed without an ambiguous duplicate POST", async () => {
-  const api = fixture(); api.failComments(1);
-  await invoke(api, NOW, status(NOW, { notifications: [notice()] }));
-  api.comments.set(alerts(api)[0].number, Array.from({ length: 200 }, (_, i) => ({ id: i + 1, user: BOT, body: "Unrelated retained comment" })));
-  const count = api.calls.length;
-  const retry = await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice()] }));
-  assert.equal(retry.pending, 1); assert.ok(retry.apiRequests <= 32);
-  assert.equal(api.calls.slice(count).filter((call) => call.method === "POST" && new URL(call.url).pathname.endsWith("/comments")).length, 0);
-});
-
-test("legacy issue-only receipts do not replay history, but the next real change mentions owner", async () => {
-  const api = fixture();
-  await invoke(api, NOW, status(NOW, { notifications: [notice()] }));
-  // Model the pre-upgrade receipt: the event hash exists, with no mention or assignee.
-  api.comments.clear(); delete alerts(api)[0].assignees;
-  await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice()] }));
-  assert.equal(ownerComments(api).length, 0);
-  await invoke(api, NOW + 2 * WINDOW, status(NOW + 2 * WINDOW, { notifications: [notice(), notice(2, "resolved")] }));
-  assert.equal(ownerComments(api).length, 1);
-  assert.match(ownerComments(api)[0].body, /watchdog resolved:/);
-  assert.deepEqual(alerts(api)[0].assignees, [{ login: OWNER, type: "User" }]);
-});
-
-test("compatible metadata revision drift alerts separately without discarding cloud notices", async () => {
-  const api = fixture(), drift = "2026-10-28.new-fixture-source";
-  const first = await invoke(api, NOW, status(NOW, { expectedDeploymentRevision: drift, notifications: [notice()] }));
-  assert.equal(first.delivered, 1); assert.equal(ledger(api).deliveredCloud.length, 1);
-  await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { expectedDeploymentRevision: drift, notifications: [notice()] }));
-  assert.equal(alerts(api).length, 2);
-  assert.equal(ownerComments(api).length, 2);
-  assert.ok(alerts(api).some((issue) => issue.body.includes('"failureClass":"status-contract"')));
-  // The same cloud event remains deduplicated when metadata versions converge.
-  await invoke(api, NOW + 2 * WINDOW, status(NOW + 2 * WINDOW, { notifications: [notice()] }));
-  await invoke(api, NOW + 3 * WINDOW, status(NOW + 3 * WINDOW, { notifications: [notice()] }));
-  assert.equal(ledger(api).deliveredCloud.length, 1);
-  assert.equal(ownerComments(api).length, 3);
-  assert.match(ownerComments(api)[2].body, /watchdog resolved:/);
-});
-
 test("wire/configuration mismatch and invalid status time still fence cloud notice delivery", () => {
   for (const overrides of [{ observerRevision: "old" }, { configurationRevision: "old" },
     { activatedAt: null }, { expectedDeploymentRevision: "https://unreviewed.invalid" },
     { lastCompletedAt: NOW + 31_000 }]) {
     assert.deepEqual(cloudNotifications(status(NOW, { ...overrides, notifications: [notice()] }), NOW), []);
   }
-});
-
-test("canary uses a separate bot issue, explicit run identity and no production ledger changes", async () => {
-  const api = fixture(); await invoke(api, NOW);
-  const before = JSON.stringify(ledger(api));
-  const first = await runDeliveryCanary({ token: "fixture", request: api.request, runId: "40766151178", now: NOW });
-  assert.equal(first.deliveryTest, true); assert.equal(first.delivered, 1); assert.equal(first.humanAcknowledged, false);
-  assert.equal(JSON.stringify(ledger(api)), before); assert.equal(alerts(api).length, 0);
-  const canary = api.issues.find((issue) => issue.title.includes("delivery test"));
-  assert.ok(canary); assert.deepEqual(canary.assignees, [{ login: OWNER, type: "User" }]);
-  assert.match(ownerComments(api)[0].body, /@jetboss Fotty watchdog delivery test — not a provider outage/);
-  const duplicate = await runDeliveryCanary({ token: "fixture", request: api.request, runId: "40766151178", now: NOW + WINDOW });
-  assert.equal(duplicate.delivered, 0); assert.equal(ownerComments(api).length, 1);
-  await runDeliveryCanary({ token: "fixture", request: api.request, runId: "40766151179", now: NOW + 2 * WINDOW });
-  assert.equal(ownerComments(api).length, 2); assert.equal(JSON.stringify(ledger(api)), before);
-  await assert.rejects(() => runDeliveryCanary({ token: "fixture", request: api.request, runId: "bad/id", now: NOW }), /identity/);
-});
-
-test("canary ambiguous comment retries retain original event time and a single mention", async () => {
-  const api = fixture(); api.failComments(1, true);
-  await assert.rejects(() => runDeliveryCanary({ token: "fixture", request: api.request, runId: "40766151178", now: NOW }));
-  assert.equal(ownerComments(api).length, 1);
-  const result = await runDeliveryCanary({ token: "fixture", request: api.request, runId: "40766151178", now: NOW + WINDOW });
-  assert.equal(result.delivered, 1); assert.equal(ownerComments(api).length, 1);
-  assert.equal(api.issues.length, 1); assert.equal(alerts(api).length, 0);
-});
-
-test("a fresh canary dispatch completes the retained predecessor before its own event", async () => {
-  const api = fixture(); api.failComments(1, true);
-  await assert.rejects(() => runDeliveryCanary({ token: "fixture", request: api.request, runId: "40766151178", now: NOW }));
-  await runDeliveryCanary({ token: "fixture", request: api.request, runId: "40766151179", now: NOW + WINDOW });
-  assert.equal(ownerComments(api).length, 2);
-  const canary = api.issues.find((issue) => issue.title.includes("delivery test"));
-  assert.equal(issuePayload(canary).eventHashes.length, 2);
-  assert.equal(issuePayload(canary).pendingEventHash, undefined);
-  assert.match(ownerComments(api)[0].body, /Observed: 2026-10-11T12:00:00.000Z/);
-  assert.equal(alerts(api).length, 0);
 });
 
 test("polling one failed job does not invent two failed executions; two fresh jobs confirm", async () => {
@@ -425,11 +165,11 @@ test("polling one failed job does not invent two failed executions; two fresh jo
   const held = Object.values(ledger(api).ledger.incidents).find((row) => row.source === "workflow-sports");
   assert.equal(held.failureCount, 1);
   api.runs.set("sports-fixtures.yml", [run(NOW + 3 * WINDOW, { conclusion: "failure" })]);
-  await invoke(api, NOW + 3 * WINDOW); assert.equal(alerts(api).length, 1);
+  await invoke(api, NOW + 3 * WINDOW); assert.equal(alerts(api).length, 0);
   api.runs.set("sports-fixtures.yml", [run(NOW + 4 * WINDOW, { conclusion: "failure" })]);
   await invoke(api, NOW + 4 * WINDOW);
-  assert.equal(alerts(api).length, 1);
-  assert.ok(alerts(api)[0].body.includes("workflow-execution-failure"));
+  assert.equal(alerts(api).length, 0);
+  assert.ok(api.issues[0].body.includes("workflow-execution-failure"));
 });
 
 test("workflow recovery requires two distinct fresh successful executions, not re-reading one", async () => {
@@ -438,13 +178,13 @@ test("workflow recovery requires two distinct fresh successful executions, not r
     api.runs.set("sports-fixtures.yml", [run(NOW + i * WINDOW, { conclusion: "failure" })]);
     await invoke(api, NOW + i * WINDOW);
   }
-  assert.equal(alerts(api).length, 1);
+  assert.equal(alerts(api).length, 0);
   api.runs.set("sports-fixtures.yml", [run(NOW + 3 * WINDOW)]);
   await invoke(api, NOW + 3 * WINDOW); await invoke(api, NOW + 4 * WINDOW);
-  assert.equal(alerts(api)[0].state, "open");
+  assert.equal(Object.values(ledger(api).ledger.incidents).find(r => r.source === "workflow-sports").state, "recovering");
   api.runs.set("sports-fixtures.yml", [run(NOW + 5 * WINDOW)]);
   await invoke(api, NOW + 5 * WINDOW);
-  assert.equal(alerts(api)[0].state, "closed");
+  assert.equal(Object.values(ledger(api).ledger.incidents).find(r => r.source === "workflow-sports").state, "resolved");
 });
 
 test("uncorrected workflow head interrupts a suspect streak rather than carrying it into another failure", async () => {
@@ -480,17 +220,6 @@ test("active observer without activation origin is an invalid contract, not perm
   assert.equal(rows[0].failureClass, "status-contract"); assert.equal(rows[0].facts.code, "invalid-time");
 });
 
-test("API call and delivery caps leave retained history pending", async () => {
-  const api = fixture(), events = Array.from({ length: 12 }, (_, index) => notice(index + 1, "confirmed", { incidentId: (index + 1).toString(16).padStart(64, "0") }));
-  const result = await invoke(api, NOW, status(NOW, { notifications: events }));
-  assert.equal(result.delivered, 8); assert.equal(result.pending, 4); assert.ok(result.apiRequests <= 32);
-  assert.equal(ledger(api).deliveredCloud.length, 8);
-  const client = createGitHubClient({ token: "fixture", request: api.request, maxRequests: 1 });
-  await client.call("/repos/jetboss/Fotty/git/ref/heads/main");
-  await assert.rejects(() => client.call("/repos/jetboss/Fotty/git/ref/heads/main"), /bound/);
-  assert.equal(client.requestCount, 1);
-});
-
 test("human-owned marker is never overwritten and full ambiguous issue inventory fails closed", async () => {
   const api = fixture();
   api.issues.push({ number: 999, user: { login: "owner", type: "User" }, body: "<!-- fotty-watchdog-observer-ledger-v1 -->", state: "open" });
@@ -499,4 +228,49 @@ test("human-owned marker is never overwritten and full ambiguous issue inventory
   for (let i = 1; i <= 200; i++) crowded.issues.push({ number: i, user: BOT, body: "Unrelated bot issue", state: "open" });
   await assert.rejects(() => invoke(crowded, NOW), /discovery bound/);
   assert.equal(crowded.calls.length, 2);
+});
+
+
+test("all source incidents and recoveries update one dashboard without comments or assignment", async () => {
+  const api = fixture();
+  const first = await invoke(api, NOW, status(NOW, { notifications: [notice()] }));
+  assert.equal(first.delivered, 0); assert.equal(first.pending, 0);
+  assert.equal(api.issues.length, 1); assert.match(api.issues[0].body, /cs \/ manifest: schema/);
+  await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice(), notice(2, "resolved")] }));
+  assert.equal(api.issues.length, 1); assert.equal(ownerComments(api).length, 0);
+  assert.equal(ledger(api).deliveredCloud.length, 0, "dashboard write is not an owner delivery receipt");
+  assert.ok(api.calls.every(c => !c.url.includes('/comments') && !JSON.parse(c.body || '{}').assignees));
+  assert.ok(!api.issues[0].body.includes('@jetboss'));
+});
+test("monitor outages remain collected without generating provider issues", async () => {
+  const api = fixture();
+  for (const now of [NOW, NOW + WINDOW]) await runGitHubObserver({ token: 'fixture', request: api.request, now,
+    statusRequest: async () => { throw new Error('offline'); } });
+  assert.equal(api.issues.length, 1);
+  assert.ok(Object.values(ledger(api).ledger.incidents).some(r => r.state === 'confirmed'));
+  assert.equal(ownerComments(api).length, 0);
+});
+test("migration preserves old delivered receipts and does not touch historical alert issues", async () => {
+  const api = fixture(); await invoke(api, NOW);
+  const item = api.issues[0], state = ledger(api); state.deliveredCloud = ['f'.repeat(64)];
+  item.body = item.body.replace(JSON.stringify(ledger(api)), JSON.stringify(state));
+  const historical = { number: 900, user: BOT, body: '<!-- fotty-watchdog-incident-v1:' + 'e'.repeat(64) + ' --> historic', state: 'open' };
+  api.issues.push(historical); const prior = structuredClone(historical);
+  await invoke(api, NOW + WINDOW, status(NOW + WINDOW, { notifications: [notice()] }));
+  assert.deepEqual(ledger(api).deliveredCloud, ['f'.repeat(64)]); assert.deepEqual(historical, prior);
+  assert.equal(api.issues.length, 2);
+});
+test("failed or ambiguous dashboard writes remain retryable without duplicate issue creation", async () => {
+  const api = fixture(); let lost = false;
+  const request = async (url, options) => {
+    const response = await api.request(url, options);
+    if (!lost && options?.method === 'POST') { lost = true; throw new Error('lost response'); }
+    return response;
+  };
+  await assert.rejects(() => runGitHubObserver({ token: 'fixture', request, statusRequest: async () => json(status()), now: NOW }));
+  await invoke(api, NOW + WINDOW); assert.equal(api.issues.length, 1); assert.equal(ownerComments(api).length, 0);
+});
+test("retired canary cannot send a mention even with an old dispatch input", async () => {
+  const result = await runDeliveryCanary({ request: () => { throw new Error('must not request'); } });
+  assert.equal(result.retired, true); assert.equal(result.delivered, 0); assert.equal(result.apiRequests, 0);
 });

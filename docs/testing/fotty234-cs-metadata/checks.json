@@ -1,0 +1,83 @@
+{
+  "build": "3.0.0 (234)",
+  "date": "2026-11-04",
+  "target": "Jet iPad",
+  "checks": {
+    "native": {
+      "executed": 230,
+      "passed": 228,
+      "skipped": 2,
+      "failed": 0,
+      "skips": "Optional external production-snapshot inputs absent"
+    },
+    "backend_relevant_prior": {
+      "passed": 99,
+      "changed_backend": false
+    }
+  },
+  "confirmed_boundaries": [
+    {
+      "stage": "CS same-ID metadata",
+      "cause": "Native 600s generated-listing limit disagreed with the existing 14400s reviewed registry/source lifetime",
+      "repair": "Use existing source lifetime; retain 600s official LIVE receipt and bind to earliest expiry"
+    },
+    {
+      "stage": "Registry fixture join",
+      "cause": "Compared newer cloud link expiry to independently older device official observation",
+      "repair": "Validate independent receipts separately; never extend the earlier one"
+    },
+    {
+      "stage": "Cold-start preflight",
+      "atUTC": "2026-11-04T10:49:00Z",
+      "initialRegisteredCount": 0,
+      "laterRawRegistryCount": 1,
+      "laterEligibleCount": 0,
+      "failure": "no_exact_fixture_match",
+      "repair": "Join existing registry owner in CS lane; unassociated current-cricket catalog miss cannot withdraw an exact registry association"
+    }
+  ],
+  "first_normal_watch": {
+    "atUTC": "2026-11-04T10:36:56Z",
+    "match": "United Arab Emirates vs Oman",
+    "competition": "ICC CWC League 2",
+    "format": "ODI",
+    "matchNumber": 145,
+    "officialStartUTC": "2026-11-04T05:30:00Z",
+    "officialStatus": "Play In Progress",
+    "source": "CS1",
+    "nativeAttempts": 2,
+    "masterHTTP": 200,
+    "childManifestHTTP": 403,
+    "mediaBytes": 0,
+    "decodedHoldPassed": false,
+    "externalOriginalChildHTTP": 403,
+    "externalCheckedAtUTC": "2026-11-04T10:38:47Z"
+  },
+  "final_release_watch": {
+    "normalReleaseInstalled": true,
+    "coldLaunchWatchVisibleAtUTC": "2026-11-04T11:05:44Z",
+    "watchStillVisibleAfterBackgroundRefreshAtUTC": "2026-11-04T11:06:10Z",
+    "normalHomeWatchTappedAtUTC": "2026-11-04T10:58:49.917Z",
+    "exactCSDiscovery": true,
+    "decodedPlaybackPassed": false,
+    "childManifestHTTP": 403
+  },
+  "phoneTouched": false,
+  "excludedSourceHashes": {
+    "checked": 42,
+    "changed": 0
+  },
+  "testflight": false,
+  "deployment": false,
+  "protectedPreferences": {
+    "checked": 16,
+    "changed": 0
+  },
+  "cleanup": {
+    "ownedBuildGateRemoved": true,
+    "ownedScreenshotsRemoved": 29,
+    "keepAwakeStopped": true,
+    "privateRawDiagnosticsRemoved": true
+  },
+  "memoryChecks": "passed"
+}

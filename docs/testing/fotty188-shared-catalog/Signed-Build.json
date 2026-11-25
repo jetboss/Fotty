@@ -1,0 +1,22 @@
+{
+  "build": 189,
+  "version": "2.0.1",
+  "appWidgetVersionParity": true,
+  "strictSignaturesVerified": true,
+  "profileTeamParity": true,
+  "namedPhoneProvisionedInBothProfiles": true,
+  "profilesUnexpired": true,
+  "normalAppBinarySHA256": "5c3b0bcacc254427b766fae2db26f87e1c277ac4155b5dda6a996847214e5f31",
+  "signedAtUTC": "2026-10-30T02:02:26.495863+00:00",
+  "phoneInstallSucceeded": true,
+  "foregroundAppLeftAlone": true,
+  "physicalWatchAcceptance": "Pending",
+  "installedVersionConfirmed": true,
+  "preferenceKeysBefore": 35,
+  "preferenceKeysAfter": 34,
+  "CSNormalUIToggle": "Already ON in post-install preference read; no agent toggle performed",
+  "FPLProtectedSourceFilesUnchanged": true,
+  "FPLPreferenceNote": "Only pre-existing FPL preference was derived context, absent after188 use/background189 update: older than existing21day cache limit. Existing FPL source unchanged; no personal FPL values copied/restored, no FPL UI opened.",
+  "sourceSettingsObservation": "Post-install preferences show all7 reviewed source flags ON, including CS; baseline before188 showed AS/StreamEx ON and the rest OFF. Agent did not toggle any setting; cause/timing of that intervening change is unverified. Preserve latest choices.",
+  "sourceFlagsDifferFromPre188Backup": true
+}

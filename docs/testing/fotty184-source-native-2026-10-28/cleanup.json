@@ -1,0 +1,9 @@
+{
+  "ownedGateRemoved": true,
+  "ownedKeepAwakeStopped": false,
+  "freeGiBBeforeCleanup": 19.58,
+  "freeGiBAfterCleanup": 20.48,
+  "preservedOtherArtifacts": true,
+  "rawPreferencesProfilesDeviceIDsMediaURLsRetained": false,
+  "keepAwakeExitVerification": "No caffeinate process remains; owned process was already inactive"
+}

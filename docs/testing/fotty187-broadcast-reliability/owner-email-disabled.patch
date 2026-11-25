@@ -1,0 +1,996 @@
+diff --git a/web/workers/watchdog/src/owner-email.mjs b/web/workers/watchdog/src/owner-email.mjs
+new file mode 100644
+--- /dev/null
++++ b/web/workers/watchdog/src/owner-email.mjs
+@@ -0,0 +1,265 @@
++// Optional operations-only delivery from the existing committed watchdog outbox.
++// No addresses, provider bodies, media URLs or user viewing data enter storage/status.
++export const OWNER_EMAIL_KEY = "watchdog-owner-email-v1";
++export const OWNER_EMAIL_LIMITS = Object.freeze({ known: 513, pending: 64, batch: 16,
++  attemptsPerDay: 12, minimumGapMs: 300_000, leaseMs: 120_000, timeoutMs: 10_000, cutoverWindowMs: 1_800_000, bytes: 128 * 1024 });
++const SENDER = "watchdog@getfotty.com";
++const OUTCOMES = new Set(["none", "submitted", "rejected", "ambiguous"]);
++const ERRORS = new Set([null, "sender-not-verified", "recipient-not-allowed", "rate-limited", "service-rejected", "submission-ambiguous"]);
++const scalar = (value, maximum = 96) => typeof value === "string" && value.length <= maximum && /^[A-Za-z0-9][A-Za-z0-9_.:-]*$/.test(value);
++const integer = (value) => Number.isSafeInteger(value) && value >= 0;
++const ownKeys = (value, fields) => value && typeof value === "object" && !Array.isArray(value)
++  && Object.keys(value).every((key) => fields.includes(key));
++const noticeID = (value) => typeof value === "string" && /^production:notice:[1-9][0-9]{0,14}$/.test(value);
++const emailAddress = (value) => typeof value === "string" && value.length <= 254
++  && /^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/.test(value);
++function utc(value) {
++  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return null;
++  const time = Date.parse(value);
++  return integer(time) && new Date(time).toISOString().slice(0, 19) === value.slice(0, 19) ? time : null;
++}
++async function hash(value) {
++  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
++  return [...new Uint8Array(bytes)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
++}
++function configuration(env, now) {
++  // Only an explicit0 is an operator pause. A lost or invalid flag must not
++  // quietly hide an established delivery queue after a deployment.
++  if (env.FOTTY_OWNER_EMAIL_ENABLED === "0") return { enabled: false, state: "disabled" };
++  if (env.FOTTY_OWNER_EMAIL_ENABLED !== "1") return { enabled: false, state: "flag-unset" };
++  const activatedAt = utc(env.FOTTY_OWNER_EMAIL_ACTIVATED_AT);
++  if (!integer(now) || activatedAt === null || activatedAt > now || !emailAddress(env.FOTTY_OWNER_EMAIL_RECIPIENT)
++    || env.FOTTY_OWNER_EMAIL_SENDER !== SENDER || typeof env.FOTTY_OWNER_EMAIL?.send !== "function") {
++    return { enabled: true, state: "configuration-pending" };
++  }
++  return { enabled: true, activatedAt, recipient: env.FOTTY_OWNER_EMAIL_RECIPIENT, sender: SENDER,
++    binding: env.FOTTY_OWNER_EMAIL, test: env.FOTTY_OWNER_EMAIL_SEND_TEST === "1" };
++}
++function finiteNotice(value, now) {
++  const time = utc(value?.time);
++  if (!noticeID(value?.id) || !["confirmed", "resolved", "overflow"].includes(value.type)
++    || !["source", "stage", "failureClass", "scope"].every((key) => scalar(value[key]))
++    || !Number.isSafeInteger(value.generation) || value.generation < 1 || time === null || time > now + 30_000) {
++    throw new Error("Invalid operations notice");
++  }
++  return Object.fromEntries(["id", "type", "source", "stage", "failureClass", "scope", "generation", "time"].map((key) => [key, value[key]]));
++}
++function validate(state) {
++  if (!ownKeys(state, ["schema", "activation", "configuration", "known", "pending", "baselineCount", "testRequested", "testRequestedAt", "pendingTest",
++    "fence", "lease", "retryBatch", "day", "attempts", "nextAt", "lastAttemptAt", "lastSubmittedAt", "submittedBatches", "ambiguousAttempts",
++    "consecutiveFailures", "lastOutcome", "lastError", "capacity"])
++    || state.schema !== 1 || !integer(state.activation) || !/^[a-f0-9]{64}$/.test(state.configuration)
++    || !Array.isArray(state.known) || state.known.length > OWNER_EMAIL_LIMITS.known
++    || !state.known.every(noticeID) || new Set(state.known).size !== state.known.length
++    || !Array.isArray(state.pending) || state.pending.length > OWNER_EMAIL_LIMITS.pending
++    || !integer(state.baselineCount) || state.baselineCount > state.known.length
++    || !["testRequested", "pendingTest", "capacity"].every((key) => typeof state[key] === "boolean")
++    || state.pendingTest && !state.testRequested || !integer(state.fence)
++    || !/^\d{4}-\d{2}-\d{2}$/.test(state.day) || !integer(state.attempts) || state.attempts > OWNER_EMAIL_LIMITS.attemptsPerDay
++    || !["nextAt", "submittedBatches", "ambiguousAttempts", "consecutiveFailures"].every((key) => integer(state[key]))
++    || !["lastAttemptAt", "lastSubmittedAt", "testRequestedAt"].every((key) => state[key] === null || integer(state[key]))
++    || state.testRequested !== (state.testRequestedAt !== null)
++    || !OUTCOMES.has(state.lastOutcome) || !ERRORS.has(state.lastError)
++    || new TextEncoder().encode(JSON.stringify(state)).length > OWNER_EMAIL_LIMITS.bytes) throw new Error("Invalid email state");
++  const pending = state.pending.map((row) => finiteNotice(row, Number.MAX_SAFE_INTEGER));
++  if (new Set(pending.map((row) => row.id)).size !== pending.length
++    || pending.some((row) => !state.known.includes(row.id) || utc(row.time) <= state.activation
++      || !ownKeys(row, ["id", "type", "source", "stage", "failureClass", "scope", "generation", "time"]))) throw new Error("Invalid email pending state");
++  if (state.lease !== null) {
++    const lease = state.lease;
++    if (!ownKeys(lease, ["fence", "until", "ids", "test", "batchID"]) || !integer(lease.fence) || lease.fence < 1 || lease.fence > state.fence
++      || !integer(lease.until) || typeof lease.test !== "boolean" || !/^FE-[a-f0-9]{24}$/.test(lease.batchID)
++      || !Array.isArray(lease.ids) || lease.ids.length > OWNER_EMAIL_LIMITS.batch
++      || new Set(lease.ids).size !== lease.ids.length || !lease.ids.every((id) => pending.some((row) => row.id === id))
++      || lease.test && (!state.pendingTest || lease.ids.length !== 0) || !lease.test && lease.ids.length === 0) throw new Error("Invalid email lease");
++  }
++  if (state.retryBatch !== null) {
++    const retry = state.retryBatch;
++    if (!ownKeys(retry, ["test", "ids", "batchID"]) || typeof retry.test !== "boolean"
++      || !/^FE-[a-f0-9]{24}$/.test(retry.batchID) || !Array.isArray(retry.ids)
++      || retry.ids.length > OWNER_EMAIL_LIMITS.batch || new Set(retry.ids).size !== retry.ids.length
++      || !retry.ids.every((id) => pending.some((row) => row.id === id))
++      || retry.test && (!state.pendingTest || retry.ids.length !== 0) || !retry.test && retry.ids.length === 0) throw new Error("Invalid retry batch");
++  }
++  return state;
++}
++function blank(config, fingerprint, day) {
++  return { schema: 1, activation: config.activatedAt, configuration: fingerprint, known: [], pending: [], baselineCount: 0,
++    testRequested: false, testRequestedAt: null, pendingTest: false, fence: 0, lease: null, retryBatch: null, day, attempts: 0, nextAt: 0,
++    lastAttemptAt: null, lastSubmittedAt: null, submittedBatches: 0, ambiguousAttempts: 0,
++    consecutiveFailures: 0, lastOutcome: "none", lastError: null, capacity: false };
++}
++function summary(state, now) {
++  const pendingCount = state.pending.length + Number(state.pendingTest);
++  let status = state.capacity ? "capacity" : state.lease && state.lease.until > now ? "submitting"
++    : pendingCount && state.attempts >= OWNER_EMAIL_LIMITS.attemptsPerDay && state.day === new Date(now).toISOString().slice(0, 10) ? "rate-limited"
++      : pendingCount && state.lastOutcome === "ambiguous" ? "ambiguous"
++        : pendingCount && state.lastOutcome === "rejected" ? "retry-pending" : pendingCount ? "pending" : "ready";
++  return { enabled: true, state: status, pendingCount, baselineCount: state.baselineCount, submittedBatches: state.submittedBatches,
++    attemptsToday: state.day === new Date(now).toISOString().slice(0, 10) ? state.attempts : 0,
++    ambiguousAttempts: state.ambiguousAttempts, lastAttemptAt: state.lastAttemptAt, lastSubmittedAt: state.lastSubmittedAt,
++    lastError: state.lastError, capacity: state.capacity,
++    oldestPendingAt: pendingCount ? Math.min(...state.pending.map((row) => utc(row.time)), ...(state.pendingTest ? [state.testRequestedAt] : [])) : null };
++}
++function outcome(error) {
++  const code = typeof error?.code === "string" ? error.code : null;
++  const reasons = { E_SENDER_NOT_VERIFIED: "sender-not-verified", E_SENDER_DOMAIN_NOT_AVAILABLE: "sender-not-verified",
++    E_RECIPIENT_NOT_ALLOWED: "recipient-not-allowed", E_RATE_LIMIT_EXCEEDED: "rate-limited", E_DAILY_LIMIT_EXCEEDED: "rate-limited",
++    E_VALIDATION_ERROR: "service-rejected", E_FIELD_MISSING: "service-rejected", E_RECIPIENT_SUPPRESSED: "service-rejected",
++    E_ACCOUNT_SUSPENDED: "service-rejected", E_DELIVERY_FAILED: "service-rejected" };
++  return reasons[code] ? { kind: "rejected", reason: reasons[code] } : { kind: "ambiguous", reason: "submission-ambiguous" };
++}
++function content(batch) {
++  const subject = batch.test ? `[Fotty watchdog] DELIVERY TEST ${batch.batchID}` : `[Fotty watchdog] ${batch.notices.length} operational updates ${batch.batchID}`;
++  const lines = [batch.test ? "DELIVERY TEST ONLY — not a provider incident or recovery." : "Fotty operational metadata updates.",
++    `Stable batch: ${batch.batchID}`, "A repeated batch ID can be a retry after an ambiguous submission.", ""];
++  const groups = new Map();
++  for (const event of batch.notices) {
++    const key = `${event.source} / ${event.stage}`;
++    if (!groups.has(key)) groups.set(key, []);
++    groups.get(key).push(event);
++  }
++  const localTime = new Intl.DateTimeFormat("en-TT", { timeZone: "America/Port_of_Spain", dateStyle: "medium", timeStyle: "short" });
++  for (const [key, rows] of groups) {
++    const consequence = rows.some((row) => row.type === "overflow") ? "Monitoring capacity needs attention; some new changes may not be observed."
++      : rows.some((row) => row.type === "confirmed") ? "Source metadata could not be verified; some match options may be missing."
++        : "Metadata checks recovered; this does not certify decoded playback.";
++    lines.push(key, consequence, ...rows.map((row) => `- ${row.type}: ${row.failureClass} (${row.scope}), generation ${row.generation}; observed ${localTime.format(new Date(row.time))} Tobago (${row.time} UTC)`), "");
++  }
++  lines.push("Metadata/descriptor availability is not decoded playback proof.",
++    "Email-service submission is not confirmation of inbox delivery or human reading.", "No automatic repair or deployment occurred.");
++  return { subject, text: lines.join("\n") };
++}
++
++export class OwnerEmailDelivery {
++  constructor(storage, env, { clock = Date.now, timeoutMs = OWNER_EMAIL_LIMITS.timeoutMs } = {}) {
++    this.storage = storage; this.env = env; this.clock = clock;
++    this.timeoutMs = Math.max(1, Math.min(timeoutMs, OWNER_EMAIL_LIMITS.timeoutMs));
++  }
++  async config(now) {
++    const config = configuration(this.env, now);
++    if (!config.state) config.fingerprint = await hash(JSON.stringify([config.activatedAt, config.sender, config.recipient]));
++    return config;
++  }
++  async status(now = this.clock()) {
++    const config = await this.config(now);
++    if (config.state === "disabled") return { enabled: false, state: "disabled" };
++    if (config.state) {
++      try {
++        const previous = await this.storage.get(OWNER_EMAIL_KEY);
++        if (previous) { validate(previous); return { enabled: true, state: "configuration-mismatch" }; }
++        return config.state === "flag-unset" ? { enabled: false, state: "disabled" }
++          : { enabled: true, state: config.state };
++      } catch { return { enabled: true, state: "state-unavailable" }; }
++    }
++    try {
++      const stored = await this.storage.get(OWNER_EMAIL_KEY);
++      if (!stored) return { enabled: true, state: now - config.activatedAt > OWNER_EMAIL_LIMITS.cutoverWindowMs ? "cutover-expired" : "awaiting-cutover", pendingCount: 0 };
++      validate(stored);
++      if (stored.configuration !== config.fingerprint || stored.activation !== config.activatedAt) return { enabled: true, state: "configuration-mismatch" };
++      if (stored.lastAttemptAt !== null && stored.lastAttemptAt > now) return { enabled: true, state: "clock-skew" };
++      return summary(stored, now);
++    } catch { return { enabled: true, state: "state-unavailable" }; }
++  }
++  async drain(notices, now = this.clock()) {
++    const config = await this.config(now);
++    if (config.state) return this.status(now);
++    try { return await this.perform(config, notices, now); }
++    catch { return { enabled: true, state: "state-unavailable" }; }
++  }
++  async perform(config, notices, now) {
++    if (!Array.isArray(notices) || notices.length > OWNER_EMAIL_LIMITS.known) throw new Error("Email source bound");
++    const current = notices.map((row) => finiteNotice(row, now));
++    if (new Set(current.map((row) => row.id)).size !== current.length) throw new Error("Duplicate email source notice");
++    const ids = current.filter((row) => utc(row.time) > config.activatedAt).map((row) => row.id);
++    // Hash each possible bounded prefix outside the transaction; no async
++    // external action can occur until its exact batch lease has been stored.
++    const makeBatchID = (test, selected) => hash(JSON.stringify([config.activatedAt, test, selected])).then((value) => `FE-${value.slice(0, 24)}`);
++    const possible = new Map();
++    possible.set("test", await makeBatchID(true, []));
++    // Existing pending notices may not be in a newer source list after an
++    // operator failure; preserve them and derive the batch inside the snapshot.
++    const previous = await this.storage.get(OWNER_EMAIL_KEY);
++    if (previous) validate(previous);
++    const pendingIDs = previous?.pending.map((row) => row.id) || [];
++    const ordered = [...pendingIDs, ...ids.filter((id) => !previous?.known.includes(id))];
++    for (let length = 1; length <= Math.min(OWNER_EMAIL_LIMITS.batch, ordered.length); length++) {
++      const selected = ordered.slice(0, length); possible.set(selected.join("|"), await makeBatchID(false, selected));
++    }
++    const batch = await this.storage.transaction(async (transaction) => {
++      const old = await transaction.get(OWNER_EMAIL_KEY);
++      if (!old && now - config.activatedAt > OWNER_EMAIL_LIMITS.cutoverWindowMs) return null;
++      const state = old ? validate(old) : blank(config, config.fingerprint, new Date(now).toISOString().slice(0, 10));
++      if (state.configuration !== config.fingerprint || state.activation !== config.activatedAt) return null;
++      if (state.lastAttemptAt !== null && state.lastAttemptAt > now) return null;
++      const before = JSON.stringify(state), known = new Set(state.known);
++      state.capacity = false;
++      for (const row of current) {
++        if (known.has(row.id)) continue;
++        if (state.known.length >= OWNER_EMAIL_LIMITS.known || utc(row.time) > config.activatedAt && state.pending.length >= OWNER_EMAIL_LIMITS.pending) {
++          state.capacity = true; continue;
++        }
++        known.add(row.id); state.known.push(row.id);
++        if (utc(row.time) <= config.activatedAt) state.baselineCount++;
++        else state.pending.push(row);
++      }
++      if (config.test && !state.testRequested) { state.testRequested = true; state.testRequestedAt = now; state.pendingTest = true; }
++      if (state.lease && state.lease.until <= now) {
++        const { test, ids, batchID } = state.lease;
++        state.retryBatch = { test, ids, batchID };
++        state.lease = null; state.lastOutcome = "ambiguous"; state.lastError = "submission-ambiguous"; state.ambiguousAttempts++;
++      }
++      const day = new Date(now).toISOString().slice(0, 10);
++      if (state.day !== day) { state.day = day; state.attempts = 0; }
++      let selected = null;
++      if (!state.lease && state.nextAt <= now && state.attempts < OWNER_EMAIL_LIMITS.attemptsPerDay
++        && (state.pendingTest || state.pending.length)) {
++        const retry = state.retryBatch, test = retry?.test ?? state.pendingTest;
++        const entries = test ? [] : retry ? state.pending.filter((row) => retry.ids.includes(row.id)) : state.pending.slice(0, OWNER_EMAIL_LIMITS.batch);
++        const batchID = retry?.batchID || possible.get(test ? "test" : entries.map((row) => row.id).join("|"));
++        // A competing transaction changed the queue. Leave it pending and
++        // derive a new exact prefix on the next cron, never send a guessed batch.
++        if (batchID && state.fence < Number.MAX_SAFE_INTEGER) {
++          state.fence++; state.attempts++; state.lastAttemptAt = now; state.nextAt = now + OWNER_EMAIL_LIMITS.minimumGapMs;
++          state.lease = { fence: state.fence, until: now + OWNER_EMAIL_LIMITS.leaseMs, test, batchID, ids: entries.map((row) => row.id) };
++          selected = { ...state.lease, notices: entries };
++        }
++      }
++      validate(state);
++      if (before !== JSON.stringify(state) || !old) await transaction.put(OWNER_EMAIL_KEY, state);
++      return selected;
++    });
++    if (!batch) return this.status(now);
++    let result, timer;
++    try {
++      const message = content(batch);
++      result = await Promise.race([Promise.resolve().then(() => config.binding.send({ to: config.recipient, from: config.sender,
++        ...message, headers: { "X-Fotty-Alert-ID": batch.batchID } })),
++      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Ambiguous email deadline")), this.timeoutMs); })]);
++      if (!result || typeof result.messageId !== "string" || result.messageId.length < 1 || result.messageId.length > 512
++        || result.messageId.trim() !== result.messageId || result.messageId.includes("\0")
++        || /[\r\n]/.test(result.messageId)) throw new Error("Email submission response unavailable");
++      result = { kind: "submitted", reason: null };
++    } catch (error) { result = outcome(error); }
++    finally { clearTimeout(timer); }
++    const completedAt = this.clock();
++    await this.storage.transaction(async (transaction) => {
++      const state = validate(await transaction.get(OWNER_EMAIL_KEY));
++      if (state.configuration !== config.fingerprint || state.lease?.fence !== batch.fence || state.lease.batchID !== batch.batchID) return;
++      state.lease = null; state.lastOutcome = result.kind; state.lastError = result.reason;
++      if (result.kind === "submitted") {
++        if (batch.test) state.pendingTest = false;
++        else state.pending = state.pending.filter((row) => !batch.ids.includes(row.id));
++        state.submittedBatches++; state.lastSubmittedAt = Math.max(now, completedAt); state.consecutiveFailures = 0;
++        state.retryBatch = null;
++      } else {
++        state.retryBatch = { test: batch.test, ids: batch.ids, batchID: batch.batchID };
++        state.consecutiveFailures++;
++        if (result.kind === "ambiguous") state.ambiguousAttempts++;
++        state.nextAt = Math.max(state.nextAt, now + Math.min(3_600_000, OWNER_EMAIL_LIMITS.minimumGapMs * 2 ** Math.min(4, state.consecutiveFailures - 1)));
++      }
++      validate(state); await transaction.put(OWNER_EMAIL_KEY, state);
++    });
++    return this.status(Math.max(now, completedAt));
++  }
++}
+diff --git a/web/workers/watchdog/src/index.mjs b/web/workers/watchdog/src/index.mjs
+--- a/web/workers/watchdog/src/index.mjs
++++ b/web/workers/watchdog/src/index.mjs
+@@ -3,6 +3,7 @@
+ import { observerPolicyOptions, PROVIDERS, OBSERVER_REVISION, CONFIGURATION_REVISION, EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS, CONFIRMATION_WINDOWS } from "../../../../tools/watchdog/manifest.mjs";
+ import { probeSources } from "../../../../tools/watchdog/source-probes.mjs";
+ import { collectFixtureReceipts } from "../../../../tools/watchdog/fixture-receipts.mjs";
++import { OwnerEmailDelivery } from "./owner-email.mjs";
+ 
+ const KEY = "watchdog-observation-v1", INTERVAL = COLLECTION_INTERVAL_MS, LEASE = 4 * 60_000;
+ function activationTime(env, now = Date.now()) {
+@@ -53,7 +54,21 @@
+   } else if (Object.keys(budget).length) throw new Error("Missing budget day");
+ }
+ export class WatchdogState {
+-  constructor(state, env) { this.state = state; this.env = env; }
++  constructor(state, env) { this.state = state; this.env = env; this.ownerEmail = new OwnerEmailDelivery(state.storage, env); }
++  async drainOwnerEmail(now = Date.now()) {
++    if (this.env.FOTTY_OWNER_EMAIL_ENABLED === "0") return;
++    try {
++      if (this.env.FOTTY_OWNER_EMAIL_ENABLED !== "1") {
++        const diagnostic = await this.ownerEmail.status(now);
++        return diagnostic.enabled ? diagnostic : undefined;
++      }
++      const stored = await this.state.storage.get(KEY);
++      if (!stored) return;
++      validateLedger(stored.ledger, policy);
++      // Read only the durable outbox, never the uncommitted collector result.
++      return await this.ownerEmail.drain(listNotifications(stored.ledger, policy), now);
++    } catch { return { enabled: true, state: "state-unavailable" }; }
++  }
+   async transact(change) {
+     return this.state.storage.transaction(async (transaction) => {
+       const stored = await transaction.get(KEY) || { ledger: emptyLedger(policy), runtime: { fence: 0, lease: null, nextAt: 0, budget: {} } };
+@@ -79,7 +94,10 @@
+       runtime.fence++; runtime.lease = { fence: runtime.fence, expiresAt: now + LEASE };
+       runtime.lastAttemptedAt = now; return runtime.fence;
+     });
+-    if (fence === null) return response({ due: false });
++    if (fence === null) {
++      const ownerEmail = await this.drainOwnerEmail(now);
++      return response({ due: false, ...(ownerEmail ? { ownerEmail } : {}) });
++    }
+     const reserve = (source) => this.transact((stored) => {
+       if (stored.runtime.lease?.fence !== fence || stored.runtime.lease.expiresAt <= Date.now()) return false;
+       const day = new Date(Date.now()).toISOString().slice(0, 10), bound = PROVIDERS.find((row) => row.source === source)?.maxRequestsPerDay;
+@@ -103,11 +121,14 @@
+       // A failed storage commit must never announce a transition. Delivery is
+       // separately retried from durable history by the independent observer.
+       for (const event of committed.events) console.log(JSON.stringify({ category: "watchdog", type: event.type, generation: event.generation || null }));
+-      return response({ committed: committed.committed, changes: committed.events.length }, committed.committed ? 200 : 409);
++      const ownerEmail = committed.committed ? await this.drainOwnerEmail() : undefined;
++      return response({ committed: committed.committed, changes: committed.events.length,
++        ...(ownerEmail ? { ownerEmail } : {}) }, committed.committed ? 200 : 409);
+     } catch {
+       // No success heartbeat and no accepted-fixture mutation on store/probe
+       // failure. The independent observer will detect the missed completion.
+-      return response({ committed: false, failure: "observer-check-failed" }, 503);
++      const ownerEmail = await this.drainOwnerEmail();
++      return response({ committed: false, failure: "observer-check-failed", ...(ownerEmail ? { ownerEmail } : {}) }, 503);
+     }
+   }
+   async fetch(request) {
+@@ -123,6 +144,7 @@
+       intervalMs: INTERVAL, nativeEvidence: "private-device-canary-only", streamDelivery: "not-probed",
+       lastAttemptedAt: stored?.runtime.lastAttemptedAt || null, lastCompletedAt: stored?.runtime.lastCompletedAt || null,
+       nextAt: stored?.runtime.nextAt || null, overflow: Boolean(stored?.ledger.overflow),
++      ownerEmail: await this.ownerEmail.status(),
+       notifications: stored ? await Promise.all(listNotifications(stored.ledger, policy).map(publicNotification)) : [],
+       incidents: Object.values(stored?.ledger.incidents || {}).map(({ source, stage, failureClass, state, facts, generation }) =>
+         ({ source, stage, failureClass, state, generation, scope: facts.scope || null })) });
+diff --git a/web/workers/watchdog/src/owner-email.runtime.test.mjs b/web/workers/watchdog/src/owner-email.runtime.test.mjs
+new file mode 100644
+--- /dev/null
++++ b/web/workers/watchdog/src/owner-email.runtime.test.mjs
+@@ -0,0 +1,155 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { createRequire } from "node:module";
++import { readFile, mkdtemp, rm } from "node:fs/promises";
++import { tmpdir } from "node:os";
++import { dirname, join, resolve } from "node:path";
++import { fileURLToPath } from "node:url";
++import { createPolicy, emptyLedger, applyObservation } from "../../../../tools/watchdog/incident-policy.mjs";
++import { observerPolicyOptions, EXPECTED_VERSIONS, COLLECTION_INTERVAL_MS, CONFIRMATION_WINDOWS } from "../../../../tools/watchdog/manifest.mjs";
++
++const directory = dirname(fileURLToPath(import.meta.url));
++const require = createRequire(import.meta.url);
++const runtimeRequire = createRequire(require.resolve("wrangler/package.json", { paths: [resolve(directory, "../../..")] }));
++const { build } = runtimeRequire("esbuild");
++const { Miniflare, convertV4MiniflareOptions, Log, LogLevel } = runtimeRequire("miniflare");
++const policy = createPolicy({ ...observerPolicyOptions(), failureWindows: CONFIRMATION_WINDOWS });
++function historicalSeed(now) {
++  let ledger = emptyLedger(policy), at = now - 4 * 86_400_000;
++  for (let cycle = 0; cycle < 61; cycle++) {
++    for (const outcome of ["failure", "failure", ...(cycle < 60 ? ["success", "success"] : [])]) {
++      ledger = applyObservation(ledger, { environment: "production", source: "cs", stage: "manifest", failureClass: "http-530",
++        facts: {}, outcome, observedAt: at, versions: EXPECTED_VERSIONS }, policy, at).state;
++      at += COLLECTION_INTERVAL_MS;
++    }
++  }
++  assert.equal(ledger.outbox.length, 121);
++  return { ledger, runtime: { fence: 7, lease: null, nextAt: now - 1000 + COLLECTION_INTERVAL_MS,
++    lastAttemptedAt: now - 1000, lastCompletedAt: now - 1000,
++    budget: { day: new Date(now).toISOString().slice(0, 10), counts: { cs: 23, as: 17 } } } };
++}
++function appendFresh(seed, now) {
++  const next = structuredClone(seed);
++  for (const at of [now - COLLECTION_INTERVAL_MS, now]) {
++    next.ledger = applyObservation(next.ledger, { environment: "production", source: "cs", stage: "catalog", failureClass: "schema",
++      facts: {}, outcome: "failure", observedAt: at, versions: EXPECTED_VERSIONS }, policy, at).state;
++  }
++  assert.equal(next.ledger.outbox.length, 122); return next;
++}
++async function runtime(t, now, enabled = "1") {
++  const root = await mkdtemp(join(process.env.FOTTY_EMAIL_TEST_TEMP || tmpdir(), "email-runtime-"));
++  const config = await readFile(join(directory, "../wrangler.toml"), "utf8");
++  // Test-only subclass injects an in-memory email transport and inspection
++  // routes. The real production handler retains its read-only public surface.
++  const contents = `
++    import handler, {WatchdogState as Base} from './index.mjs';
++    import {OwnerEmailDelivery, OWNER_EMAIL_KEY} from './owner-email.mjs';
++    export default handler;
++    let clock=${now}, mode='valid'; Date.now=()=>clock;
++    export class WatchdogState extends Base {
++      constructor(state,env) {
++        const storage={get:(...args)=>state.storage.get(...args), transaction:(change)=>state.storage.transaction((tx)=>change({
++          get:(...args)=>tx.get(...args),put:async(key,value)=>{
++            if(mode==='ackfail' && key===OWNER_EMAIL_KEY && value.lastOutcome==='submitted') throw new Error('synthetic acknowledgement storage failure');
++            return tx.put(key,value);
++          }}))};
++        const binding={send:async(message)=>{
++          const sent=await state.storage.get('test-only-mails')||[];
++          sent.push({subject:message.subject,text:message.text,headers:message.headers});
++          await state.storage.put('test-only-mails',sent);
++          if(mode==='rejected') throw Object.assign(new Error('private error omitted'),{code:'E_RECIPIENT_NOT_ALLOWED'});
++          return {messageId:'accepted-'+sent.length};
++        }};
++        super({storage}, {...env,FOTTY_OWNER_EMAIL_ENABLED:'${enabled}',
++          FOTTY_OWNER_EMAIL_ACTIVATED_AT:'${new Date(now - 5000).toISOString()}',
++          FOTTY_OWNER_EMAIL_RECIPIENT:'owner@receiver.example',FOTTY_OWNER_EMAIL_SENDER:'watchdog@getfotty.com',FOTTY_OWNER_EMAIL:binding});
++        this.actualStorage=state.storage;
++      }
++      async fetch(request) {
++        const path=new URL(request.url).pathname;
++        if(path==='/__test_seed') {await this.actualStorage.put('watchdog-observation-v1',await request.json());return new Response('seeded');}
++        if(path==='/__test_read') return Response.json({original:await this.actualStorage.get('watchdog-observation-v1'),email:await this.actualStorage.get(OWNER_EMAIL_KEY),sent:await this.actualStorage.get('test-only-mails')||[]});
++        if(path==='/__test_run') {const input=await request.json();clock=input.at;mode=input.mode||'valid';
++          if(input.flagMode==='missing') delete this.env.FOTTY_OWNER_EMAIL_ENABLED;
++          else if(input.flagMode!==undefined) this.env.FOTTY_OWNER_EMAIL_ENABLED=input.flagMode;
++          if(input.restart) this.ownerEmail=new OwnerEmailDelivery(this.state.storage,this.env);
++          return this.run(clock);}
++        return super.fetch(request);
++      }
++    }`;
++  const script = (await build({ stdin: { contents, sourcefile: "owner-email-runtime-fixture.mjs", resolveDir: directory },
++    bundle: true, format: "esm", platform: "neutral", write: false, logLevel: "silent" })).outputFiles[0].text;
++  const options = { modules: true, script, compatibilityDate: config.match(/^compatibility_date\s*=\s*"([\d-]+)"/m)[1],
++    compatibilityFlags: [...config.match(/^compatibility_flags\s*=\s*\[([^\]]*)\]/m)[1].matchAll(/"([a-z0-9_]+)"/g)].map((match) => match[1]),
++    log: new Log(LogLevel.NONE), cf: false, resourcePersistencePath: join(root, "state"),
++    isolatedResourcePersistencePath: join(root, "isolated"), resourceTmpPath: join(root, "runtime"),
++    unsafeEphemeralDurableObjects: true, durableObjects: { WATCHDOG_STATE: { className: "WatchdogState", useSQLite: true } },
++    bindings: { FOTTY_WATCHDOG_ENABLED: "1", FOTTY_WATCHDOG_ACTIVATED_AT: "2026-10-11T11:14:52.000Z" },
++    outboundService: () => { throw new Error("This acceptance gate permits no external request"); } };
++  const miniflare = new Miniflare(typeof convertV4MiniflareOptions === "function" ? convertV4MiniflareOptions(options) : options);
++  t.after(async () => { try { await miniflare.dispose(); } finally { await rm(root, { recursive: true, force: true }); } });
++  const ns = await miniflare.getDurableObjectNamespace("WATCHDOG_STATE"), stub = ns.get(ns.idFromName("production-observation-v1"));
++  const call = async (path, data) => (await stub.fetch(`https://test.invalid/${path}`,
++    data === undefined ? undefined : { method: "POST", body: JSON.stringify(data) })).json();
++  return { miniflare, stub, call };
++}
++test("real SQLite: default-OFF email cannot alter historical collector storage or send", { timeout: 20_000 }, async (t) => {
++  const now = Date.now(), seed = historicalSeed(now), { stub, call } = await runtime(t, now, "0");
++  await stub.fetch("https://test.invalid/__test_seed", { method: "POST", body: JSON.stringify(seed) });
++  assert.equal((await call("__test_run", { at: now })).due, false);
++  const read = await call("__test_read"); assert.deepEqual(read.original, seed); assert.equal(read.email, undefined); assert.equal(read.sent.length, 0);
++});
++test("real production DO: cutover preserves121 notices/leases/budgets, then only fresh committed notice is submitted", { timeout: 20_000 }, async (t) => {
++  const now = Date.now(), seed = historicalSeed(now), { miniflare, stub, call } = await runtime(t, now);
++  await stub.fetch("https://test.invalid/__test_seed", { method: "POST", body: JSON.stringify(seed) });
++  const first = await call("__test_run", { at: now }); assert.equal(first.ownerEmail.baselineCount, 121);
++  let read = await call("__test_read"); assert.equal(read.sent.length, 0); assert.deepEqual(read.original, seed);
++  const fresh = appendFresh(seed, now + 1);
++  await stub.fetch("https://test.invalid/__test_seed", { method: "POST", body: JSON.stringify(fresh) });
++  assert.equal((await call("__test_run", { at: now + 1, restart: true })).ownerEmail.submittedBatches, 1);
++  read = await call("__test_read"); assert.equal(read.sent.length, 1); assert.equal(read.original.ledger.outbox.length, 122);
++  assert.deepEqual(read.original, fresh); assert.match(read.sent[0].subject, /1 operational updates/);
++  const status = await (await miniflare.dispatchFetch("https://test.invalid/status")).json();
++  assert.equal(status.notifications.length, 122); assert.equal(status.ownerEmail.pendingCount, 0);
++  assert.ok(!JSON.stringify(status).includes("owner@receiver.example")); assert.ok(!JSON.stringify(status).includes("watchdog@getfotty.com"));
++  assert.equal((await miniflare.dispatchFetch("https://test.invalid/email", { method: "POST" })).status, 404);
++});
++test("real SQLite: failure after external submission retains the lease and retries same batch after restart", { timeout: 20_000 }, async (t) => {
++  const now = Date.now(), seed = historicalSeed(now), { stub, call } = await runtime(t, now);
++  await stub.fetch("https://test.invalid/__test_seed", { method: "POST", body: JSON.stringify(seed) });
++  await call("__test_run", { at: now }); const fresh = appendFresh(seed, now + 1);
++  await stub.fetch("https://test.invalid/__test_seed", { method: "POST", body: JSON.stringify(fresh) });
++  assert.equal((await call("__test_run", { at: now + 1, mode: "ackfail" })).ownerEmail.state, "state-unavailable");
++  let read = await call("__test_read"); assert.equal(read.email.pending.length, 1); assert.equal(read.email.submittedBatches, 0);
++  assert.equal(read.sent.length, 1); assert.deepEqual(read.original, fresh);
++  const result = await call("__test_run", { at: now + 300_001, restart: true });
++  assert.equal(result.ownerEmail.ambiguousAttempts, 1); assert.equal(result.ownerEmail.pendingCount, 0);
++  read = await call("__test_read"); assert.equal(read.sent.length, 2); assert.equal(read.original.ledger.outbox.length, 122);
++  assert.equal(read.sent[0].headers["X-Fotty-Alert-ID"], read.sent[1].headers["X-Fotty-Alert-ID"]);
++});
++test("real production DO: lost or garbled flag exposes established pending delivery; explicit0 alone pauses it", { timeout: 20_000 }, async (t) => {
++  const now = Date.now(), seed = historicalSeed(now), { miniflare, stub, call } = await runtime(t, now);
++  await stub.fetch("https://test.invalid/__test_seed", { method: "POST", body: JSON.stringify(seed) });
++  await call("__test_run", { at: now }); const fresh = appendFresh(seed, now + 1);
++  await stub.fetch("https://test.invalid/__test_seed", { method: "POST", body: JSON.stringify(fresh) });
++  assert.equal((await call("__test_run", { at: now + 1, mode: "rejected" })).ownerEmail.state, "retry-pending");
++  const saved = await call("__test_read"); assert.equal(saved.email.pending.length, 1); assert.equal(saved.sent.length, 1);
++  for (const flagMode of ["missing", "garbled"]) {
++    const run = await call("__test_run", { at: now + 2, flagMode, restart: true });
++    assert.deepEqual(run.ownerEmail, { enabled: true, state: "configuration-mismatch" });
++    const status = await (await miniflare.dispatchFetch("https://test.invalid/status")).json();
++    assert.deepEqual(status.ownerEmail, run.ownerEmail); assert.deepEqual(await call("__test_read"), saved);
++  }
++  assert.equal((await call("__test_run", { at: now + 3, flagMode: "0", restart: true })).ownerEmail, undefined);
++  const paused = await (await miniflare.dispatchFetch("https://test.invalid/status")).json();
++  assert.deepEqual(paused.ownerEmail, { enabled: false, state: "disabled" }); assert.deepEqual(await call("__test_read"), saved);
++});
++test("real production DO: pristine missing flag stays quiet and does not create email state", { timeout: 20_000 }, async (t) => {
++  const now = Date.now(), seed = historicalSeed(now), { miniflare, stub, call } = await runtime(t, now);
++  await stub.fetch("https://test.invalid/__test_seed", { method: "POST", body: JSON.stringify(seed) });
++  const result = await call("__test_run", { at: now, flagMode: "missing" });
++  assert.equal(result.due, false); assert.equal(result.ownerEmail, undefined);
++  const status = await (await miniflare.dispatchFetch("https://test.invalid/status")).json();
++  assert.deepEqual(status.ownerEmail, { enabled: false, state: "disabled" });
++  const read = await call("__test_read"); assert.deepEqual(read.original, seed); assert.equal(read.email, undefined); assert.equal(read.sent.length, 0);
++});
+diff --git a/web/workers/watchdog/src/runtime.test.mjs b/web/workers/watchdog/src/runtime.test.mjs
+--- a/web/workers/watchdog/src/runtime.test.mjs
++++ b/web/workers/watchdog/src/runtime.test.mjs
+@@ -123,12 +123,13 @@
+ // runtime. No secrets, files, upstream requests or repair actions are involved.
+ function fakeState(initial) {
+   let stored = structuredClone(initial), writes = 0, failAt = Infinity, failWhen = () => false, queue = Promise.resolve();
+-  return { state: { storage: { get: async () => structuredClone(stored), transaction: (change) => {
++  return { state: { storage: { get: async (key) => key === "watchdog-observation-v1" ? structuredClone(stored) : undefined, transaction: (change) => {
+     // Match durable transaction serialization when parallel providers reserve
+     // their existing budgets; the fake must not lose one reservation's write.
+     const pending = queue.then(async () => {
+       let staged = structuredClone(stored);
+-      const result = await change({ get: async () => structuredClone(staged), put: async (_key, value) => { staged = structuredClone(value); } });
++      const result = await change({ get: async (key) => key === "watchdog-observation-v1" ? structuredClone(staged) : undefined,
++        put: async (_key, value) => { staged = structuredClone(value); } });
+       if (++writes === failAt || failWhen(staged)) throw new Error("synthetic write failure");
+       stored = staged; return result;
+     });
+diff --git a/web/workers/watchdog/wrangler.toml b/web/workers/watchdog/wrangler.toml
+--- a/web/workers/watchdog/wrangler.toml
++++ b/web/workers/watchdog/wrangler.toml
+@@ -9,6 +9,13 @@
+ [vars]
+ # Activation is an owner gate, not a side effect of compiling or dry-running.
+ FOTTY_WATCHDOG_ENABLED = "0"
++# Disabled source preparation only. Recipient verification, an onboarded sender
++# domain and a fixed-destination binding are separate factual activation gates.
++FOTTY_OWNER_EMAIL_ENABLED = "0"
++# After those gates, use a private config with FOTTY_OWNER_EMAIL_ACTIVATED_AT,
++# FOTTY_OWNER_EMAIL_RECIPIENT, FOTTY_OWNER_EMAIL_SENDER=watchdog@getfotty.com
++# and [[send_email]] name=FOTTY_OWNER_EMAIL, destination_address=<verified owner>.
++# Do not add an unrestricted binding or real owner address to this source file.
+ [[durable_objects.bindings]]
+ name = "WATCHDOG_STATE"
+ class_name = "WatchdogState"
+diff --git a/tools/watchdog/owner-email.test.mjs b/tools/watchdog/owner-email.test.mjs
+new file mode 100644
+--- /dev/null
++++ b/tools/watchdog/owner-email.test.mjs
+@@ -0,0 +1,260 @@
++import test from "node:test";
++import assert from "node:assert/strict";
++import { OwnerEmailDelivery, OWNER_EMAIL_KEY, OWNER_EMAIL_LIMITS } from "../../web/workers/watchdog/src/owner-email.mjs";
++
++const START = Date.parse("2026-10-30T00:00:00.000Z");
++function storage() {
++  const values = new Map(); let queue = Promise.resolve(), writes = 0, failedWrite = Infinity;
++  return { values, get writes() { return writes; }, failAt(value) { failedWrite = value; },
++    async get(key) { return structuredClone(values.get(key)); },
++    async transaction(change) {
++      const task = queue.then(async () => {
++        const staged = new Map(structuredClone([...values]));
++        const result = await change({ get: async (key) => structuredClone(staged.get(key)), put: async (key, value) => {
++          if (++writes === failedWrite) throw new Error("synthetic storage failure"); staged.set(key, structuredClone(value));
++        } });
++        values.clear(); for (const [key, value] of staged) values.set(key, value);
++        return result;
++      });
++      queue = task.catch(() => {}); return task;
++    } };
++}
++function fixture(overrides = {}) {
++  const state = storage(), calls = []; let now = START;
++  const env = { FOTTY_OWNER_EMAIL_ENABLED: "1", FOTTY_OWNER_EMAIL_ACTIVATED_AT: new Date(START).toISOString(),
++    FOTTY_OWNER_EMAIL_RECIPIENT: "owner@receiver.example", FOTTY_OWNER_EMAIL_SENDER: "watchdog@getfotty.com",
++    FOTTY_OWNER_EMAIL: { send: async (message) => { calls.push(message); return { messageId: `accepted-${calls.length}` }; } }, ...overrides };
++  return { state, calls, env, at(value) { now = value; }, client(options = {}) {
++    return new OwnerEmailDelivery(state, env, { clock: () => now, timeoutMs: 20, ...options });
++  } };
++}
++const notice = (number = 1, at = START + 1, changes = {}) => ({ id: `production:notice:${number}`, type: "confirmed",
++  source: "cs", stage: "catalog", failureClass: "schema", scope: "global", generation: 1,
++  time: new Date(at).toISOString(), key: "unused private source facts", ...changes });
++
++test("email source default is OFF and missing binding/address/cutover never writes or sends", async () => {
++  for (const change of [{ FOTTY_OWNER_EMAIL_ENABLED: "0" }, { FOTTY_OWNER_EMAIL: undefined },
++    { FOTTY_OWNER_EMAIL_RECIPIENT: "<PENDING>" }, { FOTTY_OWNER_EMAIL_RECIPIENT: "owner@example.com\r\nBcc:other@example.com" },
++    { FOTTY_OWNER_EMAIL_SENDER: "other@getfotty.com" }, { FOTTY_OWNER_EMAIL_SENDER: "watchdog@other.example" },
++    { FOTTY_OWNER_EMAIL_ACTIVATED_AT: "2026-02-30T00:00:00Z" }, { FOTTY_OWNER_EMAIL_ACTIVATED_AT: "2099-01-01T00:00:00Z" }]) {
++    const f = fixture(change); f.at(START + 1);
++    const result = await f.client().drain([notice()]);
++    assert.ok(["disabled", "configuration-pending"].includes(result.state));
++    assert.equal(f.calls.length, 0); assert.equal(f.state.writes, 0);
++  }
++});
++test("explicit fresh cutover baselines all121 historical notices and never replays them after restart", async () => {
++  const f = fixture(), historical = Array.from({ length: 121 }, (_, index) => notice(index + 1, START - 1));
++  let result = await f.client().drain(historical);
++  assert.equal(result.baselineCount, 121); assert.equal(result.pendingCount, 0); assert.equal(f.calls.length, 0);
++  f.at(START + 1);
++  result = await f.client().drain([...historical, notice(122)]);
++  assert.equal(result.submittedBatches, 1); assert.equal(result.pendingCount, 0); assert.equal(f.calls.length, 1);
++  assert.match(f.calls[0].subject, /1 operational updates/);
++  f.at(START + OWNER_EMAIL_LIMITS.minimumGapMs);
++  result = await f.client().drain([...historical, notice(122)]);
++  assert.equal(f.calls.length, 1); assert.equal(result.baselineCount, 121);
++  assert.equal(f.state.values.get(OWNER_EMAIL_KEY).known.length, 122);
++});
++test("an old initial cutover fails closed instead of replaying retained history", async () => {
++  const f = fixture(); f.at(START + OWNER_EMAIL_LIMITS.cutoverWindowMs + 1);
++  assert.equal((await f.client().drain([notice()])).state, "cutover-expired");
++  assert.equal(f.calls.length, 0); assert.equal(f.state.writes, 0);
++});
++test("only sanitized operations fields enter grouped text/state/status; target and raw facts stay private", async () => {
++  const f = fixture(); f.at(START + 1);
++  const rows = [notice(1), notice(2, START + 1, { failureClass: "metadata-unavailable" }),
++    notice(3, START + 1, { source: "as", scope: "football", key: "https://media.invalid/private?token=secret-team-device" })];
++  const result = await f.client().drain(rows), email = f.calls[0];
++  assert.equal(email.to, f.env.FOTTY_OWNER_EMAIL_RECIPIENT); assert.equal(email.from, "watchdog@getfotty.com");
++  assert.deepEqual(Object.keys(email).sort(), ["from", "headers", "subject", "text", "to"]);
++  assert.match(email.text, /cs \/ catalog/); assert.match(email.text, /as \/ catalog/);
++  assert.match(email.text, /some match options may be missing/); assert.match(email.text, /Tobago/);
++  assert.match(email.text, /not confirmation of inbox delivery or human reading/);
++  for (const value of [email.text, JSON.stringify([...f.state.values]), JSON.stringify(result)]) {
++    assert.ok(!value.includes("private?token")); assert.ok(!value.includes("secret-team-device"));
++    assert.ok(!value.includes(f.env.FOTTY_OWNER_EMAIL_RECIPIENT)); assert.ok(!value.includes("watchdog@getfotty.com"));
++  }
++});
++test("malformed or duplicate notices fail closed without sending or accepting state", async () => {
++  for (const rows of [[notice(), notice()], [notice(1, START + 1, { source: "url/secret" })],
++    [notice(1, START + 1, { scope: "owner@private.example" })], [notice(1, START + 1, { type: "playback" })],
++    [notice(1, START + 60_000)]]) {
++    const f = fixture(); f.at(START + 1);
++    assert.equal((await f.client().drain(rows)).state, "state-unavailable");
++    assert.equal(f.calls.length, 0); assert.equal(f.state.writes, 0);
++  }
++});
++test("overlapping delivery objects and restart share one stored send lease", async () => {
++  let release, started; const ready = new Promise((resolve) => { started = resolve; });
++  const f = fixture(); f.at(START + 1);
++  f.env.FOTTY_OWNER_EMAIL.send = async (message) => { f.calls.push(message); started(); return new Promise((resolve) => { release = resolve; }); };
++  const first = f.client({ timeoutMs: 1000 }).drain([notice()]); await ready;
++  const other = await f.client().drain([notice()]);
++  assert.equal(other.state, "submitting"); assert.equal(f.calls.length, 1);
++  release({ messageId: "accepted-once" });
++  assert.equal((await first).pendingCount, 0); assert.equal(f.calls.length, 1);
++});
++test("an expired attempt cannot acknowledge or overwrite a newer lease's completed batch", async () => {
++  let release, started; const ready = new Promise((resolve) => { started = resolve; });
++  const f = fixture(); f.at(START + 1);
++  f.env.FOTTY_OWNER_EMAIL.send = async (message) => {
++    f.calls.push(message);
++    if (f.calls.length === 1) { started(); return new Promise((resolve) => { release = resolve; }); }
++    return { messageId: "newer-accepted" };
++  };
++  const old = f.client({ timeoutMs: 1000 }).drain([notice()]); await ready;
++  f.at(START + OWNER_EMAIL_LIMITS.minimumGapMs + 1);
++  const current = await f.client().drain([notice()]);
++  assert.equal(current.pendingCount, 0); assert.equal(current.submittedBatches, 1); assert.equal(current.ambiguousAttempts, 1);
++  const saved = structuredClone(f.state.values.get(OWNER_EMAIL_KEY));
++  release({ messageId: "late-old-accepted" }); await old;
++  assert.deepEqual(f.state.values.get(OWNER_EMAIL_KEY), saved); assert.equal(f.calls.length, 2);
++});
++test("opaque provider acknowledgement is validated but never stored; a regressed clock cannot retry", async () => {
++  const f = fixture(); f.at(START + 100);
++  f.env.FOTTY_OWNER_EMAIL.send = async (message) => { f.calls.push(message); return { messageId: "<opaque@service.example>" }; };
++  assert.equal((await f.client().drain([notice()])).submittedBatches, 1);
++  assert.ok(!JSON.stringify([...f.state.values]).includes("opaque@service.example"));
++  const saved = structuredClone(f.state.values.get(OWNER_EMAIL_KEY)); f.at(START + 2);
++  assert.equal((await f.client().drain([notice()])).state, "clock-skew");
++  assert.deepEqual(f.state.values.get(OWNER_EMAIL_KEY), saved); assert.equal(f.calls.length, 1);
++});
++test("known platform rejection remains pending with bounded retry and no immediate duplicate", async () => {
++  const f = fixture(); f.at(START + 1);
++  f.env.FOTTY_OWNER_EMAIL.send = async (message) => { f.calls.push(message); throw Object.assign(new Error("private address must not leak"), { code: "E_SENDER_NOT_VERIFIED" }); };
++  let result = await f.client().drain([notice()]);
++  assert.equal(result.state, "retry-pending"); assert.equal(result.lastError, "sender-not-verified");
++  assert.equal(result.pendingCount, 1); assert.equal(result.submittedBatches, 0);
++  f.at(START + 2); await f.client().drain([notice()]); assert.equal(f.calls.length, 1);
++  f.at(START + OWNER_EMAIL_LIMITS.minimumGapMs + 1);
++  f.env.FOTTY_OWNER_EMAIL.send = async (message) => { f.calls.push(message); return { messageId: "accepted-retry" }; };
++  result = await f.client().drain([notice()]); assert.equal(result.pendingCount, 0); assert.equal(f.calls.length, 2);
++  assert.equal(f.calls[0].headers["X-Fotty-Alert-ID"], f.calls[1].headers["X-Fotty-Alert-ID"]);
++});
++test("new arrivals or a recovery cannot change an outstanding retry batch ID or overtake it", async () => {
++  const f = fixture(); f.at(START + 1);
++  f.env.FOTTY_OWNER_EMAIL.send = async (message) => { f.calls.push(message); throw new Error("ambiguous transport"); };
++  await f.client().drain([notice()]);
++  const recovered = notice(2, START + 2, { type: "resolved" });
++  f.at(START + OWNER_EMAIL_LIMITS.minimumGapMs + 1);
++  f.env.FOTTY_OWNER_EMAIL.send = async (message) => { f.calls.push(message); return { messageId: "accepted" }; };
++  const firstRetry = await f.client().drain([notice(), recovered]);
++  assert.equal(firstRetry.pendingCount, 1);
++  assert.equal(f.calls[0].headers["X-Fotty-Alert-ID"], f.calls[1].headers["X-Fotty-Alert-ID"]);
++  assert.ok(!f.calls[1].text.includes("resolved:"));
++  f.at(START + 2 * OWNER_EMAIL_LIMITS.minimumGapMs + 1);
++  assert.equal((await f.client().drain([notice(), recovered])).pendingCount, 0);
++  assert.match(f.calls[2].text, /resolved:/);
++  assert.notEqual(f.calls[2].headers["X-Fotty-Alert-ID"], f.calls[1].headers["X-Fotty-Alert-ID"]);
++});
++test("timeout or missing service acknowledgement is ambiguous, never counted submitted", async () => {
++  for (const kind of ["timeout", "missing-result", "blank-id", "transport"]) {
++    const f = fixture(); f.at(START + 1);
++    f.env.FOTTY_OWNER_EMAIL.send = async (message) => { f.calls.push(message);
++      if (kind === "timeout") return new Promise(() => {});
++      if (kind === "transport") throw new Error("private transport text");
++      if (kind === "blank-id") return { messageId: " " };
++      return undefined;
++    };
++    const result = await f.client({ timeoutMs: 1 }).drain([notice()]);
++    assert.equal(result.state, "ambiguous"); assert.equal(result.pendingCount, 1);
++    assert.equal(result.submittedBatches, 0); assert.equal(result.ambiguousAttempts, 1);
++    assert.equal(result.lastError, "submission-ambiguous");
++  }
++});
++test("a send before failed acknowledgement storage retries the same batch after lease expiry, honestly permitting duplicates", async () => {
++  const f = fixture(); f.at(START + 1); f.state.failAt(2);
++  assert.equal((await f.client().drain([notice()])).state, "state-unavailable");
++  assert.equal(f.calls.length, 1); assert.equal(f.state.values.get(OWNER_EMAIL_KEY).pending.length, 1);
++  assert.equal(f.state.values.get(OWNER_EMAIL_KEY).submittedBatches, 0);
++  f.at(START + OWNER_EMAIL_LIMITS.minimumGapMs + 1);
++  const result = await f.client().drain([notice()]);
++  assert.equal(f.calls.length, 2); assert.equal(result.ambiguousAttempts, 1);
++  assert.equal(result.pendingCount, 0); assert.equal(result.submittedBatches, 1);
++  assert.equal(f.calls[0].headers["X-Fotty-Alert-ID"], f.calls[1].headers["X-Fotty-Alert-ID"]);
++});
++test("failure to store the lease cannot send; corrupt state cannot reset the baseline", async () => {
++  const f = fixture(); f.at(START + 1); f.state.failAt(1);
++  assert.equal((await f.client().drain([notice()])).state, "state-unavailable"); assert.equal(f.calls.length, 0);
++  f.state.values.set(OWNER_EMAIL_KEY, { schema: 99 });
++  assert.equal((await f.client().drain([notice()])).state, "state-unavailable"); assert.equal(f.calls.length, 0);
++  assert.deepEqual(f.state.values.get(OWNER_EMAIL_KEY), { schema: 99 });
++});
++test("pending data survives disable/re-enable; changed destination or cutover cannot silently reset state", async () => {
++  const f = fixture(); f.at(START + 1);
++  f.env.FOTTY_OWNER_EMAIL.send = async () => { throw new Error("unknown send outcome"); };
++  await f.client().drain([notice()]); const saved = structuredClone(f.state.values.get(OWNER_EMAIL_KEY));
++  f.env.FOTTY_OWNER_EMAIL_ENABLED = "0"; assert.equal((await f.client().drain([notice()])).state, "disabled");
++  assert.deepEqual(f.state.values.get(OWNER_EMAIL_KEY), saved);
++  f.env.FOTTY_OWNER_EMAIL_ENABLED = "1"; f.env.FOTTY_OWNER_EMAIL_RECIPIENT = "different@receiver.example";
++  assert.equal((await f.client().drain([notice()])).state, "configuration-mismatch");
++  assert.deepEqual(f.state.values.get(OWNER_EMAIL_KEY), saved);
++  f.env.FOTTY_OWNER_EMAIL_RECIPIENT = "owner@receiver.example";
++  f.at(START + OWNER_EMAIL_LIMITS.minimumGapMs + 1);
++  f.env.FOTTY_OWNER_EMAIL.send = async (message) => { f.calls.push(message); return { messageId: "resumed" }; };
++  assert.equal((await f.client().drain([notice()])).pendingCount, 0);
++});
++test("a removed binding after established cutover is an actionable mismatch rather than quiet unconfigured staging", async () => {
++  const f = fixture(); await f.client().drain([]);
++  const original = structuredClone(f.state.values.get(OWNER_EMAIL_KEY));
++  f.env.FOTTY_OWNER_EMAIL = undefined;
++  assert.equal((await f.client().status()).state, "configuration-mismatch");
++  assert.equal((await f.client().drain([])).state, "configuration-mismatch");
++  assert.deepEqual(f.state.values.get(OWNER_EMAIL_KEY), original); assert.equal(f.calls.length, 0);
++});
++test("missing or invalid enablement after an established pending cutover is actionable without sends or state changes", async () => {
++  const f = fixture(); f.at(START + 1);
++  f.env.FOTTY_OWNER_EMAIL.send = async (message) => { f.calls.push(message); throw new Error("unknown submission outcome"); };
++  assert.equal((await f.client().drain([notice()])).state, "ambiguous");
++  const saved = structuredClone(f.state.values.get(OWNER_EMAIL_KEY)), writes = f.state.writes;
++  assert.equal(saved.pending.length, 1);
++  for (const flag of [undefined, "", "true", "garbled", 0]) {
++    if (flag === undefined) delete f.env.FOTTY_OWNER_EMAIL_ENABLED;
++    else f.env.FOTTY_OWNER_EMAIL_ENABLED = flag;
++    assert.deepEqual(await f.client().status(), { enabled: true, state: "configuration-mismatch" });
++    assert.deepEqual(await f.client().drain([notice()]), { enabled: true, state: "configuration-mismatch" });
++    assert.deepEqual(f.state.values.get(OWNER_EMAIL_KEY), saved);
++    assert.equal(f.state.writes, writes); assert.equal(f.calls.length, 1);
++  }
++  f.env.FOTTY_OWNER_EMAIL_ENABLED = "0";
++  assert.deepEqual(await f.client().status(), { enabled: false, state: "disabled" });
++  assert.deepEqual(await f.client().drain([notice()]), { enabled: false, state: "disabled" });
++  assert.deepEqual(f.state.values.get(OWNER_EMAIL_KEY), saved); assert.equal(f.state.writes, writes); assert.equal(f.calls.length, 1);
++});
++test("pristine missing enablement stays quiet without creating email state or sending", async () => {
++  const f = fixture(); delete f.env.FOTTY_OWNER_EMAIL_ENABLED;
++  assert.deepEqual(await f.client().status(), { enabled: false, state: "disabled" });
++  assert.deepEqual(await f.client().drain([notice()]), { enabled: false, state: "disabled" });
++  assert.equal(f.state.values.has(OWNER_EMAIL_KEY), false); assert.equal(f.state.writes, 0); assert.equal(f.calls.length, 0);
++});
++test("the optional labelled test is separate and submitted at most once per cutover", async () => {
++  const f = fixture({ FOTTY_OWNER_EMAIL_SEND_TEST: "1" }); f.at(START + 1);
++  let result = await f.client().drain([notice()]); assert.equal(result.pendingCount, 1);
++  assert.match(f.calls[0].subject, /DELIVERY TEST/); assert.ok(!f.calls[0].text.includes("confirmed: schema"));
++  f.at(START + OWNER_EMAIL_LIMITS.minimumGapMs + 1);
++  result = await f.client().drain([notice()]); assert.equal(result.pendingCount, 0);
++  assert.equal(f.calls.length, 2); assert.match(f.calls[1].subject, /operational updates/);
++  f.at(START + 2 * OWNER_EMAIL_LIMITS.minimumGapMs + 1); await f.client().drain([notice()]); assert.equal(f.calls.length, 2);
++});
++test("daily attempts and backoff remain bounded across restart and UTC rollover", async () => {
++  const f = fixture(); f.env.FOTTY_OWNER_EMAIL.send = async (message) => { f.calls.push(message); throw new Error("unknown"); };
++  let now = START + 1, result;
++  for (let index = 0; index < OWNER_EMAIL_LIMITS.attemptsPerDay; index++) {
++    f.at(now); result = await f.client().drain([notice()]);
++    now = f.state.values.get(OWNER_EMAIL_KEY).nextAt;
++  }
++  f.at(now); result = await f.client().drain([notice()]);
++  assert.equal(result.state, "rate-limited"); assert.equal(f.calls.length, 12);
++  f.at(START + 86_400_001); await f.client().drain([notice()]); assert.equal(f.calls.length, 13);
++});
++test("pending capacity never marks unsaved notices known or removes original source notices", async () => {
++  const f = fixture(); f.at(START + 1);
++  const rows = Array.from({ length: 80 }, (_, index) => notice(index + 1)); const original = structuredClone(rows);
++  let result = await f.client().drain(rows);
++  assert.equal(result.capacity, true); assert.equal(f.state.values.get(OWNER_EMAIL_KEY).known.length, 64);
++  assert.equal(result.pendingCount, 48);
++  for (let turn = 1; turn < 5; turn++) { f.at(START + turn * OWNER_EMAIL_LIMITS.minimumGapMs + 1); result = await f.client().drain(rows); }
++  assert.equal(result.pendingCount, 0); assert.equal(f.state.values.get(OWNER_EMAIL_KEY).known.length, 80);
++  assert.deepEqual(rows, original); assert.equal(f.calls.length, 5);
++});
+diff --git a/tools/watchdog/owner-alert.mjs b/tools/watchdog/owner-alert.mjs
+--- a/tools/watchdog/owner-alert.mjs
++++ b/tools/watchdog/owner-alert.mjs
+@@ -64,6 +64,33 @@
+   }
+   return { events, pendingDelivery };
+ }
++function emailProblems(value, now, problems) {
++  if (value === undefined) return; // Older deployed Workers have no email lane.
++  try {
++    const states = ["disabled", "configuration-pending", "awaiting-cutover", "cutover-expired", "configuration-mismatch", "clock-skew",
++      "state-unavailable", "ready", "pending", "submitting", "rate-limited", "ambiguous", "retry-pending", "capacity"];
++    const fields = ["enabled", "state", "pendingCount", "baselineCount", "submittedBatches", "attemptsToday", "ambiguousAttempts",
++      "lastAttemptAt", "lastSubmittedAt", "lastError", "capacity", "oldestPendingAt"];
++    if (!value || typeof value !== "object" || Array.isArray(value) || typeof value.enabled !== "boolean"
++      || !states.includes(value.state) || Object.keys(value).some((key) => !fields.includes(key))) throw new Error("email contract");
++    if (!value.enabled) { if (value.state !== "disabled") throw new Error("email disabled contract"); return; }
++    if (["configuration-pending", "awaiting-cutover"].includes(value.state)) return;
++    if (["cutover-expired", "configuration-mismatch", "state-unavailable", "clock-skew"].includes(value.state)) {
++      problems.add("owner-email-unavailable"); return;
++    }
++    for (const key of ["pendingCount", "baselineCount", "submittedBatches", "attemptsToday", "ambiguousAttempts"]) {
++      if (!Number.isSafeInteger(value[key]) || value[key] < 0) throw new Error("email counts");
++    }
++    if (typeof value.capacity !== "boolean" || ![null, "sender-not-verified", "recipient-not-allowed", "rate-limited",
++      "service-rejected", "submission-ambiguous"].includes(value.lastError)
++      || !["lastAttemptAt", "lastSubmittedAt", "oldestPendingAt"].every((key) => value[key] === null || validTime(value[key], now))
++      || value.pendingCount > 0 && value.oldestPendingAt === null) throw new Error("email receipt");
++    if (value.capacity || value.state === "capacity" || value.state === "rate-limited") problems.add("owner-email-capacity");
++    if (value.pendingCount && value.lastError === "submission-ambiguous") problems.add("owner-email-submission-ambiguous");
++    else if (value.pendingCount && value.lastError !== null) problems.add("owner-email-submission-rejected");
++    if (value.pendingCount && now - instant(value.oldestPendingAt) > STALE) problems.add("owner-email-pending");
++  } catch { problems.add("owner-email-status-contract"); }
++}
+ export function evaluateOwnerSnapshot(input, { status, workflow, issues = [], unavailable = [] }, { now = Date.now(), initialize = false } = {}) {
+   const state = structuredClone(input); validateOwnerState(state, now);
+   if (!Number.isSafeInteger(now) || now < 0) throw new Error("Invalid owner clock");
+@@ -78,6 +105,7 @@
+       if (status.expectedDeploymentRevision !== EXPECTED_VERSIONS.deploymentRevision) problems.add("playback-revision-drift");
+       if (status.overflow) problems.add("cloud-ledger-capacity");
+       events.push(...cloudNotifications(status, now).map((v) => finiteEvent(v, now)));
++      emailProblems(status.ownerEmail, now, problems);
+     } catch { problems.add("collector-status-contract"); }
+   } else problems.add("collector-unavailable");
+   try {
+diff --git a/tools/watchdog/owner-alert.test.mjs b/tools/watchdog/owner-alert.test.mjs
+--- a/tools/watchdog/owner-alert.test.mjs
++++ b/tools/watchdog/owner-alert.test.mjs
+@@ -86,6 +86,38 @@
+   assert.ok(out.result.monitorProblems.includes("collector-status-contract"));
+   assert.ok(out.result.alerts.every((x) => x.event.source === "owner-monitor"));
+ });
++test("disabled or not-yet-configured email staging stays quiet while enabled failures surface without private fields", () => {
++  for (const ownerEmail of [undefined, { enabled: false, state: "disabled" },
++    { enabled: true, state: "configuration-pending" }, { enabled: true, state: "awaiting-cutover", pendingCount: 0 }]) {
++    assert.equal(invoke(empty(), { ...snapshot(), status: status(NOW, [], { ownerEmail }) }).result.action, "quiet");
++  }
++  for (const state of ["state-unavailable", "configuration-mismatch", "cutover-expired", "clock-skew"]) {
++    const result = invoke(empty(), { ...snapshot(), status: status(NOW, [], { ownerEmail: { enabled: true, state } }) });
++    assert.deepEqual(result.result.monitorProblems, ["owner-email-unavailable"]);
++  }
++});
++const emailStatus = (extra = {}) => ({ enabled: true, state: "ready", pendingCount: 0, baselineCount: 121,
++  submittedBatches: 1, attemptsToday: 1, ambiguousAttempts: 0, lastAttemptAt: NOW, lastSubmittedAt: NOW,
++  lastError: null, capacity: false, oldestPendingAt: null, ...extra });
++test("ambiguous or rejected email submission and old pending work remain actionable with a healthy collector", () => {
++  for (const [state, lastError, expected] of [["ambiguous", "submission-ambiguous", "owner-email-submission-ambiguous"],
++    ["retry-pending", "sender-not-verified", "owner-email-submission-rejected"]]) {
++    const result = invoke(empty(), { ...snapshot(), status: status(NOW, [], { ownerEmail: emailStatus({ state, lastError,
++      pendingCount: 1, oldestPendingAt: NOW - 36 * 60_000 }) }) });
++    assert.deepEqual(result.result.monitorProblems, ["owner-email-pending", expected].sort());
++    assert.equal(result.result.action, "notify");
++  }
++  const result = invoke(empty(), { ...snapshot(), status: status(NOW, [], { ownerEmail: emailStatus({ state: "rate-limited",
++    pendingCount: 1, oldestPendingAt: NOW, attemptsToday: 12 }) }) });
++  assert.deepEqual(result.result.monitorProblems, ["owner-email-capacity"]);
++});
++test("email status drift cannot inject an address or erase a valid provider incident", () => {
++  const ownerEmail = { ...emailStatus(), recipient: "private-owner@receiver.example" };
++  const result = invoke(empty(), { ...snapshot(NOW, [notice()]), status: status(NOW, [notice()], { ownerEmail }) });
++  assert.ok(result.result.monitorProblems.includes("owner-email-status-contract"));
++  assert.ok(result.result.alerts.some((row) => row.event.source === "cs"));
++  assert.ok(!JSON.stringify(result.result).includes("private-owner@receiver.example"));
++});
+ test("capacity and absent GitHub access are visible rather than quiet", () => {
+   const out = invoke(empty(), snapshot(NOW, [], { status: status(NOW, [], { overflow: true }), unavailable: ["github-issues-unavailable"] }));
+   assert.deepEqual(out.result.monitorProblems, ["cloud-ledger-capacity", "github-issues-unavailable"]);
+diff --git a/.github/workflows/watchdog-ci.yml b/.github/workflows/watchdog-ci.yml
+--- a/.github/workflows/watchdog-ci.yml
++++ b/.github/workflows/watchdog-ci.yml
+@@ -29,7 +29,7 @@
+       - name: Install the locked deployment runtime
+         run: npm ci --prefix web --ignore-scripts
+       - name: Exercise the real Worker and transactional Durable Object
+-        run: node --test web/workers/watchdog/src/runtime.test.mjs
++        run: node --test web/workers/watchdog/src/runtime.test.mjs web/workers/watchdog/src/owner-email.runtime.test.mjs
+       - name: Verify an observation-only bundle without activation or credentials
+         working-directory: web
+         run: npx wrangler deploy --config workers/watchdog/wrangler.toml --dry-run --outdir "${RUNNER_TEMP}/watchdog-dry-run"
+diff --git a/docs/operations/Watchdog-Direct-Email.md b/docs/operations/Watchdog-Direct-Email.md
+new file mode 100644
+--- /dev/null
++++ b/docs/operations/Watchdog-Direct-Email.md
+@@ -0,0 +1,73 @@
++# Direct watchdog owner email — disabled preparation
++
++Prepared29October2026 against protected `83b1a44`. **Not activated, sent or deployed by this source gate.** Existing GitHub/chat observation remains intact. Do not treat this document or a successful build/test as sender eligibility or delivery proof.
++
++## Material setup gates
++
++- The owner supplied a private destination separately. Its real address does not belong in source, test fixtures, this document or public status.
++- Root's initial29October read-only account check found no verified Email Routing destination. A later operator receipt confirmed the private owner destination verified at **29October2026 23:06:34UTC**. The real address remains private. This closes the destination-verification gate only; compilation did not verify it.
++- Root also found neither `getfotty.com` nor the current web host's parent domain in this Cloudflare account's zones. A later account sending-domain list returned Unauthorized; no eligible, onboarded sender has been demonstrated. **Do not assume the proposed sender can send.** Establish a supported domain-onboarding route and verification facts before enabling anything; do not change DNS, add/move a zone or onboard a sender under this source-only task.
++- The prepared code accepts only `watchdog@getfotty.com`. Using a different sender/domain requires a focused reviewed configuration-policy change; there is no arbitrary sender input.
++- Cloudflare's current documentation requires an onboarded sender domain and supports a binding restricted to one fixed destination. It documents sends to verified destinations as free; this preparation enables no paid sending or arbitrary recipient path.
++
++Official sources, checked29October:
++[Workers sending API](https://developers.cloudflare.com/email-service/api/send-emails/workers-api/),
++[fixed-destination bindings](https://developers.cloudflare.com/email-service/configuration/send-bindings/),
++[verified-destination pricing](https://developers.cloudflare.com/email-service/platform/pricing/).
++Recheck account eligibility and the deployed runtime's support at activation; documentation is not an account-specific onboarding receipt.
++
++## Private configuration example — placeholders, not a complete deploy config
++
++Keep the source flag `FOTTY_OWNER_EMAIL_ENABLED="0"`. After the factual sender/recipient gates and explicit activation authority, prepare a private copy/overlay of the **existing protected watchdog configuration**, preserving its name, original activation, namespace/migrations, variables and collection controls. Add only:
++
++```toml
++[vars]
++FOTTY_OWNER_EMAIL_ENABLED = "0" # remains0 until factual activation gates pass
++FOTTY_OWNER_EMAIL_ACTIVATED_AT = "<NEW_CURRENT_UTC_CUTOVER>"
++FOTTY_OWNER_EMAIL_RECIPIENT = "<VERIFIED_OWNER_DESTINATION>"
++FOTTY_OWNER_EMAIL_SENDER = "watchdog@getfotty.com"
++FOTTY_OWNER_EMAIL_SEND_TEST = "0"
++
++[[send_email]]
++name = "FOTTY_OWNER_EMAIL"
++destination_address = "<SAME_VERIFIED_OWNER_DESTINATION>"
++```
++
++Do not apply this snippet over existing `[vars]` wholesale. Do not add an unrestricted binding, cc/bcc, arbitrary recipient/sender or API credential. The code passes the configured recipient explicitly; the platform's fixed-destination binding supplies a second restriction. No real address is committed. No public mutation/test/send endpoint exists.
++
++After a future activation, every subsequent watchdog deployment must retain the
++private email binding and explicit approved email settings, just as it retains
++the original collector activation. The source flag intentionally stays0;
++`keep-vars` alone must not be assumed to preserve a variable declared in source.
++Capture redacted channel state before/after deployment. A missing binding,
++missing/garbled enablement flag or invalid configuration after an established
++cutover is an actionable mismatch, not quiet first-time staging. Only the exact
++string0 is a deliberate pause; it retains its queue. A pristine missing flag
++stays quiet and does not create email state. Configuration-loss diagnostics do
++not send or write pending state.
++
++The sending call uses Cloudflare's structured `send({to,from,subject,text,headers})` API. A bounded nonempty `messageId` acknowledges service submission only. It does not establish inbox arrival, email-reading, mobile push or human response. Raw provider errors and IDs are never persisted or exposed.
++
++## Cutover and preserved state
++
++1. Capture redacted existing collector status, original activation, notice IDs/count and namespace identity. The current retained121-notice backlog is historical; do not replay it.
++2. Choose a **new current UTC cutover** for email, not the original11October collector activation. On the first configured cron, committed notices at/before that cutover become known baseline IDs without sending. Post-cutover notices queue normally. An initial cutover older than30minutes fails closed; choose a fresh factual cutover rather than resetting durable state.
++3. Email uses a separate `watchdog-owner-email-v1` key in the same existing Durable Object. It never acknowledges, rewrites or deletes the collector's incident ledger/outbox, leases, budgets or notices. No namespace migration is needed. A changed recipient/cutover fingerprint cannot silently reset an established email queue.
++4. The existing cron drains only the **committed** outbox, after successful collection and on non-collection ticks. A failed collection may still drain earlier committed pending notices; uncommitted events cannot be emailed. No new provider/media checks occur.
++5. Disabling the email flag pauses sends and preserves pending work. Re-enabling the same configuration resumes it. Do not delete/reset its private state to silence a failure or change its target.
++
++## Bounded submission and failure semantics
++
++- At most16 finite operations notices per grouped message, grouped by provider/stage. Only type, source, stage, failure class, scope, generation and observation time enter its body. No fixture/stream identifiers, media URLs, tokens, viewer history, attachments or private device data are sent.
++- At most12 attempts per UTC day, including failures and the optional test, with at least5minutes between starts. Failures retain pending work and back off up to1hour; pending capacity is64 and known IDs are bounded by the existing513-notice ceiling. Unsaved overflow candidates are not marked known, and the original outbox remains available for retry.
++- A durable fenced lease is stored before calling the binding. Concurrent calls/restarts cannot ordinarily submit the same live lease. Queues and attempt budgets survive restart. Successful service acknowledgment removes only that batch's pending entries.
++- Timeout, unknown transport failure, process loss or a failed acknowledgment write can mean the service accepted a message without a stored receipt. Such work remains **ambiguous**, not delivered. A retry uses the same stable `FE-…` batch ID; duplicate emails are possible. The provider does not promise idempotency for that header, and this code does not claim exactly-once delivery.
++- Sender/recipient/platform rejection is retained as a finite reason without private error text. No automatic address change, account action, DNS modification, source repair or deployment follows.
++
++Public status exposes only finite channel state/counts/times and sanitized failure reasons, never the target, sender, configuration fingerprint, raw service ID or email content. The existing owner reader reports enabled failures, capacity or pending age beyond35minutes through the fallback channel. Disabled/unconfigured staging is expected and stays quiet. GitHub/chat remain useful fallback paths if direct email itself fails.
++
++## Optional test and activation verification
++
++Only after setup and actual send authority, `FOTTY_OWNER_EMAIL_SEND_TEST="1"` requests one clearly labelled **DELIVERY TEST** per established cutover. It is a separate batch, never an invented provider incident/recovery or a historical-alert replay. Repeated cron/restart cannot request a second test. Its service acknowledgment is not an inbox/read receipt. Return the flag to0 after the deliberate test; disabling email pauses an ambiguous test if necessary.
++
++Activation must verify the exact protected source, fixed destination binding, verified destination, onboarded allowed sender, original collector state, fresh cutover/baseline count and later real cron processing. Check inbox arrival separately with the owner if needed. Preserve all121 historical notices and do not use `--initialize`, private-state deletion, test hooks or a canary email as proof that normal delivery, scheduling or playback works.
+diff --git a/docs/operations/Watchdog-Owner-Alerts.md b/docs/operations/Watchdog-Owner-Alerts.md
+--- a/docs/operations/Watchdog-Owner-Alerts.md
++++ b/docs/operations/Watchdog-Owner-Alerts.md
+@@ -8,6 +8,13 @@
+ monitor-completion triggers are staged. Publication, cloud activation and actual
+ delivery verification remain separate gates; the source changes below do not
+ claim an always-on delivery deadline.
++
++A separate direct-email lane is prepared defaultOFF. An operator receipt verified
++the private owner destination at29October23:06:34UTC; sender onboarding/eligibility
++remains unresolved. See
++[Watchdog-Direct-Email.md](Watchdog-Direct-Email.md) for factual setup/cutover
++requirements and ambiguous-submission limits. It has not replaced either active
++delivery path. Optional email-health signals are read-only and contain no target.
+ 
+ ## Two delivery paths
+ 

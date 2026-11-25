@@ -1,0 +1,11 @@
+{
+  "id": "additional-sports-extension",
+  "name": "AS sources",
+  "providerCode": "plaviosports",
+  "version": "1.0.0",
+  "author": "Fotty Core",
+  "description": "Optional additional football deliveries for exactly matched fixtures. Off by default.",
+  "iconName": "rectangle.stack.badge.play.fill",
+  "resolutionMode": "native",
+  "allowedDomains": ["hd.plavio.site", "papacito.cfd"]
+}

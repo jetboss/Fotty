@@ -1,0 +1,33 @@
+{
+  "build": "209",
+  "scope": "Dedicated TV navigation, finite English station contracts and general TV Details copy",
+  "sourceSHA256": {
+    "Fotty/App/MainTabView.swift": "4e5918644c0979dda65ca889799821ec7121c0a4b44facb97cc039c62611a534",
+    "Fotty/Features/Dashboard/SportsDashboardView.swift": "1298e9956bb2f7a7bae792ff0d707e8ec1a27f34e3f08aa016991d8e8973ff8a",
+    "Fotty/Features/Dashboard/SportsTVView.swift": "a8d8ec3527b8e2d65cd46cfe64df73c30457ce061079dd2c40cc482fa71af63a",
+    "Fotty/Core/Networking/ReviewedTVPlaylistClient.swift": "839584e7eb115322270e53a7d125b2786a34229372432dab27465241f9371c74",
+    "Fotty/Features/Player/ViewingExperienceView.swift": "afa5aa15494349a781df376107d9b17ba056fef05b6f4188cb93a7f55ba99582",
+    "FottyTests/SportsTVExperienceTests.swift": "e0108c1b89042295311fdedc059371bda162fcb8ac285b475539c45ea8114676",
+    "FottyTests/ReviewedTVPlaylistClientTests.swift": "57024572f059504cab9ac0d9d1a5435a00abcb626962cea2a282dfa7ebba021a"
+  },
+  "protectedFPLAndMultiFiles": 43,
+  "protectedUnchanged": true,
+  "signature": {
+    "versions": [
+      {
+        "component": "app",
+        "build": "209",
+        "version": "2.0.1"
+      },
+      {
+        "component": "widget",
+        "build": "209",
+        "version": "2.0.1"
+      }
+    ],
+    "strictSignature": true
+  },
+  "phoneUntouched": true,
+  "testFlightRelease": false,
+  "cloudPublicationThisNativeBatch": false
+}

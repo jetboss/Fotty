@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-10",
+  "owner_direction": "Include PenguPlay, Highfly and StreamNexus; owner will complete provider setup.",
+  "implemented": "Playback sources has a separate setup section with official setup links, private manifest entry, device-only Keychain storage, replacement and removal. It validates the configured address, not authentication or playback.",
+  "providers": [
+    {
+      "name": "PenguPlay",
+      "setup": "https://pengu.uk/",
+      "owner_step": "Sign in, enable Live TV and relevant sports, copy the configured add-on link."
+    },
+    {
+      "name": "Highfly",
+      "setup": "https://sports.highfly.to/configure",
+      "owner_step": "Complete human verification for the free setup, choose sports, copy the Install link. Regional premium URLs are accepted only on explicitly published Highfly hosts."
+    },
+    {
+      "name": "StreamNexus",
+      "setup": "https://config.streamnexus.cc.cd/",
+      "owner_step": "Use own access token on the official configuration page, then copy the manifest link. No account or purchase performed by this task."
+    }
+  ],
+  "security": {
+    "storage": "Keychain, WhenUnlockedThisDeviceOnly, non-synchronizable, no app group",
+    "input": "SecureField; no clipboard auto-read; no token display or logging; draft cleared on save/leave",
+    "address_rules": "Exact reviewed provider hosts, HTTPS or normalized Stremio scheme, manifest path, no credentials/fragment/nonstandard port or control characters",
+    "activation": "Saved setup does not register a source, change opt-ins, request media or create a Watch candidate."
+  },
+  "remaining": [
+    "Install/configure and verify Highfly normal Watch on an authorized free device; no device work in this task.",
+    "Pengu configured sports catalogs respond, but sampled cricket declares ClearKey and football descriptor timed out. No Pengu Watch admission.",
+    "StreamNexus owner configuration remains unavailable."
+  ],
+  "verification": {
+    "platform": "Mac Catalyst",
+    "tests": 78,
+    "failures": 0,
+    "skips": 0,
+    "suites": [
+      "AccountSourceSetupTests",
+      "SettingsUsabilityTests",
+      "ReviewedTVPlaylistClientTests",
+      "SportsTVExperienceTests"
+    ],
+    "source_membership": "Passed",
+    "diff_check": "Passed",
+    "secure_storage_test_scope": "Injected in-memory storage; no real account or Keychain data used",
+    "physical_UI_and_Keychain_acceptance": "Pending private device build",
+    "owned_build_output": "Removed; 16 GiB available afterward"
+  },
+  "devices_or_releases_changed": false,
+  "follow_up": "Configured Highfly free/premium contracts reviewed; default-off native Watch adapter now staged. See highfly-configured.json for evidence and remaining gates. PenguPlay and StreamNexus remain setup-only."
+}

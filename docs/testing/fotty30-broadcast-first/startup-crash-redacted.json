@@ -1,0 +1,43 @@
+{
+  "observedAt": "2026-11-04T01:45:46Z / 01:49:04Z",
+  "build": "3.0.0(229) Debug, before deferred startup repair",
+  "crashes": [
+    {
+      "deviceClass": "phone",
+      "exception": "EXC_BREAKPOINT",
+      "signal": "SIGTRAP",
+      "diagnosis": {
+        "libdispatch.dylib": [
+          "BUG IN CLIENT OF LIBDISPATCH: trying to lock recursively"
+        ]
+      },
+      "frames": [
+        "_dispatch_once_wait.cold.1",
+        "_dispatch_once_wait",
+        "SportsContinuityBridge.shared.unsafeMutableAddressor",
+        "closure #26 in MainTabView.body.getter",
+        "partial apply for closure #26 in MainTabView.body.getter"
+      ]
+    },
+    {
+      "deviceClass": "ipad",
+      "exception": "EXC_BREAKPOINT",
+      "signal": "SIGTRAP",
+      "diagnosis": {
+        "libdispatch.dylib": [
+          "BUG IN CLIENT OF LIBDISPATCH: trying to lock recursively"
+        ]
+      },
+      "frames": [
+        "_dispatch_once_wait.cold.1",
+        "_dispatch_once_wait",
+        "SportsContinuityBridge.shared.unsafeMutableAddressor",
+        "closure #26 in MainTabView.body.getter",
+        "partial apply for closure #26 in MainTabView.body.getter"
+      ]
+    }
+  ],
+  "repair": "Publish shared sync store before framework calls; guard startup reentry before Bridge configure/refresh/publication. No opt-in or wire-contract changes.",
+  "localRegression": "57 sync and continuity tests passed, including deferred writer callback reentry.",
+  "physicalAcceptance": "Jet repeated launches and light/dark Home passed after repair; final signed Release launch and Watch/Pause/Play passed. Phone acceptance stopped by owner."
+}

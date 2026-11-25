@@ -1,0 +1,18 @@
+{
+  "commit": "e5a273f77e94eeaf04949a7381f7a93bb74445e4",
+  "sourceVersion": "2026-10-31.fixture-isolation-1",
+  "startedAtUTC": "2026-10-31T21:39:46.484102+00:00",
+  "services": {
+    "playback": {
+      "exitCode": 0,
+      "versionID": "3a0c5136-42ae-4718-8f9f-01413b3dc11d"
+    },
+    "watchdog": {
+      "exitCode": 0,
+      "versionID": "6660fa8b-aaf5-4c20-8bee-11edd8078b33"
+    }
+  },
+  "completedAtUTC": "2026-10-31T21:39:57.570053+00:00",
+  "ownedDeploymentOutputRemoved": true,
+  "keepAwakeStopped": true
+}

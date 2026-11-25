@@ -20,7 +20,7 @@ interface TbdBracketCardProps {
 export function TbdBracketCard({ match, layout = "fill", className }: TbdBracketCardProps) {
   const headline = fixtureTbdHeadline(match);
   const subline = isKnockoutBracketTbd(match)
-    ? fixtureTbdSubline(match)
+    ? fixtureTbdSubline()
     : "Participants to be confirmed";
   const kickoff = formatKickoff(match.startsAt);
   const chip = fixtureLeagueLine(match);

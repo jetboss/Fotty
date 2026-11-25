@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-29",
+  "scope": "source-only first return/discovery batch",
+  "sourceVersion": "2.0.1 (184)",
+  "xctest": {
+    "result": "Passed",
+    "passed": 194,
+    "failed": 0,
+    "skipped": 0,
+    "host": "fresh current-source Mac Catalyst unit host, no UI tests or simulator",
+    "resultSummary": "test-summary.json",
+    "selectors": "test-selectors.txt"
+  },
+  "sourceMembershipToolTests": {
+    "passed": 32,
+    "failed": 0
+  },
+  "sourceMembership": {
+    "Fotty": 193,
+    "FottyTests": 71,
+    "FottyUITests": 5,
+    "FottyLiveActivityExtension": 5
+  },
+  "candidateInputHashes": "candidate-inputs.json",
+  "protectedInputs": {
+    "manifest": "protected-inputs.json",
+    "count": 45,
+    "changed": 0
+  },
+  "snapshotInputs": {
+    "count": 315,
+    "allMatchWorkspace": true
+  },
+  "nativeRelease": {
+    "result": "passed",
+    "codeSigningAllowed": false,
+    "installed": false,
+    "binaryVerified": true,
+    "summary": "native-release-summary.json"
+  },
+  "physicalVisualAcceptance": "open \u2014 not run in this source-only gate",
+  "devicesTouched": false,
+  "FPLFeatureChanges": false,
+  "multiStreamFeatureChanges": false,
+  "newNetworkFeedsOrProviderProbes": false,
+  "sourceSettingChanges": false,
+  "installOrLaunch": false,
+  "gitPublication": false,
+  "cloudDeployment": false,
+  "testFlightRelease": false,
+  "memoryFinish": {
+    "result": "passed",
+    "privacyPatternChecks": "passed"
+  },
+  "cleanup": {
+    "result": "completed",
+    "ownedDerivedDataRemoved": true,
+    "ownedSourceAndResultsRemoved": true,
+    "ownedKeepAwakeStopped": true,
+    "simulatorsUsed": false,
+    "temporaryGateRemoved": true
+  },
+  "completedUTC": "2026-10-29T14:38:20.300165+00:00",
+  "diskAfter": "/dev/disk3s1   228Gi   176Gi    19Gi    91%    2.1M  196M    1%   /System/Volumes/Data"
+}

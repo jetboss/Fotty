@@ -1,0 +1,33 @@
+{
+  "build": 178,
+  "device": "Jet iPad",
+  "mode": "manual Device Hub on signed normal apps; no XCTest execution",
+  "checks": [
+    "Debug178 normal Home/catalog rendering",
+    "Debug178 Search clear, equal tile surfaces, original Willow query restored without submit",
+    "Release178 Settings navigation/version readback",
+    "Release178 local Darts enable persisted and exact original selection restored; sync stayed off",
+    "Release178 Matchday empty state and Browse Home recovery",
+    "Release178 inline context to More details to full catalog sheet and Close",
+    "Release178 actual landscape Home fills viewport with separate broadcast/upcoming columns; no clipped names observed",
+    "Release178 existing Cricket category selection; no provider enablement or account changes",
+    "Release178 Willow channel visibly decoded moving cricket through the existing Broadcast1 web route; Sources opened during startup and showed the same selected delivery while video continued",
+    "Willow moving programme advanced from ENG120-4 to145-5 after Sources closed; no connecting/restart screen observed",
+    "Release178 player More menu remains usable during advancing video and exposes existing Use Native Player action; no multi-stream action selected",
+    "Release178 existing Use Native Player handoff completed with advancing Willow video; native fullscreen affordance became available",
+    "Release178 entered native fullscreen from the existing native player and video continued; native controls being exercised",
+    "Native fullscreen AV controls displayed, including central Play and PiP; native screenshot retained unedited at original resolution outside the2MiB per-image UI ledger",
+    "Native fullscreen Close returned to inline player with Paused label and the same175-6 frame",
+    "Release178 minimized native player into dock with Paused label and same retained thumbnail; reopening through the original Watch action",
+    "Reopening the same Willow Watch preserved native Paused state and exact175-6 frame; no discovery/connecting view appeared. Central Play requested to resume the same owner",
+    "Central Play resumed the retained native channel with Playing label and advancing programme; no Connecting screen observed",
+    "Second native fullscreen entry retained advancing playback; native PiP requested using the visible native control",
+    "Native PiP continued rendering changing cricket programme on iPad Home while Fotty backgrounded; no other app opened",
+    "Return from Home reopened Fotty PiP placeholder; native PiP restore returned to same paused video after intentional centre control interaction",
+    "Native Play resumed retained fullscreen video; subsequent programme cards and advertisements advanced; Close returned to inline Playing with no Connecting screen",
+    "Normal player Close stopped test playback, removed dock/PiP; Home All sports and original portrait orientation restored",
+    "Final exact comparison of23 configuration slots (including6FPLslots) passed with0changed; source enablement/sync consent/saved-match plist preserved"
+  ],
+  "singlePlaybackStartUTC": "2026-10-25T23:13:45Z",
+  "finalState": "Jet iPad normal Release178, Home All sports portrait, no test playback or PiP; capture keyboard off"
+}

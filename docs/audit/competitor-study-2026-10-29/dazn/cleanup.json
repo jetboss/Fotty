@@ -1,0 +1,14 @@
+{
+  "ownedPublicArtifactGateRemoved": true,
+  "sourceCodeChanges": false,
+  "deviceInteraction": false,
+  "mediaFetched": false,
+  "REAExecutedByThisAgent": true,
+  "reason": "Three actual browser-observed public catalogue chunks analyzed inertly; partial semantic/application graph limits retained",
+  "retained": "Safe source URLs, hashes, derived structure and explicit limits only",
+  "finishedUTC": "2026-10-29T13:48:49.217493+00:00",
+  "ownedClientArtifactGateRemoved": true,
+  "clientBytesAcquired": 882030,
+  "targetCodeExecuted": false,
+  "nativeOrPaidPlayerTest": false
+}

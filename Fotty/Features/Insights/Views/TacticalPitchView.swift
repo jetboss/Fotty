@@ -9,6 +9,8 @@ struct TacticalPitchView: View {
     var awayAccent: Color = Color(red: 1.0, green: 0.55, blue: 0.28)
 
     @State private var showLineupsList = false
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .caption) private var playerNumberSize: CGFloat = 22
 
     private var hasBenchPlayers: Bool {
         !homeLineup.substitutes.isEmpty || !awayLineup.substitutes.isEmpty
@@ -18,6 +20,11 @@ struct TacticalPitchView: View {
         VStack(alignment: .leading, spacing: 16) {
             header
 
+            // The diagram keeps its normal composition; larger text gets the
+            // same complete lineup information in readable, stacked lists.
+            if dynamicTypeSize.isAccessibilitySize {
+                fullLineupsPanel
+            } else {
             teamFormationBlock(
                 teamName: homeTeamName,
                 lineup: homeLineup,
@@ -38,15 +45,17 @@ struct TacticalPitchView: View {
             } label: {
                 HStack {
                     Text("Lineups")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(FottyTheme.typeModuleTitle)
                         .foregroundStyle(FottyTheme.textSecondary)
                     Spacer()
                     Text(lineupsSummaryLabel)
-                        .font(.system(size: 11, weight: .semibold))
+                        .font(FottyTheme.typeMeta)
                         .foregroundStyle(FottyTheme.textTertiary)
                 }
+                .frame(minHeight: 44)
             }
             .tint(FottyTheme.accentText)
+            }
         }
     }
 
@@ -60,17 +69,20 @@ struct TacticalPitchView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 10) {
-            Image(systemName: "sportscourt.fill")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(FottyTheme.accentText)
-            Text("LINEUPS & FORMATIONS")
-                .font(.system(size: 12, weight: .black))
-                .tracking(0.8)
-            Spacer()
+        headerLayout {
+            HStack(spacing: 10) {
+                Image(systemName: "sportscourt.fill")
+                    .foregroundStyle(FottyTheme.accentText)
+                    .accessibilityHidden(true)
+                Text("Lineups & formations")
+                    .foregroundStyle(FottyTheme.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+            }
+            .font(FottyTheme.typeModuleTitle)
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
             if !formationsLabel.isEmpty {
                 Text(formationsLabel)
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                    .font(FottyTheme.typeMeta.weight(.semibold))
                     .foregroundStyle(FottyTheme.textPrimary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
@@ -78,6 +90,12 @@ struct TacticalPitchView: View {
                     .clipShape(Capsule())
             }
         }
+    }
+
+    private var headerLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 10))
     }
 
     private var formationsLabel: String {
@@ -97,16 +115,15 @@ struct TacticalPitchView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Circle()
-                    .fill(accent)
-                    .frame(width: 8, height: 8)
-                Text(teamName)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundStyle(FottyTheme.textPrimary)
-                    .lineLimit(1)
+                TeamIdentityLabel(
+                    teamName: teamName,
+                    badgeSize: 24,
+                    font: FottyTheme.typeModuleTitle,
+                    triggerSearch: true
+                )
                 if let formation = lineup.formation?.trimmingCharacters(in: .whitespacesAndNewlines), !formation.isEmpty {
                     Text(formation)
-                        .font(.system(size: 11, weight: .heavy, design: .rounded))
+                        .font(FottyTheme.typeMeta.weight(.semibold))
                         .foregroundStyle(accent)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 3)
@@ -116,7 +133,7 @@ struct TacticalPitchView: View {
                 Spacer(minLength: 0)
                 if let coach = lineup.coach, !coach.isEmpty {
                     Text(coach)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(FottyTheme.typeMeta)
                         .foregroundStyle(FottyTheme.textTertiary)
                         .lineLimit(1)
                 }
@@ -134,7 +151,7 @@ struct TacticalPitchView: View {
 
     private var fullLineupsPanel: some View {
         VStack(spacing: 16) {
-            HStack(alignment: .top, spacing: 16) {
+            lineupColumns {
                 lineupColumn(teamName: homeTeamName, lineup: homeLineup, accent: homeAccent)
                 lineupColumn(teamName: awayTeamName, lineup: awayLineup, accent: awayAccent)
             }
@@ -144,18 +161,29 @@ struct TacticalPitchView: View {
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
+    private var lineupColumns: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 24))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 16))
+    }
+
     private func lineupColumn(teamName: String, lineup: FottyLineup, accent: Color) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(teamName)
-                .font(.system(size: 11, weight: .black))
-                .foregroundStyle(accent)
-                .lineLimit(2)
+            TeamIdentityLabel(
+                teamName: teamName,
+                badgeSize: 20,
+                font: FottyTheme.typeModuleTitle,
+                foregroundColor: FottyTheme.textPrimary,
+                lineLimit: 2,
+                triggerSearch: true
+            )
 
             if let coach = lineup.coach, !coach.isEmpty {
                 Text("Coach · \(coach)")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(FottyTheme.typeMeta)
                     .foregroundStyle(FottyTheme.textTertiary)
-                    .lineLimit(2)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             lineupSection(title: "Starting XI", players: lineup.startingXi, accent: accent, muted: false)
@@ -169,14 +197,14 @@ struct TacticalPitchView: View {
 
     private func lineupSection(title: String, players: [FottyPlayer], accent: Color, muted: Bool) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title.uppercased())
-                .font(.system(size: 9, weight: .black))
+            Text(title)
+                .font(FottyTheme.typeMeta.weight(.semibold))
                 .foregroundStyle(muted ? FottyTheme.textTertiary : FottyTheme.textSecondary)
-                .tracking(0.6)
+                .accessibilityAddTraits(.isHeader)
 
             if players.isEmpty {
                 Text("Not available")
-                    .font(.system(size: 10, weight: .medium))
+                    .font(FottyTheme.typeMeta)
                     .foregroundStyle(FottyTheme.textTertiary)
             } else {
                 ForEach(players) { player in
@@ -189,19 +217,21 @@ struct TacticalPitchView: View {
     private func playerRow(_ player: FottyPlayer, accent: Color, muted: Bool) -> some View {
         HStack(spacing: 8) {
             Text(player.number.map { "\($0)" } ?? "–")
-                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .font(FottyTheme.typeMeta.weight(.semibold))
+                .monospacedDigit()
                 .foregroundStyle(muted ? FottyTheme.textSecondary : FottyTheme.textPrimary)
-                .frame(width: 22, height: 22)
+                .frame(width: playerNumberSize, height: playerNumberSize)
                 .background(accent.opacity(muted ? 0.12 : 0.2))
                 .clipShape(Circle())
             Text(player.name)
-                .font(.system(size: 11, weight: muted ? .medium : .semibold))
+                .font(FottyTheme.typeBody.weight(muted ? .regular : .semibold))
                 .foregroundStyle(muted ? FottyTheme.textSecondary : FottyTheme.textPrimary)
-                .lineLimit(2)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 0)
             if let pos = player.position, !pos.isEmpty {
                 Text(pos)
-                    .font(.system(size: 9, weight: .bold))
+                    .font(FottyTheme.typeMeta)
                     .foregroundStyle(FottyTheme.textTertiary)
             }
         }
@@ -312,6 +342,8 @@ private struct PitchMarkingsOverlay: View {
 private struct PlayerPitchMarker: View {
     let player: FottyPlayer
     let accent: Color
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .caption2) private var markerNameWidth: CGFloat = 52
 
     var body: some View {
         VStack(spacing: 3) {
@@ -333,16 +365,20 @@ private struct PlayerPitchMarker: View {
                             .strokeBorder(Color.white.opacity(0.35), lineWidth: 1.5)
                     )
                 Text(markerNumber)
-                    .font(.system(size: 13, weight: .black, design: .rounded))
+                    .font(.fottyScaled(size: 13, weight: .black, design: .rounded))
                     .foregroundStyle(.white)
             }
             Text(shortSurname)
-                .font(.system(size: 8, weight: .bold))
+                .font(.caption2.weight(.bold))
                 .foregroundStyle(.white.opacity(0.92))
-                .lineLimit(1)
-                .frame(width: 52)
+                .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
+                .multilineTextAlignment(.center)
+                .frame(width: markerNameWidth)
                 .shadow(color: .black.opacity(0.6), radius: 2, y: 1)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(player.name)
+        .accessibilityValue(player.number.map { "Number \($0)" } ?? "")
     }
 
     private var markerNumber: String {

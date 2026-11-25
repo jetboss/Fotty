@@ -15,9 +15,11 @@ export function TopBar() {
       <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-2">
         <Link
           href="/"
-          className="min-w-0 shrink text-sm font-black tracking-[0.25em] text-white lg:pointer-events-none lg:invisible lg:w-0"
+          className="flex min-w-0 shrink items-baseline gap-2 text-white lg:pointer-events-none lg:invisible lg:w-0"
+          aria-label="Fotty Sports Hub home"
         >
-          FOTTY
+          <span className="text-sm font-black tracking-[0.25em]">FOTTY</span>
+          <span className="hidden text-[9px] font-bold tracking-[0.16em] text-text-tertiary min-[360px]:inline">SPORTS HUB</span>
         </Link>
 
         <div className="ml-auto flex min-w-0 shrink-0 items-center gap-1.5 sm:gap-2">

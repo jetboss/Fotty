@@ -1,0 +1,66 @@
+{
+  "worker": {
+    "at": "2026-10-29T00:13:03.732Z",
+    "source": "Fotty deployed sports snapshot",
+    "checkedAt": "2026-10-29T00:05:49.833Z",
+    "sourceStatus": "verified",
+    "fixtures": [
+      {
+        "id": "sports-fixture:nhl:2026020199",
+        "start": "2026-10-28T23:30:00.000Z",
+        "status": "live",
+        "competitionId": "nhl",
+        "participants": [
+          {
+            "name": "Washington Capitals",
+            "role": "home"
+          },
+          {
+            "name": "Philadelphia Flyers",
+            "role": "away"
+          }
+        ],
+        "source": {
+          "name": "National Hockey League",
+          "observedAt": "2026-10-29T00:05:49.833Z"
+        }
+      }
+    ]
+  },
+  "nhl": {
+    "at": "2026-10-29T00:13:03.740Z",
+    "source": "NHL official score",
+    "currentDate": "2026-10-28",
+    "gameCount": 4,
+    "games": [
+      {
+        "id": 2026020199,
+        "start": "2026-10-28T23:30:00Z",
+        "state": "LIVE",
+        "scheduleState": "OK",
+        "period": 1,
+        "periodDescriptor": {
+          "number": 1,
+          "periodType": "REG",
+          "maxRegulationPeriods": 3
+        },
+        "clock": {
+          "timeRemaining": "00:44",
+          "secondsRemaining": 44,
+          "running": true,
+          "inIntermission": false
+        },
+        "home": {
+          "name": "Capitals",
+          "abbrev": "WSH",
+          "score": 1
+        },
+        "away": {
+          "name": "Flyers",
+          "abbrev": "PHI",
+          "score": 0
+        }
+      }
+    ]
+  }
+}

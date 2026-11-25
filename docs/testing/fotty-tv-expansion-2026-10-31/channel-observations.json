@@ -1,0 +1,66 @@
+{
+  "scope": "station_identity_and_visible_content_only",
+  "normalMatchWatchQualified": false,
+  "observations": [
+    {
+      "label": "TV2",
+      "observedAtUTC": "2026-10-31T22:16:00Z",
+      "stationWatermark": "ESPN",
+      "content": "SportsCenter, Spanish commentary and Formula1 Mexico discussion",
+      "expectedStationObserved": true
+    },
+    {
+      "label": "TV3",
+      "observedAtUTC": "2026-10-31T22:17:00Z",
+      "stationWatermark": "ESPN2",
+      "content": "Formula1 post-session coverage with FIA interview backdrop",
+      "expectedStationObserved": true
+    },
+    {
+      "label": "TV5",
+      "observedAtUTC": "2026-10-31T22:19:00Z",
+      "stationWatermark": "ESPN4",
+      "content": "URBA Top14 semifinal post-match interview; Hindu16\u201312CASI result shown",
+      "expectedStationObserved": true
+    },
+    {
+      "label": "TV6",
+      "observedAtUTC": "2026-10-31T22:21:00Z",
+      "stationWatermark": "ESPN5",
+      "content": "Clay-court tennis semifinal; Reis Da Silva versus Aguilar Cardozo scoreboard",
+      "expectedStationObserved": true
+    },
+    {
+      "label": "TV8",
+      "observedAtUTC": "2026-10-31T22:24:00Z",
+      "stationWatermark": "ESPN7",
+      "content": "Football; on-screen PAL1\u20132AJA53:40; exact fixture identity not inferred",
+      "expectedStationObserved": true
+    },
+    {
+      "label": "TV3",
+      "run": "recheck",
+      "observedAtUTC": "2026-10-31T22:27:00Z",
+      "stationWatermark": "ESPN2",
+      "content": "Football CarabaoCup Bournemouth\u2013AstonVilla footage/promotion; not claimed currentlylive",
+      "expectedStationObserved": true
+    },
+    {
+      "label": "TV4",
+      "run": "recheck",
+      "observedAtUTC": "2026-10-31T22:28:00Z",
+      "stationWatermark": "ESPN3",
+      "content": "Rayo\u2013Celta football footage; no currentlylive inference",
+      "expectedStationObserved": true
+    },
+    {
+      "label": "TV7",
+      "run": "recheck",
+      "observedAtUTC": "2026-10-31T22:30:00Z",
+      "stationWatermark": "ESPN6",
+      "content": "NFL Carolina\u2013GreenBay footage; no currentlylive inference",
+      "expectedStationObserved": true
+    }
+  ],
+  "timePrecision": "minute"
+}

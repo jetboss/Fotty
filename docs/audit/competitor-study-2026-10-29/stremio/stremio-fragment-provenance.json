@@ -1,0 +1,10 @@
+{
+  "parentURL": "https://web.stremio.com/f0222603bb8119d8a63958ad8acfd025de973f2e/scripts/main.js",
+  "parentSHA256": "1ae93a363d2fc81746d90a61231accf3b1849b724350223683841b3325e20469",
+  "webpackModule": "5332",
+  "parentUTF8ByteStart": 1852078,
+  "parentUTF8ByteEndExclusive": 1860376,
+  "bytes": 8298,
+  "sha256": "1627882532d25ce26c187d4c15ec55aea2f5039db7055d80514448a4af694ad0",
+  "scope": "Unmodified factory body parsed as a standalone block; enclosing factory parameters e/t/a and imported modules omitted. No code execution or bound-module equivalence claim."
+}

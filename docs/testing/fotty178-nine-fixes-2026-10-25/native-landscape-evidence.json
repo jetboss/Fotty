@@ -1,0 +1,68 @@
+{
+  "purpose": "Original unedited native landscape captures exceed existing bounded UI ledger width2000; retained separately, validator restrictions unchanged. Manual scope described in README.",
+  "evidence": [
+    {
+      "screen": "home",
+      "id": "jet178-home-landscape-release",
+      "path": "docs/testing/fotty178-nine-fixes-2026-10-25/jet178-home-landscape-release.png",
+      "sha256": "d338d0122a9f2ba474a42739dc32d93e5b550ade3b4469d5289c850d59759252",
+      "width": 2360,
+      "height": 1640,
+      "appearance": "dark",
+      "textSize": "Owner normal size; no text-size setting changed",
+      "scenario": "Normal Release178 landscape Home; full viewport and separate broadcast/upcoming columns. Real data, no fixed fixture or complete sport-coverage claim.",
+      "kind": "native-screen",
+      "sourceBinding": "verified-capture",
+      "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+      "captureIdentity": {
+        "platform": "iPadOS",
+        "build": "2.0.1(178) signed normal Release; Xcode27.1 27A9275",
+        "os": "iPadOS27.0.1",
+        "renderer": "Device Hub native Screenshot; manual journey, real app feeds; no XCTest execution",
+        "hostBinarySHA256": "bef0bb203373625ba6357d03644c8e5281c3ff7dac1effa36a7e488461c3d3b1"
+      }
+    },
+    {
+      "screen": "single-player",
+      "id": "jet178-player-sources-release",
+      "path": "docs/testing/fotty178-nine-fixes-2026-10-25/jet178-player-sources-release.png",
+      "sha256": "bf4f949272d8db077c86a8254687f74ed15247d49da58e26e761521c425fcee3",
+      "width": 2360,
+      "height": 1640,
+      "appearance": "dark",
+      "textSize": "Owner normal size; no text-size setting changed",
+      "scenario": "Normal Release178 existing Willow channel source picker while selected Broadcast1 remained playing. Native exported PNG omits video surface; moving frames were observed separately in Device Hub.",
+      "kind": "native-screen",
+      "sourceBinding": "verified-capture",
+      "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+      "captureIdentity": {
+        "platform": "iPadOS",
+        "build": "2.0.1(178) signed normal Release; Xcode27.1 27A9275",
+        "os": "iPadOS27.0.1",
+        "renderer": "Device Hub native Screenshot; manual journey, real app feeds; no XCTest execution",
+        "hostBinarySHA256": "bef0bb203373625ba6357d03644c8e5281c3ff7dac1effa36a7e488461c3d3b1"
+      }
+    },
+    {
+      "screen": "single-player",
+      "id": "jet178-native-pip-release",
+      "path": "docs/testing/fotty178-nine-fixes-2026-10-25/jet178-native-pip-release.png",
+      "sha256": "1e142fa5ef8c113e7231aaf39594928c19af6427d6c2157e47ccdba07196b284",
+      "width": 2360,
+      "height": 1640,
+      "appearance": "dark",
+      "textSize": "Owner normal size; no text-size setting changed",
+      "scenario": "Normal Release178 native PiP with full-screen placeholder and corner video; background Home/return/controls were separately observed manually, not inferred from this image.",
+      "kind": "native-screen",
+      "sourceBinding": "verified-capture",
+      "captureSourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+      "captureIdentity": {
+        "platform": "iPadOS",
+        "build": "2.0.1(178) signed normal Release; Xcode27.1 27A9275",
+        "os": "iPadOS27.0.1",
+        "renderer": "Device Hub native Screenshot; manual journey, real app feeds; no XCTest execution",
+        "hostBinarySHA256": "bef0bb203373625ba6357d03644c8e5281c3ff7dac1effa36a7e488461c3d3b1"
+      }
+    }
+  ]
+}

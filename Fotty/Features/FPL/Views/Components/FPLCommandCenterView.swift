@@ -72,7 +72,7 @@ public struct FPLCommandCenterView: View {
                 .font(.caption)
                 .foregroundStyle(FottyTheme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("GW\(entry.gameweek) • \(entry.outcome.rawValue) • review the process, not only the points")
+            Text("GW\(entry.gameweek) • \(entry.outcome.rawValue)")
                 .font(.caption2)
                 .foregroundStyle(FottyTheme.textTertiary)
         }
@@ -222,7 +222,7 @@ public struct FPLCommandCenterView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 13))
                     .overlay(RoundedRectangle(cornerRadius: 13).stroke(index == 0 ? FottyTheme.accent.opacity(0.45) : FottyTheme.border, lineWidth: 1))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FottyPressButtonStyle(cornerRadius: 13))
             }
         }
     }
@@ -232,7 +232,7 @@ public struct FPLCommandCenterView: View {
             Image(systemName: viewModel.primaryFreshness?.source == .diskSnapshot ? "externaldrive.badge.exclamationmark" : "checkmark.circle.fill")
                 .foregroundStyle(viewModel.primaryFreshness?.source == .diskSnapshot ? FottyTheme.accentText : FottyTheme.success)
             VStack(alignment: .leading, spacing: 1) {
-                Text(viewModel.primaryFreshness?.source.rawValue ?? "Official FPL snapshot unavailable")
+                Text(viewModel.primaryFreshness?.source.displayName ?? "FPL data unavailable")
                     .font(.caption.weight(.bold))
                     .foregroundStyle(FottyTheme.textPrimary)
                 Text(viewModel.primaryFreshness.map { "Updated \($0.shortAgeDescription) • picks from GW\(viewModel.picksGameweek ?? 0)" } ?? "Pull to refresh")
@@ -247,31 +247,55 @@ public struct FPLCommandCenterView: View {
     }
 
     private var reminderCard: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "bell.badge.fill")
-                .foregroundStyle(FottyTheme.accentText)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Deadline safety net")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(FottyTheme.textPrimary)
-                Text(viewModel.alertStatusMessage ?? "Schedule private on-device alerts 24 hours and 2 hours before the deadline.")
-                    .font(.caption)
-                    .foregroundStyle(FottyTheme.textSecondary)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 12) {
+                    reminderLabel
+                    reminderButton.frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            } else {
+                HStack(spacing: 10) {
+                    reminderLabel
+                    Spacer()
+                    reminderButton
+                }
             }
-            Spacer()
-            Button("Enable") {
-                Task { await viewModel.scheduleDeadlineAlerts() }
-            }
-            .font(.caption.weight(.black))
-            .foregroundStyle(FottyTheme.textOnAccent)
-            .padding(.horizontal, 11)
-            .padding(.vertical, 8)
-            .background(FottyTheme.accent)
-            .clipShape(Capsule())
         }
         .padding(12)
         .background(FottyTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var reminderLabel: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "bell.badge.fill")
+                .foregroundStyle(FottyTheme.accentText)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Deadline safety net")
+                    .font(FottyTheme.typeModuleTitle)
+                    .foregroundStyle(FottyTheme.textPrimary)
+                Text(viewModel.alertStatusMessage ?? "Schedule private on-device alerts 24 hours and 2 hours before the deadline.")
+                    .font(FottyTheme.typeMeta)
+                    .foregroundStyle(FottyTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private var reminderButton: some View {
+        Button {
+            Task { await viewModel.scheduleDeadlineAlerts() }
+        } label: {
+            Text("Enable")
+                .font(FottyTheme.typeAction)
+                .foregroundStyle(FottyTheme.textOnAccent)
+                .frame(minHeight: 44)
+                .padding(.horizontal, 13)
+                .background(FottyTheme.accent)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(FottyPressButtonStyle(cornerRadius: FottyTheme.radiusXL))
     }
 
     private func reviewCard(_ review: FPLGameweekReview) -> some View {

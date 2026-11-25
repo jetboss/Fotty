@@ -1,0 +1,30 @@
+{
+  "checkedUTC": "2026-10-29T18:49:50.633Z",
+  "reason": "Single metadata follow-up to exact canonical location advertised by both existing catalog hosts",
+  "mediaFetched": false,
+  "rawBodyRetained": false,
+  "http": 200,
+  "ms": 3522,
+  "bytes": 3455,
+  "contentType": "application/json; charset=utf-8",
+  "shape": "not-json",
+  "rows": null,
+  "topKeys": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11"
+  ],
+  "explicitClosure": false,
+  "challenge": false,
+  "parsedJSONType": "string",
+  "classificationEvidence": "Parsed body is non-array and non-object, with indexed string keys; native matches decoder requires array or response object."
+}

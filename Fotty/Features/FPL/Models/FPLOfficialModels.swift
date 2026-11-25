@@ -226,6 +226,13 @@ public enum FPLDataSource: String, Codable, Sendable {
     case network = "Official FPL network"
     case memoryCache = "Recent in-memory cache"
     case diskSnapshot = "Saved device snapshot"
+
+    public var displayName: String {
+        switch self {
+        case .network, .memoryCache: "Official FPL data"
+        case .diskSnapshot: "Saved FPL data"
+        }
+    }
 }
 
 public struct FPLResourceMetadata: Codable, Sendable, Equatable {

@@ -1,0 +1,18 @@
+{
+  "build": "209",
+  "device": "Jet iPad",
+  "observedAt": "2026-11-01T03:23:25.840801+00:00",
+  "nativeTVTabAfterHome": true,
+  "fullWidthTwoColumnStationBrowser": true,
+  "englishFirst": true,
+  "homeAndTVNavigationRoundTrip": true,
+  "generalDetailsSaysTVChannel": true,
+  "testOnlyRecentsCleared": true,
+  "favouritesPreserved": true,
+  "phoneUntouched": true,
+  "noPiPFullscreenRepeatForChannelOnlyChange": true,
+  "remainingChannelFailure": "Sky Sports Football did not decode in initial and one fresh bounded retry",
+  "cricketRetrySeconds": 147,
+  "audioIndependentlyHeard": false,
+  "livePLUCLQualification": false
+}

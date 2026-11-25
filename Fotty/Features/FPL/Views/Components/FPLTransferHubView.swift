@@ -3,11 +3,16 @@ import SwiftUI
 public struct FPLTransferHubView: View {
     @ObservedObject var viewModel: FPLAdvisorViewModel
     
-    // Multi-Transfer Workspace State
-    @State private var stagedPicks: [FPLPick] = []
-    @State private var transferredOutIds: Set<Int> = []
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var staging: FPLTransferStagingState?
+    @State private var stagingMessage: String?
     @State private var activePickerContext: PlayerPickerContext? = nil
     @State private var showSuccessBanner: Bool = false
+    private var transferLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(spacing: 10))
+    }
     
     public init(viewModel: FPLAdvisorViewModel) {
         self.viewModel = viewModel
@@ -24,18 +29,32 @@ public struct FPLTransferHubView: View {
     private func getScore(for elementId: Int) -> PlayerScore? {
         allScores.first(where: { $0.player.id == elementId })
     }
+
+    private var stagedPicks: [FPLPick] { staging?.picks ?? [] }
+
+    private var sourceBaseline: FPLTransferStagingBaseline? {
+        viewModel.transferStagingBaseline
+    }
+
+    private var planContext: FPLTransferPlanContext? {
+        guard let bootstrap = viewModel.bootstrap, let staging else { return nil }
+        return FPLTransferPlanContext(picks: staging.picks, players: bootstrap.elements,
+                                      elementTypes: bootstrap.elementTypes, gameSettings: bootstrap.gameSettings,
+                                      budgetLimit: staging.baseline.budgetLimit)
+    }
+
+    private var canSaveStaging: Bool {
+        sourceBaseline != nil && staging?.hasConflict == false
+            && staging?.baseline.budgetLimit != nil && stagedValidation?.isValid == true
+    }
     
     // Budget Calculations
     private var originalPicksByElement: [Int: FPLPick] {
-        Dictionary(uniqueKeysWithValues: (viewModel.picks?.picks ?? []).map { ($0.element, $0) })
+        Dictionary((staging?.baseline.picks ?? []).map { ($0.element, $0) }, uniquingKeysWith: { first, _ in first })
     }
 
     private var originalTransferBudgetTenths: Int {
-        let bank = viewModel.planningBank
-        let sellingValue = (viewModel.picks?.picks ?? []).reduce(0) { sum, pick in
-            sum + (pick.sellingPrice ?? getScore(for: pick.element)?.player.nowCost ?? 0)
-        }
-        return sellingValue + bank
+        staging?.baseline.budgetLimit ?? 0
     }
 
     private var currentSquadCostTenths: Int {
@@ -52,7 +71,7 @@ public struct FPLTransferHubView: View {
     }
     
     private var isOverBudget: Bool {
-        currentSquadCostTenths > originalTransferBudgetTenths
+        staging?.baseline.budgetLimit != nil && currentSquadCostTenths > originalTransferBudgetTenths
     }
     
     // Club Limit Enforcement (Max 3 per club)
@@ -74,16 +93,17 @@ public struct FPLTransferHubView: View {
     
     // Transfers Count & Point Cost
     private var transfersCount: Int {
-        guard let original = viewModel.picks?.picks else { return 0 }
+        guard let original = staging?.baseline.picks else { return 0 }
         let origIds = Set(original.map(\.element))
         let currentIds = Set(stagedPicks.map(\.element))
         return origIds.subtracting(currentIds).count
     }
     
-    private var transferHitCost: Int {
-        FPLTransferRules.estimatedHitCost(
+    private var transferHitCost: Int? {
+        guard let freeTransfers = viewModel.freeTransferEstimate else { return nil }
+        return FPLTransferRules.estimatedHitCost(
             transferCount: transfersCount,
-            assumedFreeTransfers: viewModel.freeTransferEstimate?.count ?? 1,
+            assumedFreeTransfers: freeTransfers.count,
             gameweek: viewModel.currentGameweek
         )
     }
@@ -95,7 +115,7 @@ public struct FPLTransferHubView: View {
             players: bootstrap.elements,
             elementTypes: bootstrap.elementTypes,
             gameSettings: bootstrap.gameSettings,
-            budgetLimit: originalTransferBudgetTenths
+            budgetLimit: staging?.baseline.budgetLimit
         )
     }
     
@@ -105,16 +125,17 @@ public struct FPLTransferHubView: View {
             transferWorkspaceHeader
 
             FPLTransferLabView(viewModel: viewModel, onStageRoute: stageRoute)
+                .disabled(staging?.hasConflict != false || sourceBaseline == nil)
             
             // Success Notification Banner
             if showSuccessBanner {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.fottyScaled(size: 16, weight: .bold))
                         .foregroundStyle(FottyTheme.success)
                     
                     Text("Local transfer draft saved. Confirm it in official FPL.")
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.fottyScaled(size: 13, weight: .bold))
                         .foregroundStyle(FottyTheme.textPrimary)
                     
                     Spacer()
@@ -127,20 +148,28 @@ public struct FPLTransferHubView: View {
             
             // Interactive 15-Man Transfer Roster Canvas
             stagedSquadCanvas
+                .disabled(staging?.hasConflict != false || sourceBaseline == nil)
             
             // AI Recommended Transfers with 1-Tap Execution
             aiRecommendationsSection
+                .disabled(staging?.hasConflict != false || sourceBaseline == nil)
         }
-        .onAppear {
-            if stagedPicks.isEmpty, let picks = viewModel.picks?.picks {
-                stagedPicks = picks
-            }
+        .onAppear { synchronizeStaging() }
+        .onChange(of: sourceBaseline) { _, _ in synchronizeStaging() }
+        .onReceive(NotificationCenter.default.publisher(for: FottyPrivateBackupService.restoredNotification)) { _ in
+            // Restore explicitly replaces local plans, including when the same
+            // manager is reconnected and its public ID does not change.
+            staging = nil
+            activePickerContext = nil
+            showSuccessBanner = false
+            stagingMessage = nil
         }
-        .onChange(of: viewModel.picks?.picks) { _, newPicks in
-            if let p = newPicks {
-                stagedPicks = p
-                transferredOutIds.removeAll()
-            }
+        .onChange(of: viewModel.managerId) { _, _ in
+            staging = nil
+            activePickerContext = nil
+            showSuccessBanner = false
+            stagingMessage = nil
+            synchronizeStaging()
         }
         .sheet(item: $activePickerContext) { ctx in
             FPLPlayerPickerSheet(
@@ -160,6 +189,27 @@ public struct FPLTransferHubView: View {
     private var transferWorkspaceHeader: some View {
         VStack(alignment: .leading, spacing: 12) {
             FPLSquadSourceNotice(viewModel: viewModel)
+            if staging?.hasConflict == true {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Squad data changed", systemImage: "exclamationmark.triangle")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Your draft was kept after the squad changed. Review it or reset to the latest squad; either choice can be undone.")
+                        .font(.caption)
+                    ViewThatFits(in: .horizontal) {
+                        HStack { conflictActions }
+                        VStack(alignment: .leading) { conflictActions }
+                    }
+                }
+                .foregroundStyle(FottyTheme.textPrimary)
+                .padding(12)
+                .background(FottyTheme.surfaceElevated)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+            }
+            if let stagingMessage {
+                Label(stagingMessage, systemImage: "info.circle")
+                    .font(.caption)
+                    .foregroundStyle(FottyTheme.textSecondary)
+            }
             if let error = viewModel.draftErrorMessage {
                 Label(error, systemImage: "exclamationmark.triangle.fill")
                     .font(.subheadline)
@@ -168,50 +218,45 @@ public struct FPLTransferHubView: View {
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: "arrow.triangle.2.circlepath.circle.fill")
-                        .font(.system(size: 18, weight: .bold))
+                        .font(.fottyScaled(size: 18, weight: .bold))
                         .foregroundStyle(FottyTheme.accentText)
                     
                     Text("Local Transfer Draft")
-                        .font(.system(size: 18, weight: .black))
+                        .font(.fottyScaled(size: 18, weight: .black))
                         .foregroundStyle(FottyTheme.textPrimary)
                 }
                 
                 Spacer()
                 
-                if transfersCount > 0 {
-                    Button {
-                        HapticManager.impact(.light)
-                        if let orig = viewModel.picks?.picks {
-                            stagedPicks = orig
-                            transferredOutIds.removeAll()
-                        }
-                    } label: {
-                        Text("Reset All")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(FottyTheme.error)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(FottyTheme.surfaceElevated)
-                            .clipShape(Capsule())
-                    }
-                    .buttonStyle(.plain)
+            }
+
+            HStack {
+                if staging?.canUndo == true {
+                    Button("Undo", systemImage: "arrow.uturn.backward") { editStaging { $0.undo() } }
+                        .accessibilityLabel("Undo last staging change")
+                }
+                if staging?.hasChanges == true {
+                    Button("Reset", systemImage: "arrow.counterclockwise") { editStaging { $0.reset() } }
+                        .accessibilityLabel("Reset staging to the latest displayed squad")
                 }
             }
+            .font(.caption.weight(.semibold))
+            .buttonStyle(.bordered)
             
-            Text("Fotty does not change your official FPL squad. Point cost uses the public-history estimate of \(viewModel.freeTransferEstimate?.count ?? 1) free transfer(s); verify that count and selling prices in official FPL.")
+            Text("Saved on this device. \(viewModel.freeTransferEstimate.map { "Estimated free transfers: \($0.count)." } ?? "Free transfers are unknown.") Confirm cost and affordability in official FPL.")
                 .font(.caption)
                 .foregroundStyle(FottyTheme.textSecondary)
 
             // Draft status bar (changes, estimated point cost, estimated bank)
-            HStack(spacing: 12) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: dynamicTypeSize.isAccessibilitySize ? 1 : 3), spacing: 12) {
                 // Transfers Made
                 VStack(alignment: .leading, spacing: 2) {
                     Text("TRANSFERS")
-                        .font(.system(size: 9, weight: .black))
+                        .font(.fottyScaled(size: 9, weight: .black))
                         .foregroundStyle(FottyTheme.textTertiary)
                     
                     Text("\(transfersCount) Drafted")
-                        .font(.system(size: 16, weight: .black))
+                        .font(.fottyScaled(size: 16, weight: .black))
                         .foregroundStyle(transfersCount > 0 ? FottyTheme.accentText : FottyTheme.textPrimary)
                 }
                 .padding(10)
@@ -222,12 +267,12 @@ public struct FPLTransferHubView: View {
                 // Point Cost / Hit
                 VStack(alignment: .leading, spacing: 2) {
                     Text("EST. POINT COST")
-                        .font(.system(size: 9, weight: .black))
+                        .font(.fottyScaled(size: 9, weight: .black))
                         .foregroundStyle(FottyTheme.textTertiary)
                     
-                    Text(transferHitCost > 0 ? "-\(transferHitCost) pts" : "0 pts (Free)")
-                        .font(.system(size: 16, weight: .black))
-                        .foregroundStyle(transferHitCost > 0 ? FottyTheme.error : FottyTheme.success)
+                    Text(transferHitCost.map { $0 > 0 ? "-\($0) pts" : "0 pts est." } ?? "Unknown")
+                        .font(.fottyScaled(size: 16, weight: .black))
+                        .foregroundStyle((transferHitCost ?? 0) > 0 ? FottyTheme.error : FottyTheme.textPrimary)
                 }
                 .padding(10)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -237,11 +282,11 @@ public struct FPLTransferHubView: View {
                 // Bank Remaining
                 VStack(alignment: .leading, spacing: 2) {
                     Text("EST. BANK")
-                        .font(.system(size: 9, weight: .black))
+                        .font(.fottyScaled(size: 9, weight: .black))
                         .foregroundStyle(FottyTheme.textTertiary)
                     
-                    Text("£\(String(format: "%.1f", bankMillion))m")
-                        .font(.system(size: 16, weight: .black))
+                    Text(staging?.baseline.budgetLimit == nil ? "Unknown" : "£\(String(format: "%.1f", bankMillion))m")
+                        .font(.fottyScaled(size: 16, weight: .black))
                         .foregroundStyle(isOverBudget ? FottyTheme.error : FottyTheme.success)
                 }
                 .padding(10)
@@ -254,11 +299,11 @@ public struct FPLTransferHubView: View {
             if isOverBudget {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12))
+                        .font(.fottyScaled(size: 12))
                         .foregroundStyle(FottyTheme.error)
                     
                     Text("Over budget by £\(String(format: "%.1f", abs(bankMillion)))m using current prices and available selling values.")
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.fottyScaled(size: 11, weight: .medium))
                         .foregroundStyle(FottyTheme.error)
                 }
                 .padding(8)
@@ -268,11 +313,11 @@ public struct FPLTransferHubView: View {
             } else if !clubViolations.isEmpty {
                 HStack(spacing: 6) {
                     Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 12))
+                        .font(.fottyScaled(size: 12))
                         .foregroundStyle(FottyTheme.error)
                     
-                    Text("Club Limit Exceeded: Max 3 players allowed per team — \(clubViolations.joined(separator: ", "))")
-                        .font(.system(size: 11, weight: .medium))
+                    Text("Club limit exceeded: maximum 3 players — \(clubViolations.joined(separator: ", "))")
+                        .font(.fottyScaled(size: 11, weight: .medium))
                         .foregroundStyle(FottyTheme.error)
                 }
                 .padding(8)
@@ -291,48 +336,33 @@ public struct FPLTransferHubView: View {
             
             // Local draft actions
             HStack(spacing: 10) {
-                if !transferredOutIds.isEmpty {
-                    Button {
-                        HapticManager.impact(.medium)
-                        smartAutoCompleteOpenSlots()
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: "wand.and.stars")
-                            Text("Auto-Fill Open Slots")
-                                .font(.system(size: 13, weight: .bold))
-                        }
-                        .foregroundStyle(FottyTheme.textOnAccent)
-                        .padding(.vertical, 14)
-                        .frame(maxWidth: .infinity)
-                        .background(FottyTheme.surfaceElevated)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(FottyTheme.accent, lineWidth: 1.5))
-                    }
-                    .buttonStyle(.plain)
-                }
-                
-                if transfersCount > 0 {
+                if staging?.hasChanges == true {
                     Button {
                         HapticManager.impact(.heavy)
                         applyAllTransfersToSquad()
                     } label: {
                         HStack(spacing: 8) {
                             Image(systemName: "bolt.fill")
-                                .font(.system(size: 14, weight: .black))
+                                .font(.fottyScaled(size: 14, weight: .black))
                             
-                            Text("Save \(transfersCount) Changes as Draft")
-                                .font(.system(size: 13, weight: .black))
+                            Text("Save Local Squad Draft")
+                                .font(.fottyScaled(size: 13, weight: .black))
                         }
                         .foregroundStyle(FottyTheme.textOnAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(stagedValidation?.isValid == true ? FottyTheme.accent : Color.gray)
+                        .background(canSaveStaging ? FottyTheme.accent : Color.gray)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                         .shadow(color: isOverBudget ? .clear : FottyTheme.accent.opacity(0.4), radius: 6, y: 3)
                     }
-                    .disabled(stagedValidation?.isValid != true)
-                    .buttonStyle(.plain)
+                    .disabled(!canSaveStaging)
+                    .buttonStyle(FottyPressButtonStyle(cornerRadius: 12))
                 }
+            }
+            if staging?.baseline.budgetLimit == nil {
+                Text("Load current manager data to confirm your budget.")
+                    .font(.caption)
+                    .foregroundStyle(FottyTheme.textSecondary)
             }
         }
         .padding(16)
@@ -345,14 +375,14 @@ public struct FPLTransferHubView: View {
     private var stagedSquadCanvas: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("YOUR SQUAD (TAP '✖' TO SELL OR QUEUE TRANSFERS)")
-                    .font(.system(size: 11, weight: .black))
+                Text("STAGED SQUAD · TAP A PLAYER TO REPLACE")
+                    .font(.fottyScaled(size: 11, weight: .black))
                     .foregroundStyle(FottyTheme.textSecondary)
                 
                 Spacer()
                 
                 Text("\(stagedPicks.count) / 15 Players")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.fottyScaled(size: 11, weight: .bold))
                     .foregroundStyle(FottyTheme.accentText)
             }
             
@@ -377,7 +407,7 @@ public struct FPLTransferHubView: View {
         
         VStack(alignment: .leading, spacing: 6) {
             Text(title.uppercased())
-                .font(.system(size: 10, weight: .black))
+                .font(.fottyScaled(size: 10, weight: .black))
                 .foregroundStyle(FottyTheme.textTertiary)
                 .padding(.leading, 4)
             
@@ -390,7 +420,6 @@ public struct FPLTransferHubView: View {
     
     @ViewBuilder
     private func transferPlayerRow(pick: FPLPick, elementType: Int) -> some View {
-        let isTransferredOut = transferredOutIds.contains(pick.element)
         let isGK = elementType == 1
         
         if let score = getScore(for: pick.element) {
@@ -413,13 +442,12 @@ public struct FPLTransferHubView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
                             Text(score.player.webName)
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(isTransferredOut ? FottyTheme.textTertiary : FottyTheme.textPrimary)
-                                .strikethrough(isTransferredOut)
+                                .font(.fottyScaled(size: 14, weight: .bold))
+                                .foregroundStyle(FottyTheme.textPrimary)
                             
                             if pick.position > 11 {
                                 Text("BENCH")
-                                    .font(.system(size: 8, weight: .black))
+                                    .font(.fottyScaled(size: 8, weight: .black))
                                     .foregroundStyle(FottyTheme.textTertiary)
                                     .padding(.horizontal, 4)
                                     .padding(.vertical, 1)
@@ -428,19 +456,26 @@ public struct FPLTransferHubView: View {
                             }
                         }
                         
-                        HStack(spacing: 4) {
-                            Text("\(score.team.name) • \(score.player.formattedCost)")
+                        transferLayout {
+                            TeamIdentityLabel(
+                                teamName: score.team.name,
+                                badgeURL: score.team.badgeURL,
+                                badgeSize: 18,
+                                font: .system(size: 11, weight: .medium),
+                                foregroundColor: FottyTheme.textSecondary
+                            )
+                            Text("• \(score.player.formattedCost)")
                             
                             if let nextFixture = score.upcomingFixtures.first {
                                 Text("•")
                                 let opp = nextFixture.opponent.shortName
                                 let loc = nextFixture.isHome ? "(H)" : "(A)"
                                 Text("vs \(opp) \(loc)")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .font(.fottyScaled(size: 11, weight: .bold))
                                     .foregroundStyle(nextFixture.difficulty <= 2 ? FottyTheme.success : (nextFixture.difficulty >= 4 ? FottyTheme.accentText : FottyTheme.textSecondary))
                             }
                         }
-                        .font(.system(size: 11, weight: .medium))
+                        .font(.fottyScaled(size: 11, weight: .medium))
                         .foregroundStyle(FottyTheme.textSecondary)
                     }
                     
@@ -448,34 +483,23 @@ public struct FPLTransferHubView: View {
                     
                     // Quick Status Indicator / Chevron
                     HStack(spacing: 6) {
-                        if isTransferredOut {
-                            Text("Pick In")
-                                .font(.system(size: 11, weight: .black))
-                                .foregroundStyle(FottyTheme.success)
-                            
-                            Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundStyle(FottyTheme.success)
-                        } else {
-                            Text(score.player.formattedCost)
-                                .font(.system(size: 13, weight: .bold))
-                                .foregroundStyle(FottyTheme.accentText)
-                            
-                            Image(systemName: "chevron.right")
-                                .font(.system(size: 11, weight: .bold))
-                                .foregroundStyle(FottyTheme.textTertiary)
-                        }
+                        Text(score.player.formattedCost)
+                            .font(.fottyScaled(size: 13, weight: .bold))
+                            .foregroundStyle(FottyTheme.accentText)
+                        Image(systemName: "chevron.right")
+                            .font(.fottyScaled(size: 11, weight: .bold))
+                            .foregroundStyle(FottyTheme.textTertiary)
                     }
                 }
                 .padding(12)
-                .background(isTransferredOut ? FottyTheme.error.opacity(0.08) : FottyTheme.surfaceElevated)
+                .background(FottyTheme.surfaceElevated)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(isTransferredOut ? FottyTheme.error.opacity(0.3) : FottyTheme.border.opacity(0.6), lineWidth: 1)
+                        .stroke(FottyTheme.border.opacity(0.6), lineWidth: 1)
                 )
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FottyPressButtonStyle(cornerRadius: 12))
         }
     }
     
@@ -486,18 +510,18 @@ public struct FPLTransferHubView: View {
             HStack {
                 HStack(spacing: 6) {
                     Image(systemName: "wand.and.stars")
-                        .font(.system(size: 16, weight: .bold))
+                        .font(.fottyScaled(size: 16, weight: .bold))
                         .foregroundStyle(FottyTheme.accentText)
                     
                     Text("Fotty Model Shortlist")
-                        .font(.system(size: 15, weight: .black))
+                        .font(.fottyScaled(size: 15, weight: .black))
                         .foregroundStyle(FottyTheme.textPrimary)
                 }
                 
                 Spacer()
                 
                 Text("MODEL RATING")
-                    .font(.system(size: 9, weight: .black))
+                    .font(.fottyScaled(size: 9, weight: .black))
                     .foregroundStyle(FottyTheme.textOnAccent)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
@@ -508,11 +532,11 @@ public struct FPLTransferHubView: View {
             if viewModel.transferRecs.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "checkmark.seal.fill")
-                        .font(.system(size: 32))
+                        .font(.fottyScaled(size: 32))
                         .foregroundStyle(FottyTheme.success)
                     
                     Text("No candidate currently clears Fotty's rating threshold. This does not prove the squad is optimal.")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.fottyScaled(size: 13, weight: .medium))
                         .foregroundStyle(FottyTheme.textSecondary)
                 }
                 .frame(maxWidth: .infinity)
@@ -532,7 +556,7 @@ public struct FPLTransferHubView: View {
     private func aiTransferCard(_ rec: TransferRecommendation) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             // OUT vs IN Matchup Cards
-            HStack(spacing: 10) {
+            transferLayout {
                 // OUT Player
                 HStack(spacing: 8) {
                     FPLOfficialShirtImageView(
@@ -543,14 +567,14 @@ public struct FPLTransferHubView: View {
                     
                     VStack(alignment: .leading, spacing: 1) {
                         Text("OUT")
-                            .font(.system(size: 8, weight: .black))
+                            .font(.fottyScaled(size: 8, weight: .black))
                             .foregroundStyle(FottyTheme.error)
                         Text(rec.playerOut.player.webName)
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.fottyScaled(size: 13, weight: .bold))
                             .foregroundStyle(FottyTheme.textPrimary)
-                            .lineLimit(1)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                         Text(rec.playerOut.player.formattedCost)
-                            .font(.system(size: 10))
+                            .font(.fottyScaled(size: 10))
                             .foregroundStyle(FottyTheme.textSecondary)
                     }
                 }
@@ -559,8 +583,8 @@ public struct FPLTransferHubView: View {
                 .background(FottyTheme.error.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 
-                Image(systemName: "arrow.right")
-                    .font(.system(size: 12, weight: .bold))
+                Image(systemName: dynamicTypeSize.isAccessibilitySize ? "arrow.down" : "arrow.right")
+                    .font(.fottyScaled(size: 12, weight: .bold))
                     .foregroundStyle(FottyTheme.textTertiary)
                 
                 // IN Player
@@ -573,14 +597,14 @@ public struct FPLTransferHubView: View {
                     
                     VStack(alignment: .leading, spacing: 1) {
                         Text("IN")
-                            .font(.system(size: 8, weight: .black))
+                            .font(.fottyScaled(size: 8, weight: .black))
                             .foregroundStyle(FottyTheme.success)
                         Text(rec.playerIn.player.webName)
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.fottyScaled(size: 13, weight: .bold))
                             .foregroundStyle(FottyTheme.textPrimary)
-                            .lineLimit(1)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                         Text(rec.playerIn.player.formattedCost)
-                            .font(.system(size: 10))
+                            .font(.fottyScaled(size: 10))
                             .foregroundStyle(FottyTheme.textSecondary)
                     }
                 }
@@ -594,24 +618,24 @@ public struct FPLTransferHubView: View {
             HStack {
                 HStack(spacing: 4) {
                     Image(systemName: "chart.line.uptrend.xyaxis")
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.fottyScaled(size: 11, weight: .bold))
                         .foregroundStyle(FottyTheme.accentText)
                     
                     Text("+\(String(format: "%.1f", rec.scoreUplift)) rating difference")
-                        .font(.system(size: 12, weight: .bold))
+                        .font(.fottyScaled(size: 12, weight: .bold))
                         .foregroundStyle(FottyTheme.accentText)
                 }
                 
                 Spacer()
                 
                 let costDiff = rec.costDelta
-                Text(costDiff > 0 ? "Bank: +\(String(format: "£%.1fm", Double(costDiff)/10.0))" : (costDiff < 0 ? "Cost: \(String(format: "£%.1fm", Double(abs(costDiff))/10.0))" : "Same Price"))
-                    .font(.system(size: 11, weight: .bold))
+                Text(costDiff > 0 ? "Est. bank: +\(String(format: "£%.1fm", Double(costDiff)/10.0))" : (costDiff < 0 ? "Est. cost: \(String(format: "£%.1fm", Double(abs(costDiff))/10.0))" : "Same price"))
+                    .font(.fottyScaled(size: 11, weight: .bold))
                     .foregroundStyle(FottyTheme.textSecondary)
             }
             
             Text(rec.reason)
-                .font(.system(size: 11, weight: .medium))
+                .font(.fottyScaled(size: 11, weight: .medium))
                 .foregroundStyle(FottyTheme.textSecondary)
             
             // Add a single modeled move to the local draft
@@ -622,15 +646,15 @@ public struct FPLTransferHubView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "bolt.fill")
                     Text("Add This Move to Draft")
-                        .font(.system(size: 12, weight: .black))
+                        .font(.fottyScaled(size: 12, weight: .black))
                 }
                 .foregroundStyle(FottyTheme.textOnAccent)
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, minHeight: 44)
                 .padding(.vertical, 10)
                 .background(FottyTheme.accent)
                 .clipShape(RoundedRectangle(cornerRadius: 10))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(FottyPressButtonStyle(cornerRadius: 10))
         }
         .padding(12)
         .background(FottyTheme.surfaceElevated)
@@ -638,23 +662,58 @@ public struct FPLTransferHubView: View {
     }
     
     // MARK: - Actions
+
+    @ViewBuilder
+    private var conflictActions: some View {
+        Button("Keep staged plan") { editStaging { $0.keepStagedPlan() } }
+        Button("Reset to latest squad") { editStaging { $0.reset() } }
+    }
+
+    private func synchronizeStaging(resetAfterSave: Bool = false) {
+        guard let managerID = viewModel.managerId, let sourceBaseline else { return }
+        let season = FPLSeasonIdentifier.currentLabel()
+        var state: FPLTransferStagingState
+        if resetAfterSave {
+            state = FPLTransferStagingState(managerID: managerID, season: season, baseline: sourceBaseline)
+        } else if let existing = staging, existing.managerID == managerID, existing.season == season {
+            state = existing
+            state.synchronize(with: sourceBaseline)
+        } else {
+            state = viewModel.transferStagingStore.load(managerID: managerID, season: season, baseline: sourceBaseline)
+        }
+        staging = state
+        viewModel.transferStagingStore.save(state)
+    }
+
+    private func editStaging(_ edit: (inout FPLTransferStagingState) -> Void) {
+        guard var state = staging, state.managerID == viewModel.managerId,
+              state.season == FPLSeasonIdentifier.currentLabel() else { return }
+        edit(&state)
+        staging = state
+        viewModel.transferStagingStore.save(state)
+        stagingMessage = nil
+        showSuccessBanner = false
+    }
     
     private func commitReplacement(for position: Int, with newElementId: Int) {
         guard let idx = stagedPicks.firstIndex(where: { $0.position == position }) else { return }
         let oldPick = stagedPicks[idx]
-        stagedPicks[idx] = FPLPick(
+        var proposed = stagedPicks
+        proposed[idx] = FPLPick(
             element: newElementId,
             position: oldPick.position,
             multiplier: oldPick.multiplier,
             isCaptain: oldPick.isCaptain,
-            isViceCaptain: oldPick.isViceCaptain
+            isViceCaptain: oldPick.isViceCaptain,
+            elementType: getScore(for: newElementId)?.player.elementType
         )
-        transferredOutIds.remove(oldPick.element)
+        editStaging { $0.stage(proposed) }
     }
     
     private func applyAllTransfersToSquad() {
-        guard viewModel.updateUserSquad(picks: stagedPicks) else { return }
-        transferredOutIds.removeAll()
+        synchronizeStaging()
+        guard canSaveStaging, let staging, viewModel.saveTransferStaging(staging) else { return }
+        synchronizeStaging(resetAfterSave: true)
         withAnimation {
             showSuccessBanner = true
         }
@@ -669,101 +728,26 @@ public struct FPLTransferHubView: View {
     }
 
     private func stageRoute(_ route: FPLDraftRoute) {
-        guard let original = viewModel.picks?.picks else { return }
+        synchronizeStaging()
+        guard staging?.hasConflict == false else { return }
         if route.transfers.isEmpty {
-            stagedPicks = original
-            transferredOutIds.removeAll()
+            editStaging { $0.reset() }
             return
         }
-
-        var staged = original
-        var replaced = Set<Int>()
-        for transfer in route.transfers {
-            guard let index = staged.firstIndex(where: { $0.element == transfer.playerOut.player.id }) else { continue }
-            let outgoing = staged[index]
-            guard !staged.contains(where: { $0.element == transfer.playerIn.player.id }) else { continue }
-            staged[index] = FPLPick(
-                element: transfer.playerIn.player.id,
-                position: outgoing.position,
-                multiplier: outgoing.multiplier,
-                isCaptain: outgoing.isCaptain,
-                isViceCaptain: outgoing.isViceCaptain,
-                elementType: transfer.playerIn.player.elementType
-            )
-            replaced.insert(outgoing.element)
+        guard let proposed = planContext?.validatedPicks(for: route.transfers) else {
+            stagingMessage = "This route does not fit your current staged squad or available budget. Your staged moves are unchanged."
+            return
         }
-        stagedPicks = staged
-        transferredOutIds = replaced
+        editStaging { $0.stage(proposed) }
     }
     
     private func applySingleRecommendation(_ rec: TransferRecommendation) {
-        showSuccessBanner = false
-        guard viewModel.replacePlayer(oldElementId: rec.playerOut.player.id, newScore: rec.playerIn) else { return }
-        if let updated = viewModel.picks?.picks {
-            stagedPicks = updated
+        synchronizeStaging()
+        guard staging?.hasConflict == false else { return }
+        guard let proposed = planContext?.validatedPicks(for: [rec]) else {
+            stagingMessage = "This move does not fit your current staged squad or available budget. Your staged moves are unchanged."
+            return
         }
-        withAnimation {
-            showSuccessBanner = true
-        }
-        Task {
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
-            await MainActor.run {
-                withAnimation {
-                    showSuccessBanner = false
-                }
-            }
-        }
-    }
-    
-    private func smartAutoCompleteOpenSlots() {
-        let openPositions = stagedPicks.filter { transferredOutIds.contains($0.element) }
-        guard !openPositions.isEmpty else { return }
-        
-        let currentSquad = stagedPicks.filter { !transferredOutIds.contains($0.element) }
-        var usedIds = Set(currentSquad.map(\.element))
-        
-        var clubCounts: [Int: Int] = [:]
-        for pick in currentSquad {
-            if let score = getScore(for: pick.element) {
-                clubCounts[score.player.team, default: 0] += 1
-            }
-        }
-        
-        var currentTotalCost = currentSquad.reduce(0) { sum, pick in
-            sum + (getScore(for: pick.element)?.player.nowCost ?? 0)
-        }
-        
-        var slotIndex = 0
-        for pick in openPositions {
-            slotIndex += 1
-            guard let oldScore = getScore(for: pick.element) else { continue }
-            let neededType = oldScore.player.elementType
-            let remainingSlots = openPositions.count - slotIndex
-            let maxAllowedForThisPlayer = (1000 - currentTotalCost) - (remainingSlots * 40)
-            
-            let candidates = allScores.filter { score in
-                score.player.elementType == neededType &&
-                !usedIds.contains(score.player.id) &&
-                (clubCounts[score.player.team] ?? 0) < 3 &&
-                score.player.nowCost <= maxAllowedForThisPlayer
-            }.sorted { $0.compositeScore > $1.compositeScore }
-            
-            if let best = candidates.first ?? allScores.filter({ $0.player.elementType == neededType && !usedIds.contains($0.player.id) && (clubCounts[$0.player.team] ?? 0) < 3 }).sorted(by: { $0.compositeScore > $1.compositeScore }).first {
-                usedIds.insert(best.player.id)
-                clubCounts[best.player.team, default: 0] += 1
-                currentTotalCost += best.player.nowCost
-                
-                if let idx = stagedPicks.firstIndex(where: { $0.position == pick.position }) {
-                    stagedPicks[idx] = FPLPick(
-                        element: best.player.id,
-                        position: pick.position,
-                        multiplier: pick.multiplier,
-                        isCaptain: pick.isCaptain,
-                        isViceCaptain: pick.isViceCaptain
-                    )
-                }
-            }
-        }
-        transferredOutIds.removeAll()
+        editStaging { $0.stage(proposed) }
     }
 }

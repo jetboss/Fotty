@@ -1,0 +1,134 @@
+{
+  "build": 213,
+  "observations": [
+    {
+      "atUTC": "2026-11-01T13:07:16.389344+00:00",
+      "event": "source_discovery_result",
+      "outcome": "success",
+      "details": {
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:07:16.488240+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "attempt_number": "1",
+        "route": "single"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:07:19.584803+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "relay_failure_stage": "upstream_response",
+        "attempt_number": "1",
+        "relay_http_status": "404",
+        "source_family": "communitysports",
+        "relay_request_http_status": "404",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "failure_kind": "providerUnavailable",
+        "route": "single",
+        "preparation_reason": "http_status",
+        "preparation_http_status": "404",
+        "preparation_stage": "contract_validation",
+        "relay_failure_kind": "http_status"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:07:19.617073+00:00",
+      "event": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "communitysports",
+        "failure_kind": "providerUnavailable",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "attempt_number": "1",
+        "route": "single"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:08:55.120906+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "source_family": "communitysports",
+        "attempt_number": "2",
+        "route": "single"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:09:06.294353+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "preparation_error_domain": "url",
+        "attempt_number": "2",
+        "preparation_error_code": "-1001",
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "route": "single",
+        "failure_kind": "network",
+        "preparation_reason": "transport_error",
+        "preparation_stage": "contract_validation"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:09:06.326595+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "source_family": "communitysports",
+        "attempt_number": "3",
+        "route": "single"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:09:10.788911+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "attempt_number": "3",
+        "failure_kind": "providerUnavailable",
+        "relay_request_http_status": "404",
+        "route": "single",
+        "preparation_http_status": "404",
+        "relay_failure_kind": "http_status",
+        "source": "CS1",
+        "relay_failure_stage": "upstream_response",
+        "relay_http_status": "404",
+        "preparation_stage": "contract_validation",
+        "last_observed_stage": "preparing",
+        "preparation_reason": "http_status",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "atUTC": "2026-11-01T13:09:10.819729+00:00",
+      "event": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "failure_kind": "providerUnavailable",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "source_family": "communitysports",
+        "attempt_number": "3",
+        "route": "single"
+      }
+    }
+  ],
+  "visualResult": "Broadcast Unavailable after normal Watch and one fresh Retry",
+  "notPlaybackPass": true
+}

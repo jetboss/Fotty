@@ -6,17 +6,21 @@ struct PlaybackErrorOverlay: View {
     let message: String
     var viewModel: LivePlayerViewModel
     let sourceRecoveryButtonTitle: String
-    let dismiss: DismissAction
+    let dismiss: () -> Void
     let isCompact: Bool
     let onRetry: () -> Void
     let onShowBroadcastSources: () -> Void
     @State private var showsFeedback = false
+
+    // Focus/compact layouts need the same recovery route as the full player.
+    var offersAlternateSource: Bool { viewModel.sources.count > 1 }
     
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
-            VStack(spacing: isCompact ? 8 : 16) {
+            ScrollView {
+              VStack(spacing: isCompact ? 8 : 16) {
                 Image(systemName: "tv.slash")
                     .font(.fottyScaled(size: isCompact ? 26 : 40))
                     .foregroundStyle(FottyTheme.textTertiary)
@@ -29,7 +33,6 @@ struct PlaybackErrorOverlay: View {
                     .font(isCompact ? FottyTheme.typeCaption : FottyTheme.typeBody)
                     .foregroundStyle(FottyTheme.textSecondary)
                     .multilineTextAlignment(.center)
-                    .lineLimit(isCompact ? 2 : nil)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: isCompact ? 310 : 420)
 
@@ -37,35 +40,55 @@ struct PlaybackErrorOverlay: View {
                     Button {
                         onRetry()
                     } label: {
-                        Label("Try this source again", systemImage: "arrow.clockwise")
+                        Label(isCompact ? "Retry" : "Try this source again", systemImage: "arrow.clockwise")
                     }
                     .buttonStyle(FottyPrimaryButtonStyle())
+                    .accessibilityIdentifier("playback-error-retry")
 
-                    if viewModel.sources.count > 1 && !isCompact {
+                    if offersAlternateSource {
                         Button {
                             onShowBroadcastSources()
                         } label: {
-                            Label(sourceRecoveryButtonTitle, systemImage: "antenna.radiowaves.left.and.right")
+                            Label(isCompact ? "Sources" : sourceRecoveryButtonTitle, systemImage: "antenna.radiowaves.left.and.right")
                         }
                         .buttonStyle(FottySecondaryButtonStyle())
+                        .accessibilityLabel(sourceRecoveryButtonTitle)
+                        .accessibilityIdentifier("playback-error-sources")
                     }
                 }
 
                 if !isCompact {
-                    Button("Report this problem") { showsFeedback = true }
-                        .font(FottyTheme.typeAction)
-                        .foregroundStyle(FottyTheme.accentText)
-                        .frame(minHeight: 44)
-                    Button("Close player") { dismiss() }
-                        .font(FottyTheme.typeAction)
-                        .foregroundStyle(FottyTheme.textSecondary)
-                        .frame(minHeight: 44)
+                    Button { showsFeedback = true } label: {
+                        Text("Report this problem")
+                            .font(FottyTheme.typeAction)
+                            .foregroundStyle(FottyTheme.accentText)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(FottyPressButtonStyle())
+                    Button { dismiss() } label: {
+                        Text("Close player")
+                            .font(FottyTheme.typeAction)
+                            .foregroundStyle(FottyTheme.textSecondary)
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(FottyPressButtonStyle())
                 }
+              }
+              .padding(isCompact ? 12 : 32)
+              .frame(maxWidth: .infinity)
             }
-            .padding(isCompact ? 12 : 32)
+            .defaultScrollAnchor(.center, for: .alignment)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .accessibilityIdentifier("playback-error")
-        .sheet(isPresented: $showsFeedback) { FottyFeedbackSheet(area: .playback) }
+        .sheet(isPresented: $showsFeedback) {
+            FottyFeedbackSheet(
+                area: .playback,
+                initialExpected: "I was watching a live broadcast and expected playback to continue.",
+                initialActual: "Playback stopped or did not start, and Fotty showed the recovery screen."
+            )
+        }
     }
 }

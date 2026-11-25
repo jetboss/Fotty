@@ -1,5 +1,7 @@
 # Fotty 2.0 Benchmark and Product Contract
 
+> **Product contract, not current qualification status.** This remains the accepted quality direction and historical build-33 completion record. Use `Fotty-Whole-App-Readiness-Audit-2026-08-31.md` and the current QA Playbook for build-49 readiness and open exact-build hardware gates.
+
 Status: Accepted and complete; all release gates passed  
 Research snapshot: August 24, 2026  
 Audience: Product owner and engineering  

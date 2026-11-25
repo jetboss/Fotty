@@ -1,0 +1,9 @@
+{
+  "appVersion": "2.0.1",
+  "appBuild": "214",
+  "widgetBuild": "214",
+  "executableSHA256": "31b4a2d25b9714043e0748be5424b6944068fe692fd3019500c4f5e4ba1e9962",
+  "installation": "passed",
+  "strictSignature": "passed",
+  "freshLaunch": "passed"
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "host": "7pal.short.gy",
+    "status": 403,
+    "type": "text/html; charset=utf-8",
+    "hls": false,
+    "dash": false,
+    "drm": false,
+    "redirectScheme": null,
+    "redirectHost": null
+  },
+  {
+    "host": "nog-live1-ott.izzigo.tv",
+    "status": 403,
+    "type": "text/html",
+    "hls": false,
+    "dash": false,
+    "drm": false,
+    "redirectScheme": null,
+    "redirectHost": null
+  }
+]

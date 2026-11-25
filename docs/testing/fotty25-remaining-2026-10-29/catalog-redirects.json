@@ -1,0 +1,30 @@
+{
+  "checkedUTC": "2026-10-29T18:49:11.391Z",
+  "reason": "Clarify initial redirect:error TypeErrors; headers only, same three catalog routes",
+  "results": [
+    {
+      "name": "catalog-primary",
+      "http": 302,
+      "redirect": {
+        "origin": "https://www.streamex.hn",
+        "path": "/api/live/matches/all"
+      }
+    },
+    {
+      "name": "catalog-mirror",
+      "http": 302,
+      "redirect": {
+        "origin": "https://www.streamex.hn",
+        "path": "/api/live/matches/all"
+      }
+    },
+    {
+      "name": "catalog-backup",
+      "http": 301,
+      "redirect": {
+        "origin": "https://streamed.pk",
+        "path": "/"
+      }
+    }
+  ]
+}

@@ -1,0 +1,812 @@
+{
+  "surface": "Temporary macOS Apple-player diagnostic using actual relay policy; not physical iPad acceptance",
+  "observedAt": "2026-11-01T03:51:11.861418+00:00",
+  "results": [
+    {
+      "probe": "football-relay",
+      "channel": "football",
+      "decoded": 0,
+      "mode": "relay",
+      "samples": [
+        {
+          "bufferFull": false,
+          "clock": 0,
+          "control": 1,
+          "decoded": 0,
+          "elapsed": 0.2613029999192804,
+          "keepUp": false,
+          "status": 0
+        },
+        {
+          "bufferFull": false,
+          "clock": 30,
+          "control": 1,
+          "decoded": 0,
+          "elapsed": 2.3192453333176672,
+          "keepUp": false,
+          "status": 0
+        },
+        {
+          "bufferFull": true,
+          "clock": 31.935128042,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 4.417413833318278,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 34.00775325,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 6.490037208190188,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 36.074482584,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 8.556766708381474,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 38.140919875,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 10.623200333211571,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 40.225833751,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 12.708111291518435,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 42.306292126,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 14.788553166668862,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 44.396250542,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 16.87852591671981,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 46.507125417,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 18.98938399995677,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 48.578757584,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 21.06100408337079,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 50.659374875,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 23.1416458748281,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 52.734940792,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 25.21722474996932,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 54.808379292,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 27.290639041690156,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 56.890342501,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 29.372607708210126,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 58.740364001,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 31.222613624995574,
+          "keepUp": true,
+          "status": 1
+        }
+      ]
+    },
+    {
+      "probe": "football-direct",
+      "channel": "football",
+      "decoded": 0,
+      "mode": "direct",
+      "samples": [
+        {
+          "bufferFull": false,
+          "clock": 0,
+          "control": 1,
+          "decoded": 0,
+          "elapsed": 0.25220500002615154,
+          "keepUp": false,
+          "status": 0
+        },
+        {
+          "bufferFull": false,
+          "clock": 30,
+          "control": 1,
+          "decoded": 0,
+          "elapsed": 2.3325994999613613,
+          "keepUp": false,
+          "status": 0
+        },
+        {
+          "bufferFull": false,
+          "clock": 30.555440791,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 4.376094416482374,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 32.613148875,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 6.433805916691199,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 34.70565425,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 8.526299791643396,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 36.760093959,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 10.580752666573972,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 38.854308,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 12.674954583169892,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 40.925839583,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 14.746478374814615,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 43.022021458,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 16.84266012487933,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 45.089223208,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 18.909885250031948,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 47.189804583,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 21.010445333318785,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 49.242604375,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 23.063241208205,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 51.335744542,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 25.156383583322167,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 53.41043025,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 27.231069083325565,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 55.488625583,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 29.309261333197355,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 57.311997541,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 31.13263220828958,
+          "keepUp": true,
+          "logCode": -12312,
+          "logIssue": "segment_uri_changed",
+          "status": 1
+        }
+      ]
+    },
+    {
+      "probe": "tnt2-relay",
+      "channel": "tnt2",
+      "decoded": 110,
+      "mode": "relay",
+      "samples": [
+        {
+          "bufferFull": false,
+          "clock": 0,
+          "control": 1,
+          "decoded": 0,
+          "elapsed": 0.2668385000433773,
+          "keepUp": false,
+          "status": 0
+        },
+        {
+          "bufferFull": false,
+          "clock": 28.79998888888889,
+          "control": 1,
+          "decoded": 1,
+          "elapsed": 2.3250993334222585,
+          "frameTime": 28.79998888888889,
+          "keepUp": false,
+          "status": 0
+        },
+        {
+          "bufferFull": true,
+          "clock": 30.121168139,
+          "control": 2,
+          "decoded": 7,
+          "elapsed": 4.382189541822299,
+          "frameTime": 30.119988888888887,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 32.161145889,
+          "control": 2,
+          "decoded": 15,
+          "elapsed": 6.4221365000121295,
+          "frameTime": 32.15998888888889,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 34.200099223,
+          "control": 2,
+          "decoded": 23,
+          "elapsed": 8.461096041835845,
+          "frameTime": 34.19998888888889,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": false,
+          "clock": 36.240955015,
+          "control": 2,
+          "decoded": 31,
+          "elapsed": 10.501914125168696,
+          "frameTime": 36.23998888888889,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 38.280403265,
+          "control": 2,
+          "decoded": 39,
+          "elapsed": 12.541557958349586,
+          "frameTime": 38.27998888888889,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 40.320968098,
+          "control": 2,
+          "decoded": 47,
+          "elapsed": 14.581994416890666,
+          "frameTime": 40.319988888888886,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 42.36014389,
+          "control": 2,
+          "decoded": 55,
+          "elapsed": 16.621133875101805,
+          "frameTime": 42.359988888888886,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 44.399693057,
+          "control": 2,
+          "decoded": 63,
+          "elapsed": 18.66064175008796,
+          "frameTime": 44.37998888888889,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 46.440805389,
+          "control": 2,
+          "decoded": 71,
+          "elapsed": 20.701753958361223,
+          "frameTime": 46.43998888888889,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 48.480770681,
+          "control": 2,
+          "decoded": 79,
+          "elapsed": 22.7417916667182,
+          "frameTime": 48.47998888888889,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 50.518943556,
+          "control": 2,
+          "decoded": 87,
+          "elapsed": 24.7799908334855,
+          "frameTime": 50.499988888888886,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 52.556328222,
+          "control": 2,
+          "decoded": 95,
+          "elapsed": 26.81757862516679,
+          "frameTime": 52.53998888888889,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 54.601196097,
+          "control": 2,
+          "decoded": 103,
+          "elapsed": 28.862254708539695,
+          "frameTime": 54.59998888888889,
+          "keepUp": true,
+          "status": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 56.380304931,
+          "control": 2,
+          "decoded": 110,
+          "elapsed": 30.641273125074804,
+          "frameTime": 56.37998888888889,
+          "keepUp": true,
+          "status": 1
+        }
+      ]
+    },
+    {
+      "probe": "football-file",
+      "channel": "football",
+      "decoded": 12,
+      "mode": "file",
+      "samples": [
+        {
+          "bufferFull": false,
+          "clock": 0,
+          "control": 2,
+          "decoded": 1,
+          "elapsed": 0.25541662494651973,
+          "enabledTracks": 2,
+          "frameTime": 0,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 1.999461083,
+          "control": 2,
+          "decoded": 9,
+          "elapsed": 2.295529166702181,
+          "enabledTracks": 2,
+          "frameTime": 1.98,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 4.366779916686937,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 6.427241583354771,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 8.508935624966398,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 10.598697708453983,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 12.642828958341852,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 14.73214341676794,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 16.804960791720077,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 18.89479758334346,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 20.977739250054583,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 23.054743374930695,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 25.128752541728318,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 27.19184908340685,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 29.28192429174669,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        },
+        {
+          "bufferFull": false,
+          "clock": 2.7,
+          "control": 0,
+          "decoded": 12,
+          "elapsed": 31.127534083323553,
+          "enabledTracks": 2,
+          "frameTime": 2.7,
+          "keepUp": true,
+          "presentationHeight": 1080,
+          "presentationWidth": 1920,
+          "status": 1,
+          "trackCount": 2
+        }
+      ]
+    },
+    {
+      "probe": "football-detail",
+      "assetVideoTracks": 0,
+      "channel": "football",
+      "decoded": 0,
+      "formatCount": 0,
+      "mode": "relay",
+      "samples": [
+        {
+          "bufferFull": false,
+          "clock": 0,
+          "control": 1,
+          "decoded": 0,
+          "elapsed": 0.260398666607216,
+          "enabledTracks": 0,
+          "keepUp": false,
+          "presentationHeight": 0,
+          "presentationWidth": 0,
+          "status": 0,
+          "trackCount": 0
+        },
+        {
+          "bufferFull": false,
+          "clock": 30.119290542,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 2.3300818332936615,
+          "enabledTracks": 1,
+          "keepUp": true,
+          "presentationHeight": 0,
+          "presentationWidth": 0,
+          "status": 1,
+          "trackCount": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 32.193468666,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 4.404287375044078,
+          "enabledTracks": 1,
+          "keepUp": true,
+          "presentationHeight": 0,
+          "presentationWidth": 0,
+          "status": 1,
+          "trackCount": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 34.302239541,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 6.513029791647568,
+          "enabledTracks": 1,
+          "keepUp": true,
+          "presentationHeight": 0,
+          "presentationWidth": 0,
+          "status": 1,
+          "trackCount": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 36.383377792,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 8.594191000098363,
+          "enabledTracks": 1,
+          "keepUp": true,
+          "presentationHeight": 0,
+          "presentationWidth": 0,
+          "status": 1,
+          "trackCount": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 38.457399583,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 10.668166208313778,
+          "enabledTracks": 1,
+          "keepUp": true,
+          "presentationHeight": 0,
+          "presentationWidth": 0,
+          "status": 1,
+          "trackCount": 1
+        },
+        {
+          "bufferFull": true,
+          "clock": 40.279213666,
+          "control": 2,
+          "decoded": 0,
+          "elapsed": 12.490395166678354,
+          "enabledTracks": 1,
+          "keepUp": true,
+          "presentationHeight": 0,
+          "presentationWidth": 0,
+          "status": 1,
+          "trackCount": 1
+        }
+      ]
+    }
+  ]
+}

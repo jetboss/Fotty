@@ -1,0 +1,88 @@
+{
+  "build": "206",
+  "oneConsolidatedBuild": true,
+  "sourceFamily": "reviewedtv",
+  "channelChecks": [
+    {
+      "label": "TV2",
+      "decoded90SecondHold": true,
+      "decodedFrames": 877,
+      "advancingMediaSeconds": 89.923,
+      "startupSeconds": 1.927,
+      "stationObserved": true,
+      "earlierStallObserved": false,
+      "normalMatchWatchQualified": false
+    },
+    {
+      "label": "TV3",
+      "decoded90SecondHold": true,
+      "decodedFrames": 879,
+      "advancingMediaSeconds": 89.99,
+      "startupSeconds": 1.98,
+      "stationObserved": true,
+      "earlierStallObserved": true,
+      "normalMatchWatchQualified": false
+    },
+    {
+      "label": "TV4",
+      "decoded90SecondHold": true,
+      "decodedFrames": 879,
+      "advancingMediaSeconds": 89.957,
+      "startupSeconds": 1.77,
+      "stationObserved": true,
+      "earlierStallObserved": false,
+      "normalMatchWatchQualified": false
+    },
+    {
+      "label": "TV5",
+      "decoded90SecondHold": true,
+      "decodedFrames": 879,
+      "advancingMediaSeconds": 89.923,
+      "startupSeconds": 1.881,
+      "stationObserved": true,
+      "earlierStallObserved": false,
+      "normalMatchWatchQualified": false
+    },
+    {
+      "label": "TV6",
+      "decoded90SecondHold": true,
+      "decodedFrames": 879,
+      "advancingMediaSeconds": 89.957,
+      "startupSeconds": 1.681,
+      "stationObserved": true,
+      "earlierStallObserved": false,
+      "normalMatchWatchQualified": false
+    },
+    {
+      "label": "TV7",
+      "decoded90SecondHold": true,
+      "decodedFrames": 879,
+      "advancingMediaSeconds": 89.99,
+      "startupSeconds": 1.674,
+      "stationObserved": true,
+      "earlierStallObserved": false,
+      "normalMatchWatchQualified": false
+    },
+    {
+      "label": "TV8",
+      "decoded90SecondHold": true,
+      "decodedFrames": 879,
+      "advancingMediaSeconds": 89.923,
+      "startupSeconds": 1.767,
+      "stationObserved": true,
+      "earlierStallObserved": false,
+      "normalMatchWatchQualified": false
+    }
+  ],
+  "sharedDeliveryOrigins": 1,
+  "language": "Spanish",
+  "cloudActivation": "active_normal_collection_verified",
+  "remainingLiveGates": [
+    "normal existing-match Watch and correct programme for PL",
+    "normal existing-match Watch and correct programme for UCL",
+    "native fullscreen/basic controls on a fresh eligible assigned match"
+  ],
+  "firstFailureRetained": "channel-transport-first.json",
+  "recheckReceipt": "channel-transport-recheck.json",
+  "normalJetAppRestored": true
+}

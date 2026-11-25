@@ -1,0 +1,11 @@
+{
+  "version": "3.0.0",
+  "build": "234",
+  "protectedPreferenceCount": 16,
+  "protectedPreferenceChanges": 0,
+  "excludedSourceCount": 42,
+  "excludedSourceChanges": 0,
+  "signedReleaseBuild": true,
+  "installation": "success",
+  "normalLaunch": "success"
+}

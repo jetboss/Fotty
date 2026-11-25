@@ -1,0 +1,82 @@
+{
+  "build": "209",
+  "surface": "Jet iPad normal TV Watch; native decoded programme observations",
+  "capturedAt": "2026-11-01T03:19:07.546Z",
+  "limits": [
+    "Audio not independently heard through Device Hub",
+    "Channel hold is not PL/UCL fixture assignment or indefinite uptime proof",
+    "Failed runs are retained separately from passing retries"
+  ],
+  "observations": [
+    {
+      "provider": "TV14",
+      "channel": "TNT Sports 3",
+      "holdSeconds": 106,
+      "outcome": "sustained native video observed",
+      "programme": "AFLW third-quarter coverage; TNT Sports 3 watermark visible"
+    },
+    {
+      "provider": "TV10",
+      "channel": "Sky Sports Cricket",
+      "first": "2026-11-01T02:48:58.562Z",
+      "outcome": "decoded then stalled",
+      "programme": "WBBL cricket footage; Sky Sports Cricket watermark visible",
+      "observedSeconds": 118,
+      "note": "Native stall at about110s after decoded start; prior90s positive continuity sample retained separately."
+    },
+    {
+      "provider": "TV11",
+      "channel": "Sky Sports Football",
+      "outcome": "native source unavailable; ended before decoded video",
+      "programme": "no programme qualified"
+    },
+    {
+      "provider": "TV12",
+      "channel": "TNT Sports 1",
+      "first": "2026-11-01T02:56:40.806Z",
+      "programme": "TNT Sports 1 watermark, documentary followed by UFC footage",
+      "outcome": "sustained native video observed after automatic retry",
+      "holdSeconds": 139
+    },
+    {
+      "provider": "TV13",
+      "channel": "TNT Sports 2",
+      "first": "2026-11-01T02:59:59.013Z",
+      "programme": "Decoded advertising footage; station watermark pending",
+      "outcome": "decoded video then stalled before90s",
+      "observedSeconds": 76
+    },
+    {
+      "provider": "TV15",
+      "channel": "USA Network",
+      "first": "2026-11-01T03:02:34.084Z",
+      "programme": "WNBA postgame interview; USA Sports microphone and channel branding visible",
+      "outcome": "sustained native video observed",
+      "holdSeconds": 102
+    },
+    {
+      "provider": "TV13",
+      "channel": "TNT Sports 2",
+      "first": "2026-11-01T03:08:20.339Z",
+      "programme": "MotoGP paddock interview; TNT Sports 2 watermark visible",
+      "outcome": "sustained native video observed on fresh retry",
+      "retry": true,
+      "holdSeconds": 138
+    },
+    {
+      "provider": "TV11",
+      "channel": "Sky Sports Football",
+      "started": "2026-11-01T03:11:56.672Z",
+      "retry": true,
+      "outcome": "no decoded video; bounded retry ended with startup timeout"
+    },
+    {
+      "station": "TV10 Sky Sports Cricket",
+      "run": "fresh manual retry",
+      "first": "2026-11-01T03:16:40.177Z",
+      "programme": "WBBL cricket replay; Sky Sports Cricket watermark",
+      "outcome": "sustained native video observed on fresh retry beyond earlier stall window",
+      "holdSeconds": 147
+    }
+  ]
+}

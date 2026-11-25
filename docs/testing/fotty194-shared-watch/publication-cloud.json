@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-30",
+  "scope": "Shared official-fixture to enabled-source Watch association; source publication and cloud explanation only",
+  "publication": {
+    "pr106": {
+      "url": "https://github.com/jetboss/Fotty/pull/106",
+      "mergeCommit": "a7d030e18c8057480743020f5a2be4946d670523"
+    },
+    "pr107": {
+      "url": "https://github.com/jetboss/Fotty/pull/107",
+      "testedHead": "17b2403457388c8f7e940a6be277853849c1550e",
+      "mergeCommit": "76685a74a33e30e8850df5fa153cb16baca4c741",
+      "protectedChecks": {
+        "passed": 7,
+        "failed": 0,
+        "basis": "Parent publication receipt"
+      }
+    }
+  },
+  "verification": {
+    "backendUnitTests": {
+      "passed": 466,
+      "failed": 0,
+      "skipped": 0
+    },
+    "focusedRegistryAdapterProgrammeTests": {
+      "passed": 105,
+      "failed": 0,
+      "skipped": 0,
+      "includedInBackendTotal": true
+    },
+    "targetedESLint": "passed",
+    "diffCheck": "passed"
+  },
+  "phase1Cloud": {
+    "deployedAt": "2026-10-30T18:42:20.829466Z",
+    "sourceVersion": "2026-10-30.match-source-association-1",
+    "playbackVersionID": "64cf7007-6169-4d9c-a725-49f703e52d3a",
+    "watchdogVersionID": "e484a33a-b091-4d39-9603-4df1f7b1ec86",
+    "healthOK": true,
+    "registryEnabled": true,
+    "originalWatchdogActivationPreserved": "2026-10-11T11:14:52.000Z",
+    "noticeCountBeforeAndAfter": 125,
+    "configurationRevisionPreserved": "2026-10-29.native-catalog-parity-1",
+    "evidence": "Redacted fields from parent-owned phase-one deployment logs and before/after receipts; no raw bodies copied"
+  },
+  "phase2Cloud": {
+    "state": "Parent completing paired source-2 deployment; final version IDs and post-deploy checks to be added by parent",
+    "configChangesVersusPR106": 0,
+    "quotaChangesVersusPR106": 0,
+    "bindingChangesVersusPR106": 0,
+    "migrationChangesVersusPR106": 0,
+    "sourceOptInChangesVersusPR106": 0
+  },
+  "physicalEvidence": {
+    "football": "Parent observed real CS3 native playback for 90 seconds on private build 193; this is one football delivery, not all-source, PL or UCL acceptance",
+    "cricket": "Earlier verified guide interval ended; no current cricket programme/playback qualification inferred from it",
+    "build194": "Physical acceptance remains pending while Jet iPad is locked; unit tests or cloud links are not playback proof"
+  },
+  "excluded": [
+    "Phone changes",
+    "FPL",
+    "Multi-stream",
+    "TestFlight",
+    "New accounts or spending",
+    "Automatic code deployment"
+  ],
+  "phase2": {
+    "mergedCommit": "76685a74a33e30e8850df5fa153cb16baca4c741",
+    "sourceVersion": "2026-10-30.match-source-association-2",
+    "playbackDeployment": "f0765380-2ee7-4be2-ab64-70e324c9bc0b",
+    "watchdogDeployment": "47d9ac22-8e42-452d-a7d9-be33c3a4663f",
+    "activationPreserved": true,
+    "existingBindingsPreserved": true,
+    "baselineNoticesPreserved": 127,
+    "watchdogTests": {
+      "passed": 186,
+      "failed": 0,
+      "skipped": 0,
+      "offlineBundlePassed": true
+    },
+    "realPostDeployCollector": "passed",
+    "collectorCompletedAt": "2026-10-30T20:01:01.428Z"
+  }
+}

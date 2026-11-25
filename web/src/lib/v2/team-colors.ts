@@ -1,5 +1,5 @@
 // Shared preset colors for major football clubs and national sides.
-export const TEAM_COLORS: Record<string, { primary: string; secondary: string }> = {
+const TEAM_COLORS: Record<string, { primary: string; secondary: string }> = {
   // National sides
   "argentina": { primary: "#74acdf", secondary: "#ffffff" },
   "egypt": { primary: "#ce1126", secondary: "#000000" },

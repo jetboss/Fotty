@@ -1,0 +1,22 @@
+{
+  "observedAtUTC": "2026-10-31T21:21:12.050836+00:00",
+  "build": "205",
+  "fixture": "Aston Villa\u2013Fulham",
+  "selectedSourceObserved": "CS2",
+  "entry": "normal existing match Watch and source picker; no routing edits",
+  "programme": "Sky Sports Premier League, Aston Villa 1\u20130 Fulham",
+  "firstProgrammeClock": "55:51",
+  "selectionConfirmedProgrammeClock": "56:20",
+  "lastProgrammeClock": "57:25",
+  "observedProgrammeProgressSeconds": 94,
+  "manualObservation": true,
+  "instrumentedDecoderReceipt": "batch-2-physical.json",
+  "samePlayerItemAcrossManualAndInstrumentedRunsClaimed": false,
+  "audioNotIndependentlyVerified": true,
+  "testPlaybackStopped": true,
+  "restored": "normal app Home",
+  "phoneTouched": false,
+  "fplTouched": false,
+  "multiStreamTouched": false,
+  "testFlight": false
+}

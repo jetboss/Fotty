@@ -204,17 +204,22 @@ public final class OfficialFPLScoreProvider: FootballProvider {
     ) -> [MatchHubData] {
         let teamsByID = Dictionary(uniqueKeysWithValues: teams.map { ($0.id, $0) })
         return fixtures.compactMap { fixture in
-            guard fixture.isActivelyPlaying,
-                  let kickoff = fixture.kickoffDate,
+            guard let kickoff = fixture.kickoffDate,
                   let home = teamsByID[fixture.teamH],
                   let away = teamsByID[fixture.teamA] else {
                 return nil
             }
+            let explicitlyFinished = fixture.finished || fixture.finishedProvisional == true
+            // Carry explicit terminal facts through the same feed that supplied
+            // LIVE. A disappeared row alone must never manufacture full-time.
+            let recentFinished = explicitlyFinished && kickoff <= fetchedAt
+                && fetchedAt.timeIntervalSince(kickoff) <= 3 * 24 * 60 * 60
+            guard fixture.isActivelyPlaying || recentFinished else { return nil }
 
             let matchFixture = FottyFixture(
                 id: String(900_000_000 + fixture.id),
                 utcDate: kickoff,
-                status: .live,
+                status: recentFinished ? .fullTime : .live,
                 competition: FottyCompetition(
                     id: "39",
                     name: "Premier League",
@@ -242,14 +247,14 @@ public final class OfficialFPLScoreProvider: FootballProvider {
                     id: String(home.id),
                     name: home.name,
                     shortName: home.shortName,
-                    crestURL: nil,
+                    crestURL: home.badgeURL,
                     color: nil
                 ),
                 awayTeam: FottyTeam(
                     id: String(away.id),
                     name: away.name,
                     shortName: away.shortName,
-                    crestURL: nil,
+                    crestURL: away.badgeURL,
                     color: nil
                 ),
                 score: score,

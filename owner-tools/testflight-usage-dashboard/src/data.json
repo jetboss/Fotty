@@ -1,0 +1,169 @@
+{
+  "title": "Fotty TestFlight participation",
+  "generatedAt": "2026-09-22T12:00:00Z",
+  "status": "fixture",
+  "filters": [
+    {
+      "id": "participation",
+      "label": "Participation",
+      "field": "participation",
+      "defaultValue": "all"
+    },
+    {
+      "id": "platform",
+      "label": "Platform",
+      "field": "platform",
+      "defaultValue": "all"
+    }
+  ],
+  "queries": {
+    "tester_usage": {
+      "rows": [
+        {
+          "testerId": "sample-01",
+          "name": "Sample Tester 01",
+          "email": "sample01@example.invalid",
+          "inviteType": "EMAIL",
+          "invitationState": "INSTALLED",
+          "participation": "Recently active",
+          "sessions7d": 8,
+          "sessions30d": 27,
+          "crashes30d": 0,
+          "feedback30d": 1,
+          "appBuildVersion": "111",
+          "model": "iPhone",
+          "osVersion": "27.0",
+          "platform": "iOS"
+        },
+        {
+          "testerId": "sample-02",
+          "name": "Sample Tester 02",
+          "email": "sample02@example.invalid",
+          "inviteType": "EMAIL",
+          "invitationState": "INSTALLED",
+          "participation": "Recently active",
+          "sessions7d": 2,
+          "sessions30d": 7,
+          "crashes30d": 1,
+          "feedback30d": 0,
+          "appBuildVersion": "111",
+          "model": "iPad",
+          "osVersion": "27.0",
+          "platform": "iOS"
+        },
+        {
+          "testerId": "sample-03",
+          "name": "Sample Tester 03",
+          "email": "sample03@example.invalid",
+          "inviteType": "EMAIL",
+          "invitationState": "INSTALLED",
+          "participation": "Used this month",
+          "sessions7d": 0,
+          "sessions30d": 4,
+          "crashes30d": 0,
+          "feedback30d": 0,
+          "appBuildVersion": "111",
+          "model": "iPhone",
+          "osVersion": "26.6",
+          "platform": "iOS"
+        },
+        {
+          "testerId": "sample-04",
+          "name": "Sample Tester 04",
+          "email": "sample04@example.invalid",
+          "inviteType": "EMAIL",
+          "invitationState": "INSTALLED",
+          "participation": "No recent sessions",
+          "sessions7d": 0,
+          "sessions30d": 0,
+          "crashes30d": 0,
+          "feedback30d": 0,
+          "appBuildVersion": "110",
+          "model": "iPad",
+          "osVersion": "26.6",
+          "platform": "iOS"
+        },
+        {
+          "testerId": "sample-05",
+          "name": "Sample Tester 05",
+          "email": "sample05@example.invalid",
+          "inviteType": "EMAIL",
+          "invitationState": "ACCEPTED",
+          "participation": "Not installed",
+          "sessions7d": 0,
+          "sessions30d": 0,
+          "crashes30d": 0,
+          "feedback30d": 0,
+          "appBuildVersion": null,
+          "model": null,
+          "osVersion": null,
+          "platform": "Unknown"
+        },
+        {
+          "testerId": "sample-06",
+          "name": "Sample Tester 06",
+          "email": "sample06@example.invalid",
+          "inviteType": "EMAIL",
+          "invitationState": "INVITED",
+          "participation": "Not installed",
+          "sessions7d": 0,
+          "sessions30d": 0,
+          "crashes30d": 0,
+          "feedback30d": 0,
+          "appBuildVersion": null,
+          "model": null,
+          "osVersion": null,
+          "platform": "Unknown"
+        }
+      ],
+      "source": {
+        "label": "Synthetic preview fixture — not real Fotty tester data",
+        "filters": [
+          "App Store Connect beta tester roster for one app",
+          "Usage windows: trailing 7 and 30 days"
+        ],
+        "assumptions": [
+          "All names and addresses use example.invalid and are invented.",
+          "A session count shows that TestFlight recorded app use; it does not identify the feature used or prove successful playback."
+        ],
+        "metricDefinitions": [
+          {
+            "label": "Recently active",
+            "definition": "Tester has at least one App Store Connect session in the trailing 7 days.",
+            "componentIds": [
+              "usage-overview",
+              "tester-roster"
+            ]
+          },
+          {
+            "label": "Used this month",
+            "definition": "Tester has no session in the trailing 7 days and at least one in the trailing 30 days.",
+            "componentIds": [
+              "usage-overview",
+              "tester-roster"
+            ]
+          },
+          {
+            "label": "No recent sessions",
+            "definition": "Tester state is INSTALLED and App Store Connect reports zero sessions in the trailing 30 days.",
+            "componentIds": [
+              "usage-overview",
+              "tester-roster"
+            ]
+          },
+          {
+            "label": "Not installed",
+            "definition": "Tester state is not INSTALLED. This includes invites that are pending or accepted without an install.",
+            "componentIds": [
+              "usage-overview",
+              "tester-roster"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "surface": "dashboard",
+  "id": "dashboard:57628656-5abb-49c5-a9d2-f5de9bbde3d4",
+  "buildStatus": "complete"
+}

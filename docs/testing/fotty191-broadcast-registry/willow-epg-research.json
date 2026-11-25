@@ -1,0 +1,73 @@
+{
+  "checkedUTC": "2026-10-30T13:51:47.493Z",
+  "purpose": "Bounded read-only investigation of repeatable official linear-channel programme association",
+  "result": "Programme structure found; UTC/timezone authority remains unverified. No programme link or adapter activated.",
+  "officialEntry": "https://www.willow.tv/tvchannel",
+  "linkedGuide": "https://cricket.willow.tv/",
+  "metadataOnly": true,
+  "authentication": "No account, client key, token or authentication header used",
+  "mediaRequests": 0,
+  "programmeIdentifiersRetained": false,
+  "researchOperations": {
+    "initialDiscoveryLimit": 6,
+    "publicBundlesAndGuideLimit": 6,
+    "substitution": "The fifth, exactly derived homepage chunk replaced one planned JSON read within the six-operation gate",
+    "additionalApprovedMetadataReads": 2,
+    "challengeRetries": 0
+  },
+  "shippedClient": {
+    "homepageChunk": "7f0cb9d.js",
+    "sha256": "15ff78462c2f313069c3f89a45db713523892e9030bfb7b14d255f317b1f373b",
+    "mainGuideRoute": "https://epgadmindev.willow.tv/php/datafeedAssoc.php?method=list",
+    "extraGuideRoute": "https://epgadmindev.willow.tv/php/datafeedAssocExtra.php",
+    "method": "POST",
+    "contentType": "application/x-www-form-urlencoded",
+    "requestFieldNames": ["showdate", "viewtype", "timezone", "group_by_week", "qty"],
+    "observedGuideFieldNames": ["Id", "Title", "BroadCastDay", "BroadCastStartDate", "BroadCastEndDate", "Live", "matchWidthData", "timeInterval"],
+    "freshMainGuideHTTP": 200,
+    "freshMainGuideBytes": 222487,
+    "datedGroupsReturned": 31,
+    "extraGuideRead": false
+  },
+  "timezoneCheck": {
+    "requestedValues": ["5.5", "0"],
+    "payloadsByteIdentical": true,
+    "payloadSHA256": "e872ebb29a816966a7866f3dde0f0fa08884c3350521fd16c38270bceba99ea2",
+    "sameProgrammeIdentitiesComparedInternally": 3,
+    "startDeltaMinutes": [0, 0, 0],
+    "endDeltaMinutes": [0, 0, 0],
+    "rawIntervalsIncludeUTCOffset": false,
+    "publishedIANATimezoneFound": false,
+    "conclusion": "The observed timezone parameter does not establish conversion semantics; no UTC or Eastern-time assumption is admitted."
+  },
+  "stationMetadata": {
+    "route": "https://willowfeeds.willow.tv/tvchannel_list.json",
+    "http": 200,
+    "bytes": 2582,
+    "sha256": "69480ada6616bc9feb4ae624373046e9e0f614e672e4127f8c63a866234cb719",
+    "distributorEntries": 13,
+    "fieldNames": ["channelLogo", "channelNumber", "channelNumbersd", "channelName"],
+    "containsStationIDOrTimezoneAuthority": false
+  },
+  "programmeSafety": {
+    "observedExplicitSessionDayAndOrdinal": true,
+    "reviewAndHighlightsEntriesAlsoPresent": true,
+    "liveMarkerAloneIsProgrammeAuthority": false,
+    "requiredGate": "A publisher-supported timezone or absolute UTC interval, exact linear channel identity, current programme interval and fixture/day/ordinal corroboration. Review, highlights and replay entries cannot prove live match coverage."
+  },
+  "REA": {
+    "mode": "Inert public shipped-artifact inspection; no application execution",
+    "homepageAnalysisEvidence": "ev_a621ed5b879123bea5ec9a904ccc59b2a0373b1b9461151de65f6cdae07a6cba",
+    "homepageInventoryComplete": true,
+    "semanticRequestTracing": "Unknown for this minified jQuery AJAX client; endpoint and request fields were inspected in the hashed shipped bytes",
+    "initialVendorAnalysis": "Partial at the deliberately bounded 256MiB heap; not treated as evidence of absence"
+  },
+  "cleanup": {
+    "ownedTemporaryGateRemoved": true,
+    "filesRemoved": 9,
+    "bytesRemoved": 1823544,
+    "rawGuideAndScriptBytesRetained": false,
+    "unrelatedPathsTouched": false
+  },
+  "activation": "OFF; no Worker deployment, Git publication, device work or TestFlight release"
+}

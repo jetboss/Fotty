@@ -1,5 +1,55 @@
 import Foundation
 
+/// Complete squad and public budget evidence required before offering a route.
+public struct FPLTransferPlanContext {
+    let picks: [FPLPick]
+    let players: [FPLPlayer]
+    let elementTypes: [FPLElementType]
+    let gameSettings: FPLGameSettings?
+    let budgetLimit: Int?
+
+    var priceAssumption: String {
+        picks.contains { $0.sellingPrice == nil }
+            ? "Some selling prices are unavailable, so this estimate uses current player prices. Verify your bank in official FPL."
+            : "Uses available selling prices and bank; verify both in official FPL before the deadline."
+    }
+
+    static func budgetLimit(picks: [FPLPick], players: [FPLPlayer], bank: Int?) -> Int? {
+        guard let bank, !picks.isEmpty else { return nil }
+        var budget = bank
+        for pick in picks {
+            guard let value = pick.sellingPrice ?? players.first(where: { $0.id == pick.element })?.nowCost else { return nil }
+            budget += value
+        }
+        return budget
+    }
+
+    func validatedPicks(for transfers: [TransferRecommendation]) -> [FPLPick]? {
+        guard budgetLimit != nil else { return nil }
+        let outgoingIDs = transfers.map { $0.playerOut.player.id }
+        let incomingIDs = transfers.map { $0.playerIn.player.id }
+        guard Set(outgoingIDs).count == transfers.count,
+              Set(incomingIDs).count == transfers.count,
+              Set(outgoingIDs).isDisjoint(with: incomingIDs) else { return nil }
+        var proposed = picks
+        for transfer in transfers {
+            guard let index = proposed.firstIndex(where: { $0.element == transfer.playerOut.player.id }),
+                  let outgoing = players.first(where: { $0.id == proposed[index].element }),
+                  let incoming = players.first(where: { $0.id == transfer.playerIn.player.id }),
+                  incoming.elementType == outgoing.elementType,
+                  !proposed.contains(where: { $0.element == incoming.id }) else { return nil }
+            let oldPick = proposed[index]
+            proposed[index] = FPLPick(element: incoming.id, position: oldPick.position,
+                                      multiplier: oldPick.multiplier, isCaptain: oldPick.isCaptain,
+                                      isViceCaptain: oldPick.isViceCaptain, elementType: incoming.elementType)
+        }
+        let report = FPLSquadValidator.validate(picks: proposed, players: players,
+                                                elementTypes: elementTypes, gameSettings: gameSettings,
+                                                budgetLimit: budgetLimit)
+        return report.isValid ? proposed : nil
+    }
+}
+
 public enum FPLPlannerEngine {
     public static func routes(
         recommendations: [TransferRecommendation],
@@ -7,9 +57,19 @@ public enum FPLPlannerEngine {
         startGameweek: Int,
         horizon: Int,
         freeTransfers: FPLFreeTransferEstimate?,
-        gameweek: FPLGameweek?
+        gameweek: FPLGameweek?,
+        context: FPLTransferPlanContext? = nil,
+        events: [FPLGameweek]? = nil
     ) -> [FPLDraftRoute] {
-        let freeCount = freeTransfers?.count ?? 1
+        let weeks = FPLPlanningBounds.gameweeks(start: startGameweek, horizon: horizon, events: events)
+        guard weeks.first == startGameweek,
+              weeks == Array(startGameweek..<(startGameweek + weeks.count)) else { return [] }
+        let horizon = weeks.count
+        let freeCount = freeTransfers?.count ?? 0
+        let freeTransferAssumption = freeTransfers.map { estimate in
+            let noun = estimate.count == 1 ? "transfer" : "transfers"
+            return "Point cost uses \(estimate.isExact ? "the available" : "an estimate of") \(estimate.count) free \(noun); confirm in official FPL."
+        } ?? "Free transfers are unknown. Point cost assumes zero free transfers; confirm your count in official FPL."
         var results = [
             FPLDraftRoute(
                 name: "Roll",
@@ -30,7 +90,7 @@ public enum FPLPlannerEngine {
             )
         ]
 
-        if let first = recommendations.first {
+        if let context, let first = recommendations.first(where: { context.validatedPicks(for: [$0]) != nil }) {
             let weeklyGain = projectedGainByGameweek(
                 recommendation: first,
                 fixtures: fixtures,
@@ -56,20 +116,20 @@ public enum FPLPlannerEngine {
                         hitCost: hitCost
                     ),
                     modelVersion: FPLProjectionEngine.modelVersion,
-                    explanation: "The strongest single legal-position candidate from Fotty's current shortlist over \(horizon) gameweeks.",
+                    explanation: "The strongest candidate from Fotty's current shortlist that passes full-squad checks with the available price estimate over \(horizon) gameweeks.",
                     downside: gain <= 4
                         ? "The modeled gain is narrow enough that one rotation, injury, or fixture change can erase it."
                         : "The incoming player's minutes, availability, and fixture assumptions can still change before the deadline.",
                     verificationItems: [
-                        "Verify the selling price and bank in official FPL.",
+                        context.priceAssumption,
                         "Recheck both players' availability and likely minutes.",
-                        "Confirm the move still costs no points."
+                        freeTransferAssumption
                     ]
                 )
             )
         }
 
-        let pair = nonConflictingPair(recommendations)
+        let pair = context.map { nonConflictingPair(recommendations, context: $0) } ?? []
         if pair.count == 2 {
             let cost = FPLTransferRules.estimatedHitCost(
                 transferCount: 2,
@@ -90,7 +150,7 @@ public enum FPLPlannerEngine {
             let netWeekly = applying(hitCost: cost, to: grossWeekly, startGameweek: startGameweek)
             results.append(
                 FPLDraftRoute(
-                    name: cost == 0 ? "Two free moves" : "Two moves with hit",
+                    name: "Two moves",
                     transfers: pair,
                     hitCost: cost,
                     projectedGain: netWeekly.values.reduce(0, +),
@@ -100,13 +160,13 @@ public enum FPLPlannerEngine {
                         hitCost: cost
                     ),
                     modelVersion: FPLProjectionEngine.modelVersion,
-                    explanation: "Two non-conflicting moves, with the estimated transfer cost deducted from the modeled gain.",
+                    explanation: "Both moves pass combined budget, club quota and squad checks using available prices. The estimated point cost is deducted from the modeled gain.",
                     downside: cost > 0
-                        ? "The hit is certain, while the projected gain is not. Both incoming players must outperform the alternatives enough to recover it."
+                        ? "Verify the estimated point cost. If a hit is required, both incoming players must outperform the alternatives enough to recover it."
                         : "Two changes reduce flexibility and double the exposure to minutes or availability surprises.",
                     verificationItems: [
-                        "Confirm the exact free-transfer count in official FPL.",
-                        "Verify both selling prices and the final bank.",
+                        freeTransferAssumption,
+                        context?.priceAssumption ?? "Verify both selling prices and the final bank.",
                         "Check club quota, formation, availability, and the deadline before confirming."
                     ]
                 )
@@ -165,11 +225,10 @@ public enum FPLPlannerEngine {
         return nil
     }
 
-    private static func nonConflictingPair(_ recommendations: [TransferRecommendation]) -> [TransferRecommendation] {
+    private static func nonConflictingPair(_ recommendations: [TransferRecommendation], context: FPLTransferPlanContext) -> [TransferRecommendation] {
         for (index, first) in recommendations.enumerated() {
             for second in recommendations.dropFirst(index + 1) {
-                if first.playerOut.id != second.playerOut.id,
-                   first.playerIn.id != second.playerIn.id {
+                if context.validatedPicks(for: [first, second]) != nil {
                     return [first, second]
                 }
             }
@@ -195,9 +254,13 @@ public enum FPLSquadOptimizer {
         horizon: Int,
         budget: Int,
         lockedPlayerIDs: Set<Int> = [],
-        excludedPlayerIDs: Set<Int> = []
+        excludedPlayerIDs: Set<Int> = [],
+        events: [FPLGameweek]? = nil
     ) -> [FPLOptimizedSquad] {
-        profiles.compactMap { profile in
+        let weeks = FPLPlanningBounds.gameweeks(start: startGameweek, horizon: horizon, events: events)
+        guard budget > 0, weeks.first == startGameweek,
+              weeks == Array(startGameweek..<(startGameweek + weeks.count)) else { return [] }
+        return profiles.compactMap { profile in
             optimize(
                 profile: profile,
                 scores: scores,
@@ -205,7 +268,7 @@ public enum FPLSquadOptimizer {
                 elementTypes: elementTypes,
                 settings: settings,
                 startGameweek: startGameweek,
-                horizon: horizon,
+                horizon: weeks.count,
                 budget: budget,
                 lockedPlayerIDs: lockedPlayerIDs,
                 excludedPlayerIDs: excludedPlayerIDs

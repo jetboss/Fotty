@@ -4,14 +4,11 @@ import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
-  Bell,
-  CalendarClock,
   LoaderCircle,
   LogIn,
   Radio,
   RefreshCw,
   Search,
-  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -151,18 +148,6 @@ export function LoadingState(props: Omit<FallbackStateProps, "kind" | "icon">) {
   return <FallbackState kind="loading" {...props} />;
 }
 
-export function UpdatingState(props: Omit<FallbackStateProps, "kind" | "icon">) {
-  return <FallbackState kind="updating" {...props} />;
-}
-
-export function ErrorState(props: Omit<FallbackStateProps, "kind" | "icon">) {
-  return <FallbackState kind="error" {...props} />;
-}
-
-export function SignedOutState(props: Omit<FallbackStateProps, "kind" | "icon">) {
-  return <FallbackState kind="signed-out" {...props} />;
-}
-
 export function NoVerifiedStreamState(props: Omit<FallbackStateProps, "kind" | "icon">) {
   return <FallbackState kind="no-stream" {...props} />;
 }
@@ -170,31 +155,3 @@ export function NoVerifiedStreamState(props: Omit<FallbackStateProps, "kind" | "
 export function DataRefreshState(props: Omit<FallbackStateProps, "kind" | "icon">) {
   return <FallbackState kind="refresh" {...props} />;
 }
-
-export function FallbackSkeleton({ rows = 4, className }: { rows?: number; className?: string }) {
-  return (
-    <div className={cn("space-y-3 rounded-2xl border border-white/10 bg-surface p-4", className)}>
-      {Array.from({ length: rows }, (_, index) => (
-        <div key={index} className="h-12 animate-pulse rounded-xl bg-white/[0.06]" />
-      ))}
-    </div>
-  );
-}
-
-export function CompactLoadingPill({ label = "Refreshing data" }: { label?: string }) {
-  return (
-    <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-surface px-3 py-1.5 text-xs font-bold text-text-secondary">
-      <LoaderCircle size={13} className="animate-spin text-accent" />
-      {label}
-    </span>
-  );
-}
-
-export function NoStreamReminderAction({ onClick }: { onClick?: () => void }) {
-  return {
-    label: "Set Reminder",
-    onClick,
-  };
-}
-
-export { Bell, CalendarClock, ShieldCheck };

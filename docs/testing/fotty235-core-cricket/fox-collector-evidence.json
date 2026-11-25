@@ -1,0 +1,36 @@
+{
+  "observedAt": "2026-11-04T15:34:07.688Z",
+  "requests": [
+    {
+      "host": "www.tvpassport.com",
+      "status": 200
+    },
+    {
+      "host": "www.foxtel.com.au",
+      "status": 200
+    }
+  ],
+  "reservations": 2,
+  "scopes": [
+    {
+      "scope": "cricket",
+      "complete": true,
+      "status": "empty"
+    }
+  ],
+  "programmeRows": [],
+  "scope": "Metadata collector only; no media, registry activation or device interaction.",
+  "focusedTests": {
+    "passed": 172,
+    "failed": 0,
+    "skipped": 0
+  },
+  "workerDryRunPassed": true,
+  "activated": false,
+  "nativeFoxProgrammeJoinImplemented": false,
+  "files": {
+    "fox-cricket-programmes.mjs": "48c5d5d00cf21a460d88140467a6cf0a604821049f3a585d13f1f36df6b9cfe7",
+    "broadcast-source-adapters.mjs": "39d1be64d9dd46f35577ed53862b05b03e300a00d9ac0ec7ccabbc496dc56c2f",
+    "broadcast-registry-policy.mjs": "90c6e820b42e7aed06147ee371280c2a125a597b7e190d66cab928afdee0dc8d"
+  }
+}

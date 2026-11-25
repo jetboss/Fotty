@@ -4,17 +4,17 @@ import { ExperiencePreferencesSync } from "@/components/ExperiencePreferencesSyn
 import { PWARegister } from "@/components/PWARegister";
 import { ReminderNotifier } from "@/components/ReminderNotifier";
 import { FottyShell } from "@/components/FottyShell";
-import { getSiteUrl } from "@/lib/fotty-config";
+import { FOTTY_DEFAULTS, getSiteUrl } from "@/lib/fotty-config";
 
 export const metadata: Metadata = {
   metadataBase: new URL(getSiteUrl()),
-  title: "FOTTY | Live Sports, Match Day, and Channels",
-  description: "Browse live sports, follow match day fixtures, and install Fotty for a fast app-like viewing experience.",
+  title: `${FOTTY_DEFAULTS.brandName} | Live Sports, Match Day, and Channels`,
+  description: `Browse live sports, follow match day fixtures, and install ${FOTTY_DEFAULTS.brandName} for a fast app-like viewing experience.`,
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "FOTTY",
+    title: FOTTY_DEFAULTS.brandName,
   },
   formatDetection: {
     telephone: false,

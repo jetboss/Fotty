@@ -69,14 +69,6 @@ export function footballLeagueBadgeUrl(tab: FootballLeagueTab) {
   return LEAGUE_BADGES[tab];
 }
 
-export function isFootballSport(match: ScrapedMatch) {
-  const sport = (match.sport || "").toLowerCase();
-  const league = (match.league || "").toLowerCase();
-  if (sport.includes("football") && !sport.includes("american")) return true;
-  if (league.includes("football") && !league.includes("american")) return true;
-  return match.categories?.some((category) => category.toLowerCase().includes("football")) ?? false;
-}
-
 function teamNames(match: ScrapedMatch) {
   if (match.teams) {
     return {
@@ -158,15 +150,4 @@ export function inferFootballLeagueTab(match: ScrapedMatch): FootballLeagueTab {
   if (isCurrentCompetitionPair("ligue1", home, away)) return "ligue1";
 
   return "other";
-}
-
-export function matchFootballLeagueTab(match: ScrapedMatch, tab: FootballLeagueTab) {
-  if (tab === "all") return true;
-  if (!isFootballSport(match)) return false;
-  return inferFootballLeagueTab(match) === tab;
-}
-
-export function filterFootballByLeague(matches: ScrapedMatch[], tab: FootballLeagueTab) {
-  if (tab === "all") return matches;
-  return matches.filter((match) => matchFootballLeagueTab(match, tab));
 }

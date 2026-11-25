@@ -1,0 +1,153 @@
+{
+  "date": "2026-11-01",
+  "scope": "Source-only web/toolchain security maintenance; no deployment, publication, devices, FPL or multi feature changes",
+  "toolchain": {
+    "node": "24.22.2",
+    "source": "official nodejs.org SHA256-verified macOS arm64 archive",
+    "persistentLocation": "${XDG_DATA_HOME:-$HOME/.local/share}/fotty/toolchains/node24",
+    "globalNodeDefault": "25.5.0 unchanged",
+    "globalShellProfileOrPathChanged": false,
+    "projectSelectorTests": {
+      "passed": 4,
+      "failed": 0
+    }
+  },
+  "versions": {
+    "next": {
+      "before": "16.3.3",
+      "after": "16.4.3"
+    },
+    "eslint-config-next": {
+      "before": "16.3.3",
+      "after": "16.4.3"
+    },
+    "sharp": {
+      "before": "0.35.4",
+      "after": "0.35.5"
+    },
+    "nodeEngine": "24.x",
+    "lockEntriesChanged": 40,
+    "lockChangeFamilies": [
+      "root declaration",
+      "Next",
+      "Sharp/libvips"
+    ],
+    "ReactTypeScriptWranglerPlaywrightMotionLucideUnchanged": true
+  },
+  "verification": {
+    "ownedStagingSourceHashChecks": 376,
+    "sourceAssetsVerified": 278,
+    "referencedPublicAssetsOmitted": [],
+    "additionalReferencedConfig": [
+      "Dockerfile",
+      ".dockerignore"
+    ],
+    "ownerEnvironmentFilesCopied": false,
+    "liveCredentialsUsed": false,
+    "npmCI": {
+      "passed": true,
+      "installedPackages": 406,
+      "lifecycleScriptsEnabled": false
+    },
+    "webUnits": {
+      "command": "node --test --test-concurrency=1 <13 src/lib test files>",
+      "passed": 46,
+      "failed": 0,
+      "skipped": 0,
+      "FPLCoachMultiSuitesRun": false
+    },
+    "routeTypes": {
+      "command": "next typegen",
+      "passed": true
+    },
+    "typescript": {
+      "command": "tsc --noEmit",
+      "passed": true
+    },
+    "lint": {
+      "command": "eslint . --max-warnings 100",
+      "passed": true,
+      "errors": 0,
+      "warnings": 3,
+      "warningsDetails": [
+        "2 existing unused _runtimeOnly variables in broadcast-registry.mjs",
+        "existing anonymous default export in watchdog index.mjs"
+      ]
+    },
+    "productionBuild": {
+      "command": "bash tools/web-build-local.sh",
+      "actualProjectConfig": "standalone, default Turbopack",
+      "passed": true,
+      "elapsedSeconds": 10.38,
+      "standaloneServerArtifactProduced": true,
+      "webpackFallbackUsed": false,
+      "typeChecksDisabled": false,
+      "V8HeapCapMiB": 1536,
+      "telemetryDisabled": true
+    },
+    "canonicalPreexistingNodeModulesAndNextUntouched": true,
+    "temporaryBuildOutputs": "removed after verification; root gate and pre-existing owner outputs retained",
+    "persistentNodeSelectionAfterStagingCleanup": "passed"
+  },
+  "limits": {
+    "deploymentExposure": "Not verified. Existing static export and standalone server have different security exposure.",
+    "iOSBroadcastFailureCausality": "No evidence these dependency versions caused today's native registry or discovery defects.",
+    "ESLintDeprecation": "Existing eslint9.39.5 emits unsupported-version notice; not expanded into a major migration.",
+    "November3NextRelease": "Announced but not published as of this audit; no claim its future patches are included."
+  },
+  "homebrewAttempt": {
+    "result": "stopped after repeated recursive openssl@3 self-lock; Node24 not installed through Homebrew",
+    "locksDeleted": false,
+    "sourceBuilds": false,
+    "partialBottleEffects": [
+      "brotli1.2.1",
+      "c-ares1.34.9",
+      "hdrhistogram_c0.12.1",
+      "icu4c@79 79.1",
+      "libnghttp2 1.70.0",
+      "libnghttp3 1.18.0",
+      "ca-certificates2026-10-20",
+      "openssl@4 4.1.0 poured; post-install failed"
+    ],
+    "globalNode25BinaryAndPathUnchanged": true,
+    "broadRollbackAttempted": false
+  },
+  "ownedHomebrewCacheCleanup": {
+    "path": "ownedgate/homebrew-node24-cache",
+    "bytesRemoved": 200818186,
+    "preexistingOrGeneralCacheTouched": false,
+    "lockFilesTouched": false
+  },
+  "sources": [
+    {
+      "title": "Node release support status",
+      "url": "https://nodejs.org/en/about/previous-releases"
+    },
+    {
+      "title": "Official Node24.22.2 checksums",
+      "url": "https://nodejs.org/dist/v24.22.2/SHASUMS256.txt"
+    },
+    {
+      "title": "Next October14 security update",
+      "url": "https://nextjs.org/blog/nextjs-security-update-october-14-2026"
+    },
+    {
+      "title": "Image optimization security advisory",
+      "url": "https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw"
+    },
+    {
+      "title": "Next16.4.3 package metadata",
+      "url": "https://registry.npmjs.org/next/16.4.3"
+    },
+    {
+      "title": "November security release advance notice",
+      "url": "https://nextjs.org/blog/upcoming-nextjs-security-release-november-2026"
+    }
+  ],
+  "cleanup": {
+    "ownedStagingAndMetadataCacheBytesRemoved": 1161382995,
+    "rootGateRemoved": false,
+    "canonicalNodeModulesOrNextRemoved": false,
+    "globalCachesOrLocksTouched": false
+  }
+}

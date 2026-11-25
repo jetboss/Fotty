@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 
 export const dynamic = "force-static";
 
-export const alt = "FOTTY — Live Sports & Match Day";
+export const alt = "Fotty Sports Hub — Live Sports & Match Day";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -41,15 +41,20 @@ export default function OpenGraphImage() {
           >
             FO
           </div>
-          <div
-            style={{
-              color: "#ffffff",
-              fontSize: 44,
-              fontWeight: 900,
-              letterSpacing: 10,
-            }}
-          >
-            FOTTY
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div
+              style={{
+                color: "#ffffff",
+                fontSize: 44,
+                fontWeight: 900,
+                letterSpacing: 10,
+              }}
+            >
+              FOTTY
+            </div>
+            <div style={{ color: "#a6a6a6", fontSize: 18, fontWeight: 800, letterSpacing: 7 }}>
+              SPORTS HUB
+            </div>
           </div>
         </div>
 

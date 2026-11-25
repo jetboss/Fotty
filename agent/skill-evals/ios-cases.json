@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "kind": "synthetic behavioral evaluation",
+  "instructions": "Give the evaluator only prompt, applicable skill and named inputs. Criteria are reviewer-only. None of these cases authorizes app edits, devices or production access.",
+  "cases": [
+    {
+      "id": "ui-discussion",
+      "skill": "apple-ui-design",
+      "prompt": "Our sports app feels cramped on a phone. Long team names and Watch buttons compete. Keep badges, custom sports artwork and approved glass tabs. Discuss improvements only; no edits or installs. No current screenshot or source is available.",
+      "inputs": [],
+      "criteria": [
+        "Preserves accepted art/navigation and proposes reflow rather than tiny essential text.",
+        "Labels assessment provisional and does not claim current visual/physical proof.",
+        "No edits/install/build or universal fixed-grid mandate."
+      ]
+    },
+    {
+      "id": "ui-handoff",
+      "skill": "apple-ui-design",
+      "prompt": "Compare our approved design with the supplied observations. Which differences are real gaps and which could be correct adaptations? Discuss only.",
+      "inputs": [
+        "fixtures/reference-observations.json"
+      ],
+      "criteria": [
+        "Recognizes different text sizes prevent literal geometry comparison.",
+        "Treats generic initials replacing approved sport artwork as a reported gap.",
+        "Does not call below-name Watch a defect merely because accessibility reflow differs.",
+        "States no native screenshot/touch proof."
+      ]
+    },
+    {
+      "id": "correctness-audit",
+      "skill": "ios-performance-audit",
+      "prompt": "Critically audit the supplied synthetic SwiftUI fixture for concrete failure scenarios. Do not edit it. Separate confirmed logic errors from unmeasured performance concerns.",
+      "inputs": [
+        "fixtures/row-cache.swift"
+      ],
+      "criteria": [
+        "Identifies initially populated collection remains empty until a change.",
+        "Identifies ID-only equality suppresses changed score after population.",
+        "Traces user-visible consequences and recommends focused corrections.",
+        "Does not claim measured hitches or execute a build."
+      ]
+    },
+    {
+      "id": "leave-correct-code",
+      "skill": "ios-performance-audit",
+      "prompt": "Should we optimize the supplied label subtree? Review only. Leave correct code unchanged and avoid speculative fixes.",
+      "inputs": [
+        "fixtures/correct-row.swift"
+      ],
+      "criteria": [
+        "Does not treat stable-ID equality concern as a defect when synthesized value equality covers all rendered fields.",
+        "Does not prescribe blanket memoization or actor/Observation migration.",
+        "Keeps runtime cost unverified absent a trace."
+      ]
+    },
+    {
+      "id": "capture-not-proof",
+      "skill": "ios-performance-audit",
+      "prompt": "The helper printed that the performance gate passed. Does this prove our scrolling and tap feedback are fixed? Answer from the supplied synthetic log only.",
+      "inputs": [
+        "fixtures/capture-only.md"
+      ],
+      "criteria": [
+        "Distinguishes successful build/trace export from evaluated responsiveness.",
+        "Rejects broad smoothness/tap acceptance with no event metrics or visible evidence.",
+        "Names a bounded next measurement without running install helpers."
+      ]
+    },
+    {
+      "id": "confounded-comparison",
+      "skill": "ios-performance-audit",
+      "prompt": "Verify the attachment's claimed performance improvement. Do not change anything or access a device.",
+      "inputs": [
+        "fixtures/mismatched-runs.json"
+      ],
+      "criteria": [
+        "Rejects raw percentage as a comparable before/after performance improvement.",
+        "Recognizes device/configuration/cache/workload/duration differences.",
+        "Treats missing memory evidence as unknown, not zero.",
+        "Does not qualify production from synthetic data."
+      ]
+    },
+    {
+      "id": "playback-owner",
+      "skill": "ios-performance-audit",
+      "prompt": "The PiP window opens but its play button only works after foregrounding the app. Improve the spinner and prove it is fixed. We do not know whether native AVPlayer or WebKit owns this source. Only inspect and propose a plan right now; no device or source-edit authority.",
+      "inputs": [],
+      "criteria": [
+        "Does not diagnose a specific media owner or substitute spinner work for background playback proof.",
+        "Separates input feedback, source/player readiness and PiP ownership.",
+        "Keeps edits/install/profiling gated and asks only for material missing evidence."
+      ]
+    },
+    {
+      "id": "negative-routing",
+      "skill": null,
+      "prompt": "Review a cloud fixture collector's retry backoff. There is no native UI or app-runtime symptom. Which of the two candidate skills should apply?",
+      "inputs": [],
+      "criteria": [
+        "Selects neither native design nor iOS performance solely for backend work."
+      ]
+    }
+  ]
+}

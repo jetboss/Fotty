@@ -1,0 +1,19 @@
+{
+  "build": 203,
+  "tests": 101,
+  "passed": 100,
+  "failed": 0,
+  "skipped": 1,
+  "skipMeaning": "Existing opt-in physical AS test not executed by this local policy gate; not playback evidence.",
+  "signedAppAndWidgetVerified": true,
+  "installedOnJet": true,
+  "launchedOnJet": true,
+  "physicalASAcceptance": "pending",
+  "evidence": [
+    "Test Case '-[FottyTests.PlavioSportsAddonTests testReviewedPlavioDeliveryDecodesThroughGuardedRelayOnPhysicalDevice]' skipped (0.103 seconds).",
+    "Executed 101 tests, with 1 test skipped and 0 failures (0 unexpected) in 1.052 (1.074) seconds",
+    "Executed 101 tests, with 1 test skipped and 0 failures (0 unexpected) in 1.052 (1.075) seconds",
+    "Executed 101 tests, with 1 test skipped and 0 failures (0 unexpected) in 1.052 (1.076) seconds",
+    "** TEST SUCCEEDED **"
+  ]
+}

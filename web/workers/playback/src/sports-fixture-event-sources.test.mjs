@@ -70,6 +70,8 @@ test("TBD participants, duplicate sides, missing UTC start, and provisional time
   const result = await collectBoard("tennis-atp", events);
   assert.equal(result.fixtures.length, 0);
   assert.equal(result.pendingFixtureCount, 6);
+  assert.equal(result.pendingStartsByCompetition.atp.length, 4);
+  assert.deepEqual(result.pendingByCompetition, { atp: 6 });
 });
 
 test("competition status takes precedence over a final tennis tournament parent", async () => {

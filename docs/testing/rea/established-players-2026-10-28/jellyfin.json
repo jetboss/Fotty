@@ -1,0 +1,302 @@
+{
+  "schema": 1,
+  "subject": "Official Jellyfin Web demo12.4.0",
+  "fetchedFrom": "https://demo.jellyfin.org/stable/web/",
+  "buildQuery": "c4b2af8a2931aff1f2de",
+  "versionEvidence": "shipped main bundle embeds12.4.0; v12.4 package version12.4.0",
+  "sourceTag": "v12.4",
+  "sourceTagCommit": "0a580ce8df89282dfd120b6d5efb8e106da23bd5",
+  "attributionLimit": "matching published version and control-flow text; no reproducible-build or exact demo commit proof",
+  "license": "GPL-2.0-or-later; recommend independent implementation of mechanisms, not copying code",
+  "main": {
+    "bytes": 520920,
+    "sha256": "c14f7003a27deb4720dc76472c3147ee7d97a86d8bac0e80c23dad7a9ec40db3",
+    "parentEvidence": "ev_8c0735f590c9b4963f2eb3c88a87ad3e05da957dff8dc8fade8de9931c82a7d5",
+    "assetEvidence": "ev_27fecbb32c9761b83cdb4ff977baa52d31598ffb1dd07105f7de4d2f132bb1f8",
+    "coverage": "partial expanded graph due bounded result memory; complete static bundled-module facts retained",
+    "selectedBundledModules": [
+      {
+        "module_key": "58180",
+        "factory_require_name": "n",
+        "source_sha256": "70a4758617b42a550c8a0a198b754307f32dde2d08c66807bac304b4fed8e782",
+        "exports": [],
+        "location": {
+          "start": {
+            "line": 2,
+            "column": 38252
+          },
+          "end": {
+            "line": 2,
+            "column": 43356
+          }
+        },
+        "structural_fingerprint_sha256": "5dc567abad7485dbe5dcd75cf1f3bd2d3e977f813cb6de6d263c1597f0af02a8",
+        "structural_fingerprint_algorithm": "babel-ast-v1"
+      },
+      {
+        "module_key": "68221",
+        "factory_require_name": "n",
+        "source_sha256": "f1597d0a7e1c45981e8eb2196e793d059d552c2c53f091cd0eec47b5f10d1d02",
+        "exports": [],
+        "location": {
+          "start": {
+            "line": 2,
+            "column": 61279
+          },
+          "end": {
+            "line": 2,
+            "column": 158549
+          }
+        },
+        "structural_fingerprint_sha256": "2a9710b2ca6c439fe5ceae3ab134fcc6386022dab6e77be1344a15c0075bd0be",
+        "structural_fingerprint_algorithm": "babel-ast-v1"
+      }
+    ]
+  },
+  "plugin": {
+    "file": "htmlVideoPlayer-plugin.02b37b7cfd0e06696bd1.chunk.js",
+    "bytes": 46263,
+    "sha256": "eb20794d5051e092fe39373c8b265fcd60a05f43b61df0b212b3ebe70e52c748",
+    "parentEvidence": "ev_6f82ec543a0319c7300b896cd939400213fe9efa3ebeb9ff36054c236a1711df",
+    "summaryEvidence": "ev_061edc3f448050cafe4204c17287a27fe1bbeac8abcb3e5043d0833f134901ef",
+    "coverage": {
+      "application": {
+        "status": "complete",
+        "truncated": false,
+        "omitted_count": 0,
+        "limits": []
+      },
+      "semantic": {
+        "status": "unknown",
+        "truncated": false,
+        "omitted_nodes": 0,
+        "omitted_relations": 0,
+        "limits": [],
+        "families": [
+          {
+            "family": "boundary",
+            "status": "partial",
+            "retained_relations": 8,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "call-flow",
+            "status": "partial",
+            "retained_relations": 1413,
+            "omitted_relations": 0,
+            "unknown_count": 833
+          },
+          {
+            "family": "child-process",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "closure",
+            "status": "partial",
+            "retained_relations": 1163,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "configuration",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "data-flow",
+            "status": "partial",
+            "retained_relations": 12183,
+            "omitted_relations": 0,
+            "unknown_count": 697
+          },
+          {
+            "family": "event",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "object-flow",
+            "status": "partial",
+            "retained_relations": 789,
+            "omitted_relations": 0,
+            "unknown_count": 1256
+          },
+          {
+            "family": "promise-ownership",
+            "status": "partial",
+            "retained_relations": 93,
+            "omitted_relations": 0,
+            "unknown_count": 25
+          },
+          {
+            "family": "request",
+            "status": "partial",
+            "retained_relations": 1,
+            "omitted_relations": 0,
+            "unknown_count": 1
+          },
+          {
+            "family": "resource-lifecycle",
+            "status": "partial",
+            "retained_relations": 0,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          },
+          {
+            "family": "timer",
+            "status": "partial",
+            "retained_relations": 3,
+            "omitted_relations": 0,
+            "unknown_count": 0
+          }
+        ]
+      },
+      "application_unknowns": 0,
+      "semantic_unknowns": 2812
+    }
+  },
+  "codeLocations": [
+    {
+      "component": "playbackmanager",
+      "source": "src/components/playback/playbackmanager.js",
+      "sourceLines": [
+        419,
+        505
+      ],
+      "shippedModule": "68221",
+      "mechanism": "fresh playback-information negotiation with capability, live-stream and media-source identity"
+    },
+    {
+      "component": "playbackmanager",
+      "source": "src/components/playback/playbackmanager.js",
+      "sourceLines": [
+        3484,
+        3540
+      ],
+      "shippedModule": "68221",
+      "mechanism": "explicit fallback mode flags and current-position carryover; server transcoding not portable to Fotty"
+    },
+    {
+      "component": "htmlMediaHelper",
+      "source": "src/components/htmlMediaHelper.js",
+      "sourceLines": [
+        79,
+        109
+      ],
+      "shippedModule": "58180",
+      "mechanism": "separate media decode recovery cooldown and escalation"
+    },
+    {
+      "component": "htmlMediaHelper",
+      "source": "src/components/htmlMediaHelper.js",
+      "sourceLines": [
+        273,
+        336
+      ],
+      "shippedModule": "58180",
+      "mechanism": "HTTP400plus failure differs from recoverable network/media errors; pre-start reject vs midplay error"
+    },
+    {
+      "component": "htmlVideoPlayer",
+      "source": "src/plugins/htmlVideoPlayer/plugin.js",
+      "sourceLines": [
+        1193,
+        1232
+      ],
+      "shippedModule": "99677",
+      "mechanism": "abort ignored; network/decode/unsupported separately classified"
+    }
+  ],
+  "limits": [
+    "No runtime execution/accounts/media/devices, no successful external playback claim.",
+    "Jellyfin owns its media server; transcoding/remux failover does not restore closed outside publishers.",
+    "Media helper uses module-global recovery dates and a restart branch; do not copy policy as a strict per-attempt budget.",
+    "Fotty already has attempt ownership, bounded recovery and decoded-first-frame ranking; preserve them."
+  ],
+  "discoveryExtension": {
+    "evidence": "Existing shipped main bundle; same REA module68221. Guide source separately reviewed; no new producer.",
+    "entryFlow": [
+      {
+        "sourceLines": [
+          1824,
+          1859
+        ],
+        "shippedLine": 2,
+        "shippedColumn": 102930,
+        "mechanism": "Program.Id is not the playback object. Program.ChannelId resolves exact channel item through getItemsForPlayback."
+      },
+      {
+        "sourceLines": [
+          1038,
+          1062
+        ],
+        "shippedLine": 2,
+        "shippedColumns": [
+          111163,
+          111307
+        ],
+        "mechanism": "Program requires explicit StartDate and EndDate and current interval for canPlay; this is time eligibility, not live-video proof."
+      },
+      {
+        "sourceLines": [
+          419,
+          505
+        ],
+        "shippedLine": 2,
+        "shippedColumn": 96584,
+        "mechanism": "Playback information is negotiated with ItemId, MediaSourceId, LiveStreamId and DeviceProfile; read-only information and actual IsPlayback/AutoOpenLiveStream are explicit."
+      },
+      {
+        "sourceLines": [
+          3011,
+          3048
+        ],
+        "shippedLine": 2,
+        "shippedColumns": [
+          134111,
+          134697
+        ],
+        "mechanism": "RequiresOpening without LiveStreamId obtains a live stream through LiveStreams/Open; selected media is rechecked for direct-play capabilities."
+      }
+    ],
+    "guideSource": {
+      "url": "https://github.com/jellyfin/jellyfin-web/blob/0a580ce8df89282dfd120b6d5efb8e106da23bd5/src/components/guide/guide.js",
+      "sha256": "227d341b4ede6b7b3c6114cdd5738a579415e7cbc3d36e3ff66a2779b45ecc68",
+      "lines": [
+        [
+          186,
+          194
+        ],
+        [
+          305,
+          361
+        ],
+        [
+          463,
+          483
+        ]
+      ],
+      "mechanisms": [
+        "Fetch known channels first, then overlapping programmes with explicit channelIds.",
+        "Join Program.ChannelId===Channel.Id, not similar names.",
+        "Guide refresh15min while active; pause/destroy cancel interval."
+      ],
+      "limits": "Guide source was not added to REA producer; current-time eligibility is not verified live programme delivery."
+    },
+    "fottyRecommendations": [
+      "Maintain an independent exact fixture\u2194provider-advertised-eventID\u2194delivery binding with source provenance/freshness/expiry and preserve it when a sibling catalog disappears.",
+      "Build bounded provider-event indexes from already fetched metadata and join against official fixtures before match detail; refresh advertised descriptors near event windows rather than relying on one master catalog.",
+      "Keep explicit states: scheduled programme, provider match, currently advertised compatible source, and decoded playback; generic channel alone does not establish a fixture source.",
+      "Never copy Jellyfin channel joins to guessed Willow/Fox sports mappings. Fotty requires verified programme identity before attaching a channel to a named fixture."
+    ],
+    "boundary": "Jellyfin controls server/channel identity, tuner credentials, open-stream negotiation and transcoding. Its catalogue cannot supply or guarantee third-party sports streams absent an admitted exact programme/source."
+  }
+}

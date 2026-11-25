@@ -1,7 +1,7 @@
 import type { ScrapedMatch } from "@/lib/api";
 import { formatKickoff } from "@/lib/live";
 
-export type MatchBroadcastStatus = "live" | "upcoming" | "finished" | "unknown";
+type MatchBroadcastStatus = "live" | "upcoming" | "finished" | "unknown";
 
 export interface WatchMatchContext {
   homeName: string;
@@ -32,7 +32,7 @@ function broadcastWindowMs(sport?: string, title?: string) {
   return 4 * 60 * 60 * 1000;
 }
 
-export function deriveMatchBroadcastStatus(
+function deriveMatchBroadcastStatus(
   startsAt?: string,
   apiStatus?: string,
   sport?: string,

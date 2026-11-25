@@ -1,0 +1,11 @@
+{
+  "configuration": "Release",
+  "destination": "generic/platform=iOS",
+  "codeSigning": "disabled",
+  "appAndExistingExtensionCompile": "passed",
+  "newBuildNumberAssigned": false,
+  "installed": false,
+  "published": false,
+  "protectedSourceInputs": 43,
+  "protectedSourceChanges": 0
+}

@@ -10,6 +10,9 @@ class LocalDataStore {
     static let appSchema = Schema([
         FollowedTeamItem.self,
         FollowedLeagueItem.self,
+        // Compatibility tombstones for stores created before the social UI was
+        // retired. Keep the model metadata until a measured schema migration
+        // can remove it without making an existing private install unreadable.
         UserProfile.self,
         SocialAccount.self,
         SocialFollowRelationship.self,
@@ -26,6 +29,8 @@ class LocalDataStore {
     ])
 
     let container: ModelContainer
+    let isUsingVolatileFallback: Bool
+    let initializationErrorDescription: String?
     
     private init() {
         let defaultAppSupportURL = FileManager.default.urls(
@@ -48,8 +53,12 @@ class LocalDataStore {
                 for: Self.appSchema,
                 configurations: configuration
             )
+            isUsingVolatileFallback = false
+            initializationErrorDescription = nil
         } catch {
             print("[LocalDataStore] Failed to initialize persistent store at \(storeURL.path): \(error.localizedDescription)")
+            isUsingVolatileFallback = true
+            initializationErrorDescription = error.localizedDescription
             let memoryConfiguration = ModelConfiguration(
                 schema: Self.appSchema,
                 isStoredInMemoryOnly: true

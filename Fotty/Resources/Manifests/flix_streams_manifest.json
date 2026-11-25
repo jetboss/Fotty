@@ -1,0 +1,11 @@
+{
+  "id": "flix-streams-extension",
+  "name": "FS sources",
+  "providerCode": "flixstreams",
+  "version": "1.0.0",
+  "author": "Fotty Core",
+  "description": "Optional direct deliveries for exactly matched sports fixtures. Off by default.",
+  "iconName": "rectangle.stack.badge.play.fill",
+  "resolutionMode": "native",
+  "allowedDomains": ["free.flixnest.app"]
+}

@@ -1,0 +1,1114 @@
+{
+  "build": "209",
+  "scope": "Jet only, local redacted events; positive continuity is not programme or indefinite uptime proof",
+  "observedAt": "2026-11-01T03:22:26.136706+00:00",
+  "positive90SecondContinuity": {
+    "TV10": true,
+    "TV11": false,
+    "TV12": true,
+    "TV13": true,
+    "TV14": true,
+    "TV15": true
+  },
+  "events": [
+    {
+      "at": "2026-11-01T02:39:47.528120+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV14",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:39:51.468314+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV14",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:39:51.481109+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV14",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:39:57.812584+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV14",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:41:11.682355+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV14",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:41:15.373299+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV14",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:41:15.388214+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV14",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:43:36.236723+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV14",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:43:54.712714+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:43:58.622386+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:43:58.639207+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:44:53.722210+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:44:57.985498+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:02.923682+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:02.961830+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:04.713467+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:07.339059+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV9",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:08.836839+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV9",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:08.849359+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV9",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:11.868443+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV9",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:17.008077+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:19.882071+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:34.933285+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:37.883281+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:41.276794+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:41.293361+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:43.434412+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:45.817120+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV12",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:49.389985+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV12",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:45:49.403133+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV12",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:46:01.998931+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV12",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:48:38.872182+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:48:42.196994+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:48:42.211983+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:50:32.351409+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "decoded",
+        "native_failure_trigger": "stall_timeout",
+        "failure_kind": "stalled",
+        "mode": "native",
+        "relay_retained_failed_count": "0",
+        "relay_playlist_rewritten_change": "advanced",
+        "relay_playlist_rewritten_sequence": "3659",
+        "native_log_domain": "coremedia",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_playlist_metadata_preserved": "true",
+        "source": "TV10",
+        "native_log_code": "-12312",
+        "relay_playlist_upstream_sequence": "3659",
+        "native_log_hls_issue": "segment_uri_changed",
+        "relay_request_http_status": "200"
+      }
+    },
+    {
+      "at": "2026-11-01T02:50:32.384050+00:00",
+      "event": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "source": "TV10",
+        "failure_kind": "stalled",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:52:00.220188+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:52:12.248578+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:52:15.181436+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:52:33.455878+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "media_ready",
+        "failure_kind": "startupTimeout",
+        "mode": "native",
+        "relay_retained_failed_count": "0",
+        "relay_playlist_rewritten_change": "advanced",
+        "relay_playlist_rewritten_sequence": "1528",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_playlist_metadata_preserved": "true",
+        "source": "TV11",
+        "relay_playlist_upstream_sequence": "1528",
+        "relay_request_http_status": "200"
+      }
+    },
+    {
+      "at": "2026-11-01T02:52:33.475276+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:52:36.205755+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:52:53.723135+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "media_ready",
+        "failure_kind": "startupTimeout",
+        "mode": "native",
+        "relay_retained_failed_count": "0",
+        "relay_playlist_rewritten_change": "advanced",
+        "relay_playlist_rewritten_sequence": "1530",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_playlist_metadata_preserved": "true",
+        "source": "TV11",
+        "relay_playlist_upstream_sequence": "1530",
+        "relay_request_http_status": "200"
+      }
+    },
+    {
+      "at": "2026-11-01T02:52:53.759729+00:00",
+      "event": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "source": "TV11",
+        "failure_kind": "startupTimeout",
+        "last_observed_stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:53:15.044148+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "media_ready",
+        "native_failure_trigger": "failed_to_play_to_end",
+        "failure_kind": "sourceFailure",
+        "mode": "native",
+        "relay_retained_failed_count": "0",
+        "relay_playlist_rewritten_change": "advanced",
+        "relay_playlist_rewritten_sequence": "1534",
+        "native_log_domain": "coremedia",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_playlist_metadata_preserved": "true",
+        "source": "TV11",
+        "native_log_code": "-12312",
+        "relay_playlist_upstream_sequence": "1534",
+        "native_log_hls_issue": "segment_uri_changed",
+        "relay_request_http_status": "200"
+      }
+    },
+    {
+      "at": "2026-11-01T02:53:15.076450+00:00",
+      "event": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "source": "TV11",
+        "failure_kind": "sourceFailure",
+        "last_observed_stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:54:18.642265+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:54:31.135570+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV12",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:54:52.804233+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "preparing",
+        "native_failure_trigger": "readiness_timeout",
+        "failure_kind": "startupTimeout",
+        "mode": "native",
+        "relay_retained_failed_count": "0",
+        "relay_playlist_rewritten_change": "unchanged",
+        "relay_playlist_rewritten_sequence": "8447",
+        "relay_playlist_upstream_change": "unchanged",
+        "relay_playlist_metadata_preserved": "true",
+        "source": "TV12",
+        "relay_playlist_upstream_sequence": "8447"
+      }
+    },
+    {
+      "at": "2026-11-01T02:54:52.838528+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV12",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:54:55.757256+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV12",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:54:55.769787+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV12",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:59:16.581699+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV12",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:59:31.348279+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:59:34.695252+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T02:59:34.712979+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:00:39.249715+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "decoded",
+        "native_failure_trigger": "stall_timeout",
+        "failure_kind": "stalled",
+        "mode": "native",
+        "relay_retained_failed_count": "0",
+        "relay_playlist_rewritten_sequence": "8489",
+        "relay_playlist_rewritten_change": "advanced",
+        "native_log_domain": "coremedia",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_playlist_metadata_preserved": "true",
+        "source": "TV13",
+        "native_log_code": "-12312",
+        "relay_playlist_upstream_sequence": "8489",
+        "native_log_hls_issue": "segment_uri_changed",
+        "relay_request_http_status": "200"
+      }
+    },
+    {
+      "at": "2026-11-01T03:00:39.263843+00:00",
+      "event": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "source": "TV13",
+        "failure_kind": "stalled",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:01:48.696928+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:02:03.497620+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV15",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:02:08.492084+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV15",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:02:08.778366+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV15",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:07:08.396360+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV15",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:07:45.978568+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:07:52.814225+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:07:52.846550+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:08:16.034524+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "decoded",
+        "native_failure_trigger": "stall_timeout",
+        "failure_kind": "stalled",
+        "mode": "native",
+        "relay_retained_failed_count": "0",
+        "relay_playlist_rewritten_sequence": "8532",
+        "relay_playlist_rewritten_change": "unchanged",
+        "relay_playlist_upstream_change": "unchanged",
+        "relay_playlist_metadata_preserved": "true",
+        "source": "TV13",
+        "relay_playlist_upstream_sequence": "8532"
+      }
+    },
+    {
+      "at": "2026-11-01T03:08:16.069099+00:00",
+      "event": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "source": "TV13",
+        "failure_kind": "stalled",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:08:27.448568+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "decoded",
+        "native_failure_trigger": "failed_to_play_to_end",
+        "failure_kind": "sourceFailure",
+        "mode": "native",
+        "relay_retained_failed_count": "1",
+        "relay_playlist_rewritten_change": "unchanged",
+        "relay_playlist_rewritten_sequence": "8532",
+        "relay_playlist_upstream_change": "unchanged",
+        "relay_playlist_metadata_preserved": "true",
+        "source": "TV13",
+        "relay_playlist_upstream_sequence": "8532"
+      }
+    },
+    {
+      "at": "2026-11-01T03:08:27.481462+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:08:30.825087+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:08:30.839221+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:10:59.656413+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:11:19.156990+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:11:22.109807+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:11:40.361212+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "media_ready",
+        "failure_kind": "startupTimeout",
+        "mode": "native",
+        "relay_retained_failed_count": "0",
+        "relay_playlist_rewritten_change": "advanced",
+        "relay_playlist_rewritten_sequence": "1642",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_playlist_metadata_preserved": "true",
+        "source": "TV11",
+        "relay_playlist_upstream_sequence": "1642",
+        "relay_request_http_status": "200"
+      }
+    },
+    {
+      "at": "2026-11-01T03:11:40.382348+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:11:43.375783+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:12:00.713435+00:00",
+      "event": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "media_ready",
+        "failure_kind": "startupTimeout",
+        "mode": "native",
+        "relay_retained_failed_count": "0",
+        "relay_playlist_rewritten_sequence": "1644",
+        "relay_playlist_rewritten_change": "advanced",
+        "relay_playlist_upstream_change": "advanced",
+        "relay_playlist_metadata_preserved": "true",
+        "source": "TV11",
+        "relay_playlist_upstream_sequence": "1644",
+        "relay_request_http_status": "200"
+      }
+    },
+    {
+      "at": "2026-11-01T03:12:00.744796+00:00",
+      "event": "terminal_failure",
+      "outcome": "failure",
+      "details": {
+        "source": "TV11",
+        "failure_kind": "startupTimeout",
+        "last_observed_stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:13:32.118063+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV11",
+        "last_observed_stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:16:23.925925+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:16:27.134472+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:16:27.157744+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:19:07.758223+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV10",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:20:19.027335+00:00",
+      "event": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "preparing",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:20:22.343554+00:00",
+      "event": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "media_ready",
+        "stage": "media_ready",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:20:22.356180+00:00",
+      "event": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-01T03:21:16.098016+00:00",
+      "event": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source": "TV13",
+        "last_observed_stage": "decoded",
+        "mode": "native",
+        "source_family": "reviewedtv"
+      }
+    }
+  ],
+  "favouritesCount": 0,
+  "recentCount": 0
+}

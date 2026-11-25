@@ -1,0 +1,41 @@
+{
+  "localDate": "2026-10-28",
+  "finishedUTC": "2026-10-29T01:48:21.773854+00:00",
+  "installed": "Jet iPad 2.0.1(184)",
+  "installationOnly": true,
+  "normalAppLaunchedAfterInstall": false,
+  "newPhysicalPlaybackTests": "deferred by owner",
+  "beforeAfterInstallPreferencesUnchanged": 34,
+  "nativeAggregate": {
+    "passed": 75,
+    "failed": 0,
+    "skipped": 0
+  },
+  "csAggregateSeparateRun": {
+    "passed": 117,
+    "failed": 0,
+    "skipped": 0
+  },
+  "buildInputsVerified": 314,
+  "protectedFeatureHashesUnchanged": 43,
+  "bundledPathsChangedThisGate": [
+    "Fotty.xcodeproj/project.pbxproj",
+    "Fotty/Features/Player/LivePlayerViewModel.swift",
+    "FottyTests/CommunitySportsAddonTests.swift",
+    "FottyTests/NativePlaybackPreparationTests.swift",
+    "project.yml"
+  ],
+  "phoneTouched": false,
+  "testFlightRelease": false,
+  "sourceDefaultsChanged": false,
+  "cloudOrGitPublished": false,
+  "localMemoryFinish": "passed",
+  "openUpstreamGates": [
+    "CNC current empty HLS shell; no compatible delivery qualified",
+    "CS explicit next-day NHL publication; date guard retained"
+  ],
+  "remainingPhysicalGates": [
+    "184 actual live decode, fullscreen and PiP round trip",
+    "live Premier League, Champions League and cricket qualification"
+  ]
+}

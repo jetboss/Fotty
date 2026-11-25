@@ -73,7 +73,10 @@ public struct FPLLiveSquadSummary: Sendable {
     public let gameweek: Int
     /// Nil means unknown. A partial feed must never manufacture a zero total.
     public let totalPoints: Int?
+    /// Legacy compatibility: published raw score, or an already-net calculation.
+    /// New presentation code must use the explicit raw/net properties below.
     public let officialCurrentPoints: Int?
+    /// Player-derived published lineup contribution, already after transfer cost.
     public let publishedLineupPoints: Int?
     public let hasCompleteScoringData: Bool
     public let transferCost: Int
@@ -85,6 +88,36 @@ public struct FPLLiveSquadSummary: Sendable {
     public let projectedCaptainElementID: Int?
     public let rows: [FPLLiveSquadPlayer]
     public let isFinal: Bool
+    /// Independently published GW points only. Nil never means a derived fallback.
+    /// Default keeps existing fixture/memberwise initializers source-compatible.
+    public var officialPointsBeforeTransfers: Int? = nil
+
+    public var officialNetPoints: Int? {
+        officialPointsBeforeTransfers.map { $0 - transferCost } ?? publishedLineupPoints
+    }
+
+    public var projectionBaselineLabel: String {
+        officialPointsBeforeTransfers == nil ? "DERIVED LINEUP NET"
+            : (transferCost > 0 ? "PUBLISHED NET" : "PUBLISHED POINTS")
+    }
+
+    public var projectionPointChange: Int? {
+        guard pointsAreProjected, let totalPoints, let baseline = officialNetPoints else { return nil }
+        return totalPoints - baseline
+    }
+
+    public var scoringBasisDescription: String {
+        if let raw = officialPointsBeforeTransfers {
+            if transferCost > 0, let net = officialNetPoints {
+                return "FPL published \(raw) points before the \(transferCost)-point transfer cost; the published net contribution is \(net)."
+            }
+            return "FPL published \(raw) gameweek points with no transfer-point deduction."
+        }
+        if let net = officialNetPoints {
+            return "Calculated from the published lineup: \(net) net points after transfer costs. An independent published GW total is not available."
+        }
+        return "No published GW total or complete lineup calculation is available."
+    }
 
     public var pointsAreProjected: Bool {
         hasCompleteScoringData && !isFinal

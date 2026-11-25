@@ -3,6 +3,14 @@
 # Requires: FOTTY_FTP_PASSWORD in the environment (never commit it).
 set -euo pipefail
 
+# PARKED 2026-11-08: getfotty.com is offline until the iOS app is stable.
+# This script also uses plaintext FTP (password sent unencrypted). Before any
+# relaunch, move the static site to Cloudflare Pages or switch to FTP_TLS.
+if [[ "${FOTTY_WEB_UNPARK:-}" != "1" ]]; then
+  echo "getfotty.com deploys are parked (see docs/operations/Website-Parked.md)." >&2
+  exit 1
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WEB_DIR="${ROOT_DIR}/web"
 OUT_DIR="${WEB_DIR}/out"

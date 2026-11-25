@@ -1,0 +1,132 @@
+[
+  {
+    "name": "testCancelledExplicitRefreshCannotContinueToCatalogOrDescriptor()",
+    "identifier": "ExplicitRetryAdapterFreshnessTests/testCancelledExplicitRefreshCannotContinueToCatalogOrDescriptor()",
+    "result": "Passed"
+  },
+  {
+    "name": "testExplicitRetryBypassesMissingMetadataCachesAcrossAllThreeAdapters()",
+    "identifier": "ExplicitRetryAdapterFreshnessTests/testExplicitRetryBypassesMissingMetadataCachesAcrossAllThreeAdapters()",
+    "result": "Passed"
+  },
+  {
+    "name": "testExplicitRetryCannotReuseCachedIdentityAfterPublishedFixtureChanges()",
+    "identifier": "ExplicitRetryAdapterFreshnessTests/testExplicitRetryCannotReuseCachedIdentityAfterPublishedFixtureChanges()",
+    "result": "Passed"
+  },
+  {
+    "name": "testAlternativeEligibilityRequiresCurrentBindingDeliveryValidationIdentityAndPositiveEvidence()",
+    "identifier": "SingleNativeFallbackPolicyTests/testAlternativeEligibilityRequiresCurrentBindingDeliveryValidationIdentityAndPositiveEvidence()",
+    "result": "Passed"
+  },
+  {
+    "name": "testAlternativeRejectsCorrectedOrTerminalFixtureEvenWithPositivePlayback()",
+    "identifier": "SingleNativeFallbackPolicyTests/testAlternativeRejectsCorrectedOrTerminalFixtureEvenWithPositivePlayback()",
+    "result": "Passed"
+  },
+  {
+    "name": "testFreshDecodedAlternativeUsesActualHealthAndAllowsBoundWebOrNilDeliveryExpiry()",
+    "identifier": "SingleNativeFallbackPolicyTests/testFreshDecodedAlternativeUsesActualHealthAndAllowsBoundWebOrNilDeliveryExpiry()",
+    "result": "Passed"
+  },
+  {
+    "name": "testInitialTVReadinessTimeoutUsesAlreadyAdmittedDecodedCSBeforeRetryingTV()",
+    "identifier": "SingleNativeFallbackPolicyTests/testInitialTVReadinessTimeoutUsesAlreadyAdmittedDecodedCSBeforeRetryingTV()",
+    "result": "Passed"
+  },
+  {
+    "name": "testMissingExpiredMismatchedOrAlreadyFailedAlternativePreservesTheSelectedTVRetry()",
+    "identifier": "SingleNativeFallbackPolicyTests/testMissingExpiredMismatchedOrAlreadyFailedAlternativePreservesTheSelectedTVRetry()",
+    "result": "Passed"
+  },
+  {
+    "name": "testProvenAlternativeDoesNotChangeSharedOrNativeWatchTwoStartupRetry()",
+    "identifier": "SingleNativeFallbackPolicyTests/testProvenAlternativeDoesNotChangeSharedOrNativeWatchTwoStartupRetry()",
+    "result": "Passed"
+  },
+  {
+    "name": "testAlertRetryAfterFreshLookupFailureKeepsProgressCancellationAndOwnerFences()",
+    "identifier": "SingleRetryDiscoveryTests/testAlertRetryAfterFreshLookupFailureKeepsProgressCancellationAndOwnerFences()",
+    "result": "Passed"
+  },
+  {
+    "name": "testCurrentAdmissionChangeVetoesFreshRetryBeforeOrAfterDiscovery()",
+    "identifier": "SingleRetryDiscoveryTests/testCurrentAdmissionChangeVetoesFreshRetryBeforeOrAfterDiscovery()",
+    "result": "Passed"
+  },
+  {
+    "name": "testDuplicateRetrySharesOneLookupAndCancellationRejectsLateChoices()",
+    "identifier": "SingleRetryDiscoveryTests/testDuplicateRetrySharesOneLookupAndCancellationRejectsLateChoices()",
+    "result": "Passed"
+  },
+  {
+    "name": "testFailureOnlyCompletionCannotPublishAnAlertForChangedRetryOwnership()",
+    "identifier": "SingleRetryDiscoveryTests/testFailureOnlyCompletionCannotPublishAnAlertForChangedRetryOwnership()",
+    "result": "Passed"
+  },
+  {
+    "name": "testHealthyRetiredOtherOwnerAndNonSingleContextCannotStartFreshRetry()",
+    "identifier": "SingleRetryDiscoveryTests/testHealthyRetiredOtherOwnerAndNonSingleContextCannotStartFreshRetry()",
+    "result": "Passed"
+  },
+  {
+    "name": "testLateRetryCannotUndoBackgroundCancelledAttemptOrManualReplacement()",
+    "identifier": "SingleRetryDiscoveryTests/testLateRetryCannotUndoBackgroundCancelledAttemptOrManualReplacement()",
+    "result": "Passed"
+  },
+  {
+    "name": "testObsoleteAlertRetryCannotGrantAFreshOwnerAfterAttemptOrBackgroundChanged()",
+    "identifier": "SingleRetryDiscoveryTests/testObsoleteAlertRetryCannotGrantAFreshOwnerAfterAttemptOrBackgroundChanged()",
+    "result": "Passed"
+  },
+  {
+    "name": "testRetrySupersedesOrdinaryDiscoveryAfterAnEarlyChoiceHasFailed()",
+    "identifier": "SingleRetryDiscoveryTests/testRetrySupersedesOrdinaryDiscoveryAfterAnEarlyChoiceHasFailed()",
+    "result": "Passed"
+  },
+  {
+    "name": "testRetryUsesFreshDiscoveryAndReplacesFailedOwnerOnlyWhenNewChoicesArrive()",
+    "identifier": "SingleRetryDiscoveryTests/testRetryUsesFreshDiscoveryAndReplacesFailedOwnerOnlyWhenNewChoicesArrive()",
+    "result": "Passed"
+  },
+  {
+    "name": "testWatchReopensMountedOwnerWhileItsOriginalLateSourceLanesAreStillPending()",
+    "identifier": "SingleRetryDiscoveryTests/testWatchReopensMountedOwnerWhileItsOriginalLateSourceLanesAreStillPending()",
+    "result": "Passed"
+  },
+  {
+    "name": "testCancellationDuringAdmissionCannotPublishAStaleErrorOrReachDiscovery()",
+    "identifier": "WatchTapAcknowledgementTests/testCancellationDuringAdmissionCannotPublishAStaleErrorOrReachDiscovery()",
+    "result": "Passed"
+  },
+  {
+    "name": "testCancelledPendingWatchDoesNotRunDelayedAdmissionOrDiscovery()",
+    "identifier": "WatchTapAcknowledgementTests/testCancelledPendingWatchDoesNotRunDelayedAdmissionOrDiscovery()",
+    "result": "Passed"
+  },
+  {
+    "name": "testExpiredWatchActionAcknowledgesThenRejectsVisiblyWithoutResolving()",
+    "identifier": "WatchTapAcknowledgementTests/testExpiredWatchActionAcknowledgesThenRejectsVisiblyWithoutResolving()",
+    "result": "Passed"
+  },
+  {
+    "name": "testSupersedingWatchCannotPublishOrResolveTheEarlierTap()",
+    "identifier": "WatchTapAcknowledgementTests/testSupersedingWatchCannotPublishOrResolveTheEarlierTap()",
+    "result": "Passed"
+  },
+  {
+    "name": "testTerminalOrConflictingCurrentFixtureCannotStartAfterAcknowledgement()",
+    "identifier": "WatchTapAcknowledgementTests/testTerminalOrConflictingCurrentFixtureCannotStartAfterAcknowledgement()",
+    "result": "Passed"
+  },
+  {
+    "name": "testTVDefersCurrentCatalogReadUntilPendingFeedbackExists()",
+    "identifier": "WatchTapAcknowledgementTests/testTVDefersCurrentCatalogReadUntilPendingFeedbackExists()",
+    "result": "Passed"
+  },
+  {
+    "name": "testWatchReservesVisiblePendingStateBeforeAdmissionOrDiscoveryAndDeduplicatesTaps()",
+    "identifier": "WatchTapAcknowledgementTests/testWatchReservesVisiblePendingStateBeforeAdmissionOrDiscoveryAndDeduplicatesTaps()",
+    "result": "Passed"
+  }
+]

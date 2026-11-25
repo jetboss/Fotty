@@ -28,7 +28,13 @@ export function useFootballLeaguePreference(
 
   useEffect(() => {
     if (readFootballLeaguePreference() !== null) return;
-    setLeagueState(defaultTab);
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setLeagueState(defaultTab);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [defaultTab]);
 
   useEffect(() => {

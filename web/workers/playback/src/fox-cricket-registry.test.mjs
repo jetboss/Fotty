@@ -201,3 +201,24 @@ test("reviewed Fox matching makes no entitlement claim and explicit access restr
   const ambiguous = associateBroadcasts({ ...parameters, fixtures: [f, fixture({ fixtureID: "cricket-fixture:ca:40632" })], programmePolicies });
   assert.ok(ambiguous.every((l) => l.state !== "listed"));
 });
+
+test("a current Fox Abu Dhabi T10 programme links only to its unique live ESPN T10 fixture", async () => {
+  const at = new Date("2026-11-11T14:20:00Z");
+  const page = `<div class="epg-channel-logo"><img alt="501 FOX CRICKET HD" src="https://www.foxtel.com.au/content/dam/foxtel/shared/channel/FS1/FS1_290x170.png"></div>
+<div id="epg-channel-events"><a class="epg-channel-event-row" href="Programme/183944599" data-scheduled-date="${Date.parse("2026-11-11T13:40:00Z")}"><div class="epg-event-description">Live: Abu Dhabi T10 League: Champions v<div>Champions v Bulls</div></div></a>
+<a class="epg-channel-event-row" href="Programme/183944600" data-scheduled-date="${Date.parse("2026-11-11T15:55:00Z")}"><div class="epg-event-description">Live: Abu Dhabi T10 League: Aces v Lions<div>Aces v Lions</div></div></a></div>`;
+  const rows = await foxCricketBroadcasts(page, { now: at });
+  assert.equal(rows.length, 1); assert.equal(isFoxCricketProgramme(rows[0], "reviewedtv"), true);
+  const normalized = await normalizeBroadcastCollection("reviewedtv", { providerCode: "reviewedtv", observedAt: at.toISOString(),
+    broadcasts: rows, scopes: [{ scope: "cricket", complete: true, status: "available" }] }, at);
+  const t10 = (changes = {}) => ({ fixtureID: "cricket-fixture:espn-cricket:1561260", verified: true, sport: "cricket",
+    competitionID: "abu-dhabi-t10", participants: ["Royal Desert Champions", "UAE Bulls"], format: "T10",
+    status: "live", start: "2026-11-11T13:45:00.000Z", observedAt: at.toISOString(), ...changes });
+  const run = (fixture) => associateBroadcasts({ fixtures: [fixture], broadcasts: normalized.broadcasts, providers: normalized.scopes, now: at });
+  const linked = run(t10());
+  assert.equal(linked.length, 1); assert.equal(linked[0].state, "listed"); assert.equal(linked[0].matchMethod, "programme");
+  for (const changes of [{ status: "finished" }, { format: "T20" }, { competitionID: "other" },
+    { fixtureID: "cricket-fixture:icc:1" }, { observedAt: "2026-11-11T13:00:00Z" }, { start: "2026-11-11T09:00:00.000Z" }]) {
+    assert.ok(run(t10(changes)).every((l) => l.state !== "listed"), JSON.stringify(changes));
+  }
+});

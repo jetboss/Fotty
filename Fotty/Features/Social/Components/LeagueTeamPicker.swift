@@ -45,7 +45,7 @@ struct LeagueTeamPicker: View {
             }
 
             if isLoading {
-                ProgressView("Loading current club catalog…")
+                ProgressView("Loading current teams…")
                     .frame(maxWidth: .infinity, minHeight: 200)
                     .tint(FottyTheme.accentText)
             } else if let errorMessage {
@@ -130,32 +130,18 @@ struct LeagueTeamPicker: View {
         } label: {
             VStack(spacing: 10) {
                 ZStack {
-                    Circle()
-                        .fill(FottyTheme.surfaceElevated)
-                        .frame(width: 64, height: 64)
-
-                    if let url = team.badgeURL {
-                        AsyncImage(url: url) { phase in
-                            if let image = phase.image {
-                                image.resizable().scaledToFit()
-                            } else if phase.error != nil {
-                                Image(systemName: "sportscourt").foregroundStyle(FottyTheme.textTertiary)
-                            } else {
-                                ProgressView().tint(FottyTheme.accentText)
-                            }
-                        }
-                        .frame(width: 44, height: 44)
-                    } else {
-                        Image(systemName: "sportscourt")
-                            .font(.title2)
-                            .foregroundStyle(FottyTheme.textTertiary)
-                    }
+                    TeamBadgeWindow(
+                        teamName: team.teamName,
+                        badgeURL: team.badgeURL,
+                        size: 58,
+                        triggerSearch: true
+                    )
 
                     if isFollowed {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(FottyTheme.accentText)
                             .background(Circle().fill(.white))
-                            .offset(x: 22, y: -22)
+                            .offset(x: 23, y: -23)
                     }
                 }
 
@@ -225,7 +211,7 @@ struct LeagueTeamPicker: View {
         isLoading = false
 
         if teams.isEmpty {
-            errorMessage = "The live club catalog for \(league) could not be loaded."
+            errorMessage = "The current teams for \(league) could not be loaded."
         }
     }
 

@@ -1,0 +1,210 @@
+{
+  "scope": "Static APK compiled-resource declarations only; no execution, network, media fetching, decryption or native edits.",
+  "subject_sha256": "810634a3757a9ab1bfc37fb7a48fa7928fe917befd9ef0619f65eeb88173ad4a",
+  "rea_artifact_evidence": "ev_d67fe64cb6a1174ad6a0aca7c0f80a5570a0737533c66237d85fc146ee266c6e",
+  "rea_android_package_evidence": "ev_0e5cf86441854e084bb884dd70198aef5f39bd22066dac80c7e9dad3b98dfe67",
+  "resources_arsc": {
+    "sha256": "e9d84b076f7816bd7e6638d2e0d729401c4cbd13f567143a2f33d233752613c3",
+    "zip_local_header_offset": 31785303,
+    "uncompressed_size": 1649964
+  },
+  "coverage": {
+    "compiled_ui_xml_members_decoded": 232,
+    "uncompressed_ui_xml_bytes": 336676,
+    "types": [
+      "layout",
+      "menu",
+      "xml"
+    ],
+    "cap_bytes": 4194304
+  },
+  "quality_array": {
+    "resource_id": "0x7f03000a",
+    "entry_offset": 698228,
+    "member": "resources.arsc",
+    "values": [
+      "Always Ask",
+      "Auto",
+      "SD/Low",
+      "MD/Medium",
+      "HD/High"
+    ]
+  },
+  "facts": [
+    {
+      "member": "res/19tiigm9.xml",
+      "resource_id": "0x7f160003",
+      "member_sha256": "35ddd77dbc90f791c040577fb8a2c362b7af89892228ef71f302697476e81101",
+      "zip_local_header_offset": 29520034,
+      "uncompressed_xml_offsets": [
+        4012,
+        4252
+      ],
+      "observation": "Video Player and optional Stream Quality preferences"
+    },
+    {
+      "member": "res/2142s9da.xml",
+      "resource_id": "0x7f0f0001",
+      "member_sha256": "9d1df27aa73bdd8676dc58da84d07797dad7ed3451b2e259365c5d7eed42ee36",
+      "zip_local_header_offset": 30036893,
+      "uncompressed_xml_offsets": [
+        632,
+        752,
+        1192,
+        1332,
+        1612
+      ],
+      "observation": "Separate Live Channels / Live Events and contextual channel/report/status actions"
+    },
+    {
+      "member": "res/1e3ij1uS.xml",
+      "resource_id": "0x7f0d0022",
+      "member_sha256": "ed84e657789532345ab7f7ff513aa8e935ec9fc26400da49efcd70eabfe8d6aa",
+      "zip_local_header_offset": 29620077,
+      "uncompressed_xml_offsets": [
+        504,
+        600
+      ],
+      "observation": "IjkVideoView declared match-parent in both dimensions"
+    },
+    {
+      "member": "res/1pbfe7g8.xml",
+      "resource_id": "0x7f0d00cb",
+      "member_sha256": "d14d5029596698af0f181d70d33663961e1ba4cf6865226a7264a3b3bcbf84de",
+      "zip_local_header_offset": 29889234,
+      "uncompressed_xml_offsets": [
+        6276,
+        6736
+      ],
+      "observation": "Packaged play/pause and stretching controls"
+    },
+    {
+      "member": "res/gcli2b.xml",
+      "resource_id": "0x7f0d002d",
+      "member_sha256": "812063dd2de6241a2cb075a4ea17f324bb11add13c2464a79bc7eb4c7974a6b9",
+      "zip_local_header_offset": 31411480,
+      "uncompressed_xml_offsets": [
+        3064,
+        4008,
+        5220
+      ],
+      "observation": "Separate refreshing/loading/retry view declarations"
+    },
+    {
+      "member": "res/cdju0fy.xml",
+      "resource_id": "0x7f0d0023",
+      "member_sha256": "0ef520b97ae573a2fcbea07f99b6582d9e798156bf1508c7499c27fc5782508a",
+      "zip_local_header_offset": 31196437,
+      "uncompressed_xml_offsets": [
+        1356,
+        1676
+      ],
+      "observation": "Sticky channel grid and no-channels empty state"
+    },
+    {
+      "member": "res/2avha69S.xml",
+      "resource_id": "0x7f0d003c",
+      "member_sha256": "a1be3ca3426f35f45fa7ae5bf96174b5a0286e795ba6fe812c362995c126d12e",
+      "zip_local_header_offset": 30218916,
+      "uncompressed_xml_offsets": [
+        1788,
+        2032
+      ],
+      "observation": "Schedule-empty and live-event-only availability copy"
+    },
+    {
+      "member": "res/1pp11irJ.xml",
+      "resource_id": "0x7f0d00cf",
+      "member_sha256": "4d3d571aef554d98e42528ff235328969c997d0e2cbbc08f53ff53258776d893",
+      "zip_local_header_offset": 29895370,
+      "uncompressed_xml_offsets": [
+        636,
+        796
+      ],
+      "observation": "Specific-link selection text/spinner exist, initially GONE"
+    }
+  ],
+  "limits": [
+    "UI declarations do not prove which view is reachable, displayed at runtime or its transition behavior.",
+    "Auto quality label does not establish adaptive bitrate algorithm or multiple actual renditions.",
+    "No catalog/cache/retry/source-scraping algorithms were recovered.",
+    "Most resource names are obfuscated; SDK-only resources are not assumed app features.",
+    "No source URLs, tokens, endpoint credentials or opaque protected asset payloads retained."
+  ],
+  "comparison": {
+    "already_present_in_fotty": [
+      {
+        "claim": "Optional same-player Auto/Data Saver control exists; single-rendition streams are retained.",
+        "path": "Fotty/Features/Player/SinglePlaybackQualityPolicy.swift",
+        "lines": [
+          43,
+          60,
+          72,
+          74,
+          164,
+          176
+        ]
+      },
+      {
+        "claim": "Existing unified source picker has grouped sources, active/error states and switching; there is no evidence to replace it with an extra link-selection step.",
+        "path": "Fotty/Features/Player/Components/LiveStreamSelectorSheet.swift",
+        "lines": [
+          104,
+          147,
+          304,
+          319
+        ]
+      },
+      {
+        "claim": "Playback report already seeds safe match, opaque source/option and stage context.",
+        "path": "Fotty/Features/Player/SinglePlaybackFeedbackContext.swift",
+        "lines": [
+          14,
+          29
+        ]
+      }
+    ],
+    "remaining_gaps": [
+      {
+        "classification": "Confirmed display mismatch when verified programme data exists",
+        "claim": "Cricket channels heading always prints Programme not confirmed, independent of fresh accepted programme evidence.",
+        "path": "Fotty/Features/Dashboard/SportsDashboardView.swift",
+        "lines": [
+          1685,
+          1703
+        ],
+        "recommendation": "Drive programme identity/currentness from accepted registry association; retain unconfirmed only when no verified association. Do not infer a match from channel availability."
+      },
+      {
+        "classification": "Deliberate current design / product opportunity, not faulty code",
+        "claim": "Data Saver is item/session-local and resets to Auto on invalidation/source replacement. A user who changes source on a weak connection must choose it again.",
+        "path": "Fotty/Features/Player/SinglePlaybackQualityPolicy.swift",
+        "lines": [
+          72,
+          80,
+          180,
+          191
+        ],
+        "recommendation": "Consider a device-local preferred quality intention, applied only after each new stream proves alternate renditions; never suppress fixed-quality sources or claim a bandwidth guarantee."
+      },
+      {
+        "classification": "Confirmed limited presentation contract / targeted UX improvement",
+        "claim": "An empty source picker receives only a checking boolean and emits one no-supported-sources message; it cannot represent offline/provider fetch failure versus an event with no listing.",
+        "path": "Fotty/Features/Player/Components/LiveStreamSelectorSheet.swift",
+        "lines": [
+          7,
+          15,
+          153,
+          158
+        ],
+        "recommendation": "Pass a typed existing discovery failure/empty reason into the same picker and recovery surface. Show a short retryable connection failure only when observed; no permanent health banner and no Check Streams button."
+      }
+    ],
+    "not_established": [
+      "LiveNetTV automatic retry/caching/EPG matching implementation",
+      "LiveNetTV bitrate adaptation or actual working channel/source count",
+      "Actual visibility/reachability/performance of packaged layouts",
+      "Any business refresh logic inside protected payloads"
+    ]
+  }
+}

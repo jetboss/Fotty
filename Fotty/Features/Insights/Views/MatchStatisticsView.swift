@@ -8,15 +8,16 @@ struct MatchStatisticsView: View {
             HStack {
                 Image(systemName: "chart.bar.fill")
                     .foregroundStyle(FottyTheme.accentText)
-                Text("MATCH STATISTICS")
-                    .font(.system(size: 12, weight: .black))
-                    .tracking(1)
+                Text("Match statistics")
+                    .font(FottyTheme.typeModuleTitle)
+                    .foregroundStyle(FottyTheme.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
             }
             
             VStack(spacing: 20) {
                 if stats.isEmpty {
                     Text("Detailed stats available after kickoff")
-                        .font(.system(size: 12))
+                        .font(FottyTheme.typeMeta)
                         .foregroundStyle(FottyTheme.textTertiary)
                         .padding()
                 } else {
@@ -34,20 +35,24 @@ struct MatchStatisticsView: View {
 
 struct StatRow: View {
     let stat: FottyStatistic
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     
     var body: some View {
         VStack(spacing: 8) {
+            if dynamicTypeSize.isAccessibilitySize {
+                statisticTitle
+            }
             HStack {
                 Text(stat.homeValue)
-                    .font(.system(size: 14, weight: .black, design: .rounded))
+                    .font(.body.weight(.semibold))
                 Spacer()
-                Text(stat.type.uppercased())
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(FottyTheme.textSecondary)
+                if !dynamicTypeSize.isAccessibilitySize { statisticTitle }
                 Spacer()
                 Text(stat.awayValue)
-                    .font(.system(size: 14, weight: .black, design: .rounded))
+                    .font(.body.weight(.semibold))
             }
+            .foregroundStyle(FottyTheme.textPrimary)
+            .monospacedDigit()
             
             GeometryReader { geo in
                 HStack(spacing: 4) {
@@ -61,6 +66,18 @@ struct StatRow: View {
                 }
             }
             .frame(height: 4)
+            .accessibilityHidden(true)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(stat.type)
+        .accessibilityValue("Home \(stat.homeValue), away \(stat.awayValue)")
+    }
+
+    private var statisticTitle: some View {
+        Text(stat.type)
+            .font(FottyTheme.typeMeta.weight(.semibold))
+            .foregroundStyle(FottyTheme.textSecondary)
+            .multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

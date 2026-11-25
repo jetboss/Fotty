@@ -1,0 +1,1572 @@
+[
+  {
+    "path": "Fotty.xcodeproj/project.pbxproj",
+    "sha256": "804111111559c1075f432e0d30e982583a2c6455c741b8103b9bd88a5d84ce18",
+    "bytes": 174162
+  },
+  {
+    "path": "Fotty.xcodeproj/project.xcworkspace/contents.xcworkspacedata",
+    "sha256": "7f3b00b5c3fdb45242d7b87e1e5c4e25d1fa8129a16c94295ecc4e8ea2235c5f",
+    "bytes": 135
+  },
+  {
+    "path": "Fotty.xcodeproj/xcshareddata/xcschemes/Fotty.xcscheme",
+    "sha256": "24fa17cdca585d09a7c7e46295ef81cd4e09267fda513634edac1c85b0b01e84",
+    "bytes": 5678
+  },
+  {
+    "path": "Fotty.xcodeproj/xcshareddata/xcschemes/FottyFoundationUI.xcscheme",
+    "sha256": "b42b40a1d7e86857d31176306c6107eb4c0fa4c3a7436a64a2be7fa2d4c33c38",
+    "bytes": 4647
+  },
+  {
+    "path": "Fotty/App/FottyApp.swift",
+    "sha256": "34d0fa0ab4ce802de1b88ce5c334b16e5b1423c719bc37c098fe8a767f61da03",
+    "bytes": 3205
+  },
+  {
+    "path": "Fotty/App/MainTabView.swift",
+    "sha256": "bf12af8a3ee20fed8442ca09a0f5058a00f041c094a015851cf6b62d03caf938",
+    "bytes": 11065
+  },
+  {
+    "path": "Fotty/Assets/Fallbacks/stadium_basketball.png",
+    "sha256": "5c238005e77dc0a5e27fd26f68e5d9ab674d012dd0c5c9b84e5dc68df4c16095",
+    "bytes": 1965052
+  },
+  {
+    "path": "Fotty/Assets/Fallbacks/stadium_football.png",
+    "sha256": "403c47dff0ceebf161364050209764282f5b491dbe19279fbd19fe07fa9fe392",
+    "bytes": 1955209
+  },
+  {
+    "path": "Fotty/Assets/Fallbacks/stadium_general.png",
+    "sha256": "35377fd55ecec8234931158cb77b4112c5cd00648b61e9d817a7b1ac72ba347c",
+    "bytes": 1795497
+  },
+  {
+    "path": "Fotty/Core/Config.swift",
+    "sha256": "4057caae9904ee00b72d988b042b6e94edfc1a658bce70a059bc6a2eb8ee7b55",
+    "bytes": 14284
+  },
+  {
+    "path": "Fotty/Core/Continuity/SportsContinuityBridge.swift",
+    "sha256": "14e55e4438f4085e2a244008f1d9321d9673d2beab47b5affa2ba00c31019aa5",
+    "bytes": 28886
+  },
+  {
+    "path": "Fotty/Core/Continuity/SportsHandoff.swift",
+    "sha256": "57fcfe59607e78b245681c8b0912bf13f6212345b8cfaf5a503af28d14ef3dce",
+    "bytes": 13119
+  },
+  {
+    "path": "Fotty/Core/Continuity/SportsPreferenceSync.swift",
+    "sha256": "435ca4f7bf129f5689908df2b688e706325c5b335e56f61d4209535b40ce1a42",
+    "bytes": 30526
+  },
+  {
+    "path": "Fotty/Core/Continuity/SportsWidgetSnapshot.swift",
+    "sha256": "f0fab917fd0727d96b151bb2d9c0d8f2a3e343c3b1ec9bf157eca4c702f55fe5",
+    "bytes": 6623
+  },
+  {
+    "path": "Fotty/Core/Continuity/SportsWidgetSnapshotStore.swift",
+    "sha256": "88d9b45df3db84092143fb722605fd4b951bd5899b3d5564845b0810a0129c61",
+    "bytes": 1011
+  },
+  {
+    "path": "Fotty/Core/Data/FootballCompetitionCatalog.generated.swift",
+    "sha256": "d5f762a229e09d3c3a41350a350262a051699923171d297df69fc309c9eea08d",
+    "bytes": 24625
+  },
+  {
+    "path": "Fotty/Core/Data/FootballDataPolicy.swift",
+    "sha256": "768ca393ea7c076608f21a9f7a991b4da2cdda96733830d8dd45cafe3f7f2829",
+    "bytes": 15576
+  },
+  {
+    "path": "Fotty/Core/Data/Models/MatchModels.swift",
+    "sha256": "10fcaf8f98b03334b1541b2d5849263bb0fe8e811e6be892fed53f71cca29d83",
+    "bytes": 9305
+  },
+  {
+    "path": "Fotty/Core/Data/Normalizers/FootballNormalizer.swift",
+    "sha256": "04a7da011a8b4b0e3684bb7350c2e9c164a271dc91c981ef8144dc90ba9eaeb2",
+    "bytes": 2253
+  },
+  {
+    "path": "Fotty/Core/Data/Providers/APIFootballProvider.swift",
+    "sha256": "9e8ba944e7a2225d2bdd82f771e8deddf9278edb49b417361f9423581a87547e",
+    "bytes": 17866
+  },
+  {
+    "path": "Fotty/Core/Data/Providers/FootballDataProvider.swift",
+    "sha256": "f6225cbf8315316e6a56b12adf8512559026a8fa11bd971174bd98f89edb0bb3",
+    "bytes": 11427
+  },
+  {
+    "path": "Fotty/Core/Data/Providers/FootballProvider.swift",
+    "sha256": "cd2b6c6b64f7dec51288c84b86a38b9374cdf57bfe05ebceba3c568cbfeac99f",
+    "bytes": 1695
+  },
+  {
+    "path": "Fotty/Core/Data/Providers/TheSportsDBMatchService.swift",
+    "sha256": "98c8ccd7f518d29140c8288e9fa4269a3321d0004eaad5640505b4e1aeec3411",
+    "bytes": 18254
+  },
+  {
+    "path": "Fotty/Core/Data/Repository/FootballRepository.swift",
+    "sha256": "461c9075ace738e25c3df1ae1097c7d476474413d56e38528ddfeae82faa9f95",
+    "bytes": 45879
+  },
+  {
+    "path": "Fotty/Core/Data/Repository/MatchHubSnapshot.swift",
+    "sha256": "182a16719ac5facae5efc89637b57c0456fb037ff834e582740e97d088a16eef",
+    "bytes": 3073
+  },
+  {
+    "path": "Fotty/Core/Extensions/Date+LiveKickoffFormatting.swift",
+    "sha256": "597e4484a1698d1140b5dbdb1fe6d92b4630d128673f50d29a87476510575f38",
+    "bytes": 5890
+  },
+  {
+    "path": "Fotty/Core/Extensions/URLExtensions.swift",
+    "sha256": "9e42110ca228718ea621b4a9335adaf733f8505ff3024a5386119c6f0e448e06",
+    "bytes": 423
+  },
+  {
+    "path": "Fotty/Core/Images/FottyImagePipeline.swift",
+    "sha256": "54350d67f9618522c63b652dc8ad11221524811616b68e2191a668e91d4f96dc",
+    "bytes": 11500
+  },
+  {
+    "path": "Fotty/Core/Internal/AnalyticalDataEngine.swift",
+    "sha256": "5eef72a11199a5fc55737288c13fc8cb83c5280a472879c74d7f608de763d867",
+    "bytes": 68179
+  },
+  {
+    "path": "Fotty/Core/Internal/HybridStreamProvider.swift",
+    "sha256": "ff01ab06ce5d34d55b4d61425c489e30d7177b44258bf61a71235b1dff82f5a6",
+    "bytes": 89329
+  },
+  {
+    "path": "Fotty/Core/Internal/MatchListActor.swift",
+    "sha256": "3952a98c6d62831ab8f8bea32a563241420700d57298723f3d82680a61f0eb7d",
+    "bytes": 1060
+  },
+  {
+    "path": "Fotty/Core/Internal/StreamNetworkProcessor.swift",
+    "sha256": "5b5d802731614a52405287a70290f7ace4f57a7c02e341ce915435011c4a51d7",
+    "bytes": 11215
+  },
+  {
+    "path": "Fotty/Core/Internal/WebViewRenderer.swift",
+    "sha256": "7059a1b7165a828ea87f0e2a5094f16330433365eeabf54417137fd1950b92f0",
+    "bytes": 22793
+  },
+  {
+    "path": "Fotty/Core/LiveActivities/FottyLiveActivityController.swift",
+    "sha256": "e8b03a70434f34c1f2ab667e9bd992ea8cf0f2748ab0f5ed4bb7ab64eac05450",
+    "bytes": 6601
+  },
+  {
+    "path": "Fotty/Core/LiveActivities/FottyMatchActivityAttributes.swift",
+    "sha256": "d8afb080aab34fdd817bb446d7f4a4bab61538fb65e96b70f23dc9177501e526",
+    "bytes": 525
+  },
+  {
+    "path": "Fotty/Core/Logging/FottyLogger.swift",
+    "sha256": "a0a2e28c6a9e8af886f8ca82b702cd87888a010bd5e1ff45b1c44ec20cd44fb5",
+    "bytes": 40674
+  },
+  {
+    "path": "Fotty/Core/Logging/FottyPlaybackIntervals.swift",
+    "sha256": "2d586ddcb31b23e9f9f6eb9a6dcaccbe6896647f694fada5eb7f8d8da399280d",
+    "bytes": 5259
+  },
+  {
+    "path": "Fotty/Core/Media/FottyAsyncTiming.swift",
+    "sha256": "167b8345517b6bafea4e55fe8816b7e93a302a54b2fb018eb935dcda7ddb3ba3",
+    "bytes": 868
+  },
+  {
+    "path": "Fotty/Core/Media/MediaAudioSessionOwner.swift",
+    "sha256": "bc95564ffdafc31c9152cb0437a3d00fd0c58d3f6e13dee982dbc145a0f55103",
+    "bytes": 13093
+  },
+  {
+    "path": "Fotty/Core/Models/ArenaModels.swift",
+    "sha256": "9bd91710dd36ea4743ae0c1c20ea08832a9fbd2fd1f9d580097ff8785b1bd95d",
+    "bytes": 19513
+  },
+  {
+    "path": "Fotty/Core/Models/CricketCatalog.swift",
+    "sha256": "2362a5d5a404feab6c89a96bf80fec3e194582a5c35255eaa88aed133c3176c4",
+    "bytes": 27557
+  },
+  {
+    "path": "Fotty/Core/Models/CricketFixtureCatalog.swift",
+    "sha256": "605f8eefea5a4407c3337916d1b41feb5baad9b1212b045a93fba103b419d84e",
+    "bytes": 26514
+  },
+  {
+    "path": "Fotty/Core/Models/CurrentEventBroadcastPolicy.swift",
+    "sha256": "c0dd760b004d17c63e6e90965f12ac3ecac57ddb039e607c267864d4a44c49cc",
+    "bytes": 17002
+  },
+  {
+    "path": "Fotty/Core/Models/MatchCacheItem.swift",
+    "sha256": "61245d94f88ffcba27bf73b4f7bb17964a98a42d4c3177378dbc0b95dca7bbd4",
+    "bytes": 1027
+  },
+  {
+    "path": "Fotty/Core/Models/MediaModels.swift",
+    "sha256": "2ea67d368c0bd9d76f5796e000d6dbc67f3f07301ec7956c93db69ea02585efd",
+    "bytes": 43884
+  },
+  {
+    "path": "Fotty/Core/Models/SportsFixtureCatalog.swift",
+    "sha256": "a20288568f0d01a3af24dc55f725d55d0e686a181576cbcfcdedb2a9b7ce4db3",
+    "bytes": 40078
+  },
+  {
+    "path": "Fotty/Core/Networking/CNCSportsAddonClient.swift",
+    "sha256": "36c116a936376159415b5e4e2a607b9d9e1d0a3d3e6a8ad5eb1588e2336afbd4",
+    "bytes": 26362
+  },
+  {
+    "path": "Fotty/Core/Networking/CatalogPlaybackIdentity.swift",
+    "sha256": "eeb0717c9d6dacf0aec3ac17854f70ad57b0f5c4d6e49781cbb0a0a67c51729f",
+    "bytes": 11890
+  },
+  {
+    "path": "Fotty/Core/Networking/CommunitySportsAddonClient.swift",
+    "sha256": "eb46d9ac0374ea2aef037b4b066a8cb70827f38257e14b0723e1243364de04a6",
+    "bytes": 44967
+  },
+  {
+    "path": "Fotty/Core/Networking/FlixStreamsAddonClient.swift",
+    "sha256": "14005fc5eefedd476415238a0ec35e81dfa83818dc5607361982e87164d98979",
+    "bytes": 29212
+  },
+  {
+    "path": "Fotty/Core/Networking/FottyBoundedHTTPClient.swift",
+    "sha256": "b02df13c3a0fc4beb6b9ff42d88c6f0050958792e7d39f7c0cbc201f1484002a",
+    "bytes": 8725
+  },
+  {
+    "path": "Fotty/Core/Networking/LiveCatalogSnapshot.swift",
+    "sha256": "505b594e16a6207b4cdf255b4eeb587830651c562faa5971f4d394e1d020cde3",
+    "bytes": 2541
+  },
+  {
+    "path": "Fotty/Core/Networking/LiveSourceHealthStore.swift",
+    "sha256": "f3b2a4c6d3940a9907d1d37d271279c021f344bb97b5779a557bc0c0a7985bb5",
+    "bytes": 23514
+  },
+  {
+    "path": "Fotty/Core/Networking/LiveStreamingProvider.swift",
+    "sha256": "1f2a238dfd0e51c116233758825b2315c9651e25324eead9ce3bad39888cb891",
+    "bytes": 691
+  },
+  {
+    "path": "Fotty/Core/Networking/LocalStreamProxy.swift",
+    "sha256": "e6251ff074233938d00e0751f2b383b9570fa30d158ba9c492449aa81d6d2838",
+    "bytes": 61869
+  },
+  {
+    "path": "Fotty/Core/Networking/LocalStreamProxyPolicy.swift",
+    "sha256": "ccc753ae072fc1089dfd72cab7f90ca80c5935c8471f11dc07e023d8d911caa2",
+    "bytes": 34546
+  },
+  {
+    "path": "Fotty/Core/Networking/PlavioSportsAddonClient.swift",
+    "sha256": "86dd3a82a005ab7a86dee8e9fec64e608eb49b161da1ceb8b10e772fe996178d",
+    "bytes": 51789
+  },
+  {
+    "path": "Fotty/Core/Networking/Providers/CoreMediaProvider.swift",
+    "sha256": "21bc915cb34e1271215db9851cd63df07621a40f523bfd701df8dcd052580e41",
+    "bytes": 853
+  },
+  {
+    "path": "Fotty/Core/Networking/ReviewedSportsFixtureMatcher.swift",
+    "sha256": "93c57fd3f6d4960d282dc25d7eaa2aa1193c1f95ba7ac36d54a2a0edb64cfc94",
+    "bytes": 15589
+  },
+  {
+    "path": "Fotty/Core/Networking/Score808SiteCatalog.swift",
+    "sha256": "536a74f5358adac9eed05ff6b30f6e3f11e1e6cc7643fb1776f57a894bdea680",
+    "bytes": 13805
+  },
+  {
+    "path": "Fotty/Core/Networking/Score808SiteResolver.swift",
+    "sha256": "7d56f347b1707478a82203a16b700bb88c27e08d5bb0eff6b1ad7510789d2c28",
+    "bytes": 5241
+  },
+  {
+    "path": "Fotty/Core/Networking/SharedStreamDiscovery.swift",
+    "sha256": "9c3ba39f23cc049bd5152c29cedc86eaca3be6ff0cf1bca689ca33888c1f9d57",
+    "bytes": 16304
+  },
+  {
+    "path": "Fotty/Core/Networking/StreamDiscoveryCoordinator.swift",
+    "sha256": "a269396ab3a037308dc728b9f558f61fb35b08ba446701b4fa67b84b455955a5",
+    "bytes": 18738
+  },
+  {
+    "path": "Fotty/Core/Networking/StreamVixSportsAddonClient.swift",
+    "sha256": "e36592b7d3266aa4ead67d48caf67dffd32857bfd1839e85fec7d34c6744dec2",
+    "bytes": 31390
+  },
+  {
+    "path": "Fotty/Core/Networking/StreamVixTimingPolicy.swift",
+    "sha256": "ca81ee4b762860182af44a4579e0bffc339ad493e8d67ae518038d38c23dcc26",
+    "bytes": 4614
+  },
+  {
+    "path": "Fotty/Core/Notifications/MatchReminderStore.swift",
+    "sha256": "8f28db608e5bbc7ba0d75049fcb342cf81a213ec90e75713c0159d7f7cca8ee7",
+    "bytes": 22972
+  },
+  {
+    "path": "Fotty/Core/Notifications/NotificationManager.swift",
+    "sha256": "28484d0ef97f5b091595d1aad669380fc4c7ba82b8dd6c3ba90ae5f0684cd717",
+    "bytes": 11652
+  },
+  {
+    "path": "Fotty/Core/Persistence/FottyPrivateBackup.swift",
+    "sha256": "f2e75461be00a15d4b3048f0af2d2ee68a3cdc1ba556a527c420b44b975eff2f",
+    "bytes": 28800
+  },
+  {
+    "path": "Fotty/Core/Persistence/LocalDataStore.swift",
+    "sha256": "f8c521580c98647a84aa3bf7ad91358f4b2ea4273150f082ad0979b931e96269",
+    "bytes": 3772
+  },
+  {
+    "path": "Fotty/Core/Persistence/SchemaModels.swift",
+    "sha256": "2037cb08b0328122e3b0a643519f82dfdb3284c335f3f3d32c1b86bb5b723677",
+    "bytes": 8930
+  },
+  {
+    "path": "Fotty/Core/Plugins/StreamPlugin.swift",
+    "sha256": "57b49c6131976ec2d2718b73be45bf937a86e4afed8e928a55381f37d07ee6e5",
+    "bytes": 19377
+  },
+  {
+    "path": "Fotty/Core/Plugins/StreamPluginRegistry.swift",
+    "sha256": "ebd614ee0f79aa531c96d1c7c0cc91d31493aeebf2d6117fafc43ae9a6d59abf",
+    "bytes": 5744
+  },
+  {
+    "path": "Fotty/Core/Providers/Football/APIFootballModels.swift",
+    "sha256": "b8da3f8a4f04ccd819d26d7be1300cd1264a16802b708ccfdd74f18f9caeebf0",
+    "bytes": 1813
+  },
+  {
+    "path": "Fotty/Core/Providers/Football/FootballModels.swift",
+    "sha256": "d594fd00253e9a25167441edb7c599d028590907a29483dec1ff390865dbcfb1",
+    "bytes": 37234
+  },
+  {
+    "path": "Fotty/Core/Providers/Football/FootballService.swift",
+    "sha256": "c302c17bb134809153de7128ec32f830a8e1c43cf0b3d30eaec6b6d9def209eb",
+    "bytes": 83756
+  },
+  {
+    "path": "Fotty/Core/Security/StringObfuscator.swift",
+    "sha256": "29ee0cf7740e0aa5b092b343ef87a9133de827ed0edfe02e564357a5c0f989d9",
+    "bytes": 1113
+  },
+  {
+    "path": "Fotty/Core/Services/NowPlayingManager.swift",
+    "sha256": "92a7cd5b7fc48b5dc0af25e6e3c7dcfdcf3407b79e0464b5d7a0f0948f6d9488",
+    "bytes": 3654
+  },
+  {
+    "path": "Fotty/Core/Social/SportsPersonalizationPolicy.swift",
+    "sha256": "d0026516da3426d246bda3c9342418b1479f4bc4f332bcbf586d295eb4067596",
+    "bytes": 21082
+  },
+  {
+    "path": "Fotty/Core/Social/SportsTeamIdentity.swift",
+    "sha256": "9dca74eb7dcecd54cc903656a3ba4804e60c6ac5293f6abac62d00c818db76f7",
+    "bytes": 6305
+  },
+  {
+    "path": "Fotty/Core/Social/TeamFollowKey.swift",
+    "sha256": "99a7105b731901b68ae6a67df7fd379174b0168bdeee2f9ba3876106f854c923",
+    "bytes": 375
+  },
+  {
+    "path": "Fotty/Core/Storage/UserProfileStore.swift",
+    "sha256": "d1f389e45f31e07a53085c9f4305f7d18c1df51b70eb16cd9e7e20ffce33b7d5",
+    "bytes": 2183
+  },
+  {
+    "path": "Fotty/Core/UI/NotificationBadgeManager.swift",
+    "sha256": "16e8f3680dae50b865a74f72c4c792d22c125cc4b132fb01690ab85f147808c9",
+    "bytes": 812
+  },
+  {
+    "path": "Fotty/Core/UI/Shared/StreamResolutionOverlay.swift",
+    "sha256": "6f9794a8801dade6d962e7fc9d050b704e0dc8c6c6fd59f9b073adc6a704c942",
+    "bytes": 4120
+  },
+  {
+    "path": "Fotty/Design/CachedAsyncImage.swift",
+    "sha256": "fe5203e5ce4706453873c7b251a5575ae3a730a0b31dd5719facbd3cddcbc746",
+    "bytes": 3008
+  },
+  {
+    "path": "Fotty/Design/Components.swift",
+    "sha256": "a316874a5b7a76da4f80e9eaf43a2849f8b0d46bafc3284d823f60830f71346a",
+    "bytes": 36327
+  },
+  {
+    "path": "Fotty/Design/FottyPresentationChrome.swift",
+    "sha256": "5091c22af0ef86c5df3a212d011eb6d4b59d3597073c3bf049c245906c72755d",
+    "bytes": 2096
+  },
+  {
+    "path": "Fotty/Design/TeamColors.swift",
+    "sha256": "4ce0c35de8a89092a8dd57c53237471b9fb2fd56ab8f22276d0ba537799e3378",
+    "bytes": 4196
+  },
+  {
+    "path": "Fotty/Design/Theme.swift",
+    "sha256": "669691b007e12f03e47c1a5c1c8a196adacf77cbcae223058f1ce0a4ecd70eb7",
+    "bytes": 21215
+  },
+  {
+    "path": "Fotty/Design/UI/Animations.swift",
+    "sha256": "3202d5557e865f75fee1db14a4aa4a91d336bf669b7463b608ab0c1a3f64f623",
+    "bytes": 47206
+  },
+  {
+    "path": "Fotty/Features/Dashboard/CatalogEventDetailsView.swift",
+    "sha256": "647da9ee4833659e378a63eface52064f70dce1d1920738467a6ede6890a3c5c",
+    "bytes": 16700
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/CatalogRefreshNotice.swift",
+    "sha256": "ae1525305f87b0f9091a70f1466d36bbe603b5e3aa3b376b3c8d13b377162c1d",
+    "bytes": 2593
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/DashboardMatchList.swift",
+    "sha256": "4d9478ba37e35d7af059cdfa125d148c5026d16323be73fd6b2a56b50b570d47",
+    "bytes": 13415
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/DashboardPresentationLayers.swift",
+    "sha256": "1ebea2d7dcf6981f3f52d5f9f73189a4a4a694fde11558d73faa60d88bd536b7",
+    "bytes": 2254
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/DashboardTabButton.swift",
+    "sha256": "9eb87019d82f7ec3e65c41ec00ec51f923f8fc0ed913bf01077be859b0257e6d",
+    "bytes": 1437
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/FixtureDateGrouper.swift",
+    "sha256": "c05d8e4a61ed6c02edf3589d51278dd5aa0fa06ac821aebd48d14f9abd1e3489",
+    "bytes": 9430
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/FootballLeagueBar.swift",
+    "sha256": "c41de49a162fe1afc17108b5cdbd53a9b97ffbccd83f003ec51d29ba8f65da87",
+    "bytes": 1420
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/FootballQuotaBanner.swift",
+    "sha256": "52a05818a18eb0c627b44bceeef0218abfffbc32a94e53246ff5d251d38a508a",
+    "bytes": 1729
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/HeroMatchCarousel.swift",
+    "sha256": "af9306d954785b7157d1de067c8febdd03a0fc108193e54679670b7db1abef6b",
+    "bytes": 11332
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/HomeSportsDiscovery.swift",
+    "sha256": "9eec9dfb921e62b566094768bdad7c1569855f279b7cfbe16078ff5a83b4140f",
+    "bytes": 25072
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/LiveEventCard.swift",
+    "sha256": "f446c8417d872c5382d4de3115ed61e5e37b7056302ca43e9e5b898dca4824ea",
+    "bytes": 13009
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/LiveMatchTimelineView.swift",
+    "sha256": "991dce3bbda93feba731c81c6fd3a0ad2f79db5f0651c46c8755420709e48e15",
+    "bytes": 3548
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/MatchCardFormatting.swift",
+    "sha256": "6b05c54fcfcd37f31ace7e1954e3377d9a4f43e133616a44d7f0247544790da4",
+    "bytes": 2192
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/MatchStartControls.swift",
+    "sha256": "dd09278af72170ffdea99657923730ba7218269ba86038d1b741d0e99cf0993f",
+    "bytes": 35603
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/OnNowGlanceBar.swift",
+    "sha256": "71afe584807eb3dd4b1639b1073e79774fc32afac4922fabd2645ba734cc0b0e",
+    "bytes": 8668
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/SportsCategoryBar.swift",
+    "sha256": "157f735a5b9a5f52549a2be86a62b86bb112ff900d8b5fb7883d5433b1ec1840",
+    "bytes": 4857
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/SportsDashboardToolbar.swift",
+    "sha256": "9e5e1e80842b24548aaa25ef1c034f2aa10e6497aeecd9d0c4254f63981a3146",
+    "bytes": 848
+  },
+  {
+    "path": "Fotty/Features/Dashboard/Components/SportsDiscoveryViews.swift",
+    "sha256": "26a376f33d31a0ef2903fc8ec36cb6f338811df928b513a0213ba267643aabf6",
+    "bytes": 50256
+  },
+  {
+    "path": "Fotty/Features/Dashboard/HomeCatalogProjectionPolicies.swift",
+    "sha256": "301de3c44fb653352c37efe40b230ff115270b021299e0b15bdb9a4ac844d71a",
+    "bytes": 4758
+  },
+  {
+    "path": "Fotty/Features/Dashboard/HomeProjectionCoordinator.swift",
+    "sha256": "aff05f3c2d4abac21aa54557a5b3a9b703073e14dfad575ec1763aa70de58271",
+    "bytes": 6788
+  },
+  {
+    "path": "Fotty/Features/Dashboard/LiveViewModel.swift",
+    "sha256": "978cff15e9f8af6a2ed124bd8bbb14e14d511a51fbd4b76b0d7e0e5adccbd96d",
+    "bytes": 4106
+  },
+  {
+    "path": "Fotty/Features/Dashboard/MatchListViewModel.swift",
+    "sha256": "4d0dbb8f0b943711fe3c64a11617532dd0a1949de49f1556e1e370a0bce599ce",
+    "bytes": 29398
+  },
+  {
+    "path": "Fotty/Features/Dashboard/MomentumPulse.swift",
+    "sha256": "85a9e8d3a0cd485f5fb3d1d9d9164c133c6d6588df4a97d2d3815deebc4f71d4",
+    "bytes": 1581
+  },
+  {
+    "path": "Fotty/Features/Dashboard/SportsDashboardView.swift",
+    "sha256": "0c98327e0082270b93bbe09a96dd64e7bf45c0b5b6680f272de47c789b386e5f",
+    "bytes": 112692
+  },
+  {
+    "path": "Fotty/Features/FPL/Models/FPLDecisionModels.swift",
+    "sha256": "55a29b271f69e40381e11d5ed54858661372e01a0b093febc2047ec0192e8228",
+    "bytes": 17526
+  },
+  {
+    "path": "Fotty/Features/FPL/Models/FPLModels.swift",
+    "sha256": "7c073905e05603d0fb13e733018489cf803687dd78a1a497b2a799937de841f1",
+    "bytes": 20923
+  },
+  {
+    "path": "Fotty/Features/FPL/Models/FPLOfficialModels.swift",
+    "sha256": "2c3702d07dd4b91be9e95a8aa0d5b77f49669765b6fcbc19f9660303856080b4",
+    "bytes": 8740
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLAICoachService.swift",
+    "sha256": "0403898df1ef2ad72cf469166e1174dcf6cdcd1961eb429bacb48de73ea431ac",
+    "bytes": 26641
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLAdvisorDataProvider.swift",
+    "sha256": "0778b54040d76ba855081d39a7e3de0ab811a1a465a9c003ee5cabbc9ab48ed1",
+    "bytes": 2867
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLAdvisorDerivedStateBuilder.swift",
+    "sha256": "281e2803a2fa450290729e05410068787524b977567f3838e064c9385c501091",
+    "bytes": 5958
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLAdvisorEngine.swift",
+    "sha256": "630bace51fc422e63b1b51c11604713c43f783aa11637c475c30dfbd06c75a45",
+    "bytes": 26455
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLAlertScheduler.swift",
+    "sha256": "bf642a2bf9128ccc1b36251a7c6fb9546ad43ac2d3f66855680b9bac714353ba",
+    "bytes": 3953
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLChipAvailabilityPolicy.swift",
+    "sha256": "1a99a67f0910810f6b3662a7690c5edf98989f8d04e7d4d8cd53aba69a10feed",
+    "bytes": 5020
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLCoachAccessStore.swift",
+    "sha256": "0c513af4063998d7595f0615bd4afec7dee1ebc7f8c8d89292e952264eb07af9",
+    "bytes": 4773
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLDecisionEngine.swift",
+    "sha256": "4737173f136ea5f325dd2dbb03872df880298824cdfd2d4a644560e1ddf67afb",
+    "bytes": 30077
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLDecisionJournalStore.swift",
+    "sha256": "0de3d88a1d2e476a82eb37b3b1ba3d222cce70dbdcddb1ec0e8433476a779aa7",
+    "bytes": 4332
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLManagerConnection.swift",
+    "sha256": "499f513f5f75bedcb69f4348d38446a07a1d82df158eb8dea0e0f0eeec7993be",
+    "bytes": 3591
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLPlannerEngine.swift",
+    "sha256": "f4c8acae9b60110e7be0281346f0719624a8d13ded8e942c76536a7cd96c75d4",
+    "bytes": 21974
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLPlanningBounds.swift",
+    "sha256": "53fdcea3aab0d607d0c3caa061697dd5c7e93d625bd7b0b176b602546673744f",
+    "bytes": 4562
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLPressConferenceService.swift",
+    "sha256": "c0a38c3ee7f741c59fe789e38b52e9ace5a27f1e59fd0435143df9afe59215c5",
+    "bytes": 2687
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLRivalSnapshot.swift",
+    "sha256": "0f15ca95f17007a1d4e071eb8665bda583c171b808b456d64da59ee7728164cc",
+    "bytes": 2743
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLService.swift",
+    "sha256": "2a3b841163878559951964b485f794f367833d8884313a2e2f4d4f0a77522fae",
+    "bytes": 13208
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLSmartCoachService.swift",
+    "sha256": "875ffececfa5bfdbb9210e032c578f4467830de7a3653cd1007afd34ac4884af",
+    "bytes": 27607
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLSquadValidator.swift",
+    "sha256": "b6220ef5037c62629bc8621f8a06684dfb82c7ef0e5e965555a2cc6bc406d645",
+    "bytes": 6690
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLTransferRules.swift",
+    "sha256": "6b6fad24b6ff9cdf3c2a265570401e0771e80056e20333cf9488b7eb110bf9e9",
+    "bytes": 965
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLTransferStagingStore.swift",
+    "sha256": "e4573a01dc7c7333fc9f45559fc5a0c541c7986755c488685d2ae14f83b0581b",
+    "bytes": 6321
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLWorkspaceEvidencePolicy.swift",
+    "sha256": "1d5f055fbeb698635093b9f8d4643dd6949076781e230ccb4b40756157c3b3c2",
+    "bytes": 1532
+  },
+  {
+    "path": "Fotty/Features/FPL/Services/FPLWorkspacePersistence.swift",
+    "sha256": "ecb74794c63965e1999a774d0b2a5e5dfb9fcd2efe662a2defa8ca6b327077ac",
+    "bytes": 4661
+  },
+  {
+    "path": "Fotty/Features/FPL/ViewModels/FPLAdvisorViewModel.swift",
+    "sha256": "215b023724226caae61ef768861480c4519a267277d0e2eee2ae345632bb9e09",
+    "bytes": 82428
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLAICoachView.swift",
+    "sha256": "0c40e5ee19827dc2ea19efd20f6f3fd82df4f885443842609c5cce8e42db6b1a",
+    "bytes": 24290
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLCaptainPickerView.swift",
+    "sha256": "d62d465b43bc93d3c6b89b5559e23f596ab1f8823e00184327f99594d230fea9",
+    "bytes": 3628
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLCommandCenterView.swift",
+    "sha256": "74646c11d90b2168e7caa38a1025ad4e2f63a8d154452be9488111ec200b6915",
+    "bytes": 15925
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLDecisionJournalView.swift",
+    "sha256": "af3f8ce4a63a54a86b02c5734878210b0ac3567471b1d73b69f94c5740e2e0b4",
+    "bytes": 14849
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLFixtureTrackerView.swift",
+    "sha256": "e7a0af368ffe73e70e609a5916176d851ae620d761d65bec6001e40036a8a79f",
+    "bytes": 5699
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLLeagueStandingsView.swift",
+    "sha256": "cc3913dc83b0f389534a4a77bcc6068fb67cf0b45409894ab14ccd8f8ee95fdc",
+    "bytes": 14027
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLLiveTrackerView.swift",
+    "sha256": "73dd5c20fe02a8120c9281485f4d511f8bb75d27b61f1c846328fd22d6e01c98",
+    "bytes": 17340
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLManagerInputView.swift",
+    "sha256": "7650f3ce0893b5dde133441a2883a0847d31ec45da76ed0d31b044a4d7f3f1a3",
+    "bytes": 7625
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLMultiGWPlannerView.swift",
+    "sha256": "cc91a33f1efd623f621a4f082ded7560286332f1fc698172283d4afc802b1c9f",
+    "bytes": 20087
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLPlayerComparisonView.swift",
+    "sha256": "b076864288e9c90f77a8885d70039b6df317f8372e56f5de657909432af0cb8d",
+    "bytes": 22935
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLPriceAlertsView.swift",
+    "sha256": "f98817b6aa51e9370cf31fa4d06f8358d4b7e478c1eb6b5cd93290cb22d04de8",
+    "bytes": 7177
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLRivalMatrixView.swift",
+    "sha256": "6826a2723457c83bff15eb4d3417ac0812827a537af3b4d2bbed7dc21b9f392b",
+    "bytes": 18906
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLSquadPitchView.swift",
+    "sha256": "cddcf7466e7243a5680ee7b7324916a1404884ea9eb14197f10f8b8e981fa10b",
+    "bytes": 85798
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLTransferHubView.swift",
+    "sha256": "deb19eba3f1d50eb61450585c6b5300eb642101aac9998c7db06ec3434ef137c",
+    "bytes": 33646
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLTransferLabView.swift",
+    "sha256": "809f5d482434299dc97e57dbf93bede87c9ac60e0f99c7a0f940781e2b35470e",
+    "bytes": 11345
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/Components/FPLWildcardGeneratorView.swift",
+    "sha256": "b4556527c907c1d9a920954b00a0660a05fc26e36e0d98d3fcba45bfdddea9b6",
+    "bytes": 17032
+  },
+  {
+    "path": "Fotty/Features/FPL/Views/FPLMainView.swift",
+    "sha256": "1374de0cb1697f8a79b7a17cfea518408551e8e8113ef2cfcd162160f600a4ed",
+    "bytes": 34617
+  },
+  {
+    "path": "Fotty/Features/Insights/Views/MatchStatisticsView.swift",
+    "sha256": "595f0e9c5b42b1e710874a0784648b7e655cdfcd6c9c53a41504b4b06cc875dd",
+    "bytes": 2953
+  },
+  {
+    "path": "Fotty/Features/Insights/Views/MatchTimelineView.swift",
+    "sha256": "8aee9f0c81ece9c10916b2cce76e980babd29ff9456b2d695d639deae8a09f0d",
+    "bytes": 3281
+  },
+  {
+    "path": "Fotty/Features/Insights/Views/MomentumChartView.swift",
+    "sha256": "5002a5e4536818820801d5dbe827b0faad9faf22137330fcbad1c482b30bca64",
+    "bytes": 2109
+  },
+  {
+    "path": "Fotty/Features/Insights/Views/TacticalPitchView.swift",
+    "sha256": "5c0ea2d1c1ca41cea2bb98efcccfa3ad77150851ead03dcc822ef305f8dd9988",
+    "bytes": 19418
+  },
+  {
+    "path": "Fotty/Features/MatchHub/MatchHubView.swift",
+    "sha256": "887512584f59cddec890a35516342f787c2154794b614242f1bc99d5a6f2f3f5",
+    "bytes": 12748
+  },
+  {
+    "path": "Fotty/Features/MatchHub/MatchHubViewModel.swift",
+    "sha256": "9968d21f4d3be9d2093b01c09a3dc0a1434dab76a95cc9ba98b607f64fc0ee13",
+    "bytes": 16317
+  },
+  {
+    "path": "Fotty/Features/MatchHub/Tabs/InsightsHubTab.swift",
+    "sha256": "78f239b981a0a157a9d19a914e8a7f3c7869881abcdf0d6cb84946b290a100bb",
+    "bytes": 9833
+  },
+  {
+    "path": "Fotty/Features/MatchHub/Views/MatchHubHeader.swift",
+    "sha256": "f6b296f99d400dc6908f15bd82ff4db6fb6a790ae8dc636aa0b51e8014d733bb",
+    "bytes": 9667
+  },
+  {
+    "path": "Fotty/Features/MatchHub/Views/ProviderDiscoveryModule.swift",
+    "sha256": "e56c8f78946f62731d0ce45cc48ed7e3cc6fde45aaf9347fc6f2e370d4599222",
+    "bytes": 4484
+  },
+  {
+    "path": "Fotty/Features/Matchday/ViewingPlanPolicy.swift",
+    "sha256": "cef1e42158de1d836c32363b4d1aced6649b8de4e139d0cf54d3d63e4093a7ec",
+    "bytes": 4544
+  },
+  {
+    "path": "Fotty/Features/Onboarding/MatchdaySetupCard.swift",
+    "sha256": "2ec7773120f334d570240e0dc1a961363ee7d8de11aba3c2743160f5c3dc261a",
+    "bytes": 3706
+  },
+  {
+    "path": "Fotty/Features/Onboarding/TeamOnboardingView.swift",
+    "sha256": "77881c77a414cee2c7e6bcfeddf8a6420fc252a1faf149a57cf580b5d72eb3ce",
+    "bytes": 9432
+  },
+  {
+    "path": "Fotty/Features/Player/Components/LiveStreamSelectorSheet.swift",
+    "sha256": "6160052d717ecbf39cd4c47d330641b524f4c93537f7d6427ba70716e22d2d72",
+    "bytes": 22301
+  },
+  {
+    "path": "Fotty/Features/Player/Components/LiveWebEmbedPlayerView.swift",
+    "sha256": "97a44956b4f3588c160ee6a08005c6a22141daf9c8e352038a3d66d7169b90d0",
+    "bytes": 117748
+  },
+  {
+    "path": "Fotty/Features/Player/Components/LoadingStateOverlay.swift",
+    "sha256": "18c54a74b7b9b65c764236091b9f006bac669cfbcbb0c79865dc44c57b8a24d9",
+    "bytes": 2672
+  },
+  {
+    "path": "Fotty/Features/Player/Components/PlaybackControlsOverlay.swift",
+    "sha256": "daf13b00accee2cebd507c2d76a5ec4dadc764fa7dcc6c827e253a7f9fd16be1",
+    "bytes": 8897
+  },
+  {
+    "path": "Fotty/Features/Player/Components/PlaybackErrorOverlay.swift",
+    "sha256": "82b313dc1aab84ca02684a8a1c5d3446b3d6d818a4002cd08359b544604b3e25",
+    "bytes": 3911
+  },
+  {
+    "path": "Fotty/Features/Player/LivePlaybackPolicy.swift",
+    "sha256": "ec7787f2b38bcbfcb696daaab233abdcd186d956b53f36fffbdb9f3288169695",
+    "bytes": 25737
+  },
+  {
+    "path": "Fotty/Features/Player/LivePlayerView.swift",
+    "sha256": "026ae238cc4a177b05f5daa29c7c993bdceb648619a2da25b60f419b8c2cefe8",
+    "bytes": 61543
+  },
+  {
+    "path": "Fotty/Features/Player/LivePlayerViewModel.swift",
+    "sha256": "a3f93bd688d3ddd66aa23c2acfeedb4c4f10fc46ddab1f7e67f1a6421b126ede",
+    "bytes": 199461
+  },
+  {
+    "path": "Fotty/Features/Player/MultiLivePlayerView.swift",
+    "sha256": "58b47414d1e215896727d071f012e02f750626d26c4eb7a5292ec682d704c632",
+    "bytes": 92325
+  },
+  {
+    "path": "Fotty/Features/Player/NativeFullscreenPlayback.swift",
+    "sha256": "af2dfe0fdc6b94376c98bc5fd90a79416a6caf075484012d35b0b85f04cc4a12",
+    "bytes": 24441
+  },
+  {
+    "path": "Fotty/Features/Player/NativePlaybackPreparation.swift",
+    "sha256": "c917ba4e0c434037f16ed1131595afb59d679462a3f8118348497fb922002c06",
+    "bytes": 5811
+  },
+  {
+    "path": "Fotty/Features/Player/ViewingExperienceView.swift",
+    "sha256": "77efa09564f16e7fe4dc1fee951accde30045d77774cc03f25039784b1432b3b",
+    "bytes": 46053
+  },
+  {
+    "path": "Fotty/Features/Player/ViewingSceneLease.swift",
+    "sha256": "3b107481852f0dfd1c51c7eb69ff242ec2754b8cb8128e2ad87a580ba0c6697d",
+    "bytes": 4408
+  },
+  {
+    "path": "Fotty/Features/Player/ViewingSessionCoordinator.swift",
+    "sha256": "16a02ce2d888474058c3b8e2acbca6c1fd26e6e76eae60e73b8120615b197cc7",
+    "bytes": 55012
+  },
+  {
+    "path": "Fotty/Features/Player/ViewingSessionShell.swift",
+    "sha256": "f3e1e6b881d0ae1f5e1d2effed1a1548b24f7b3e8ca25fe85edbe33da09afdd5",
+    "bytes": 7818
+  },
+  {
+    "path": "Fotty/Features/Search/SearchView.swift",
+    "sha256": "2080a9cb41fe4c1670483a93b773f07124377ea46f9c783a9709ac536d89fcf0",
+    "bytes": 41342
+  },
+  {
+    "path": "Fotty/Features/Settings/Components/SettingsComponents.swift",
+    "sha256": "b0daea78788fb0c427c2bc301d498f42035058379d7f0f3412273656db7fe75d",
+    "bytes": 13359
+  },
+  {
+    "path": "Fotty/Features/Settings/SettingsManageFollowsView.swift",
+    "sha256": "b03ca114379885270237ebeeed9de9cc4c5b4a8ae48bfee0e3e548fd590903ed",
+    "bytes": 9202
+  },
+  {
+    "path": "Fotty/Features/Settings/SettingsScreen.swift",
+    "sha256": "e79048e4b5c715c2ef32790534c17ae01d2236ad08d1d718e4df84aa7c83eecc",
+    "bytes": 17514
+  },
+  {
+    "path": "Fotty/Features/Settings/SettingsView.swift",
+    "sha256": "592e545e4d9ef345f22d249d57b6b5b85151582ed640a76cce2356d03315421d",
+    "bytes": 195
+  },
+  {
+    "path": "Fotty/Features/Settings/SettingsViewModel.swift",
+    "sha256": "53388350959fde2fb970acd840556b355d2d71bc891fef3f3a9a4755f92f320e",
+    "bytes": 442
+  },
+  {
+    "path": "Fotty/Features/Settings/Views/SettingsCoachAccessView.swift",
+    "sha256": "54a910ae2bcd585b5b91eb974b094287b7165404b2a250bd0f5a7fbcc0928e3d",
+    "bytes": 3047
+  },
+  {
+    "path": "Fotty/Features/Settings/Views/SettingsManageLeaguesView.swift",
+    "sha256": "43099f25d36d81cd54ca49615372ad839e8409e52bcda59a066dc978512b0685",
+    "bytes": 10443
+  },
+  {
+    "path": "Fotty/Features/Settings/Views/SettingsPrivacyView.swift",
+    "sha256": "0972ce22f9573da4db616951651ad0aac8989e82c559691b47c55833d031221a",
+    "bytes": 12290
+  },
+  {
+    "path": "Fotty/Features/Settings/Views/SettingsPrivateBackupView.swift",
+    "sha256": "ce8ff60bdc4f1fa191879eebd2b1cae6d255a06906f088bc29629fcef864b497",
+    "bytes": 21201
+  },
+  {
+    "path": "Fotty/Features/Settings/Views/SettingsSportsContinuityView.swift",
+    "sha256": "58a742431fcea3b3dded457b07e70c14dfccb89f234cc1cc408db34c8d496ecc",
+    "bytes": 2001
+  },
+  {
+    "path": "Fotty/Features/Settings/Views/SettingsSupportViews.swift",
+    "sha256": "34724ba5f3945a0b4e20d212c0e83bebf66fe456c3346e16345b6434c2df80c5",
+    "bytes": 24815
+  },
+  {
+    "path": "Fotty/Features/Settings/Views/StreamPluginsSettingsView.swift",
+    "sha256": "21014e2c176dbaaeb6c2f56f8d135db301fd2609b1c77b279b867e65c7b22540",
+    "bytes": 6433
+  },
+  {
+    "path": "Fotty/Features/Social/ArenaDiscoveryView.swift",
+    "sha256": "c325f5c934b595f671dbacf0e61ed2830cad56d5b478b8a3ff55fd0eb3dc4dc9",
+    "bytes": 55839
+  },
+  {
+    "path": "Fotty/Features/Social/Components/LeagueTeamPicker.swift",
+    "sha256": "a3b467f94c1dc4ec24e1aa3b39f39e3bc4c79f3ede05c2fa5224c4d2cb39c69c",
+    "bytes": 8933
+  },
+  {
+    "path": "Fotty/Features/Social/Models/SocialModels.swift",
+    "sha256": "8068886ddc1048bf6b0f222d67776620a2426493d3ad083280824c3551d1fbbe",
+    "bytes": 248
+  },
+  {
+    "path": "Fotty/Fotty.entitlements",
+    "sha256": "7c6da5c222c0b71792c6873fdc512e4db99f10cca2088960143dfa10427cdb6c",
+    "bytes": 429
+  },
+  {
+    "path": "Fotty/Info.plist",
+    "sha256": "4a1e05db0466e39fd0476e72c9d4f6a64614fce3e701a21de8420edeffd81455",
+    "bytes": 2910
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/AccentColor.colorset/Contents.json",
+    "sha256": "d914c507ae6acaecb9c0ceb8ac722d75d9a1748b373c7e6ed8469ae731288070",
+    "bytes": 329
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/AppIcon.appiconset/AppIcon1024.png",
+    "sha256": "36d369b863c8d3df182616c026bbe3f6f21b52a78143eacdb1bc33f27468c8ce",
+    "bytes": 1109585
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json",
+    "sha256": "130c54fe4f4a91cd260df3618aa2411a5460e9b771be9375377a38717429cd62",
+    "bytes": 215
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/Contents.json",
+    "sha256": "0fd49ba3c3585c709678e0046a821c3c60685ec7063720d30d3a3448be3a208b",
+    "bytes": 63
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/LaunchBackground.colorset/Contents.json",
+    "sha256": "aba8a5f8ae19d652d2699ae3fca0b941eacd4b10ce4173f747b4530e108f96db",
+    "bytes": 328
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/stadium_basketball.imageset/Contents.json",
+    "sha256": "0fe011c25d5749025688590c9ea11b25b018aa46f247c0d7f9d1ce6af7bc1102",
+    "bytes": 192
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/stadium_basketball.imageset/stadium_basketball.png",
+    "sha256": "5a80fe220d7716cb84fc5861b90317cc7999e99d087949abcc021fec2bc9b673",
+    "bytes": 1016672
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/stadium_football.imageset/Contents.json",
+    "sha256": "36f632cc68348174a944419334681b985921516553e2240f3676b367edc504c7",
+    "bytes": 190
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/stadium_football.imageset/stadium_football.png",
+    "sha256": "03a66fbf2eb659940ee45e57ba392d043a51b914e5cdfa97222bcbcb1781512d",
+    "bytes": 982904
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/stadium_general.imageset/Contents.json",
+    "sha256": "d43090c1f597640c7152dbc9e916de2eec0aa28b55913c1fabbea6d51e061019",
+    "bytes": 189
+  },
+  {
+    "path": "Fotty/Resources/Assets.xcassets/stadium_general.imageset/stadium_general.png",
+    "sha256": "fe1ac95b6b40b90d8f2acf16790f7bdf8a3fb9f759d0e32e1a456fe8c41529a6",
+    "bytes": 868870
+  },
+  {
+    "path": "Fotty/Resources/Manifests/additional_sports_manifest.json",
+    "sha256": "527f72fa316bd9efa418fe7709b4f4b081ed549d1fe7c1fc17d8396aa33c01be",
+    "bytes": 389
+  },
+  {
+    "path": "Fotty/Resources/Manifests/cnc_sports_manifest.json",
+    "sha256": "2fbf0035d9ece4343d092d9be4655965b7e8f0d9070cafe24cc8dcb204e47039",
+    "bytes": 384
+  },
+  {
+    "path": "Fotty/Resources/Manifests/community_sports_manifest.json",
+    "sha256": "4c91fc4a3cef770d29ba20c446e082144f0b6997857d8f475bb0352cdd53252d",
+    "bytes": 347
+  },
+  {
+    "path": "Fotty/Resources/Manifests/flix_streams_manifest.json",
+    "sha256": "4601bbd299f340be9374681821e173ed4cccfc3b6a0c5d38d9ec3c3512aa2b6c",
+    "bytes": 364
+  },
+  {
+    "path": "Fotty/Resources/Manifests/score808_manifest.json",
+    "sha256": "73ace2023b4b8ea2df268f8e418eb5470a59a81495ef685d163efead7426eca0",
+    "bytes": 377
+  },
+  {
+    "path": "Fotty/Resources/Manifests/streamex_manifest.json",
+    "sha256": "3ffa0ed5df339ee5e9cbd2f50ac923f27f1c9178d5f97a33a6d71b6bdd2961fe",
+    "bytes": 382
+  },
+  {
+    "path": "Fotty/Resources/Manifests/streamvix_sports_manifest.json",
+    "sha256": "8b98d4ce15c2f6860ac0c69050ca8eca9b890ded1c1c567361fc808ba7760005",
+    "bytes": 371
+  },
+  {
+    "path": "Fotty/Resources/PrivacyInfo.xcprivacy",
+    "sha256": "340b6032a03730315534c73ed1fd52b64c5f6fffa9433a3e0b1d5e174d6be0e8",
+    "bytes": 1744
+  },
+  {
+    "path": "FottyLiveActivityExtension/FottyFPLDeadlineWidget.swift",
+    "sha256": "6c38241388feab45852450420d2cdc55974e63b2fa1371d3c72eea3c43c5b7e9",
+    "bytes": 7666
+  },
+  {
+    "path": "FottyLiveActivityExtension/FottyLiveActivityExtension.entitlements",
+    "sha256": "2c9e94975992e8e7d48afc7646a11dd41eab7f96300ba5b25b8e961dec2278c1",
+    "bytes": 305
+  },
+  {
+    "path": "FottyLiveActivityExtension/FottyLiveActivityWidget.swift",
+    "sha256": "e594be7bf8a4470fb445a7381cc59b98cda155112cc0506c885d332c0d077cfe",
+    "bytes": 6822
+  },
+  {
+    "path": "FottyLiveActivityExtension/FottySportsPlanWidget.swift",
+    "sha256": "5425a5e40f335261c398faf14abc057943b9f4b0a7a70ea1d3426e8d239208e2",
+    "bytes": 7160
+  },
+  {
+    "path": "FottyLiveActivityExtension/Info.plist",
+    "sha256": "38e1d4913a88adc8e7b6e63e458a887ecb140304a62d7fef2185bc57bb8186ed",
+    "bytes": 966
+  },
+  {
+    "path": "FottyTests/AdditionalSportsIntegrationTests.swift",
+    "sha256": "d26eaac84e058d3ad1477fc51150890cf26da72e7eb5bbde76878fbd7ec2e458",
+    "bytes": 32198
+  },
+  {
+    "path": "FottyTests/ApplePlatformBaselineTests.swift",
+    "sha256": "38d8de16d5be8202eb7ba6a4049440c57a17f1f86bddfe7cdbb8c63771fa6e76",
+    "bytes": 29001
+  },
+  {
+    "path": "FottyTests/BetaUsabilityTests.swift",
+    "sha256": "eab2d094a4fbe0848673e89e732fcfc8bb95752f6f91dd1b09766acfa5b1f8e0",
+    "bytes": 205986
+  },
+  {
+    "path": "FottyTests/CNCSportsAddonTests.swift",
+    "sha256": "690435f2fb99aeed1dce4667d1599f523faa6ca077d38f82cd40db27a51dd416",
+    "bytes": 36623
+  },
+  {
+    "path": "FottyTests/CatalogIncrementalPublicationTests.swift",
+    "sha256": "08be225e1e64c6c7260c4ff9d99b87ccfbe1041faee73a17f48f284a71f223b3",
+    "bytes": 17606
+  },
+  {
+    "path": "FottyTests/CatalogPlaybackIdentityTests.swift",
+    "sha256": "21bd2132ee0abb8faa7d4cedb4d0da6378101902c2692a99d31700baf3b14aa0",
+    "bytes": 48155
+  },
+  {
+    "path": "FottyTests/CatalogRuntimeOwnershipTests.swift",
+    "sha256": "6e1ab0347e830345cbe1b2e623a65ebd7f0493065540296df80354599b683b55",
+    "bytes": 36838
+  },
+  {
+    "path": "FottyTests/CommunitySportsAddonTests.swift",
+    "sha256": "8078e8fbf9b762a4e4d8f8ab55c3cf868a89460d1e861e7f30f10a493bff60a1",
+    "bytes": 168196
+  },
+  {
+    "path": "FottyTests/CricketFixtureCatalogTests.swift",
+    "sha256": "aff1f09bf7bc6fa7c19cf7b9c4f143b06f191740e1680c52dbfbd55c45bbd2f1",
+    "bytes": 72215
+  },
+  {
+    "path": "FottyTests/FPLCoachAccessTests.swift",
+    "sha256": "4055a12320081866fd6be3270bc42a4ab627fd0220056290e32ad2a41d0577f5",
+    "bytes": 1363
+  },
+  {
+    "path": "FottyTests/FPLCoachEvidenceTests.swift",
+    "sha256": "e405f029abedf06a65f03346cc5b0d6e5b883331450ea446fd7fe1e67971c0d4",
+    "bytes": 4056
+  },
+  {
+    "path": "FottyTests/FPLMatchdayRefreshTests.swift",
+    "sha256": "8044a642ab962bfb9e5f0617870aea6fb7b477333d609da75d76c31130bf26dc",
+    "bytes": 41745
+  },
+  {
+    "path": "FottyTests/FPLPlanningBoundariesTests.swift",
+    "sha256": "cb60dc85bccef8017335da941d87d6f41dd5f9abe5935801a9a7fecb0d453582",
+    "bytes": 12629
+  },
+  {
+    "path": "FottyTests/FPLRivalSnapshotTests.swift",
+    "sha256": "6ff37297fd87cd14cbbab65db1a4cf36a9a8b45dc0416482eb23cb70e86ba03c",
+    "bytes": 28890
+  },
+  {
+    "path": "FottyTests/FPLTransferPlanSafetyTests.swift",
+    "sha256": "4daeef800731da9d1e20aa1e43a8a285688f402404f95286708926d83a62883e",
+    "bytes": 17775
+  },
+  {
+    "path": "FottyTests/FPLTrustTests.swift",
+    "sha256": "5d7acd1fe606c1459b2c9c965d6a36a56e9cde5aa2059464232faf7117e662f6",
+    "bytes": 72263
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/badges-loaded-and-missing.png",
+    "sha256": "2ffe45bf4abf9b02dba7042dcbe3f8a8b23f2b8c0175da4611ec1cc278092ac5",
+    "bytes": 20114
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/controls-dark.png",
+    "sha256": "c09593d1f4a5483368c36b2318b1cd782e6873cd3ab19634ff787e950a5d8edb",
+    "bytes": 13212
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/controls-light.png",
+    "sha256": "44e745ae486c4ffb1241a3350f4b43fff47cfe0eeb4c1e8881c11a917a6a62f4",
+    "bytes": 13190
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/home-ipad-landscape.png",
+    "sha256": "87b46e81f7a26e2af8c3b638a26c7ec5c2ac0ec7958697b05c5222dbdb5e77d0",
+    "bytes": 447515
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/home-ipad-narrow.png",
+    "sha256": "e15df02742e8d680229fedb8faf9ec1dce97f4449d165b30e9f30e20e4604552",
+    "bytes": 270272
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/home-phone-dark.png",
+    "sha256": "ab1860f128ca2b3d7bda506972ac5c366b4f100fbd8dfb15637d731b56ad5a24",
+    "bytes": 187585
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/home-phone-large-text.png",
+    "sha256": "1edabd21e8beed5d26563d6e880c149ffe26b0a0c736d9d24cb5b4ef901cd67a",
+    "bytes": 240547
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/home-phone-light.png",
+    "sha256": "92b42f82f30cd130aec14c0c13c1d9be364f771afb3aaf65d739f2fe9f847ed7",
+    "bytes": 184143
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/manifest.json",
+    "sha256": "f1c12f69ac671b5ffa7ee935d125d2545179548451fb1c165092e70f5a23aa36",
+    "bytes": 3680
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/sources-phone-dark.png",
+    "sha256": "65224d4f3b5f513fcb34cf6759d3cb71ab922d64677cdf8ec851e0cfac49c634",
+    "bytes": 17976
+  },
+  {
+    "path": "FottyTests/Fixtures/VisualBaselines/sources-phone-large-text.png",
+    "sha256": "78e474c258934fa4a92f1283fac4b0669c78fbb3613db57ab66097ff0135ab96",
+    "bytes": 18266
+  },
+  {
+    "path": "FottyTests/FlixStreamsAddonTests.swift",
+    "sha256": "f9efe182b6ca9a0a72aae190ba753a75e81eb3cf0d98be1e8ed4f70f364cee7f",
+    "bytes": 36946
+  },
+  {
+    "path": "FottyTests/FootballScoreReceiptTests.swift",
+    "sha256": "111ec2aef4ba0963ac7130150d073d838f63cef23caf581b8a9be9056a032cb4",
+    "bytes": 29957
+  },
+  {
+    "path": "FottyTests/FootballStatusRepositoryTests.swift",
+    "sha256": "4dad48a5657806dc0d9ed0d8f6bb18b1ac5dd65bf211432a8c65d7891a1a2f66",
+    "bytes": 26468
+  },
+  {
+    "path": "FottyTests/Fotty25DesignRenderTests.swift",
+    "sha256": "134a83ba59247477186171388d7afab1b6dae347a7f7165c9b3e9998747d54be",
+    "bytes": 20082
+  },
+  {
+    "path": "FottyTests/Fotty25HomeDesignTests.swift",
+    "sha256": "47c1d9710e88d75e5c08af816628447d6f5e1f4d46f7d0a5394853d3506d8014",
+    "bytes": 11512
+  },
+  {
+    "path": "FottyTests/Fotty25PlayerDesignTests.swift",
+    "sha256": "a1dcc7c4989de7b399bc3c830ef8015307ab3fb92ef28bf2eee5f94b0888a3a4",
+    "bytes": 8014
+  },
+  {
+    "path": "FottyTests/Fotty25SecondaryDesignTests.swift",
+    "sha256": "136d59e42706c1c825888902f5747c31f41823fddcfcf9b1969ce020cdc7ce3d",
+    "bytes": 4975
+  },
+  {
+    "path": "FottyTests/HomeProjectionCoordinatorTests.swift",
+    "sha256": "0b977b7684d7474a581185bbe862738155e14624d393ebf8dd476403cb8690d2",
+    "bytes": 34640
+  },
+  {
+    "path": "FottyTests/HomeTerminalReconciliationTests.swift",
+    "sha256": "4c8871a36a6852b73451a848a064c55c3c8d41a808092e40de1bf1360ac426cc",
+    "bytes": 13237
+  },
+  {
+    "path": "FottyTests/ImagePipelineOwnershipTests.swift",
+    "sha256": "2e21411c8ecc67d2209b0f974b1d2c3205c4af22bc1bdcced5c5240582609f15",
+    "bytes": 23497
+  },
+  {
+    "path": "FottyTests/InlineMotionTests.swift",
+    "sha256": "196aa8d759171b3f2486ff8624d27c1d00d688ce5535bfda202fb2f01f5bb26b",
+    "bytes": 8656
+  },
+  {
+    "path": "FottyTests/InlineReminderFeedbackTests.swift",
+    "sha256": "cac11016c32d88c1ca473e858caa98e505555abddbefa2406fe0e4c343fd16d6",
+    "bytes": 12920
+  },
+  {
+    "path": "FottyTests/LivePlayerRetryLifecycleTests.swift",
+    "sha256": "b9e8124f45c0711b024d8e05dbef080d0dc9cecfff4215f7fb6bec83fd20adb6",
+    "bytes": 72448
+  },
+  {
+    "path": "FottyTests/LiveSourceHealthScopeTests.swift",
+    "sha256": "7943498f67b618b1479f64119446863a9e6342afed558a3f645adfe3faf2879a",
+    "bytes": 25638
+  },
+  {
+    "path": "FottyTests/LocalStreamProxyTests.swift",
+    "sha256": "cdd551ad5e630ed16a7c52d283e1e289800aa940fb3f23cfb6934b2cb7a5a555",
+    "bytes": 114358
+  },
+  {
+    "path": "FottyTests/MatchHubRefreshTests.swift",
+    "sha256": "14eb9e414346acc76de03bccbe6a56592307af062a6b9cdf4f0ad7ea83e4eea2",
+    "bytes": 11808
+  },
+  {
+    "path": "FottyTests/MatchReminderTests.swift",
+    "sha256": "54235cd7b16f5a586884efb0bd1404b2983d5aea2e4050b9778ac3ac9123e48e",
+    "bytes": 66360
+  },
+  {
+    "path": "FottyTests/MatchdayJourneyTests.swift",
+    "sha256": "72601e6d8c55365025f68491a5ee03512c00cb669818385d02bb563d631a5447",
+    "bytes": 37159
+  },
+  {
+    "path": "FottyTests/MediaAudioSessionOwnerTests.swift",
+    "sha256": "c4fcfd83d6931949af8d9222c9154bf3c8d4909bd17ec21373a7d14360e7a16b",
+    "bytes": 37106
+  },
+  {
+    "path": "FottyTests/MultiLiveOwnershipTests.swift",
+    "sha256": "ff05f3820a558a174cc847b2750ed0a20dda36c04f673ca1b5285ac8b06ba826",
+    "bytes": 5665
+  },
+  {
+    "path": "FottyTests/NativeFullscreenPlaybackTests.swift",
+    "sha256": "4419979db3b48de5bf2b96f61bebe0141aaf5921baebd8968c1b3cec5723c281",
+    "bytes": 91604
+  },
+  {
+    "path": "FottyTests/NativePlaybackEvidenceTests.swift",
+    "sha256": "d0bf8307092a99449a2b55bb94067d99841b70f225ecf23e4b7fd4359e2a4297",
+    "bytes": 60595
+  },
+  {
+    "path": "FottyTests/NativePlaybackPreparationTests.swift",
+    "sha256": "1996d4867edd4b408bb93de02c57fdc84500cd5cd13e2907ead9f85fcbf03f0e",
+    "bytes": 41010
+  },
+  {
+    "path": "FottyTests/NativeWatchTwoTransitionTests.swift",
+    "sha256": "005e0dbee0d979a3dd10693114dac88cea285fa658ec6bc6b84fcb6366ae008a",
+    "bytes": 22504
+  },
+  {
+    "path": "FottyTests/PlavioSportsAddonTests.swift",
+    "sha256": "fbf5d59f62c80afb92309d2b696e233e83e9ba7855299efbdaf26a384e6b590f",
+    "bytes": 94494
+  },
+  {
+    "path": "FottyTests/PlaybackPolicyTests.swift",
+    "sha256": "c1e56fea00a1b308eabf2c816c8c4144b50a43e77addfcf2c8fbe0d7f3960be3",
+    "bytes": 277372
+  },
+  {
+    "path": "FottyTests/PlayerChromeUsabilityTests.swift",
+    "sha256": "4b17f2d0672a0afcd9ba99ad82eda9980036b568f9ad564964b4aa476c767757",
+    "bytes": 11844
+  },
+  {
+    "path": "FottyTests/PrivateBackupTests.swift",
+    "sha256": "2de4fdc93de786bb7e810f5305aef0ddebfd43688c1bc7b385647dd6d2a39ae7",
+    "bytes": 18673
+  },
+  {
+    "path": "FottyTests/ReviewedAddonPhysicalCanary.swift",
+    "sha256": "3073feab228e9d194166fd1323b9fad42db34ef362699194890456d1798d6427",
+    "bytes": 22596
+  },
+  {
+    "path": "FottyTests/ReviewedSportsFixtureMatcherTests.swift",
+    "sha256": "e718bac7f2e7a64a511e9853ab96b67b7c18b5d532511025de7b48e124c58e1d",
+    "bytes": 7970
+  },
+  {
+    "path": "FottyTests/Score808SiteCatalogTests.swift",
+    "sha256": "baa50843bb674efa78d2f75595e66b14274127becf2a2ce91d2a283b73ecf1b3",
+    "bytes": 15154
+  },
+  {
+    "path": "FottyTests/SettingsUsabilityTests.swift",
+    "sha256": "14cf436bc71cfd296f4b9216b2f6c0def95c267d13c63aa6b9c10fb884bc0d2c",
+    "bytes": 13920
+  },
+  {
+    "path": "FottyTests/SharedStreamDiscoveryTests.swift",
+    "sha256": "ace7fb53e15eafd0e054b06a0f35fab8165519e1a55351424d8ce5baa759575f",
+    "bytes": 39734
+  },
+  {
+    "path": "FottyTests/SportsCatalogRefreshTests.swift",
+    "sha256": "1b05c0be1710620704108739696698308a1e80a2b2d2e1be65f6ceaec5c004e6",
+    "bytes": 28144
+  },
+  {
+    "path": "FottyTests/SportsContinuityBridgeTests.swift",
+    "sha256": "56a6effb33e296adb347b5eab27046753fea30fab2af3db0f08b46aac7cc3bf7",
+    "bytes": 37141
+  },
+  {
+    "path": "FottyTests/SportsFixtureCatalogTests.swift",
+    "sha256": "7ade0e4d37a1ecbe07613fd46624a4cd1c0159975277fb72fc114a1ae43040f1",
+    "bytes": 86195
+  },
+  {
+    "path": "FottyTests/SportsHandoffTests.swift",
+    "sha256": "3bf3d9e531e0caad957acefaee1f22984c50fda3f2ff67860444b724daacb5e4",
+    "bytes": 8961
+  },
+  {
+    "path": "FottyTests/SportsPersonalizationTests.swift",
+    "sha256": "0e1e15f07b4fe805a5ea1857ee20979a4e4ba2bc2193573d918570fb7c933244",
+    "bytes": 55215
+  },
+  {
+    "path": "FottyTests/SportsPreferenceSyncTests.swift",
+    "sha256": "3f9c6e639aad6d7bc9843d3cc860274fa2f60ba339772e9176c542cfd33fff11",
+    "bytes": 29420
+  },
+  {
+    "path": "FottyTests/SportsWidgetSnapshotTests.swift",
+    "sha256": "124d719c2050df00ab9db8ff3789383e8ee68e6ba1364c8195de5e9baf818472",
+    "bytes": 4425
+  },
+  {
+    "path": "FottyTests/StorageRuntimeSafetyTests.swift",
+    "sha256": "5761b55a3bc99d0dd442134757ae9c77d3eda967c00dbf4541674fa8b891b72a",
+    "bytes": 27430
+  },
+  {
+    "path": "FottyTests/StreamDiscoveryCoordinatorTests.swift",
+    "sha256": "3c64d706caff49167b49c9900beebc3ce7a7d6ed23831c7fd4a98b41c44d0225",
+    "bytes": 42326
+  },
+  {
+    "path": "FottyTests/StreamPlaybackContractTests.swift",
+    "sha256": "cbbf93a6a1b4e3b5dc293ff21119908390824fcf6e6cf70aec2bda878ebd3f75",
+    "bytes": 20077
+  },
+  {
+    "path": "FottyTests/StreamVixSportsAddonTests.swift",
+    "sha256": "2238ac24bf32997d81a7daad0be5ec92af71df7a2453a5227c2f716da6f9a00d",
+    "bytes": 41923
+  },
+  {
+    "path": "FottyTests/StreamVixTimingPolicyTests.swift",
+    "sha256": "f9a8a47651b68ea71a2b5c9d398b4ea81c0ddaf8d953e9b7b3649bde3772fdec",
+    "bytes": 10725
+  },
+  {
+    "path": "FottyTests/TimingAndPlaybackIntervalsTests.swift",
+    "sha256": "dd30ff8f899859612acba11f0543f34b664a67ada445ccdc136cc5ab67e43b39",
+    "bytes": 29582
+  },
+  {
+    "path": "FottyTests/TransportResourceSafetyTests.swift",
+    "sha256": "e68c7e0b5f341b3076f1c79702873ef29cf2350bbdad6c753a2872579df4d829",
+    "bytes": 34364
+  },
+  {
+    "path": "FottyTests/ViewingPlanTests.swift",
+    "sha256": "96b14cbdbc1d714073594528a98b0cdfdb1a13fb9557c7e7620842a73e35af08",
+    "bytes": 14713
+  },
+  {
+    "path": "FottyTests/ViewingPlaybackOwnershipTests.swift",
+    "sha256": "aee64d5331c61eaabe6fb749bf511f0ede1b40c8ffcb09219b6c14aa52c716e4",
+    "bytes": 13866
+  },
+  {
+    "path": "FottyTests/ViewingSceneLeaseTests.swift",
+    "sha256": "9bd72dfb9d5442ec89b83a3f71eb41db79de87164ac77c39cd739054360e5bd1",
+    "bytes": 5672
+  },
+  {
+    "path": "FottyTests/ViewingSessionCoordinatorTests.swift",
+    "sha256": "40584c77dc723975a2ab05077a7bf9e2ecbc0f033f4c3cf184cf3fc856bf5fb6",
+    "bytes": 165139
+  },
+  {
+    "path": "FottyTests/VisualRegressionTests.swift",
+    "sha256": "6d0937525b7f0413a450c5903248740e681212677e9ccdced8e755569cc4abe5",
+    "bytes": 30416
+  },
+  {
+    "path": "FottyTests/WebAudioPreparationTests.swift",
+    "sha256": "9b8f3707c50d05044d97f16b23bbf60539f78fced04cd3fbc7728fb9d6802547",
+    "bytes": 21278
+  },
+  {
+    "path": "FottyUITests/AccessibilityAuditPolicy.swift",
+    "sha256": "01cd9de442f007d291d9a6326306163a95292f1f091067fb275eca361d781838",
+    "bytes": 4733
+  },
+  {
+    "path": "FottyUITests/CatalogPerformanceUITests.swift",
+    "sha256": "c9f7e164b17aebe7c3726ce3f7a67bec17d94dd1cbf2c8994d6e93930483def5",
+    "bytes": 17009
+  },
+  {
+    "path": "FottyUITests/FottyNavigationUITests.swift",
+    "sha256": "d936dbe3c61f1c1c6b5aad6973e6119f8367c638f25f8e7920f8bc74d93b4aba",
+    "bytes": 69298
+  },
+  {
+    "path": "FottyUITests/PlaybackPerformanceUITests.swift",
+    "sha256": "bcd8a6d98eafb81e948225b486b989de9bf279281de1543d72f9c3eb76aecb62",
+    "bytes": 193419
+  },
+  {
+    "path": "FottyUITests/SportsWidgetPhysicalUITests.swift",
+    "sha256": "764c53f3bc2f8c0ea0537e1602b7a54a693d97acededa55d95337d78e102bf59",
+    "bytes": 37023
+  },
+  {
+    "path": "project.yml",
+    "sha256": "527b1d1704ffb7cd9b860b1d5687f5d61a797d4eaf0d0048aead02c4644bc44d",
+    "bytes": 3461
+  },
+  {
+    "path": "shared/reference-data/football-competitions-2026-27.json",
+    "sha256": "556dc99f4a41edd22934bf7753089b0237e27155f92fa77d0b546f75b9f8f961",
+    "bytes": 13249
+  },
+  {
+    "path": "shared/reference-data/provider-football-identity-vectors.json",
+    "sha256": "eb0f747ea5b64a11980f82ccd07524cda4122a0ce76e7a020074a2bf17181d77",
+    "bytes": 2541
+  },
+  {
+    "path": "web/src/lib/football-competition-catalog.generated.ts",
+    "sha256": "e4cecff6ba0339a9f04aca627c357ecd5a4e282698acb9b7ec623bfade56e036",
+    "bytes": 21884
+  },
+  {
+    "path": "web/src/lib/football-competition-catalog.test.mjs",
+    "sha256": "345e88582788584917832318ae609e1b469376c482d9697bec31b46dcca35d71",
+    "bytes": 6310
+  }
+]

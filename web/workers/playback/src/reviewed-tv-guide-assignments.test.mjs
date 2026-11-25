@@ -40,6 +40,18 @@ test("unsupported official sport scopes and unreviewed regional station contract
   assert.equal((await reviewedTVGuideAssignments([guide({sport:"american-football",title:"NFL – Home vs. Away"})],[fixture()],now)).links.length,0);
   await assert.rejects(reviewedTVGuideAssignments([guide({market:"US"})],[fixture()],now),/invalid-tv-guide/);
 });
+test("a malformed independent guide row cannot suppress a valid assignment or manufacture another", async () => {
+  const valid = guide(), bad = {id:"tv-guide:"+"b".repeat(64),channelID:"sports-channel:espn3-latinamerica-south",start:valid.start};
+  const result = await reviewedTVGuideAssignments([bad, valid],[fixture()], now);
+  assert.equal(result.links.length, 1);
+  assert.equal(result.broadcasts.length, 1);
+  assert.equal(result.broadcasts[0].channelID, valid.channelID);
+  for (const conflict of [{...bad, id:valid.id},{...bad, channelID:valid.channelID}]) {
+    const ambiguous = await reviewedTVGuideAssignments([conflict, valid],[fixture()], now);
+    assert.equal(ambiguous.broadcasts.length, 0);
+    assert.equal(ambiguous.links.length, 0);
+  }
+});
 test("the shared native wire fixture remains output from the real backend builders",async()=>{
   const wire=JSON.parse(await readFile(new URL("../../../../FottyTests/Fixtures/reviewed-tv-guide-snapshot.json",import.meta.url),"utf8"));
   const at=new Date(wire.generatedAt);

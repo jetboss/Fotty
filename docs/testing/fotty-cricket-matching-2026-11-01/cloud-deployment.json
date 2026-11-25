@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "problems": [],
+  "notificationCount": 131,
+  "sourceVersion": "2026-11-01.cricket-matching-1",
+  "watchdogExpectedRevision": "2026-11-01.cricket-matching-1",
+  "activation": "active",
+  "originalActivatedAt": "2026-10-11T11:14:52.000Z",
+  "allExistingBindingsAndVarsUnchanged": {
+    "playback": true,
+    "watchdog": true
+  },
+  "normalCollectorCompletedAt": 1793538363624,
+  "checkedAt": "2026-11-01T13:12:13.404Z"
+}

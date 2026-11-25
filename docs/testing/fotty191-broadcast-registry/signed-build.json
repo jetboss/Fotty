@@ -1,0 +1,9 @@
+{
+  "build": 191,
+  "configuration": "Release",
+  "target": "Jet iPad",
+  "appVersion": "2.0.1",
+  "signaturePass": true,
+  "extensionSignaturePass": true,
+  "profileMembershipPass": true
+}

@@ -4,7 +4,14 @@ struct PlaybackControlsOverlay: View {
     var viewModel: LivePlayerViewModel
     let showSourceButton: Bool
     let showsTopBar: Bool
-    let dismiss: DismissAction
+    let dismiss: () -> Void
+    @Environment(LiveScoreService.self) private var scoreService
+
+    // Single-player connecting content owns the center, including its
+    // accessibility scroll fallback. Existing top-bar actions remain usable.
+    var showsCenterTransport: Bool {
+        !viewModel.isLoading || viewModel.viewingPlaybackContext != .single
+    }
     
     var body: some View {
         ZStack {
@@ -15,6 +22,7 @@ struct PlaybackControlsOverlay: View {
                 .onTapGesture {
                     viewModel.toggleControlsFromPlaybackTap()
                 }
+                .allowsHitTesting(showsCenterTransport)
             
             VStack {
                 if showsTopBar {
@@ -36,16 +44,12 @@ struct PlaybackControlsOverlay: View {
                     // Match badge
                     HStack(spacing: 8) {
                         HStack(spacing: 4) {
-                            if let url = viewModel.event.homeBadgeURL ?? TeamBrandService.shared.badgeURL(for: viewModel.event.homeName, triggerSearch: true) {
-                                AsyncImage(url: url) { phase in
-                                    if let image = phase.image {
-                                        image.resizable().scaledToFit()
-                                    } else {
-                                        Color.clear
-                                    }
-                                }
-                                .frame(width: 14, height: 14)
-                            }
+                            TeamBadgeWindow(
+                                teamName: viewModel.event.homeName,
+                                badgeURL: viewModel.event.homeBadgeURL,
+                                size: 18,
+                                triggerSearch: true
+                            )
                             Text(shortCode(for: viewModel.event.homeName))
                                 .font(.system(size: 13, weight: .bold))
                         }
@@ -55,17 +59,13 @@ struct PlaybackControlsOverlay: View {
                         HStack(spacing: 4) {
                             Text(shortCode(for: viewModel.event.awayName))
                                 .font(.system(size: 13, weight: .bold))
-                            
-                            if let url = viewModel.event.awayBadgeURL ?? TeamBrandService.shared.badgeURL(for: viewModel.event.awayName, triggerSearch: true) {
-                                AsyncImage(url: url) { phase in
-                                    if let image = phase.image {
-                                        image.resizable().scaledToFit()
-                                    } else {
-                                        Color.clear
-                                    }
-                                }
-                                .frame(width: 14, height: 14)
-                            }
+
+                            TeamBadgeWindow(
+                                teamName: viewModel.event.awayName,
+                                badgeURL: viewModel.event.awayBadgeURL,
+                                size: 18,
+                                triggerSearch: true
+                            )
                         }
                     }
                     .foregroundStyle(.white)
@@ -127,14 +127,14 @@ struct PlaybackControlsOverlay: View {
                 Spacer()
                 
                 // Center play/pause
-                if viewModel.isUsingWebEmbed {
+                if showsCenterTransport && viewModel.isUsingWebEmbed {
                     Text("Web Stream")
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.82))
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(Capsule().fill(.black.opacity(0.5)))
-                } else {
+                } else if showsCenterTransport {
                     Button {
                         viewModel.togglePlayPause()
                     } label: {
@@ -151,13 +151,15 @@ struct PlaybackControlsOverlay: View {
                 Spacer()
                 
                 // Bottom — competition info
-                HStack {
-                    Text(viewModel.event.categoryDisplayName)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.5))
+                if showsCenterTransport {
+                    HStack {
+                        Text(viewModel.event.categoryDisplayName)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.5))
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 50)
                 }
-                .padding(.horizontal, 20)
-                .padding(.bottom, 50)
             }
         }
         .onAppear {
@@ -185,11 +187,12 @@ struct PlaybackControlsOverlay: View {
 
     @ViewBuilder
     private var playbackTimingBadge: some View {
-        let timing = viewModel.event.broadcastTiming()
-        if timing == .live {
+        let now = Date()
+        let status = MatchStartPolicy.currentStatus(for: viewModel.event, scores: scoreService, now: now)
+        if MatchdayEventStatePolicy.section(for: viewModel.event, at: now, status: status) == .live {
             LivePulse()
         } else {
-            Text(timing.rawValue)
+            Text(MatchdayEventStatePolicy.presentationLabel(for: viewModel.event, at: now, status: status))
                 .font(.fottyScaled(size: 10, weight: .black, design: .rounded))
                 .foregroundStyle(.white.opacity(0.82))
                 .tracking(0.5)

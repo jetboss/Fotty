@@ -1,0 +1,6 @@
+interface:
+  display_name: "iOS Performance Audit"
+  short_description: "Evidence-led iPhone and iPad responsiveness diagnosis"
+  default_prompt: "Use $ios-performance-audit to investigate this responsiveness issue and separate confirmed defects from measured bottlenecks."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,12 @@
+{
+  "observedAtUTC": "2026-10-31T20:43:59Z",
+  "source": "CS",
+  "stage": "same_advertised_fixture_streams",
+  "sameIdAndTitleMetaVerified": true,
+  "elapsedSeconds": 16.039,
+  "streamCount": 16,
+  "validEnvelope": true,
+  "oldTransportDeadlineSeconds": 12,
+  "repairScope": "CS only; stream request23/transport24; metadata and other adapters unchanged",
+  "playbackClaim": false
+}

@@ -1,0 +1,10 @@
+{
+  "runtime": "Node24.22.2",
+  "tests": 45,
+  "passed": 45,
+  "failed": 0,
+  "skipped": 0,
+  "scope": "sports-fixture sources and durable worker; includes EFL exact-empty response and accepted active-fact protection",
+  "published": false,
+  "deployed": false
+}

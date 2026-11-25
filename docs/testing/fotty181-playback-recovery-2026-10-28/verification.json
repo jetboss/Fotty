@@ -1,0 +1,134 @@
+{
+  "build": 181,
+  "version": "2.0.1",
+  "device": "Jet iPad",
+  "system": "iPadOS27.2",
+  "toolchain": "Xcode27.1 (27A9275)",
+  "signedReleaseCompile": "passed",
+  "signature": "deep strict passed",
+  "binarySHA256": "d842b02897a8523d458e2c9aa36f646312bf6a3ebf96699abc0b6ca760aa1998",
+  "productionInputs": {
+    "count": 313,
+    "changedFrom178": [
+      "Fotty.xcodeproj/project.pbxproj",
+      "Fotty/Core/Models/CurrentEventBroadcastPolicy.swift",
+      "Fotty/Core/Models/SportsFixtureCatalog.swift",
+      "Fotty/Core/Networking/CommunitySportsAddonClient.swift",
+      "Fotty/Core/Networking/LocalStreamProxyPolicy.swift",
+      "Fotty/Core/Networking/PlavioSportsAddonClient.swift",
+      "Fotty/Core/Networking/Score808SiteCatalog.swift",
+      "Fotty/Core/Social/SportsPersonalizationPolicy.swift",
+      "FottyTests/CommunitySportsAddonTests.swift",
+      "FottyTests/CricketFixtureCatalogTests.swift",
+      "FottyTests/LocalStreamProxyTests.swift",
+      "FottyTests/PlavioSportsAddonTests.swift",
+      "FottyTests/Score808SiteCatalogTests.swift",
+      "FottyTests/SportsFixtureCatalogTests.swift",
+      "FottyTests/SportsPersonalizationTests.swift"
+    ],
+    "unchangedFrom178": 298,
+    "currentSourceMatchesBuildManifest": true
+  },
+  "preservation": {
+    "prelaunchPlistSlots": 34,
+    "prelaunchExactEquality": true,
+    "postPlaybackConfigurationSlotsCompared": 25,
+    "postPlaybackConfigurationEquality": true,
+    "protectedSourceHashes": 42,
+    "protectedHashesUnchanged": true,
+    "phoneTouched": false,
+    "FPLChanged": false,
+    "multiStreamChanged": false,
+    "testFlightReleased": false
+  },
+  "nativeTests": {
+    "fixturePersonalizationAndLookup": {
+      "uniqueCases": 112,
+      "firstPass": 111,
+      "firstFailure": "New test incorrectly renamed Liverpool to Arsenal without changing participant ID; corrected fixture only, production identity unchanged",
+      "affectedLookupRerunPassed": 21,
+      "countsOverlap": true
+    },
+    "ASMetadata": {
+      "passed": 52,
+      "skipped": 1,
+      "failed": 0,
+      "skipIsNotPlaybackPass": true
+    },
+    "CSRelayScore808": {
+      "passed": 185,
+      "skipped": 1,
+      "failed": 0,
+      "execution": "Fresh Mac Catalyst unit harness; separate physical manual gate",
+      "skipIsNotPlaybackPass": true
+    }
+  },
+  "backend": {
+    "pullRequest": "https://github.com/jetboss/Fotty/pull/91",
+    "mergedCommit": "c3ebfa018689bbcdfba02ab4c3ae4d897aa52dc9",
+    "isolatedFocusedPassed": 67,
+    "protectedCIPassed": true,
+    "sourceVersion": "2026-10-28.efl-cup-1",
+    "deploymentID": "b3ff08d7-fe97-4ff4-87d8-eaad28792ad4",
+    "cupCoveredFixtures": 8,
+    "newFeeds": "Official EFL metadata only"
+  },
+  "watchdog": {
+    "sameCodeCompatibilityDeployment": "d8c5e8cf-8de8-4321-9b04-43772349a0d0",
+    "offlineTestsPassed": 95,
+    "runtimeTestsPassed": 13,
+    "activationPreserved": true,
+    "expectedVersionAligned": true,
+    "observerRun": "https://github.com/jetboss/Fotty/actions/runs/40766151178",
+    "observerPassed": true,
+    "directChatAlertBridgeImplemented": false
+  },
+  "physical": {
+    "normalReleaseNormalLaunch": true,
+    "normalExistingMatchPath": "Home \u2192 Liverpool\u2013Chelsea \u2192 Match details \u2192 Check streams",
+    "visibleOptions": 7,
+    "selectedSource": "CS2",
+    "upstreamHint": "ppvst",
+    "listedQuality": "Full HD",
+    "nativeGuardedRelay": true,
+    "CS1AttemptFailures": 2,
+    "CS1FailureHTTPStatus": 404,
+    "automaticFailoverToCS2": true,
+    "decodedProgress": true,
+    "CS2FirstDecodedProgressMilliseconds": 2718,
+    "correctProgramme": "Liverpool\u2013Chelsea, Sky Sports, 1\u20131",
+    "observedProgrammeClockFrom": "64:50",
+    "observedProgrammeClockThrough": "76:20",
+    "moreThanTenMinutesAdvancingVideo": true,
+    "sourceSheetOpenedAndClosedWhilePlaying": true,
+    "nativeFullscreen": true,
+    "sameAttemptAtNativePresentation": true,
+    "nativePauseThenResume": true,
+    "landscapeFullscreenObserved": true,
+    "leftPlaying": true,
+    "audibleAudioIndependentlyVerified": false,
+    "PiPRetestedInThisGate": false,
+    "XCTestPhysicalTestsExecuted": false,
+    "allSourcesQualified": false,
+    "PLorUCLQualifiedByThisCupGate": false,
+    "finalPassiveProgrammeClock": "81:50",
+    "finalPassiveScore": "1\u20131",
+    "finalPassiveLandscapeFullscreenPlaying": true
+  },
+  "screenshot": {
+    "path": "docs/testing/fotty181-playback-recovery-2026-10-28/jet181-native-fullscreen.png",
+    "sha256": "550f1c07f35fa17230651c1e66839faea15c23ad34530596b55a7daeed1aec6f"
+  },
+  "limits": [
+    "Main Streamed publisher remains closed; no operator reason or exact shutdown start is known.",
+    "AS current fixture returned empty streams; Score808 native web playback is not qualified.",
+    "This qualifies one current CS2 Cup delivery, not all advertised deliveries, sports or future fixtures.",
+    "Watchdog remains metadata/GitHub-issue-only with no verified owner chat/push bridge."
+  ],
+  "cleanup": {
+    "ownedTemporaryGateRemoved": true,
+    "ownedBuildOutputApproximateGiB": 1.3,
+    "ownedKeepAwakeStoppedAfterWork": true,
+    "otherArtifactsOrCachesDeleted": false
+  }
+}

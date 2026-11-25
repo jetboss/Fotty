@@ -1,0 +1,30 @@
+{
+  "nativeUnits": [
+    {
+      "method": "freshly compiled Catalyst",
+      "resultBundle": "Test-Fotty-2026.10.31_19-49-36--0400.xcresult",
+      "totalTestCount": 1,
+      "passedTests": 1,
+      "failedTests": 0,
+      "skippedTests": 0,
+      "result": "Passed"
+    },
+    {
+      "method": "freshly compiled Catalyst",
+      "resultBundle": "Test-Fotty-2026.10.31_19-49-43--0400.xcresult",
+      "totalTestCount": 2433,
+      "passedTests": 2424,
+      "failedTests": 0,
+      "skippedTests": 9,
+      "result": "Passed"
+    }
+  ],
+  "passed": 2425,
+  "skipped": 9,
+  "failed": 0,
+  "unsignedIOSReleaseCompile": "passed",
+  "snapshotHelperTests": 17,
+  "visualReviewHelperTests": 9,
+  "nativeMembershipChecks": 32,
+  "physicalDeviceInteractionDuringRelease": false
+}

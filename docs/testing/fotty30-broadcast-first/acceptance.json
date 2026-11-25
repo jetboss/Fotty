@@ -1,0 +1,52 @@
+{
+  "version": "3.0.0",
+  "build": "229",
+  "finalReleaseBinarySHA256": "c312cb8be1fb490af533211c141598bd5a271cf09f18cd36a2d4f17ea8f7571f",
+  "installedFinalReleaseOnJet": true,
+  "normalNoTestArgumentsLaunchPassed": true,
+  "signatureVerified": true,
+  "focusedUnitExecutions": 175,
+  "distinctFocusedUnitTests": 174,
+  "failuresInThoseUnitRuns": 0,
+  "postRepairJetRepeatedLaunchAndLightDarkHome": "passed",
+  "jetHomeTVSearchFilterReset": "passed; final Debug run had XCTest idle waits, not a frame-time performance pass",
+  "jetActualProgrammeHold": {
+    "configuration": "Debug",
+    "source": "TV4",
+    "fixture": "New Jersey Devils vs Edmonton Oilers",
+    "dateUTC": "2026-11-04",
+    "durationSeconds": 90,
+    "mediaAdvanceSeconds": 91.632482352,
+    "correctProgrammeObserved": true,
+    "samePlayerItemAttempt": true
+  },
+  "finalReleaseTransportCheck": {
+    "source": "TV4",
+    "watchReachedNativePlayer": true,
+    "pausePlaySamePlayerItemAttempt": true,
+    "pictures": "ESPN3 break/bumper; not a new correct-match hold"
+  },
+  "excludedSourceFiles": {
+    "compared": 42,
+    "changed": 0
+  },
+  "jetProtectedPreferenceKeys": {
+    "compared": 10,
+    "changed": 0
+  },
+  "phone": "Earlier Home/TV pass. Later startup crash confirmed; owner subsequently instructed ignore phone. No final repair/install/retest on phone after that instruction.",
+  "openGates": [
+    "rapid complete-string Search automation versus native text handling remains unresolved",
+    "final phone row layout and repaired startup not tested on phone because owner stopped phone work",
+    "no new Premier League or Champions League live qualification tonight"
+  ],
+  "testFlight": false,
+  "gitPublication": false,
+  "cloudDeployment": false,
+  "cleanup": {
+    "ownedBuildGateRemoved": true,
+    "jetUITestRunnerRemoved": true,
+    "ownedKeepAwakeStopped": true,
+    "freeDiskGiB": 31.2
+  }
+}

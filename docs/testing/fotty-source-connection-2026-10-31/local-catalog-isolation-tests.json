@@ -1,0 +1,13 @@
+{
+  "scope": "Existing staged source candidate; not deployed",
+  "tests": 44,
+  "passed": 44,
+  "failed": 0,
+  "areas": [
+    "same-cohort terminal rollback isolation",
+    "accepted snapshot retention",
+    "cross-competition isolation",
+    "explicit verified/held native envelope",
+    "receipt expiry/replay fencing"
+  ]
+}

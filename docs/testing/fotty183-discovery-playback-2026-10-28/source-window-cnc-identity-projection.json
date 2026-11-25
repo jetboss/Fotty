@@ -1,0 +1,45 @@
+{
+  "checkedAt": "2026-10-29T00:30:50.506336Z",
+  "fixture": "nhl:2026020199",
+  "requests": [
+    {
+      "stage": "catalog",
+      "httpStatus": 200,
+      "bytes": 304508,
+      "sha256": "a66ad8d4726e69a7ff0ae222091e069cede93f680c2a97e10d734a35cd085741"
+    },
+    {
+      "stage": "exact_meta",
+      "httpStatus": 200,
+      "bytes": 1699,
+      "sha256": "ea04983894f962e1552d7823a25906a0be2864753eacc4fd1456e32a8b75b050"
+    }
+  ],
+  "officialTeams": [
+    "Washington Capitals",
+    "Philadelphia Flyers"
+  ],
+  "officialKickoffUTC": "2026-10-28T23:30:00Z",
+  "rowCount": 85,
+  "candidateCount": 1,
+  "catalogProjection": [
+    {
+      "name": "🔴 Capitals vs Flyers",
+      "type": "tv",
+      "idHash": "5fc544aa25ca33fd20ee19a2",
+      "idMatchesReviewedGrammar": true,
+      "defaultVideoIDEqualsID": true,
+      "hintKeys": [
+        "defaultVideoId"
+      ]
+    }
+  ],
+  "metadataProjection": {
+    "name": "Capitals vs Flyers",
+    "type": "tv",
+    "description": "📌 Hockey\n🏆 NHL\n🕐 Oct 28, 2026 23:30 UTC\n\n📡 Available Servers: 1",
+    "sameID": true,
+    "idHash": "5fc544aa25ca33fd20ee19a2",
+    "behaviorHintsPresent": false
+  }
+}

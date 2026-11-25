@@ -1,0 +1,1319 @@
+--- a/Fotty/Core/Networking/LocalStreamProxyPolicy.swift
++++ b/Fotty/Core/Networking/LocalStreamProxyPolicy.swift
+@@ -2,8 +2,8 @@
+ import Darwin
+ import CryptoKit
+ 
+-/// Runtime-only authority for one reviewed CS delivery. It is deliberately not
+-/// Codable: persisted/add-on metadata cannot restore an exceptional port grant.
++/// Runtime-only authority for one reviewed delivery. It is deliberately not
++/// Codable: persisted/add-on metadata cannot restore an exceptional transport grant.
+ struct LocalStreamProxyOriginProfile: Sendable, Equatable {
+     private static let reviewedManifestURL = URL(string: "https://nuviosports.xyz/manifest.json")!
+     // Owner-approved origin observed in the exact CS1 contract on 11 October
+@@ -11,10 +11,15 @@
+     private static let reviewedOriginSHA256 = "6f9cf8e38a18ecd21731b9ed9f6328fc9c97fadb5f7e6c911d88eaa49b2e19ce"
+     private let host: String
+     private let deliveryBinding: String
+-
+-    private init(host: String, deliveryBinding: String) {
++    private let foxCricketRoot: URL?
++    private static let reviewedFoxPlaylistURL = URL(string:
++        "https://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/playlist.m3u")!
++    private static let reviewedFoxRootHosts: Set<String> = ["y3fqd48g.megatv.fun"]
++
++    private init(host: String, deliveryBinding: String, foxCricketRoot: URL? = nil) {
+         self.host = host
+         self.deliveryBinding = deliveryBinding
++        self.foxCricketRoot = foxCricketRoot
+     }
+ 
+     static func communitySports(deliveryURL: URL, manifestURL: URL,
+@@ -27,13 +32,50 @@
+         return Self(host: host, deliveryBinding: binding(deliveryURL, headers: headers))
+     }
+ 
++    /// A finite, runtime-only grant for the original public Fox Cricket SD
++    /// listing. Call only after the reviewed HTTPS playlist's literal station
++    /// identity and delivery have been revalidated; no persisted URL can mint it.
++    static func reviewedFoxCricket(deliveryURL: URL, playlistURL: URL,
++                                   channelID: String, headers: [String: String]) -> Self? {
++        guard channelID == CricketBroadcastChannel.foxCricket.canonicalID,
++              playlistURL.absoluteString == reviewedFoxPlaylistURL.absoluteString,
++              headers.isEmpty, let host = reviewedFoxRootHost(deliveryURL) else { return nil }
++        return Self(host: host, deliveryBinding: binding(deliveryURL, headers: headers),
++                    foxCricketRoot: deliveryURL)
++    }
++
+     func validated(for deliveryURL: URL, headers: [String: String]) -> Self? {
++        if let foxCricketRoot {
++            guard headers.isEmpty, deliveryURL.absoluteString == foxCricketRoot.absoluteString,
++                  Self.reviewedFoxRootHost(deliveryURL) == host,
++                  Self.binding(deliveryURL, headers: headers) == deliveryBinding else { return nil }
++            return self
++        }
+         guard Self.reviewedHost(for: deliveryURL, headers: headers) == host,
+               Self.binding(deliveryURL, headers: headers) == deliveryBinding else { return nil }
+         return self
+     }
+ 
+     func allowsExceptionalDestination(_ url: URL) -> Bool {
++        if let foxCricketRoot {
++            guard let parts = Self.reviewedFoxHTTPComponents(url) else { return false }
++            if url.absoluteString == foxCricketRoot.absoluteString { return true }
++            let rootCapability = foxCricketRoot.pathComponents[2]
++            guard let host = url.host, Self.isPublicFoxMediaIPv4(host),
++                  parts.percentEncodedPath.range(of: "^/iptv/" + rootCapability + #"/[0-9]{1,8}/[A-Za-z0-9_-]{1,128}\.ts$"#,
++                                               options: .regularExpression) != nil,
++                  let query = parts.percentEncodedQuery,
++                  query.hasPrefix("md5="), (5...1_028).contains(query.utf8.count),
++                  !query.contains("&"), !query.contains(";"),
++                  query.utf8.allSatisfy({ (33...126).contains($0) })
++            else { return false }
++            // The current Fox publisher rotates literal public CDN addresses.
++            // Only a URI actually registered from this bound Fox playlist can
++            // be fetched; keep its root capability and opaque query unchanged.
++            // Opaque filename length is not station identity; bound it instead
++            // of rejecting a valid freshly advertised segment over a guessed size.
++            return true
++        }
+         guard url.scheme?.lowercased() == "https", url.host?.lowercased() == host,
+               url.port == 8443, Self.originDigest(host) == Self.reviewedOriginSHA256 else { return false }
+         // Reuse all default public-host, credential, fragment and scheme rules;
+@@ -42,6 +84,46 @@
+         parts?.port = 443
+         guard let ordinary = parts?.url else { return false }
+         return LocalStreamProxyPolicy.allowsDestination(ordinary)
++    }
++
++    var isReviewedFoxCricket: Bool { foxCricketRoot != nil }
++
++    func usesReviewedFoxHTTPMediaTransport(for url: URL) -> Bool {
++        guard let foxCricketRoot, url.absoluteString != foxCricketRoot.absoluteString else { return false }
++        return allowsExceptionalDestination(url)
++    }
++
++    private static func isPublicFoxMediaIPv4(_ host: String) -> Bool {
++        let octets = host.split(separator: ".", omittingEmptySubsequences: false)
++        return octets.count == 4 && octets.allSatisfy { part in
++            guard (1...3).contains(part.count), part.allSatisfy({ $0.isASCII && $0.isNumber }),
++                  let value = UInt8(part) else { return false }
++            return String(value) == part
++        } && LocalStreamProxyPolicy.publicIPAddress(host) == true
++    }
++
++    private static func reviewedFoxRootHost(_ url: URL) -> String? {
++        guard let parts = reviewedFoxHTTPComponents(url), let host = url.host?.lowercased(),
++              reviewedFoxRootHosts.contains(host), parts.percentEncodedQuery == nil,
++              parts.percentEncodedPath.range(of: #"^/iptv/[A-Za-z0-9_-]{1,128}/19146/index\.m3u8$"#,
++                                           options: .regularExpression) != nil else { return nil }
++        return host
++    }
++
++    private static func reviewedFoxHTTPComponents(_ url: URL) -> URLComponents? {
++        guard url.scheme?.lowercased() == "http", url.port == nil || url.port == 80,
++              url.user == nil, url.password == nil, url.fragment == nil,
++              url.absoluteString.utf8.count <= 8_192,
++              let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
++              !parts.percentEncodedPath.contains("%") else { return nil }
++        // Reuse normal public-host validation without rewriting the network URL.
++        // The existing relay still performs its DNS checks before every request.
++        var ordinary = parts
++        ordinary.scheme = "https"
++        ordinary.port = 443
++        guard let ordinaryURL = ordinary.url, LocalStreamProxyPolicy.allowsDestination(ordinaryURL)
++        else { return nil }
++        return parts
+     }
+ 
+     private static func reviewedHost(for deliveryURL: URL, headers: [String: String]) -> String? {
+@@ -274,7 +356,7 @@
+ 
+     /// Called only after the redirect destination passes transport validation.
+     mutating func admitRedirect(from source: URL, to destination: URL) throws {
+-        guard contains(source) else { throw Failure.destination }
++        guard contains(source), originProfile?.isReviewedFoxCricket != true else { throw Failure.destination }
+         _ = try register(destination)
+     }
+ 
+@@ -418,7 +500,8 @@
+     }
+ 
+     func admitsDestination(_ url: URL) -> Bool {
+-        Self.allowsDestination(url) || originProfile?.allowsExceptionalDestination(url) == true
++        if originProfile?.isReviewedFoxCricket == true { return originProfile?.allowsExceptionalDestination(url) == true }
++        return Self.allowsDestination(url) || originProfile?.allowsExceptionalDestination(url) == true
+     }
+ 
+     /// nil means a DNS name; false includes non-global/special-use addresses.
+@@ -530,9 +613,10 @@
+     static func validate(_ url: URL, originProfile: LocalStreamProxyOriginProfile? = nil,
+                          resolver: Resolver = { try await resolve($0) }) async throws {
+         try Task.checkCancellation()
+-        guard LocalStreamProxyPolicy.allowsDestination(url)
+-                || originProfile?.allowsExceptionalDestination(url) == true,
+-              let rawHost = url.host else { throw URLError(.unsupportedURL) }
++        let allowed = originProfile?.isReviewedFoxCricket == true
++            ? originProfile?.allowsExceptionalDestination(url) == true
++            : LocalStreamProxyPolicy.allowsDestination(url) || originProfile?.allowsExceptionalDestination(url) == true
++        guard allowed, let rawHost = url.host else { throw URLError(.unsupportedURL) }
+         let host = rawHost.trimmingCharacters(in: CharacterSet(charactersIn: "[]"))
+         if LocalStreamProxyPolicy.publicIPAddress(host) == true { return }
+         let addresses = try await resolver(host)
+--- a/FottyTests/LocalStreamProxyTests.swift
++++ b/FottyTests/LocalStreamProxyTests.swift
+@@ -246,6 +246,279 @@
+                                               requestHeaders: headers).admitsDestination(target))
+         XCTAssertFalse(LocalStreamProxyPolicy(selectedMediaURL: delivery, originProfile: profile,
+                                               requestHeaders: altered).admitsDestination(target))
++    }
++
++    func testReviewedFoxProfileRequiresCanonicalIdentityOriginalPlaylistAndEmptyHeaders() throws {
++        let delivery = URL(string: "http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19146/index.m3u8")!
++        let playlist = URL(string: "https://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/playlist.m3u")!
++        let channel = CricketBroadcastChannel.foxCricket.canonicalID
++        XCTAssertNotNil(LocalStreamProxyOriginProfile.reviewedFoxCricket(
++            deliveryURL: delivery, playlistURL: playlist, channelID: channel, headers: [:]))
++        XCTAssertNil(LocalStreamProxyOriginProfile.reviewedFoxCricket(
++            deliveryURL: delivery, playlistURL: playlist, channelID: CricketBroadcastChannel.willow.canonicalID, headers: [:]))
++        for headers in [["User-Agent": "Fixture Player"], ["Referer": playlist.absoluteString],
++                        ["Authorization": "fixture"], ["Cookie": "fixture=1"]] {
++            XCTAssertNil(LocalStreamProxyOriginProfile.reviewedFoxCricket(
++                deliveryURL: delivery, playlistURL: playlist, channelID: channel, headers: headers))
++        }
++        for value in ["http://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/playlist.m3u",
++                      "https://raw.githubusercontent.com/other/Rokon-IPTV/main/playlist.m3u",
++                      "https://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/playlist.m3u?other=1",
++                      "https://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/playlist.m3u#fragment",
++                      "https://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/%70laylist.m3u"] {
++            XCTAssertNil(LocalStreamProxyOriginProfile.reviewedFoxCricket(
++                deliveryURL: delivery, playlistURL: URL(string: value)!, channelID: channel, headers: [:]), value)
++        }
++        for value in ["https://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19146/index.m3u8",
++                      "http://y3fqd48g.megatv.fun:81/iptv/abcdefghijklmn/19146/index.m3u8",
++                      "http://y3fqd48g.megatv.fun.evil.example/iptv/abcdefghijklmn/19146/index.m3u8",
++                      "http://user:fixture@y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19146/index.m3u8",
++                      "http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19146/index.m3u8?md5=fixture",
++                      "http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19146/index.m3u8#fragment",
++                      "http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19147/index.m3u8",
++                      "http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19146/%69ndex.m3u8",
++                      "http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/other/../19146/index.m3u8"] {
++            XCTAssertNil(LocalStreamProxyOriginProfile.reviewedFoxCricket(
++                deliveryURL: URL(string: value)!, playlistURL: playlist, channelID: channel, headers: [:]), value)
++        }
++    }
++
++    func testReviewedFoxHTTPAuthorityIsFiniteAndCannotBeRebound() throws {
++        let (delivery, profile) = try reviewedFoxProfile()
++        XCTAssertFalse(LocalStreamProxyPolicy.allowsDestination(delivery))
++        XCTAssertFalse(LocalStreamProxyPolicy(selectedMediaURL: delivery).isValid)
++        var scoped = LocalStreamProxyPolicy(selectedMediaURL: delivery, originProfile: profile)
++        XCTAssertTrue(scoped.isValid)
++        XCTAssertTrue(scoped.admitsDestination(delivery))
++        XCTAssertNil(scoped.destination(for: "/forged/unregistered"))
++        XCTAssertFalse(profile.usesReviewedFoxHTTPMediaTransport(for: delivery), "Root metadata uses its scoped URLSession path")
++        XCTAssertFalse(scoped.admitsDestination(URL(string: "https://public.example/foreign.ts")!), "Fox cannot inherit other sources' generic HTTPS admission")
++        var noRedirect = scoped
++        XCTAssertThrowsError(try noRedirect.admitRedirect(from: delivery, to: URL(string: "https://public.example/foreign.ts")!))
++        for host in ["77.72.23.4", "77.72.19.131", "77.72.23.43", "93.189.56.50", "185.6.14.67"] {
++            let child = URL(string: "http://\(host):80/iptv/abcdefghijklmn/123/ABCdef0123456789.ts?md5=fixture%2Bopaque%3D")!
++            XCTAssertTrue(scoped.admitsDestination(child))
++            XCTAssertTrue(profile.usesReviewedFoxHTTPMediaTransport(for: child))
++            XCTAssertFalse(LocalStreamProxyPolicy.allowsDestination(child))
++        }
++        let currentFilename = URL(string: "http://93.189.56.50/iptv/abcdefghijklmn/123/ABCdef0123456.ts?md5=fixture")!
++        XCTAssertTrue(scoped.admitsDestination(currentFilename), "The freshly verified publisher uses a 13-character stem; opaque length is not channel identity")
++        let alternative = URL(string: "http://ee0c5e74.akadatel.com/iptv/abcdefghijklmn/19146/index.m3u8")!
++        XCTAssertNil(LocalStreamProxyOriginProfile.reviewedFoxCricket(deliveryURL: alternative,
++            playlistURL: URL(string: "https://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/playlist.m3u")!,
++            channelID: CricketBroadcastChannel.foxCricket.canonicalID, headers: [:]), "The HD root is not qualified for this gate")
++        XCTAssertFalse(scoped.admitsDestination(alternative), "The selected root is bound, not a host-wide grant")
++        XCTAssertNil(profile.validated(for: alternative, headers: [:]))
++        XCTAssertNil(profile.validated(for: delivery, headers: ["User-Agent": "changed"]))
++        let changed = URL(string: "http://y3fqd48g.megatv.fun/iptv/abcdefghijklM2/19146/index.m3u8")!
++        XCTAssertNil(profile.validated(for: changed, headers: [:]))
++        XCTAssertFalse(LocalStreamProxyPolicy(selectedMediaURL: delivery, originProfile: profile,
++                                              requestHeaders: ["Cookie": "fixture=1"]).isValid)
++        XCTAssertFalse(LocalStreamProxyPolicy(selectedMediaURL: changed, originProfile: profile).isValid)
++    }
++
++    func testReviewedFoxProfileRejectsUnreviewedOriginsResourcesQueriesAndTraversal() throws {
++        let (_, profile) = try reviewedFoxProfile()
++        let allowed = "http://77.72.23.4/iptv/abcdefghijklmn/123/ABCdef0123456789.ts?md5=fixture"
++        let rejected = [
++            allowed.replacingOccurrences(of: "77.72.23.4", with: "77.72.23.4.evil.example"),
++            allowed.replacingOccurrences(of: "77.72.23.4", with: "127.0.0.1"),
++            allowed.replacingOccurrences(of: "77.72.23.4", with: "192.168.1.1"),
++            allowed.replacingOccurrences(of: "77.72.23.4", with: "0x4d.0x48.0x17.0x04"),
++            allowed.replacingOccurrences(of: "77.72.23.4", with: "user:fixture@77.72.23.4"),
++            allowed.replacingOccurrences(of: "77.72.23.4", with: "77.72.23.4:8080"),
++            allowed.replacingOccurrences(of: "/123/", with: "/resource/"),
++            allowed.replacingOccurrences(of: "/123/", with: "/000/../123/"),
++            allowed.replacingOccurrences(of: "/123/", with: "//123/"),
++            allowed.replacingOccurrences(of: "abcdefghijklmn", with: "%73egmentABC1234"),
++            allowed.replacingOccurrences(of: "abcdefghijklmn", with: "unrelated12345"),
++            allowed.replacingOccurrences(of: "ABCdef0123456789.ts", with: "ABCdef0123456789.key"),
++            allowed.replacingOccurrences(of: "?md5=fixture", with: ""),
++            allowed.replacingOccurrences(of: "?md5=fixture", with: "?md5="),
++            allowed.replacingOccurrences(of: "?md5=fixture", with: "?%6dd5=fixture"),
++            allowed + "&other=fixture", allowed + "&md5=duplicate", allowed + ";other=fixture", allowed + "#fragment",
++            allowed.replacingOccurrences(of: "?md5=fixture", with: "?md5=" + String(repeating: "x", count: 1_025)),
++            "http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/123/ABCdef0123456789.ts?md5=fixture",
++            "http://77.72.23.4/iptv/abcdefghijklmn/19146/index.m3u8"
++        ]
++        for value in rejected {
++            XCTAssertFalse(profile.allowsExceptionalDestination(URL(string: value)!), value)
++        }
++    }
++
++    func testReviewedFoxManifestAdmissionPreservesOpaqueQueryAndRemainsAtomic() throws {
++        let (delivery, profile) = try reviewedFoxProfile()
++        let child = URL(string: "http://77.72.19.131/iptv/abcdefghijklmn/123/ABCdef0123456789.ts?md5=fixture%2Bvalue%3D")!
++        var scoped = LocalStreamProxyPolicy(selectedMediaURL: delivery, originProfile: profile)
++        let manifest = "#EXTM3U\n#EXT-X-TARGETDURATION:10\n#EXTINF:10,\n\(child.absoluteString)"
++        let rewritten = try scoped.rewriteManifest(manifest, relativeTo: delivery, port: 8765)
++        let local = try XCTUnwrap(URL(string: rewritten.components(separatedBy: "\n").last!))
++        XCTAssertEqual(scoped.destination(for: local.path)?.absoluteString, child.absoluteString)
++        let count = scoped.registeredURLCount
++        let foreign = URL(string: "http://foreign.example/segment.ts")!
++        XCTAssertThrowsError(try scoped.rewriteManifest(manifest + "\n" + foreign.absoluteString,
++                                                       relativeTo: delivery, port: 8765))
++        XCTAssertEqual(scoped.registeredURLCount, count)
++        XCTAssertThrowsError(try scoped.admitRedirect(from: delivery, to: foreign))
++        scoped.revoke()
++        XCTAssertNil(scoped.destination(for: local.path))
++        XCTAssertThrowsError(try scoped.admitRedirect(from: delivery, to: child))
++    }
++
++    func testReviewedFoxHTTPGrantStillRequiresPublicDNSAndDefaultPolicyRejectsIt() async throws {
++        let (delivery, profile) = try reviewedFoxProfile()
++        for addresses in [[], ["127.0.0.1"], ["8.8.8.8", "192.168.1.1"], ["not-an-address"], ["::ffff:127.0.0.1"]] {
++            do {
++                try await LocalStreamProxyDestinationValidator.validate(delivery, originProfile: profile,
++                                                                        resolver: { _ in addresses })
++                XCTFail("Reviewed HTTP does not bypass public DNS validation")
++            } catch { }
++        }
++        try await LocalStreamProxyDestinationValidator.validate(delivery, originProfile: profile,
++                                                                resolver: { _ in ["8.8.8.8"] })
++        do {
++            try await LocalStreamProxyDestinationValidator.validate(delivery, resolver: { _ in ["8.8.8.8"] })
++            XCTFail("Unprofiled HTTP must remain unsupported")
++        } catch { XCTAssertEqual((error as? URLError)?.code, .unsupportedURL) }
++        let child = URL(string: "http://77.72.23.4/iptv/abcdefghijklmn/123/ABCdef0123456789.ts?md5=fixture")!
++        try await LocalStreamProxyDestinationValidator.validate(child, originProfile: profile, resolver: { _ in
++            XCTFail("The reviewed literal public IPv4 does not require DNS")
++            return []
++        })
++    }
++
++    func testActualReviewedFoxRelayUsesBoundRootAndLiteralAdvertisedSegmentWithoutCredentials() async throws {
++        let (delivery, profile) = try reviewedFoxProfile()
++        let child = URL(string: "http://77.72.23.4/iptv/abcdefghijklmn/123/ABCdef0123456789.ts?md5=fixture%2Bopaque%3D")!
++        ProxyFixtureProtocol.configure { fixture in
++            if fixture.request.url == delivery {
++                fixture.respond(type: "application/vnd.apple.mpegurl", body: Data("#EXTM3U\n\(child.absoluteString)".utf8))
++            } else { fixture.respond(type: "video/mp2t", body: Data("fixture-fox-segment".utf8)) }
++        }
++        let config = URLSessionConfiguration.ephemeral
++        config.protocolClasses = [ProxyFixtureProtocol.self]
++        let staleCookie = try XCTUnwrap(HTTPCookie(properties: [.domain: delivery.host!, .path: "/", .name: "fixture-cookie",
++            .value: "never-send-plaintext", .expires: Date().addingTimeInterval(3600)]))
++        let proxy = LocalStreamProxy(headers: [:], cookies: [staleCookie], selectedMediaURL: delivery,
++                                     originProfile: profile, configuration: config, resolver: { _ in ["8.8.8.8"] },
++                                     reviewedFoxMediaFetch: { request in
++            ProxyFixtureProtocol.recordMockedFoxMediaRequest(request)
++            return (Data("fixture-fox-segment".utf8), HTTPURLResponse(url: request.url!, statusCode: 200,
++                httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "video/mp2t"])!)
++        })
++        defer { proxy.stop() }
++        try await proxy.start()
++        let localManifest = try XCTUnwrap(proxy.playbackURL())
++        let (manifest, firstResponse) = try await URLSession.shared.data(from: localManifest)
++        guard (firstResponse as? HTTPURLResponse)?.statusCode == 200 else {
++            return XCTFail("The mocked reviewed HTTP root must return a rewritten playlist")
++        }
++        let routes = String(decoding: manifest, as: UTF8.self).components(separatedBy: "\n")
++            .filter { $0.hasPrefix("http://127.0.0.1:") }
++        guard routes.count == 1 else { return XCTFail("Expected one registered segment route") }
++        let segment = try XCTUnwrap(URL(string: routes[0]))
++        let (bytes, response) = try await URLSession.shared.data(from: segment)
++        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
++        XCTAssertEqual(bytes, Data("fixture-fox-segment".utf8))
++        let requests = ProxyFixtureProtocol.requests
++        XCTAssertEqual(requests.count, 2)
++        XCTAssertEqual(requests.first?.url?.absoluteString, delivery.absoluteString)
++        XCTAssertEqual(requests.last?.url?.absoluteString, child.absoluteString)
++        for request in requests {
++            for name in ["Cookie", "Authorization", "Referer", "Origin"] {
++                XCTAssertNil(request.value(forHTTPHeaderField: name))
++            }
++        }
++        XCTAssertNil(proxy.lastFailureEvidence)
++    }
++
++    func testFoxHTTPMediaParserAcceptsFragmentedLengthAndPreservesResponseIdentity() throws {
++        let request = URLRequest(url: URL(string: "http://93.189.56.50/iptv/abcdefghijklmn/123/ABCdef0123456789.ts?md5=fixture%2Bopaque%3D")!)
++        var parser = try ReviewedFoxHTTPMediaClient.Parser(request: request, maximumBytes: 16)
++        let wire = Data("HTTP/1.1 206 Partial Content\r\nContent-Type: video/mp2t\r\nContent-Length: 5\r\nContent-Range: bytes 0-4/5\r\n\r\nhello".utf8)
++        for byte in wire { try parser.append(Data([byte])) }
++        let result = try XCTUnwrap(parser.result)
++        XCTAssertEqual(result.0, Data("hello".utf8)); XCTAssertEqual(result.1.statusCode, 206)
++        XCTAssertEqual(result.1.url?.absoluteString, request.url?.absoluteString)
++        XCTAssertEqual(result.1.value(forHTTPHeaderField: "Content-Range"), "bytes 0-4/5")
++        XCTAssertThrowsError(try parser.append(Data([0])))
++    }
++
++    func testFoxHTTPMediaParserHandlesChunkExtensionsTrailersAndCloseDelimitedBody() throws {
++        let request = URLRequest(url: URL(string: "http://185.6.14.67/fixture.ts")!)
++        var chunks = try ReviewedFoxHTTPMediaClient.Parser(request: request, maximumBytes: 16)
++        let wire = Data("HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3;source=fixture\r\nabc\r\n3\r\ndef\r\n0\r\nX-Fixture: complete\r\n\r\n".utf8)
++        for offset in stride(from: 0, to: wire.count, by: 3) {
++            try chunks.append(wire.subdata(in: offset..<min(wire.count, offset + 3)))
++        }
++        XCTAssertEqual(try XCTUnwrap(chunks.result).0, Data("abcdef".utf8))
++        var close = try ReviewedFoxHTTPMediaClient.Parser(request: request, maximumBytes: 16)
++        try close.append(Data("HTTP/1.0 200 OK\r\nContent-Type: video/mp2t\r\n\r\nabc".utf8))
++        XCTAssertNil(close.result); try close.finishEOF()
++        XCTAssertEqual(try XCTUnwrap(close.result).0, Data("abc".utf8))
++        var headRequest = request; headRequest.httpMethod = "HEAD"
++        var head = try ReviewedFoxHTTPMediaClient.Parser(request: headRequest, maximumBytes: 16)
++        try head.append(Data("HTTP/1.1 200 OK\r\nContent-Length: 999999\r\n\r\n".utf8))
++        XCTAssertEqual(try XCTUnwrap(head.result).0.count, 0)
++    }
++
++    func testFoxHTTPMediaParserRejectsAmbiguousFramingRedirectsCompressionAndTruncatedBodies() throws {
++        let request = URLRequest(url: URL(string: "http://93.189.56.50/fixture.ts")!)
++        let rejected = [
++            "HTTP/1.1 200 OK\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\nx",
++            "HTTP/1.1 200 OK\r\nContent-Length: 1, 1\r\n\r\nx",
++            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 1\r\n\r\n0\r\n\r\n",
++            "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\nContent-Length: 1\r\n\r\nx",
++            "HTTP/1.1 302 Found\r\nLocation: https://another.example/segment.ts\r\nContent-Length: 0\r\n\r\n",
++            "HTTP/1.1 101 Upgrade\r\n\r\n",
++            "HTTP/1.1 200 OK\r\nContent-Length: 1\r\n\r\nxx",
++            "HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nxx",
++            "HTTP/1.1 200 OK\r\nContent-Length: 17\r\n\r\n",
++            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\nG\r\nx\r\n0\r\n\r\n",
++            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nxXX0\r\n\r\n",
++            "HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n0\r\nContent-Length: 0\r\n\r\n"
++        ]
++        for wire in rejected {
++            XCTAssertThrowsError(try {
++                var parser = try ReviewedFoxHTTPMediaClient.Parser(request: request, maximumBytes: 16)
++                try parser.append(Data(wire.utf8)); try parser.finishEOF()
++            }())
++        }
++        var oversized = try ReviewedFoxHTTPMediaClient.Parser(request: request, maximumBytes: 16)
++        XCTAssertThrowsError(try oversized.append(Data(("HTTP/1.1 200 OK\r\nX-Huge: " + String(repeating: "a", count: 32 * 1024)).utf8)))
++    }
++
++    func testFoxHTTPMediaTransportRejectsPrivateAmbiguousOrCredentialledRequestsBeforeNetwork() throws {
++        for raw in ["https://8.8.8.8/a.ts", "http://127.0.0.1/a.ts", "http://192.168.1.1/a.ts",
++                    "http://169.254.169.254/a.ts", "http://0.0.0.0/a.ts", "http://public.example/a.ts",
++                    "http://8.8.8.8:8080/a.ts", "http://user:fixture@8.8.8.8/a.ts", "http://8.8.8.8/a.ts#fragment"] {
++            XCTAssertThrowsError(try ReviewedFoxHTTPMediaClient.Parser(request: URLRequest(url: URL(string: raw)!)))
++        }
++        for name in ["Cookie", "Authorization", "Proxy-Authorization", "Origin", "Referer"] {
++            var request = URLRequest(url: URL(string: "http://8.8.8.8/fixture.ts")!)
++            request.setValue("fixture", forHTTPHeaderField: name)
++            XCTAssertThrowsError(try ReviewedFoxHTTPMediaClient.Parser(request: request))
++        }
++    }
++
++    func testFoxHTTPMediaCancellationBeforeFetchNeverOpensThePublicSocket() async throws {
++        let gate = FoxHTTPTestStartGate()
++        let task = Task {
++            await gate.wait()
++            return try await ReviewedFoxHTTPMediaClient.fetch(URLRequest(url: URL(string: "http://8.8.8.8/fixture.ts")!))
++        }
++        task.cancel(); await gate.open()
++        do { _ = try await task.value; XCTFail("Cancelled fetch cannot open a socket") }
++        catch { XCTAssertTrue(error is CancellationError) }
++    }
++
++    private func reviewedFoxProfile(deliveryURL: URL? = nil) throws -> (URL, LocalStreamProxyOriginProfile) {
++        let delivery = deliveryURL ?? URL(string: "http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19146/index.m3u8")!
++        let profile = try XCTUnwrap(LocalStreamProxyOriginProfile.reviewedFoxCricket(
++            deliveryURL: delivery,
++            playlistURL: URL(string: "https://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/playlist.m3u")!,
++            channelID: CricketBroadcastChannel.foxCricket.canonicalID, headers: [:]))
++        return (delivery, profile)
+     }
+ 
+     func testCSPlaylistProfileIsRuntimeBoundToTheReviewedDeliveryAndHeaders() throws {
+@@ -1804,6 +2077,9 @@
+     private var ownedStopHandler: (() -> Void)?
+ 
+     static var requests: [URLRequest] { lock.lock(); defer { lock.unlock() }; return recorded }
++    static func recordMockedFoxMediaRequest(_ request: URLRequest) {
++        lock.lock(); recorded.append(request); lock.unlock()
++    }
+ 
+     static func configure(onStop: (() -> Void)? = nil, handler: @escaping (ProxyFixtureProtocol) -> Void) {
+         lock.lock()
+@@ -1817,7 +2093,14 @@
+         lock.lock(); handler = nil; stopHandler = nil; recorded = []; lock.unlock()
+     }
+ 
+-    override class func canInit(with request: URLRequest) -> Bool { request.url?.scheme == "https" }
++    override class func canInit(with request: URLRequest) -> Bool {
++        guard let url = request.url else { return false }
++        if url.scheme == "https" { return true }
++        // Only the synthetic reviewed Fox HTTP requests use this test transport;
++        // do not intercept the relay's actual loopback socket or reach the network.
++        return url.scheme == "http" && ["y3fqd48g.megatv.fun", "77.72.23.4", "77.72.19.131", "77.72.23.43"]
++            .contains(url.host ?? "") && (url.port == nil || url.port == 80)
++    }
+     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+ 
+     override func startLoading() {
+@@ -1886,3 +2169,13 @@
+         lock.lock(); defer { lock.unlock() }; count += 1; return count
+     }
+ }
++
++private actor FoxHTTPTestStartGate {
++    private var released = false
++    private var pending: CheckedContinuation<Void, Never>?
++    func wait() async {
++        if released { return }
++        await withCheckedContinuation { pending = $0 }
++    }
++    func open() { released = true; pending?.resume(); pending = nil }
++}
+--- a/Fotty/Core/Models/MediaModels.swift
++++ b/Fotty/Core/Models/MediaModels.swift
+@@ -582,14 +582,16 @@
+               identity != nil || channel != nil || television != nil,
+               let definition = CuratedStreamSourceCatalog.definition(forProviderCode: providerCode),
+               channel == nil || definition.provider == .communitySports
+-                || definition.provider == .reviewedTV && channel == .willow,
++                || definition.provider == .reviewedTV
++                    && ReviewedTVPlaylistClient.channel(forChannelID: channel!.canonicalID)?.streamID == streamID
++                    && providerEventID == streamID,
+               television == nil || (definition.provider == .communitySports
+                 && CommunitySportsAddonClient.supportsSportsTVChannel(request)
+                 && CommunitySportsAddonClient.videoIDRejection(providerEventID) == nil
+                 && CommunitySportsAddonClient.videoIDRejection(streamID) == nil) || (definition.provider == .reviewedTV
+                 && streamID == ReviewedTVPlaylistClient.channel(forChannelID: television!.id)?.streamID
+                 && providerEventID == streamID),
+-              definition.provider != .reviewedTV || channel == .willow || television != nil
++              definition.provider != .reviewedTV || channel != nil || television != nil
+                 || ReviewedTVPlaylistClient.programmeAssociation(for: request, at: now) != nil,
+               association.map({ $0.matches(request: request, providerCode: providerCode,
+                   providerEventID: providerEventID, streamID: streamID, at: now) }) ?? true,
+--- a/Fotty/Core/Models/SportsTVExperience.swift
++++ b/Fotty/Core/Models/SportsTVExperience.swift
+@@ -13,8 +13,7 @@
+         ReviewedTVPlaylistClient.channels.map {
+             .init(id: $0.channelID, provider: $0.providerName, title: $0.displayName,
+                   language: $0.commentaryLanguage)
+-        } + [.init(id: CricketBroadcastChannel.foxCricket.canonicalID, provider: "CS-Fox",
+-                   title: CricketBroadcastChannel.foxCricket.title, language: .english)]
++        }
+     }
+     var cricketChannel: CricketBroadcastChannel? {
+         CricketBroadcastChannel.allCases.first { $0.canonicalID == id && $0.title == title }
+--- a/Fotty/Core/Networking/ReviewedTVPlaylistClient.swift
++++ b/Fotty/Core/Networking/ReviewedTVPlaylistClient.swift
+@@ -9,11 +9,12 @@
+     nonisolated static let providerCode = "reviewedtv"
+     nonisolated static let playlistURL = URL(string: "https://raw.githubusercontent.com/iptv-org/iptv/master/streams/us.m3u")!
+     nonisolated static let englishPlaylistURL = URL(string: "https://raw.githubusercontent.com/doms9/iptv/default/M3U8/base.m3u8")!
++    nonisolated static let foxPlaylistURL = URL(string: "https://raw.githubusercontent.com/time2shine/Rokon-IPTV/main/playlist.m3u")!
+     // Keep the established Willow names and TV1 binding compatible.
+     nonisolated static let channelIdentifier = "Willow.us@SD"
+     nonisolated static let providerEventID = "reviewed-tv:willow-main"
+     nonisolated static let maximumBytes = 1_024 * 1_024
+-    private static let revision = "tv-channels-m3u-5"
++    private static let revision = "tv-channels-m3u-6"
+ 
+     struct ChannelDefinition: Equatable, Sendable {
+         let playlistIdentifier: String
+@@ -93,6 +94,13 @@
+               displayName: "beIN SPORTS XTRA", commentaryLanguage: .english,
+               allowedDeliveryHosts: ["bein-xtra-bein.amagi.tv"], sports: ["football"],
+               markets: ["US"], playlistLabels: ["beIN SPORTS XTRA"]),
++        .init(playlistIdentifier: "foxcricket.in", playlistURL: foxPlaylistURL,
++              deliveryPath: nil, playbackUserAgent: nil,
++              channelID: CricketBroadcastChannel.foxCricket.canonicalID,
++              streamID: "reviewed-tv:fox-cricket", providerName: "TV20",
++              displayName: "Fox Cricket", commentaryLanguage: .english,
++              allowedDeliveryHosts: ["y3fqd48g.megatv.fun"], sports: ["cricket"],
++              markets: ["AU"], playlistLabels: ["CR | Fox Cricket 501"]),
+     ]
+ 
+     private nonisolated static func espn(_ number: Int, identifier: String, markets: Set<String>) -> ChannelDefinition {
+@@ -115,10 +123,13 @@
+     typealias CurrentFixture = @Sendable (StreamPlaybackRequest, Date) async -> StreamPlaybackRequest?
+     typealias ProgrammeMatches = @Sendable (StreamPlaybackRequest, Date) async -> [BroadcastRegistryMatch]
+     private let fetch: Fetch
+-    private let validateDestination: ValidateDestination
++    private let validateDestination: @Sendable (URL, LocalStreamProxyOriginProfile?) async throws -> Void
+ 
+     init(fetch: Fetch? = nil, validateDestination: ValidateDestination? = nil) {
+-        self.validateDestination = validateDestination ?? { try await LocalStreamProxyDestinationValidator.validate($0) }
++        self.validateDestination = { url, profile in
++            if let validateDestination { try await validateDestination(url) }
++            else { try await LocalStreamProxyDestinationValidator.validate(url, originProfile: profile) }
++        }
+         if let fetch { self.fetch = fetch }
+         else {
+             let configuration = URLSessionConfiguration.ephemeral
+@@ -142,15 +153,15 @@
+         guard let channel = Self.channel(forProviderName: name) else { throw CommunitySportsAddonError.matchNotFound }
+         let data = try await readPlaylist(from: channel.playlistURL)
+         let delivery = try Self.delivery(from: data, playlistURL: channel.playlistURL, channel: channel)
+-        try await validateDestination(delivery)
++        try await validateDestination(delivery, Self.originProfile(for: delivery, channel: channel))
+         try Task.checkCancellation()
+         return delivery
+     }
+ 
+     private func readPlaylist(from playlistURL: URL = ReviewedTVPlaylistClient.playlistURL, checkAuthorization: () async throws -> Void = {}) async throws -> Data {
+         try Task.checkCancellation()
+-        guard [Self.playlistURL, Self.englishPlaylistURL].contains(playlistURL) else { throw CommunitySportsAddonError.unsafeResponse }
+-        try await validateDestination(playlistURL)
++        guard [Self.playlistURL, Self.englishPlaylistURL, Self.foxPlaylistURL].contains(playlistURL) else { throw CommunitySportsAddonError.unsafeResponse }
++        try await validateDestination(playlistURL, nil)
+         var query = URLRequest(url: playlistURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 8)
+         query.httpShouldHandleCookies = false
+         query.setValue("text/plain, application/vnd.apple.mpegurl", forHTTPHeaderField: "Accept")
+@@ -178,7 +189,8 @@
+                  }) async throws -> [StreamSession] {
+         let started = Date()
+         let television = SportsTVStation.identifying(request)
+-        if television != nil, !(await isEnabled()) { throw CommunitySportsAddonError.matchNotFound }
++        let fox = CricketBroadcastChannel.identifying(request: request) == .foxCricket
++        if television != nil || fox, !(await isEnabled()) { throw CommunitySportsAddonError.matchNotFound }
+         let requests: [StreamPlaybackRequest]
+         if Self.supports(request, at: now) {
+             requests = [request]
+@@ -191,7 +203,7 @@
+             guard !requests.isEmpty else { throw CommunitySportsAddonError.matchNotFound }
+         }
+         let hasAssociations = requests.contains { $0.registryMatch != nil }
+-        let requiresEnablement = hasAssociations || television != nil
++        let requiresEnablement = hasAssociations || television != nil || fox
+         if requiresEnablement {
+             guard await isEnabled() else { throw CommunitySportsAddonError.conflictingMatch }
+         }
+@@ -219,7 +231,7 @@
+                     playlistCache[channel.playlistURL] = data
+                 }
+                 let delivery = try Self.delivery(from: data, playlistURL: channel.playlistURL, channel: channel)
+-                try await validateDestination(delivery)
++                try await validateDestination(delivery, Self.originProfile(for: delivery, channel: channel))
+                 try Task.checkCancellation()
+                 let completedAt = now.addingTimeInterval(max(0, Date().timeIntervalSince(started)))
+                 let current: StreamPlaybackRequest
+@@ -287,11 +299,11 @@
+             guard matches.count == 1, let association = matches.first else { return nil }
+             accepted = current.usingRegistryMatch(association)
+         } else {
+-            let willow = channel.providerName == "TV1" && old.providerEventID == Self.providerEventID
+-                && CricketBroadcastChannel.identifying(request: request) == .willow
++            let cricket = CricketBroadcastChannel.identifying(request: request)
++                .map { $0.canonicalID == channel.channelID && old.providerEventID == channel.streamID } ?? false
+             let station = SportsTVStation.identifying(request)?.id == channel.channelID
+                 && old.providerEventID == channel.streamID
+-            guard (willow || station), request.registryMatch == nil else { return nil }
++            guard (cricket || station), request.registryMatch == nil else { return nil }
+         }
+         do {
+             let candidates = try await resolve(for: accepted, now: now, isEnabled: isEnabled,
+@@ -393,7 +405,9 @@
+     }
+ 
+     private nonisolated static func selectedChannel(for request: StreamPlaybackRequest, at now: Date) -> ChannelDefinition? {
+-        if CricketBroadcastChannel.identifying(request: request) == .willow, request.registryMatch == nil { return channels[0] }
++        if let cricket = CricketBroadcastChannel.identifying(request: request), request.registryMatch == nil {
++            return channel(forChannelID: cricket.canonicalID)
++        }
+         if let station = SportsTVStation.identifying(request) { return channel(forChannelID: station.id) }
+         guard let association = programmeAssociation(for: request, at: now), let id = association.broadcast.channelID else { return nil }
+         return channel(forChannelID: id)
+@@ -402,12 +416,24 @@
+     nonisolated static func admitsDelivery(_ url: URL) -> Bool { admitsDelivery(url, channel: channels[0]) }
+ 
+     nonisolated static func admitsDelivery(_ url: URL, channel: ChannelDefinition) -> Bool {
+-        channels.contains(channel) && LocalStreamProxyPolicy.allowsDestination(url)
++        guard channels.contains(channel) else { return false }
++        if channel.providerName == "TV20" { return originProfile(for: url, channel: channel) != nil }
++        return LocalStreamProxyPolicy.allowsDestination(url)
+             && url.scheme?.lowercased() == "https" && (url.port == nil || url.port == 443)
+             && url.user == nil && url.password == nil && url.fragment == nil && admitsQuery(url, channel: channel)
+             && (channel.deliveryPath == nil || channel.deliveryPath == url.path)
+             && channel.allowedDeliveryHosts.contains(url.host?.lowercased() ?? "")
+             && url.pathExtension.lowercased() == "m3u8" && url.absoluteString.utf8.count <= 8_192
++    }
++
++    /// Reconstructed only after this finite playlist profile parsed its exact
++    /// Fox ID and label. A channel name alone never grants HTTP authority.
++    private nonisolated static func originProfile(for delivery: URL, channel: ChannelDefinition) -> LocalStreamProxyOriginProfile? {
++        guard channels.contains(channel), channel.providerName == "TV20",
++              channel.playlistURL == foxPlaylistURL,
++              channel.allowedDeliveryHosts.contains(delivery.host?.lowercased() ?? "") else { return nil }
++        return .reviewedFoxCricket(deliveryURL: delivery, playlistURL: channel.playlistURL,
++            channelID: channel.channelID, headers: [:])
+     }
+ 
+     // Only the current, literally advertised opaque CDN token is carried. It
+@@ -492,6 +518,7 @@
+             canRefresh: true, diagnosticMetadata: ["source_family": providerCode,
+                 "manifest_result": "exact_channel_match", "delivery": "reviewed_direct_hls",
+                 "source_key": key, "source_key_scope": "delivery"], createdAt: now,
++            nativeOriginProfile: originProfile(for: delivery, channel: channel),
+             requiresGuardedRelay: true, eventBinding: binding)
+     }
+ }
+--- a/Fotty/Info.plist
++++ b/Fotty/Info.plist
+@@ -67,6 +67,12 @@
+ 		<true/>
+ 		<key>NSAllowsArbitraryLoadsInWebContent</key>
+ 		<false/>
++		<!-- Reviewed Fox TV20 transport only; app relay additionally binds exact paths and fresh metadata. -->
++		<key>NSExceptionDomains</key>
++		<dict>
++			<key>y3fqd48g.megatv.fun</key>
++			<dict><key>NSExceptionAllowsInsecureHTTPLoads</key><true/><key>NSIncludesSubdomains</key><false/></dict>
++		</dict>
+ 	</dict>
+ 	<key>NSUserActivityTypes</key>
+ 	<array><string>com.jelani.Fotty.sports-viewing</string></array>
+--- a/FottyTests/ReviewedTVPlaylistClientTests.swift
++++ b/FottyTests/ReviewedTVPlaylistClientTests.swift
+@@ -71,8 +71,8 @@
+         XCTAssertEqual(CuratedStreamSourceCatalog.discoveryPlan(for: willow,
+             enabledProviderCodes: ["reviewedtv", "communitysports"], at: now).optionalSources.map(\.providerCode),
+             ["communitysports", "reviewedtv"])
+-        XCTAssertTrue(CuratedStreamSourceCatalog.discoveryPlan(for: request(.foxCricket),
+-            enabledProviderCodes: ["reviewedtv"], at: now).optionalSources.isEmpty)
++        XCTAssertEqual(CuratedStreamSourceCatalog.discoveryPlan(for: request(.foxCricket),
++            enabledProviderCodes: ["reviewedtv"], at: now).optionalSources.map(\.providerCode), ["reviewedtv"])
+         let fixture = EventReference(id: "cricket-fixture:icc:reviewed", title: "India vs Australia", category: "cricket",
+             date: Int64(now.timeIntervalSince1970), poster: nil, popular: false,
+             teams: .init(home: .init(name: "India", badge: nil), away: .init(name: "Australia", badge: nil)), sources: [])
+@@ -87,7 +87,7 @@
+         XCTAssertFalse(CricketChannelPlaybackPolicy.canResolve(willow.preferredEvent!, discoveryIndex: index))
+         index.updateEnabledProviders(["reviewedtv"], revision: 2)
+         XCTAssertTrue(CricketChannelPlaybackPolicy.canResolve(willow.preferredEvent!, discoveryIndex: index))
+-        XCTAssertFalse(CricketChannelPlaybackPolicy.canResolve(request(.foxCricket).preferredEvent!, discoveryIndex: index))
++        XCTAssertTrue(CricketChannelPlaybackPolicy.canResolve(request(.foxCricket).preferredEvent!, discoveryIndex: index))
+         index.updateEnabledProviders([], revision: 3, invalidating: "reviewedtv")
+         XCTAssertFalse(CricketChannelPlaybackPolicy.canResolve(willow.preferredEvent!, discoveryIndex: index))
+     }
+@@ -218,7 +218,7 @@
+             _ = await log.fetched(query)
+             throw URLError(.badServerResponse)
+         }, validateDestination: { await log.validated($0) })
+-        do { _ = try await client.resolve(for: request(.foxCricket), now: now); XCTFail("Fox is not admitted by this source") }
++        do { _ = try await client.resolve(for: request(.foxCricket), now: now, isEnabled: { false }); XCTFail("Disabled Fox must not fetch") }
+         catch { }
+         let state = await log.snapshot()
+         XCTAssertTrue(state.requests.isEmpty)
+@@ -361,9 +361,9 @@
+ 
+     func testReviewedChannelDefinitionsKeepWillowStableAndESPNMarketsExplicit() throws {
+         let definitions = ReviewedTVPlaylistClient.channels
+-        XCTAssertEqual(definitions.map(\.providerName), ((1...15).map { "TV\($0)" } + ["TV17"]))
+-        XCTAssertEqual(Set(definitions.map(\.playlistIdentifier)).count, 16)
+-        XCTAssertEqual(Set(definitions.map(\.channelID)).count, 16)
++        XCTAssertEqual(definitions.map(\.providerName), ((1...15).map { "TV\($0)" } + ["TV17", "TV20"]))
++        XCTAssertEqual(Set(definitions.map(\.playlistIdentifier)).count, 17)
++        XCTAssertEqual(Set(definitions.map(\.channelID)).count, 17)
+         XCTAssertEqual(definitions[0].playlistIdentifier, ReviewedTVPlaylistClient.channelIdentifier)
+         XCTAssertEqual(definitions[0].streamID, ReviewedTVPlaylistClient.providerEventID)
+         XCTAssertEqual(definitions[0].channelID, CricketBroadcastChannel.willow.canonicalID)
+@@ -375,7 +375,7 @@
+         XCTAssertFalse(espn.markets.contains("AR"))
+         XCTAssertEqual(ReviewedTVPlaylistClient.channel(forChannelID: espn.channelID), espn)
+         XCTAssertEqual(ReviewedTVPlaylistClient.channel(forStreamID: espn.streamID), espn)
+-        for name in ["TV0", "TV20", "TV50", "TV02", "tv2", "TV2 ", "FS2", "TV200"] {
++        for name in ["TV0", "TV16", "TV18", "TV19", "TV21", "TV50", "TV02", "tv2", "TV2 ", "FS2", "TV200"] {
+             XCTAssertNil(ReviewedTVPlaylistClient.channel(forProviderName: name))
+         }
+         for definition in definitions {
+@@ -713,6 +713,83 @@
+     }
+ 
+     private func stamp(_ date: Date) -> String { ISO8601DateFormatter().string(from: date) }
++    func testFoxUsesExactOriginalIdentityAndFiniteTransportRatherThanTheAggregate() throws {
++        let fox = try XCTUnwrap(ReviewedTVPlaylistClient.channel(forProviderName: "TV20"))
++        let root = "http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19146/index.m3u8"
++        func metadata(id: String = "foxcricket.in", label: String = "CR | Fox Cricket 501",
++                      url: String = root, directive: String = "") -> Data {
++            Data("#EXTM3U\n#EXTINF:-1 tvg-id=\"\(id)\",\(label)\n\(directive)\(url)\n".utf8)
++        }
++        XCTAssertEqual(try ReviewedTVPlaylistClient.delivery(from: metadata(),
++            playlistURL: ReviewedTVPlaylistClient.foxPlaylistURL, channel: fox).absoluteString, root)
++        XCTAssertThrowsError(try ReviewedTVPlaylistClient.delivery(from: metadata(),
++            playlistURL: ReviewedTVPlaylistClient.englishPlaylistURL, channel: fox))
++        for id in ["FoxCricket501", "foxcricket.in@HD", "Willow.us@SD"] {
++            XCTAssertThrowsError(try ReviewedTVPlaylistClient.delivery(from: metadata(id: id),
++                playlistURL: ReviewedTVPlaylistClient.foxPlaylistURL, channel: fox))
++        }
++        for label in ["CR | Fox Cricket 501 HD", "Fox Sports", "Willow"] {
++            XCTAssertThrowsError(try ReviewedTVPlaylistClient.delivery(from: metadata(label: label),
++                playlistURL: ReviewedTVPlaylistClient.foxPlaylistURL, channel: fox))
++        }
++        for directive in ["#EXTVLCOPT:http-user-agent=other\n", "#EXTHTTP:{\"Authorization\":\"fixture\"}\n",
++                          "#KODIPROP:inputstream.adaptive.license_key=fixture\n"] {
++            XCTAssertThrowsError(try ReviewedTVPlaylistClient.delivery(from: metadata(directive: directive),
++                playlistURL: ReviewedTVPlaylistClient.foxPlaylistURL, channel: fox))
++        }
++        XCTAssertFalse(ReviewedTVPlaylistClient.admitsDelivery(URL(string: root)!), "Legacy API still owns Willow only")
++        XCTAssertFalse(LocalStreamProxyPolicy.allowsDestination(URL(string: root)!), "No global HTTP admission")
++    }
++
++    func testFoxNormalAdapterRenewsFreshMetadataWithoutChangingChannelOrPersistingHTTPAuthority() async throws {
++        let log = TVFetchLog()
++        let roots = ["http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19146/index.m3u8",
++                     "http://y3fqd48g.megatv.fun/iptv/abcdefghijklm2/19146/index.m3u8"]
++        let client = ReviewedTVPlaylistClient(fetch: { query in
++            let count = await log.fetched(query)
++            let body = Data("#EXTM3U\n#EXTINF:-1 tvg-id=\"foxcricket.in\",CR | Fox Cricket 501\n\(roots[min(count - 1, 1)])\n".utf8)
++            return (body, HTTPURLResponse(url: query.url!, statusCode: 200, httpVersion: nil,
++                                         headerFields: ["Content-Type": "text/plain"])!)
++        }, validateDestination: { await log.validated($0) })
++        let request = request(.foxCricket)
++        let choices = try await client.resolve(for: request, now: now, isEnabled: { true })
++        let original = try XCTUnwrap(choices.first)
++        XCTAssertEqual(choices.count, 1); XCTAssertEqual(original.providerName, "TV20")
++        XCTAssertTrue(original.requiresGuardedRelay == true); XCTAssertTrue(original.requiredHeaders.isEmpty)
++        XCTAssertNil(original.eventBinding?.kickoffDate, "A Fox channel is not proof of any current match")
++        XCTAssertTrue(original.eventBinding?.matches(request: request, providerCode: "reviewedtv", at: now) == true)
++        let grant = try XCTUnwrap(original.nativeOriginProfile)
++        XCTAssertNotNil(grant.validated(for: original.playableURL, headers: [:]))
++        let renewedValue = await client.refreshedDescriptor(for: original, request: request,
++            now: now.addingTimeInterval(91), isEnabled: { true })
++        let renewed = try XCTUnwrap(renewedValue)
++        XCTAssertEqual(renewed.id, original.id); XCTAssertEqual(renewed.providerName, "TV20")
++        XCTAssertEqual(renewed.eventBinding?.streamID, original.eventBinding?.streamID)
++        XCTAssertNotEqual(renewed.playableURL, original.playableURL)
++        XCTAssertNotNil(renewed.nativeOriginProfile?.validated(for: renewed.playableURL, headers: [:]))
++        XCTAssertNil(grant.validated(for: renewed.playableURL, headers: [:]), "Renewal cannot rebind the old grant")
++        let decoded = try JSONDecoder().decode(StreamSession.self, from: JSONEncoder().encode(renewed))
++        XCTAssertNil(decoded.nativeOriginProfile, "Persisted URLs cannot restore HTTP authority")
++        let snapshot = await log.snapshot()
++        XCTAssertEqual(snapshot.requests.count, 2); XCTAssertEqual(snapshot.destinations.count, 4)
++        XCTAssertTrue(snapshot.requests.allSatisfy { $0.url == ReviewedTVPlaylistClient.foxPlaylistURL
++            && $0.value(forHTTPHeaderField: "Authorization") == nil && !$0.httpShouldHandleCookies })
++    }
++
++    func testFoxChannelCannotCreateAProgrammeClaimOrBorrowOtherStationBindings() throws {
++        let root = URL(string: "http://y3fqd48g.megatv.fun/iptv/abcdefghijklmn/19146/index.m3u8")!
++        let fox = request(.foxCricket)
++        let session = try ReviewedTVPlaylistClient.session(for: fox, delivery: root, at: now)
++        XCTAssertNil(ReviewedTVPlaylistClient.programmeAssociation(for: fox, at: now))
++        XCTAssertFalse(session.eventBinding?.matches(request: request(.willow), providerCode: "reviewedtv", at: now) == true)
++        let forged = StreamPlaybackRequest(matchID: fox.matchID, displayTitle: "India vs Australia", homeTeam: "India",
++            awayTeam: "Australia", category: "cricket", kickoffDate: now)
++        XCTAssertThrowsError(try ReviewedTVPlaylistClient.session(for: forged, delivery: root, at: now))
++        XCTAssertNil(StreamEventBinding(request: fox, providerCode: "reviewedtv", providerEventID: "reviewed-tv:willow-main",
++            streamID: "reviewed-tv:willow-main", manifestRevision: "fixture", verifiedAt: now,
++            expiresAt: now.addingTimeInterval(90), at: now))
++    }
++
+     private func request(_ channel: CricketBroadcastChannel = .willow) -> StreamPlaybackRequest {
+         .init(event: CricketChannelCatalog.event(for: channel, in: []))
+     }
+--- a/FottyTests/SportsTVExperienceTests.swift
++++ b/FottyTests/SportsTVExperienceTests.swift
+@@ -14,7 +14,7 @@
+     }
+     func testStationsRemainDistinctChannelsWithoutInventedMatchIdentity() throws {
+         XCTAssertEqual(SportsTVStation.all.count, 17)
+-        XCTAssertEqual(SportsTVStation.configuredOriginCount, 6)
++        XCTAssertEqual(SportsTVStation.configuredOriginCount, 7)
+         let index = FixtureStreamDiscoveryIndex(); index.updateEnabledProviders(["reviewedtv"], revision: 1)
+         for station in SportsTVStation.all where station.cricketChannel == nil {
+             let event = station.event, request = StreamPlaybackRequest(event: event)
+@@ -48,10 +48,10 @@
+         let fox = try XCTUnwrap(SportsTVStation.station(id: CricketBroadcastChannel.foxCricket.canonicalID))
+         let request = StreamPlaybackRequest(event: fox.event)
+         XCTAssertEqual(CricketBroadcastChannel.identifying(request: request), .foxCricket)
+-        XCTAssertNil(SportsTVStation.identifying(request), "Fox must use its canonical CS channel owner, not a fabricated playlist profile")
++        XCTAssertNil(SportsTVStation.identifying(request), "Fox retains its canonical cricket-channel identity")
+         XCTAssertTrue(MatchStartPolicy(event: fox.event, now: now, discoveryIndex: index).canAttemptPlayback)
+         let plan = CuratedStreamSourceCatalog.discoveryPlan(for: request, enabledProviderCodes: ["reviewedtv", "communitysports"], at: now)
+-        XCTAssertEqual(plan.optionalSources.map(\.providerCode), ["communitysports"])
++        XCTAssertEqual(plan.optionalSources.map(\.providerCode), ["communitysports", "reviewedtv"])
+         index.updateEnabledProviders([], revision: 2)
+         XCTAssertFalse(MatchStartPolicy(event: fox.event, now: now, discoveryIndex: index).canAttemptPlayback)
+     }
+--- a/Fotty/Core/Networking/LocalStreamProxy.swift
++++ b/Fotty/Core/Networking/LocalStreamProxy.swift
+@@ -26,6 +26,8 @@
+     private let selectedMediaURL: URL
+     private let session: URLSession
+     private let resolver: LocalStreamProxyDestinationValidator.Resolver
++    typealias ReviewedFoxMediaFetch = @Sendable (URLRequest) async throws -> (Data, HTTPURLResponse)
++    private let reviewedFoxMediaFetch: ReviewedFoxMediaFetch
+     private let limits: LocalStreamProxyPolicy.Limits
+     private let originProfile: LocalStreamProxyOriginProfile?
+     private let stateLock = NSLock()
+@@ -77,13 +79,20 @@
+          originProfile: LocalStreamProxyOriginProfile? = nil,
+          playlistProfile: LocalStreamProxyPlaylistProfile? = nil,
+          configuration: URLSessionConfiguration? = nil,
+-         resolver: @escaping LocalStreamProxyDestinationValidator.Resolver = { try await LocalStreamProxyDestinationValidator.resolve($0) }) {
++         resolver: @escaping LocalStreamProxyDestinationValidator.Resolver = { try await LocalStreamProxyDestinationValidator.resolve($0) },
++         reviewedFoxMediaFetch: ReviewedFoxMediaFetch? = nil) {
++        let validatedOriginProfile = originProfile?.validated(for: selectedMediaURL, headers: headers)
+         self.headers = headers
+-        self.cookies = cookies
++        self.cookies = validatedOriginProfile?.isReviewedFoxCricket == true ? [] : cookies
+         self.selectedMediaURL = selectedMediaURL
+         self.limits = limits
+-        self.originProfile = originProfile?.validated(for: selectedMediaURL, headers: headers)
++        self.originProfile = validatedOriginProfile
+         self.resolver = resolver
++        self.reviewedFoxMediaFetch = reviewedFoxMediaFetch ?? { request in
++            try await ReviewedFoxHTTPMediaClient.fetch(request,
++                maximumBytes: min(limits.resourceBytes, 8 * 1024 * 1024),
++                deadline: min(30, limits.requestSeconds, limits.resourceSeconds))
++        }
+         policy = LocalStreamProxyPolicy(selectedMediaURL: selectedMediaURL, limits: limits,
+                                         originProfile: self.originProfile, requestHeaders: headers,
+                                         playlistProfile: playlistProfile)
+@@ -366,6 +375,10 @@
+     }
+ 
+     private func forwardRequest(_ request: ParsedRequest, remoteURL: URL, on connection: NWConnection) async {
++        if originProfile?.usesReviewedFoxHTTPMediaTransport(for: remoteURL) == true {
++            await forwardReviewedFoxMedia(request, remoteURL: remoteURL, on: connection)
++            return
++        }
+         let delegate = RedirectDelegate(proxy: self, request: request, limit: limits.redirects)
+         await withTaskCancellationHandler {
+             var startedResponse = false
+@@ -464,6 +477,50 @@
+         }
+     }
+ 
++    /// Fox's source-bound HTTP video pool rotates. A literal public IPv4 socket
++    /// avoids a global ATS exception while preserving exact manifest registration,
++    /// public-IP admission, opaque paths, no redirects and credential isolation.
++    /// This is approved HTTP transport, not TLS or an integrity guarantee.
++    private func forwardReviewedFoxMedia(_ request: ParsedRequest, remoteURL: URL, on connection: NWConnection) async {
++        var stage = LocalStreamProxyFailureEvidence.Stage.destinationValidation
++        var startedResponse = false
++        do {
++            try Task.checkCancellation()
++            guard withStateLock({ !isStopped && policy.contains(remoteURL) }),
++                  originProfile?.usesReviewedFoxHTTPMediaTransport(for: remoteURL) == true else {
++                throw URLError(.unsupportedURL)
++            }
++            try await validateDestination(remoteURL)
++            stage = .upstreamResponse
++            updateRequestEvidence(on: connection, phase: stage)
++            let (body, http) = try await reviewedFoxMediaFetch(makeRemoteRequest(url: remoteURL, request: request))
++            try Task.checkCancellation()
++            guard http.url == remoteURL, withStateLock({ !isStopped && policy.contains(remoteURL) }),
++                  body.count <= min(limits.resourceBytes, 8 * 1024 * 1024) else { throw URLError(.badServerResponse) }
++            updateRequestEvidence(on: connection, statusCode: http.statusCode,
++                category: LocalStreamProxyRequestReceipt.resourceHint(for: remoteURL,
++                    contentType: http.value(forHTTPHeaderField: "Content-Type")))
++            guard (200...299).contains(http.statusCode) || http.statusCode == 304 else {
++                recordFailure(on: connection, stage: stage, kind: .httpStatus, statusCode: http.statusCode)
++                sendError(http.statusCode, on: connection); return
++            }
++            stage = .resource
++            updateRequestEvidence(on: connection, phase: stage)
++            let length = request.method == "HEAD" ? responseLength(http) : body.count
++            try await sendHeader(http, length: length, on: connection)
++            startedResponse = true
++            if request.method != "HEAD", http.statusCode != 304 { try await sendData(body, on: connection) }
++            updateRequestEvidence(on: connection, outcome: .completed)
++            closeConnection(ObjectIdentifier(connection))
++        } catch {
++            if !Task.isCancelled, !withStateLock({ isStopped }) {
++                recordFailure(on: connection, stage: stage, kind: .classify(error), error: error as NSError)
++            }
++            if startedResponse || Task.isCancelled || withStateLock({ isStopped }) { closeConnection(ObjectIdentifier(connection)) }
++            else { sendError(502, on: connection) }
++        }
++    }
++
+     private func recordFailure(on connection: NWConnection, stage: LocalStreamProxyFailureEvidence.Stage,
+                                kind: LocalStreamProxyFailureEvidence.Kind,
+                                statusCode: Int? = nil, error: NSError? = nil) {
+@@ -1458,3 +1515,375 @@
+         }
+     }
+ }
++
++/// Fox-only HTTP segment transport. The caller must first admit the literal
++/// resource through its fresh reviewed Fox playlist/profile. This helper grants
++/// no destination authority: it additionally requires a public literal IPv4 and
++/// connects to that address directly, without DNS, redirects, cookies or TLS.
++/// HTTP has no transport encryption or integrity; it is not equivalent to HTTPS.
++enum ReviewedFoxHTTPMediaClient {
++    static let maximumBodyBytes = 8 * 1_024 * 1_024
++    static let maximumHeaderBytes = 32 * 1_024
++    private static let maximumFramingBytes = 256 * 1_024
++
++    static func fetch(_ request: URLRequest, maximumBytes: Int = maximumBodyBytes,
++                      deadline: TimeInterval = 30) async throws -> (Data, HTTPURLResponse) {
++        try Task.checkCancellation()
++        guard deadline.isFinite, deadline > 0 else { throw URLError(.timedOut) }
++        let prepared = try prepare(request)
++        let parser = try Parser(request: request, maximumBytes: maximumBytes)
++        let exchange = Exchange(prepared: prepared, parser: parser, deadline: min(deadline, 30))
++        return try await withTaskCancellationHandler {
++            try await exchange.run()
++        } onCancel: {
++            exchange.cancel()
++        }
++    }
++
++    private struct PreparedRequest {
++        let address: IPv4Address
++        let bytes: Data
++    }
++
++    private static func prepare(_ request: URLRequest) throws -> PreparedRequest {
++        guard let url = request.url, url.scheme?.lowercased() == "http",
++              url.port == nil || url.port == 80, url.user == nil, url.password == nil, url.fragment == nil,
++              let host = url.host, isPublicLiteralIPv4(host), let address = IPv4Address(host),
++              let parts = URLComponents(url: url, resolvingAgainstBaseURL: false),
++              url.absoluteString.utf8.count <= 8_192,
++              request.httpBody == nil, request.httpBodyStream == nil else { throw URLError(.unsupportedURL) }
++        let method = request.httpMethod ?? "GET"
++        guard method == "GET" || method == "HEAD" else { throw URLError(.unsupportedURL) }
++        let prohibited: Set<String> = ["cookie", "cookie2", "authorization", "proxy-authorization", "origin", "referer"]
++        guard !(request.allHTTPHeaderFields ?? [:]).keys.contains(where: { prohibited.contains($0.lowercased()) })
++        else { throw URLError(.unsupportedURL) }
++        let path = parts.percentEncodedPath.isEmpty ? "/" : parts.percentEncodedPath
++        let target = path + (parts.percentEncodedQuery.map { "?" + $0 } ?? "")
++        guard path.hasPrefix("/"), target.utf8.count <= 8_192,
++              target.utf8.allSatisfy({ (33...126).contains($0) }) else { throw URLError(.unsupportedURL) }
++        var lines = ["\(method) \(target) HTTP/1.1", "Host: \(host)", "Connection: close", "Accept-Encoding: identity"]
++        for name in ["Range", "If-Range"] {
++            if let value = request.value(forHTTPHeaderField: name) {
++                guard !value.isEmpty, value.utf8.count <= 2_048,
++                      value.utf8.allSatisfy({ (32...126).contains($0) }) else { throw URLError(.unsupportedURL) }
++                lines.append(name + ": " + value)
++            }
++        }
++        return PreparedRequest(address: address, bytes: Data((lines.joined(separator: "\r\n") + "\r\n\r\n").utf8))
++    }
++
++    private static func isPublicLiteralIPv4(_ host: String) -> Bool {
++        let pieces = host.split(separator: ".", omittingEmptySubsequences: false)
++        guard pieces.count == 4, pieces.allSatisfy({ piece in
++            !piece.isEmpty && piece.utf8.allSatisfy({ (48...57).contains($0) })
++                && Int(piece).map { (0...255).contains($0) && String($0) == piece } == true
++        }) else { return false }
++        return LocalStreamProxyPolicy.publicIPAddress(host) == true
++    }
++
++    /// Incremental response parser exposed internally for deterministic framing
++    /// tests. No network is performed by constructing or advancing a parser.
++    struct Parser {
++        private enum Mode { case headers, length(Int), chunked, untilClose }
++        private enum Chunk { case size, data(Int), terminator, trailers }
++        private let url: URL
++        private let isHead: Bool
++        private let maximumBytes: Int
++        private var buffer = Data()
++        private var body = Data()
++        private var mode: Mode = .headers
++        private var chunk: Chunk = .size
++        private var response: HTTPURLResponse?
++        private var wireBytes = 0
++        private var headerBytes = 0
++        private var framingBytes = 0
++        private var trailerBytes = 0
++        private var chunkCount = 0
++        private var interimCount = 0
++        private var ended = false
++        private(set) var result: (Data, HTTPURLResponse)?
++
++        init(request: URLRequest, maximumBytes: Int = ReviewedFoxHTTPMediaClient.maximumBodyBytes) throws {
++            _ = try ReviewedFoxHTTPMediaClient.prepare(request)
++            guard (1...ReviewedFoxHTTPMediaClient.maximumBodyBytes).contains(maximumBytes), let url = request.url
++            else { throw URLError(.dataLengthExceedsMaximum) }
++            self.url = url
++            self.isHead = request.httpMethod == "HEAD"
++            self.maximumBytes = maximumBytes
++        }
++
++        mutating func append(_ data: Data) throws {
++            guard !ended, result == nil else {
++                if !data.isEmpty { throw URLError(.cannotParseResponse) }
++                return
++            }
++            let wireLimit = maximumBytes + 2 * ReviewedFoxHTTPMediaClient.maximumHeaderBytes
++                + ReviewedFoxHTTPMediaClient.maximumFramingBytes
++            guard data.count <= wireLimit - wireBytes else { throw URLError(.dataLengthExceedsMaximum) }
++            wireBytes += data.count
++            buffer.append(data)
++            try drain()
++        }
++
++        mutating func finishEOF() throws {
++            guard !ended else { return }
++            try drain()
++            if result == nil {
++                guard case .untilClose = mode else { throw URLError(.networkConnectionLost) }
++                try appendBody(buffer)
++                buffer.removeAll(keepingCapacity: false)
++                try complete()
++            }
++            ended = true
++        }
++
++        private mutating func drain() throws {
++            while result == nil {
++                switch mode {
++                case .headers:
++                    guard let end = buffer.range(of: Data([13, 10, 13, 10])) else {
++                        guard headerBytes + buffer.count <= ReviewedFoxHTTPMediaClient.maximumHeaderBytes
++                        else { throw URLError(.dataLengthExceedsMaximum) }
++                        return
++                    }
++                    let size = buffer.distance(from: buffer.startIndex, to: end.upperBound)
++                    guard headerBytes + size <= ReviewedFoxHTTPMediaClient.maximumHeaderBytes
++                    else { throw URLError(.dataLengthExceedsMaximum) }
++                    let bytes = Data(buffer.prefix(size - 4))
++                    buffer.removeFirst(size)
++                    headerBytes += size
++                    try parseHeaders(bytes)
++                case .length(let expected):
++                    let remaining = expected - body.count
++                    guard buffer.count <= remaining else { throw URLError(.cannotParseResponse) }
++                    try appendBody(buffer)
++                    buffer.removeAll(keepingCapacity: true)
++                    if body.count == expected { try complete() }
++                    else { return }
++                case .untilClose:
++                    try appendBody(buffer)
++                    buffer.removeAll(keepingCapacity: true)
++                    return
++                case .chunked:
++                    guard try consumeChunk() else { return }
++                }
++            }
++        }
++
++        private mutating func parseHeaders(_ bytes: Data) throws {
++            guard let text = String(data: bytes, encoding: .ascii) else { throw URLError(.cannotParseResponse) }
++            var lines = text.components(separatedBy: "\r\n")
++            guard !lines.isEmpty else { throw URLError(.cannotParseResponse) }
++            let statusLine = lines.removeFirst()
++            let statusPieces = statusLine.split(separator: " ", omittingEmptySubsequences: false)
++            guard statusPieces.count >= 2, ["HTTP/1.0", "HTTP/1.1"].contains(String(statusPieces[0])),
++                  statusPieces[1].utf8.count == 3, statusPieces[1].utf8.allSatisfy({ (48...57).contains($0) }),
++                  statusLine.utf8.allSatisfy({ (32...126).contains($0) }),
++                  let status = Int(statusPieces[1]), (100...599).contains(status) else { throw URLError(.cannotParseResponse) }
++            var fields: [String: [String]] = [:]
++            for line in lines {
++                let (name, value) = try Self.field(line)
++                fields[name, default: []].append(value)
++            }
++            if status < 200 {
++                guard status != 101, interimCount < 4, fields["transfer-encoding"] == nil,
++                      fields["content-length"] == nil else { throw URLError(.cannotParseResponse) }
++                interimCount += 1
++                return
++            }
++            guard !(300...399).contains(status) else { throw URLError(.httpTooManyRedirects) }
++            if let encodings = fields["content-encoding"] {
++                guard encodings.allSatisfy({ $0.isEmpty || $0.lowercased() == "identity" })
++                else { throw URLError(.cannotDecodeContentData) }
++            }
++            var contentLength: Int?
++            if let values = fields["content-length"] {
++                for value in values {
++                    guard !value.isEmpty, value.utf8.allSatisfy({ (48...57).contains($0) }),
++                          let count = Int(value), contentLength == nil || contentLength == count
++                    else { throw URLError(.cannotParseResponse) }
++                    contentLength = count
++                }
++            }
++            let transfer = fields["transfer-encoding"]?.joined(separator: ",").lowercased()
++            guard transfer == nil || transfer == "chunked", transfer == nil || contentLength == nil
++            else { throw URLError(.cannotParseResponse) }
++            let headerFields = fields.mapValues { $0.joined(separator: ", ") }
++            guard let parsed = HTTPURLResponse(url: url, statusCode: status,
++                httpVersion: String(statusPieces[0]), headerFields: headerFields) else { throw URLError(.cannotParseResponse) }
++            response = parsed
++            if isHead || status == 204 || status == 205 {
++                guard isHead || contentLength == nil || contentLength == 0,
++                      isHead || transfer == nil else { throw URLError(.cannotParseResponse) }
++                try complete()
++            } else if transfer != nil { mode = .chunked }
++            else if let contentLength {
++                guard contentLength <= maximumBytes else { throw URLError(.dataLengthExceedsMaximum) }
++                mode = .length(contentLength)
++            } else { mode = .untilClose }
++        }
++
++        private static func field(_ line: String) throws -> (String, String) {
++            guard let colon = line.firstIndex(of: ":"), colon != line.startIndex,
++                  line.utf8.allSatisfy({ $0 == 9 || (32...126).contains($0) }) else { throw URLError(.cannotParseResponse) }
++            let name = line[..<colon]
++            let punctuation = Set("!#$%&'*+-.^_`|~".utf8)
++            guard name.utf8.allSatisfy({ (48...57).contains($0) || (65...90).contains($0)
++                || (97...122).contains($0) || punctuation.contains($0) }) else { throw URLError(.cannotParseResponse) }
++            let value = line[line.index(after: colon)...].trimmingCharacters(in: CharacterSet(charactersIn: " \t"))
++            return (name.lowercased(), value)
++        }
++
++        private mutating func appendBody(_ data: Data) throws {
++            guard data.count <= maximumBytes - body.count else { throw URLError(.dataLengthExceedsMaximum) }
++            body.append(data)
++        }
++
++        private mutating func complete() throws {
++            guard buffer.isEmpty, let response else { throw URLError(.cannotParseResponse) }
++            result = (body, response)
++        }
++
++        private mutating func consumeChunk() throws -> Bool {
++            switch chunk {
++            case .size:
++                guard let line = try takeLine(maximumBytes: 1_024, isTrailer: false) else { return false }
++                let parts = line.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: false)
++                let sizeText = parts[0]
++                guard !sizeText.isEmpty, sizeText.utf8.count <= 16,
++                      sizeText.utf8.allSatisfy({ (48...57).contains($0) || (65...70).contains($0) || (97...102).contains($0) }),
++                      let count = Int(sizeText, radix: 16), count <= maximumBytes - body.count,
++                      chunkCount < 16_384 else { throw URLError(.cannotParseResponse) }
++                chunkCount += 1
++                chunk = count == 0 ? .trailers : .data(count)
++            case .data(let remaining):
++                guard !buffer.isEmpty else { return false }
++                let count = min(remaining, buffer.count)
++                try appendBody(Data(buffer.prefix(count)))
++                buffer.removeFirst(count)
++                chunk = count == remaining ? .terminator : .data(remaining - count)
++            case .terminator:
++                guard buffer.count >= 2 else { return false }
++                guard buffer.prefix(2).elementsEqual([13, 10]) else { throw URLError(.cannotParseResponse) }
++                buffer.removeFirst(2)
++                framingBytes += 2
++                guard framingBytes <= ReviewedFoxHTTPMediaClient.maximumFramingBytes
++                else { throw URLError(.dataLengthExceedsMaximum) }
++                chunk = .size
++            case .trailers:
++                guard let line = try takeLine(maximumBytes: ReviewedFoxHTTPMediaClient.maximumHeaderBytes,
++                                              isTrailer: true) else { return false }
++                if line.isEmpty { try complete() }
++                else {
++                    let (name, _) = try Self.field(line)
++                    guard !["content-length", "transfer-encoding", "content-encoding", "host", "connection", "location"]
++                        .contains(name) else { throw URLError(.cannotParseResponse) }
++                }
++            }
++            return true
++        }
++
++        private mutating func takeLine(maximumBytes: Int, isTrailer: Bool) throws -> String? {
++            guard let end = buffer.range(of: Data([13, 10])) else {
++                guard buffer.count <= maximumBytes else { throw URLError(.dataLengthExceedsMaximum) }
++                return nil
++            }
++            let count = buffer.distance(from: buffer.startIndex, to: end.lowerBound)
++            guard count <= maximumBytes, let line = String(data: Data(buffer.prefix(count)), encoding: .ascii),
++                  line.utf8.allSatisfy({ $0 == 9 || (32...126).contains($0) }) else { throw URLError(.cannotParseResponse) }
++            buffer.removeFirst(count + 2)
++            if isTrailer {
++                trailerBytes += count + 2
++                guard trailerBytes <= ReviewedFoxHTTPMediaClient.maximumHeaderBytes
++                else { throw URLError(.dataLengthExceedsMaximum) }
++            } else {
++                framingBytes += count + 2
++                guard framingBytes <= ReviewedFoxHTTPMediaClient.maximumFramingBytes
++                else { throw URLError(.dataLengthExceedsMaximum) }
++            }
++            return line
++        }
++    }
++
++    private final class Exchange: @unchecked Sendable {
++        private let prepared: PreparedRequest
++        private var parser: Parser
++        private let deadline: TimeInterval
++        private let connection: NWConnection
++        private let queue = DispatchQueue(label: "com.fotty.reviewedFoxHTTP")
++        private let completion = LocalStreamProxyCompletion<(Data, HTTPURLResponse)>()
++        private var timer: DispatchSourceTimer?
++        private var sent = false
++
++        init(prepared: PreparedRequest, parser: Parser, deadline: TimeInterval) {
++            self.prepared = prepared
++            self.parser = parser
++            self.deadline = deadline
++            connection = NWConnection(to: .hostPort(host: .ipv4(prepared.address), port: 80), using: .tcp)
++        }
++
++        func run() async throws -> (Data, HTTPURLResponse) {
++            try await withCheckedThrowingContinuation { continuation in
++                completion.install(continuation)
++                queue.async { self.start() }
++            }
++        }
++
++        func cancel() {
++            completion.finish(.failure(CancellationError()))
++            queue.async { self.cleanup() }
++        }
++
++        private func start() {
++            guard !completion.isFinished else { cleanup(); return }
++            let timer = DispatchSource.makeTimerSource(queue: queue)
++            self.timer = timer
++            timer.schedule(deadline: .now() + deadline)
++            timer.setEventHandler { [weak self] in self?.finish(.failure(URLError(.timedOut))) }
++            timer.resume()
++            connection.stateUpdateHandler = { [weak self] state in
++                guard let self, !self.completion.isFinished else { return }
++                switch state {
++                case .ready:
++                    guard !self.sent else { return }
++                    self.sent = true
++                    self.connection.send(content: self.prepared.bytes, completion: .contentProcessed { [weak self] error in
++                        guard let self, !self.completion.isFinished else { return }
++                        if let error { self.finish(.failure(error)) }
++                        else { self.receive() }
++                    })
++                case .failed(let error): self.finish(.failure(error))
++                case .cancelled: self.finish(.failure(URLError(.networkConnectionLost)))
++                default: break
++                }
++            }
++            connection.start(queue: queue)
++        }
++
++        private func receive() {
++            guard !completion.isFinished else { return }
++            connection.receive(minimumIncompleteLength: 1, maximumLength: 32 * 1_024) { [weak self] data, _, isComplete, error in
++                guard let self, !self.completion.isFinished else { return }
++                if let error { self.finish(.failure(error)); return }
++                do {
++                    if let data { try self.parser.append(data) }
++                    if isComplete { try self.parser.finishEOF() }
++                    if let result = self.parser.result { self.finish(.success(result)) }
++                    else { self.receive() }
++                } catch { self.finish(.failure(error)) }
++            }
++        }
++
++        private func finish(_ result: Result<(Data, HTTPURLResponse), Error>) {
++            completion.finish(result)
++            cleanup()
++        }
++
++        private func cleanup() {
++            timer?.cancel()
++            timer = nil
++            connection.stateUpdateHandler = nil
++            connection.cancel()
++        }
++    }
++}

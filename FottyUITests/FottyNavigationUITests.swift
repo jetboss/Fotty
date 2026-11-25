@@ -6,7 +6,8 @@ final class FottyNavigationUITests: XCTestCase {
     override func setUpWithError() throws {
         continueAfterFailure = false
         app = XCUIApplication()
-        let isFPLWorkspaceAudit = name.contains("testFPLWorkspacesDynamicTypeAccessibilityAudit") || name.contains("testFPLContextSurvivesTabSwitch") || name.contains("testFPLSavedDraftAndPickerRejection")
+        let isAppwidePolishAudit = name.contains("testAppwidePolishVisualJourneys")
+        let isFPLWorkspaceAudit = isAppwidePolishAudit || name.contains("testFPLWorkspacesDynamicTypeAccessibilityAudit") || name.contains("testFPLContextSurvivesTabSwitch") || name.contains("testFPLSavedDraftAndPickerRejection") || name.contains("testFPLWideWindowPreservesWorkspace")
         let surfaceOverride: String?
         switch name {
         case let value where value.contains("testMatchCenterDynamicTypeAccessibilityAudit"):
@@ -18,11 +19,11 @@ final class FottyNavigationUITests: XCTestCase {
         }
         let initialTab: String
         switch name {
-        case let value where value.contains("testFPLWorkspacesDynamicTypeAccessibilityAudit") || value.contains("testFPLContextSurvivesTabSwitch") || value.contains("testFPLSavedDraftAndPickerRejection"):
+        case let value where value.contains("testFPLWorkspacesDynamicTypeAccessibilityAudit") || value.contains("testFPLContextSurvivesTabSwitch") || value.contains("testFPLSavedDraftAndPickerRejection") || value.contains("testFPLWideWindowPreservesWorkspace"):
             initialTab = "FPL"
         case let value where value.contains("testMatchdayDynamicTypeAccessibilityAudit"):
             initialTab = "Arena"
-        case let value where value.contains("testSettingsDynamicTypeAccessibilityAudit") || value.contains("testBetaSupport"):
+        case let value where value.contains("testSettings") || value.contains("testBetaSupport"):
             initialTab = "Settings"
         case let value where value.contains("testBetaFPLInput"):
             initialTab = "FPL"
@@ -55,8 +56,18 @@ final class FottyNavigationUITests: XCTestCase {
         if name.contains("testCricketDiscovery") {
             app.launchEnvironment["FOTTY_CRICKET_UI_TESTING"] = "1"
         }
-        if name.contains("testHomeDiscovery") || name.contains("testDashboard") {
+        if name.contains("testPhysicalMultiViewSourceRouting") {
             app.launchEnvironment["FOTTY_HOME_UI_TESTING"] = "1"
+            app.launchEnvironment["FOTTY_MULTIVIEW_UI_TESTING"] = "1"
+        }
+        if isAppwidePolishAudit || name.contains("testHomeDiscovery") || name.contains("testHomeSportSelection") || name.contains("testDashboard") {
+            app.launchEnvironment["FOTTY_HOME_UI_TESTING"] = "1"
+        }
+        if name.contains("testHomeDiscoveryKickoffTransition") {
+            app.launchEnvironment["FOTTY_HOME_CLOCK_UI_TESTING"] = "1"
+        }
+        if name.contains("testDashboardStaleCPL") {
+            app.launchEnvironment["FOTTY_CATALOG_UI_STATE"] = "stale-cpl"
         }
         if let surfaceOverride {
             app.launchEnvironment["FOTTY_SURFACE_UI_TESTING"] = "1"
@@ -75,7 +86,7 @@ final class FottyNavigationUITests: XCTestCase {
         switch initialTab {
         case "Arena": initialTabID = "tab-arena"
         case "FPL": initialTabID = "tab-fpl"
-        case "Settings": initialTabID = "tab-settings"
+        case "Settings": initialTabID = "tab-home"
         default: initialTabID = "tab-home"
         }
         let initialTabButton = app.buttons[initialTabID]
@@ -85,6 +96,85 @@ final class FottyNavigationUITests: XCTestCase {
             // automated session persisted. Selecting Home also keeps heavyweight
             // FPL loading work out of unrelated accessibility measurements.
             tapBetaControl(initialTabButton)
+        }
+        // Settings is a sheet opened from Home's gear, not a tab.
+        if initialTab == "Settings" { openSettingsFromHome() }
+    }
+
+    override func tearDownWithError() throws {
+        if app?.state == .runningForeground {
+            captureSurface("End of \(name)")
+        }
+        app?.terminate()
+    }
+
+    private func captureSurface(_ title: String) {
+        let evidence = XCTAttachment(screenshot: app.screenshot())
+        evidence.name = title
+        evidence.lifetime = .keepAlways
+        add(evidence)
+    }
+
+    private func waitUntil(
+        timeout: TimeInterval,
+        pollInterval: TimeInterval = 0.1,
+        _ condition: () -> Bool
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(pollInterval))
+        }
+        return condition()
+    }
+
+    /// Current-build native renders and real navigation. Fixtures are explicitly
+    /// automated; Catalyst window evidence must not be called iPhone acceptance.
+    func testAppwidePolishVisualJourneys() throws {
+        let launchArguments = app.launchArguments
+        for appearance in ["dark", "light"] {
+            app.terminate()
+            app.launchArguments = launchArguments + ["-fotty.appearance", appearance]
+            app.launch()
+            XCTAssertTrue(app.buttons["tab-home"].waitForExistence(timeout: 12))
+            tapBetaControl(app.buttons["tab-home"])
+            let football = app.buttons["home-sport-football"]
+            XCTAssertTrue(football.waitForExistence(timeout: 8))
+            tapBetaControl(football)
+            XCTAssertTrue(football.isSelected)
+            captureSurface("\(appearance)-Home-football-sample")
+            tapBetaControl(app.buttons["home-sport-all-sports"])
+
+            tapBetaControl(app.buttons["home-search"])
+            let search = app.searchFields.firstMatch
+            XCTAssertTrue(search.waitForExistence(timeout: 5))
+            tapBetaControl(search)
+            search.typeText("cricket")
+            XCTAssertTrue(app.descendants(matching: .any)["search-result-cpl-2026-ui-home"].firstMatch.waitForExistence(timeout: 5))
+            captureSurface("\(appearance)-Search-cricket-sample")
+            tapBetaControl(app.buttons["Done"].firstMatch)
+
+            tapBetaControl(app.buttons["tab-arena"])
+            captureSurface("\(appearance)-Matchday-sample")
+            openSettingsFromHome()
+            let appearanceRow = app.buttons["settings-appearance"]
+            reveal(appearanceRow)
+            captureSurface("\(appearance)-Settings")
+            tapBetaControl(appearanceRow)
+            XCTAssertTrue(app.buttons["appearance-system"].waitForExistence(timeout: 5))
+            captureSurface("\(appearance)-Appearance")
+            tapBetaControl(app.navigationBars.buttons.firstMatch)
+
+            tapBetaControl(app.buttons["tab-fpl"])
+            for workspace in ["gameweek", "squad", "coach", "tools"] {
+                let control = app.buttons["fpl-workspace-\(workspace)"]
+                reveal(control)
+                tapBetaControl(control)
+                XCTAssertTrue(control.isSelected)
+                captureSurface("\(appearance)-FPL-\(workspace)-sample")
+            }
+            tapBetaControl(app.buttons["tab-home"])
+            XCTAssertTrue(app.buttons["home-sport-all-sports"].waitForExistence(timeout: 5))
         }
     }
 
@@ -99,7 +189,7 @@ final class FottyNavigationUITests: XCTestCase {
         let lastCaptain = app.descendants(matching: .any)["fpl-captain-card-5"].firstMatch
         reveal(lastCaptain)
         let previousY = lastCaptain.frame.minY
-        tapBetaControl(app.buttons["tab-settings"])
+        openSettingsFromHome()
         tapBetaControl(app.buttons["tab-fpl"])
         XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5), "Leaving FPL must not reset the selected tool")
         XCTAssertTrue(app.staticTexts["Captain"].exists)
@@ -129,6 +219,47 @@ final class FottyNavigationUITests: XCTestCase {
         XCTAssertTrue(firstPlayer.label.contains("Test Double-Name"), "Comparison selection should survive leaving FPL")
     }
 
+    func testFPLWideWindowPreservesWorkspace() throws {
+        #if targetEnvironment(macCatalyst)
+        let window = app.windows.firstMatch
+        let originalSize = window.frame.size
+        func resize(_ size: CGSize) {
+            let corner = window.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1))
+                .withOffset(CGVector(dx: -3, dy: -3))
+            let destination = window.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: size.width - 3, dy: size.height - 3))
+            corner.click(forDuration: 0.2, thenDragTo: destination)
+        }
+        defer { resize(originalSize) }
+        resize(CGSize(width: 1180, height: 780))
+        XCTAssertGreaterThan(window.frame.width, 1000, "Wide layout needs an actual wide window, not a forced environment")
+        let tools = app.buttons["fpl-workspace-tools"]
+        reveal(tools)
+        let summary = app.staticTexts["UI test squad"]
+        XCTAssertLessThan(summary.frame.maxX, app.buttons["fpl-workspace-gameweek"].frame.minX,
+                          "Manager summary must sit beside the workspace")
+        captureSurface("Wide-FPL-current-build-sample")
+        tapBetaControl(tools)
+        let captain = app.buttons["fpl-tool-Captain"]
+        reveal(captain)
+        tapBetaControl(captain)
+        XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5))
+        openSettingsFromHome()
+        XCTAssertLessThan(app.buttons["settings-appearance"].frame.maxX, app.buttons["settings-backup"].frame.minX,
+                          "Wide Settings groups must use both columns")
+        captureSurface("Wide-Settings-current-build")
+        tapBetaControl(app.buttons["tab-fpl"])
+        XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5))
+        resize(CGSize(width: 515, height: 780))
+        XCTAssertTrue(app.buttons["fpl-all-tools"].waitForExistence(timeout: 5), "Resizing must not reset the selected tool")
+        reveal(tools)
+        XCTAssertGreaterThan(tools.frame.minY, summary.frame.maxY, "Narrow windows must stack the summary above navigation")
+        captureSurface("Narrow-FPL-current-build-sample")
+        #else
+        throw XCTSkip("Window resizing is exercised on Catalyst without a simulator")
+        #endif
+    }
+
     func testFPLSavedDraftAndPickerRejection() throws {
         let squad = app.buttons["fpl-workspace-squad"]
         reveal(squad)
@@ -147,8 +278,20 @@ final class FottyNavigationUITests: XCTestCase {
         tapBetaControl(replace)
         let duplicate = app.buttons["fpl-replacement-3"]
         XCTAssertTrue(duplicate.waitForExistence(timeout: 5))
+        reveal(duplicate)
         tapBetaControl(duplicate)
-        XCTAssertTrue(app.descendants(matching: .any)["fpl-player-selection-error"].waitForExistence(timeout: 5))
+        let selectionError = app.descendants(matching: .any)["fpl-player-selection-error"]
+        let selectionErrorAppeared = selectionError.waitForExistence(timeout: 5)
+        if !selectionErrorAppeared {
+            let attachment = XCTAttachment(screenshot: app.screenshot())
+            attachment.name = "Missing duplicate-player warning"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+        XCTAssertTrue(
+            selectionErrorAppeared,
+            "Duplicate selection did not surface validation feedback; pickerOpen=\(duplicate.exists)"
+        )
         XCTAssertTrue(duplicate.exists, "Rejected replacement must leave the picker open")
         let search = app.textFields["Search player name or club..."]
         XCTAssertTrue(search.waitForExistence(timeout: 5))
@@ -156,19 +299,89 @@ final class FottyNavigationUITests: XCTestCase {
         search.typeText("Replacement")
         let valid = app.buttons["fpl-replacement-16"]
         XCTAssertTrue(valid.waitForExistence(timeout: 5))
+        reveal(valid)
         tapBetaControl(valid)
-        let source = app.staticTexts["fpl-squad-source"]
-        reveal(source)
-        XCTAssertTrue(source.label.contains("Local draft"))
-        tapBetaControl(app.buttons["tab-settings"])
+        let updated = app.buttons["fpl-squad-player-16"]
+        let workspaceScroll = app.scrollViews.firstMatch
+        if workspaceScroll.exists {
+            for _ in 0..<6 where !updated.exists {
+                workspaceScroll.swipeDown()
+            }
+        }
+        if !updated.exists {
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Squad after accepted replacement"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Squad hierarchy after accepted replacement"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        reveal(updated)
+        XCTAssertTrue(updated.label.contains("Replacement Defender"), "The replacement control exposed the wrong player")
+        openSettingsFromHome()
         tapBetaControl(app.buttons["tab-fpl"])
-        reveal(source)
-        XCTAssertTrue(source.label.contains("Local draft"))
-        let updated = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Replacement Defender")).firstMatch
-        XCTAssertTrue(updated.exists)
+        XCTAssertTrue(updated.waitForExistence(timeout: 5), "Accepted replacement did not survive the tab switch")
+    }
+
+    func testHomeDiscoveryKickoffTransition() throws {
+        #if targetEnvironment(macCatalyst)
+        let window = app.windows.firstMatch
+        let originalSize = window.frame.size
+        func resize(_ size: CGSize) {
+            let corner = window.coordinate(withNormalizedOffset: CGVector(dx: 1, dy: 1))
+                .withOffset(CGVector(dx: -3, dy: -3))
+            let destination = window.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: size.width - 3, dy: size.height - 3))
+            corner.click(forDuration: 0.2, thenDragTo: destination)
+        }
+        defer { resize(originalSize) }
+        resize(CGSize(width: 1180, height: 950))
+        XCTAssertGreaterThan(window.frame.width, 1000)
+        let todayID = "match-start-countdown-cpl-2026-ui-today"
+        let nextID = "match-start-countdown-cpl-2026-ui-next"
+        let today = app.staticTexts[todayID]
+        let next = app.staticTexts[nextID]
+        reveal(today)
+        XCTAssertTrue(today.label.contains("1h 5m"))
+        XCTAssertEqual(today.frame.minY, next.frame.minY, accuracy: 12)
+        let advance = app.buttons["home-test-advance-clock"]
+        reveal(advance)
+        tapBetaControl(advance)
+        // Catalyst's iPad idiom scales UIKit points relative to AppKit window
+        // points. Use a window comfortably below the 1,000 UIKit-point boundary.
+        resize(CGSize(width: 600, height: 950))
+        XCTAssertLessThan(window.frame.width, 1000)
+        let live = app.staticTexts["home-live-heading"]
+        reveal(live)
+        XCTAssertTrue(live.exists)
+        let currentReady = today.wait(for: \.label, toEqual: "No stream listed", timeout: 5)
+        let transitionImage = XCTAttachment(screenshot: app.screenshot())
+        transitionImage.name = "Home-after-kickoff-and-resize"
+        transitionImage.lifetime = .keepAlways
+        add(transitionImage)
+        XCTAssertTrue(currentReady, "A past kickoff must not keep the old countdown: \(today.label)")
+        XCTAssertGreaterThan(today.frame.maxX, window.frame.maxX - 80,
+                             "A narrow window must not retain a half-width landscape card")
+        reveal(next)
+        XCTAssertTrue(next.label.contains("25m"), "The surviving upcoming row must use the current clock: \(next.label)")
+        XCTAssertEqual(app.staticTexts.matching(identifier: nextID).count, 1, "An upcoming card cannot remain duplicated under Live now")
+        XCTAssertGreaterThan(next.frame.minY, today.frame.minY)
+        openSettingsFromHome()
+        tapBetaControl(app.buttons["tab-home"])
+        app.activate()
+        reveal(next)
+        XCTAssertEqual(today.label, "No stream listed")
+        XCTAssertTrue(next.label.contains("25m"))
+        #else
+        throw XCTSkip("This transition journey uses native Catalyst resizing; no simulator required")
+        #endif
     }
 
     func testHomeDiscoveryShowsActivityFiltersAndFullLineup() throws {
+        XCTAssertFalse(app.descendants(matching: .any)["catalog-refresh-notice"].firstMatch.exists,
+                       "Verified listings should show no routine status banner")
         XCTAssertEqual(app.buttons["tab-home"].label, "Home")
         XCTAssertTrue(app.buttons["home-sport-football"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Field Events"].exists)
@@ -177,6 +390,7 @@ final class FottyNavigationUITests: XCTestCase {
         XCTAssertTrue(all.waitForExistence(timeout: 8))
         XCTAssertTrue(all.isSelected)
         XCTAssertEqual(app.buttons["home-sport-basketball"].value as? String, "1 on now")
+        XCTAssertTrue(app.staticTexts["home-live-heading"].exists, "Current broadcasts must have a visible Live now section")
         let cricket = app.descendants(matching: .any)["home-event-cpl-2026-ui-home"].firstMatch
         XCTAssertTrue(cricket.exists)
         XCTAssertFalse(app.buttons["home-save-cpl-2026-ui-home"].exists, "Saving belongs in the secondary menu")
@@ -210,9 +424,89 @@ final class FottyNavigationUITests: XCTestCase {
         tapBetaControl(app.buttons["tab-arena"])
         XCTAssertTrue(app.staticTexts["Trinbago Knight Riders"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts["Your squad in action"].exists)
+        captureSurface("Matchday-saved-cricket-sample")
         openMatchMenu(app.staticTexts["Trinbago Knight Riders"].firstMatch)
         selectMatchMenuAction("Remove from My Matchday")
         XCTAssertFalse(app.staticTexts["Trinbago Knight Riders"].exists)
+    }
+
+    func testDashboardStaleCPLNoticeIsScopedAndDetailsAreOptional() throws {
+        let warning = app.staticTexts["CPL start times may have changed."]
+        XCTAssertTrue(warning.waitForExistence(timeout: 8))
+        let checkTime = app.staticTexts["catalog-check-time"]
+        XCTAssertFalse(checkTime.exists, "Check times should be hidden until requested")
+        let details = app.buttons["catalog-update-details"]
+        XCTAssertTrue(details.exists, "Update details must remain an independently accessible control")
+        reveal(details)
+        tapBetaControl(details)
+        XCTAssertTrue(checkTime.waitForExistence(timeout: 3))
+        tapBetaControl(details)
+        XCTAssertFalse(checkTime.exists)
+        let football = app.buttons["home-sport-football"]
+        reveal(football)
+        tapBetaControl(football)
+        XCTAssertFalse(warning.exists, "CPL freshness must not interrupt a football-only screen")
+        XCTAssertTrue(app.buttons["match-start-play-ui-football"].exists)
+    }
+
+    func testDashboardPartialCatalogTelemetryStaysOffCustomerUI() throws {
+        XCTAssertFalse(app.staticTexts["Some broadcasts may be missing."].waitForExistence(timeout: 2))
+        XCTAssertFalse(app.descendants(matching: .any)["catalog-refresh-notice"].exists)
+        XCTAssertTrue(app.buttons["match-start-play-ui-football"].exists)
+    }
+
+    func testDashboardSportFilterNamesItsEmptyStateAndCanReturnToAllSports() throws {
+        let fight = app.buttons["home-sport-fight"]
+        reveal(fight)
+        tapBetaControl(fight)
+        XCTAssertTrue(app.staticTexts["No Fight events are starting in the next six hours."].waitForExistence(timeout: 5))
+        let showAll = app.buttons["home-show-all-sports"]
+        XCTAssertTrue(showAll.exists)
+        tapBetaControl(showAll)
+        XCTAssertTrue(app.buttons["match-start-play-ui-football"].waitForExistence(timeout: 5))
+    }
+
+    func testSettingsKickoffClashesRemainOptionalAcrossNavigation() throws {
+        let toggle = app.switches["Show kickoff clashes"]
+        reveal(toggle)
+        let originalValue = try XCTUnwrap(toggle.value as? String)
+        defer {
+            openSettingsFromHome()
+            reveal(toggle)
+            if toggle.value as? String != originalValue { tapBetaControl(toggle) }
+        }
+
+        if originalValue == "1" { tapBetaControl(toggle) }
+        XCTAssertEqual(toggle.value as? String, "0")
+        tapBetaControl(app.buttons["tab-arena"])
+        XCTAssertFalse(app.descendants(matching: .any)["matchday-clash-details"].exists)
+        openSettingsFromHome()
+        reveal(toggle)
+        XCTAssertEqual(toggle.value as? String, "0")
+        tapBetaControl(toggle)
+        XCTAssertEqual(toggle.value as? String, "1")
+        tapBetaControl(app.buttons["tab-arena"])
+        openSettingsFromHome()
+        reveal(toggle)
+        XCTAssertEqual(toggle.value as? String, "1", "The opt-in should survive leaving Settings")
+    }
+
+    func testSettingsNotificationPreferencesAreGrouped() throws {
+        let notifications = app.buttons["settings-notifications"]
+        reveal(notifications)
+        XCTAssertFalse(app.switches["Kickoff Updates"].exists)
+        XCTAssertTrue(app.buttons["settings-interests"].exists)
+        tapBetaControl(notifications)
+        XCTAssertTrue(app.navigationBars["Notifications"].waitForExistence(timeout: 5))
+        let kickoff = app.switches["Kickoff Updates"]
+        reveal(kickoff)
+        XCTAssertTrue(kickoff.exists)
+        XCTAssertTrue(app.switches["Goal Updates"].exists)
+        XCTAssertTrue(app.switches["Full-time Updates"].exists)
+        tapBetaControl(app.navigationBars.buttons.firstMatch)
+        let backup = app.buttons["settings-backup"]
+        reveal(backup)
+        XCTAssertTrue(backup.exists)
     }
 
     func testBetaSupportOpensNativeHelpAndFeedback() throws {
@@ -354,6 +648,13 @@ final class FottyNavigationUITests: XCTestCase {
                 app.windows.firstMatch.swipeUp()
             }
         }
+        if !element.exists || !element.isHittable {
+            print("Unreachable control: exists=\(element.exists), window=\(app.windows.firstMatch.frame)")
+            let evidence = XCTAttachment(screenshot: app.screenshot())
+            evidence.name = "Unreachable-control-layout"
+            evidence.lifetime = .keepAlways
+            add(evidence)
+        }
         XCTAssertTrue(element.exists && element.isHittable, "Expected a reachable control: \(element)")
     }
 
@@ -364,7 +665,27 @@ final class FottyNavigationUITests: XCTestCase {
         return ready
     }
 
+    /// Settings opens as a sheet from Home's gear button.
+    private func openSettingsFromHome() {
+        guard !app.buttons["settings-done"].exists else { return }
+        let home = app.buttons["tab-home"]
+        if home.exists { tapBetaControl(home) }
+        let gear = app.buttons["home-settings"].firstMatch
+        XCTAssertTrue(gear.waitForExistence(timeout: 10), "Home's Settings gear is missing")
+        tapBetaControl(gear)
+        XCTAssertTrue(app.buttons["settings-done"].waitForExistence(timeout: 5), "Settings sheet did not open")
+    }
+
     private func tapBetaControl(_ element: XCUIElement) {
+        // A tab is behind an open Settings sheet; close it first, as a person
+        // would: Back out of any page pushed inside Settings, then Done.
+        if element.identifier.hasPrefix("tab-"), !element.isHittable {
+            let done = app.buttons["settings-done"]
+            if !done.exists, let back = app.navigationBars.buttons.allElementsBoundByIndex.first(where: \.isHittable) {
+                back.tap()
+            }
+            if done.waitForExistence(timeout: 3) { done.tap() }
+        }
         guard activateBetaWindow() else { return }
         #if targetEnvironment(macCatalyst)
         // Catalyst uses mouse events; a synthesized touch tap can move the
@@ -376,7 +697,7 @@ final class FottyNavigationUITests: XCTestCase {
     }
 
     func testRapidTabSwitchingAndForegroundRecovery() {
-        let tabIDs = ["tab-arena", "tab-fpl", "tab-settings", "tab-home"]
+        let tabIDs = ["tab-arena", "tab-fpl", "tab-home"]
 
         for _ in 0..<3 {
             for id in tabIDs {
@@ -394,6 +715,23 @@ final class FottyNavigationUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["tab-home"].waitForExistence(timeout: 8))
         XCTAssertEqual(app.state, .runningForeground)
+    }
+
+    func testHomeSportSelectionSurvivesTabSwitch() {
+        let cricket = app.buttons["home-sport-cricket"]
+        reveal(cricket)
+        tapBetaControl(cricket)
+        XCTAssertTrue(cricket.wait(for: \.isSelected, toEqual: true, timeout: 3))
+
+        openSettingsFromHome()
+        tapBetaControl(app.buttons["tab-home"])
+
+        let restoredCricket = app.buttons["home-sport-cricket"]
+        reveal(restoredCricket)
+        XCTAssertTrue(
+            restoredCricket.wait(for: \.isSelected, toEqual: true, timeout: 3),
+            "Returning Home must preserve the selected sport"
+        )
     }
 
     func testDashboardHitRegionAccessibilityAudit() throws {
@@ -456,28 +794,7 @@ final class FottyNavigationUITests: XCTestCase {
     }
 
     func testDashboardDynamicTypeAccessibilityAudit() throws {
-        let dockTop = app.buttons["tab-home"].frame.minY
-        try app.performAccessibilityAudit(for: [.dynamicType]) { issue in
-            guard issue.auditType == .dynamicType else { return true }
-            guard let element = issue.element,
-                  element.elementType == .staticText else { return false }
-            // Navigation-dock labels follow the compact system tab-bar pattern;
-            // their controls expose full VoiceOver labels even when the visual
-            // caption remains at the compact control size.
-            if element.frame.midY >= dockTop { return true }
-            let label = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
-            // Two/three-letter fallback crests are graphical badge artwork.
-            // The enclosing badge exposes the full team name to VoiceOver and
-            // scales as a unit, so these initials are not readable body copy.
-            let isGraphicalInitials = (1...3).contains(label.count)
-                && label == label.uppercased()
-            let isCompactStatusBadge = ["LIVE", "SOON", "P2P", "TODAY"].contains(label)
-            let isCompactUppercaseChrome = label.count <= 15 && label == label.uppercased()
-            if !isGraphicalInitials && !isCompactStatusBadge && !isCompactUppercaseChrome {
-                print("Unignored Dynamic Type issue: \(label), frame: \(element.frame)")
-            }
-            return isGraphicalInitials || isCompactStatusBadge || isCompactUppercaseChrome
-        }
+        try performSurfaceDynamicTypeAudit(surface: "Home", dockTop: app.buttons["tab-home"].frame.minY)
     }
 
     func testFPLWorkspacesDynamicTypeAccessibilityAudit() throws {
@@ -512,27 +829,8 @@ final class FottyNavigationUITests: XCTestCase {
                 )
             }
 
-            let dockTop = app.buttons["tab-fpl"].frame.minY
-            try app.performAccessibilityAudit(for: [.dynamicType]) { issue in
-                guard issue.auditType == .dynamicType else { return true }
-                guard let element = issue.element,
-                      element.elementType == .staticText else { return false }
-                let text = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
-                let isDockLabel = element.frame.midY >= dockTop
-                let isGraphicalInitials = (1...3).contains(text.count)
-                    && text == text.uppercased()
-                let isCompactUppercaseChrome = text.count <= 15
-                    && text == text.uppercased()
-                let isIgnored = isDockLabel || isGraphicalInitials || isCompactUppercaseChrome
-                if !isIgnored {
-                    print(
-                        "Unignored FPL \(label) Dynamic Type issue: "
-                            + "type=\(element.elementType.rawValue), label=\(text), "
-                            + "identifier=\(element.identifier), frame=\(element.frame)"
-                    )
-                }
-                return isIgnored
-            }
+            captureSurface("FPL-\(label)-accessibility-audit-sample")
+            try performSurfaceDynamicTypeAudit(surface: "FPL \(label)", dockTop: app.buttons["tab-fpl"].frame.minY)
         }
     }
 
@@ -546,7 +844,7 @@ final class FottyNavigationUITests: XCTestCase {
     func testSettingsDynamicTypeAccessibilityAudit() throws {
         try performSurfaceDynamicTypeAudit(
             surface: "Settings",
-            dockTop: app.buttons["tab-settings"].frame.minY
+            dockTop: app.buttons["tab-home"].frame.minY
         )
     }
 
@@ -570,13 +868,13 @@ final class FottyNavigationUITests: XCTestCase {
             guard let element = issue.element,
                   element.elementType == .staticText else { return false }
             let text = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
-            let isDockLabel = element.frame.midY >= dockTop
-            let isGraphicalInitials = (1...3).contains(text.count)
-                && text == text.uppercased()
-            let isCompactUppercaseChrome = text.count <= 15
-                && text == text.uppercased()
-            let isIgnored = isDockLabel || isGraphicalInitials || isCompactUppercaseChrome
+            let isIgnored = FottyAccessibilityAuditPolicy.ignoresDynamicType(
+                identifier: element.identifier, label: text, isStaticText: true,
+                frame: element.frame, isCatalyst: self.auditIsCatalyst,
+                osMajor: ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+            )
             if !isIgnored {
+                self.captureSurface("\(surface)-dynamic-type-failure")
                 print(
                     "Unignored \(surface) Dynamic Type issue: "
                         + "type=\(element.elementType.rawValue), label=\(text), "
@@ -587,53 +885,43 @@ final class FottyNavigationUITests: XCTestCase {
         }
     }
 
+    private var auditIsCatalyst: Bool {
+        #if targetEnvironment(macCatalyst)
+        return true
+        #else
+        return false
+        #endif
+    }
+
     func testDashboardContrastAndTraitsAccessibilityAudit() throws {
-        let dockTop = app.buttons["tab-home"].frame.minY
         try app.performAccessibilityAudit(for: [.contrast, .trait]) { issue in
             guard issue.auditType == .contrast || issue.auditType == .trait else {
-                return true
+                return false
             }
             if issue.auditType == .trait {
+                self.captureSurface("dashboard-trait-failure")
                 if let element = issue.element {
                     XCTFail(
                         "Unignored Trait issue: type=\(element.elementType.rawValue), "
                             + "label=\(element.label), identifier=\(element.identifier), frame=\(element.frame)"
                     )
+                    return true // XCTFail above records the inspected issue.
                 }
-                return true
+                return false // Unresolved elements still fail XCTest's audit.
             }
-            // Lazy scroll rows can remain in the accessibility tree while fully
-            // covered by the persistent dock. XCTest samples the dock pixels in
-            // that case and reports them as the row text's contrast. The actual
-            // row becomes testable once VoiceOver scrolls it above the dock.
             guard let element = issue.element,
                   element.elementType == .staticText else { return false }
             let label = element.label.trimmingCharacters(in: .whitespacesAndNewlines)
-            let isGraphicalCrestInitials = (1...3).contains(label.count)
-                && label == label.uppercased()
-                && element.frame.width <= 48
-                && element.frame.height <= 48
-            let isKnownHighContrastTeamName = element.identifier == "dashboard-team-name"
-            let isKnownHighContrastEmptyMessage = element.identifier == "dashboard-empty-state-message"
-            let isKnownHighContrastEmptyRefresh = element.identifier == "dashboard-empty-refresh-label"
-            // Fallback crest initials are badge artwork. The enclosing badge
-            // exposes the full team name and the rendered initials use a dark,
-            // high-contrast treatment, but Catalyst audits the decorative Text
-            // node independently even when it is accessibility-hidden.
-            // Dashboard team names are explicit 15-point system white on the
-            // fixed near-black bento surface. Catalyst 27 beta reports them even
-            // though the captured pixel range is near-black to near-white.
-            // The empty-state recovery message is explicit 15-point semibold
-            // white on FottyTheme.surface; Catalyst 27 beta similarly reports
-            // that fixed, high-contrast pair as a failure.
-            // The empty-state Refresh label is black semibold on the solid
-            // brand amber surface; Catalyst also misreports that fixed pair.
-            let isIgnored = element.frame.midY >= dockTop
-                || isGraphicalCrestInitials
-                || isKnownHighContrastTeamName
-                || isKnownHighContrastEmptyMessage
-                || isKnownHighContrastEmptyRefresh
+            let isIgnored = FottyAccessibilityAuditPolicy.ignoresContrast(
+                identifier: element.identifier, label: label, isStaticText: true,
+                frame: element.frame, isCatalyst: self.auditIsCatalyst,
+                osMajor: ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+            )
             if !isIgnored {
+                let screenshot = XCTAttachment(screenshot: self.app.screenshot())
+                screenshot.name = "Dashboard contrast failure"
+                screenshot.lifetime = .keepAlways
+                self.add(screenshot)
                 XCTFail(
                     "Unignored Contrast issue: type=\(element.elementType.rawValue), "
                         + "label=\(element.label), identifier=\(element.identifier), frame=\(element.frame)"
@@ -689,5 +977,415 @@ final class FottyNavigationUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Unable to Play Stream"].exists)
         XCTAssertFalse(app.descendants(matching: .any)["stream-loading"].exists,
                        "The selected stream never completed startup")
+
+        // A provider embed can remain active beneath Fotty's toolbar. Verify the
+        // visible control itself receives the tap rather than passing it through
+        // to the underlying web player. Native handoff sources use native chrome
+        // and therefore do not expose this web-only button.
+        let webTransport = app.buttons["web-play-pause"]
+        if webTransport.waitForExistence(timeout: 3) {
+            XCTAssertTrue(webTransport.label.localizedCaseInsensitiveContains("Pause"))
+            webTransport.tap()
+            let becamePlay = NSPredicate(format: "label CONTAINS[c] %@", "Play")
+            expectation(for: becamePlay, evaluatedWith: webTransport)
+            waitForExpectations(timeout: 3)
+
+            webTransport.tap()
+            let becamePause = NSPredicate(format: "label CONTAINS[c] %@", "Pause")
+            expectation(for: becamePause, evaluatedWith: webTransport)
+            waitForExpectations(timeout: 3)
+        }
+    }
+
+    /// Drives the real two-match workflow on connected hardware. This verifies
+    /// that each visible panel owns its own persistent Source and Audio controls
+    /// and that changing one source does not mutate the other panel.
+    func testPhysicalMultiViewSourceRouting() throws {
+        guard ProcessInfo.processInfo.environment["SIMULATOR_DEVICE_NAME"] == nil else {
+            throw XCTSkip("This live MultiView check only runs on a connected iPad.")
+        }
+
+        let watchTwo = app.buttons["home-watch-two"]
+        guard watchTwo.waitForExistence(timeout: 15) else {
+            throw XCTSkip("Watch two is intentionally unavailable on non-iPad hardware")
+        }
+        tapBetaControl(watchTwo)
+
+        let candidates = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "multiview-candidate-")
+        )
+        if candidates.count < 2 {
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "MultiView selection accessibility hierarchy"
+            hierarchy.lifetime = .keepAlways
+            add(hierarchy)
+        }
+        guard candidates.count >= 2 else {
+            throw XCTSkip("The fixture-driven selection surface was unavailable on this device class")
+        }
+        let first = candidates.element(boundBy: 0)
+        let second = candidates.element(boundBy: 1)
+        reveal(first)
+        tapBetaControl(first)
+        reveal(second)
+        tapBetaControl(second)
+
+        let start = app.buttons["multiview-start"]
+        XCTAssertTrue(start.waitForExistence(timeout: 5))
+        XCTAssertTrue(start.isEnabled, "Start must enable after exactly two selections")
+        tapBetaControl(start)
+
+        let panelOneSource = app.descendants(matching: .any)["multiview-source-1"]
+        let panelTwoSource = app.descendants(matching: .any)["multiview-source-2"]
+        XCTAssertTrue(panelOneSource.waitForExistence(timeout: 45), "Panel 1 source control did not appear")
+        XCTAssertTrue(panelTwoSource.waitForExistence(timeout: 10), "Panel 2 source control did not appear")
+        XCTAssertTrue((panelOneSource.value as? String)?.hasPrefix("Source ") == true)
+        XCTAssertTrue((panelTwoSource.value as? String)?.hasPrefix("Source ") == true)
+
+        // The surface identifier is intentionally inherited by a loading
+        // indicator while startup is pending. Query the WKWebView itself so the
+        // geometry assertion remains unique during both loading and playback.
+        let surfaceOne = app.descendants(matching: .any)["multiview-video-surface-1"].firstMatch
+        let surfaceTwo = app.descendants(matching: .any)["multiview-video-surface-2"].firstMatch
+        XCTAssertTrue(surfaceOne.waitForExistence(timeout: 5))
+        XCTAssertTrue(surfaceTwo.waitForExistence(timeout: 5))
+        XCTAssertGreaterThan(
+            surfaceOne.frame.width,
+            surfaceTwo.frame.width * 1.5,
+            "Wide iPad MultiView should open with a materially larger focus player"
+        )
+        for surface in [surfaceOne, surfaceTwo] {
+            XCTAssertEqual(
+                surface.frame.width / surface.frame.height,
+                16.0 / 9.0,
+                accuracy: 0.12,
+                "Each playback viewport should be video-shaped rather than a tall black column"
+            )
+        }
+
+        let fillMode = app.descendants(matching: .any)["multiview-fill-mode"]
+        XCTAssertTrue(fillMode.waitForExistence(timeout: 3))
+        XCTAssertEqual(fillMode.value as? String, "Fit")
+        tapBetaControl(fillMode)
+        XCTAssertTrue(waitUntil(timeout: 3) { fillMode.value as? String == "Fill" })
+        tapBetaControl(fillMode)
+        XCTAssertTrue(waitUntil(timeout: 3) { fillMode.value as? String == "Fit" })
+
+        let focusPanelTwo = app.descendants(matching: .any)["multiview-panel-2"]
+        tapBetaControl(focusPanelTwo)
+        XCTAssertTrue(waitUntil(timeout: 3) { surfaceTwo.frame.width > surfaceOne.frame.width * 1.5 })
+
+        let layoutControl = app.descendants(matching: .any)["multiview-layout"]
+        XCTAssertTrue(layoutControl.waitForExistence(timeout: 3))
+        XCTAssertEqual(layoutControl.value as? String, "Focus")
+        tapBetaControl(layoutControl)
+        XCTAssertTrue(waitUntil(timeout: 3) {
+            abs(surfaceOne.frame.width - surfaceTwo.frame.width) < 12
+        })
+        XCTAssertEqual(layoutControl.value as? String, "Equal")
+        captureSurface("MultiView equal widescreen layout")
+
+        tapBetaControl(layoutControl)
+        tapBetaControl(app.descendants(matching: .any)["multiview-panel-1"])
+        XCTAssertTrue(waitUntil(timeout: 3) { surfaceOne.frame.width > surfaceTwo.frame.width * 1.5 })
+        captureSurface("MultiView persistent per-panel controls")
+
+        tapBetaControl(panelOneSource)
+        let secondSourceForPanelOne = app.buttons["Source 2"].firstMatch
+        XCTAssertTrue(secondSourceForPanelOne.waitForExistence(timeout: 5), "The first selected match did not expose a second source")
+        tapBetaControl(secondSourceForPanelOne)
+        expectation(
+            for: NSPredicate(format: "value == %@", "Source 2"),
+            evaluatedWith: panelOneSource
+        )
+        waitForExpectations(timeout: 15)
+        XCTAssertEqual(
+            panelTwoSource.value as? String,
+            "Source 1",
+            "Changing panel 1 must not change panel 2"
+        )
+        captureSurface("MultiView panel 1 changed independently")
+
+        tapBetaControl(panelTwoSource)
+        let secondSourceForPanelTwo = app.buttons["Source 2"].firstMatch
+        XCTAssertTrue(secondSourceForPanelTwo.waitForExistence(timeout: 5), "The second selected match did not expose a second source")
+        tapBetaControl(secondSourceForPanelTwo)
+        expectation(
+            for: NSPredicate(format: "value == %@", "Source 2"),
+            evaluatedWith: panelTwoSource
+        )
+        waitForExpectations(timeout: 15)
+        XCTAssertEqual(panelOneSource.value as? String, "Source 2")
+
+        let panelTwoAudio = app.descendants(matching: .any)["multiview-audio-2"]
+        tapBetaControl(panelTwoAudio)
+        XCTAssertTrue(panelTwoAudio.label.localizedCaseInsensitiveContains("audio playing"))
+        XCTAssertTrue(app.descendants(matching: .any)["multiview-audio-1"].label.localizedCaseInsensitiveContains("listen"))
+
+        let stabilityWindow = expectation(description: "Both panels remain presented after independent source changes")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 12) { stabilityWindow.fulfill() }
+        wait(for: [stabilityWindow], timeout: 17)
+
+        XCTAssertTrue(app.descendants(matching: .any)["multiview-panel-1"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["multiview-panel-2"].exists)
+        captureSurface("MultiView independent sources stable")
+    }
+}
+
+/// Normal owner-device data and real navigation, deliberately independent of
+/// the fixture/FPL setup above. Static UI readiness is not media qualification.
+final class Fotty25PhysicalUIJourneyTests: XCTestCase {
+    override func setUpWithError() throws { continueAfterFailure = false }
+
+    func testPhysicalSearchSportTileSurfacesHaveEqualHeight() throws {
+        let app = try launchNormalHome()
+        defer { app.terminate() }
+        let searchButton = app.buttons["home-search"].firstMatch
+        XCTAssertTrue(searchButton.waitForExistence(timeout: 20)); searchButton.tap()
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 5))
+        let previous = field.value as? String
+        let query = previous == field.placeholderValue ? nil : previous
+        if let query, !query.isEmpty {
+            field.tap()
+            let clear = field.buttons["Clear text"].firstMatch
+            XCTAssertTrue(clear.waitForExistence(timeout: 3)); clear.tap()
+            // Leave native search-completion mode before measuring the prompt
+            // behind it. An untouched empty field needs no focus/keyboard.
+            let cancel = app.buttons["Cancel"].firstMatch
+            if cancel.waitForExistence(timeout: 2), cancel.isHittable { cancel.tap() }
+        }
+        defer {
+            if let query, !query.isEmpty, field.exists {
+                field.tap(); field.typeText(query)
+            }
+            let done = app.buttons["Done"].firstMatch
+            if done.exists && done.isHittable { done.tap() }
+        }
+        let tiles = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "search-sport-"))
+        XCTAssertTrue(tiles.firstMatch.waitForExistence(timeout: 8))
+        for _ in 0..<3 {
+            if tiles.allElementsBoundByIndex.filter(\.isHittable).count >= 2 { break }
+            app.swipeUp()
+        }
+        var seen = Set<String>()
+        let rendered = tiles.allElementsBoundByIndex.filter {
+            $0.isHittable && app.frame.intersects($0.frame) && seen.insert($0.identifier).inserted
+        }
+        XCTAssertGreaterThanOrEqual(rendered.count, 2, "Compare visible, tappable sport surfaces, not offscreen AX frames")
+        let height = try XCTUnwrap(rendered.first).frame.height
+        XCTAssertGreaterThanOrEqual(height, 76)
+        for tile in rendered {
+            XCTAssertEqual(tile.frame.height, height, accuracy: 1, tile.identifier)
+        }
+        captureDisplay("physical-Search-equal-sport-surfaces")
+    }
+
+    func testPhysicalCatalogDetailsWithoutSavingOrStartingPlayback() throws {
+        let app = try launchNormalHome()
+        defer { app.terminate() }
+        // Rows show one action; Details lives in the row's long-press menu.
+        let row = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH %@", "home-event-")).firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 20))
+        row.press(forDuration: 1.0)
+        let details = app.buttons["Match details"].firstMatch
+        XCTAssertTrue(details.waitForExistence(timeout: 4)); details.tap()
+        let close = app.buttons["Close"].firstMatch
+        if !close.waitForExistence(timeout: 2) {
+            let expandedDetails = app.buttons["More details"].firstMatch
+            XCTAssertTrue(expandedDetails.waitForExistence(timeout: 3))
+            for _ in 0..<4 {
+                if expandedDetails.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(expandedDetails.isHittable); expandedDetails.tap()
+        }
+        captureDisplay("physical-CatalogDetails-entry-state")
+        XCTAssertTrue(close.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["match-details-save"].firstMatch.exists)
+        captureDisplay("physical-CatalogEventDetails-read-only")
+        close.tap()
+        XCTAssertTrue(app.buttons["home-search"].firstMatch.waitForExistence(timeout: 5))
+    }
+
+    func testPhysicalLandscapeCoreLayoutWithoutChangingPreferences() throws {
+        let app = try launchNormalHome()
+        let previousOrientation = XCUIDevice.shared.orientation
+        defer {
+            XCUIDevice.shared.orientation = previousOrientation
+            app.terminate()
+        }
+        XCUIDevice.shared.orientation = .landscapeLeft
+        let landscape = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            app.frame.width > app.frame.height
+        }, object: nil)
+        XCTAssertEqual(XCTWaiter.wait(for: [landscape], timeout: 8), .completed,
+                       "The approved iPad layout must adapt to its landscape viewport")
+        let search = app.buttons["home-search"].firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 8))
+        assertVisible(search, in: app, minimumHeight: 44)
+        captureDisplay("physical-Home-landscape-display")
+        app.buttons["tab-arena"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["matchday-view-mode"].firstMatch.waitForExistence(timeout: 5))
+        captureDisplay("physical-Matchday-landscape-display")
+        app.buttons["tab-home"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["home-settings"].firstMatch.waitForExistence(timeout: 8))
+        app.buttons["home-settings"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["settings-appearance"].waitForExistence(timeout: 5))
+        captureDisplay("physical-Settings-landscape-display")
+        let displayObservation = expectation(description: "Bounded physical display observation")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { displayObservation.fulfill() }
+        wait(for: [displayObservation], timeout: 18)
+        app.buttons["tab-home"].firstMatch.tap()
+    }
+
+    func testPhysicalCoreNavigationWithoutChangingPreferences() throws {
+        let app = try launchNormalHome()
+        defer { app.terminate() }
+        let searchButton = app.buttons["home-search"]
+        XCTAssertTrue(searchButton.waitForExistence(timeout: 20))
+        assertVisible(searchButton, in: app, minimumHeight: 44)
+        capture(app, "physical-Home-normal-catalog")
+        searchButton.tap()
+        let search = app.searchFields.firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        // A normal owner scene can restore a query. Do not append to it or
+        // pretend restoration is a defect; preserve it without submitting.
+        let restoredValue = search.value as? String
+        let restoredQuery = restoredValue == search.placeholderValue ? nil : restoredValue
+        search.tap()
+        let clearQuery = search.buttons["Clear text"].firstMatch
+        if clearQuery.exists { clearQuery.tap() }
+        search.tap()
+        search.typeText("cricket") // Do not submit or write recent searches.
+        XCTAssertEqual(search.value as? String, "cricket")
+        capture(app, "physical-Search-typed-query-keyboard")
+        XCTAssertTrue(clearQuery.isHittable)
+        clearQuery.tap()
+        if let restoredQuery, !restoredQuery.isEmpty {
+            search.tap(); search.typeText(restoredQuery)
+        }
+        let done = app.buttons["Done"].firstMatch
+        XCTAssertTrue(done.isHittable, "Search dismissal must remain usable with the keyboard open")
+        done.tap()
+        XCTAssertTrue(searchButton.waitForExistence(timeout: 5))
+        app.buttons["tab-home"].firstMatch.tap()
+        XCTAssertTrue(app.buttons["home-settings"].firstMatch.waitForExistence(timeout: 8))
+        app.buttons["home-settings"].firstMatch.tap()
+        let appearance = app.buttons["settings-appearance"]
+        XCTAssertTrue(appearance.waitForExistence(timeout: 5))
+        capture(app, "physical-Settings-normal-preferences")
+        appearance.tap()
+        XCTAssertTrue(app.buttons["appearance-system"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["appearance-light"].exists)
+        XCTAssertTrue(app.buttons["appearance-dark"].exists)
+        capture(app, "physical-Appearance-read-only")
+        let back = app.navigationBars.buttons.firstMatch
+        XCTAssertTrue(back.isHittable); back.tap()
+        app.buttons["tab-arena"].firstMatch.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["matchday-view-mode"].firstMatch.waitForExistence(timeout: 5))
+        capture(app, "physical-Matchday-normal-saved-data")
+        app.buttons["tab-home"].firstMatch.tap()
+        XCTAssertTrue(searchButton.waitForExistence(timeout: 5))
+        assertVisible(searchButton, in: app, minimumHeight: 44)
+        capture(app, "physical-Home-returned")
+    }
+
+    func testPhysicalSinglePlayerSourceAndDetailsPresentation() throws {
+        let app = try launchNormalHome()
+        defer { app.terminate() }
+        let watches = app.buttons.matching(NSPredicate(format:
+            "identifier BEGINSWITH %@ AND (label BEGINSWITH %@ OR label BEGINSWITH %@)",
+            "match-start-play-", "Watch ", "Retry "))
+        let watch = watches.firstMatch
+        guard watch.waitForExistence(timeout: 20), watch.isHittable, watch.isEnabled else {
+            capture(app, "physical-player-gate-no-visible-listed-Watch")
+            throw XCTSkip("No visible currently eligible listed-match Watch action; no source/player pass claimed.")
+        }
+        watch.tap()
+        let player = app.descendants(matching: .any)["viewing-experience"].firstMatch
+        guard player.waitForExistence(timeout: 25) else {
+            capture(app, "physical-player-gate-current-delivery-unavailable")
+            throw XCTSkip("The current provider delivery did not open the normal player within25seconds.")
+        }
+        let close = app.buttons["close-live-player"].firstMatch
+        defer { if close.exists && close.isHittable { close.tap() } }
+        let fullscreen = app.buttons["viewing-native-fullscreen"].firstMatch
+        let webTransport = app.buttons["web-play-pause"].firstMatch
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (fullscreen.exists && fullscreen.isEnabled)
+                || (webTransport.exists && webTransport.isEnabled && webTransport.label.localizedCaseInsensitiveContains("Pause"))
+        }, object: nil)
+        guard XCTWaiter.wait(for: [ready], timeout: 25) == .completed else {
+            capture(app, "physical-player-gate-not-ready-no-media-pass")
+            throw XCTSkip("The current delivery never exposed native-ready or playing-web controls; UI playback gate remains unverified.")
+        }
+        let sources = app.buttons["viewing-sources"].firstMatch
+        XCTAssertTrue(sources.waitForExistence(timeout: 5))
+        assertVisible(sources, in: app, minimumHeight: 44)
+        let selectedSource = sources.value as? String
+        capture(app, "physical-single-player-ready-UI-not-frame-qualification")
+        sources.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["single-source-picker-scroll"].firstMatch.waitForExistence(timeout: 5))
+        capture(app, "physical-single-player-Sources-no-selection")
+        let list = app.scrollViews["single-source-picker-scroll"].firstMatch
+        let rows = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "broadcast-source-"))
+        if let last = rows.allElementsBoundByIndex.last {
+            for _ in 0..<4 {
+                if last.isHittable { break }
+                list.swipeUp()
+            }
+            XCTAssertTrue(last.isHittable, "The last current source must be reachable in the sheet")
+        }
+        XCTAssertTrue(app.buttons["Close broadcast sources"].isHittable)
+        capture(app, "physical-single-player-Sources-bottom-pinned-Close")
+        app.buttons["Close broadcast sources"].tap()
+        XCTAssertTrue(sources.waitForExistence(timeout: 5))
+        XCTAssertEqual(sources.value as? String, selectedSource, "Opening/closing Sources must not select another delivery")
+        XCTAssertTrue(player.exists)
+        let details = app.buttons["viewing-details"].firstMatch
+        XCTAssertTrue(details.isHittable); details.tap()
+        let detailsDone = app.buttons["viewing-details-done"]
+        XCTAssertTrue(detailsDone.waitForExistence(timeout: 5))
+        capture(app, "physical-single-player-Details")
+        detailsDone.tap()
+        XCTAssertTrue(sources.waitForExistence(timeout: 5))
+        if fullscreen.exists && fullscreen.isEnabled {
+            assertVisible(fullscreen, in: app, minimumHeight: 44)
+            capture(app, "physical-native-fullscreen-affordance-eligible-not-transition-proof")
+        }
+    }
+
+    private func launchNormalHome() throws -> XCUIApplication {
+        #if targetEnvironment(simulator) || targetEnvironment(macCatalyst)
+        throw XCTSkip("This journey requires the approved physical Jet iPad.")
+        #else
+        let app = XCUIApplication()
+        app.launchArguments = ["-fotty.onboarding.hasDismissed", "YES", "-fotty.selectedTab", "Home", "-fotty.setup.dismissed.v1", "YES"]
+        // The existing physical gate bypasses XCTest's automatic fixture/feed
+        // suppression, keeps real providers, and mutes only test playback audio.
+        app.launchEnvironment["FOTTY_PHYSICAL_LIVE_TEST"] = "1"
+        app.launch()
+        XCTAssertTrue(app.buttons["tab-home"].waitForExistence(timeout: 12))
+        return app
+        #endif
+    }
+
+    private func assertVisible(_ element: XCUIElement, in app: XCUIApplication, minimumHeight: CGFloat) {
+        XCTAssertTrue(element.isHittable)
+        XCTAssertGreaterThanOrEqual(element.frame.height, minimumHeight - 1)
+        XCTAssertGreaterThanOrEqual(element.frame.width, 43)
+        XCTAssertTrue(app.frame.insetBy(dx: -1, dy: -1).contains(element.frame), "Control must remain within the actual app viewport")
+    }
+
+    private func capture(_ app: XCUIApplication, _ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
+    private func captureDisplay(_ name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
 }

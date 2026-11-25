@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-11-04T14:20:39.959Z",
+  "sourceVersion": "2026-11-04.wbbl-runtime-2",
+  "wbbl": {
+    "lastAttemptAt": "2026-11-04T14:20:39.959Z",
+    "lastSuccessAt": "2026-11-04T14:20:39.959Z",
+    "consecutiveFailures": 0
+  },
+  "cloudWbblCount": 10,
+  "jetWbblCount": 10,
+  "match9TerminalPreserved": true,
+  "runtimeRegression": {
+    "before": "fails: unavailable instead of covered",
+    "after": "passes, redirects 301/302/303/307/308 rejected without follow"
+  },
+  "backendTests": 590,
+  "watchdogTests": 186,
+  "nativeGuideTests": 104,
+  "nativeControlsAndFullscreenTests": 94,
+  "mergedCommits": [
+    "aa79e82e1d560b06129ecb74ea423305b282bd03",
+    "a7ec1b37aabbbb25b02fa09f6edd79a14bfe6aca"
+  ]
+}

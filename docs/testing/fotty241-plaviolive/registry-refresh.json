@@ -1,0 +1,175 @@
+{
+  "at": "2026-11-05T02:10:38.478Z",
+  "generatedAt": "2026-11-05T02:10:35.193Z",
+  "providers": [
+    {
+      "providerCode": "plaviosports",
+      "scope": "cricket",
+      "status": "partial",
+      "complete": false,
+      "observedAt": "2026-11-05T02:10:04.370Z",
+      "lastSuccessAt": "2026-11-05T02:10:04.370Z",
+      "expiresAt": "2026-11-05T06:10:04.370Z",
+      "nextAttemptAt": "2026-11-05T02:30:04.370Z"
+    },
+    {
+      "providerCode": "plaviosports",
+      "scope": "football",
+      "status": "partial",
+      "complete": false,
+      "observedAt": "2026-11-05T02:10:04.370Z",
+      "lastSuccessAt": "2026-11-05T02:10:04.370Z",
+      "expiresAt": "2026-11-05T06:10:04.370Z",
+      "nextAttemptAt": "2026-11-05T02:30:04.370Z"
+    },
+    {
+      "providerCode": "plaviosports",
+      "scope": "live",
+      "status": "partial",
+      "complete": false,
+      "observedAt": "2026-11-05T02:10:04.370Z",
+      "lastSuccessAt": "2026-11-05T02:10:04.370Z",
+      "expiresAt": "2026-11-05T06:10:04.370Z",
+      "nextAttemptAt": "2026-11-05T02:30:04.370Z"
+    }
+  ],
+  "broadcastCount": 117,
+  "dated": 14,
+  "cricket": [
+    {
+      "title": "BAN vs WI",
+      "start": "2026-11-05T03:30:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "Sri Lanka Under-19 vs Malaysia Under-19",
+      "start": "2026-11-05T05:00:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "Afghanistan vs Zimbabwe",
+      "start": "2026-11-05T05:00:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "NZ vs IND",
+      "start": "2026-11-07T02:00:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "SL-U19 vs MAS-U19",
+      "start": "2026-11-05T05:00:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "Bangladesh Under-19 vs Afghanistan Under-19",
+      "start": "2026-11-05T05:00:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "IND-U19 vs NEP-U19",
+      "start": "2026-11-06T05:00:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "Adelaide Strikers Women vs Brisbane Heat Women",
+      "start": "2026-11-05T04:40:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "New Zealand vs India",
+      "start": "2026-11-07T02:00:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "Bangladesh vs West Indies",
+      "start": "2026-11-05T03:30:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "AFG vs ZIM",
+      "start": "2026-11-05T05:00:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "Sydney Thunder Women vs Perth Scorchers Women",
+      "start": "2026-11-05T08:10:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "PAK-U19 vs UAE-U19",
+      "start": "2026-11-06T05:00:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "BAN-U19 vs AFG-U19",
+      "start": "2026-11-05T05:00:00.000Z",
+      "verification": "dated",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "NPL",
+      "start": "2026-11-05T06:45:00.000Z",
+      "verification": "conflicting",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    },
+    {
+      "title": "WBBL",
+      "start": "2026-11-05T04:30:00.000Z",
+      "verification": "conflicting",
+      "observedAt": "2026-11-05T02:10:04.370Z"
+    }
+  ],
+  "links": [
+    {
+      "state": "needsVerification",
+      "reason": "format-conflict",
+      "matchMethod": "exact"
+    },
+    {
+      "state": "needsVerification",
+      "reason": "format-conflict",
+      "matchMethod": "exact"
+    },
+    {
+      "state": "conflicting",
+      "reason": "time-conflict",
+      "matchMethod": "exact"
+    },
+    {
+      "state": "listed",
+      "matchMethod": "exact"
+    },
+    {
+      "state": "conflicting",
+      "reason": "time-conflict",
+      "matchMethod": "exact"
+    },
+    {
+      "state": "needsVerification",
+      "reason": "format-conflict",
+      "matchMethod": "exact"
+    },
+    {
+      "state": "listed",
+      "matchMethod": "exact"
+    },
+    {
+      "state": "listed",
+      "matchMethod": "exact"
+    }
+  ]
+}

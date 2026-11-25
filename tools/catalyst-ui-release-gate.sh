@@ -46,25 +46,34 @@ if grep -q 'CGSSessionScreenIsLocked"=Yes' <<<"$mac_lock_state"; then
 fi
 
 tests=(
+  testAppwidePolishVisualJourneys
   testDashboardHitRegionAccessibilityAudit
   testDashboardTextClippingAccessibilityAudit
   testDashboardElementDescriptionAccessibilityAudit
   testDashboardDynamicTypeAccessibilityAudit
+  testDashboardStaleCPLNoticeIsScopedAndDetailsAreOptional
+  testDashboardOfflineNoticeDoesNotHideMatches
+  testDashboardPartialNoticeDoesNotHideMatches
   testFPLWorkspacesDynamicTypeAccessibilityAudit
   testFPLContextSurvivesTabSwitch
+  testFPLWideWindowPreservesWorkspace
   testFPLSavedDraftAndPickerRejection
   testMatchdayDynamicTypeAccessibilityAudit
   testSettingsDynamicTypeAccessibilityAudit
+  testSettingsNotificationPreferencesAreGrouped
+  testSettingsKickoffClashesRemainOptionalAcrossNavigation
   testMatchCenterDynamicTypeAccessibilityAudit
   testPlayerDynamicTypeAccessibilityAudit
   testDashboardContrastAndTraitsAccessibilityAudit
   testDashboardElementDetectionAccessibilityAudit
   testRapidTabSwitchingAndForegroundRecovery
+  testHomeSportSelectionSurvivesTabSwitch
   testBetaSupportOpensNativeHelpAndFeedback
   testBetaFPLInputAcceptsTeamLinksWithoutAutomaticallyConnecting
   testBetaSetupStaysFocusedOnMatchdayAndCanBeDismissed
   testCricketDiscoverySeparatesChannelsAndSavesWithoutFPL
   testHomeDiscoveryShowsActivityFiltersAndFullLineup
+  testHomeDiscoveryKickoffTransition
 )
 
 if [[ "$#" -gt 0 ]]; then
@@ -117,6 +126,7 @@ run_ui_test() {
     newest_result="$(ls -td "$DERIVED_DATA_PATH"/Logs/Test/*.xcresult 2>/dev/null | head -n 1 || true)"
     if [[ -n "$newest_result" ]]; then
       xcrun xcresulttool get test-results summary --path "$newest_result" --compact || true
+      xcrun xcresulttool get test-results tests --path "$newest_result" --compact || true
     fi
     return "$status"
   done

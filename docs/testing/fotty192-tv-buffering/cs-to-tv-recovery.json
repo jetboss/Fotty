@@ -1,0 +1,106 @@
+{
+  "build": 192,
+  "normalPickerSelectedCS1": true,
+  "automaticReturnToTV1Observed": true,
+  "priorTVBindingExpired": true,
+  "events": [
+    {
+      "timeUTC": "2026-10-30T15:59:08.786932+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T15:59:17.688173+00:00",
+      "name": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "media_ready"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T15:59:17.720036+00:00",
+      "name": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "decoded"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T15:59:57.786371+00:00",
+      "name": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "native_access_stalls": "1",
+        "relay_playlist_age_ms": "1018",
+        "native_failure_trigger": "stall_timeout",
+        "failure_kind": "stalled",
+        "relay_playlist_upstream_unchanged_ms": "8915",
+        "relay_playlist_samples": "11",
+        "relay_playlist_upstream_change": "unchanged",
+        "relay_playlist_metadata_preserved": "true",
+        "source_family": "communitysports",
+        "native_access_observed_bitrate": "14665662",
+        "last_observed_stage": "decoded",
+        "native_access_dropped_frames": "0",
+        "native_access_indicated_bitrate": "3520000"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T15:59:57.818322+00:00",
+      "name": "automatic_failover",
+      "outcome": "failure",
+      "details": {
+        "last_observed_stage": "decoded",
+        "source_family": "communitysports",
+        "failure_kind": "stalled"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T15:59:57.882300+00:00",
+      "name": "stall_observed_duration",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "decoded"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T15:59:57.892754+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T16:00:03.000246+00:00",
+      "name": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "media_ready"
+      }
+    },
+    {
+      "timeUTC": "2026-10-30T16:00:03.031703+00:00",
+      "name": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "decoded"
+      }
+    }
+  ],
+  "freshTV1DecodedAfterFailureUTC": "2026-10-30T16:00:03.031Z",
+  "failureUTC": "2026-10-30T15:59:57.786Z",
+  "observedRecoverySeconds": 5.245,
+  "verifiedFrozenWindowDescriptorBranchPhysicallyTriggered": false,
+  "note": "This CS selection had already refreshed its expired binding; no second automatic descriptor refresh is claimed. Actual fallback and expired TV1 renewal passed. Deterministic compiled tests cover the guarded frozen-window branch."
+}

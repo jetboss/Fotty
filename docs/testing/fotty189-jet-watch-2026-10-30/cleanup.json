@@ -1,0 +1,12 @@
+{
+  "atUTC": "2026-10-30T11:17:44.827772+00:00",
+  "ownedGateRemoved": true,
+  "privateDevicePreferenceCopiesRemoved": true,
+  "protectedNativeInputsUnchanged": 44,
+  "signedNativeSourceStillMatches": true,
+  "otherArtifactsCachesPreserved": true,
+  "freeGiBBefore": 13.05,
+  "freeGiBAfter": 13.39,
+  "savedFollowUpConfigFileAvailableAtExit": false,
+  "automationStatusNote": "Earlier heartbeat delivery confirmed operation; saved local file now unavailable. No replacement or status change attempted."
+}

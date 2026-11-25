@@ -50,9 +50,16 @@ const wnbaPayload = (rows = [wnbaRow()], overrides = {}) => ({ meta: { time: now
   leagueSchedule: { leagueId: "10", seasonYear: "2026", gameDates: [{ games: rows }] }, ...overrides });
 const footballRow = (overrides = {}) => ({ id: 111, utcDate: start, status: "TIMED", lastUpdated: "2026-09-29T12:00:00Z",
   competition: { code: "PL" }, homeTeam: { id: 1, name: "Home" }, awayTeam: { id: 2, name: "Away" }, ...overrides });
+// football-data's per-league endpoint: echoes only the season, reports the
+// returned date span in resultSet, and lists only that league's rows.
 function footballFetch(rows = [footballRow()], mutate = (data) => data) {
-  return async (url) => json(mutate({ filters: { dateFrom: url.searchParams.get("dateFrom"), dateTo: url.searchParams.get("dateTo"), competitions: url.searchParams.get("competitions") },
-    resultSet: { count: rows.length }, matches: rows }));
+  return async (url) => {
+    const code = String(url.pathname).split("/").at(-2);
+    const selected = rows.filter((row) => (row.competition?.code ?? "PL") === code);
+    const days = selected.map((row) => row.utcDate.slice(0, 10)).sort();
+    return json(mutate({ filters: { season: "2026" }, competition: { code },
+      resultSet: { count: selected.length, ...(days.length ? { first: days[0], last: days.at(-1) } : {}) }, matches: selected }, code));
+  };
 }
 
 const eflRow = (overrides = {}) => ({ type: "match", id: "g2687775", attributes: {
@@ -108,6 +115,59 @@ test("EFL spring fixtures retain the prior calendar season and do not assume Pre
     return new Response(JSON.stringify(eflPayload(url, [])), { headers: { "Content-Type": "application/json", Date: spring.toUTCString() } });
   });
   await assert.rejects(() => collect("efl-carabao-cup", eflFetch([eflRow({ competitionID: 10 })]), eflEnv), /identity/);
+});
+
+const eflNoMatches = { errors: [{ detail: "No matches found", title: "Not Found", status: "404" }] };
+
+test("EFL's verified no-matches 404 is an empty exact Cup window, not a source outage", async () => {
+  const november = new Date("2026-11-01T19:02:44Z");
+  let calls = 0;
+  const result = await collectSportsSource(source("efl-carabao-cup"), november, eflEnv, async (url, init) => {
+    calls++;
+    assert.equal(url.origin, "https://multi-club-matches.webapi.gc.eflservices.co.uk");
+    assert.equal(url.pathname, "/v2/matches");
+    assert.equal(url.searchParams.get("competitionID"), "2");
+    assert.equal(url.searchParams.get("seasonID"), "2026");
+    assert.equal(url.searchParams.get("from"), "2026-10-31 00:00:00Z");
+    assert.equal(url.searchParams.get("to"), "2026-11-08 23:59:59Z");
+    assert.equal(init.redirect, "manual");
+    return Response.json(eflNoMatches, { status: 404, headers: { Date: november.toUTCString() } });
+  });
+  assert.equal(calls, 1);
+  assert.deepEqual(result.fixtures, []);
+  assert.equal(result.pendingFixtureCount, 0);
+  assert.deepEqual(result.pendingByCompetition, { "carabao-cup": 0 });
+  assert.equal(result.observedAt, november.toISOString());
+});
+
+test("EFL empty-window handling rejects other 404 bodies, statuses and source lanes", async () => {
+  for (const body of [null, {}, { errors: [] }, { errors: [{ ...eflNoMatches.errors[0], detail: "Route not found" }] },
+    { errors: [{ ...eflNoMatches.errors[0], status: 404 }] }, { errors: [{ ...eflNoMatches.errors[0], title: "Unavailable" }] },
+    { ...eflNoMatches, data: [] }, { errors: [eflNoMatches.errors[0], eflNoMatches.errors[0]] }]) {
+    await assert.rejects(() => collect("efl-carabao-cup", async () => Response.json(body,
+      { status: 404, headers: { Date: now.toUTCString() } }), eflEnv));
+  }
+  for (const status of [400, 401, 403, 429, 500, 503]) {
+    await assert.rejects(() => collect("efl-carabao-cup", async () => Response.json(eflNoMatches,
+      { status, headers: { Date: now.toUTCString() } }), eflEnv), /unavailable/);
+  }
+  await assert.rejects(() => collect("mlb", async () => Response.json(eflNoMatches,
+    { status: 404, headers: { Date: now.toUTCString() } })), /unavailable/);
+});
+
+test("EFL no-matches evidence still requires JSON, a current artifact and no redirect", async () => {
+  for (const headers of [{}, { Date: "invalid" }, { Date: "Wed, 30 Sep 2026 09:59:59 GMT" },
+    { Date: "Wed, 30 Sep 2026 16:10:00 GMT" }, { Date: now.toUTCString(), Age: "invalid" }]) {
+    await assert.rejects(() => collect("efl-carabao-cup", async () => Response.json(eflNoMatches,
+      { status: 404, headers }), eflEnv));
+  }
+  await assert.rejects(() => collect("efl-carabao-cup", async () => new Response(JSON.stringify(eflNoMatches),
+    { status: 404, headers: { Date: now.toUTCString(), "Content-Type": "text/html" } }), eflEnv), /not JSON/);
+  await assert.rejects(() => collect("efl-carabao-cup", async () => {
+    const response = Response.json(eflNoMatches, { status: 404, headers: { Date: now.toUTCString() } });
+    Object.defineProperty(response, "redirected", { value: true });
+    return response;
+  }, eflEnv), /unavailable/);
 });
 
 test("EFL statuses are explicit publisher periods, including a past PreMatch remaining scheduled", async () => {
@@ -233,10 +293,20 @@ test("ESPN unknown teams and TBD synthetic midnight count as pending without rem
   assert.equal(result.fixtures.length, 0);
   assert.equal(result.pendingFixtureCount, 2);
   assert.equal(result.pendingByCompetition.nba, 2);
+  assert.deepEqual(result.pendingStartsByCompetition.nba, ["2026-09-30T17:00:00.000Z", "2026-09-30T17:00:00.000Z"]);
 });
 
-test("remaining ESPN MLS descriptor retains explicit league identity and access gate", async () => {
-  for (const id of ["mls"]) {
+test("provisional near-term MLB date is internal polling evidence, not an admitted start", async () => {
+  const pending = mlbRow(); pending.status.startTimeTBD = true;
+  const result = await collect("mlb", async () => json(mlbPayload([pending])));
+  assert.deepEqual(result.fixtures, []);
+  assert.equal(result.pendingFixtureCount, 1);
+  assert.deepEqual(result.pendingStartsByCompetition, { mlb: ["2026-09-30T17:00:00.000Z"] });
+  assert.deepEqual(result.pendingByCompetition, { mlb: 1 });
+});
+
+test("ESPN football descriptors (MLS and national teams) retain explicit league identity and access gate", async () => {
+  for (const id of ["mls", "uefa-nations-league", "international-friendlies", "concacaf-nations-league"]) {
     const descriptor = source(id);
     const result = await collect(id, espnFetch(id, [espnEvent("100", {}, descriptor)]));
     assert.equal(result.fixtures[0].sport, "football");
@@ -247,6 +317,61 @@ test("remaining ESPN MLS descriptor retains explicit league identity and access 
   assert.equal((await collect("mls", espnFetch("mls", [row]))).fixtures[0].status, "finished");
   row.status.type = { name: "STATUS_SECOND_HALF", state: "in", completed: false };
   assert.equal((await collect("mls", espnFetch("mls", [row]))).fixtures[0].status, "live");
+});
+
+test("ESPN keeps home/away goals and the displayed minute for every football scoreboard", async () => {
+  for (const id of ["mls", "uefa-nations-league", "international-friendlies", "concacaf-nations-league"]) {
+    const event = espnEvent("101", { status: { type: { name: "STATUS_SECOND_HALF", state: "in", completed: false },
+      displayClock: "90'+3'" } }, source(id));
+    const [home, away] = event.competitions[0].competitors;
+    home.score = "2";
+    away.score = "0";
+    event.competitions[0].competitors = [away, home];
+    const read = async () => (await collect(id, espnFetch(id, [event]))).fixtures[0].footballLive;
+    assert.deepEqual(await read(), { home: 2, away: 0, clock: "90+3′" });
+    event.status.type.name = "STATUS_HALFTIME";
+    home.score = undefined;
+    assert.deepEqual(await read(), { clock: "HT" });
+    event.status.type.name = "STATUS_SECOND_HALF";
+    home.score = "0";
+    event.status.displayClock = "unavailable";
+    assert.deepEqual(await read(), { home: 0, away: 0 });
+    event.status.type = { name: "STATUS_FULL_TIME", state: "post", completed: true };
+    assert.equal(await read(), undefined);
+  }
+});
+
+test("EFL retains reported match goals and added time while half-time wins over the last minute", async () => {
+  const details = { homeTeam: { name: "Liverpool", score: 1 }, awayTeam: { name: "Chelsea", score: 2 },
+    formattedMatchTime: "45' +2'", matchMinutes: 47 };
+  const read = async (fields) => (await collect("efl-carabao-cup", eflFetch([eflRow(fields)]), eflEnv)).fixtures[0].footballLive;
+  assert.deepEqual(await read(details), { home: 1, away: 2, clock: "45+2′" });
+  assert.deepEqual(await read({ ...details, matchPeriod: "HalfTime" }), { home: 1, away: 2, clock: "HT" });
+  assert.deepEqual(await read({ matchMinutes: 62 }), { clock: "62′" });
+  assert.equal(await read({ ...details, matchPeriod: "PreMatch" }), undefined);
+});
+
+test("football-data projects clock and score independently on all six competitions and keeps shootouts out of match goals", async () => {
+  const codes = Object.keys(source("football-data").codes);
+  const rows = codes.map((code, index) => footballRow({ competition: { code }, id: 500 + index, status: "IN_PLAY",
+    lastUpdated: now.toISOString(), minute: 45, injuryTime: 2, score: { fullTime: { home: 0, away: 1 } } }));
+  const read = async () => (await collect("football-data", footballFetch(rows), { FOOTBALL_DATA_API_KEY: "test" })).fixtures;
+  const events = await read();
+  assert.equal(events.length, codes.length);
+  for (const event of events) assert.deepEqual(event.footballLive, { home: 0, away: 1, clock: "45+2′" });
+  Object.assign(rows[0], { status: "PAUSED", score: { fullTime: { home: null, away: null } } });
+  Object.assign(rows[1], { status: "PENALTY_SHOOTOUT", score: { duration: "PENALTY_SHOOTOUT",
+    fullTime: { home: 4, away: 3 }, penalties: { home: 3, away: 2 } } });
+  Object.assign(rows[2], { minute: null, injuryTime: 0 });
+  Object.assign(rows[3], { lastUpdated: undefined });
+  Object.assign(rows[4], { status: "TIMED" });
+  const output = await read();
+  const updated = rows.map((row) => output.find((event) => event.id.endsWith(`:${row.id}`)));
+  assert.deepEqual(updated[0].footballLive, { clock: "HT" });
+  assert.deepEqual(updated[1].footballLive, { home: 1, away: 1, clock: "PEN" });
+  assert.deepEqual(updated[2].footballLive, { home: 0, away: 1 });
+  assert.equal(updated[3].footballLive, undefined);
+  assert.equal(updated[4].footballLive, undefined);
 });
 
 test("NCAA unions agreeing FBS/FCS events once and rejects cross-group team/time/status conflicts", async () => {
@@ -352,41 +477,65 @@ test("WNBA publisher generation is distinct from successful receipt and stale li
   await assert.rejects(() => collect("wnba", () => live({ "Last-Modified": "2026-09-30T15:55:00Z" })), /timestamp invalid/);
 });
 
-test("football reuses one credentialed six-league bulk request with exclusive end and source timestamp", async () => {
+test("football asks each of the six leagues separately with an inclusive end and source timestamp", async () => {
+  // Owner decision 21 Nov: the combined /matches body went hours stale for
+  // in-play rows; the per-league endpoint stayed current. Six requests a sync.
   const calls = [];
   const result = await collect("football-data", async (url, init) => {
     calls.push({ url, init });
     return footballFetch()(url);
   }, { FOOTBALL_DATA_API_KEY: "test-secret" });
-  assert.equal(calls.length, 1);
-  assert.equal(calls[0].url.searchParams.get("competitions"), "PL,CL,PD,SA,BL1,FL1");
-  assert.equal(calls[0].url.searchParams.get("dateTo"), "2026-10-08");
-  assert.equal(calls[0].init.headers["X-Auth-Token"], "test-secret");
+  assert.deepEqual(calls.map(({ url }) => url.pathname), ["PL", "CL", "PD", "SA", "BL1", "FL1"].map((code) => `/v4/competitions/${code}/matches`));
+  for (const { url, init } of calls) {
+    assert.equal(url.searchParams.get("dateFrom"), "2026-09-29");
+    assert.equal(url.searchParams.get("dateTo"), "2026-10-07");
+    assert.equal(url.searchParams.get("competitions"), null);
+    assert.equal(init.headers["X-Auth-Token"], "test-secret");
+  }
   assert.equal(result.fixtures[0].competitionId, "premier-league");
   assert.equal(result.fixtures[0].source.updatedAt, "2026-09-29T12:00:00.000Z");
   assert.ok(!JSON.stringify(result).includes("test-secret"));
 });
 
-test("six licensed football scopes share one request and never use duplicate website adapters", async () => {
+test("existing six-league request adds delayed reported goals only to explicit regular-time CL rows", async () => {
+  const rows = [footballRow({ id: 1001, competition: { code: "CL" }, status: "IN_PLAY", lastUpdated: now.toISOString(),
+    score: { duration: "REGULAR", fullTime: { home: 2, away: 0 } } }),
+  footballRow({ id: 1002, competition: { code: "PL" }, status: "IN_PLAY", lastUpdated: now.toISOString(),
+    score: { duration: "REGULAR", fullTime: { home: 2, away: 0 } } }),
+  footballRow({ id: 1003, competition: { code: "CL" }, status: "TIMED", score: { duration: "REGULAR", fullTime: { home: null, away: null } } })];
+  let calls = 0;
+  const result = await collect("football-data", async (url) => { calls++; return footballFetch(rows)(url); }, { FOOTBALL_DATA_API_KEY: "test-secret" });
+  assert.equal(calls, 6);
+  const byID = new Map(result.fixtures.map((fixture) => [fixture.id.split(":").at(-1), fixture]));
+  result.fixtures = ["1001", "1002", "1003"].map((id) => byID.get(id));
+  assert.deepEqual(result.fixtures[0].reportedScore, { home: 2, away: 0, publisherUpdatedAt: now.toISOString() });
+  assert.equal(result.fixtures[1].reportedScore, undefined);
+  assert.equal(result.fixtures[2].reportedScore, undefined);
+});
+
+test("six licensed football scopes use one request each and never use duplicate website adapters", async () => {
   const descriptor = source("football-data");
   const rows = Object.keys(descriptor.codes).map((code, index) => footballRow({ id: 200 + index, competition: { code } }));
   let calls = 0;
   const result = await collect("football-data", async (url) => { calls++; return footballFetch(rows)(url); }, { FOOTBALL_DATA_API_KEY: "test-secret" });
-  assert.equal(calls, 1);
+  assert.equal(calls, 6);
   assert.deepEqual(result.fixtures.map((fixture) => fixture.competitionId).sort(), Object.values(descriptor.codes).sort());
   assert.deepEqual(Object.keys(result.pendingByCompetition).sort(), Object.values(descriptor.codes).sort());
   assert.ok(["la-liga", "serie-a", "bundesliga", "ligue-1"].every((id) => !source(id)));
-  await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data,
-    filters: { ...data.filters, competitions: "PL,CL" } })), { FOOTBALL_DATA_API_KEY: "test-secret" }), /filter/);
+  await assert.rejects(() => collect("football-data", footballFetch([], (data, code) => ({ ...data,
+    competition: { code: code === "CL" ? "PL" : code } })), { FOOTBALL_DATA_API_KEY: "test-secret" }), /filter/);
 });
 
 test("football refuses missing credential, ignored scope, count/window mismatch and rough dates", async () => {
   await assert.rejects(() => collect("football-data", footballFetch()), /credential/);
   const env = { FOOTBALL_DATA_API_KEY: "test-secret" };
-  await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data, filters: { ...data.filters, competitions: "BSA" } })), env), /filter/);
+  await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data, competition: { code: "BSA" } })), env), /filter/);
   await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data, resultSet: { count: 1 } })), env), /incomplete/);
-  await assert.rejects(() => collect("football-data", footballFetch([], (data) => ({ ...data, filters: { ...data.filters, dateTo: "2026-10-01" } })), env), /window/);
-  await assert.rejects(() => collect("football-data", footballFetch([footballRow({ competition: { code: "BSA" } })]), env), /competition/);
+  await assert.rejects(() => collect("football-data", footballFetch([footballRow()], (data) => data.matches.length
+    ? { ...data, resultSet: { ...data.resultSet, last: "2026-10-20" } } : data), env), /window/);
+  await assert.rejects(() => collect("football-data", footballFetch([footballRow({ utcDate: "2026-10-20T15:00:00Z" })]), env), /window/);
+  await assert.rejects(() => collect("football-data", footballFetch([footballRow()], (data) => ({ ...data,
+    matches: data.matches.map((row) => ({ ...row, competition: { code: "BSA" } })) })), env), /competition/);
   assert.equal((await collect("football-data", footballFetch([footballRow({ status: "SCHEDULED" })]), env)).pendingFixtureCount, 1);
 });
 
@@ -421,4 +570,83 @@ test("whole collection deadline stops an uncooperative fetch and revokes all tra
   let signal;
   await assert.rejects(() => collect("mlb", async (_url, init) => { signal = init.signal; return new Promise(() => {}); }), /Deadline/);
   assert.equal(signal.aborted, true);
+});
+
+test("schedule collection never asks Cloudflare to cache a provider response (21 Nov stale PL rows)", async () => {
+  const seen = [];
+  const fetchImpl = async (url, init) => {
+    seen.push(init);
+    return footballFetch([footballRow({ status: "IN_PLAY", lastUpdated: now.toISOString() })])(url, init);
+  };
+  const result = await collect("football-data", fetchImpl, { FOOTBALL_DATA_API_KEY: "test" });
+  assert.ok(seen.length > 0);
+  for (const init of seen) {
+    assert.equal(init.cf, undefined, "An edge-cached body can only be an older copy for a 5-minute collector");
+  }
+  assert.equal(result.fixtures[0].status, "live");
+});
+
+// ESPN live layer (owner decision 21 Nov 2026).
+const overlayNow = new Date("2026-11-21T17:35:00Z");
+const saRow = (overrides = {}) => ({ id: 558526, utcDate: "2026-11-21T17:30:00Z", status: "TIMED", lastUpdated: "2026-11-21T00:20:36Z",
+  competition: { code: "SA" }, homeTeam: { id: 112, name: "Parma Calcio 1913", shortName: "Parma" },
+  awayTeam: { id: 100, name: "AS Roma", shortName: "Roma" }, ...overrides });
+const liveEspnEvent = (overrides = {}) => ({ id: "735001", date: "2026-11-21T17:30Z",
+  status: { displayClock: "5'", type: { name: "STATUS_FIRST_HALF", state: "in", completed: false, shortDetail: "5'" } },
+  competitions: [{ competitors: [
+    { homeAway: "home", score: "1", team: { displayName: "Parma", shortDisplayName: "Parma", name: "Parma" } },
+    { homeAway: "away", score: "0", team: { displayName: "AS Roma", shortDisplayName: "Roma", name: "Roma" } }] }], ...overrides });
+function overlayFetch({ rows = [saRow()], events = [liveEspnEvent()], espnStatus = 200, calls = [] } = {}) {
+  return async (url, init) => {
+    calls.push(String(url));
+    if (url.hostname === "site.api.espn.com") {
+      if (espnStatus !== 200) return new Response("unavailable", { status: espnStatus });
+      return json({ leagues: [{ slug: url.pathname.split("/").at(-2) }], events });
+    }
+    return footballFetch(rows)(url, init);
+  };
+}
+const collectAt = (impl, env = { FOOTBALL_DATA_API_KEY: "test" }) => collectSportsSource(source("football-data"), overlayNow, env, impl);
+
+test("ESPN live layer turns a late football-data kickoff live with score and minute", async () => {
+  const calls = [];
+  const result = await collectAt(overlayFetch({ calls }));
+  const fixture = result.fixtures.find((row) => row.id === "sports-fixture:serie-a:558526");
+  assert.equal(fixture.status, "live");
+  assert.equal(fixture.liveEvidence, "espn");
+  assert.deepEqual(fixture.footballLive, { home: 1, away: 0, clock: "5′" });
+  assert.equal(fixture.source.updatedAt, overlayNow.toISOString());
+  assert.equal(new URL(fixture.source.url).hostname, "api.football-data.org", "Provenance stays football-data");
+  assert.deepEqual(calls.filter((url) => url.includes("espn")).map((url) => new URL(url).pathname),
+    ["/apis/site/v2/sports/soccer/ita.1/scoreboard"], "Only leagues with a match in its live window ask ESPN");
+});
+
+test("ESPN live layer refuses wrong kickoff, wrong team, swapped roles, ambiguity and non-live states", async () => {
+  const cases = [
+    liveEspnEvent({ date: "2026-11-21T17:45Z" }),
+    liveEspnEvent({ competitions: [{ competitors: [
+      { homeAway: "home", score: "1", team: { displayName: "Parma" } }, { homeAway: "away", score: "0", team: { displayName: "Lazio" } }] }] }),
+    liveEspnEvent({ competitions: [{ competitors: [
+      { homeAway: "home", score: "1", team: { displayName: "AS Roma" } }, { homeAway: "away", score: "0", team: { displayName: "Parma" } }] }] }),
+    liveEspnEvent({ status: { displayClock: "FT", type: { name: "STATUS_FULL_TIME", state: "post", completed: true } } }),
+  ];
+  for (const event of cases) {
+    const result = await collectAt(overlayFetch({ events: [event] }));
+    assert.equal(result.fixtures[0].status, "scheduled", JSON.stringify(event.date));
+    assert.equal(result.fixtures[0].liveEvidence, undefined);
+  }
+  const twice = await collectAt(overlayFetch({ events: [liveEspnEvent(), liveEspnEvent({ id: "735002" })] }));
+  assert.equal(twice.fixtures[0].status, "scheduled", "Two ESPN events for one fixture is ambiguous");
+});
+
+test("ESPN failures, other leagues, out-of-window rows and the switch never change the schedule", async () => {
+  const failed = await collectAt(overlayFetch({ espnStatus: 503 }));
+  assert.equal(failed.fixtures[0].status, "scheduled", "An ESPN outage leaves football-data's schedule intact");
+  const premier = await collectAt(overlayFetch({ rows: [saRow({ competition: { code: "PL" } })] }));
+  assert.equal(premier.fixtures[0].status, "scheduled", "The Premier League uses the official FPL feed instead");
+  const calls = [];
+  await collectAt(overlayFetch({ rows: [saRow({ utcDate: "2026-11-22T17:30:00Z" })], calls }));
+  assert.equal(calls.some((url) => url.includes("espn")), false, "No live-window match, no ESPN request");
+  const off = await collectAt(overlayFetch(), { FOOTBALL_DATA_API_KEY: "test", FOTTY_FOOTBALL_LIVE_OVERLAY: "0" });
+  assert.equal(off.fixtures[0].status, "scheduled");
 });

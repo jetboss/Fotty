@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "observedAtUTC": "2026-11-01T23:51:05.496649+00:00",
+  "build": "220",
+  "device": "Jet iPad",
+  "run": "physical-tests",
+  "result": "automation_initialization_blocked",
+  "testMethodsExecuted": 0,
+  "failure": "Timed out while enabling UI Automation; on-device approval required",
+  "notProductPlaybackFailure": true,
+  "phoneInteractions": false,
+  "sourcePreferencesChanged": false
+}

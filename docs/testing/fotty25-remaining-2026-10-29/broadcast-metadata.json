@@ -1,0 +1,55 @@
+{
+  "checkedUTC": "2026-10-29T18:48:44.205Z",
+  "requests": 5,
+  "mediaFetched": false,
+  "rawBodiesRetained": false,
+  "results": [
+    {
+      "name": "catalog-primary",
+      "ms": 187,
+      "failure": "TypeError",
+      "bytes": 0
+    },
+    {
+      "name": "catalog-mirror",
+      "ms": 103,
+      "failure": "TypeError",
+      "bytes": 0
+    },
+    {
+      "name": "catalog-backup",
+      "ms": 388,
+      "failure": "TypeError",
+      "bytes": 0
+    },
+    {
+      "name": "worker-health",
+      "http": 200,
+      "ms": 499,
+      "bytes": 889,
+      "contentType": "application/json",
+      "shape": "object",
+      "explicitClosure": false
+    },
+    {
+      "name": "official-sports-registry",
+      "http": 200,
+      "ms": 314,
+      "bytes": 95958,
+      "contentType": "application/json",
+      "shape": "object",
+      "explicitClosure": false,
+      "sourceStatus": "verified",
+      "fixtureCount": 132,
+      "liveFootball": [
+        {
+          "id": "sports-fixture:serie-a:558558",
+          "title": "Frosinone Calcio vs US Lecce",
+          "competition": "serie-a",
+          "start": "2026-10-29T17:30:00.000Z",
+          "observedAt": "2026-10-29T18:46:30.693Z"
+        }
+      ]
+    }
+  ]
+}

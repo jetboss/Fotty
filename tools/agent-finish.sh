@@ -37,7 +37,8 @@ TEXT
 
 print_section "Memory Update Checklist"
 cat <<'TEXT'
-- Update docs/notebooklm/Decisions-Log.md for durable technical/product decisions.
+- Prepend a dated entry in docs/notebooklm/Decisions-Log.md for durable decisions.
+- Update docs/notebooklm/Current-State.md in place if the baseline/open gates changed.
 - Update docs/notebooklm/Project-Memory.md if pillars, priorities, platform scope, or known risks changed.
 - Update docs/notebooklm/Architecture-Map.md if files/modules moved or ownership changed.
 - Update docs/notebooklm/Risks.md when a new sharp edge or guardrail appears.
@@ -45,11 +46,11 @@ cat <<'TEXT'
 TEXT
 
 print_section "Verification Suggestions"
-"$ROOT/tools/ask-brain.sh" "For this completed Fotty work: $SUMMARY. Suggest the minimum verification checks and memory files to update. Keep it concise."
+"$ROOT/tools/ask-brain.sh" "$SUMMARY"
 
 print_section "Refresh Local Memory"
 if "$ROOT/tools/private-kb-sync.sh"; then
-  "$ROOT/tools/brain-doctor.sh"
+  "$ROOT/tools/brain-doctor.sh" --export
 else
   printf 'Local memory refresh failed. Run ./tools/private-kb-sync.sh after fixing the issue.\n'
   exit 1

@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Bell, CalendarDays, Play, Radio } from "lucide-react";
 import type { ScrapedMatch } from "@/lib/api";
 import { buildWatchHref, canOpenBroadcast, formatKickoff } from "@/lib/live";
 import { estimateMatchClock } from "@/lib/match-clock";
 import { fixtureDisplayTitle, fixtureTeamLabels } from "@/lib/fixture-normalization";
-import { isOptimizedImageSrc } from "@/lib/image-hosts";
 import { v2AppPath, v2HomePath } from "@/lib/v2/preview";
 import { fixtureLeagueLine } from "@/lib/v2/fixture-display";
 import { isMatchLive } from "@/lib/v2/match-priority";
@@ -28,7 +26,6 @@ export function HeroMatch({ match, returnTo, badge, className }: HeroMatchProps)
   const watchReturnTo = returnTo ?? v2HomePath();
   const labels = fixtureTeamLabels(match);
   const title = fixtureDisplayTitle(match);
-  const poster = match.poster?.trim();
   const isLive = isMatchLive(match);
   const canWatch = canOpenBroadcast(match);
   const kickoff = formatKickoff(match.startsAt);

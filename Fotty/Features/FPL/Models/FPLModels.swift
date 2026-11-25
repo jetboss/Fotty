@@ -280,6 +280,16 @@ public struct FPLTeam: Decodable, Identifiable, Sendable {
     }
 }
 
+public extension FPLTeam {
+    /// Official Premier League crest keyed by the team code supplied in the
+    /// FPL bootstrap. This keeps dense FPL screens deterministic and avoids a
+    /// separate search request for every club badge.
+    var badgeURL: URL? {
+        guard code > 0 else { return nil }
+        return URL(string: "https://resources.premierleague.com/premierleague/badges/100/t\(code).png")
+    }
+}
+
 // MARK: - Element Type (Position)
 
 public struct FPLElementType: Decodable, Identifiable, Sendable {

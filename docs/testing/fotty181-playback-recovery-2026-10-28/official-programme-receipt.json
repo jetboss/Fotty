@@ -1,0 +1,20 @@
+{
+  "publisher": "EFL Match Centre",
+  "retrievedAtUTC": "2026-10-28T21:30:03.032Z",
+  "HTTPDate": "2026-10-28T21:30:02Z",
+  "matchID": "g2687775",
+  "competitionID": 2,
+  "competition": "Carabao Cup",
+  "home": "Liverpool",
+  "away": "Chelsea",
+  "kickoffUTC": "2026-10-28T20:00:00Z",
+  "score": {
+    "home": 1,
+    "away": 1
+  },
+  "matchPeriod": "SecondHalf",
+  "matchMinutes": 68,
+  "formattedMinute": "68\u2032",
+  "perMatchUpdateTimestampSupplied": false,
+  "scope": "Independent metadata corroboration of the programme, not video proof"
+}

@@ -20,7 +20,7 @@ function teamsAlign(left: ScrapedMatch, right: ScrapedMatch) {
 }
 
 /** Prefer an existing poster, otherwise borrow one from a matching kickoff/team row. */
-export function findPosterForMatch(match: ScrapedMatch, sources: ScrapedMatch[]) {
+function findPosterForMatch(match: ScrapedMatch, sources: ScrapedMatch[]) {
   const existing = match.poster?.trim();
   if (existing) return existing;
 
@@ -38,7 +38,7 @@ export function findPosterForMatch(match: ScrapedMatch, sources: ScrapedMatch[])
   return undefined;
 }
 
-export function enrichMatchPoster(match: ScrapedMatch, sources: ScrapedMatch[]) {
+function enrichMatchPoster(match: ScrapedMatch, sources: ScrapedMatch[]) {
   const poster = findPosterForMatch(match, sources);
   return poster ? { ...match, poster } : match;
 }

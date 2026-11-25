@@ -1,0 +1,22 @@
+{
+  "build": "2.0.1(215)",
+  "date": "2026-11-01",
+  "TV20": {
+    "nativeDecodedUTC": "2026-11-01T16:01:32Z",
+    "stalledUTC": "2026-11-01T16:02:02Z",
+    "automaticFailover": "CS1 HTTP404",
+    "manualRetryProgrammeObservationUTC": "2026-11-01T16:03:00Z",
+    "observedProgramme": "Subscription-payment card, not Fox Cricket",
+    "qualified": false,
+    "ninetySecondCorrectProgrammeHold": false
+  },
+  "independentHDReview": "Complete media segment independently decoded same subscription-payment card; no Fox programme qualification",
+  "candidate216": "Removed unqualified TV20, HTTP origin profile/ATS exception/helper and related tests; exact source prototype preserved unapplied",
+  "phone215": {
+    "installationUTC": "2026-11-01T16:17:00Z",
+    "installed": true,
+    "launchedByAgent": false,
+    "unchangedAfterInstall": true
+  },
+  "scope": "No accounts/payment/challenge workarounds. SpecialLinks8080 remains metadata-only unsupported, not included in paid-feed conclusion."
+}

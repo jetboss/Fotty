@@ -1,6 +1,39 @@
 # Fotty Strategic Roadmap
 
-Last updated: 2026-08-28
+Last updated: 2026-10-01
+
+## Current approved direction — private daily use
+
+Last verified shared distribution is internal TestFlight 2.0.1 (111), Testing
+for the unchanged 11-person group; build100 is fallback. Recheck Apple before a
+release. Owner iPad112 includes the broader fixture consumer but not the later
+football-empty/cooldown or replayed-provider corrections.
+
+The next native candidate is local 2.0.1 (113), assembled from the verified
+owner112 source plus the reviewed fixture repairs. Its automated source gate
+is separate from device installation and TestFlight publication. First verify
+retained data, real playback/PiP and Watch Two, saved/reminder return, recovery
+and accessibility on the exact phone/tablet candidate; then prepare a coherent
+shared round under [build113 qualification](../beta/BUILD-113-QUALIFICATION.md).
+No seven-day clock or tester task has started. FPL is optional for sports users;
+at least one willing FPL participant is needed for its independent task.
+
+The owner approved the broader product strategy on 4 September. Execute
+`docs/FOTTY-PRODUCT-EXECUTION-PLAN.md`: protect playback/plans/paid usage, connect
+the sports journey, finish FPL evidence/tools and everyday usability, qualify a
+meaningful private batch, then choose only valuable differentiators. The first
+foundation batch is local source work after build 58, not a release or proof of
+production safeguards. The shared Coach allowance is 50 paid attempts per UTC
+day; its new configuration stays disabled pending protected activation.
+
+Retained browsing, recovery and opt-in redacted feedback are implemented; real
+Files recovery, changed-surface accessibility and received-report evidence still
+need exact-candidate acceptance. Apple session counts do not prove successful
+viewing. Measure ordinary-use outcomes before adding accounts, subscriptions,
+new feeds or more visible controls. Fixture source gaps and dependency alerts
+remain separately tracked; this native gate does not close them.
+
+Earlier dated milestones below remain history, not current distribution state.
 
 ## Approved next phase — reliability first
 

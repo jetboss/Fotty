@@ -79,7 +79,7 @@ public enum FPLDecisionJournalStore {
         season: String = FPLSeasonIdentifier.currentLabel(),
         defaults: UserDefaults = .standard
     ) -> [FPLDecisionJournalEntry] {
-        guard entry.managerID == managerID else {
+        guard managerID > 0, entry.managerID == managerID, (1...38).contains(entry.gameweek) else {
             return load(managerID: managerID, season: season, defaults: defaults)
         }
         var entries = load(managerID: managerID, season: season, defaults: defaults)
@@ -107,9 +107,10 @@ public enum FPLDecisionJournalStore {
         defaults: UserDefaults
     ) -> [FPLDecisionJournalEntry] {
         let bounded = Array(entries.sorted { $0.updatedAt > $1.updatedAt }.prefix(120))
-        if let data = try? JSONEncoder().encode(bounded) {
-            defaults.set(data, forKey: key(managerID: managerID, season: season))
+        guard let data = try? JSONEncoder().encode(bounded) else {
+            return load(managerID: managerID, season: season, defaults: defaults)
         }
+        defaults.set(data, forKey: key(managerID: managerID, season: season))
         return bounded
     }
 

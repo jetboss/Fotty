@@ -30,6 +30,17 @@ public struct FPLCoachCardPayload: Codable, Sendable, Equatable {
     public let verifiedAt: Date?
     public let usage: FPLCoachTokenUsage?
 
+    public var isModelJudgment: Bool { source.lowercased().contains("deepseek") }
+    public var evidenceHeading: String { isModelJudgment ? "Evidence cited by Coach" : "Calculation evidence" }
+    public var confidenceLabel: String {
+        isModelJudgment ? "\(confidence.capitalized) model confidence" : "\(confidence.capitalized) evidence confidence"
+    }
+    public var assuranceNote: String {
+        isModelJudgment
+            ? "Model confidence is judgment, not measured accuracy. Official data receipt and limited rule checks do not verify every claim or a complete transfer route. Check proposed moves in Transfer Lab."
+            : "This is a deterministic explanation of the available evidence, not a prediction. Missing or provisional data remains uncertain."
+    }
+
     public init(
         answer: String,
         confidence: String,
@@ -91,7 +102,7 @@ public struct FPLSmartCoachResult: Sendable {
     public var renderedText: String {
         var sections = [answer]
         if !evidence.isEmpty {
-            sections.append("### Evidence checked\n" + evidence.map { "• \($0)" }.joined(separator: "\n"))
+            sections.append("### \(cardPayload.evidenceHeading)\n" + evidence.map { "• \($0)" }.joined(separator: "\n"))
         }
         if !assumptions.isEmpty {
             sections.append("### Assumptions and limits\n" + assumptions.map { "• \($0)" }.joined(separator: "\n"))
@@ -99,9 +110,9 @@ public struct FPLSmartCoachResult: Sendable {
         if !actions.isEmpty {
             sections.append("### Next checks\n" + actions.map { "• \($0)" }.joined(separator: "\n"))
         }
-        var verification = "Confidence: **\(confidence.capitalized)** • \(source.rawValue) • Official-data status: \(officialDataStatus)"
+        var verification = "\(cardPayload.confidenceLabel) • \(source.rawValue) • Official-data status: \(officialDataStatus)"
         if let verifiedAt {
-            verification += " • Checked \(verifiedAt.formatted(date: .abbreviated, time: .shortened))"
+            verification += " • Evidence fetched \(verifiedAt.formatted(date: .abbreviated, time: .shortened))"
         }
         if let model, !model.isEmpty {
             verification += " • \(model)"
@@ -110,7 +121,26 @@ public struct FPLSmartCoachResult: Sendable {
             verification += " • \(usage.totalTokens) tokens"
         }
         sections.append(verification)
+        sections.append(cardPayload.assuranceNote)
         return sections.joined(separator: "\n\n")
+    }
+}
+
+enum FPLCoachRecheck {
+    /// Recheck the historical user's question, never the model's recommendation
+    /// as a fresh factual premise. Preserve that question's immediate user
+    /// context for pronouns rather than using a newer, unrelated conversation.
+    static func question(for message: AICoachMessage, in history: [AICoachMessage]) -> String? {
+        guard message.sender == .coach, let index = history.firstIndex(where: { $0.id == message.id }),
+              let original = history[..<index].lastIndex(where: { $0.sender == .user }) else { return nil }
+        var query = history[original].text
+        if query.range(of: #"\b(him|his|he|them|their|they|both|those|same player|that player)\b"#,
+                       options: [.regularExpression, .caseInsensitive]) != nil,
+           let previous = history[..<original].last(where: { $0.sender == .user }) {
+            query += "\nEarlier question: \(previous.text)"
+        }
+        guard !query.isEmpty, query.count <= 1_200 else { return nil }
+        return query
     }
 }
 
@@ -150,6 +180,7 @@ public enum FPLSmartCoachService {
         let manager: Manager
         let squad: [SquadPlayer]
         let squadSource: String
+        let isLocalDraft: Bool
         let transferOptions: [TransferOption]
         let captains: [CaptainOption]
         let freeTransfers: FreeTransfers?
@@ -383,11 +414,12 @@ public enum FPLSmartCoachService {
         request.timeoutInterval = 55
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(installationID(), forHTTPHeaderField: "X-Fotty-Install-ID")
+        try FPLCoachAccessStore.authorize(&request, code: FPLCoachAccessStore.load())
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         request.httpBody = try encoder.encode(body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request, delegate: FPLCoachRedirectDelegate.shared)
         guard let http = response as? HTTPURLResponse else {
             throw FPLSmartCoachError.invalidResponse
         }
@@ -569,6 +601,7 @@ public enum FPLSmartCoachService {
             ),
             squad: squad,
             squadSource: squadSource,
+            isLocalDraft: isLocalDraft,
             transferOptions: transfers,
             captains: captainRecommendations.prefix(5).map {
                 CaptainOption(

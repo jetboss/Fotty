@@ -1,0 +1,90 @@
+{
+  "checkedAt": "2026-10-29T01:04:53.578459Z",
+  "fixture": "Washington Capitals–Philadelphia Flyers, 2026-10-28T23:30:00Z",
+  "requests": [
+    {
+      "stage": "catalog",
+      "host": "cncverse.dpdns.org",
+      "allDNSAnswersPublic": true,
+      "tls": "system_verified",
+      "status": 200,
+      "bytes": 304493,
+      "sha256": "1f83e076529eae34ec862b6e27fe2f67ccd7aa23d9f9bdaf12e3abae7463a662",
+      "mime": "application/json"
+    },
+    {
+      "stage": "same_verified_identity_descriptor",
+      "host": "cncverse.dpdns.org",
+      "allDNSAnswersPublic": true,
+      "tls": "system_verified",
+      "status": 200,
+      "bytes": 848,
+      "sha256": "3a209b25c99a5ac275d4bfac0ca41b74f60c33b1eb85884a80ebe8e344a48cac",
+      "mime": "application/json"
+    },
+    {
+      "stage": "actual_advertised_headers",
+      "host": "live.kinescopecdn.net",
+      "allDNSAnswersPublic": true,
+      "tls": "system_verified",
+      "status": 200,
+      "bytes": 25,
+      "sha256": "b63c2ad76f13bc74bfa26eea034236c2dc066e98490a2ce05cfa39db5859d13e",
+      "mime": "application/vnd.apple.mpegurl"
+    },
+    {
+      "stage": "relay_effective_UA_only",
+      "host": "live.kinescopecdn.net",
+      "allDNSAnswersPublic": true,
+      "tls": "system_verified",
+      "status": 200,
+      "bytes": 25,
+      "sha256": "b63c2ad76f13bc74bfa26eea034236c2dc066e98490a2ce05cfa39db5859d13e",
+      "mime": "application/vnd.apple.mpegurl"
+    }
+  ],
+  "comparison": [
+    {
+      "headers": "actual_advertised_headers",
+      "headerKeys": [
+        "Referer",
+        "User-Agent"
+      ],
+      "hlsSignature": true,
+      "tagNames": [
+        "#EXT-X-VERSION",
+        "#EXTM3U"
+      ],
+      "uriCount": 0,
+      "hasStreamInf": false,
+      "encryptionTagPresent": false,
+      "bodyBytes": 25,
+      "bodySHA256": "b63c2ad76f13bc74bfa26eea034236c2dc066e98490a2ce05cfa39db5859d13e"
+    },
+    {
+      "headers": "relay_effective_UA_only",
+      "headerKeys": [
+        "User-Agent"
+      ],
+      "hlsSignature": true,
+      "tagNames": [
+        "#EXT-X-VERSION",
+        "#EXTM3U"
+      ],
+      "uriCount": 0,
+      "hasStreamInf": false,
+      "encryptionTagPresent": false,
+      "bodyBytes": 25,
+      "bodySHA256": "b63c2ad76f13bc74bfa26eea034236c2dc066e98490a2ce05cfa39db5859d13e"
+    }
+  ],
+  "status": "empty_current_playlist_with_both_header_sets",
+  "pathFixedPrefix": "<unreviewed-fixed-segment>",
+  "samePlaylistWithAndWithoutHTTPReferrer": true,
+  "retention": {
+    "redactedCopy": true,
+    "sourceFile": "source-window-cnc-header-comparison.json",
+    "omittedFieldCount": 0,
+    "scope": "Metadata and bounded HLS-master observations only; no decoded-playback qualification."
+  }
+}

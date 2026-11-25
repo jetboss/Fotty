@@ -1,0 +1,23 @@
+{
+  "date": "2026-11-10",
+  "target": "Jet iPad only",
+  "version": "3.0.0",
+  "build": 263,
+  "previous_build": 262,
+  "configuration": "Normal signed Release",
+  "bundle_widget_build": 263,
+  "installation": "devicectl success",
+  "launch": "devicectl success and Home visually observed in Device Hub",
+  "verification": "195 focused Catalyst checks passed before signed Release build. This gate verifies installation and launch only.",
+  "account_setup": "No credential entry or source opt-in change during installation. Highfly link must be saved in its setup screen and enabled before Watch uses it.",
+  "playback": "No new physical playback qualification claimed.",
+  "owner_next_priority": "Polish Home, Sports TV and the player; discuss visual direction before implementation.",
+  "preserved": [
+    "Phone",
+    "FPL",
+    "Multi-stream",
+    "Source preferences",
+    "Private data"
+  ],
+  "distribution": "No TestFlight, Git publication or cloud deployment."
+}

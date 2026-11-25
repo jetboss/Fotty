@@ -1,0 +1,73 @@
+{
+  "observedAt": "2026-11-01T01:43:22.875659+00:00",
+  "scope": "finite reviewed English station candidates; metadata only, no segments/keys fetched",
+  "receipts": [
+    {
+      "id": "FoxSports1.us@HD",
+      "title": "Fox Sports 1",
+      "host": "tvsen7.aynascope.net",
+      "nativePlaybackProven": false,
+      "classification": "timed out"
+    },
+    {
+      "id": "FoxSports2.us@HD",
+      "title": "Fox Sports 2",
+      "host": "tvsen7.aynascope.net",
+      "nativePlaybackProven": false,
+      "classification": "timed out"
+    },
+    {
+      "id": "NBCSportsNOW.us@SD",
+      "title": "NBC Sports NOW",
+      "host": "d4whmvwm0rdvi.cloudfront.net",
+      "nativePlaybackProven": false,
+      "status": 200,
+      "mime": "application/vnd.apple.mpegurl",
+      "tlsAndPublicDestinationValidated": true,
+      "declaredLanguages": [
+        "eng"
+      ],
+      "masterVariants": 6,
+      "encrypted": false,
+      "classification": "HLS metadata compatible; native gate pending",
+      "childStatus": 200,
+      "childIsMediaPlaylist": true,
+      "reviewedQueryContract": "one exact fixed public advertising channel selector from the reviewed playlist; no arbitrary query or credentials"
+    },
+    {
+      "id": "CBSSportsGolazoNetwork.us@SD",
+      "title": "CBS Sports Golazo Network",
+      "host": "dai.google.com",
+      "nativePlaybackProven": false,
+      "status": 302,
+      "mime": "text/html",
+      "tlsAndPublicDestinationValidated": true,
+      "classification": "http-302"
+    },
+    {
+      "id": "WillowSports.us@HD",
+      "title": "Willow Sports",
+      "host": "d36r8jifhgsk5j.cloudfront.net",
+      "nativePlaybackProven": false,
+      "status": 200,
+      "mime": "application/vnd.apple.mpegurl",
+      "tlsAndPublicDestinationValidated": true,
+      "declaredLanguages": [],
+      "masterVariants": 0,
+      "encrypted": false,
+      "classification": "HLS metadata compatible; native gate pending"
+    }
+  ],
+  "primaryProgrammeReferences": [
+    {
+      "channel": "NBC Sports NOW",
+      "url": "https://www.nbcsports.com/now",
+      "scope": "general sports talk, highlights, event replays and selected events; not a PL/UCL coverage receipt"
+    },
+    {
+      "channel": "Willow Sports",
+      "url": "https://www.trillertv.com/channel/willow-by-cricbuzz/",
+      "scope": "separate free general cricket channel; not main Willow programme authority"
+    }
+  ]
+}

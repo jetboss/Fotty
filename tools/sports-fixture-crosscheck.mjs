@@ -9,6 +9,7 @@ const MODE = "same-upstream-independently-fetched";
 export const SPORTS_CROSSCHECK_SOURCE_IDS = Object.freeze(["mlb", "nhl", "wnba"]);
 const SOURCES = SPORTS_CROSSCHECK_SOURCE_IDS.map((id) => SPORTS_SOURCES.find((source) => source.id === id));
 const STATUSES = new Set(["scheduled", "live", "finished", "cancelled", "postponed", "unknown"]);
+const RESOLVED_STATUSES = new Set(["finished", "cancelled", "postponed"]);
 
 function check(value) { if (!value) throw new Error("Invalid sports coverage comparison"); }
 function clock(value) {
@@ -45,12 +46,27 @@ function expectedFixture(fixture, now) {
   return fixture.status === "live" || fixture.status === "scheduled" && start >= now && start < now + DAY;
 }
 function imminent(fixture, now) { return fixture.status === "live" || fixtureInstant(fixture.start) <= now + 30 * MINUTE; }
+function acceptedActiveFixture(fixture, now) {
+  const start = fixtureInstant(fixture.start);
+  return fixture.status === "live" || fixture.status === "scheduled" && start >= now - 4 * 60 * MINUTE && start < now + DAY;
+}
+function admittedReceipt(body, coverage) {
+  const rowReceipts = ["verified", "partial"].includes(body.sourceStatus)
+    ? body.fixtures.filter((row) => row.competitionId === coverage.competitionId && row.source.verification === "verified")
+      .map((row) => fixtureInstant(row.source.observedAt)) : [];
+  return Math.max(fixtureInstant(coverage.checkedAt), ...rowReceipts);
+}
 function coveredSources(body, now) {
   // This validates complete accepted envelopes/counts before any comparison GET.
   // Existing freshness findings remain the main audit's responsibility.
   auditSportsSnapshot(body, { now });
   return SOURCES.filter((descriptor) => {
-    const row = body.coverage.find((candidate) => candidate.competitionId === descriptor.id && candidate.status === "covered");
+    // Partial isolation does not revoke the already-reviewed source lane. Only
+    // explicit admitted rows can qualify it; held-only and disabled lanes never
+    // cause a new collection or turn unreviewed website feeds on.
+    const row = body.coverage.find((candidate) => candidate.competitionId === descriptor.id && (candidate.status === "covered"
+      || candidate.status === "unavailable" && ["verified", "partial"].includes(body.sourceStatus)
+      && body.fixtures.some((fixture) => fixture.competitionId === descriptor.id && fixture.source.verification === "verified")));
     if (row) check(row.sport === descriptor.sport && row.competitionName === descriptor.competitions[0].name);
     return Boolean(row);
   });
@@ -73,7 +89,7 @@ async function evidenceKey(facts) {
 }
 function baseLane(descriptor, checkedAt) {
   return { sourceId: descriptor.id, competitionId: descriptor.id, checkedAt, expectedCount: 0, matchedCount: 0,
-    omittedCount: 0, disagreementCount: 0, pendingFixtureCount: 0 };
+    omittedCount: 0, disagreementCount: 0, statusComparisonCount: 0, pendingFixtureCount: 0 };
 }
 
 // This is a new fetch of the SAME league-owned schedule, not corroboration from
@@ -116,7 +132,7 @@ export async function reconcileSportsFixtureCoverage(body, comparisonCollections
     lane.pendingFixtureCount = acceptedComparison.pendingFixtureCount;
     const oldRows = body.fixtures.filter((fixture) => fixture.competitionId === descriptor.id);
     const oldByID = new Map(oldRows.map((row) => [row.id, row]));
-    const coverageAge = now - fixtureInstant(coverage.checkedAt);
+    const coverageAge = now - admittedReceipt(body, coverage);
     const publisherStale = expected.some((fixture) => imminent(fixture, now) && fixture.source.updatedAt
       && now - fixtureInstant(fixture.source.updatedAt) >= 30 * MINUTE);
     if (publisherStale) {
@@ -126,8 +142,19 @@ export async function reconcileSportsFixtureCoverage(body, comparisonCollections
     }
     const disagreements = [];
     const omissions = [];
-    for (const fixture of expected) {
+    const refreshFacts = [];
+    // A source's finished/cancelled/postponed row is not an expected playable
+    // match or an omission. It still must retire an accepted current LIVE or
+    // scheduled claim; otherwise completed events silently disappear from the
+    // comparison while the app keeps advertising them as active.
+    const statusComparisons = acceptedComparison.fixtures.filter((fixture) => !expectedFixture(fixture, now)
+      && RESOLVED_STATUSES.has(fixture.status) && oldByID.has(fixture.id) && acceptedActiveFixture(oldByID.get(fixture.id), now));
+    lane.statusComparisonCount = statusComparisons.length;
+    for (const fixture of [...expected, ...statusComparisons]) {
       const old = oldByID.get(fixture.id);
+      if (imminent(fixture, now) || statusComparisons.includes(fixture)) refreshFacts.push([fixture.id, fixture.start, fixture.status,
+        identity(fixture), old?.start ?? null, old?.status ?? null, old ? identity(old) : null,
+        sourceIdentity(fixture, descriptor), old ? sourceIdentity(old, descriptor) : null]);
       if (!old) { lane.omittedCount++; if (imminent(fixture, now)) omissions.push([fixture.id, fixture.start, fixture.status, identity(fixture)]); continue; }
       const sameIdentity = providerIdentity(old, descriptor) && old.sport === descriptor.sport
         && old.competitionName === descriptor.competitions[0].name && old.eventKind === "match"
@@ -146,8 +173,12 @@ export async function reconcileSportsFixtureCoverage(body, comparisonCollections
     }
     if (coverageAge > 30 * MINUTE) {
       // Quiet lanes normally refresh every four hours. An old accepted receipt
-      // cannot establish an omission/correction; this is informational only.
-      lane.status = "comparison-stale";
+      // cannot establish an omission/correction. A fresh current-match receipt
+      // does establish the need to refresh; retain a bounded repeat digest so
+      // an empty quiet snapshot cannot hide that evidence indefinitely.
+      if (refreshFacts.length) findings.push({ code: "same-upstream-refresh-required", competitionId: descriptor.id,
+        actionable: false, evidenceKey: await evidenceKey(refreshFacts) });
+      lane.status = refreshFacts.length ? "refresh-required" : "comparison-stale";
     } else {
       if (disagreements.length) findings.push({ code: "same-upstream-fixture-disagreement", competitionId: descriptor.id,
         actionable: false, evidenceKey: await evidenceKey(disagreements) });

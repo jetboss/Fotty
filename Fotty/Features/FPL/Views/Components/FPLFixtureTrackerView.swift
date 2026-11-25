@@ -6,7 +6,7 @@ public struct FPLFixtureTrackerView: View {
     @ScaledMetric(relativeTo: .caption) private var cellWidth: CGFloat = 84
     @ScaledMetric(relativeTo: .caption) private var rowHeight: CGFloat = 62
     @ScaledMetric(relativeTo: .caption) private var headerHeight: CGFloat = 30
-    @ScaledMetric(relativeTo: .caption) private var teamWidth: CGFloat = 54
+    @ScaledMetric(relativeTo: .caption) private var teamWidth: CGFloat = 76
 
     public init(grid: [TeamFixtureRow], gameweeks: [Int]) {
         self.grid = grid
@@ -31,7 +31,12 @@ public struct FPLFixtureTrackerView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Team").frame(height: headerHeight)
                         ForEach(grid) { row in
-                            Text(row.team.shortName)
+                            TeamIdentityLabel(
+                                teamName: row.team.shortName,
+                                badgeURL: row.team.badgeURL,
+                                badgeSize: 20,
+                                font: FottyTheme.typeMeta
+                            )
                                 .frame(height: rowHeight)
                                 .accessibilityLabel(row.team.name)
                         }
@@ -55,7 +60,14 @@ public struct FPLFixtureTrackerView: View {
                                     ForEach(Array(gameweeks.enumerated()), id: \.offset) { index, gameweek in
                                         if row.fixtures.indices.contains(index), let fixture = row.fixtures[index] {
                                             VStack(spacing: 3) {
-                                                Text("\(fixture.opponent.shortName) · \(fixture.isHome ? "H" : "A")")
+                                                HStack(spacing: 4) {
+                                                    TeamBadgeWindow(
+                                                        teamName: fixture.opponent.name,
+                                                        badgeURL: fixture.opponent.badgeURL,
+                                                        size: 18
+                                                    )
+                                                    Text("\(fixture.opponent.shortName) · \(fixture.isHome ? "H" : "A")")
+                                                }
                                                 Text("\(fixture.difficulty)/5").font(.caption2.weight(.semibold))
                                             }
                                             .font(FottyTheme.typeCaption)

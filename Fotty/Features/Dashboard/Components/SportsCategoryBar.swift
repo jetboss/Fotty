@@ -18,6 +18,7 @@ struct SportsCategoryBar: View {
 
 /// Compact sport + league menus — replaces dual pill rails.
 struct CompactHomeFilterBar: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let categories: [String]
     @Binding var selectedCategory: String
     let leagues: [AnalyticalDataEngine.FootballLeagueTab]
@@ -27,7 +28,10 @@ struct CompactHomeFilterBar: View {
     @Binding var selectedCricketFilter: CricketCatalogFilter
     
     var body: some View {
-        HStack(spacing: 10) {
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 10))
+        layout {
           if showsSportMenu {
             Picker(selection: $selectedCategory) {
                 ForEach(categories, id: \.self) { category in
@@ -81,24 +85,31 @@ struct CompactHomeFilterBar: View {
                 .accessibilityHint("Choose all cricket, CPL fixtures, or cricket channels")
             }
 
-            Spacer(minLength: 0)
+            if !typeSize.isAccessibilitySize {
+                Spacer(minLength: 0)
+            }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
     
     private func filterChip(title: String, systemImage: String) -> some View {
         HStack(spacing: 6) {
             Image(systemName: systemImage)
                 .font(.fottyScaled(size: 11, weight: .semibold))
+                .accessibilityHidden(true)
             Text(title)
                 .font(.fottyScaled(size: 13, weight: .semibold))
-                .lineLimit(2)
+                .lineLimit(typeSize.isAccessibilitySize ? nil : 2)
+                .fixedSize(horizontal: false, vertical: true)
             Image(systemName: "chevron.down")
                 .font(.fottyScaled(size: 9, weight: .bold))
                 .foregroundStyle(FottyTheme.textTertiary)
+                .accessibilityHidden(true)
         }
         .foregroundStyle(FottyTheme.textPrimary)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
+        .frame(minHeight: 44)
         .background(FottyTheme.surface)
         .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
         .overlay(

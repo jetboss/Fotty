@@ -1,0 +1,27 @@
+{
+  "build": 202,
+  "fixture": "Manchester City\u2013Brighton",
+  "entry": "normal Home Watch",
+  "watchTapMacClock": "2026-10-31T16:19:34.691Z",
+  "firstRecordedPlayerAttemptDeviceClock": "2026-10-31T16:19:30.948509Z",
+  "nativeDecodedDeviceClock": "2026-10-31T16:20:04.821974Z",
+  "firstAttemptToDecodedSeconds": 33.873465,
+  "tapToDecoded": "not calibrated; host/device clocks differ",
+  "automaticallyRecoveredSource": "CS2",
+  "sourceCount": 13,
+  "observedRecovery": "FS1 failed; CS2 selected before remaining five Flix siblings",
+  "firstProgrammeObservation": "MCI0\u20131BHA/SkySport2/60:49",
+  "conservativeHoldStartUTC": "2026-10-31T16:20:39Z",
+  "finalProgrammeObservationUTC": "2026-10-31T16:22:40.639Z",
+  "finalProgrammeClock": "63:14",
+  "advancingCorrectProgrammeHoldSeconds": 121.639,
+  "manualSourceSelection": false,
+  "fullscreenAndPiP": "201 same unchanged presentation code passed; not repeated on202",
+  "verdict": "correct-programme one-tap automatic recovery and90s hold passed; fast-start target still unmet",
+  "remaining": [
+    "AS Roxie timing/delivery compatibility",
+    "intermittent catalog refresh cause",
+    "live UCL qualification",
+    "cricket physical deferred by owner sport priority"
+  ]
+}

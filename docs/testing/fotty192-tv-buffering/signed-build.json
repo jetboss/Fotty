@@ -1,0 +1,11 @@
+{
+  "build": 192,
+  "configuration": "Release",
+  "target": "Jet iPad",
+  "version": "2.0.1",
+  "signatureVerified": true,
+  "manifestBundled": true,
+  "installed": true,
+  "phoneTouched": false,
+  "testFlight": false
+}

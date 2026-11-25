@@ -1,0 +1,187 @@
+{
+  "at": "2026-10-29T00:08:08.083Z",
+  "source": "ESPN MLS published scoreboard",
+  "eventCount": 14,
+  "events": [
+    {
+      "date": "2026-10-28T23:30Z",
+      "name": "CF Montréal at Charlotte FC",
+      "status": "STATUS_FIRST_HALF",
+      "state": "in",
+      "completed": false,
+      "detail": "28'",
+      "teams": [
+        {
+          "name": "Charlotte FC",
+          "score": "1"
+        },
+        {
+          "name": "CF Montréal",
+          "score": "0"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-28T23:30Z",
+      "name": "FC Cincinnati at Inter Miami CF",
+      "status": "STATUS_IN_PROGRESS",
+      "state": "in",
+      "completed": false,
+      "detail": "28'",
+      "teams": [
+        {
+          "name": "Inter Miami CF",
+          "score": "0"
+        },
+        {
+          "name": "FC Cincinnati",
+          "score": "0"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-28T23:30Z",
+      "name": "Red Bull New York at New England Revolution",
+      "status": "STATUS_FIRST_HALF",
+      "state": "in",
+      "completed": false,
+      "detail": "27'",
+      "teams": [
+        {
+          "name": "New England Revolution",
+          "score": "1"
+        },
+        {
+          "name": "Red Bull New York",
+          "score": "0"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-28T23:30Z",
+      "name": "Atlanta United FC at New York City FC",
+      "status": "STATUS_IN_PROGRESS",
+      "state": "in",
+      "completed": false,
+      "detail": "28'",
+      "teams": [
+        {
+          "name": "New York City FC",
+          "score": "0"
+        },
+        {
+          "name": "Atlanta United FC",
+          "score": "0"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-28T23:30Z",
+      "name": "D.C. United at Toronto FC",
+      "status": "STATUS_IN_PROGRESS",
+      "state": "in",
+      "completed": false,
+      "detail": "28'",
+      "teams": [
+        {
+          "name": "Toronto FC",
+          "score": "0"
+        },
+        {
+          "name": "D.C. United",
+          "score": "0"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-29T00:30Z",
+      "name": "Real Salt Lake at Austin FC",
+      "status": "STATUS_SCHEDULED",
+      "state": "pre",
+      "completed": false,
+      "detail": "Wed, October 28th at 8:30 PM EDT",
+      "teams": [
+        {
+          "name": "Austin FC",
+          "score": "0"
+        },
+        {
+          "name": "Real Salt Lake",
+          "score": "0"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-29T00:30Z",
+      "name": "Orlando City SC at Chicago Fire FC",
+      "status": "STATUS_SCHEDULED",
+      "state": "pre",
+      "completed": false,
+      "detail": "Wed, October 28th at 8:30 PM EDT",
+      "teams": [
+        {
+          "name": "Chicago Fire FC",
+          "score": "0"
+        },
+        {
+          "name": "Orlando City SC",
+          "score": "0"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-29T00:30Z",
+      "name": "Columbus Crew at FC Dallas",
+      "status": "STATUS_SCHEDULED",
+      "state": "pre",
+      "completed": false,
+      "detail": "Wed, October 28th at 8:30 PM EDT",
+      "teams": [
+        {
+          "name": "FC Dallas",
+          "score": "0"
+        },
+        {
+          "name": "Columbus Crew",
+          "score": "0"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-29T00:30Z",
+      "name": "Sporting Kansas City at Minnesota United FC",
+      "status": "STATUS_SCHEDULED",
+      "state": "pre",
+      "completed": false,
+      "detail": "Wed, October 28th at 8:30 PM EDT",
+      "teams": [
+        {
+          "name": "Minnesota United FC",
+          "score": "0"
+        },
+        {
+          "name": "Sporting Kansas City",
+          "score": "0"
+        }
+      ]
+    },
+    {
+      "date": "2026-10-29T00:30Z",
+      "name": "Philadelphia Union at Nashville SC",
+      "status": "STATUS_SCHEDULED",
+      "state": "pre",
+      "completed": false,
+      "detail": "Wed, October 28th at 8:30 PM EDT",
+      "teams": [
+        {
+          "name": "Nashville SC",
+          "score": "0"
+        },
+        {
+          "name": "Philadelphia Union",
+          "score": "0"
+        }
+      ]
+    }
+  ]
+}

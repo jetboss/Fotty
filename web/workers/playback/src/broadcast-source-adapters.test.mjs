@@ -10,7 +10,7 @@ const catalog = (id, extra) => ({ id, type: "tv", ...(extra ? { extra } : {}) })
 const csCatalogs = ["live", "networks", "football", "cricket", "basketball", "baseball", "hockey", "american_football", "rugby", "mma", "motorsport", "golf", "tennis", "darts", "college", "other"];
 const manifests = {
   communitysports: { id: "community.nuvio.live-sports", version: "3.1.3", resources: ["catalog", "meta", "stream"], catalogs: csCatalogs.map((s) => catalog("nuvio_sports_" + s)) },
-  plaviosports: { id: "community.plaviohd", version: "1.9.110", types: ["tv"], resources: ["catalog", "meta", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }], catalogs: ["plaviohd-football", "plaviohd-cricket", "plaviohd-live-sports"].map((s) => catalog(s)) },
+  plaviosports: { id: "community.plaviohd.private", version: "1.9.110", types: ["tv"], resources: ["catalog", "meta", { name: "stream", types: ["tv"], idPrefixes: ["plaviohdtv-"] }], catalogs: ["plaviohd-football", "plaviohd-cricket", "plaviohd-live-sports"].map((s) => catalog(s)) },
   cncsports: { id: "com.cncverse.stremiobridge", version: "1.0.0", types: ["tv"], resources: ["catalog", "meta", "stream"], catalogs: [catalog("cnc_LivXowLiveEvents_tv")] },
   flixstreams: { id: "org.flixstreams.free", version: "1.0.0", types: ["tv"], resources: ["catalog", "meta", "stream"], catalogs: [catalog("essential-live-events", [{ name: "skip" }, { name: "genre", options: ["soccer", "cricket"] }])] },
   streamvix: { id: "org.prisonmike.streamvix", version: "1.0.0", types: ["tv"], resources: ["catalog", "meta", "stream"], catalogs: [catalog("streamvix_eventi", [{ name: "genre", isRequired: true, options: ["Premier League", "Coppe"] }])] },
@@ -97,7 +97,10 @@ test("reviewed TV adds one bounded official current-week RSS read without mixing
     : new Response(espnFeed(), { headers: { "content-type": "application/rss+xml; charset=UTF-8" } }));
   const result = await h.run({ fixtures: [footballHint] });
   assert.equal(h.calls.length, 2); assert.equal(h.count(), 2);
-  assert.equal(h.calls[1].url, "https://latinamerica.espnpressroom.com/feed/?s=programaci%C3%B3n+destacada");
+  const archive = new URL(h.calls[1].url);
+  assert.equal(archive.origin + archive.pathname, "https://latinamerica.espnpressroom.com/feed/");
+  assert.equal(archive.searchParams.get("s"), '"programación destacada del" "octubre"');
+  assert.equal(archive.searchParams.get("year"), "2026");
   assert.equal(h.calls[1].init.headers.Accept, "application/rss+xml, application/xml, text/xml");
   assert.deepEqual(result.scopes.map((s) => [s.scope, s.status]), [["cricket", "available"], ["football", "partial"]]);
   const source = await normalizeBroadcastCollection("reviewedtv", result, now);
@@ -307,7 +310,7 @@ test("CS uses only one advertised channel search inside its existing eight-read 
   m.catalogs.find((c) => c.id === "nuvio_sports_football").extra = [{ name: "search" }];
   const withFixture = harness("communitysports", async (url) => json({ metas: url.endsWith("/search=Willow%20Cricket.json") ? [willowNetwork()] : [] }),
     8, { manifestOverride: m });
-  await withFixture.run({ fixtures: [hintedFixture()] });
+  await withFixture.run({ fixtures: [hintedFixture({ status: "scheduled" })] });
   assert.equal(withFixture.calls.length, 8);
   assert.equal(withFixture.calls.filter((r) => r.url.includes("/search=")).length, 2, "The channel hint replaces one fixture hint");
   assert.ok(withFixture.calls.some((r) => r.url.endsWith("nuvio_sports_basketball.json")), "The finite other-sport rotation still progresses");
@@ -451,7 +454,7 @@ test("CS uses at most two advertised searches for a fresh missing fixture before
   const m = structuredClone(manifests.communitysports); m.catalogs.find((c) => c.id === "nuvio_sports_football").extra = [{ name: "search" }];
   const h = harness("communitysports", async (url) => json({ metas: url.includes("/search=Chelsea.json") ? [cs({ id: "nuvio_sport_chelsea", name: "Chelsea vs Tottenham Hotspur", cast: ["Chelsea", "Tottenham Hotspur"], genres: ["FOOTBALL"], released: "2026-10-30T12:00:00.000Z", behaviorHints: { defaultVideoId: "nuvio_sport_chelsea" } })] : [] }),
     8, { manifestOverride: m });
-  const result = await h.run({ fixtures: [hintedFixture()] });
+  const result = await h.run({ fixtures: [hintedFixture({ status: "scheduled" })] });
   assert.equal(h.calls.length, 8); assert.equal(h.calls.filter((r) => r.url.includes("/search=")).length, 2);
   assert.equal(result.broadcasts.find((r) => r.providerEventID === "nuvio_sport_chelsea").verification, "dated");
   assert.equal(result.cursor, 257);
@@ -642,4 +645,28 @@ test("literal Bundesliga publisher label joins only the reviewed senior league",
   for (const label of ["Bundesliga 2", "Women's Bundesliga", "Bundesliga U19"]) {
     assert.notEqual(parse.fsRow({ ...raw, name: `⚽ ${label} : Schalke 04 vs RB Leipzig` }, "football", now).verification, "dated");
   }
+});
+
+test("PlavioLive migration uses only the new origin and accepts its typed TV resources", async () => {
+  const observed = { ...manifests.plaviosports, version: "2.1.5", resources: ["catalog", "meta", "stream"].map(name => ({ name, types: ["tv"], idPrefixes: ["plaviohdtv-"] })), behaviorHints: { configurable: true } };
+  const h = harness("plaviosports", async () => json({ metas: [] }), 8, { manifestOverride: observed });
+  await h.run();
+  assert.equal(h.calls.length, 4);
+  assert.ok(h.calls.every(call => new URL(call.url).origin === "https://addon.plavio.site"));
+  const retired = harness("plaviosports", async () => assert.fail("Retired identity must not fetch catalogs"), 8, { manifestOverride: { ...observed, id: "community.plaviohd", catalogs: [] } });
+  const rejected = await retired.run();
+  assert.equal(rejected.broadcasts.length, 0);
+  assert.ok(rejected.scopes.every(scope => !scope.complete));
+  assert.equal(retired.calls.length, 1);
+});
+
+test("PlavioLive CNC cricket retains explicit UTC and squads without inventing format or Test day", () => {
+ const row = {id:"plaviohdtv-cnc-playztv-86",type:"tv",name:"Adelaide Strikers Women vs Brisbane Heat Women",description:"Starts 2026-11-05 04:40 UTC",genres:["Cricket"]};
+ const accepted = parse.asRow(row,"cricket",now);
+ assert.equal(accepted.verification,"dated");
+ assert.equal(accepted.start,"2026-11-05T04:40:00.000Z");
+ assert.equal(accepted.format,undefined);
+ assert.equal(accepted.day,undefined);
+ assert.notEqual(parse.asRow({...row,description:"Starts 2026-02-30 04:40 UTC"},"cricket",now).verification,"dated");
+ assert.notEqual(parse.asRow({...row,name:"WBBL"},"cricket",now).verification,"dated");
 });

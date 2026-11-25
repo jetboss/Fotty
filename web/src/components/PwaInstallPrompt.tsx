@@ -1,31 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Download, Share, Smartphone, X } from "lucide-react";
 import {
   canShowAddToHomeScreenHint,
   dismissPwaInstallHint,
-  isIosDevice,
   isPwaInstallDismissed,
-  isStandaloneDisplayMode,
 } from "@/lib/pwa";
 import { useInstallState } from "@/lib/user-experience";
 import { cn } from "@/lib/utils";
 
+const subscribeToStaticBrowserState = () => () => {};
+
+function useBrowserSnapshot(getSnapshot: () => boolean) {
+  return useSyncExternalStore(subscribeToStaticBrowserState, getSnapshot, () => false);
+}
+
 export function PwaInstallBanner({ className }: { className?: string }) {
   const { canPromptInstall, promptInstall, isInstalled } = useInstallState();
-  const [iosHintVisible, setIosHintVisible] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-
-  useEffect(() => {
-    setIosHintVisible(canShowAddToHomeScreenHint() && !isPwaInstallDismissed());
-    setDismissed(isPwaInstallDismissed());
-  }, []);
+  const canShowIosHint = useBrowserSnapshot(canShowAddToHomeScreenHint);
+  const persistedDismissal = useBrowserSnapshot(isPwaInstallDismissed);
+  const [dismissedLocally, setDismissedLocally] = useState(false);
+  const dismissed = persistedDismissal || dismissedLocally;
+  const iosHintVisible = canShowIosHint && !dismissed;
 
   const dismiss = () => {
     dismissPwaInstallHint();
-    setIosHintVisible(false);
-    setDismissed(true);
+    setDismissedLocally(true);
   };
 
   // Android / desktop Chrome: native install prompt is available.
@@ -108,50 +109,4 @@ export function PwaInstallBanner({ className }: { className?: string }) {
       </div>
     </aside>
   );
-}
-
-export function PwaInstallSettingsCard() {
-  const { canPromptInstall, promptInstall } = useInstallState();
-  const [standalone, setStandalone] = useState(false);
-  const [ios, setIos] = useState(false);
-
-  useEffect(() => {
-    setStandalone(isStandaloneDisplayMode());
-    setIos(canShowAddToHomeScreenHint() || isIosDevice());
-  }, []);
-
-  if (standalone) {
-    return (
-      <p className="px-4 py-3 text-xs font-medium leading-5 text-success">
-        Fotty is installed on your Home Screen. You&apos;re using the app-style version.
-      </p>
-    );
-  }
-
-  if (!ios) {
-    if (canPromptInstall) {
-      return (
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
-          <p className="text-xs font-medium leading-5 text-text-secondary">
-            Install Fotty as an app for fullscreen and faster launch.
-          </p>
-          <button
-            type="button"
-            onClick={() => void promptInstall()}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent px-4 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90"
-          >
-            <Download size={13} />
-            Install app
-          </button>
-        </div>
-      );
-    }
-    return (
-      <p className="px-4 py-3 text-xs font-medium leading-5 text-text-tertiary">
-        On Android or desktop Chrome, use the browser menu to install Fotty as an app when offered.
-      </p>
-    );
-  }
-
-  return <PwaInstallBanner className="m-4" />;
 }

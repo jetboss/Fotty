@@ -23,7 +23,25 @@ test("original expiry is preserved and expired guide data cannot be renewed by r
   assert.equal(currentReviewedTVGuide([row()],new Date(+now+4*3600000)).length,0);
   assert.equal(currentReviewedTVGuide([row()],new Date(+now+1000))[0].observedAt,now.toISOString());
 });
-test("bounded metadata rejects duplicate identities and oversized collections", () => {
-  assert.throws(()=>validateReviewedTVGuide([row(),row()],now));
+test("duplicate identities omit every claimant while unrelated rows survive", () => {
+  const independent = row("c", {channelID: "sports-channel:espn3-latinamerica-south"});
+  assert.deepEqual(validateReviewedTVGuide([row(), independent, row()], now), [independent]);
+  assert.deepEqual(validateReviewedTVGuide([row(), row()], now), []);
+});
+test("malformed siblings do not erase valid independent rows or resolve ambiguity by input order", () => {
+  const independent = row("e", {channelID: "sports-channel:espn4-latinamerica-south"});
+  for (const collision of [
+    row("a", {start:"invalid", title:""}),
+    row("f", {sport:"unknown", start:"2026-10-31T20:00:00-04:00"}),
+    {channelID: row().channelID, start:row().start}
+  ]) {
+    const input = [null, row(), collision, independent, "bad row"];
+    assert.deepEqual(validateReviewedTVGuide(input, now), [independent]);
+    assert.deepEqual(validateReviewedTVGuide(input.reverse(), now), [independent]);
+  }
+});
+test("global bounds and invalid reference clocks reject the whole document", () => {
+  assert.throws(()=>validateReviewedTVGuide([row("a", {title:"x".repeat(262144)})],now));
+  assert.throws(()=>validateReviewedTVGuide([row()], new Date("invalid")));
   assert.throws(()=>validateReviewedTVGuide(Array(301).fill(row()),now));
 });

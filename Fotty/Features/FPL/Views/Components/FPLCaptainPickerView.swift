@@ -9,7 +9,7 @@ public struct FPLCaptainPickerView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Ranked by Fotty's overall player rating, not just predicted points. The points estimate is shown separately and isn't doubled for captaincy.")
+            Text("Ranked using Fotty rating and projected points.")
                 .font(FottyTheme.typeMeta)
                 .foregroundStyle(FottyTheme.textSecondary)
             if recommendations.isEmpty {
@@ -33,9 +33,18 @@ public struct FPLCaptainPickerView: View {
                     Text(rec.player.player.webName)
                         .font(FottyTheme.typeSectionTitle)
                         .foregroundStyle(FottyTheme.textPrimary)
-                    Text("\(rec.player.team.shortName) · \(rec.player.player.positionName) · \(rec.player.player.selectedByPercent)% owned")
-                        .font(FottyTheme.typeMeta)
-                        .foregroundStyle(FottyTheme.textSecondary)
+                    HStack(spacing: 5) {
+                        TeamIdentityLabel(
+                            teamName: rec.player.team.shortName,
+                            badgeURL: rec.player.team.badgeURL,
+                            badgeSize: 18,
+                            font: FottyTheme.typeMeta,
+                            foregroundColor: FottyTheme.textSecondary
+                        )
+                        Text("· \(rec.player.player.positionName) · \(rec.player.player.selectedByPercent)% owned")
+                            .font(FottyTheme.typeMeta)
+                            .foregroundStyle(FottyTheme.textSecondary)
+                    }
                 }
                 Spacer(minLength: 8)
                 Text("#\(rank)")

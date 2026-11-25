@@ -1,0 +1,33 @@
+{
+  "build": 201,
+  "fixture": "Manchester City\u2013Brighton",
+  "competition": "Premier League",
+  "entry": "normal Home Watch",
+  "tapAt": "2026-10-31T16:04:33.884Z",
+  "firstAttemptAt": "2026-10-31T16:04:35.690343Z",
+  "firstSource": "CS1",
+  "firstDecodedAt": "2026-10-31T16:05:47.290439Z",
+  "decodedSource": "CS2",
+  "startupSeconds": 73.406,
+  "startupPerformance": "failed; positive host evidence drained6failedFSsiblings",
+  "normalPickerSources": 13,
+  "sourceSheetOpenClose": "passed; video kept advancing; no manual new source selected",
+  "nativeFullscreen": "passed",
+  "nativePauseResume": "passed; observed50:07paused then50:41advancing",
+  "actualPiPVisibleBeforeHome": true,
+  "firstHomeObservationAt": "2026-10-31T16:12:17.532Z",
+  "laterHomeObservationAt": "2026-10-31T16:14:10.588Z",
+  "advancingHomeHoldSeconds": 113.056,
+  "programmeObserved": "MCI0\u20131BHA; SkySport2; correct teams/action/score",
+  "systemRestoreRequestedAt": "2026-10-31T16:15:05.065Z",
+  "restoredVideoObservedAt": "2026-10-31T16:15:35.773Z",
+  "restoredProgrammeClock": "56:04",
+  "appActivatedBeforeSystemRestore": false,
+  "sameRecordedAttempt": true,
+  "playerItemObjectIdentity": "not independently instrumented",
+  "verdict": "correct programme,90sadvancing hold/nativecontrols/PiP/Restore passed; startup performance failed",
+  "preservedFailures": [
+    "CS1media404",
+    "FS1\u20136network failures"
+  ]
+}

@@ -1,3 +1,24 @@
 
 # Public Durable Object storage identifier in the original PR commit; not a credential.
 c108f0dad2ddb086461646d2c19a4e98c7a41cdf:web/workers/playback/src/cricket-fixture-registry.mjs:generic-api-key:10
+
+# Public SHA-256 file digests in committed test receipts (path: hash); the release
+# snapshot tool verifies each against the current file. Not credentials.
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty185-ipad-2026-10-29/source-hashes.json:generic-api-key:140
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty185-ipad-2026-10-29/source-hashes.json:generic-api-key:162
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty185-ipad-2026-10-29/source-hashes.json:generic-api-key:216
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty185-ipad-2026-10-29/source-hashes.json:generic-api-key:263
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty185-ipad-2026-10-29/source-hashes.json:generic-api-key:50
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty25-remaining-2026-10-29/protected-inputs.json:generic-api-key:5
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty25-remaining-2026-10-29/source-hashes.json:generic-api-key:126
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty25-remaining-2026-10-29/source-hashes.json:generic-api-key:198
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty25-remaining-2026-10-29/source-hashes.json:generic-api-key:249
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty25-remaining-2026-10-29/source-hashes.json:generic-api-key:75
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty25-remaining-2026-10-29/source-hashes.json:generic-api-key:82
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/fotty30-broadcast-first/excluded-baseline.json:generic-api-key:43
+796ae732360ebf99991224fb0c8835e967ca2045:docs/testing/product-return-discovery-2026-10-29/protected-inputs.json:generic-api-key:5
+796ae732360ebf99991224fb0c8835e967ca2045:owner-tools/testflight-usage-dashboard/protected-runtime.json:generic-api-key:53
+
+# A UserDefaults key name ("fotty.live.matchEvidence.v1"), renamed on 11 Nov so
+# it no longer matches the generic-api-key rule. Not a credential.
+e62c216fbe2eb5bcf5b38cabffc8889a9cbf4546:Fotty/Core/Networking/LiveSourceHealthStore.swift:generic-api-key:112

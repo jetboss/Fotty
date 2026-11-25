@@ -1,0 +1,24 @@
+{
+  "build": 212,
+  "tests": 44,
+  "failures": 0,
+  "runtime": "Current Mac Catalyst unit runner; no simulator or device playback claim",
+  "initialCandidateFocusedTests": 333,
+  "sourceSHA256": {
+    "Fotty/Core/Networking/ReviewedTVPlaylistClient.swift": "7aab17bf1649f585ab2b1cb0e8ea2ed76235bb51bc66953c5b4e66777473ba64",
+    "FottyTests/ReviewedTVPlaylistClientTests.swift": "1ab9af285c2606809e0cb8bca14d0de4191026d9ae98327c6ffc8a466d05ca78",
+    "FottyTests/SportsTVExperienceTests.swift": "b84954d943e6a1e6762a89cae6a662dca075589f63f90bfd1d2cd5eb917858a7"
+  },
+  "protectedFPLAndMultiSourceFiles": 43,
+  "protectedSourceChanges": 0,
+  "finalStations": 16,
+  "englishStations": 9,
+  "added": [
+    "beIN SPORTS XTRA"
+  ],
+  "excludedAfterQualification": [
+    "CBS Sports Golazo Network",
+    "Fubo Sports Network",
+    "Willow Sports"
+  ]
+}

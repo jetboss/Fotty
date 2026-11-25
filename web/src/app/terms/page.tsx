@@ -20,7 +20,7 @@ export default function TermsPage() {
         </Link>
         <div className="space-y-2">
           <h1 className="text-4xl font-black">Terms of Use</h1>
-          <p className="max-w-2xl text-sm font-medium leading-6 text-text-secondary">Last updated: August 29, 2026</p>
+          <p className="max-w-2xl text-sm font-medium leading-6 text-text-secondary">Last updated: October 1, 2026</p>
         </div>
       </header>
 
@@ -58,6 +58,10 @@ export default function TermsPage() {
           Broadcast sources, player pages, fixtures, scores, team assets, and other metadata may originate from third
           parties. You are responsible for complying with the law and provider terms in your region. Fotty does not
           guarantee that any particular source is authorized or available in your location.
+        </PolicySection>
+
+        <PolicySection title="Football data attribution">
+          Football data provided by the Football-Data.org API.
         </PolicySection>
 
         <PolicySection title="Disclaimer">

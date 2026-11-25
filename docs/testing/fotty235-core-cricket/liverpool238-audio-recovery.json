@@ -1,0 +1,399 @@
+{
+  "build": 238,
+  "fixture": "Fenerbahce\u2013Liverpool",
+  "observed": "2026-11-04",
+  "ownerReport": "Poor playback and no audio",
+  "evidence": [
+    {
+      "at": "2026-11-04T18:02:15.138779+00:00",
+      "event": "playback_causal_evidence",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "diagnostic_result": "began",
+        "source": "CS1",
+        "audio_enabled": "false"
+      }
+    },
+    {
+      "at": "2026-11-04T18:02:15.536542+00:00",
+      "event": "playback_causal_evidence",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "diagnostic_result": "completed",
+        "source": "CS1",
+        "audio_enabled": "false"
+      }
+    },
+    {
+      "at": "2026-11-04T18:02:18.500906+00:00",
+      "event": "decoded_progress",
+      "details": {
+        "last_observed_stage": "decoded",
+        "source_family": "communitysports",
+        "source": "CS1"
+      }
+    },
+    {
+      "at": "2026-11-04T18:02:46.417438+00:00",
+      "event": "source_failure",
+      "details": {
+        "native_access_indicated_bitrate": "12180000",
+        "native_log_domain": "coremedia",
+        "last_observed_stage": "decoded",
+        "relay_playlist_metadata_preserved": "true",
+        "source_family": "communitysports",
+        "native_access_observed_bitrate": "11751579",
+        "failure_kind": "stalled",
+        "native_log_code": "-16830",
+        "native_access_dropped_frames": "0",
+        "relay_playlist_rewritten_change": "advanced",
+        "relay_playlist_upstream_change": "advanced",
+        "source": "CS1",
+        "native_access_stalls": "1"
+      }
+    },
+    {
+      "at": "2026-11-04T18:02:46.472047+00:00",
+      "event": "terminal_failure",
+      "details": {
+        "last_observed_stage": "decoded",
+        "failure_kind": "stalled",
+        "source_family": "communitysports",
+        "source": "CS1"
+      }
+    },
+    {
+      "at": "2026-11-04T18:06:40.011886+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "score808_site",
+        "failure_kind": "startupTimeout",
+        "source": "Score808",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "at": "2026-11-04T18:06:43.463950+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing",
+        "source": "CS1",
+        "failure_kind": "sourceFailure"
+      }
+    },
+    {
+      "at": "2026-11-04T18:06:55.920954+00:00",
+      "event": "source_failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source": "CS1",
+        "failure_kind": "network"
+      }
+    },
+    {
+      "at": "2026-11-04T18:07:01.304411+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "preparing",
+        "source": "TV3",
+        "failure_kind": "network"
+      }
+    },
+    {
+      "at": "2026-11-04T18:07:12.560044+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "last_observed_stage": "preparing",
+        "source": "TV3",
+        "failure_kind": "network"
+      }
+    },
+    {
+      "at": "2026-11-04T18:07:17.946880+00:00",
+      "event": "source_failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source": "CS3",
+        "failure_kind": "network"
+      }
+    },
+    {
+      "at": "2026-11-04T18:07:30.212265+00:00",
+      "event": "source_failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source": "CS3",
+        "source_family": "communitysports",
+        "failure_kind": "network"
+      }
+    },
+    {
+      "at": "2026-11-04T18:07:35.577848+00:00",
+      "event": "source_failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source": "CS4",
+        "failure_kind": "network"
+      }
+    },
+    {
+      "at": "2026-11-04T18:07:41.089326+00:00",
+      "event": "source_failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "reviewedtv",
+        "source": "TV3",
+        "failure_kind": "sourceFailure"
+      }
+    },
+    {
+      "at": "2026-11-04T18:07:44.313256+00:00",
+      "event": "source_failure",
+      "details": {
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing",
+        "source": "TV3",
+        "source_family": "reviewedtv"
+      }
+    },
+    {
+      "at": "2026-11-04T18:07:58.922109+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "communitysports",
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing",
+        "source": "CS1"
+      }
+    },
+    {
+      "at": "2026-11-04T18:08:06.239149+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "communitysports",
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing",
+        "source": "CS3"
+      }
+    },
+    {
+      "at": "2026-11-04T18:08:13.549636+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "communitysports",
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing",
+        "source": "CS4"
+      }
+    },
+    {
+      "at": "2026-11-04T18:08:20.861998+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "communitysports",
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing",
+        "source": "CS2"
+      }
+    },
+    {
+      "at": "2026-11-04T18:08:28.169802+00:00",
+      "event": "source_failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source": "CS5",
+        "failure_kind": "unknown"
+      }
+    },
+    {
+      "at": "2026-11-04T18:08:35.472460+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS6",
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "at": "2026-11-04T18:08:35.499194+00:00",
+      "event": "terminal_failure",
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS6",
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "at": "2026-11-04T18:08:56.945968+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS5",
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "at": "2026-11-04T18:09:07.601227+00:00",
+      "event": "source_failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "reviewedtv",
+        "source": "TV3",
+        "failure_kind": "network"
+      }
+    },
+    {
+      "at": "2026-11-04T18:09:19.765019+00:00",
+      "event": "source_failure",
+      "details": {
+        "source": "CS1",
+        "last_observed_stage": "preparing",
+        "failure_kind": "unknown",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "at": "2026-11-04T18:09:27.084442+00:00",
+      "event": "source_failure",
+      "details": {
+        "source": "CS3",
+        "last_observed_stage": "preparing",
+        "failure_kind": "unknown",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "at": "2026-11-04T18:09:51.654647+00:00",
+      "event": "source_failure",
+      "details": {
+        "source": "CS4",
+        "last_observed_stage": "preparing",
+        "failure_kind": "unknown",
+        "source_family": "communitysports"
+      }
+    },
+    {
+      "at": "2026-11-04T18:09:58.986655+00:00",
+      "event": "source_failure",
+      "details": {
+        "failure_kind": "unknown",
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing",
+        "source": "CS2"
+      }
+    },
+    {
+      "at": "2026-11-04T18:10:06.289221+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "communitysports",
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing",
+        "source": "CS6"
+      }
+    },
+    {
+      "at": "2026-11-04T18:10:06.315832+00:00",
+      "event": "terminal_failure",
+      "details": {
+        "source_family": "communitysports",
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing",
+        "source": "CS6"
+      }
+    },
+    {
+      "at": "2026-11-04T18:11:44.915525+00:00",
+      "event": "source_failure",
+      "details": {
+        "source_family": "reviewedtv",
+        "failure_kind": "unknown",
+        "last_observed_stage": "preparing",
+        "source": "TV3"
+      }
+    },
+    {
+      "at": "2026-11-04T18:11:48.487676+00:00",
+      "event": "source_failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source": "CS1",
+        "failure_kind": "unknown"
+      }
+    },
+    {
+      "at": "2026-11-04T18:11:49.064767+00:00",
+      "event": "source_failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source": "CS3",
+        "failure_kind": "unknown"
+      }
+    },
+    {
+      "at": "2026-11-04T18:11:49.604974+00:00",
+      "event": "source_failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "source_family": "communitysports",
+        "source": "CS4",
+        "failure_kind": "unknown"
+      }
+    },
+    {
+      "at": "2026-11-04T18:11:50.212252+00:00",
+      "event": "source_failure",
+      "details": {
+        "failure_kind": "unknown",
+        "source": "CS2",
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "at": "2026-11-04T18:11:50.791127+00:00",
+      "event": "source_failure",
+      "details": {
+        "failure_kind": "unknown",
+        "source": "CS5",
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "at": "2026-11-04T18:12:00.824270+00:00",
+      "event": "source_failure",
+      "details": {
+        "failure_kind": "unknown",
+        "source": "CS6",
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "at": "2026-11-04T18:12:00.841695+00:00",
+      "event": "terminal_failure",
+      "details": {
+        "failure_kind": "unknown",
+        "source": "CS6",
+        "source_family": "communitysports",
+        "last_observed_stage": "preparing"
+      }
+    }
+  ],
+  "limits": "Audio enabled=false is app-state evidence. Device Hub does not relay sound. Recovery repair239 not yet installed or validated; no audible playback success claimed."
+}

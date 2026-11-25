@@ -1,0 +1,131 @@
+{
+  "observedAt": "2026-11-01T02:22:42.422314+00:00",
+  "source": "https://github.com/doms9/iptv",
+  "scope": "9 finite named core English sports candidates; no security exceptions, accounts or source activation",
+  "receipts": [
+    {
+      "id": "ESPN.HD.us2",
+      "name": "ESPN",
+      "nativeQualified": false,
+      "scheme": "http",
+      "host": "85.237.89.160",
+      "outcome": "not fetched: published transport is incompatible"
+    },
+    {
+      "id": "ESPN2.HD.us2",
+      "name": "ESPN2",
+      "nativeQualified": false,
+      "scheme": "http",
+      "host": "85.237.89.160",
+      "outcome": "not fetched: published transport is incompatible"
+    },
+    {
+      "id": "SkySp.Cricket.uk",
+      "name": "Sky Sports Cricket",
+      "nativeQualified": false,
+      "scheme": "https",
+      "host": "cdnlivetv.tv",
+      "publishedHeaderNames": [
+        "User-Agent"
+      ],
+      "status": 200,
+      "mime": "application/x-mpegurl",
+      "hls": true,
+      "masterVariants": 0,
+      "segments": 6,
+      "endList": false,
+      "outcome": "HLS metadata candidate; native pending"
+    },
+    {
+      "id": "SkySp.Fball.uk",
+      "name": "Sky Sports Football",
+      "nativeQualified": false,
+      "scheme": "https",
+      "host": "cdnlivetv.tv",
+      "publishedHeaderNames": [
+        "User-Agent"
+      ],
+      "status": 200,
+      "mime": "application/x-mpegurl",
+      "hls": true,
+      "masterVariants": 0,
+      "segments": 6,
+      "endList": false,
+      "outcome": "HLS metadata candidate; native pending"
+    },
+    {
+      "id": "SkySp.PL.HD.uk",
+      "name": "Sky Sports Premier League",
+      "nativeQualified": false,
+      "scheme": "http",
+      "host": "stream.bottledesk.net",
+      "outcome": "not fetched: published transport is incompatible"
+    },
+    {
+      "id": "TNT.Sports.1.HD.uk",
+      "name": "TNT Sports 1",
+      "nativeQualified": false,
+      "scheme": "https",
+      "host": "cdnlivetv.tv",
+      "publishedHeaderNames": [
+        "User-Agent"
+      ],
+      "status": 200,
+      "mime": "application/x-mpegurl",
+      "hls": true,
+      "masterVariants": 0,
+      "segments": 6,
+      "endList": false,
+      "outcome": "HLS metadata candidate; native pending"
+    },
+    {
+      "id": "TNT.Sports.2.HD.uk",
+      "name": "TNT Sports 2",
+      "nativeQualified": false,
+      "scheme": "https",
+      "host": "cdnlivetv.tv",
+      "publishedHeaderNames": [
+        "User-Agent"
+      ],
+      "status": 200,
+      "mime": "application/x-mpegurl",
+      "hls": true,
+      "masterVariants": 0,
+      "segments": 6,
+      "endList": false,
+      "outcome": "HLS metadata candidate; native pending"
+    },
+    {
+      "id": "TNT.Sports.3.HD.uk",
+      "name": "TNT Sports 3",
+      "nativeQualified": false,
+      "scheme": "https",
+      "host": "cdnlivetv.tv",
+      "publishedHeaderNames": [
+        "User-Agent"
+      ],
+      "status": 200,
+      "mime": "application/x-mpegurl",
+      "hls": true,
+      "masterVariants": 0,
+      "segments": 6,
+      "endList": false,
+      "outcome": "HLS metadata candidate; native pending"
+    },
+    {
+      "id": "USA.Network.HD.us2",
+      "name": "USA Network",
+      "nativeQualified": false,
+      "scheme": "https",
+      "host": "tvsen3.aynaott.com",
+      "publishedHeaderNames": [],
+      "status": 200,
+      "mime": "application/vnd.apple.mpegurl",
+      "hls": true,
+      "masterVariants": 1,
+      "segments": 0,
+      "endList": false,
+      "outcome": "HLS metadata candidate; native pending"
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "checkedOn": "2026-11-03",
+  "build": 225,
+  "inputs": {
+    "originalPlaylists": [
+      "iptv-org/iptv",
+      "doms9/iptv"
+    ],
+    "stationDiscovery": "bugsfreeweb/LiveTVCollector",
+    "scheduleReference": "https://www.skysports.com/watch/sport-on-sky"
+  },
+  "metadata": {
+    "checkedAt": "2026-11-03T16:06:00Z",
+    "masterAndFirstChildHLS200": [
+      "FS1 US",
+      "Willow US"
+    ],
+    "mediaPlaylistHLS200": [
+      "Sky Sports Football UK",
+      "Sky Sports Cricket UK",
+      "TNT Sports 1 UK",
+      "TNT Sports 2 UK",
+      "TNT Sports 3 UK"
+    ],
+    "skyCricketCS": "UK network entry and original meta agree, five advertised options including two same-origin HTTPS. No media pass inferred."
+  },
+  "checks": {
+    "workerTestsPassed": 89,
+    "jetUnitTestsPassed": 54
+  },
+  "skyCricketForcedSwitch": {
+    "on": "Jet iPad",
+    "entry": "Sports TV → Watch Sky Sports Cricket",
+    "primary": "TV10",
+    "automaticReplacement": "CS1",
+    "faultToObservedAdvancingPictureSeconds": 6.38,
+    "uninterruptedMediaAdvanceSeconds": 91.429,
+    "programme": "WBBL Sixers vs Scorchers. Primary showed Sixers 3–88 chasing 184. Backup showed 3–87 and advanced to 3–91. Same programme, roughly one ball behind at switch."
+  },
+  "limitations": [
+    "The guide changes preserve reviewed entries and their original expiry. They introduce no new territory or fixture assignment authority.",
+    "The seven HTTP observations are playlist checks."
+  ],
+  "restoration": "225 launched normally, station favourites, language and source settings matched the pre-test snapshot."
+}

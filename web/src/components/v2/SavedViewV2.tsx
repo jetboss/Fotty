@@ -16,7 +16,7 @@ import {
 } from "@/lib/storage";
 import { useReminders, useUserPreferences } from "@/lib/user-experience";
 import { formatKickoff } from "@/lib/live";
-import { buildWatchPageHref, isP2PContentId } from "@/lib/watch-session";
+import { buildWatchPageHref } from "@/lib/watch-session";
 import { V2PageHeader, V2PageShell, V2Section, v2ListRowClass, v2PanelClass } from "@/components/v2/V2PageShell";
 
 import { v2FavoritesPath, v2HomePath, v2SchedulePath, v2SearchPath } from "@/lib/v2/preview";
@@ -146,7 +146,7 @@ export function SavedViewV2() {
                     title: match.title,
                     league: match.league || "",
                     returnTo,
-                    ...(isP2PContentId(match.cid) ? { cid: match.cid } : { id: match.cid }),
+                    id: match.cid,
                   }))}
                   className={`flex items-center justify-between ${v2ListRowClass}`}
                 >

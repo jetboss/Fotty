@@ -15,6 +15,7 @@ provider origin; the Worker supplies source metadata and redirects only.
 | `POST /api/fpl/coach` | Rate-limited official FPL evidence check and structured DeepSeek proxy |
 | `GET /api/football/matches` | Server-keyed football-data.org schedule and score fallback |
 | `GET /api/football/live` | Optional Premier League live score/minute proxy via API-Football |
+| `GET /api/cricket/cpl-fixtures` | Verified CPL fixture manifest with reviewed last-known-good fallback |
 | `GET /health` | Smoke |
 
 ## Deploy
@@ -44,6 +45,24 @@ Without `NEXT_PUBLIC_FOTTY_API_BASE`, Watch can still synthesize direct
 
 ## Notes
 
+- `fotty-playback-v3` is the only active Fotty Worker. It is globally deployed;
+  splitting routes would primarily create separate release, secret and failure
+  boundaries rather than making the same upstream providers faster. The paid
+  Coach is the first sensible future split if it needs an independent budget or
+  access policy.
+- Remote catalog, fixture and football requests have end-to-end deadlines and
+  bounded response bodies. Stream lookup exposes provider attempt/responding/
+  coverage headers while preserving the direct embed fallback; it never logs
+  private stream identifiers. Production logs are structured, invocation logs
+  are enabled and traces sample five percent.
+- Do not add a Cron Trigger merely to warm the Cache API: that cache is local to
+  a Cloudflare data center. Scheduled fixture collection needs shared validated
+  state before it can be treated as a global freshness mechanism.
+- `node tools/audit-worker-health.mjs` from the repository root verifies the
+  exact production source version, health contract, complete CPL manifest,
+  catalog coverage/direct fallback and embed redirect. The daily provider
+  workflow runs the same check. It reads live-score capability from health and
+  intentionally does not call the quota-consuming live-score endpoint.
 - Local complexity-audit patch (2026-08-28; deployment is separate): `coach-request.mjs` validates bounded request bodies and handles limiter outages. Scoring questions stay deterministic even when official evidence is missing/incomplete/stale; unknown statistics never prove a non-appearance. A known official total may be returned with `officialDataStatus: "incomplete"`; otherwise the answer explicitly declines to calculate. Regression commands: `node --test src/coach-contract.test.mjs src/fpl-scoring.test.mjs`, or the full `npm run test:unit` from `web/`.
 - Source order matches iOS: `echo`, `delta`, `hotel`, `india`, `golf`, `alpha`.
 - P2P / AceStream / `admin` are not served.

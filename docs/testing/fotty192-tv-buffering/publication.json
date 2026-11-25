@@ -1,0 +1,37 @@
+{
+  "pullRequest": "https://github.com/jetboss/Fotty/pull/105",
+  "mergedCommit": "c4cb85e7f9d06a77fb6a1bb91cea917c598dd9d6",
+  "checks": [
+    {
+      "name": "CodeQL",
+      "state": "SUCCESS"
+    },
+    {
+      "name": "codeql-actions",
+      "state": "SUCCESS"
+    },
+    {
+      "name": "workflows",
+      "state": "SUCCESS"
+    },
+    {
+      "name": "web",
+      "state": "SUCCESS"
+    },
+    {
+      "name": "codeql-javascript-typescript",
+      "state": "SUCCESS"
+    },
+    {
+      "name": "codeql-python",
+      "state": "SUCCESS"
+    },
+    {
+      "name": "secrets",
+      "state": "SUCCESS"
+    }
+  ],
+  "playbackVersion": "87686309-f23b-47cf-9975-58d0ef6ad0de",
+  "watchdogVersion": "945283f6-23fd-4e23-850f-20c9e8f896d2",
+  "existingWatchdogActivationPreserved": true
+}

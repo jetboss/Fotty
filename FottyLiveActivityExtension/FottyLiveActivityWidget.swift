@@ -7,6 +7,7 @@ struct FottyLiveActivityBundle: WidgetBundle {
     var body: some Widget {
         FottyMatchLiveActivityWidget()
         FottyFPLDeadlineWidget()
+        FottySportsPlanWidget()
     }
 }
 

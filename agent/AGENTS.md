@@ -15,9 +15,12 @@ Before architecture work, broad refactors, release qualification, or unfamiliar 
 ./tools/agent-start.sh "Describe the task"
 ```
 
-Use current repository docs as the authority. The Android prototype, homelab, PocketBase, and P2P/AceStream paths are retired and must not be inferred from historical decision entries.
+Start with `docs/notebooklm/Current-State.md` and retrieve only relevant historical
+sections. Verify operational claims against current source/external evidence.
+The Android prototype, homelab, PocketBase, and P2P/AceStream paths are retired
+and must not be inferred from historical decision entries.
 
-After significant work:
+After significant implementation (not a read-only audit):
 
 ```bash
 ./tools/agent-finish.sh "Describe what changed"

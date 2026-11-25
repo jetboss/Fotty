@@ -1,0 +1,37 @@
+[
+  {
+    "channel": "CBS Sports Golazo Network",
+    "build": 211,
+    "observedAtUTC": "2026-11-01T11:20:47.573Z",
+    "outcome": "failed-before-picture",
+    "ui": "Source unavailable; Stream Ended Unexpectedly",
+    "manualRetries": 0
+  },
+  {
+    "channel": "beIN SPORTS XTRA",
+    "build": 211,
+    "firstPictureUTC": "2026-11-01T11:24:55.091Z",
+    "firstPicture": "beIN SPORTS XTRA watermark; beach footvolley; score16–19",
+    "manualRetries": 0,
+    "holdSeconds": 156.904,
+    "endPictureUTC": "2026-11-01T11:27:31.994Z",
+    "outcome": "accepted-native-picture",
+    "endPicture": "beIN watermark remains; footvolley score advanced16–19 to16–22 and programme cut to jersey graphic"
+  },
+  {
+    "channel": "Fubo Sports Network",
+    "build": 211,
+    "observedAtUTC": "2026-11-01T11:29:14.178Z",
+    "outcome": "failed-descriptor",
+    "ui": "Broadcast not ready: additional broadcast source could not be opened safely",
+    "manualRetries": 0
+  },
+  {
+    "channel": "Willow Sports",
+    "build": 211,
+    "observedAtUTC": "2026-11-01T11:30:44.187Z",
+    "outcome": "failed-before-picture",
+    "ui": "Source unavailable; Stream Ended Unexpectedly",
+    "manualRetries": 0
+  }
+]

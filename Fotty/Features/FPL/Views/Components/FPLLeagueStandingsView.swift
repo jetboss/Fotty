@@ -1,6 +1,7 @@
 import SwiftUI
 
 public struct FPLLeagueStandingsView: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject var viewModel: FPLAdvisorViewModel
 
     public init(viewModel: FPLAdvisorViewModel) {
@@ -48,6 +49,7 @@ public struct FPLLeagueStandingsView: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
+                            .frame(minHeight: 44)
                             .background(isSelected ? FottyTheme.accent : FottyTheme.surface)
                             .foregroundStyle(isSelected ? FottyTheme.textOnAccent : FottyTheme.textPrimary)
                             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -56,8 +58,9 @@ public struct FPLLeagueStandingsView: View {
                                     .stroke(isSelected ? Color.clear : FottyTheme.border, lineWidth: 1)
                             }
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(FottyPressButtonStyle(cornerRadius: 12))
                         .accessibilityLabel("\(league.name), \(league.isPrivateMiniLeague ? "mini-league" : "FPL league")\(league.entryRank.map { ", rank \($0)" } ?? "")")
+                        .accessibilityAddTraits(isSelected ? .isSelected : [])
                     }
                 }
             }
@@ -65,16 +68,16 @@ public struct FPLLeagueStandingsView: View {
     }
 
     private var standingsHeader: some View {
-        HStack {
+        headerLayout {
             HStack(spacing: 6) {
                 Image(systemName: "list.number")
                     .foregroundStyle(FottyTheme.accentText)
-                Text("OFFICIAL FPL STANDINGS")
-                    .font(.caption.weight(.black))
+                Text("Official FPL standings")
+                    .font(FottyTheme.typeModuleTitle)
                     .foregroundStyle(FottyTheme.textPrimary)
             }
 
-            Spacer()
+            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
 
             if let table = viewModel.leagueStandings?.standings {
                 Text("Page \(table.page) • \(table.results.count) shown")
@@ -142,7 +145,7 @@ public struct FPLLeagueStandingsView: View {
         let firstTotal = table.results.first?.total ?? 0
 
         return VStack(spacing: 6) {
-            tableHeader
+            if !dynamicTypeSize.isAccessibilitySize { tableHeader }
 
             ForEach(table.results) { entry in
                 standingRow(entry, firstTotal: firstTotal)
@@ -196,21 +199,49 @@ public struct FPLLeagueStandingsView: View {
         let isMe = entry.entry == viewModel.managerId
         let gapToLeader = entry.total - firstTotal
 
-        return Button {
-            guard !isMe else { return }
-            HapticManager.impact(.light)
-            Task { await viewModel.inspectRival(entry: entry) }
-        } label: {
-            HStack {
+        return Group {
+            if isMe {
+                standingContent(entry, isMe: true, gapToLeader: gapToLeader)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(standingAccessibilityLabel(entry) + ", your team")
+            } else {
+                Button {
+                    HapticManager.impact(.light)
+                    Task { await viewModel.inspectRival(entry: entry) }
+                } label: {
+                    standingContent(entry, isMe: false, gapToLeader: gapToLeader)
+                }
+                .buttonStyle(FottyPressButtonStyle(cornerRadius: 12))
+                .accessibilityLabel(standingAccessibilityLabel(entry))
+                .accessibilityHint("Selects this manager for the Rival Race Centre")
+            }
+        }
+    }
+
+    private var headerLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
+            : AnyLayout(HStackLayout(spacing: 8))
+    }
+
+    private var standingLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(spacing: 8))
+    }
+
+    private func standingContent(_ entry: FPLLeagueStandingEntry, isMe: Bool, gapToLeader: Int) -> some View {
+            standingLayout {
                 rankView(entry, isMe: isMe)
-                    .frame(width: 48, alignment: .leading)
+                    .frame(minWidth: dynamicTypeSize.isAccessibilitySize ? 0 : 48, alignment: .leading)
 
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) {
+                    headerLayout {
                         Text(entry.entryName)
                             .font(.subheadline.weight(.bold))
                             .foregroundStyle(FottyTheme.textPrimary)
-                            .lineLimit(1)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
+                            .fixedSize(horizontal: false, vertical: true)
                         if isMe {
                             Text("YOU")
                                 .font(.caption2.weight(.black))
@@ -230,9 +261,9 @@ public struct FPLLeagueStandingsView: View {
                         }
                     }
 
-                    HStack(spacing: 4) {
+                    headerLayout {
                         Text(entry.managerName)
-                            .lineLimit(1)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
                         if gapToLeader < 0 {
                             Text("• \(gapToLeader) pts to 1st")
                         }
@@ -241,18 +272,28 @@ public struct FPLLeagueStandingsView: View {
                     .foregroundStyle(FottyTheme.textSecondary)
                 }
 
-                Spacer()
-
-                Text("\(entry.eventTotal)")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(FottyTheme.accentText)
-                    .frame(width: 36, alignment: .trailing)
-
-                Text("\(entry.total)")
-                    .font(.subheadline.weight(.black))
-                    .foregroundStyle(FottyTheme.textPrimary)
-                    .frame(width: 44, alignment: .trailing)
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Gameweek: \(entry.eventTotal) points")
+                            .foregroundStyle(FottyTheme.accentText)
+                        Text("Total: \(entry.total) points")
+                            .foregroundStyle(FottyTheme.textPrimary)
+                    }
+                    .font(.subheadline.weight(.semibold))
+                } else {
+                    Spacer(minLength: 0)
+                    Text("\(entry.eventTotal)")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(FottyTheme.accentText)
+                        .frame(width: 36, alignment: .trailing)
+                    Text("\(entry.total)")
+                        .font(.subheadline.weight(.black))
+                        .foregroundStyle(FottyTheme.textPrimary)
+                        .frame(width: 44, alignment: .trailing)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .multilineTextAlignment(.leading)
             .padding(12)
             .background(isMe ? FottyTheme.accent.opacity(0.12) : FottyTheme.surface)
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -260,15 +301,14 @@ public struct FPLLeagueStandingsView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .stroke(isMe ? FottyTheme.accent.opacity(0.4) : Color.clear, lineWidth: 1)
             }
-        }
-        .buttonStyle(.plain)
-        .disabled(isMe)
-        .accessibilityLabel("Rank \(entry.rank), \(entry.entryName), managed by \(entry.managerName), \(entry.eventTotal) gameweek points, \(entry.total) total points")
-        .accessibilityHint(isMe ? "This is your team" : "Selects this manager for the Rival Race Centre")
+    }
+
+    private func standingAccessibilityLabel(_ entry: FPLLeagueStandingEntry) -> String {
+        "Rank \(entry.rank), \(entry.entryName), managed by \(entry.managerName), \(entry.eventTotal) gameweek points, \(entry.total) total points"
     }
 
     private func rankView(_ entry: FPLLeagueStandingEntry, isMe: Bool) -> some View {
-        HStack(spacing: 4) {
+        VStack(alignment: .leading, spacing: 3) {
             Text("#\(entry.rank)")
                 .font(.subheadline.weight(.black))
                 .foregroundStyle(isMe ? FottyTheme.accentText : FottyTheme.textPrimary)

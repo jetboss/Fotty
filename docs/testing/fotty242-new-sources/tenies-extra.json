@@ -1,0 +1,54 @@
+[
+  {
+    "channel": "ASTRO CRICKET HD",
+    "metadataDescription": "Live broadcast for ASTRO CRICKET HD.\n\nCategory: General\nStatus: online",
+    "entries": 1,
+    "probes": [
+      {
+        "label": "ASTRO CRICKET HD",
+        "headerKeys": [
+          "Referer",
+          "Origin"
+        ],
+        "hops": [
+          {
+            "host": "cdnlivetv.tv",
+            "status": 200,
+            "hls": true,
+            "master": false,
+            "ended": false,
+            "encryption": []
+          }
+        ],
+        "mediaPlaylist": true,
+        "segments": 6
+      }
+    ]
+  },
+  {
+    "channel": "Sky Sports Premier League FHD UK",
+    "metadataDescription": "Live broadcast for Sky Sports Premier League FHD UK.\n\nCategory: General\nStatus: online",
+    "entries": 1,
+    "probes": [
+      {
+        "label": "Sky Sports Premier League FHD UK",
+        "headerKeys": [
+          "Referer",
+          "Origin"
+        ],
+        "hops": [
+          {
+            "host": "cdnlivetv.tv",
+            "status": 200,
+            "hls": true,
+            "master": false,
+            "ended": false,
+            "encryption": []
+          }
+        ],
+        "mediaPlaylist": true,
+        "segments": 6
+      }
+    ]
+  }
+]

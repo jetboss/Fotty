@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-29",
+  "scope": "read-only competitor experience study; no implementation",
+  "products": [
+    "ESPN",
+    "DAZN",
+    "Apple TV",
+    "JioHotstar",
+    "Stremio"
+  ],
+  "actualShippedWebREACode": [
+    "ESPN",
+    "DAZN",
+    "Apple TV",
+    "Stremio"
+  ],
+  "jiohotstarBoundary": "territory-unavailable consumer shell; official product/screens only; no fabricated REA",
+  "publicBrowserSurfaces": [
+    "Apple TV MLS/event",
+    "DAZN TT Home/Schedule",
+    "Stremio Board/title/source label"
+  ],
+  "nativeCompetitorPlayback": "not tested",
+  "fottyDeviceReview": "not performed; source and dated receipts only",
+  "appToolInputsUnchanged": 337,
+  "appToolInputSetSHA256": "3cb2e8b6efda3e166ba1dfb8c9d7ed808e595c42875e60b370ab0805609e04bb",
+  "changedAppToolInputs": [],
+  "builds": 0,
+  "deviceActions": 0,
+  "providerOrMediaQualification": 0,
+  "fottySettingChanges": 0,
+  "FPLChanges": 0,
+  "multiStreamChanges": 0,
+  "gitCloudPublications": 0,
+  "testFlightReleases": 0,
+  "accountsOrSpending": 0,
+  "independentEvidenceReview": "no concrete correction found",
+  "localLinks": "passed",
+  "privateMaterialScan": "passed",
+  "researchTabs": "all three root-created tabs closed; agent-created tab closed",
+  "memoryExport": "not run for read-only audit",
+  "ownedRootArtifactsRemoved": true,
+  "freeGiBBeforeCleanup": 19.21,
+  "agentRawArtifacts": "agents reported owned gates removed",
+  "freeGiBAfterCleanup": 19.22
+}

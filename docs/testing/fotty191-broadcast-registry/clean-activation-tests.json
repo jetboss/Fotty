@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "completedAt": "2026-10-30T14:37:17.210926+00:00",
+  "stage": "/private/tmp/fotty-registry191-es2s9a21/CloudActivation",
+  "exitCode": 0,
+  "counts": {
+    "tests": 202,
+    "pass": 202,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0
+  },
+  "failedTestNames": [],
+  "testFiles": [
+    "web/workers/playback/src/broadcast-catalog.test.mjs",
+    "web/workers/playback/src/broadcast-registry-policy.test.mjs",
+    "web/workers/playback/src/broadcast-registry-worker.test.mjs",
+    "web/workers/playback/src/broadcast-registry.test.mjs",
+    "web/workers/playback/src/broadcast-source-adapters.test.mjs",
+    "web/workers/playback/src/cpl-fixture-policy.test.mjs",
+    "web/workers/playback/src/cricket-fixture-policy.test.mjs",
+    "web/workers/playback/src/playback-catalog.test.mjs",
+    "web/workers/playback/src/sports-fixture-event-sources.test.mjs",
+    "web/workers/playback/src/sports-fixture-policy.test.mjs",
+    "web/workers/playback/src/sports-fixture-runtime.test.mjs",
+    "web/workers/playback/src/sports-fixture-sources.test.mjs",
+    "web/workers/playback/src/sports-fixture-worker.test.mjs"
+  ],
+  "testFileSha256": {
+    "web/workers/playback/src/broadcast-catalog.test.mjs": "7cee171602670ce7c85256df0e59ecf57f56a89f6628f89aa3f7d69dd5ef88bc",
+    "web/workers/playback/src/broadcast-registry-policy.test.mjs": "cd4bdc9b6733ce0eeef6abea7845f048395eaa229e60dc5333c102bc76925bbe",
+    "web/workers/playback/src/broadcast-registry-worker.test.mjs": "c954b4ab037043bc0353331cdacb1174b75df141be7cace8d0c8dbb9e6003428",
+    "web/workers/playback/src/broadcast-registry.test.mjs": "49dcaa06419e9a1ae9369f0790e281249ee2584c166baa1128b9ee5722e7dec0",
+    "web/workers/playback/src/broadcast-source-adapters.test.mjs": "0d04a3557d5ac6bc06a0a5c36e6ed19a695da101419893706b82c6c31440fd94",
+    "web/workers/playback/src/cpl-fixture-policy.test.mjs": "21d429969333eff1d936af18108c119c6378141f4b757d94acc70bcd79cb5252",
+    "web/workers/playback/src/cricket-fixture-policy.test.mjs": "ade4a9f115604f625db84178c029ace2ad756c848a11afcd17109fe5c0aefdaf",
+    "web/workers/playback/src/playback-catalog.test.mjs": "c0d59972515488aa99ea9843c410ec07f11f497869826af2dbe8e009cae299fc",
+    "web/workers/playback/src/sports-fixture-event-sources.test.mjs": "e9863bb9ab460d539ea34cc67e703fb0aebfb26bf901026ba88d79e5864cc708",
+    "web/workers/playback/src/sports-fixture-policy.test.mjs": "153c8c4fd11861b02e91452a3d8b332f263bd06e4bd1356f2ecd411bc0cbd68f",
+    "web/workers/playback/src/sports-fixture-runtime.test.mjs": "dfe4aa2e232092716f34038d05ae75dc35bbb25162ffcbedb718d61bed91b862",
+    "web/workers/playback/src/sports-fixture-sources.test.mjs": "9f9afe3ae1f5b82f95d8f29241a7b286dc0213c9af46595d749fe79c30cc3a04",
+    "web/workers/playback/src/sports-fixture-worker.test.mjs": "189d05d48572269a58658ee3fcbbdb7df71ec2794657ec7c3c77662d1a636c12"
+  },
+  "localLog": "/private/tmp/fotty-registry191-es2s9a21/clean-activation-tests.tap",
+  "logSha256": "913f14b8470339709c4e12fab847a12c1d372378c9db1f4ea92477798fbd954c",
+  "unmockedGlobalFetchDenied": true,
+  "testConcurrency": 1,
+  "networkAndDeployment": false,
+  "logFormat": "node-spec"
+}

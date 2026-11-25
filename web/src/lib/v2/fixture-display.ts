@@ -1,7 +1,6 @@
 import type { ScrapedMatch } from "@/lib/api";
 import { canOpenBroadcast, hasStreameXPlayback } from "@/lib/live";
 import { isMatchLive } from "@/lib/v2/match-priority";
-import { isFixtureTeamsTbd } from "@/lib/fixture-normalization";
 
 export type FixtureCardPhase = "live" | "watch" | "starting" | "soon" | "finished";
 
@@ -67,16 +66,6 @@ export function fixtureTbdHeadline(match: ScrapedMatch): string {
   return match.subtitle?.trim() || "Fixture TBD";
 }
 
-export function fixtureTbdSubline(_match?: ScrapedMatch): string {
+export function fixtureTbdSubline(): string {
   return "Teams to be confirmed";
-}
-
-export function partitionFixturesByTeams(matches: ScrapedMatch[]) {
-  const confirmed: ScrapedMatch[] = [];
-  const tbd: ScrapedMatch[] = [];
-  for (const match of matches) {
-    if (isFixtureTeamsTbd(match)) tbd.push(match);
-    else confirmed.push(match);
-  }
-  return { confirmed, tbd };
 }

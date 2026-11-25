@@ -16,6 +16,20 @@ public enum MatchHubRefreshPolicy: Sendable {
   var allowsProviderEnrichment: Bool { self == .full }
 }
 
+/// Observation receipts travel with their rows. A completed retry is not a new
+/// observation of a cached in-play value.
+struct FootballLiveSnapshot {
+    let matches: [MatchHubData]
+    let observedAt: Date?
+    let mode: LiveScoreFeedMode
+    let refreshSucceeded: Bool
+}
+
+struct FootballScheduleSnapshot {
+    let matches: [MatchHubData]
+    let observedAt: Date
+}
+
 public actor FootballRepository {
     
     public static let shared = FootballRepository()
@@ -23,12 +37,19 @@ public actor FootballRepository {
     private let primaryProvider: FootballProvider
     private let officialFPLScoreProvider: FootballProvider
     private let footballDataProvider: FootballProvider
+    private let scheduleLoader: (@Sendable (ClosedRange<Date>) async throws -> [MatchHubData])?
+    private let currentDate: @Sendable () -> Date
     private var cache: [String: CachedData] = [:]
+    /// Only an actual successful details fetch can create these observations;
+    /// an automatic cache read or enrichment pass cannot renew them.
+    private var detailedLiveObservations: [String: Date] = [:]
 
     // MARK: - Fixture list caching (reduces API-Football traffic from polling + multi-tab refresh)
 
     private var liveListCache: [MatchHubData]?
     private var liveListCachedAt: Date?
+    private var liveListObservedAt: Date?
+    private var liveListRefreshSucceeded = false
     private var liveListCooldownUntil: Date?
     private var liveFeedMode: LiveScoreFeedMode = .inactive
     private let liveListTTL: TimeInterval = 55
@@ -41,15 +62,15 @@ public actor FootballRepository {
 
     private var premiumListCache: PremiumListCache?
     private var premiumFetchCooldownUntil: Date?
-    /// API-Football league sweep — only when football-data schedule is empty (emergency fallback).
+    /// Explicit API-Football league sweep; not an empty-schedule fallback.
     private let premiumListTTL: TimeInterval = 7200
-    private var premiumFallbackBlockedUntil: Date?
 
     private struct ScheduleListCache {
         let key: String
         let range: ClosedRange<Date>
         let matches: [MatchHubData]
         let fetchedAt: Date
+        let observedAt: Date
     }
 
     private var scheduleListCache: ScheduleListCache?
@@ -61,13 +82,33 @@ public actor FootballRepository {
         let status: MatchHubData.DataQualityStatus
     }
     
-    private init() {
-        self.primaryProvider = APIFootballProvider(apiKey: Config.apiFootballKey)
-        self.officialFPLScoreProvider = OfficialFPLScoreProvider()
-        self.footballDataProvider = FootballDataProvider()
+    init(
+        scheduleLoader: (@Sendable (ClosedRange<Date>) async throws -> [MatchHubData])? = nil,
+        primaryProvider: FootballProvider? = nil,
+        officialFPLScoreProvider: FootballProvider? = nil,
+        footballDataProvider: FootballProvider? = nil,
+        now: @escaping @Sendable () -> Date = { Date() }
+    ) {
+        self.primaryProvider = primaryProvider ?? APIFootballProvider(apiKey: Config.apiFootballKey)
+        self.officialFPLScoreProvider = officialFPLScoreProvider ?? OfficialFPLScoreProvider()
+        self.footballDataProvider = footballDataProvider ?? FootballDataProvider()
+        self.scheduleLoader = scheduleLoader
+        self.currentDate = now
     }
     
     // MARK: - Repository API
+
+    func matchHubSnapshot(fixtureId: String, policy: MatchHubRefreshPolicy) async throws -> MatchHubSnapshot {
+        let expected = findHub(fixtureId: fixtureId)
+        let fetched = try await getMatchHubData(fixtureId: fixtureId, policy: policy)
+        try Task.checkCancellation()
+        let match = MatchHubSnapshot.preservingRoute(fetched, expected: expected, routeID: fixtureId)
+        if match.identity.resolves(fixtureId) {
+            storeHubInCache(match, fixtureId: fixtureId,
+                            resolvedFixtureId: match.fixture.apiFootballFixtureId ?? match.fixture.id)
+        }
+        return MatchHubSnapshot(match: match, insights: insights(from: match))
+    }
     
     /// Match Hub payload (score, events, lineups, stats) with quota-aware refresh policy.
     public func getMatchHubData(
@@ -95,7 +136,7 @@ public actor FootballRepository {
            let existingEntry,
            let existingHub,
            !isScoreCacheStale(existingEntry, hub: existingHub) {
-            return existingHub
+            return reconciledHubFacts(existingHub)
         }
 
         let includeLineupsAndStats = shouldFetchLineupsAndStats(
@@ -120,12 +161,17 @@ public actor FootballRepository {
                     resolvedFixtureId: resolvedFixtureId
                 )
             }
+            try Task.checkCancellation()
+            registerDetailedLiveObservation(from: fetched)
+            merged = reconciledHubFacts(merged)
             storeHubInCache(merged, fixtureId: fixtureId, resolvedFixtureId: resolvedFixtureId)
             return merged
         } catch {
+            try propagateCancellation(error)
             print("[FootballRepository] Fetch failed for \(resolvedFixtureId): \(error)")
             if let existingHub {
-                return existingHub
+                detailedLiveObservations.removeValue(forKey: matchKey(for: existingHub))
+                return reconciledHubFacts(staleSnapshot(existingHub))
             }
             if let scheduleHub = findHub(fixtureId: fixtureId) ?? findHub(fixtureId: resolvedFixtureId) {
                 var enriched = await enrichHubData(scheduleHub)
@@ -141,8 +187,9 @@ public actor FootballRepository {
                         resolvedFixtureId: resolvedFixtureId
                     )
                 }
+                try Task.checkCancellation()
                 storeHubInCache(enriched, fixtureId: fixtureId, resolvedFixtureId: resolvedFixtureId)
-                return enriched
+                return reconciledHubFacts(staleSnapshot(enriched))
             }
             throw error
         }
@@ -154,17 +201,29 @@ public actor FootballRepository {
         policy: MatchHubRefreshPolicy = .automatic
     ) async throws -> MatchInsightsData {
         let hubData = try await getMatchHubData(fixtureId: fixtureId, policy: policy)
-        
+        return insights(from: hubData)
+    }
+
+    /// Derive every insight from the exact snapshot rendered by the parent.
+    /// No second fetch or independent timestamp can outrun its score/header.
+    func insights(from hubData: MatchHubData) -> MatchInsightsData {
         return MatchInsightsData(
-            fixtureId: fixtureId,
+            fixtureId: hubData.fixture.id,
             homeForm: [],
             awayForm: [],
             headToHead: nil,
             keyInsights: deriveInsights(from: hubData),
             momentum: calculateMomentum(from: hubData),
             winProbability: nil,
-            lastUpdated: Date()
+            lastUpdated: hubData.lastUpdated
         )
+    }
+
+    private func staleSnapshot(_ hub: MatchHubData) -> MatchHubData {
+        MatchHubData(fixture: hub.fixture, homeTeam: hub.homeTeam, awayTeam: hub.awayTeam,
+                     score: hub.score, events: hub.events, homeLineup: hub.homeLineup,
+                     awayLineup: hub.awayLineup, statistics: hub.statistics, teamNews: hub.teamNews,
+                     lastUpdated: hub.lastUpdated, dataQuality: .stale)
     }
     
     /// Get all fixtures for a specific date
@@ -175,7 +234,12 @@ public actor FootballRepository {
     // MARK: - Cache Strategy
     
     public func getLiveMatches() async throws -> [MatchHubData] {
-        let now = Date()
+        try await getLiveSnapshot().matches
+    }
+
+    func getLiveSnapshot() async throws -> FootballLiveSnapshot {
+        try Task.checkCancellation()
+        let now = currentDate()
         if let schedule = scheduleListCache,
            schedule.range.contains(now),
            !FootballDataPolicy.shouldPollLiveScores(
@@ -186,51 +250,67 @@ public actor FootballRepository {
             // Keep this nil so the first poll entering the pre-kickoff window
             // cannot be delayed by an empty out-of-window cache entry.
             liveListCachedAt = nil
+            liveListObservedAt = nil
+            liveListRefreshSucceeded = true
+            detailedLiveObservations.removeAll(keepingCapacity: true)
             liveListCooldownUntil = nil
             liveFeedMode = .inactive
-            return []
+            return FootballLiveSnapshot(matches: [], observedAt: nil, mode: .inactive, refreshSucceeded: true)
         }
-        if let until = liveListCooldownUntil, Date() < until, let cached = liveListCache {
-            return cached
+        if let until = liveListCooldownUntil, now < until, let cached = liveListCache {
+            return cachedLiveSnapshot(matches: cached)
         }
-        if let at = liveListCachedAt, let cached = liveListCache, Date().timeIntervalSince(at) < liveListTTL {
-            return cached
+        if liveListRefreshSucceeded, let at = liveListCachedAt, let cached = liveListCache,
+           (0..<liveListTTL).contains(now.timeIntervalSince(at)) {
+            return cachedLiveSnapshot(matches: cached)
         }
         do {
             let official = try await officialFPLScoreProvider.fetchLiveScores()
                 .filter { FootballDataPolicy.supportsLiveScores(competition: $0.fixture.competition) }
-            return commitLiveList(official, mode: .officialFPL)
+            try Task.checkCancellation()
+            return try commitLiveList(official, mode: .officialFPL)
         } catch {
+            try propagateCancellation(error)
             print("[FootballRepository] Official FPL live feed failed: \(error)")
         }
 
         do {
             let primary = try await primaryProvider.fetchLiveScores()
                 .filter { FootballDataPolicy.supportsLiveScores(competition: $0.fixture.competition) }
-            return commitLiveList(primary, mode: .live)
+            try Task.checkCancellation()
+            return try commitLiveList(primary, mode: .live)
         } catch {
+            try propagateCancellation(error)
             let primaryError = error
             let rateLimited = isProviderRateLimited(primaryError)
-            if let fallback = try? await footballDataProvider.fetchLiveScores() {
-                let committed = commitLiveList(
+            do {
+                let fallback = try await footballDataProvider.fetchLiveScores()
+                    .filter { FootballDataPolicy.supportsLiveScores(competition: $0.fixture.competition) }
+                try Task.checkCancellation()
+                let committed = try commitLiveList(
                     fallback,
                     mode: rateLimited ? .quotaFallback : .delayedFallback
                 )
                 if rateLimited {
-                    liveListCooldownUntil = Date().addingTimeInterval(120)
+                    liveListCooldownUntil = currentDate().addingTimeInterval(120)
                 }
                 return committed
+            } catch {
+                try propagateCancellation(error)
             }
+            liveFeedMode = .unavailable
+            liveListRefreshSucceeded = false
+            detailedLiveObservations.removeAll(keepingCapacity: true)
             if let cached = liveListCache {
+                liveListCooldownUntil = currentDate().addingTimeInterval(120)
                 FottyQualityStore.shared.record(
                     category: .footballData,
                     name: "live_refresh",
                     outcome: .recovered,
                     details: ["feed": "cached", "result": "provider_failure"]
                 )
-                return cached
+                return cachedLiveSnapshot(matches: cached)
             }
-            liveFeedMode = .unavailable
             FottyQualityStore.shared.record(
                 category: .footballData,
                 name: "live_refresh",
@@ -239,6 +319,16 @@ public actor FootballRepository {
             )
             throw primaryError
         }
+    }
+
+    private func cachedLiveSnapshot(matches: [MatchHubData]) -> FootballLiveSnapshot {
+        FootballLiveSnapshot(matches: mergeLiveMatchesWithSchedule(matches), observedAt: liveListObservedAt,
+            mode: liveFeedMode, refreshSucceeded: liveListRefreshSucceeded)
+    }
+
+    private func propagateCancellation(_ error: Error) throws {
+        if error is CancellationError || (error as? URLError)?.code == .cancelled { throw error }
+        try Task.checkCancellation()
     }
 
     func currentLiveFeedMode() -> LiveScoreFeedMode {
@@ -250,13 +340,17 @@ public actor FootballRepository {
     }
 
     private func storeHubInCache(_ hub: MatchHubData, fixtureId: String, resolvedFixtureId: String) {
-        updateCache(id: resolvedFixtureId, data: hub)
-        if resolvedFixtureId != fixtureId {
-            updateCache(id: fixtureId, data: hub)
-        }
-        updateCache(id: hub.fixture.id, data: hub)
-        if let apiId = hub.fixture.apiFootballFixtureId, apiId != hub.fixture.id {
-            updateCache(id: apiId, data: hub)
+        var keys = Set([resolvedFixtureId, fixtureId, hub.fixture.id])
+        if let apiId = hub.fixture.apiFootballFixtureId { keys.insert(apiId) }
+        // Replacing current facts must not erase previously fetched details.
+        // Aliases alone are insufficient: only the same match and competition
+        // scope may contribute enrichment, never status, scores or receipts.
+        let previous = keys.compactMap { cache[$0]?.data as? MatchHubData }
+            .filter { sameMatchScope($0, as: hub) }
+            .sorted { $0.lastUpdated > $1.lastUpdated }
+        let stored = previous.reduce(hub) { preserveEnrichedFields(from: $1, into: $0) }
+        for key in keys {
+            updateCache(id: key, data: stored)
         }
     }
 
@@ -288,43 +382,56 @@ public actor FootballRepository {
         return merged
     }
 
-    /// Arena / Dashboard schedule — football-data.org first (~1 call / 15 min), zero API-Football unless empty fallback.
+    /// Arena / Dashboard schedule — football-data.org (~1 call / 15 min).
+    /// Valid empty windows remain empty; source failures still throw.
     public func getScheduleFixtures(dateRange: ClosedRange<Date>) async throws -> [MatchHubData] {
-        let refreshStartedAt = Date()
+        try await getScheduleSnapshot(dateRange: dateRange).matches
+    }
+
+    func getScheduleSnapshot(dateRange: ClosedRange<Date>) async throws -> FootballScheduleSnapshot {
+        try Task.checkCancellation()
+        let refreshStartedAt = currentDate()
         let cacheKey = premiumCacheKey(for: dateRange)
-        if let c = scheduleListCache, c.key == cacheKey, Date().timeIntervalSince(c.fetchedAt) < scheduleListTTL {
-            return c.matches
+        if let c = scheduleListCache, c.key == cacheKey,
+           (0..<scheduleListTTL).contains(refreshStartedAt.timeIntervalSince(c.fetchedAt)) {
+            return FootballScheduleSnapshot(matches: c.matches, observedAt: c.observedAt)
         }
 
-        var schedule = try await fetchScheduleFromFootballData(dateRange: dateRange)
-        schedule = mergeLiveScores(into: schedule)
+        let schedule = try await fetchScheduleFromFootballData(dateRange: dateRange)
+        try Task.checkCancellation()
+        let fetchedAt = currentDate()
+        let observedAt = try observationDate(for: schedule, successfulEmptyAt: fetchedAt)
         indexMatchKeys(from: schedule)
-
-        if schedule.isEmpty {
-            schedule = try await fetchPremiumFallbackIfAllowed(dateRange: dateRange, cacheKey: cacheKey)
-        }
 
         let sorted = schedule.sorted { $0.fixture.utcDate < $1.fixture.utcDate }
         scheduleListCache = ScheduleListCache(
             key: cacheKey,
             range: dateRange,
             matches: sorted,
-            fetchedAt: Date()
+            fetchedAt: fetchedAt,
+            observedAt: observedAt
         )
+        if let live = liveListCache {
+            // A newly accepted terminal schedule fact also repairs older hub
+            // lookups. This changes no source receipt or schedule authority.
+            liveListCache = mergeLiveMatchesWithSchedule(live)
+        }
         for match in sorted {
-            updateCache(id: match.fixture.id, data: match)
+            let stored = (cache[match.fixture.id]?.data as? MatchHubData)
+                .map { preserveEnrichedFields(from: $0, into: match) } ?? match
+            updateCache(id: match.fixture.id, data: stored)
         }
         FottyQualityStore.shared.record(
             category: .footballData,
             name: "schedule_refresh",
             outcome: .success,
-            durationMilliseconds: Int(Date().timeIntervalSince(refreshStartedAt) * 1_000),
+            durationMilliseconds: max(0, Int(currentDate().timeIntervalSince(refreshStartedAt) * 1_000)),
             details: ["feed": "football_data", "result": sorted.isEmpty ? "empty" : "fixtures"]
         )
-        return sorted
+        return FootballScheduleSnapshot(matches: sorted, observedAt: observedAt)
     }
     
-    /// Emergency API-Football schedule fallback. It follows the same competition
+    /// Explicit API-Football schedule request. It follows the same competition
     /// allowlist as live scores so a football-data outage cannot create a quota burst.
     public func getPremiumFixtures(dateRange: ClosedRange<Date>) async throws -> [MatchHubData] {
         let cacheKey = premiumCacheKey(for: dateRange)
@@ -393,6 +500,8 @@ public actor FootballRepository {
     public func invalidateLiveListCache() {
         liveListCache = nil
         liveListCachedAt = nil
+        liveListObservedAt = nil
+        liveListRefreshSucceeded = false
         liveListCooldownUntil = nil
     }
 
@@ -510,29 +619,16 @@ public actor FootballRepository {
     }
 
     private func fetchScheduleFromFootballData(dateRange: ClosedRange<Date>) async throws -> [MatchHubData] {
-        guard let fd = footballDataProvider as? FootballDataProvider else { return [] }
-        let raw = try await fd.fetchSchedule(in: dateRange)
-        return raw.filter { Config.Arena.discoveryIncludes(competition: $0.fixture.competition) }
-    }
-
-    private func fetchPremiumFallbackIfAllowed(
-        dateRange: ClosedRange<Date>,
-        cacheKey: String
-    ) async throws -> [MatchHubData] {
-        if let until = premiumFallbackBlockedUntil, Date() < until {
-            if let c = premiumListCache, c.key == cacheKey { return c.matches }
-            return []
-        }
-        do {
-            let matches = try await getPremiumFixtures(dateRange: dateRange)
-            premiumFallbackBlockedUntil = Date().addingTimeInterval(7200)
-            return matches
-        } catch {
-            if isProviderRateLimited(error) {
-                premiumFallbackBlockedUntil = Date().addingTimeInterval(1800)
+        let raw: [MatchHubData]
+        if let scheduleLoader {
+            raw = try await scheduleLoader(dateRange)
+        } else {
+            guard let fd = footballDataProvider as? FootballDataProvider else {
+                throw FootballProviderError.malformedData
             }
-            throw error
+            raw = try await fd.fetchSchedule(in: dateRange)
         }
+        return raw.filter { Config.Arena.discoveryIncludes(competition: $0.fixture.competition) }
     }
 
     private var apiFootballIdByMatchKey: [String: String] = [:]
@@ -591,7 +687,12 @@ public actor FootballRepository {
         return indexed
     }
 
-    private func commitLiveList(_ raw: [MatchHubData], mode: LiveScoreFeedMode) -> [MatchHubData] {
+    private func commitLiveList(_ raw: [MatchHubData], mode: LiveScoreFeedMode) throws -> FootballLiveSnapshot {
+        try Task.checkCancellation()
+        let fetchedAt = currentDate()
+        // Official FPL can return its still-valid in-memory resource. Preserve
+        // that original resource date instead of turning each retry into LIVE.
+        let observedAt = try observationDate(for: raw, successfulEmptyAt: fetchedAt)
         let merged = mergeLiveMatchesWithSchedule(raw)
         for match in merged {
             storeHubInCache(
@@ -601,7 +702,11 @@ public actor FootballRepository {
             )
         }
         liveListCache = merged
-        liveListCachedAt = Date()
+        liveListCachedAt = fetchedAt
+        liveListObservedAt = observedAt
+        liveListRefreshSucceeded = true
+        let activeKeys = Set(merged.filter { $0.fixture.status.isLive }.map { matchKey(for: $0) })
+        detailedLiveObservations = detailedLiveObservations.filter { activeKeys.contains($0.key) }
         liveListCooldownUntil = nil
         liveFeedMode = mode
         indexMatchKeys(from: merged)
@@ -611,16 +716,19 @@ public actor FootballRepository {
             outcome: .success,
             details: ["feed": mode.rawValue, "result": merged.isEmpty ? "empty" : "live"]
         )
-        return merged
+        return FootballLiveSnapshot(matches: merged, observedAt: observedAt,
+            mode: mode, refreshSucceeded: true)
     }
 
-    private func mergeLiveScores(into schedule: [MatchHubData]) -> [MatchHubData] {
-        guard let live = liveListCache, !live.isEmpty else { return schedule }
-        let liveByKey = indexByCanonicalMatchKey(live, source: "live_feed")
-        return schedule.map { row in
-            guard let liveMatch = liveByKey[matchKey(for: row)] else { return row }
-            return mergedScoreRow(schedule: row, live: liveMatch)
+    private func observationDate(for rows: [MatchHubData], successfulEmptyAt now: Date) throws -> Date {
+        guard !rows.isEmpty else { return now }
+        let receipts = rows.flatMap { [$0.lastUpdated, $0.fixture.lastUpdated] }
+        guard receipts.allSatisfy({
+            $0.timeIntervalSince1970.isFinite && $0 <= now
+        }), let earliest = receipts.min() else {
+            throw FootballProviderError.staleData
         }
+        return earliest
     }
 
     /// Live providers use their own fixture/team ids. Keep the football-data
@@ -628,26 +736,25 @@ public actor FootballRepository {
     private func mergeLiveMatchesWithSchedule(_ live: [MatchHubData]) -> [MatchHubData] {
         guard let currentSchedule = scheduleListCache else { return live }
         let scheduleByKey = indexByCanonicalMatchKey(currentSchedule.matches, source: "schedule_feed")
-        let mergedLive = live.map { row in
+        return live.map { row in
             guard let schedule = scheduleByKey[matchKey(for: row)] else { return row }
             return mergedScoreRow(schedule: schedule, live: row)
         }
 
-        guard !mergedLive.isEmpty else { return mergedLive }
-        let liveByKey = indexByCanonicalMatchKey(mergedLive, source: "merged_live_feed")
-        let updatedSchedule = currentSchedule.matches.map { row in
-            liveByKey[matchKey(for: row)] ?? row
-        }
-        scheduleListCache = ScheduleListCache(
-            key: currentSchedule.key,
-            range: currentSchedule.range,
-            matches: updatedSchedule,
-            fetchedAt: currentSchedule.fetchedAt
-        )
-        return mergedLive
     }
 
     private func mergedScoreRow(schedule: MatchHubData, live: MatchHubData) -> MatchHubData {
+        switch schedule.fixture.status {
+        case .fullTime, .cancelled, .abandoned:
+            return preserveEnrichedFields(from: live, into: schedule)
+        default:
+            break
+        }
+        return applyingFacts(from: live, to: schedule)
+    }
+
+    private func applyingFacts(from live: MatchHubData, to schedule: MatchHubData) -> MatchHubData {
+        let teams = matchingOfficialArtwork(from: live, preserving: schedule)
         let apiFootballFixtureId: String?
         if let explicit = live.fixture.apiFootballFixtureId {
             apiFootballFixtureId = explicit
@@ -672,14 +779,14 @@ public actor FootballRepository {
         )
         return MatchHubData(
             fixture: fixture,
-            homeTeam: schedule.homeTeam,
-            awayTeam: schedule.awayTeam,
+            homeTeam: teams.home,
+            awayTeam: teams.away,
             score: live.score,
             events: live.events.isEmpty ? schedule.events : live.events,
             homeLineup: live.homeLineup ?? schedule.homeLineup,
             awayLineup: live.awayLineup ?? schedule.awayLineup,
             statistics: live.statistics.isEmpty ? schedule.statistics : live.statistics,
-            teamNews: schedule.teamNews,
+            teamNews: live.teamNews.isEmpty ? schedule.teamNews : live.teamNews,
             lastUpdated: live.lastUpdated,
             dataQuality: live.dataQuality
         )
@@ -707,31 +814,113 @@ public actor FootballRepository {
     }
 
     private func findHub(fixtureId: String) -> MatchHubData? {
-        if let live = liveListCache?.first(where: { $0.identity.resolves(fixtureId) }) { return live }
-        if let scheduled = scheduleListCache?.matches.first(where: { $0.identity.resolves(fixtureId) }) { return scheduled }
-        if let cached = cache[fixtureId]?.data as? MatchHubData { return cached }
+        if let live = liveListCache?.first(where: { $0.identity.resolves(fixtureId) }) { return reconciledHubFacts(live) }
+        if let scheduled = scheduleListCache?.matches.first(where: { $0.identity.resolves(fixtureId) }) { return reconciledHubFacts(scheduled) }
+        if let cached = cache[fixtureId]?.data as? MatchHubData { return reconciledHubFacts(cached) }
         if let cached = cache.values.compactMap({ $0.data as? MatchHubData }).first(where: {
             $0.identity.resolves(fixtureId)
         }) {
-            return cached
+            return reconciledHubFacts(cached)
         }
         return nil
     }
 
+    private func registerDetailedLiveObservation(from data: MatchHubData) {
+        let now = currentDate()
+        detailedLiveObservations = detailedLiveObservations.filter { (0...600).contains(now.timeIntervalSince($0.value)) }
+        guard data.fixture.status.isLive,
+              data.dataQuality != .stale, data.dataQuality != .degraded,
+              let receipt = try? observationDate(for: [data], successfulEmptyAt: now),
+              (0...600).contains(now.timeIntervalSince(receipt)) else { return }
+        detailedLiveObservations[matchKey(for: data)] = receipt
+    }
+
+    /// Header/Details must obey the same current evidence as the live rail.
+    /// Reconcile only score/status facts; retain the full existing enrichment
+    /// and route identity so a failed poll never destroys useful match content.
+    private func reconciledHubFacts(_ original: MatchHubData) -> MatchHubData {
+        let now = currentDate()
+        let identity = matchKey(for: original)
+        func sameScope(_ data: MatchHubData) -> Bool {
+            sameMatchScope(data, as: original)
+        }
+        let candidates = (scheduleListCache?.matches ?? []) + (liveListCache ?? [])
+            + cache.values.compactMap { $0.data as? MatchHubData }
+        let enriched = candidates.filter(sameScope).sorted { $0.lastUpdated > $1.lastUpdated }
+            .reduce(original) { preserveEnrichedFields(from: $1, into: $0) }
+        if let terminal = (candidates + [original]).filter({
+            sameScope($0) && ($0.fixture.status.isFinished || $0.fixture.status == .cancelled)
+                && $0.dataQuality != .stale && $0.dataQuality != .degraded
+                && $0.lastUpdated <= now && $0.fixture.lastUpdated <= now
+        }).max(by: { $0.lastUpdated < $1.lastUpdated }) {
+            return applyingFacts(from: terminal, to: enriched)
+        }
+        if liveListRefreshSucceeded, liveFeedMode != .inactive, liveFeedMode != .unavailable,
+           let receipt = liveListObservedAt, (0...600).contains(now.timeIntervalSince(receipt)),
+           let current = liveListCache?.first(where: {
+               sameScope($0) && $0.fixture.status.isLive
+                   && $0.dataQuality != .stale && $0.dataQuality != .degraded
+                   && (0...600).contains(now.timeIntervalSince($0.lastUpdated))
+                   && (0...600).contains(now.timeIntervalSince($0.fixture.lastUpdated))
+           }) {
+            return applyingFacts(from: current, to: enriched)
+        }
+        if let receipt = detailedLiveObservations[identity],
+           (0...600).contains(now.timeIntervalSince(receipt)), original.fixture.status.isLive {
+            return enriched
+        }
+        guard original.fixture.status.isLive else { return enriched }
+        let fixture = FottyFixture(id: original.fixture.id, utcDate: original.fixture.utcDate, status: .unknown,
+            competition: original.fixture.competition, venue: original.fixture.venue, matchday: original.fixture.matchday,
+            apiFootballFixtureId: original.fixture.apiFootballFixtureId, roundLabel: original.fixture.roundLabel,
+            lastUpdated: original.fixture.lastUpdated, elapsedMinutes: nil, extraMinutes: nil)
+        return MatchHubData(fixture: fixture, homeTeam: enriched.homeTeam, awayTeam: enriched.awayTeam,
+            score: enriched.score, events: enriched.events, homeLineup: enriched.homeLineup,
+            awayLineup: enriched.awayLineup, statistics: enriched.statistics, teamNews: enriched.teamNews,
+            lastUpdated: original.lastUpdated, dataQuality: .stale)
+    }
+
+    private func sameMatchScope(_ data: MatchHubData, as original: MatchHubData) -> Bool {
+        guard matchKey(for: data) == matchKey(for: original) else { return false }
+        return FootballDataPolicy.supportsLiveScores(competition: original.fixture.competition)
+            ? FootballDataPolicy.supportsLiveScores(competition: data.fixture.competition)
+            : data.fixture.competition.id == original.fixture.competition.id
+    }
+
     private func preserveEnrichedFields(from existing: MatchHubData, into merged: MatchHubData) -> MatchHubData {
-        MatchHubData(
+        let teams = matchingOfficialArtwork(from: existing, preserving: merged, keepingTrustedTarget: true)
+        return MatchHubData(
             fixture: merged.fixture,
-            homeTeam: merged.homeTeam,
-            awayTeam: merged.awayTeam,
+            homeTeam: teams.home,
+            awayTeam: teams.away,
             score: merged.score,
             events: merged.events.isEmpty ? existing.events : merged.events,
             homeLineup: merged.homeLineup ?? existing.homeLineup,
             awayLineup: merged.awayLineup ?? existing.awayLineup,
             statistics: merged.statistics.isEmpty ? existing.statistics : merged.statistics,
-            teamNews: merged.teamNews.isEmpty ? existing.teamNews : existing.teamNews,
+            teamNews: merged.teamNews.isEmpty ? existing.teamNews : merged.teamNews,
             lastUpdated: merged.lastUpdated,
             dataQuality: merged.dataQuality
         )
+    }
+
+    /// Team/fixture IDs remain in the schedule namespace. Only the official
+    /// PL publisher's mapped code-based artwork is portable across providers.
+    private func matchingOfficialArtwork(from facts: MatchHubData, preserving target: MatchHubData,
+                                         keepingTrustedTarget: Bool = false) -> (home: FottyTeam, away: FottyTeam) {
+        guard sameMatchScope(facts, as: target), facts.dataQuality == .official,
+              FootballDataPolicy.supportsLiveScores(competition: facts.fixture.competition),
+              facts.fixture.status.isLive || facts.fixture.status.isFinished else {
+            return (target.homeTeam, target.awayTeam)
+        }
+        func team(_ identity: FottyTeam, artwork: FottyTeam) -> FottyTeam {
+            if keepingTrustedTarget, target.dataQuality == .official,
+               FootballDataPolicy.isOfficialPremierLeagueCrestURL(identity.crestURL) { return identity }
+            guard FootballDataPolicy.isOfficialPremierLeagueCrestURL(artwork.crestURL) else { return identity }
+            return FottyTeam(id: identity.id, name: identity.name, shortName: identity.shortName,
+                crestURL: artwork.crestURL, color: identity.color)
+        }
+        return (team(target.homeTeam, artwork: facts.homeTeam), team(target.awayTeam, artwork: facts.awayTeam))
     }
     
     // MARK: - Derived Logic (Non-API)

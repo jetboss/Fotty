@@ -1,0 +1,24 @@
+{
+  "observedAt": "2026-11-01T02:26:43.090621+00:00",
+  "scope": "one bounded current-media recheck, earlier failed samples retained",
+  "receipts": [
+    {
+      "name": "TNT Sports 1",
+      "nativeQualified": false,
+      "selection": "penultimate current segment",
+      "status": 200,
+      "mime": "video/mp2t",
+      "mediaShape": "mpeg-ts",
+      "sampledBytes": 8192
+    },
+    {
+      "name": "USA Network",
+      "nativeQualified": false,
+      "selection": "penultimate current segment",
+      "status": 206,
+      "mime": "video/MP2T",
+      "mediaShape": "mpeg-ts",
+      "sampledBytes": 8192
+    }
+  ]
+}

@@ -1,7 +1,7 @@
 import type { ScrapedMatch } from "@/lib/api";
 import { fixtureDisplayPriority } from "@/lib/v2/match-priority";
 
-export function buildMatchSearchText(match: ScrapedMatch) {
+function buildMatchSearchText(match: ScrapedMatch) {
   return [
     match.title,
     match.displayTitle,
@@ -19,7 +19,7 @@ export function buildMatchSearchText(match: ScrapedMatch) {
     .toLowerCase();
 }
 
-export function normalizeSearch(value: string) {
+function normalizeSearch(value: string) {
   return value
     .normalize("NFD")
     .replace(/[øØ]/g, "o")
@@ -31,7 +31,7 @@ export function normalizeSearch(value: string) {
     .trim();
 }
 
-export function scoreMatch(match: ScrapedMatch, query: string) {
+function scoreMatch(match: ScrapedMatch, query: string) {
   const title = normalizeSearch(match.displayTitle || match.title);
   const home = normalizeSearch(match.teams?.home.name || "");
   const away = normalizeSearch(match.teams?.away.name || "");

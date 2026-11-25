@@ -1,0 +1,11 @@
+{
+  "build": "2.0.1 (212)",
+  "appAndWidget": "212",
+  "signedRelease": "passed",
+  "deepStrictSignature": "passed",
+  "executableSHA256": "98f579cb05ece81b4527c2fffb496aef5c95431769ae17da248a5d1eb18d6d66",
+  "phoneInstall": false,
+  "testFlight": false,
+  "normalJetInstall": "passed",
+  "freshNormalLaunch": "passed"
+}

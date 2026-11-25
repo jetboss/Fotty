@@ -1,0 +1,39 @@
+{
+  "observedAt": "2026-11-01T02:15:57.493359+00:00",
+  "build": "208",
+  "surface": "Jet iPad only; normal Sports TV Watch",
+  "channel": "NBC Sports NOW",
+  "provider": "TV9",
+  "nativeVideoVisible": true,
+  "observedNativeHoldSeconds": 110,
+  "localPositiveContinuitySample": true,
+  "observedProgramme": "250 Moto 1 motocross; NBC Sports microphone branding observed; no current live-event claim",
+  "languageEvidence": "public feed and HLS master declare English; audio not independently heard through Device Hub",
+  "nativeFullscreenVisible": true,
+  "nativePlayPauseAndAdvancingReturnObserved": true,
+  "PiPVisibleBeforeHome": true,
+  "PiPVisibleAndAdvancingAtHomeForAtLeastSeconds": 68,
+  "systemPiPRestoreFromHome": "pending: remote single taps did not expose system restore controls; app opened for cleanup, which is not a restore pass",
+  "exactPlayerItemInstrumentation": false,
+  "lifecycle": [
+    {
+      "time": "2026-11-01T02:09:17.418937+00:00",
+      "event": "presented",
+      "PiPActive": "false",
+      "appBackgrounded": "false"
+    },
+    {
+      "time": "2026-11-01T02:10:24.618277+00:00",
+      "event": "pip_will_start",
+      "PiPActive": "true",
+      "appBackgrounded": "false"
+    },
+    {
+      "time": "2026-11-01T02:10:25.429068+00:00",
+      "event": "pip_did_start",
+      "PiPActive": "true",
+      "appBackgrounded": "false"
+    }
+  ],
+  "PLOrUCLLiveQualification": false
+}

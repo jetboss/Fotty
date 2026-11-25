@@ -40,7 +40,6 @@ export function TeamBadge({ name, badge, size = 40 }: { name: string; badge?: st
       aria-label={`Team badge for ${name}`}
     >
       {canShowImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src!}
           alt={name}

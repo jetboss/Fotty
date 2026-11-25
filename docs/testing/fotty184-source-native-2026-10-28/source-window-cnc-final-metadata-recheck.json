@@ -1,0 +1,89 @@
+{
+  "checkedAtUTC": "2026-10-29T01:28:15.076662+00:00",
+  "fixture": "Washington Capitals–Philadelphia Flyers, 2026-10-28T23:30:00Z",
+  "reads": [
+    {
+      "stage": "official_status",
+      "httpStatus": 200,
+      "MIME": "application/json",
+      "bytes": 9021,
+      "cacheEvidence": {
+        "Date": "Thu, 29 Oct 2026 01:28:15 GMT",
+        "Cache-Control": "no-transform, max-age=19, s-maxage=19"
+      },
+      "bodySHA256": "31fe6972c1b1fbf6f43bbdd9153b56cdae4935ca9424caf1ad44e29611df27bf",
+      "teamsCorroborated": true,
+      "dateCorroborated": true,
+      "gameState": "LIVE",
+      "eligibleNow": true
+    },
+    {
+      "stage": "reviewed_catalog",
+      "httpStatus": 200,
+      "MIME": "application/json",
+      "bytes": 304493,
+      "cacheEvidence": {
+        "Date": "Thu, 29 Oct 2026 01:28:16 GMT"
+      },
+      "bodySHA256": "1f83e076529eae34ec862b6e27fe2f67ccd7aa23d9f9bdaf12e3abae7463a662",
+      "entryCount": 85,
+      "exactParticipantCandidateCount": 1
+    },
+    {
+      "stage": "same_id_metadata",
+      "httpStatus": 200,
+      "MIME": "application/json",
+      "bytes": 1699,
+      "cacheEvidence": {
+        "Date": "Thu, 29 Oct 2026 01:28:19 GMT"
+      },
+      "bodySHA256": "ea04983894f962e1552d7823a25906a0be2864753eacc4fd1456e32a8b75b050",
+      "sameAdvertisedID": true,
+      "datedCompetitionParticipantIdentityCorroborated": true
+    },
+    {
+      "stage": "fresh_stream_descriptor",
+      "httpStatus": 200,
+      "MIME": "application/json",
+      "bytes": 848,
+      "cacheEvidence": {
+        "Date": "Thu, 29 Oct 2026 01:28:20 GMT"
+      },
+      "bodySHA256": "3a209b25c99a5ac275d4bfac0ca41b74f60c33b1eb85884a80ebe8e344a48cac",
+      "entryCount": 2,
+      "advertisedKinescopeHLSCount": 1,
+      "requestNoCache": true
+    },
+    {
+      "stage": "advertised_master",
+      "httpStatus": 200,
+      "MIME": "application/vnd.apple.mpegurl",
+      "bytes": 25,
+      "cacheEvidence": {
+        "Date": "Thu, 29 Oct 2026 01:28:21 GMT",
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0"
+      },
+      "bodySHA256": "b63c2ad76f13bc74bfa26eea034236c2dc066e98490a2ce05cfa39db5859d13e",
+      "HLSHeader": true,
+      "variantCount": 0,
+      "fullSegmentCount": 0,
+      "plainURIReferenceCount": 0,
+      "variableDefinitionCount": 0,
+      "advertisedHeaderKeys": [
+        "referer",
+        "user-agent"
+      ]
+    }
+  ],
+  "mediaSegmentsFetched": 0,
+  "keysFetched": 0,
+  "sourceSettingsChanged": false,
+  "qualification": "pending",
+  "status": "empty_current_master_pending_not_global_provider_failure",
+  "retention": {
+    "redactedCopy": true,
+    "sourceFile": "source-window-cnc-final-metadata-recheck.json",
+    "omittedFieldCount": 0,
+    "scope": "Metadata and bounded HLS-master observations only; no decoded-playback qualification."
+  }
+}

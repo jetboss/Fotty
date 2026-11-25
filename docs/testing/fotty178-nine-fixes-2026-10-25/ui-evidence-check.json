@@ -1,0 +1,218 @@
+{
+  "schemaVersion": 1,
+  "contractID": "fotty25-core-ui-20261025",
+  "integrity": "passed",
+  "sourceSHA256": "46af81943224eebcee6dcfbeb3a64a10d57ebff875b3e966a07de805dc4d0936",
+  "sourceFileCount": 57,
+  "referenceChecks": [
+    {
+      "id": "approved-full-experience",
+      "kind": "approved-concept",
+      "status": "hash-verified",
+      "access": "Owner-approved local concept; current file fingerprint checked25October2026. Inline variant retained; later video-first native iPad refinement takes precedence."
+    },
+    {
+      "id": "approved-inline",
+      "kind": "approved-concept",
+      "status": "hash-verified",
+      "access": "Owner-approved local concept; current file fingerprint checked25October2026. Inline variant retained; later video-first native iPad refinement takes precedence."
+    },
+    {
+      "id": "native-contract",
+      "kind": "repository-contract",
+      "status": "hash-verified",
+      "access": "Repository screen contracts and explicit owner decisions; checked25October2026."
+    },
+    {
+      "id": "design-standard",
+      "kind": "repository-contract",
+      "status": "hash-verified",
+      "access": "Repository screen contracts and explicit owner decisions; checked25October2026."
+    },
+    {
+      "id": "apple-kits",
+      "kind": "official-guidance",
+      "status": "metadata-only",
+      "access": "Official iOS/iPadOS27 Figma/Sketch listing inspected25October; design file itself not opened/downloaded."
+    },
+    {
+      "id": "apple-layout",
+      "kind": "official-guidance",
+      "status": "metadata-only",
+      "access": "Current official Markdown read25October2026; hierarchy/adaptation/safe areas."
+    },
+    {
+      "id": "apple-video",
+      "kind": "official-guidance",
+      "status": "metadata-only",
+      "access": "Current official Markdown read25October2026; native controls/aspect/supplementary context."
+    },
+    {
+      "id": "apple-tv-journey",
+      "kind": "product-reference",
+      "status": "metadata-only",
+      "access": "Public discovery guide directly inspected25October; documented flow, not an operated app session."
+    },
+    {
+      "id": "apple-tv-controls",
+      "kind": "product-reference",
+      "status": "metadata-only",
+      "access": "Public playback/PiP guides directly inspected25October; not current native-device screenshots."
+    },
+    {
+      "id": "mobbin",
+      "kind": "product-reference",
+      "status": "metadata-only",
+      "access": "Public landing/discover pages inspected25October; no authenticated individual sports journey inspected. Lead only."
+    },
+    {
+      "id": "swiftuix",
+      "kind": "library-lead",
+      "status": "metadata-only",
+      "access": "Primary repository reviewed25October; no concrete missing control justifies adoption. No dependency added."
+    },
+    {
+      "id": "snapshot-testing",
+      "kind": "library-lead",
+      "status": "metadata-only",
+      "access": "Primary repository reviewed25October; existing bounded comparator retained, no duplicate dependency."
+    }
+  ],
+  "pendingReferences": [],
+  "screens": [
+    {
+      "id": "home",
+      "componentStudies": [
+        "home-phone-dark",
+        "home-phone-narrow",
+        "home-ipad-wide",
+        "current-root-home-phone-narrow",
+        "current-root-home-ipad-wide",
+        "current-root-home-empty-phone"
+      ],
+      "verifiedNativeScreens": [
+        "jet178-home-portrait",
+        "jet178-home-final-release"
+      ],
+      "historicalEvidence": [
+        "home-phone-dark",
+        "home-phone-narrow",
+        "home-ipad-wide",
+        "current-root-home-phone-narrow",
+        "current-root-home-ipad-wide",
+        "current-root-home-empty-phone",
+        "jet177-home-native",
+        "jet177-home-landscape-display"
+      ],
+      "openChecks": [
+        "Actual phone-idiom safe areas/three-column sports layout are outside this repair gate: phone177 is left untouched for this nine-fix gate. Catalyst phone-width is not phone evidence.",
+        "Physical accessibility Dynamic Type/VoiceOver and resize/refresh/return stress are separate from normal-size Jet review."
+      ],
+      "physicalChecksPending": true
+    },
+    {
+      "id": "matchday",
+      "componentStudies": [
+        "current-root-matchday-phone-narrow"
+      ],
+      "verifiedNativeScreens": [
+        "jet178-matchday-empty-release"
+      ],
+      "historicalEvidence": [
+        "current-root-matchday-phone-narrow",
+        "jet177-matchday",
+        "jet177-matchday-landscape-display"
+      ],
+      "openChecks": [
+        "Saved-item Remove/reminder side effects require a separate data gate; no owner saved identities changed for UI review.",
+        "Narrow split-window, native light appearance and physical Dynamic Type/VoiceOver remain outside the verified normal-size portrait/landscape journey."
+      ],
+      "physicalChecksPending": true
+    },
+    {
+      "id": "search",
+      "componentStudies": [
+        "current-root-search-prompt-phone-light",
+        "178-search-tiles-343-dark",
+        "178-search-tiles-288-accessibility-layout-light"
+      ],
+      "verifiedNativeScreens": [
+        "jet178-search-tiles"
+      ],
+      "historicalEvidence": [
+        "current-root-search-prompt-phone-light",
+        "jet177-search"
+      ],
+      "openChecks": [
+        "Full software-keyboard occlusion, physical phone and actual large-text/VoiceOver remain pending; current Jet input-accessory/query/Done journey passed.",
+        "Results/latest-query ownership and empty/partial failures have local coverage, not every current provider/device/AX state."
+      ],
+      "physicalChecksPending": true
+    },
+    {
+      "id": "settings",
+      "componentStudies": [
+        "settings-phone-narrow",
+        "current-root-settings-phone-accessible"
+      ],
+      "verifiedNativeScreens": [
+        "jet178-settings-release",
+        "jet178-darts-local-release"
+      ],
+      "historicalEvidence": [
+        "settings-phone-narrow",
+        "current-root-settings-phone-accessible",
+        "jet177-settings",
+        "jet177-settings-landscape-display"
+      ],
+      "openChecks": [
+        "Physical normal Preferences/Appearance navigation is recorded separately; no source/default/appearance toggle changes for this pass.",
+        "Actual phone, physical Dynamic Type and VoiceOver reading-order checks remain pending; static reflow is not native certification."
+      ],
+      "physicalChecksPending": true
+    },
+    {
+      "id": "match-details",
+      "componentStudies": [
+        "current-root-match-details-phone-accessible"
+      ],
+      "verifiedNativeScreens": [
+        "jet178-match-details-release"
+      ],
+      "historicalEvidence": [
+        "current-root-match-details-phone-accessible",
+        "jet177-catalog-details"
+      ],
+      "openChecks": [
+        "Portrait/large-detent and actual Dynamic Type/VoiceOver remain distinct from the verified normal-size landscape medium sheet.",
+        "Watch/reminder/saved-data side effects intentionally unchanged and not exercised merely for screenshots."
+      ],
+      "physicalChecksPending": true
+    },
+    {
+      "id": "single-player",
+      "componentStudies": [
+        "single-player-phone",
+        "current-root-source-sheet-short-accessible",
+        "current-root-source-sheet-ipad"
+      ],
+      "verifiedNativeScreens": [],
+      "historicalEvidence": [
+        "single-player-phone",
+        "current-root-source-sheet-short-accessible",
+        "current-root-source-sheet-ipad",
+        "jet177-player-sources",
+        "jet177-player-details"
+      ],
+      "openChecks": [
+        "Decoded playback/native-fullscreen/PiP continuity and measured responsiveness are not established by UI-sheet assertions or connecting-state captures.",
+        "Native source filtering during decoded playback, physical phone, real Dynamic Type/VoiceOver and resized-player checks remain separate gates."
+      ],
+      "physicalChecksPending": true
+    }
+  ],
+  "evidenceComplete": false,
+  "releaseAccepted": false,
+  "installAuthorized": false,
+  "captureProvenance": "Reviewer-supplied declaration, not independent compiler attestation; hashes establish freshness and integrity, not approval."
+}

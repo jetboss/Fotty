@@ -1,0 +1,152 @@
+{
+  "checkedAt": "2026-11-04T02:53:34.551Z",
+  "candidateCount": 71,
+  "official": {
+    "fixtureID": "cricket-fixture:icc:271651",
+    "sport": "cricket",
+    "participants": [
+      "New Zealand",
+      "India"
+    ],
+    "start": "2026-11-04T02:00:00.000Z",
+    "competitionID": "icc",
+    "format": "ODI",
+    "matchOrdinal": 1,
+    "status": "live",
+    "observedAt": "2026-11-04T02:53:34.551Z",
+    "verified": true
+  },
+  "links": [
+    {
+      "provider": "communitysports",
+      "state": "listed",
+      "startRelation": "early-coverage"
+    },
+    {
+      "provider": "communitysports",
+      "state": "needsVerification",
+      "reason": "stale-source"
+    }
+  ],
+  "accepted": 1,
+  "localChecks": {
+    "focused": 176,
+    "watchdog": 186,
+    "failed": 0,
+    "skipped": 0,
+    "playbackBundle": "passed",
+    "watchdogBundle": "passed"
+  },
+  "deployment": {
+    "pr": 121,
+    "commit": "864ca6550459f6d547fa8ab684fa40a6bd986db5",
+    "sourceVersion": "2026-11-04.cricket-test-overlap-1",
+    "playbackVersion": "69b5a7ee-2cce-41d0-8c0e-4eae7c869c02",
+    "watchdogVersion": "46578ba6-e599-4057-91fc-3a3e89fd825a",
+    "checks": [
+      "Web CI",
+      "Repository Quality",
+      "CodeQL Interpreted"
+    ],
+    "status": "verified deployed; real post-deploy collector completion and retained notices confirmed"
+  },
+  "physicalWatch": {
+    "build": "3.0.0(230)",
+    "device": "Jet iPad",
+    "tapAt": "2026-11-04T03:02:45.371Z",
+    "feedbackObservedAt": "2026-11-04T03:02:46Z",
+    "firstPictureObservedAt": "2026-11-04T03:02:55Z",
+    "startupUpperBoundSeconds": 10,
+    "source": "CS1",
+    "programme": "New Zealand\u2013India, first ODI, Eden Park Auckland, TNT Sports 2 feed",
+    "initialScore": "NZ 45/2, 10 overs",
+    "pickerOptions": 7,
+    "hold": {
+      "result": "passed correct-programme visual samples and native continuity telemetry",
+      "from": "2026-11-04T03:02:55Z",
+      "to": "2026-11-04T03:04:47Z",
+      "seconds": 112,
+      "selectedSource": "CS1",
+      "picture": "moving cricket action at each observed sample; no loading or replacement observed",
+      "limitation": "Qualifies this observed CS1 delivery only, not all seven options or publisher independence",
+      "nativeContinuity": {
+        "at": "2026-11-04T03:04:22.473565Z",
+        "elapsedMilliseconds": 91006,
+        "mediaAdvanceMilliseconds": 91006,
+        "stalls": 0
+      }
+    },
+    "pause": {
+      "result": "passed",
+      "observedAt": "2026-11-04T03:05:09Z",
+      "score": "NZ46/2 at10.2 overs"
+    },
+    "resume": {
+      "result": "failed on CS1; recovered automatically to TV1",
+      "requestedAt": "2026-11-04T03:05:27.149Z",
+      "failureAt": "2026-11-04T03:05:54.431Z",
+      "trigger": "stall_timeout",
+      "observationMilliseconds": 26980,
+      "cause": "Unresolved: evidence does not distinguish native resume/transport behavior from upstream delivery behavior. No speculative player change made."
+    },
+    "automaticRecovery": {
+      "from": "CS1",
+      "to": "TV1 Willow Cricket",
+      "failoverAt": "2026-11-04T03:05:54.484Z",
+      "replacementProgressAt": "2026-11-04T03:06:00.039Z",
+      "secondsAfterFailover": 5.555,
+      "secondsAfterResumeRequest": 32.89,
+      "programme": "Same New Zealand\u2013India first ODI; Willow edition, observed NZ52/2",
+      "hold": {
+        "at": "2026-11-04T03:07:31.950481Z",
+        "nativeContinuityMilliseconds": 91900,
+        "result": "passed"
+      },
+      "independence": "Different configured source families and on-screen editions; upstream publisher independence not established"
+    },
+    "nativeFullscreen": {
+      "result": "correct picture and native controls observed on TV1",
+      "presentedAt": "2026-11-04T03:06:20.301Z",
+      "pauseObservedAt": "2026-11-04T03:07:52Z",
+      "resumeRequestedAt": "2026-11-04T03:10:24.605Z",
+      "changedPictureObservedAt": "2026-11-04T03:10:31Z",
+      "laterChangedPictureObservedAt": "2026-11-04T03:11:06Z",
+      "limitation": "No PiP acceptance claimed; resumed image observations are separate from earlier 90-second native continuity receipt"
+    }
+  },
+  "production": {
+    "checkedAt": "2026-11-04T03:02:11.276Z",
+    "official": {
+      "id": "icc:271651",
+      "status": "live",
+      "start": "2026-11-04T02:00:00.000Z",
+      "format": "ODI",
+      "matchOrdinal": 1,
+      "verification": "verified",
+      "observedAt": "2026-11-04T03:00:35.461Z"
+    },
+    "links": [
+      {
+        "provider": "communitysports",
+        "state": "listed",
+        "startRelation": "early-coverage",
+        "expiresAt": "2026-11-04T03:30:35.461Z"
+      },
+      {
+        "provider": "communitysports",
+        "state": "needsVerification",
+        "reason": "stale-source",
+        "expiresAt": "2026-11-03T07:55:30.784Z"
+      }
+    ]
+  },
+  "cloudPreservation": {
+    "ok": true,
+    "problems": [],
+    "notificationCount": 141
+  },
+  "remaining": [
+    "CS1 pause/resume stall cause is not yet isolated; automatic recovery took approximately 33 seconds from resume request.",
+    "This match does not qualify every source or every cricket/football competition."
+  ]
+}

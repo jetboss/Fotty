@@ -6,8 +6,8 @@ import { LegalFooter } from "@/components/LegalFooter";
 export const revalidate = 45;
 
 export const metadata = {
-  title: "Welcome to Fotty",
-  description: "Live sports in your browser. The Fotty iOS app is the full native match-day experience.",
+  title: "Welcome to Fotty Sports Hub",
+  description: "Live sports in your browser. The Fotty Sports Hub iOS app is the full native match-day experience.",
 };
 
 export default async function WelcomePage() {
@@ -18,7 +18,7 @@ export default async function WelcomePage() {
     <main className="min-h-dvh bg-background pt-12 text-text-primary">
       <div className="mx-auto max-w-3xl space-y-10 px-md py-lg">
         <header className="space-y-4">
-          <p className="text-xs font-black uppercase tracking-[0.25em] text-accent">FOTTY</p>
+          <p className="text-xs font-black uppercase tracking-[0.25em] text-accent">FOTTY · SPORTS HUB</p>
           <h1 className="text-4xl font-black leading-tight text-white sm:text-5xl">Match day in your browser.</h1>
           <p className="text-sm font-medium leading-7 text-text-secondary sm:text-base">
             Fotty Web is coverage for when you need a quick watch in the browser. The Fotty iOS app is the primary

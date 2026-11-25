@@ -1,0 +1,71 @@
+[
+  {
+    "event": "source_failure",
+    "at": "2026-10-30T20:19:51.892096+00:00",
+    "facts": {
+      "source": "CS1",
+      "source_family": "communitysports",
+      "failure_kind": "sourceFailure",
+      "last_observed_stage": "decoded",
+      "relay_failure_stage": "upstream_response",
+      "relay_failure_kind": "http_status",
+      "relay_http_status": "404"
+    }
+  },
+  {
+    "event": "attempt_started",
+    "at": "2026-10-30T20:19:51.969250+00:00",
+    "facts": {
+      "source": "CS1",
+      "source_family": "communitysports",
+      "last_observed_stage": "preparing"
+    }
+  },
+  {
+    "event": "decoded_progress",
+    "at": "2026-10-30T20:20:01.994151+00:00",
+    "facts": {
+      "source": "CS1",
+      "source_family": "communitysports",
+      "last_observed_stage": "decoded"
+    }
+  },
+  {
+    "event": "source_failure",
+    "at": "2026-10-30T20:20:27.070272+00:00",
+    "facts": {
+      "source": "CS1",
+      "source_family": "communitysports",
+      "failure_kind": "stalled",
+      "last_observed_stage": "decoded"
+    }
+  },
+  {
+    "event": "automatic_failover",
+    "at": "2026-10-30T20:20:27.105629+00:00",
+    "facts": {
+      "source": "CS1",
+      "source_family": "communitysports",
+      "failure_kind": "stalled",
+      "last_observed_stage": "decoded"
+    }
+  },
+  {
+    "event": "attempt_started",
+    "at": "2026-10-30T20:20:27.204595+00:00",
+    "facts": {
+      "source": "CS2",
+      "source_family": "communitysports",
+      "last_observed_stage": "preparing"
+    }
+  },
+  {
+    "event": "decoded_progress",
+    "at": "2026-10-30T20:20:31.470485+00:00",
+    "facts": {
+      "source": "CS2",
+      "source_family": "communitysports",
+      "last_observed_stage": "decoded"
+    }
+  }
+]

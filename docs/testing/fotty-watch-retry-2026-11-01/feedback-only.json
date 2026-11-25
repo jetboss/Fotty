@@ -1,0 +1,240 @@
+{
+  "observedAtUTC": "2026-11-01T23:46:00.297803+00:00",
+  "events": [
+    {
+      "timeUTC": "2026-11-01T23:33:30.050234+00:00",
+      "name": "schedule_refresh",
+      "outcome": "success",
+      "details": {
+        "result": "fixtures"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:45.567606+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "source_index": "1",
+        "last_observed_stage": "preparing",
+        "source_count": "1",
+        "source": "CS1"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:47.242074+00:00",
+      "name": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "last_observed_stage": "preparing",
+        "failure_kind": "providerUnavailable",
+        "source_family": "communitysports",
+        "source": "CS1",
+        "source_count": "6",
+        "source_index": "1",
+        "preparation_http_status": "404",
+        "preparation_reason": "http_status"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:47.277610+00:00",
+      "name": "automatic_failover",
+      "outcome": "failure",
+      "details": {
+        "source_family": "communitysports",
+        "source_index": "1",
+        "failure_kind": "providerUnavailable",
+        "source": "CS1",
+        "source_count": "6",
+        "last_observed_stage": "preparing"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:47.392732+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "source_index": "5",
+        "last_observed_stage": "preparing",
+        "source_count": "6",
+        "source": "CS5"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:47.889273+00:00",
+      "name": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "preparation_reason": "http_status",
+        "last_observed_stage": "preparing",
+        "source_count": "6",
+        "source_family": "communitysports",
+        "preparation_http_status": "502",
+        "source": "CS5",
+        "source_index": "5",
+        "failure_kind": "sourceFailure"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:47.919515+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "source_index": "5",
+        "last_observed_stage": "preparing",
+        "source_count": "6",
+        "source": "CS5"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:48.589084+00:00",
+      "name": "source_failure",
+      "outcome": "failure",
+      "details": {
+        "preparation_reason": "http_status",
+        "last_observed_stage": "preparing",
+        "source_count": "6",
+        "source_family": "communitysports",
+        "preparation_http_status": "502",
+        "failure_kind": "sourceFailure",
+        "source": "CS5",
+        "source_index": "5"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:48.618342+00:00",
+      "name": "automatic_failover",
+      "outcome": "failure",
+      "details": {
+        "source_family": "communitysports",
+        "source_index": "5",
+        "failure_kind": "sourceFailure",
+        "source": "CS5",
+        "last_observed_stage": "preparing",
+        "source_count": "6"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:48.636488+00:00",
+      "name": "attempt_started",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "source_index": "6",
+        "last_observed_stage": "preparing",
+        "source_count": "6",
+        "source": "CS6"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:49.261789+00:00",
+      "name": "playback_causal_evidence",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "source_index": "6",
+        "source_count": "6",
+        "last_observed_stage": "preparing",
+        "source": "CS6"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:49.286602+00:00",
+      "name": "audio_activation_evidence",
+      "outcome": "info",
+      "details": {}
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:49.527703+00:00",
+      "name": "audio_activation_evidence",
+      "outcome": "info",
+      "details": {}
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:49.750622+00:00",
+      "name": "playback_causal_evidence",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "source_index": "6",
+        "source": "CS6",
+        "last_observed_stage": "preparing",
+        "source_count": "6"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:49.762865+00:00",
+      "name": "audio_preparation_duration",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "source_index": "6",
+        "source_count": "6",
+        "last_observed_stage": "preparing",
+        "source": "CS6"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:51.064972+00:00",
+      "name": "playback_stage",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS6",
+        "last_observed_stage": "media_ready",
+        "source_index": "6",
+        "stage": "media_ready",
+        "source_count": "6"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:51.079877+00:00",
+      "name": "decoded_progress",
+      "outcome": "success",
+      "details": {
+        "source_family": "communitysports",
+        "source": "CS6",
+        "last_observed_stage": "decoded",
+        "source_index": "6",
+        "source_count": "6"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:53.741608+00:00",
+      "name": "source_discovery_result",
+      "outcome": "success",
+      "details": {
+        "source_family": "communitysports",
+        "result": "exact_fixture_match",
+        "stage": "preparing"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:37:53.887902+00:00",
+      "name": "source_discovery_result",
+      "outcome": "failure",
+      "details": {
+        "source_family": "cncsports",
+        "result": "no_exact_fixture_match",
+        "stage": "preparing",
+        "failure_kind": "provider_returned_empty"
+      }
+    },
+    {
+      "timeUTC": "2026-11-01T23:38:32.270234+00:00",
+      "name": "session_closed",
+      "outcome": "info",
+      "details": {
+        "source_family": "communitysports",
+        "last_observed_stage": "decoded",
+        "source": "CS6",
+        "source_index": "6",
+        "source_count": "7"
+      }
+    }
+  ],
+  "registryGeneratedAt": "2026-11-01T23:43:11.011Z",
+  "latestPositiveContinuityUTC": "2026-11-01T20:29:02.460499+00:00"
+}

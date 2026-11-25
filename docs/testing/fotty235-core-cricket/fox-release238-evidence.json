@@ -1,0 +1,347 @@
+{
+  "recordedAt": "2026-11-04T16:29:36.322811+00:00",
+  "build": "3.0.0(238)",
+  "pr": 124,
+  "candidateHead": "cd4d3a0c68564fc03097e4023f4a02c174623ca2",
+  "validation": {
+    "nativeTests": 222,
+    "isolatedPlaybackAndPublishedWatchdogTests": 672,
+    "exactHostFollowupTests": 8,
+    "failures": 0,
+    "skips": 0,
+    "iosReleaseSigned": true,
+    "installedOnJet": true,
+    "launchAndSportsTVObserved": true,
+    "protectedPreferencesUnchanged": 27,
+    "protectedFPLAndMultiStreamSourceHashesUnchanged": 42,
+    "memoryChecksPassed": true
+  },
+  "rollback": {
+    "priorReaderCommit": "a7ec1b37aabbbb25b02fa09f6edd79a14bfe6aca",
+    "priorReaderHTTP": 200,
+    "genericChannelPreserved": true,
+    "currentReaderRestoresExactRecordMarketProof": true,
+    "readDoesNotRewriteState": true
+  },
+  "notProven": [
+    "live Fox programme-to-match Watch",
+    "independent backup for that live match"
+  ],
+  "deployment": {
+    "status": "verified",
+    "merge": "c12a800c8bbab78feae4ca583f485008a233fe5d",
+    "version": "2026-11-04.fox-programmes-1",
+    "deployedAt": "2026-11-04T16:32:08.035Z",
+    "foxEnabled": true,
+    "otherBindingsAndFlagsUnchanged": true,
+    "retainedNotices": 141,
+    "playbackVersionID": "dc9bcfae-1199-43dd-98f3-d38c767b9d09",
+    "watchdogVersionID": "05b0833d-47bc-4035-8389-e30152f2564c",
+    "safetyResult": {
+      "ok": true,
+      "problems": [],
+      "notificationCount": 141
+    },
+    "normalCollector": {
+      "observedAt": "2026-11-04T16:46:11.954Z",
+      "normalCollectorCompletedAt": "2026-11-04T16:46:09.152Z",
+      "noticeCount": 141
+    }
+  },
+  "failuresPreserved": [
+    "Earlier isolated test run lacked owned dependencies and native fixture checkout; corrected before 672-pass run.",
+    "Initial CodeQL alerts in test hostname assertions corrected to exact parsed host comparisons; production code unchanged.",
+    "One devicectl terminate-and-launch response reported CoreDeviceError10004; ordinary launch succeeded, app displayed normally and accepted fresh16:39:31UTC registry data. No app crash was established."
+  ],
+  "registry": {
+    "observedAt": "2026-11-04T16:45:59.827Z",
+    "current": {
+      "schema": 1,
+      "broadcastCount": 1703,
+      "linkCount": 13,
+      "providers": [
+        {
+          "provider": "cncsports",
+          "scope": "hockey",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T16:45:04.784Z",
+          "expiresAt": "2026-11-04T20:45:04.784Z",
+          "nextAttemptAt": "2026-11-04T17:15:04.784Z"
+        },
+        {
+          "provider": "cncsports",
+          "scope": "live",
+          "status": "failed",
+          "complete": false,
+          "failure": "source-unavailable",
+          "nextAttemptAt": "2026-11-04T17:15:04.784Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "american-football",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T14:30:04.916Z",
+          "expiresAt": "2026-11-04T18:30:04.916Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "baseball",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T16:30:21.070Z",
+          "expiresAt": "2026-11-04T20:30:21.070Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "basketball",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T16:30:21.070Z",
+          "expiresAt": "2026-11-04T20:30:21.070Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "college",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T15:50:05.299Z",
+          "expiresAt": "2026-11-04T19:50:05.299Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "cricket",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T16:30:21.070Z",
+          "expiresAt": "2026-11-04T20:30:21.070Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "darts",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T15:50:05.299Z",
+          "expiresAt": "2026-11-04T19:50:05.299Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "fight",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T15:10:04.986Z",
+          "expiresAt": "2026-11-04T19:10:04.986Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "football",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T16:30:21.070Z",
+          "expiresAt": "2026-11-04T20:30:21.070Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "golf",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T15:10:04.986Z",
+          "expiresAt": "2026-11-04T19:10:04.986Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "hockey",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T14:30:04.916Z",
+          "expiresAt": "2026-11-04T18:30:04.916Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "live",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T16:30:21.070Z",
+          "expiresAt": "2026-11-04T20:30:21.070Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "motorsport",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T15:10:04.986Z",
+          "expiresAt": "2026-11-04T19:10:04.986Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "networks",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T16:30:21.070Z",
+          "expiresAt": "2026-11-04T20:30:21.070Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "other",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T16:30:21.070Z",
+          "expiresAt": "2026-11-04T20:30:21.070Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "rugby",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T14:30:04.916Z",
+          "expiresAt": "2026-11-04T18:30:04.916Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "communitysports",
+          "scope": "tennis",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T15:50:05.299Z",
+          "expiresAt": "2026-11-04T19:50:05.299Z",
+          "nextAttemptAt": "2026-11-04T17:10:21.070Z"
+        },
+        {
+          "provider": "flixstreams",
+          "scope": "cricket",
+          "status": "failed",
+          "complete": false,
+          "observedAt": "2026-11-03T00:10:29.494Z",
+          "expiresAt": "2026-11-03T04:10:29.494Z",
+          "failure": "source-unavailable",
+          "nextAttemptAt": "2026-11-04T17:45:04.784Z"
+        },
+        {
+          "provider": "flixstreams",
+          "scope": "football",
+          "status": "failed",
+          "complete": false,
+          "observedAt": "2026-11-03T00:10:29.494Z",
+          "expiresAt": "2026-11-03T04:10:29.494Z",
+          "failure": "source-unavailable",
+          "nextAttemptAt": "2026-11-04T17:45:04.784Z"
+        },
+        {
+          "provider": "plaviosports",
+          "scope": "cricket",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-02T12:20:04.975Z",
+          "expiresAt": "2026-11-02T16:20:04.975Z",
+          "nextAttemptAt": "2026-11-04T16:55:06.038Z"
+        },
+        {
+          "provider": "plaviosports",
+          "scope": "football",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-02T12:20:04.975Z",
+          "expiresAt": "2026-11-02T16:20:04.975Z",
+          "nextAttemptAt": "2026-11-04T16:55:06.038Z"
+        },
+        {
+          "provider": "plaviosports",
+          "scope": "live",
+          "status": "failed",
+          "complete": false,
+          "observedAt": "2026-11-02T12:20:04.975Z",
+          "expiresAt": "2026-11-02T16:20:04.975Z",
+          "failure": "invalid-collection",
+          "nextAttemptAt": "2026-11-04T16:55:06.038Z"
+        },
+        {
+          "provider": "reviewedtv",
+          "scope": "cricket",
+          "status": "empty",
+          "complete": true,
+          "observedAt": "2026-11-04T16:45:36.053Z",
+          "expiresAt": "2026-11-04T20:45:36.053Z",
+          "nextAttemptAt": "2026-11-04T17:00:36.053Z"
+        },
+        {
+          "provider": "reviewedtv",
+          "scope": "football",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T16:45:36.053Z",
+          "expiresAt": "2026-11-04T20:45:36.053Z",
+          "nextAttemptAt": "2026-11-04T17:00:36.053Z"
+        },
+        {
+          "provider": "score808",
+          "scope": "football",
+          "status": "failed",
+          "complete": false,
+          "observedAt": "2026-11-03T22:20:06.936Z",
+          "expiresAt": "2026-11-04T02:20:06.936Z",
+          "failure": "invalid-collection",
+          "nextAttemptAt": "2026-11-04T17:20:04.711Z"
+        },
+        {
+          "provider": "streamex",
+          "scope": "live",
+          "status": "failed",
+          "complete": false,
+          "failure": "source-unavailable",
+          "nextAttemptAt": "2026-11-04T17:30:21.070Z"
+        },
+        {
+          "provider": "streamvix",
+          "scope": "football",
+          "status": "partial",
+          "complete": false,
+          "observedAt": "2026-11-04T16:15:04.985Z",
+          "expiresAt": "2026-11-04T20:15:04.985Z",
+          "failure": "invalid-collection",
+          "nextAttemptAt": "2026-11-04T17:15:04.985Z"
+        }
+      ],
+      "foxChannels": 1,
+      "foxProgrammeCount": 0,
+      "foxAUMarketCount": 0
+    },
+    "legacy": {
+      "schema": 1,
+      "broadcastCount": 1659,
+      "hasFoxGuide": false,
+      "hasAUMarker": false
+    }
+  },
+  "deviceScope": {
+    "phoneTouched": false,
+    "fplSourceHashesUnchanged": true,
+    "multiStreamSourceHashesUnchanged": true,
+    "testFlightRelease": false
+  },
+  "nativeRegistryAfterDeployment": {
+    "cacheGeneratedAt": "2026-11-04T16:39:31.791Z",
+    "broadcastCount": 1700,
+    "linkCount": 52,
+    "foxChannels": 1,
+    "foxAURecords": 0,
+    "changedProtectedKeys": [
+      "fotty.quality.records.v1"
+    ],
+    "preferenceNote": "Source/user settings and restored TV tab preserved. App-maintained quality records changed during normal refresh; no preference file was rewritten."
+  }
+}

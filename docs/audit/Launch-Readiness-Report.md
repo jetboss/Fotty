@@ -1,5 +1,7 @@
 # Fotty World Cup Readiness Audit - Product Readiness Report
 
+> **Historical report — do not use for current release status.** This document audits an older World Cup/Arena/social product graph that is no longer the reachable Fotty application. Use `Fotty-Whole-App-Readiness-Audit-2026-08-31.md` for the current screen, system and release-qualification ledger.
+
 ## Executive Summary
 Fotty has successfully pivoted to a sports-only application, but it is currently in a "functional prototype" state for major matchday usage. While core streaming and live score services are implemented, there are significant gaps in tournament-specific features (World Cup), data integrity (placeholder/mock data), and UX polish (date grouping, error states).
 

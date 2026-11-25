@@ -1,0 +1,27 @@
+{
+  "artifactSHA256": "532b2550b7aa95d48a31ce98c2f5211e3eae47f13e677cb30d5412daf3683b74",
+  "scope": "Observed deployed bytes; excerpts are static, not runtime execution proof.",
+  "excerpts": [
+    {
+      "lines": [
+        109,
+        114
+      ],
+      "text": "    outbox: 512,\n    recordBytes: 2048,\n    ledgerBytes: 1048576,\n    resolvedAgeMs: 30 * 864e5,\n    ...options.limits || {}\n  };"
+    },
+    {
+      "lines": [
+        1846,
+        1866
+      ],
+      "text": "async function probeCSDeliveryContract({ sportsSnapshot, catalog, manifest, now = Date.now(), environment = \"production\", read } = {}) {\n  const facts = { scope: \"football\", dimension: \"candidate-shape\" };\n  const observation2 = /* @__PURE__ */ __name((outcome, failureClass = \"delivery-contract-drift\", extra = {}) => ({\n    source: \"cs\",\n    stage: \"delivery-contract\",\n    environment,\n    observedAt: now,\n    checkedAt: now,\n    versions: { ...EXPECTED_VERSIONS },\n    outcome,\n    failureClass,\n    facts: { ...facts, ...extra }\n  }), \"observation\");\n  if (!Array.isArray(manifest?.resources) || !manifest.resources.includes(\"stream\")) return [observation2(\"unknown\")];\n  let match;\n  for (const fixture of eligibleFixtures(sportsSnapshot, now)) {\n    const selected = selectCSCatalogMatch(fixture, catalog);\n    if (selected.outcome === \"conflicting\") return [observation2(\"unknown\")];\n    if (selected.outcome === \"matched\") {\n      match = selected;\n      break;"
+    },
+    {
+      "lines": [
+        2702,
+        2705
+      ],
+      "text": "function activationTime(env, now = Date.now()) {\n  if (env.FOTTY_WATCHDOG_ENABLED !== \"1\" || !Number.isSafeInteger(now) || now < 0) return null;\n  const value = env.FOTTY_WATCHDOG_ACTIVATED_AT;\n  if (typeof value !== \"string\" || value.length > 40) return null;"
+    }
+  ]
+}

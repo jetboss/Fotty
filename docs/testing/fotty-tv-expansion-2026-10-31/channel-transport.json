@@ -1,0 +1,97 @@
+{
+  "completion": "channel_collection_complete_not_match_watch_qualification",
+  "deliveries": [
+    {
+      "endpoint": "directMedia",
+      "failureDetails": {
+        "relay_request_outcome": "completed"
+      },
+      "frames": 877,
+      "label": "TV2",
+      "phase": "completed",
+      "progressSeconds": 89.923,
+      "result": "decoded_90_seconds_channel_programme_review_required",
+      "startupSeconds": 1.927
+    },
+    {
+      "endpoint": "directMedia",
+      "failureDetails": {
+        "native_error_domain": "other",
+        "native_failure_trigger": "item_status_failed",
+        "relay_request_outcome": "in_flight"
+      },
+      "frames": 554,
+      "label": "TV3",
+      "nativeErrorCode": 1007,
+      "phase": "advancing_hold",
+      "progressSeconds": 55.856,
+      "result": "channel_check_failed",
+      "startupSeconds": 1.974
+    },
+    {
+      "endpoint": "directMedia",
+      "failureDetails": {
+        "relay_request_outcome": "completed"
+      },
+      "frames": 879,
+      "label": "TV4",
+      "phase": "completed",
+      "progressSeconds": 89.89,
+      "result": "decoded_90_seconds_channel_programme_review_required",
+      "startupSeconds": 1.968
+    },
+    {
+      "endpoint": "directMedia",
+      "failureDetails": {
+        "relay_request_outcome": "completed"
+      },
+      "frames": 879,
+      "label": "TV5",
+      "phase": "completed",
+      "progressSeconds": 89.923,
+      "result": "decoded_90_seconds_channel_programme_review_required",
+      "startupSeconds": 1.881
+    },
+    {
+      "endpoint": "directMedia",
+      "failureDetails": {
+        "relay_request_outcome": "completed"
+      },
+      "frames": 879,
+      "label": "TV6",
+      "phase": "completed",
+      "progressSeconds": 89.957,
+      "result": "decoded_90_seconds_channel_programme_review_required",
+      "startupSeconds": 1.681
+    },
+    {
+      "endpoint": "directMedia",
+      "failureDetails": {
+        "relay_request_outcome": "completed"
+      },
+      "frames": 879,
+      "label": "TV7",
+      "phase": "completed",
+      "progressSeconds": 90.023,
+      "result": "decoded_90_seconds_channel_programme_review_required",
+      "startupSeconds": 1.875
+    },
+    {
+      "endpoint": "directMedia",
+      "failureDetails": {
+        "relay_request_outcome": "completed"
+      },
+      "frames": 879,
+      "label": "TV8",
+      "phase": "completed",
+      "progressSeconds": 89.923,
+      "result": "decoded_90_seconds_channel_programme_review_required",
+      "startupSeconds": 1.767
+    }
+  ],
+  "normalMatchWatchQualified": false,
+  "observedAtUTC": "2026-10-31T22:25:54Z",
+  "schemaVersion": 1,
+  "scope": "reviewed_channel_transport_only",
+  "executionExitCode": 0
+}

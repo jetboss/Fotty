@@ -1,0 +1,14 @@
+{
+  "scope": "Owned source-repair inputs; excludes pre-existing unrelated dirty work. One temporary offline real-page test exists only in the owned compiled snapshot.",
+  "sha256": {
+    "Fotty/Core/Models/CurrentEventBroadcastPolicy.swift": "ed17d6d79d33391efbcd8b03c28e84dba1bdec14a16a964f6bfa40a6f2ea7994",
+    "Fotty/Features/Dashboard/MatchListViewModel.swift": "fd1a2ad090f5d6d508118bc916aa9a2ac838f4834a85a27da832bc93bff19d74",
+    "Fotty/Features/Player/ViewingSessionCoordinator.swift": "e862303844f9cac5fcf6f3cc21a08587c4d20481da302a8d36fe7387f06bde34",
+    "Fotty/Features/Dashboard/SportsDashboardView.swift": "e692503dc59cacb7cf684c24ed5b3062784f5cdaf044be2e37add3101583acef",
+    "Fotty/Features/Social/ArenaDiscoveryView.swift": "d16638aaffae48671e17287caf5292523cd432ac03d7c5da79ea6563dd9e1a60",
+    "Fotty/Core/Networking/PlavioSportsAddonClient.swift": "777f4af6c185b23782452a92d93b9d899d5dd51859b03ccfdaad00f986b05c05",
+    "FottyTests/ViewingSessionCoordinatorTests.swift": "aef2ad39d9907743b5efec3f9b7c2bf91df642db1aa69ebf482084a44c08ca17",
+    "FottyTests/SportsFixtureCatalogTests.swift": "03e8f03c5c2bba2f151d446bcab412ab65f5cdc63833d22d18c244255fe9eb22",
+    "FottyTests/PlavioSportsAddonTests.swift": "4023c493ff96a7a05d62de144f956fced123fba990805f3c1934d6c99f41cef9"
+  }
+}

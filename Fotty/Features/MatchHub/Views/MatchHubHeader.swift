@@ -1,20 +1,21 @@
 import SwiftUI
 
 struct MatchHubHeader: View {
+    @Environment(\.fottyStreamLookupBusy) private var streamLookupBusy
     let data: MatchHubData?
     let onWatchLive: (() -> Void)?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     
     var body: some View {
         VStack(spacing: 10) {
             // Competition and Match Info
-            HStack {
+            metadataLayout {
                 Text(data?.fixture.competition.audienceFacingName ?? "Match Detail")
-                    .font(.system(size: 11, weight: .black))
+                    .font(FottyTheme.typeModuleTitle)
                     .foregroundStyle(FottyTheme.textSecondary)
-                    .tracking(0.8)
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
                 
-                Spacer()
+                if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
                 
                 if let data {
                     DataQualityIndicator(status: data.dataQuality, lastUpdated: data.lastUpdated)
@@ -23,22 +24,9 @@ struct MatchHubHeader: View {
             .padding(.horizontal)
             
             // Scoreboard Area
-            HStack(spacing: 0) {
+            scoreboardLayout {
                 // Home Team
-                VStack(spacing: 6) {
-                    TeamBadgeView(badgeURL: data?.homeTeam.crestURL, teamName: data?.homeTeam.displayName ?? "", size: 48)
-                        .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
-                    
-                    Text(data?.homeTeam.displayName ?? "Home")
-                        .font(.system(size: 12, weight: .black, design: .rounded))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
-                        .frame(width: 84)
-                }
-                .layoutPriority(0)
-                
-                Spacer(minLength: 6)
+                teamIdentity(name: data?.homeTeam.displayName ?? "Home", badgeURL: data?.homeTeam.crestURL)
                 
                 // Score and Status — intrinsic width so large digits are not clipped between team columns.
                 VStack(spacing: 5) {
@@ -52,34 +40,21 @@ struct MatchHubHeader: View {
                             .font(.fottyScaled(size: 34, weight: .black, design: .rounded))
                             .monospacedDigit()
                             .lineLimit(1)
-                            .minimumScaleFactor(0.85)
                             .fixedSize(horizontal: true, vertical: false)
                             .layoutPriority(1)
                     } else if let kickoff = data?.fixture.utcDate {
                         Text(kickoff.formatted(date: .omitted, time: .shortened))
-                            .font(.fottyScaled(size: 24, weight: .black, design: .rounded))
-                            .lineLimit(1)
+                            .font(.title2.weight(.bold))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .multilineTextAlignment(.center)
                     }
                     
                     statusBadge
                 }
                 .frame(minWidth: 72)
                 
-                Spacer(minLength: 6)
-                
                 // Away Team
-                VStack(spacing: 6) {
-                    TeamBadgeView(badgeURL: data?.awayTeam.crestURL, teamName: data?.awayTeam.displayName ?? "", size: 48)
-                        .shadow(color: .black.opacity(0.25), radius: 4, y: 2)
-                    
-                    Text(data?.awayTeam.displayName ?? "Away")
-                        .font(.system(size: 12, weight: .black, design: .rounded))
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.85)
-                        .frame(width: 84)
-                }
-                .layoutPriority(0)
+                teamIdentity(name: data?.awayTeam.displayName ?? "Away", badgeURL: data?.awayTeam.crestURL)
             }
             .padding(.horizontal, 16)
 
@@ -87,8 +62,9 @@ struct MatchHubHeader: View {
                 Label(detailLine, systemImage: "calendar")
                     .font(FottyTheme.typeMeta)
                     .foregroundStyle(FottyTheme.textSecondary)
-                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
             }
             
             // Context-aware CTA
@@ -96,6 +72,8 @@ struct MatchHubHeader: View {
                 watchLiveButton
             }
         }
+        .foregroundStyle(FottyTheme.textPrimary)
+        .fixedSize(horizontal: false, vertical: true)
         .padding(.vertical, 14)
         .background(
             ZStack {
@@ -113,6 +91,34 @@ struct MatchHubHeader: View {
                 .strokeBorder(FottyTheme.border.opacity(0.5), lineWidth: 1)
                 .padding(.horizontal, 10)
         )
+    }
+
+    private var metadataLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 8))
+    }
+
+    private var scoreboardLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .center, spacing: 14))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+    }
+
+    private func teamIdentity(name: String, badgeURL: URL?) -> some View {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+            : AnyLayout(VStackLayout(alignment: .center, spacing: 8))
+        return layout {
+            TeamBadgeView(badgeURL: badgeURL, teamName: name, size: 48)
+                .accessibilityHidden(true)
+            Text(name)
+                .font(FottyTheme.typeModuleTitle)
+                .multilineTextAlignment(dynamicTypeSize.isAccessibilitySize ? .leading : .center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .center)
+        .accessibilityElement(children: .combine)
     }
 
     private var showsScore: Bool {
@@ -140,11 +146,13 @@ struct MatchHubHeader: View {
         if let status = data?.fixture.status {
             if status.isLive {
                 Text(data?.fixture.elapsedMinutes.map { "\($0)'" } ?? "Live")
-                    .font(.system(size: 12, weight: .bold))
+                    .font(FottyTheme.typeMeta.weight(.semibold))
                     .foregroundStyle(FottyTheme.accentText)
             } else {
                 Text(statusText(status))
-                    .font(.system(size: 12, weight: .black))
+                    .font(FottyTheme.typeMeta.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 4)
                     .background(FottyTheme.surfaceElevated)
@@ -152,7 +160,7 @@ struct MatchHubHeader: View {
             }
         } else {
             Text("NS")
-                .font(.system(size: 12, weight: .black))
+                .font(FottyTheme.typeMeta.weight(.semibold))
         }
     }
 
@@ -177,18 +185,10 @@ struct MatchHubHeader: View {
             HapticManager.impact(.medium)
             onWatchLive?()
         } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "play.fill")
-                    .font(.system(size: 11, weight: .bold))
-                Text("Watch live")
-            }
-            .font(FottyTheme.typeAction)
-            .foregroundStyle(FottyTheme.textOnAccent)
-            .padding(.horizontal, 18)
-            .padding(.vertical, 8)
-            .background(FottyTheme.accent)
-            .clipShape(RoundedRectangle(cornerRadius: FottyTheme.radiusSM, style: .continuous))
+            Label("Watch live", systemImage: "play.fill")
         }
+        .disabled(streamLookupBusy)
+        .buttonStyle(FottyPrimaryButtonStyle())
         .padding(.top, 6)
     }
 }
@@ -202,15 +202,18 @@ struct DataQualityIndicator: View {
             Circle()
                 .fill(statusColor)
                 .frame(width: 6, height: 6)
+                .accessibilityHidden(true)
             
             Text("\(statusLabel) • \(ageLabel)")
-                .font(.system(size: 10, weight: .bold))
+                .font(FottyTheme.typeMeta)
                 .foregroundStyle(FottyTheme.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
         .background(FottyTheme.surfaceElevated)
         .clipShape(Capsule())
+        .accessibilityElement(children: .combine)
     }
     
     private var statusColor: Color {

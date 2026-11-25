@@ -1,7 +1,7 @@
 import type { ScrapedMatch } from "@/lib/api";
 import { getDisplayTimeZone } from "@/lib/live";
 
-export type DayBucket = {
+type DayBucket = {
   key: string;
   date: Date;
   label: string;
@@ -17,14 +17,6 @@ function dayKeyForInstant(iso: string, timeZone: string) {
     month: "2-digit",
     day: "2-digit",
   }).format(date);
-}
-
-function startOfMonth(year: number, month: number) {
-  return new Date(year, month, 1);
-}
-
-function daysInMonth(year: number, month: number) {
-  return new Date(year, month + 1, 0).getDate();
 }
 
 export function groupFixturesByDay(matches: ScrapedMatch[], timeZone = getDisplayTimeZone()) {
@@ -52,33 +44,4 @@ export function groupFixturesByDay(matches: ScrapedMatch[], timeZone = getDispla
   }
 
   return days.sort((a, b) => a.date.getTime() - b.date.getTime());
-}
-
-export function monthMatrix(year: number, month: number, timeZone = getDisplayTimeZone()) {
-  const first = startOfMonth(year, month);
-  const total = daysInMonth(year, month);
-  const startWeekday = first.getDay();
-  const mondayBasedOffset = (startWeekday + 6) % 7;
-  const cells: Array<{ key: string; day: number | null; date: Date | null }> = [];
-
-  for (let i = 0; i < mondayBasedOffset; i++) {
-    cells.push({ key: `pad-${i}`, day: null, date: null });
-  }
-
-  for (let day = 1; day <= total; day++) {
-    const date = new Date(year, month, day, 12, 0, 0);
-    const key = new Intl.DateTimeFormat("en-CA", {
-      timeZone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(date);
-    cells.push({ key, day, date });
-  }
-
-  return { year, month, cells };
-}
-
-export function monthTitle(year: number, month: number) {
-  return new Date(year, month, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" });
 }

@@ -26,7 +26,8 @@ public enum FPLSquadValidator {
 
         let missingPlayers = picks.filter { playerByID[$0.element] == nil }
         if !missingPlayers.isEmpty {
-            issues.append(error("unknown-player", "\(missingPlayers.count) squad player(s) are missing from the current FPL catalog."))
+            let noun = missingPlayers.count == 1 ? "player is" : "players are"
+            issues.append(error("unknown-player", "\(missingPlayers.count) squad \(noun) missing from the current FPL player list."))
         }
 
         let positions = picks.map(\.position)

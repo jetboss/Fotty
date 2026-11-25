@@ -1,0 +1,210 @@
+{
+  "completion": "physical_collection_complete_review_each_delivery",
+  "fixtureID": "sports-fixture:premier-league:560628",
+  "fixtureStatus": "live",
+  "kickoffUTC": "2026-10-31T20:00:00Z",
+  "liveStatusAuthority": "independent_espn_exact_fixture_in_progress",
+  "mode": "physical",
+  "observedAtUTC": "2026-10-31T20:21:41Z",
+  "rows": [
+    {
+      "catalog": "catalog_failed",
+      "deliveries": [],
+      "elapsedMilliseconds": 929,
+      "failureCategory": "unknown",
+      "provider": "streamex",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [
+        {
+          "endpoint": "webPage",
+          "label": "Score808",
+          "result": "not_tested"
+        }
+      ],
+      "elapsedMilliseconds": 1026,
+      "provider": "score808",
+      "registeredMatches": 1,
+      "resolution": "descriptors_admitted"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [],
+      "elapsedMilliseconds": 11370,
+      "failureCategory": "provider_timeout",
+      "failureStage": "streams_transport_failure",
+      "provider": "communitysports",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [
+        {
+          "endpoint": "directMedia",
+          "frames": 0,
+          "httpStatus": 403,
+          "label": "AS1",
+          "nativeErrorCode": -1102,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 1,
+            "resolved": 1,
+            "sameEvent": 1,
+            "sameLabel": 1,
+            "sameQuality": 1,
+            "sameStream": 1
+          },
+          "result": "physical_check_failed"
+        }
+      ],
+      "elapsedMilliseconds": 1138,
+      "provider": "plaviosports",
+      "registeredMatches": 0,
+      "resolution": "descriptors_admitted"
+    },
+    {
+      "catalog": "unsupported_sport",
+      "deliveries": [],
+      "elapsedMilliseconds": 0,
+      "provider": "cncsports",
+      "registeredMatches": 0,
+      "resolution": "unsupported_sport"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [
+        {
+          "endpoint": "directMedia",
+          "frames": 0,
+          "httpStatus": 502,
+          "label": "FS1",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "frames": 0,
+          "httpStatus": 502,
+          "label": "FS2",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "frames": 0,
+          "httpStatus": 502,
+          "label": "FS3",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "frames": 0,
+          "httpStatus": 502,
+          "label": "FS4",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "frames": 0,
+          "httpStatus": 504,
+          "label": "FS5",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        },
+        {
+          "endpoint": "directMedia",
+          "frames": 0,
+          "httpStatus": 502,
+          "label": "FS6",
+          "nativeErrorCode": -1008,
+          "phase": "decoded_startup",
+          "recheck": {
+            "currentBinding": 0,
+            "resolved": 6,
+            "sameEvent": 6,
+            "sameLabel": 1,
+            "sameQuality": 6,
+            "sameStream": 6
+          },
+          "result": "physical_check_failed"
+        }
+      ],
+      "elapsedMilliseconds": 1991,
+      "provider": "flixstreams",
+      "registeredMatches": 0,
+      "resolution": "descriptors_admitted"
+    },
+    {
+      "catalog": "listed",
+      "deliveries": [],
+      "elapsedMilliseconds": 1370,
+      "failureCategory": "provider_returned_empty",
+      "failureStage": "stream_entries_empty",
+      "provider": "streamvix",
+      "registeredMatches": 0,
+      "resolution": "resolution_failed"
+    },
+    {
+      "catalog": "unsupported_sport",
+      "deliveries": [],
+      "elapsedMilliseconds": 0,
+      "provider": "reviewedtv",
+      "registeredMatches": 0,
+      "resolution": "unsupported_sport"
+    }
+  ],
+  "schemaVersion": 1,
+  "sequence": 23,
+  "title": "Aston Villa FC vs Fulham FC"
+}

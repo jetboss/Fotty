@@ -31,8 +31,8 @@ export default function PrivacyPage() {
         </PolicySection>
 
         <PolicySection title="Data on your device">
-          Your profile, followed teams, saved matches, reminders, appearance choices, local messages, recent match
-          sessions, FPL manager ID, squad drafts, Coach history, and temporary data caches may be stored locally. They
+          Your followed teams, saved matches, reminders, appearance choices, recent match sessions, FPL manager ID,
+          squad drafts, Coach history, and temporary data caches may be stored locally. They
           remain until you remove them, clear site data, or delete the app, subject to normal operating-system cleanup.
         </PolicySection>
 

@@ -1,0 +1,13 @@
+{
+  "build": "218",
+  "configuration": "iOS Release",
+  "signedCompile": "passed",
+  "strictSignatureVerification": "passed",
+  "widgetVersions": [
+    "218"
+  ],
+  "ATSExceptionDomainCount": 0,
+  "deviceInstall": "passed",
+  "normalLaunch": "passed",
+  "target": "Jet iPad only"
+}

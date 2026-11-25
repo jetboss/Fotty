@@ -1,25 +1,24 @@
 # Sports fixture source-access ledger
 
-Reviewed: **1 October 2026**. Source selection and bounded public research only;
+Reviewed: **6 October 2026**. Source selection and bounded public research only;
 this document does not authorize activation, new accounts/contact, subscriptions,
 deployment or an app release. Runtime receipts remain in
 [Sports-Fixture-Service.md](Sports-Fixture-Service.md).
 
-## Production versus local stage
+## Production coverage and remaining source gates
 
 | State | Exact competition scopes | Evidence boundary |
 | --- | --- | --- |
-| Production, non-cricket | `premier-league`, `champions-league`, `mlb`, `nhl` | Four accepted cloud scopes; website and WNBA collection remain off. |
-| Production, separate cricket owner | CPL / West Indies / ICC | Existing cricket registry and monitoring; not part of the 31-scope non-cricket manifest. |
-| Local stage, non-cricket | The four above plus `la-liga`, `serie-a`, `bundesliga`, `ligue-1` | Eight eligible scopes, **not eight production-covered scopes**. The existing football-data account returned HTTP 200 for all six football codes with exact scope/window and matching zero count. This verifies transport/schema, not independent fixture completeness or deployed coverage. |
-| Remaining local-stage gaps | The 23 IDs below | Deferred/unsupported is not healthy empty coverage. |
+| Production, non-cricket | `premier-league`, `champions-league`, `la-liga`, `serie-a`, `bundesliga`, `ligue-1`, `mlb`, `nhl` | Eight accepted scopes from PR35, preserved by PR39 / cricket-isolation-1; website/WNBA remain off. Empty football receipts are not independent completeness proof. |
+| Production, separate cricket owner | CPL / West Indies / ICC | Separate registry/monitor. PR39 receipt6Oct16:16:30:77 rows/72 verified/five held/two fresh live. WI9 fresh; ICC68 unavailable with originalOct3 cohort receipt and650 failures. Partial record recovery, not full source health; CPL offseason. |
+| Remaining source gaps | The 23 IDs below | Deferred/unsupported is not healthy empty coverage. No new-source activation or paid plan is approved. |
 
-The six-league stage uses the existing documented football-data API/credential,
+The deployed six-league group uses the existing documented football-data API/credential,
 not the gated La Liga/Serie A/Bundesliga/Ligue 1 website routes. No new paid plan
 is selected. MLS is not in that free coverage set. See
 [football-data coverage](https://www.football-data.org/coverage).
 The broad native consumer was previously received by owner iPad build 112;
-that receipt does not qualify these new staged changes or a new install.
+that receipt does not qualify the later source changes or a new install.
 
 ## Exact remaining 23 competition IDs
 
@@ -27,7 +26,7 @@ All existing ESPN website adapters remain `publicUndocumented` /
 `deployment-review-required`. Public reachability is not a reuse grant; the
 [Disney terms](https://disneytermsofuse.com/english/) require a separate source
 access review. `FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED="0"` and
-`FOTTY_SPORTS_WNBA_ENABLED="0"` remain mandatory for this source-only stage.
+`FOTTY_SPORTS_WNBA_ENABLED="0"` remain mandatory for the cleared rollout.
 
 | Competition ID | Concrete blocker / next source decision |
 | --- | --- |

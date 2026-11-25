@@ -1,0 +1,45 @@
+{
+  "build": 195,
+  "normalHomeWatch": true,
+  "fixture": {
+    "id": "sports-fixture:ligue-1:559639",
+    "teams": [
+      "Lille OSC",
+      "Racing Club de Lens"
+    ],
+    "competition": "Ligue1",
+    "kickoffUTC": "2026-10-30T20:05:00Z",
+    "officialVerifiedAt": "2026-10-30T20:16:09.406Z",
+    "status": "live"
+  },
+  "combinedPickerChoices": 12,
+  "familiesVisible": [
+    "FS",
+    "CS"
+  ],
+  "firstFailedDelivery": "CS1",
+  "recoveredDelivery": "CS2",
+  "correctProgrammeObserved": true,
+  "decodedAdvancingHoldSecondsAtLeast": 90,
+  "nativeFullscreenVisible": true,
+  "nativePauseResumeVerified": true,
+  "systemPiPVisibleBeforeHome": true,
+  "homeHoldStartUTC": "2026-10-30T20:26:15.539Z",
+  "homeHoldObservedUTC": "2026-10-30T20:28:14.312Z",
+  "homeHoldSeconds": 118.773,
+  "advancingHomeScoreboard": [
+    "20:14",
+    "21:14"
+  ],
+  "systemRestoreWithoutPriorAppActivation": true,
+  "restoredScoreboard": "24:52",
+  "samePresentationAndAttemptReceipt": true,
+  "physicalPlayerItemIdentityIndependentlyInstrumented": false,
+  "remainingCoverage": [
+    "PremierLeague live qualification",
+    "ChampionsLeague live qualification",
+    "fresh cricket fixture-to-programme playback",
+    "other listed delivery qualification",
+    "controlled weak-network ABR"
+  ]
+}

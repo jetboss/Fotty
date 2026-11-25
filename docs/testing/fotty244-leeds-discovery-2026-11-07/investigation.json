@@ -1,0 +1,70 @@
+{
+  "checkedAt": "2026-11-07T13:41:30.891Z",
+  "fixture": "Leeds United\u2013Tottenham Hotspur",
+  "fixtureID": "sports-fixture:premier-league:560632",
+  "registryTargetLinks": [
+    {
+      "provider": "reviewedtv",
+      "state": "listed",
+      "reason": null
+    },
+    {
+      "provider": "plaviosports",
+      "state": "conflicting",
+      "reason": "catalog-conflict"
+    },
+    {
+      "provider": "plaviosports",
+      "state": "needsVerification",
+      "reason": "missing-date"
+    },
+    {
+      "provider": "score808",
+      "state": "listed",
+      "reason": null
+    },
+    {
+      "provider": "plaviosports",
+      "state": "needsVerification",
+      "reason": "stale-source"
+    }
+  ],
+  "csFootballCoverage": [
+    {
+      "providerCode": "communitysports",
+      "scope": "football",
+      "status": "partial",
+      "complete": false,
+      "observedAt": "2026-11-07T12:25:04.263Z",
+      "lastSuccessAt": "2026-11-07T12:25:04.263Z",
+      "expiresAt": "2026-11-07T16:25:04.263Z",
+      "nextAttemptAt": "2026-11-07T13:40:04.615Z"
+    }
+  ],
+  "freshCSMetadata": {
+    "sameIDCatalogAndMeta": true,
+    "officialKickoffUTC": "2026-11-07T12:30:00Z",
+    "streamEntries": 29,
+    "directEntries": 28,
+    "decodedPlaybackVerified": false
+  },
+  "actualCodeReplay": {
+    "timeUTC": "2026-11-07T13:45:05.797Z",
+    "collectorFootballAndLiveMetadataOnly": true,
+    "normalizeAndAssociateResult": "listed/exact/communitysports",
+    "otherCohortsNotFetched": true
+  },
+  "schedulingEvidence": {
+    "dailyRequestCap": 288,
+    "eightReadNormalIntervalMinutes": 40,
+    "preKickoffDebtCanDelayNextLiveCollection": true,
+    "existingSchedulingTestsPassed": 2
+  },
+  "limits": [
+    "Initial playback failure not diagnosed: device attempt/relay logs unavailable in this read-only investigation.",
+    "Cold-start loss not reproduced on owner device; devices were not operated.",
+    "AS conflicting catalog row is separate evidence, not proof it suppressed other providers.",
+    "Cloud stored kickoff checkpoint was not read; public timestamps are consistent with the long scheduling gap, not proof of exact persisted state."
+  ],
+  "changes": "No app, backend, device, settings or release changes."
+}

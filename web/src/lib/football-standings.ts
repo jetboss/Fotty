@@ -6,7 +6,7 @@ export const FOOTBALL_STANDINGS_CACHE_MS = 6 * 60 * 60 * 1000;
 export const FOOTBALL_STANDINGS_REVALIDATE_SEC = 6 * 60 * 60;
 
 /** football-data.org v4 competition codes */
-export const FOOTBALL_DATA_COMPETITION: Partial<Record<FootballLeagueTab, string>> = {
+const FOOTBALL_DATA_COMPETITION: Partial<Record<FootballLeagueTab, string>> = {
   premierLeague: "PL",
   championsLeague: "CL",
   laLiga: "PD",
@@ -26,7 +26,7 @@ export const FOOTBALL_HOME_LEAGUE_TABS: FootballLeagueTab[] = [
 ];
 
 /** Leagues that have a football-data.org table (excludes all / other). */
-export const FOOTBALL_STANDINGS_TABS: FootballLeagueTab[] = [
+const FOOTBALL_STANDINGS_TABS: FootballLeagueTab[] = [
   "premierLeague",
   "championsLeague",
   "laLiga",

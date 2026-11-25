@@ -29,6 +29,29 @@ if [[ -n "${FOTTY_CATALYST_DEPLOYMENT_TARGET:-}" ]]; then
   )
 fi
 
+# A hung test fails on its own instead of consuming the whole job timeout.
+TEST_TIMEOUT_FLAGS=(
+  -test-timeouts-enabled YES
+  -default-test-execution-time-allowance 300
+  -maximum-test-execution-time-allowance 600
+)
+
+# Result bundles are opt-in so local runs leave no extra Xcode output. CI sets
+# FOTTY_CI_RESULT_DIR to an empty runner-temp folder and uploads it on failure.
+VISUAL_RESULT_FLAGS=("-quiet")
+UNIT_RESULT_FLAGS=("-quiet")
+if [[ -n "${FOTTY_CI_RESULT_DIR:-}" ]]; then
+  mkdir -p "$FOTTY_CI_RESULT_DIR"
+  for bundle in VisualRegressionTests.xcresult FottyTests.xcresult; do
+    if [[ -e "$FOTTY_CI_RESULT_DIR/$bundle" ]]; then
+      echo "Result bundle already exists: $FOTTY_CI_RESULT_DIR/$bundle" >&2
+      exit 2
+    fi
+  done
+  VISUAL_RESULT_FLAGS+=(-resultBundlePath "$FOTTY_CI_RESULT_DIR/VisualRegressionTests.xcresult")
+  UNIT_RESULT_FLAGS+=(-resultBundlePath "$FOTTY_CI_RESULT_DIR/FottyTests.xcresult")
+fi
+
 if [[ -n "${FOTTY_CI_DERIVED_DATA:-}" ]]; then
   DERIVED_DATA="$FOTTY_CI_DERIVED_DATA"
 else
@@ -68,8 +91,13 @@ trap 'exit 143' TERM
 
 cd "$ROOT_DIR"
 
+python3 -B -m unittest tools/tests/test_native_source_membership.py
+python3 -B tools/check_native_source_membership.py
+ruby tools/verify-native-version.rb project.yml Fotty.xcodeproj/project.pbxproj
 node tools/generate-football-competition-catalog.mjs --check
 node tools/audit-provider-football-identity.mjs
+node --check tools/audit-team-badges.mjs
+node --check tools/audit-live-provider-badges.mjs
 
 RETIRED_PATTERN='(APP_REVIEW_SAFE|ReviewSafe|Info-ReviewSafe|IntegrityService|LicenseManager|Field Events|Division A|Series C)'
 if command -v rg >/dev/null 2>&1; then
@@ -96,8 +124,37 @@ xcodebuild build-for-testing \
   "${CATALYST_BUILD_SETTINGS[@]}" \
   -only-testing:FottyTests
 
+# The approved PNGs are pinned to one renderer (Xcode build, SDK and display
+# settings, recorded in the manifest). A runner with a different Xcode cannot
+# produce comparable images, so the gate runs only where it is meaningful and
+# otherwise says so; it is never loosened. Owner decision, 11 Nov 2026: the
+# pinned Mac runs VisualRegressionTests before every release.
+PINNED_XCODE="$(python3 -c 'import json; print(json.load(open("FottyTests/Fixtures/VisualBaselines/manifest.json"))["renderer"]["xcode"])')"
+RUNNER_XCODE="$(xcodebuild -version | awk '/Build version/ {print $3}')"
+if [[ "$PINNED_XCODE" == "$RUNNER_XCODE" ]]; then
+  # The static visual fixture warms an evictable shared NSCache. Run it in its
+  # own fresh host process so prior unit-test memory pressure cannot replace its
+  # synthetic loaded badge with a placeholder. All visual assertions remain
+  # mandatory; the second invocation covers every other unit test exactly once.
+  xcodebuild test-without-building \
+    "${VISUAL_RESULT_FLAGS[@]}" \
+    -project Fotty.xcodeproj \
+    -scheme Fotty \
+    -configuration Debug \
+    -destination 'platform=macOS,variant=Mac Catalyst' \
+    -derivedDataPath "$DERIVED_DATA" \
+    -jobs "$XCODE_JOBS" \
+    -parallel-testing-enabled NO \
+    "${TEST_TIMEOUT_FLAGS[@]}" \
+    CODE_SIGNING_ALLOWED=NO \
+    "${CATALYST_BUILD_SETTINGS[@]}" \
+    -only-testing:FottyTests/VisualRegressionTests
+else
+  echo "::notice title=Visual regression gate not run::Runner Xcode $RUNNER_XCODE differs from the pinned renderer $PINNED_XCODE. Run VisualRegressionTests on the pinned Mac before release."
+fi
+
 xcodebuild test-without-building \
-  -quiet \
+  "${UNIT_RESULT_FLAGS[@]}" \
   -project Fotty.xcodeproj \
   -scheme Fotty \
   -configuration Debug \
@@ -105,9 +162,11 @@ xcodebuild test-without-building \
   -derivedDataPath "$DERIVED_DATA" \
   -jobs "$XCODE_JOBS" \
   -parallel-testing-enabled NO \
+  "${TEST_TIMEOUT_FLAGS[@]}" \
   CODE_SIGNING_ALLOWED=NO \
   "${CATALYST_BUILD_SETTINGS[@]}" \
-  -only-testing:FottyTests
+  -only-testing:FottyTests \
+  -skip-testing:FottyTests/VisualRegressionTests
 
 xcodebuild build \
   -quiet \

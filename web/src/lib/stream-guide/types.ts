@@ -1,7 +1,7 @@
-import type { EventStreamVariant, ScrapedMatch, SwarmStatus } from "@/lib/api";
+import type { EventStreamVariant } from "@/lib/api";
 
-export type StreamProviderType = "embed" | "p2p" | "hls";
-export type StreamDeliveryType = "direct" | "p2p" | "hls" | "backup";
+type StreamProviderType = "embed";
+type StreamDeliveryType = "direct" | "backup";
 
 export type StreamHealthState =
   | "excellent"
@@ -25,8 +25,6 @@ export interface StreamSource {
   latencyMs?: number;
   isRecommended: boolean;
   isBackup: boolean;
-  requiresP2P: boolean;
-  peerStrength?: number;
   regionNotes?: string;
   priority: number;
   diagnosticsSafeId: string;
@@ -46,7 +44,7 @@ export interface RankedStreamGuide {
 }
 
 export interface StreamGuideGroup {
-  id: "recommended" | "stable" | "p2p" | "lower-confidence" | "offline";
+  id: "recommended" | "stable" | "lower-confidence" | "offline";
   title: string;
   description?: string;
   sources: StreamSource[];
@@ -55,12 +53,3 @@ export interface StreamGuideGroup {
 export type EventStreamVariantWithSignals = EventStreamVariant & {
   heatTier?: string;
 };
-
-export interface P2PGuideSignals {
-  telemetry: SwarmStatus;
-  isWarming: boolean;
-  isActive: boolean;
-  cid: string;
-  matchId?: string;
-  p2pHealth?: ScrapedMatch["p2pHealth"];
-}

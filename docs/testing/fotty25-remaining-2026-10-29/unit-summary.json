@@ -1,0 +1,9 @@
+{
+  "result": "Passed",
+  "totalTestCount": 361,
+  "passedTests": 361,
+  "failedTests": 0,
+  "skippedTests": 0,
+  "host": "current-source Catalyst unit host; no simulators",
+  "sourceBuild": 186
+}

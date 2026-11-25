@@ -38,15 +38,15 @@ final class FPLManagerConnectionModel: ObservableObject {
     @Published private(set) var isChecking = false
     @Published private(set) var errorMessage: String?
     private var requestID = UUID()
-    private let fetchIdentity: (Int) async throws -> FPLManagerIdentity
+    private let fetchIdentity: @MainActor (Int) async throws -> FPLManagerIdentity
 
-    init(fetchIdentity: @escaping (Int) async throws -> FPLManagerIdentity = { id in
+    init(fetchIdentity: @escaping @MainActor (Int) async throws -> FPLManagerIdentity = { id in
         let resource = try await FPLService.shared.fetchManagerSummaryResource(id: id)
         return FPLManagerIdentity(
             id: resource.value.id,
             teamName: resource.value.name,
             managerName: resource.value.fullName,
-            sourceDescription: "\(resource.metadata.source.rawValue) · \(resource.metadata.shortAgeDescription)"
+            sourceDescription: "\(resource.metadata.source.displayName) · \(resource.metadata.shortAgeDescription)"
         )
     }) {
         self.fetchIdentity = fetchIdentity

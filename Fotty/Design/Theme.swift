@@ -1,5 +1,59 @@
 import SwiftUI
 
+/// Respond to the actual window, not device orientation or a global screen size.
+/// Large text and narrow multitasking windows retain the single-column flow.
+enum FottyLayoutPolicy {
+    static func usesColumns(width: CGFloat, accessibilitySize: Bool = false) -> Bool {
+        width.isFinite && width >= 1_000 && !accessibilitySize
+    }
+
+    struct Row<Item: Identifiable>: Identifiable {
+        let id: Item.ID
+        let items: [Item]
+    }
+
+    /// Flatten before a lazy stack sees the children. No eager catalog grid or
+    /// nested scrolling container is introduced when a second column appears.
+    static func rows<Item: Identifiable>(_ items: [Item], columns: Int) -> [Row<Item>] {
+        let count = max(1, columns)
+        return stride(from: 0, to: items.count, by: count).map { start in
+            Row(id: items[start].id, items: Array(items[start..<min(start + count, items.count)]))
+        }
+    }
+}
+
+private struct FottyWideLayoutKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var fottyWideLayout: Bool {
+        get { self[FottyWideLayoutKey.self] }
+        set { self[FottyWideLayoutKey.self] = newValue }
+    }
+}
+
+private struct FottyAdaptiveWindowModifier: ViewModifier {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var hasColumnWidth = false
+
+    func body(content: Content) -> some View {
+        content
+            .environment(\.fottyWideLayout, hasColumnWidth && !dynamicTypeSize.isAccessibilitySize)
+            .onGeometryChange(for: Bool.self) { geometry in
+                FottyLayoutPolicy.usesColumns(width: geometry.size.width)
+            } action: { hasColumnWidth = $0 }
+    }
+}
+
+extension View {
+    /// Apply at a window/sheet boundary, not at every row. Only crossing the
+    /// breakpoint publishes an update; scrolling and keyboard height don't.
+    func fottyAdaptiveWindow() -> some View {
+        modifier(FottyAdaptiveWindowModifier())
+    }
+}
+
 enum FottyAppearance: String, CaseIterable, Identifiable {
     case dark, light, system
     static let storageKey = "fotty.appearance"
@@ -41,8 +95,14 @@ enum FottyFixtureDifficulty {
 enum FottyTheme {
 
     /// Resolve per view/window trait, never from a cached global screen style.
-    static func adaptive(light: UIColor, dark: UIColor) -> Color {
-        Color(UIColor { traits in traits.userInterfaceStyle == .light ? light : dark })
+    static func adaptive(light: UIColor, dark: UIColor,
+                         highContrastLight: UIColor? = nil, highContrastDark: UIColor? = nil) -> Color {
+        Color(UIColor { traits in
+            if traits.accessibilityContrast == .high {
+                return traits.userInterfaceStyle == .light ? (highContrastLight ?? light) : (highContrastDark ?? dark)
+            }
+            return traits.userInterfaceStyle == .light ? light : dark
+        })
     }
 
     // MARK: - Brand
@@ -90,10 +150,12 @@ enum FottyTheme {
     static let glass = adaptive(light: UIColor(white: 0, alpha: 0.035), dark: UIColor(white: 1, alpha: 0.05))
 
     /// Subtle divider / border
-    static let border = adaptive(light: UIColor(white: 0, alpha: 0.10), dark: UIColor(white: 1, alpha: 0.08))
+    static let border = adaptive(light: UIColor(white: 0, alpha: 0.10), dark: UIColor(white: 1, alpha: 0.08),
+                                 highContrastLight: UIColor(white: 0, alpha: 0.28), highContrastDark: UIColor(white: 1, alpha: 0.30))
 
     /// Visible focus border for selected and actionable surfaces.
-    static let borderStrong = adaptive(light: UIColor(white: 0, alpha: 0.24), dark: UIColor(white: 1, alpha: 0.16))
+    static let borderStrong = adaptive(light: UIColor(white: 0, alpha: 0.24), dark: UIColor(white: 1, alpha: 0.16),
+                                       highContrastLight: UIColor(white: 0, alpha: 0.55), highContrastDark: UIColor(white: 1, alpha: 0.55))
 
     /// Neomorphism Highlights
     static let neomorphHighlight = adaptive(light: UIColor(white: 1, alpha: 0.85), dark: UIColor(white: 1, alpha: 0.05))
@@ -105,22 +167,24 @@ enum FottyTheme {
     static let textPrimary = adaptive(light: UIColor(red: 0.10, green: 0.12, blue: 0.14, alpha: 1), dark: UIColor(white: 0.97, alpha: 1))
 
     /// Secondary text — muted
-    static let textSecondary = adaptive(light: UIColor(red: 0.27, green: 0.30, blue: 0.34, alpha: 1), dark: UIColor(white: 0.72, alpha: 1))
+    static let textSecondary = adaptive(light: UIColor(red: 0.27, green: 0.30, blue: 0.34, alpha: 1), dark: UIColor(white: 0.72, alpha: 1),
+                                        highContrastLight: UIColor(white: 0.18, alpha: 1), highContrastDark: UIColor(white: 0.88, alpha: 1))
 
     /// Tertiary / placeholder
-    static let textTertiary = adaptive(light: UIColor(red: 0.35, green: 0.38, blue: 0.42, alpha: 1), dark: UIColor(white: 0.64, alpha: 1))
+    static let textTertiary = adaptive(light: UIColor(red: 0.35, green: 0.38, blue: 0.42, alpha: 1), dark: UIColor(white: 0.64, alpha: 1),
+                                       highContrastLight: UIColor(white: 0.24, alpha: 1), highContrastDark: UIColor(white: 0.82, alpha: 1))
 
     /// Text on gold buttons / badges
     static let textOnAccent = Color.black
     static let textOnError = adaptive(light: .white, dark: .black)
 
-    static let typeScreenTitle = Font.fottyScaled(size: 30, weight: .black)
+    static let typeScreenTitle = Font.largeTitle.weight(.bold)
     static let typeSectionTitle = Font.fottyScaled(size: 18, weight: .bold)
-    static let typeModuleTitle = Font.fottyScaled(size: 15, weight: .bold)
+    static let typeModuleTitle = Font.subheadline.weight(.semibold)
     static let typeBody = Font.fottyScaled(size: 15, weight: .medium)
     static let typeAction = Font.fottyScaled(size: 14, weight: .bold)
-    static let typeMeta = Font.fottyScaled(size: 12, weight: .semibold)
-    static let typeCaption = Font.fottyScaled(size: 11, weight: .bold)
+    static let typeMeta = Font.caption
+    static let typeCaption = Font.caption.weight(.medium)
 
     /// Home outer inset / module gap (tight — avoid void bands)
     static let bentoInset: CGFloat = 16
@@ -295,13 +359,19 @@ struct TactileGlassModifier: ViewModifier {
 
 struct GlassBackground: ViewModifier {
     var cornerRadius: CGFloat = FottyTheme.radiusMD
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     func body(content: Content) -> some View {
         content
             .background(
                 ZStack {
-                    RoundedRectangle(cornerRadius: cornerRadius)
-                        .fill(.ultraThinMaterial)
+                    if reduceTransparency {
+                        RoundedRectangle(cornerRadius: cornerRadius)
+                            .fill(FottyTheme.surfaceElevated)
+                    } else {
+                        RoundedRectangle(cornerRadius: cornerRadius)
+                            .fill(.ultraThinMaterial)
+                    }
 
                     RoundedRectangle(cornerRadius: cornerRadius)
                         .fill(
@@ -387,31 +457,38 @@ struct BentoSurface: ViewModifier {
 }
 
 struct FottyPrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(FottyTheme.typeAction)
             .foregroundStyle(FottyTheme.textOnAccent)
-            .frame(minHeight: 46)
+            .frame(minWidth: 44, minHeight: 46)
             .padding(.horizontal, FottyTheme.spacingMD)
-            .background(configuration.isPressed ? FottyTheme.liveAccent : FottyTheme.accent)
+            .background(configuration.isPressed && isEnabled ? FottyTheme.liveAccent : FottyTheme.accent)
             .clipShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD, style: .continuous))
-            .opacity(configuration.isPressed ? 0.88 : 1)
+            .contentShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD))
+            .opacity(isEnabled ? (configuration.isPressed ? 0.88 : 1) : 0.45)
     }
 }
 
 struct FottySecondaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(FottyTheme.typeAction)
             .foregroundStyle(FottyTheme.textPrimary)
-            .frame(minHeight: 44)
+            .frame(minWidth: 44, minHeight: 44)
             .padding(.horizontal, FottyTheme.spacingMD)
-            .background(configuration.isPressed ? FottyTheme.surfaceElevated : FottyTheme.surface)
+            .background(configuration.isPressed && isEnabled ? FottyTheme.surfaceSubtle : FottyTheme.surface)
             .clipShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: FottyTheme.radiusMD, style: .continuous)
                     .strokeBorder(FottyTheme.borderStrong, lineWidth: 1)
             }
+            .contentShape(RoundedRectangle(cornerRadius: FottyTheme.radiusMD))
+            .opacity(isEnabled ? 1 : 0.45)
     }
 }
 
@@ -440,6 +517,7 @@ struct FottySectionHeader: View {
             }
         }
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 

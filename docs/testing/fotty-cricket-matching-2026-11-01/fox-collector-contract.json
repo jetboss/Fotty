@@ -1,0 +1,74 @@
+{
+  "recordedAtUTC": "2026-11-01T13:26:56.071763+00:00",
+  "scope": "Read-only Fox Cricket delivery comparison; no admission, device or playback pass",
+  "directory": "https://github.com/bugsfreeweb/livetvcollector",
+  "aggregate": "LiveTV/Bangladesh/LiveTV.json",
+  "entries": [
+    {
+      "label": "CR | Fox Cricket 501",
+      "pointer": "/channels/Sports/53",
+      "original": "https://github.com/time2shine/Rokon-IPTV/blob/main/playlist.m3u",
+      "originalLine": 860,
+      "originalTVGID": "foxcricket.in",
+      "marketFinding": "Fox Cricket/501 label; original metadata does not explicitly prove the Australian market",
+      "scheme": "http",
+      "deliveryFinding": "Publicly advertised HTTP HLS URL; one opaque path component has unknown semantics. No username/password account pair or published authentication fields established.",
+      "adjacentRequestHeaders": [],
+      "compatibleHTTPSAlternativeEstablished": false
+    },
+    {
+      "label": "CR | Fox Cricket 501 HD",
+      "pointer": "/channels/Sports/54",
+      "original": "https://github.com/time2shine/Rokon-IPTV/blob/main/playlist.m3u",
+      "originalLine": 862,
+      "originalTVGID": "FoxCricket501",
+      "marketFinding": "Fox Cricket/501 label; original metadata does not explicitly prove the Australian market",
+      "scheme": "http",
+      "deliveryFinding": "Publicly advertised HTTP HLS URL; one opaque path component has unknown semantics. No username/password account pair or published authentication fields established.",
+      "adjacentRequestHeaders": [],
+      "compatibleHTTPSAlternativeEstablished": false
+    },
+    {
+      "label": "FOX CRICKET HD [AU]",
+      "pointer": "/channels/SPORTS | CRICKET/5",
+      "original": "https://github.com/mhmimxl/filoox-bdix-selected/blob/main/playlist.m3u",
+      "originalLine": 992,
+      "originalTVGID": "",
+      "marketFinding": "Original tvg-name and label explicitly say AU",
+      "scheme": "http",
+      "deliveryFinding": "Token-bearing HTTP wrapper; output media format was not verified",
+      "adjacentRequestHeaders": [],
+      "compatibleHTTPSAlternativeEstablished": false
+    }
+  ],
+  "otherCandidate": {
+    "label": "Fox Sports 4k",
+    "aggregate": "LiveTV/Worldwide/LiveTV.json",
+    "pointer": "/channels/All Sports \ud83c\udf0e/50",
+    "original": "https://github.com/iprtl/m3u/blob/live/Freetv.m3u",
+    "originalTVGID": "Fox.Sports.4K.us2",
+    "finding": "US identity and explicit adaptive DRM instructions; not Fox Cricket AU. No media or license request."
+  },
+  "boundedInspection": {
+    "metadataReadsThisPass": 8,
+    "inventory": [
+      "Complete repository tree",
+      "Original iprtl Freetv metadata",
+      "India aggregate JSON",
+      "Bangladesh aggregate JSON",
+      "UK aggregate JSON",
+      "USA aggregate JSON",
+      "Original time2shine playlist metadata",
+      "Original mhmimxl playlist metadata"
+    ],
+    "collaboratorEvidence": "Actual Collection, Mixed and Worldwide aggregate contents; filename-only absence was not accepted as proof",
+    "hlsOrMediaRequestsThisPass": 0,
+    "accountsOrCredentialsUsed": false,
+    "arbitrarySchemeUpgrade": false
+  },
+  "fottyDifference": "Fotty uses finite selected reviewed-TV profiles and a separate CS Fox channel resolver. It does not import these aggregate Fox deliveries.",
+  "conclusion": "No compatible HTTPS Fox Cricket delivery established within this bounded inspection. This is not evidence of a global channel or provider outage.",
+  "remainingGate": "Verify an explicitly advertised compatible delivery, then run normal Watch through the real adapter and guarded relay on Jet iPad.",
+  "redaction": "No media URLs, tokens, credential-like paths, license data or private identifiers retained.",
+  "classificationCorrection": "The earlier subscription-style characterization was an unsupported inference from an opaque path. Corrected after inspection of both original entries; transport compatibility and decoded qualification remain separate."
+}

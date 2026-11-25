@@ -1,0 +1,39 @@
+{
+  "observedAt": "2026-11-01T01:52:26.827655+00:00",
+  "deployedAt": "2026-11-01T01:35:11.967128Z",
+  "sourceCommit": "99658b6f347d8ae96c9d032d0445c87f064de106",
+  "pullRequest": "https://github.com/jetboss/Fotty/pull/115",
+  "sourceVersion": "2026-10-31.tv-guide-1",
+  "result": {
+    "ok": true,
+    "problems": [],
+    "notificationCount": 130
+  },
+  "preserved": {
+    "playback": {
+      "bindings": true,
+      "schedules": true
+    },
+    "watchdog": {
+      "bindings": true,
+      "schedules": true
+    }
+  },
+  "collectorCompletedAt": "2026-11-01T01:46:01.009Z",
+  "bindingCounts": {
+    "playback": 21,
+    "watchdog": 3
+  },
+  "retainedNotices": 130,
+  "checks": {
+    "backend": 534,
+    "watchdogPolicy": 170,
+    "watchdogRuntime": 16,
+    "github": [
+      "Web CI",
+      "iOS CI",
+      "Repository Quality",
+      "CodeQL"
+    ]
+  }
+}

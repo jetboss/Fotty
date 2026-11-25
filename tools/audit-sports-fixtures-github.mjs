@@ -6,7 +6,7 @@ import { sportsMonitorIssueBody, sportsMonitorIssueTitle, sportsMonitorIssueMark
 const gateName = "Record an unhealthy sports audit";
 export function sportsFindingKey(finding) {
   if (!Object.hasOwn(sportsAuditFindingMessages, finding.code) || !/^[a-z0-9-]{1,80}$/.test(finding.competitionId || "service")) throw new Error("Invalid monitor finding");
-  const needsEvidence = ["same-upstream-current-omission", "same-upstream-fixture-disagreement"].includes(finding.code);
+  const needsEvidence = ["same-upstream-current-omission", "same-upstream-fixture-disagreement", "same-upstream-refresh-required"].includes(finding.code);
   if (needsEvidence && !/^[a-f0-9]{64}$/.test(finding.evidenceKey || "")) throw new Error("Invalid comparison identity");
   return `${finding.code}@${finding.competitionId || "service"}${needsEvidence ? `:${finding.evidenceKey}` : ""}`;
 }

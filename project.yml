@@ -21,6 +21,7 @@ targets:
         excludes:
           - "**/.DS_Store"
           - Info.plist
+          - '*.entitlements'
           - Resources/Manifests/**
       - path: Fotty/Info.plist
         buildPhase: none
@@ -34,12 +35,13 @@ targets:
     settings:
       base:
         DEVELOPMENT_TEAM: 9W3JDBQU39
+        CODE_SIGN_ENTITLEMENTS: Fotty/Fotty.entitlements
         INFOPLIST_FILE: Fotty/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         SWIFT_VERSION: 5.9
         TARGETED_DEVICE_FAMILY: 1,2
-        MARKETING_VERSION: 2.0.0
-        CURRENT_PROJECT_VERSION: 47
+        MARKETING_VERSION: 3.0.0
+        CURRENT_PROJECT_VERSION: 244
       configs:
         Debug:
           SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG
@@ -51,26 +53,33 @@ targets:
       - path: FottyLiveActivityExtension
         excludes:
           - Info.plist
+          - '*.entitlements'
       - path: FottyLiveActivityExtension/Info.plist
         buildPhase: none
       - path: Fotty/Core/LiveActivities/FottyMatchActivityAttributes.swift
+      - path: Fotty/Core/Continuity/SportsWidgetSnapshot.swift
     settings:
       base:
         DEVELOPMENT_TEAM: 9W3JDBQU39
         INFOPLIST_FILE: FottyLiveActivityExtension/Info.plist
         PRODUCT_BUNDLE_IDENTIFIER: com.jelani.Fotty.LiveActivityExtension
         PRODUCT_NAME: FottyLiveActivityExtension
+        CODE_SIGN_ENTITLEMENTS: FottyLiveActivityExtension/FottyLiveActivityExtension.entitlements
         SKIP_INSTALL: YES
         APPLICATION_EXTENSION_API_ONLY: YES
         SWIFT_VERSION: 5.9
-        MARKETING_VERSION: 2.0.0
-        CURRENT_PROJECT_VERSION: 47
+        MARKETING_VERSION: 3.0.0
+        CURRENT_PROJECT_VERSION: 244
   FottyTests:
     type: bundle.unit-test
     platform: iOS
     deploymentTarget: "26.4"
     sources:
       - path: FottyTests
+        excludes:
+          - Fixtures/VisualBaselines-206
+          - Fixtures/VisualBaselines-273
+          - Fixtures/VisualBaselines-Xcode27A266a
     dependencies:
       - target: Fotty
     settings:
@@ -109,5 +118,20 @@ schemes:
         FOTTY_AUTOMATED_TESTING: "1"
     run:
       config: Debug
+    archive:
+      config: Release
+  FottyFoundationUI:
+    build:
+      targets:
+        Fotty: all
+        FottyUITests: [test]
+    test:
+      config: Release
+      targets:
+        - FottyUITests
+      environmentVariables:
+        FOTTY_AUTOMATED_TESTING: "1"
+    run:
+      config: Release
     archive:
       config: Release

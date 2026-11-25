@@ -1,0 +1,117 @@
+{
+  "at": "2026-10-29T01:02:54.002Z",
+  "requestCount": 4,
+  "catalogs": [
+    {
+      "catalog": "reviewed_catalog",
+      "count": 41,
+      "matches": [
+        {
+          "keys": [
+            "id",
+            "type",
+            "name",
+            "genres",
+            "poster",
+            "posterShape",
+            "background",
+            "logo",
+            "releaseInfo",
+            "description",
+            "cast",
+            "team1",
+            "team2",
+            "behaviorHints",
+            "released"
+          ],
+          "name": "⏱️ philadelphia flyers vs washington capitals",
+          "type": "tv",
+          "cast": [
+            "Philadelphia Flyers",
+            "Washington Capitals"
+          ],
+          "genres": [
+            "HOCKEY"
+          ],
+          "released": "2026-10-29T23:30:00.000Z",
+          "releaseInfo": "11:30 PM",
+          "description": "🏆 League: NHL\n📅 Category: HOCKEY\n⏰ Status: ⏱️ Kickoff at 11:30 PM (in 22h 27m)",
+          "hasDefaultVideoID": true,
+          "defaultIDMatchesMetadataID": true
+        }
+      ]
+    },
+    {
+      "catalog": "reviewed_catalog",
+      "count": 100,
+      "matches": []
+    }
+  ],
+  "official": {
+    "count": 48,
+    "scheduleDayCount": 7,
+    "matches": [
+      {
+        "date": "2026-10-28",
+        "start": "2026-10-28T23:30:00Z",
+        "state": "LIVE",
+        "scheduleState": "OK",
+        "home": {
+          "place": "Washington",
+          "name": "Capitals",
+          "abbrev": "WSH",
+          "score": 2
+        },
+        "away": {
+          "place": "Philadelphia",
+          "name": "Flyers",
+          "abbrev": "PHI",
+          "score": 1
+        }
+      }
+    ]
+  },
+  "metadata": {
+    "present": true,
+    "idMatchesCatalog": true,
+    "type": "tv",
+    "name": "⏱️ philadelphia flyers vs washington capitals",
+    "keys": [
+      "id",
+      "type",
+      "name",
+      "genres",
+      "poster",
+      "posterShape",
+      "background",
+      "logo",
+      "releaseInfo",
+      "description",
+      "cast",
+      "team1",
+      "team2",
+      "behaviorHints",
+      "released"
+    ],
+    "released": "2026-10-29T23:30:00.000Z",
+    "releaseInfo": "11:30 PM",
+    "description": "🏆 League: NHL\n📅 Category: HOCKEY\n⏰ Status: ⏱️ Kickoff at 11:30 PM (in 22h 27m)",
+    "cast": [
+      "Philadelphia Flyers",
+      "Washington Capitals"
+    ],
+    "genres": [
+      "HOCKEY"
+    ],
+    "dateLikeFields": {
+      "releaseInfo": "11:30 PM",
+      "released": "2026-10-29T23:30:00.000Z"
+    }
+  },
+  "retention": {
+    "redactedCopy": true,
+    "sourceFile": "cs-date-investigation.json",
+    "omittedFieldCount": 4,
+    "scope": "Metadata and bounded HLS-master observations only; no decoded-playback qualification."
+  }
+}

@@ -1,0 +1,32 @@
+[
+  {
+    "url": "https://www.dazn.com/chapters/moon/catalog/static/dazn-58ebb9af-f26b8e64447aef75bd8a.8880f74.js",
+    "finalURL": "https://www.dazn.com/chapters/moon/catalog/static/dazn-58ebb9af-f26b8e64447aef75bd8a.8880f74.js",
+    "state": "complete",
+    "bytes": 204855,
+    "sha256": "5456552793450741b6dd3fac8d363d8231ed780ef3a998be57377092d75ee2f5",
+    "contentType": "application/javascript",
+    "localName": "dazn-58ebb9af-f26b8e64447aef75bd8a.8880f74.js",
+    "receivedUTC": "2026-10-29T13:43:44.677593+00:00"
+  },
+  {
+    "url": "https://www.dazn.com/chapters/moon/catalog/static/main-9acf4d28-57a6ae902982f36a89c0.8880f74.js",
+    "finalURL": "https://www.dazn.com/chapters/moon/catalog/static/main-9acf4d28-57a6ae902982f36a89c0.8880f74.js",
+    "state": "complete",
+    "bytes": 410339,
+    "sha256": "7be87fbdb6c597f8cb26cc1f0c118e41b48a646d6fc9d3de0170981263a500ec",
+    "contentType": "application/javascript",
+    "localName": "main-9acf4d28-57a6ae902982f36a89c0.8880f74.js",
+    "receivedUTC": "2026-10-29T13:43:45.356139+00:00"
+  },
+  {
+    "url": "https://www.dazn.com/chapters/moon/catalog/static/main-3257753e-4243a0d22cfebfa8d998.8880f74.js",
+    "finalURL": "https://www.dazn.com/chapters/moon/catalog/static/main-3257753e-4243a0d22cfebfa8d998.8880f74.js",
+    "state": "complete",
+    "bytes": 266836,
+    "sha256": "67b05e57f324888028ce12c16aadbdf81013767bee5f7cf365b5972532fbff72",
+    "contentType": "application/javascript",
+    "localName": "main-3257753e-4243a0d22cfebfa8d998.8880f74.js",
+    "receivedUTC": "2026-10-29T13:43:46.175222+00:00"
+  }
+]

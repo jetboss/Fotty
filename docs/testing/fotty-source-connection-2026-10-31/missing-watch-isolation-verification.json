@@ -1,0 +1,21 @@
+{
+  "observedAtUTC": "2026-10-31T21:30:33.017116+00:00",
+  "base": "protected deployed checkout source with preserved package/runtime/configuration and imported public data",
+  "runtimeFiles": 2,
+  "testFiles": 2,
+  "fixtureSuiteExitCode": 0,
+  "summary": [
+    "\u2139 tests 102",
+    "\u2139 suites 0",
+    "\u2139 pass 102",
+    "\u2139 fail 0",
+    "\u2139 cancelled 0",
+    "\u2139 skipped 0",
+    "\u2139 todo 0",
+    "\u2139 duration_ms 15224.385"
+  ],
+  "unrelatedScorePatchIncluded": false,
+  "deployed": false,
+  "deviceBuildRequired": false,
+  "earlierHarnessSetupFailures": "initial isolated copies omitted ESM package/runtime and two referenced public source files; corrected before this run"
+}

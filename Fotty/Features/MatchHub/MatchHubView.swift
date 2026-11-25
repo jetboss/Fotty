@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct MatchHubView: View {
+    @Environment(ViewingSessionCoordinator.self) private var viewing
     @StateObject private var viewModel: MatchHubViewModel
     @Environment(LiveScoreService.self) private var liveScoreService
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     
     /// When `true` (sheet / full-screen cover root), show an explicit **Done** control. Pushed hubs use the system back chevron + edge swipe only.
     private let showModalDismissButton: Bool
@@ -25,37 +27,56 @@ struct MatchHubView: View {
             FottyTheme.background.ignoresSafeArea()
             
             if viewModel.isLoading && !viewModel.isFindingStream {
-                FootballLoadingView(size: 60)
+                SportLoadingView(
+                    category: viewModel.catalogEvent?.normalizedCategory ?? viewModel.playerEvent?.normalizedCategory ?? "football",
+                    size: 60,
+                    competition: SportMotionContext.competition(for: viewModel.catalogEvent ?? viewModel.playerEvent)
+                )
             } else if let data = viewModel.hubData {
-                VStack(spacing: 0) {
+                // One scroll surface keeps an expanded header and every insight
+                // reachable; InsightsHubTab lazily supplies content, not another scroll view.
+                ScrollView(showsIndicators: false) {
+                  VStack(spacing: 12) {
                     MatchHubHeader(
                         data: data,
-                        onWatchLive: viewModel.discoveredProviders.isEmpty
-                            ? nil
-                            : { viewModel.watchLive() }
+                        onWatchLive: viewModel.canWatchLive ? { viewModel.watchLive() } : nil
                     )
-                    .padding(.top, showModalDismissButton ? 52 : 6)
+                    .padding(.top, 6)
 
                     if let event = viewModel.playerEvent,
                        MatchPlaybackFeedback.shared.notReadyIDs.contains(event.id) {
                         Button("No stream found yet · Retry") { viewModel.watchLive() }
+                            .disabled(viewModel.isFindingStream)
                             .font(FottyTheme.typeMeta)
                             .foregroundStyle(FottyTheme.accentText)
                             .frame(minHeight: 44)
                     }
 
-                    InsightsHubTab(data: data, providers: viewModel.discoveredProviders)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                    if let notice = viewModel.refreshNotice {
+                        Text(notice).font(FottyTheme.typeMeta)
+                            .foregroundStyle(FottyTheme.textSecondary).padding(.horizontal)
+                    }
+                    InsightsHubTab(data: data,
+                                   insights: viewModel.insights, isLoading: viewModel.isRefreshing,
+                                   loadError: nil)
+                  }
+                  .frame(maxWidth: 1000)
+                  .frame(maxWidth: .infinity)
                 }
+                .refreshable { await viewModel.refresh() }
             } else if let event = viewModel.catalogEvent {
+                VStack(spacing: 8) {
+                if let notice = viewModel.refreshNotice {
+                    Text(notice).font(FottyTheme.typeMeta).foregroundStyle(FottyTheme.textSecondary)
+                        .padding(.horizontal)
+                }
                 CatalogMatchHubView(
                     event: event,
-                    providers: viewModel.discoveredProviders,
-                    onWatchLive: viewModel.discoveredProviders.isEmpty
-                        ? nil
-                        : { viewModel.watchLive() }
+                    onWatchLive: nil
                 )
-                .padding(.top, showModalDismissButton ? 52 : 6)
+                .refreshable { await viewModel.refresh() }
+                }
+                .padding(.top, 6)
             } else if let errorMessage = viewModel.errorMessage {
                 EmptyStateView(
                     icon: "exclamationmark.triangle",
@@ -67,55 +88,59 @@ struct MatchHubView: View {
                 }
             }
             
+        }
+        .environment(\.fottyStreamLookupBusy, viewModel.isFindingStream)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             if viewModel.isFindingStream {
-                StreamResolutionOverlay(
+                StreamResolutionPanel(
+                    sportCategory: viewModel.catalogEvent?.normalizedCategory ?? viewModel.playerEvent?.normalizedCategory ?? "football",
+                    competition: SportMotionContext.competition(for: viewModel.catalogEvent ?? viewModel.playerEvent),
                     statusMessage: viewModel.streamStatusMessage,
                     subtitle: viewModel.playerEvent.map { "\($0.homeName) vs \($0.awayName)" },
-                    technicalSummary: viewModel.streamStatusDetail,
                     isMultiStream: false,
                     multiTitles: [],
                     onCancel: {
                         viewModel.cancelStreamLookup()
                     }
                 )
-                .zIndex(100)
             }
-
+        }
+        .safeAreaInset(edge: .top, spacing: 0) {
             if showModalDismissButton {
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button {
-                            dismiss()
-                        } label: {
-                            Label("Close", systemImage: "xmark")
-                                .font(FottyTheme.typeAction)
-                                .foregroundStyle(FottyTheme.textPrimary)
-                                .padding(.horizontal, 13)
-                                .frame(minHeight: 40)
-                                .background(FottyTheme.surfaceElevated)
-                                .clipShape(Capsule())
-                                .overlay {
-                                    Capsule().strokeBorder(FottyTheme.border, lineWidth: 0.5)
-                                }
-                        }
-                        .buttonStyle(.plain)
-                    }
+                HStack {
                     Spacer()
+                    Button {
+                        dismiss()
+                    } label: {
+                        Label("Close", systemImage: "xmark")
+                            .font(FottyTheme.typeAction)
+                            .foregroundStyle(FottyTheme.textPrimary)
+                            .padding(.horizontal, 13)
+                            .frame(minHeight: 44)
+                            .background(FottyTheme.surfaceElevated)
+                            .clipShape(Capsule())
+                            .overlay {
+                                Capsule().strokeBorder(FottyTheme.border, lineWidth: 0.5)
+                            }
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(FottyPressButtonStyle(cornerRadius: 22))
                 }
                 .padding(.horizontal, FottyTheme.spacingMD)
-                .padding(.top, 8)
-                .zIndex(110)
+                .padding(.vertical, 8)
+                .background(FottyTheme.background)
             }
         }
         .accessibilityIdentifier("match-center")
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .fullScreenCover(isPresented: $viewModel.showPlayer) {
+        .onChange(of: viewModel.showPlayer) { _, show in
+            guard show else { return }
             if let event = viewModel.playerEvent {
-                LivePlayerView(event: event, providedSessions: viewModel.streamSessions)
-                    .environment(liveScoreService)
+                viewing.open(event: event, sessions: viewModel.streamSessions)
+                viewModel.showPlayer = false
+                if showModalDismissButton { dismiss() }
             }
         }
         .alert("Playback Error", isPresented: Binding(get: { viewModel.streamError != nil }, set: { _ in viewModel.streamError = nil })) {
@@ -129,26 +154,31 @@ struct MatchHubView: View {
         .onDisappear {
             viewModel.stop()
         }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { viewModel.resume() }
+            else { viewModel.pauseDataRefresh() }
+        }
     }
 }
 
 private struct CatalogMatchHubView: View {
     let event: EventReference
-    let providers: [String]
     let onWatchLive: (() -> Void)?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(LiveScoreService.self) private var scoreService
 
     var body: some View {
         ScrollView(showsIndicators: false) {
             VStack(spacing: 18) {
                 VStack(spacing: 16) {
-                    HStack {
-                        Label("BROADCAST LISTING", systemImage: "dot.radiowaves.left.and.right")
-                            .font(.system(size: 11, weight: .black))
-                            .tracking(0.7)
+                    metadataLayout {
+                        Label("Broadcast", systemImage: "dot.radiowaves.left.and.right")
+                            .font(FottyTheme.typeModuleTitle)
                             .foregroundStyle(FottyTheme.accentText)
-                        Spacer()
-                        Text(event.broadcastTiming().rawValue)
-                            .font(.system(size: 10, weight: .black))
+                        if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 8) }
+                        Text(MatchdayEventStatePolicy.presentationLabel(for: event,
+                            status: MatchStartPolicy.currentStatus(for: event, scores: scoreService)))
+                            .font(FottyTheme.typeMeta.weight(.semibold))
                             .foregroundStyle(FottyTheme.textOnAccent)
                             .padding(.horizontal, 9)
                             .padding(.vertical, 5)
@@ -156,7 +186,7 @@ private struct CatalogMatchHubView: View {
                             .clipShape(Capsule())
                     }
 
-                    HStack(spacing: 12) {
+                    teamsLayout {
                         catalogTeam(
                             name: event.homeName,
                             badge: event.teams?.home?.badge
@@ -164,7 +194,7 @@ private struct CatalogMatchHubView: View {
 
                         VStack(spacing: 5) {
                             Text("VS")
-                                .font(.fottyScaled(size: 18, weight: .black, design: .rounded))
+                                .font(.title3.weight(.semibold))
                                 .foregroundStyle(FottyTheme.textPrimary)
                             if let kickoff = event.kickoffDate {
                                 Text(kickoff.formatted(date: .omitted, time: .shortened))
@@ -191,20 +221,15 @@ private struct CatalogMatchHubView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Label("What is available", systemImage: "info.circle.fill")
+                    Label("Match information", systemImage: "info.circle.fill")
                         .font(FottyTheme.typeModuleTitle)
                         .foregroundStyle(FottyTheme.textPrimary)
 
-                    Text("This match comes from the live broadcast catalog. Scores, lineups, and statistics are not supplied for this listing, so Fotty does not invent them.")
+                    Text("Scores, lineups and statistics aren't available for this broadcast.")
                         .font(FottyTheme.typeMeta)
                         .foregroundStyle(FottyTheme.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
 
-                    if !providers.isEmpty {
-                        Text("Available through \(providers.joined(separator: " and ")).")
-                            .font(FottyTheme.typeCaption)
-                            .foregroundStyle(FottyTheme.accentText)
-                    }
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -213,7 +238,21 @@ private struct CatalogMatchHubView: View {
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 20)
+            .frame(maxWidth: 1000)
+            .frame(maxWidth: .infinity)
         }
+    }
+
+    private var metadataLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 8))
+    }
+
+    private var teamsLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .center, spacing: 14))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
     }
 
     private func catalogTeam(name: String, badge: String?) -> some View {
@@ -224,11 +263,10 @@ private struct CatalogMatchHubView: View {
                 size: 52
             )
             Text(name.isEmpty ? "Team" : name)
-                .font(.system(size: 12, weight: .black, design: .rounded))
+                .font(FottyTheme.typeModuleTitle)
                 .foregroundStyle(FottyTheme.textPrimary)
                 .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity)
     }

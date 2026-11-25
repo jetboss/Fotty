@@ -1,0 +1,19 @@
+{
+  "build": "2.0.1 (210), final executable hash in install.json",
+  "channel": "Sky Sports Football",
+  "normalWatch": "automatically selected CS1; no manual source selection or Retry",
+  "watchUTC": "2026-11-01T04:20:12.632Z",
+  "firstVideoObservationUTC": "2026-11-01T04:20:31.704Z",
+  "holdEndUTC": "2026-11-01T04:22:08.589Z",
+  "observedAdvancingPictureSeconds": 96.885,
+  "programme": "Sky Sports Football watermark; Bradford–Swansea archive, observed 46:41 through 54:53 before controls",
+  "sourcePicker": "CS1 checked as Native player; original TV11 remains selectable",
+  "controls": "Native fullscreen exposed Play after Pause at 57:55; resumed advancing picture observed at 58:23 in normal layout",
+  "reopen": "Normal close and Watch again displayed advancing Sky picture without source selection or Retry",
+  "reopenObservationUTC": "2026-11-01T04:27:52.590Z",
+  "limits": [
+    "Remote mirror needs pointer focus; no precise tap-to-frame latency claim",
+    "No live PL/UCL fixture or current-programme guide assignment qualification",
+    "No audible commentary, player/item identity instrumentation or PiP claim"
+  ]
+}

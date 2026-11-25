@@ -127,7 +127,6 @@ export function useEventStreams({
 }) {
   const [eventStreamState, setEventStreamState] = useState<EventStreamState>({});
   const [eventFrameLoaded, setEventFrameLoaded] = useState(false);
-  const [eventFrameTimedOut, setEventFrameTimedOut] = useState(false);
   const [streamsCheckedAt, setStreamsCheckedAt] = useState<string | undefined>();
 
   const resolvedSources = useMemo(() => dedupeWatchEventSources(eventSources), [eventSources]);
@@ -152,7 +151,6 @@ export function useEventStreams({
           setEventStreamState({ key: eventStreamKey, streams: picked.streams, selectedIndex: picked.selectedIndex });
           setStreamsCheckedAt(new Date().toISOString());
           setEventFrameLoaded(false);
-          setEventFrameTimedOut(false);
           onStreamsApplied?.();
           return;
         }
@@ -172,7 +170,6 @@ export function useEventStreams({
           setEventStreamState({ key: eventStreamKey, streams: picked.streams, selectedIndex: picked.selectedIndex });
           setStreamsCheckedAt(new Date().toISOString());
           setEventFrameLoaded(false);
-          setEventFrameTimedOut(false);
           onStreamsApplied?.();
           return;
         }
@@ -216,7 +213,6 @@ export function useEventStreams({
         });
         setStreamsCheckedAt(new Date().toISOString());
         setEventFrameLoaded(false);
-        setEventFrameTimedOut(false);
         onStreamsApplied?.();
       })
       .catch((error: unknown) => {
@@ -231,7 +227,6 @@ export function useEventStreams({
           });
           setStreamsCheckedAt(new Date().toISOString());
           setEventFrameLoaded(false);
-          setEventFrameTimedOut(false);
           onStreamsApplied?.();
           return;
         }
@@ -248,7 +243,6 @@ export function useEventStreams({
 
   const selectEventStream = useCallback((index: number) => {
     setEventFrameLoaded(false);
-    setEventFrameTimedOut(false);
     setEventStreamState((current) => ({
       ...current,
       selectedIndex: index,
@@ -259,8 +253,6 @@ export function useEventStreams({
     eventStreamState,
     eventFrameLoaded,
     setEventFrameLoaded,
-    eventFrameTimedOut,
-    setEventFrameTimedOut,
     streamsCheckedAt,
     refreshEventStreams,
     selectEventStream,

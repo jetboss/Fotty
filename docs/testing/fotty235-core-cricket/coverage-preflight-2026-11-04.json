@@ -1,0 +1,85 @@
+{
+  "observedAt": "2026-11-04T16:48:29.532Z",
+  "scope": "Original Willow/Foxtel current and next guide pages; fresh deployed official fixture snapshots; bounded CS catalog metadata only. No playback qualification.",
+  "current": {
+    "willow": "Cricket Highlights; not a live programme",
+    "fox": "WBBL Strikers\u2013Stars replay; not live"
+  },
+  "nextWillow": {
+    "programme": "Afghanistan\u2013Zimbabwe, first Test, day 1",
+    "guideStarts": "2026-11-05T07:00:00Z",
+    "officialMatchStarts": "2026-11-05T05:00:00Z",
+    "officialFixture": "icc:274663",
+    "recognized": true,
+    "officialContext": "Scheduled fixture currently has no live Test-day/ordinal context; recheck original ICC facts before live association. Do not overwrite either published start."
+  },
+  "nextFox": [
+    {
+      "programme": "Live: WBBL: Strikers v Heat",
+      "start": "2026-11-05T04:40:00.000Z",
+      "identity": {
+        "competitionID": "wbbl",
+        "format": "T20",
+        "squad": {
+          "gender": "women",
+          "ageGroup": "senior"
+        },
+        "participants": [
+          "Adelaide Strikers Women",
+          "Brisbane Heat Women"
+        ]
+      }
+    },
+    {
+      "programme": "Live: WBBL: Thunder v Scorchers",
+      "start": "2026-11-05T08:00:00.000Z",
+      "identity": {
+        "competitionID": "wbbl",
+        "format": "T20",
+        "squad": {
+          "gender": "women",
+          "ageGroup": "senior"
+        },
+        "participants": [
+          "Sydney Thunder Women",
+          "Perth Scorchers Women"
+        ]
+      }
+    }
+  ],
+  "nextFoxDay": [
+    {
+      "programme": "Live: WBBL: Stars v Sixers",
+      "start": "2026-11-06T08:10:00.000Z",
+      "identity": {
+        "competitionID": "wbbl",
+        "format": "T20",
+        "squad": {
+          "gender": "women",
+          "ageGroup": "senior"
+        },
+        "participants": [
+          "Melbourne Stars Women",
+          "Sydney Sixers Women"
+        ]
+      }
+    }
+  ],
+  "csChannelDiscovery": {
+    "networksPageCount": 100,
+    "networksPageContainsFox": false,
+    "cricketCatalogContainsExactAustralianFox": true,
+    "advertisedSearchContainsExactAustralianFox": true,
+    "finding": "The regular cricket cohort includes the exact AU channel. No additional search rule is justified from this evidence; existing stored proof awaits its next ordinary refresh."
+  },
+  "uclGate": {
+    "primary": "sports-fixture:champions-league:575387",
+    "fallback": "sports-fixture:champions-league:575386",
+    "scheduledUTC": "2026-11-04T17:45:00Z",
+    "status": "scheduled; no live pin or playback pass",
+    "officialSchedule": "https://www.uefa.com/uefachampionsleague/news/02a8-2174c9e9019d-f909a77bd77a-1000--202627-champions-league-all-the-league-phase-fixtures-and-results/"
+  },
+  "officialICC": "https://www.icc-cricket.com/matches/274663/afghanistan-vs-zimbabwe",
+  "implementationChanges": false,
+  "physicalInteractions": false
+}

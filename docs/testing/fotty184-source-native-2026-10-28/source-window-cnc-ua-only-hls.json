@@ -1,0 +1,82 @@
+{
+  "checkedAt": "2026-10-29T01:04:15.078646Z",
+  "fixture": "Washington Capitals–Philadelphia Flyers, 2026-10-28T23:30:00Z",
+  "requests": [
+    {
+      "stage": "catalog",
+      "host": "cncverse.dpdns.org",
+      "allDNSAnswersPublic": true,
+      "dnsAnswerCount": 1,
+      "TLS": "system_verified",
+      "status": 200,
+      "bytes": 304493,
+      "prefixOnly": false,
+      "sha256": "1f83e076529eae34ec862b6e27fe2f67ccd7aa23d9f9bdaf12e3abae7463a662",
+      "mime": "application/json"
+    },
+    {
+      "stage": "same_verified_identity_descriptor",
+      "host": "cncverse.dpdns.org",
+      "allDNSAnswersPublic": true,
+      "dnsAnswerCount": 1,
+      "TLS": "system_verified",
+      "status": 200,
+      "bytes": 848,
+      "prefixOnly": false,
+      "sha256": "3a209b25c99a5ac275d4bfac0ca41b74f60c33b1eb85884a80ebe8e344a48cac",
+      "mime": "application/json"
+    },
+    {
+      "stage": "ua_only_advertised_master",
+      "host": "live.kinescopecdn.net",
+      "allDNSAnswersPublic": true,
+      "dnsAnswerCount": 6,
+      "TLS": "system_verified",
+      "status": 200,
+      "bytes": 25,
+      "prefixOnly": false,
+      "sha256": "b63c2ad76f13bc74bfa26eea034236c2dc066e98490a2ce05cfa39db5859d13e",
+      "mime": "application/vnd.apple.mpegurl"
+    }
+  ],
+  "playlists": [
+    {
+      "role": "media",
+      "tagNames": [
+        "#EXT-X-VERSION",
+        "#EXTM3U"
+      ],
+      "uriCount": 0,
+      "inlineUriCount": 0,
+      "allResourceURLsHTTPS": true,
+      "allResourceOriginsMatchSelected": true,
+      "resourceHosts": [],
+      "endList": false,
+      "codecs": [],
+      "firstURIShape": null
+    }
+  ],
+  "status": "ua_only_hls_contract_observed",
+  "forwardedHTTPReferrer": false,
+  "admissionProposal": {
+    "host": "live.kinescopecdn.net",
+    "pathShape": "/<opaque:6>/<uuid>/<uuid>/master.m3u8",
+    "leadingRouteSegment": "<unreviewed>",
+    "pathSegmentLengths": [
+      6,
+      36,
+      36,
+      11
+    ],
+    "effectiveHeaderKeys": [
+      "User-Agent"
+    ],
+    "advertisedHeaderMatch": true
+  },
+  "retention": {
+    "redactedCopy": true,
+    "sourceFile": "source-window-cnc-ua-only-hls.json",
+    "omittedFieldCount": 0,
+    "scope": "Metadata and bounded HLS-master observations only; no decoded-playback qualification."
+  }
+}

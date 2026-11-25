@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-10",
+  "scope": "Owner-configured source integration; no device installation, cloud publication or TestFlight.",
+  "configuration": {
+    "storage": "Device-only non-synchronizable Keychain; credentials not bundled or written to receipts.",
+    "free": "Configured manifest accepted: community.sports.fly 1.3.0.",
+    "premium": "Configured manifest accepted: community.sports.streamed.premium 1.3.0.",
+    "automatic_enablement": false
+  },
+  "public_contract": {
+    "resource_type": "sport",
+    "catalogs": [
+      "sports_football",
+      "sports_cricket"
+    ],
+    "query": "Advertised search and skip; bounded participant searches.",
+    "identity": "Explicit UTC date, exact participants/squad, same-ID metadata; cricket format/ordinal and current Test-day required. Generic channels are not fixture evidence."
+  },
+  "observed_media": {
+    "free_cricket": "Two advertised options, Willow 2 and PTV Sports. One selected route: HLS 200, H264/AAC and three decoded frames from a bounded in-memory segment prefix.",
+    "free_football_channel": "One selected Sky Sports Premier League route: HLS 200, H264/AAC and three decoded frames from a bounded in-memory segment prefix; no programme qualification.",
+    "premium_cricket": "Same two named options, different signed query contract. Retry returned HLS 200 with eight entries and no EXT-X-KEY. Initial decode attempt timed out; no premium decoded/native pass.",
+    "independence": "Not established. Reviewed delivery shares a host with existing AS supply. Different labels or query credentials are not independent publishers."
+  },
+  "implemented": [
+    "Default-off HF adapter dispatched through normal Watch; no cloud account credentials.",
+    "Fresh configuration and enablement before/after resolution; no reuse of discovery cache across account changes.",
+    "Same-ID metadata, guarded HLS relay and renewable event binding. HTTPS/public-IP/header/redirect restrictions retained.",
+    "Signed query renewal preserves the reviewed channel path; a rejected route cannot erase valid siblings."
+  ],
+  "pengu": {
+    "manifest": "Owner configuration accepted. Initial zero catalogs was Live TV disabled; documented Live Sports checkbox enabled in a read-only inspection request exposes sports catalogs.",
+    "cricket": "Sampled entries declare ClearKey; not admitted to this direct-HLS path and not fetched.",
+    "football": "Descriptor request timed out; remains unverified, not failed playback.",
+    "integration": "Setup only; no Watch adapter admitted."
+  },
+  "streamnexus": "No owner configuration supplied; setup only.",
+  "validation": {
+    "status": "Passed",
+    "platform": "Mac Catalyst, Debug, unsigned",
+    "tests": 195,
+    "passed": 195,
+    "failures": 0,
+    "skipped": 0,
+    "new_adapter_tests": 11,
+    "scope": "Highfly, account setup, curated integration, source settings, reviewed TV, Sports TV, discovery coordinator, incremental catalog publication and playback identity.",
+    "limitations": "No physical device install, audio, live programme or sustained native playback pass."
+  },
+  "remaining": [
+    "Highfly native iPad normal Watch, correct programme, 90-second advancing video and commentary.",
+    "Premium segment/native decode.",
+    "PL/UCL fixture coverage and independently working backup qualification.",
+    "Pengu compatible non-DRM route and exact fixture review; StreamNexus owner setup."
+  ]
+}

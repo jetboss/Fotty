@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-10",
+  "build": "3.0.0 (265)",
+  "device": "Jet iPad",
+  "scope": "Explain cricket stumps and intervals without presenting them as active live play or changing broadcast eligibility.",
+  "changes": [
+    "Stumps: Play finished for today; lunch, tea, innings break, paused, interrupted and delayed play have explicit labels.",
+    "Home uses a moon for stumps and pause symbol for intervals; groups containing paused cricket use Matches in progress rather than Live now.",
+    "Shared phase copy reaches match details and scorecards. Single-player match status uses cricket phase rather than falling back to Live broadcast.",
+    "Fresh explicit in-play evidence restores active LIVE presentation; stale Test phase evidence remains unconfirmed.",
+    "Match lifecycle, identity, Watch eligibility, source matching and player transport remain unchanged."
+  ],
+  "verification": {
+    "focusedCatalystTests": 94,
+    "failures": 0,
+    "skips": 0,
+    "testGroups": [
+      "CricketActivityPresentationTests",
+      "HomeDiscoveryTests",
+      "CricketMatchContextTests",
+      "HighflySportsAddonTests"
+    ],
+    "signedReleaseBuild": "passed",
+    "installation": "passed",
+    "physicalUI": "passed: current stumps on normal Home, match-details badge and scorecard; all text readable, no active LIVE styling",
+    "homeStumpsLabel": "Observed on Jet: Stumps · Play finished for today, moon symbol, no red LIVE styling; cricket tile Play finished today",
+    "limitations": "Lunch/tea/resumption covered by local tests; no new live Highfly playback or player-chrome physical pass while match is at stumps."
+  },
+  "currentOfficialEvidence": {
+    "match": "Pakistan–Sri Lanka, 1st Test, Day 2",
+    "phase": "Stumps",
+    "source": "https://www.icc-cricket.com/tournaments/world-test-championship/news/pakistan-pile-on-runs-before-striking-early-against-sri-lanka",
+    "statusSource": "https://www.icc-cricket.com/fixtures-results/index?sf147658864=1"
+  },
+  "highfly": {
+    "setup": "Configured and enabled on Jet in build 264; preserved",
+    "nativeLivePlayback": "pending",
+    "reason": "Official match is at stumps; latest provider check in the 264 receipt returned Streams Unavailable. No resumed-play delivery has been qualified.",
+    "nextGate": "Fresh official in-play phase and exact current Test day plus same-ID Highfly metadata and compatible delivery; then normal Watch/source picker, correct programme, 90-second advancing picture and basic controls on free Jet. Never reuse the Day 2 stream pin."
+  },
+  "preserved": [
+    "phone",
+    "FPL",
+    "multi-stream",
+    "source settings",
+    "cloud",
+    "TestFlight"
+  ],
+  "secrets": "No account links, tokens, media URLs or private device identifiers retained.",
+  "cleanup": {
+    "ownedGateRemoved": true,
+    "ownedKeepAwake": "Build-scoped processes ended",
+    "freeGiBAfter": 13.33
+  }
+}

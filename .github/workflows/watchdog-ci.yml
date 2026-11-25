@@ -29,7 +29,7 @@ jobs:
       - name: Install the locked deployment runtime
         run: npm ci --prefix web --ignore-scripts
       - name: Exercise the real Worker and transactional Durable Object
-        run: node --test web/workers/watchdog/src/runtime.test.mjs
+        run: node --test web/workers/watchdog/src/*.runtime.test.mjs web/workers/watchdog/src/runtime.test.mjs
       - name: Verify an observation-only bundle without activation or credentials
         working-directory: web
         run: npx wrangler deploy --config workers/watchdog/wrangler.toml --dry-run --outdir "${RUNNER_TEMP}/watchdog-dry-run"

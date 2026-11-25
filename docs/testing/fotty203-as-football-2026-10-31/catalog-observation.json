@@ -1,0 +1,55 @@
+{
+  "date": "2026-10-31",
+  "providerVersion": "1.9.130",
+  "observations": [
+    {
+      "at": "17:04:16Z",
+      "route": "advertised Football search=Tottenham",
+      "status": 200,
+      "rows": 0
+    },
+    {
+      "at": "17:10:01Z",
+      "route": "Football default",
+      "rows": 6,
+      "targetTottenhamPalace": false
+    },
+    {
+      "at": "17:10:37Z",
+      "route": "exact advertised Brentford meta",
+      "status": 200,
+      "keys": [
+        "id",
+        "type",
+        "name",
+        "poster",
+        "logo",
+        "genres",
+        "description"
+      ],
+      "sameID": true,
+      "countSuffixAbsent": true
+    },
+    {
+      "at": "17:15:47Z",
+      "route": "Football default",
+      "rows": 17,
+      "targetTottenhamPalace": false
+    },
+    {
+      "at": "17:20:25Z",
+      "route": "Football default",
+      "rows": 17,
+      "targetTottenhamPalace": false,
+      "betisMalagaAdvertised": true
+    },
+    {
+      "at": "17:21:15Z",
+      "route": "advertised Live Sports default",
+      "status": 200,
+      "rows": 0
+    }
+  ],
+  "manifestContract": "Football optional search only; no pagination/required filter",
+  "interpretation": "Source listing availability; neither playback failure nor decoded pass."
+}

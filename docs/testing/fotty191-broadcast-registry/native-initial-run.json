@@ -1,0 +1,25 @@
+{
+  "result": "Failed",
+  "totalTestCount": 748,
+  "passedTests": 742,
+  "failedTests": 2,
+  "skippedTests": 4,
+  "testFailures": [
+    {
+      "failureText": "XCTAssertTrue failed",
+      "targetName": "FottyTests",
+      "testIdentifier": 14,
+      "testIdentifierString": "BroadcastRegistryTests/testFailedCoverageAndUnverifiedLinksDoNotHideHealthySiblingOrGrantWatch()",
+      "testIdentifierURL": "test://com.apple.xcode/Fotty/FottyTests/BroadcastRegistryTests/testFailedCoverageAndUnverifiedLinksDoNotHideHealthySiblingOrGrantWatch",
+      "testName": "testFailedCoverageAndUnverifiedLinksDoNotHideHealthySiblingOrGrantWatch()"
+    },
+    {
+      "failureText": "failed - Expected the exact registered current provider row",
+      "targetName": "FottyTests",
+      "testIdentifier": 73,
+      "testIdentifierString": "CatalogPlaybackIdentityTests/testRegisteredPrimaryAssociationSelectsOnlyItsAdvertisedProviderRowAndKeepsRealSources()",
+      "testIdentifierURL": "test://com.apple.xcode/Fotty/FottyTests/CatalogPlaybackIdentityTests/testRegisteredPrimaryAssociationSelectsOnlyItsAdvertisedProviderRowAndKeepsRealSources",
+      "testName": "testRegisteredPrimaryAssociationSelectsOnlyItsAdvertisedProviderRowAndKeepsRealSources()"
+    }
+  ]
+}

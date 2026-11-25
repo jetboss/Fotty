@@ -1,0 +1,31 @@
+{
+  "observedAt": "2026-11-01T01:44:07.511Z",
+  "results": [
+    {
+      "version": "v2",
+      "sourceVersion": "2026-10-31.tv-guide-1",
+      "status": 200,
+      "guidePresent": false,
+      "guideEntries": 0,
+      "guideSports": [],
+      "assignmentCount": 29
+    },
+    {
+      "version": "v3",
+      "sourceVersion": "2026-10-31.tv-guide-1",
+      "status": 200,
+      "guidePresent": true,
+      "guideEntries": 65,
+      "guideSports": [
+        "tennis",
+        "football",
+        "baseball",
+        "rugby",
+        "american-football",
+        "hockey",
+        "basketball"
+      ],
+      "assignmentCount": 31
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+--- a/Fotty/Core/Internal/HybridStreamProvider.swift
++++ b/Fotty/Core/Internal/HybridStreamProvider.swift
+@@ -539,7 +539,7 @@
+         guard !Task.isCancelled, let binding = session.eventBinding,
+               binding.matchesIdentity(request: request, providerCode: binding.providerCode),
+               session.playbackContract.endpoint == .directMedia,
+-              ["communitysports", "plaviosports"].contains(binding.providerCode),
++              ["communitysports", "plaviosports", "flixstreams"].contains(binding.providerCode),
+               await StreamPluginRegistry.shared.enabledProviderCodes().contains(binding.providerCode) else { return nil }
+         let recoveryRequest: StreamPlaybackRequest
+         if binding.usesRegistryAssociation {
+@@ -563,6 +563,8 @@
+                     let candidates: [StreamSession]
+                     if binding.providerCode == "communitysports" {
+                         candidates = try await CommunitySportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
++                    } else if binding.providerCode == "flixstreams" {
++                        candidates = try await FlixStreamsAddonClient.shared.resolve(for: metadataRequest)
+                     } else {
+                         candidates = try await PlavioSportsAddonClient.shared.resolve(for: metadataRequest, forceRefresh: true)
+                     }
+--- a/Fotty/Core/Networking/LocalStreamProxy.swift
++++ b/Fotty/Core/Networking/LocalStreamProxy.swift
+@@ -1188,6 +1188,7 @@
+         case unsafeRedirect = "unsafe_redirect"
+         case cancelled
+         case transportError = "transport_error"
++        case leaseExpired = "lease_expired"
+         case emptyMedia = "empty_media"
+         case malformedManifest = "malformed_manifest"
+         case htmlResponse = "html_response"
+--- a/Fotty/Features/Player/LivePlayerViewModel.swift
++++ b/Fotty/Features/Player/LivePlayerViewModel.swift
+@@ -1880,7 +1880,7 @@
+                 // expired lease must not be replayed after renewal failed.
+                 nativeStartupRetryAttemptsBySource[source.id] = 1
+                 handleSourceStartupFailure(source, reason: "Stream lease expired.", expectedRequestID: rid,
+-                    diagnosticDetails: ["preparation_reason": "lease_expired"])
++                    diagnosticDetails: PlaybackPreparationDiagnostic(stage: .urlPreparation, reason: .leaseExpired).qualityDetails)
+                 return
+             }
+             if isDiscoveryOnlySource(source) { handleSourceStartupFailure(source, reason: "Resolver only.", expectedRequestID: rid); return }
