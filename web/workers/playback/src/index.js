@@ -41,6 +41,9 @@ const PRIMARY_SPORTS_SOURCE_IDS = new Set(SPORTS_SOURCES.map((source) => source.
 // National-team football has its own switch so it can run without opening
 // every public website feed (NBA, NFL, college, MLS, tennis, golf...).
 export const INTERNATIONAL_FOOTBALL_SOURCE_IDS = new Set(["uefa-nations-league", "international-friendlies", "concacaf-nations-league"]);
+// Owner decision (22 Nov 2026): the NBA schedule comes from ESPN's public
+// scoreboard under its own switch, without opening the other public feeds.
+export const NBA_SOURCE_IDS = new Set(["nba"]);
 function effectiveSportsSources(env) {
   return ALL_SPORTS_SOURCES.map((source) => {
     if (source.id === "efl-carabao-cup" && env.FOTTY_SPORTS_EFL_ENABLED !== "1") {
@@ -50,14 +53,16 @@ function effectiveSportsSources(env) {
       return { ...source, supported: false, reason: "The league CDN does not return structured data to the cloud fixture service; activation requires verified source access." };
     }
     const internationalAllowed = INTERNATIONAL_FOOTBALL_SOURCE_IDS.has(source.id) && env.FOTTY_SPORTS_INTERNATIONAL_FOOTBALL_ENABLED === "1";
-    return source.publicUndocumented && env.FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED !== "1" && !internationalAllowed
+    const nbaAllowed = NBA_SOURCE_IDS.has(source.id) && env.FOTTY_SPORTS_NBA_ENABLED === "1";
+    return source.publicUndocumented && env.FOTTY_SPORTS_PUBLIC_WEB_FEEDS_ENABLED !== "1" && !internationalAllowed && !nbaAllowed
       ? { ...source, supported: false, reason: "This public website feed is awaiting separate source-access review." } : source;
   });
 }
 export class SportsFixtureRegistry extends BaseSportsFixtureRegistry {
   constructor(state, env) {
-    super(state, env, { descriptors: effectiveSportsSources(env), collect: (source, now, environment) =>
-      PRIMARY_SPORTS_SOURCE_IDS.has(source.id) ? collectSportsSource(source, now, environment) : collectSportsEventSource(source, now, environment) });
+    super(state, env, { descriptors: effectiveSportsSources(env), collect: (source, now, environment, accepted) =>
+      PRIMARY_SPORTS_SOURCE_IDS.has(source.id) ? collectSportsSource(source, now, environment, fetch, { previous: accepted })
+        : collectSportsEventSource(source, now, environment) });
   }
 }
 

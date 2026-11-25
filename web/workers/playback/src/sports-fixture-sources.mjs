@@ -398,9 +398,82 @@ async function mlb(descriptor, context) {
   });
 }
 
+export const NHL_PAGE_GAP_MS = 1_000;
+
+// Owner decision (22 Nov 2026): when the NHL API refuses (HTTP 429 or a server
+// error), the last accepted NHL schedule is kept with its own IDs, teams,
+// times and provenance, and each game's status comes from ESPN's public NHL
+// scoreboard (a unique same-team match within 15 minutes of the accepted
+// start). ESPN never adds, moves or renames a game, and a finished, cancelled
+// or postponed game never becomes active again.
+const NHL_ESPN_STATUS = Object.freeze({ STATUS_POSTPONED: "postponed", STATUS_CANCELED: "cancelled" });
+
 async function nhl(descriptor, context) {
+  try { return await nhlSchedule(descriptor, context); } catch (error) {
+    const status = error?.fixtureHTTPStatus;
+    if (status !== 429 && !(status >= 500 && status <= 599)) throw error;
+    const rows = await nhlFromESPN(descriptor, context);
+    if (!rows) throw error;
+    return rows;
+  }
+}
+
+async function nhlFromESPN(descriptor, context) {
+  const accepted = (context.previous?.fixtures || []).filter((fixture) => fixture.competitionId === "nhl"
+    && fixture.sport === descriptor.sport && typeof fixture.source?.url === "string"
+    && fixture.source.url.startsWith(`${descriptor.sourceURL}/`));
+  if (!accepted.length) return null;
+  // ESPN's NHL board accepts one US Eastern day per request (a range is
+  // HTTP 400). Read today plus the days of games starting within 8 hours
+  // before to 30 hours after now: at most three requests.
+  const now = context.now.getTime();
+  const day = (instant) => new Date(instant - 5 * 3_600_000).toISOString().slice(0, 10).replaceAll("-", "");
+  const days = [...new Set([day(now), ...accepted.map((fixture) => Date.parse(fixture.start))
+    .filter((start) => start >= now - 8 * 3_600_000 && start <= now + 30 * 3_600_000).map(day)])].sort().slice(0, 3);
+  let events = [];
+  try {
+    for (const date of days) {
+      const url = new URL("https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/scoreboard");
+      url.searchParams.set("dates", date);
+      const data = await context.getOverlay(url);
+      if (data?.leagues?.[0]?.slug !== "nhl" || !Array.isArray(data.events) || data.events.length > 100) return null;
+      events = events.concat(data.events);
+    }
+  } catch { return null; }
+  const games = events.flatMap((event) => {
+    const competitors = event?.competitions?.[0]?.competitors;
+    const side = (role) => Array.isArray(competitors) ? competitors.find((item) => item?.homeAway === role)?.team : undefined;
+    const home = side("home"), away = side("away"), start = Date.parse(event?.date), type = event?.status?.type;
+    if (!home || !away || !Number.isFinite(start) || !type) return [];
+    const names = (team) => [team.displayName, team.shortDisplayName, team.name].filter((name) => typeof name === "string");
+    const status = NHL_ESPN_STATUS[type.name] || (type.state === "in" ? "live"
+      : type.state === "post" && type.completed === true ? "finished" : type.state === "pre" ? "scheduled" : undefined);
+    return status ? [{ home: names(home), away: names(away), start, status }] : [];
+  });
+  return accepted.map((fixture) => {
+    const { verification: _marker, ...source } = fixture.source;
+    const ours = (role) => fixture.participants?.find((item) => item.role === role)?.name;
+    const matches = games.filter((game) => Math.abs(game.start - Date.parse(fixture.start)) <= 15 * 60_000
+      && ours("home") && ours("away") && sameTeamName([ours("home")], game.home) && sameTeamName([ours("away")], game.away));
+    const terminal = ["finished", "cancelled", "postponed"].includes(fixture.status);
+    const status = matches.length === 1 && !terminal ? matches[0].status : fixture.status;
+    const { liveEvidence: _evidence, footballLive: _live, ...rest } = fixture;
+    return { start: fixture.start, fixture: { ...rest, status, source: { ...source, observedAt: context.observedAt },
+      ...(matches.length === 1 && !terminal ? { liveEvidence: "espn" } : {}) } };
+  });
+}
+
+async function nhlSchedule(descriptor, context) {
   const { windowStart, observedAt, get } = context;
-  const pages = await Promise.all([0, 7].map(async (offset) => {
+  // The two weekly pages are requested one after another, never as a
+  // simultaneous burst: the NHL API rate-limits Worker traffic (HTTP 429 on
+  // most refreshes, 20-22 Nov 2026).
+  const pages = [];
+  for (const offset of [0, 7]) {
+    if (pages.length) await new Promise((resolve) => setTimeout(resolve, NHL_PAGE_GAP_MS));
+    pages.push(await nhlPage(offset));
+  }
+  async function nhlPage(offset) {
     const date = new Date(Date.parse(windowStart) + offset * DAY).toISOString().slice(0, 10);
     const url = `${descriptor.sourceURL}/${date}`;
     const data = await get(url);
@@ -412,7 +485,7 @@ async function nhl(descriptor, context) {
     });
     check(rows.length === data.numberOfGames && rows.length <= 200, "NHL total count mismatch");
     return rows.map((row) => ({ row, url }));
-  }));
+  }
   const rows = pages.flat();
   unique(rows, ({ row }) => row.id);
   return rows.map(({ row, url }) => {
@@ -551,14 +624,14 @@ async function espnDaily(descriptor, context) {
   return [...merged.values()].map(({ start, fixture }) => ({ start, fixture }));
 }
 
-export async function collectSportsSource(descriptor, now, env = {}, fetchImpl = fetch) {
+export async function collectSportsSource(descriptor, now, env = {}, fetchImpl = fetch, { previous } = {}) {
   const known = SPORTS_SOURCES.find((item) => item.id === descriptor?.id);
   check(known?.supported, "Unknown sports schedule source");
   const window = sportsFixtureWindow(now);
   const observedAt = now.toISOString();
   const deadline = coachDeadline(undefined, 12_000);
   try {
-    const context = { ...window, observedAt, now, env,
+    const context = { ...window, observedAt, now, env, previous,
       get: (url, headers) => requestJSON(url, deadline, fetchImpl, headers),
       getWithHeaders: (url) => requestJSON(url, deadline, fetchImpl, {}, true, known.id === "efl-carabao-cup"),
       // The live layer has its own short bound so it can never consume the
