@@ -775,11 +775,11 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             enabledProviderCodes: [], at: now, phase: .completion))
     }
 
-    func testDefaultScore808OffersSourceFreeVerifiedCupFreshWatchWithoutClaimingAListing() throws {
+    func testDefaultCommunitySportsOffersVerifiedCupFreshWatchWithoutClaimingAListing() throws {
         let defaults = StreamPluginRegistry.bundledCatalog(savedStates: [:]).plugins
         let codes = Set(defaults.filter(\.isEnabled).map(\.providerCode))
-        XCTAssertTrue(codes.contains("score808"))
-        XCTAssertFalse(codes.contains("communitysports"))
+        XCTAssertFalse(codes.contains("score808"))
+        XCTAssertTrue(codes.contains("communitysports"))
         XCTAssertFalse(codes.contains("plaviosports"))
         let row = cup()
         let admitted = try XCTUnwrap(OptionalSourceLookupPolicy.event(for: row, in: [row],
@@ -789,58 +789,55 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now,
             discoveryIndex: freshWatchIndex(codes), catalogIndex: FixtureCatalogAvailabilityIndex())?.evidence,
             .freshLookupOpportunity, "Watch runs the resolver; it never claims a listing")
-        // The existing resolver dispatch uses this same football/window rule;
-        // the request needs no primary descriptor or optional-source opt-in.
-        let request = StreamPlaybackRequest(event: admitted)
-        XCTAssertTrue(Score808LateDiscoveryPolicy.isLookupWindow(kickoffDate: request.kickoffDate,
-            category: request.category, at: now))
     }
 
-    func testScore808OnlyCupCheckRetainsProviderConsentAndFootballScope() {
+    func testCommunitySportsCupCheckRetainsProviderConsentAndFootballScope() {
         let row = cup()
-        for codes: Set<String> in [[], ["future-provider"]] {
+        for codes: Set<String> in [[], ["future-provider"], [" SCORE808 "]] {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row],
                 enabledProviderCodes: codes, at: now))
         }
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: row, in: [row],
-            enabledProviderCodes: [" SCORE808 "], at: now))
+            enabledProviderCodes: [" COMMUNITYSPORTS "], at: now))
         for otherSport in [cricket(), sports(sport: "basketball")] {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: otherSport, in: [otherSport],
                 enabledProviderCodes: ["score808"], at: now))
         }
     }
 
-    func testScore808OnlyCupCheckRejectsHeldStaleStoppedAndOutOfWindowReceipts() {
+    func testCommunitySportsCupCheckRejectsHeldStaleStoppedAndOutOfWindowReceipts() {
         let invalid = [
             cup(verified: false),
             cup(offset: -SportsFixtureMetadata.unconfirmedLiveWindow,
                 observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1)),
             cup(observedAt: now.addingTimeInterval(301)),
-            cup(offset: -Score808LateDiscoveryPolicy.lookupTailTime - 1),
             cup(offset: MatchStartPolicy.playbackLead + 1, status: .scheduled),
             cup(offset: -VerifiedFixtureStartingPolicy.grace - 1, status: .scheduled)
         ] + [SportsFixtureCatalog.Status.finished, .cancelled, .postponed, .unknown].map { cup(status: $0) }
         for row in invalid {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row],
-                enabledProviderCodes: ["score808"], at: now, status: .inPlay), row.displayTitle)
+                enabledProviderCodes: ["communitysports"], at: now, status: .inPlay), row.displayTitle)
         }
+        let extraTime = cup(offset: -3 * 3_600 - 1)
+        XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: extraTime, in: [extraTime],
+            enabledProviderCodes: ["communitysports"], at: now))
         let edge = cup(observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness))
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: edge, in: [edge],
-            enabledProviderCodes: ["score808"], at: now))
+            enabledProviderCodes: ["communitysports"], at: now))
         // One missed fixture refresh keeps a started LIVE row eligible (unconfirmed).
         let staleLive = cup(observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1))
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: staleLive, in: [staleLive],
-            enabledProviderCodes: ["score808"], at: now))
+            enabledProviderCodes: ["communitysports"], at: now))
         let upcoming = cup(offset: MatchStartPolicy.playbackLead, status: .scheduled)
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: upcoming, in: [upcoming],
-            enabledProviderCodes: ["score808"], at: now))
+            enabledProviderCodes: ["communitysports"], at: now))
         let starting = cup(offset: -1, status: .scheduled)
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: starting, in: [starting],
-            enabledProviderCodes: ["score808"], at: now))
+            enabledProviderCodes: ["communitysports"], at: now))
         XCTAssertFalse(starting.sportsFixture?.isLive(at: now) ?? true)
     }
 
-    func testScore808OnlyCupCheckRequiresUnchangedUniqueOfficialIdentity() {
+    func testCommunitySportsCupCheckRequiresUnchangedUniqueOfficialIdentity() {
         let row = cup()
         let variants = [
             cup(id: "provider-liverpool-chelsea"),
@@ -853,23 +850,23 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
         ]
         for current in variants {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [current],
-                enabledProviderCodes: ["score808"], at: now))
+                enabledProviderCodes: ["communitysports"], at: now))
         }
         XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row, row],
-            enabledProviderCodes: ["score808"], at: now))
+            enabledProviderCodes: ["communitysports"], at: now))
         XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [],
-            enabledProviderCodes: ["score808"], at: now))
+            enabledProviderCodes: ["communitysports"], at: now))
         let correctedName = cup(home: "Liverpool FC")
         XCTAssertEqual(OptionalSourceLookupPolicy.event(for: row, in: [correctedName],
-            enabledProviderCodes: ["score808"], at: now)?.homeName, "Liverpool FC",
+            enabledProviderCodes: ["communitysports"], at: now)?.homeName, "Liverpool FC",
             "Accepted display-name corrections retain the stable official participant identity")
     }
 
-    func testScore808OnlyCupCompletionRechecksConsentAndCurrentReceipt() throws {
+    func testCommunitySportsCupCompletionRechecksConsentAndCurrentReceipt() throws {
         let row = cup()
         let refreshed = cup()
         let completion = try XCTUnwrap(OptionalSourceLookupPolicy.event(for: row, in: [refreshed],
-            enabledProviderCodes: ["score808"], at: now, phase: .completion))
+            enabledProviderCodes: ["communitysports"], at: now, phase: .completion))
         XCTAssertEqual(completion.sportsFixture, row.sportsFixture)
         XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [refreshed],
             enabledProviderCodes: [], at: now, phase: .completion))
@@ -877,7 +874,7 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
                         cup(offset: -SportsFixtureMetadata.unconfirmedLiveWindow,
                             observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1))] {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [current],
-                enabledProviderCodes: ["score808"], at: now, phase: .completion))
+                enabledProviderCodes: ["communitysports"], at: now, phase: .completion))
         }
     }
 

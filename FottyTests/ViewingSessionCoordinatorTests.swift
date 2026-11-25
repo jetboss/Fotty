@@ -567,7 +567,8 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
         func make(event: EventReference, sessions: [StreamSession]) -> LivePlayerViewModel {
             let model = LivePlayerViewModel(event: event, providedSessions: sessions,
-                ownsRemoteCommands: false, prepareAudioSession: { .completed([]) })
+                ownsRemoteCommands: false, prepareAudioSession: { .completed([]) },
+                currentMatchProviders: { ["communitysports", "plaviosports", "flixstreams"] })
             models.append(model)
             return model
         }
@@ -757,7 +758,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let route = web ? "embed/prepared-\(event.id)" : "prepared-\(event.id).m3u8"
         return StreamSession(matchID: event.id, title: event.displayTitle,
             playableURL: URL(string: "https://example.invalid/\(route)")!,
-            streamType: web ? .unknown : .hls, providerName: "Score808",
+            streamType: web ? .unknown : .hls, providerName: "FS1",
             requiredHeaders: web ? ["X-Fotty-Web-Embed": "true"] : [:])
     }
 
@@ -1071,7 +1072,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     private func seedSlowLegacyAndFastSingleHistory(for event: EventReference)
         -> (slow: StreamSession, fast: StreamSession) {
-        let slow = rankingSession(for: event, provider: "Score808", host: "slow-ranking.example.invalid")
+        let slow = rankingSession(for: event, provider: "FS1", host: "slow-ranking.example.invalid")
         let fast = rankingSession(for: event, provider: "AS1", host: "fast-ranking.example.invalid")
         for _ in 0..<8 {
             LiveSourceHealthStore.recordSuccess(for: slow, startupLatencyMs: 18_000,
@@ -1122,7 +1123,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
         let factory = ModelFactory(), owner = coordinator(factory: factory)
         defer { owner.stop() }
-        let rightSlow = rankingSession(for: right, provider: "Score808", host: "slow-ranking.example.invalid")
+        let rightSlow = rankingSession(for: right, provider: "FS1", host: "slow-ranking.example.invalid")
         let rightFast = rankingSession(for: right, provider: "AS1", host: "fast-ranking.example.invalid")
         owner.openMulti(slots: [.init(event: left, sessions: [choices.fast, choices.slow]),
                                 .init(event: right, sessions: [rightFast, rightSlow])])
@@ -1213,13 +1214,13 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         defer { MatchListViewModel.shared.matches = originalMatches }
         let choices = seedSlowLegacyAndFastSingleHistory(for: match)
         let exhausted = rankingSession(for: match, provider: "CS1", host: "exhausted-ranking.example.invalid")
-        let spare = rankingSession(for: match, provider: "Score808", host: "spare-ranking.example.invalid")
+        let spare = rankingSession(for: match, provider: "FS1", host: "spare-ranking.example.invalid")
         LiveSourceHealthStore.recordSuccess(for: exhausted, startupLatencyMs: 900)
         LiveSourceHealthStore.recordSuccess(for: spare, startupLatencyMs: 7_000)
         let model = LivePlayerViewModel(event: match,
             providedSessions: [choices.slow, choices.fast, exhausted, spare],
             ownsRemoteCommands: false, prepareAudioSession: { .completed([]) },
-            currentMatchProviders: { ["communitysports", "plaviosports", "score808"] })
+            currentMatchProviders: { ["communitysports", "plaviosports", "flixstreams"] })
         defer { model.cleanup() }
         XCTAssertTrue(model.configureSingleStreamRanking())
         XCTAssertEqual(model.activeSession?.id, exhausted.id)
@@ -1254,7 +1255,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             catalogEvent: { _ in primaryLookups += 1; return nil }, cancelPlayback: { _ in })
         defer { owner.stop() }
 
-        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { current, phase in
+        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["flixstreams", "communitysports"] }) { current, phase in
             admissions += 1
             XCTAssertEqual(phase, admissions == 1 ? .offer : .completion)
             XCTAssertEqual(current.id, fixture.id)
@@ -1286,7 +1287,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         owner.open(event: retained, sessions: [session(for: retained)])
         let model = try XCTUnwrap(owner.primary?.model)
         let item = installPausedLocalItem(on: model)
-        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { _, _ in nil })
+        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["flixstreams", "communitysports"] }) { _, _ in nil })
         await waitForSourceCheck { owner.resolutionError != nil }
         XCTAssertEqual(resolves, 0)
         XCTAssertTrue(owner.primary?.model === model)
@@ -1307,7 +1308,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             let item = installPausedLocalItem(on: model), attempt = model.loadRequestID
             let source = model.activeSession?.id
             owner.minimize()
-            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { _, _ in fixture })
+            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["flixstreams", "communitysports"] }) { _, _ in fixture })
             await waitForSourceCheck { owner.resolutionError != nil }
             XCTAssertTrue(owner.primary?.model === model)
             XCTAssertTrue(model.player?.currentItem === item)
@@ -1327,8 +1328,8 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
                 resolvePlayback: { await gate.resolve($0) }, cancelPlayback: { _ in cancellations += 1 })
             defer { gate.completeAll(result); owner.stop() }
-            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { _, _ in fixture })
-            XCTAssertFalse(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { _, _ in fixture })
+            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["flixstreams", "communitysports"] }) { _, _ in fixture })
+            XCTAssertFalse(owner.checkOptionalSources(for: fixture, enabledProviders: { ["flixstreams", "communitysports"] }) { _, _ in fixture })
             await waitForSourceCheck { gate.requests.count == 1 }
             if stop { owner.stop() } else { owner.cancelOptionalSourceLookup() }
             gate.complete(result)
@@ -1348,7 +1349,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) },
                 resolvePlayback: { await gate.resolve($0) }, cancelPlayback: { _ in })
             defer { gate.completeAll(result); owner.stop() }
-            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] }) { _, _ in
+            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["flixstreams", "communitysports"] }) { _, _ in
                 admission += 1
                 if admission == 1 { return fixture }
                 if change == "missing" { return nil }
@@ -1389,7 +1390,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             resolvePlayback: { _ in XCTFail("Incremental Watch must use the supplied discovery lane"); return self.outcome(for: fixture, sessions: []) },
             cancelPlayback: { _ in })
         defer { gate.complete(outcome(for: fixture, sessions: [])); owner.stop() }
-        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] },
+        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["flixstreams", "communitysports"] },
             discover: { await gate.resolve($0, publish: $1) }) { event, phase in
                 phases.append(phase)
                 return event
@@ -1436,7 +1437,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             let first = session(for: fixture)
             let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) }, cancelPlayback: { _ in })
             defer { gate.complete(outcome(for: fixture, sessions: [])); owner.stop() }
-            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] },
+            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["flixstreams", "communitysports"] },
                 discover: { await gate.resolve($0, publish: $1) }, currentEvent: { event, _ in event }))
             await waitForSourceCheck { gate.publish != nil }
             await gate.publish?([first])
@@ -1461,7 +1462,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             var changed = false
             let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) }, cancelPlayback: { _ in })
             defer { gate.complete(outcome(for: fixture, sessions: [])); owner.stop() }
-            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] },
+            XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["flixstreams", "communitysports"] },
                 discover: { await gate.resolve($0, publish: $1) }) { event, phase in
                     guard changed, phase == .completion else { return event }
                     if change == "revoked" { return nil }
@@ -1494,7 +1495,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         var enabled = true, completions = 0
         let owner = ViewingSessionCoordinator(makeModel: { factory.make(event: $0, sessions: $1) }, cancelPlayback: { _ in })
         defer { gate.complete(outcome(for: fixture, sessions: [])); owner.stop() }
-        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["score808", "communitysports"] },
+        XCTAssertTrue(owner.checkOptionalSources(for: fixture, enabledProviders: { ["flixstreams", "communitysports"] },
             discover: { await gate.resolve($0, publish: $1) }) { event, phase in
                 if phase == .completion { completions += 1 }
                 return enabled ? event : nil
@@ -1521,7 +1522,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     func testIncrementalOptionalWatchFiltersRevokedFamilyAtCommitWhileEnabledSiblingCanPlay() async throws {
         let factory = ModelFactory(), gate = SingleDiscoveryGate(), fixture = sourceCheckFixture("optional-family-revoked")
-        var enabled: Set<String> = ["score808", "communitysports"]
+        var enabled: Set<String> = ["flixstreams", "communitysports"]
         var revokeOnCompletion = true
         let cs = StreamSession(matchID: fixture.id, playableURL: URL(string: "https://example.invalid/revoked-cs.m3u8")!,
             streamType: .hls, providerName: "CS1")
@@ -1543,7 +1544,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         await waitForSourceCheck { gate.publish != nil }
         await gate.publish?([cs])
         XCTAssertTrue(factory.models.isEmpty, "An opt-in revoked during the async current-event check must veto that family")
-        XCTAssertEqual(enabled, ["score808"])
+        XCTAssertEqual(enabled, ["flixstreams"])
         await gate.publish?([cs, ordinary])
         let pane = try XCTUnwrap(owner.primary)
         let item = installPausedLocalItem(on: pane.model), attempt = pane.model.loadRequestID
@@ -1831,7 +1832,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let selected = try XCTUnwrap(retained.model.activeSession)
         retained.model.nativeHandoffSession = StreamSession(id: selected.id, matchID: selected.matchID,
             playableURL: URL(string: "https://example.invalid/adopted.m3u8")!, streamType: .hls,
-            providerName: "Score808", requiredHeaders: [:])
+            providerName: "FS1", requiredHeaders: [:])
         retained.model.player = AVPlayer(playerItem: AVPlayerItem(asset: AVMutableComposition()))
         retained.model.transition(to: .playing(.native), phase: "Playing")
         let item = retained.model.player?.currentItem, attempt = retained.model.loadRequestID
@@ -2148,7 +2149,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             var firstSessions = [session(for: first, web: true)]
             firstSessions.append(StreamSession(matchID: first.id, title: "Other Web source",
                 playableURL: URL(string: "https://example.invalid/embed/atomic-other")!, streamType: .unknown,
-                providerName: "Score808", requiredHeaders: ["X-Fotty-Web-Embed": "true"]))
+                providerName: "FS1", requiredHeaders: ["X-Fotty-Web-Embed": "true"]))
             owner.openMulti(slots: [.init(event: first, sessions: firstSessions), slot(second, web: true)])
             let original = owner.panes
             original[0].model.transition(to: .playing(.webEmbed), phase: "Playing")
@@ -3367,7 +3368,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         original.model.error = "The previous delivery failed."
         owner.minimize()
 
-        XCTAssertTrue(owner.checkOptionalSources(for: match, enabledProviders: { ["score808", "communitysports"] }, currentEvent: { event, _ in event }))
+        XCTAssertTrue(owner.checkOptionalSources(for: match, enabledProviders: { ["flixstreams", "communitysports"] }, currentEvent: { event, _ in event }))
         await waitForSourceCheck { resolutions == 1 && owner.resolutionMessage == nil }
 
         let replacement = try XCTUnwrap(owner.primary)

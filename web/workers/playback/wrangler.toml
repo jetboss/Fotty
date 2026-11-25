@@ -59,7 +59,7 @@ CRICKET_T10_ENABLED = "true"
 FOTTY_BROADCAST_REGISTRY_ENABLED = "1"
 # Owner-approved original Fox WBBL programme matching; existing request budget.
 FOTTY_FOX_PROGRAMMES_ENABLED = "1"
-FOTTY_BROADCAST_REGISTRY_SOURCES = "streamex,score808,communitysports,plaviosports,cncsports,flixstreams,streamvix,reviewedtv"
+FOTTY_BROADCAST_REGISTRY_SOURCES = "communitysports,plaviosports,cncsports,flixstreams,streamvix,reviewedtv"
 # Secret FPL_COACH_ACCESS_SHA256: JSON array of SHA-256 digests of individual
 # random 32-byte hex invitation codes. Never place plaintext codes in this file.
 

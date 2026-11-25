@@ -112,8 +112,12 @@ export function sportsFixtureWindow(now) {
 async function requestJSON(url, deadline, fetchImpl, headers = {}, withHeaders = false, allowEFLEmpty = false) {
   // Workers supports manual/follow, not the Node fetch "error" mode. Never
   // follow a redirect with a credential or accept an alternate publisher.
+  // No edge cache: the collector polls at most every 5 minutes, so a cached
+  // body can only ever be an older copy. On 21 Nov a stale football-data body
+  // (rows last updated at 00:20) published in-play Premier League matches as
+  // "scheduled" and made a finished match look regressed, freezing the league.
   const response = await abortable(() => fetchImpl(url, { signal: deadline.signal, redirect: "manual",
-    headers: { Accept: "application/json", ...headers }, cf: { cacheEverything: true, cacheTtl: 60 } }), deadline.signal);
+    headers: { Accept: "application/json", ...headers } }), deadline.signal);
   // EFL's published Match Centre API returns this exact JSON error, rather
   // than a 200 empty list, when the requested Cup window has no matches. This
   // exception belongs only to that exact activated adapter and request route.
@@ -215,21 +219,37 @@ async function efl(descriptor, context) {
 async function football(descriptor, context) {
   const { windowStart, windowEnd, observedAt, env, get } = context;
   check(typeof env.FOOTBALL_DATA_API_KEY === "string" && env.FOOTBALL_DATA_API_KEY.length > 0, "Football schedule credential unavailable");
-  const url = new URL(descriptor.sourceURL);
-  url.searchParams.set("competitions", Object.keys(descriptor.codes).join(","));
-  url.searchParams.set("limit", "500");
-  url.searchParams.set("dateFrom", windowStart.slice(0, 10));
-  // football-data v4 dateTo is exclusive; the MLB equivalent is inclusive.
-  url.searchParams.set("dateTo", windowEnd.slice(0, 10));
-  const data = await get(url, { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY });
-  check(Array.isArray(data.matches) && data.matches.length < 500 && count(data.resultSet?.count)
-    && data.resultSet.count === data.matches.length, "Football schedule incomplete");
-  check(data.filters?.dateFrom === url.searchParams.get("dateFrom") && data.filters?.dateTo === url.searchParams.get("dateTo"), "Football schedule window mismatch");
-  check(typeof data.filters?.competitions === "string" && data.filters.competitions.split(",").sort().join(",") === Object.keys(descriptor.codes).sort().join(","), "Football competition filter unavailable");
+  // One request per league. On 21 Nov the combined /v4/matches body kept
+  // in-play Premier League rows at their 00:20 values for hours while
+  // /v4/competitions/PL/matches was current, freezing every live status.
+  // The per-league endpoint's dateTo is inclusive and it does not echo date
+  // filters, so the window is proved from resultSet and every row instead.
+  const dateFrom = windowStart.slice(0, 10);
+  const dateTo = new Date(Date.parse(windowEnd) - DAY).toISOString().slice(0, 10);
+  const matches = [];
+  for (const code of Object.keys(descriptor.codes)) {
+    const url = new URL(`competitions/${code}/matches`, descriptor.sourceURL.replace(/matches$/, ""));
+    url.searchParams.set("dateFrom", dateFrom);
+    url.searchParams.set("dateTo", dateTo);
+    const data = await get(url, { "X-Auth-Token": env.FOOTBALL_DATA_API_KEY });
+    check(Array.isArray(data.matches) && data.matches.length < 500 && count(data.resultSet?.count)
+      && data.resultSet.count === data.matches.length, "Football schedule incomplete");
+    check(data.competition?.code === code, "Football competition filter unavailable");
+    const inWindow = (day) => typeof day === "string" && day.slice(0, 10) >= dateFrom && day.slice(0, 10) <= dateTo;
+    check(data.matches.length === 0 || inWindow(data.resultSet.first) && inWindow(data.resultSet.last), "Football schedule window mismatch");
+    for (const row of data.matches) {
+      check(inWindow(row.utcDate), "Football schedule window mismatch");
+      check(row.competition === undefined || row.competition?.code === code, "Unexpected football competition");
+      matches.push({ ...row, competition: { ...row.competition, code }, sourceHref: url.href });
+    }
+  }
+  check(matches.length < 500, "Football schedule incomplete");
+  const data = { matches };
   unique(data.matches, (row) => row.id);
   const mapping = { SCHEDULED: "scheduled", TIMED: "scheduled", IN_PLAY: "live", PAUSED: "live", EXTRA_TIME: "live", PENALTY_SHOOTOUT: "live",
     FINISHED: "finished", POSTPONED: "postponed", SUSPENDED: "postponed", CANCELLED: "cancelled", AWARDED: "finished" };
-  return data.matches.map((row) => {
+  const liveNames = new Map();
+  const rows = data.matches.map((row) => {
     check(identifier(row.id), "Invalid upstream fixture identity");
     const compID = descriptor.codes[row.competition?.code];
     check(compID, "Unexpected football competition");
@@ -240,7 +260,7 @@ async function football(descriptor, context) {
     // SCHEDULED means a rough date; TIMED means a confirmed kickoff in v4.
     const fixture = row.status === "SCHEDULED" ? null : normalize(descriptor, row.id, row.utcDate, status,
       [participant("football-data", row.homeTeam?.id, row.homeTeam?.name, "home"),
-        participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, url.href, updatedAt, compID);
+        participant("football-data", row.awayTeam?.id, row.awayTeam?.name, "away")], observedAt, row.sourceHref, updatedAt, compID);
     const reportedScore = fixture ? normalizeUCLReportedScore(row, fixture) : undefined;
     if (reportedScore) fixture.reportedScore = reportedScore;
     if (fixture?.status === "live" && updatedAt) {
@@ -257,9 +277,87 @@ async function football(descriptor, context) {
       };
       attachFootballLive(fixture, matchGoals("home"), matchGoals("away"), clock);
     }
+    if (fixture) liveNames.set(fixture.id, { home: [row.homeTeam?.name, row.homeTeam?.shortName],
+      away: [row.awayTeam?.name, row.awayTeam?.shortName] });
     return { fixture,
       start: row.utcDate, competitionId: compID };
   });
+  if (env.FOTTY_FOOTBALL_LIVE_OVERLAY !== "0" && context.getOverlay) {
+    await overlayESPNFootballLive(rows.flatMap((row) => row.fixture ? [row.fixture] : []), liveNames, context);
+  }
+  return rows;
+}
+
+// Owner decision 21 Nov 2026: football-data marks kickoffs late (Newcastle-
+// Arsenal still TIMED five minutes in) and the big European leagues have no
+// free official live feed. ESPN's public scoreboard, already used for MLS and
+// national teams, is a live layer only: it can turn a scheduled row live and
+// add score/minute, never finish, cancel, add or remove a fixture. A row is
+// touched only when ESPN says in progress, kickoff agrees within five minutes
+// and both teams match in their roles, uniquely. ESPN failures are ignored.
+const ESPN_LIVE_LEAGUES = Object.freeze({ "champions-league": "uefa.champions", "la-liga": "esp.1",
+  "serie-a": "ita.1", "bundesliga": "ger.1", "ligue-1": "fra.1" });
+const TEAM_NAME_NOISE = new Set(["fc", "cf", "ac", "as", "ss", "ssc", "sc", "us", "afc", "cd", "ud", "sd", "rcd", "rc",
+  "club", "calcio", "de", "del", "la", "le", "sv", "vfl", "vfb", "tsg", "fsv", "bsc", "osc", "ogc", "fk", "sk", "rb", "stade"]);
+
+export function teamNameTokens(value) {
+  if (typeof value !== "string") return new Set();
+  return new Set(value.normalize("NFKD").replace(/\p{M}/gu, "").toLowerCase().replace(/ß/g, "ss")
+    .split(/[^a-z0-9]+/).filter((token) => token && !TEAM_NAME_NOISE.has(token) && !/^\d+$/.test(token)));
+}
+
+export function sameTeamName(ours, theirs) {
+  for (const left of ours.map(teamNameTokens)) for (const right of theirs.map(teamNameTokens)) {
+    if (!left.size || !right.size) continue;
+    if ([...left].every((token) => right.has(token)) || [...right].every((token) => left.has(token))) return true;
+  }
+  return false;
+}
+
+async function overlayESPNFootballLive(fixtures, names, context) {
+  const now = context.now.getTime();
+  const candidates = fixtures.filter((fixture) => ESPN_LIVE_LEAGUES[fixture.competitionId] && fixture.status === "scheduled"
+    && Date.parse(fixture.start) <= now + 5 * 60_000 && Date.parse(fixture.start) >= now - 3 * 3_600_000);
+  const leagues = [...new Set(candidates.map((fixture) => fixture.competitionId))];
+  await Promise.all(leagues.map(async (competitionId) => {
+    let events;
+    try {
+      const url = new URL(`https://site.api.espn.com/apis/site/v2/sports/soccer/${ESPN_LIVE_LEAGUES[competitionId]}/scoreboard`);
+      // ESPN pages follow the US Eastern calendar day.
+      url.searchParams.set("dates", new Date(now - 5 * 3_600_000).toISOString().slice(0, 10).replaceAll("-", ""));
+      const data = await context.getOverlay(url);
+      if (data?.leagues?.[0]?.slug !== ESPN_LIVE_LEAGUES[competitionId] || !Array.isArray(data.events)) return;
+      events = data.events;
+    } catch { return; }
+    const inPlay = events.flatMap((event) => {
+      const match = event?.competitions?.[0];
+      const state = event?.status?.type;
+      if (state?.state !== "in" || state.completed !== false || !Array.isArray(match?.competitors) || match.competitors.length !== 2) return [];
+      const side = (role) => match.competitors.find((item) => item?.homeAway === role);
+      const home = side("home"), away = side("away");
+      const kickoff = Date.parse(event.date);
+      if (!home?.team || !away?.team || !Number.isFinite(kickoff)) return [];
+      return [{ kickoff, home, away, status: event.status }];
+    });
+    const local = candidates.filter((fixture) => fixture.competitionId === competitionId);
+    const pairs = [];
+    for (const event of inPlay) for (const fixture of local) {
+      const teams = names.get(fixture.id);
+      if (!teams || Math.abs(Date.parse(fixture.start) - event.kickoff) > 5 * 60_000) continue;
+      const espnNames = (item) => [item.team.displayName, item.team.shortDisplayName, item.team.name];
+      if (sameTeamName(teams.home, espnNames(event.home)) && sameTeamName(teams.away, espnNames(event.away))) pairs.push({ event, fixture });
+    }
+    for (const { event, fixture } of pairs) {
+      if (pairs.filter((pair) => pair.event === event || pair.fixture === fixture).length !== 1) continue;
+      const score = (item) => typeof item.score === "string" && /^\d{1,2}$/.test(item.score) ? Number(item.score) : undefined;
+      const phase = event.status.type.name === "STATUS_HALFTIME" ? "HT" : undefined;
+      const clock = phase ?? footballMinute(event.status.displayClock) ?? footballMinute(event.status.type.shortDetail);
+      fixture.status = "live";
+      fixture.source = { ...fixture.source, updatedAt: context.observedAt };
+      fixture.liveEvidence = "espn";
+      attachFootballLive(fixture, score(event.home), score(event.away), clock);
+    }
+  }));
 }
 
 async function mlb(descriptor, context) {
@@ -462,7 +560,13 @@ export async function collectSportsSource(descriptor, now, env = {}, fetchImpl =
   try {
     const context = { ...window, observedAt, now, env,
       get: (url, headers) => requestJSON(url, deadline, fetchImpl, headers),
-      getWithHeaders: (url) => requestJSON(url, deadline, fetchImpl, {}, true, known.id === "efl-carabao-cup") };
+      getWithHeaders: (url) => requestJSON(url, deadline, fetchImpl, {}, true, known.id === "efl-carabao-cup"),
+      // The live layer has its own short bound so it can never consume the
+      // collection's deadline or fail the schedule it decorates.
+      getOverlay: async (url) => {
+        const overlayDeadline = coachDeadline(undefined, 4_000);
+        try { return await requestJSON(url, overlayDeadline, fetchImpl); } finally { overlayDeadline.dispose(); }
+      } };
     const adapters = { "football-data": football, efl, mlb, nhl, wnba, espn: espnDaily };
     const rows = await abortable(() => adapters[known.adapter](known, context), deadline.signal);
     const relevant = rows.filter((row) => Date.parse(row.start) >= Date.parse(window.windowStart) && Date.parse(row.start) < Date.parse(window.windowEnd));

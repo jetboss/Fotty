@@ -2,7 +2,9 @@ name: Sports Fixture Monitor
 
 on:
   schedule:
-    - cron: "41 * * * *"
+    # Every ten minutes (GitHub runs these best-effort). The Worker's refresh
+    # history covers any gap between runs.
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -24,7 +26,7 @@ jobs:
         with:
           node-version: "24"
       - name: Validate the monitor contract
-        run: node --test tools/audit-sports-fixtures.test.mjs tools/sports-fixture-crosscheck.test.mjs
+        run: node --test tools/audit-sports-fixtures.test.mjs tools/sports-fixture-crosscheck.test.mjs tools/sports-fixture-watchdog.test.mjs
       - name: Audit accepted sports fixture coverage
         id: audit
         run: node tools/audit-sports-fixtures.mjs --report-mode --output="${RUNNER_TEMP}/sports-fixture-audit.json"

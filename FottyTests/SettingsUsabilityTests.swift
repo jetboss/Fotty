@@ -38,16 +38,22 @@ final class SettingsUsabilityTests: XCTestCase {
         XCTAssertEqual(PlaybackSourceSettingsState.resolved(availableSourceCount: 2, unavailableSourceCount: 1), .unavailable)
     }
 
-    func testBundledCatalogRetainsDisabledChoicesAndOptInDefault() {
+    func testBundledCatalogUsesCommunitySportsByDefaultAndHonorsSavedChoices() {
         let snapshot = StreamPluginRegistry.bundledCatalog(savedStates: ["score808-extension": false], loadManifest: manifest)
         XCTAssertEqual(snapshot.plugins.count, CuratedStreamSourceCatalog.all.count)
         XCTAssertEqual(snapshot.unavailableSourceCount, 0)
-        XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "score808" }!.isEnabled)
-        XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "communitysports" }!.isEnabled)
+        XCTAssertNil(snapshot.plugins.first { $0.providerCode == "score808" })
+        XCTAssertTrue(snapshot.plugins.first { $0.providerCode == "communitysports" }!.isEnabled)
         XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "plaviosports" }!.isEnabled)
         XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "cncsports" }!.isEnabled)
         XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "flixstreams" }!.isEnabled)
         XCTAssertFalse(snapshot.plugins.first { $0.providerCode == "reviewedtv" }!.isEnabled)
+        let saved = StreamPluginRegistry.bundledCatalog(savedStates: [
+            "score808-extension": true, "community-sports-extension": false, "flix-streams-extension": true
+        ], loadManifest: manifest)
+        XCTAssertNil(saved.plugins.first { $0.providerCode == "score808" })
+        XCTAssertEqual(saved.plugins.first { $0.providerCode == "communitysports" }?.isEnabled, false)
+        XCTAssertEqual(saved.plugins.first { $0.providerCode == "flixstreams" }?.isEnabled, true)
     }
 
     func testMissingSourceLeavesOtherSettingsUsableAndReportsOnlyBoundedFailureCount() throws {
@@ -57,7 +63,7 @@ final class SettingsUsabilityTests: XCTestCase {
         }
         XCTAssertEqual(snapshot.unavailableSourceCount, 1)
         XCTAssertEqual(snapshot.plugins.count, CuratedStreamSourceCatalog.all.count - 1)
-        XCTAssertFalse(try XCTUnwrap(snapshot.plugins.first { $0.providerCode == "score808" }).isEnabled)
+        XCTAssertNil(snapshot.plugins.first { $0.providerCode == "score808" })
         XCTAssertEqual(PlaybackSourceSettingsState.resolved(availableSourceCount: snapshot.plugins.count,
                                                            unavailableSourceCount: snapshot.unavailableSourceCount), .unavailable)
     }
@@ -76,19 +82,19 @@ final class SettingsUsabilityTests: XCTestCase {
                        "cnc-sports-extension": false, "flix-streams-extension": false,
                        "reviewed-tv-extension": false, "highfly-extension": false]
         let missing = StreamPluginRegistry.bundledCatalog(savedStates: choices) { filename in
-            if filename == "score808_manifest" { throw URLError(.fileDoesNotExist) }
+            if filename == "community_sports_manifest" { throw URLError(.fileDoesNotExist) }
             return try self.manifest(named: filename)
         }
         let recovered = StreamPluginRegistry.bundledCatalog(savedStates: choices, loadManifest: manifest)
         XCTAssertEqual(missing.unavailableSourceCount, 1)
         XCTAssertEqual(recovered.unavailableSourceCount, 0)
         for plugin in recovered.plugins { XCTAssertEqual(plugin.isEnabled, choices[plugin.id]) }
-        XCTAssertFalse(try XCTUnwrap(recovered.plugins.first { $0.id == "score808-extension" }).isEnabled)
+        XCTAssertNil(recovered.plugins.first { $0.id == "score808-extension" })
     }
 
     func testWrongManifestIdentityIsUnavailableNotAnExtraRegisteredSource() {
         let snapshot = StreamPluginRegistry.bundledCatalog(savedStates: [:]) { filename in
-            if filename == "score808_manifest" {
+            if filename == "community_sports_manifest" {
                 return (.init(id: "unexpected-extension", name: "Unexpected", providerCode: "score808",
                               version: "1", author: "Test", description: "", allowedDomains: []),
                         URL(fileURLWithPath: "/test-bundle/unexpected.json"))

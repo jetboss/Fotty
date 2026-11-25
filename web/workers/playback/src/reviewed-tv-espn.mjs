@@ -100,6 +100,16 @@ function date(year, month, number) {
   const value = new Date(Date.UTC(year, month - 1, number));
   return value.getUTCFullYear() === year && value.getUTCMonth() === month - 1 && value.getUTCDate() === number ? value : null;
 }
+// A qualifying weekly title necessarily names the month it covers. Limit
+// the publisher's search before transfer, including both years at New Year.
+export function espnGuideFeedURL(now) {
+  const url = new URL(source.feedURL);
+  const month = Number(localDay(now).slice(5, 7));
+  url.searchParams.set("s", `"programación destacada del" "${months[month - 1].toLowerCase()}"`);
+  const oldestYear = new Date(+now - 11 * day).getUTCFullYear();
+  if (oldestYear === new Date(+now + 300_000).getUTCFullYear()) url.searchParams.set("year", String(oldestYear));
+  return url;
+}
 function publication(value) {
   const m = /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat), (\d{1,2}) (Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (20\d{2}) ([01]\d|2[0-3]):([0-5]\d):([0-5]\d) \+0000$/u.exec(value);
   if (!m) return invalid();
@@ -151,7 +161,9 @@ export async function parseReviewedTVESPNFeed(xml, { now = new Date() } = {}) {
   const rss = document(xml, true), top = children(rss, "rss");
   if (top.length !== 1 || children(top[0], "channel").length !== 1) return invalid();
   const channel = children(top[0], "channel")[0];
-  if (only(channel, "link") !== source.origin + "/") return invalid();
+  const archiveYear = espnGuideFeedURL(now).searchParams.get("year");
+  const channelLink = only(channel, "link");
+  if (channelLink !== source.origin + "/" && !(archiveYear && channelLink === `${source.origin}/press-releases/${archiveYear}/`)) return invalid();
   const items = children(channel, "item"); if (!items.length || items.length > 20) return invalid();
   const current = [];
   for (const item of items) {

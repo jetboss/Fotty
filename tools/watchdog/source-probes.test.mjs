@@ -20,8 +20,8 @@ test("CS failure is independent of successful sibling; manifest530 does not requ
     if (url.host === "addon.plavio.site") return Response.json(url.pathname.endsWith("manifest.json") ? asManifest : { metas: [asEntry] });
     return Response.json([{ id: "offline", title: "A vs B", sources: [{ source: "golf", id: "offline" }] }]);
   } });
-  assert.equal(calls.length, 5); assert.equal(results.find((row) => row.source === "cs").failureClass, "http-530");
-  assert.equal(leaves(results).filter((row) => row.outcome === "success").length, 4);
+  assert.equal(calls.length, 4); assert.ok(!calls.some(url => url.includes("score808"))); assert.equal(results.find((row) => row.source === "cs").failureClass, "http-530");
+  assert.equal(leaves(results).filter((row) => row.outcome === "success").length, 3);
   assert.equal(JSON.stringify(results).includes("private body"), false);
 });
 test("CS manifest and catalog are separate metadata stages, never decoded proof", async () => {
@@ -181,7 +181,7 @@ test("AS checks both reviewed advertised catalogs within three reads and the rev
   const source = PROVIDERS.find((row) => row.kind === "as");
   assert.equal(source.maxRequestsPerDay, 288);
   assert.equal(COLLECTION_INTERVAL_MS, 15 * 60_000); assert.equal(CONFIRMATION_WINDOWS, 2);
-  assert.equal(PROVIDERS.reduce((sum, row) => sum + row.maxRequestsPerDay, 0), 672);
+  assert.equal(PROVIDERS.reduce((sum, row) => sum + row.maxRequestsPerDay, 0), 576);
   for (const now of [0, COLLECTION_INTERVAL_MS]) {
     const calls = []; const results = leaves(await probeProvider(source, { now, request: async (url) => {
       calls.push(String(url)); assert.equal(url.origin, "https://addon.plavio.site");
@@ -383,13 +383,13 @@ test("Score808 enforces direct byte, nesting and token bounds without HTML execu
   assert.equal(validateScore808Listing("<br>".repeat(50_001) + widget), false);
 });
 
-test("malformed or script-only Score808 listing records a contract failure, not metadata recovery", async () => {
-  const source = PROVIDERS.find((row) => row.kind === "score808");
-  for (const html of [`<script>${widget}</script>`, `<script>${otherWidget}</script\t\n bar>${widget}`]) {
-    const rows = await probeProvider(source, { request: async () => new Response(html, { headers: { "content-type": "text/html" } }) });
-    assert.equal(leaves(rows).length, 1); assert.equal(rows[0].outcome, "failure"); assert.equal(rows[0].failureClass, "schema");
-    assert.equal(JSON.stringify(rows).includes(calendarID), false);
-  }
+test("retired Score808 cannot start an observer request", async () => {
+  assert.ok(!PROVIDERS.some((row) => row.source === "score808"));
+  let reads = 0;
+  await assert.rejects(() => probeProvider({ source: "score808", kind: "score808" }, {
+    request: async () => { reads++; }
+  }), /Unreviewed metadata source/);
+  assert.equal(reads, 0);
 });
 
  test("PlavioLive observed TV-only manifest and migrated metadata origin are accepted", () => {

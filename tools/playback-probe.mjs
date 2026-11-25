@@ -23,7 +23,7 @@ export const PROBED_ORIGINS = Object.freeze({
 });
 export const FAMILY = Object.freeze({ communitysports: "CS", plaviosports: "AS", cncsports: "CNC", flixstreams: "FS" });
 const COMPETITIONS = new Set(["premier-league", "champions-league"]);
-const REGISTRY_HEADERS = {
+export const REGISTRY_HEADERS = {
   "X-Fotty-Broadcast-Capabilities": "reviewedtv-programme-v1",
   "X-Fotty-Broadcast-Assignments": "reviewedtv-programme-v2",
   "X-Fotty-Cricket-Matching": "current-listing-v1",

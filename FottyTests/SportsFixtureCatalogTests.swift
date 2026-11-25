@@ -627,7 +627,12 @@ final class SportsFixtureCatalogTests: XCTestCase {
         let row = try XCTUnwrap(SportsFixtureCatalog.merging(into: [], snapshot: snapshot([fixture(status: .live, hours: -1)]), at: now).first)
         XCTAssertTrue(row.sportsFixture?.isLive(at: now) == true)
         XCTAssertEqual(HomeSportsDiscovery(events: [row], now: now).items.first?.phase, .live)
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now))
+        let discovery = FixtureStreamDiscoveryIndex()
+        discovery.updateEnabledProviders([], revision: 1)
+        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now, discoveryIndex: discovery))
+        discovery.updateEnabledProviders(["communitysports"], revision: 2)
+        XCTAssertEqual(CurrentEventBroadcastPolicy.action(for: row, in: [row], at: now,
+            discoveryIndex: discovery)?.evidence, .freshLookupOpportunity)
         XCTAssertFalse(MatchStartPolicy(event: row, now: now).canAttemptPlayback)
     }
 
@@ -812,7 +817,9 @@ final class SportsFixtureCatalogTests: XCTestCase {
         let confirmed = MatchdayEventStatePolicy.section(for: live, at: now)
         XCTAssertEqual(confirmed, .live)
         XCTAssertEqual(LiveEventCard.prominentStatusLabel(for: confirmed, broadcastAvailable: false), "IN PLAY")
-        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: live, in: [live], at: now),
+        let discovery = FixtureStreamDiscoveryIndex()
+        discovery.updateEnabledProviders([], revision: 1)
+        XCTAssertNil(CurrentEventBroadcastPolicy.action(for: live, in: [live], at: now, discoveryIndex: discovery),
                      "Confirmed in-play status must not invent a source")
 
         let stale = try XCTUnwrap(SportsFixtureCatalog.merging(into: [],

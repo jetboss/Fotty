@@ -39,7 +39,6 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
             let enabled: Set<String> = ["communitysports", "plaviosports", "cncsports", "flixstreams", "score808"]
             let plan = CuratedStreamSourceCatalog.discoveryPlan(for: request, enabledProviderCodes: enabled, at: kickoff)
             XCTAssertEqual(plan.optionalSources.map(\.providerCode), ["communitysports"])
-            XCTAssertFalse(plan.score808SiteEligible)
             let disabled = CuratedStreamSourceCatalog.discoveryPlan(for: request,
                 enabledProviderCodes: enabled.subtracting(["communitysports"]), at: kickoff)
             XCTAssertTrue(disabled.optionalSources.isEmpty)
@@ -444,28 +443,27 @@ final class CatalogPlaybackIdentityTests: XCTestCase {
             teams: .init(home: .init(name: "Ipswich Town", badge: nil), away: .init(name: "Liverpool", badge: nil)))
         let plan = CuratedStreamSourceCatalog.discoveryPlan(for: StreamPlaybackRequest(event: row),
             enabledProviderCodes: ["communitysports", "plaviosports", "flixstreams", "arbitrary-addon"], at: kickoff)
-        XCTAssertFalse(plan.score808SiteEligible)
         XCTAssertEqual(plan.optionalSources.map(\.provider), [.communitySports, .plavioSports, .flixStreams])
         let disabled = CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: [], at: kickoff)
         XCTAssertTrue(disabled.optionalSources.isEmpty)
     }
 
-    func testReviewedPlanKeepsScore808WindowAndOptionalDefaults() {
+    func testReviewedPlanRetiresScore808AndDefaultsToCommunitySports() {
         let beforeWindow = kickoff.addingTimeInterval(-Score808LateDiscoveryPolicy.lookupLeadTime - 1)
-        XCTAssertFalse(CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: ["score808"],
-            at: beforeWindow).score808SiteEligible)
         XCTAssertTrue(CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: ["score808"],
-            at: kickoff).score808SiteEligible, "Score808's own site lane does not depend on any catalog")
+            at: beforeWindow).optionalSources.isEmpty)
+        XCTAssertTrue(CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: ["score808"],
+            at: kickoff).optionalSources.isEmpty)
         let defaults = Set(CuratedStreamSourceCatalog.all.filter(\.defaultEnabled).map(\.providerCode))
         let defaultPlan = CuratedStreamSourceCatalog.discoveryPlan(for: request(), enabledProviderCodes: defaults, at: kickoff)
-        XCTAssertTrue(defaultPlan.optionalSources.isEmpty, "A new plan must not enable optional sources")
+        XCTAssertEqual(defaults, ["communitysports"])
+        XCTAssertEqual(defaultPlan.optionalSources.map(\.providerCode), ["communitysports"])
         let undated = CuratedStreamSourceCatalog.discoveryPlan(for: request(undated: true),
             enabledProviderCodes: ["communitysports", "plaviosports"], at: kickoff)
         XCTAssertTrue(undated.optionalSources.isEmpty, "Dated exact optional lookup must not invent fixture authority")
         let cricket = CuratedStreamSourceCatalog.discoveryPlan(for: request(category: "cricket"),
             enabledProviderCodes: ["cncsports", "score808"], at: kickoff)
         XCTAssertTrue(cricket.optionalSources.isEmpty)
-        XCTAssertFalse(cricket.score808SiteEligible)
     }
 
     func testExpiredBindingRetainsLookupIdentityWithoutClaimingFreshMetadata() throws {

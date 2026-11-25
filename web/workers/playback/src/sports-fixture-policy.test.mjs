@@ -241,20 +241,21 @@ test("scope migration attempts immediately once and failed retries retain data w
   assert.equal((await response.json()).ok, false);
   assert.equal(calls, 1);
   const failed = data.get("sports-source-v1");
-  assert.deepEqual(failed.accepted, heldCollection(previous.accepted));
+  // Owner decision (21 Nov 2026): a failed read keeps accepted facts unchanged.
+  assert.deepEqual(failed.accepted, previous.accepted);
   assert.equal(Date.parse(failed.nextAttemptAt) - Date.parse(failed.lastAttemptAt), 300_000);
   await Promise.all([registry.fetch(request()), registry.fetch(request())]);
   const restarted = new SportsFixtureRegistry(state, {}, options);
   await restarted.fetch(request());
   const cached = await restarted.fetch(new Request("https://sports-registry.invalid/fixtures?source=football-data"));
-  assert.deepEqual((await cached.json()).accepted, heldCollection(previous.accepted));
+  assert.deepEqual((await cached.json()).accepted, previous.accepted);
   assert.equal(calls, 1);
   assert.equal(waits.length, 0);
   assert.equal(data.get("sports-source-v1").lastAttemptAt, failed.lastAttemptAt);
   data.set("sports-source-v1", { ...failed, nextAttemptAt: new Date(Date.now() - 1).toISOString() });
   await restarted.fetch(request());
   assert.equal(calls, 2);
-  assert.deepEqual(data.get("sports-source-v1").accepted, heldCollection(previous.accepted));
+  assert.deepEqual(data.get("sports-source-v1").accepted, previous.accepted);
 });
 
 test("one missing Ligue 1 fixture cannot stop current PL/CL updates or renew disputed receipts", async () => {
@@ -535,19 +536,22 @@ test("legacy whole-collection correction receipt can confirm the same per-record
   assert.equal(admitSportsCollection(changed(later), old, descriptor, later, legacy).accepted.fixtures[0].start, changed(later).fixtures[0].start);
 });
 
-test("partial admission followed by collection failure downgrades every current marker without changing facts", async () => {
+// Owner decision (21 Nov 2026): a collection failure no longer downgrades markers.
+test("partial admission followed by collection failure keeps every current marker and fact", async () => {
   const old = await refreshSportsSource(null, descriptor, now, async () => collection());
   const later = new Date(now.getTime() + 5 * 60_000), failedAt = new Date(now.getTime() + 10 * 60_000);
   const partial = await refreshSportsSource(old, descriptor, later, async () => collection([
     fixture({ id: "sports-fixture:nba:2", status: "live", start: now.toISOString() }, later)], later));
   assert.ok(partial.accepted.fixtures.some((row) => row.source.verification === "verified"));
   const failed = await refreshSportsSource(partial, descriptor, failedAt, async () => { throw new Error("source transport failed"); });
-  assert.deepEqual(failed.accepted, heldCollection(partial.accepted));
+  assert.deepEqual(failed.accepted, partial.accepted);
   assert.equal(failed.consecutiveFailures, 2);
   assert.equal(sourceCoverage(descriptor, failed, failedAt)[0].sync.consecutiveFailures, 2);
   assert.equal(sourceCoverage(descriptor, failed, failedAt)[0].checkedAt, now.toISOString());
   const body = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, failed]]), failedAt);
-  assert.ok(body.fixtures.every((row) => row.source.verification === "held"));
+  const before = await assembleSportsSnapshot([descriptor], new Map([[descriptor.id, partial]]), failedAt);
+  assert.deepEqual(body.fixtures.map((row) => row.source.verification), before.fixtures.map((row) => row.source.verification));
+  assert.ok(body.fixtures.some((row) => row.source.verification === "verified"));
 });
 
 test("source replay and malformed complete collection remain whole-source barriers", async () => {

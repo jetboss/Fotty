@@ -226,7 +226,7 @@ extension CatalogIncrementalPublicationTests {
         let lanes = definitions.map { definition in
             FixtureSourceCatalogCollector.Lane(providerCode: definition.providerCode) { requests, _ in
                 await MainActor.run { calls.values.append(definition.providerCode) }
-                if definition.providerCode == "score808" { throw URLError(.cannotLoadFromNetwork) }
+                if definition.provider == .plavioSports { throw URLError(.cannotLoadFromNetwork) }
                 return requests.map { .init(matchID: $0.matchID, outcome: .listed,
                     providerEventID: definition.providerCode + "_" + $0.matchID) }
             }

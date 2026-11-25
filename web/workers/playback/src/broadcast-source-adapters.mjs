@@ -2,7 +2,7 @@
 // A retained observation is not a playable URL, current programme or LIVE fact.
 import { canonicalFootballClubId } from "../../../src/lib/football-competition-catalog.generated.ts";
 import { parseReviewedTVProgrammes, reviewedTVProgrammeURL } from "./reviewed-tv-programmes.mjs";
-import { parseReviewedTVESPNFeed, REVIEWED_TV_ESPN_SOURCE } from "./reviewed-tv-espn.mjs";
+import { espnGuideFeedURL, parseReviewedTVESPNFeed, REVIEWED_TV_ESPN_SOURCE } from "./reviewed-tv-espn.mjs";
 import { FOX_CRICKET_GUIDE, foxCricketGuideURL, foxCricketBroadcasts } from "./fox-cricket-programmes.mjs";
 export const BROADCAST_SOURCE_CODES = Object.freeze([
   "streamex", "score808", "communitysports", "plaviosports", "cncsports", "flixstreams", "streamvix", "reviewedtv",
@@ -720,7 +720,7 @@ export async function collectBroadcastSource(providerCode, { now = new Date(), r
       if (needsESPN) {
         await cohort("football", async () => {
           const parsed = await parseReviewedTVESPNFeed(
-            await read(REVIEWED_TV_ESPN_SOURCE.feedURL, REVIEWED_TV_ESPN_SOURCE.maxBytes, "xml"), { now });
+            await read(espnGuideFeedURL(now).href, REVIEWED_TV_ESPN_SOURCE.maxBytes, "xml"), { now });
           tvGuide = parsed.tvGuide;
           return parsed.broadcasts;
         }, (row) => row, false);

@@ -245,10 +245,8 @@ enum CuratedStreamSourceCatalog {
     // Keep the established order, IDs, labels and default choices. Remote
     // manifests cannot append definitions or change any of these identities.
     static let all: [Definition] = [
-        .init(provider: .score808, manifestFilename: "score808_manifest", manifestID: "score808-extension",
-              defaultEnabled: true, opaqueLabelPrefix: nil),
         .init(provider: .communitySports, manifestFilename: "community_sports_manifest", manifestID: "community-sports-extension",
-              defaultEnabled: false, opaqueLabelPrefix: "CS"),
+              defaultEnabled: true, opaqueLabelPrefix: "CS"),
         .init(provider: .plavioSports, manifestFilename: "additional_sports_manifest", manifestID: "additional-sports-extension",
               defaultEnabled: false, opaqueLabelPrefix: "AS"),
         .init(provider: .cncSports, manifestFilename: "cnc_sports_manifest", manifestID: "cnc-sports-extension",
@@ -264,7 +262,6 @@ enum CuratedStreamSourceCatalog {
     static var optionalSources: [Definition] { all.filter(\.isOptional) }
 
     struct DiscoveryPlan: Sendable, Equatable {
-        let score808SiteEligible: Bool
         let optionalSources: [Definition]
     }
 
@@ -279,7 +276,7 @@ enum CuratedStreamSourceCatalog {
     ) -> DiscoveryPlan {
         guard !request.matchID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
               request.preferredEvent?.hasCatalogIdentityConflict != true else {
-            return .init(score808SiteEligible: false, optionalSources: [])
+            return .init(optionalSources: [])
         }
         let enabled = Set(enabledProviderCodes.compactMap { definition(forProviderCode: $0)?.providerCode })
         let hasExactFixture = ReviewedSportsFixtureMatcher.requestIdentity(for: request) != nil
@@ -309,12 +306,7 @@ enum CuratedStreamSourceCatalog {
             }
             return true
         }
-        return .init(
-            score808SiteEligible: enabled.contains(Provider.score808.rawValue)
-                && Score808LateDiscoveryPolicy.isLookupWindow(
-                    kickoffDate: request.kickoffDate ?? request.preferredEvent?.kickoffDate,
-                    category: request.category, at: now),
-            optionalSources: optional)
+        return .init(optionalSources: optional)
     }
 
     /// Capability to check the registry, not a station/programme assignment.

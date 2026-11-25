@@ -42,6 +42,7 @@ actor StreamPluginRegistry {
     // MARK: - Module Management
 
     func setPluginEnabled(_ enabled: Bool, forId pluginId: String) async {
+        guard registeredPlugins[pluginId] != nil else { return }
         pluginStates[pluginId] = enabled
         saveStates()
         enablementRevision &+= 1
@@ -61,7 +62,8 @@ actor StreamPluginRegistry {
     }
 
     func isPluginEnabled(id: String) -> Bool {
-        return pluginStates[id] ?? registeredPlugins[id]?.isEnabled ?? false
+        guard let plugin = registeredPlugins[id] else { return false }
+        return pluginStates[id] ?? plugin.isEnabled
     }
 
     func allPlugins() -> [StreamPlugin] {
@@ -110,7 +112,7 @@ actor StreamPluginRegistry {
 
         // Retired manifests stay excluded. A temporarily unreadable bundled
         // source must not erase its saved enabled/disabled choice before Retry.
-        let bundledIDs = Set(CuratedStreamSourceCatalog.all.map(\.manifestID))
+        let bundledIDs = Set(CuratedStreamSourceCatalog.all.map(\.manifestID)).union(["score808-extension"])
         states = states.filter { bundledIDs.contains($0.key) }
         UserDefaults.standard.set(states, forKey: defaultsKey)
         return (plugins, states, catalog.unavailableSourceCount)
@@ -148,7 +150,8 @@ actor StreamPluginRegistry {
     nonisolated static func isEnabledByDefault(providerCode: String) -> Bool {
         // Preserve this helper's existing unknown-code fallback. Unknown or
         // mismatched manifests cannot register through bundledCatalog above.
-        CuratedStreamSourceCatalog.definition(forProviderCode: providerCode)?.defaultEnabled ?? true
+        if providerCode.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "score808" { return false }
+        return CuratedStreamSourceCatalog.definition(forProviderCode: providerCode)?.defaultEnabled ?? true
     }
 
 }
