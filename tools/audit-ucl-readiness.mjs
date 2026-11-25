@@ -56,7 +56,9 @@ async function checkReadiness() {
   console.log(`${matches.length} upcoming or in-progress Champions League fixtures in the requested window.`);
   if (!matches.length) return;
 
-  const registry = await readJSON(registryURL, 8 * 1024 * 1024, REGISTRY_HEADERS);
+  const registry = await readJSON(registryURL, 4 * 1024 * 1024, {
+    ...REGISTRY_HEADERS, "X-Fotty-TV-Guide": "reviewedtv-guide-v1",
+  });
   const generated = Date.parse(registry.generatedAt);
   if (registry.schemaVersion !== 1 || !Number.isFinite(generated) || generated > +now + 300_000
     || generated < +now - 30 * 60_000 || !Array.isArray(registry.broadcasts) || !Array.isArray(registry.links)) {

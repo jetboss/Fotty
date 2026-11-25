@@ -1238,9 +1238,9 @@ final class PlaybackPolicyTests: XCTestCase {
     func testPlayerProviderAllowlistHonorsEnabledModules() {
         XCTAssertEqual(
             StreamPluginProviderMatching.allowedPlayerProviderCodes(
-                enabledCodes: ["SCORE808", "retired-provider"]
+                enabledCodes: ["SCORE808", "COMMUNITYSPORTS", "retired-provider"]
             ),
-            ["score808"]
+            ["communitysports"]
         )
     }
 
@@ -1248,7 +1248,7 @@ final class PlaybackPolicyTests: XCTestCase {
         let source = StreamSource(
             url: try XCTUnwrap(URL(string: "https://example.com/proxy/acestream/channel.m3u8")),
             quality: "HD",
-            provider: "Score808"
+            provider: "CS1"
         )
 
         XCTAssertFalse(StreamPluginProviderMatching.isActivePlayerSource(source))
@@ -2088,7 +2088,7 @@ final class PlaybackPolicyTests: XCTestCase {
         let gate = NativeAudioIsolationTestGate(), validation = HandoffAudioPreparationGate()
         let event = makePlaybackTestEvent()
         let web = StreamSession(matchID: event.id, playableURL: URL(string: "https://example.invalid/embed/old")!,
-            streamType: .unknown, providerName: "Score808", requiredHeaders: ["X-Fotty-Web-Embed": "true"])
+            streamType: .unknown, providerName: "FS1", requiredHeaders: ["X-Fotty-Web-Embed": "true"])
         let native = StreamSession(matchID: event.id, playableURL: URL(string: "https://example.invalid/new.m3u8")!,
             streamType: .hls, providerName: "CS1", requiredHeaders: [:])
         let model = LivePlayerViewModel(event: event, providedSessions: [web, native],
@@ -2107,7 +2107,7 @@ final class PlaybackPolicyTests: XCTestCase {
         XCTAssertTrue(isolated)
         model.nativeHandoffSession = StreamSession(id: web.id, matchID: event.id,
             playableURL: URL(string: "https://example.invalid/adopted.m3u8")!, streamType: .hls,
-            providerName: "Score808", requiredHeaders: [:])
+            providerName: "FS1", requiredHeaders: [:])
         model.holdNativeHandoffAudioUntilWebRetirement()
         model.player = oldPlayer
         model.adoptNativeAudioIsolation(isolation)
@@ -3111,7 +3111,7 @@ final class PlaybackPolicyTests: XCTestCase {
             title: "Fotty Physical Playback Soak",
             playableURL: referenceURL,
             streamType: .hls,
-            providerName: "Score808 Reference",
+            providerName: "FS1",
             requiredHeaders: [:],
             qualityLabel: "Apple HLS"
         )
@@ -3567,7 +3567,7 @@ final class PlaybackPolicyTests: XCTestCase {
         let event = makePlaybackTestEvent()
         let session = StreamSession(matchID: event.id, title: "Opaque Native Route",
             playableURL: URL(string: "https://example.invalid/opaque-live")!, streamType: .unknown,
-            providerName: "Score808")
+            providerName: "FS1")
         let model = LivePlayerViewModel(event: event, providedSessions: [session], ownsRemoteCommands: false,
             prepareAudioSession: { XCTFail("No audio activation expected"); return .completed([]) },
             configureAudioSession: { XCTFail("No audio configuration expected"); return .completed([]) },
@@ -3806,11 +3806,11 @@ final class PlaybackPolicyTests: XCTestCase {
         let event = makePlaybackTestEvent()
         var sessions = [StreamSession(matchID: event.id, title: "Original Web",
             playableURL: URL(string: "https://example.invalid/original-web")!, streamType: .unknown,
-            providerName: "Score808", requiredHeaders: ["X-Fotty-Web-Embed": "true"])]
+            providerName: "FS1", requiredHeaders: ["X-Fotty-Web-Embed": "true"])]
         if includeNative {
             sessions.append(StreamSession(matchID: event.id, title: "Direct Native",
                 playableURL: URL(string: "https://example.invalid/direct.m3u8")!, streamType: .hls,
-                providerName: "Score808"))
+                providerName: "FS1"))
         }
         let model = LivePlayerViewModel(event: event, providedSessions: sessions, ownsRemoteCommands: false,
             prepareAudioSession: { XCTFail("Policy test must not activate audio"); return .completed([]) },
@@ -4072,7 +4072,7 @@ final class PlaybackPolicyTests: XCTestCase {
         let sessions = (1...2).map { index in
             StreamSession(matchID: event.id, title: "Web Audio Route \(index)",
                 playableURL: URL(string: "https://example.invalid/web-audio-\(index)")!,
-                streamType: .unknown, providerName: "Score808", requiredHeaders: ["X-Fotty-Web-Embed": "true"])
+                streamType: .unknown, providerName: "FS1", requiredHeaders: ["X-Fotty-Web-Embed": "true"])
         }
         let model = LivePlayerViewModel(event: event, providedSessions: sessions, ownsRemoteCommands: false,
             prepareAudioSession: { XCTFail("Web ACK test must not activate native audio"); return .completed([]) },
@@ -4200,7 +4200,7 @@ final class PlaybackPolicyTests: XCTestCase {
             title: "Playback Race Test",
             playableURL: try XCTUnwrap(URL(string: "https://www.score808live.tv/embed/admin/fotty-test/1")),
             streamType: .unknown,
-            providerName: "Score808",
+            providerName: "FS1",
             requiredHeaders: [
                 "X-Fotty-Web-Embed": "true"
             ],

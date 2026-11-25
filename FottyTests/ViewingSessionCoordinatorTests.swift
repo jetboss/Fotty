@@ -757,7 +757,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let route = web ? "embed/prepared-\(event.id)" : "prepared-\(event.id).m3u8"
         return StreamSession(matchID: event.id, title: event.displayTitle,
             playableURL: URL(string: "https://example.invalid/\(route)")!,
-            streamType: web ? .unknown : .hls, providerName: "Score808",
+            streamType: web ? .unknown : .hls, providerName: "FS1",
             requiredHeaders: web ? ["X-Fotty-Web-Embed": "true"] : [:])
     }
 
@@ -1071,7 +1071,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
     private func seedSlowLegacyAndFastSingleHistory(for event: EventReference)
         -> (slow: StreamSession, fast: StreamSession) {
-        let slow = rankingSession(for: event, provider: "Score808", host: "slow-ranking.example.invalid")
+        let slow = rankingSession(for: event, provider: "FS1", host: "slow-ranking.example.invalid")
         let fast = rankingSession(for: event, provider: "AS1", host: "fast-ranking.example.invalid")
         for _ in 0..<8 {
             LiveSourceHealthStore.recordSuccess(for: slow, startupLatencyMs: 18_000,
@@ -1122,7 +1122,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
 
         let factory = ModelFactory(), owner = coordinator(factory: factory)
         defer { owner.stop() }
-        let rightSlow = rankingSession(for: right, provider: "Score808", host: "slow-ranking.example.invalid")
+        let rightSlow = rankingSession(for: right, provider: "FS1", host: "slow-ranking.example.invalid")
         let rightFast = rankingSession(for: right, provider: "AS1", host: "fast-ranking.example.invalid")
         owner.openMulti(slots: [.init(event: left, sessions: [choices.fast, choices.slow]),
                                 .init(event: right, sessions: [rightFast, rightSlow])])
@@ -1213,13 +1213,13 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         defer { MatchListViewModel.shared.matches = originalMatches }
         let choices = seedSlowLegacyAndFastSingleHistory(for: match)
         let exhausted = rankingSession(for: match, provider: "CS1", host: "exhausted-ranking.example.invalid")
-        let spare = rankingSession(for: match, provider: "Score808", host: "spare-ranking.example.invalid")
+        let spare = rankingSession(for: match, provider: "FS1", host: "spare-ranking.example.invalid")
         LiveSourceHealthStore.recordSuccess(for: exhausted, startupLatencyMs: 900)
         LiveSourceHealthStore.recordSuccess(for: spare, startupLatencyMs: 7_000)
         let model = LivePlayerViewModel(event: match,
             providedSessions: [choices.slow, choices.fast, exhausted, spare],
             ownsRemoteCommands: false, prepareAudioSession: { .completed([]) },
-            currentMatchProviders: { ["communitysports", "plaviosports", "score808"] })
+            currentMatchProviders: { ["communitysports", "plaviosports", "flixstreams"] })
         defer { model.cleanup() }
         XCTAssertTrue(model.configureSingleStreamRanking())
         XCTAssertEqual(model.activeSession?.id, exhausted.id)
@@ -1831,7 +1831,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
         let selected = try XCTUnwrap(retained.model.activeSession)
         retained.model.nativeHandoffSession = StreamSession(id: selected.id, matchID: selected.matchID,
             playableURL: URL(string: "https://example.invalid/adopted.m3u8")!, streamType: .hls,
-            providerName: "Score808", requiredHeaders: [:])
+            providerName: "FS1", requiredHeaders: [:])
         retained.model.player = AVPlayer(playerItem: AVPlayerItem(asset: AVMutableComposition()))
         retained.model.transition(to: .playing(.native), phase: "Playing")
         let item = retained.model.player?.currentItem, attempt = retained.model.loadRequestID
@@ -2148,7 +2148,7 @@ final class ViewingSessionCoordinatorTests: XCTestCase {
             var firstSessions = [session(for: first, web: true)]
             firstSessions.append(StreamSession(matchID: first.id, title: "Other Web source",
                 playableURL: URL(string: "https://example.invalid/embed/atomic-other")!, streamType: .unknown,
-                providerName: "Score808", requiredHeaders: ["X-Fotty-Web-Embed": "true"]))
+                providerName: "FS1", requiredHeaders: ["X-Fotty-Web-Embed": "true"]))
             owner.openMulti(slots: [.init(event: first, sessions: firstSessions), slot(second, web: true)])
             let original = owner.panes
             original[0].model.transition(to: .playing(.webEmbed), phase: "Playing")

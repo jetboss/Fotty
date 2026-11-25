@@ -27,7 +27,7 @@ final class SingleRetryDiscoveryTests: XCTestCase {
             date: Int64(Date().addingTimeInterval(-600).timeIntervalSince1970), poster: nil, popular: false,
             teams: .init(home: .init(name: "Home", badge: nil), away: .init(name: "Away", badge: nil)))
     }
-    private func session(_ event: EventReference, label: String = "Score808") -> StreamSession {
+    private func session(_ event: EventReference, label: String = "FS1") -> StreamSession {
         .init(matchID: event.id, playableURL: URL(string: "https://example.invalid/\(label).m3u8")!,
             streamType: .hls, providerName: label)
     }

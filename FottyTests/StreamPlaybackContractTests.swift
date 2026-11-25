@@ -57,7 +57,7 @@ final class StreamPlaybackContractTests: XCTestCase {
         let options = [
             session("AS1", "https://as.test/a.m3u8"), session("AS2", "https://as.test/b.m3u8"),
             session("FS1", "https://as.test/a.m3u8"), session("CS1", "https://cs.test/c.m3u8"),
-            session("Score808", "https://third.test/d.m3u8"), session("CS2", "https://fourth.test/e.m3u8"),
+            session("LS1", "https://third.test/d.m3u8"), session("CS2", "https://fourth.test/e.m3u8"),
             session("FS2", "https://different.test/f.m3u8", match: "another-fixture"),
             session("FS3", "https://expired.test/g.m3u8", expiry: now),
             session("FS4", "https://unknown.test/h.m3u8"), session("FS5", "https://failed.test/i.m3u8")
@@ -85,9 +85,10 @@ final class StreamPlaybackContractTests: XCTestCase {
             .init(matchID: match, playableURL: URL(string: "https://unit.test/choice.m3u8")!,
                 streamType: .hls, providerName: name, expiryTime: expiry)
         }
-        XCTAssertEqual(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("Score808", match: event.id), request: request, at: now), .ready)
-        XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("Score808", match: "other"), request: request, at: now))
-        XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("Score808", match: event.id, expiry: now), request: request, at: now))
+        XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("Score808", match: event.id), request: request, at: now))
+        XCTAssertEqual(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("FS1", match: event.id), request: request, at: now), .ready)
+        XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("FS1", match: "other"), request: request, at: now))
+        XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("FS1", match: event.id, expiry: now), request: request, at: now))
         XCTAssertNil(LivePlaybackSourcePolicy.admissionForMatchAlternative(option("TV4", match: event.id), request: request, at: now))
     }
     func testSourcePickerGroupsUseOnlyReviewedLabelsAndPreserveOrder() throws {
