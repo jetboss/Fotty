@@ -27,7 +27,7 @@ import { WORKER_SOURCE_VERSION } from "./worker-version.mjs";
 import { collectBroadcastCatalog } from "./broadcast-catalog.mjs";
 import { BroadcastRegistry as BaseBroadcastRegistry, DEFAULT_BROADCAST_REGISTRY_PROVIDERS } from "./broadcast-registry.mjs";
 import { collectBroadcastSource } from "./broadcast-source-adapters.mjs";
-import { broadcastRegistryHash } from "./broadcast-registry-policy.mjs";
+import { BROADCAST_PROVIDER_CODES, broadcastRegistryHash } from "./broadcast-registry-policy.mjs";
 export { CoachQuotaBudget } from "./coach-safety.mjs";
 import cplFixtureFallback from "../../../public/data/cpl-2026-fixtures.json" with { type: "json" };
 import { cplFixtureSources, resolveCPLManifest, validateCPLManifest } from "./cpl-fixture-policy.mjs";
@@ -172,7 +172,7 @@ export function enabledBroadcastProviders(env) {
   if (typeof raw !== "string" || raw.length > 256) return [];
   const codes = raw.split(",").map((value) => value.trim()).filter(Boolean);
   if (new Set(codes).size !== codes.length
-    || codes.some((code) => !DEFAULT_BROADCAST_REGISTRY_PROVIDERS.some((source) => source.providerCode === code))) return [];
+    || codes.some((code) => !BROADCAST_PROVIDER_CODES.includes(code))) return [];
   return DEFAULT_BROADCAST_REGISTRY_PROVIDERS.filter((source) => codes.includes(source.providerCode));
 }
 

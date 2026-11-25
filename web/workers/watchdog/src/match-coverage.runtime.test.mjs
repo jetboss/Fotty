@@ -15,10 +15,13 @@ const { build } = runtimeRequire("esbuild"), { Miniflare, convertV4MiniflareOpti
 const NOW = Date.parse("2026-09-30T16:00:00Z");
 async function factorySnapshot() {
   const source = SPORTS_SOURCES.find((row) => row.id === "football-data");
-  const normalized = await collectSportsSource(source, new Date(NOW), { FOOTBALL_DATA_API_KEY: "offline-placeholder" }, async (url) => Response.json({
-    filters: { dateFrom: url.searchParams.get("dateFrom"), dateTo: url.searchParams.get("dateTo"), competitions: url.searchParams.get("competitions") },
-    resultSet: { count: 1 }, matches: [{ id: 111, utcDate: new Date(NOW - 1800_000).toISOString(), status: "IN_PLAY", lastUpdated: new Date(NOW).toISOString(),
-      competition: { code: "PL" }, homeTeam: { id: 1, name: "Liverpool" }, awayTeam: { id: 2, name: "Chelsea" } }] }));
+  const normalized = await collectSportsSource(source, new Date(NOW), { FOOTBALL_DATA_API_KEY: "offline-placeholder" }, async (url) => {
+    const code = url.pathname.split("/").at(-2);
+    const matches = code === "PL" ? [{ id: 111, utcDate: new Date(NOW - 1800_000).toISOString(), status: "IN_PLAY", lastUpdated: new Date(NOW).toISOString(),
+      competition: { code: "PL" }, homeTeam: { id: 1, name: "Liverpool" }, awayTeam: { id: 2, name: "Chelsea" } }] : [];
+    return Response.json({ competition: { code }, resultSet: { count: matches.length,
+      first: matches[0]?.utcDate, last: matches[0]?.utcDate }, matches });
+  });
   return { schemaVersion: 1, complete: true, revision: "offline-factory", sourceStatus: "verified", checkedAt: new Date(NOW).toISOString(), fixtures: normalized.fixtures,
     coverage: SPORTS_SOURCES.filter((s) => s.id !== "wnba").flatMap((s) => s.competitions.map((c) => ({ competitionId: c.id, competitionName: c.name,
       sport: c.sport, status: "covered", checkedAt: new Date(NOW).toISOString(),
@@ -87,7 +90,7 @@ test("real SQLite: catalog-only aggregate commits separately with original compl
   assert.equal((await (await call("__test_run", { at: NOW })).json()).committed, true);
   const first = await (await call("__test_read")).json();
   assert.equal(first.main.runtime.lastCompletedAt, NOW); assert.equal(first.coverage.checkedAt, NOW);
-  assert.equal(first.coverage.competitions[0].outcome, "failure"); assert.equal(first.requests.length, 8);
+  assert.equal(first.coverage.competitions[0].outcome, "failure"); assert.equal(first.requests.length, 7);
   assert.equal(first.requests.filter((p) => p.startsWith("nuviosports.xyz")).length, 2);
   assert.equal(first.requests.filter((p) => p.startsWith("addon.plavio.site")).length, 3);
   assert.equal(first.main.ledger.outbox.length, 0, "One observation cannot confirm a coverage gap");
