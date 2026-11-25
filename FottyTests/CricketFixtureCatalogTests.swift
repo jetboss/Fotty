@@ -811,7 +811,6 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             cup(offset: -SportsFixtureMetadata.unconfirmedLiveWindow,
                 observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness - 1)),
             cup(observedAt: now.addingTimeInterval(301)),
-            cup(offset: -Score808LateDiscoveryPolicy.lookupTailTime - 1),
             cup(offset: MatchStartPolicy.playbackLead + 1, status: .scheduled),
             cup(offset: -VerifiedFixtureStartingPolicy.grace - 1, status: .scheduled)
         ] + [SportsFixtureCatalog.Status.finished, .cancelled, .postponed, .unknown].map { cup(status: $0) }
@@ -819,6 +818,9 @@ final class OptionalSourceLookupPolicyTests: XCTestCase {
             XCTAssertNil(OptionalSourceLookupPolicy.event(for: row, in: [row],
                 enabledProviderCodes: ["communitysports"], at: now, status: .inPlay), row.displayTitle)
         }
+        let extraTime = cup(offset: -3 * 3_600 - 1)
+        XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: extraTime, in: [extraTime],
+            enabledProviderCodes: ["communitysports"], at: now))
         let edge = cup(observedAt: now.addingTimeInterval(-SportsFixtureCatalog.statusFreshness))
         XCTAssertNotNil(OptionalSourceLookupPolicy.event(for: edge, in: [edge],
             enabledProviderCodes: ["communitysports"], at: now))

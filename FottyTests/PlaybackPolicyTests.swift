@@ -995,7 +995,7 @@ final class PlaybackPolicyTests: XCTestCase {
 
         XCTAssertFalse(source.contains("Score808 has not listed a matching player"))
         XCTAssertFalse(source.contains("Score808 could not be checked just now"))
-        XCTAssertTrue(source.contains("checked the available broadcast sources"))
+        XCTAssertTrue(source.contains("No enabled source can check this match. Review your source settings."))
     }
 
     func testSourcePolicyKeepsNativeMediaOutOfWebEmbedPlayback() throws {
